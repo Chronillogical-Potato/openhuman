@@ -9,8 +9,7 @@
  * selectedThreadId !== null` alone, the palette listed a command that looked
  * available and silently did nothing.
  *
- * Same root cause as `Conversations.taskBoard.test.tsx` next door: something was
- * left pointing at the wrong half of the either/or.
+ * Root cause: something was left pointing at the wrong half of the either/or.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, cleanup, render } from '@testing-library/react';
@@ -20,7 +19,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import { registry } from '../../lib/commands/registry';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
 import socketReducer from '../../store/socketSlice';
@@ -28,26 +26,23 @@ import themeReducer from '../../store/themeSlice';
 import threadReducer from '../../store/threadSlice';
 import type { Thread } from '../../types/thread';
 
-const { mockGetThreads, mockGetThreadMessages, mockGetTaskBoard, mockUseUsageState } = vi.hoisted(
-  () => ({
-    mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
-    mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
-    mockGetTaskBoard: vi.fn().mockResolvedValue(null),
-    mockUseUsageState: vi.fn(() => ({
-      teamUsage: null,
-      currentPlan: null,
-      currentTier: 'FREE' as const,
-      isFreeTier: true,
-      usagePct: 0,
-      isNearLimit: false,
-      isAtLimit: false,
-      isBudgetExhausted: false,
-      shouldShowBudgetCompletedMessage: false,
-      isLoading: false,
-      refresh: vi.fn(),
-    })),
-  })
-);
+const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(() => ({
+  mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
+  mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
+  mockUseUsageState: vi.fn(() => ({
+    teamUsage: null,
+    currentPlan: null,
+    currentTier: 'FREE' as const,
+    isFreeTier: true,
+    usagePct: 0,
+    isNearLimit: false,
+    isAtLimit: false,
+    isBudgetExhausted: false,
+    shouldShowBudgetCompletedMessage: false,
+    isLoading: false,
+    refresh: vi.fn(),
+  })),
+}));
 
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue(true),
@@ -73,13 +68,6 @@ vi.mock('../../services/api/threadApi', () => ({
         hasMore: false,
         hasTranscript: false,
       }),
-    getTaskBoard: mockGetTaskBoard,
-    putTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    decidePlan: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn(async (_threadId: string, message: unknown) => message),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -93,39 +81,9 @@ vi.mock('../../services/api/threadApi', () => ({
   },
 }));
 
-vi.mock('../../services/api/agentProfilesApi', () => ({
-  agentProfilesApi: {
-    list: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    select: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-  },
-}));
-
-vi.mock('../../services/api/openrouterFreeModels', () => ({
-  applyOpenRouterFreeModels: () => undefined,
-}));
-
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
 vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
-
-vi.mock('../../store/socketSelectors', () => ({
-  selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
-    state.socket?.byUser?.__pending__?.status ?? 'disconnected',
-}));
-
-vi.mock('../../hooks/useStickToBottom', () => ({
-  useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
-}));
-
-vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
-
-const mockCallCoreRpc = vi.fn().mockResolvedValue({});
-vi.mock('../../services/coreRpcClient', async orig => {
-  const actual = await orig<typeof import('../../services/coreRpcClient')>();
-  return { ...actual, callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args) };
-});
 
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
@@ -168,7 +126,6 @@ function buildStore(preload: Record<string, unknown>) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,

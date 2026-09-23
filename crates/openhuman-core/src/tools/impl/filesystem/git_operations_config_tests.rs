@@ -10,7 +10,7 @@
 //! the fixtures in the sibling test module stay reachable.
 
 use super::super::git_operations_config::{
-    normalise_config_key, NEUTRALISED_CONFIG, SHELL_NEUTRALISED_CONFIG,
+    normalise_config_key, shell_git_env, NEUTRALISED_CONFIG, SHELL_NEUTRALISED_CONFIG,
 };
 // The fixtures stay in `git_operations_tests.rs` and are shared rather than
 // duplicated: both modules are children of `git_operations`, so `pub(super)`
@@ -47,7 +47,13 @@ fn plant_fsmonitor_hook(dir: &std::path::Path) -> std::path::PathBuf {
     use std::os::unix::fs::PermissionsExt;
     std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
 
-    std::process::Command::new(&hook).status().unwrap();
+    // Running a newly-written file directly can race the overlay filesystem in
+    // CI with ETXTBSY. Invoke the same script through the shell instead; git
+    // executes the configured hook through its interpreter as well.
+    std::process::Command::new("sh")
+        .arg(&hook)
+        .status()
+        .unwrap();
     assert!(marker.exists(), "the planted hook does not run at all");
     std::fs::remove_file(&marker).unwrap();
 
@@ -572,9 +578,10 @@ fn the_shell_subset_never_invents_a_key_the_main_policy_does_not_have() {
 ///
 /// Each would break ordinary work rather than harden it: an empty
 /// `core.sshCommand` is a command git tries to execute (the same trap the
-/// `diff.external` note records), and `core.hooksPath` belongs to the
-/// attribution shim. Re-adding any of them looks like tightening security and
-/// is actually an outage, so it should be a conscious edit here first.
+/// `diff.external` note records), while overriding `core.hooksPath` would
+/// suppress repository hooks. Re-adding any of them looks like tightening
+/// security and is actually an outage, so it should be a conscious edit here
+/// first.
 #[test]
 fn the_shell_subset_keeps_its_documented_exclusions() {
     for excluded in ["core.sshCommand=", "diff.external=", "core.hooksPath="] {
@@ -584,4 +591,72 @@ fn the_shell_subset_keeps_its_documented_exclusions() {
              the doc comment before changing this"
         );
     }
+}
+
+#[test]
+fn shell_git_environment_forces_the_safe_config_subset() {
+    let env = shell_git_env();
+    let parameters = env
+        .get(std::ffi::OsStr::new("GIT_CONFIG_PARAMETERS"))
+        .expect("the shell git environment sets GIT_CONFIG_PARAMETERS")
+        .to_string_lossy();
+
+    for expected in SHELL_NEUTRALISED_CONFIG {
+        let (key, value) = expected.split_once('=').unwrap();
+        assert!(
+            parameters.contains(&format!("'{key}'='{value}'")),
+            "`{expected}` is missing from GIT_CONFIG_PARAMETERS: {parameters}"
+        );
+    }
+}
+
+/// Exercise the environment through Git itself rather than only checking its
+/// serialization. A syntactically plausible `GIT_CONFIG_PARAMETERS` value is
+/// not useful if Git rejects it, and `core.fsmonitor=` must actually override
+/// the command-valued setting in the repository config.
+#[cfg(unix)]
+#[test]
+fn shell_git_environment_is_accepted_and_neutralises_repository_fsmonitor() {
+    let tmp = TempDir::new().unwrap();
+    init_git_repo(tmp.path());
+    let marker = plant_fsmonitor_hook(tmp.path());
+
+    // Prove this Git version and repository really do invoke the planted
+    // fsmonitor hook. Without this control, an absent marker below could be a
+    // false positive caused by Git never consulting the setting.
+    let plain = hermetic(
+        std::process::Command::new("git")
+            .arg("status")
+            .current_dir(tmp.path()),
+    )
+    .output()
+    .expect("failed to run the unhardened control command");
+    assert!(
+        plain.status.success(),
+        "the unhardened control command failed: {}",
+        String::from_utf8_lossy(&plain.stderr)
+    );
+    assert!(
+        marker.exists(),
+        "the unhardened control did not execute the planted fsmonitor hook"
+    );
+    std::fs::remove_file(&marker).unwrap();
+
+    let env = shell_git_env();
+    let mut hardened = std::process::Command::new("git");
+    hardened.arg("status").current_dir(tmp.path());
+    hermetic(&mut hardened).envs(env);
+    let output = hardened
+        .output()
+        .expect("failed to run git with the shell hardening environment");
+
+    assert!(
+        output.status.success(),
+        "Git rejected the shell hardening environment: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !marker.exists(),
+        "Git executed repository core.fsmonitor despite the shell hardening environment"
+    );
 }

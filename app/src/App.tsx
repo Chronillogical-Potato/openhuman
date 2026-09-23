@@ -25,7 +25,6 @@ import AppSidebar from './components/layout/shell/AppSidebar';
 import RootShellLayout from './components/layout/shell/RootShellLayout';
 import { SidebarSlotProvider } from './components/layout/shell/SidebarSlot';
 import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
-import SecretPromptDialog from './components/mcp-setup/SecretPromptDialog';
 import NoticeCenter from './components/notices/NoticeCenter';
 import OpenhumanLinkModal from './components/OpenhumanLinkModal';
 import PersistRehydrationScreen from './components/PersistRehydrationScreen';
@@ -140,7 +139,6 @@ function App() {
                             <KeyringConsentOverlay />
                             <HarnessInitOverlay />
                             <AnnouncementGate />
-                            <SecretPromptDialog />
                           </ServiceBlockingGate>
                         </CommandProvider>
                       </Router>

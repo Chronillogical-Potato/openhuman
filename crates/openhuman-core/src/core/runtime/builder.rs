@@ -411,6 +411,41 @@ impl DomainSet {
             DomainGroup::Platform => self.platform,
         }
     }
+
+    /// Field-wise AND with `other`: a family is on in the result only if it
+    /// was on in both.
+    ///
+    /// Used to clamp a derived context's requested domains to what the
+    /// parent context actually registered — see
+    /// [`CoreContext::derive_with`](crate::core::runtime::CoreContext::derive_with).
+    /// A derived overlay is meant to *narrow* the parent, never state a
+    /// family the parent never registered back into existence.
+    #[must_use]
+    pub fn intersect(&self, other: &DomainSet) -> DomainSet {
+        DomainSet {
+            agent: self.agent && other.agent,
+            memory: self.memory && other.memory,
+            threads: self.threads && other.threads,
+            config: self.config && other.config,
+            security: self.security && other.security,
+            flows: self.flows && other.flows,
+            skills: self.skills && other.skills,
+            mcp: self.mcp && other.mcp,
+            channels: self.channels && other.channels,
+            web3: self.web3 && other.web3,
+            voice: self.voice && other.voice,
+            media: self.media && other.media,
+            medulla: self.medulla && other.medulla,
+            inference: self.inference && other.inference,
+            integrations: self.integrations && other.integrations,
+            automation: self.automation && other.automation,
+            runtimes: self.runtimes && other.runtimes,
+            desktop: self.desktop && other.desktop,
+            hosted: self.hosted && other.hosted,
+            modules: self.modules && other.modules,
+            platform: self.platform && other.platform,
+        }
+    }
 }
 
 /// How the per-process RPC bearer token is seeded.
@@ -437,6 +472,7 @@ pub struct CoreBuilder {
     host: Option<String>,
     port: Option<u16>,
     config: Option<crate::config::Config>,
+    backend_transport: Option<std::sync::Arc<dyn crate::api::transport::BackendTransport>>,
 }
 
 impl CoreBuilder {
@@ -452,7 +488,28 @@ impl CoreBuilder {
             host: None,
             port: None,
             config: None,
+            backend_transport: None,
         }
+    }
+
+    /// Bind the transport this core's handlers reach the hosted TinyHumans
+    /// backend through (see [`crate::api::transport`]).
+    ///
+    /// Optional: without it the core resolves the process-global transport
+    /// installed with
+    /// [`install_backend_transport`](crate::api::transport::install_backend_transport),
+    /// and with neither every backend-touching call degrades to a typed
+    /// "backend unavailable" error while agents, memory, tools and RPC keep
+    /// working. Library hosts that build one runtime per process prefer this
+    /// builder form; the desktop shell and CLI, which boot the core through
+    /// `run_server_embedded_with_ready` / `run_core_from_args`, install the
+    /// global.
+    pub fn backend_transport(
+        mut self,
+        transport: std::sync::Arc<dyn crate::api::transport::BackendTransport>,
+    ) -> Self {
+        self.backend_transport = Some(transport);
+        self
     }
 
     /// Choose which background services / transports [`CoreRuntime::serve`] runs.
@@ -597,8 +654,16 @@ impl CoreBuilder {
             self.domains,
             self.tool_groups.clone(),
             self.config,
+            self.backend_transport,
         )
         .await?;
+
+        // Retired scheduled jobs must be pruned before `build()` exposes
+        // in-process RPC or agent turns. Running this from `serve()` is too
+        // late for embedders that only build and invoke.
+        if let Some(cfg) = config.as_ref() {
+            crate::core::runtime::services::run_legacy_migrations(cfg).await;
+        }
 
         // Reap agent runs orphaned by a previous process (crash / restart /
         // deploy). Here, and not with the other boot-once jobs, because those
@@ -653,11 +718,34 @@ impl CoreRuntime {
         method: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
+        self.invoke_in(Arc::clone(&self.ctx), method, params).await
+    }
+
+    /// [`invoke`](Self::invoke) under a caller-supplied context instead of the
+    /// runtime's own — typically a per-agent child from
+    /// [`CoreContext::derive_with`], so the handler's config loader, DomainSet
+    /// gate and tool-group filter all read that agent's overlay.
+    pub async fn invoke_in(
+        &self,
+        ctx: Arc<CoreContext>,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        log::trace!("[core-runtime] invoke_in method={method}");
         CoreContext::scope(
-            Arc::clone(&self.ctx),
+            ctx,
             jsonrpc::invoke_method(jsonrpc::default_state(), method, params),
         )
         .await
+    }
+
+    /// Run an arbitrary future with `ctx` as the ambient [`CoreContext`] — the
+    /// native (non-RPC) counterpart of [`invoke_in`](Self::invoke_in) for
+    /// callers that reach a domain operation directly, such as an embedded
+    /// agent turn. Bypasses the registered-RPC dispatch gate, so the caller is
+    /// responsible for honouring `ctx.domains()` itself.
+    pub async fn run_in<F: std::future::Future>(&self, ctx: Arc<CoreContext>, fut: F) -> F::Output {
+        CoreContext::scope(ctx, fut).await
     }
 
     /// Spawn the selected background services and, when `rpc_http` is set, bind
@@ -891,12 +979,13 @@ impl CoreRuntime {
         // `ollama serve` openhuman itself spawned (no-op when externally
         // managed) so the next launch doesn't try to reclaim a dead daemon.
         // Bounded so a wedged Ollama can't hold up app shutdown.
-        if let Some(svc) = crate::inference::local::try_global() {
+        if let Some(svc) = crate::inference::host_runtime::try_global() {
             let cfg = crate::config::Config::load_or_init()
                 .await
                 .unwrap_or_default();
+            let runtime = crate::inference::local_runtime_config(&cfg);
             log::info!("[core] shutdown: cleaning up openhuman-owned ollama if any");
-            let shutdown_fut = svc.shutdown_owned_ollama(&cfg);
+            let shutdown_fut = svc.shutdown_owned_ollama(&runtime);
             if tokio::time::timeout(std::time::Duration::from_secs(2), shutdown_fut)
                 .await
                 .is_err()

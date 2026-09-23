@@ -16,11 +16,19 @@ use types::InstallRequest;
 
 pub const RETRIEVE_TOOL_NAME: &str = "tinyjuice_retrieve";
 pub const LEGACY_RETRIEVE_TOOL_NAME: &str = "retrieve_tool_output";
+/// Every name the recovery surface answers to: the live tool plus the two
+/// migration aliases a replayed transcript may still call.
 pub const RECOVERY_TOOL_NAMES: &[&str] = &[
     RETRIEVE_TOOL_NAME,
     "tokenjuice_retrieve",
     LEGACY_RETRIEVE_TOOL_NAME,
 ];
+
+/// The recovery tool a curated (`ToolScope::Named`) belt is guaranteed to
+/// advertise. Only the live tool: the aliases stay registered so an old
+/// transcript replays, but putting all three on the wire charged every
+/// Named agent for three copies of one schema.
+pub const RECOVERY_TOOL_VISIBLE: &[&str] = &[RETRIEVE_TOOL_NAME];
 
 pub fn is_recovery_tool(name: &str) -> bool {
     RECOVERY_TOOL_NAMES.contains(&name)

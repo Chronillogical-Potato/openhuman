@@ -8,9 +8,9 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::tool::{ToolCall as TaToolCall, ToolSchema};
+use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
 
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `before_tool`: repair a tool call's arguments *before* the harness runs its
 /// fatal pre-execution schema gate (issues #4249 / #4451). A model can emit
@@ -49,14 +49,14 @@ impl ArgRecoveryMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for ArgRecoveryMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for ArgRecoveryMiddleware {
     fn name(&self) -> &str {
         "arg_recovery"
     }
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<()>,
+        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
@@ -109,18 +109,20 @@ impl Middleware<()> for ArgRecoveryMiddleware {
 /// Resolves the harness [`ToolSchema`] for `name` across the runner's shared
 /// tool sets.
 ///
-/// Built via the same [`spec_to_schema`](crate::agent::tinyagents::convert::spec_to_schema)
-/// conversion the runner uses for [`SharedToolAdapter::schema`], so the
-/// `parameters` we validate against are byte-identical to the ones the crate's
-/// fatal `validate_call` gate checks — otherwise our pre-validation could
-/// disagree with the crate and either miss a fatal case or stub a call the crate
-/// still rejects.
+/// It constructs the canonical TinyInference schema directly from the
+/// TinyTools declaration, so the `parameters` we validate against are
+/// byte-identical to the ones the crate's fatal `validate_call` gate checks —
+/// otherwise our pre-validation could disagree with the crate and either miss
+/// a fatal case or stub a call the crate still rejects.
 fn schema_for_tool(tool_sets: &[Arc<Vec<Box<dyn Tool>>>], name: &str) -> Option<ToolSchema> {
     tool_sets
         .iter()
         .flat_map(|set| set.iter())
         .find(|tool| tool.name() == name)
-        .map(|tool| crate::agent::tinyagents::convert::spec_to_schema(&tool.spec()))
+        .map(|tool| {
+            let spec = tool.spec();
+            ToolSchema::new(spec.name, spec.description, spec.parameters)
+        })
 }
 
 /// Whether a tool's JSON-schema `parameters` declares any `required` field.

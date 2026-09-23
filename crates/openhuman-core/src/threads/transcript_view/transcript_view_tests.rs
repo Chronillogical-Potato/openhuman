@@ -3,10 +3,12 @@
 use super::project::{project_records, project_thread};
 use super::types::{DisplayItem, ToolCallStatus};
 use super::{get_page, DEFAULT_LIMIT};
-use crate::agent::harness::session::transcript::{self, read_transcript_display};
-use crate::agent::messages::ChatMessage;
+use crate::agent::messages::{
+    attach_chat_tool_failure_metadata, transcript_message_from_chat, ChatMessage,
+};
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
+use tinyagents_session::transcript::{self, read_transcript_display};
 
 fn meta_line(thread_id: &str) -> String {
     format!(
@@ -289,12 +291,12 @@ fn subagent_file_projects_as_nested_item() {
 }
 
 #[test]
-fn profile_scoped_root_and_subagent_project_together() {
+fn canonical_root_and_subagent_project_together() {
     let dir = TempDir::new().unwrap();
-    let raw_dir = dir.path().join("session_raw-alice");
+    let raw_dir = dir.path().join("session_raw");
     std::fs::create_dir_all(&raw_dir).unwrap();
     let root_stem = "450_orchestrator";
-    let thread_id = "thr_profile";
+    let thread_id = "thr_canonical";
 
     write_raw_at(
         &raw_dir.join(format!("{root_stem}.jsonl")),
@@ -388,6 +390,8 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
     let dir = TempDir::new().unwrap();
     let now = "2026-07-21T09:00:00Z".to_string();
     let meta = transcript::TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),
@@ -412,7 +416,7 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
         extra_metadata: None,
         cache_breakpoints: Vec::new(),
     };
-    transcript::attach_tool_failure_metadata(&mut tool_msg, Some("boom: exit 1"));
+    attach_chat_tool_failure_metadata(&mut tool_msg, Some("boom: exit 1"));
 
     let messages = vec![
         ChatMessage {
@@ -425,6 +429,7 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
         tool_msg,
     ];
     let path = transcript::resolve_keyed_transcript_path(dir.path(), "700_orchestrator").unwrap();
+    let messages: Vec<_> = messages.iter().map(transcript_message_from_chat).collect();
     transcript::write_transcript(&path, &messages, &meta, None).unwrap();
 
     let display = read_transcript_display(&path).unwrap();
@@ -466,6 +471,8 @@ fn append_transcript_turn_projects_full_display_shape() {
     let dir = TempDir::new().unwrap();
     let now = "2026-07-21T09:00:00Z".to_string();
     let meta = transcript::TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),
@@ -500,7 +507,7 @@ fn append_transcript_turn_projects_full_display_shape() {
         usage: usage(0.001),
         ts: "2026-07-21T09:00:01Z".into(),
         reasoning_content: Some("I should call the weather tool.".into()),
-        tool_calls: vec![crate::inference::provider::ToolCall {
+        tool_calls: vec![transcript::TranscriptToolCall {
             id: "call-1".into(),
             name: "get_weather".into(),
             arguments: r#"{"city":"NYC"}"#.into(),
@@ -519,12 +526,17 @@ fn append_transcript_turn_projects_full_display_shape() {
         iteration: 2,
     };
 
-    let msg = |id: Option<&str>, role: &str, content: &str| ChatMessage {
+    let msg = |id: Option<&str>, role: &str, content: &str| transcript::TranscriptMessage {
         id: id.map(str::to_string),
         role: role.into(),
         content: content.into(),
         extra_metadata: None,
         cache_breakpoints: Vec::new(),
+        turn_usage: None,
+        request_id: None,
+        preserve_request_id: false,
+        interrupted: false,
+        tool_failure: None,
     };
 
     let first = vec![

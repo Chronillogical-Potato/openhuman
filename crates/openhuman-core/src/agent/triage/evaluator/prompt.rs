@@ -13,7 +13,7 @@ pub(crate) fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
     match &def.system_prompt {
         PromptSource::Inline(body) if !body.is_empty() => Some(body.clone()),
         PromptSource::Dynamic(build) => {
-            use crate::agent::context::prompt::{
+            use crate::agent::prompts::{
                 ConnectedIntegration, LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
             };
             let empty_tools: Vec<PromptTool<'_>> = Vec::new();
@@ -35,8 +35,6 @@ pub(crate) fn extract_inline_prompt(def: &AgentDefinition) -> Option<String> {
                 include_memory_md: false,
                 curated_snapshot: None,
                 user_identity: None,
-                personality_soul_md: None,
-                personality_memory_md: None,
                 personality_roster: vec![],
                 agents_md_global: None,
                 agents_md_local: None,

@@ -17,7 +17,7 @@ use crate::memory::{
     UpsertConversationThreadRequest,
 };
 #[cfg(test)]
-use handlers::{handle_task_board_get, handle_task_board_put, parse};
+use handlers::parse;
 #[cfg(test)]
 pub(crate) use schema_defs::schemas;
 #[cfg(test)]

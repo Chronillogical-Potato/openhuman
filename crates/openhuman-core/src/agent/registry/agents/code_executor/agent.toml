@@ -1,7 +1,7 @@
 id = "code_executor"
 display_name = "Code Executor"
 delegate_name = "run_code"
-when_to_use = "Code-repo worker owning a repo-scoped task end to end: locate, read, edit, build, test, and drive local `git`. Route ANY repo-scoped work here — investigating a bug or finding where to edit counts, not just writing code — and keep the whole flow in one call so it accumulates context."
+when_to_use = "Independent coding worker with its own context: parallel or long-running repo work (locate, edit, build, test, local git). Routine edits stay with you."
 temperature = 0.4
 max_iterations = 10
 iteration_policy = "extended"
@@ -16,7 +16,7 @@ hint = "coding"
 
 [tools]
 # Coding-harness primitives from #1208 (grep/glob/list/edit/apply_patch/
-# todowrite/plan_exit/web_fetch/lsp) sit alongside the legacy
+# todo/web_fetch/lsp) sit alongside the legacy
 # shell/file_read/file_write surface. The new tools are strictly better
 # for navigation (grep/glob/list vs. ad-hoc shell `find` / `rg`) and
 # precise editing (edit / apply_patch vs. whole-file `file_write`); the
@@ -25,6 +25,7 @@ hint = "coding"
 # OPENHUMAN_LSP_ENABLED — listing it here is harmless when the gate is
 # off (the tool is simply not registered).
 named = [
+    "composio_execute",
     "shell",
     "file_read",
     "file_write",
@@ -38,8 +39,7 @@ named = [
     "list",
     "edit",
     "apply_patch",
-    "todowrite",
-    "plan_exit",
+    "todo",
     "web_fetch",
     "storage_upload_file",
     "storage_download_file",

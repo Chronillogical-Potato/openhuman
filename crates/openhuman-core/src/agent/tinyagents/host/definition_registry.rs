@@ -10,9 +10,6 @@
 //!   user-authored fallback
 //!   ([`crate::agent::registry::find_custom_in_config`] →
 //!   [`crate::agent::registry::definition_from_registry_entry`]).
-//! * [`crate::agent::profiles::AgentProfile`] — the active personality,
-//!   whose `allowed_tools` list is a **restriction** on the resolved
-//!   definition's tool surface.
 //!
 //! This is `docs/specs/plan-agents.md` Phase 4. The crate-side
 //! [`AgentDefinition`] is inert (`serde` + `std`); OpenHuman's harness
@@ -44,7 +41,7 @@
 //! **3. `ToolScope::Wildcard` has no crate representation.** The crate models
 //! tools as an explicit `Vec<String>` in which **empty means unrestricted**,
 //! matching the session builder ("an empty `visible` set means no filter" —
-//! `agent/harness/session/builder/factory.rs`). So an unrestricted wildcard
+//! `agent/session_host/builder/factory.rs`). So an unrestricted wildcard
 //! agent maps to an empty `tools` vec.
 //!
 //! That one value must not be made to carry three meanings. Three distinct
@@ -57,46 +54,30 @@
 //!
 //! [`ResolvedScope`] therefore models wildcard-ness explicitly and never infers
 //! it from emptiness. A genuinely empty scope emits
-//! [`PROFILE_NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
+//! [`NO_TOOLS_SENTINEL`] — an unregistered name that matches nothing —
 //! and a wildcard-with-denylist is materialized against
 //! [`Self::with_registered_tools`], failing closed when that is absent.
 //!
 //! **4. `SubagentEntry::Skills` entries are omitted.** A `{ skills = "*" }`
-//! entry is not an agent id — it collapses into the single
-//! `delegate_to_integrations_agent` tool. Emitting a synthetic id here would
-//! invent a delegate the host never authorized.
+//! entry is not an agent id — it expands to the connected integrations'
+//! actions as searchable tools. Emitting a synthetic id here would invent a
+//! delegate the host never authorized.
 //!
-//! **5. Profile model overrides are deliberately not applied.**
-//! `AgentProfile::model_override` has no verified host consumer on the
-//! definition path (the web-chat `model_override` request parameter is a
-//! different value, applied to `Config::default_model`), and the model seam is
-//! `ModelResolver`'s, not the catalogue's. See the `TODO(phase4)` below.
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinyagents_harness::error::Result;
-use tinyagents_harness::host::{AgentDefinition, DefinitionRegistry};
+use tinyagents_definition::Result;
+use tinyagents_definition::{AgentDefinition, DefinitionRegistry};
 
+use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
 use crate::agent::harness::definition::{
     AgentDefinition as HostAgentDefinition, AgentDefinitionRegistry, AgentTier, ModelSpec,
     SubagentEntry, ToolScope,
 };
-use crate::agent::profiles::AgentProfile;
 use crate::agent::registry::{definition_from_registry_entry, find_custom_in_config};
 use crate::config::Config;
-
-/// Sentinel inserted when a profile allowlist and a definition's named scope
-/// are disjoint.
-///
-/// Was a verbatim copy of the session builder's own literal, with a comment
-/// saying so. Two spellings of one sentinel is a silent bug waiting for
-/// someone to change one of them: the sets would stop agreeing about what
-/// "no tools" is spelled as, and the disagreement surfaces as an agent quietly
-/// advertising the whole registry. It is one constant now — see
-/// [`NO_TOOLS_SENTINEL`] for why the value exists at all.
-use crate::agent::harness::definition::NO_TOOLS_SENTINEL as PROFILE_NO_TOOLS_SENTINEL;
 
 // ── Registry handle ───────────────────────────────────────────────────────────
 
@@ -138,9 +119,8 @@ impl std::fmt::Debug for RegistryHandle {
 /// [`DefinitionRegistry`] seam.
 ///
 /// Read-only by construction: it borrows the harness registry, an optional
-/// [`Config`] (for the user-authored custom-agent fallback), and an optional
-/// active [`AgentProfile`] (for the tool restriction), and never mutates any of
-/// them. That matches the trait's rationale — a catalogue the runtime could
+/// [`Config`] (for the user-authored custom-agent fallback), and never mutates
+/// either. That matches the trait's rationale — a catalogue the runtime could
 /// mutate would let a turn grant itself a delegate or a tool.
 #[derive(Debug)]
 pub struct OpenHumanDefinitionRegistry {
@@ -150,9 +130,6 @@ pub struct OpenHumanDefinitionRegistry {
     /// absent, custom config agents are simply not in the catalogue — an
     /// honest miss, never an error.
     config: Option<Arc<Config>>,
-    /// Active personality. Its `allowed_tools` narrows every projected tool
-    /// list, exactly as the session builder narrows the visible tool set.
-    profile: Option<Arc<AgentProfile>>,
     /// Every tool name registered for this session, used to materialize a
     /// [`ToolScope::Wildcard`] definition that also carries a denylist.
     ///
@@ -162,9 +139,31 @@ pub struct OpenHumanDefinitionRegistry {
     /// non-empty cannot be projected faithfully and [`Self::tools_for`] fails
     /// closed rather than re-granting the denied tools.
     registered_tools: Option<Arc<Vec<String>>>,
+    /// Per-invocation direct delegation routes synthesized beside the durable
+    /// tool registry. They must augment a named root scope so the hosted loop
+    /// authorizes the same hand-off routes it advertises.
+    session_delegation_tools: Option<Arc<Vec<String>>>,
+    /// The session's own caller-supplied definition, when it has one.
+    ///
+    /// A library host builds its agent from a definition it owns and passes by
+    /// value (`AgentChatTarget::Definition`), which `from_config_with_definition`
+    /// stamps on the session and inserts into no registry. `AgentSpec::into_core`
+    /// re-stamps the built-in orchestrator under the caller's own id, so ids like
+    /// `harness`, `alpha` and `beta` are names no registry has ever held — the
+    /// hosted lookup below missed every time, the harness raised
+    /// `TinyAgentsError::Validation`, and `hosted_error` sanitized that into
+    /// "hosted agent invocation was rejected by policy" with zero provider calls
+    /// (#6404, #6392, #6393).
+    ///
+    /// Consulted BEFORE the registry, which is the precedence
+    /// `OpenHumanSessionHost::resolved_definition` already documents and
+    /// `resolved_definition_prefers_the_sessions_own_over_a_same_id_registry_entry`
+    /// already pins: a library host may legitimately reuse an id the process
+    /// registry also knows, and its own definition must win.
+    session_definition: Option<Arc<HostAgentDefinition>>,
 }
 
-/// Outcome of resolving a definition's own scope, before the profile allowlist.
+/// Outcome of resolving a definition's own scope.
 ///
 /// Modelled explicitly because the crate's `Vec<String>` overloads *empty* to
 /// mean "unrestricted". Inferring wildcard from emptiness is what let a
@@ -183,8 +182,9 @@ impl OpenHumanDefinitionRegistry {
         Self {
             registry: RegistryHandle::Shared(registry),
             config: None,
-            profile: None,
             registered_tools: None,
+            session_delegation_tools: None,
+            session_definition: None,
         }
     }
 
@@ -198,8 +198,9 @@ impl OpenHumanDefinitionRegistry {
         AgentDefinitionRegistry::global().map(|registry| Self {
             registry: RegistryHandle::Global(registry),
             config: None,
-            profile: None,
             registered_tools: None,
+            session_delegation_tools: None,
+            session_definition: None,
         })
     }
 
@@ -215,13 +216,6 @@ impl OpenHumanDefinitionRegistry {
         self
     }
 
-    /// Attaches the active personality whose `allowed_tools` restricts every
-    /// projected tool list.
-    pub fn with_profile(mut self, profile: Arc<AgentProfile>) -> Self {
-        self.profile = Some(profile);
-        self
-    }
-
     /// Attaches the session's registered tool names.
     ///
     /// Required to project a [`ToolScope::Wildcard`] definition that also
@@ -233,16 +227,38 @@ impl OpenHumanDefinitionRegistry {
         self
     }
 
+    /// Attaches the root invocation's synthesized direct-delegation names.
+    pub fn with_session_delegation_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.session_delegation_tools = Some(tools);
+        self
+    }
+
+    /// Attaches the session's own definition, which outranks the registry.
+    ///
+    /// See [`Self::session_definition`] — without this a caller-supplied
+    /// definition is unresolvable by the id it was stamped with.
+    pub fn with_session_definition(mut self, definition: Arc<HostAgentDefinition>) -> Self {
+        self.session_definition = Some(definition);
+        self
+    }
+
     /// Resolves `id` to a **host** definition: harness registry first, then the
     /// enabled custom-agent config fallback.
     ///
     /// Mirrors the lookup order the agent factory uses
-    /// (`agent/harness/session/builder/factory.rs` falls back to
+    /// (`agent/session_host/builder/factory.rs` falls back to
     /// [`find_custom_in_config`] on a harness-registry miss). The disabled and
     /// `Default`-source filters live inside [`find_custom_in_config`] and are
     /// deliberately not re-implemented here.
     fn host_definition(&self, id: &str) -> Option<HostAgentDefinition> {
         let id = id.trim();
+        if let Some(def) = self
+            .session_definition
+            .as_deref()
+            .filter(|def| def.id.trim() == id)
+        {
+            return Some(def.clone());
+        }
         if let Some(def) = self.registry.get().get(id) {
             return Some(def.clone());
         }
@@ -289,57 +305,29 @@ impl OpenHumanDefinitionRegistry {
             // a delegating parent" — the same string the harness feeds into a
             // synthesised `delegate_*` tool description.
             description: def.when_to_use.clone(),
+            // The definition's validated tier is the host assertion the model
+            // resolver consumes for workload routing.
+            role: Some(def.agent_tier.to_string()),
             model: model_for(&def.model),
             subagents: declared_subagent_ids(def),
             tools: self.tools_for(def),
         }
     }
 
-    /// Tool names for `def`, after the definition's own denylist and the active
-    /// profile's allowlist.
-    ///
-    /// Both filters mirror the session builder rather than reinventing policy:
-    /// a profile's tool selection is *a restriction on the resolved definition,
-    /// never a replacement for it*.
+    /// Tool names for `def`, after the definition's own denylist.
     fn tools_for(&self, def: &HostAgentDefinition) -> Vec<String> {
-        let scope = self.resolved_scope(def);
-
-        let Some(allowed) = self
-            .profile
-            .as_deref()
-            .and_then(|profile| profile.allowed_tools.as_ref())
-            .filter(|tools| !tools.is_empty())
-        else {
-            return Self::emit(scope);
-        };
-
-        let profile_visible: Vec<String> = allowed
-            .iter()
-            .map(|tool| tool.trim().to_string())
-            .filter(|tool| !tool.is_empty())
-            .collect();
-        if profile_visible.is_empty() {
-            return Self::emit(scope);
-        }
-
-        let mut names = match scope {
-            // A true wildcard has no denylist left to honour (see
-            // `resolved_scope`), so the profile allowlist *is* the visible set.
-            ResolvedScope::Wildcard => return profile_visible,
-            ResolvedScope::Named(names) => names,
-        };
-
-        let allowed_set: HashSet<&str> = profile_visible.iter().map(String::as_str).collect();
-        names.retain(|name| allowed_set.contains(name.as_str()));
-        Self::emit(ResolvedScope::Named(names))
+        Self::emit(self.resolved_scope(def))
     }
 
     /// Resolves the definition's own scope, applying `extra_tools` and the
-    /// denylist, without consulting the profile.
+    /// denylist.
     fn resolved_scope(&self, def: &HostAgentDefinition) -> ResolvedScope {
         match &def.tools {
             ToolScope::Named(named) => {
                 let mut names = named.clone();
+                if let Some(delegation_tools) = self.session_delegation_tools.as_deref() {
+                    names.extend(delegation_tools.iter().cloned());
+                }
                 // `extra_tools` is an "also include these" hook on top of a
                 // named scope. Under `Wildcard` it is meaningless — everything
                 // is already in scope.
@@ -351,10 +339,10 @@ impl OpenHumanDefinitionRegistry {
                 // denied, must project as no tools rather than as everything.
                 ResolvedScope::Named(names)
             }
-            ToolScope::Wildcard if def.disallowed_tools.is_empty() => ResolvedScope::Wildcard,
             ToolScope::Wildcard => match self.registered_tools.as_deref() {
-                // "Everything except these" is only expressible against a
-                // concrete list, so materialize and filter.
+                // The hosted API treats an empty list as deny-all, so materialize
+                // every wildcard scope rather than serializing it as an empty
+                // vector. Apply the denylist while doing so.
                 Some(registered) => {
                     let mut names: Vec<String> = registered
                         .iter()
@@ -364,19 +352,14 @@ impl OpenHumanDefinitionRegistry {
                     dedupe_preserving_order(&mut names);
                     ResolvedScope::Named(names)
                 }
-                // Fail closed. Emitting the wildcard here would silently
-                // re-grant every denied tool — for shipped definitions that
-                // means specialist-only routes becoming
-                // generally available. An agent with no tools is a visible,
-                // debuggable failure; a silently widened one is not.
+                // Fail closed when the concrete session tool surface is absent.
                 None => {
                     log::error!(
-                        "[tinyagents][definitions] agent '{}' has a wildcard tool scope with a \
-                         non-empty denylist ({} entries) but no registered tool list was \
+                        "[tinyagents][definitions] agent '{}' has a wildcard tool scope but no \
+                         registered tool list was \
                          attached — failing closed to no tools. Call \
                          `with_registered_tools(..)` to project this definition.",
-                        def.id,
-                        def.disallowed_tools.len()
+                        def.id
                     );
                     ResolvedScope::Named(Vec::new())
                 }
@@ -394,7 +377,7 @@ impl OpenHumanDefinitionRegistry {
         match scope {
             ResolvedScope::Wildcard => Vec::new(),
             ResolvedScope::Named(mut names) if names.is_empty() => {
-                names.push(PROFILE_NO_TOOLS_SENTINEL.to_string());
+                names.push(NO_TOOLS_SENTINEL.to_string());
                 names
             }
             ResolvedScope::Named(names) => names,
@@ -450,8 +433,8 @@ impl OpenHumanDefinitionRegistry {
 /// Declared subagent **agent ids** only.
 ///
 /// [`SubagentEntry::Skills`] entries are skipped: they are a wildcard that
-/// collapses to the single `delegate_to_integrations_agent` tool, not an agent
-/// the parent may address by id.
+/// expands to searchable integration actions, not an agent the parent may
+/// address by id.
 fn declared_subagent_ids(def: &HostAgentDefinition) -> Vec<String> {
     def.subagents
         .iter()
@@ -467,7 +450,7 @@ fn declared_subagent_ids(def: &HostAgentDefinition) -> Vec<String> {
 /// [`ModelSpec::Inherit`] becomes `None`, which is precisely the crate's "no
 /// preference, the session default applies". `Hint` is resolved through
 /// [`ModelSpec::resolve`] (whose `parent_model` argument is unused for the hint
-/// arm) so the `{hint}-v1` naming convention has one implementation.
+/// arm) so the `hint:{hint}` alias spelling has one implementation.
 fn model_for(spec: &ModelSpec) -> Option<String> {
     match spec {
         ModelSpec::Inherit => None,
@@ -479,12 +462,12 @@ fn model_for(spec: &ModelSpec) -> Option<String> {
 /// Whether `name` is blocked by a definition's `disallowed_tools`.
 ///
 /// Mirrors the private `definition_disallows_tool` in
-/// `agent/harness/session/builder/factory.rs`, including its trailing-`*`
+/// `agent/session_host/builder/factory.rs`, including its trailing-`*`
 /// prefix-match form. Duplicated rather than imported because that helper is
 /// module-private and Phase 4 must not edit existing files.
 ///
 /// TODO(phase4): make `definition_disallows_tool` `pub(crate)` in
-/// `agent/harness/session/builder/factory.rs` and delete this copy, so the
+/// `agent/session_host/builder/factory.rs` and delete this copy, so the
 /// denylist grammar has one implementation.
 fn disallows_tool(disallowed: &[String], name: &str) -> bool {
     disallowed.iter().any(|entry| {
@@ -538,14 +521,6 @@ impl DefinitionRegistry for OpenHumanDefinitionRegistry {
             .unwrap_or_default())
     }
 }
-
-// TODO(phase4): `AgentProfile::model_override` is not applied to the projected
-// `model` field. It has no verified consumer on the host definition path today
-// (`web_chat::session::build_session_agent` applies a *request* `model_override`
-// to `Config::default_model`, which is a different value), and per-session model
-// choice belongs to the `ModelResolver` seam rather than the catalogue. If the
-// host does want a personality to re-pin an agent's model, it likely belongs in
-// the `ModelResolver` adapter reading `profiles::AgentProfile::model_override`.
 
 #[cfg(test)]
 #[path = "definition_registry_tests.rs"]

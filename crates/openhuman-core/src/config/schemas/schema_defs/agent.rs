@@ -51,7 +51,6 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                     comment: "Replace the \"Always allow\" allowlist (array of tool names the agent runs without an approval prompt). Empty array clears it.",
                     required: false,
                 },
-                optional_bool("require_task_plan_approval", "Require approval before an agent executes a task-board plan."),
                 optional_bool("auto_approve_all", "When true, auto-approve all tool calls without prompting. SubconsciousTainted and Unknown origins still denied. Hard security blocks unaffected."),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],

@@ -6,6 +6,7 @@ fn recoverable_iff_recoverable_category() {
     assert!(!FailureCategory::BlockedByPolicy.is_recoverable());
     assert!(!FailureCategory::NeedsUserConfirmation.is_recoverable());
     assert!(!FailureCategory::UserDeclined.is_recoverable());
+    assert!(!FailureCategory::Permanent.is_recoverable());
 }
 
 #[test]
@@ -25,6 +26,8 @@ fn every_class_maps_to_expected_category() {
     assert_eq!(BadCredentials.category(), NeedsUserConfirmation);
     assert_eq!(Denied.category(), UserDeclined);
     assert_eq!(ApprovalExpired.category(), UserDeclined);
+    assert_eq!(NotFound.category(), Permanent);
+    assert_eq!(Unsupported.category(), Permanent);
 }
 
 #[test]

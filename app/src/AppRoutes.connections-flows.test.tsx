@@ -43,7 +43,6 @@ vi.mock('./pages/Invites', () => ({ default: () => <div /> }));
 vi.mock('./pages/Notifications', () => ({ default: () => <div /> }));
 vi.mock('./pages/onboarding/Onboarding', () => ({ default: () => <div /> }));
 vi.mock('./pages/PttOverlayPage', () => ({ PttOverlayPage: () => <div /> }));
-vi.mock('./pages/Rewards', () => ({ default: () => <div /> }));
 vi.mock('./pages/Settings', () => ({ default: () => <div /> }));
 vi.mock('./pages/Welcome', () => ({ default: () => <div /> }));
 vi.mock('./pages/WebCallbackPage', () => ({ default: () => <div /> }));

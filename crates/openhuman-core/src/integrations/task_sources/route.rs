@@ -1,14 +1,18 @@
-//! Route an [`EnrichedTask`] onto the agent's work surface.
+//! Route an [`EnrichedTask`] into the agent.
 //!
-//! Every enriched task lands as a card on the dedicated `task-sources`
-//! thread board (reusing the thread-scoped `todos` store). Sources with
-//! the [`SourceTarget::AgentTodoProactive`] target additionally dispatch
-//! a triage turn — the same `TriggerEnvelope` → `run_triage` →
-//! `apply_decision` path Composio webhooks use — so an agent can start
-//! working immediately. Triage's classifier (drop / acknowledge / react
-//! / escalate) gates noise, and the proactive turn is held behind the
+//! The ingestion ledger (`store.rs`) is the record of what was pulled from a
+//! source. Sources with the [`SourceTarget::AgentTodoProactive`] target
+//! dispatch a triage turn for each new task — the same `TriggerEnvelope` →
+//! `run_triage` → `apply_decision` path Composio webhooks use — so an agent
+//! can start working immediately; triage's classifier (drop / acknowledge /
+//! react / escalate) gates noise, and the proactive turn is held behind the
 //! `scheduler_gate` capacity semaphore so background AI throttling is
-//! respected.
+//! respected. [`SourceTarget::TodoOnly`] sources are collected into the ledger
+//! and go no further.
+//!
+//! Tasks used to be mirrored as cards onto a `task-sources` thread board as
+//! well. That board was rendered nowhere and the `todo` tool is now the
+//! session's own list, so the mirror is gone; the ledger is the surface.
 
 use serde_json::json;
 
@@ -17,209 +21,40 @@ use crate::agent::triage::{
 };
 use crate::agent::turn_origin::with_origin;
 use crate::config::Config;
-use crate::threads::todos::ops::{
-    add as todo_add, remove as todo_remove, BoardLocation, CardPatch,
-};
-use crate::{cron::scheduler_gate, threads::todos};
+use crate::cron::scheduler_gate;
 
-use super::types::{EnrichedTask, FilterSpec, SourceTarget, TaskSource};
-use super::TaskKind;
+use super::types::{EnrichedTask, SourceTarget, TaskSource};
 
-/// Stable thread id whose board collects every ingested task.
-pub const TASK_SOURCES_THREAD_ID: &str = "task-sources";
-
-fn task_sources_location(config: &Config) -> BoardLocation {
-    BoardLocation::Thread {
-        workspace_dir: config.workspace_dir.clone(),
-        thread_id: TASK_SOURCES_THREAD_ID.to_string(),
-    }
-}
-
-/// Route an enriched task: append a todo card, then (for proactive
-/// sources) dispatch a triage turn. Returns the new card id on success.
+/// Route an enriched task: for proactive sources dispatch a triage turn;
+/// collect-only sources stop at the ledger the caller already wrote.
 pub async fn route_enriched(
-    config: &Config,
+    _config: &Config,
     source: &TaskSource,
     enriched: &EnrichedTask,
-    stale_card_id: Option<&str>,
-) -> Result<String, String> {
-    let card_id = add_card(config, source, enriched, stale_card_id).await?;
-
+) -> Result<(), String> {
     match source.target {
         SourceTarget::TodoOnly => {
             tracing::debug!(
                 source_id = %source.id,
                 external_id = %enriched.task.external_id,
-                "[task_sources:route] todo-only target, card added (no agent turn)"
+                "[task_sources:route] collect-only target, no agent turn"
             );
-            Ok(card_id)
+            Ok(())
         }
-        SourceTarget::AgentTodoProactive => {
-            dispatch_triage(config, source, enriched, &card_id).await?;
-            Ok(card_id)
-        }
+        SourceTarget::AgentTodoProactive => dispatch_triage(source, enriched).await,
     }
-}
-
-/// Append a new card on the `task-sources` board, optionally removing a
-/// stale card first (when an upstream task was edited and re-routed). Returns
-/// the id of the newly created card.
-///
-/// Removing the stale card before adding the new one prevents duplicate board
-/// entries from accumulating across edit cycles. If the stale card is already
-/// gone (e.g. user manually removed it) the remove error is logged and
-/// ignored so the fresh card still lands.
-async fn add_card(
-    config: &Config,
-    source: &TaskSource,
-    enriched: &EnrichedTask,
-    stale_card_id: Option<&str>,
-) -> Result<String, String> {
-    let location = task_sources_location(config);
-
-    // Remove stale card from the previous ingestion of this task (if any)
-    // before creating the replacement, so the board never accumulates
-    // duplicate cards for the same upstream item.
-    if let Some(old_id) = stale_card_id {
-        match remove_card(config, old_id).await {
-            Ok(_) => {
-                tracing::debug!(
-                    source_id = %source.id,
-                    external_id = %enriched.task.external_id,
-                    stale_card_id = %old_id,
-                    "[task_sources:route] stale card removed before re-routing edited task"
-                );
-            }
-            Err(e) => {
-                // Not fatal: card may have been manually removed already.
-                tracing::debug!(
-                    source_id = %source.id,
-                    external_id = %enriched.task.external_id,
-                    stale_card_id = %old_id,
-                    error = %e,
-                    "[task_sources:route] stale card removal skipped (already gone?)"
-                );
-            }
-        }
-    }
-
-    let task = &enriched.task;
-    let label = provider_label(&task.provider);
-    let content = format!("[{label}] {}", task.title.trim());
-
-    let mut notes_parts: Vec<String> = Vec::new();
-    if enriched.summary.trim() != task.title.trim() && !enriched.summary.trim().is_empty() {
-        notes_parts.push(enriched.summary.trim().to_string());
-    }
-    if let Some(url) = task.url.as_deref().filter(|s| !s.trim().is_empty()) {
-        notes_parts.push(url.trim().to_string());
-    }
-    let notes = if notes_parts.is_empty() {
-        None
-    } else {
-        Some(notes_parts.join("\n"))
-    };
-
-    // Objective: the intent-framed goal from enrichment ("Review pull
-    // request: …" / "Resolve issue: …" / bare title for generic tasks). The
-    // card `content`/title is the `[provider] title` display form; the
-    // objective is the clean goal the executing agent — and the triage LLM —
-    // works toward, so it must state *what kind of job* this is.
-    let objective = enriched.objective.clone();
-
-    // Stamp the source identifiers the downstream dispatcher / write-back
-    // needs (provider + repo + issue id + url) plus the enrichment urgency
-    // used for prioritisation. This is the only writer of `source_metadata`.
-    let source_metadata = build_source_metadata(source, enriched);
-
-    // G7: pre-assign the card to the source's configured executor so the
-    // dispatcher runs it deterministically (no LLM router). Unset → unassigned.
-    let assigned_agent = source
-        .assigned_executor
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
-
-    let snapshot = todo_add(
-        &location,
-        &content,
-        CardPatch {
-            notes,
-            objective,
-            assigned_agent,
-            source_metadata: Some(source_metadata),
-            ..Default::default()
-        },
-    )
-    .await
-    .map_err(|e| format!("[task_sources:route] failed to add todo card: {e}"))?;
-
-    // The newly created card is always the last one in the snapshot (add
-    // appends at the end). Return its id for the dedup ledger.
-    let new_card_id = snapshot
-        .cards
-        .last()
-        .map(|c| c.id.clone())
-        .ok_or_else(|| "[task_sources:route] add returned empty card list".to_string())?;
-
-    tracing::debug!(
-        external_id = %task.external_id,
-        card_id = %new_card_id,
-        cards = snapshot.cards.len(),
-        "[task_sources:route] card added to task-sources board"
-    );
-    Ok(new_card_id)
-}
-
-/// Build the card's `source_metadata` from the originating source + task:
-/// the provider/repo/issue identifiers a later dispatcher or external
-/// write-back needs to address the upstream item, plus the enrichment
-/// urgency used to prioritise pickup. Repo is only present for GitHub
-/// sources (the other providers don't carry a repo concept).
-fn build_source_metadata(source: &TaskSource, enriched: &EnrichedTask) -> serde_json::Value {
-    let task = &enriched.task;
-    let mut meta = json!({
-        "provider": task.provider,
-        "source_id": source.id,
-        "external_id": task.external_id,
-        "urgency": enriched.urgency,
-    });
-    // Only stamp `kind` when the provider differentiated it (issue vs PR), so
-    // the FE card and triage can tell "review this" from "solve this".
-    if task.kind != TaskKind::Generic {
-        meta["kind"] = json!(task.kind.as_str());
-    }
-    if let Some(url) = task.url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        meta["url"] = json!(url);
-    }
-    if let FilterSpec::Github {
-        repo: Some(repo), ..
-    } = &source.filter
-    {
-        let repo = repo.trim();
-        if !repo.is_empty() {
-            meta["repo"] = json!(repo);
-        }
-    }
-    meta
 }
 
 /// Dispatch a triage turn for a proactive task, gated by scheduler
-/// capacity. Card creation already happened; a gated-off or deferred
-/// turn is non-fatal — the task still sits on the board.
-async fn dispatch_triage(
-    config: &Config,
-    source: &TaskSource,
-    enriched: &EnrichedTask,
-    card_id: &str,
-) -> Result<(), String> {
+/// capacity. A gated-off or deferred turn is non-fatal — the task is already
+/// in the ledger.
+async fn dispatch_triage(source: &TaskSource, enriched: &EnrichedTask) -> Result<(), String> {
     // Respect background-AI throttling. When the gate denies capacity
     // (Off / paused), we keep the card but skip the proactive turn.
     let Some(_permit) = scheduler_gate::wait_for_capacity().await else {
         tracing::info!(
             source_id = %source.id,
-            "[task_sources:route] scheduler gate denied capacity; card added, agent turn skipped"
+            "[task_sources:route] scheduler gate denied capacity; agent turn skipped"
         );
         return Ok(());
     };
@@ -235,16 +70,11 @@ async fn dispatch_triage(
         "sourceId": source.id,
     });
 
-    // Link the envelope to the board card so triage's escalation arm routes
-    // it through the deterministic dispatcher (claim → autonomous run →
-    // write-back) instead of the one-shot triage sub-agent.
-    let location = task_sources_location(config);
     let envelope = TriggerEnvelope::from_external(
         &format!("task_sources:{}", source.id),
         "external task ingested",
         payload,
-    )
-    .with_task_card(card_id.to_string(), location);
+    );
 
     let outcome = run_triage(&envelope)
         .await
@@ -268,55 +98,11 @@ async fn dispatch_triage(
             tracing::debug!(
                 source_id = %source.id,
                 reason = %reason,
-                "[task_sources:route] triage deferred (card remains on board)"
+                "[task_sources:route] triage deferred (task stays in the ledger)"
             );
         }
     }
     Ok(())
-}
-
-/// Title-case a provider slug for display on the card.
-fn provider_label(provider: &str) -> String {
-    match provider {
-        "github" => "GitHub".to_string(),
-        "notion" => "Notion".to_string(),
-        "linear" => "Linear".to_string(),
-        "clickup" => "ClickUp".to_string(),
-        other => {
-            let mut chars = other.chars();
-            match chars.next() {
-                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                None => String::new(),
-            }
-        }
-    }
-}
-
-/// Read the current cards on the `task-sources` board. Used by tests and
-/// callers that want to inspect routed work without an RPC round-trip.
-pub async fn board_cards(
-    config: &Config,
-) -> Result<Vec<crate::agent::task_board::TaskBoardCard>, String> {
-    let location = task_sources_location(config);
-    todos::ops::list(&location).await.map(|snap| snap.cards)
-}
-
-/// Remove a task-source board card. Missing cards are treated as already
-/// reconciled so ledger cleanup can still proceed.
-pub async fn remove_card(config: &Config, card_id: &str) -> Result<bool, String> {
-    let location = task_sources_location(config);
-    match todo_remove(&location, card_id).await {
-        Ok(_) => Ok(true),
-        Err(e) if e.contains("not found") => {
-            tracing::debug!(
-                card_id,
-                error = %e,
-                "[task_sources:route] card already absent during reconciliation"
-            );
-            Ok(false)
-        }
-        Err(e) => Err(e),
-    }
 }
 
 #[cfg(test)]

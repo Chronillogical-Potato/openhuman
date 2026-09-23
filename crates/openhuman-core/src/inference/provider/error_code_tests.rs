@@ -118,6 +118,10 @@ fn managed_envelope_gate_rejects_byo_payload_carrying_error_code() {
     assert!(!is_managed_backend_envelope(byo));
     assert!(!managed_error_skips_sentry(byo));
 
+    let embedded = r#"custom_openai API error (429): {"error":{"message":"OpenHuman API error from upstream","errorCode":"RATE_LIMITED"}}"#;
+    assert!(!is_managed_backend_envelope(embedded));
+    assert!(!managed_error_skips_sentry(embedded));
+
     // The same body under the managed envelope IS backend-owned.
     let managed =
         r#"OpenHuman API error (429 Too Many Requests): {"error":{"errorCode":"RATE_LIMITED"}}"#;

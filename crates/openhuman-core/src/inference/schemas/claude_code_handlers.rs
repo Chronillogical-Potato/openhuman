@@ -19,7 +19,7 @@ pub(super) struct InferenceClaudeCodeSetFullAccessParams {
 pub(super) fn handle_inference_claude_code_status(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let status = tokio::task::spawn_blocking(
-            crate::inference::provider::claude_code::version_check::probe,
+            tinyagents_harness::providers::claude_code::version_check::probe,
         )
         .await
         .map_err(|e| format!("claude_code_status join error: {e}"))?;
@@ -32,7 +32,7 @@ pub(super) fn handle_inference_claude_code_auth_status(
 ) -> ControllerFuture {
     Box::pin(async move {
         let auth = tokio::task::spawn_blocking(
-            crate::inference::provider::claude_code::auth_status::probe,
+            tinyagents_harness::providers::claude_code::auth_status::probe,
         )
         .await
         .map_err(|e| format!("claude_code_auth_status join error: {e}"))?;
@@ -43,10 +43,11 @@ pub(super) fn handle_inference_claude_code_auth_status(
 pub(super) fn handle_inference_claude_code_settings(
     _params: Map<String, Value>,
 ) -> ControllerFuture {
-    use crate::inference::provider::claude_code::settings;
+    use tinyagents_harness::providers::claude_code::settings;
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
-        let settings = settings::load_for_config(&config);
+        let workspace = config.config_path.parent().unwrap_or(&config.workspace_dir);
+        let settings = settings::load(workspace);
         log::debug!(
             "[rpc][inference.claude_code_settings] full_access={}",
             settings.full_access
@@ -58,11 +59,15 @@ pub(super) fn handle_inference_claude_code_settings(
 pub(super) fn handle_inference_claude_code_set_full_access(
     params: Map<String, Value>,
 ) -> ControllerFuture {
-    use crate::inference::provider::claude_code::settings;
+    use tinyagents_harness::providers::claude_code::settings;
     Box::pin(async move {
         let p = deserialize_params::<InferenceClaudeCodeSetFullAccessParams>(params)?;
         let config = config_rpc::load_config_with_timeout().await?;
-        let settings = settings::save_full_access_for_config(&config, p.enabled)
+        let workspace = config.config_path.parent().unwrap_or(&config.workspace_dir);
+        let settings = settings::ClaudeCodeSettings {
+            full_access: p.enabled,
+        };
+        settings::save(workspace, &settings)
             .map_err(|e| format!("failed to persist claude code settings: {e}"))?;
         log::info!(
             "[rpc][inference.claude_code_set_full_access] persisted full_access={}",

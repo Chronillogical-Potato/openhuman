@@ -66,7 +66,7 @@ fn create_thread_optional_fields_roundtrip() {
 
 #[test]
 fn run_reply_id_is_deterministic_and_recognised_as_such() {
-    // The producer (`task_session::append_final`) and the predicate the store
+    // The background-delivery producer and the predicate the store
     // gates its idempotency lookup on must agree, or the two writers of an
     // autonomous reply stop collapsing onto one row (#5933).
     assert_eq!(run_reply_message_id("run-7"), "agent:run-7");

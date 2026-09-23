@@ -112,7 +112,7 @@ interface ChatThreadViewProps {
    *  matching bottom padding. Sidebar variant omits this (undefined — the
    *  message list falls back to a flat `pb-4`). */
   bottomPadding?: number;
-  /** The host's footer has pinned content (e.g. home's task board) that
+  /** The host's footer has pinned content (e.g. a pending review card) that
    *  should keep the scroll container in "has content" layout even when
    *  there are no visible messages and no live agent activity yet. */
   hasFooterContent?: boolean;

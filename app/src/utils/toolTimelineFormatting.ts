@@ -64,11 +64,6 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   mcp_list_servers: 'Listing MCP servers',
   mcp_list_tools: 'Listing MCP tools',
   mcp_call_tool: 'Calling MCP tool',
-  mcp_setup_search: 'Searching MCP tools',
-  mcp_setup_get: 'Getting MCP tool',
-  mcp_setup_install_and_connect: 'Installing MCP server',
-  mcp_setup_request_secret: 'Requesting secret',
-  mcp_setup_test_connection: 'Testing connection',
   gmail_unsubscribe: 'Unsubscribing',
   gitbooks_get_page: 'Reading docs page',
   audio_generate_podcast: 'Generating podcast',
@@ -77,6 +72,13 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   composio_list_connections: 'Viewing your Connections',
   agent_prepare_context: 'Preparing context',
   propose_workflow: 'Proposing workflow',
+  // Harness work state: the session todo list and the thread goal. The pane
+  // renders both from these calls' results (`utils/harnessState.ts`), so the
+  // rows read as bookkeeping, not as work in their own right.
+  todo: 'Updating todo list',
+  goal_set: 'Setting goal',
+  goal_get: 'Checking goal',
+  goal_complete: 'Completing goal',
 };
 
 /**
@@ -309,19 +311,21 @@ export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; 
       inferIntegrationNameFromPrompt(parsedArgs?.prompt) ??
       inferIntegrationName(entry.name);
 
-    let title: string;
-    if (provider) {
-      title = integrationActivityTitle(provider);
-    } else if (entry.name === 'delegate_to_integrations_agent') {
-      const rawToolkit = parsedArgs?.toolkit?.trim();
-      title = rawToolkit
-        ? integrationActivityTitle(humanizeIdentifier(rawToolkit))
-        : 'Checking your connected app';
-    } else {
-      title = humanizeIdentifier(entry.name);
-    }
-
+    const title = provider ? integrationActivityTitle(provider) : humanizeIdentifier(entry.name);
     return { title, detail: entry.detail ?? parsedArgs?.prompt };
+  }
+
+  // A connected-service action called directly (`GMAIL_SEND_EMAIL`,
+  // `SLACK_SEND_MESSAGE`): the orchestrator finds these through
+  // `tool_search` and calls them itself, so this is the row a user sees
+  // for "send that email". Label it by the service, with the action as
+  // the detail, rather than a raw humanised slug.
+  const directAction = inferIntegrationActionName(entry.name);
+  if (directAction) {
+    return {
+      title: integrationActivityTitle(directAction.provider),
+      detail: entry.detail ?? directAction.action,
+    };
   }
 
   // ── Tool-specific formatting with args-derived detail ──────────────
@@ -641,6 +645,32 @@ function inferIntegrationName(input?: string): string | undefined {
     return normalizeIntegrationName(input);
   }
 
+  return undefined;
+}
+
+/**
+ * Split a Composio action slug (`GMAIL_SEND_EMAIL`) into its known provider
+ * and a readable action ("Send email"). `undefined` for anything that is not
+ * an upper-case `<TOOLKIT>_<ACTION>` name on a known toolkit, so ordinary
+ * tools and unknown toolkits keep their generic label.
+ */
+function inferIntegrationActionName(
+  name: string
+): { provider: string; action: string } | undefined {
+  if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(name)) return undefined;
+  // Try the longest toolkit prefix first (`GOOGLE_CALENDAR_...`), then the
+  // shortest (`GMAIL_...`).
+  const parts = name.split('_');
+  for (let i = Math.min(parts.length - 1, 2); i >= 1; i -= 1) {
+    const toolkit = parts.slice(0, i).join('_');
+    if (KNOWN_TOOLKIT_RE.test(toolkit)) {
+      const action = parts.slice(i).join(' ').toLowerCase();
+      return {
+        provider: normalizeIntegrationName(toolkit),
+        action: action.charAt(0).toUpperCase() + action.slice(1),
+      };
+    }
+  }
   return undefined;
 }
 

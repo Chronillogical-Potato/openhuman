@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use tinyhosts::{AnalyticsDimension, AnalyticsQuery, Host};
 
 use super::required_str;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 // ── hosting_analytics ───────────────────────────────────────────────────────
 

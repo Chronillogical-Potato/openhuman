@@ -89,7 +89,7 @@ This is the part that distinguishes "OpenHuman has a Gmail integration" from "Op
 
 - **`react`** is the cheap path. The Trigger Reactor is a narrow specialist with a hard budget of a couple of tool calls. It's perfect for: writing a one-line memory note that says "saw a new charge from Stripe for $84, customer X, merchant Y", silently marking a Slack message as handled because it's the same automated alert you've already triaged twice this week, or storing a structured record of an event the user might want to look up later.
 
-- **`escalate`** is the heavy path. When the Triage agent decides the trigger needs real work, it hands off to the Orchestrator with a self-contained task description. The orchestrator has access to your full skill surface, tools, memory, and the [Subconscious Loop](../subconscious.md) outputs. From there it might:
+- **`escalate`** is the heavy path. When the Triage agent decides the trigger needs real work, it hands off to the Orchestrator with a self-contained task description. The orchestrator has access to your full skill surface, tools, and memory. From there it might:
   - Draft a reply to an important email and queue it for your approval.
   - Pull up the relevant Notion / Linear / Drive context for an inbound issue and write a structured comment.
   - Update three connected systems based on a single inbound event ("this customer's plan changed in Stripe, update HubSpot, post in #revenue, and add a note to their Notion file").
@@ -134,4 +134,3 @@ Triggers follow the same boundary as the rest of the product (see [Privacy & Sec
 
 - [Third-party Integrations](README.md), the catalog of services triggers come from.
 - [Auto-fetch from Integrations](../obsidian-wiki/auto-fetch.md), the polling counterpart, periodic ingest of source data into the Memory Tree.
-- [Subconscious Loop](../subconscious.md), the background loop that uses trigger context and memory to plan ahead.

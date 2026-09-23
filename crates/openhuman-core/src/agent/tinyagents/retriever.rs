@@ -44,12 +44,12 @@ use std::sync::{Arc, OnceLock};
 
 use serde_json::json;
 use tinyagents_harness::events::{AgentEvent, EventSink};
-use tinyinference::embeddings::{
+use tinyinference_embeddings::{
     EmbeddingModel as TaEmbeddingModel, InMemoryVectorStore, Retriever, ScoredDoc,
 };
 
 use super::ProviderEmbeddingModel;
-use crate::inference::embeddings::EmbeddingProvider;
+use crate::inference::embedding_host::EmbeddingProvider;
 use crate::memory::{Memory, MemoryEntry, RecallOpts};
 
 /// Process-global [`EventSink`] the facade emits [`AgentEvent::MemoryLoaded`]

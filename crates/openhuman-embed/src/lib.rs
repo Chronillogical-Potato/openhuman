@@ -1,9 +1,17 @@
 //! Typed embedding facade over [`CoreRuntime`].
 //!
-//! [`CoreBuilder`](openhuman_core::core::runtime::CoreBuilder) gives an embedder a
-//! running core; [`CoreRuntime::invoke`] gives it JSON. This crate is the
-//! third piece: real Rust types, so a host application never writes
-//! `serde_json::json!` or matches on an error string.
+//! Two ways in:
+//!
+//! * **[`Runtime`] → [`Agent`]** — the library API. Initialise one runtime
+//!   (features, services, backend, the TinyHumans API key), then instantiate
+//!   any number of independently configured agents on it, each with its own
+//!   MCP servers, skills, working directory, access tier, provider and
+//!   prompt. [`Harness`] is the one-agent shorthand over the same two types.
+//! * **[`Core`]** — the typed facade over a [`CoreRuntime`] the host built
+//!   itself with [`CoreBuilder`](openhuman_core::core::runtime::CoreBuilder).
+//!   [`CoreRuntime::invoke`] gives it JSON; this facade gives it real Rust
+//!   types, so a host never writes `serde_json::json!` or matches on an
+//!   error string.
 //!
 //! ```no_run
 //! # async fn demo() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,6 +59,10 @@
 //! reporting a failure.
 
 pub use openhuman_core::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
+pub use openhuman_core::api::transport::{
+    install_backend_transport, installed_backend_transport, BackendRequest, BackendTransport,
+    BackendTransportError, TransportProfile,
+};
 pub use openhuman_core::api::{product_identity, set_product_identity, ProductIdentity};
 pub use openhuman_core::config::Config as RuntimeConfig;
 pub use openhuman_core::security::TrustedAccess;
@@ -71,14 +83,20 @@ mod agent;
 mod auth;
 mod call;
 mod config;
+mod core_agent;
 mod error;
 mod harness;
 #[cfg(feature = "medulla")]
 mod medulla;
+mod runtime;
+mod turn;
 
-pub use agent::{absolute, Agent, Route, Turn, TurnOutcome, TurnRequest};
+pub use agent::{
+    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, SandboxModeSpec, ToolScopeSpec,
+};
 pub use auth::{Auth, AuthState, Session};
 pub use config::{Config, RuntimeFlags};
+pub use core_agent::CoreAgent;
 pub use error::CoreError;
 pub use harness::{
     Access, Harness, HarnessBuilder, HarnessCore, HarnessError, Provider, Workspace,
@@ -90,6 +108,8 @@ pub use medulla::{
     AbortResult, Medulla, MedullaStatus, Message, RosterWorker, SendResult, SessionCreated,
     SessionDetail, SessionSummary, WireEventEnvelope,
 };
+pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
+pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 
 use std::sync::Arc;
 
@@ -127,7 +147,8 @@ impl Core {
         Auth(&self.rt)
     }
 
-    /// Typed access to the agent harness — run a turn, get a reply.
+    /// Typed access to the agent harness — run a turn on the runtime's
+    /// orchestrator, get a reply.
     ///
     /// Requires the `inference` domain family at runtime; with it off the turn
     /// returns [`CoreError::Unavailable`], because the routed chat entry point
@@ -136,8 +157,11 @@ impl Core {
     /// `inference` **off** despite its name — use
     /// [`DomainSet::embedded`](openhuman_core::core::runtime::DomainSet::embedded), or
     /// set the field.
-    pub fn agent(&self) -> Agent<'_> {
-        Agent(&self.rt)
+    ///
+    /// For agents of your own — several, each with its own MCP servers,
+    /// skills, working directory and access tier — see [`Runtime::agent`].
+    pub fn agent(&self) -> CoreAgent<'_> {
+        CoreAgent(&self.rt)
     }
 
     /// Typed access to the Medulla orchestration backend.

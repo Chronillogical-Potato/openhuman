@@ -10,11 +10,11 @@
 //! time-range, country, and language filters. This integration calls the
 //! Querit API directly using the user's configured API key.
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::time::Duration;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 const DEFAULT_API_URL: &str = "https://api.querit.ai/v1";
 

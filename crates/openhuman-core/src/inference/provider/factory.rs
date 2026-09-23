@@ -84,6 +84,7 @@ use local_runtime::{
     try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_from_string,
     OptionalChatModelResult,
 };
+pub(crate) use managed_backend::make_openhuman_backend_model_for_thread;
 use managed_backend::{resolve_managed_backend, resolve_managed_backend_with_model_override};
 use primary_cloud::{legacy_inference_slug, resolve_primary_cloud_provider_string};
 use routing::split_model_and_temperature;
@@ -92,10 +93,10 @@ use subprocess_providers::{
     try_create_claude_agent_sdk_chat_model_from_string, try_create_claude_code_chat_model,
     try_create_claude_code_chat_model_from_string,
 };
-use tiers::is_abstract_tier_model;
+use tiers::{is_abstract_tier_model, managed_default_model};
 
 /// Test-only seam: inject a mock [`ChatModel`] so e2e tests can drive the
-/// autonomous run paths (`spawn_workflow_run_background`, the task dispatcher)
+/// autonomous run paths (for example `spawn_workflow_run_background`)
 /// with a scripted LLM and no network. Process-global because those runs are
 /// detached `tokio::spawn`s — a thread/task-local would not reach them.
 ///
@@ -115,17 +116,18 @@ mod factory_tests;
 
 use crate::config::schema::cloud_providers::AuthStyle;
 use crate::config::Config;
-use crate::inference::provider::auth::AuthStyle as CompatAuthStyle;
-use crate::inference::provider::claude_agent_sdk::subprocess::ClaudeAgentSdkProvider;
-use crate::inference::provider::openai_codex::{
-    openai_codex_client_version, openai_codex_user_agent, resolve_openai_codex_routing,
-    OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
-};
+use crate::inference::provider::openai_codex::resolve_openai_codex_routing;
 use crate::inference::provider::openhuman_backend_model::OpenHumanBackendModel;
 use crate::inference::provider::ProviderRuntimeOptions;
 use crate::security::credentials::AuthService;
 use std::sync::Arc;
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
+use tinyagents_harness::providers::claude_agent_sdk::ClaudeAgentSdkProvider;
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
+use tinyinference_llm::providers::openai::codex::{
+    openai_codex_client_version, openai_codex_user_agent, OPENAI_CODEX_ACCOUNT_HEADER,
+    OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
+};
+use tinyinference_llm::providers::openai::AuthStyle as CompatAuthStyle;
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".
 pub const PROVIDER_OPENHUMAN: &str = "openhuman";
@@ -149,13 +151,3 @@ pub const CLAUDE_AGENT_SDK_PROVIDER: &str = "claude_agent_sdk";
 /// `create_chat_model_from_string` to produce a clear configuration error
 /// instead of silently routing through the managed OpenHuman backend.
 pub const BYOK_INCOMPLETE_SENTINEL: &str = "__byok_incomplete__";
-
-/// Interpolation-free substring of the empty-model bail emitted by
-/// cloud-slug resolution when a `<slug>` provider string carries
-/// no model and the `cloud_providers` entry has no `default_model` (the
-/// #2784 guard). The Sentry-demotion + user-copy classifier
-/// [`super::is_provider_config_rejection_message`] keys on this exact literal,
-/// and a round-trip test in `factory_tests.rs` asserts the bail body still
-/// contains it — so a wording drift fails CI instead of silently re-flooding
-/// Sentry (TAURI-RUST-GKV).
-pub(crate) const NO_MODEL_CONFIGURED_ANCHOR: &str = "resolved to an empty model id";

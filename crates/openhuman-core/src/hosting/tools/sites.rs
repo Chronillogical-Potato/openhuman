@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use tinyhosts::{DeploymentTarget, EnvVar, Host};
 
 use super::{env_value, required_str};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 // ── hosting_list_sites ──────────────────────────────────────────────────────
 

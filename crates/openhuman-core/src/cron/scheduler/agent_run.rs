@@ -1,9 +1,9 @@
 //! Execution of `JobType::Agent` and `JobType::Flow` jobs: agent construction
-//! (definition / profile attribution) and the single scheduled turn.
+//! (definition selection) and the single scheduled turn.
 
 use super::delivery::is_morning_briefing_job;
 use super::failure_classification::classify_agent_anyhow_for_user;
-use crate::agent::Agent;
+use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
@@ -33,8 +33,10 @@ pub(super) async fn run_agent_job(
     // When an agent_id is set, resolve the built-in definition and apply
     // its model hint, iteration cap, and prompt body so the cron job
     // runs with the definition's constraints instead of the generic
-    // Agent::from_config defaults.
-    if let Some(ref agent_id) = job.agent_id {
+    // OpenHumanSessionHost::from_config defaults.
+    let selected_agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
+    {
+        let agent_id = selected_agent_id;
         if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::global()
         {
             if let Some(def) = registry.get(agent_id) {
@@ -48,7 +50,7 @@ pub(super) async fn run_agent_job(
                 // exact model id. `ModelSpec::resolve` synthesises
                 // `{hint}-v1` for Hint specs, which only the OpenHuman
                 // backend understands as a tier hint — Anthropic and
-                // every other provider 404 on names like `agentic-v1`.
+                // every other provider 404 on names like `hint:agentic`.
                 // Route Hint specs through the per-workload factory so
                 // we get the exact model the user has configured for
                 // that workload, regardless of which provider it lives
@@ -109,13 +111,13 @@ pub(super) async fn run_agent_job(
                 tracing::warn!(
                     job_id = %job.id,
                     agent_id = %agent_id,
-                    "[cron] agent_id not found in registry — falling back to generic agent"
+                    "[cron] agent_id not found in registry — falling back to canonical orchestrator"
                 );
             }
         } else {
             tracing::warn!(
                 job_id = %job.id,
-                "[cron] AgentDefinitionRegistry not initialized — falling back to generic agent"
+                "[cron] AgentDefinitionRegistry not initialized — falling back to canonical orchestrator"
             );
         }
     }
@@ -128,7 +130,7 @@ pub(super) async fn run_agent_job(
                 "[cron] building isolated agent for scheduled job"
             );
             match build_agent_for_cron_job(&effective, job) {
-                Ok(BuiltCronAgent { mut agent, profile }) => {
+                Ok(BuiltCronAgent { mut agent }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
@@ -142,12 +144,9 @@ pub(super) async fn run_agent_job(
                         job_id: job.id.clone(),
                         source: crate::agent::turn_origin::TrustedAutomationSource::Cron,
                     };
-                    let turn = crate::memory::source_scope::with_source_scope(
-                        profile.and_then(|profile| profile.memory_sources),
-                        crate::agent::turn_origin::with_origin(
-                            origin,
-                            agent.run_single(&prefixed_prompt),
-                        ),
+                    let turn = crate::agent::turn_origin::with_origin(
+                        origin,
+                        agent.run_single(&prefixed_prompt),
                     );
                     // Morning briefing only: install a 24h task-recency window
                     // so Composio task-fetch tools (Linear/ClickUp/Notion/Asana)
@@ -232,144 +231,33 @@ pub(super) fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
 /// no text. Never delivered to chat — used only for the run-history record.
 pub(super) const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 
-/// Resolve the agent profile a cron job is attributed to, if any.
-///
-/// Returns `Some(profile)` only when `job.profile_id` is set AND that profile
-/// still exists in the store. A deleted profile yields `Ok(None)` so the caller
-/// runs the job without a profile rather than failing it (2b). Profile-store
-/// failures are returned: attribution must not fail open when the scheduler
-/// cannot determine whether the referenced profile still exists.
-pub(super) fn resolve_cron_profile(
-    config: &Config,
-    job: &CronJob,
-) -> anyhow::Result<Option<crate::agent::profiles::AgentProfile>> {
-    let Some(profile_id) = job.profile_id.as_deref() else {
-        return Ok(None);
-    };
-    match crate::agent::profiles::load_profiles(&config.workspace_dir) {
-        Ok(state) => {
-            let found = state.profiles.into_iter().find(|p| p.id == profile_id);
-            if found.is_none() {
-                tracing::warn!(
-                    job_id = %job.id,
-                    profile_id = %profile_id,
-                    "[cron] attributed profile no longer exists — running job without a profile"
-                );
-            }
-            Ok(found)
-        }
-        Err(e) => Err(anyhow::anyhow!(
-            "failed to load attributed profile {profile_id:?} for cron job {}: {e}",
-            job.id
-        )),
-    }
-}
-
 pub(super) struct BuiltCronAgent {
-    pub(crate) agent: Agent,
-    pub(crate) profile: Option<crate::agent::profiles::AgentProfile>,
-}
-
-pub(super) fn apply_cron_profile_runtime_defaults(
-    config: &Config,
-    job: &CronJob,
-    profile: &crate::agent::profiles::AgentProfile,
-) -> Config {
-    let mut effective = config.clone();
-    if let Some(model) = profile.model_override.clone() {
-        effective.default_model = Some(model);
-    }
-    if let Some(temperature) = profile.temperature {
-        effective.default_temperature = temperature;
-    }
-    // A job-level pin is the most specific model choice.
-    if let Some(model) = job.model.clone() {
-        effective.default_model = Some(model);
-    }
-    effective
+    pub(crate) agent: OpenHumanSessionHost,
 }
 
 pub(super) fn build_agent_for_cron_job(
     config: &Config,
     job: &CronJob,
 ) -> anyhow::Result<BuiltCronAgent> {
-    // 2b — profile attribution. When the job names a profile that still exists,
-    // build the run under it via the SAME profile-aware session path the task
-    // dispatcher uses (`from_config_for_agent_with_profile`), so the run inherits
-    // the profile's SOUL, memory scope, dedicated-workspace descriptor, and
-    // tool/skill/MCP allowlists. A deleted profile falls through (warned in
-    // `resolve_cron_profile`) to the profile-less path below.
-    if let Some(profile) = resolve_cron_profile(config, job)? {
-        // Apply the same profile runtime defaults as interactive chat. A
-        // per-job model pin remains the most specific choice and therefore
-        // wins over the profile model. The profile-aware builder consumes the
-        // prompt suffix directly and gives profile temperature precedence over
-        // the selected agent definition.
-        let effective = apply_cron_profile_runtime_defaults(config, job, &profile);
-        // A job may pin a built-in `agent_id`; otherwise the profile picks its
-        // own agent definition.
-        let agent_id = job
-            .agent_id
-            .clone()
-            .unwrap_or_else(|| profile.agent_id.clone());
-        let agent = Agent::from_config_for_agent_with_profile(
-            &effective,
-            &agent_id,
-            profile.system_prompt_suffix.clone(),
-            Some(&profile),
-        )
-        .inspect(|_| {
+    let agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
+    match OpenHumanSessionHost::from_config_for_agent(config, agent_id) {
+        Ok(agent) => {
             tracing::debug!(
                 job_id = %job.id,
-                profile_id = %profile.id,
                 agent_id = %agent_id,
-                "[cron] built scheduled job agent under attributed profile"
+                "[cron] built scheduled job agent from definition"
             );
-        })
-        .map_err(|e| {
-            anyhow::anyhow!(
-                "failed to build cron job {} under attributed profile {:?} with agent {:?}: {e:#}",
-                job.id,
-                profile.id,
-                agent_id
-            )
-        })?;
-        return Ok(BuiltCronAgent {
-            agent,
-            profile: Some(profile),
-        });
-    }
-
-    if let Some(agent_id) = job.agent_id.as_deref() {
-        match Agent::from_config_for_agent(config, agent_id) {
-            Ok(agent) => {
-                tracing::debug!(
-                    job_id = %job.id,
-                    agent_id = %agent_id,
-                    "[cron] built scheduled job agent from definition"
-                );
-                Ok(BuiltCronAgent {
-                    agent,
-                    profile: None,
-                })
-            }
-            Err(e) => {
-                tracing::warn!(
-                    job_id = %job.id,
-                    agent_id = %agent_id,
-                    error = %e,
-                    "[cron] failed to build agent from definition; falling back to generic agent"
-                );
-                Agent::from_config(config).map(|agent| BuiltCronAgent {
-                    agent,
-                    profile: None,
-                })
-            }
+            Ok(BuiltCronAgent { agent })
         }
-    } else {
-        Agent::from_config(config).map(|agent| BuiltCronAgent {
-            agent,
-            profile: None,
-        })
+        Err(e) => {
+            tracing::warn!(
+                job_id = %job.id,
+                agent_id = %agent_id,
+                error = %e,
+                "[cron] failed to build agent from definition; falling back to canonical orchestrator"
+            );
+            OpenHumanSessionHost::from_config_for_agent(config, "orchestrator")
+                .map(|agent| BuiltCronAgent { agent })
+        }
     }
 }

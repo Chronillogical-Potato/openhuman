@@ -122,11 +122,12 @@ fn freshness_serialises_snake_case() {
 /// tell "nothing running" from "a core that does not report it".
 #[test]
 fn source_status_serde_shape_is_unchanged() {
-    let json = serde_json::to_value(SourceStatus::idle("src_a".into())).unwrap();
+    let json = serde_json::to_value(SourceStatus::idle("src_a".into(), "Notes".into())).unwrap();
     assert_eq!(
         json,
         serde_json::json!({
             "source_id": "src_a",
+            "label": "Notes",
             "chunks_synced": 0,
             "chunks_pending": 0,
             "last_chunk_at_ms": null,
@@ -142,7 +143,7 @@ fn source_status_serde_shape_is_unchanged() {
 #[test]
 fn the_run_in_flight_rides_on_the_status_row() {
     use crate::memory::sync_activity::LiveSync;
-    let live = SourceStatus::idle("src_a".into()).with_live_sync(Some(LiveSync {
+    let live = SourceStatus::idle("src_a".into(), "Notes".into()).with_live_sync(Some(LiveSync {
         stage: "running".into(),
         detail: Some("pass 1".into()),
         updated_at_ms: 1,

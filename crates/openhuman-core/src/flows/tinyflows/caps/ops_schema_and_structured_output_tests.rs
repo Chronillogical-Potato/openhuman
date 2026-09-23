@@ -166,10 +166,10 @@ fn resolve_completion_model_leaves_managed_tier_and_hint_node_models_untouched()
 
 #[test]
 fn crate_model_response_preserves_flow_completion_contract() {
-    use tinyinference::message::{AssistantMessage, ContentBlock};
-    use tinyinference::model::ModelResponse;
-    use tinyinference::tool::ToolCall;
-    use tinyinference::usage::Usage;
+    use tinyinference_llm::message::{AssistantMessage, ContentBlock};
+    use tinyinference_llm::model::ModelResponse;
+    use tinyinference_llm::tool::ToolCall;
+    use tinyinference_llm::usage::Usage;
 
     let usage = Usage::new(11, 7);
     let response = ModelResponse {
@@ -186,6 +186,7 @@ fn crate_model_response_preserves_flow_completion_contract() {
                 invalid: None,
             }],
             usage: Some(usage),
+            origin: None,
         },
         usage: Some(usage),
         finish_reason: Some("tool_calls".to_string()),
@@ -193,6 +194,8 @@ fn crate_model_response_preserves_flow_completion_contract() {
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,
+        correlation: None,
+        resolved_route: None,
     };
 
     let value = model_response_to_completion_value(&response);

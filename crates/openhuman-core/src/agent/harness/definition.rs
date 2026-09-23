@@ -15,7 +15,7 @@
 //! Sub-agents are dispatched at runtime by the `spawn_subagent` tool, which
 //! looks up an [`AgentDefinition`] by id in the global
 //! [`AgentDefinitionRegistry`] and hands it to
-//! [`super::subagent_runner::run_subagent`].
+//! [`crate::agent::subagent_host::run_subagent`].
 //!
 //! This file intentionally has zero references to the rest of the agent
 //! runtime — it is pure data so the model can be unit-tested in isolation

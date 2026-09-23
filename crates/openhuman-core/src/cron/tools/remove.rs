@@ -1,9 +1,9 @@
 use crate::config::Config;
 use crate::cron;
-use crate::tools::traits::{PermissionLevel, Tool, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};
 
 pub struct CronRemoveTool {
     config: Arc<Config>,

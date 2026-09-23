@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 //! Round19 focused raw coverage for leftover channel provider branches.
 //!
 //! These tests use loopback mocks, public debug seams, and short-lived

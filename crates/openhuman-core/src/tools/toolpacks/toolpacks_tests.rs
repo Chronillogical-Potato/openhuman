@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::*;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult, ToolTimeout};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 struct FakeTool {
     name: &'static str,
@@ -104,7 +104,7 @@ fn find<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
 /// vector, the packed tool in the separate synthesised one.
 ///
 /// This is not a contrived shape. Every `delegate_*` tool is synthesised into
-/// `Agent::synthesized_tools`, a different `Arc` from the durable registry
+/// `OpenHumanSessionHost::synthesized_tools`, a different `Arc` from the durable registry
 /// (#6145), and seven delegates were already packed.
 fn split_registries(
     name: &'static str,
@@ -128,8 +128,8 @@ fn split_registries(
 ///
 /// It was not. `use_skill` was bound only to the durable registry, and no
 /// `delegate_*` tool is in it — so `do_crypto`, `run_skill`, `setup_skills`,
-/// `build_workflow`, `discover_workflows`, `use_mcp_server` and
-/// `setup_mcp_server` were all dropped from the wire and then unreachable
+/// `build_workflow`, `discover_workflows` and `use_mcp_server` were all
+/// dropped from the wire and then unreachable
 /// through the route that was supposed to replace them. Withholding a tool the
 /// model then cannot call is strictly worse than never packing it.
 #[tokio::test]
@@ -450,7 +450,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "get_tool_output_sample",
                 "list_node_kinds",
                 "get_node_kind_contract",
-                "list_agent_profiles",
+                "list_agent_definitions",
                 "list_connectable_toolkits",
             ],
         ),
@@ -477,8 +477,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         (
             "integrations",
             &[
-                "use_mcp_server",
-                "setup_mcp_server",
                 "mcp_registry_status",
                 "mcp_registry_search",
                 "mcp_registry_get",
@@ -487,8 +485,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "mcp_registry_connect",
                 "mcp_registry_disconnect",
                 "mcp_registry_tool_call",
-                "mcp_registry_config_assist",
-                "mcp_registry_install",
                 "mcp_registry_uninstall",
             ],
         ),
@@ -497,7 +493,8 @@ fn every_pack_declares_the_tools_it_is_named_for() {
             &[
                 "composio",
                 "composio_authorize",
-                "composio_connect",
+                // `composio_connect` is the orchestrator's inline connect
+                // card and stays unpacked (see the registry note).
                 "composio_execute",
                 "composio_list_connections",
                 "composio_list_toolkits",
@@ -513,8 +510,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 // withheld — 748 B on every wildcard agent for a doorway to a
                 // locked room.
                 "skill_search",
-                "run_skill",
-                "setup_skills",
                 "skill_registry_browse",
                 "skill_registry_search",
                 "skill_registry_install",
@@ -595,18 +590,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 "storage_get_link",
             ],
         ),
-        (
-            "scheduling",
-            &[
-                "schedule_task",
-                "cron_add",
-                "cron_list",
-                "cron_remove",
-                "cron_update",
-                "cron_run",
-                "cron_runs",
-            ],
-        ),
+        ("scheduling", &["schedule_task", "cron"]),
         (
             "profile",
             &[

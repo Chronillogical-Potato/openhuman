@@ -2,12 +2,11 @@
 //! system prompt, and the message dispatch loop.
 
 use super::super::dispatch::{run_message_dispatch_loop, RuntimeChannelMessage};
-use super::super::supervision::{compute_max_in_flight_messages, spawn_supervised_listener};
+use super::super::supervision::spawn_supervised_listener;
 use super::chat_workload::{resolve_chat_workload, ChatWorkloadResolution};
 use super::credentials::{hydrate_channel_credentials, RuntimeProxyClients};
 use super::prompt::format_access_context;
 use super::relay::start_relay_runtime;
-use crate::agent::harness::build_tool_instructions_filtered;
 use crate::agent::host_runtime;
 use crate::channels::context::{
     effective_channel_message_timeout_secs, ChannelRuntimeContext,
@@ -24,6 +23,8 @@ use crate::tools;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tinychannels::runtime::compute_max_in_flight_messages;
+use tokio_util::task::AbortOnDropHandle;
 
 /// What the channel-server banner prints on its `🧠 Memory:` line.
 ///
@@ -44,7 +45,18 @@ use std::sync::{Arc, Mutex};
 /// printed line is byte-identical to before.
 const EFFECTIVE_MEMORY_BACKEND_LABEL: &str = "namespace";
 
-pub async fn start_channels(mut config: Config) -> Result<()> {
+pub async fn start_channels(config: Config) -> Result<()> {
+    start_channels_with_session(config, super::super::session::channel_session()).await
+}
+
+pub(crate) async fn start_channels_with_session(
+    config: Config,
+    session: tokio_util::sync::CancellationToken,
+) -> Result<()> {
+    super::super::session::run_in_session(session, start_channels_inner(config)).await
+}
+
+async fn start_channels_inner(mut config: Config) -> Result<()> {
     // Initialize the global event bus singleton and register the tracing
     // subscriber for debug logging of all domain events.
     crate::core::bus::init().await.expect("bus init");
@@ -80,9 +92,6 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // configured external sources onto the agent's todo board.
     crate::integrations::task_sources::bus::register_task_sources_subscriber();
     crate::integrations::task_sources::start_periodic_poll();
-    // Board poller: dispatch the highest-urgency `todo` card on the
-    // task-sources board (catch-all for cards without a proactive trigger).
-    crate::agent::task_dispatcher::start_board_poller();
     // Native request handlers. Re-registering is safe (latest wins) so
     // this is idempotent even if `bootstrap_core_runtime` also runs.
     // Must happen before `run_message_dispatch_loop` begins, because
@@ -187,7 +196,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let temperature = config.default_temperature;
     // Build system prompt from workspace identity files + skills
     let workspace = config.workspace_dir.clone();
-    let tools_registry = Arc::new(tools::all_tools_with_runtime(
+    let tools_registry = Arc::new(tools::ops::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
         runtime,
@@ -199,10 +208,6 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
         &config.action_dir,
         &config.agents,
         &config,
-        None,
-        None,
-        None,
-        None,
         None,
     ));
 
@@ -275,17 +280,17 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // Filter out Workflow-category tools (e.g. Composio, Apify) from the
     // main agent prompt — those are only available to the integrations_agent
     // subagent via category_filter = "skill".
-    let non_skill_tools: Vec<&Box<dyn crate::tools::Tool>> = tools_registry
+    let non_skill_tools: Vec<&Box<dyn tinytools::Tool>> = tools_registry
         .iter()
-        .filter(|t| t.category() != crate::tools::traits::ToolCategory::Workflow)
+        .filter(|t| t.category() != tinytools::ToolCategory::Workflow)
         .collect();
-    let non_skill_refs: Vec<&dyn crate::tools::Tool> =
-        non_skill_tools.iter().map(|t| t.as_ref()).collect();
     // Everything after the rendered prompt is fixed for the process: the
     // tool-instruction block, then the model's current filesystem access
     // boundaries so it self-limits (advisory only — the SecurityPolicy
     // enforces these regardless).
-    let mut prompt_suffix = build_tool_instructions_filtered(&non_skill_refs);
+    let non_skill_specs: Vec<tinytools::ToolSpec> =
+        non_skill_tools.iter().map(|tool| tool.spec()).collect();
+    let mut prompt_suffix = tinytools_agent::dialect::XmlDialect::instructions(&non_skill_specs);
     prompt_suffix.push_str(&format_access_context(&security));
     // The prompt itself is rendered here for the current identity and
     // re-rendered whenever the active profile or an identity file changes
@@ -386,7 +391,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     let (provider_tx, mut provider_rx) = tokio::sync::mpsc::channel::<traits::ChannelMessage>(100);
     let (dispatch_tx, rx) = tokio::sync::mpsc::channel::<RuntimeChannelMessage>(100);
     let provider_dispatch_tx = dispatch_tx.clone();
-    let provider_bridge = tokio::spawn(async move {
+    let provider_bridge = AbortOnDropHandle::new(tokio::spawn(async move {
         while let Some(msg) = provider_rx.recv().await {
             if provider_dispatch_tx
                 .send(RuntimeChannelMessage::from(msg))
@@ -396,7 +401,7 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
                 break;
             }
         }
-    });
+    }));
 
     let mut relay_handles = Vec::new();
     if let Some(ref relay) = relay_config {
@@ -411,12 +416,12 @@ pub async fn start_channels(mut config: Config) -> Result<()> {
     // Spawn a listener for each channel
     let mut handles = Vec::new();
     for ch in &channels {
-        handles.push(spawn_supervised_listener(
+        handles.push(AbortOnDropHandle::new(spawn_supervised_listener(
             ch.clone(),
             provider_tx.clone(),
             initial_backoff_secs,
             max_backoff_secs,
-        ));
+        )));
     }
     drop(provider_tx); // Drop our copy so provider_rx closes when all channels stop.
     drop(dispatch_tx); // Drop startup's copy; relay/bridge clones keep dispatch alive.

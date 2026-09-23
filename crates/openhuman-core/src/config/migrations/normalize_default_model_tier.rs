@@ -1,5 +1,10 @@
 //! Migration 7 → 8: retire the stale OpenHuman reasoning-tier `default_model`
-//! defaults, rewriting them to the canonical `chat-v1` tier.
+//! defaults, rewriting them to the managed default model.
+//!
+//! Historically the target was the `chat-v1` tier; that slug is itself retired
+//! by migration 12 → 13, so the rewrite lands directly on
+//! [`MODEL_MANAGED_DEFAULT`] and a workspace that skips from 7 never carries
+//! a tier slug in between.
 //!
 //! `config.default_model` selects the managed-backend tier for the implicit
 //! turns that read it (triage classification, the subconscious cloud tick,
@@ -25,7 +30,7 @@
 //! - Idempotent: re-running on a non-stale value is a no-op.
 //! - Touches nothing other than `default_model`, and only for the two stale tiers.
 
-use crate::config::{Config, MODEL_CHAT_V1, MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1};
+use crate::config::{Config, MODEL_MANAGED_DEFAULT};
 
 /// Counters returned by [`run`] for diagnostics.
 #[derive(Debug, Default, Clone)]
@@ -45,16 +50,16 @@ pub fn run(config: &mut Config) -> anyhow::Result<MigrationStats> {
     // `" reasoning-v1 "` is still caught, but never touch arbitrary/custom values.
     let is_stale_reasoning_tier = config.default_model.as_deref().is_some_and(|model| {
         let trimmed = model.trim();
-        trimmed == MODEL_REASONING_V1 || trimmed == MODEL_REASONING_QUICK_V1
+        trimmed == "reasoning-v1" || trimmed == "reasoning-quick-v1"
     });
 
     if is_stale_reasoning_tier {
         log::info!(
             "[migrations][normalize-default-model] stale default_model {:?} rewritten to \
-             '{MODEL_CHAT_V1}'",
+             '{MODEL_MANAGED_DEFAULT}'",
             config.default_model
         );
-        config.default_model = Some(MODEL_CHAT_V1.to_string());
+        config.default_model = Some(MODEL_MANAGED_DEFAULT.to_string());
         stats.default_model_normalized = true;
     } else {
         log::debug!(

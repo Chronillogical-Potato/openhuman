@@ -11,7 +11,7 @@ use log::debug;
 use serde_json::json;
 use std::time::Duration;
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 use super::store;
 use super::types::*;

@@ -24,7 +24,8 @@ use openhuman_core::integrations::composio::{
     invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,
 };
 use openhuman_core::config::Config;
-use openhuman_core::tools::{ComposioListToolsTool, Tool, ToolCallOptions};
+use tinytools::{Tool, ToolCallOptions};
+use openhuman_core::tools::{ComposioListToolsTool};
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -90,6 +91,8 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 async fn setup_direct_config(base: &str) -> Harness {
+
+    crate::tinyhumans_boot::boot();
     std::fs::create_dir_all("target").expect("target dir");
     let tmp = Builder::new()
         .prefix("tools-composio-large-round25-")

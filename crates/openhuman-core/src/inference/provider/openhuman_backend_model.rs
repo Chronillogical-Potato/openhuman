@@ -28,19 +28,47 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use tinyinference::message::Message;
-use tinyinference::model::{
+use tinyinference_llm::message::Message;
+use tinyinference_llm::model::{
     ChatModel, Modalities, ModelProfile, ModelRequest, ModelResponse, ModelStream, ProviderError,
 };
-use tinyinference::providers::openai::OpenAiModel;
-use tinyinference::Error as TiError;
+use tinyinference_llm::providers::openai::OpenAiModel;
+use tinyinference_llm::Error as TiError;
 
 use super::ProviderRuntimeOptions;
-use crate::agent::tinyagents::thread_context;
 use crate::api::config::effective_api_url;
 use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
 pub const PROVIDER_LABEL: &str = "OpenHuman";
+
+/// Whether `endpoint` is safe to carry the TinyHumans API key as a bearer.
+///
+/// `https://` always qualifies; plain `http://` only for loopback, matching
+/// `openhuman_embed::turn::is_safe_endpoint_for_bearer`'s allowance for local
+/// testing against a dev server. Anything else — a plaintext non-loopback
+/// endpoint — would put the key on the wire in the clear (CWE-319), so
+/// [`OpenHumanBackendModel::resolve_bearer`] refuses before it gets there.
+/// Deliberately narrow to the managed-key bearer path: `normalize_api_base_url`
+/// itself must stay permissive, because a library host's BYOK/local `api_url`
+/// can legitimately be plain HTTP.
+fn is_safe_endpoint_for_managed_bearer(endpoint: &str) -> bool {
+    let Ok(url) = url::Url::parse(endpoint) else {
+        return false;
+    };
+    if url.scheme() == "https" {
+        return true;
+    }
+    if url.scheme() != "http" {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    matches!(
+        host,
+        "127.0.0.1" | "localhost" | "::1" | "[::1]" | "[0:0:0:0:0:0:0:1]" | "0:0:0:0:0:0:0:1"
+    ) || host.starts_with("127.")
+}
 
 /// The managed OpenHuman backend as a crate [`ChatModel`]. Holds the backend
 /// connection settings (for JWT + base-URL resolution) and the default model id
@@ -51,6 +79,10 @@ pub struct OpenHumanBackendModel {
     default_model: String,
     native_tool_calling: bool,
     profile: ModelProfile,
+    /// Normalized OpenHuman conversation thread. This is deliberately owned by
+    /// the managed backend model: BYOK and third-party models must never see
+    /// this backend-only extension.
+    thread_id: Option<String>,
 }
 
 impl OpenHumanBackendModel {
@@ -79,7 +111,19 @@ impl OpenHumanBackendModel {
                 streaming_tool_chunks: true,
                 ..ModelProfile::default()
             },
+            thread_id: None,
         }
+    }
+
+    /// Attach the explicit run thread used by OpenHuman's managed inference
+    /// endpoint. Blank values mean no backend thread rather than an empty wire
+    /// field.
+    pub fn with_thread_id(mut self, thread_id: Option<impl AsRef<str>>) -> Self {
+        self.thread_id = thread_id.and_then(|thread_id| {
+            let thread_id = thread_id.as_ref().trim();
+            (!thread_id.is_empty()).then(|| thread_id.to_owned())
+        });
+        self
     }
 
     pub fn with_default_model(mut self, model: impl Into<String>) -> Self {
@@ -110,6 +154,33 @@ impl OpenHumanBackendModel {
             classify_session_token, SessionTokenCheck,
         };
 
+        // A stored API key (library runtime) is the bearer outright: the
+        // OpenAI-compatible managed endpoint accepts it as `Bearer <key>`,
+        // and there is no session — so no `exp` and no signed-out state — to
+        // consult.
+        if let Some(key) = crate::security::credentials::api_key::get_api_key_in(
+            &self.state_dir(),
+            self.options.secrets_encrypt,
+        )? {
+            // Refuse to send the key over a plaintext channel it could leak
+            // from. Scoped to this managed-key path only — `base_url()`
+            // comes from `effective_api_url`, which a library host can point
+            // at anything (a BYOK/local endpoint legitimately runs over
+            // plain HTTP on loopback), so this cannot tighten
+            // `normalize_api_base_url` itself without breaking those.
+            let endpoint = self.base_url();
+            if !is_safe_endpoint_for_managed_bearer(&endpoint) {
+                anyhow::bail!(
+                    "refusing to send the TinyHumans API key as a bearer over a non-HTTPS, \
+                     non-loopback endpoint: {endpoint} — set a https:// api_url or a loopback \
+                     one for local testing"
+                );
+            }
+            log::debug!(
+                "[providers][openhuman-backend] authenticating managed inference with api-key"
+            );
+            return Ok(key);
+        }
         if crate::cron::scheduler_gate::is_signed_out() {
             anyhow::bail!(
                 "SESSION_EXPIRED: backend session not active — sign in to resume LLM work"
@@ -155,7 +226,7 @@ impl OpenHumanBackendModel {
 
     /// Resolve the current JWT + base URL and build a fresh crate `OpenAiModel`
     /// (Bearer). Rebuilt per call because the session JWT rotates.
-    fn build_wire_model(&self) -> tinyinference::Result<OpenAiModel> {
+    fn build_wire_model(&self) -> tinyinference_llm::Result<OpenAiModel> {
         let token = self
             .resolve_bearer()
             .map_err(|e| TiError::Model(e.to_string()))?;
@@ -307,9 +378,9 @@ fn resolve_model(model: &str) -> String {
         log::debug!(
             "[providers][openhuman-backend] empty model passed to OpenHuman backend; \
              substituting default `{}` (TAURI-RUST-RS)",
-            crate::config::MODEL_REASONING_V1
+            crate::config::MODEL_MANAGED_DEFAULT
         );
-        crate::config::MODEL_REASONING_V1.to_string()
+        crate::config::MODEL_MANAGED_DEFAULT.to_string()
     } else {
         trimmed.to_string()
     }
@@ -385,11 +456,10 @@ fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
     response
 }
 
-/// Inject the ambient `thread_id` (when set) into the request's
-/// `provider_options` so the crate emits it as a top-level `thread_id` body field
-/// — parity with the host `with_openhuman_thread_id` extension.
-fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
-    let Some(thread_id) = thread_context::current_thread_id() else {
+/// Inject this managed model's explicitly owned thread into provider options.
+/// This backend-only wire extension is never inferred from ambient state.
+fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelRequest {
+    let Some(thread_id) = thread_id else {
         return request;
     };
     let mut options = request.provider_options.clone();
@@ -397,10 +467,12 @@ fn with_thread_id(mut request: ModelRequest) -> ModelRequest {
         options = Value::Object(serde_json::Map::new());
     }
     if let Some(map) = options.as_object_mut() {
-        map.insert("thread_id".to_string(), Value::String(thread_id));
+        map.insert(
+            "thread_id".to_string(),
+            Value::String(thread_id.to_string()),
+        );
     }
-    request = request.with_provider_options(options);
-    request
+    request.with_provider_options(options)
 }
 
 /// Publish a `SessionExpired` event when the local `exp` precheck in
@@ -431,7 +503,7 @@ fn maybe_publish_local_session_expiry() {
 fn maybe_publish_session_expired(err: &TiError, operation: &str) {
     if let TiError::Provider(pe) = err {
         if pe.provider.as_str() == "OpenHuman" && matches!(pe.status, Some(401 | 403)) {
-            let reason = crate::inference::provider::ops::sanitize_api_error(&pe.message);
+            let reason = tinyinference_core::sanitize::sanitize_api_error(&pe.message);
             crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
                 source: format!(
                     "openhuman_backend_model.{}({})",
@@ -462,13 +534,13 @@ fn log_managed_dispatch_error(err: &TiError, operation: &str) {
                 pe.code,
                 pe.provider,
                 pe.retryable,
-                crate::inference::provider::ops::sanitize_api_error(&pe.message),
+                tinyinference_core::sanitize::sanitize_api_error(&pe.message),
             );
         }
         other => {
             log::warn!(
                 "[providers][openhuman-backend] managed {operation} failed (non-provider error): {}",
-                crate::inference::provider::ops::sanitize_api_error(&other.to_string()),
+                tinyinference_core::sanitize::sanitize_api_error(&other.to_string()),
             );
         }
     }
@@ -497,9 +569,12 @@ impl ChatModel<()> for OpenHumanBackendModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let model = self.build_wire_model()?;
-        let response = match model.invoke(state, with_thread_id(request)).await {
+        let response = match model
+            .invoke(state, with_thread_id(request, self.thread_id.as_deref()))
+            .await
+        {
             Ok(response) => response,
             Err(e) => {
                 log_managed_dispatch_error(&e, "invoke");
@@ -514,7 +589,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         &self,
         state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelStream> {
+    ) -> tinyinference_llm::Result<ModelStream> {
         let model = self.build_wire_model()?;
         // NOTE (streaming billing parity): the crate SSE parser sets `raw: None`
         // on the terminal `Completed` response, so the `openhuman.billing` envelope
@@ -523,7 +598,10 @@ impl ChatModel<()> for OpenHumanBackendModel {
         // survive via `UsageDelta`). The authoritative charged amount is recovered
         // on the non-streaming `invoke` path above. Restoring it for streaming
         // needs the crate to preserve the final chunk's raw JSON (tracked upstream).
-        match model.stream(state, with_thread_id(request)).await {
+        match model
+            .stream(state, with_thread_id(request, self.thread_id.as_deref()))
+            .await
+        {
             Ok(stream) => Ok(stream),
             Err(e) => {
                 log_managed_dispatch_error(&e, "stream");

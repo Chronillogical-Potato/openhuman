@@ -7,10 +7,10 @@
 //! renderer.
 
 use crate::skills::Workflow;
-use crate::tools::Tool;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::path::Path;
+use tinytools::Tool;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -233,24 +233,39 @@ pub struct ConnectedIntegrationTool {
 /// description)` tuples) all adapt to this.
 #[derive(Debug, Clone)]
 pub struct PromptTool<'a> {
-    pub name: &'a str,
-    pub description: &'a str,
+    pub name: std::borrow::Cow<'a, str>,
+    pub description: std::borrow::Cow<'a, str>,
     pub parameters_schema: Option<String>,
 }
 
 impl<'a> PromptTool<'a> {
     pub fn new(name: &'a str, description: &'a str) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: None,
+        }
+    }
+
+    /// An entry the catalogue owns rather than borrows: a tool that exists
+    /// only for this prompt build (the harness's `tool_search` / `tool_call`
+    /// bridge), with no registration to borrow a name from.
+    pub fn owned(
+        name: String,
+        description: String,
+        parameters_schema: String,
+    ) -> PromptTool<'static> {
+        PromptTool {
+            name: std::borrow::Cow::Owned(name),
+            description: std::borrow::Cow::Owned(description),
+            parameters_schema: Some(parameters_schema),
         }
     }
 
     pub fn with_schema(name: &'a str, description: &'a str, parameters_schema: String) -> Self {
         Self {
-            name,
-            description,
+            name: std::borrow::Cow::Borrowed(name),
+            description: std::borrow::Cow::Borrowed(description),
             parameters_schema: Some(parameters_schema),
         }
     }
@@ -264,7 +279,7 @@ impl<'a> PromptTool<'a> {
     ///
     /// An agent's callable surface is not one contiguous slice: the durable
     /// registry and the freshly-synthesised delegation set live in separate
-    /// `Arc`s (see `Agent::synthesized_tools`), and the prompt catalogue must
+    /// `Arc`s (see `OpenHumanSessionHost::synthesized_tools`), and the prompt catalogue must
     /// render both. Taking an iterator lets the caller chain them without
     /// materialising a combined `Vec<Box<dyn Tool>>` — which is impossible
     /// anyway, since `Box<dyn Tool>` is not cloneable.
@@ -272,27 +287,115 @@ impl<'a> PromptTool<'a> {
         tools
             .into_iter()
             .map(|t| PromptTool {
-                name: t.name(),
-                description: t.description(),
+                name: std::borrow::Cow::Borrowed(t.name()),
+                description: std::borrow::Cow::Borrowed(t.description()),
                 parameters_schema: Some(t.parameters_schema().to_string()),
             })
             .collect()
     }
 }
 
-/// How the tool catalogue should render each tool entry. Driven by the
-/// dispatcher choice on the agent — JSON-schema rendering is the
-/// historic format; P-Format is the new default text protocol.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// Swap a prompt catalogue's `Deferred` entries for the discovery bridge.
+///
+/// On a TEXT dialect (P-Format / code) the catalogue this prompt renders IS
+/// the model's callable surface: the harness folds it into the system prompt
+/// and clears `request.tools`. Two things follow, and both were wrong before
+/// this helper existed:
+///
+/// * **Deferred tools must leave the catalogue.** The filter each prompt site
+///   used is the policy's allow-set, which deliberately admits deferred names
+///   so a found tool stays *callable* (`reachable_names` in the session
+///   builder). Filtering the prompt by it rendered every deferred schema into
+///   the prompt — measured live at 107 connected Composio actions for 55 KB of
+///   a 71 KB prompt, the exact cost deferral exists to avoid — and told the
+///   model to search for an action whose signature it could already read.
+///
+/// * **The bridge must take their place.** The harness mints `tool_search` /
+///   `tool_call` onto `request.tools`, which a text dialect drops, and with
+///   `host_renders_tool_catalogue` it appends nothing itself. Without these
+///   entries the model reads "invoke a match with `tool_call`" in a search
+///   result and has no signature for that name; observed live as a turn that
+///   narrates the call it is about to make and then stops.
+///
+/// A native-tool-calling provider is unaffected: it reads `request.tools`,
+/// where the harness already puts exactly this pair.
+pub fn swap_deferred_for_discovery_bridge<'a>(
+    prompt_tools: &mut Vec<PromptTool<'a>>,
+    visible_tool_names: &mut std::collections::HashSet<String>,
+    deferred_tool_names: &std::collections::HashSet<String>,
+) {
+    if deferred_tool_names.is_empty() {
+        return;
+    }
+    visible_tool_names.retain(|name| !deferred_tool_names.contains(name));
+    for bridge in
+        crate::agent::tinyagents::discovery::bridge_prompt_tools(deferred_tool_names.len())
+    {
+        visible_tool_names.insert(bridge.name.to_string());
+        prompt_tools.push(bridge);
+    }
+}
+
+/// How TinyTools should render and parse an agent's tool calls.
+///
+/// The prompt layer carries this only to select the TinyTools dialect; it does
+/// not define a tool-call protocol of its own.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ToolCallFormat {
-    /// `tool_name[arg1|arg2|...]` — compact, positional. Default.
-    #[default]
+    /// Compact positional legacy dialect.
     PFormat,
     /// Legacy JSON-in-tag rendering with full schemas.
     Json,
     /// Provider supplies structured tool calls — catalogue is
     /// informational. Renders in the same JSON-schema form as `Json`.
     Native,
+    /// Python `def` signatures; the model calls `name(arg="value")`.
+    #[default]
+    Python,
+    /// TypeScript `function` signatures; the model calls `name({arg: "value"})`.
+    TypeScript,
+}
+
+impl ToolCallFormat {
+    /// The harness policy that speaks this format.
+    ///
+    /// `Native` maps to `Auto` rather than forcing native: the session only
+    /// picks it when the provider profile supports native tools, and `Auto`
+    /// resolves to the same thing while still letting the harness fall back
+    /// for a model that turns out not to.
+    pub(crate) fn harness_dispatcher(self) -> tinyagents_harness::config::ToolDispatcher {
+        use tinyagents_harness::config::ToolDispatcher;
+        match self {
+            ToolCallFormat::PFormat => ToolDispatcher::Pformat,
+            ToolCallFormat::Json => ToolDispatcher::Xml,
+            ToolCallFormat::Native => ToolDispatcher::Auto,
+            ToolCallFormat::Python => ToolDispatcher::Python,
+            ToolCallFormat::TypeScript => ToolDispatcher::Typescript,
+        }
+    }
+
+    /// The code style behind a code-call format, `None` for the others.
+    pub(crate) fn code_style(self) -> Option<tinytools_agent::dialect::CodeStyle> {
+        match self {
+            ToolCallFormat::Python => Some(tinytools_agent::dialect::CodeStyle::Python),
+            ToolCallFormat::TypeScript => Some(tinytools_agent::dialect::CodeStyle::TypeScript),
+            ToolCallFormat::PFormat | ToolCallFormat::Json | ToolCallFormat::Native => None,
+        }
+    }
+}
+
+/// Map the canonical dialect's catalogue spelling onto the host prompt wire
+/// vocabulary at the prompt boundary.
+pub(crate) fn tool_call_format_from_dialect(
+    format: tinytools_agent::dialect::ToolCallFormat,
+) -> ToolCallFormat {
+    match format {
+        tinytools_agent::dialect::ToolCallFormat::PFormat => ToolCallFormat::PFormat,
+        tinytools_agent::dialect::ToolCallFormat::Json => ToolCallFormat::Json,
+        tinytools_agent::dialect::ToolCallFormat::Native => ToolCallFormat::Native,
+        tinytools_agent::dialect::ToolCallFormat::Python => ToolCallFormat::Python,
+        tinytools_agent::dialect::ToolCallFormat::TypeScript => ToolCallFormat::TypeScript,
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,8 +408,8 @@ pub enum ToolCallFormat {
 ///
 /// Only **identifying** fields land here; tokens, refresh tokens, and
 /// any opaque credential material are forbidden. The struct is
-/// constructed from the cached `auth_get_me` response in
-/// `app_state::ops::peek_cached_current_user_identity`, which strips
+/// constructed from the stored `auth_set_credential` user payload in
+/// `credentials::identity::peek_credential_user_identity`, which strips
 /// everything but `id` / `email` / `name` before returning.
 #[derive(Debug, Clone, Default)]
 pub struct UserIdentity {
@@ -380,16 +483,8 @@ pub struct PromptContext<'a> {
     /// Authenticated user identity (id/name/email) when available — see
     /// [`UserIdentity`]. `None` for unauthenticated paths (CLI without a
     /// session, tests). Pre-fetched by the caller from the
-    /// `auth_get_me` cache so prompt builders never reach the network.
+    /// stored credential user payload so prompt builders never reach the network.
     pub user_identity: Option<UserIdentity>,
-    /// Personality-specific SOUL.md content. When `Some`, the
-    /// `IdentitySection` uses this instead of reading the workspace
-    /// root `SOUL.md`. `None` falls back to existing behavior.
-    pub personality_soul_md: Option<String>,
-    /// Personality-specific MEMORY.md content. When `Some`, the
-    /// `UserFilesSection` uses this instead of reading the workspace
-    /// root `MEMORY.md`. `None` falls back to existing behavior.
-    pub personality_memory_md: Option<String>,
     /// Non-self personality roster entries for the master agent's prompt.
     /// Empty for non-master agents.
     pub personality_roster: Vec<PersonalityRosterEntry>,
@@ -413,6 +508,18 @@ pub struct PromptContext<'a> {
 pub trait PromptSection: Send + Sync {
     fn name(&self) -> &str;
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String>;
+
+    /// The section's bytes split by cache tier.
+    ///
+    /// Most sections live in exactly one tier, so the default is one part in
+    /// [`Self::tier`]. A section whose body spans tiers (the orchestrator's
+    /// dynamic builder renders identity, per-install context and the user's
+    /// state in one pass) overrides this so the builder can place each slice
+    /// with its peers instead of dragging the stable bytes into the volatile
+    /// tail.
+    fn build_parts(&self, ctx: &PromptContext<'_>) -> Result<Vec<(PromptTier, String)>> {
+        Ok(vec![(self.tier(), self.build(ctx)?)])
+    }
 
     /// Which cache tier this section's bytes belong to.
     ///
@@ -450,6 +557,56 @@ pub enum PromptTier {
     /// Changes whenever the user's state does: memory, profile, the skills
     /// index, connected integrations, the clock.
     Volatile,
+}
+
+/// Marker a dynamic prompt builder emits on its own line to say "everything
+/// after this belongs to the `Context` tier".
+///
+/// A [`PromptSource::Dynamic`](crate::agent::harness::definition::PromptSource)
+/// builder returns one string. Splitting it on these markers is how it
+/// declares tiers without a second builder signature, and the markers never
+/// reach the model: [`split_prompt_tiers`] removes them, and a renderer that
+/// bypasses the builder sees an HTML comment the model ignores.
+pub const PROMPT_TIER_CONTEXT_MARKER: &str = "<!--prompt-tier:context-->";
+/// Marker for the start of the `Volatile` tier. See [`PROMPT_TIER_CONTEXT_MARKER`].
+pub const PROMPT_TIER_VOLATILE_MARKER: &str = "<!--prompt-tier:volatile-->";
+
+/// Split a dynamic builder's body on the tier markers.
+///
+/// Text before the first marker is `default_tier` (the tier the section
+/// declares); text after [`PROMPT_TIER_CONTEXT_MARKER`] is `Context` and text
+/// after [`PROMPT_TIER_VOLATILE_MARKER`] is `Volatile`. Markers may appear in
+/// either order and at most once each; empty slices are dropped.
+#[must_use]
+pub fn split_prompt_tiers(body: &str, default_tier: PromptTier) -> Vec<(PromptTier, String)> {
+    let mut parts: Vec<(PromptTier, String)> = Vec::new();
+    let mut tier = default_tier;
+    let mut current = String::new();
+    for line in body.split_inclusive('\n') {
+        let trimmed = line.trim();
+        let next = if trimmed == PROMPT_TIER_CONTEXT_MARKER {
+            Some(PromptTier::Context)
+        } else if trimmed == PROMPT_TIER_VOLATILE_MARKER {
+            Some(PromptTier::Volatile)
+        } else {
+            None
+        };
+        match next {
+            Some(next_tier) => {
+                if !current.trim().is_empty() {
+                    parts.push((tier, std::mem::take(&mut current)));
+                } else {
+                    current.clear();
+                }
+                tier = next_tier;
+            }
+            None => current.push_str(line),
+        }
+    }
+    if !current.trim().is_empty() {
+        parts.push((tier, current));
+    }
+    parts
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,14 +1,11 @@
 //! System prompt builder for the `mcp_agent` built-in agent.
 //!
-//! Mirrors the `mcp_setup` builder: render the static archetype, then
-//! append the tool block so the model sees the `mcp_registry_*` tool
-//! schemas (filtered down by the harness from the `agent.toml` allowlist).
-//! This agent *uses* already-connected MCP servers; `mcp_setup` *installs*
-//! them.
+//! Renders the static archetype, then appends the tool block so the model
+//! sees the `mcp_registry_*` tool schemas (filtered down by the harness from
+//! the `agent.toml` allowlist). This agent *uses* already-connected MCP
+//! servers; adding one is the user's own action in `mcp.json`.
 
-use crate::agent::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
-};
+use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
 const ARCHETYPE: &str = include_str!("prompt.md");

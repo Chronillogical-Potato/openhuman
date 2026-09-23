@@ -641,6 +641,18 @@ describe('saveAISettings', () => {
     expect(patch.cloud_providers).toBeUndefined();
   });
 
+  it('sends default_model only when the pinned default model changed', async () => {
+    const prev = makeSettings({ defaultModel: 'chat-v1' });
+    const next = makeSettings({ defaultModel: 'openrouter/deepseek/deepseek-v4-flash' });
+
+    await saveAISettings(prev, next);
+
+    expect(mockOpenhumanUpdateModelSettings).toHaveBeenCalledOnce();
+    const patch = mockOpenhumanUpdateModelSettings.mock.calls[0][0];
+    expect(patch.default_model).toBe('openrouter/deepseek/deepseek-v4-flash');
+    expect(patch.chat_provider).toBeUndefined();
+  });
+
   it('sends cloud_providers list when a provider is added', async () => {
     const prev = makeSettings({ cloudProviders: [] });
     const next = makeSettings();

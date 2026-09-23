@@ -15,6 +15,7 @@ fn test_summarize_rpc_result() {
     assert_eq!(summarize_rpc_result(&json!(true)), "bool(true)");
     assert_eq!(summarize_rpc_result(&json!(false)), "bool(false)");
     assert_eq!(summarize_rpc_result(&json!(42)), "number(42)");
-    assert_eq!(summarize_rpc_result(&json!(3.14)), "number(3.14)");
+    // A float that is not an approximation of PI — clippy rejects 3.14 here.
+    assert_eq!(summarize_rpc_result(&json!(2.5)), "number(2.5)");
     assert_eq!(summarize_rpc_result(&json!(null)), "null");
 }

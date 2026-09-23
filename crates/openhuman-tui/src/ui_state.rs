@@ -105,7 +105,6 @@ pub struct UiState {
     pub pending_approvals: Vec<PendingApproval>,
     pub pending_plan_review: Option<PendingPlanReview>,
     pub model_override: Option<String>,
-    pub profile_id: Option<String>,
     pub action_dir: String,
     pub queue_status: String,
 }
@@ -160,7 +159,6 @@ impl UiState {
             pending_approvals: Vec::new(),
             pending_plan_review: None,
             model_override: None,
-            profile_id: None,
             action_dir: String::new(),
             queue_status: String::new(),
         }

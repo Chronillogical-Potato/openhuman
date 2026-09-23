@@ -2,9 +2,9 @@
 //! would see for a given agent.
 //!
 //! Instead of re-implementing prompt assembly, this module routes
-//! through [`Agent::from_config_for_agent`] — the same entry point the
+//! through [`OpenHumanSessionHost::from_config_for_agent`] — the same entry point the
 //! Tauri web channel and CLI use — and then calls
-//! [`Agent::build_system_prompt`] on the constructed session. The
+//! [`OpenHumanSessionHost::build_system_prompt`] on the constructed session. The
 //! output is byte-identical to what the LLM would receive on turn 1 of
 //! that agent.
 //!
@@ -30,14 +30,12 @@ pub mod wire;
 pub use dump_writer::{write_prompt_dumps, DumpWriteSummary};
 pub use wire::render as render_wire_dump;
 
-use crate::agent::context::prompt::{
-    LearnedContextData, PromptContext, PromptTool, ToolCallFormat,
-};
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, PromptSource};
-use crate::agent::harness::session::Agent;
+use crate::agent::prompts::{LearnedContextData, PromptContext, PromptTool, ToolCallFormat};
+use crate::agent::session_host::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::integrations::composio::ComposioActionTool;
-use crate::tools::{Tool, ToolCategory};
+use tinytools::{Tool, ToolCategory};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -93,12 +91,16 @@ pub struct DumpedPrompt {
     /// The final rendered system prompt — frozen bytes that would be
     /// sent verbatim on every turn of a live session.
     pub text: String,
-    /// Tool names that made it into the rendered prompt, in order.
+    /// Every tool the agent can call, in registration order. On the session
+    /// path this is the whole callable surface (`all_tool_refs()`), so it can
+    /// be wider than [`Self::tool_specs`]; `prompt-size` measures the latter.
     pub tool_names: Vec<String>,
     /// Number of `ToolCategory::Workflow` tools in the dump.
     pub skill_tool_count: usize,
-    /// One `{name, description, parameters}` entry per tool the agent
-    /// exposes, in the same order as [`Self::tool_names`].
+    /// One `{name, description, parameters}` entry per tool schema the
+    /// provider receives. On the session path this is the visible set, which
+    /// is narrower than [`Self::tool_names`]; on the per-toolkit path the two
+    /// match, in the same order.
     ///
     /// The system prompt is only half of a turn's fixed cost: the tool
     /// schemas ride alongside it in every request, and for an agent with a
@@ -107,12 +109,7 @@ pub struct DumpedPrompt {
     pub tool_specs: Vec<serde_json::Value>,
 }
 
-// The `+ 'a` is load-bearing: a bare `dyn Tool` here means `dyn Tool +
-// 'static`, which `Box<dyn Tool>` satisfies but a borrowed `&'a dyn Tool` (what
-// `Agent::all_tool_refs` yields) does not.
-fn tool_specs_of<'a, T: std::ops::Deref<Target = dyn crate::tools::Tool + 'a>>(
-    tools: &[T],
-) -> Vec<serde_json::Value> {
+fn tool_specs_of(tools: &[Box<dyn Tool>]) -> Vec<serde_json::Value> {
     tools
         .iter()
         .map(|t| {
@@ -126,7 +123,7 @@ fn tool_specs_of<'a, T: std::ops::Deref<Target = dyn crate::tools::Tool + 'a>>(
 }
 
 /// Render and return the system prompt for a single agent via the
-/// real [`Agent::from_config_for_agent`] construction path.
+/// real [`OpenHumanSessionHost::from_config_for_agent`] construction path.
 pub async fn dump_agent_prompt(options: DumpPromptOptions) -> Result<DumpedPrompt> {
     let config = load_dump_config(
         options.workspace_dir_override.clone(),
@@ -266,7 +263,7 @@ async fn load_dump_config(
 /// Build a real [`Agent`] via `from_config_for_agent`, populate live
 /// connected integrations, and render the turn-1 system prompt.
 async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPrompt> {
-    let mut agent = Agent::from_config_for_agent(config, agent_id)
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, agent_id)
         .with_context(|| format!("building session agent for `{agent_id}`"))?;
 
     // Match turn-1 behaviour: fetch the user's active Composio
@@ -282,17 +279,29 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
         .build_system_prompt(LearnedContextData::default())
         .with_context(|| format!("rendering system prompt for `{agent_id}`"))?;
 
+    Ok(session_dump(&agent, agent_id, text))
+}
+
+/// Package a built session agent's rendered prompt and tool surface.
+fn session_dump(agent: &OpenHumanSessionHost, agent_id: &str, text: String) -> DumpedPrompt {
     // The whole callable surface, so the dump shows the `delegate_*` tools
     // the refresh above just synthesised alongside the durable registry.
     let tools = agent.all_tool_refs();
     let tool_names: Vec<String> = tools.iter().map(|t| t.name().to_string()).collect();
-    let tool_specs = tool_specs_of(&tools);
     let skill_tool_count = tools
         .iter()
         .filter(|t| t.category() == ToolCategory::Workflow)
         .count();
+    // Schemas are what the provider is actually sent: the visible,
+    // policy-filtered set, not the registry above. Measuring
+    // `all_tool_refs()` here (d149ab0f0) reported ~200 tools for every agent.
+    let tool_specs = agent
+        .visible_tool_specs_arc()
+        .iter()
+        .map(|spec| serde_json::to_value(spec.as_ref()).unwrap_or_default())
+        .collect();
 
-    Ok(DumpedPrompt {
+    DumpedPrompt {
         agent_id: agent_id.to_string(),
         toolkit: None,
         mode: "session",
@@ -302,17 +311,17 @@ async fn render_via_session(config: &Config, agent_id: &str) -> Result<DumpedPro
         tool_names,
         skill_tool_count,
         tool_specs,
-    })
+    }
 }
 
 /// Render the integrations_agent prompt bound to a single Composio
-/// toolkit. Mirrors the subagent_runner's per-toolkit path: strips
+/// toolkit. Mirrors the subagent host's per-toolkit path: strips
 /// Workflow-category parent tools, injects one [`ComposioActionTool`] per
 /// action in the toolkit, and narrows the `connected_integrations`
 /// slice to only the requested toolkit before calling the agent's
 /// dynamic prompt builder.
 async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<DumpedPrompt> {
-    let mut agent = Agent::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
         .with_context(|| format!("building integrations_agent session for `{toolkit}`"))?;
     agent.fetch_connected_integrations().await;
 
@@ -348,7 +357,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
     // time so the dump reflects the **current** backend state rather
     // than the session-start bulk fetch's snapshot (which can return an
     // empty list for some toolkits even when the per-toolkit endpoint
-    // returns actions). Mirrors subagent_runner's typed-mode fallback:
+    // returns actions). Mirrors the subagent host's typed-mode fallback:
     // an empty fresh list or a network error keeps the cached catalogue
     // rather than blanking it.
     match &client_kind {
@@ -389,7 +398,7 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         }
     }
 
-    // Build the tool list that subagent_runner would produce for a
+    // Build the tool list that the subagent host would produce for a
     // real spawn. Tool visibility honours the TOML scope on the
     // `integrations_agent` definition — `named = [...]` narrows, and
     // `wildcard = {}` means "every parent tool". The dynamic
@@ -440,8 +449,8 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
     let prompt_tools: Vec<PromptTool<'_>> = rendered_tools
         .iter()
         .map(|t| PromptTool {
-            name: t.name(),
-            description: t.description(),
+            name: std::borrow::Cow::Borrowed(t.name()),
+            description: std::borrow::Cow::Borrowed(t.description()),
             parameters_schema: Some(t.parameters_schema().to_string()),
         })
         .collect();
@@ -473,41 +482,40 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
 
     let empty_visible: HashSet<String> = HashSet::new();
     let model_name = definition.model.resolve(agent.model_name()).to_string();
+    let text_mode_schemas: Vec<tinyinference_llm::tool::ToolSchema> = rendered_tools
+        .iter()
+        .map(|tool| {
+            tinyinference_llm::tool::ToolSchema::new(
+                tool.name(),
+                tool.description(),
+                tool.parameters_schema(),
+            )
+        })
+        .collect();
+    let dispatcher_instructions = text_mode_dispatcher_instructions(&text_mode_schemas);
     let ctx = PromptContext {
         workspace_dir: agent.workspace_dir(),
         model_name: &model_name,
         agent_id: INTEGRATIONS_AGENT_ID,
         tools: &prompt_tools,
         workflows: agent.workflows(),
-        dispatcher_instructions: "",
+        dispatcher_instructions: &dispatcher_instructions,
         learned: LearnedContextData::default(),
         visible_tool_names: &empty_visible,
-        tool_call_format: ToolCallFormat::PFormat,
+        tool_call_format: ToolCallFormat::Json,
         connected_integrations: &narrow_integrations,
         connected_identities_md: crate::agent::prompts::render_connected_identities(),
         include_profile: !definition.omit_profile,
         include_memory_md: !definition.omit_memory_md,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
     };
 
-    let mut text = build(&ctx)
+    let text = build(&ctx)
         .with_context(|| format!("building integrations_agent prompt for toolkit `{toolkit}`"))?;
-
-    // Mirror the runner's text-mode mutation: when integrations_agent
-    // has any tools the runner appends `build_text_mode_tool_instructions`
-    // to the system message (see `subagent_runner::run_typed_mode`,
-    // `force_text_mode` branch). Reproduce it here so
-    // the dump matches what the LLM actually receives on turn 1.
-    if !rendered_tools.is_empty() {
-        text.push_str("\n\n");
-        text.push_str(&crate::agent::harness::subagent_runner::build_text_mode_tool_instructions());
-    }
 
     let tool_names: Vec<String> = rendered_tools
         .iter()
@@ -531,6 +539,20 @@ async fn render_integrations_agent(config: &Config, toolkit: &str) -> Result<Dum
         tool_specs,
     })
 }
+
+/// Render the text-mode protocol only when the integrations agent has tools.
+/// An empty catalogue must not invite the model to make an unavailable call.
+fn text_mode_dispatcher_instructions(schemas: &[tinyinference_llm::tool::ToolSchema]) -> String {
+    if schemas.is_empty() {
+        String::new()
+    } else {
+        tinyagents_harness::tool::prompt_tool_instructions(schemas)
+    }
+}
+
+#[cfg(test)]
+#[path = "debug_protocol_tests.rs"]
+mod protocol_tests;
 
 /// Wrap a `&dyn Tool` as a `Box<dyn Tool>` proxy that forwards
 /// `name()` / `description()` / `parameters_schema()` / `category()`
@@ -566,10 +588,10 @@ impl Tool for PromptProxyTool {
     fn category(&self) -> ToolCategory {
         self.category
     }
-    fn permission_level(&self) -> crate::tools::PermissionLevel {
-        crate::tools::PermissionLevel::None
+    fn permission_level(&self) -> tinytools::PermissionLevel {
+        tinytools::PermissionLevel::None
     }
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<crate::tools::ToolResult> {
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
         Err(anyhow!(
             "PromptProxyTool (`{}`) is a render-only stub — execute is not callable",
             self.name
@@ -586,7 +608,7 @@ async fn connected_toolkits_for(config: &Config) -> Result<Vec<String>> {
     // reuse its `fetch_connected_integrations` cache — the call is
     // deduped backend-side via `INTEGRATIONS_CACHE`, so repeated
     // invocations in `dump_all_agent_prompts` only hit the wire once.
-    let mut agent = Agent::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
+    let mut agent = OpenHumanSessionHost::from_config_for_agent(config, INTEGRATIONS_AGENT_ID)
         .with_context(|| "building integrations_agent probe session for toolkit discovery")?;
     agent.fetch_connected_integrations().await;
     Ok(agent

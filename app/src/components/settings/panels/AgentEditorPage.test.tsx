@@ -39,7 +39,7 @@ function agent(overrides: Partial<AgentRegistryEntry> = {}): AgentRegistryEntry 
     description: 'Crunches numbers.',
     source: 'custom',
     enabled: true,
-    model: 'reasoning-v1',
+    model: 'hint:reasoning',
     system_prompt: 'Be precise.',
     tool_allowlist: ['memory.search'],
     ...overrides,
@@ -73,8 +73,8 @@ describe('AgentEditorPage', () => {
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Helper' } });
     fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Helps out.' } });
-    // Model dropdown offers known tiers/hints.
-    expect(screen.getByRole('option', { name: 'reasoning-v1' })).toBeInTheDocument();
+    // Model dropdown offers the workload role hints.
+    expect(screen.getByRole('option', { name: 'hint:reasoning' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'hint:coding' } });
 
     fireEvent.click(screen.getByRole('button', { name: /Create agent/ }));
@@ -89,15 +89,22 @@ describe('AgentEditorPage', () => {
 
   it('offers the vision tier + hint as model options', async () => {
     mockCreate.mockResolvedValue(agent({ id: 'looker', name: 'Looker' }));
+    // The tier alias is a managed model, not a hardcoded hint: it reaches the
+    // dropdown through `listProviderModels`, so it needs its own resolution
+    // here. The suite default is an empty list, under which the managed
+    // optgroup does not render at all.
+    mockListProviderModels.mockResolvedValue([{ id: 'vision-v1' }]);
     renderAt('/settings/agents/new');
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Looker' } });
     fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'Looks at images.' },
     });
-    // Both the vision hint and the resolved tier alias are selectable.
+    // Both the vision hint and the resolved tier alias are selectable. The hint
+    // is synchronous; the tier alias has to be awaited, since it only appears
+    // once the managed-model fetch resolves.
     expect(screen.getByRole('option', { name: 'hint:vision' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'vision-v1' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'vision-v1' })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'hint:vision' } });
 
     fireEvent.click(screen.getByRole('button', { name: /Create agent/ }));
@@ -133,7 +140,7 @@ describe('AgentEditorPage', () => {
     // Name is read-only in edit mode — no editable Name input is rendered.
     expect(screen.queryByLabelText('Name')).toBeNull();
     expect(screen.getByDisplayValue('Crunches numbers.')).toBeInTheDocument();
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('reasoning-v1');
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('hint:reasoning');
 
     fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Updated.' } });
     fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));

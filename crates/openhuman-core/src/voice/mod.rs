@@ -4,15 +4,14 @@
 //! transcription, synthesis, proactive availability checking, and a
 //! standalone voice dictation server (hotkey → record → transcribe → insert).
 //!
-//! Inference implementations (local_speech, cloud_transcribe,
-//! streaming, postprocess) now live under
-//! `crate::inference::voice` so all inference concerns share a
-//! single domain root.
+//! Reusable inference mechanics live in `tinyinference-voice`; this module
+//! binds them to OpenHuman configuration, authentication, providers, RPC,
+//! and UI contracts.
 //!
 //! ## Compile-time gate (`voice` feature)
 //!
 //! `pub mod voice;` is ALWAYS compiled — it is a facade. The real
-//! implementation (the submodules below and the `inference::voice` re-exports)
+//! implementation (the submodules below)
 //! is gated behind the default-ON `voice` Cargo feature. When the feature is
 //! off, [`stub`] takes its place and exposes the same public surface that
 //! always-on / other-gated callers depend on (`server`, `dictation_listener`,
@@ -66,20 +65,18 @@ pub mod text_input;
 #[cfg(feature = "voice")]
 mod types;
 
-// Re-export the inference-side voice modules so `voice::local_speech`,
-// `voice::cloud_transcribe`, etc. continue to resolve for existing callers.
 #[cfg(feature = "voice")]
-pub use crate::inference::voice::cloud_transcribe;
+pub mod cloud_transcribe;
 #[cfg(feature = "voice")]
-pub use crate::inference::voice::local_speech;
+pub mod local_speech;
 #[cfg(feature = "voice")]
-pub use crate::inference::voice::postprocess;
+pub mod postprocess;
 // `streaming` (the dictation WebSocket handler) is axum-only, so it is compiled
 // only when BOTH `voice` and `http-server` are on (#5048). With `http-server`
 // off, its sole caller (the gated core HTTP router) is absent too, so nothing
 // needs `voice::streaming`.
 #[cfg(all(feature = "voice", feature = "http-server"))]
-pub use crate::inference::voice::streaming;
+pub mod streaming;
 
 #[cfg(feature = "voice")]
 pub use factory::{

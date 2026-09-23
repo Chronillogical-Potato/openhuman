@@ -80,7 +80,6 @@ pub fn add_agent_job(
         delete_after_run,
         None,
         true,
-        None,
     )
 }
 
@@ -99,7 +98,6 @@ pub fn add_agent_job_with_definition(
     delete_after_run: bool,
     agent_id: Option<String>,
     enabled: bool,
-    profile_id: Option<String>,
 ) -> Result<CronJob> {
     let now = Utc::now();
     // Agent runs are inference turns: on top of the generic checks, refuse a
@@ -119,8 +117,8 @@ pub fn add_agent_job_with_definition(
         conn.execute(
             "INSERT INTO cron_jobs (
                 id, expression, command, schedule, job_type, prompt, name, session_target, model,
-                enabled, delivery, delete_after_run, created_at, next_run, agent_id, profile_id
-             ) VALUES (?1, ?2, '', ?3, 'agent', ?4, ?5, ?6, ?7, ?13, ?8, ?9, ?10, ?11, ?12, ?14)",
+                enabled, delivery, delete_after_run, created_at, next_run, agent_id
+             ) VALUES (?1, ?2, '', ?3, 'agent', ?4, ?5, ?6, ?7, ?13, ?8, ?9, ?10, ?11, ?12)",
             params![
                 id,
                 expression,
@@ -135,7 +133,6 @@ pub fn add_agent_job_with_definition(
                 next_run.to_rfc3339(),
                 agent_id,
                 if enabled { 1 } else { 0 },
-                profile_id,
             ],
         )
         .context("Failed to insert cron agent job")?;
@@ -225,7 +222,7 @@ pub fn find_flow_schedule_job(config: &Config, flow_id: &str) -> Result<Option<C
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
                     enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
-                    agent_id, profile_id
+                    agent_id
              FROM cron_jobs WHERE job_type = 'flow' AND command = ?1 LIMIT 1",
         )?;
         let mut rows = stmt.query(params![flow_id])?;
@@ -241,7 +238,7 @@ pub fn list_jobs(config: &Config) -> Result<Vec<CronJob>> {
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
                     enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
-                    agent_id, profile_id
+                    agent_id
              FROM cron_jobs ORDER BY next_run ASC",
         )?;
 
@@ -260,7 +257,7 @@ pub fn get_job(config: &Config, job_id: &str) -> Result<CronJob> {
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
                     enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
-                    agent_id, profile_id
+                    agent_id
              FROM cron_jobs WHERE id = ?1",
         )?;
 
@@ -382,7 +379,7 @@ pub fn due_jobs(config: &Config, now: DateTime<Utc>) -> Result<Vec<CronJob>> {
         let mut stmt = conn.prepare(
             "SELECT id, expression, command, schedule, job_type, prompt, name, session_target, model,
                     enabled, delivery, delete_after_run, created_at, next_run, last_run, last_status, last_output,
-                    agent_id, profile_id
+                    agent_id
              FROM cron_jobs
              WHERE enabled = 1 AND next_run <= ?1
              ORDER BY next_run ASC
@@ -443,10 +440,6 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
     if let Some(agent_id) = patch.agent_id {
         job.agent_id = agent_id;
     }
-    if let Some(profile_id) = patch.profile_id {
-        job.profile_id = profile_id;
-    }
-
     if schedule_changed {
         job.next_run = next_run_for_schedule(&job.schedule, Utc::now())?;
     } else if job.enabled && !was_enabled {
@@ -474,7 +467,7 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
             "UPDATE cron_jobs
              SET expression = ?1, command = ?2, schedule = ?3, job_type = ?4, prompt = ?5, name = ?6,
                  session_target = ?7, model = ?8, enabled = ?9, delivery = ?10, delete_after_run = ?11,
-                 next_run = ?12, agent_id = ?14, profile_id = ?15
+                 next_run = ?12, agent_id = ?14
              WHERE id = ?13",
             params![
                 job.expression,
@@ -491,7 +484,6 @@ pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<
                 job.next_run.to_rfc3339(),
                 job.id,
                 job.agent_id,
-                job.profile_id,
             ],
         )
         .context("Failed to update cron job")?;

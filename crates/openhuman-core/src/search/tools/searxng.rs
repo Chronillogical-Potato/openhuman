@@ -4,7 +4,6 @@
 //! keeps the output shape small and stable for agents and MCP clients:
 //! `{ title, url, snippet, source }`.
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolCategory, ToolResult};
 use crate::util::utf8_safe_prefix_at_byte_boundary;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -12,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::OnceLock;
 use std::time::Duration;
+use tinytools::{Tool, ToolCallOptions, ToolCategory, ToolResult};
 
 const DEFAULT_SOURCE: &str = "searxng";
 /// Maximum number of SearXNG results accepted by the public tool surface.

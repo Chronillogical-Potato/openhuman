@@ -16,7 +16,7 @@ pub(super) fn external_provider_label(provider: &str) -> String {
     if p == CLAUDE_AGENT_SDK_PROVIDER || p.starts_with(CLAUDE_AGENT_SDK_PREFIX) {
         return "Claude Agent SDK".to_string();
     }
-    if p.starts_with(crate::inference::provider::claude_code::PROVIDER_PREFIX) {
+    if p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX) {
         return "Claude Code CLI".to_string();
     }
     // Concrete cloud slug "<slug>:<model>" → surface just the slug.
@@ -49,7 +49,7 @@ pub(super) fn local_only_violation(
         // Deferred: re-resolves to a concrete string on the recursive call.
         return None;
     }
-    if crate::inference::local::profile::is_local_provider_string(p) {
+    if tinyinference_local::profile::is_local_provider_string(p) {
         return None;
     }
     Some(external_provider_label(p))
@@ -104,7 +104,7 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
         // duplicate descriptor.
         return;
     }
-    let is_local = crate::inference::local::profile::is_local_provider_string(p);
+    let is_local = tinyinference_local::profile::is_local_provider_string(p);
     let (slug, model) = match p.split_once(':') {
         Some((s, m)) if !s.trim().is_empty() => (s.trim().to_string(), m.trim().to_string()),
         _ => (p.to_string(), String::new()),
@@ -121,13 +121,31 @@ pub(super) fn emit_inference_egress(role: &str, provider: &str) {
     );
 }
 
+/// Caller-owned runtimes authenticate independently of the OpenHuman account.
+/// Claude subprocesses still use external inference and remain subject to the
+/// privacy gate; this exemption only concerns OpenHuman registration.
+pub(crate) fn provider_uses_independent_auth(provider: &str) -> bool {
+    let p = provider.trim();
+    tinyinference_local::profile::is_local_provider_string(p)
+        || p.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
+        || p == CLAUDE_AGENT_SDK_PROVIDER
+        || p.starts_with(CLAUDE_AGENT_SDK_PREFIX)
+}
+
+pub(crate) fn verify_provider_session(config: &Config, provider: &str) -> anyhow::Result<()> {
+    if provider_uses_independent_auth(provider) {
+        log::debug!("[chat-factory] caller-owned runtime uses independent authentication");
+        return Ok(());
+    }
+    verify_session_active(config)
+}
+
 /// Verify the user has an active OpenHuman backend session.
 ///
 /// Without this check, an unregistered user can configure every workload
 /// to use a custom cloud provider and bypass the session requirement
-/// entirely.  This function ensures that custom providers (Ollama,
-/// `<slug>:<model>`) are only reachable when the workspace holds a valid
-/// `app-session` JWT.
+/// entirely. Custom cloud routes require an `app-session` JWT; caller-owned
+/// local runtimes and Claude subprocesses use `verify_provider_session` instead.
 ///
 /// `pub(crate)`: also reused directly by the flows provider-connectivity
 /// author gate (issue B45, `openhuman::flows::ops::evaluate_inference_readiness`)
@@ -152,13 +170,6 @@ pub(crate) fn verify_session_active(config: &Config) -> anyhow::Result<()> {
 /// in a Library host. Library mode exempts caller-owned provider credentials;
 /// it cannot manufacture a TinyHumans account credential.
 pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<()> {
-    // Fast path: the scheduler gate already knows the session is dead.
-    if crate::cron::scheduler_gate::is_signed_out() {
-        anyhow::bail!(
-            "SESSION_EXPIRED: backend session not active — sign in to use custom providers"
-        );
-    }
-    // Verify the app-session JWT actually exists in auth-profiles.
     let state_dir = config
         .config_path
         .parent()
@@ -168,6 +179,21 @@ pub(crate) fn verify_backend_session_active(config: &Config) -> anyhow::Result<(
                 .map(|d| d.home_dir().join(".openhuman"))
                 .unwrap_or_else(|| std::path::PathBuf::from(".openhuman"))
         });
+    // An API key is a standing credential: no session to be active, nothing
+    // for the scheduler gate to have expired.
+    if crate::security::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt) {
+        log::debug!(
+            "[providers][access-gate] api-key credential satisfies the backend session gate"
+        );
+        return Ok(());
+    }
+    // Fast path: the scheduler gate already knows the session is dead.
+    if crate::cron::scheduler_gate::is_signed_out() {
+        anyhow::bail!(
+            "SESSION_EXPIRED: backend session not active — sign in to use custom providers"
+        );
+    }
+    // Verify the app-session JWT actually exists in auth-profiles.
     let auth = AuthService::new(&state_dir, config.secrets.encrypt);
     let has_session = auth
         .get_provider_bearer_token(crate::security::credentials::APP_SESSION_PROVIDER, None)?

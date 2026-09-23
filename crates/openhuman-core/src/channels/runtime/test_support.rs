@@ -18,7 +18,6 @@ use crate::config::{MultimodalConfig, MultimodalFileConfig, ReliabilityConfig};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::inference::provider::ProviderRuntimeOptions;
-use crate::tools::{Tool, ToolResult};
 use anyhow::Result;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -26,8 +25,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tinyinference::model::{ChatModel, ModelRequest, ModelResponse};
+use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 use tinymemory_api::types::{MemoryCategory, MemoryEntry};
+use tinytools::{Tool, ToolResult};
 
 #[derive(Debug, Clone)]
 pub struct DispatchHarnessOptions {
@@ -247,7 +247,7 @@ impl ChatModel<()> for HarnessModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         let message = request
             .messages
             .last()

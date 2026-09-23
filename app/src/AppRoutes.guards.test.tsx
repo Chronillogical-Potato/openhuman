@@ -75,7 +75,6 @@ vi.mock('./pages/onboarding/Onboarding', () => ({
 vi.mock('./pages/PttOverlayPage', () => ({
   PttOverlayPage: () => <div data-testid="page-ptt-overlay" />,
 }));
-vi.mock('./pages/Rewards', () => ({ default: () => <div data-testid="page-rewards" /> }));
 vi.mock('./pages/Settings', () => ({ default: () => <div /> }));
 vi.mock('./pages/Skills', () => ({ default: () => <div /> }));
 vi.mock('./pages/Welcome', () => ({ default: () => <div data-testid="page-welcome" /> }));
@@ -101,7 +100,6 @@ const OWNED: Array<{ path: string; page: string; guard: Guard }> = [
   { path: '/onboarding/profile', page: 'page-onboarding', guard: 'protected' },
   { path: '/invites', page: 'page-invites', guard: 'protected' },
   { path: '/notifications', page: 'page-notifications', guard: 'protected' },
-  { path: '/rewards', page: 'page-rewards', guard: 'protected' },
   { path: '/ptt-overlay', page: 'page-ptt-overlay', guard: 'none' },
   { path: '/dev/ui', page: 'page-ui-gallery', guard: 'none' },
 ];
@@ -127,7 +125,7 @@ describe('AppRoutes — each route renders its page behind the right guard', () 
     // dangerous is `requireAuth={false}`: the wrapper is still there, so the
     // route reads as protected in review while the check is off. The route
     // table below classifies that separately, so it cannot pass unnoticed.
-    visit('/rewards');
+    visit('/connections');
     expect(screen.getByTestId('guard-protected')).not.toHaveAttribute('data-require-auth', 'false');
   });
 });
@@ -196,7 +194,6 @@ describe('AppRoutes — the whole route table stays classified', () => {
     '/feedback': 'redirect',
     '/notifications': 'protected',
     '/routines': 'redirect',
-    '/rewards': 'protected',
     '/workflows': 'protected',
     '/webhooks': 'redirect',
     '/settings/*': 'protected',

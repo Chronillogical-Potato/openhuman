@@ -5,11 +5,11 @@
 //! directories, and symlinks. Path sandboxing matches `file_read`.
 
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 const MAX_ENTRIES: usize = 1_000;
 

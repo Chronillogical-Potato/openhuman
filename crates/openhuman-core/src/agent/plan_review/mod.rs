@@ -7,10 +7,8 @@
 //! RPC (see [`schemas`]). Approve resumes-and-executes, Reject resumes-and-stops,
 //! Revise resumes-with-feedback so the agent re-plans and re-parks.
 //!
-//! This is the live-turn counterpart to the task-board approval lifecycle (which
-//! the background dispatcher runs on the `user-tasks` / `task-sources` boards):
-//! the dispatcher never sweeps conversation thread boards, so a chat plan must be
-//! gated on the turn itself, not via a board status. Modelled on
+//! A chat plan is gated on the turn itself: there is no durable board status
+//! to park it on, so the gate holds the live turn. Modelled on
 //! [`crate::security::approval`] but in-memory only.
 
 pub mod gate;

@@ -15,6 +15,7 @@ import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import { FlowApprovalRequestCard } from '../../components/chat/FlowApprovalRequestCard';
 import IntegrationConnectCard from '../../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../../components/chat/QueuedFollowups';
+import { UnroutedApprovalCard } from '../../components/chat/UnroutedApprovalCard';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
@@ -25,19 +26,16 @@ import {
   ChatThreadView,
   type ChatThreadViewHandle,
 } from '../../features/conversations/components/ChatThreadView';
+import { GoalBanner } from '../../features/conversations/components/GoalBanner';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
-import {
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-  useThreadGoal,
-} from '../../features/conversations/components/ThreadGoalChip';
-import { ThreadTodoStrip } from '../../features/conversations/components/ThreadTodoStrip';
+import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
+import { useThreadHarnessState } from '../../features/conversations/hooks/useThreadHarnessState';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
@@ -49,6 +47,7 @@ import {
 } from '../../features/human/chatMascot';
 import MicComposer from '../../features/human/MicComposer';
 import { useFlowApprovalRequests } from '../../hooks/useFlowApprovalRequests';
+import { useUnroutedApprovals } from '../../hooks/useUnroutedApprovals';
 import { useUsageState } from '../../hooks/useUsageState';
 import {
   type Attachment,
@@ -62,7 +61,6 @@ import {
 import { useRegisterAction } from '../../lib/commands/useRegisterAction';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { TurnProcessTrail } from '../../providers/assistantUiMessages';
-import { threadApi } from '../../services/api/threadApi';
 import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
 import {
   aiRegenerate,
@@ -72,12 +70,6 @@ import {
   useRustChat,
 } from '../../services/chatService';
 import { callCoreRpc } from '../../services/coreRpcClient';
-import {
-  loadAgentProfiles,
-  selectActiveAgentProfileId,
-  selectAgentProfile,
-  selectAgentProfiles,
-} from '../../store/agentProfileSlice';
 import {
   beginInferenceTurn,
   clearFollowupsForThread,
@@ -90,7 +82,6 @@ import {
   type ProcessingTranscriptItem,
   type QueuedFollowup,
   registerParallelRequest,
-  setTaskBoardForThread,
   setToolTimelineForThread,
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
@@ -283,12 +274,15 @@ const Conversations = ({
     : false;
   const firstActiveThreadId = Object.keys(activeThreadIds)[0] ?? null;
 
-  // Thread-goal controller shared by the footer trigger (under the composer)
-  // and the editor panel (above the composer).
-  const threadGoal = useThreadGoal(selectedThreadId ?? null);
-
   const [inputValue, setInputValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // What ingest counts its budget against. Tracks state on every render (so a
+  // removal or a send's clear is picked up) and is written synchronously as each
+  // file is admitted, which is what keeps two overlapping ingests honest.
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+  // Tail of the ingest queue; see `handleAttachFiles`.
+  const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Imperative handle onto the transcript's own background-processes panel
   // (its state now lives inside `ChatThreadView`) so the header badge below
@@ -403,8 +397,6 @@ const Conversations = ({
     [dispatch]
   );
   const socketStatus = useAppSelector(selectSocketStatus);
-  const agentProfiles = useAppSelector(selectAgentProfiles);
-  const selectedAgentProfileId = useAppSelector(selectActiveAgentProfileId);
   // Optional chain because narrow test stores (e.g. Conversations.test
   // bootstraps without the locale slice) shouldn't crash here. `'en'`
   // matches the no-locale-directive branch in the core, so legacy
@@ -415,7 +407,6 @@ const Conversations = ({
     state => state.chatRuntime.interruptedAssistantByThread
   );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
-  const taskBoardByThread = useAppSelector(state => state.chatRuntime.taskBoardByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
   );
@@ -429,6 +420,17 @@ const Conversations = ({
   // selected thread and surfaced regardless of which one is open.
   const { requests: flowApprovalRequests, dismiss: dismissFlowApprovalRequest } =
     useFlowApprovalRequests();
+  // Approvals no other surface will show: a background trigger run has no chat
+  // thread and no flow context, so the gate parks it, nothing asks the user,
+  // and it TTL-denies after 600s (#6406; general form #5746). Polled from the
+  // durable `approval_list_pending` queue rather than a socket event, because
+  // the whole point is that it can be raised while nobody is watching.
+  const {
+    approvals: unroutedApprovals,
+    decidingId: unroutedDecidingId,
+    error: unroutedApprovalError,
+    decide: decideUnroutedApproval,
+  } = useUnroutedApprovals();
   const pendingPlanReviewByThread = useAppSelector(
     state => state.chatRuntime.pendingPlanReviewByThread
   );
@@ -467,7 +469,7 @@ const Conversations = ({
     // Only `isAtLimit` is read here now: the near-limit and spent-budget
     // banners this file rendered are notices in `NoticeCenter`, which reads
     // the same hook once for the whole app.
-  } = useUsageState(selectedAgentProfileId === 'reasoning' ? 'reasoning' : 'chat');
+  } = useUsageState('chat');
   const [deleteModal, setDeleteModal] = useState<ConfirmationModalType>({
     isOpen: false,
     title: '',
@@ -476,8 +478,11 @@ const Conversations = ({
     onCancel: () => {},
   });
   const [resolvedModel, setResolvedModel] = useState<string | null>(null);
-  // A picker choice belongs to this composer session. It overrides the active
-  // profile route for subsequent sends without mutating the shared profile.
+  // The composer's picker choice. It overrides the model route for subsequent
+  // sends immediately, and is also written to the core's `default_model` so
+  // the pick survives an app restart and is what every managed turn runs on
+  // (the same field Settings → Routing → "Default model" edits). `null` clears
+  // the pin back to the managed default.
   const [composerModelOverride, setComposerModelOverride] = useState<string | null>(null);
   // `undefined` means no explicit picker selection, so usage-reported context
   // remains authoritative. `null` means the selected model did not report a
@@ -485,7 +490,25 @@ const Conversations = ({
   const [composerModelContextWindow, setComposerModelContextWindow] = useState<
     number | null | undefined
   >(undefined);
-  // Whether the resolved model for the active profile accepts image input.
+  const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
+    setComposerModelOverride(value);
+    setComposerModelContextWindow(contextWindow ?? null);
+    void callCoreRpc({
+      method: 'openhuman.inference_update_model_settings',
+      params: { default_model: value ?? '' },
+    })
+      .then(() => {
+        console.debug('[chat][composer-model] persisted default_model', { pinned: value !== null });
+      })
+      .catch((err: unknown) => {
+        // The in-session override still applies; only persistence failed.
+        console.warn('[chat][composer-model] failed to persist default_model', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, []);
+
+  // Whether the resolved model accepts image input.
   // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
   // the composer's image-attachment affordance (docs flow regardless). Resolved
   // against the non-attachment hint so the affordance is stable as you attach.
@@ -494,7 +517,7 @@ const Conversations = ({
   // When it is, an image may be attached and routed to that sub-agent even if
   // the active orchestrator model is non-vision — the orchestrator sees a text
   // placeholder and delegates the image to the vision sub-agent. Resolved from
-  // the `vision` workload tier (vision-v1 on the managed backend, or the BYOK
+  // the `vision` workload route (the managed default on the managed backend, or the BYOK
   // model routed to the Vision workload).
   const [visionDelegateAvailable, setVisionDelegateAvailable] = useState(false);
 
@@ -502,12 +525,11 @@ const Conversations = ({
     let cancelled = false;
     (async () => {
       try {
-        const profile = agentProfiles.find(p => p.id === selectedAgentProfileId);
-        // Resolve the actually-selected profile's model so `modelSupportsVision`
-        // reflects the real tier, AND the vision workload so we know whether a
+        // Resolve the standard chat model so `modelSupportsVision` reflects the
+        // normal agent path, AND the vision workload so we know whether a
         // vision sub-agent can take the image. Documents are text-extracted so
         // any model handles them.
-        const hint = profile?.modelOverride ?? CHAT_MODEL_HINT;
+        const hint = composerModelOverride ?? CHAT_MODEL_HINT;
         const [res, visionRes] = await Promise.all([
           callCoreRpc<{ model: string; vision?: boolean }>({
             method: 'openhuman.inference_resolve_model',
@@ -534,12 +556,9 @@ const Conversations = ({
     return () => {
       cancelled = true;
     };
-  }, [agentProfiles, selectedAgentProfileId]);
+  }, [composerModelOverride]);
 
-  // Display name for share cards (#5006): the active agent profile, or the
-  // product name when no named profile is selected.
-  const shareAgentName =
-    agentProfiles.find(p => p.id === selectedAgentProfileId)?.name ?? 'OpenHuman';
+  const shareAgentName = 'OpenHuman';
 
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const composerFooterRef = useRef<HTMLDivElement>(null);
@@ -572,7 +591,7 @@ const Conversations = ({
   const handleComposerSendRef = useRef<((text?: string) => Promise<void>) | null>(null);
   const handleStopGenerationRef = useRef<(() => void) | null>(null);
   // Per-thread "turn signature": the last-seen tuple of progress-slice
-  // references [inferenceStatus, streamingAssistant, toolTimeline, taskBoard]
+  // references [inferenceStatus, streamingAssistant, toolTimeline]
   // for each thread that owns a live silence timer. Redux Toolkit (immer)
   // only produces new references for the thread whose slice actually changed,
   // so comparing references lets the rearm effect (a) detect a turn completing
@@ -648,14 +667,6 @@ const Conversations = ({
           err instanceof Error ? err.message : String(err)
         )
       );
-  };
-
-  const handleSelectAgentProfile = async (profileId: string) => {
-    try {
-      await dispatch(selectAgentProfile(profileId)).unwrap();
-    } catch (error) {
-      debug('agent profile select failed: %o', error);
-    }
   };
 
   // Seed the composer footer with the selected thread's persisted token/cost
@@ -768,26 +779,8 @@ const Conversations = ({
     if (selectedThreadId) {
       void dispatch(loadThreadMessages(selectedThreadId));
       void dispatch(fetchAndHydrateTurnState(selectedThreadId));
-      void threadApi
-        .getTaskBoard(selectedThreadId)
-        .then(board => {
-          if (board) {
-            dispatch(setTaskBoardForThread({ threadId: selectedThreadId, board }));
-          }
-        })
-        .catch(error => {
-          debug('getTaskBoard failed: %o', error);
-        });
     }
   }, [selectedThreadId, dispatch]);
-
-  useEffect(() => {
-    void dispatch(loadAgentProfiles())
-      .unwrap()
-      .catch(error => {
-        debug('agent profiles load failed: %o', error);
-      });
-  }, [dispatch]);
 
   useEffect(() => {
     const onDictationInsert = (event: Event) => {
@@ -869,9 +862,9 @@ const Conversations = ({
   // thread. Top-level tool / iteration events bump `inferenceStatusByThread`;
   // pure-text streams (no tools) only bump `streamingAssistantByThread`;
   // sub-agent activity (a delegated `Research`/`Tools Agent`/`Memory Tree`
-  // turn whose tools run in a child task) bumps `toolTimelineByThread` and
-  // `taskBoardByThread` without necessarily re-emitting a top-level status
-  // change, so all four must be watched — otherwise a long sub-agent loop
+  // turn whose tools run in a child task) bumps `toolTimelineByThread` without
+  // necessarily re-emitting a top-level status change, so it must be watched —
+  // otherwise a long sub-agent loop
   // would trip the safety timer mid-run even though the user can see the
   // delegated tools firing in the timeline. When the status is cleared
   // (chat_done / chat_error), drop the timer — the completion handlers
@@ -895,7 +888,6 @@ const Conversations = ({
         inferenceStatusByThread[threadId],
         streamingAssistantByThread[threadId],
         toolTimelineByThread[threadId],
-        taskBoardByThread[threadId],
         // #4270: liveness beat. Kept LAST so the done-transition probe on
         // `current[0]` (status) is unaffected; a beat alone still flips the
         // `changed` check and rearms the timer through a silent reasoning phase.
@@ -921,7 +913,6 @@ const Conversations = ({
     inferenceStatusByThread,
     streamingAssistantByThread,
     toolTimelineByThread,
-    taskBoardByThread,
     inferenceHeartbeatByThread,
   ]);
 
@@ -984,12 +975,17 @@ const Conversations = ({
     return true;
   };
 
-  const handleAttachFiles = async (files: FileList | File[] | null) => {
+  const ingestFiles = async (files: FileList | File[] | null) => {
     if (!files) return;
-    let acceptedFileCount = attachments.filter(attachment => attachment.kind === 'file').length;
+    // Counted from the ref, never from the `attachments` render snapshot: the
+    // composer now has three ingest entry points (picker, drop, paste) and two
+    // can fire before React re-renders. Both would then seed their budget from
+    // the same snapshot and each admit a full quota.
+    const admitted = attachmentsRef.current;
+    let acceptedFileCount = admitted.filter(attachment => attachment.kind === 'file').length;
     // Images and videos share one image-marker budget (video = its frames), so
     // track consumed markers rather than per-kind counts.
-    let acceptedImageMarkers = attachments.reduce(
+    let acceptedImageMarkers = admitted.reduce(
       (sum, attachment) => sum + imageMarkerCost(attachment.kind),
       0
     );
@@ -1040,8 +1036,37 @@ const Conversations = ({
       } else {
         acceptedImageMarkers += imageMarkerCost(result.attachment.kind);
       }
+      // Ref first, synchronously: the next queued run counts what this one just
+      // took, without waiting for React to commit the state update.
+      attachmentsRef.current = [...attachmentsRef.current, result.attachment];
       setAttachments(prev => [...prev, result.attachment]);
     }
+  };
+
+  /**
+   * Serialises ingest so overlapping gestures cannot both validate against the
+   * same budget — a paste landing while a dropped file is still being read, for
+   * instance. Each run starts only once the one before it has finished writing
+   * `attachmentsRef`, so the budget it counts from is current.
+   *
+   * The list is copied here, synchronously, and that is load-bearing: every
+   * caller hands over a list owned by a DOM event that does not outlive the
+   * handler. The picker clears its `FileList` on the next line
+   * (`event.target.value = ''`), and a drop's `DataTransfer` is neutered once
+   * the handler returns. Reading either from inside the queued continuation
+   * finds an empty list — and an empty list produces no attachment and no
+   * error, which is a silent failure rather than a visible one.
+   */
+  const handleAttachFiles = (files: FileList | File[] | null): Promise<void> => {
+    const snapshot = files ? Array.from(files) : null;
+    const run = ingestQueueRef.current.then(() => ingestFiles(snapshot));
+    // The queue must survive a rejected run, or one failure wedges every later
+    // attachment. Errors still surface to the caller through `run`.
+    ingestQueueRef.current = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
   };
 
   const handleSendMessage = async (text?: string) => {
@@ -1094,10 +1119,7 @@ const Conversations = ({
     pendingSendsRef.current.add(sendingThreadId);
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
-    const modelOverride =
-      composerModelOverride ??
-      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-      CHAT_MODEL_HINT;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1171,7 +1193,6 @@ const Conversations = ({
         threadId: sendingThreadId,
         message: messageText,
         model: modelOverride,
-        profileId: selectedAgentProfileId,
         locale: uiLocale,
       });
       trackAnalyticsEvent('chat_message_sent', {
@@ -1223,10 +1244,7 @@ const Conversations = ({
     if (!normalized && attachments.length === 0) return;
 
     const pendingAttachments = attachments.slice();
-    const modelOverride =
-      composerModelOverride ??
-      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-      CHAT_MODEL_HINT;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1272,7 +1290,6 @@ const Conversations = ({
         threadId,
         message: messageText,
         model: modelOverride,
-        profileId: selectedAgentProfileId,
         locale: uiLocale,
         queueMode: 'parallel',
       });
@@ -1305,10 +1322,7 @@ const Conversations = ({
     const pendingAttachments = attachments.slice();
     if (!normalized && pendingAttachments.length === 0) return;
 
-    const modelOverride =
-      composerModelOverride ??
-      agentProfiles.find(p => p.id === selectedAgentProfileId)?.modelOverride ??
-      CHAT_MODEL_HINT;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     // Build the full user message exactly like a normal send (content +
     // attachment metadata) so the follow-up persists identically when it is
@@ -1355,7 +1369,6 @@ const Conversations = ({
         threadId,
         message: messageText,
         model: modelOverride,
-        profileId: selectedAgentProfileId,
         locale: uiLocale,
         queueMode: 'followup',
       });
@@ -1737,6 +1750,16 @@ const Conversations = ({
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
   );
+  // Harness work state the agent keeps for this thread — its todo list and
+  // the thread goal — read off the newest `todo` / `goal_*` tool results
+  // across this turn and the thread's settled turns
+  // (`hooks/useThreadHarnessState.ts`). Rendered above the composer next to
+  // the gate cards so a five-step task shows as a checklist ticking off while
+  // the agent works through it.
+  const { todoList, goal: threadGoal } = useThreadHarnessState(
+    selectedThreadId ?? null,
+    selectedThreadToolTimeline
+  );
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
   // `TranscriptOverlays` resolves the open delegation out of this same live
   // timeline and renders nothing when the id is absent, so an inline card must
@@ -1749,11 +1772,9 @@ const Conversations = ({
   // Poll-free live signal: lights the badge when memories are syncing even if
   // no sub-agent is running and the panel is closed.
   const memorySyncActive = useMemorySyncActive();
-  const selectedTaskBoard = selectedThreadId ? (taskBoardByThread[selectedThreadId] ?? null) : null;
-  const hasTaskBoard = Boolean(selectedTaskBoard?.cards.length);
   // A plan the orchestrator parked for interactive review (request_plan_review
   // gate). When present, the PlanReviewCard renders above the composer and
-  // resolves the parked turn; the todo strip stays read-only progress.
+  // resolves the parked turn.
   const pendingPlanReview = selectedThreadId
     ? (pendingPlanReviewByThread[selectedThreadId] ?? null)
     : null;
@@ -1881,7 +1902,6 @@ const Conversations = ({
     !isLoadingMessages &&
     !messagesError &&
     !hasVisibleMessages &&
-    !hasTaskBoard &&
     !hasLiveAgentActivity;
 
   // Track the floating composer footer's height so the message list can reserve
@@ -2004,6 +2024,13 @@ const Conversations = ({
   // losing them; the two panels are mutually exclusive, so nothing doubles up.
   const agentGateCards = (
     <>
+      {/* Harness work state: the thread goal and the agent's todo list. Both
+          are read-only progress the agent wrote via its tools; they sit above
+          the gate cards so a parked decision is always the closest thing to
+          the composer. */}
+      {selectedThreadId && threadGoal && <GoalBanner goal={threadGoal} />}
+      {selectedThreadId && todoList && <TodoChecklist list={todoList} />}
+
       {/* Plan-mode review: the orchestrator parked the live turn on a
           thread-scoped plan (request_plan_review gate). Surface it for the
           user to Approve / Reject / send feedback on before anything executes;
@@ -2125,6 +2152,29 @@ const Conversations = ({
       </div>
     ) : null;
 
+  // Background-approval surface: parks raised with no chat thread and no flow
+  // run. Sits beside the flow deck because it is the same affordance with a
+  // different origin, and is likewise not thread-scoped — a pending row has no
+  // thread to be scoped to, which is exactly why it had no surface.
+  const unroutedApprovalDeck =
+    unroutedApprovals.length > 0 ? (
+      <div className="mb-2 flex flex-col gap-2" data-testid="unrouted-approval-deck">
+        {unroutedApprovalError && (
+          <p className="text-xs text-destructive" role="alert">
+            {unroutedApprovalError}
+          </p>
+        )}
+        {unroutedApprovals.map(approval => (
+          <UnroutedApprovalCard
+            key={approval.request_id}
+            approval={approval}
+            busy={unroutedDecidingId !== null}
+            onDecide={decideUnroutedApproval}
+          />
+        ))}
+      </div>
+    ) : null;
+
   // Surface in-flight + failed artifact cards above the composer (#2779).
   // Mirrors the approval-card placement so the user sees the spinner / error
   // without scrolling. `ready` cards are delegated to the header ChatFilesChip
@@ -2219,7 +2269,6 @@ const Conversations = ({
         threadId={selectedThreadId ?? null}
         variant={variant}
         bottomPadding={!isSidebar ? composerFooterHeight + 16 : undefined}
-        hasFooterContent={hasTaskBoard}
         isLoading={isLoadingMessages}
         loadError={messagesError}
         emptyContent={
@@ -2332,31 +2381,11 @@ const Conversations = ({
 
         {flowApprovalDeck}
 
+        {unroutedApprovalDeck}
+
         {liveArtifactDeck}
 
         {agentGateCards}
-
-        {/* Thread-scoped todo list the agent maintains as it works — read-only,
-            pinned above the composer. Distinct from the Intelligence-tab kanban
-            (global `user-tasks`). Renders nothing when the thread has no active
-            cards. */}
-        {selectedThreadId && (
-          <ThreadTodoStrip
-            board={selectedTaskBoard}
-            disabled={!selectedThreadId}
-            onViewSession={card => {
-              if (!card.sessionThreadId) return;
-              // Navigation only — do NOT mark the thread active. activeThreadId
-              // tracks a true in-flight turn; forcing a completed session active
-              // would wedge the composer.
-              dispatch(setSelectedThread(card.sessionThreadId));
-              void dispatch(loadThreadMessages(card.sessionThreadId));
-              if (shouldSyncChatRoute) {
-                navigate(chatThreadPath(card.sessionThreadId));
-              }
-            }}
-          />
-        )}
 
         {/* Cancel the in-flight turn for composer modes that don't render the
             text ChatComposer (mic-cloud + voice). The text composer carries its
@@ -2424,9 +2453,7 @@ const Conversations = ({
               // validateAndReadFile, which honors modelSupportsVision.
               allowedMimeTypes={[]}
               attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-              // Header stack above the input box (outside its blue focus ring):
-              // queued follow-ups + the thread-goal editor (opened via the
-              // footer "Set goal" trigger). Entries that render null are no-ops.
+              // Header stack above the input box (outside its blue focus ring).
               headerSlots={[
                 selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
                   <QueuedFollowups
@@ -2435,14 +2462,10 @@ const Conversations = ({
                     onClear={() => void handleClearQueuedFollowups()}
                   />
                 ) : null,
-                <ThreadGoalEditorPanel key="thread-goal" ctl={threadGoal} />,
               ]}
               mascotDock={mascotDock}
               modelOverride={composerModelOverride ?? resolvedModel}
-              onModelOverrideChange={(value, contextWindow) => {
-                setComposerModelOverride(value);
-                setComposerModelContextWindow(contextWindow ?? null);
-              }}
+              onModelOverrideChange={applyComposerModel}
             />
           </>
         ) : (
@@ -2512,49 +2535,13 @@ const Conversations = ({
 
         {/* Thread title + inline rename moved to the sidebar thread list rows. */}
 
-        {/* Model + token stats (left) and the quick/reasoning toggle + files
-            chip (right) share one line. */}
+        {/* Model/token stats and the supporting controls share one line. */}
         <div
           className="mt-2 flex items-center justify-between gap-2"
           data-walkthrough="chat-agent-panel">
-          <div className="flex min-w-0 items-center gap-2">
-            <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
-            {/* Set/show the thread goal; click opens the editor above the composer. */}
-            <ThreadGoalFooterTrigger ctl={threadGoal} />
-          </div>
+          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
           {!isSidebar && (
             <div className="flex shrink-0 items-center gap-2">
-              <div
-                className="flex h-7 items-center rounded-full border border-line bg-surface-subtle p-0.5"
-                role="radiogroup"
-                aria-label={t('chat.agentProfile.label')}>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'default'}
-                  data-analytics-id="chat-header-mode-quick"
-                  onClick={() => void handleSelectAgentProfile('default')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'default'
-                      ? 'bg-surface text-content shadow-xs'
-                      : 'text-content-muted hover:text-content-secondary'
-                  }`}>
-                  {t('chat.agentProfile.quick')}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedAgentProfileId === 'reasoning'}
-                  data-analytics-id="chat-header-mode-reasoning"
-                  onClick={() => void handleSelectAgentProfile('reasoning')}
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all ${
-                    selectedAgentProfileId === 'reasoning'
-                      ? 'bg-surface text-content shadow-xs'
-                      : 'text-content-muted hover:text-content-secondary'
-                  }`}>
-                  {t('chat.agentProfile.reasoning')}
-                </button>
-              </div>
               {renderBackgroundProcessesButton(() =>
                 threadViewRef.current?.openBackgroundProcesses()
               )}
@@ -2579,6 +2566,10 @@ const Conversations = ({
           banner carries the only Approve/Reject affordance — so they belong
           with the gates, above the transient banners. */}
       {flowApprovalDeck}
+      {/* Same reasoning, different origin: a background trigger's park blocks
+          until someone answers it, and this is the only place it is ever
+          asked. */}
+      {unroutedApprovalDeck}
       {attachError && (
         <div className="rounded-lg border border-coral-200 bg-coral-50 px-3 py-2">
           <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
@@ -2592,29 +2583,6 @@ const Conversations = ({
       {sendErrorBanner}
       {sendAdvisoryBanner}
       {liveArtifactDeck}
-      {/* The thread todo board. Its only other mount is inside
-          `legacyMainPanel`, which the text surface never renders, so
-          `taskBoardByThread` reached Redux and stopped there: a long
-          multi-step turn lost its whole plan/progress strip. This is the same
-          position relative to the composer that the legacy panel gave it, and
-          the strip renders nothing when the board is empty, so it is inert on
-          an ordinary turn. */}
-      {selectedThreadId && (
-        <ThreadTodoStrip
-          board={selectedTaskBoard}
-          onViewSession={card => {
-            if (!card.sessionThreadId) return;
-            // Navigation only - do NOT mark the thread active. activeThreadId
-            // tracks a true in-flight turn; forcing a completed session active
-            // would wedge the composer.
-            dispatch(setSelectedThread(card.sessionThreadId));
-            void dispatch(loadThreadMessages(card.sessionThreadId));
-            if (shouldSyncChatRoute) {
-              navigate(chatThreadPath(card.sessionThreadId));
-            }
-          }}
-        />
-      )}
       {selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
         <QueuedFollowups
           items={queuedFollowupsByThread[selectedThreadId] ?? []}
@@ -2624,9 +2592,7 @@ const Conversations = ({
     </>
   );
 
-  // Left-hand controls in the assistant-ui composer toolbar, alongside the
-  // model pill and the thread-goal trigger — the assistant-ui equivalent of
-  // `legacyMainPanel`'s footer row.
+  // Left-hand controls in the assistant-ui composer toolbar.
   const assistantComposerFooterExtras = (
     <>
       {renderBackgroundProcessesButton(() => setShowBackgroundProcesses(true))}
@@ -2642,7 +2608,6 @@ const Conversations = ({
           : 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
       }>
       <AssistantUiChat
-        threadGoal={threadGoal}
         model={composerModelOverride ?? resolvedModel ?? CHAT_MODEL_HINT}
         modelContextWindow={composerModelContextWindow}
         composerHeader={assistantComposerHeader}
@@ -2671,10 +2636,7 @@ const Conversations = ({
         // The settled turn's one-line footer opens the process rail on THAT
         // turn's trail, which the footer carries with the click.
         onOpenTurnProcess={setTurnProcessTrail}
-        onModelChange={(value, contextWindow) => {
-          setComposerModelOverride(value);
-          setComposerModelContextWindow(contextWindow ?? null);
-        }}
+        onModelChange={applyComposerModel}
       />
       {/* The three transcript-local modals. `ChatThreadView` hosts an identical
           trio, but it is the legacy panel's transcript and is not mounted here,

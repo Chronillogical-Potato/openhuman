@@ -20,7 +20,6 @@ vi.mock('../../../services/api/mcpClientsApi', () => ({
     registryGet: (...args: unknown[]) => mockRegistryGet(...args),
     oauthBegin: (...args: unknown[]) => mockOauthBegin(...args),
     status: (...args: unknown[]) => mockStatus(...args),
-    configAssist: vi.fn(),
   },
 }));
 
@@ -269,21 +268,6 @@ describe('ConnectAuthModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('opens the config-help modal from the "Help & configure" link', async () => {
-    mockDetectAuth.mockResolvedValue({ kind: 'none', grant_types: [] });
-    render(<ConnectAuthModal server={BASE_SERVER} onClose={() => {}} onConnected={() => {}} />);
-    await screen.findByRole('dialog');
-    // The link in the modal header (not the stacked modal's heading) opens the
-    // ConfigHelpModal, which renders its own dialog with the same label.
-    fireEvent.click(screen.getByRole('button', { name: 'Help & configure' }));
-    await waitFor(() => {
-      // Two dialogs now: the connect modal + the stacked help modal. Query
-      // with `{ hidden: true }` — Radix correctly marks the lower dialog
-      // `aria-hidden` while the stacked one is on top of it.
-      expect(screen.getAllByRole('dialog', { hidden: true }).length).toBeGreaterThan(1);
-    });
-  });
-
   it('falls back to token fields when detectAuth throws', async () => {
     mockDetectAuth.mockRejectedValue(new Error('probe failed'));
     render(<ConnectAuthModal server={BASE_SERVER} onClose={() => {}} onConnected={() => {}} />);
@@ -409,21 +393,6 @@ describe('ConnectAuthModal', () => {
     fireEvent.click(host);
     // `server.io` must stay intact — never reduced to the bare TLD `https://io`.
     expect(mockOpenUrl).toHaveBeenCalledWith('https://server.io');
-  });
-
-  it('offers a "Where do I get the token?" pointer that opens the config assistant', async () => {
-    mockDetectAuth.mockResolvedValue({ kind: 'none', grant_types: [] });
-    render(<ConnectAuthModal server={BASE_SERVER} onClose={() => {}} onConnected={() => {}} />);
-    await screen.findByRole('dialog');
-    fireEvent.click(screen.getByRole('button', { name: /Where do I get the token/ }));
-    await waitFor(() => {
-      // The connect modal plus the stacked config-help modal. Both dialogs are
-      // Radix `Dialog`s portalled to `document.body` now, so opening the
-      // second correctly marks the first `aria-hidden` for assistive tech
-      // (real background content while a modal is on top of it) — query with
-      // `{ hidden: true }` to still see it in the accessibility-tree count.
-      expect(screen.getAllByRole('dialog', { hidden: true }).length).toBeGreaterThan(1);
-    });
   });
 
   it('blocks Connect until a required declared field is filled', async () => {

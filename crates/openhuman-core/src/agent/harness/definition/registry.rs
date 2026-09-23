@@ -4,7 +4,7 @@ use super::agent_definition::AgentDefinition;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 /// In-memory registry of all known [`AgentDefinition`]s.
 ///
@@ -19,7 +19,7 @@ pub struct AgentDefinitionRegistry {
     order: Vec<String>,
 }
 
-static GLOBAL: OnceLock<AgentDefinitionRegistry> = OnceLock::new();
+static GLOBAL: OnceLock<Arc<AgentDefinitionRegistry>> = OnceLock::new();
 
 impl AgentDefinitionRegistry {
     /// Build a registry containing only the built-in definitions
@@ -115,7 +115,7 @@ impl AgentDefinitionRegistry {
     /// custom definitions during development.
     pub fn init_global(workspace: &Path) -> Result<()> {
         let registry = Self::load(workspace)?;
-        match GLOBAL.set(registry) {
+        match GLOBAL.set(Arc::new(registry)) {
             Ok(()) => {
                 tracing::info!(
                     "[agent_defs] global registry initialised with {} definitions",
@@ -134,12 +134,21 @@ impl AgentDefinitionRegistry {
     /// scan). Used by tests and by callers that don't have a workspace.
     pub fn init_global_builtins() -> Result<()> {
         let registry = Self::builtins_only();
-        let _ = GLOBAL.set(registry);
+        let _ = GLOBAL.set(Arc::new(registry));
         Ok(())
     }
 
     /// Borrow the global registry, if initialised.
     pub fn global() -> Option<&'static Self> {
-        GLOBAL.get()
+        GLOBAL.get().map(Arc::as_ref)
+    }
+
+    /// Clones the durable process registry for a host capability bundle.
+    ///
+    /// Hosted invocations need owned authority because their capability bundle
+    /// outlives the factory stack frame. This is the owned counterpart of
+    /// [`Self::global`], not a rebuilt or global lookup performed mid-turn.
+    pub fn global_arc() -> Option<Arc<Self>> {
+        GLOBAL.get().cloned()
     }
 }

@@ -24,7 +24,6 @@ import type { ProviderAuthError } from '../../../../services/api/aiSettingsApi';
 import Alert from '../../../ui/Alert';
 import Badge from '../../../ui/Badge';
 import Button from '../../../ui/Button';
-import Card from '../../../ui/Card';
 import StatusLine from '../../../ui/StatusLine';
 import Switch from '../../../ui/Switch';
 import { routingWithProviderRemoved } from '../aiRouting';
@@ -72,6 +71,22 @@ const hostOf = (endpoint: string): string => {
   }
 };
 
+/** The one "Add provider" control, shared by the section and any host header. */
+export const AddProviderButton = ({ onClick }: { onClick: () => void }) => {
+  const { t } = useT();
+  return (
+    <Button
+      type="button"
+      variant="primary"
+      size="sm"
+      leadingIcon={<LuPlus className="h-3.5 w-3.5" />}
+      onClick={onClick}
+      data-testid="add-provider-open">
+      {t('settings.ai.providers.addProvider')}
+    </Button>
+  );
+};
+
 export const ProviderAuthSection = ({
   draft,
   persist,
@@ -88,6 +103,8 @@ export const ProviderAuthSection = ({
   onOpenKeyDialog,
   onAddCustomProvider,
   onEditCustomProvider,
+  addOpen: controlledAddOpen,
+  onAddOpenChange,
 }: {
   draft: AISettings;
   persist: (next: AISettings) => Promise<void>;
@@ -113,9 +130,23 @@ export const ProviderAuthSection = ({
   onAddCustomProvider: () => void;
   /** Opens the full editor for a user-defined provider (name, endpoint, key). */
   onEditCustomProvider: (provider: CloudProvider) => void;
+  /**
+   * Host-controlled "Add provider" dialog. When a host owns the page header it
+   * places the button there and drives the dialog through these; the section
+   * then renders no button of its own. Left undefined, the section keeps a
+   * local button and state (the embedded onboarding case).
+   */
+  addOpen?: boolean;
+  onAddOpenChange?: (open: boolean) => void;
 }) => {
   const { t } = useT();
-  const [addOpen, setAddOpen] = useState(false);
+  const [localAddOpen, setLocalAddOpen] = useState(false);
+  const hostControlsAdd = controlledAddOpen !== undefined;
+  const addOpen = controlledAddOpen ?? localAddOpen;
+  const setAddOpen = (open: boolean) => {
+    if (!hostControlsAdd) setLocalAddOpen(open);
+    onAddOpenChange?.(open);
+  };
 
   /** Drop a provider and scrub every routing entry pinned to it, so a workload
    *  cannot keep pointing at a provider that no longer exists. */
@@ -239,19 +270,11 @@ export const ProviderAuthSection = ({
           {error && <StatusLine saving={false} error={error} savedNote={null} savingLabel="" />}
         </div>
 
-        <Card title={t('settings.ai.llmProviders')} description={t('settings.ai.llmProvidersDesc')}>
-          <div className="flex justify-end px-4 py-2">
-            <Button
-              type="button"
-              variant="primary"
-              size="xs"
-              leadingIcon={<LuPlus className="h-3.5 w-3.5" />}
-              onClick={() => setAddOpen(true)}
-              data-testid="add-provider-open">
-              {t('settings.ai.providers.addProvider')}
-            </Button>
+        {!hostControlsAdd && (
+          <div className="flex justify-end">
+            <AddProviderButton onClick={() => setAddOpen(true)} />
           </div>
-        </Card>
+        )}
 
         {/* ─── Connected ────────────────────────────────────────────────────
           Managed leads and is always present. #3760: it renders a badge, not a

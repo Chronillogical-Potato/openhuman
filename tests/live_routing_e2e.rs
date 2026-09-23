@@ -69,7 +69,7 @@ fn required_env(name: &str) -> String {
 fn write_live_config(openhuman_dir: &Path, api_origin: &str) {
     let cfg = format!(
         r#"api_url = "{api_origin}"
-default_model = "reasoning-v1"
+default_model = "openrouter/deepseek/deepseek-v4-flash"
 default_temperature = 0.7
 chat_onboarding_completed = true
 

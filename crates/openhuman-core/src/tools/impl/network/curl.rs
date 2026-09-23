@@ -8,13 +8,13 @@
 
 use super::url_guard::{normalize_allowed_domains, validate_url_with_dns_check};
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 

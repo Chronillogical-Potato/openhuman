@@ -9,7 +9,7 @@ fn applies_only_present_fields() {
     assert_eq!(cfg.ccr_min_tokens, 1200);
     assert!(!cfg.search_enabled);
     // Untouched fields keep defaults.
-    assert!(cfg.router_enabled);
+    assert!(!cfg.router_enabled);
     assert!(cfg.code_enabled);
 }
 

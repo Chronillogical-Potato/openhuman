@@ -25,10 +25,10 @@ use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_core::inference::http;
-use openhuman_core::inference::local::{
+use openhuman_core::inference::host_runtime::{
     local_ai_assets_status, local_ai_downloads_progress, LocalAiService,
 };
-use openhuman_core::inference::voice::streaming::handle_dictation_ws;
+use openhuman_core::voice::streaming::handle_dictation_ws;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 use tokio_tungstenite::tungstenite::Message as WsMessage;
@@ -280,8 +280,9 @@ async fn local_service_assets_report_state_from_fake_files_and_binaries() {
     let _piper_bin = EnvVarGuard::unset("PIPER_BIN");
     let _ollama_bin = EnvVarGuard::unset("OLLAMA_BIN");
 
-    let service = LocalAiService::new(&config);
-    let assets = service.assets_status(&config).await.expect("assets");
+    let runtime = openhuman_core::inference::local_runtime_config(&config);
+    let service = LocalAiService::new(&runtime);
+    let assets = service.assets_status(&runtime).await.expect("assets");
     assert!(assets.ollama_available);
     assert_eq!(assets.chat.state, "ready");
     assert_eq!(assets.embedding.state, "ready");
@@ -293,7 +294,7 @@ async fn local_service_assets_report_state_from_fake_files_and_binaries() {
     assert_eq!(assets.vision.state, "ready");
     assert_eq!(assets.tts.state, "ondemand");
 
-    let progress = service.downloads_progress(&config).await.expect("progress");
+    let progress = service.downloads_progress(&runtime).await.expect("progress");
     assert_eq!(progress.tts.state, "ondemand");
 
     // No transcription assertion here any more: `transcribe_with_prompt` is a

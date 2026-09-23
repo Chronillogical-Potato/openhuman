@@ -34,10 +34,15 @@ const getTelemetryUrl = (url: string): string => {
  * registered application instead of staying inside the embedded
  * webview.
  *
- * Desktop opener failures propagate to the caller. Falling back to
- * `window.open` in a desktop webview can replace the app with the remote
- * page, leaving no browser controls to return to the chat.
- * Browser preview builds use `window.open` normally.
+ * Inside the desktop shell a failure is re-thrown, never recovered with
+ * `window.open`: the shell's webview has no browser chrome, so any path
+ * that lets a remote page load there strands the user. The shell is
+ * detected with Tauri's runtime marker rather than `isTauri()`, whose
+ * IPC-bridge check reads `false` during the bridge bootstrap gap and
+ * would misclassify the desktop app as a browser.
+ *
+ * In a browser context (no Tauri) we keep the `window.open` path so
+ * `https://` / `mailto:` links still work for dev/preview builds.
  */
 export const openUrl = async (url: string): Promise<void> => {
   const normalizedUrl = url.trim();
@@ -45,16 +50,16 @@ export const openUrl = async (url: string): Promise<void> => {
   if (isTauriRuntime()) {
     try {
       await tauriOpenUrl(normalizedUrl);
-      return;
     } catch (err) {
       Sentry.addBreadcrumb({
         category: 'ipc',
         level: 'warning',
-        message: 'tauriOpenUrl failed; keeping app navigation',
-        data: { url: getTelemetryUrl(normalizedUrl) },
+        message: 'tauriOpenUrl failed; not falling back to in-app navigation',
+        data: { url: getTelemetryUrl(normalizedUrl), error: String(err) },
       });
       throw err;
     }
+    return;
   }
   window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
 };

@@ -1,7 +1,7 @@
 id = "researcher"
 display_name = "Researcher"
 delegate_name = "research"
-when_to_use = "Web & docs crawler — reads real documentation, compresses to dense markdown. Use for any task that requires looking up external knowledge."
+when_to_use = "Multi-source web research in a separate context: crawls, comparisons, deep digests. One fact or one page is `web_search_tool` / `web_fetch` directly."
 temperature = 0.4
 max_iterations = 10
 iteration_policy = "extended"

@@ -1,21 +1,24 @@
 //! Assembling a [`Harness`].
 //!
-//! The builder's whole job is to turn typed inputs into one in-memory
-//! [`Config`] plus a [`DomainSet`]/[`ServiceSet`] pair, then hand them to
-//! [`CoreBuilder`]. Nothing here mutates the process environment — which is the
-//! point, and the difference from every hand-rolled embedder in this tree.
+//! The builder splits its inputs between the two things a harness is: the
+//! runtime-wide ones (workspace, services, domains, backend URL, session,
+//! base config) go to a [`RuntimeBuilder`], and the agent-shaped ones
+//! (provider, access, action directory, skills, MCP servers) go to one
+//! [`AgentSpec`] named `harness`. Nothing here mutates the process
+//! environment.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use super::access::Access;
 use super::error::HarnessError;
 use super::provider::Provider;
-use super::workspace::{ResolvedWorkspace, Workspace};
-use super::{Harness, HARNESS_LIVE};
-use crate::{Core, Session};
+use super::workspace::Workspace;
+use super::Harness;
+use crate::agent::AgentSpec;
+use crate::runtime::RuntimeBuilder;
+use crate::Session;
 use openhuman_core::config::Config;
-use openhuman_core::core::runtime::{CoreBuilder, DomainSet, ServiceSet, TokenSource};
+use openhuman_core::core::runtime::{DomainSet, ServiceSet};
 use openhuman_core::core::types::HostKind;
 
 /// Builder for a [`Harness`]. Obtain with [`Harness::builder`].
@@ -24,6 +27,7 @@ pub struct HarnessBuilder {
     action_dir: Option<PathBuf>,
     provider: Provider,
     access: Access,
+    #[cfg(feature = "skills")]
     skills_dir: Option<PathBuf>,
     #[cfg(feature = "mcp")]
     mcp_servers: Vec<super::mcp::McpServer>,
@@ -51,6 +55,7 @@ impl HarnessBuilder {
             action_dir: None,
             provider: Provider::inherit(),
             access: Access::default(),
+            #[cfg(feature = "skills")]
             skills_dir: None,
             #[cfg(feature = "mcp")]
             mcp_servers: Vec::new(),
@@ -216,29 +221,18 @@ impl HarnessBuilder {
     ///
     /// # Errors
     ///
-    /// [`HarnessError::AlreadyRunning`] if this process already has one; see
-    /// that variant's docs for why that is a property of the core rather than
-    /// of the harness.
+    /// [`HarnessError::AlreadyRunning`] if this process already has a
+    /// runtime; see that variant's docs for why that is a property of the
+    /// core rather than of the harness.
     pub async fn build(self) -> Result<Harness, HarnessError> {
-        // Claim the process slot before doing any work, so a losing racer
-        // neither creates a temp dir nor half-initializes global state.
-        if HARNESS_LIVE.swap(true, std::sync::atomic::Ordering::AcqRel) {
-            return Err(HarnessError::AlreadyRunning);
-        }
-        // From here on every early return must release the slot, or a failed
-        // build would permanently poison the process against retrying.
-        match self.build_inner().await {
-            Ok(harness) => Ok(harness),
-            Err(e) => {
-                HARNESS_LIVE.store(false, std::sync::atomic::Ordering::Release);
-                Err(e)
-            }
-        }
-    }
-
-    async fn build_inner(self) -> Result<Harness, HarnessError> {
         let inherit = self.workspace.is_operator_owned();
 
+        // Refused before any runtime is built, so a bad input never claims
+        // the process slot. The new API allows skills on an inherited
+        // workspace because it copies into the agent's own home; the
+        // harness keeps installing into `<workspace>/skills`, which under
+        // `Inherit` is the operator's, so it keeps refusing.
+        #[cfg(feature = "skills")]
         if self.skills_dir.is_some() && inherit {
             return Err(HarnessError::Invalid(
                 "skills_dir cannot be used with Workspace::Inherit: installing them would \
@@ -249,92 +243,12 @@ impl HarnessBuilder {
             ));
         }
 
-        let resolved = ResolvedWorkspace::resolve(&self.workspace, self.action_dir.as_deref())?;
-
-        // Build the config the core will run on.
-        //
-        // `Inherit` starts from the operator's own config — loaded here rather
-        // than left to `build()` to discover, because the builder's other knobs
-        // (access tier, backend URL, MCP servers) have to be applied *on top* of
-        // it. Passing `None` would let the core load it later and silently drop
-        // every one of them, which reads as "Inherit ignores what I configured"
-        // rather than "Inherit chooses the starting point".
-        let mut config = match (&self.workspace, self.config) {
-            (Workspace::Inherit, Some(config)) => Some(config),
-            (Workspace::Inherit, None) => Some(
-                openhuman_core::config::Config::load_or_init()
-                    .await
-                    .map_err(HarnessError::Build)?,
-            ),
-            (_, supplied) => {
-                let mut config = supplied.unwrap_or_default();
-                config.workspace_dir = resolved.workspace_dir.clone();
-                config.action_dir = resolved.action_dir.clone();
-                // Credential state, auth profiles and the keyring file backend
-                // all resolve against this path's parent, not against
-                // `workspace_dir`. Setting only the workspace produces a
-                // harness that looks hermetic and reads the operator's real
-                // credentials.
-                config.config_path = resolved.config_path.clone();
-                Some(config)
-            }
-        };
-
-        if let Some(config) = config.as_mut() {
-            // `Inherit` keeps the operator's resolved paths, but an explicit
-            // action_dir is a caller instruction, not a discovered default, so
-            // it must survive onto the inherited config. Without this an
-            // `action_dir` is silently disregarded for `Workspace::Inherit`,
-            // and the agent runs against the operator's configured action
-            // directory instead.
-            if inherit {
-                if let Some(dir) = self.action_dir.as_ref() {
-                    config.action_dir = dir.clone();
-                }
-            }
-            if let Some(url) = self.backend_url.clone() {
-                config.api_url = Some(url);
-            }
-            self.access.apply(config);
-            apply_provider(config, &self.provider);
-
-            #[cfg(feature = "mcp")]
-            if !self.mcp_servers.is_empty() {
-                config.mcp_client.enabled = true;
-                config.mcp_client.servers.extend(
-                    self.mcp_servers
-                        .iter()
-                        .cloned()
-                        .map(super::mcp::McpServer::into_config),
-                );
-            }
-        }
-
-        // An endpoint without a model is deliberately ignored by the route
-        // applicator. Host policy must follow that effective behavior rather
-        // than the syntactic presence of endpoint credentials, or an ignored
-        // route could exempt an inherited installed provider from login.
-        let routed_provider_effective = self.provider.has_usable_route()
-            && config
-                .as_ref()
-                .and_then(|config| config.default_model.as_deref())
-                .is_some_and(|model| !model.trim().is_empty());
-        let host_kind = effective_host_kind(self.host_kind, inherit, routed_provider_effective);
-
-        #[cfg(feature = "skills")]
-        if let Some(dir) = self.skills_dir.as_deref() {
-            super::skills::install(dir, &resolved.workspace_dir)?;
-        }
-
         let domains = self.domains.unwrap_or_else(|| {
-            // `mut` is conditional on the two feature-gated assignments below:
-            // in a build with neither `mcp` nor `skills` nothing mutates it, and
-            // the lint fires on a slim build only.
+            // Preserve the harness's historical default: only what was asked
+            // for. An MCP domain with no servers costs ~19 agent tools of
+            // prompt budget on every turn for nothing.
             #[allow(unused_mut)]
             let mut domains = DomainSet::embedded();
-            // `embedded()` leaves both off. Turn on only what was asked for:
-            // an MCP domain with no servers costs ~19 agent tools of prompt
-            // budget on every turn for nothing.
             #[cfg(feature = "mcp")]
             {
                 domains.mcp = !self.mcp_servers.is_empty();
@@ -346,87 +260,66 @@ impl HarnessBuilder {
             domains
         });
 
-        let tool_groups = self.tool_groups.unwrap_or_default();
-        let services = self.services.unwrap_or_else(default_services);
-
-        log::debug!(
-            "[embed][harness] building host_kind={:?} inherit_workspace={inherit} \
-             routed_provider={} domains={domains:?} tool_groups={tool_groups:?}",
-            host_kind,
-            self.provider.is_routed(),
-        );
-
-        let mut builder = CoreBuilder::new(host_kind)
-            .domains(domains)
-            .tool_groups(tool_groups)
-            .services(services)
-            .token(TokenSource::EnvOrFile);
-        if let Some(config) = config {
-            builder = builder.config(config);
+        let mut runtime = RuntimeBuilder::new()
+            .workspace(self.workspace)
+            .host_kind(self.host_kind)
+            .provider(self.provider.clone())
+            .access(self.access.clone())
+            .domains(domains);
+        if let Some(config) = self.config {
+            runtime = runtime.config(config);
         }
-
-        let runtime = builder.build().await.map_err(HarnessError::Build)?;
-        let core = Core::from_runtime(Arc::new(runtime));
-
-        // After the build, because storing a session is an ordinary RPC and
-        // needs a dispatchable core. Before returning, so the harness a caller
-        // receives has the requested backend identity before its first turn.
+        if let Some(url) = self.backend_url {
+            runtime = runtime.backend_url(url);
+        }
+        if let Some(services) = self.services {
+            runtime = runtime.services(services);
+        }
+        if let Some(groups) = self.tool_groups {
+            runtime = runtime.tool_groups(groups);
+        }
         if let Some(session) = self.session {
-            core.auth().store(session).await?;
+            runtime = runtime.session(session);
         }
+        let runtime = runtime.build().await?;
 
-        Ok(Harness {
-            core: Some(core),
-            provider: self.provider,
-            access: self.access,
-            _workspace: resolved,
-        })
+        let mut spec = AgentSpec::new(HARNESS_AGENT_ID)
+            .provider(self.provider)
+            .access(self.access);
+        if let Some(dir) = self.action_dir {
+            spec = spec.action_dir(dir);
+        } else if !inherit {
+            // Preserve the resolved workspace's own action directory
+            // (`ResolvedWorkspace::resolve` already created it) rather than
+            // falling through to `agent::build`'s per-agent default of
+            // `<root>/agents/harness/action`. That default is right for a
+            // `Runtime::agent` caller juggling several agents, but a
+            // `Harness` caller — one runtime, one agent — expects its action
+            // directory to be the workspace's, exactly where the resolved
+            // workspace put it (and where `Workspace::Dir`'s sibling
+            // `action` dir already lives on disk). `inherit` keeps the
+            // per-agent-subdirectory default: an operator-owned workspace
+            // must not let the harness act directly in the operator's own
+            // directory.
+            spec = spec.action_dir(runtime.base_config().action_dir.clone());
+        }
+        #[cfg(feature = "skills")]
+        if let Some(dir) = self.skills_dir {
+            spec = spec.skills_dir_legacy(dir);
+        }
+        #[cfg(feature = "mcp")]
+        for server in self.mcp_servers {
+            spec = spec.mcp(server);
+        }
+        let agent = runtime.agent(spec)?;
+
+        log::debug!("[embed][harness] built inherit_workspace={inherit}");
+        Ok(Harness::from_parts(runtime, agent))
     }
 }
 
-/// Preserve the installed application's authentication policy when the
-/// harness borrows both its workspace and provider. `Library` means the host
-/// supplied inference; it must not become a blanket way to bypass the session
-/// gate around an operator-installed provider.
-fn effective_host_kind(
-    requested: HostKind,
-    inherit_workspace: bool,
-    routed_provider_effective: bool,
-) -> HostKind {
-    if requested == HostKind::Library && inherit_workspace && !routed_provider_effective {
-        HostKind::Cli
-    } else {
-        requested
-    }
-}
-
-/// Apply a [`Provider`]'s model to the config.
-///
-/// Only the model: the *route* is a per-turn parameter, never a config write,
-/// because config routes persist. See the [`provider`](super::provider) module
-/// docs. The model does belong here — the route pins its roles to
-/// `"<slug>:<model>"` using the model the call resolved, so the endpoint is
-/// ignored outright when no model resolves.
-fn apply_provider(config: &mut Config, provider: &Provider) {
-    if let Some(model) = provider.model_id() {
-        config.default_model = Some(model.to_string());
-    }
-}
-
-/// Background services a harness runs by default.
-///
-/// Starts from [`ServiceSet::none`] and adds only `harness_init`, the step that
-/// prepares the agent harness itself. Notably **not**
-/// [`ServiceSet::embedded`]: its cron, heartbeat and memory-queue services each
-/// write to the workspace on their own schedule, which turns a library call
-/// into a background process the caller did not ask for and makes concurrent
-/// harnesses unsafe.
-fn default_services() -> ServiceSet {
-    ServiceSet {
-        harness_init: true,
-        ..ServiceSet::none()
-    }
-}
+/// The id of the one agent a [`Harness`] creates.
+pub const HARNESS_AGENT_ID: &str = "harness";
 
 #[cfg(test)]
 #[path = "builder_tests.rs"]

@@ -51,12 +51,8 @@ fn tui_invokes_use_canonical_registered_rpc_method_names() {
         "openhuman.threads_transcript_get",
         "openhuman.threads_update_title",
         "openhuman.threads_delete",
-        "openhuman.threads_task_board_get",
         "openhuman.threads_token_usage",
-        "openhuman.thread_goals_get",
-        "openhuman.thread_goals_set",
-        "openhuman.profiles_list",
-        "openhuman.profiles_select",
+        "openhuman.agent_list_definitions",
         "openhuman.ai_list_artifacts",
         "openhuman.approval_list_pending",
         "openhuman.approval_decide",
@@ -69,10 +65,13 @@ fn tui_invokes_use_canonical_registered_rpc_method_names() {
         "openhuman.config_get_privacy_mode",
         "openhuman.config_set_privacy_mode",
         "openhuman.auth_get_state",
-        "openhuman.auth_get_me",
-        "openhuman.auth_consume_login_token",
-        "openhuman.auth_store_session",
-        "openhuman.auth_clear_session",
+        // Session ownership lives in `openhuman-tinyhumans`; these are the
+        // credential RPCs its `CoreLink` drives through the in-process link.
+        openhuman_tinyhumans::link::AUTH_GET_STATE,
+        openhuman_tinyhumans::link::AUTH_GET_SESSION_TOKEN,
+        openhuman_tinyhumans::link::AUTH_SET_CREDENTIAL,
+        openhuman_tinyhumans::link::AUTH_CLEAR_CREDENTIAL,
+        openhuman_tinyhumans::link::CONFIG_RESOLVE_API_URL,
     ];
     methods.push("openhuman.skills_list");
     methods.push("openhuman.mcp_clients_installed_list");

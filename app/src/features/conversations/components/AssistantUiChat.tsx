@@ -6,7 +6,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import AttachmentPreview from '../../../components/chat/AttachmentPreview';
 import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
-import { useRegisterAction } from '../../../lib/commands/useRegisterAction';
 import { useSlashCommands } from '../../../lib/commands/useSlashCommands';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { TurnProcessTrail } from '../../../providers/assistantUiMessages';
@@ -19,13 +18,9 @@ import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { TurnFooter } from './aui/TurnFooter';
 import { TurnFooterHost } from './aui/turnFooterHost';
+import { TurnSources } from './aui/TurnSources';
 import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
-import {
-  type ThreadGoalController,
-  ThreadGoalEditorPanel,
-  ThreadGoalFooterTrigger,
-} from './ThreadGoalChip';
 
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
 const selectComposerText = (state: AssistantState) => state.composer.text;
@@ -64,7 +59,6 @@ function ComposerTextBridge({
  * send/cancel path as the legacy composer.
  */
 export function AssistantUiChat({
-  threadGoal,
   model,
   modelContextWindow,
   onModelChange,
@@ -86,7 +80,6 @@ export function AssistantUiChat({
   canOpenSubagent,
   onOpenTurnProcess,
 }: {
-  threadGoal: ThreadGoalController;
   model: string | null;
   modelContextWindow?: number | null;
   onModelChange: (value: string | null, contextWindow?: number | null) => void;
@@ -145,41 +138,55 @@ export function AssistantUiChat({
     () => contextUsageFromTokenUsage(tokenUsage, modelContextWindow),
     [modelContextWindow, tokenUsage]
   );
-  const openThreadGoal = threadGoal.open;
-
-  useRegisterAction({
-    id: 'chat.goal',
-    label: 'Set thread goal',
-    labelKey: 'conversations.composer.command.goal',
-    group: 'Chat',
-    handler: openThreadGoal,
-    enabled: () => selectedThreadId !== null,
-    keywords: ['goal', 'objective', 'thread goal'],
-    slashCommand: { id: 'goal', descriptionKey: 'conversations.composer.command.goal' },
-  });
   const slashCommands = useSlashCommands();
 
+  // Every prop the composer slots below read, refreshed on each host render.
+  //
+  // Each of those slots is rendered by type (see the `ComposerHeader` note
+  // below), so none of them may close over a prop: a dep list that changes
+  // hands React a new element type and remounts the subtree. Reading through
+  // this ref lets all of them take `[]` deps and keep a constant identity,
+  // while still seeing current values — `thread.tsx` memoizes nothing, so a
+  // slot re-renders with its host.
+  const slotPropsRef = useRef({
+    attachments,
+    attachmentInteractionBlocked,
+    contextUsage,
+    maxAttachments,
+    mascotColor,
+    mascotCustomPrimary,
+    onAttachFiles,
+    onOpenHumanMode,
+    onRemoveAttachment,
+  });
+  slotPropsRef.current = {
+    attachments,
+    attachmentInteractionBlocked,
+    contextUsage,
+    maxAttachments,
+    mascotColor,
+    mascotCustomPrimary,
+    onAttachFiles,
+    onOpenHumanMode,
+    onRemoveAttachment,
+  };
   // Read through a ref for the same reason `ComposerHeader` does below: the
   // slot is rendered by type, so closing over the node would remount the whole
   // row on every host render.
   const composerFooterExtrasRef = useRef(composerFooterExtras);
   composerFooterExtrasRef.current = composerFooterExtras;
-  const ComposerExtras = useCallback(
-    () => (
+  const ComposerExtras = useCallback(() => {
+    const { contextUsage: usage } = slotPropsRef.current;
+    return (
       <>
-        <ContextWindowPill usage={contextUsage} />
-        <div className="absolute right-0 bottom-full left-0 pb-2">
-          <ThreadGoalEditorPanel ctl={threadGoal} />
-        </div>
-        <ThreadGoalFooterTrigger ctl={threadGoal} />
+        <ContextWindowPill usage={usage} />
         {composerFooterExtrasRef.current}
       </>
-    ),
-    [contextUsage, threadGoal]
-  );
+    );
+  }, []);
   // Stable component identity, latest node read through a ref.
   //
-  // `<ComposerHeader />` is rendered by type (`thread.tsx:385`), so a callback
+  // `<ComposerHeader />` is rendered by type (`thread.tsx:489`), so a callback
   // that closes over `composerHeader` gives React a NEW type on every host
   // render — the whole header subtree unmounts and remounts. That was invisible
   // while the header only held an error string and the queued-followup strip,
@@ -191,18 +198,23 @@ export function AssistantUiChat({
   const composerHeaderRef = useRef(composerHeader);
   composerHeaderRef.current = composerHeader;
   const ComposerHeader = useCallback(() => <>{composerHeaderRef.current}</>, []);
-  const ComposerAttachments = useCallback(
-    () => (
+  const ComposerAttachments = useCallback(() => {
+    const { attachments, attachmentInteractionBlocked, onRemoveAttachment } = slotPropsRef.current;
+    return (
       <AttachmentPreview
         attachments={attachments}
         onRemove={onRemoveAttachment}
         disabled={attachmentInteractionBlocked}
       />
-    ),
-    [attachmentInteractionBlocked, attachments, onRemoveAttachment]
-  );
-  const ComposerAddAttachment = useCallback(
-    () => (
+    );
+  }, []);
+  // The hidden input must survive a host re-render: it is the element the
+  // native file dialog is attached to, and a remount while that dialog is open
+  // detaches it, so its `change` never reaches React's delegated listener and
+  // the picked file is dropped with no error (#6246).
+  const ComposerAddAttachment = useCallback(() => {
+    const { attachmentInteractionBlocked, attachments, maxAttachments } = slotPropsRef.current;
+    return (
       <>
         <input
           ref={fileInputRef}
@@ -210,7 +222,7 @@ export function AssistantUiChat({
           multiple
           className="hidden"
           onChange={event => {
-            void onAttachFiles(event.target.files);
+            void slotPropsRef.current.onAttachFiles(event.target.files);
             event.target.value = '';
           }}
         />
@@ -226,9 +238,8 @@ export function AssistantUiChat({
           <PlusIcon className="h-4 w-4" />
         </Button>
       </>
-    ),
-    [attachmentInteractionBlocked, attachments.length, maxAttachments, onAttachFiles, t]
-  );
+    );
+  }, [t]);
   /**
    * Primary-slot control for an empty composer: a circular button carrying the
    * user's mascot, opening the Human page. Same 28px circle as the Send button
@@ -236,25 +247,31 @@ export function AssistantUiChat({
    * typed; the avatar is inset a little so the mascot reads inside the circle
    * rather than filling it edge to edge.
    */
-  const ComposerIdleAction = useCallback(
-    () =>
-      onOpenHumanMode ? (
-        <Button
-          type="button"
-          iconOnly
-          variant="secondary"
-          size="xs"
-          analyticsId="chat-composer-human-mode"
-          data-testid="composer-human-mode"
-          aria-label={t('composer.humanMode')}
-          title={t('composer.humanMode')}
-          className="size-7 shrink-0 rounded-full p-0"
-          onClick={onOpenHumanMode}>
-          <MascotChipAvatar color={mascotColor} customPrimary={mascotCustomPrimary} size={18} />
-        </Button>
-      ) : null,
-    [mascotColor, mascotCustomPrimary, onOpenHumanMode, t]
-  );
+  const ComposerIdleAction = useCallback(() => {
+    const { mascotColor, mascotCustomPrimary, onOpenHumanMode } = slotPropsRef.current;
+    return onOpenHumanMode ? (
+      <Button
+        type="button"
+        iconOnly
+        variant="secondary"
+        size="xs"
+        analyticsId="chat-composer-human-mode"
+        data-testid="composer-human-mode"
+        aria-label={t('composer.humanMode')}
+        title={t('composer.humanMode')}
+        className="size-7 shrink-0 rounded-full p-0"
+        onClick={onOpenHumanMode}>
+        <MascotChipAvatar color={mascotColor} customPrimary={mascotCustomPrimary} size={18} />
+      </Button>
+    ) : null;
+  }, [t]);
+
+  // Files arriving from a drop or a paste, routed to the same host validator
+  // the picker uses. Stable like the slots above, and for the same reason: it
+  // is handed to `thread.tsx` through the components object.
+  const handleComposerFiles = useCallback((files: FileList | File[] | null) => {
+    void slotPropsRef.current.onAttachFiles(files);
+  }, []);
 
   const components: ThreadComponents = useMemo(
     () => ({
@@ -266,9 +283,14 @@ export function AssistantUiChat({
       // Phase / reasoning round / active tool for the turn in flight. Reads the
       // runtime's `extras`, so it needs no props and no dependency here.
       RunningStatus: AssistantUiInferenceStatus,
-      // One-line process summary under a settled answer, and the only door to
-      // the reasoning / narration / tool detail that no longer renders inline.
+      // One-line process summary under a settled answer, and the door to the
+      // reasoning / narration / tool detail that does not render inline.
       TurnFooter,
+      // The web sources that turn visited, inline under the answer. The rail
+      // still lists them too — it carries the scoped single-step view and the
+      // whole-run view this does not. Reads the turn's own metadata, so no
+      // props and no dependency here.
+      TurnSources,
       onSwitchToMicCloud,
       ...(attachmentsEnabled
         ? {
@@ -276,6 +298,13 @@ export function AssistantUiChat({
             ComposerAddAttachment,
             hasComposerAttachments: attachments.length > 0,
             onComposerAttachmentSend: onAttachmentOnlySend,
+            // Drop and paste reach the same validator as the picker. Without
+            // this the assistant surface had no host file path at all: its only
+            // dropzone was the assistant-ui primitive, which hands files to a
+            // runtime attachment adapter this app does not use.
+            onComposerFiles: handleComposerFiles,
+            canAcceptComposerFiles:
+              !attachmentInteractionBlocked && attachments.length < maxAttachments,
           }
         : {}),
     }),
@@ -285,7 +314,13 @@ export function AssistantUiChat({
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
-      attachments.length,
+      attachmentInteractionBlocked,
+      handleComposerFiles,
+      maxAttachments,
+      // The array itself, not just its length: the slot components above hold a
+      // constant identity now, so this memo is what makes `thread.tsx`'s
+      // context change and re-render them against the latest attachments.
+      attachments,
       attachmentsEnabled,
       onAttachmentOnlySend,
       onSwitchToMicCloud,

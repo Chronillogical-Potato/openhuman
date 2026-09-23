@@ -1,7 +1,9 @@
 # Virtual workspace root. Members: `crates/openhuman-core` (package `openhuman`,
-# the core + `openhuman-core` CLI), `crates/openhuman-embed` (library facade),
-# `crates/openhuman-rpc` (shared RPC contracts/client), and `crates/openhuman-tui`
-# (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
+# the core library), `crates/openhuman-embed` (library facade),
+# `crates/openhuman-rpc` (shared RPC contracts/client), `crates/openhuman-tinyhumans`
+# (SDK-backed backend transport + login/session ownership for hosts),
+# `crates/openhuman-cli` (the `openhuman-core` binary, developer bins and the
+# root integration tests), and `crates/openhuman-tui` (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
 # own Cargo world with its own lockfile and target directory so that root-only
 # Cargo commands don't resolve GTK/WebKit/Tauri, and it must mirror this file's
 # `[patch]` tables rather than inherit them. Vendored module workspaces are also
@@ -9,7 +11,14 @@
 # own roots.
 [workspace]
 resolver = "2"
-members = ["crates/openhuman-core", "crates/openhuman-embed", "crates/openhuman-rpc", "crates/openhuman-tui"]
+members = [
+    "crates/openhuman-cli",
+    "crates/openhuman-core",
+    "crates/openhuman-embed",
+    "crates/openhuman-rpc",
+    "crates/openhuman-tinyhumans",
+    "crates/openhuman-tui",
+]
 exclude = [
     "vendor",
     "worktrees",
@@ -19,7 +28,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.63.25"
+version = "0.63.31"
 edition = "2021"
 license = "GPL-3.0-only"
 repository = "https://github.com/tinyhumansai/openhuman"
@@ -27,17 +36,28 @@ repository = "https://github.com/tinyhumansai/openhuman"
 [workspace.dependencies]
 openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
+openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
+openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
 
 # Patches are workspace-root settings; Cargo ignores them in member manifests.
 [patch."https://github.com/tinyhumansai/tinymemory"]
 tinymemory-api = { path = "vendor/tinymemory/crates/tinymemory-api" }
 
 [patch."https://github.com/tinyhumansai/tinyinference"]
-tinyinference = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference" }
+tinyinference-core = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-local = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 
 [patch.crates-io]
-motosan-ai-oauth = { path = "vendor/motosan-ai-oauth" }
-tinyinference = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference" }
+tinyinference-core = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-local = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 tinyflows = { path = "vendor/tinyflows/crates/tinyflows" }
 tinychannels = { path = "vendor/tinychannels" }
 

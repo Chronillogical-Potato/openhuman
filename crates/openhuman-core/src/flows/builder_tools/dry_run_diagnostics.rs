@@ -111,27 +111,7 @@ pub(super) fn tool_call_arg_null_entries(
 /// node simply has no predecessors, or none of them is a condition) — the
 /// warning is still emitted, just without a named culprit node.
 pub(super) fn find_upstream_condition(graph: &WorkflowGraph, node_id: &str) -> Option<String> {
-    let mut visited: std::collections::HashSet<&str> = std::collections::HashSet::new();
-    let mut queue: std::collections::VecDeque<&str> = graph
-        .edges
-        .iter()
-        .filter(|edge| edge.to_node == node_id)
-        .map(|edge| edge.from_node.as_str())
-        .collect();
-    while let Some(current) = queue.pop_front() {
-        if !visited.insert(current) {
-            continue;
-        }
-        if let Some(node) = graph.nodes.iter().find(|n| n.id == current) {
-            if node.kind == tinyflows::model::NodeKind::Condition {
-                return Some(node.id.clone());
-            }
-        }
-        for edge in graph.edges.iter().filter(|edge| edge.to_node == current) {
-            queue.push_back(edge.from_node.as_str());
-        }
-    }
-    None
+    tinyflows::diagnostics::nearest_upstream_condition(graph, node_id)
 }
 
 /// Best-effort extraction of the human-readable error message the engine
@@ -143,19 +123,7 @@ pub(super) fn find_upstream_condition(graph: &WorkflowGraph, node_id: &str) -> O
 /// itself (whose `diagnostics` stays empty for an error step — see
 /// [`DryRunWorkflowTool::execute`]'s `node_errors` collection).
 pub(super) fn tool_call_error_message(output: &Value, node_id: &str) -> Option<String> {
-    output
-        .get("nodes")?
-        .get(node_id)?
-        .get("items")?
-        .as_array()?
-        .iter()
-        .find_map(|item| {
-            item.get("json")?
-                .get("error")?
-                .get("message")?
-                .as_str()
-                .map(str::to_string)
-        })
+    tinyflows::diagnostics::node_error_message(output, node_id)
 }
 
 /// The engine's own step-capturing observer, re-exported under the name

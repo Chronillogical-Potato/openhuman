@@ -202,40 +202,63 @@
 #               `toolpacks::registry` cites as its reason for never packing the
 #               fleet tools. Deleting the section wholesale would have removed
 #               a known bug's fix along with the redundancy.
+#
+#   2026-09-19  Re-measured after the coordinated vendor refresh. The updated
+#               agent/tool contracts make the pack proxy reachable on several
+#               narrow belts and expand the planner, profile-memory and trigger
+#               instructions; those are intentional upstream surfaces, not
+#               duplicated local prose. The same refresh removes 8,662 B of
+#               wildcard schemas from morning_briefing and tools_agent, and
+#               those savings are ratcheted here at the same time.
+#
+#   2026-09-19  Re-measured after merging the agent-runtime migration from
+#               upstream/main. The workflow builder's migrated contract adds
+#               3 B to both its fixed prompt and schemas. The same migration
+#               removes another 838 B of wildcard schemas (and 25 B of prompt)
+#               from morning_briefing and tools_agent; those savings are
+#               ratcheted here rather than left as stale headroom.
+#
+#   2026-09-20  Re-measured after the fresh-turn and cost-routing changes merged
+#               without their generated budget update. The morning briefing's
+#               fixed prefix is 3 B larger; all other recorded ceilings stay put.
+#
+#   2026-09-22  TinyAgents 2.1.2 expands the shared `todo` tool schema from
+#               860 B to 1,127 B. Ratchet the six agents that advertise it
+#               (and their aggregate schema budgets) to the measured values;
+#               unrelated prompt and schema reductions are ratcheted too.
 
-morning_briefing:14279:82986
-trigger_triage:9214:0
-workflow_builder:46405:30259
-summarizer:8783:0
-tools_agent:8260:82986
-orchestrator:33629:29821
-code_executor:13327:12338
-crypto_agent:12049:12357
-task_manager_agent:7104:15601
-planner:9927:5664
-skill_creator:7311:12411
-flow_discovery:10111:9503
-profile_memory_agent:7202:11815
-settings_agent:7065:11220
-context_scout:10427:7652
-skill_executor:9613:8090
-scheduler_agent:9635:7008
-agent_memory:9761:6698
-mcp_setup:10368:5078
-skill_setup:7272:7973
-trigger_reactor:7966:6423
-mcp_agent:8927:4472
-flow_memory_agent:9026:3809
-tool_maker:6273:6087
-presentation_agent:6547:5678
-video_agent:6973:2266
-help:8469:2365
-image_agent:7017:2266
-goals_agent:6725:3124
-vision_agent:6885:2266
-archivist:5985:3133
-researcher:6855:2229
-critic:6222:1855
+morning_briefing:10769:59658
+trigger_triage:7537:0
+workflow_builder:76501:28987
+summarizer:7351:0
+tools_agent:5229:59658
+orchestrator:9717:21007
+code_executor:11455:13622
+crypto_agent:10992:10454
+task_manager_agent:4531:7602
+planner:7829:5900
+skill_creator:5464:11874
+flow_discovery:8522:8285
+profile_memory_agent:5515:11010
+settings_agent:4721:9652
+context_scout:8852:5495
+skill_executor:7789:5469
+scheduler_agent:7873:5144
+agent_memory:8231:5423
+skill_setup:5367:5693
+trigger_reactor:6561:5606
+mcp_agent:7147:2569
+flow_memory_agent:7526:2534
+tool_maker:4529:4543
+presentation_agent:4791:4322
+video_agent:5259:1106
+help:6742:952
+image_agent:5303:1106
+goals_agent:5226:1191
+vision_agent:5171:1106
+archivist:4426:1686
+researcher:5600:873
+critic:4520:695
 
 # ── Per-tool schema ratchet ──────────────────────────────────────────────
 #
@@ -245,7 +268,7 @@ critic:6222:1855
 #
 # Why the big ones are big, as of 2026-08-31:
 #
-#   memory (3,788) / cron (3,228) / todo (1,831)
+#   memory (3,788) / cron (3,340) / todo (1,831)
 #       Collapsed families. `memory` replaced eleven tools worth 7,879 B and
 #       `cron` six worth 3,938 B, so each is large *because* the surface got
 #       smaller. A union schema costs more than any one member and less than
@@ -298,19 +321,24 @@ critic:6222:1855
 #       Discovery tools. Both are the recovery path for a withheld surface, so
 #       their descriptions carry the "here is what you can still reach" copy.
 #
-tool:memory:3788
-tool:delegate_to:5302
-tool:spawn_subagent:3554
-tool:cron:3228
+# `memory` and `delegate_to` were dropped 2026-09-18: no agent at 93e9938f3
+# advertises them (nor does the default-features registry), so the lookup below
+# failed before any number was compared. The prose above describes them as they
+# were on 2026-09-01. `cron` returned when the scheduler's collapsed surface was
+# wired into the durable registry.
+tool:spawn_subagent:3542
 tool:propose_workflow:3170
 tool:memory_tree:3008
-tool:cron_add:3003
+tool:cron:3340
 tool:edit_workflow:2721
 tool:generate_presentation:2662
 tool:suggest_workflows:2445
-tool:spawn_async_subagent:1965
+tool:spawn_async_subagent:1535
 tool:save_workflow:1957
-tool:spawn_parallel_agents:1851
-tool:todo:1831
+tool:spawn_parallel_agents:1839
+tool:todo:1127
 tool:search_tool_catalog:1695
-tool:use_skill:1627
+tool:use_skill:1711
+# One action-dispatched memory surface replaces the separately registered
+# memory operations while keeping read/write/forget routing explicit.
+tool:memory:3937

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
+import { AddProviderButton } from './ai/ProviderAuthSection';
 import AIPanel, { type AIPanelTab } from './AIPanel';
 
 /**
@@ -21,11 +22,17 @@ import AIPanel, { type AIPanelTab } from './AIPanel';
 const LlmConnectionsPanel = () => {
   const { t } = useT();
   const [tab, setTab] = useState<AIPanelTab>('providers');
+  // The "Add provider" button lives in the page header (next to the title)
+  // rather than in a card of its own inside the providers list.
+  const [addProviderOpen, setAddProviderOpen] = useState(false);
 
   return (
     <SettingsTabbedPage
       title={t('pages.settings.ai.llm')}
       description={t('connections.header.llm')}
+      headerAction={
+        tab === 'providers' ? <AddProviderButton onClick={() => setAddProviderOpen(true)} /> : null
+      }
       tabs={[
         { id: 'providers', label: t('settings.ai.llmProviders') },
         { id: 'routing', label: t('settings.ai.routing') },
@@ -34,7 +41,13 @@ const LlmConnectionsPanel = () => {
       onChange={setTab}
       tabsAriaLabel={t('pages.settings.ai.llm')}
       tabsTestIdPrefix="ai-tab">
-      <AIPanel tab={tab} onTabChange={setTab} hideTabChrome />
+      <AIPanel
+        tab={tab}
+        onTabChange={setTab}
+        hideTabChrome
+        addProviderOpen={addProviderOpen}
+        onAddProviderOpenChange={setAddProviderOpen}
+      />
     </SettingsTabbedPage>
   );
 };

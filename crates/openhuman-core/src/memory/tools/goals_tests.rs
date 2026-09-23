@@ -16,7 +16,7 @@ use std::ffi::OsString;
 use tempfile::TempDir;
 
 use crate::config::TEST_ENV_LOCK;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 struct WorkspaceEnvGuard {
     _lock: std::sync::MutexGuard<'static, ()>,
@@ -172,7 +172,7 @@ async fn missing_arguments_are_reported_as_tool_errors() {
 /// list; a flat `ReadOnly` would admit an edit on a channel that refuses one.
 #[test]
 fn permission_is_per_op_and_unknown_ops_report_the_ceiling() {
-    use crate::tools::traits::PermissionLevel;
+    use tinytools::PermissionLevel;
 
     let goals = GoalsTool::new(std::env::temp_dir());
     assert_eq!(

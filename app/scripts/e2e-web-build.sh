@@ -28,7 +28,38 @@ if [ -f "$REPO_ROOT/.env" ]; then
 fi
 
 echo "Building web E2E bundle with backend ${VITE_BACKEND_URL}"
+# Drop the previous marker first. `build:web` runs `tsc`, so a failed build
+# leaves the OLD `dist-web` in place; without this the old marker would survive
+# beside it and the session would happily serve a stale bundle that merely
+# happens to agree about ports. No marker means the session refuses.
+rm -f "$APP_DIR/dist-web/.e2e-build-ports.json"
 pnpm run build:web
+
+# Record what got baked, so the session can refuse a bundle built for other
+# ports (#6478).
+#
+# `VITE_BACKEND_URL` above is substituted into the bundle by Vite at BUILD time
+# and has no runtime override in web mode: `utils/config.ts` reads
+# `import.meta.env.VITE_BACKEND_URL || DEFAULT_BACKEND_URL`, and
+# `services/backendUrl.ts`'s web path falls back to `window.location.origin` —
+# which is the web HOST port, not the mock's, so it cannot reconcile a
+# mismatch. Set the ports for the session but not the build (the natural thing
+# to do, since ports are a session concern) and the frontend's own API calls go
+# to a mock that is not listening, while the core — which reads `api_url` from
+# the `config.toml` the session generates at runtime — talks to the right one.
+# Some specs then fail and others pass, for a reason nothing reports.
+#
+# `VITE_OPENHUMAN_CORE_RPC_URL` is baked too but is NOT part of this problem: a
+# stored URL wins over it (`coreRpcClient.ts`, `storedUrl ?? CORE_RPC_URL`) and
+# the Playwright helper seeds that from the runtime port on every boot. It is
+# recorded here anyway so a future divergence is visible rather than inferred.
+cat > "$APP_DIR/dist-web/.e2e-build-ports.json" <<JSON
+{
+  "e2e_mock_port": "${E2E_MOCK_PORT:-18473}",
+  "openhuman_core_port": "${OPENHUMAN_CORE_PORT:-17788}",
+  "vite_backend_url": "${VITE_BACKEND_URL}"
+}
+JSON
 echo "Building standalone openhuman-core for web E2E into ${E2E_WEB_CORE_TARGET_DIR}..."
 # A bare core build uses the contributor feature set, which intentionally
 # omits product domains such as voice, web3, documents and crash reporting.

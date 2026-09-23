@@ -1,10 +1,10 @@
 //! Tool: run_tests — run test suites for the Critic archetype.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Runs test suites (cargo test, vitest) and returns pass/fail with output.
 pub struct RunTestsTool {

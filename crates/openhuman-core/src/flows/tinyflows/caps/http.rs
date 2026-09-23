@@ -20,8 +20,8 @@ use super::*;
 use crate::config::{Config, HttpRequestConfig};
 use crate::security::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::security::{CommandClass, SecurityPolicy};
-use crate::tools::traits::Tool as _;
 use crate::tools::HttpRequestTool;
+use tinytools::Tool as _;
 
 /// [`HttpClient`] adapter over `HttpRequestTool`
 /// (`crates/openhuman-core/src/tools/impl/network/http_request.rs`). Allowlist + DNS-rebind

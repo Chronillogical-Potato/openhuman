@@ -112,7 +112,6 @@ pub async fn channel_web_chat(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    profile_id: Option<String>,
     locale: Option<String>,
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
@@ -123,7 +122,6 @@ pub async fn channel_web_chat(
         message,
         model_override,
         temperature,
-        profile_id,
         locale,
         queue_mode,
         metadata,
@@ -214,17 +212,9 @@ pub async fn channel_web_cancel(
 ) -> Result<RpcOutcome<Value>, String> {
     let cancelled_request_id = cancel_chat_scoped(client_id, thread_id, request_id).await?;
 
-    // No web-channel turn matched. Fall through to the task-dispatcher registry,
-    // which holds autonomous runs that are NOT web-channel turns (so they never
-    // appear in IN_FLIGHT and can only be reached here). The fallback is itself
-    // request-scoped: a scoped cancel aborts the run only when its run_id
-    // matches, so a stale cancel for a superseded request can't tear down a newer
-    // run on the thread (#4760); an unscoped stop aborts whatever run is running.
-    let cancelled = if cancelled_request_id.is_some() {
-        true
-    } else {
-        crate::agent::task_dispatcher::cancel_session_scoped(thread_id.trim(), request_id).await
-    };
+    // A web-channel turn is the only request-scoped operation this endpoint
+    // can cancel.
+    let cancelled = cancelled_request_id.is_some();
 
     Ok(RpcOutcome::single_log(
         json!({

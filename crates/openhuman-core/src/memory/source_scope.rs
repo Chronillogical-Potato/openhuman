@@ -13,28 +13,24 @@
 //!
 //! So the scope crosses the bus as a value instead. `SourceScope` is a
 //! `tinymemory-bus` payload type and every scoped `MemoryProvider` method takes
-//! it as an argument. What stays host-side is the part that was always the
-//! host's: gathering the allowlist off the agent profile and making it ambient
-//! for the duration of a turn, so the dozens of call sites between the channel
-//! and the provider do not each have to thread it.
+//! it as an argument. What stays host-side is installing an allowlist for the
+//! duration of a turn, so the dozens of call sites between the channel and the
+//! provider do not each have to thread it.
 //!
 //! [`as_bus_scope`] is the join between the two — it reads the ambient scope and
 //! renders it in the vocabulary the provider call expects.
 //!
 //! # Semantics
 //!
-//! Agent profiles can restrict which memory sources a flavour recalls (the
-//! `AgentProfile::memory_sources` allowlist). Threading that allowlist through
-//! every memory tool and the deep `select_trees` retrieval layer would touch
-//! dozens of call sites, so the channel sets a [`tokio::task_local`] around the
-//! agent turn and the retrieval path reads it.
+//! Threading an allowlist through every memory tool and the deep `select_trees`
+//! retrieval layer would touch dozens of call sites, so the channel sets a
+//! [`tokio::task_local`] around the agent turn and the retrieval path reads it.
 //!
 //! - `None` scope (outside any [`with_source_scope`], or `with_source_scope(None, …)`)
 //!   means **unrestricted** — every source tree is visible. This is the default
-//!   for profile-less cron, sub-agents, the CLI, and any profile that left
-//!   `memory_sources` unset.
-//! - `Some(set)` restricts recall to source trees whose `scope` string is in the
-//!   set. An empty set surfaces nothing (the profile selected no sources).
+//!   for cron, sub-agents, and the CLI.
+//! - `Some(set)` restricts recall to source trees whose `scope` string is in
+//!   the set. An empty set surfaces nothing.
 //!
 //! The allowlist entries are matched against tree `scope` strings — the same
 //! identifiers the `memory_tree_query_source` tool accepts as `source_id`.

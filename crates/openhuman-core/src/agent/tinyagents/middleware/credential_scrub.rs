@@ -6,26 +6,7 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyinference::tool::ToolCall as TaToolCall;
-
-/// Recursively scrub credential-shaped string leaves inside a JSON value.
-fn scrub_json_credentials(value: serde_json::Value) -> serde_json::Value {
-    use serde_json::Value;
-    match value {
-        Value::String(s) => {
-            Value::String(crate::agent::harness::credentials::scrub_credentials(&s))
-        }
-        Value::Array(items) => {
-            Value::Array(items.into_iter().map(scrub_json_credentials).collect())
-        }
-        Value::Object(map) => Value::Object(
-            map.into_iter()
-                .map(|(k, v)| (k, scrub_json_credentials(v)))
-                .collect(),
-        ),
-        other => other,
-    }
-}
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 
 /// `wrap_tool`: scrub credential-shaped secrets out of every tool result before
 /// it leaves the tool boundary (issue #4453). The legacy engine ran
@@ -40,10 +21,63 @@ fn scrub_json_credentials(value: serde_json::Value) -> serde_json::Value {
 /// RAW tool result first and scrubs it before any outer wrap, the `after_tool`
 /// chain (summarization/caps in [`ToolOutputMiddleware`]), the transcript push,
 /// or the [`ToolOutcomeCaptureMiddleware`] sink can see the unredacted content.
-/// Scrubbing here — rather than inside `execute_openhuman_tool` — covers the
+/// Scrubbing here — rather than inside tool dispatch — covers the
 /// parent chat path, sub-agent paths, the persisted transcript, and
 /// `ToolCallOutcome` records by construction, since every path runs the same
 /// `assemble_turn_harness` seam.
+/// The placeholder `scrub_credentials` emits once per redacted value. Counted
+/// to tell the model *how many* values went, which is the difference between
+/// "something was withheld" and a number it can relay.
+const REDACTION_PLACEHOLDER: &str = "*[REDACTED]";
+
+/// Appended to a scrubbed tool result so the **model** learns what the log
+/// already knew.
+///
+/// Without it the model receives a result that silently differs from what the
+/// tool returned: it cannot find the content it was asked for, re-runs the same
+/// call, gets an identically scrubbed result, and never converges — until the
+/// successful-repeat tracker halts the run and the user is told "Incomplete"
+/// with no reason (#6416). The redaction itself is correct and unchanged; only
+/// its silence was the defect.
+///
+/// The "do not retry" clause is load-bearing: a retry is guaranteed to be
+/// scrubbed identically, so it is the one action that cannot help.
+///
+/// Deliberately contains no `<keyword>: <value>` shape, so it cannot match
+/// `SENSITIVE_KV_REGEX` and scrub itself on a second pass — pinned by
+/// `the_notice_does_not_scrub_itself`.
+fn redaction_notice(count: usize) -> String {
+    format!(
+        "[credential_scrub] {count} value(s) in this result were redacted as credentials. \
+         Re-running this tool returns the same redaction, so do not retry — tell the user \
+         which values were withheld and that they can view them directly in the source app."
+    )
+}
+
+/// Scrub `content`, returning the replacement text **and** how many values
+/// went — or `None` when nothing was credential-shaped.
+///
+/// Split out of `wrap_tool` so the decision and the composed result are
+/// directly testable. Exercising this is the difference between proving the
+/// notice text is well-formed and proving a scrubbed result actually carries
+/// it; only `replace_tool_result_text` plumbing stays untested.
+fn scrub_with_notice(content: &str) -> Option<(String, usize)> {
+    let scrubbed = crate::agent::harness::credentials::scrub_credentials(content);
+    if scrubbed == content {
+        return None;
+    }
+    // Count what this pass removed, not what the text already carried — a
+    // result may legitimately contain the placeholder already.
+    let redactions = scrubbed
+        .matches(REDACTION_PLACEHOLDER)
+        .count()
+        .saturating_sub(content.matches(REDACTION_PLACEHOLDER).count());
+    Some((
+        format!("{scrubbed}\n\n{}", redaction_notice(redactions)),
+        redactions,
+    ))
+}
+
 pub(crate) struct CredentialScrubMiddleware;
 
 impl CredentialScrubMiddleware {
@@ -53,17 +87,19 @@ impl CredentialScrubMiddleware {
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for CredentialScrubMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for CredentialScrubMiddleware
+{
     fn name(&self) -> &str {
         "credential_scrub"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         let tool_name = call.name.clone();
         let outcome = next.run(ctx, state, call).await?;
@@ -75,34 +111,23 @@ impl ToolMiddleware<()> for CredentialScrubMiddleware {
             other => return Ok(other),
         };
 
-        let scrubbed_content =
-            crate::agent::harness::credentials::scrub_credentials(&result.content);
-        if scrubbed_content != result.content {
+        let content = crate::agent::tinyagents::middleware::tool_result_text(&result);
+        if let Some((annotated, redactions)) = scrub_with_notice(&content) {
             tracing::warn!(
                 tool = %tool_name,
+                redactions,
                 "[tinyagents::mw] credential_scrub redacted secret(s) from tool result content"
             );
-            result.content = scrubbed_content;
-        }
-
-        if let Some(err) = result.error.as_ref() {
-            let scrubbed_err = crate::agent::harness::credentials::scrub_credentials(err);
-            if &scrubbed_err != err {
-                tracing::warn!(
-                    tool = %tool_name,
-                    "[tinyagents::mw] credential_scrub redacted secret(s) from tool result error"
-                );
-                result.error = Some(scrubbed_err);
-            }
-        }
-
-        // Raw JSON payloads (rarely populated on this path) can carry the same
-        // secrets — walk their string leaves so a scrubbed `content` isn't
-        // undermined by an unredacted `raw` mirror.
-        if let Some(raw) = result.raw.take() {
-            result.raw = Some(scrub_json_credentials(raw));
+            // The notice goes to the model, in the result itself. The warning
+            // above goes to the log, where no model will ever read it — which
+            // was the whole defect (#6416).
+            crate::agent::tinyagents::middleware::replace_tool_result_text(&mut result, annotated);
         }
 
         Ok(MiddlewareToolOutcome::Result(result))
     }
 }
+
+#[cfg(test)]
+#[path = "credential_scrub_tests.rs"]
+mod tests;

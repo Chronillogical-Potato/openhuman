@@ -32,13 +32,15 @@ use super::error::HarnessError;
 /// The manifest filenames a skill bundle can declare itself with, newest first.
 const MANIFESTS: [&str; 3] = ["WORKFLOW.md", "SKILL.md", "skill.json"];
 
-/// Copy every skill bundle in `source` into `<workspace>/skills`.
+/// Copy every skill bundle in `source` into `dest_root` — the workspace's
+/// `skills/` for the one-agent harness, `personalities/<id>/skills/` for a
+/// runtime agent.
 ///
 /// A "bundle" is an immediate subdirectory carrying one of [`MANIFESTS`]. If
 /// `source` itself carries one, it is treated as a single bundle and copied
 /// under its own directory name — so both `skills_dir("./skills")` and
 /// `skills_dir("./skills/my-skill")` do what the caller plainly meant.
-pub(super) fn install(source: &Path, workspace_dir: &Path) -> Result<usize, HarnessError> {
+pub(crate) fn install(source: &Path, dest_root: &Path) -> Result<usize, HarnessError> {
     if !source.is_dir() {
         return Err(HarnessError::Invalid(format!(
             "skills_dir {} is not a directory",
@@ -46,7 +48,7 @@ pub(super) fn install(source: &Path, workspace_dir: &Path) -> Result<usize, Harn
         )));
     }
 
-    let dest_root = workspace_dir.join("skills");
+    let dest_root = dest_root.to_path_buf();
     std::fs::create_dir_all(&dest_root).map_err(|source| HarnessError::Workspace {
         what: "create the workspace skills directory",
         source,

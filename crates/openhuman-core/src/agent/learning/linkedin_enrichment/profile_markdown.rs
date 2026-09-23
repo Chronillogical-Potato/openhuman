@@ -63,7 +63,7 @@ Rules:\n\
 - Keep the entire output under 400 words.\n\
 - Do not invent information — only use what is in the input.";
 
-    let model = "summarization-v1";
+    let model = "hint:summarization";
 
     tracing::debug!(
         model = model,
@@ -71,8 +71,8 @@ Rules:\n\
         "[linkedin_enrichment] sending profile to LLM for summarisation"
     );
 
-    use tinyinference::message::Message;
-    use tinyinference::model::ModelRequest;
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::model::ModelRequest;
     let summary = model_chat
         .invoke(
             &(),

@@ -47,7 +47,7 @@ pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
     }
     // No stored openai profile with a credential → the bearer, if any, comes from
     // the OAuth fallback (`lookup_openai_bearer_token`).
-    crate::inference::openai_oauth::lookup_openai_oauth_credentials(config)
+    crate::security::credentials::openai_oauth::lookup_openai_oauth_credentials(config)
         .ok()
         .flatten()
         .is_some()
@@ -114,7 +114,7 @@ pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String
     // returns empty, so env/audit/metrics in the standard path always execute
     // and the OAuth path never silently bypasses provider-agnostic logic.
     if slug == "openai" {
-        match crate::inference::openai_oauth::lookup_openai_bearer_token(config) {
+        match crate::security::credentials::openai_oauth::lookup_openai_bearer_token(config) {
             Ok(Some(token)) if !token.is_empty() => {
                 log::debug!(
                     "[providers][chat-factory] auth lookup slug={} key_present=true (oauth)",

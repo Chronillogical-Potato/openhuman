@@ -42,12 +42,11 @@
 //! is the point: the middleware and this classifier must not disagree about
 //! whether a call timed out.
 //!
-//! **3. Error text lives in two places.** The middleware combines
-//! [`ToolResult::error`] and [`ToolResult::content`] before classifying (#4459),
-//! because the policy markers and timeout phrases are emitted by the tool layer
-//! into whichever of the two it had to hand. This adapter uses the same
-//! combination, so a `[policy-denied]` marker is honoured wherever it landed and
-//! a user refusal can never be re-dispatched.
+//! **3. Error text is canonical content.** [`ToolResult::content`] carries text
+//! and structured blocks while [`ToolResult::is_error`] says whether execution
+//! reported a failure. This adapter renders the canonical blocks, so a
+//! `[policy-denied]` marker is honoured wherever the tool put it and a user
+//! refusal can never be re-dispatched.
 //!
 //! **4. A timeout cannot be assumed safe to repeat.** `Timeout` is the one
 //! failure class where "the call failed" and "the call succeeded but the reply
@@ -74,7 +73,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use tinyagents_harness::host::{OutcomeClass, ToolOutcomeClassifier};
-use tinyagents_harness::tool::ToolResult;
+use tinytools::ToolResult;
 
 use crate::tools::status::{classify, ToolFailureClass};
 
@@ -161,7 +160,8 @@ impl OpenHumanToolOutcomeClassifier {
     ///   permissions, a missing app, and bad credentials need a human to act, so
     ///   an identical re-dispatch just burns an iteration; `BlockedByPolicy`,
     ///   `Denied`, and `ApprovalExpired` are refusals that auto-retrying would
-    ///   actively subvert (#4459); and `Unknown` is the case where OpenHuman has
+    ///   actively subvert (#4459); `NotFound` and `Unsupported` fail identically
+    ///   on every repeat (#6277); and `Unknown` is the case where OpenHuman has
     ///   no basis to promise a repeat is safe.
     fn class_of(failure: ToolFailureClass, retry_safe: bool) -> OutcomeClass {
         match failure {
@@ -178,36 +178,30 @@ impl OpenHumanToolOutcomeClassifier {
             | ToolFailureClass::BlockedByPolicy
             | ToolFailureClass::Denied
             | ToolFailureClass::ApprovalExpired
+            | ToolFailureClass::NotFound
+            | ToolFailureClass::Unsupported
             | ToolFailureClass::Unknown => OutcomeClass::PermanentFailure,
         }
     }
 
-    /// Joins `error` and `content` into the text the heuristic reads.
+    /// Renders canonical content into the text the heuristic reads.
     ///
     /// Mirrors `TinyAgentsToolStatusMiddleware::after_tool` exactly (#4459): the
-    /// classifier historically read `error` while the marker/timeout sniffs read
-    /// `content`, and the two disagreeing is the bug that combination fixed.
+    /// classifier historically read distinct legacy error/content fields, and
+    /// the two disagreeing was the bug that canonical content fixed.
     /// Borrows wherever possible so the common single-source case allocates
     /// nothing on the hot path.
-    fn failure_text<'a>(result: &'a ToolResult) -> Cow<'a, str> {
-        let error = result.error.as_deref().unwrap_or("");
-        if error.is_empty() {
-            Cow::Borrowed(result.content.as_str())
-        } else if result.content.is_empty() || result.content == error {
-            Cow::Borrowed(error)
-        } else {
-            Cow::Owned(format!("{error}\n{}", result.content))
-        }
+    fn failure_text(result: &ToolResult) -> Cow<'static, str> {
+        Cow::Owned(result.output())
     }
 }
 
 impl ToolOutcomeClassifier for OpenHumanToolOutcomeClassifier {
     fn classify(&self, name: &str, result: &ToolResult) -> OutcomeClass {
-        // `error.is_none()` is the sole success signal, matching the middleware.
-        // A tool that writes "Error: …" into `content` while leaving `error`
-        // unset has reported success; second-guessing that here would make the
-        // two paths disagree about whether the call failed at all.
-        if result.error.is_none() {
+        // `is_error` is the canonical reported-failure signal. Content is never
+        // parsed as an error signal: a successful tool may legitimately render
+        // text containing the word "error".
+        if !result.is_error {
             return OutcomeClass::Success;
         }
 

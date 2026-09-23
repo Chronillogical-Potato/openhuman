@@ -31,7 +31,7 @@ use serde_json::json;
 
 use crate::config::Config;
 use crate::memory::api::provider::MemoryProvider;
-use crate::tools::traits::{PermissionLevel, Tool, ToolExposure, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};
 
 /// The seven persona facets, host-side (#5560).
 ///

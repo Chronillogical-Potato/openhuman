@@ -1,44 +1,4 @@
 use super::*;
-use crate::inference::local::profile::LocalProviderKind;
-
-#[test]
-fn local_fallback_uses_profile_default() {
-    // Unknown model with Ollama profile → 8192 default
-    assert_eq!(
-        context_window_for_model_with_local_fallback("qwen3:14b", Some(LocalProviderKind::Ollama)),
-        Some(8_192)
-    );
-    // Unknown model with MLX profile → 4096 default
-    assert_eq!(
-        context_window_for_model_with_local_fallback(
-            "my-custom-model",
-            Some(LocalProviderKind::Mlx)
-        ),
-        Some(4_096)
-    );
-    // Unknown model with no local provider → None
-    assert_eq!(
-        context_window_for_model_with_local_fallback("qwen3:14b", None),
-        None
-    );
-    // Local provider whose profile declares no default (llama.cpp / vLLM via
-    // LocalOpenai) → conservative floor, NOT None. None here would disable
-    // pre-dispatch trimming and let the prompt overflow the runtime n_ctx
-    // (the TAURI-RUST-6V0 400). Must stay bounded.
-    assert_eq!(
-        context_window_for_model_with_local_fallback(
-            "some-unlisted-gguf",
-            Some(LocalProviderKind::LocalOpenai)
-        ),
-        Some(super::CONSERVATIVE_LOCAL_CONTEXT_FLOOR)
-    );
-    // Known model ignores local fallback
-    assert_eq!(
-        context_window_for_model_with_local_fallback("llama3:8b", Some(LocalProviderKind::Ollama)),
-        Some(128_000)
-    );
-}
-
 #[test]
 fn tier_aliases_resolve() {
     assert_eq!(context_window_for_model("reasoning-v1"), Some(1_000_000));
@@ -171,16 +131,15 @@ fn o1_o3_segment_match_does_not_overmatch() {
 /// docs to be revisited, instead of only the two `true` arms being covered.
 #[test]
 fn oh_tier_vision_map_is_exhaustively_pinned() {
-    use crate::config::{
-        MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-        MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
-    };
+    use crate::config::MODEL_MANAGED_DEFAULT;
     use crate::inference::provider::factory::oh_tier_supports_vision;
 
     for tier in [
-        MODEL_REASONING_V1,
+        // The managed default (DeepSeek V4 Flash) takes images.
+        MODEL_MANAGED_DEFAULT,
+        "reasoning-v1",
         "hint:reasoning",
-        MODEL_VISION_V1,
+        "vision-v1",
         "hint:vision",
     ] {
         assert!(
@@ -190,16 +149,16 @@ fn oh_tier_vision_map_is_exhaustively_pinned() {
     }
 
     for tier in [
-        MODEL_CHAT_V1,
+        "chat-v1",
         "hint:chat",
-        MODEL_REASONING_QUICK_V1,
-        MODEL_AGENTIC_V1,
+        "reasoning-quick-v1",
+        "agentic-v1",
         "hint:agentic",
-        MODEL_BURST_V1,
+        "burst-v1",
         "hint:burst",
-        MODEL_CODING_V1,
+        "coding-v1",
         "hint:coding",
-        MODEL_SUMMARIZATION_V1,
+        "summarization-v1",
         "hint:summarization",
         // Anything the map does not name at all falls through to `false`.
         "gpt-5",

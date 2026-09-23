@@ -266,7 +266,7 @@ async fn shell_uses_workspace_descriptor_root_as_cwd() {
     let result = tool
         .execute_with_context(
             json!({"command": "pwd"}),
-            crate::tools::traits::ToolCallOptions {
+            tinytools::ToolCallOptions {
                 prefer_markdown: false,
             },
             Some(&ctx),
@@ -527,7 +527,7 @@ fn shell_timeout_honors_explicit_per_call_value() {
     // An explicit in-range request is enforced verbatim.
     assert_eq!(
         tool.timeout_policy(&json!({"command": "make", "timeout_secs": 1800})),
-        ToolTimeout::Secs(1800)
+        ToolTimeout::Millis(1_800_000)
     );
     assert_eq!(
         tool.explicit_timeout(Some(1800)),

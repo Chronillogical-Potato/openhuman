@@ -19,15 +19,15 @@ pub(super) use reconnect::ws_loop;
 
 #[cfg(test)]
 use connect::{
-    connect_with_redirects, extract_location_header, is_redirect_status, record_redirect_warning,
-    resolve_redirect_target,
+    connect_with_redirects, connect_with_redirects_within, extract_location_header,
+    is_redirect_status, record_redirect_warning, resolve_redirect_target, CONNECT_TIMEOUT,
 };
 #[cfg(test)]
 use dispatch::{handle_eio_message, handle_sio_packet, parse_sio_ack};
 #[cfg(test)]
 use reconnect::{
-    decide_after_invalid_token, drain_pending_emits, log_connection_failure, InvalidTokenAction,
-    FAIL_ESCALATE_THRESHOLD,
+    decide_after_invalid_token, drain_pending_emits, log_connection_failure, render_attempt_line,
+    InvalidTokenAction, FAIL_ESCALATE_THRESHOLD,
 };
 
 #[cfg(test)]

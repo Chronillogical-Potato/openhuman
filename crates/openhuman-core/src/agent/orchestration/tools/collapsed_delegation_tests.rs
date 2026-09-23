@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::agent::orchestration::tools::ArchetypeDelegationTool;
-use crate::tools::traits::ToolExposure;
+use tinytools::ToolExposure;
 
 fn targets() -> Vec<DelegateTarget> {
     vec![
@@ -31,7 +31,7 @@ fn tool() -> CollapsedDelegationTool {
 #[test]
 fn an_empty_target_list_produces_no_tool() {
     // An `agent` enum with no valid value is a schema the model can only call
-    // wrongly. Mirrors `SkillDelegationTool::for_connected`.
+    // wrongly.
     assert!(CollapsedDelegationTool::for_targets(Vec::new()).is_none());
 }
 
@@ -45,6 +45,20 @@ fn the_schema_advertises_every_target() {
         .filter_map(|v| v.as_str())
         .collect();
     assert_eq!(listed, vec!["research", "review_code"]);
+}
+
+#[test]
+fn dispatch_target_mapping_matches_the_advertised_enum_and_agent_ids() {
+    let tool = tool();
+    let targets = dispatch_targets_from_schema(&tool.parameters_schema())
+        .expect("concrete collapsed tool publishes a dispatch map");
+    assert_eq!(
+        targets
+            .iter()
+            .map(|target| (target.tool_name.as_str(), target.agent_id.as_str()))
+            .collect::<Vec<_>>(),
+        vec![("research", "researcher"), ("review_code", "code_reviewer")]
+    );
 }
 
 #[test]
@@ -205,7 +219,7 @@ fn the_timeout_is_unbounded_like_the_members_it_replaces() {
     // `Unbounded` on `ArchetypeDelegationTool` in the first place.
     assert!(matches!(
         tool().timeout_policy(&serde_json::json!({})),
-        crate::tools::traits::ToolTimeout::Unbounded
+        tinytools::ToolTimeout::Unbounded
     ));
 }
 

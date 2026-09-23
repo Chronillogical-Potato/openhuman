@@ -30,11 +30,11 @@
 //!   - `value`      — the representation named by the optional `format` arg
 //!                    (defaults to `unix_s`), as a string, for copy-paste.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Local, NaiveDate, NaiveDateTime, SecondsFormat, Utc};
 use chrono_tz::Tz;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 pub struct ResolveTimeTool;
 
@@ -226,7 +226,9 @@ impl Tool for ResolveTimeTool {
     }
 
     fn description(&self) -> &str {
-        "Resolve a time expression (\"now\", \"24h ago\", \"in 10 minutes\", \"today\", RFC-3339, or a date) into timestamp representations. Returns `unix_s`, `unix_ms`, `slack_ts` and `rfc3339` — copy whichever the target tool's schema wants. Always produce date/time arguments for other tools this way; never hand-compute epoch seconds."
+        "Resolve a time expression (\"now\", \"24h ago\", \"in 10 minutes\", \"today\", \
+         RFC-3339 or a date) into `unix_s`, `unix_ms`, `slack_ts` and `rfc3339`. Every \
+         date/time argument for another tool comes from here."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -235,26 +237,17 @@ impl Tool for ResolveTimeTool {
             "properties": {
                 "expr": {
                     "type": "string",
-                    "description": "Time expression: \"now\", a past duration \
-                                    (\"24h ago\", \"7d\", \"2 weeks ago\"), a future \
-                                    duration (\"in 10 minutes\", \"30m from now\"), \
-                                    \"today\"/\"yesterday\"/\"tomorrow\", \
-                                    \"2026-06-09T19:12:00Z\", \"2026-06-09\", or \
-                                    \"YYYY-MM-DD HH:MM:SS\"."
+                    "description": "\"now\", \"24h ago\", \"in 10 minutes\", \"tomorrow\", \
+                                    an RFC-3339 timestamp or a date."
                 },
                 "format": {
                     "type": "string",
                     "enum": ["unix_s", "unix_ms", "slack_ts", "rfc3339"],
-                    "description": "Which representation to put in the top-level `value` \
-                                    field (all representations are always returned too). \
-                                    Defaults to unix_s."
+                    "description": "Representation for the top-level `value` (default unix_s)."
                 },
                 "timezone": {
                     "type": "string",
-                    "description": "Optional IANA timezone (e.g. 'Asia/Kolkata') used to \
-                                    interpret offset-less inputs like 'today' or \
-                                    '2026-06-09'. Defaults to the machine's local zone. \
-                                    Ignored for inputs that already carry an offset."
+                    "description": "IANA timezone for offset-less inputs; defaults to local."
                 }
             },
             "required": ["expr"]

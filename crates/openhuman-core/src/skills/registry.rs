@@ -13,7 +13,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::agent::harness::definition::{AgentDefinition, PromptSource};
-use crate::skills::{Workflow, WorkflowScope};
+use crate::skills::Workflow;
 
 /// One declared input — a parameter the skill needs, with a human description.
 /// `required` inputs must be supplied at run time; `kind` is an optional type
@@ -154,38 +154,17 @@ pub fn prune_legacy_default_workflows(workspace_dir: &Path) {
 /// Without `skill.toml`, a synthesized SKILL.md-only definition means a bare workflow is
 /// still runnable. A bad `skill.toml` falls back to the SKILL.md-only form.
 pub fn load_workflows(workspace_dir: &Path) -> Vec<WorkflowDefinition> {
-    load_workflows_with_profile(workspace_dir, None)
+    load_workflows_and_discovered(workspace_dir).0
 }
 
-/// Like [`load_workflows`], but additionally resolves the active profile's
-/// private skills (`<workspace>/personalities/<id>/skills/`) when
-/// `profile_skills_root` is supplied.
-///
-/// The profile root is threaded straight into
-/// [`super::ops_discover::discover_workflows_with_profile`], so profile-local
-/// skills become runnable/describable for their owner and win same-name
-/// collisions against global skills (via [`WorkflowScope::Profile`] precedence).
-/// `None` reproduces [`load_workflows`] byte-for-byte — other profiles and the
-/// profile-less session never see these skills. No global registry state is
-/// mutated, so concurrent sessions under different profiles stay isolated.
-pub fn load_workflows_with_profile(
-    workspace_dir: &Path,
-    profile_skills_root: Option<&Path>,
-) -> Vec<WorkflowDefinition> {
-    load_workflows_and_discovered(workspace_dir, profile_skills_root).0
-}
-
-/// [`load_workflows_with_profile`] plus the discovered bundles the definitions
+/// [`load_workflows`] plus the discovered bundles the definitions
 /// were built from.
 ///
 /// Discovery re-reads and re-parses every bundle under every root, so a caller
 /// that needs both the runnable definitions and the discovered metadata (scope
 /// and frontmatter `name`, which `WorkflowDefinition` does not carry) takes
 /// them from this one pass instead of running discovery a second time (#6166).
-fn load_workflows_and_discovered(
-    workspace_dir: &Path,
-    profile_skills_root: Option<&Path>,
-) -> (Vec<WorkflowDefinition>, Vec<Workflow>) {
+fn load_workflows_and_discovered(workspace_dir: &Path) -> (Vec<WorkflowDefinition>, Vec<Workflow>) {
     // Prune any legacy bundled skills an older build left behind so discover's
     // legacy scan no longer surfaces them (idempotent).
     prune_legacy_default_workflows(workspace_dir);
@@ -204,14 +183,10 @@ fn load_workflows_and_discovered(
 
     // Enumerate across all roots (deduped + scope-prioritised) via the same
     // discovery the create/list path uses, then load each one's definition.
-    let home = dirs::home_dir();
+    let home = super::ops_discover::discovery_home_dir();
     let trusted = super::ops_discover::is_workspace_trusted(workspace_dir);
-    let discovered = super::ops_discover::discover_workflows_with_profile(
-        home.as_deref(),
-        Some(workspace_dir),
-        profile_skills_root,
-        trusted,
-    );
+    let discovered =
+        super::ops_discover::discover_workflows(home.as_deref(), Some(workspace_dir), trusted);
     for wf in &discovered {
         let Some(skill_md) = wf.location.as_ref() else {
             continue;
@@ -289,50 +264,11 @@ fn load_workflow_definition(
 
 /// Look up one skill by id across the registry.
 pub fn get_workflow(workspace_dir: &Path, id: &str) -> Option<WorkflowDefinition> {
-    get_workflow_with_profile(workspace_dir, id, None)
-}
-
-/// Like [`get_workflow`], but resolves the active profile's private skills too
-/// (`<workspace>/personalities/<id>/skills/`) when `profile_skills_root` is
-/// supplied. This is the resolution seam behind `describe_workflow` /
-/// `run_workflow`: a profile-local skill is runnable/describable for its owner
-/// and wins same-name collisions; `None` is byte-identical to [`get_workflow`].
-pub fn get_workflow_with_profile(
-    workspace_dir: &Path,
-    id: &str,
-    profile_skills_root: Option<&Path>,
-) -> Option<WorkflowDefinition> {
-    let (workflows, discovered) = load_workflows_and_discovered(workspace_dir, profile_skills_root);
-    // Built-ins are prepended and discovered workflows follow them. Search in
-    // reverse so the scope-resolved discovered entry (profile wins over global)
-    // also wins over a built-in with the same runnable id.
-    if let Some(exact) = workflows.iter().rev().find(|s| s.definition.id == id) {
-        return Some(exact.clone());
-    }
-
-    // Profile lists advertise the frontmatter display name as well as the
-    // directory slug. Resolve that name back to the canonical runnable slug so
-    // a private workflow admitted by the profile-local allow set can actually
-    // be described and run. Keep the legacy profile-less lookup id-only: global
-    // display names have never been runnable ids and may collide with builtins.
-    //
-    // Answered from the discovery pass already in hand — this used to re-run a
-    // full on-disk discovery and re-parse every bundle a second time (#6166).
-    let slug = discovered
-        .into_iter()
-        .find(|workflow| workflow.scope == WorkflowScope::Profile && workflow.name == id)
-        .map(|workflow| {
-            if workflow.dir_name.is_empty() {
-                workflow.name
-            } else {
-                workflow.dir_name
-            }
-        })?;
-
+    let (workflows, _) = load_workflows_and_discovered(workspace_dir);
     workflows
         .into_iter()
         .rev()
-        .find(|workflow| workflow.definition.id == slug)
+        .find(|workflow| workflow.definition.id == id)
 }
 
 #[cfg(test)]

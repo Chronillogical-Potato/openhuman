@@ -117,13 +117,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     required: false,
                 },
                 FieldSchema {
-                    name: "profile_id",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Agent profile id to run the job under (soul, memory scope, \
-                              workspace, allowlists). Ignored if the profile is deleted.",
-                    required: false,
-                },
-                FieldSchema {
                     name: "delivery",
                     ty: TypeSchema::Option(Box::new(TypeSchema::Ref("DeliveryConfig"))),
                     comment: "Delivery mode (proactive, announce, etc.).",
@@ -316,18 +309,6 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             .get("agent_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        // 2b — optional agent-profile attribution. Snake_case `profile_id` matches
-        // the existing cron wire convention (`agent_id`, `session_target`).
-        let profile_id = params
-            .get("profile_id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        // Privacy-safe diagnostic: whether the created job carries profile
-        // attribution, never the profile id itself.
-        tracing::debug!(
-            has_profile_attribution = profile_id.is_some(),
-            "[cron][schemas] create: parsed agent-profile attribution"
-        );
         let delivery: Option<crate::cron::DeliveryConfig> = match params.get("delivery") {
             None | Some(Value::Null) => None,
             Some(v) => Some(
@@ -374,7 +355,6 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
                     agent_id,
                     // RPC-created jobs default to enabled (current behaviour).
                     true,
-                    profile_id,
                 )
                 .map_err(|e| e.to_string())?
             }
@@ -397,19 +377,6 @@ fn handle_update(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let job_id = read_required::<String>(&params, "job_id")?;
         let patch = read_required::<CronJobPatch>(&params, "patch")?;
-        // Privacy-safe diagnostic for the profile-attribution patch. Double-option
-        // `profile_id`: `None` = no change, `Some(None)` = clear, `Some(Some)` =
-        // (re)attribute. Log only the state, never the profile id.
-        let (patches_profile_attribution, clears_profile_attribution) = match &patch.profile_id {
-            None => (false, false),
-            Some(None) => (true, true),
-            Some(Some(_)) => (true, false),
-        };
-        tracing::debug!(
-            patches_profile_attribution,
-            clears_profile_attribution,
-            "[cron][schemas] update: parsed agent-profile attribution patch"
-        );
         to_json(crate::cron::rpc::cron_update(&config, job_id.trim(), patch).await?)
     })
 }

@@ -396,7 +396,7 @@ pub struct Config {
     pub coding_provider: Option<String>,
 
     /// Provider string for the multimodal / image-understanding workload
-    /// (the vision sub-agent). Managed default resolves to `vision-v1`.
+    /// (the vision sub-agent). Managed default resolves to `hint:vision`.
     #[serde(default)]
     pub vision_provider: Option<String>,
 

@@ -39,7 +39,7 @@ use crate::agent::artifacts::{
     create_artifact, fail_artifact, finalize_artifact, read_artifact_bytes, ArtifactKind,
 };
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 mod engine;
 mod types;

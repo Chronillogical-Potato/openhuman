@@ -1,56 +1,84 @@
 use super::*;
 
+fn url(s: &str) -> Url {
+    Url::parse(s).unwrap()
+}
+
 #[test]
-fn remote_navigation_is_external_but_app_origins_are_preserved() {
-    let dev = Url::parse("http://localhost:1420").unwrap();
+fn remote_pages_are_cancelled_and_handed_to_the_os_browser() {
     for href in [
-        "https://github.com/example/repo/pull/1",
-        "http://localhost:8000",
-        "https://tauri.localhost.example.com",
+        "https://github.com/tinyhumansai/openhuman",
+        "http://example.com/login?token=abc",
+        // Loopback that is not the dev server is still a remote page to the webview.
+        "http://localhost:8000/",
+        "https://tauri.localhost.example.com/",
+        // Same host, different origin: a loopback service on another port.
+        "http://tauri.localhost:8000/",
+        // Same host, other scheme than the app is configured with (`useHttpsScheme` unset).
+        "https://tauri.localhost/",
     ] {
-        assert!(
-            is_external(&Url::parse(href).unwrap(), Some(&dev)),
-            "{href}"
+        assert_eq!(
+            navigation_handoff("main", &url(href), "http", None),
+            Some(url(href)),
+            "{href} must not load in the main webview"
         );
     }
+}
+
+#[test]
+fn app_origins_stay_in_the_main_webview() {
     for href in [
         "tauri://localhost/#/chat",
         "http://tauri.localhost/#/chat",
-        "https://tauri.localhost/#/chat",
-        "http://localhost:1420/#/chat",
+        "about:blank",
+        "data:text/html,<p>hi</p>",
+        "blob:tauri://localhost/5e1c",
     ] {
-        assert!(
-            !is_external(&Url::parse(href).unwrap(), Some(&dev)),
+        assert_eq!(
+            navigation_handoff("main", &url(href), "http", None),
+            None,
             "{href}"
         );
     }
-    assert!(is_external(&dev, None));
 }
 
 #[test]
-fn internal_routes_and_child_webviews_do_not_invoke_the_os_opener() {
-    for (label, href) in [
-        ("main", "tauri://localhost/#/chat"),
-        ("preview", "https://example.com/preview"),
-    ] {
-        assert!(handle_navigation(
-            label,
-            &Url::parse(href).unwrap(),
-            None,
-            |_| { panic!("an internal route or child webview must not be handed to the OS") }
-        ));
-    }
+fn windows_app_origin_follows_the_configured_scheme() {
+    assert_eq!(
+        navigation_handoff(
+            "main",
+            &url("https://tauri.localhost/#/chat"),
+            "https",
+            None
+        ),
+        None
+    );
+    assert!(
+        navigation_handoff("main", &url("http://tauri.localhost/#/chat"), "https", None).is_some()
+    );
 }
 
-#[tokio::test]
-async fn external_navigation_is_cancelled_even_when_the_os_opener_fails() {
-    for opens_successfully in [true, false] {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        let url = Url::parse("https://example.com/repo/pull/1").unwrap();
-        assert!(!handle_navigation("main", &url, None, move |target| {
-            tx.send(target).unwrap();
-            opens_successfully
-        }));
-        assert_eq!(rx.await.unwrap(), url.as_str());
-    }
+#[test]
+fn dev_server_is_an_app_origin_only_when_it_is_the_dev_url() {
+    let dev = url("http://localhost:1420");
+    assert_eq!(
+        navigation_handoff(
+            "main",
+            &url("http://localhost:1420/#/chat"),
+            "http",
+            Some(&dev)
+        ),
+        None
+    );
+    assert!(
+        navigation_handoff("main", &url("http://localhost:1420/#/chat"), "http", None).is_some()
+    );
+}
+
+#[test]
+fn other_webviews_are_left_to_their_own_handlers() {
+    assert_eq!(
+        navigation_handoff("ptt-overlay", &url("https://github.com/"), "http", None),
+        None
+    );
 }

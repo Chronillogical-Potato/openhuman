@@ -132,8 +132,9 @@ event, and Claude Code's `UserPromptSubmit` aliases onto `beforeSubmitPrompt`.
 `sessionStart`, `sessionEnd`, `preCompact`, `afterAgentThought` and `subagentStop`
 are defined — they parse, match, execute, and can be exercised with `hooks test` —
 but the core does not fire them yet. (`subagentStop` is the near miss: the handler
-`hooks::ops::subagent_stopped` is complete, but `subagent_runner` fires only
-`subagentStart` and returns without ever calling the stop side.) Configuring one
+`hooks::ops::subagent_stopped` is complete, but the in-progress
+`agent/subagent_host` cutover currently fires only `subagentStart` and returns
+without ever calling the stop side.) Configuring one
 produces a load warning saying so, and `hooks list` reports `"wired": false` for
 it. That is deliberate: a hook that silently never runs is the worst thing this
 system can do to you.

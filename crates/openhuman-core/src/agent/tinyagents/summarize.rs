@@ -31,10 +31,10 @@ use tinyagents_harness::error::{Result as TaResult, TinyAgentsError};
 use tinyagents_harness::summarization::{
     estimate_tokens, CompressionProvenance, SummarizationPolicy, Summarizer, SummaryRecord,
 };
-use tinyinference::message::Message as TaMessage;
+use tinyinference_llm::message::Message as TaMessage;
 
-use tinyinference::message::Message as HarnessMessage;
-use tinyinference::model::{ChatModel, ModelRequest};
+use tinyinference_llm::message::Message as HarnessMessage;
+use tinyinference_llm::model::{ChatModel, ModelRequest};
 
 /// Fraction of the model's context window at which summarization fires.
 ///
@@ -79,6 +79,7 @@ fn role_label(msg: &TaMessage) -> &'static str {
         TaMessage::User(_) => "user",
         TaMessage::Assistant(_) => "assistant",
         TaMessage::Tool(_) => "tool",
+        TaMessage::Custom(_) => "custom",
     }
 }
 

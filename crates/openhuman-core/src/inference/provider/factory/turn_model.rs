@@ -121,7 +121,7 @@ pub(super) fn create_turn_chat_model_with_native_tools_and_route_inner(
             emit_inference_egress(role, &format!("{CLAUDE_AGENT_SDK_PREFIX}{model}"));
             return Ok((
                 Arc::new(ClaudeAgentSdkProvider::for_model(
-                    config.claude_agent_sdk.clone(),
+                    (&config.claude_agent_sdk).into(),
                     model,
                 )),
                 provider_name,

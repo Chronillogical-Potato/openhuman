@@ -5,7 +5,7 @@ use serde_json::json;
 
 use super::{MediaGenerateImageTool, MediaGenerateVideoTool, MediaListModelsTool};
 use crate::integrations::IntegrationClient;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory};
+use tinytools::{PermissionLevel, Tool, ToolCategory};
 
 fn dummy_client() -> Arc<IntegrationClient> {
     // No requests are made in these tests; the URL/token are placeholders.

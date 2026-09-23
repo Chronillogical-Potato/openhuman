@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use openhuman_embed::{
-    set_product_identity, Access, AgentTurnOrigin, Core, CoreBuilder, CoreRuntime, DomainSet,
-    GroupMode, Harness, HostKind, ProductIdentity, Provider, RuntimeConfig, ServiceSet, ToolGroups,
-    TrustedAccess, TrustedAutomationSource, Workspace,
+    set_product_identity, Access, Agent, AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, ApiKey,
+    Core, CoreBuilder, CoreRuntime, DomainSet, GroupMode, Harness, HostKind, ProductIdentity,
+    Provider, Runtime, RuntimeBuilder, RuntimeConfig, SandboxModeSpec, ServiceSet, ToolGroups,
+    ToolScopeSpec, TrustedAccess, TrustedAutomationSource, Workspace,
 };
 
 #[test]
@@ -15,12 +16,17 @@ fn exposes_the_host_facing_embedding_contract() {
     fn accepts_access(_: Access) {}
     fn accepts_provider(_: Provider) {}
     fn accepts_workspace(_: Workspace) {}
-    fn applies_turn_origin<'a>(
-        turn: openhuman_embed::Turn<'a>,
+    fn applies_turn_origin(
+        turn: openhuman_embed::Turn,
         origin: AgentTurnOrigin,
-    ) -> openhuman_embed::Turn<'a> {
+    ) -> openhuman_embed::Turn {
         turn.origin(origin)
     }
+    fn accepts_runtime_handle(_: Runtime) {}
+    fn accepts_runtime_builder(_: RuntimeBuilder) {}
+    fn accepts_agent(_: Agent) {}
+    fn accepts_agent_spec(_: AgentSpec) {}
+    fn accepts_api_key(_: ApiKey) {}
 
     let _ = accepts_core;
     let _ = accepts_builder;
@@ -30,6 +36,25 @@ fn exposes_the_host_facing_embedding_contract() {
     let _ = accepts_provider;
     let _ = accepts_workspace;
     let _ = applies_turn_origin;
+    let _ = accepts_runtime_handle;
+    let _ = accepts_runtime_builder;
+    let _ = accepts_agent;
+    let _ = accepts_agent_spec;
+    let _ = accepts_api_key;
+    let _ = Runtime::builder()
+        .api_key("th_public_api")
+        .backend_url("https://backend.example");
+    let _ = AgentSpec::new("public-api")
+        .system_prompt("You are a test.")
+        .definition(
+            AgentDefinitionSpec::new()
+                .tools(ToolScopeSpec::Named(vec!["read_file".into()]))
+                .sandbox(SandboxModeSpec::ReadOnly),
+        )
+        .access(Access::readonly())
+        .action_dir("/tmp/embed-public-api")
+        .include_user_skills(false)
+        .config(|_config| {});
     let _ = DomainSet::embedded;
     let _ = ServiceSet::none;
     let _ = HostKind::Library;

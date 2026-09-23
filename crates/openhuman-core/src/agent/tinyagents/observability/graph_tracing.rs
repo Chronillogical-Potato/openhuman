@@ -4,7 +4,7 @@
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use tinyagents_graph::stream::{GraphEvent, GraphEventSink};
+use tinyagents_graph::stream::{GraphEvent, GraphEventEnvelope, GraphEventSink};
 
 /// A [`GraphEventSink`] that mirrors the `tinyagents` graph executor's lifecycle
 /// stream onto openhuman's `tracing` diagnostics — an observability journal for
@@ -34,7 +34,8 @@ impl GraphTracingSink {
 }
 
 impl GraphEventSink for GraphTracingSink {
-    fn emit(&self, event: GraphEvent) {
+    fn emit(&self, envelope: GraphEventEnvelope) {
+        let event = envelope.event;
         self.count.fetch_add(1, Ordering::Relaxed);
         let label = self.label.as_str();
         match &event {

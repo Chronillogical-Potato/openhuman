@@ -1,68 +1,18 @@
 import createDebug from 'debug';
 
-import { Source, Sources, SourcesContent, SourcesTrigger } from '../../../components/ai-elements';
+import { Sources, SourcesContent, SourcesTrigger } from '../../../components/ai-elements';
 import Button from '../../../components/ui/Button';
 import { SheetContent, SheetRoot, SheetTitle } from '../../../components/ui/Sheet';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
-import {
-  type AgentSource,
-  extractAgentSources,
-  formatTimelineEntry,
-} from '../../../utils/toolTimelineFormatting';
+import { extractAgentSources, formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
+import { AgentSourceRow } from './AgentSourceRow';
 import { AgentSparkIcon } from './AgentTimelineRail';
 import { AssistantUiSubagentCall } from './AssistantUiSubagentCall';
 import { ProcessingTranscriptView } from './ProcessingTranscriptView';
 import { ToolTimelineBlock } from './ToolTimelineBlock';
 
 const log = createDebug('app:conversations:agent-process-source');
-
-/** Compact globe glyph for a source row. Inherits `currentColor`. */
-function GlobeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 12 12"
-      width="12"
-      height="12"
-      aria-hidden
-      className={className}
-      focusable="false">
-      <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="1" />
-      <path
-        d="M1 6h10M6 1c1.8 1.4 1.8 8.6 0 10M6 1c-1.8 1.4-1.8 8.6 0 10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1"
-      />
-    </svg>
-  );
-}
-
-/**
- * One web-source row: globe + hostname title (left) + full URL (right).
- *
- * The anchor itself is `ai-elements`' {@link Source}, which owns the
- * `target="_blank"` + `rel` hardening and the `data-slot="source"` contract;
- * the two-column body is this panel's own, passed as children so the shared
- * primitive does not have to grow a layout variant for it.
- */
-function AgentSourceRow({ source }: { source: AgentSource }) {
-  return (
-    <li>
-      <Source
-        href={source.url}
-        rel="noreferrer noopener"
-        className="flex items-center justify-between gap-3 rounded-md px-1.5 py-1 text-[11px] text-content-secondary hover:bg-surface-hover"
-        data-testid="agent-source-row">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <GlobeIcon className="shrink-0 text-content-faint" />
-          <span className="truncate text-content-secondary">{source.title}</span>
-        </span>
-        <span className="shrink-0 truncate text-content-faint">{source.url}</span>
-      </Source>
-    </li>
-  );
-}
 
 function normalizeScopedBody(value: string | undefined | null): string | undefined {
   const trimmed = value?.trim();

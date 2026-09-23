@@ -4,8 +4,47 @@
 //! and the `channel.web_*` request param structs.
 
 use serde::Deserialize;
+use tinyagents_harness::run_queue::QueueLane;
 
-use crate::agent::Agent;
+use crate::agent::OpenHumanSessionHost;
+
+/// How a web request arriving during an active turn is handled.
+///
+/// This is a web/orchestration disposition, not queue state. Only the three
+/// variants returned by [`Self::queue_lane`] are ever inserted into TinyAgents'
+/// run queue; interrupt and parallel are resolved by `start_chat` first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(super) enum QueueMode {
+    #[default]
+    Interrupt,
+    Steer,
+    Followup,
+    Collect,
+    Parallel,
+}
+
+impl QueueMode {
+    pub(super) fn queue_lane(self) -> Option<QueueLane> {
+        match self {
+            Self::Steer => Some(QueueLane::Steer),
+            Self::Followup => Some(QueueLane::Followup),
+            Self::Collect => Some(QueueLane::Collect),
+            Self::Interrupt | Self::Parallel => None,
+        }
+    }
+}
+
+impl std::fmt::Display for QueueMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Interrupt => "interrupt",
+            Self::Steer => "steer",
+            Self::Followup => "followup",
+            Self::Collect => "collect",
+            Self::Parallel => "parallel",
+        })
+    }
+}
 
 /// All inputs that the cached `SessionEntry`'s `Agent` was built from,
 /// captured at build time. The cache-hit predicate is a single
@@ -30,19 +69,10 @@ pub(crate) struct SessionCacheFingerprint {
     /// change) — without this the stale session would be reused. Mirrors
     /// [`Self::autonomy_signature`].
     pub(super) model_registry_signature: String,
-    /// Hashed signature of the active agent profile record and its resolved
-    /// SOUL/MEMORY file contents. The cached `Agent`
-    /// bakes in the profile's tool/skill/MCP/connector visibility and SOUL/MEMORY
-    /// overrides at build time; switching profiles on the same thread keeps the
-    /// same model/agent/provider, so without this the previous profile's
-    /// capability surface would leak into the new profile's turns. Any change to
-    /// the resolved profile or a direct edit to either profile file forces a
-    /// rebuild on the next turn.
-    pub(super) profile_signature: String,
 }
 
 pub(super) struct SessionEntry {
-    pub(super) agent: Agent,
+    pub(super) agent: OpenHumanSessionHost,
     pub(super) fingerprint: SessionCacheFingerprint,
 }
 
@@ -50,7 +80,9 @@ pub(super) struct SessionEntry {
 pub(super) struct InFlightEntry {
     pub(super) request_id: String,
     pub(super) handle: tokio::task::JoinHandle<()>,
-    pub(super) run_queue: std::sync::Arc<crate::agent::harness::run_queue::RunQueue>,
+    pub(super) run_queue: std::sync::Arc<
+        tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>,
+    >,
     /// Cooperative cancellation for this turn. Cancelling it makes the turn's
     /// `tokio::select!` arm fire and drops the in-flight turn future (which
     /// cancels the in-flight LLM request and releases locks at a safe await
@@ -78,7 +110,7 @@ pub(super) struct WebChatTaskResult {
     /// Holistic token/cost/context totals for the turn (parent + sub-agents),
     /// forwarded to the frontend on `chat_done`. `None` for synthetic results
     /// (e.g. budget-exhausted placeholders) that never ran a real turn.
-    pub(super) usage: Option<crate::agent::harness::turn_subagent_usage::LastTurnUsage>,
+    pub(super) usage: Option<crate::agent::tinyagents::host::LastTurnUsage>,
     /// The workspace this turn actually ran in, carried to delivery so the
     /// reply is stored there before it is announced (#6034).
     ///
@@ -111,7 +143,6 @@ pub(crate) struct WebChatParams {
     pub(super) message: String,
     pub(super) model_override: Option<String>,
     pub(super) temperature: Option<f64>,
-    pub(super) profile_id: Option<String>,
     /// BCP-47 locale of the frontend UI (e.g. `ar`, `zh-CN`). When set
     /// and not English, the system prompt is augmented to ask the
     /// agent to reply in that language. `None` keeps the agent's

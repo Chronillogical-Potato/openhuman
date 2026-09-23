@@ -68,7 +68,7 @@ fn build_title_request_sends_no_per_request_model_override() {
 fn build_title_request_carries_the_system_prompt_and_rendered_user_prompt() {
     // Pins the rest of the request so the `model` assertion above cannot be
     // satisfied by an empty or malformed request.
-    use tinyinference::message::Message;
+    use tinyinference_llm::message::Message;
 
     let request = crate::threads::title::build_title_request("hi there", "hello back");
 

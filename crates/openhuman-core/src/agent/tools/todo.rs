@@ -1,24 +1,60 @@
-//! `todo` — unified CRUD tool for the agent's task board.
+//! `todo` — the session's todo list, the way Claude Code and Codex have it.
 //!
-//! Dispatches on the `op` field so a single tool exposes
-//! `add` / `edit` / `update_status` / `remove` / `replace` / `clear` /
-//! `list`. The board is persisted to the active thread (when there is
-//! one) via [`crate::threads::todos::ops`]; without a thread context the
-//! tool falls back to a process-global scratch list. Returns a markdown
-//! rendering so transcripts read cleanly.
+//! The tool itself is TinyAgents' `todos::TodoTool` (schema, argument
+//! validation, the whole-list write, markdown). This file is only the host
+//! adapter: it selects the session-scoped list for a turn and registers the
+//! harness dispatch. Bad arguments must become a tool error, never a fatal
+//! harness error.
 
-use crate::agent::task_board::{TaskApprovalMode, TaskBoardCard, TaskCardStatus};
-use crate::agent::tinyagents::thread_context;
-use crate::threads::todos::ops::{self, BoardLocation, CardPatch};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use crate::agent::harness::fork_context::ParentExecutionContext;
+use crate::agent::todos::ops::{self, TodoScope};
 use async_trait::async_trait;
-use serde_json::json;
+use std::sync::Arc;
+use tinyagents_graph::todos as graph_todos;
+use tinyagents_harness::context::RunContext;
+use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
-pub struct TodoTool;
+pub struct TodoTool {
+    inner: graph_todos::TodoTool,
+}
+
+pub(crate) struct TodoToolDispatch {
+    tool: Arc<dyn Tool>,
+}
+
+impl TodoToolDispatch {
+    pub(crate) fn new(tool: Arc<dyn Tool>) -> Self {
+        Self { tool }
+    }
+}
+
+#[async_trait]
+impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for TodoToolDispatch {
+    fn tool(&self) -> Arc<dyn Tool> {
+        self.tool.clone()
+    }
+
+    async fn execute(
+        &self,
+        _state: &(),
+        call_id: tinyagents_harness::CallId,
+        arguments: serde_json::Value,
+        _options: ToolCallOptions,
+        parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let context = ToolExecutionContext::from_run_context(parent, call_id);
+        TodoTool::new()
+            .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
+            .await
+    }
+}
 
 impl TodoTool {
     pub fn new() -> Self {
-        Self
+        Self {
+            inner: graph_todos::TodoTool::new(ops::store()),
+        }
     }
 }
 
@@ -28,70 +64,27 @@ impl Default for TodoTool {
     }
 }
 
+/// Supplies the selected session key to TinyAgents' tool implementation.
+struct ScopedKey<'a>(&'a str);
+
+impl ToolRunContext for ScopedKey<'_> {
+    fn thread_id(&self) -> Option<&str> {
+        Some(self.0)
+    }
+}
+
 #[async_trait]
 impl Tool for TodoTool {
     fn name(&self) -> &str {
-        "todo"
+        self.inner.name()
     }
 
     fn description(&self) -> &str {
-        "Maintain the visible plan for this thread; cards persist across turns. Use for requests with 3+ steps. Keep one `in_progress`; mark finished cards `done` immediately and blocked cards with a `blocker`. The board binds automatically; do not pass a thread id. Orchestrator calls use the shared board."
+        self.inner.description()
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "op": {
-                    "type": "string",
-                    "enum": ["add", "edit", "update_status", "decide_plan", "remove", "replace", "clear", "list"]
-                },
-                "id": { "type": "string", "description": "Card id (required for edit/update_status/remove)." },
-                "content": { "type": "string", "description": "Card title (required for add; optional for edit)." },
-                "status": {
-                    "type": "string",
-                    "enum": ["todo", "pending", "in_progress", "blocked", "done", "completed"]
-                },
-                "notes": { "type": "string" },
-                "blocker": { "type": "string" },
-                "approve": {
-                    "type": "boolean",
-                    "description": "decide_plan: approve (true) or reject (false) a card awaiting plan approval."
-                },
-                "objective": { "type": "string", "description": "Desired outcome for this task." },
-                "plan": {
-                    "type": "array",
-                    "description": "Ordered lightweight execution steps.",
-                    "items": { "type": "string" }
-                },
-                "assignedAgent": { "type": "string", "description": "Agent id expected to pick up this task." },
-                "allowedTools": {
-                    "type": "array",
-                    "description": "Task-local tool names or toolkit slugs the assigned agent may use.",
-                    "items": { "type": "string" }
-                },
-                "approvalMode": {
-                    "type": ["string", "null"],
-                    "enum": ["required", "not_required", null]
-                },
-                "acceptanceCriteria": {
-                    "type": "array",
-                    "description": "Checklist that must be true before the task is done.",
-                    "items": { "type": "string" }
-                },
-                "evidence": {
-                    "type": "array",
-                    "description": "Verification output, links, files, or notes produced while executing the task.",
-                    "items": { "type": "string" }
-                },
-                "cards": {
-                    "type": "array",
-                    "description": "Full card list for op=replace.",
-                    "items": { "type": "object" }
-                }
-            },
-            "required": ["op"]
-        })
+        self.inner.parameters_schema()
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -99,202 +92,52 @@ impl Tool for TodoTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
-        let op = args
-            .get("op")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("missing required field `op`"))?
-            .trim()
-            .to_string();
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
 
-        let location = current_location();
-        tracing::debug!(op = %op, thread_id = ?location.thread_id(), "[tool][todo] dispatch");
-
-        let result = match op.as_str() {
-            "add" => {
-                let content = required_string(&args, "content")?;
-                let mut patch = patch_from_args(&args)?;
-                if patch.approval_mode.is_none() {
-                    patch.approval_mode = Some(default_task_approval_mode().await);
-                }
-                ops::add(&location, &content, patch).await
-            }
-            "edit" => {
-                let id = required_string(&args, "id")?;
-                let mut patch = patch_from_args(&args)?;
-                patch.content = optional_string(&args, "content");
-                ops::edit(&location, &id, patch).await
-            }
-            "update_status" => {
-                let id = required_string(&args, "id")?;
-                let status = required_string(&args, "status")?;
-                let status = ops::parse_status(&status).map_err(anyhow::Error::msg)?;
-                ops::update_status(&location, &id, status).await
-            }
-            "remove" => {
-                let id = required_string(&args, "id")?;
-                ops::remove(&location, &id).await
-            }
-            "replace" => {
-                let cards = args
-                    .get("cards")
-                    .ok_or_else(|| anyhow::anyhow!("missing `cards` for op=replace"))?;
-                let cards: Vec<TaskBoardCard> = serde_json::from_value(cards.clone())
-                    .map_err(|e| anyhow::anyhow!("invalid `cards`: {e}"))?;
-                ops::replace(&location, cards).await
-            }
-            "decide_plan" => {
-                let id = required_string(&args, "id")?;
-                let approve = args
-                    .get("approve")
-                    .and_then(serde_json::Value::as_bool)
-                    .ok_or_else(|| anyhow::anyhow!("missing required boolean `approve`"))?;
-                ops::decide_plan(&location, &id, approve).await
-            }
-            "clear" => ops::clear(&location).await,
-            "list" => ops::list(&location).await,
-            other => {
-                return Ok(ToolResult::error(format!(
-                    "unknown op '{other}' (expected \
-                 add|edit|update_status|decide_plan|remove|replace|clear|list)"
-                )))
-            }
-        };
-
-        match result {
-            Ok(snap) => {
-                let payload = json!({
-                    "threadId": snap.thread_id,
-                    "cards": snap.cards,
-                    "markdown": snap.markdown,
-                });
-                Ok(ToolResult::success(payload.to_string()))
-            }
-            Err(err) => Ok(ToolResult::error(err)),
-        }
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_with_parent_context(args, None, tool_context)
+            .await
     }
 }
 
-async fn default_task_approval_mode() -> Option<TaskApprovalMode> {
-    // Interactive plan review is handled by the `request_plan_review` gate
-    // (it parks the live turn), NOT by stamping conversation-thread cards: the
-    // background dispatcher never sweeps conversation boards, so a card status
-    // can't gate a chat turn. This default therefore just carries the
-    // config-driven behaviour for the dispatched boards (`user-tasks` /
-    // `task-sources`).
-    match crate::config::ops::load_config_with_timeout().await {
-        Ok(config) => Some(if config.autonomy.require_task_plan_approval {
-            TaskApprovalMode::Required
-        } else {
-            TaskApprovalMode::NotRequired
-        }),
-        Err(err) => {
-            tracing::debug!(
-                error = %err,
-                "[tool][todo] failed to load config for task approval default"
-            );
-            None
-        }
+impl TodoTool {
+    async fn execute_with_parent_context(
+        &self,
+        args: serde_json::Value,
+        parent: Option<ParentExecutionContext>,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let scope = current_scope(parent.as_ref(), tool_context);
+        tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
+        let key = ScopedKey(scope.key());
+        self.inner
+            .execute_with_context(args, ToolCallOptions::default(), Some(&key))
+            .await
     }
 }
 
-fn current_location() -> BoardLocation {
-    let Some(parent) = crate::agent::harness::fork_context::current_parent() else {
-        return BoardLocation::Scratch;
-    };
-    // The orchestrator owns ONE global task board rather than a per-thread one:
-    // its `todo` tool always targets the app-wide `orchestrator-tasks` board so a
-    // single Kanban spans every delegation (matches the UI's OrchestratorTaskBoard).
-    if parent.agent_definition_id == "orchestrator" {
-        return BoardLocation::Thread {
-            workspace_dir: parent.workspace_dir.clone(),
-            thread_id: ops::ORCHESTRATOR_TASKS_THREAD_ID.to_string(),
+fn current_scope(
+    parent: Option<&ParentExecutionContext>,
+    tool_context: Option<&dyn ToolRunContext>,
+) -> TodoScope {
+    if let Some(parent) = parent {
+        return TodoScope::Session {
+            id: parent.session_id.clone(),
         };
     }
-    let Some(thread_id) = thread_context::current_thread_id() else {
-        return BoardLocation::Scratch;
-    };
-    BoardLocation::Thread {
-        workspace_dir: parent.workspace_dir.clone(),
-        thread_id,
-    }
-}
-
-fn required_string(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
-    let value = args
-        .get(key)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("missing required field `{key}`"))?;
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(anyhow::anyhow!("missing required field `{key}`"));
-    }
-    Ok(trimmed.to_string())
-}
-
-fn optional_string(args: &serde_json::Value, key: &str) -> Option<String> {
-    args.get(key)
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-}
-
-fn patch_from_args(args: &serde_json::Value) -> anyhow::Result<CardPatch> {
-    let status: Option<TaskCardStatus> = match args.get("status").and_then(|v| v.as_str()) {
-        Some(s) => Some(ops::parse_status(s).map_err(anyhow::Error::msg)?),
-        None => None,
-    };
-    let approval_mode = match args.get("approvalMode") {
-        Some(value) if value.is_null() => Some(None),
-        Some(value) => match value.as_str() {
-            Some("required") => Some(Some(TaskApprovalMode::Required)),
-            Some("not_required") => Some(Some(TaskApprovalMode::NotRequired)),
-            Some(other) => {
-                return Err(anyhow::anyhow!(
-                    "invalid approvalMode '{other}' (expected required|not_required|null)"
-                ))
-            }
-            None => {
-                return Err(anyhow::anyhow!(
-                    "invalid approvalMode type (expected required|not_required|null)"
-                ))
-            }
+    match tool_context.and_then(ToolRunContext::thread_id) {
+        Some(thread_id) => TodoScope::Session {
+            id: thread_id.to_owned(),
         },
-        None => None,
-    };
-    Ok(CardPatch {
-        content: None,
-        status,
-        objective: optional_string(args, "objective"),
-        plan: optional_string_array(args, "plan")?,
-        assigned_agent: optional_string(args, "assignedAgent"),
-        allowed_tools: optional_string_array(args, "allowedTools")?,
-        approval_mode,
-        acceptance_criteria: optional_string_array(args, "acceptanceCriteria")?,
-        evidence: optional_string_array(args, "evidence")?,
-        notes: optional_string(args, "notes"),
-        blocker: optional_string(args, "blocker"),
-        source_metadata: None,
-    })
-}
-
-fn optional_string_array(
-    args: &serde_json::Value,
-    key: &str,
-) -> anyhow::Result<Option<Vec<String>>> {
-    let Some(value) = args.get(key) else {
-        return Ok(None);
-    };
-    let values = value
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("`{key}` must be an array of strings"))?;
-    values
-        .iter()
-        .map(|item| {
-            item.as_str()
-                .map(|s| s.to_string())
-                .ok_or_else(|| anyhow::anyhow!("`{key}` must be an array of strings"))
-        })
-        .collect::<anyhow::Result<Vec<_>>>()
-        .map(Some)
+        None => TodoScope::Scratch,
+    }
 }
 
 #[cfg(test)]

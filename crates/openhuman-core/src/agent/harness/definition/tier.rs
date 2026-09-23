@@ -26,7 +26,7 @@ pub enum AgentTier {
     /// reasoning. May delegate to `Reasoning` or `Worker`; must NOT
     /// delegate to another `Chat` agent.
     Chat,
-    /// Deep-thinking agent on a `reasoning-v1`-style model (e.g. the
+    /// Deep-thinking agent on a `hint:reasoning`-style model (e.g. the
     /// Planner). Decomposes long-running tasks and delegates execution
     /// to one or more `Worker`s. Must NOT delegate to another
     /// `Reasoning` agent.
@@ -79,10 +79,9 @@ impl std::fmt::Display for AgentTier {
 /// pairs at boot (see
 /// [`crate::agent::registry::agents::validate_tier_hierarchy`]). The
 /// runtime spawn gate (`run_subagent`) reuses it as defense-in-depth, but
-/// deliberately exempts worker *parents* — at runtime a worker only reaches the
-/// spawn chokepoint via the documented collapsed `delegate_to_integrations_agent`
-/// path (→ `integrations_agent`, itself a worker), which the loader intentionally
-/// leaves untouched.
+/// deliberately exempts worker *parents* — a worker's `subagents` list holds
+/// no agent id (the loader rejects one), so the only runtime spawn a worker
+/// reaches is one the host dispatched for it, not one it chose.
 pub fn validate_tier_transition(parent: AgentTier, child: AgentTier) -> Result<(), String> {
     match (parent, child) {
         (AgentTier::Worker, _) => Err(format!(

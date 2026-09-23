@@ -16,7 +16,7 @@
 //!
 //! **Available tools.** Reuses the bus handler's `Arc`-shared tool sets
 //! (`tools_registry: Arc<Vec<Box<dyn Tool>>>` + per-turn `extra_tools`),
-//! advertised via `SharedToolAdapter`
+//! advertised via the canonical shared-tool adapter
 //! and filtered by `visible_tool_names`. `ask_user_clarification` is the
 //! early-exit tool: it pauses the turn and returns its question as the turn's
 //! text, which the channel relays as the reply.
@@ -37,11 +37,12 @@ use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::run_turn_via_tinyagents_shared;
 use crate::agent::tinyagents::TurnModelSource;
 use crate::config::{MultimodalConfig, MultimodalFileConfig};
-use crate::tools::Tool;
+use tinytools::Tool;
 
-/// Drive a channel/CLI turn on the graph engine. Returns the final assistant
-/// text. When `on_progress` is `Some`, the run streams and mirrors progress
-/// onto `AgentProgress`; pass `None` for a fire-and-forget final-text turn.
+/// Drive a channel/CLI turn on the graph engine. Returns the explicit turn
+/// outcome, including the concrete route selected by the model runtime. When
+/// `on_progress` is `Some`, the run streams and mirrors progress onto
+/// `AgentProgress`; pass `None` for a fire-and-forget final-text turn.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_channel_turn_via_graph(
     source: TurnModelSource,
@@ -55,7 +56,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     multimodal: MultimodalConfig,
     multimodal_files: MultimodalFileConfig,
     on_progress: Option<Sender<AgentProgress>>,
-) -> Result<String> {
+) -> Result<crate::agent::tinyagents::TinyagentsTurnOutcome> {
     let extra_arc = Arc::new(extra_tools);
 
     // The callable set is the visibility whitelist. The runner advertises each via
@@ -79,7 +80,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     // Phase 3 / Motion A): the harness graph names crate model types only, and
     // reads native-tool / vision capability + telemetry id off the built bundle.
     let context_window = source.effective_context_window(model).await;
-    let turn_models = source.build(model, temperature, context_window)?;
+    let turn_models = source.build(model, temperature, context_window, None)?;
 
     // Native-tool support drives the durable history-suffix dispatcher (native
     // envelope vs prompt-guided text) at the end of this turn; capture it before
@@ -114,7 +115,12 @@ pub(crate) async fn run_channel_turn_via_graph(
         context_window,
         "[channel:graph] routing channel turn through tinyagents harness"
     );
+    let mut run_context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    // The channel dispatcher owns this explicit sink. It wins over an embedder
+    // scope exactly as it did before this carrier was introduced.
+    run_context.progress = on_progress.clone().or(run_context.progress);
     let outcome = run_turn_via_tinyagents_shared(
+        run_context,
         turn_models,
         provider_id,
         model,
@@ -122,9 +128,6 @@ pub(crate) async fn run_channel_turn_via_graph(
         vec![extra_arc, tools_registry],
         allowed,
         max_iterations,
-        // Mirror the harness event stream onto AgentProgress when the caller
-        // (e.g. channel dispatch) supplied a progress sink.
-        on_progress,
         // Top-level (parent) turn — no child-progress attribution.
         None,
         // Resolved above — drives the context-window summarization step.
@@ -147,8 +150,6 @@ pub(crate) async fn run_channel_turn_via_graph(
         crate::agent::tinyagents::TurnContextMiddleware::defaults(),
         // Channel/CLI path carries its own gating; no session `.tool_policy()`.
         None,
-        // Channel turns do not yet carry SDK workspace descriptors.
-        None,
         // Interactive channel/CLI turn — never serve a cached model response.
         false,
         // #4457 (defect C): the channel/CLI path has no post-run wrap-up and does
@@ -165,14 +166,19 @@ pub(crate) async fn run_channel_turn_via_graph(
     // Using `outcome.conversation` (the typed messages-since-last-user) avoids
     // indexing into a post-trim `outcome.history` with the pre-trim `prior_len`,
     // which could drop current-turn messages when compaction reshaped the run.
-    use crate::agent::dispatcher::ToolDispatcher;
     let suffix = if native_tools {
-        crate::agent::dispatcher::NativeToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::message_convert::provider_messages_from_conversation(
+            &tinytools_agent::dialect::NativeDialect,
+            &outcome.conversation,
+        )
     } else {
         // History serialization is format-independent for prompt-guided providers
         // (tool calls already ride the visible assistant text); the XML dispatcher
         // renders the flat `[Tool results]` shape.
-        crate::agent::dispatcher::XmlToolDispatcher.to_provider_messages(&outcome.conversation)
+        crate::agent::message_convert::provider_messages_from_conversation(
+            &tinytools_agent::dialect::XmlDialect,
+            &outcome.conversation,
+        )
     };
     history.extend(suffix);
     if outcome.early_exit_tool.is_some() {
@@ -182,7 +188,7 @@ pub(crate) async fn run_channel_turn_via_graph(
         // that the agent had asked anything.
         history.push(ChatMessage::assistant(outcome.text.clone()));
     }
-    Ok(outcome.text)
+    Ok(outcome)
 }
 
 #[cfg(test)]

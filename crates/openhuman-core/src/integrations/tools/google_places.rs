@@ -13,11 +13,11 @@
 //! The backend handles Google API keys, billing, and rate limiting.
 
 use super::IntegrationClient;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{Tool, ToolResult};
 
 // ── Response types ──────────────────────────────────────────────────
 

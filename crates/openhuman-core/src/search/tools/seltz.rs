@@ -10,12 +10,12 @@
 //! custom crawler/index with sub-200ms median latency. Unlike the Parallel
 //! integration, this calls the Seltz API directly — no backend proxy needed.
 
-use crate::tools::traits::{Tool, ToolCallOptions, ToolResult};
 use crate::util::utf8_safe_prefix_at_byte_boundary;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::Duration;
+use tinytools::{Tool, ToolCallOptions, ToolResult};
 
 /// Default Seltz API base URL.
 const DEFAULT_API_URL: &str = "https://api.seltz.ai/v1";

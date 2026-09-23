@@ -24,7 +24,7 @@ use tinyflows::model::{Node, NodeKind, WorkflowGraph};
 
 use crate::config::Config;
 use crate::flows::ops::{build_builder_proposal, validate_and_migrate_graph};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Max characters kept for a `config_hint` before truncation, so a long
 /// prompt/expression doesn't blow up the proposal summary sent to the LLM
@@ -606,7 +606,7 @@ fn config_hint(node: &Node) -> Option<String> {
 
 /// Truncates a hint string to [`MAX_CONFIG_HINT_CHARS`], appending an
 /// ellipsis when it was cut — mirrors
-/// `crate::tools::traits::render_context_value`'s truncation
+/// `tinytools::render_context_value`'s truncation
 /// behavior for tool-call timeline details.
 fn truncate_hint(s: &str) -> String {
     if s.chars().count() <= MAX_CONFIG_HINT_CHARS {

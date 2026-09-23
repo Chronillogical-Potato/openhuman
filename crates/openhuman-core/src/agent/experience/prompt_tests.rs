@@ -12,7 +12,6 @@ fn sample_hit(lesson: impl Into<String>) -> ExperienceHit {
             source: ExperienceSource::ToolLoop,
             agent_id: Some("orchestrator".into()),
             entrypoint: Some("chat".into()),
-            profile_id: None,
             task_fingerprint: "fp".into(),
             task_summary: "search docs".into(),
             tools_used: vec!["grep".into(), "file_read".into()],

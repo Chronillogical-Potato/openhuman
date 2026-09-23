@@ -8,7 +8,7 @@
 //! gone from the thread while the agent's own session history still held it
 //! (#6034).
 //!
-//! Core-initiated turns never had that exposure — `task_session::append_final`
+//! Core-initiated delivery turns never had that exposure — background delivery
 //! writes their closing row *before* the run announces it, and the client's
 //! append collapses onto that row because both derive the same deterministic id
 //! (#5933). This module gives interactive turns the same guarantee, so a reply
@@ -27,14 +27,14 @@ use crate::memory::conversations::{self, run_reply_message_id, ConversationMessa
 
 /// Metadata scope stamped on a reply persisted by the web-channel delivery path.
 ///
-/// Distinguishes it from `autonomous_task_result` (the same shape written by
-/// `task_session::append_final`) when reading a thread back.
+/// Distinguishes an interactive reply from a background-delivery reply when
+/// reading a thread back.
 const REPLY_SCOPE: &str = "web_chat_reply";
 
 /// Persist a delivered reply under the id the announcing client will reuse.
 ///
 /// Returns `Ok(false)` when there was nothing to store (an empty or
-/// whitespace-only response — the same guard `task_session::append_final`
+/// whitespace-only response — the same guard background delivery applies —
 /// applies), `Ok(true)` when the row is on disk, and `Err` when the store
 /// refused the write (most commonly a thread that does not exist yet).
 ///

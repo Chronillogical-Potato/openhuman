@@ -703,6 +703,8 @@ mod builder_trail_off_tests;
 mod connection_ref_gate_tests;
 #[path = "ops_engine_compatibility_tests.rs"]
 mod engine_compatibility_tests;
+#[path = "ops_inference_gate_tests.rs"]
+mod inference_gate_tests;
 #[path = "ops_migration_and_side_effect_tests.rs"]
 mod migration_and_side_effect_tests;
 #[path = "ops_resume_checkpoint_tests.rs"]

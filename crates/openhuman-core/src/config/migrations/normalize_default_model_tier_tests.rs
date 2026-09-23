@@ -1,16 +1,16 @@
 use super::*;
-use crate::config::{Config, MODEL_REASONING_QUICK_V1, MODEL_REASONING_V1};
+use crate::config::{Config, MODEL_MANAGED_DEFAULT};
 
 #[test]
-fn rewrites_stale_reasoning_v1_to_chat_v1() {
+fn rewrites_stale_reasoning_v1_to_the_managed_default() {
     // `reasoning-v1` is a stale former DEFAULT_MODEL — the substantive change.
     let mut config = Config::default();
-    config.default_model = Some(MODEL_REASONING_V1.to_string());
+    config.default_model = Some("reasoning-v1".to_string());
 
     let stats = run(&mut config).expect("migration should succeed");
 
     assert!(stats.default_model_normalized);
-    assert_eq!(config.default_model.as_deref(), Some(MODEL_CHAT_V1));
+    assert_eq!(config.default_model.as_deref(), Some(MODEL_MANAGED_DEFAULT));
 }
 
 #[test]
@@ -21,30 +21,30 @@ fn rewrites_padded_reasoning_v1_to_chat_v1() {
     let stats = run(&mut config).expect("migration should succeed");
 
     assert!(stats.default_model_normalized);
-    assert_eq!(config.default_model.as_deref(), Some(MODEL_CHAT_V1));
+    assert_eq!(config.default_model.as_deref(), Some(MODEL_MANAGED_DEFAULT));
 }
 
 #[test]
 fn rewrites_deprecated_reasoning_quick_v1_alias_to_chat_v1() {
-    // `reasoning-quick-v1` resolves to `chat-v1`; canonicalize the slug.
+    // `reasoning-quick-v1` was the chat alias; it lands on the managed default too.
     let mut config = Config::default();
-    config.default_model = Some(MODEL_REASONING_QUICK_V1.to_string());
+    config.default_model = Some("reasoning-quick-v1".to_string());
 
     let stats = run(&mut config).expect("migration should succeed");
 
     assert!(stats.default_model_normalized);
-    assert_eq!(config.default_model.as_deref(), Some(MODEL_CHAT_V1));
+    assert_eq!(config.default_model.as_deref(), Some(MODEL_MANAGED_DEFAULT));
 }
 
 #[test]
-fn leaves_chat_v1_unchanged() {
+fn leaves_the_managed_default_unchanged() {
     let mut config = Config::default();
-    config.default_model = Some(MODEL_CHAT_V1.to_string());
+    config.default_model = Some(MODEL_MANAGED_DEFAULT.to_string());
 
     let stats = run(&mut config).expect("migration should succeed");
 
     assert!(!stats.default_model_normalized);
-    assert_eq!(config.default_model.as_deref(), Some(MODEL_CHAT_V1));
+    assert_eq!(config.default_model.as_deref(), Some(MODEL_MANAGED_DEFAULT));
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn leaves_arbitrary_custom_value_unchanged() {
 
 #[test]
 fn leaves_other_known_tier_unchanged() {
-    // An explicit non-reasoning tier (e.g. agentic) is a deliberate value.
+    // An explicit non-reasoning tier (e.g. agentic) is left for migration 12 → 13.
     let mut config = Config::default();
     config.default_model = Some("agentic-v1".to_string());
 

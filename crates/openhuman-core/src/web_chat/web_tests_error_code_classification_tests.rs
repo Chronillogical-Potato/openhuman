@@ -168,22 +168,18 @@ fn classify_inference_error_generic_4xx_surfaces_provider_detail() {
 }
 
 #[test]
-fn classify_inference_error_deepseek_reasoning_400_stays_config_rejection() {
-    // ORDERING LOCK: the DeepSeek / Moonshot thinking-mode reasoning_content
-    // round-trip 400 is ALREADY claimed by the provider-config-rejection arm
-    // (the "thinking mode must be passed back" phrase, Sentry TAURI-RUST-2G /
-    // -2F), which is ordered BEFORE the generic 4xx arm. So it must keep its
-    // specific, actionable `model_unavailable` + Settings → LLM verdict and
-    // NOT be downgraded to the generic provider_request_rejected copy. The
-    // deeper round-trip fix (so the turn actually succeeds) is tracked in
-    // #3197; this only asserts the user-facing classification stays specific.
+fn classify_inference_error_deepseek_reasoning_400_stays_reportable_request_rejection() {
+    // The shared provider classifier deliberately keeps thinking-history
+    // contract failures reportable. Preserve that distinction here instead
+    // of treating the request-shape failure as provider configuration.
     let raw = r#"cloud API error (400 Bad Request): {"error":{"message":"The reasoning_content in the thinking mode must be passed back","type":"invalid_request_error"}}"#;
     let classified = classify_inference_error(raw);
     assert_eq!(
-        classified.error_type, "model_unavailable",
-        "DeepSeek reasoning_content 400 must stay config-rejection, not generic 4xx"
+        classified.error_type, "provider_request_rejected",
+        "DeepSeek reasoning_content 400 must stay reportable"
     );
-    assert_ne!(classified.error_type, "inference");
+    assert_eq!(classified.source, "provider");
+    assert!(!classified.retryable);
 }
 
 #[test]
@@ -479,10 +475,6 @@ fn chat_schema_requires_client_thread_message() {
         .inputs
         .iter()
         .any(|f| f.name == "temperature" && !f.required));
-    assert!(s
-        .inputs
-        .iter()
-        .any(|f| f.name == "profile_id" && !f.required));
 }
 
 #[test]
@@ -608,21 +600,6 @@ fn fingerprint_model_registry_change_is_cache_miss() {
     assert_ne!(
         base, changed,
         "a model_registry change (vision toggle) must produce a cache miss → rebuild"
-    );
-}
-
-#[test]
-fn fingerprint_profile_change_is_cache_miss() {
-    // Switching the active agent profile on the same thread keeps the same
-    // model/agent/provider, so without the profile signature the previous
-    // profile's tool/skill/MCP/connector visibility would leak into the new
-    // profile's turns. A different profile signature must force a rebuild.
-    let base = fp(None, None, "orchestrator", "anthropic:claude-sonnet-4-6");
-    let mut changed = fp(None, None, "orchestrator", "anthropic:claude-sonnet-4-6");
-    changed.profile_signature = "profile-after-switch".to_string();
-    assert_ne!(
-        base, changed,
-        "a different profile signature must produce a cache miss → rebuild"
     );
 }
 

@@ -12,7 +12,7 @@ import ChannelConfigPanel from '../ChannelConfigPanel';
 
 // McpServersTab is a heavy async component — mock it so ChannelConfigPanel
 // tests stay focused on the routing logic (line 16 branch).
-vi.mock('../mcp/McpServersTab', () => ({
+vi.mock('../mcp/McpServersPage', () => ({
   default: () => <div data-testid="mcp-servers-tab">MCP Servers Tab</div>,
 }));
 
@@ -36,8 +36,9 @@ vi.mock('../ChannelCapabilities', () => ({
 describe('ChannelConfigPanel', () => {
   it('renders McpServersTab when selectedChannel is "mcp"', () => {
     render(<ChannelConfigPanel selectedChannel="mcp" definitions={FALLBACK_DEFINITIONS} />);
+    // The page carries its own header, so the panel adds none of its own.
     expect(screen.getByTestId('mcp-servers-tab')).toBeInTheDocument();
-    expect(screen.getByText('MCP Servers')).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 
   it('does not render definition-based content when channel is "mcp"', () => {

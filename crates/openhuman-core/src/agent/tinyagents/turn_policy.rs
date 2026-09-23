@@ -12,6 +12,7 @@ use crate::agent::harness::MAX_SPAWN_DEPTH;
 /// so it can install the [`ToolPolicyMiddleware`](super::middleware::ToolPolicyMiddleware).
 /// `None` means "no policy enforcement on this turn" (the channel/CLI + sub-agent
 /// paths, which carry their own gating).
+#[derive(Clone)]
 pub(crate) struct ToolPolicyEnforcement {
     pub policy: std::sync::Arc<dyn crate::agent::tool_policy::ToolPolicy>,
     /// The session's channel-permission snapshot — enforces the per-channel
@@ -112,9 +113,10 @@ pub(super) fn parse_model_call_wall_clock_ms(env_value: Option<&str>) -> Option<
 /// Retry is now owned by the crate [`RetryPolicy`] (issue #4249, Phase 3a): the
 /// turn path no longer wraps its provider in `ReliableProvider` (removed in
 /// `session/builder/factory.rs`), so the single retry layer is here, at the
-/// harness model call. The schedule mirrors the former `ReliableProvider`
-/// defaults — 2 retries (3 attempts) with 500 ms exponential backoff — so
-/// transient 429/5xx behavior is preserved. Retryability is decided by the crate
+/// harness model call. The schedule is **4 retries over ~45 s** (issue #6413);
+/// it used to mirror the former `ReliableProvider` defaults — 2 retries with
+/// 500 ms backoff, about 1.5 s in total — which was far too short to outlast a
+/// throttled upstream. Retryability is decided by the crate
 /// `is_retryable`, which the [`native model adapter`](super::model) adapter feeds
 /// correctly: a permanent config/auth/quota/context error is mapped to a
 /// non-retryable `TinyAgentsError::Validation`, a transient blip to a retryable
@@ -161,15 +163,42 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     // delegations) are exempt in the harness and keep the remainder-only
     // budget. Env-overridable, `0` disables.
     policy.limits.max_model_call_ms = model_call_wall_clock_ms();
-    // Crate-owned retry (Phase 3a): mirror the former `ReliableProvider` schedule
-    // (2 retries, 500 ms exponential backoff). `backoff_sleep` is on so a
-    // transient 429/5xx actually waits before retrying, as it did before.
+    // Crate-owned retry (Phase 3a), lengthened for #6413.
+    //
+    // The former schedule — 2 retries at 500 ms and 1 s — spent about 1.5 s in
+    // total, which is nothing against a throttled upstream: a managed 429 killed
+    // the turn while the provider was still rate-limiting. 4 retries at 3/6/12/24 s
+    // spend ~45 s, and ~33.75 s even on the worst jitter draw (`JITTER_FRACTION`
+    // is 0.25, so each delay lands in `[base * 0.75, base * 1.25]`) — the floor is
+    // what has to clear the issue's "at least 3 retries over >=30 s", not the
+    // nominal figure.
+    //
+    // `max_retries_per_call` is raised alongside it and that line is load-bearing:
+    // `RunLimits` defaults it to 3, and the harness applies
+    // `max_attempts_capped_at(max_retries_per_call)` at the model call
+    // (`agent_loop/model_call.rs`), so `max_attempts` above 4 is **silently
+    // clamped** without it. Raising `max_attempts` alone would have looked like a
+    // fix and changed nothing.
+    //
+    // The first retry moves 500 ms -> 3 s, which is the deliberate cost: one curve
+    // serves every retryable class, so a transient 5xx now waits 3 s too. Buying a
+    // fast first retry *and* a 30 s tail needs per-class backoff, which lives in
+    // the crate's `backoff_for_error` rather than here.
+    //
+    // Both ceilings stay bounded — `max_attempts` and `max_retry_after_ms` — so
+    // this adds no unbounded retry (cf. #6412, which is the opposite failure in
+    // `vendor/tinymcp`: a different crate and loop, untouched by this).
+    //
+    // `jitter` is now on: a fleet throttled together previously retried in
+    // lockstep on an identical curve, which is the shape that keeps an upstream
+    // saturated. Jitter only widens the band; it never removes the delay.
+    policy.limits.max_retries_per_call = 4;
     policy.retry = RetryPolicy {
-        max_attempts: 3,
-        initial_backoff_ms: 500,
+        max_attempts: 5,
+        initial_backoff_ms: 3_000,
         max_backoff_ms: 30_000,
         multiplier: 2.0,
-        jitter: false,
+        jitter: true,
         backoff_sleep: true,
         max_retry_after_ms: RetryPolicy::DEFAULT_MAX_RETRY_AFTER_MS,
         retry_on: None,
@@ -254,14 +283,14 @@ pub(crate) fn effective_max_iterations(max_iterations: usize) -> usize {
 /// registration site that enforces it.
 ///
 /// **This is a strict subset of the caller-side strip**, not a mirror of it
-/// (issue #6157). `subagent_runner::tool_prep::is_subagent_spawn_tool` also
+/// (issue #6157). `subagent_host::tool_prep::is_subagent_spawn_tool` also
 /// resolves each archetype's `delegate_name` override through the definition
 /// registry — `plan`, `research`, `run_code`, `review_code`, … — none of which
 /// carry the `delegate_` prefix this match relies on. Matching them here would
 /// put a registry lookup on the per-tool registration loop, so the caller
 /// stays responsible for the override names: every path that feeds `allowed`
 /// runs `is_subagent_spawn_tool` first, including the dynamic per-spawn tools
-/// (`subagent_runner::ops::runner`). Widen this predicate in lockstep if that
+/// (`subagent_host::ops::runner`). Widen this predicate in lockstep if that
 /// ever stops being true.
 pub(crate) fn is_subagent_spawn_or_delegate_tool(name: &str) -> bool {
     name == "spawn_subagent"

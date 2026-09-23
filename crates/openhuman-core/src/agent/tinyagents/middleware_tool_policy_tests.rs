@@ -14,12 +14,12 @@ use crate::tools::agent_policy::{
     ToolPolicySession,
 };
 use crate::tools::toolpacks::{append_pack_tools, bind_pack_registry, USE_SKILL};
-use crate::tools::traits::{PermissionLevel, ToolResult};
+use tinytools::{PermissionLevel, ToolResult};
 
 struct RoutingFakeTool(&'static str);
 
 #[async_trait]
-impl crate::tools::traits::Tool for RoutingFakeTool {
+impl tinytools::Tool for RoutingFakeTool {
     fn name(&self) -> &str {
         self.0
     }
@@ -54,7 +54,14 @@ fn allow(name: &str) -> (String, ToolPolicyDecision) {
 /// tool — exactly the orchestrator's shape. Anything not named here is denied,
 /// because `decision_for` defaults to `Deny`.
 fn non_owner_middleware() -> ToolPolicyMiddleware {
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> = vec![
+    non_owner_middleware_at(PermissionLevel::Dangerous)
+}
+
+/// The same session at a chosen ceiling, so a test can sit a channel BELOW the
+/// pack's permission ceiling — where `use_skill` reports the pack-wide maximum
+/// for an inner name it cannot resolve (#6302).
+fn non_owner_middleware_at(allowed: PermissionLevel) -> ToolPolicyMiddleware {
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![
         Box::new(RoutingFakeTool("build_workflow")),
         Box::new(RoutingFakeTool("propose_workflow")),
         Box::new(ArchetypeDelegationTool {
@@ -73,7 +80,7 @@ fn non_owner_middleware() -> ToolPolicyMiddleware {
             channel: "web_chat".to_string(),
             entrypoint: "chat".to_string(),
             risk_level: TaskRiskLevel::Low,
-            allowed_permission: PermissionLevel::Dangerous,
+            allowed_permission: allowed,
         },
         capabilities: vec![ToolCapability {
             name: "build_workflow".to_string(),
@@ -122,9 +129,9 @@ async fn a_use_skill_listing_hides_what_this_session_cannot_call_and_names_the_r
         .expect("a use_skill call naming a skill and no tool renders here");
 
     assert!(
-        !result.content.contains("propose_workflow"),
+        !result_text(&result).contains("propose_workflow"),
         "a non-owner must not be offered a tool the gate will refuse:\n{}",
-        result.content
+        result_text(&result)
     );
     // Assert the LISTING entry in its exact rendered form, not the bare name.
     //
@@ -136,16 +143,16 @@ async fn a_use_skill_listing_hides_what_this_session_cannot_call_and_names_the_r
     // test exists to catch. A check that cannot fail reads as coverage and is
     // worse than none.
     assert!(
-        result.content.contains("## `build_workflow`"),
+        result_text(&result).contains("## `build_workflow`"),
         "the tool it CAN call must still be LISTED, not merely mentioned in a \
          route sentence:\n{}",
-        result.content
+        result_text(&result)
     );
     // And this really is a listing, not the "nothing callable" error.
     assert!(
-        result.content.starts_with("# Skill `workflows`"),
+        result_text(&result).starts_with("# Skill `workflows`"),
         "expected a rendered pack listing:\n{}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -203,7 +210,7 @@ async fn a_use_skill_denial_names_a_delegate_this_session_can_call() {
 /// naming the owning agents rather than inventing a call it cannot make.
 #[tokio::test]
 async fn a_session_without_the_delegate_is_not_told_to_call_it() {
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> =
+    let mut tools: Vec<Box<dyn tinytools::Tool>> =
         vec![Box::new(RoutingFakeTool("propose_workflow"))];
     append_pack_tools(&mut tools);
     let tools = Arc::new(tools);
@@ -265,8 +272,7 @@ async fn use_skill_reaches_a_withheld_packed_tool() {
     use crate::tools::agent_policy::ToolPolicyEngine;
     use crate::tools::toolpacks::strip_packed_from_visible;
 
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> =
-        vec![Box::new(RoutingFakeTool("goal_set"))];
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![Box::new(RoutingFakeTool("goal_set"))];
     append_pack_tools(&mut tools);
     let tools = Arc::new(tools);
     bind_pack_registry(&tools);
@@ -316,7 +322,7 @@ async fn a_prompt_hidden_delegate_is_not_offered_as_a_direct_route() {
     use crate::tools::agent_policy::ToolPolicyEngine;
     use crate::tools::toolpacks::strip_packed_from_visible;
 
-    let mut tools: Vec<Box<dyn crate::tools::traits::Tool>> = vec![
+    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![
         Box::new(RoutingFakeTool("propose_workflow")),
         Box::new(ArchetypeDelegationTool {
             tool_name: "build_workflow".to_string(),
@@ -365,5 +371,97 @@ async fn a_prompt_hidden_delegate_is_not_offered_as_a_direct_route() {
     assert!(
         route.contains("workflow_builder"),
         "the hint must fall back to naming the owning agent: {route}"
+    );
+}
+
+/// #6302: an invented tool name inside `use_skill` is "no such tool", not a
+/// permission denial. The expected text comes from the same typed value the gate
+/// renders, so the two cannot drift.
+#[tokio::test]
+async fn an_invented_tool_name_in_a_skill_is_not_reported_as_a_denial() {
+    let mw = non_owner_middleware();
+    let message = mw
+        .channel_permission_block(&call(
+            "use_skill",
+            json!({ "skill": "workflows", "tool": "install_workflow" }),
+        ))
+        .expect("an invented tool must be answered, not dispatched");
+
+    let workflows = crate::tools::toolpacks::pack("workflows").expect("workflows pack");
+    assert_eq!(
+        message,
+        mw.no_such_pack_tool(workflows, "install_workflow").render(),
+        "the gate must answer an invented name with the typed not-found message"
+    );
+    assert!(
+        !message.contains("not allowed"),
+        "an invented name must not read as a permission denial: {message}"
+    );
+    assert!(
+        message.contains("`build_workflow`"),
+        "the answer must name what this session can call in the skill: {message}"
+    );
+}
+
+/// A channel under the pack's ceiling must still get "no such tool".
+///
+/// `UseSkillTool::permission_level_with_args` cannot resolve an invented inner
+/// name, so it reports the pack-wide CEILING. With the ceiling check running
+/// first, that turned an invented name into `PermissionTooLow` — a permission
+/// denial for a tool that does not exist, on exactly the restricted channels
+/// where the wording matters most (#6302).
+#[test]
+fn an_invented_tool_name_is_not_found_even_under_the_packs_permission_ceiling() {
+    let mw = non_owner_middleware_at(PermissionLevel::ReadOnly);
+    let message = mw
+        .channel_permission_block(&call(
+            "use_skill",
+            json!({ "skill": "workflows", "tool": "install_workflow" }),
+        ))
+        .expect("an invented tool must be answered, not dispatched");
+
+    assert!(
+        message.starts_with(crate::tools::status::NOT_FOUND_MARKER),
+        "a restricted channel must still answer an invented name as not-found: {message}"
+    );
+    assert!(
+        !message.contains("permission"),
+        "existence is not a permission question: {message}"
+    );
+}
+
+/// A pack member this core never registered is absent, not forbidden.
+///
+/// A feature gate or an embedder's `ToolGroups::Off` removes tools the static
+/// pack table still lists. `pack.owns` says yes, so the call fell through to
+/// the default `Deny` and read as "not allowed in the current session" — which
+/// sends the model looking for permission it can never be granted, instead of
+/// telling it the tool is not here.
+#[test]
+fn a_pack_member_this_session_never_registered_is_not_found_not_forbidden() {
+    let mw = non_owner_middleware();
+    // `save_workflow` is in the `workflows` pack, but this session's registry
+    // holds only `build_workflow` and `propose_workflow`.
+    let workflows = crate::tools::toolpacks::pack("workflows").expect("workflows pack");
+    assert!(
+        workflows.owns("save_workflow"),
+        "the fixture depends on `save_workflow` being a real pack member"
+    );
+
+    let message = mw
+        .channel_permission_block(&call(
+            "use_skill",
+            json!({ "skill": "workflows", "tool": "save_workflow" }),
+        ))
+        .expect("an unregistered member must be answered, not dispatched");
+
+    assert_eq!(
+        message,
+        mw.no_such_pack_tool(workflows, "save_workflow").render(),
+        "an absent pack member gets the typed not-found message"
+    );
+    assert!(
+        !message.contains("not allowed"),
+        "absence must not read as a permission denial: {message}"
     );
 }

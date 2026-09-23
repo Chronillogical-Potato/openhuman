@@ -1,5 +1,5 @@
 use super::*;
-use crate::tools::traits::ToolScope;
+use tinytools::ToolScope;
 
 fn test_config() -> Arc<Config> {
     Arc::new(Config::default())

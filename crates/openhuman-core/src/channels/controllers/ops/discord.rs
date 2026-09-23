@@ -85,7 +85,7 @@ pub async fn discord_link_check(
 
     let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
     let user_payload = client
-        .fetch_current_user(&jwt)
+        .fetch_profile(&jwt)
         .await
         .map_err(|e| format!("failed to fetch user profile: {e}"))?;
 

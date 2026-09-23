@@ -19,6 +19,8 @@ fn make_shared() -> Arc<SharedState> {
         socket_id: RwLock::new(None),
         error: RwLock::new(None),
         connection_identity: RwLock::new(None),
+        loop_active: std::sync::atomic::AtomicBool::new(false),
+        loop_stopped_on_failure: std::sync::atomic::AtomicBool::new(false),
     })
 }
 
@@ -199,6 +201,8 @@ async fn spawn_mock_invalid_token_server() -> std::net::SocketAddr {
     addr
 }
 
+#[path = "ws_loop_deadline_tests.rs"]
+mod deadline_tests;
 #[path = "ws_loop_dispatch_and_redirect_tests.rs"]
 mod dispatch_and_redirect_tests;
 #[path = "ws_loop_reconnect_tests.rs"]

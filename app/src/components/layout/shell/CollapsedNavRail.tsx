@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
+import { FaDiscord } from 'react-icons/fa6';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NAV_TABS, type NavTab } from '../../../config/navConfig';
-import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
+import { openUrl } from '../../../utils/openUrl';
 import {
   SidebarMenu,
   SidebarMenuBadge,
@@ -15,6 +16,7 @@ import {
   Tooltip,
 } from '../../ui';
 import { NavIcon } from './navIcons';
+import { DISCORD_URL } from './SidebarHeader';
 import { useCloudNavGate } from './useCloudNavGate';
 import { useHomeNav } from './useHomeNav';
 
@@ -93,16 +95,16 @@ export default function CollapsedNavRail() {
           </Tooltip>
         </SidebarMenuItem>
 
-        {/* Keyboard shortcuts — mirrors SidebarHeader's shortcuts button for the
-            collapsed state. Opens the help directory (also reachable via ? / ⌘/). */}
+        {/* Community Discord — mirrors SidebarHeader's Discord button for the
+            collapsed state. Opens the invite in the system browser. */}
         <SidebarMenuItem>
-          <Tooltip label={t('shortcuts.title')}>
+          <Tooltip label={t('nav.discord')}>
             <SidebarMenuButton
-              onClick={() => registry.runAction('meta.keyboard-shortcuts')}
-              aria-label={t('shortcuts.title')}
-              data-analytics-id="collapsed-rail-shortcuts"
+              onClick={() => void openUrl(DISCORD_URL).catch(() => {})}
+              aria-label={t('nav.discord')}
+              data-analytics-id="collapsed-rail-discord"
               className={RAIL_BTN}>
-              <NavIcon id="keyboard" className="h-5 w-5" />
+              <FaDiscord className="h-5 w-5" />
             </SidebarMenuButton>
           </Tooltip>
         </SidebarMenuItem>

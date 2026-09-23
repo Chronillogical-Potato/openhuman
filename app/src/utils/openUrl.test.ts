@@ -1,6 +1,13 @@
-/** Desktop links must never fall back to in-webview navigation. */
+/**
+ * Unit tests for `openUrl`. The Tauri path is exercised in callers'
+ * integration tests; here we focus on the browser fallback, and on the
+ * desktop shell never recovering from an opener failure with
+ * `window.open` (which would load the remote page inside the app).
+ */
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
+// `isTauriMock` drives the IPC-bridge check (`tauriCommands/common`);
+// `isTauriRuntimeMock` drives Tauri's runtime marker. They agree by default.
 const isTauriMock = vi.fn();
 const isTauriRuntimeMock = vi.fn();
 vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => isTauriRuntimeMock() }));
@@ -88,7 +95,7 @@ describe('openUrl', () => {
       expect.objectContaining({
         category: 'ipc',
         level: 'warning',
-        message: 'tauriOpenUrl failed; keeping app navigation',
+        message: 'tauriOpenUrl failed; not falling back to in-app navigation',
         data: expect.objectContaining({ url: 'obsidian:' }),
       })
     );
@@ -97,13 +104,15 @@ describe('openUrl', () => {
     expect(call?.data?.url).not.toContain('/Users/me');
   });
 
-  it('keeps the desktop app when the opener rejects an HTTPS URL', async () => {
+  it('propagates an http opener failure in the desktop shell instead of calling window.open', async () => {
+    // `window.open` in the desktop webview has no browser to open: the remote
+    // page would load inside the app, which has no way back to the chat.
     isTauriMock.mockReturnValue(true);
     const ipcError = new TypeError("Cannot read properties of undefined (reading 'postMessage')");
     tauriOpenUrlMock.mockRejectedValue(ipcError);
 
     const { openUrl } = await import('./openUrl');
-    await expect(openUrl('https://tinyhumans.ai/dashboard?token=secret-redact-me')).rejects.toThrow(
+    await expect(openUrl('https://tinyhumans.ai/dashboard?token=secret-redact-me')).rejects.toBe(
       ipcError
     );
 
@@ -114,7 +123,7 @@ describe('openUrl', () => {
       expect.objectContaining({
         category: 'ipc',
         level: 'warning',
-        message: 'tauriOpenUrl failed; keeping app navigation',
+        message: 'tauriOpenUrl failed; not falling back to in-app navigation',
         data: expect.objectContaining({ url: 'https://tinyhumans.ai' }),
       })
     );
@@ -123,12 +132,17 @@ describe('openUrl', () => {
     expect(call?.data?.url).not.toContain('/dashboard');
   });
 
-  it('does not treat a desktop with an unavailable IPC bridge as a browser', async () => {
+  it('treats the desktop shell as desktop while its IPC bridge is still wiring up', async () => {
+    // The bridge check reads false in the bootstrap gap; the runtime marker
+    // does not. Taking the browser branch here would `window.open` in the app.
     isTauriMock.mockReturnValue(false);
     isTauriRuntimeMock.mockReturnValue(true);
     tauriOpenUrlMock.mockRejectedValue(new Error('IPC unavailable'));
+
     const { openUrl } = await import('./openUrl');
-    await expect(openUrl('https://example.com')).rejects.toThrow('IPC unavailable');
+    await expect(openUrl('https://example.com/')).rejects.toThrow('IPC unavailable');
+
+    expect(tauriOpenUrlMock).toHaveBeenCalledWith('https://example.com/');
     expect(windowOpenMock).not.toHaveBeenCalled();
   });
 
@@ -199,7 +213,7 @@ describe('openUrl', () => {
     });
   });
 
-  it('trims surrounding whitespace before calling the desktop opener', async () => {
+  it('trims surrounding whitespace before handing a URL to the desktop opener', async () => {
     isTauriMock.mockReturnValue(true);
     tauriOpenUrlMock.mockRejectedValue(
       new TypeError("Cannot read properties of undefined (reading 'postMessage')")

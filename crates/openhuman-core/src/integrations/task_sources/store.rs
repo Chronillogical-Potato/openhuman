@@ -31,7 +31,6 @@ use super::types::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IngestedTaskRef {
     pub external_id: String,
-    pub card_id: Option<String>,
 }
 
 /// Compute an edit-aware content hash for a task. Two fetches of the
@@ -181,10 +180,6 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
     if let Some(connection_id) = patch.connection_id {
         source.connection_id = Some(connection_id).filter(|s| !s.trim().is_empty());
     }
-    if let Some(assigned_executor) = patch.assigned_executor {
-        source.assigned_executor = Some(assigned_executor).filter(|s| !s.trim().is_empty());
-    }
-
     let filter_json = serde_json::to_string(&source.filter).context("serialize filter")?;
     let target_json = serde_json::to_string(&source.target).context("serialize target")?;
     let interval_i64 = i64::try_from(source.interval_secs)
@@ -194,9 +189,8 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
         conn.execute(
             "UPDATE task_sources
              SET provider = ?1, connection_id = ?2, name = ?3, enabled = ?4, filter = ?5,
-                 interval_secs = ?6, target = ?7, max_tasks_per_fetch = ?8,
-                 assigned_executor = ?9
-             WHERE id = ?10",
+                 interval_secs = ?6, target = ?7, max_tasks_per_fetch = ?8
+             WHERE id = ?9",
             params![
                 source.provider.as_str(),
                 source.connection_id,
@@ -206,7 +200,6 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
                 interval_i64,
                 target_json,
                 i64::from(source.max_tasks_per_fetch),
-                source.assigned_executor,
                 id,
             ],
         )
@@ -273,64 +266,54 @@ pub fn is_ingested(
 
 /// Record a routed task in the dedup ledger (idempotent upsert).
 ///
-/// `card_id` is the board card UUID returned by `route::add_card`; it is
-/// persisted so that a later edit of the same upstream task can remove the
-/// stale card before creating a fresh one (preventing duplicate board cards).
-pub fn mark_ingested(
-    config: &Config,
-    source_id: &str,
-    task: &NormalizedTask,
-    card_id: &str,
-) -> Result<()> {
+/// The `card_id` column is left `NULL`: tasks are no longer mirrored onto a
+/// todo board, the ledger row itself is the record. The column stays so
+/// older databases open unchanged.
+pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
     let hash = content_hash(task);
     let payload = serde_json::to_string(task).context("serialize ingested task payload")?;
     let now = Utc::now().to_rfc3339();
     with_connection(config, |conn| {
         conn.execute(
             "INSERT INTO ingested_tasks (source_id, external_id, content_hash, title, payload, ingested_at, card_id)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL)
              ON CONFLICT(source_id, external_id) DO UPDATE SET
                 content_hash = excluded.content_hash,
                 title = excluded.title,
                 payload = excluded.payload,
                 ingested_at = excluded.ingested_at,
-                card_id = excluded.card_id",
-            params![source_id, task.external_id, hash, task.title, payload, now, card_id],
+                card_id = NULL",
+            params![source_id, task.external_id, hash, task.title, payload, now],
         )
         .context("Failed to mark task ingested")?;
         Ok(())
     })
 }
 
-/// Return the board card id previously stored for `(source_id, external_id)`,
-/// if any. Used by the pipeline to remove stale board cards when an upstream
-/// task is edited and re-ingested.
-pub fn get_card_id(config: &Config, source_id: &str, external_id: &str) -> Result<Option<String>> {
+/// Whether `(source_id, external_id)` has been ingested before under any
+/// content hash. The pipeline uses it to tell an edited upstream task from a
+/// brand-new one in its logs.
+pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
     with_connection(config, |conn| {
-        let mut stmt = conn.prepare(
-            "SELECT card_id FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT 1 FROM ingested_tasks WHERE source_id = ?1 AND external_id = ?2")?;
         let mut rows = stmt.query(params![source_id, external_id])?;
-        match rows.next()? {
-            Some(row) => Ok(row.get(0)?),
-            None => Ok(None),
-        }
+        Ok(rows.next()?.is_some())
     })
 }
 
-/// Return ingested task ids/card ids for one source. Used by reconciliation
-/// to prune board cards that no longer match the upstream source/filter.
+/// Return ingested task ids for one source. Used by reconciliation to prune
+/// ledger rows that no longer match the upstream source/filter.
 pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<IngestedTaskRef>> {
     with_connection(config, |conn| {
         let mut stmt = conn.prepare(
-            "SELECT external_id, card_id FROM ingested_tasks
+            "SELECT external_id FROM ingested_tasks
              WHERE source_id = ?1
              ORDER BY ingested_at ASC, external_id ASC",
         )?;
         let rows = stmt.query_map(params![source_id], |row| {
             Ok(IngestedTaskRef {
                 external_id: row.get(0)?,
-                card_id: row.get(1)?,
             })
         })?;
         let mut out = Vec::new();
@@ -394,8 +377,7 @@ pub fn clear_all(config: &Config) -> Result<usize> {
 }
 
 const SELECT_SOURCE_COLUMNS: &str = "SELECT id, provider, connection_id, name, enabled, filter, \
-     interval_secs, target, max_tasks_per_fetch, created_at, last_fetch_at, last_status, \
-     assigned_executor \
+     interval_secs, target, max_tasks_per_fetch, created_at, last_fetch_at, last_status \
      FROM task_sources";
 
 fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
@@ -425,7 +407,6 @@ fn map_source_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskSource> {
         target,
         max_tasks_per_fetch: u32::try_from(row.get::<_, i64>(8)?)
             .map_err(|_| sql_conv("invalid max_tasks_per_fetch in task_sources DB"))?,
-        assigned_executor: row.get(12)?,
         created_at: parse_rfc3339(&created_at_raw).map_err(sql_conv)?,
         last_fetch_at: match last_fetch_raw {
             Some(raw) => Some(parse_rfc3339(&raw).map_err(sql_conv)?),
@@ -454,7 +435,7 @@ fn sql_conv<E: std::fmt::Display>(err: E) -> rusqlite::Error {
 /// every open is the DDL batch itself (2 `CREATE TABLE` + 1 `CREATE INDEX`) plus
 /// the 2 `PRAGMA table_info(...)` migration scans — paid before every store op,
 /// and the periodic-poll fetch loop hits three of them per task (`is_ingested`,
-/// `get_card_id`, `mark_ingested`). Gating just that batch behind a per-path
+/// `was_ingested`, `mark_ingested`). Gating just that batch behind a per-path
 /// "already initialized" set keeps it to one execution per process per database
 /// file while every call still gets its own connection.
 ///
@@ -502,7 +483,7 @@ const TASK_SOURCES_SCHEMA_VERSION: i64 = 1;
 /// the next call. The version gate restores that: a `user_version` lower than
 /// the expected version — 0 for a fresh file, or an older/partial schema
 /// swapped in under a live process (missing `ingested_tasks` or a migrated
-/// column such as `card_id`/`assigned_executor`) — falls through to the
+/// column such as `card_id`) — falls through to the
 /// idempotent [`init_schema`] and is re-migrated rather than trusted and later
 /// failing on the incomplete schema (CodeRabbit / Codex review on #5709). An
 /// on-disk version *higher* than expected is treated as already-initialized
@@ -607,8 +588,7 @@ fn init_schema(conn: &mut Connection) -> Result<()> {
             max_tasks_per_fetch INTEGER NOT NULL,
             created_at          TEXT NOT NULL,
             last_fetch_at       TEXT,
-            last_status         TEXT,
-            assigned_executor   TEXT
+            last_status         TEXT
          );
          CREATE TABLE IF NOT EXISTS ingested_tasks (
             source_id    TEXT NOT NULL,
@@ -628,8 +608,6 @@ fn init_schema(conn: &mut Connection) -> Result<()> {
     // Additive migration: add card_id to existing databases that pre-date
     // this column. Tolerate "duplicate column" in case of a concurrent open.
     add_column_if_missing(&tx, "ingested_tasks", "card_id", "TEXT")?;
-    // G7: static executor routing on a source.
-    add_column_if_missing(&tx, "task_sources", "assigned_executor", "TEXT")?;
 
     // Stamp the schema version last, so [`ensure_schema_initialized`] only
     // trusts a cache hit whose on-disk schema is fully migrated. Bump

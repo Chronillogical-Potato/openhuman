@@ -38,8 +38,9 @@ const VOICE_ACK_DEADLINE_SECS: u64 = 8;
 /// own, so the caller is told the answer is still coming instead of being left on
 /// a trail of filler.
 ///
-/// The model is deliberately not asked to speak first (see VOICE_DIRECTIVE), and
-/// could not be relied on to anyway: building the per-turn orchestrator (config
+/// The model is deliberately not asked to speak first; the relay owns the
+/// filler because the model could not be relied on to do so anyway: building
+/// the per-turn orchestrator (config
 /// load, tool registry, integration catalogue) takes seconds before the first
 /// model token is even requested, and the first round is usually a tool call
 /// carrying no text. Measured against staging, the first streamable token landed

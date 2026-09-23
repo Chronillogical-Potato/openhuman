@@ -1,8 +1,8 @@
 use crate::memory::query::backend;
 use crate::memory::tree::retrieval::rpc::FetchLeavesRequest;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolResult};
 
 /// Hard cap on `chunk_ids` enforced at the tool boundary so the tool's
 /// behaviour matches the schema description. The retrieval RPC also

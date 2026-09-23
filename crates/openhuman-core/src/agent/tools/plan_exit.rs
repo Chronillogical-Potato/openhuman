@@ -11,9 +11,9 @@
 //! lives outside the tool. The follow-up `plan` vs `build` mode work
 //! (referenced in issue #1205) will wire the harness side.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Stable marker the harness greps for to detect a plan→build hand-off.
 pub const PLAN_EXIT_MARKER: &str = "[plan_exit]";

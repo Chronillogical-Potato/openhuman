@@ -1,11 +1,11 @@
 use crate::config::Config;
 use crate::cron;
-use crate::tools::traits::{Tool, ToolCallOptions, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde::Serialize;
 use serde_json::json;
 use std::fmt::Write as _;
 use std::sync::Arc;
+use tinytools::{Tool, ToolCallOptions, ToolExposure, ToolResult};
 
 const MAX_RUN_OUTPUT_CHARS: usize = 500;
 

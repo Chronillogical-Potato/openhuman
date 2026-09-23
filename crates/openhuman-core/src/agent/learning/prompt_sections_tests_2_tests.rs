@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::context::prompt::LearnedContextData;
+use crate::agent::prompts::LearnedContextData;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry};
 use async_trait::async_trait;
 use std::collections::HashSet;
@@ -75,14 +75,12 @@ fn prompt_context(learned: LearnedContextData) -> PromptContext<'static> {
         dispatcher_instructions: "",
         learned,
         visible_tool_names,
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::PFormat,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::PFormat,
         connected_integrations: &[],
         connected_identities_md: String::new(),
         include_profile: false,
         include_memory_md: false,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -307,11 +305,8 @@ impl Tool for NamedTool {
         serde_json::json!({})
     }
 
-    async fn execute(
-        &self,
-        _args: serde_json::Value,
-    ) -> anyhow::Result<crate::tools::traits::ToolResult> {
-        Ok(crate::tools::traits::ToolResult::success(String::new()))
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success(String::new()))
     }
 }
 

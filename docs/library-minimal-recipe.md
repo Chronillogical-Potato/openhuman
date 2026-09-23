@@ -33,6 +33,31 @@ cargo build --release \
 There is **no** `library-minimal` meta-feature in `Cargo.toml`, on purpose — see
 [Why no alias](#why-no-cargotoml-alias) below.
 
+Usage against this recipe is the two-step API: one `Runtime` per process,
+then agents on it. `DomainSet` families are registered at runtime build time
+and agents can only narrow them, so include `mcp` / `skills` in both the
+Cargo features **and** the runtime's `DomainSet` (the builder's default does)
+if any agent will declare servers or skills.
+
+```rust,no_run
+use openhuman_embed::{Access, AgentSpec, Runtime, Workspace};
+
+# async fn demo() -> Result<(), Box<dyn std::error::Error>> {
+let runtime = Runtime::builder()
+    .workspace(Workspace::dir("/var/lib/opencompany/openhuman"))
+    .api_key(std::env::var("TINYHUMANS_API_KEY")?)
+    .build()
+    .await?;
+let worker = runtime.agent(
+    AgentSpec::new("worker-1")
+        .access(Access::full())
+        .action_dir("/srv/jobs/1"),
+)?;
+println!("{}", worker.run("Start the job.").await?.reply);
+# Ok(())
+# }
+```
+
 ## Keep / drop table
 
 The single `default` list this session was written against no longer exists.
@@ -60,7 +85,7 @@ is actually for.
 | `tui` | OFF | — | **DROP** | `openhuman tui`/`chat` terminal UI — no terminal in a library host | `ratatui`, `crossterm`, `unicode-width` |
 
 **Non-default optional features** (`sandbox-landlock`, `sandbox-bubblewrap`,
-`peripheral-rpi`, `browser-native`/`fantoccini`, `landlock`, `whatsapp-web`,
+`browser-native`/`fantoccini`, `landlock`, `whatsapp-web`,
 `e2e-test-support`, `rss-bench`, `rss-bench-dhat`) are all default-OFF, so a
 `--no-default-features` build never links them unless explicitly added. None are
 needed for opencompany; `rss-bench`/`rss-bench-dhat` are dev/benchmark-only.

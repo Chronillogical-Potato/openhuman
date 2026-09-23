@@ -4,6 +4,8 @@
 //! classifies and reports a failure.
 
 use serde_json::json;
+use std::sync::Arc;
+use tinyagents_harness::run_queue::{QueueLane, RunQueue};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -15,7 +17,7 @@ use crate::security::prompt_injection::{
 
 use super::super::event_bus::publish_web_channel_event;
 use super::super::run_task::run_chat_task;
-use super::super::types::{ChatRequestMetadata, InFlightEntry};
+use super::super::types::{ChatRequestMetadata, InFlightEntry, QueueMode};
 use super::super::web_errors::classify_inference_error;
 use super::parallel_turn::spawn_parallel_turn;
 use super::state::{cancel_in_flight_gracefully, key_for, IN_FLIGHT};
@@ -41,7 +43,6 @@ pub async fn start_chat(
     message: &str,
     model_override: Option<String>,
     temperature: Option<f64>,
-    profile_id: Option<String>,
     locale: Option<String>,
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
@@ -224,20 +225,17 @@ pub async fn start_chat(
     let map_key = key_for(&thread_id);
 
     let parsed_mode = match queue_mode.as_deref() {
-        Some("steer") => crate::agent::harness::run_queue::QueueMode::Steer,
-        Some("followup") => crate::agent::harness::run_queue::QueueMode::Followup,
-        Some("collect") => crate::agent::harness::run_queue::QueueMode::Collect,
-        Some("parallel") => crate::agent::harness::run_queue::QueueMode::Parallel,
-        _ => crate::agent::harness::run_queue::QueueMode::Interrupt,
+        Some("steer") => QueueMode::Steer,
+        Some("followup") => QueueMode::Followup,
+        Some("collect") => QueueMode::Collect,
+        Some("parallel") => QueueMode::Parallel,
+        _ => QueueMode::Interrupt,
     };
 
     // Parallel mode: spawn an independent forked turn that runs alongside any
     // in-flight turn for this thread. It does not touch IN_FLIGHT (no
     // interrupt/steer/queue) — it lives in its own request-keyed lane.
-    if matches!(
-        parsed_mode,
-        crate::agent::harness::run_queue::QueueMode::Parallel
-    ) {
+    if matches!(parsed_mode, QueueMode::Parallel) {
         log::info!(
             "[web-channel] starting PARALLEL forked turn thread_id={} request_id={}",
             thread_id,
@@ -250,7 +248,6 @@ pub async fn start_chat(
             &message,
             model_override,
             temperature,
-            profile_id,
             locale,
             metadata,
         )
@@ -259,15 +256,11 @@ pub async fn start_chat(
     }
 
     // Non-interrupt modes: push into the running turn's queue and return.
-    if !matches!(
-        parsed_mode,
-        crate::agent::harness::run_queue::QueueMode::Interrupt
-    ) {
+    if !matches!(parsed_mode, QueueMode::Interrupt) {
         let in_flight = IN_FLIGHT.lock().await;
         if let Some(existing) = in_flight.get(&map_key) {
-            let queued_msg = crate::agent::harness::run_queue::QueuedMessage {
+            let queued_msg = crate::agent::queued_turn::QueuedTurn {
                 text: message.clone(),
-                mode: parsed_mode,
                 client_id: client_id.clone(),
                 thread_id: thread_id.clone(),
                 queued_at_ms: std::time::SystemTime::now()
@@ -276,10 +269,12 @@ pub async fn start_chat(
                     .as_millis() as u64,
                 model_override: model_override.clone(),
                 temperature,
-                profile_id: profile_id.clone(),
                 locale: locale.clone(),
             };
-            existing.run_queue.push(queued_msg).await;
+            let lane = parsed_mode
+                .queue_lane()
+                .expect("only queueable modes reach an active run queue");
+            existing.run_queue.push(lane, queued_msg).await;
             let status = existing.run_queue.status().await;
             log::info!(
                 "[web-channel] queued {} message thread_id={} request_id={} queue_depth={}",
@@ -336,7 +331,7 @@ pub async fn start_chat(
         }
     }
 
-    let turn_run_queue = crate::agent::harness::run_queue::RunQueue::new();
+    let turn_run_queue = Arc::new(RunQueue::new());
     let turn_run_queue_task = turn_run_queue.clone();
 
     let client_id_task = client_id.clone();
@@ -376,7 +371,6 @@ pub async fn start_chat(
                     &user_message,
                     model_override,
                     temperature,
-                    profile_id,
                     locale,
                     turn_run_queue_task,
                     metadata,
@@ -389,11 +383,11 @@ pub async fn start_chat(
                 Some(res) => res,
                 None => {
                     log::info!(
-                    "[web-channel] turn cancelled cooperatively client_id={} thread_id={} request_id={}",
-                    client_id_task,
-                    thread_id_task,
-                    request_id_task
-                );
+                        "[web-channel] turn cancelled cooperatively client_id={} thread_id={} request_id={}",
+                        client_id_task,
+                        thread_id_task,
+                        request_id_task
+                    );
                     // Release any in-flight slot we still own and stop. The
                     // `request_id` guard below prevents clobbering a newer turn that
                     // replaced us on the interrupt path.
@@ -425,12 +419,12 @@ pub async fn start_chat(
                 }
                 Err(err) => {
                     log::warn!(
-                    "[web-channel] run_chat_task failed client_id={} thread_id={} request_id={} error={}",
-                    client_id_task,
-                    thread_id_task,
-                    request_id_task,
-                    err
-                );
+                        "[web-channel] run_chat_task failed client_id={} thread_id={} request_id={} error={}",
+                        client_id_task,
+                        thread_id_task,
+                        request_id_task,
+                        err
+                    );
                     let detailed = format!(
                         "run_chat_task failed client_id={} thread_id={} request_id={} error={}",
                         client_id_task, thread_id_task, request_id_task, err
@@ -489,7 +483,7 @@ pub async fn start_chat(
                 let mut in_flight = IN_FLIGHT.lock().await;
                 let followups = if let Some(current) = in_flight.get(&map_key_task) {
                     if current.request_id == request_id_task {
-                        let fups = current.run_queue.drain_followups().await;
+                        let fups = current.run_queue.drain(QueueLane::Followup).await;
                         in_flight.remove(&map_key_task);
                         fups
                     } else {
@@ -533,7 +527,7 @@ pub async fn start_chat(
     Ok(request_id)
 }
 
-fn dispatch_followups(followups: Vec<crate::agent::harness::run_queue::QueuedMessage>) {
+fn dispatch_followups(followups: Vec<crate::agent::queued_turn::QueuedTurn>) {
     for fup in followups {
         tokio::spawn(crate::core::runtime::context::CoreContext::propagate(
             async move {
@@ -543,7 +537,6 @@ fn dispatch_followups(followups: Vec<crate::agent::harness::run_queue::QueuedMes
                     &fup.text,
                     fup.model_override,
                     fup.temperature,
-                    fup.profile_id,
                     fup.locale,
                     Some("followup".to_string()),
                     ChatRequestMetadata::default(),

@@ -108,7 +108,7 @@ Two specialist sub-agents wrap these tools and are reachable from the
 orchestrator via delegation:
 
 - **`image_agent`** (`delegate_create_image`) owns prompt craft, model
-  selection, and saving generated images. It rides the multimodal `vision-v1`
+  selection, and saving generated images. It rides the multimodal `vision` workload route
   tier so it can inspect what it produces.
 - **`video_agent`** (`delegate_create_video`) owns text-to-video and
   image-to-video. It sets expectations that generation can take minutes and
