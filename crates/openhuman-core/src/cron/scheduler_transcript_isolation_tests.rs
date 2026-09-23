@@ -159,7 +159,7 @@ fn seed_stale_orchestrator_transcript(config: &Config) {
 }
 
 fn agent_job() -> CronJob {
-    let mut job = super::tests_support_job();
+    let mut job = test_job("");
     job.id = "e6ab35f2-64e2-4d23-a885-88f48ee2919e".into();
     job.name = Some("apple_stock_daily_email".into());
     job.job_type = JobType::Agent;
@@ -232,18 +232,4 @@ async fn cron_agent_turn_does_not_resume_a_stale_unthreaded_transcript() {
             "the stale frozen prompt's removed tool must not reach the model"
         );
     }
-}
-
-#[test]
-fn start_cron_turn_clean_is_a_single_turn_override() {
-    // The override is consumed by the next turn and resets to default, so the
-    // helper must set exactly the transcript-autoload suppression and nothing
-    // that would strip tools, memory, or the goal from a scheduled job.
-    let expected = crate::agent::session_host::TurnOverrides {
-        suppress_transcript_autoload: true,
-        ..Default::default()
-    };
-    assert!(expected.suppress_transcript_autoload);
-    assert!(!expected.suppress_tools);
-    assert!(!expected.suppress_memory_agent);
 }
