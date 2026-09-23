@@ -179,6 +179,18 @@ test("a listing that fails part-way runs none of the names it printed", () => {
   );
 });
 
+test("a successful listing with no test rows fails the suite", () => {
+  const res = runSuite({
+    listStdout: "0 tests, 0 benchmarks\n",
+    listStatus: 0,
+  });
+
+  assert.notEqual(res.status, 0, res.output);
+  assert.doesNotMatch(res.output, /SUITE-REPORTED-SUCCESS/);
+  assert.match(res.output, /enumeration returned no tests/);
+  assert.deepEqual(res.runs, []);
+});
+
 test("a successful listing runs each case once, in its own process, with EXTRA_ARGS", () => {
   // libtest's real `--list` shape: `name: test` rows, a blank line, a summary.
   // Only the `: test` rows are cases.

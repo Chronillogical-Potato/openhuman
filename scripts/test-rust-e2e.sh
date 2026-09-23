@@ -176,7 +176,7 @@ run_json_rpc_e2e_suite() {
   # failed to compile listed nothing, the loop ran zero times, and the suite
   # reported success. A listing that fails part-way is refused whole, so a
   # partial list is never run as though it were complete.
-  local listing test_name
+  local listing test_names test_name
   if ! listing="$(
     "$CARGO_BIN" test --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
       --test json_rpc_e2e -- --list
@@ -185,14 +185,19 @@ run_json_rpc_e2e_suite() {
     return 1
   fi
 
+  test_names="$(printf '%s\n' "$listing" | sed -n 's/: test$//p')"
+  if [ -z "$test_names" ]; then
+    echo "[rust-e2e] ERROR: json_rpc_e2e enumeration returned no tests; refusing to report success." >&2
+    return 1
+  fi
+
   while IFS= read -r test_name; do
-    [ -n "$test_name" ] || continue
     echo "[rust-e2e]   $CARGO_BIN test --manifest-path Cargo.toml --test json_rpc_e2e $test_name"
     bash "$SCRIPT_DIR/ci-cancel-aware.sh" "$CARGO_BIN" test \
       --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
       --test json_rpc_e2e "$test_name" -- \
       --exact --test-threads=1 "${EXTRA_ARGS[@]}"
-  done <<<"$(printf '%s\n' "$listing" | sed -n 's/: test$//p')"
+  done <<<"$test_names"
 }
 
 for suite in "${SUITES[@]}"; do
