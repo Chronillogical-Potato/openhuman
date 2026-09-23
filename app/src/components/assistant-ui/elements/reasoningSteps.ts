@@ -33,7 +33,7 @@ export const DERIVED_TITLE_MAX = 60;
 
 function headingOf(line: string): string | null {
   const bold = BOLD_HEADING.exec(line);
-  if (bold?.[1]) return bold[1].trim();
+  if (bold?.[1]) return bold[1].trim().replace(/:$/, '');
   const md = MD_HEADING.exec(line);
   if (md?.[1]) return md[1].replace(/\*\*/g, '').trim();
   return null;
