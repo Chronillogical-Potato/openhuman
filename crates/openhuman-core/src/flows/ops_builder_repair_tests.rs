@@ -5,7 +5,7 @@ use crate::{
         agents::workflow_builder::builder_prompt::{BuildMode, BuilderRequest},
         ops::{
             builder::{backend_repair_message, is_backend_or_infrastructure_failure},
-            flows_build_with_extra_hidden_tools,
+            flows_build_with_extra_hidden_tools, FlowStreamTarget,
         },
     },
 };
@@ -49,7 +49,7 @@ async fn repair_backend_failure_returns_no_proposal_before_starting_the_builder(
         failing_node_ids: vec!["fetch".to_string()],
     };
 
-    let outcome = flows_build_with_extra_hidden_tools(&Config::default(), req, None, &[])
+    let outcome = flows_build_with_extra_hidden_tools(&Config::default(), req.clone(), None, &[])
         .await
         .expect("backend failure should short-circuit before the builder starts");
 
@@ -59,6 +59,33 @@ async fn repair_backend_failure_returns_no_proposal_before_starting_the_builder(
         outcome.value["assistant_text"]
             .as_str()
             .expect("assistant text")
+            .contains("workflow was not changed")
+    );
+
+    let request_id = format!("backend-repair-{}", uuid::Uuid::new_v4());
+    let stream = FlowStreamTarget {
+        thread_id: "backend-repair-thread".to_string(),
+        request_id: request_id.clone(),
+    };
+    let mut events = crate::web_chat::subscribe_web_channel_events();
+
+    flows_build_with_extra_hidden_tools(&Config::default(), req, Some(stream), &[])
+        .await
+        .expect("streamed backend failure should short-circuit before the builder starts");
+
+    let done = loop {
+        match events.try_recv() {
+            Ok(event) if event.request_id == request_id => break event,
+            Ok(_) | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+            Err(error) => panic!("missing streamed backend-repair event: {error}"),
+        }
+    };
+    assert_eq!(done.event, "chat_done");
+    assert_eq!(done.thread_id, "backend-repair-thread");
+    assert!(
+        done.full_response
+            .as_deref()
+            .expect("terminal response text")
             .contains("workflow was not changed")
     );
 }
