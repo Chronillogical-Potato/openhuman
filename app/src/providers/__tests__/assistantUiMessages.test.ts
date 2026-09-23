@@ -185,7 +185,7 @@ describe('buildRuntimeMessages', () => {
     ]);
   });
 
-  it('replays a settled turn with its reasoning and tools, but without its narration', () => {
+  it('replays a settled turn with its reasoning, narration and tools in the order they happened', () => {
     const answer = msg({
       id: 'answer',
       sender: 'agent',
@@ -205,10 +205,11 @@ describe('buildRuntimeMessages', () => {
         turnTranscripts: { 'req-1': transcript },
       })[0]?.content
     ).toEqual([
-      // Reasoning comes back inline, in the transcript's own order. Narration
-      // does NOT: it is the turn's running commentary, it duplicates the answer
-      // on the final round, and it stays in the rail behind the turn footer.
+      // Everything comes back inline, in the transcript's own order. Narration
+      // before a tool call is what the live turn showed while it streamed, so
+      // a reload shows it too (the answer is not narration: it closes the turn).
       { type: 'reasoning', text: 'need to search' },
+      { type: 'text', text: 'I will check the sources.' },
       expect.objectContaining({
         type: 'tool-call',
         toolCallId: 'call-1',

@@ -296,9 +296,7 @@ function assistantParts(
   // count of pointers.
   const referenced = new Set<string>();
   let lastToolPointer = -1;
-  let hasNarration = false;
   for (const [index, item] of transcript.entries()) {
-    if (item.kind === 'narration' && item.text.trim().length > 0) hasNarration = true;
     if (item.kind !== 'toolCall') continue;
     const entry = timelineById.get(item.callId);
     if (entry) {
@@ -353,12 +351,10 @@ function assistantParts(
   drainBefore(null);
 
   // Settled with no trailing narration to stand in for (a reloaded turn, or a
-  // legacy trail): the answer closes the turn. Live, the streaming buffer is
-  // only a fallback for a transcript that recorded no narration at all (a
-  // snapshot-hydrated turn mid-answer) — otherwise it would repeat it.
+  // legacy trail): the answer closes the turn. Live, the text is the
+  // transcript's narration; `streamingTailMessage` handles the rare turn whose
+  // transcript recorded none.
   if (mode === 'settled' && !answerEmitted && answerText.length > 0) {
-    parts.push({ type: 'text', text: answerText });
-  } else if (mode === 'live' && !hasNarration && answerText.length > 0) {
     parts.push({ type: 'text', text: answerText });
   }
   return parts;
@@ -638,20 +634,23 @@ export function streamingTailMessage(
   approval: PendingApproval | null = null
 ): ThreadMessageLike | null {
   if (!approval && !streaming && timeline.length === 0 && transcript.length === 0) return null;
-  const text = streaming?.content ?? '';
-  let parts = assistantParts(text, timeline, transcript, 'live');
-  // The live reasoning block, only when the transcript has not recorded a
-  // `thinking` item for this turn (a snapshot-hydrated turn) — once it has,
-  // `assistantParts` emits it in its proper place and this would double it.
+  let parts = assistantParts('', timeline, transcript, 'live');
+  // The streaming buffers, for a turn whose transcript has not recorded them
+  // (a snapshot-hydrated turn mid-answer): normally `streamDeltaReceived`
+  // writes every thinking and content delta into the transcript as well, and
+  // `assistantParts` above already emits them in place — these would double
+  // them. Reasoning before text: what the agent thought before it answered.
   //
   // Appended, never unshifted: the tail's parts are append-only (see
-  // `assistantParts`), and a part inserted at the front shifts the index —
-  // and so the key — of every part after it, remounting the answer mid-stream.
-  // A turn that has so far produced only thinking still mints a tail, which is
+  // `assistantParts`), and a part inserted at the front shifts the index — and
+  // so the key — of every part after it, remounting the answer mid-stream. A
+  // turn that has so far produced only thinking still mints a tail, which is
   // the point: the block is the in-flight signal, alongside `RunningStatus`.
-  if (streaming?.thinking.trim()) {
-    const hasTranscriptThinking = transcript.some(item => item.kind === 'thinking');
-    if (!hasTranscriptThinking) parts.push({ type: 'reasoning', text: streaming.thinking });
+  if (streaming?.thinking.trim() && !transcript.some(item => item.kind === 'thinking')) {
+    parts.push({ type: 'reasoning', text: streaming.thinking });
+  }
+  if (streaming?.content.trim() && !transcript.some(item => item.kind === 'narration')) {
+    parts.push({ type: 'text', text: streaming.content });
   }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
