@@ -79,22 +79,27 @@ test("commands are static: no suite is ever narrowed to the diff", () => {
   }
 });
 
-test("the doctests run exactly once per profile", () => {
+test("doctests and the TinyJuice regression are left to pushes to main", () => {
   for (const plan of plans()) {
     const cov = plan.lanes
       .find((l) => l.name === "rust-cov")
       .checks.find((c) => c.name === "rust-core-coverage");
-    const separate = allRuns(plan).filter((r) =>
-      /cargo test -p openhuman --doc --features/.test(r),
-    );
-    if (plan.profile === "ex63") {
-      assert.equal(cov.env.OH_COV_DOCTESTS, "0");
-      assert.equal(separate.length, 1);
-    } else {
-      assert.equal(cov.env.OH_COV_DOCTESTS, undefined);
-      assert.equal(separate.length, 0);
-    }
+    assert.equal(cov.env.OH_COV_DOCTESTS, "0");
+    const runs = allRuns(plan).join("\n");
+    assert.doesNotMatch(runs, /cargo test -p openhuman --doc/);
+    assert.doesNotMatch(runs, /tool_output_tabulates_a_large_graph/);
   }
+  // ...where CI Lite still runs them.
+  const lite = fs.readFileSync(
+    path.join(repoRoot, ".github/workflows/ci-lite.yml"),
+    "utf8",
+  );
+  assert.match(lite, /on:\s*\n\s*push:\s*\n\s*branches: \[main\]/);
+  assert.match(
+    lite,
+    /tool_output_tabulates_a_large_graph_for_a_non_exempt_tool/,
+  );
+  assert.match(lite, /run: bash scripts\/ci\/rust-coverage\.sh/);
 });
 
 test("the complete suites run, not subsets", () => {
@@ -130,7 +135,6 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
     "pnpm docs:test",
     "pnpm docs:check",
     "pnpm test:scripts",
-    "cargo clippy -p openhuman -- -D warnings",
     "cargo clippy -p openhuman-embed --all-targets -- -D warnings",
     "cargo check -p openhuman-embed --no-default-features",
     "cargo test -p openhuman-embed",
