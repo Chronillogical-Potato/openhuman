@@ -79,7 +79,7 @@ function ToolDataView({ value }: { value: unknown }) {
   return <span className="whitespace-pre-wrap">{String(parsed ?? '')}</span>;
 }
 
-function resultText(result: unknown): string | undefined {
+function jsonText(result: unknown): string | undefined {
   if (result === undefined) return undefined;
   if (typeof result === 'string') return result;
   try {
@@ -146,7 +146,7 @@ export function AssistantUiToolCallCard({
   const formatted =
     suppliedLabel && suppliedLabel.toLowerCase() !== 'tool'
       ? undefined
-      : toolCallLabel(toolName, argsText, resultText(result));
+      : toolCallLabel(toolName, argsText || jsonText(args), jsonText(result));
   const label = suppliedLabel && !formatted ? suppliedLabel : (formatted?.title ?? toolName);
   const shownDetail = detail ?? formatted?.detail;
   // `awaiting input` was previously reachable only via `status`, which the
