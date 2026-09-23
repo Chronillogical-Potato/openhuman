@@ -124,6 +124,10 @@ impl SecurityPolicy {
     /// category may only *raise* it (`gate = max(rust_floor, llm_declared)`),
     /// never lower it.
     pub fn classify_command(&self, command: &str) -> CommandClass {
+        // A quoted heredoc body is document text, not shell. Without this the
+        // splitter chops the body into "commands" and a prose line containing
+        // `rm` or `curl` lifts a plain file write to Destructive/Network.
+        let command = &strip_quoted_heredoc_bodies(command);
         let mut class = CommandClass::Read;
         for segment in split_unquoted_segments(command) {
             let cmd_part = skip_env_assignments(&segment);
@@ -323,6 +327,9 @@ impl SecurityPolicy {
         if self.autonomy == AutonomyLevel::ReadOnly {
             return false;
         }
+        // See `classify_command`: a quoted heredoc body is data, so it must not
+        // be scanned for `$(`, `&` or a disallowed base command.
+        let command = &strip_quoted_heredoc_bodies(command);
 
         // Full access bypasses the command allowlist AND the structural guards
         // (redirects, pipes, subshells, background) — a Full-access agent is
