@@ -58,6 +58,7 @@
     "rust:check": "pnpm --filter openhuman-app rust:check",
     "rust:clippy": "cargo clippy -p openhuman -p openhuman-cli -p openhuman-tinyhumans -- -D warnings && pnpm --filter openhuman-app rust:clippy",
     "rust:layout": "node scripts/ci/check-openhuman-rust-layout.mjs",
+    "rust:ignored-tests": "node scripts/ci/check-ignored-tests.mjs",
     "dep:audit": "bash scripts/dep-audit/run.sh",
     "agent:runtime-boundary": "node scripts/ci/check-agent-runtime-boundary.mjs",
     "typecheck": "pnpm --filter openhuman-app compile",
