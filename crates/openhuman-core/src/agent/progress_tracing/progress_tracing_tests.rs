@@ -57,6 +57,9 @@ fn tool_completed(
         elapsed_ms: elapsed,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     }
 }
 
