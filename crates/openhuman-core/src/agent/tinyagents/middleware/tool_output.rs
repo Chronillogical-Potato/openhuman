@@ -143,7 +143,7 @@ impl ToolOutputMiddleware {
         &self,
         ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         tool_name: &str,
-        bytes: usize,
+        content: &str,
     ) -> Option<Result<GenerateTicket, ()>> {
         let summarizer = self.payload_summarizer.as_ref()?;
         let threshold_tokens = self
@@ -151,7 +151,7 @@ impl ToolOutputMiddleware {
             .as_ref()
             .map(|config| config.context.summarizer_payload_threshold_tokens)
             .unwrap_or_default();
-        if threshold_tokens == 0 || estimate_output_tokens(bytes) < threshold_tokens as u64 {
+        if threshold_tokens == 0 || estimate_output_tokens(content) < threshold_tokens as u64 {
             return None;
         }
         match summarizer.prepare(ctx) {
