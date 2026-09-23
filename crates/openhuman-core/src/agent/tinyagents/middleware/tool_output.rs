@@ -373,27 +373,6 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                     }
                 }
             }
-
-            // 2. TokenJuice content-aware compaction. This mirrors the legacy
-            //    `agent_tool_exec` stage that ran after semantic summarization and
-            //    before the hard output caps.
-            let before_tokenjuice_bytes = content.len();
-            let compacted = crate::inference::tokenjuice::compact_output_with_config(
-                std::mem::take(&mut content),
-                tool_name,
-                self.tokenjuice_compaction_enabled,
-                self.tokenjuice_compression,
-                self.runtime_config.as_ref(),
-            )
-            .await;
-            content = compacted;
-            let after_tokenjuice_bytes = content.len();
-            if after_tokenjuice_bytes < before_tokenjuice_bytes {
-                ctx.emit(AgentEvent::Compressed {
-                    from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
-                    to_tokens: estimate_output_tokens(after_tokenjuice_bytes),
-                });
-            }
         }
 
         // 3. One bound, one place. Whether the limit came from the tool's own
