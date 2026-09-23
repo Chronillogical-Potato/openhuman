@@ -41,6 +41,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -191,11 +192,86 @@ function sccacheStats() {
   }
 }
 
+/**
+ * Counting semaphore with priorities (lower first, then FIFO). Heavy lanes
+ * each compile the whole core crate, several GB of rustc apiece, so the VM
+ * runs only as many at once as its memory holds.
+ */
+export class PrioritySemaphore {
+  constructor(slots) {
+    this.free = slots;
+    this.waiters = [];
+    this.seq = 0;
+  }
+
+  acquire(priority) {
+    if (this.free > 0 && this.waiters.length === 0) {
+      this.free--;
+      return Promise.resolve();
+    }
+    return new Promise((res) => {
+      this.waiters.push({ priority, seq: this.seq++, res });
+      this.waiters.sort((a, b) => a.priority - b.priority || a.seq - b.seq);
+    });
+  }
+
+  release() {
+    const next = this.waiters.shift();
+    if (next) next.res();
+    else this.free++;
+  }
+}
+
+/** Heavy-compile slots for a VM with `memTotalMiB` of RAM: ~1 per 9 GiB. */
+export function defaultHeavySlots(memTotalMiB) {
+  return Math.max(1, Math.floor(memTotalMiB / (9 * 1024)));
+}
+
+function memInfoMiB() {
+  try {
+    const text = readFileSync("/proc/meminfo", "utf8");
+    const get = (k) => {
+      const m = text.match(new RegExp(`^${k}:\\s+(\\d+) kB`, "m"));
+      return m ? Math.round(Number(m[1]) / 1024) : null;
+    };
+    return { total: get("MemTotal"), available: get("MemAvailable") };
+  } catch {
+    return { total: null, available: null };
+  }
+}
+
+/** Resident MiB per process group, from /proc (Linux only; {} elsewhere). */
+function rssByProcessGroup() {
+  const out = new Map();
+  let pids;
+  try {
+    pids = readdirSync("/proc").filter((d) => /^\d+$/.test(d));
+  } catch {
+    return out;
+  }
+  for (const pid of pids) {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+      const f = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
+      // After the comm field: [0]=state [2]=pgrp ... [21]=rss (pages)
+      const pgrp = Number(f[2]);
+      const rssMiB = (Number(f[21]) * 4096) / 1048576;
+      out.set(pgrp, (out.get(pgrp) ?? 0) + rssMiB);
+    } catch {}
+  }
+  return out;
+}
+
 export class Runner {
-  constructor(plan, { out, maxParallel }) {
+  constructor(plan, { out, maxParallel, maxHeavy = Infinity }) {
     this.plan = plan;
     this.out = out;
     this.maxParallel = maxParallel > 0 ? maxParallel : plan.lanes.length;
+    this.heavy = new PrioritySemaphore(maxHeavy);
+    this.maxHeavy = maxHeavy;
+    // check id -> { pgid, peakRssMiB } while running; sampled every 5 s.
+    this.running = new Map();
+    this.memory = { totalMiB: memInfoMiB().total, minAvailableMiB: null };
     this.children = new Set();
     this.cancelled = false;
     this.done = new Map(); // "lane:check" -> Promise<status>
@@ -230,7 +306,20 @@ export class Runner {
     }, KILL_GRACE_MS).unref();
   }
 
-  runCommand(lane, check, logStream) {
+  /** Sample VM memory and each running check's process-group RSS. */
+  sampleMemory() {
+    const { available } = memInfoMiB();
+    if (available != null && (this.memory.minAvailableMiB == null || available < this.memory.minAvailableMiB))
+      this.memory.minAvailableMiB = available;
+    if (this.running.size === 0) return;
+    const rss = rssByProcessGroup();
+    for (const entry of this.running.values()) {
+      const now = Math.round(rss.get(entry.pgid) ?? 0);
+      if (now > entry.record.peakRssMiB) entry.record.peakRssMiB = now;
+    }
+  }
+
+  runCommand(lane, check, logStream, record) {
     const env = { ...process.env, ...(lane.env ?? {}), ...(check.env ?? {}) };
     if (lane.targetDir) {
       env.CARGO_TARGET_DIR = lane.targetDir;
@@ -246,6 +335,8 @@ export class Runner {
         stdio: ["ignore", "pipe", "pipe"],
       });
       this.children.add(child);
+      const key = `${lane.name}:${check.name}`;
+      if (record) this.running.set(key, { pgid: child.pid, record });
       child.stdout.pipe(logStream, { end: false });
       child.stderr.pipe(logStream, { end: false });
       child.on("error", (err) => {
@@ -253,6 +344,7 @@ export class Runner {
       });
       child.on("close", (code, signal) => {
         this.children.delete(child);
+        this.running.delete(key);
         res({ code: code ?? (signal ? 128 : 1), signal });
       });
     });
@@ -268,6 +360,22 @@ export class Runner {
   }
 
   async runLane(lane) {
+    let heavyWaitS = null;
+    if (lane.heavy != null && Number.isFinite(this.maxHeavy)) {
+      const w0 = Date.now();
+      log(`lane ${lane.name}: waiting for a heavy-compile slot (priority ${lane.heavy})`);
+      await this.heavy.acquire(lane.heavy);
+      heavyWaitS = Math.round((Date.now() - w0) / 1000);
+      log(`lane ${lane.name}: got a heavy-compile slot after ${heavyWaitS}s`);
+    }
+    try {
+      return await this.runLaneChecks(lane, heavyWaitS);
+    } finally {
+      if (heavyWaitS != null) this.heavy.release();
+    }
+  }
+
+  async runLaneChecks(lane, heavyWaitS) {
     const logPath = join(this.out, "logs", `${lane.name}.log`);
     const logStream = createWriteStream(logPath);
     const results = [];
@@ -284,6 +392,7 @@ export class Runner {
         start: null,
         end: null,
         durationS: null,
+        peakRssMiB: 0,
       };
       results.push(record);
       if (!check.when) {
@@ -322,7 +431,7 @@ export class Runner {
           `lane ${lane.name}: ${check.name} still running (${Math.round((Date.now() - t0) / 60000)} min)`,
         );
       }, HEARTBEAT_MS);
-      const { code } = await this.runCommand(lane, check, logStream);
+      const { code } = await this.runCommand(lane, check, logStream, record);
       clearInterval(beat);
       record.end = new Date().toISOString();
       record.durationS = Math.round((Date.now() - t0) / 1000);
@@ -348,6 +457,7 @@ export class Runner {
     console.log("::endgroup::");
     const laneResult = {
       name: lane.name,
+      heavyWaitS,
       targetDir: lane.targetDir ?? null,
       targetBytes: du(lane.targetDir),
       checks: results,
@@ -357,6 +467,15 @@ export class Runner {
   }
 
   async run() {
+    const sampler = setInterval(() => this.sampleMemory(), 5000);
+    try {
+      return await this.runQueue();
+    } finally {
+      clearInterval(sampler);
+    }
+  }
+
+  async runQueue() {
     const queue = [...this.plan.lanes];
     const running = new Set();
     const finished = [];
@@ -594,7 +713,19 @@ async function main() {
   if (args.profile === "ex63")
     spawnSync("sccache", ["--start-server"], { stdio: "ignore" });
 
-  const runner = new Runner(plan, { out, maxParallel: args.maxParallel });
+  const envHeavy = Number.parseInt(process.env.OH_LANES_MAX_HEAVY ?? "", 10);
+  const maxHeavy =
+    args.profile !== "ex63"
+      ? Infinity
+      : Number.isInteger(envHeavy) && envHeavy > 0
+        ? envHeavy
+        : defaultHeavySlots(memInfoMiB().total ?? 8192);
+  log(`heavy-compile slots: ${maxHeavy}`);
+  const runner = new Runner(plan, {
+    out,
+    maxParallel: args.maxParallel,
+    maxHeavy,
+  });
   process.on("SIGTERM", () => runner.cancel("SIGTERM"));
   process.on("SIGINT", () => runner.cancel("SIGINT"));
 
@@ -608,6 +739,8 @@ async function main() {
     areas,
     lanes,
     sccache: args.profile === "ex63" ? sccacheStats() : null,
+    heavySlots: Number.isFinite(maxHeavy) ? maxHeavy : null,
+    memory: runner.memory,
     cacheBytes: du(process.env.CI_CACHE_DIR),
   };
   writeFileSync(
