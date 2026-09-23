@@ -18,7 +18,9 @@ import {
 } from "../ci/self-hosted/lanes-plan.mjs";
 import {
   Runner,
+  foldLine,
   gatingFailures,
+  renderLaneTable,
   orderProblems,
   parseArgs,
   renderSummary,
@@ -319,4 +321,42 @@ test("compare-runs pairs the newest completed run per workflow by head SHA", asy
     }),
     { "rust-cov": 30 },
   );
+});
+
+test("step-per-lane mode: args, folded check groups and the lane table", () => {
+  assert.equal(parseArgs(["--wait", "rust-cov"]).wait, "rust-cov");
+  assert.equal(parseArgs(["--wait-all"]).waitAll, true);
+  assert.equal(parseArgs(["--profile", "ex63", "--detach"]).detach, true);
+
+  const state = { open: false };
+  const out = [
+    "[ci][lanes] ===== clippy =====",
+    "$ cargo clippy",
+    "warning: x",
+    "[ci][lanes] clippy: failure (exit 101, 3s)",
+    "[ci][lanes] next: blocked — needs lane:clippy",
+    "[ci][lanes] ===== fmt =====",
+    "[ci][lanes] ===== tests =====",
+  ].map((l) => foldLine(l, state));
+  assert.equal(out[0], "::group::clippy");
+  assert.equal(
+    out[3],
+    "[ci][lanes] clippy: failure (exit 101, 3s)\n::endgroup::",
+  );
+  assert.equal(out[4], "[ci][lanes] next: blocked — needs lane:clippy");
+  // A check whose outcome line never came is closed by the next check.
+  assert.equal(out[6], "::endgroup::\n::group::tests");
+  assert.equal(state.open, true);
+
+  const table = renderLaneTable({
+    name: "rust-lint",
+    checks: [
+      { name: "clippy", status: "failure", durationS: 3, reportOnly: false },
+      { name: "off", status: "skipped", durationS: null, reportOnly: false },
+      { name: "bench", status: "failure", durationS: 9, reportOnly: true },
+    ],
+  });
+  assert.match(table, /failure\s+clippy 3s/);
+  assert.doesNotMatch(table, /off/);
+  assert.match(table, /bench 9s \(report-only\)/);
 });

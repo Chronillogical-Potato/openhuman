@@ -474,7 +474,8 @@ async function waitLane(out, name) {
   const lane = JSON.parse(readFileSync(statusPath, "utf8"));
   console.log(renderLaneTable(lane));
   const failures = gatingFailures({ lanes: [lane] });
-  for (const f of failures) console.log(`::error::[ci][lanes] ${f} did not pass`);
+  for (const f of failures)
+    console.log(`::error::[ci][lanes] ${f} did not pass`);
   return failures.length > 0 ? 1 : 0;
 }
 
@@ -483,7 +484,9 @@ async function waitAll(out) {
   const donePath = join(out, "status", "_done.json");
   while (!existsSync(donePath)) {
     if (!runnerAlive(out)) {
-      console.error("::error::[ci][lanes] the lane runner exited without finishing");
+      console.error(
+        "::error::[ci][lanes] the lane runner exited without finishing",
+      );
       printRunnerTail(out);
       return 2;
     }
