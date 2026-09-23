@@ -366,7 +366,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(row?.subagent?.transcript).toEqual([]);
     });
 
-    it('routes a parallel (forked) turn into its own lane, leaving the primary stream untouched', () => {
+    it('routes a parallel (forked) turn into its own lane, leaving the primary stream untouched', async () => {
       const listeners = renderProvider();
 
       // Primary turn streams on the thread.
@@ -395,6 +395,12 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         });
       });
 
+      // Deltas are coalesced per frame (`chatDeltaCoalescer`); wait for the flush.
+      await waitFor(() =>
+        expect(
+          store.getState().chatRuntime.parallelStreamsByThread['t-par']?.['branch']?.content
+        ).toBe('B1B2')
+      );
       const mid = store.getState().chatRuntime;
       // Primary stream is not clobbered by the parallel branch.
       expect(mid.streamingAssistantByThread['t-par']?.content).toBe('P');
@@ -1474,7 +1480,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       }
     });
 
-    it('accumulates text_delta chunks within the same request_id', () => {
+    it('accumulates text_delta chunks within the same request_id', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1482,13 +1488,15 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onTextDelta?.({ thread_id: 't-mid', request_id: 'r1', round: 0, delta: 'lo!' });
       });
 
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-mid']).toBeDefined()
+      );
       const streaming = store.getState().chatRuntime.streamingAssistantByThread['t-mid'];
-      expect(streaming).toBeDefined();
       expect(streaming?.requestId).toBe('r1');
       expect(streaming?.content).toBe('Hello!');
     });
 
-    it('replaces streaming state when request_id changes mid-turn', () => {
+    it('replaces streaming state when request_id changes mid-turn', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1496,6 +1504,11 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onTextDelta?.({ thread_id: 't-mid', request_id: 'r2', round: 0, delta: 'bbb' });
       });
 
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-mid']?.requestId).toBe(
+          'r2'
+        )
+      );
       const streaming = store.getState().chatRuntime.streamingAssistantByThread['t-mid'];
       expect(streaming?.requestId).toBe('r2');
       expect(streaming?.content).toBe('bbb');
@@ -1521,8 +1534,10 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           delta: 'Let me check your calendar first.',
         });
       });
-      expect(store.getState().chatRuntime.streamingAssistantByThread['t-interim']?.content).toBe(
-        'Let me check your calendar first.'
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-interim']?.content).toBe(
+          'Let me check your calendar first.'
+        )
       );
       // …and is already captured as a narration transcript item by the delta
       // reducer — this is what the rail renders.
