@@ -216,7 +216,10 @@ async fn cron_agent_turn_does_not_resume_a_stale_unthreaded_transcript() {
     let config = config_with_provider(&tmp, &endpoint).await;
     seed_stale_orchestrator_transcript(&config);
     let (success, output, raw_error) = run_agent_job(&config, &agent_job()).await;
-    assert!(success, "cron agent job should succeed: {output} / {raw_error:?}");
+    assert!(
+        success,
+        "cron agent job should succeed: {output} / {raw_error:?}"
+    );
     let turn_requests = requests_with_job_prompt(&bodies);
     assert!(
         !turn_requests.is_empty(),
