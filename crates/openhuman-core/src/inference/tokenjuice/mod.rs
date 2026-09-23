@@ -240,9 +240,16 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
     // below that ends without a module answer says so, rather than handing
     // the model a raw dump it will re-run the tool to get summarized.
     let wants_summary = context_token.is_some();
+    // This agent bypasses TinyJuice's router entirely. The middleware caller
+    // never registers a summary ticket for an Off profile, but if one somehow
+    // is, disclose it the same way every other no-answer path does rather
+    // than silently dropping it in an `unchanged` return.
+    if profile == AgentTokenjuiceCompression::Off {
+        return CompactedToolOutput::passthrough(content, wants_summary);
+    }
     // Nothing to ask the module for: the router is off and no summary call is
-    // registered, or this agent bypasses TinyJuice entirely.
-    if (!enabled && context_token.is_none()) || profile == AgentTokenjuiceCompression::Off {
+    // registered.
+    if !enabled && !wants_summary {
         return CompactedToolOutput::unchanged(content);
     }
     #[cfg(test)]
