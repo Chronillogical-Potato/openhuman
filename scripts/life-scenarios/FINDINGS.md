@@ -38,13 +38,53 @@ narrates and stops, so it is not a measurement of the harness. The strong model
 produced no output file whatsoever**, after spending $0.69, $0.78 and $0.13 on
 three of them. Findings 1 and 1b are why; [`DIAGNOSIS.md`](DIAGNOSIS.md) traces each one to its transcript.
 
+### After finding 1 was fixed
+
+Same model, same six scenarios, after the fixes below
+(run `2026-09-23T11-25-37-650Z`):
+
+| scenario | done | tools | appr | in | cached | out | cost | latency |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| calendar-buffer | **8/8** | 9 | 0 | 77.0k | 81.1% | 16.0k | $0.3028 | 146.8s |
+| subscription-scan | **11/11** | 6 | 0 | 47.9k | 90.4% | 1.3k | $0.0466 | 14.2s |
+| baggage-policy | 0/1 | 27 | 0 | 491.9k | 71.0% | 15.6k | $0.7671 | 192.3s |
+| meal-plan | **10/10** | 8 | 0 | 63.2k | 89.9% | 12.6k | $0.2254 | 91.7s |
+| trip-itinerary | 0/1 | 22 | 0 | 1,572.0k | 64.4% | 129.9k | $1.9648 | 900.0s |
+| fact-check-publish | 0/3 | 31 | 0 | 220.2k | 80.1% | 12.4k | $0.3709 | 263.1s |
+| **total** | **29/34 (85%)** | **103** | **0** | 2,472.2k | 68.8% | 187.9k | **$3.6776** | 1608.1s |
+
+**0/9 → 29/34.** The model that made *zero* tool calls in all six scenarios now
+makes 103, because there is finally something to call: `policy-blocked` events
+are **0**, `file_write` is on the wire (`visible=17`), and no 1-byte placeholder
+files are left behind.
+
+The `appr` column is 0 by design, not by omission: the autonomy policy now
+defaults to off, so `gate_decision` answers `Allow` for every class and nothing
+parks. Set `[autonomy] enabled = true` to measure the supervised arm.
+
+The three still at zero are **finding 1b**, untouched by that fix:
+`grep -c "final permitted model call"` is 2 (baggage-policy and
+fact-check-publish reach `max_model_calls=15` after real work), and
+trip-itinerary hit the suite's own 900s turn timeout.
+
+Note the cache column against finding 8 below — the 0% collapses are gone.
+
 Ordered by severity.
 
 ---
 
-## 1. The assistant cannot reliably create a file
+## 1. The assistant cannot reliably create a file — FIXED
 
 **Severity: high. The cause of four of the six empty scenarios.**
+
+**Fixed** by, in order of how much each mattered: unpacking `file_write` from
+the `files` pack (`tools/toolpacks/registry.rs`) so `close_handed_off_packs` can
+no longer deny the orchestrator its only file creator; granting the configured
+`action_dir` as a `ReadWrite` trusted root in `SecurityPolicy::from_config`;
+`strip_quoted_heredoc_bodies` (`policy_command/quoting.rs`), so a `&` in a
+`<< 'EOF'` body is data rather than a background operator; an `apply_patch`
+create mode (empty `old_string` on a path that does not exist); and
+`[autonomy] enabled`, now defaulting to `false`. See the post-fix table above.
 
 Four mechanisms compose so that the orchestrator has no working route to
 writing a new file. Full trace, with the transcript for each step, in
@@ -320,6 +360,37 @@ this is provider-side routing (OpenRouter can move a request between backends,
 and `served_by` drift breaks the prefix cache), which is why the repo ships
 `scripts/debug/capture-first-inference.mjs` — its `cache_key` / `served_by`
 lines are the right next instrument here.
+
+### The collapses are gone, and that is a measurement artefact worth naming
+
+Same six scenarios after the finding-1 fixes
+(run `2026-09-23T11-25-37-650Z`):
+
+| scenario | input | cached | cost |
+| --- | --- | --- | --- |
+| calendar-buffer | 77.0k | 81.1% | $0.3028 |
+| subscription-scan | 47.9k | **90.4%** | $0.0466 |
+| baggage-policy | 491.9k | 71.0% | $0.7671 |
+| meal-plan | 63.2k | 89.9% | $0.2254 |
+| trip-itinerary | 1,572.0k | **64.4%** | $1.9648 |
+| fact-check-publish | 220.2k | 80.1% | $0.3709 |
+| **total** | 2,472.2k | **68.8%** | **$3.6776** |
+
+No 0% rows, and the floor is 64.4% against an overall 31.5% before. **Do not
+read that as the caching bug being fixed** — nothing here touched inference
+routing. The honest reading is that the baseline was measuring something else:
+those turns were one or two model calls long (0 tool calls, ~5.7k input), so a
+single cold call *was* the whole scenario and one `served_by` miss showed up as
+0%. These turns are 6–31 tool calls over 48k–1.6M input tokens, so a cold first
+call is amortised across many warm ones and the per-scenario number is dominated
+by the steady state.
+
+What that does establish is the steady state itself, which the baseline could
+not: the prefix cache **does** hold across the turns of one thread, at 64–90%.
+The open question from this finding is unchanged and still needs the capture
+proxy — whether `cache_key` stays identical and `served_by` stops drifting
+*within* a thread. The first call of each scenario is still cold, and at these
+prompt sizes that is now the expensive part.
 
 ---
 

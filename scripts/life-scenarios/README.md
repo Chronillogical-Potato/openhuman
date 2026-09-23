@@ -96,16 +96,22 @@ Wiring it up needs three things together, and two of them are easy to miss:
 
 ## Approvals are answered, not switched off
 
-The desktop app ships the approval gate on and a person answers it. A headless
-harness that sets `OPENHUMAN_APPROVAL_GATE=0` is measuring a product nobody
-runs; one that leaves the gate unanswered is measuring the ten-minute deny
-timeout. So `ApprovalResponder` polls `approval.list_pending` and answers
-`approve_once`, exactly as the approval card does, and records every decision
-to `approvals.json`.
+The gate is installed and an `ApprovalResponder` answers it — it polls
+`approval.list_pending` and answers `approve_once`, exactly as the approval card
+does, recording every decision to `approvals.json`. A headless harness that sets
+`OPENHUMAN_APPROVAL_GATE=0` is measuring a product nobody runs; one that leaves
+the gate unanswered is measuring the ten-minute deny timeout.
 
 **How many approvals a task needed is itself a result.** A task that parks
 fourteen times is not one a supervised user would enjoy, however good the final
-artifact is. `--no-approvals` disables the gate instead, for comparison.
+artifact is. `--no-approvals` uninstalls the gate instead, for comparison.
+
+Expect that number to be near zero on the default run, and read it as a
+property of the product rather than of the harness: the shipped autonomy policy
+is **off** (`[autonomy] enabled = false`), so `gate_decision` answers `Allow`
+for every class and almost nothing parks. Flip `enabled = true` in
+`prepareHome`'s config block to measure the supervised arm, where the responder
+does the work the approval card would.
 
 ## Grading
 
