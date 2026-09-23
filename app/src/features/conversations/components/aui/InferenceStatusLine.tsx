@@ -1,3 +1,4 @@
+import { useT } from '../../../../lib/i18n/I18nContext';
 import type { ToolTimelineEntry } from '../../../../store/chatRuntimeSlice';
 import { formatTimelineEntry } from '../../../../utils/toolTimelineFormatting';
 
@@ -22,30 +23,48 @@ export interface InferenceStatusLineProps {
  * once that timeline is on screen, and keeps it when there is no timeline row
  * to fall back on.
  *
- * There is deliberately NO `thinking` branch. It rendered `Thinking... (N)`,
- * which stacked a second indicator under assistant-ui's own: the library's
- * `react-markdown/styles/dot.css` paints a pulsing `●` on
- * `.aui-md[data-status="running"]:empty`, which is live for precisely the
- * pre-first-token gap this line was covering. The `(N)` was the harness's
- * iteration counter — internal telemetry, not something a reader can act on.
- * `AssistantUiInferenceStatus` returns null for that phase before reaching
- * here; this component has no translation for it either.
+ * The `thinking` branch renders `Thinking... (N)`, and stays here because this
+ * component is shared: `ChatThreadView` (the legacy / voice-mode surface) renders
+ * this line *specifically* for that phase, and that surface has no assistant-ui
+ * markdown, so nothing else indicates the pre-first-token gap for it.
+ *
+ * On the assistant-ui surface that caption WOULD stack a second indicator under
+ * the library's own — `react-markdown/styles/dot.css` paints a pulsing `●` on
+ * `.aui-md[data-status="running"]:empty`, live for exactly that gap, and the
+ * `(N)` is the harness's iteration counter, internal telemetry a reader cannot
+ * act on. That is suppressed one layer up: `AssistantUiInferenceStatus` returns
+ * null for `thinking` before reaching this component.
+ *
+ * So the suppression is per-surface, at the surface-specific caller, rather than
+ * by deleting a branch the other caller depends on.
  */
 export function InferenceStatusLine({
   status,
   activeToolEntry,
   activeSubagentEntry,
 }: InferenceStatusLineProps) {
-  // No `useT` here any more: the only translated strings this component had
-  // were the `thinking` ones, and both keys are gone. The `tool_use` /
-  // `subagent` captions come from `formatTimelineEntry`, which localises the
-  // row title itself.
+  // The `thinking` caption stays HERE, in the shared component, because the
+  // legacy surface still needs it: `ChatThreadView` renders this line
+  // specifically for that phase ("keep it only for the `thinking` phase, which
+  // has no timeline row yet") and has no assistant-ui markdown, so nothing
+  // paints a dot for it. Removing the branch left that surface with a bare
+  // pulse and no caption.
+  //
+  // The duplicate this PR is fixing is an assistant-ui problem, and it is fixed
+  // at the assistant-ui layer: `AssistantUiInferenceStatus` returns null for
+  // `thinking` before it ever reaches this component, so the caption below
+  // cannot stack under the library's own `●` there.
+  const { t } = useT();
   return (
     <div
       data-testid="inference-status-line"
       className="flex items-center gap-2 px-1 py-1.5 text-xs text-content-muted">
       <span className="inline-block w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
       <span>
+        {status.phase === 'thinking' &&
+          (status.iteration > 0
+            ? t('chat.thinkingIteration').replace('{n}', String(status.iteration))
+            : t('chat.thinkingDots'))}
         {status.phase === 'tool_use' &&
           `${
             formatTimelineEntry(

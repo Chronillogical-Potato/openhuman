@@ -2300,6 +2300,8 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': '새 스레드 (/new)',
   'chat.new': '새로 만들기',
   'chat.failedToLoadMessages': '메시지를 불러오지 못했습니다',
+  'chat.thinkingIteration': '생각 중... ({n})',
+  'chat.thinkingDots': '생각 중...',
   'chat.approachingLimit': '사용 한도에 가까워지고 있습니다',
   'chat.approachingLimitMsg': '사용 가능한 할당량의 {pct}%를 사용했습니다.',
   'chat.upgrade': '업그레이드',

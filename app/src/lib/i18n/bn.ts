@@ -2331,6 +2331,8 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': 'নতুন থ্রেড (/new)',
   'chat.new': 'নতুন',
   'chat.failedToLoadMessages': 'বার্তা লোড করতে ব্যর্থ',
+  'chat.thinkingIteration': 'ভাবছে... ({n})',
+  'chat.thinkingDots': 'ভাবছে...',
   'chat.approachingLimit': 'ব্যবহার সীমার কাছাকাছি',
   'chat.approachingLimitMsg': 'আপনি আপনার উপলব্ধ কোটার {pct}% ব্যবহার করেছেন।',
   'chat.upgrade': 'আপগ্রেড করুন',

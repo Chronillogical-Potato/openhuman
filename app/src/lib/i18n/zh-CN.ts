@@ -2179,6 +2179,8 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': '新建对话',
   'chat.new': '新建',
   'chat.failedToLoadMessages': '加载消息失败',
+  'chat.thinkingIteration': '思考中...({n})',
+  'chat.thinkingDots': '思考中...',
   'chat.approachingLimit': '接近使用限制',
   'chat.approachingLimitMsg': '你已使用了可用配额的{pct}%。',
   'chat.upgrade': '升级',

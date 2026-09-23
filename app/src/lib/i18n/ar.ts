@@ -2274,6 +2274,8 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': 'محادثة جديدة (/new)',
   'chat.new': 'جديد',
   'chat.failedToLoadMessages': 'فشل تحميل الرسائل',
+  'chat.thinkingIteration': 'جارٍ التفكير... ({n})',
+  'chat.thinkingDots': 'جارٍ التفكير...',
   'chat.approachingLimit': 'الاقتراب من حد الاستخدام',
   'chat.approachingLimitMsg': 'لقد استخدمت {pct}% من حصتك المتاحة.',
   'chat.upgrade': 'الترقية',

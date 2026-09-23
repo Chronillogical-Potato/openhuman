@@ -2350,6 +2350,8 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': 'Новый чат (/new)',
   'chat.new': 'Новый',
   'chat.failedToLoadMessages': 'Не удалось загрузить сообщения',
+  'chat.thinkingIteration': 'Думаю... ({n})',
+  'chat.thinkingDots': 'Думаю...',
   'chat.approachingLimit': 'Лимит использования близко',
   'chat.approachingLimitMsg': 'Ты использовал {pct}% доступной квоты.',
   'chat.upgrade': 'Улучшить',
