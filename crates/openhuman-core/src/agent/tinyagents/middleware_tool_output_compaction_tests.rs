@@ -321,43 +321,6 @@ async fn a_tool_that_did_not_declare_summary_focus_keeps_the_argument() {
     assert_eq!(call.arguments, arguments);
 }
 
-/// A summary model that cannot even set up its call.
-struct UnpreparableSummarizer;
-
-impl PayloadSummarizer for UnpreparableSummarizer {
-    fn prepare(
-        &self,
-        _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-    ) -> anyhow::Result<crate::inference::tokenjuice::generate::PreparedGenerate> {
-        anyhow::bail!("no summary model resolved")
-    }
-}
-
-/// A result that qualified for a summary and did not get one says so, even
-/// when the failure is the host's and the module never ran the stage.
-#[tokio::test]
-async fn a_summary_that_could_not_be_prepared_is_disclosed() {
-    let mw = summarizer_mw(Arc::new(UnpreparableSummarizer));
-    let raw = "payload ".repeat(200);
-    let mut result = tool_result("test_tool", &raw);
-    let (outcome, requests) = with_module(mw.after_tool(
-        &mut ctx(),
-        &(),
-        &invocation("unprepared", "test_tool"),
-        &mut result,
-    ))
-    .await;
-    outcome.unwrap();
-
-    assert!(requests.iter().all(|r| r.context_token.is_none()));
-    assert!(
-        result_text(&result).starts_with(&crate::inference::tokenjuice::summary_failed_notice()),
-        "the raw payload must be disclosed as unsummarized: {:?}",
-        result_text(&result).chars().take(200).collect::<String>()
-    );
-    assert!(result_text(&result).ends_with(&raw));
-}
-
 /// With no thread, summary reuse and the breaker are scoped to the run, one
 /// scope for every result in it, rather than a fresh one per call.
 #[tokio::test]

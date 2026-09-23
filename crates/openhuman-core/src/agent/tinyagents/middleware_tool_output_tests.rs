@@ -113,7 +113,9 @@ async fn a_payload_that_needed_nothing_is_left_completely_alone() {
 #[tokio::test]
 async fn a_summary_model_that_cannot_prepare_leaves_the_payload_intact() {
     // A host misconfiguration (no parent turn to bind to) must never break
-    // the tool call; the module is simply not offered a summary call.
+    // the tool call; the module is simply not offered a summary call. The
+    // payload is untouched, and disclosed as unsummarized like any other
+    // failed summary, so the model does not re-run the tool for one.
     struct Unpreparable;
     impl PayloadSummarizer for Unpreparable {
         fn prepare(
@@ -138,7 +140,9 @@ async fn a_summary_model_that_cannot_prepare_leaves_the_payload_intact() {
     .0
     .expect("a summarizer error must never break the tool call");
 
-    assert_eq!(result_text(&result), "RAW-TOOL-OUTPUT");
+    let text = result_text(&result);
+    assert!(text.starts_with(&crate::inference::tokenjuice::summary_failed_notice()));
+    assert!(text.ends_with("RAW-TOOL-OUTPUT"));
 }
 
 #[tokio::test]
@@ -623,6 +627,7 @@ async fn a_tool_that_caps_itself_is_summarized_when_the_caller_gives_a_focus() {
     let stub = StubSummarizer::replying(Ok("focused".into()));
     let mut mw = summarizer_mw(stub.clone());
     mw.tool_policies = tool_policies;
+    mw.summary_focus_tools = ["terse".to_string()].into();
     let mut call = TaToolCall::new("terse-focus", "terse", json!({"summary_focus": "errors"}));
     let mut ctx = ctx();
     mw.before_tool(&mut ctx, &(), &mut call).await.unwrap();
