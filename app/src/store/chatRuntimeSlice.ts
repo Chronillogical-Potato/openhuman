@@ -24,6 +24,9 @@ import { resetUserScopedState } from './resetActions';
 
 const turnStateLog = debug('chatRuntime.turnState');
 
+/** How many turns settled this session keep a frozen trail per thread. */
+const SETTLED_TURNS_KEPT = 20;
+
 /**
  * Ordered item in the parent turn's processing transcript (narration /
  * thinking / tool-call pointer). Same shape as the persisted wire type; the
@@ -1461,6 +1464,7 @@ const chatRuntimeSlice = createSlice({
         };
         return;
       }
+      state.liveRequestIdByThread[threadId] = requestId;
       const existing = state.streamingAssistantByThread[threadId];
       const sameTurn = existing != null && existing.requestId === requestId;
       const carryContent = sameTurn ? existing.content : '';
@@ -2569,6 +2573,8 @@ export const {
   beginInferenceTurn,
   markInferenceTurnStreaming,
   endInferenceTurn,
+  liveTurnStarted,
+  turnSettled,
   clearRuntimeForThread,
   clearAllChatRuntime,
   recordChatTurnUsage,
