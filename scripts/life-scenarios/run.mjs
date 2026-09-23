@@ -322,7 +322,14 @@ class Core {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async start({ actionDir, logPath, home, composioBase, approvals }) {
+  async start({
+    actionDir,
+    logPath,
+    home,
+    composioBase,
+    searchBase,
+    approvals,
+  }) {
     this.port = await freePort();
     const log = fs.createWriteStream(logPath, { flags: "a" });
 
@@ -349,6 +356,18 @@ class Core {
     };
     if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
     if (process.env.BACKEND_URL) env.BACKEND_URL = process.env.BACKEND_URL;
+    // The backend base, for `web_search_tool`'s POST to
+    // `/agent-integrations/parallel/search`. Set as an env var and not only as
+    // `api_url` in `config.toml`, because the config file loses a race it is
+    // easy to miss: `auth.set_credential` activates a per-user config dir
+    // (`users/<id>/config.toml`) whose id the core derives at runtime, and a
+    // config written there takes precedence over the root one. `prepareHome`
+    // cannot know that id, so it writes `users/local/` — the core activates
+    // `users/local-dragonfly/`, finds no `api_url`, and falls back to the
+    // hosted backend. `api_base_from_env` reads `BACKEND_URL` ahead of the
+    // compile-time default and is consulted whichever config wins, so this is
+    // the override that actually holds.
+    if (searchBase) env.BACKEND_URL = searchBase;
     if (composioBase) {
       // Both are read by `integrations/composio/client/factory.rs`; the match
       // arm is `(Some, Some)`, so setting only one silently falls through to
@@ -1075,6 +1094,7 @@ async function main() {
     logPath: path.join(runDir, "core.log"),
     home,
     composioBase: composio ? composio.url : "",
+    searchBase: search ? search.url : "",
     approvals: opts.approvals,
   });
   console.log(
