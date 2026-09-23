@@ -30,17 +30,17 @@ Requires a built core (`cargo build --manifest-path Cargo.toml -p openhuman-cli
 The default `--driver desktop` drives the core the way the Tauri composer
 does, with the UI removed and nothing else changed:
 
-| desktop app                                  | here                           |
-| -------------------------------------------- | ------------------------------ |
-| Tauri spawns the core as a tokio task        | spawn `openhuman-core serve`   |
-| composer calls `openhuman.channel_web_chat`  | same RPC, same params          |
-| reply streams over Socket.IO                 | same events over `GET /events` |
-| orchestrator agent, every tool pack withheld | same — no custom definition    |
-| approval gate ON, a human clicks Approve     | gate ON, a responder approves  |
-| BYOK set in Settings → Models                | `config.update_model_settings` |
-| signed-in session                            | offline local session          |
+| desktop app | here |
+| --- | --- |
+| Tauri spawns the core as a tokio task | spawn `openhuman-core serve` |
+| composer calls `openhuman.channel_web_chat` | same RPC, same params |
+| reply streams over Socket.IO | same events over `GET /events` |
+| orchestrator agent, every tool pack withheld | same — no custom definition |
+| approval gate ON, a human clicks Approve | gate ON, a responder approves |
+| BYOK set in Settings → Models | `config.update_model_settings` |
+| signed-in session | offline local session |
 
-Three things are deliberately _not_ the app, and each buys reproducibility:
+Three things are deliberately *not* the app, and each buys reproducibility:
 
 - **Its own `HOME`.** `default_root_openhuman_dir` resolves `<home>/.openhuman`,
   so config, keyring, auth profiles, workspace and session db all land in the
@@ -74,14 +74,14 @@ action directory. Outputs are expected under `out/`.
 
 ### Mock Composio
 
-Scenarios 1, 2 and 5 are _about_ mail and calendar. Stubbing those out would
+Scenarios 1, 2 and 5 are *about* mail and calendar. Stubbing those out would
 benchmark the wrong thing, and the real Composio needs live consumer accounts,
 costs quota and is not reproducible. So `mock-composio.mjs` serves Composio's
 wire shape over the same fixtures the file tools see: `GMAIL_FETCH_EMAILS`
 returns the fixture mailbox in Gmail's message shape,
 `GOOGLECALENDAR_EVENTS_LIST` returns the fixture calendar in Google's event
 shape, and the write actions (`GMAIL_SEND_EMAIL`, `GOOGLECALENDAR_UPDATE_EVENT`)
-record what the agent _tried_ to do into `composio-outbox.json` instead of
+record what the agent *tried* to do into `composio-outbox.json` instead of
 doing it — so a grader can assert on the attempt.
 
 Wiring it up needs three things together, and two of them are easy to miss:
@@ -103,37 +103,51 @@ query against a paid provider and bills the caller's team. This run has no
 session to spend — inference is BYOK and the credential is an offline local
 token — so every call came back `SESSION_EXPIRED … 401 Invalid token`.
 
-The tool was advertised anyway, so the model spent calls discovering it was
-dead and then routed around it by hand. In the 2026-09-23 run `baggage-policy`
-burned two calls on the 401s, improvised a DuckDuckGo HTML scrape, guessed
-delta.com paths and collected four 404s — then hit the 15-call cap with the
-answer assembled and the requested file unwritten, scoring 0/1. That is a
-defect in the rig: it offers a capability its own configuration cannot serve.
+The tool was advertised anyway, so the model spent calls discovering it was dead
+and then routed around it by hand. In the 2026-09-23 run `baggage-policy` burned
+two calls on the 401s, improvised a DuckDuckGo HTML scrape, guessed delta.com
+paths and collected four 404s — then hit the 15-call cap with the answer
+assembled and the requested file unwritten, scoring 0/1. Offering a capability
+the run's own configuration cannot serve is a defect in the rig.
 
-`mock-search.mjs` fixes it by **mocking discovery, not retrieval**. It ranks
-the fixture corpus in `fixtures/search-index.json` and returns _real, live_
-URLs; the agent still fetches every page over the network with `web_fetch` and
-still has to read what the page actually says. So `baggage-policy`'s
-`cites_delta_com` and `states_carryon_dimensions` checks stay honest — what is
-gone is the search engine the run cannot pay for, not the comprehension being
-measured. Excerpts in the fixture stop short of the numbers the graders assert
-on, so an agent that answers from the excerpt alone still fails.
+`mock-search.mjs` fixes it by **mocking discovery, not retrieval**. It ranks the
+fixture corpus in `fixtures/search-index.json` and returns *real, live* URLs; the
+agent still fetches every page over the network with `web_fetch` and still has to
+read what the page says. So `baggage-policy`'s `cites_delta_com` and
+`states_carryon_dimensions` checks stay honest — what is gone is the search
+engine the run cannot pay for, not the comprehension being measured. Excerpts in
+the fixture stop short of the numbers the graders assert on, so an agent that
+answers from the excerpt alone still fails.
 
 Ranking is deliberately crude (weighted term overlap over keywords, title, URL
 and excerpt). A query the corpus does not cover returns **nothing** rather than
-the least-bad rows: a confidently wrong result set is worse for the agent than
-an empty one, because it spends fetches on it.
+the least-bad rows: a confidently wrong result set is worse for the agent than an
+empty one, because it spends fetches on it.
 
-It takes over the whole backend base — `api_url` points at it — because that is
-the single base every backend caller resolves through
-(`api::config::effective_backend_api_url`). Loopback on an ephemeral port is
-what makes that work: `looks_like_local_ai_endpoint` treats loopback as an
-inference signal only when paired with an LLM-ish port or path, so a bare
-`http://127.0.0.1:<random>` is passed through as a backend override. The other
-backend calls the run cannot authenticate (`/teams/me/usage`, the Composio
-toolkit list) get benign stubs, so the log shows the run's own behaviour rather
-than one fixed auth failure repeated every turn. Composio is untouched: it is
-redirected separately over `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*`.
+Three things were easy to get wrong, and all three cost a run:
+
+1. **It has to take over the whole backend base.** `api_url` is the single base
+   every backend caller resolves through (`api::config::effective_backend_api_url`).
+   Loopback on an ephemeral port is what makes that work:
+   `looks_like_local_ai_endpoint` treats loopback as an inference signal only
+   when paired with an LLM-ish port or path, so a bare `http://127.0.0.1:<random>`
+   passes through as a backend override.
+2. **`api_url` in `config.toml` is not enough.** `auth.set_credential` activates
+   a per-user config dir whose id the core derives at runtime; `prepareHome`
+   writes `users/local/`, the core activates `users/local-dragonfly/`, finds no
+   `api_url` there and falls back to the hosted backend. The override that
+   actually holds is `BACKEND_URL`, which `api_base_from_env` reads whichever
+   config wins.
+3. **Every response needs the `{ success, data }` envelope.**
+   `integrations/client/errors.rs::parse_envelope` unwraps it. A bare payload
+   fails as `missing field 'success'` — and fails late enough to read as a
+   broken tool rather than an empty result, so the agent abandons the task. It
+   did exactly that, six times in a row.
+
+The other backend calls the run cannot authenticate (`/teams/me/usage`, the
+Composio toolkit list) get benign stubs, so the log shows the run's own
+behaviour rather than one fixed auth failure repeated every turn. Composio is
+untouched: it is redirected separately over `OPENHUMAN_COMPOSIO_DIRECT_BASE_V*`.
 
 `--no-mock-search` opts out and dials the hosted backend.
 
@@ -167,7 +181,7 @@ grader checks facts that are only derivable from the fixtures:
 - `calendar-buffer` — exactly three gaps under 15 minutes exist (`ev-02` at 0
   min, `ev-05` at 0, `ev-06` at **10** — the one that catches a model matching
   on "back-to-back" rather than "under fifteen"), and `ev-07` is a solo focus
-  block that must _not_ be flagged.
+  block that must *not* be flagged.
 - `subscription-scan` — four real subscriptions among a one-off order, a
   usage-based utility bill, a phishing mail and a bank alert that duplicates a
   receipt already counted. Only StreamFlix rose in price (13.99 → 15.99).
@@ -175,7 +189,7 @@ grader checks facts that are only derivable from the fixtures:
   `delta.com` URLs, so a model answering from memory is detectable.
 - `meal-plan` — five days, prep under 30 minutes, no duplicate grocery lines,
   and spinach/feta/olive oil each reused across at least two dinners.
-- `trip-itinerary` — facts that exist _only_ inside the binary PDF (hotel name,
+- `trip-itinerary` — facts that exist *only* inside the binary PDF (hotel name,
   address, phone), plus the flight code from the mail, plus a live weather
   source. 14 October is spent in the air and must not be scheduled.
 - `fact-check-publish` — one asset referenced by the draft is missing from
