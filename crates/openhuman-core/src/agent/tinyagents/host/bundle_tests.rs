@@ -24,6 +24,7 @@ fn inputs() -> (OpenHumanHostBundleInputs, OpenHumanRunContext) {
             tool_policy: None,
             memory,
             post_turn_hooks: Vec::new(),
+            session_definition: None,
         },
         turn,
     )
