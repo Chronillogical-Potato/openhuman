@@ -624,6 +624,9 @@ impl EventListener for OpenhumanEventBridge {
                         elapsed_ms,
                         iteration,
                         failure,
+                        display_label,
+                        display_detail,
+                        structured,
                     }),
                 }
             }
