@@ -854,6 +854,8 @@ const initialState: ChatRuntimeState = {
   toolTimelineSeqByThread: {},
   turnTimelinesByThread: {},
   turnTranscriptsByThread: {},
+  settledTurnsByThread: {},
+  liveRequestIdByThread: {},
   interruptedAssistantByThread: {},
   processingByThread: {},
   inferenceTurnLifecycleByThread: {},
