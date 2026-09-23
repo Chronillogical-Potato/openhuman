@@ -348,6 +348,19 @@ impl TurnContextMiddleware {
             tool_result_budget_bytes: DEFAULT_TOOL_RESULT_BUDGET_BYTES,
             payload_summarizer: None,
             task_hint: None,
+            // Deliberately `None` on the channel / sub-agent path (#6408).
+            //
+            // This constructor has no session context, so it has no
+            // `action_dir` to root the store at. Handing it any other directory
+            // would write artifacts the model cannot read back:
+            // `artifact_read_target` only recognises a `file_read` under the
+            // action workspace's `artifacts/tool-results/…`, so an artifact
+            // written elsewhere yields a pointer that resolves to nothing —
+            // strictly worse than the inline truncation it replaced, which at
+            // least returns the head. Sub-agent turns therefore keep today's
+            // truncation until a real `action_dir` is threaded through here.
+            // Tracked as #6483 — delegated turns are where oversized results are
+            // most likely, so this gap is not cosmetic.
             artifact_store: None,
             tokenjuice_compaction_enabled: false,
             tokenjuice_compression: AgentTokenjuiceCompression::Off,

@@ -73,6 +73,8 @@ import {
   SquareIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
+  Volume2Icon,
+  VolumeXIcon,
 } from 'lucide-react';
 import {
   type ComponentType,
@@ -1227,6 +1229,31 @@ const AssistantActionBar: FC = () => {
           <ThumbsDownIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.FeedbackNegative>
+      {/*
+       * Read aloud, through the same TTS the chat mascot uses. Gated on the
+       * capability rather than rendered unconditionally: `actionBarSpeakDisabled`
+       * checks only the message's role and running status, NOT
+       * `capabilities.speech`, so an ungated Speak button on a runtime with no
+       * `adapters.speech` is enabled, clickable, and throws. The gate makes the
+       * control appear exactly when it can work — the same rule `UserActionBar`
+       * applies to Edit (#5897).
+       */}
+      <AuiIf condition={s => s.thread.capabilities.speech}>
+        <AuiIf condition={s => s.message.speech == null}>
+          <ActionBarPrimitive.Speak asChild>
+            <TooltipIconButton tooltip="Read aloud">
+              <Volume2Icon />
+            </TooltipIconButton>
+          </ActionBarPrimitive.Speak>
+        </AuiIf>
+        <AuiIf condition={s => s.message.speech != null}>
+          <ActionBarPrimitive.StopSpeaking asChild>
+            <TooltipIconButton tooltip="Stop reading">
+              <VolumeXIcon className="text-destructive" />
+            </TooltipIconButton>
+          </ActionBarPrimitive.StopSpeaking>
+        </AuiIf>
+      </AuiIf>
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
           <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">

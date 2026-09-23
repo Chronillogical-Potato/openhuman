@@ -18,14 +18,19 @@ const LEGACY_LIMITS = new Map([
   // These orchestration files crossed the general limit in the already-merged
   // runtime compatibility work. Pin their exact post-merge sizes so follow-up
   // changes cannot grow them while they are split along semantic seams.
+  // 847 -> 821: the argument prologue moved to
+  // `spawn_async_subagent_args.rs`. Pinned at its exact new size, so the
+  // 26 lines recovered cannot be spent again. Still exempt because the rest of
+  // that function's phases close over locals whose types are not nameable from
+  // this module (see that fragment's header); taking it under 750 needs a
+  // visibility change in `subagent_sessions`, which is follow-up, not this PR.
   [
     "crates/openhuman-core/src/agent/orchestration/tools/spawn_async_subagent_execute.rs",
-    847,
+    821,
   ],
-  [
-    "crates/openhuman-core/src/agent/orchestration/tools/spawn_subagent_tool_impl.rs",
-    803,
-  ],
+  // `spawn_subagent_tool_impl.rs` had its entry DELETED, not lowered: the
+  // parameter schema moved to `spawn_subagent_parameters.rs` and the file is
+  // 740 lines, under the general 750 limit, so it needs no exception at all.
   ["crates/openhuman-core/src/agent/multimodal.rs", 772],
   // The session-todo integration added transcript metadata construction to
   // this already-exempt composition seam. Keep its allowance exact.
