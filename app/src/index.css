@@ -545,6 +545,34 @@
 
 /* Utility layer - Custom utilities */
 
+/* Text shimmer for live labels ("Thinking…" on the reasoning panel, running
+   tool groups). The assistant-ui registry components call `shimmer` from the
+   `tw-shimmer` plugin; this app never installed it, so the class used to be a
+   silent no-op and a streaming trace looked identical to a settled one. A
+   light band sweeps across muted text via background-clip, reusing the
+   `shimmer` keyframes above. Guarded by `src/__tests__/shimmerUtility.test.ts`. */
+@utility shimmer {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 0%,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 65%,
+    var(--color-muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: var(--animate-shimmer);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    color: var(--color-muted-foreground);
+    background-image: none;
+  }
+}
+
 @utility scrollbar-hide {
   /* NOTE: a `.scrollbar-thin` utility used to live here. It had zero call
      sites, and being in `@layer utilities` it outranked the base-layer
