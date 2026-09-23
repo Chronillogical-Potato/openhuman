@@ -121,14 +121,14 @@ async fn config_with_provider(tmp: &TempDir, endpoint: &str) -> Config {
     };
     config.cloud_providers = vec![CloudProviderCreds {
         id: "local-recorder".into(),
-        slug: "lmstudio".into(),
+        slug: "custom".into(),
         label: "Recorder".into(),
-        endpoint: endpoint.into(),
+        endpoint: format!("{endpoint}/v1"),
         auth_style: AuthStyle::None,
         ..Default::default()
     }];
-    config.default_model = Some("lmstudio:local-model".into());
-    config.chat_provider = Some("lmstudio:local-model".into());
+    config.default_model = Some("custom:local-model".into());
+    config.chat_provider = Some("custom:local-model".into());
     config
 }
 
