@@ -82,6 +82,7 @@ import {
   type FC,
   type PropsWithChildren,
   type RefObject,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -326,9 +327,14 @@ const ThreadRoot: FC<{
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
+  // Everything the viewport scrolls over, which is MORE than the message group:
+  // the footer below it holds the follow-up suggestions, and those appear when
+  // a reply finishes. Observing only the messages misses that growth and leaves
+  // the transcript stranded short of the bottom at the end of every turn.
+  const scrollContentRef = useRef<HTMLDivElement>(null);
 
-  useFollowBottom(viewportRef, messageGroupRef);
-  useOpenThreadAtBottom(viewportRef);
+  const { claimScroll } = useFollowBottom(viewportRef, scrollContentRef);
+  useOpenThreadAtBottom(viewportRef, claimScroll);
 
   return (
     <ThreadPrimitive.Root
@@ -349,6 +355,7 @@ const ThreadRoot: FC<{
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth">
         <div
+          ref={scrollContentRef}
           className={cn(
             'mx-auto flex w-full max-w-(--thread-max-width) flex-1 flex-col px-4 pt-4',
             isEmpty && 'justify-center'
@@ -376,7 +383,11 @@ const ThreadRoot: FC<{
             <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
             <RunningStatusSlot />
           </div>
-          <ThreadBottomFollower viewportRef={viewportRef} contentRef={messageGroupRef} />
+          <ThreadBottomFollower
+            viewportRef={viewportRef}
+            contentRef={messageGroupRef}
+            claimScroll={claimScroll}
+          />
 
           <ThreadPrimitive.ViewportFooter
             className={cn(
@@ -446,7 +457,10 @@ const ThreadRoot: FC<{
  * `viewportRef.current === null` on the mount that matters and would burn the
  * latch without scrolling.
  */
-function useOpenThreadAtBottom(viewportRef: RefObject<HTMLDivElement | null>) {
+function useOpenThreadAtBottom(
+  viewportRef: RefObject<HTMLDivElement | null>,
+  claimScroll: () => void
+) {
   const hasMessages = useAuiState(s => s.thread.messages.length > 0);
   const threadId = useAuiThreadId();
   // Which thread this viewport has already been dropped to the bottom for.
@@ -469,7 +483,14 @@ function useOpenThreadAtBottom(viewportRef: RefObject<HTMLDivElement | null>) {
     // opening a thread should start at the bottom, not animate down through the
     // entire history to get there.
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
-  }, [hasMessages, threadId, viewportRef]);
+    // Re-arm following for the NEW thread. `followRef` lives as long as this
+    // viewport, which outlives any one thread, so without this a reader who
+    // scrolled up in thread A carries that `false` into thread B — and if both
+    // threads sit at the same `scrollTop` (0 and 0 is the easy case) the open
+    // scroll produces no `scroll` event to re-enable it, so B never follows its
+    // own reply. Opening a thread is not a reader scrolling away from it.
+    claimScroll();
+  }, [claimScroll, hasMessages, threadId, viewportRef]);
 }
 
 const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
@@ -522,6 +543,29 @@ function useFollowBottom(
   // Starts true so a thread opens following; the first user scroll away from
   // the bottom is what turns it off.
   const followRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+  // `scrollHeight` as it stood when we last claimed a scroll. Growth up to this
+  // mark is growth we already knew about; only growth BEYOND it is new content
+  // worth following. `null` means no claim is outstanding.
+  const claimedHeightRef = useRef<number | null>(null);
+
+  /**
+   * Declare a scroll as OURS, after performing it.
+   *
+   * Setting `followRef` alone is not enough and was the first thing I tried.
+   * A programmatic scroll is synchronous but its `scroll` event is not, so the
+   * listener runs AFTER the caller has re-armed the flag, sees a `scrollTop`
+   * lower than the stale baseline, and clears it again. Re-baselining here —
+   * while `scrollTop` already holds the post-scroll value — is what makes the
+   * later event a no-op instead.
+   */
+  const claimScroll = useCallback(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    lastScrollTopRef.current = viewport.scrollTop;
+    claimedHeightRef.current = viewport.scrollHeight;
+    followRef.current = true;
+  }, [viewportRef]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -549,15 +593,15 @@ function useFollowBottom(
     // event, so the reader's scroll away would be ignored and they would be
     // dragged back down — breaking the "never yank a reader who left the
     // bottom" contract. Keying on `scrollTop` alone holds in both cases.
-    let lastScrollTop = viewport.scrollTop;
+    lastScrollTopRef.current = viewport.scrollTop;
 
     const onScroll = () => {
       if (distanceFromBottom() <= FOLLOW_BOTTOM_THRESHOLD_PX) {
         followRef.current = true;
-      } else if (viewport.scrollTop < lastScrollTop) {
+      } else if (viewport.scrollTop < lastScrollTopRef.current) {
         followRef.current = false;
       }
-      lastScrollTop = viewport.scrollTop;
+      lastScrollTopRef.current = viewport.scrollTop;
     };
     viewport.addEventListener('scroll', onScroll, { passive: true });
 
@@ -575,6 +619,24 @@ function useFollowBottom(
       // genuine upward move by the reader — see the note there for why a bare
       // proximity test would clear it on the growth being reacted to.
       if (!followRef.current) return;
+      // Do not follow the growth that PROMPTED the claim.
+      //
+      // A new user message grows the content box, which queues a resize
+      // notification; `ThreadBottomFollower` then aligns that message to the
+      // top and claims the scroll. The queued callback runs afterwards, and
+      // following it would scroll straight to the bottom — erasing the
+      // alignment before it is ever painted, which makes the alignment
+      // pointless rather than merely short-lived.
+      //
+      // So a claim records the height it was made at, and growth up to that
+      // mark is ignored. The first growth BEYOND it is the reply arriving,
+      // which is what following is for; the mark is then dropped so the rest
+      // of the turn streams normally.
+      const claimedHeight = claimedHeightRef.current;
+      if (claimedHeight !== null) {
+        if (viewport.scrollHeight <= claimedHeight) return;
+        claimedHeightRef.current = null;
+      }
       // `instant` overrides the viewport's `scroll-smooth`: a smooth animation
       // per token would lag permanently behind the stream.
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
@@ -587,7 +649,7 @@ function useFollowBottom(
     };
   }, [contentRef, viewportRef]);
 
-  return followRef;
+  return { followRef, claimScroll };
 }
 
 /**
@@ -598,7 +660,8 @@ function useFollowBottom(
 const ThreadBottomFollower: FC<{
   viewportRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
-}> = ({ viewportRef, contentRef }) => {
+  claimScroll: () => void;
+}> = ({ viewportRef, contentRef, claimScroll }) => {
   const latestMessage = useAuiState(s => s.thread.messages.at(-1));
 
   useLayoutEffect(() => {
@@ -610,8 +673,26 @@ const ThreadBottomFollower: FC<{
       return;
     }
     const userMessages = contentRef.current?.querySelectorAll<HTMLElement>('[data-role="user"]');
-    userMessages?.item(userMessages.length - 1)?.scrollIntoView({ block: 'start' });
-  }, [contentRef, latestMessage?.id, latestMessage?.role, viewportRef]);
+    // `behavior: 'instant'`, like the other two scrolls in this file, and for a
+    // second reason beyond overriding `scroll-smooth`: `claimScroll` below
+    // re-baselines from `viewport.scrollTop`, which is only correct if the move
+    // has already happened. A smooth alignment has NOT moved it by the time the
+    // next line runs, so the baseline would capture the pre-scroll position and
+    // the animation's own scroll events — a run of decreasing `scrollTop` —
+    // would read as the reader scrolling away, clearing the flag exactly when
+    // the reply starts. That failed intermittently rather than always, since a
+    // growth event landing between animation frames could re-arm it.
+    userMessages
+      ?.item(userMessages.length - 1)
+      ?.scrollIntoView({ block: 'start', behavior: 'instant' });
+    // This alignment scrolls UP whenever the reader was at the bottom — the new
+    // user message sits above the trailing `mb-14` and running-status slot, so
+    // bringing its top to the viewport top lowers `scrollTop`. To
+    // `useFollowBottom`'s listener that is indistinguishable from the reader
+    // scrolling away, and it would clear the follow flag at the exact moment
+    // the reply starts arriving. Re-arm: this scroll is ours, not theirs.
+    claimScroll();
+  }, [claimScroll, contentRef, latestMessage?.id, latestMessage?.role, viewportRef]);
 
   return null;
 };

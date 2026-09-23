@@ -141,6 +141,23 @@ test.describe('Chat Harness - Scroll Render', () => {
     await expect(page.getByText(CANARY_BOLD)).toBeVisible({ timeout: 40_000 });
     await expect(page.getByText(CANARY_CODE)).toBeVisible({ timeout: 20_000 });
 
+    // Assert the FIXTURE arrived, not just its last chunk.
+    //
+    // The canaries live in the markdown, which the mock streams AFTER the 120
+    // filler lines — so their presence looks like proof the whole reply landed.
+    // It is not. Measured on a failing run: `canary: true`, 2 messages, and a
+    // total `scrollHeight` of 960px against a 696px viewport. 120 lines cannot
+    // fit in 264px of overflow, so the filler had not streamed; the transcript
+    // was a different, barely-overflowing fixture and every scroll assertion
+    // below was measuring the wrong thing.
+    //
+    // Without this the run fails as "the transcript must settle at the bottom",
+    // which points at the scroll code and is the wrong place to look.
+    await expect(
+      page.getByText(FILLER_LINES[FILLER_LINES.length - 1], { exact: false }).last(),
+      'the filler lines must stream before any scroll measurement — see note above'
+    ).toBeVisible({ timeout: 20_000 });
+
     const tags = await page.evaluate(() => {
       const column = document.querySelector(
         '[data-slot="aui_thread-viewport"]'
