@@ -1118,10 +1118,13 @@ pub(crate) fn spawn_progress_bridge(
                     success,
                     output_chars,
                     output,
+                    arguments,
                     elapsed_ms,
                     iteration,
                     failure,
-                    ..
+                    display_label,
+                    display_detail,
+                    structured,
                 } => {
                     // Serialize the classified failure (if any) so a failed
                     // sub-agent tool row carries its "why + next" copy on the
