@@ -352,6 +352,37 @@ and `served_by` drift breaks the prefix cache), which is why the repo ships
 `scripts/debug/capture-first-inference.mjs` — its `cache_key` / `served_by`
 lines are the right next instrument here.
 
+### The collapses are gone, and that is a measurement artefact worth naming
+
+Same six scenarios after the finding-1 fixes
+(run `2026-09-23T11-25-37-650Z`):
+
+| scenario | input | cached | cost |
+| --- | --- | --- | --- |
+| calendar-buffer | 77.0k | 81.1% | $0.3028 |
+| subscription-scan | 47.9k | **90.4%** | $0.0466 |
+| baggage-policy | 491.9k | 71.0% | $0.7671 |
+| meal-plan | 63.2k | 89.9% | $0.2254 |
+| trip-itinerary | 1,572.0k | **64.4%** | $1.9648 |
+| fact-check-publish | 220.2k | 80.1% | $0.3709 |
+| **total** | 2,472.2k | **68.8%** | **$3.6776** |
+
+No 0% rows, and the floor is 64.4% against an overall 31.5% before. **Do not
+read that as the caching bug being fixed** — nothing here touched inference
+routing. The honest reading is that the baseline was measuring something else:
+those turns were one or two model calls long (0 tool calls, ~5.7k input), so a
+single cold call *was* the whole scenario and one `served_by` miss showed up as
+0%. These turns are 6–31 tool calls over 48k–1.6M input tokens, so a cold first
+call is amortised across many warm ones and the per-scenario number is dominated
+by the steady state.
+
+What that does establish is the steady state itself, which the baseline could
+not: the prefix cache **does** hold across the turns of one thread, at 64–90%.
+The open question from this finding is unchanged and still needs the capture
+proxy — whether `cache_key` stays identical and `served_by` stops drifting
+*within* a thread. The first call of each scenario is still cold, and at these
+prompt sizes that is now the expensive part.
+
 ---
 
 ## 9. A turn with no hosted session retries a failing backend call ~3× per turn
