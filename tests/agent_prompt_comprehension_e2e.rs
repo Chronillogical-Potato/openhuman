@@ -957,9 +957,7 @@ fn scheduler_agent_owns_the_cron_surface() {
 fn summarizer_advertises_no_tools() {
     run_case(Case {
         agent: "summarizer",
-        // The summarizer's prompt is TinyJuice's summary contract, verbatim
-        // (`tinyjuice::summarize::SYSTEM_PROMPT`, vendor/tinyjuice/src/summarize/prompt.md).
-        agent_marker: "You compress a single oversized tool result",
+        agent_marker: "# Summarizer Agent",
         entry: Entry::WebChat,
         user_message: "What is the state of my workspace?",
         scripted_completions: vec![
