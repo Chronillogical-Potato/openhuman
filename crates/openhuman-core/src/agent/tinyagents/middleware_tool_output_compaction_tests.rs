@@ -309,3 +309,70 @@ async fn the_summarized_size_leads_the_content_for_an_uncapped_tool() {
         result_text(&result).chars().take(160).collect::<String>()
     );
 }
+
+/// `summary_focus` belongs to TinyJuice only on a tool that declared it. Any
+/// other tool with a parameter of that name (an MCP server's) keeps its value.
+#[tokio::test]
+async fn a_tool_that_did_not_declare_summary_focus_keeps_the_argument() {
+    let mw = summarizer_mw(StubSummarizer::replying(Ok("note".into())));
+    let arguments = json!({"query": "q", "summary_focus": "its own meaning"});
+    let mut call = TaToolCall::new("mcp-1", "mcp_search", arguments.clone());
+    mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+    assert_eq!(call.arguments, arguments);
+}
+
+/// A summary model that cannot even set up its call.
+struct UnpreparableSummarizer;
+
+impl PayloadSummarizer for UnpreparableSummarizer {
+    fn prepare(
+        &self,
+        _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+    ) -> anyhow::Result<crate::inference::tokenjuice::generate::PreparedGenerate> {
+        anyhow::bail!("no summary model resolved")
+    }
+}
+
+/// A result that qualified for a summary and did not get one says so, even
+/// when the failure is the host's and the module never ran the stage.
+#[tokio::test]
+async fn a_summary_that_could_not_be_prepared_is_disclosed() {
+    let mw = summarizer_mw(Arc::new(UnpreparableSummarizer));
+    let raw = "payload ".repeat(200);
+    let mut result = tool_result("test_tool", &raw);
+    let (outcome, requests) = with_module(mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("unprepared", "test_tool"),
+        &mut result,
+    ))
+    .await;
+    outcome.unwrap();
+
+    assert!(requests.iter().all(|r| r.context_token.is_none()));
+    assert!(
+        result_text(&result).starts_with(&crate::inference::tokenjuice::summary_failed_notice()),
+        "the raw payload must be disclosed as unsummarized: {:?}",
+        result_text(&result).chars().take(200).collect::<String>()
+    );
+    assert!(result_text(&result).ends_with(&raw));
+}
+
+/// With no thread, summary reuse and the breaker are scoped to the run, one
+/// scope for every result in it, rather than a fresh one per call.
+#[tokio::test]
+async fn a_run_without_a_thread_keeps_one_scope() {
+    let mut ctx = ctx();
+    assert!(ctx.data.thread_id.is_none());
+    let mut scopes = Vec::new();
+    for id in ["first", "second"] {
+        let mw = summarizer_mw(StubSummarizer::replying(Ok("note".into())));
+        let mut result = tool_result("test_tool", &"payload ".repeat(200));
+        let (_, requests) =
+            with_module(mw.after_tool(&mut ctx, &(), &invocation(id, "test_tool"), &mut result))
+                .await;
+        scopes.push(requests[0].scope.clone());
+    }
+    assert_eq!(scopes[0], Some(format!("run-{}", ctx.instance_id())));
+    assert_eq!(scopes[0], scopes[1]);
+}

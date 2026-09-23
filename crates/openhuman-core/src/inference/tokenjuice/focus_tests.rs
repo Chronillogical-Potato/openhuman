@@ -37,3 +37,14 @@ fn the_property_is_an_optional_string() {
         .unwrap()
         .contains("summarized"));
 }
+
+#[test]
+fn only_the_shared_property_counts_as_declaring_the_focus() {
+    let declared = json!({ "properties": { "url": {}, "summary_focus": summary_focus_property() } });
+    assert!(declares_summary_focus(&declared));
+
+    let own_parameter = json!({ "properties": { "summary_focus": { "type": "integer" } } });
+    assert!(!declares_summary_focus(&own_parameter));
+    assert!(!declares_summary_focus(&json!({ "properties": { "url": {} } })));
+    assert!(!declares_summary_focus(&json!({})));
+}
