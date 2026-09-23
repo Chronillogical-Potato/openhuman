@@ -547,55 +547,6 @@ jobs:
         # smoke lane from silently under-covering as the gate surface grows.
         run: bash scripts/ci/check-gated-test-allowlist.sh
 
-  # Report-only (#5046). Measures steady-state RSS of an embedded openhuman_core
-  # agent roster and uploads the raw samples + a human summary. Deliberately NOT
-  # in `pr-ci-gate.needs`, so it can never fail a PR — it exists to accrue a
-  # baseline and its runner variance before the 30 MiB gate is flipped to
-  # blocking in a follow-up (add this job to pr-ci-gate + a threshold step then).
-  rust-rss-bench:
-    name: Rust RSS Benchmark (report-only)
-    needs: [changes]
-    if: needs.changes.outputs['rust-core'] == 'true'
-    runs-on: ubuntu-22.04
-    timeout-minutes: 40
-    container:
-      image: ghcr.io/tinyhumansai/openhuman_ci:latest
-    env:
-      CARGO_INCREMENTAL: "0"
-      RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-          submodules: recursive
-
-      - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            . -> target
-          cache-on-failure: true
-          shared-key: pr-rust-rss-bench
-
-      # Fixture-contract signal: the gated bin's unit tests (build_roster,
-      # warm-up turn) never enter the default coverage lane, so run them here.
-      - name: Run rss-bench fixture tests
-        run: bash scripts/ci-cancel-aware.sh cargo test --features rss-bench --bin rss-bench
-
-      - name: Build stripped-release rss-bench
-        run: bash scripts/ci-cancel-aware.sh cargo build --release --features rss-bench --bin rss-bench
-
-      - name: Measure embedded RSS (5 fresh procs x {1,8} agents)
-        run: ./target/release/rss-bench --out bench-rss.json | tee -a "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload raw RSS samples
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: rss-bench-report
-          path: bench-rss.json
-
   rust-core-coverage:
     name: Rust Core Coverage (cargo-llvm-cov)
     needs: [changes, rust-quality]

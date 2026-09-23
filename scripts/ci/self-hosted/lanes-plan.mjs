@@ -333,13 +333,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "bash scripts/check-prompt-budget.sh --verbose",
         },
         ...(ex63 ? [juiceRegression] : []),
-        // Report-only in ci-lite (never in the gate), so report-only here.
-        {
-          name: "rss-bench-fixture-tests",
-          when: core,
-          reportOnly: true,
-          run: "cargo test --features rss-bench --bin rss-bench",
-        },
       ],
     },
     {
@@ -433,30 +426,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       ],
     },
   ];
-
-  if (ex63) {
-    // Report-only: ci-lite never gates on it. The release build is the most
-    // expensive compile here, so it yields the CPU to the gating lanes.
-    lanes.push({
-      name: "bench",
-      // Compiles the core crate: holds one of the VM's heavy-compile slots
-      // (lanes.mjs). Lower number = served first.
-      heavy: 9,
-      targetDir: targetDir("bench"),
-      env: { ...rustEnv, ...sccache },
-      nice: 10,
-      checks: [
-        {
-          name: "rss-bench",
-          when: core,
-          reportOnly: true,
-          run:
-            "cargo build --release --features rss-bench --bin rss-bench" +
-            ` && "${targetDir("bench")}/release/rss-bench" --out ci-out/bench-rss.json`,
-        },
-      ],
-    });
-  }
 
   for (const lane of lanes) {
     lane.checks = lane.checks.map((c) => ({

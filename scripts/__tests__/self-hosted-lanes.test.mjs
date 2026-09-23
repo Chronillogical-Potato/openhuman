@@ -118,7 +118,6 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
     "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
     "cargo test -p openhuman-tinyhumans",
     "bash scripts/check-prompt-budget.sh --verbose",
-    "cargo test --features rss-bench --bin rss-bench",
     "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
     "bash scripts/check-kernel-floor.sh --verbose",
     "bash scripts/ci/check-dep-sim-calibration.sh",

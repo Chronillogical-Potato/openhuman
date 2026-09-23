@@ -124,10 +124,6 @@ jobs:
         if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'pester') }}
         run: node scripts/ci/self-hosted/lanes.mjs --wait pester
 
-      - name: "Lane: RSS bench (report-only)"
-        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'bench') }}
-        run: node scripts/ci/self-hosted/lanes.mjs --wait bench
-
       - name: Lane summary
         id: summary
         if: ${{ !cancelled() && steps.lanes.outcome == 'success' }}
@@ -320,10 +316,6 @@ jobs:
       - name: "Lane: install.ps1 (Pester)"
         if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'pester') }}
         run: node scripts/ci/self-hosted/lanes.mjs --wait pester
-
-      - name: "Lane: RSS bench (report-only)"
-        if: ${{ !cancelled() && contains(fromJSON(steps.lanes.outputs.lanes || '[]'), 'bench') }}
-        run: node scripts/ci/self-hosted/lanes.mjs --wait bench
 
       - name: Lane summary
         id: summary
