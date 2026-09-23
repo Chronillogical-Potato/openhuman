@@ -44,7 +44,6 @@
  * Kept rather than deleted because the demo is the only worked reference for
  * what adoption would actually require.
  */
-
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Input } from '@/components/assistant-ui/ui/input';
