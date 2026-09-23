@@ -509,11 +509,11 @@ fn subagent_lifecycle_records_and_clears_active() {
         elapsed_ms: 1234,
         iterations: 2,
         output_chars: 80,
+        usage: None,
         output: String::new(),
         worktree_path: None,
         changed_files: Vec::new(),
         dirty_status: None,
-        usage: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);

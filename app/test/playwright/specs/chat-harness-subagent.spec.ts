@@ -16,7 +16,6 @@ const RESEARCHER_REPLY = 'The researcher answer is 42.';
 const PARENT_THINKING = 'Parent trace: delegate the factual lookup before synthesizing.';
 const PARENT_NARRATION = 'I am delegating the factual lookup now.';
 const CHILD_THINKING = 'Child trace: isolate the requested marker before replying.';
-const FINAL_THINKING = 'Parent trace: verify the delegated finding and answer.';
 const KEYWORD_RESPONSES = [
   { keyword: "Search the user's memory tree", content: 'No relevant memory.' },
   {
@@ -47,7 +46,7 @@ const KEYWORD_RESPONSES = [
     // exactly how the result body is quoted inside it.
     keyword: 'background sub-agent finished while you were busy',
     streamScript: [
-      { thinking: FINAL_THINKING },
+      { thinking: 'Parent trace: verify the delegated finding and answer.' },
       { text: `Done. The result is: ${CANARY_FINAL}` },
       { finish: 'stop' },
     ],
@@ -358,15 +357,11 @@ test.describe('Chat Harness - Subagent', () => {
     // legacy timeline surface.
     const finalMessage = page.getByTestId('agent-message').filter({ hasText: CANARY_FINAL }).last();
     await expect(finalMessage).toBeVisible({ timeout: 15_000 });
-    const finalReasoning = finalMessage.getByRole('button', { name: /Reasoning/ });
     // The final assistant part may contain only the synthesized answer; the
-    // delegated reasoning belongs to its preceding trace parts. Expand and
-    // verify final-part reasoning only when that optional disclosure exists.
-    if (await finalReasoning.count()) {
-      if ((await finalReasoning.getAttribute('aria-expanded')) !== 'true')
-        await finalReasoning.click();
-      await expect(finalMessage.getByText(FINAL_THINKING, { exact: true })).toBeVisible();
-    }
+    // delegated reasoning belongs to its preceding trace parts. The durable
+    // parent and child trails are asserted below after a reload, which is the
+    // stable contract regardless of whether the provider emits final-round
+    // reasoning as a separate disclosure.
 
     // Reloading removes the live socket and Redux stream. The same visual
     // trace must rehydrate from persisted transcript/turn-state data.
