@@ -340,6 +340,28 @@ pub async fn ensure_agent_dirs(config: &mut Config) {
             "[startup] could not create action sandbox dir"
         );
     }
+    // Creating the action dir is not the same as being allowed to write in it:
+    // `validate_path` only *joins* relative tool paths onto it, and the
+    // permission comes from a trusted root. `SecurityPolicy::from_config` grants
+    // it, and this is the config-side mirror so a persisted config carries the
+    // same grant. Skipped when the action dir sits at or above `workspace_dir`,
+    // where a trusted root would buy a `forbidden_paths` bypass over the whole
+    // workspace.
+    let action_path = action_dir.to_string_lossy().to_string();
+    if !action_path.is_empty()
+        && !config.workspace_dir.starts_with(&action_dir)
+        && !config
+            .autonomy
+            .trusted_roots
+            .iter()
+            .any(|r| r.path == action_path)
+    {
+        config.autonomy.trusted_roots.push(TrustedRoot {
+            path: action_path,
+            access: TrustedAccess::ReadWrite,
+        });
+    }
+
     tracing::info!(
         workspace = %redact_home(&config.workspace_dir),
         action = %redact_home(&action_dir),
