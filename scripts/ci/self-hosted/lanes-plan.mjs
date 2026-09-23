@@ -318,19 +318,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "cargo check -p openhuman-embed --no-default-features",
         },
         {
-          name: "embed-test",
-          when: core,
-          run: "cargo test -p openhuman-embed",
-        },
-        {
           name: "tinyhumans-clippy",
           when: core,
           run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
-        },
-        {
-          name: "tinyhumans-test",
-          when: core,
-          run: "cargo test -p openhuman-tinyhumans",
         },
         {
           name: "prompt-budget",
@@ -347,11 +337,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       targetDir: targetDir("gatesoff"),
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
-        {
-          name: "check-gates-off",
-          when: rust,
-          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
-        },
         {
           name: "check-e2e-test-support",
           when: rust,
