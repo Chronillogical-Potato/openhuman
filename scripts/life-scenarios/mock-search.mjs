@@ -79,11 +79,34 @@ function terms(text) {
 }
 
 /**
+ * Does `term` match document term `h`?
+ *
+ * Exact, or a shared prefix of at least four characters so "fees" finds "fee"
+ * and "baggage" finds "checked-baggage" without dragging in a stemmer. The
+ * length floor is what stops a two-character fragment matching most of the
+ * corpus.
+ */
+function termMatches(term, h) {
+  if (term === h) return true;
+  const shorter = term.length <= h.length ? term : h;
+  if (shorter.length < 4) return false;
+  return term.startsWith(h) || h.startsWith(term);
+}
+
+/**
  * Score one document against the query terms.
  *
  * Fields are weighted by how deliberate a match in them is: an explicit
  * `keywords` entry is curated, a title is the page's own claim about itself,
  * a URL segment is incidental, and an excerpt is the loosest signal of all.
+ *
+ * Returns the weighted total alongside the count of *distinct* query terms
+ * that matched anywhere, because the two answer different questions: the total
+ * orders the hits, and the distinct count is what tells an off-topic query
+ * apart from a weak one. Scoring alone cannot — a single incidental term
+ * repeated across four fields outscores a genuine two-term match — and a
+ * search that always returns something would send the agent off to fetch
+ * pages that have nothing to do with the task.
  */
 function score(doc, queryTerms) {
   const fields = [
@@ -93,19 +116,18 @@ function score(doc, queryTerms) {
     [doc.excerpts || [], 1],
   ];
   let total = 0;
+  const matched = new Set();
   for (const [values, weight] of fields) {
     const haystack = terms(values.join(" "));
     if (haystack.length === 0) continue;
-    const present = new Set(haystack);
     for (const term of queryTerms) {
-      // Substring as well as exact, so "baggage" finds "checked-baggage" and
-      // "fees" finds "fee" without dragging in a stemmer.
-      if (present.has(term) || haystack.some((h) => h.includes(term) || term.includes(h))) {
+      if (haystack.some((h) => termMatches(term, h))) {
         total += weight;
+        matched.add(term);
       }
     }
   }
-  return total;
+  return { total, matched: matched.size };
 }
 
 /** Load the corpus, tolerating the `_comment` key the fixture carries. */
@@ -158,16 +180,21 @@ export function startMockSearch({ indexPath, requestsPath, port = 0 }) {
     const queryTerms = [...new Set(queries.flatMap(terms))];
     const limit = Math.min(Math.max(Number(body?.excerpts?.maxResults) || 5, 1), 10);
 
+    // An off-topic query must come back empty rather than with the least-bad
+    // rows in the corpus: a confidently wrong result set is worse for the
+    // agent than none, because it spends fetches on it. Two distinct matching
+    // terms is the floor, relaxed to one when the query only has one to give.
+    const floor = Math.min(2, queryTerms.length) || 1;
     const ranked = ctx.documents
-      .map((doc) => ({ doc, score: score(doc, queryTerms) }))
-      .filter((hit) => hit.score > 0)
-      .sort((a, b) => b.score - a.score || a.doc.url.localeCompare(b.doc.url))
+      .map((doc) => ({ doc, ...score(doc, queryTerms) }))
+      .filter((hit) => hit.total > 0 && hit.matched >= floor)
+      .sort((a, b) => b.total - a.total || a.doc.url.localeCompare(b.doc.url))
       .slice(0, limit);
 
     ctx.searches.push({
       at: new Date().toISOString(),
       queries,
-      hits: ranked.map((hit) => ({ url: hit.doc.url, score: hit.score })),
+      hits: ranked.map((hit) => ({ url: hit.doc.url, score: hit.total })),
     });
     ctx.flush();
 
