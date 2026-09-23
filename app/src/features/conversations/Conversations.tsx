@@ -60,7 +60,6 @@ import {
 } from '../../lib/attachments';
 import { useRegisterAction } from '../../lib/commands/useRegisterAction';
 import { useT } from '../../lib/i18n/I18nContext';
-import type { TurnProcessTrail } from '../../providers/assistantUiMessages';
 import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
 import {
   aiRegenerate,
@@ -296,11 +295,6 @@ const Conversations = ({
   const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
   const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
   const [showProcessSource, setShowProcessSource] = useState(false);
-  // One settled turn's process trail, opened from that turn's `TurnFooter`.
-  // Non-null takes over the process-source panel and scopes it to that turn —
-  // the palette command below still opens the whole-thread live view, which is
-  // the only view it ever had.
-  const [turnProcessTrail, setTurnProcessTrail] = useState<TurnProcessTrail | null>(null);
   // The Agent Process Source panel's only trigger is the "View full agent
   // process source →" link at the foot of `ToolTimelineBlock` — a legacy-panel
   // component. assistant-ui renders its tool calls as inline cards and has no
@@ -2633,9 +2627,6 @@ const Conversations = ({
         // set of resolvable delegations actually changes.
         onOpenSubagent={setOpenSubagentTaskId}
         canOpenSubagent={canOpenSubagentDrawer}
-        // The settled turn's one-line footer opens the process rail on THAT
-        // turn's trail, which the footer carries with the click.
-        onOpenTurnProcess={setTurnProcessTrail}
         onModelChange={applyComposerModel}
       />
       {/* The three transcript-local modals. `ChatThreadView` hosts an identical
@@ -2646,22 +2637,15 @@ const Conversations = ({
           overlay, positioned against the viewport. */}
       <TranscriptOverlays
         threadId={selectedThreadId ?? null}
-        /* A turn footer's trail wins over the thread-wide live slices: those
-           hold only the newest turn (`chatRuntimeSlice` rehydrates
-           `processingByThread` from the single latest `TurnState` snapshot), so
-           they are the wrong answer for any older turn the user clicks. */
-        entries={turnProcessTrail ? [...turnProcessTrail.timeline] : selectedThreadToolTimeline}
-        transcript={turnProcessTrail ? [...turnProcessTrail.transcript] : selectedThreadProcessing}
+        entries={selectedThreadToolTimeline}
+        transcript={selectedThreadProcessing}
         backgroundProcesses={backgroundProcesses}
         showBackgroundProcesses={showBackgroundProcesses}
         onCloseBackgroundProcesses={() => setShowBackgroundProcesses(false)}
         openSubagentTaskId={openSubagentTaskId}
         onOpenSubagent={setOpenSubagentTaskId}
-        showProcessSource={showProcessSource || turnProcessTrail !== null}
-        onCloseProcessSource={() => {
-          setShowProcessSource(false);
-          setTurnProcessTrail(null);
-        }}
+        showProcessSource={showProcessSource}
+        onCloseProcessSource={() => setShowProcessSource(false)}
       />
     </div>
   );
