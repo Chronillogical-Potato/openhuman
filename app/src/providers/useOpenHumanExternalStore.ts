@@ -300,12 +300,15 @@ export function useOpenHumanExternalStore(threadId: string | null) {
   const pendingApproval = useAppSelector(state =>
     threadId ? (state.chatRuntime.pendingApprovalByThread?.[threadId] ?? null) : null
   );
-  const settledRevision = `${messages.at(-1)?.id ?? ''}:${messages.at(-1)?.content?.length ?? 0}:${lifecycle ?? ''}`;
-  const coreTranscript = useCoreTranscriptProjection(
-    threadId,
-    settledRevision,
-    streaming?.requestId
+  const liveRequestId = useAppSelector(state =>
+    threadId ? state.chatRuntime.liveRequestIdByThread?.[threadId] : undefined
   );
+  const settledTurns = useAppSelector(state =>
+    threadId ? (state.chatRuntime.settledTurnsByThread?.[threadId] ?? EMPTY_SETTLED) : EMPTY_SETTLED
+  );
+  const settledRevision = `${messages.at(-1)?.id ?? ''}:${messages.at(-1)?.content?.length ?? 0}:${lifecycle ?? ''}`;
+  const tailRequestId = liveRequestId ?? streaming?.requestId;
+  const coreTranscript = useCoreTranscriptProjection(threadId, settledRevision, tailRequestId);
 
   // `started` and `streaming` are both in-flight. A completed turn can retain
   // its tool/reasoning arrays while the persisted projection catches up; those
@@ -324,8 +327,20 @@ export function useOpenHumanExternalStore(threadId: string | null) {
         pendingApproval,
         turnTimelines: coreTranscript.timelines,
         turnTranscripts: coreTranscript.transcripts,
+        settledTurns,
+        liveRequestId: tailRequestId,
       }),
-    [messages, streaming, isRunning, liveTimeline, liveTranscript, pendingApproval, coreTranscript]
+    [
+      messages,
+      streaming,
+      isRunning,
+      liveTimeline,
+      liveTranscript,
+      pendingApproval,
+      coreTranscript,
+      settledTurns,
+      tailRequestId,
+    ]
   );
 
   const suggestions = useWelcomeSuggestions(runtimeMessages.length);
