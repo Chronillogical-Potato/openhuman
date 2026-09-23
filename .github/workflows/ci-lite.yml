@@ -75,7 +75,9 @@ jobs:
         id: filter
         uses: dorny/paths-filter@v4
         with:
+          # Shared with ci-lanes.yml; see the header of that file.
           filters: .github/ci-paths-filter.yml
+
   frontend-checks:
     name: Frontend Checks (quality, i18n, docs, coverage)
     needs: [changes]
