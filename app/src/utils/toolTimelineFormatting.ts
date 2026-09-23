@@ -387,7 +387,7 @@ export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; 
   }
 
   return {
-    title: entry.displayName ?? humanizeIdentifier(entry.name),
+    title: entry.displayName ?? formatToolName(entry.name),
     detail: entry.detail ?? parsedArgs?.prompt,
   };
 }
