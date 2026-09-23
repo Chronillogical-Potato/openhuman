@@ -28,9 +28,12 @@ export const WORKFLOWS = {
 };
 
 function gh(args) {
+  // stderr is dropped: a workflow not yet on the default branch answers 404,
+  // which simply means "no runs yet".
   return execFileSync("gh", args, {
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "ignore"],
   });
 }
 
