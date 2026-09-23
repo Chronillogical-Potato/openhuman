@@ -1041,6 +1041,31 @@ async function main() {
       { attempts: 10, delayMs: 500, what: "BYOK route" },
     );
   }
+
+  // The web-chat driver has no per-call `agent_id`, so the agent is chosen by
+  // `[agent] chat_agent_id`. Set it through the running core rather than by
+  // pre-writing the file, for exactly the reason the BYOK block above gives:
+  // `prepareHome` writes `users/local/config.toml`, but the active user dir is
+  // minted at boot (`users/local-dragonfly/...`) and its config wins. The
+  // pre-written value is read by nothing, and the turn silently runs the
+  // orchestrator at its own 15-iteration cap — which looks like the benchmark
+  // agent failing when it never ran at all.
+  await withRetries(
+    async () => {
+      await core.rpc("openhuman.config_update_agent_settings", {
+        chat_agent_id: opts.agentId,
+      });
+      const snap = await core.rpc("openhuman.config_get", {});
+      const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
+      const got = cfg.agent?.chat_agent_id ?? null;
+      if (got !== opts.agentId)
+        throw new Error(
+          `chat_agent_id not in the active config yet (want ${opts.agentId}, got ${got ?? "unset"})`,
+        );
+    },
+    { attempts: 10, delayMs: 500, what: "chat_agent_id" },
+  );
+
   console.log(
     `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
   );
