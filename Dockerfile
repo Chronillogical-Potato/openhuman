@@ -47,9 +47,11 @@ WORKDIR /build
 
 # Cache dependencies — copy only manifests first
 COPY Cargo.toml Cargo.lock rust-toolchain.toml build.rs README.md ./
+COPY crates/openhuman-cli/Cargo.toml crates/openhuman-cli/Cargo.toml
 COPY crates/openhuman-core/Cargo.toml crates/openhuman-core/Cargo.toml
 COPY crates/openhuman-embed/Cargo.toml crates/openhuman-embed/Cargo.toml
 COPY crates/openhuman-rpc/Cargo.toml crates/openhuman-rpc/Cargo.toml
+COPY crates/openhuman-tinyhumans/Cargo.toml crates/openhuman-tinyhumans/Cargo.toml
 COPY crates/openhuman-tui/Cargo.toml crates/openhuman-tui/Cargo.toml
 # Vendored TinyAgents SDK (git submodule; [patch.crates-io] points here, so
 # the dep-cache build below already resolves it). CI must init the submodule
@@ -57,26 +59,32 @@ COPY crates/openhuman-tui/Cargo.toml crates/openhuman-tui/Cargo.toml
 # release-production.yml / release-staging.yml.
 COPY vendor/ vendor/
 # Create a dummy src to build deps
-RUN mkdir -p crates/openhuman-core/src crates/openhuman-embed/src crates/openhuman-rpc/src crates/openhuman-tui/src && \
-    echo 'fn main() {}' > crates/openhuman-core/src/main.rs && \
+RUN mkdir -p crates/openhuman-cli/src crates/openhuman-core/src crates/openhuman-embed/src \
+             crates/openhuman-rpc/src crates/openhuman-tinyhumans/src crates/openhuman-tui/src && \
+    echo 'fn main() {}' > crates/openhuman-cli/src/main.rs && \
     echo 'pub fn run_core_from_args(_: &[String]) -> anyhow::Result<()> { Ok(()) }' > crates/openhuman-core/src/lib.rs && \
     echo '' > crates/openhuman-embed/src/lib.rs && \
     echo '' > crates/openhuman-rpc/src/lib.rs && \
+    echo '' > crates/openhuman-tinyhumans/src/lib.rs && \
     echo 'fn main() {}' > crates/openhuman-tui/src/main.rs && \
     echo 'pub fn run_from_cli(_: &[String]) -> anyhow::Result<()> { Ok(()) }' > crates/openhuman-tui/src/lib.rs && \
-    cargo build --profile "${CARGO_PROFILE}" --bin openhuman-core 2>/dev/null || true && \
-    rm -rf crates/openhuman-core/src crates/openhuman-embed/src crates/openhuman-rpc/src
+    cargo build --profile "${CARGO_PROFILE}" -p openhuman-cli --bin openhuman-core 2>/dev/null || true && \
+    rm -rf crates/openhuman-cli/src crates/openhuman-core/src crates/openhuman-embed/src \
+           crates/openhuman-rpc/src crates/openhuman-tinyhumans/src
 
 # Copy actual source and build
+COPY crates/openhuman-cli/src/ crates/openhuman-cli/src/
 COPY crates/openhuman-core/src/ crates/openhuman-core/src/
 COPY crates/openhuman-embed/src/ crates/openhuman-embed/src/
 COPY crates/openhuman-rpc/src/ crates/openhuman-rpc/src/
+COPY crates/openhuman-tinyhumans/src/ crates/openhuman-tinyhumans/src/
 # Touch every crate the dep-cache stage built from a dummy src. COPY keeps the
 # checkout's mtimes, which predate that build, so cargo would otherwise link
 # core against the empty openhuman-rpc placeholder.
-RUN touch crates/openhuman-core/src/main.rs crates/openhuman-core/src/lib.rs \
-          crates/openhuman-rpc/src/lib.rs && \
-    cargo build --profile "${CARGO_PROFILE}" --bin openhuman-core && \
+RUN touch crates/openhuman-cli/src/main.rs crates/openhuman-core/src/lib.rs \
+          crates/openhuman-embed/src/lib.rs crates/openhuman-rpc/src/lib.rs \
+          crates/openhuman-tinyhumans/src/lib.rs && \
+    cargo build --profile "${CARGO_PROFILE}" -p openhuman-cli --bin openhuman-core && \
     cp "target/${CARGO_PROFILE}/openhuman-core" /tmp/openhuman-core
 
 # ==========================================================================
