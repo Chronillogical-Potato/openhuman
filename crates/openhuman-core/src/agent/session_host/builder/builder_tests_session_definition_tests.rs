@@ -131,10 +131,14 @@ async fn without_a_definition_the_same_id_is_still_unknown() {
     // The counterpart, and the reason this route had to exist: nothing else
     // the builder takes can put an id in the catalogue.
     let agent = seat(None);
-    let Some(base) = agent.hosted_base.as_ref() else {
-        // No catalogue at all, which is the "unknown" this test asserts.
-        return;
-    };
+    // Not an early return on absence: a builder that stopped creating a
+    // hosted authority at all would satisfy that, which is the regression
+    // this test is here to catch. Under `cfg(test)` the builder always has a
+    // catalogue to fall back on, so requiring one is safe.
+    let base = agent
+        .hosted_base
+        .as_ref()
+        .expect("a session always has a hosted authority under cfg(test)");
     assert!(base.session_definition.is_none());
 
     let catalogue = OpenHumanDefinitionRegistry::new(Arc::clone(&base.definitions))
@@ -188,4 +192,25 @@ fn a_name_the_definition_contradicts_fails_the_build() {
     let message = error.to_string();
     assert!(message.contains("some-other-id"), "{message}");
     assert!(message.contains(SEAT), "{message}");
+}
+
+#[tokio::test]
+async fn a_padded_name_is_stored_as_the_definitions_own_id() {
+    // ` foo ` and `foo` agree after trimming, so the consistency check admits
+    // the pair. Storing the caller's spelling would then resolve through
+    // `OpenHumanDefinitionRegistry` (which trims) and miss through
+    // `AgentDefinitionRegistry::get` (which does not), so the id is
+    // normalized to the definition's own.
+    let agent = bare()
+        .agent_definition_name(format!("  {SEAT}  "))
+        .agent_definition(definition(SEAT, vec!["desk_say"]))
+        .build()
+        .expect("a name that differs only by padding is not a contradiction");
+
+    assert_eq!(agent.agent_definition_name(), SEAT);
+    assert!(catalogue(&agent)
+        .resolve(agent.agent_definition_name())
+        .await
+        .expect("resolution never errors")
+        .is_some());
 }

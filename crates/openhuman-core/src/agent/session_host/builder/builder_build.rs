@@ -67,8 +67,13 @@ impl SessionHostBuilder {
                     definition.id
                 ));
             }
-            (Some(name), _) => name,
-            (None, Some(definition)) => definition.id.clone(),
+            // The definition's own id, not the caller's spelling of it. They
+            // agree after trimming by the arm above, but only some readers
+            // trim: `OpenHumanDefinitionRegistry` does,
+            // `AgentDefinitionRegistry::get` does not, so a padded name would
+            // resolve through one and miss through the other.
+            (Some(_), Some(definition)) | (None, Some(definition)) => definition.id.clone(),
+            (Some(name), None) => name,
             (None, None) => "main".to_string(),
         };
         // On-demand tool disclosure: withhold packed tools' schemas from the
