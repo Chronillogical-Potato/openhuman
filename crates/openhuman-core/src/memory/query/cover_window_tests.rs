@@ -1,6 +1,6 @@
 use super::*;
-use crate::tools::traits::Tool;
 use serde_json::json;
+use tinytools::Tool;
 
 #[test]
 fn parameters_schema_requires_window_bounds() {

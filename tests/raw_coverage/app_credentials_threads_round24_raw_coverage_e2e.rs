@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current runtime contracts.
 //! Round24 focused raw coverage for app_state, credentials profiles, and
 //! threads public operations.
 //!

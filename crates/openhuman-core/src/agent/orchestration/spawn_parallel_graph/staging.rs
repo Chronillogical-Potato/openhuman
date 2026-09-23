@@ -23,10 +23,10 @@ use crate::agent::harness::definition::{
     AgentDefinition, AgentDefinitionRegistry, SandboxMode, ToolScope,
 };
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::orchestration::worktree::BaseRef;
-use crate::tools::PermissionLevel;
+use tinyagents_harness::workspace::GitWorktreeBaseRef;
+use tinytools::PermissionLevel;
 
-use super::request::ParallelAgentTask;
+use super::types::ParallelAgentTask;
 
 /// Prepared worker ready for the live dispatch/worker phases.
 pub(crate) struct PreparedParallelTask {
@@ -79,7 +79,7 @@ pub(crate) enum WorkerDispatchMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ParallelWorktreeRequest {
     SharedWorkspace,
-    Isolated { base_ref: BaseRef },
+    Isolated { base_ref: GitWorktreeBaseRef },
 }
 
 pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWorktreeRequest {
@@ -91,7 +91,7 @@ pub(crate) fn worktree_request_for_task(task: &ParallelAgentTask) -> ParallelWor
         .unwrap_or(false);
     if isolated {
         ParallelWorktreeRequest::Isolated {
-            base_ref: BaseRef::parse(task.base_ref.as_deref()),
+            base_ref: GitWorktreeBaseRef::parse(task.base_ref.as_deref()),
         }
     } else {
         ParallelWorktreeRequest::SharedWorkspace

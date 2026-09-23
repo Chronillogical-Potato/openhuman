@@ -17,7 +17,7 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use tinyagents_harness::store::{AppendStore, FileStore, JsonlAppendStore, Store};
 
-use crate::agent::harness::session::transcript::{
+use tinyagents_session::transcript::{
     read_transcript, read_transcript_legacy_md, SessionTranscript,
 };
 

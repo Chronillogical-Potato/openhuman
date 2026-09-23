@@ -10,7 +10,7 @@ use super::connections::ComposioClient;
 /// Backend-mode [`ComposioClient`] constructor. **Internal to the
 /// composio module** — external callers should use
 /// [`create_composio_client`] (factory) or
-/// [`crate::agent::harness::subagent_runner::user_is_signed_in_to_composio`]
+/// [`crate::agent::subagent_host::user_is_signed_in_to_composio`]
 /// (probe) instead.
 ///
 /// Direct exposure leaked through several call sites during the early
@@ -36,8 +36,8 @@ pub(crate) fn build_composio_client(config: &crate::config::Config) -> Option<Co
 
 // ── Direct-mode factory ─────────────────────────────────────────────
 //
-// Mirrors `crates/openhuman-core/src/inference/embeddings/factory.rs` so anyone reading both
-// can pattern-match between domains: string-matched mode, explicit error
+// Mirrors `tinyinference-embeddings/src/factory.rs` so anyone reading both can
+// pattern-match between domains: string-matched mode, explicit error
 // on unknown mode, explicit error when `direct` is selected without an
 // API key.
 

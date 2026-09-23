@@ -2,7 +2,7 @@ use super::*;
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::tools::traits::ToolResult;
+use tinytools::ToolResult;
 struct WorkspaceEnvGuard {
     previous: Option<std::ffi::OsString>,
 }
@@ -77,12 +77,12 @@ fn fake_config_arc() -> Arc<crate::config::Config> {
 
 // ── composio_connect (inline approval card, #3993) ──────────────────
 
-fn tool_result_text(result: &crate::tools::traits::ToolResult) -> String {
+fn tool_result_text(result: &tinytools::ToolResult) -> String {
     result
         .content
         .iter()
         .filter_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -101,7 +101,7 @@ fn error_text(result: &ToolResult) -> String {
         .content
         .iter()
         .filter_map(|c| match c {
-            crate::tools::traits::ToolContent::Text { text } => Some(text.clone()),
+            tinytools::ToolContent::Text { text } => Some(text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()

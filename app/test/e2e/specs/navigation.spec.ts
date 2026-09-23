@@ -41,7 +41,6 @@ interface Route {
 const ROUTES: Route[] = [
   { hash: '/chat' },
   { hash: '/connections' },
-  { hash: '/rewards' },
   { hash: '/settings' },
   { hash: '/flows' },
   // Orchestration folded under Brain; `/orchestration` now redirects to

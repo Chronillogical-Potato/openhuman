@@ -8,6 +8,7 @@ mod channel_ops;
 mod parallel_turn;
 mod start_chat;
 mod state;
+mod system_turn;
 #[cfg(any(test, debug_assertions))]
 mod test_hooks;
 mod turn_guards;
@@ -23,7 +24,10 @@ pub use channel_ops::{
 };
 
 pub use start_chat::start_chat;
+pub use system_turn::{run_system_turn_on_thread, SESSION_CHECKOUT_FAILURE, SYSTEM_CLIENT_ID};
 
+#[cfg(test)]
+pub use state::drain_queued_turns_for_test;
 #[cfg(any(test, debug_assertions))]
 pub use state::parallel_in_flight_entries_for_test;
 pub(super) use state::THREAD_SESSIONS;

@@ -26,7 +26,6 @@ mod workspace_state;
 
 use crate::security::policy::{TrustedAccess, TrustedRoot};
 use crate::security::SecurityPolicy;
-use std::path::Path;
 use tinytools::ToolRunContext;
 
 pub use current_time::CurrentTimeTool;
@@ -65,8 +64,7 @@ pub use workspace_state::WorkspaceStateTool;
 /// process-global is mutated and concurrent turns cannot race each other. It
 /// cannot widen the hard invariants either — `is_always_forbidden` and
 /// `is_workspace_internal_path` are both evaluated *before* any trusted-root
-/// shortcut. Cross-profile command scanning
-/// ([`check_cross_profile_command`]) is unaffected and still applies.
+/// shortcut.
 ///
 /// The root always originates from trusted in-process code (the session
 /// builder, the sub-agent runner, or the `cwd` RPC parameter) — never from
@@ -91,64 +89,4 @@ pub(super) fn security_for_tool_context(
         });
     }
     scoped
-}
-
-/// Apply the dedicated-workspace profile boundary to an arbitrary process
-/// command before it is spawned. Process tools do not funnel their runtime file
-/// writes through `SecurityPolicy::validate_path`, so shell, Node, and npm must
-/// all share this defense-in-depth scan.
-pub(super) fn check_cross_profile_command(
-    security: &SecurityPolicy,
-    command: &str,
-    cwd: &Path,
-    tool: &str,
-) -> Result<(), String> {
-    let Some(guard) = security.active_profile.as_ref() else {
-        return Ok(());
-    };
-    // Classify cwd itself before scanning command tokens. A process tool may
-    // accept a syntactically in-profile directory that is actually a symlink
-    // into a sibling; once spawned there, npm lifecycle hooks or a shell can
-    // mutate that sibling without mentioning its path in the command.
-    let other_id = match crate::agent::profiles::classify_cross_profile_target(
-        &guard.action_dir,
-        &guard.profile_id,
-        cwd,
-    ) {
-        crate::agent::profiles::CrossProfileDecision::Block { other_id } => Some(other_id),
-        crate::agent::profiles::CrossProfileDecision::Allow => {
-            crate::agent::profiles::scan_command_for_cross_profile(
-                command,
-                cwd,
-                &guard.action_dir,
-                &guard.profile_id,
-            )
-        }
-    };
-    let Some(other_id) = other_id else {
-        return Ok(());
-    };
-
-    tracing::warn!(
-        tool,
-        active_profile = %guard.profile_id,
-        other_profile = %other_id,
-        "[profiles] cross-profile process command blocked"
-    );
-    if other_id == crate::agent::profiles::PROFILES_ROOT_SENTINEL {
-        Err(format!(
-            "{} Cross-profile access blocked: profile '{}' may not modify the shared profiles \
-             root. Stay within your own profile directory; do not retry this command.",
-            crate::security::POLICY_BLOCKED_MARKER,
-            guard.profile_id,
-        ))
-    } else {
-        Err(format!(
-            "{} Cross-profile access blocked: profile '{}' may not touch profile '{}'s workspace. \
-             Stay within your own profile directory; do not retry this command.",
-            crate::security::POLICY_BLOCKED_MARKER,
-            guard.profile_id,
-            other_id
-        ))
-    }
 }

@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::{ContentBlock, Message as TaMessage};
-use tinyinference::model::ModelRequest;
+use tinyinference_llm::message::{ContentBlock, Message as TaMessage};
+use tinyinference_llm::model::ModelRequest;
 
 use crate::agent::context::CLEARED_PLACEHOLDER;
 
@@ -22,7 +22,7 @@ use super::message_trim::{estimate_message_tokens, estimate_text_tokens};
 /// # Why the loop and not afterwards
 ///
 /// A capped turn used to end like this: the loop exits on the model-call cap,
-/// and `Agent::summarize_turn_wrapup` then dispatches a second, out-of-band
+/// and `OpenHumanSessionHost::summarize_turn_wrapup` then dispatches a second, out-of-band
 /// request straight at the `ChatModel` asking for a checkpoint. Being outside
 /// the harness, that request ran with **none** of the loop's context
 /// management — no microcompact, no compression, no trim — while being built
@@ -99,14 +99,16 @@ impl FinalCallWrapUpMiddleware {
 }
 
 #[async_trait]
-impl Middleware<()> for FinalCallWrapUpMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for FinalCallWrapUpMiddleware
+{
     fn name(&self) -> &str {
         "final_call_wrap_up"
     }
 
     async fn before_model(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
@@ -129,7 +131,7 @@ impl Middleware<()> for FinalCallWrapUpMiddleware {
              turn's conclusion"
         );
         request.tools.clear();
-        request.tool_choice = tinyinference::model::ToolChoice::None;
+        request.tool_choice = tinyinference_llm::model::ToolChoice::None;
         // Give the concluding call back the results microcompact blanked.
         //
         // `MicrocompactMiddleware` replaces every tool-result body past the

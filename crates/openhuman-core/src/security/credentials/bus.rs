@@ -64,6 +64,17 @@ impl EventHandler<DomainEvent> for SessionExpiredSubscriber {
 
         match crate::config::rpc::load_config_with_timeout().await {
             Ok(config) => {
+                // An API-key runtime has no session to clear: a backend 401 on
+                // the key is a per-call error for the caller, not a sign-out.
+                if crate::security::credentials::api_key::has_api_key(&config) {
+                    tracing::warn!(
+                        source = %source,
+                        reason = %reason,
+                        "[auth] SessionExpired ignored — runtime authenticates with an API key; re-enabling scheduler gate"
+                    );
+                    scheduler_gate::set_signed_out(false);
+                    return;
+                }
                 let is_local_session = crate::api::jwt::get_session_token(&config)
                     .ok()
                     .flatten()

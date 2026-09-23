@@ -2,10 +2,10 @@
 
 use crate::agent::learning::tool_tracker::ToolStats;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use tinymemory_api::provider::MemoryCore as _;
 use tinymemory_api::types::MemoryCategory;
+use tinytools::{Tool, ToolResult};
 
 /// Holds no memory handle: it resolves the guarded driver per call, so the
 /// tool registry no longer has to be handed an engine just to build this.

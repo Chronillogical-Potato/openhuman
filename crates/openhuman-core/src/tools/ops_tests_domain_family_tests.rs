@@ -377,30 +377,6 @@ fn productivity_default_off_tools_retained_when_opted_in() {
 }
 
 #[tokio::test]
-async fn todo_tools_add_then_list_through_registry() {
-    // Drive the boxed `dyn Tool` surface exactly as the agent loop would: add
-    // a card, then list it back. Thread-scoped (file-backed under the tmp
-    // workspace) so the board is isolated from the process-global scratch
-    // store and from parallel tests.
-    let tmp = TempDir::new().unwrap();
-    let tools = expansion_tools_for(&tmp);
-
-    let add = find_tool(&tools, "todo_add");
-    let added = add
-        .execute(serde_json::json!({ "thread_id": "e2e-thread", "content": "registry e2e task" }))
-        .await
-        .expect("todo_add execute");
-    assert!(added.output_for_llm(false).contains("registry e2e task"));
-
-    let list = find_tool(&tools, "todo_list");
-    let listed = list
-        .execute(serde_json::json!({ "thread_id": "e2e-thread" }))
-        .await
-        .expect("todo_list execute");
-    assert!(listed.output_for_llm(false).contains("registry e2e task"));
-}
-
-#[tokio::test]
 async fn artifact_list_through_registry_returns_envelope() {
     let tmp = TempDir::new().unwrap();
     let tools = expansion_tools_for(&tmp);

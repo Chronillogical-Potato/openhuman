@@ -2,11 +2,11 @@
 
 use crate::agent::messages::ChatMessage;
 use crate::agent::tinyagents::TurnModelSource;
-use crate::tools::Tool;
 use crate::util::truncate_with_ellipsis;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use tinytools::Tool;
 
 pub(crate) use tinychannels::context::{
     effective_channel_message_timeout_secs, should_skip_memory_context_entry,

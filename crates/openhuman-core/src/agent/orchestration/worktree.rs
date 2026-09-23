@@ -12,8 +12,7 @@
 //! The git plumbing itself is **TinyAgents'**
 //! ([`tinyagents_harness::workspace::git`]): worktree create/list/status/diff/
 //! remove, repo-root validation, run-id sanitizing, and cross-worker overlap
-//! detection are host-agnostic and are re-exported here under their historical
-//! OpenHuman names so call sites and the RPC surface are unchanged.
+//! detection. Callers import that surface directly from the harness.
 //!
 //! What stays in OpenHuman is the part that depends on *this* host: the
 //! [`OpenHumanWorktreeIsolation`] adapter, which stamps an
@@ -29,7 +28,8 @@
 //! - Every operation validates that `repo_root` is a real git repository
 //!   first (via `git rev-parse --is-inside-work-tree`), so a stray path can
 //!   never be mutated.
-//! - [`remove`] refuses to delete a **dirty** worktree unless `force = true`.
+//! - `remove_git_worktree` refuses to delete a **dirty** worktree unless
+//!   `force = true`.
 //!   Clean worktrees can be auto-reclaimed; dirty ones require an explicit
 //!   user decision (acceptance criterion of #3376).
 //!
@@ -39,27 +39,11 @@
 
 use std::path::{Path, PathBuf};
 
-use tinyagents_harness::tool::SandboxMode;
-use tinyagents_harness::workspace::{
-    GitWorktreeIsolation, WorkspaceDescriptor, WorkspaceIsolation,
-};
+use tinyagents_harness::workspace::{GitWorktreeBaseRef, GitWorktreeIsolation, WorkspaceIsolation};
+use tinytools::{SandboxMode, WorkspaceDescriptor};
 
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-
-// The git worktree surface is TinyAgents'. These aliases keep the historical
-// OpenHuman spellings — `worktree::create`, `worktree::BaseRef`,
-// `WorktreeStatus` — so the RPC schemas, tools, and tests that name them do not
-// change. `WorktreeStatus` in particular is serialized straight to the desktop
-// UI; it is field- and `serde`-identical to the crate type, pinned by
-// `worktree_status_serializes_with_stable_camel_case_keys`.
-pub use tinyagents_harness::workspace::{
-    create_git_worktree as create, detect_worktree_overlaps as detect_overlaps,
-    git_worktree_diff_summary as diff_summary, git_worktree_status as status,
-    list_git_worktrees as list, remove_git_worktree as remove, GitWorktreeBaseRef as BaseRef,
-    GitWorktreeError as WorktreeError, GitWorktreeStatus as WorktreeStatus,
-    GIT_WORKTREE_SUBDIR as WORKTREE_SUBDIR,
-};
 
 /// OpenHuman's [`WorkspaceIsolation`] adapter over the TinyAgents git-worktree
 /// provider.
@@ -83,7 +67,7 @@ impl OpenHumanWorktreeIsolation {
     }
 
     /// Select which ref new worktrees branch from.
-    pub fn with_base_ref(mut self, base_ref: BaseRef) -> Self {
+    pub fn with_base_ref(mut self, base_ref: GitWorktreeBaseRef) -> Self {
         self.inner = self.inner.with_base_ref(base_ref);
         self
     }
@@ -226,7 +210,7 @@ pub fn enforce_workspace_path(
 
 /// Rejection from [`enforce_workspace_path`].
 ///
-/// Separate from [`WorktreeError`] (which is TinyAgents' git-plumbing error)
+/// Separate from `GitWorktreeError` (which is TinyAgents' git-plumbing error)
 /// because this gate is about OpenHuman's descriptor policy, not about git.
 #[derive(Debug, thiserror::Error)]
 pub enum WorkspacePathError {

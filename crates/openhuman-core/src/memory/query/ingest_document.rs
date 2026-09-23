@@ -1,11 +1,11 @@
 use crate::config::rpc as config_rpc;
 use crate::memory::tree::tree::rpc;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::json;
 use tinymemory_api::chunks::SourceKind;
+use tinytools::{Tool, ToolResult};
 
 /// The `document` ingest payload, as the driver's canonicaliser reads it.
 ///

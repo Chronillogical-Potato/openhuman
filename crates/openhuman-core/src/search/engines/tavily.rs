@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::search::registry::SearchToolParams;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// Tavily BYOK: every tool here calls `https://api.tavily.com` directly with the
 /// user's own key. Nothing in this surface routes through the managed backend.

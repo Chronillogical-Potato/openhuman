@@ -1,0 +1,110 @@
+/**
+ * The assistant's markdown on `/chat` must render code and maths the way the
+ * rest of the app already does — `AgentMessageBubble` has had syntax
+ * highlighting and KaTeX since long before the assistant-ui surface existed,
+ * and for a while the same message rendered richly in a tool result and as
+ * flat grey text in the answer above it.
+ *
+ * Every assertion here is on RENDERED OUTPUT. Asserting that the plugin array
+ * has four entries would pass against a component that renders nothing.
+ */
+import { TextMessagePartProvider } from '@assistant-ui/react';
+import { render, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+
+import { MarkdownText } from '../markdown-text';
+
+async function renderMarkdown(text: string) {
+  const { container } = render(
+    <TextMessagePartProvider text={text} isRunning={false}>
+      <MarkdownText />
+    </TextMessagePartProvider>
+  );
+  // `defer` hands parsing to a lower-priority render.
+  await waitFor(() => expect(container.querySelector('.aui-md')?.innerHTML).toBeTruthy());
+  return container;
+}
+
+describe('MarkdownText — syntax highlighting', () => {
+  it('tokenises a fenced block that declares a language', async () => {
+    const container = await renderMarkdown('```ts\nconst x = 1;\n```');
+
+    const code = container.querySelector('code');
+    expect(code?.className).toContain('hljs');
+    // The specific token matters: `hljs` alone is on the wrapper even when
+    // nothing was tokenised, so assert a keyword span actually carrying "const".
+    const keyword = container.querySelector('code .hljs-keyword');
+    expect(keyword).not.toBeNull();
+    expect(keyword?.textContent).toBe('const');
+  });
+
+  it('keeps the language label and the copy button on a highlighted block', async () => {
+    // The regression this guards: `rehypeHighlight` turns the <code> element's
+    // string child into token spans, which routes the kit past the branch that
+    // renders its `CodeHeader` slot. Highlighting a block must not cost it its
+    // header.
+    const container = await renderMarkdown('```ts\nconst x = 1;\n```');
+
+    expect(container.querySelector('.aui-code-header-root')).not.toBeNull();
+    expect(container.querySelector('.aui-code-header-language')?.textContent).toBe('ts');
+    expect(container.querySelector('code .hljs-keyword')).not.toBeNull();
+  });
+
+  it('still renders a header for a fence with no language', async () => {
+    const container = await renderMarkdown('```\nplain text\n```');
+
+    expect(container.querySelector('.aui-code-header-root')).not.toBeNull();
+    expect(container.querySelector('pre')?.textContent).toContain('plain text');
+  });
+
+  it('leaves inline code unhighlighted', async () => {
+    const container = await renderMarkdown('use `const` here');
+
+    const inline = container.querySelector('code');
+    expect(inline?.textContent).toBe('const');
+    expect(inline?.className).toContain('aui-md-inline-code');
+    expect(container.querySelector('.hljs-keyword')).toBeNull();
+  });
+});
+
+describe('MarkdownText — LaTeX', () => {
+  it('renders display math written with $$', async () => {
+    const container = await renderMarkdown('$$\\frac{a}{b}$$');
+
+    // KaTeX emits `.katex`; its absence means the `$$` reached the DOM as text.
+    expect(container.querySelector('.katex')).not.toBeNull();
+    expect(container.textContent).not.toContain('$$');
+  });
+
+  it('renders math emitted with backslash delimiters', async () => {
+    // What models actually emit. `remark-math` understands only `$…$`, so this
+    // passes only if the text is normalised before parsing.
+    const container = await renderMarkdown('The value \\(\\frac{a}{b}\\) is small.');
+
+    expect(container.querySelector('.katex')).not.toBeNull();
+    // KaTeX keeps the original TeX in an <annotation>, so the source survives in
+    // textContent by design. What must NOT survive is the delimiter pair — if
+    // normalisation had not run, `\(` and `\)` would still be sitting in the
+    // prose, which is exactly the bug a reader sees.
+    expect(container.textContent).not.toContain('\\(');
+    expect(container.textContent).not.toContain('\\)');
+  });
+
+  it('does NOT treat prices as math', async () => {
+    // The reason math is gated rather than always on: `remark-math` would read
+    // "$10 vs $20" as one inline formula and swallow the words between them.
+    const container = await renderMarkdown('It costs $10 vs $20 elsewhere.');
+
+    expect(container.querySelector('.katex')).toBeNull();
+    expect(container.textContent).toContain('$10 vs $20');
+  });
+});
+
+describe('MarkdownText — GFM is unaffected', () => {
+  it('still renders tables', async () => {
+    const container = await renderMarkdown('| a | b |\n| - | - |\n| 1 | 2 |');
+
+    expect(container.querySelector('table')).not.toBeNull();
+    expect(container.querySelectorAll('td')).toHaveLength(2);
+  });
+});

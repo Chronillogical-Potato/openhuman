@@ -17,5 +17,5 @@ mod retrieval_and_ingest_impls;
 
 pub use fixtures::{
     document, embedded_policy, entry, export_record, external_policy, guarded, guarded_with,
-    namespace_hit, namespace_summary, RecordingProvider,
+    namespace_hit, RecordingProvider,
 };

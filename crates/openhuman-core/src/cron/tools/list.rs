@@ -1,11 +1,11 @@
 use crate::config::Config;
 use crate::cron;
 use crate::cron::CronJob;
-use crate::tools::traits::{Tool, ToolCallOptions, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::fmt::Write as _;
 use std::sync::Arc;
+use tinytools::{Tool, ToolCallOptions, ToolExposure, ToolResult};
 
 fn render_jobs_markdown(jobs: &[CronJob]) -> String {
     if jobs.is_empty() {

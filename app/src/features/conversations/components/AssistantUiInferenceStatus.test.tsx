@@ -29,7 +29,6 @@ import chatRuntimeReducer, {
 import mascotReducer from '../../../store/mascotSlice';
 import threadReducer from '../../../store/threadSlice';
 import { AssistantUiChat } from './AssistantUiChat';
-import type { ThreadGoalController } from './ThreadGoalChip';
 
 const THREAD_ID = 't-status';
 
@@ -78,28 +77,10 @@ function buildStore() {
   });
 }
 
-const threadGoal: ThreadGoalController = {
-  threadId: THREAD_ID,
-  goal: null,
-  expanded: false,
-  draft: '',
-  busy: false,
-  setDraft: vi.fn(),
-  open: vi.fn(),
-  close: vi.fn(),
-  toggle: vi.fn(),
-  save: vi.fn(),
-  complete: vi.fn(),
-  pause: vi.fn(),
-  resume: vi.fn(),
-  clear: vi.fn(),
-};
-
 function renderChat(store: ReturnType<typeof buildStore>) {
   return render(
     <Provider store={store}>
       <AssistantUiChat
-        threadGoal={threadGoal}
         model={null}
         onModelChange={vi.fn()}
         inputValue=""

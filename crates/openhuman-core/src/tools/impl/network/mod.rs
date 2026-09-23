@@ -14,8 +14,6 @@ mod http_request;
 // facade.)
 #[cfg(feature = "mcp")]
 mod mcp;
-#[cfg(feature = "mcp")]
-mod mcp_setup;
 mod url_guard;
 mod web_fetch;
 
@@ -25,11 +23,6 @@ pub use gmail_unsubscribe::GmailUnsubscribeTool;
 pub use http_request::HttpRequestTool;
 #[cfg(feature = "mcp")]
 pub use mcp::{McpCallTool, McpListServersTool, McpListToolsTool};
-#[cfg(feature = "mcp")]
-pub use mcp_setup::{
-    McpSetupGetTool, McpSetupInstallAndConnectTool, McpSetupRequestSecretTool, McpSetupSearchTool,
-    McpSetupTestConnectionTool,
-};
 /// The SSRF guard the network tools apply, so a host outside this crate can
 /// hold user-supplied URLs to the same rule rather than writing a second one.
 pub use url_guard::{

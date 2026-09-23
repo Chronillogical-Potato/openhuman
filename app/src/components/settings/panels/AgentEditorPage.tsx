@@ -32,10 +32,10 @@ import TextField from '../../ui/TextField';
 import SettingsPanel from '../layout/SettingsPanel';
 import { AgentEditorToolsField } from './AgentEditorToolsPicker';
 
-// Known model options — mirrors the Rust tier constants + route hints
-// (crates/openhuman-core/src/config/schema/types.rs, inference/provider/router.rs).
-// Empty string means "inherit" (no override). Any other value not in this list
-// is treated as a raw BYOK provider model id (custom).
+// Known model options — the workload role hints the core routes on
+// (crates/openhuman-core/src/inference/provider/factory/tiers.rs). Empty string
+// means "inherit" (no override). Any other value not in this list is a concrete
+// model id: a managed catalog model or a raw BYOK provider model (custom).
 const MODEL_HINTS = [
   'hint:reasoning',
   'hint:chat',
@@ -45,17 +45,7 @@ const MODEL_HINTS = [
   'hint:summarization',
   'hint:vision',
 ];
-const MODEL_TIERS = [
-  'reasoning-v1',
-  'chat-v1',
-  'reasoning-quick-v1',
-  'agentic-v1',
-  'burst-v1',
-  'coding-v1',
-  'summarization-v1',
-  'vision-v1',
-];
-const KNOWN_MODELS = new Set([...MODEL_HINTS, ...MODEL_TIERS]);
+const KNOWN_MODELS = new Set(MODEL_HINTS);
 const CUSTOM_MODEL = '__custom__';
 
 /**
@@ -365,13 +355,6 @@ const AgentEditorPage = () => {
                       {MODEL_HINTS.map(h => (
                         <option key={h} value={h}>
                           {h}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label={t('settings.agents.editor.modelTiers')}>
-                      {MODEL_TIERS.map(m => (
-                        <option key={m} value={m}>
-                          {m}
                         </option>
                       ))}
                     </optgroup>

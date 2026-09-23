@@ -56,7 +56,7 @@ vi.mock('../../hooks/useChannelDefinitions', () => ({
 vi.mock('../../components/skills/SkillsExplorerTab', () => ({
   default: () => <div data-testid="tab-body-skills-explorer" />,
 }));
-vi.mock('../../components/channels/mcp/McpServersTab', () => ({
+vi.mock('../../components/channels/mcp/McpServersPage', () => ({
   default: () => <div data-testid="tab-body-mcp-servers" />,
 }));
 

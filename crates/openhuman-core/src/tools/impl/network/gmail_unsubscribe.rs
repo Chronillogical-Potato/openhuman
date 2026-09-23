@@ -1,5 +1,5 @@
-use crate::tools::traits::{Tool, ToolCategory, ToolResult};
 use async_trait::async_trait;
+use tinytools::{Tool, ToolCategory, ToolResult};
 
 pub struct GmailUnsubscribeTool;
 

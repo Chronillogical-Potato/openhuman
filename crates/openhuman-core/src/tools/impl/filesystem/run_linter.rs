@@ -1,10 +1,10 @@
 //! Tool: run_linter — run linting tools for the Critic archetype.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
 use tinytools::ToolRunContext;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 /// Runs linters (cargo clippy, eslint) and returns structured findings.
 pub struct RunLinterTool {

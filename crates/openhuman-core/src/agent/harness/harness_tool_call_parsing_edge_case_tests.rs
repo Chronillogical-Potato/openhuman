@@ -1,15 +1,20 @@
 use super::*;
 
 #[test]
-fn parse_tool_calls_nested_xml_tags_handled() {
-    // Double-wrapped tool call should still parse the inner call
+fn parse_tool_calls_doubled_xml_tags_are_one_call() {
+    // A doubled tag with nothing between the two openers is not ambiguous:
+    // there is exactly one body and one call. DeepSeek V4 emits this shape
+    // under a text dialect, and rejecting it leaked the whole block into the
+    // visible reply (tinyhumansai/tinytools#20).
     let response =
         r#"<tool_call><tool_call>{"name":"echo","arguments":{"msg":"hi"}}</tool_call></tool_call>"#;
-    let (_text, calls) = parse_tool_calls(response);
-    // Should find at least one tool call
+    let (text, calls) = parse_tool_calls(response);
+    assert_eq!(calls.len(), 1, "{calls:?}");
+    assert_eq!(calls[0].name, "echo");
+    assert_eq!(calls[0].arguments["msg"], "hi");
     assert!(
-        !calls.is_empty(),
-        "nested XML tags should still yield at least one tool call"
+        !text.contains("tool_call"),
+        "no tag may survive into the text: {text:?}"
     );
 }
 

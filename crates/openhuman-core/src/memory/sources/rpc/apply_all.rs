@@ -137,10 +137,18 @@ pub async fn apply_all_in_rpc() -> Result<RpcOutcome<AllInResponse>, String> {
                 let sync = source_sync.ok_or_else(|| {
                     format!("the bound memory driver '{driver_id}' does not serve source sync")
                 })?;
-                sync.run_source_sync(&source.id)
-                    .await
-                    .map(|_| ())
-                    .map_err(|error| error.to_string())
+                // The same start, finish and history row as the Sync button
+                // (openhuman#6257).
+                super::driver_run::run_recorded(
+                    config_ref,
+                    &source.id,
+                    Some(&source),
+                    || sync.run_source_sync(&source.id),
+                    |error| error.to_string(),
+                    super::driver_run::bus_stage_publisher(&source.id, source.kind.as_str()),
+                )
+                .await
+                .map(|_| ())
             }
         }
     })

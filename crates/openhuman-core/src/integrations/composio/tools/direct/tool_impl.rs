@@ -3,9 +3,9 @@
 
 use super::types::ComposioTool;
 use crate::security::policy::ToolOperation;
-use crate::tools::traits::{Tool, ToolCategory, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{Tool, ToolCategory, ToolResult};
 
 #[async_trait]
 impl Tool for ComposioTool {

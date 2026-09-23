@@ -1,9 +1,9 @@
 //! Tool: read_workspace_state — read-only workspace overview for Orchestrator/Planner.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Returns a summary of the workspace: git status, file tree, recent commits.
 pub struct WorkspaceStateTool {

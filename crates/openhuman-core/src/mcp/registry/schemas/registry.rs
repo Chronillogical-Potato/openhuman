@@ -6,16 +6,11 @@ use crate::core::all::RegisteredController;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::handlers::{
-    handle_config_assist, handle_connect, handle_detect_auth, handle_disconnect, handle_install,
-    handle_installed_list, handle_oauth_begin, handle_registry_get, handle_registry_search,
-    handle_registry_settings_get, handle_registry_settings_set, handle_set_enabled, handle_status,
-    handle_tool_call, handle_uninstall, handle_update_env,
+    handle_config_get, handle_config_set, handle_connect, handle_detect_auth, handle_disconnect,
+    handle_installed_list, handle_list_tools, handle_oauth_begin, handle_registry_get,
+    handle_registry_search, handle_registry_settings_get, handle_registry_settings_set,
+    handle_set_enabled, handle_status, handle_tool_call, handle_uninstall, handle_update_env,
 };
-use super::setup_handlers::{
-    handle_setup_get, handle_setup_install_and_connect, handle_setup_request_secret,
-    handle_setup_search, handle_setup_submit_secret, handle_setup_test_connection,
-};
-use super::setup_registry::setup_schemas;
 
 // ── Schema registry ──────────────────────────────────────────────────────────
 
@@ -24,7 +19,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("registry_search"),
         schemas("registry_get"),
         schemas("installed_list"),
-        schemas("install"),
+        schemas("config_get"),
+        schemas("config_set"),
         schemas("update_env"),
         schemas("uninstall"),
         schemas("detect_auth"),
@@ -32,18 +28,11 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("connect"),
         schemas("disconnect"),
         schemas("status"),
+        schemas("list_tools"),
         schemas("tool_call"),
-        schemas("config_assist"),
         schemas("registry_settings_get"),
         schemas("registry_settings_set"),
         schemas("set_enabled"),
-        // Setup-agent surface (mcp_setup namespace, lives in setup_ops.rs).
-        setup_schemas("search"),
-        setup_schemas("get"),
-        setup_schemas("request_secret"),
-        setup_schemas("submit_secret"),
-        setup_schemas("test_connection"),
-        setup_schemas("install_and_connect"),
     ]
 }
 
@@ -62,8 +51,12 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             handler: handle_installed_list,
         },
         RegisteredController {
-            schema: schemas("install"),
-            handler: handle_install,
+            schema: schemas("config_get"),
+            handler: handle_config_get,
+        },
+        RegisteredController {
+            schema: schemas("config_set"),
+            handler: handle_config_set,
         },
         RegisteredController {
             schema: schemas("update_env"),
@@ -94,12 +87,12 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             handler: handle_status,
         },
         RegisteredController {
-            schema: schemas("tool_call"),
-            handler: handle_tool_call,
+            schema: schemas("list_tools"),
+            handler: handle_list_tools,
         },
         RegisteredController {
-            schema: schemas("config_assist"),
-            handler: handle_config_assist,
+            schema: schemas("tool_call"),
+            handler: handle_tool_call,
         },
         RegisteredController {
             schema: schemas("registry_settings_get"),
@@ -112,30 +105,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("set_enabled"),
             handler: handle_set_enabled,
-        },
-        RegisteredController {
-            schema: setup_schemas("search"),
-            handler: handle_setup_search,
-        },
-        RegisteredController {
-            schema: setup_schemas("get"),
-            handler: handle_setup_get,
-        },
-        RegisteredController {
-            schema: setup_schemas("request_secret"),
-            handler: handle_setup_request_secret,
-        },
-        RegisteredController {
-            schema: setup_schemas("submit_secret"),
-            handler: handle_setup_submit_secret,
-        },
-        RegisteredController {
-            schema: setup_schemas("test_connection"),
-            handler: handle_setup_test_connection,
-        },
-        RegisteredController {
-            schema: setup_schemas("install_and_connect"),
-            handler: handle_setup_install_and_connect,
         },
     ]
 }
@@ -225,36 +194,55 @@ pub fn schemas(function: &str) -> ControllerSchema {
             }],
         },
 
-        "install" => ControllerSchema {
+        "config_get" => ControllerSchema {
             namespace: "mcp_clients",
-            function: "install",
-            description: "Install an MCP server from the Smithery registry.",
-            inputs: vec![
-                FieldSchema {
-                    name: "qualified_name",
-                    ty: TypeSchema::String,
-                    comment: "Registry qualified name.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "env",
-                    ty: TypeSchema::Map(Box::new(TypeSchema::String)),
-                    comment: "Environment variable values required by the server. Values are stored encrypted and never returned.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "config",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
-                    comment: "Optional JSON configuration blob.",
-                    required: false,
-                },
-            ],
+            function: "config_get",
+            description: "Read the user's MCP servers as one `mcp.json` document: `{ \"mcpServers\": { name: { url | command, args, description, enabled, envKeys, authConfigured } } }`. Credential values are never returned; `envKeys` lists their names.",
+            inputs: vec![],
             outputs: vec![FieldSchema {
-                name: "server",
-                ty: TypeSchema::Ref("InstalledServer"),
-                comment: "The newly installed server record.",
+                name: "mcpServers",
+                ty: TypeSchema::Map(Box::new(TypeSchema::Json)),
+                comment: "Server name -> declaration. `url` for a hosted server, `command`/`args` for a local one.",
                 required: true,
             }],
+        },
+
+        "config_set" => ControllerSchema {
+            namespace: "mcp_clients",
+            function: "config_set",
+            description: "Replace the user's MCP servers with an `mcp.json` document. A server absent from the document is uninstalled; a new one is added; one whose dial changed is rewritten in place. `env` (local) / `headers` (hosted) are stored write-only: omit the block to keep what is stored, set a key to \"\" to remove it. Enabled servers are connected in the background.",
+            inputs: vec![FieldSchema {
+                name: "mcpServers",
+                ty: TypeSchema::Map(Box::new(TypeSchema::Json)),
+                comment: "Server name -> { url | command, args?, env? | headers?, description?, enabled? }.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "mcpServers",
+                    ty: TypeSchema::Map(Box::new(TypeSchema::Json)),
+                    comment: "The document as the store now renders it.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "added",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Names installed by this write.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "updated",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Names whose dial or credentials changed.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "removed",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "Names uninstalled because the document no longer declares them.",
+                    required: true,
+                },
+            ],
         },
 
         "update_env" => ControllerSchema {
@@ -458,6 +446,32 @@ pub fn schemas(function: &str) -> ControllerSchema {
             }],
         },
 
+        "list_tools" => ControllerSchema {
+            namespace: "mcp_clients",
+            function: "list_tools",
+            description: "The tools a connected server advertises, after the prompt-injection scan. Errors when the server is not connected.",
+            inputs: vec![FieldSchema {
+                name: "server_id",
+                ty: TypeSchema::String,
+                comment: "UUID of a connected server.",
+                required: true,
+            }],
+            outputs: vec![
+                FieldSchema {
+                    name: "server_id",
+                    ty: TypeSchema::String,
+                    comment: "The server asked about.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "tools",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::Ref("McpTool"))),
+                    comment: "The advertised tools.",
+                    required: true,
+                },
+            ],
+        },
+
         "tool_call" => ControllerSchema {
             namespace: "mcp_clients",
             function: "tool_call",
@@ -494,48 +508,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     ty: TypeSchema::Bool,
                     comment: "True when the tool returned an error.",
                     required: true,
-                },
-            ],
-        },
-
-        "config_assist" => ControllerSchema {
-            namespace: "mcp_clients",
-            function: "config_assist",
-            description: "AI assistant that helps configure an MCP server's required env vars.",
-            inputs: vec![
-                FieldSchema {
-                    name: "qualified_name",
-                    ty: TypeSchema::String,
-                    comment: "Registry qualified name of the server being configured.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "user_message",
-                    ty: TypeSchema::String,
-                    comment: "User's question or reply.",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "history",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::Ref(
-                        "ChatTurn",
-                    ))))),
-                    comment: "Prior conversation turns `[{role, content}]`.",
-                    required: false,
-                },
-            ],
-            outputs: vec![
-                FieldSchema {
-                    name: "reply",
-                    ty: TypeSchema::String,
-                    comment: "Assistant reply (markdown).",
-                    required: true,
-                },
-                FieldSchema {
-                    name: "suggested_env",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Map(Box::new(TypeSchema::String)))),
-                    comment: "Env vars extracted from the user's message, if any.",
-                    required: false,
                 },
             ],
         },
@@ -646,15 +618,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 },
             ],
         },
-
-        // Handled by setup_schemas() — surface a clearer error rather than
-        // falling through to the generic unknown sink.
-        "setup_search"
-        | "setup_get"
-        | "setup_request_secret"
-        | "setup_submit_secret"
-        | "setup_test_connection"
-        | "setup_install_and_connect" => setup_schemas(function.trim_start_matches("setup_")),
 
         _other => ControllerSchema {
             namespace: "mcp_clients",

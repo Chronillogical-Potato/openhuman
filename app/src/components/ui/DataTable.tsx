@@ -102,7 +102,7 @@ export interface DataTableProps<T> {
   testId?: string;
 }
 
-function FilterMenu({ filter }: { filter: DataTableFilter }) {
+export function DataTableFilterMenu({ filter }: { filter: DataTableFilter }) {
   const { t } = useT();
   const partial = filter.selected.size > 0 && filter.selected.size < filter.options.length;
 
@@ -275,7 +275,7 @@ export default function DataTable<T>({
             </div>
           )}
           {filters?.map(filter => (
-            <FilterMenu key={filter.id} filter={filter} />
+            <DataTableFilterMenu key={filter.id} filter={filter} />
           ))}
           {toolbarEnd}
         </div>

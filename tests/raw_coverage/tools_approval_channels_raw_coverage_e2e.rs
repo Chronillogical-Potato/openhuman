@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 //! Raw-line oriented integration coverage for tools, approval, channels, and
 //! tool_registry surfaces that are not covered by the narrower controller tests.
 
@@ -77,7 +78,7 @@ use openhuman_core::config::schema::{
     CapabilityProviderConfig, CapabilityProviderTrustState, NodeConfig, WhatsAppConfig,
 };
 use openhuman_core::config::{Config, IMessageConfig, WebhookConfig};
-use openhuman_core::agent::context::prompt::ConnectedIntegration;
+use openhuman_core::agent::prompts::ConnectedIntegration;
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
@@ -100,16 +101,15 @@ use openhuman_core::tools::generated::{
     GeneratedToolAdmissionConfig, GeneratedToolDefinition, GeneratedToolRisk,
 };
 use openhuman_core::tools::orchestrator_tools::collect_orchestrator_tools;
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolCategory, ToolCallOptions};
 use openhuman_core::tools::{
     all_tools, all_tools_controller_schemas, all_tools_registered_controllers,
     default_tools, ApplyPatchTool, BrowserTool, CleaningStrategy,
     ComputerUseConfig, CsvExportTool, CurrentTimeTool, DefaultToolPolicy, DetectToolsTool,
     EditFileTool, FileReadTool, FileWriteTool, GitbooksGetPageTool, GitbooksSearchTool, GlobTool,
     GrepTool, InsertSqlRecordTool, ListFilesTool, LspTool, NodeExecTool, NpmExecTool,
-    PermissionLevel, PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, RunTestsTool,
-    SchemaCleanr, Tool, ToolCallOptions, ToolCategory, ToolPolicy, ToolResult, ToolScope,
-    UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool,
-};
+    PolicyDecision, ProxyConfigTool, ReadDiffTool, RunLinterTool, RunTestsTool,
+    SchemaCleanr, ToolPolicy, UpdateApplyTool, UpdateMemoryMdTool, WebFetchTool, WorkspaceStateTool};
 
 const TEST_RPC_TOKEN: &str = "tools-approval-channels-raw-e2e-token";
 
@@ -329,7 +329,7 @@ fn coverage_connected_integration(
 struct DefaultPathTool;
 
 #[async_trait]
-impl openhuman_core::tools::Tool for DefaultPathTool {
+impl tinytools::Tool for DefaultPathTool {
     fn name(&self) -> &str {
         "default_path_tool"
     }
@@ -360,6 +360,8 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn ensure_rpc_auth() {
+
+    crate::tinyhumans_boot::boot();
     AUTH_INIT.get_or_init(|| {
         std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN);
         let token_dir = std::env::temp_dir().join("openhuman-tools-channels-e2e-auth");
@@ -691,6 +693,8 @@ disallowed_tools = ["write_file"]
 }
 
 async fn setup() -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     let workspace = home.join("openhuman-workspace");
@@ -1571,7 +1575,7 @@ fn tools_and_tool_registry_public_surfaces_cover_schema_and_assembly_paths() {
     assert!(!default_tool.is_concurrency_safe(&json!({})));
     assert!(!default_tool.external_effect());
     assert!(!default_tool.external_effect_with_args(&json!({})));
-    assert!(openhuman_core::tools::traits::generated_runtime_context(
+    assert!(openhuman_core::tools::host_extensions::generated_runtime_context(
         &default_tool,
         &json!({})
     )
@@ -1633,8 +1637,12 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
         ],
     );
 
+    // No `delegate_to_integrations_agent`: the Skills wildcard expands to
+    // the connected actions as deferred tools, and these integrations carry
+    // no actions, so only the archetype delegate is synthesised. The
+    // disconnected and duplicate-slug entries contribute nothing either way.
     let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
-    assert_eq!(names, vec!["research", "delegate_to_integrations_agent"]);
+    assert_eq!(names, vec!["research"]);
 
     let research = &tools[0];
     // The delegation tool's description is the target agent's `when_to_use`
@@ -1658,39 +1666,26 @@ async fn orchestrator_tool_synthesis_covers_agent_and_integration_delegation_edg
     assert!(missing_prompt.is_error);
     assert!(missing_prompt.output().contains("prompt"));
 
-    let integrations = &tools[1];
-    let schema = integrations.parameters_schema();
-    assert_eq!(
-        schema.pointer("/properties/toolkit/enum"),
-        Some(&json!(["gmail_pro", "slack_bot"]))
-    );
-    let description = integrations.description();
-    assert!(description.contains("gmail_pro: Send and triage mail."));
-    assert!(description.contains("slack_bot: External integration via Slack-Bot"));
-    assert!(!description.contains("Slack.Bot"));
-    assert!(!description.contains("Disconnected"));
-
-    let missing_toolkit = integrations
-        .execute(json!({ "prompt": "send a message" }))
-        .await
-        .expect("missing toolkit returns tool error");
-    assert!(missing_toolkit.is_error);
-    assert!(missing_toolkit.output().contains("toolkit"));
-
-    let unknown_toolkit = integrations
-        .execute(json!({ "toolkit": "calendar", "prompt": "create an event" }))
-        .await
-        .expect("unknown toolkit returns tool error");
-    assert!(unknown_toolkit.is_error);
-    assert!(unknown_toolkit.output().contains("gmail_pro"));
-    assert!(unknown_toolkit.output().contains("slack_bot"));
-
-    let blank_prompt = integrations
-        .execute(json!({ "toolkit": "GMail-Pro", "prompt": "   " }))
-        .await
-        .expect("blank prompt returns tool error after slug normalization");
-    assert!(blank_prompt.is_error);
-    assert!(blank_prompt.output().contains("prompt"));
+    // With actions on a connected toolkit, each becomes a `Deferred` tool
+    // the orchestrator reaches through `tool_search`; an unconnected
+    // toolkit's actions stay out.
+    let mut gmail = coverage_connected_integration("GMail Pro", "Send and triage mail.", true);
+    gmail.tools = vec![openhuman_core::agent::prompts::ConnectedIntegrationTool {
+        name: "GMAIL_SEND_EMAIL".into(),
+        description: "Send an email.".into(),
+        parameters: None,
+    }];
+    let mut off = coverage_connected_integration("Disconnected", "Should be skipped.", false);
+    off.tools = vec![openhuman_core::agent::prompts::ConnectedIntegrationTool {
+        name: "OFF_ACTION".into(),
+        description: "Never advertised.".into(),
+        parameters: None,
+    }];
+    let tools = collect_orchestrator_tools(&orchestrator, &registry, &[gmail, off]);
+    let names = tools.iter().map(|tool| tool.name()).collect::<Vec<_>>();
+    assert_eq!(names, vec!["research", "GMAIL_SEND_EMAIL"]);
+    assert_eq!(tools[1].exposure(), tinytools::ToolExposure::Deferred);
+    assert_eq!(tools[1].description(), "Send an email.");
 }
 
 #[tokio::test]

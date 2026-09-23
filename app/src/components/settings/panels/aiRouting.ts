@@ -89,8 +89,8 @@ interface SelectableChatModel {
  * the `{ id, sizeBytes, family }` picker shape.
  *
  * Pure so the filter + map wiring is unit-testable without rendering the panel
- * — both picker consumers (`CustomRoutingDialog` + `GlobalOwnModelSelector`)
- * route a chat model, never the embedder (configured separately in
+ * — the picker consumer (`CustomRoutingDialog`) routes
+ * a chat model, never the embedder (configured separately in
  * `EmbeddingsPanel`). Selecting an embedding model as chat 400s every turn on
  * Ollama (TAURI-RUST-4P6).
  */

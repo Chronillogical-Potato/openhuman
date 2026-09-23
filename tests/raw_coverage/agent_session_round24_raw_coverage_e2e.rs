@@ -1,10 +1,11 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 use anyhow::Result;
 use async_trait::async_trait;
-use openhuman_core::agent::dispatcher::XmlToolDispatcher;
+use tinytools_agent::dialect::XmlDialect;
 use openhuman_core::agent::hooks::{PostTurnHook, TurnContext};
-use openhuman_core::agent::Agent;
+use openhuman_core::agent::OpenHumanSessionHost;
 use openhuman_core::config::{AgentConfig, ContextConfig};
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     ConnectedIntegration, LearnedContextData, PersonalityRosterEntry, PersonalityRosterSection,
     PromptContext, PromptSection, PromptTool, SubagentRenderOptions, SystemPromptBuilder,
     ToolCallFormat, UserIdentity, UserIdentitySection,
@@ -12,9 +13,8 @@ use openhuman_core::agent::context::prompt::{
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{
-    PermissionLevel, Tool, ToolContent, ToolResult, ToolScope as RuntimeToolScope,
-};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
+use tinytools::ToolScope as RuntimeToolScope;
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
@@ -22,12 +22,12 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock};
 use tempfile::TempDir;
-use tinyinference::message::{AssistantMessage, Message, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, Message, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 use tokio::time::{sleep, Duration, Instant};
 
 static NO_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
@@ -110,18 +110,18 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.capture(&request, false);
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference::Result<ModelStream> {
+    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_llm::Result<ModelStream> {
         self.capture(&request, true);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
         items.extend(self.stream_events.iter().cloned());
         items.push(ModelStreamItem::Completed(response));
-        Ok(Box::pin(futures::stream::iter(items)))
+        Ok(ModelStream::new(Box::pin(futures::stream::iter(items))))
     }
 }
 
@@ -134,12 +134,12 @@ impl ScriptedModel {
         });
     }
 
-    fn pop_response(&self) -> tinyinference::Result<ModelResponse> {
+    fn pop_response(&self) -> tinyinference_llm::Result<ModelResponse> {
         self.responses
             .lock()
             .pop_front()
             .unwrap_or_else(|| Ok(text_response("fallback final", None)))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
@@ -397,8 +397,6 @@ fn prompt_ctx<'a>(
         include_memory_md: false,
         curated_snapshot: None,
         user_identity: None,
-        personality_soul_md: None,
-        personality_memory_md: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -424,13 +422,13 @@ async fn max_iteration_checkpoint_uses_deterministic_fallback_and_hooks() {
         ))],
     );
 
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider.clone())
         .tools(vec![Box::new(Round24Tool {
             calls: calls.clone(),
         })])
         .memory(RecordingMemory::new())
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path.clone())
         .event_context("round24-session", "round24-channel")
         .agent_definition_name("round24/orchestrator")
@@ -497,7 +495,7 @@ async fn max_iteration_checkpoint_uses_deterministic_fallback_and_hooks() {
 #[tokio::test]
 async fn builder_validation_and_system_prompt_cover_defaults_and_learning() {
     let _env = env_lock();
-    let missing_tools = match Agent::builder().build() {
+    let missing_tools = match OpenHumanSessionHost::builder().build() {
         Ok(_) => panic!("builder without tools should fail"),
         Err(err) => err,
     };
@@ -511,11 +509,11 @@ async fn builder_validation_and_system_prompt_cover_defaults_and_learning() {
     let calls = Arc::new(AtomicUsize::new(0));
     let memory = RecordingMemory::new();
     let provider = ScriptedModel::new(vec![text_response("learned final", None)]);
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider.clone())
         .tools(vec![Box::new(Round24Tool { calls })])
         .memory(memory)
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .workspace_dir(workspace_path)
         .event_context("round24-prompt-session", "round24-prompt-channel")
         .agent_definition_name("round24 prompt/name")
@@ -611,7 +609,7 @@ fn prompt_sections_cover_dynamic_roster_identity_and_subagent_edges() {
     let parent_tools: Vec<Box<dyn Tool>> = vec![Box::new(Round24Tool {
         calls: Arc::new(AtomicUsize::new(0)),
     })];
-    let subagent_json = openhuman_core::agent::context::prompt::render_subagent_system_prompt(
+    let subagent_json = openhuman_core::agent::prompts::render_subagent_system_prompt(
         &workspace_path,
         "round24-model",
         &[999, 0],

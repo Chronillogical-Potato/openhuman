@@ -1,0 +1,197 @@
+{
+  "_comment": "Tier-2 prompt evals: real model, scored, on demand only. Never wired into CI. See docs/prompt-evals.md.",
+  "judge": {
+    "_source": "Copied from close_verification_prompt in crates/openhuman-core/src/agent/session_host/turn_checkpoint.rs (pub(super), deliberately not widened for this script). The Rust copy has a drift guard; if you edit the rules there, mirror them here.",
+    "preamble": "You are checking a reply before it is shown to a user. Below are the user's request, the records of the tool calls made while handling it, and the reply.",
+    "rules": [
+      "The reply only says what the assistant will do or is about to do, instead of reporting what happened.",
+      "The reply states something the tool records contradict, for example that something does not exist or did not work when a record shows it succeeded, or that something succeeded when its record shows it failed.",
+      "The request was not completed, a failed record gives the reason, and the reply does not pass that reason on."
+    ]
+  },
+  "cases": [
+    {
+      "id": "web-search-fact",
+      "surface": "web search",
+      "_why": "Direct-first: a single current fact is one built-in web_search_tool call, not a research spawn.",
+      "entry": "agent_chat",
+      "message": "What is the latest stable release of the Rust programming language? Cite where you found it.",
+      "expect_calls": [
+        "web_search_tool"
+      ],
+      "forbid_calls": [
+        "research",
+        "spawn_async_subagent"
+      ],
+      "max_consecutive": {
+        "web_search_tool": 3
+      },
+      "max_input_tokens": 100000,
+      "judge": true,
+      "writes": []
+    },
+    {
+      "id": "mcp-none-configured",
+      "surface": "mcp (error path)",
+      "_why": "ERROR-PATH case, not an MCP capability case: the account has zero MCP servers, so the only honest outcome is to say none is configured without fabricating one or installing one. Do not install a server to make MCP testable — that changes the baseline.",
+      "entry": "agent_chat",
+      "message": "Use my MCP server to look up today's open tickets.",
+      "expect_calls": [],
+      "forbid_calls": [
+        "setup_mcp_server",
+        "mcp_registry_install"
+      ],
+      "reply_regex": "(?i)(no|not|isn't|aren't|don't|haven't)[^.]{0,80}(mcp|server)",
+      "max_consecutive": {},
+      "max_input_tokens": 100000,
+      "judge": true,
+      "writes": [],
+      "precondition": {
+        "what": "no MCP server installed",
+        "method": "openhuman.mcp_clients_installed_list",
+        "params": {},
+        "expect_not_regex": "(?i)\"(id|name|server_id|server_name)\"\\s*:"
+      }
+    },
+    {
+      "id": "orchestrator-direct-answer",
+      "_why": "Direct-first: a trivial question must be answered without spawning a sub-agent.",
+      "entry": "agent_chat",
+      "message": "What is 17 times 23?",
+      "expect_calls": [],
+      "forbid_calls": [
+        "research",
+        "spawn_async_subagent",
+        "schedule_task"
+      ],
+      "max_consecutive": {},
+      "max_input_tokens": 60000,
+      "judge": false,
+      "expected_response": "391",
+      "writes": [],
+      "surface": "orchestration"
+    },
+    {
+      "id": "orchestrator-research-trip",
+      "surface": "orchestration",
+      "_why": "A research question must go straight to search and stream an answer: no plan-review card, no todo board, one visible round trip (Hermes parity, latency RCA 2026-09-22).",
+      "entry": "agent_chat",
+      "message": "Can you help me find a trip to Kashmir? I'm thinking about going in October for about a week.",
+      "expect_calls": [
+        "web_search_tool"
+      ],
+      "forbid_calls": [
+        "request_plan_review",
+        "todo",
+        "spawn_async_subagent"
+      ],
+      "max_consecutive": {
+        "web_search_tool": 4
+      },
+      "max_input_tokens": 60000,
+      "judge": true,
+      "writes": []
+    },
+    {
+      "id": "skill-notion-read",
+      "surface": "skills",
+      "_why": "Run an installed skill through its hand-off, read-only. The account's only installed skill on 2026-09-18 was `notion` (it was `github` two days earlier — re-check).",
+      "entry": "agent_chat",
+      "message": "Using my installed Notion skill, list the titles of my five most recently edited Notion pages. Do not create or edit anything.",
+      "expect_calls": [
+        "run_skill"
+      ],
+      "forbid_calls": [
+        "setup_skills",
+        "skill_registry_install"
+      ],
+      "max_consecutive": {},
+      "max_input_tokens": 200000,
+      "judge": true,
+      "writes": [],
+      "precondition": {
+        "what": "notion skill installed",
+        "method": "openhuman.skills_list",
+        "params": {
+          "include_skills": true
+        },
+        "expect_regex": "(?i)\"(id|name|slug)\"\\s*:\\s*\"notion\""
+      },
+      "_precondition_finding": "skills_list defaults include_skills=false and then lists only workflows/ automations (skills/schemas/handlers.rs:32, #3954), so an installed skill is hidden; include_skills=true also reads skills/ roots. The response key is 'workflows' for both (legacy naming), while skills_schemas('skills_list') declares the output as 'skills'. A schema-driven caller, agent included, is misled the same way."
+    },
+    {
+      "id": "workflow-builder-news",
+      "_why": "The 2026-09-17 incident: 512,775 input tokens and 27 catalog searches in one turn, no propose_workflow.",
+      "entry": "flows_build",
+      "message": "Every morning at 8am, send me a digest of the latest sports news.",
+      "expect_calls": [
+        "propose_workflow"
+      ],
+      "forbid_calls": [
+        "save_workflow",
+        "create_workflow",
+        "run_flow"
+      ],
+      "max_consecutive": {
+        "search_tool_catalog": 2
+      },
+      "max_input_tokens": 150000,
+      "judge": true,
+      "writes": [],
+      "surface": "workflow",
+      "_writes_note": "flows_build proposes only; nothing is saved unless the model calls save_workflow/create_workflow (forbidden below)."
+    },
+    {
+      "id": "composio-gmail-read",
+      "enabled": false,
+      "surface": "composio",
+      "_why": "Read-only action on a connected toolkit. Exercises the orchestrator's tool_search → direct GMAIL_* call route (the delegate_to_integrations_agent hand-off is gone; see #6334 for the earlier shape).",
+      "entry": "agent_chat",
+      "message": "What is the subject line of the most recent email in my Gmail inbox? Just read it, don't change anything.",
+      "expect_calls": [
+        "tool_search"
+      ],
+      "forbid_calls": [
+        "delegate_to_integrations_agent",
+        "composio_connect",
+        "GMAIL_SEND_EMAIL",
+        "GMAIL_DELETE_MESSAGE",
+        "GMAIL_MOVE_TO_TRASH"
+      ],
+      "max_consecutive": {
+        "composio_list_tools": 2
+      },
+      "max_input_tokens": 200000,
+      "judge": true,
+      "writes": [],
+      "precondition": {
+        "what": "gmail connected",
+        "method": "openhuman.composio_list_connections",
+        "params": {},
+        "expect_regex": "(?s)\\{[^{}]*\"status\"\\s*:\\s*\"ACTIVE\"[^{}]*\"toolkit\"\\s*:\\s*\"gmail\"[^{}]*\\}|\\{[^{}]*\"toolkit\"\\s*:\\s*\"gmail\"[^{}]*\"status\"\\s*:\\s*\"ACTIVE\"[^{}]*\\}"
+      },
+      "_gate": "Do not run until a real transcript has shown the orchestrator's direct GMAIL_* call in `calls` in a form these forbids match. Until then GMAIL_* forbids are unproven against the live inbox."
+    },
+    {
+      "id": "orchestrator-reminder",
+      "_why": "A scheduling request must reach scheduler_agent through schedule_task, not be answered in prose.",
+      "entry": "agent_chat",
+      "message": "Remind me to stretch every weekday at 3pm.",
+      "expect_calls": [
+        "schedule_task"
+      ],
+      "forbid_calls": [
+        "shell"
+      ],
+      "max_consecutive": {},
+      "max_input_tokens": 100000,
+      "judge": true,
+      "writes": [
+        "a recurring cron job ('stretch', weekdays 15:00) — remove it with cron_remove / the Routines UI after the run"
+      ],
+      "surface": "orchestration/scheduler"
+    }
+  ],
+  "_precondition_note": "precondition: a read-only RPC run just before each run. expect_regex must match / expect_not_regex must not match its JSON output. The regexes are UNVERIFIED against real output: inspect `precondition.evidence` in the first rows. A failed precondition skips the run and records why.",
+  "_order": "Cases run in file order: increasing account risk. Nothing-touching cases first (they also validate the rig), the one writing case last."
+}

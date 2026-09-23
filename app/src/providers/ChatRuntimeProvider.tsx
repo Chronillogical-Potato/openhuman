@@ -22,7 +22,6 @@ import {
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
-  type ChatTaskBoardUpdatedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
   type ProactiveMessageEvent,
@@ -52,7 +51,6 @@ import {
   setPendingApprovalForThread,
   setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
-  setTaskBoardForThread,
   setToolTimelineForThread,
   setWorkflowProposalForThread,
   streamDeltaReceived,
@@ -226,9 +224,9 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
 /**
  * Message id for a reply the CORE already persisted before announcing it.
  *
- * Core-initiated turns (`client_id === 'system'`: autonomous task sessions and
- * background sub-agent result delivery via `run_system_turn_on_thread`) write
- * their own closing message — `task_session::append_final`, keyed
+ * Core-initiated turns (`client_id === 'system'`: background sub-agent result
+ * delivery and system flows) write their own closing message through the
+ * conversation store, keyed
  * `agent:<run_id>` — and only then emit `chat_done` / `chat_error` with that
  * run id as `request_id`. Reusing the same id here makes our own
  * `addInferenceResponse` append collapse onto the core's row (the conversation
@@ -819,6 +817,44 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           })
         );
 
+        // A detached sub-agent's spend reaches the composer here or nowhere.
+        //
+        // The parent turn's `chat_done` fired before this child finished, and
+        // for a detached spawn the child's usage never entered the parent's
+        // ledger — `detached_child()` sets `parent_subagent_usage` to `None` —
+        // so `holistic_last_turn_usage` folded nothing and the reported totals
+        // are parent-only. The core populates these fields ONLY when that is
+        // the case, so adding them unconditionally is correct: for a blocking
+        // spawn they are absent, because its spend is already inside the
+        // `chat_done` figures (tokens AND cost). See #6459.
+        const childInput = event.subagent?.input_tokens;
+        const childOutput = event.subagent?.output_tokens;
+        if (childInput !== undefined || childOutput !== undefined) {
+          dispatch(
+            recordChatTurnUsage({
+              threadId: event.thread_id,
+              // The child's tokens go at the TOP level because that is what
+              // `applyTurnUsage` folds into the thread totals the composer
+              // shows — mirroring `chat_done`, whose top-level figures are
+              // already parent+child. The `subAgents` entry below is the
+              // per-agent breakdown, not the total.
+              inputTokens: childInput ?? 0,
+              outputTokens: childOutput ?? 0,
+              cachedTokens: event.subagent?.cached_input_tokens ?? 0,
+              costUsd: event.subagent?.cost_usd ?? 0,
+              subAgentSpendOnly: true,
+              subAgents: [
+                {
+                  agentId: event.tool_name ?? 'subagent',
+                  inputTokens: childInput ?? 0,
+                  outputTokens: childOutput ?? 0,
+                  costUsd: event.subagent?.cost_usd ?? 0,
+                },
+              ],
+            })
+          );
+        }
+
         const current = store.getState().chatRuntime.inferenceStatusByThread[event.thread_id];
         if (!current) return;
         dispatch(
@@ -1081,10 +1117,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             toolCallId: event.tool_call_id,
           })
         );
-      },
-      onTaskBoardUpdated: (event: ChatTaskBoardUpdatedEvent) => {
-        if (!event.task_board) return;
-        dispatch(setTaskBoardForThread({ threadId: event.thread_id, board: event.task_board }));
       },
       onProactiveMessage: (event: ProactiveMessageEvent) => {
         const messageDigest = proactiveMessageDigest(event.full_response ?? '');

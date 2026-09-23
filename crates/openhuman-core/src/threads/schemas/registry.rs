@@ -6,10 +6,10 @@ use crate::core::ControllerSchema;
 
 use super::handlers::{
     handle_create_new, handle_delete, handle_generate_title, handle_list, handle_message_append,
-    handle_message_update, handle_messages_list, handle_purge, handle_task_board_get,
-    handle_task_board_put, handle_token_usage, handle_transcript_get, handle_turn_state_clear,
-    handle_turn_state_get, handle_turn_state_get_turn, handle_turn_state_history,
-    handle_turn_state_list, handle_update_labels, handle_update_title, handle_upsert,
+    handle_message_update, handle_messages_list, handle_purge, handle_token_usage,
+    handle_transcript_get, handle_turn_state_clear, handle_turn_state_get,
+    handle_turn_state_get_turn, handle_turn_state_history, handle_turn_state_list,
+    handle_update_labels, handle_update_title, handle_upsert,
 };
 use super::schema_defs::schemas;
 
@@ -31,8 +31,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("turn_state_history"),
         schemas("turn_state_get_turn"),
         schemas("turn_state_clear"),
-        schemas("task_board_get"),
-        schemas("task_board_put"),
         schemas("token_usage"),
         schemas("transcript_get"),
     ]
@@ -103,14 +101,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("turn_state_clear"),
             handler: handle_turn_state_clear,
-        },
-        RegisteredController {
-            schema: schemas("task_board_get"),
-            handler: handle_task_board_get,
-        },
-        RegisteredController {
-            schema: schemas("task_board_put"),
-            handler: handle_task_board_put,
         },
         RegisteredController {
             schema: schemas("token_usage"),

@@ -1,8 +1,8 @@
 //! Tool: insert_sql_record — insert an episodic record into the FTS5 memory database.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Valid values for the `role` parameter.
 const VALID_ROLES: &[&str] = &["user", "assistant", "tool"];

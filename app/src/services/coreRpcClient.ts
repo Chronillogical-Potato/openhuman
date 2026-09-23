@@ -745,8 +745,8 @@ export async function callCoreRpc<T>({
   try {
     const [rpcUrl, token] = await Promise.all([getCoreRpcUrl(), getCoreRpcToken()]);
     coreRpcLog('HTTP request', { id: payload.id, method: payload.method });
-    if (normalizedMethod === 'openhuman.auth_store_session') {
-      coreRpcLog('[rpc] auth_store_session routing', {
+    if (normalizedMethod === 'openhuman.auth_set_credential') {
+      coreRpcLog('[rpc] auth_set_credential routing', {
         rpcUrl,
         tokenSource: getStoredCoreToken() ? 'cloud-stored' : 'local-resolved',
       });

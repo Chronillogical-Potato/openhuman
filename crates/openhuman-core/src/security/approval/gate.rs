@@ -1,5 +1,5 @@
 //! `ApprovalGate` — middleware between the agent and any tool whose
-//! [`crate::tools::Tool::external_effect`] returns `true`.
+//! [`tinytools::Tool::external_effect`] returns `true`.
 //!
 //! Flow (issue #1339):
 //! 1. Agent harness calls [`ApprovalGate::intercept`] with the tool

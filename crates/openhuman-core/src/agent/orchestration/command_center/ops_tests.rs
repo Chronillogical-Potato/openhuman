@@ -12,8 +12,6 @@ fn run_with(id: &str, status: AgentRunStatus, updated_secs: i64) -> AgentRun {
         status,
         prompt_ref: None,
         worker_thread_id: None,
-        task_board_id: None,
-        task_card_id: None,
         checkpoint_path: None,
         checkpoint: None,
         summary: None,

@@ -16,7 +16,7 @@ use serde_json::json;
 
 use crate::memory::ops::guard::active_memory_guard;
 use crate::memory::ops::tool_memory::NO_TOOL_MEMORY;
-use crate::tools::traits::{Tool, ToolResult};
+use tinytools::{Tool, ToolResult};
 
 pub struct MemoryToolsListTool;
 

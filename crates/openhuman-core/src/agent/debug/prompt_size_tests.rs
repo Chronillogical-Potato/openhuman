@@ -71,3 +71,45 @@ fn tools_are_ranked_by_cost_not_registration_order() {
     );
     assert!(report.tools[1].parameters_bytes > 0, "`{{}}` is two bytes");
 }
+
+/// The report must measure the tool schemas the provider receives — the
+/// agent's visible set — not the whole registry. d149ab0f0 switched the
+/// session dump to `all_tool_refs()`, and every agent then reported the same
+/// ~200 tools, so every `tool_bytes` budget described a belt no agent carries.
+#[test]
+fn session_report_measures_the_visible_belt_not_the_registry() {
+    crate::agent::harness::AgentDefinitionRegistry::init_global_builtins().unwrap();
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..crate::config::Config::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    let agent = crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "critic")
+        .expect("critic session build");
+
+    let dumped = crate::agent::debug::session_dump(&agent, "critic", String::new());
+    let report = PromptSizeReport::from_dump(&dumped);
+
+    let mut visible: Vec<String> = agent
+        .visible_tool_specs_arc()
+        .iter()
+        .map(|s| s.name.clone())
+        .collect();
+    visible.sort();
+    let mut reported: Vec<String> = report.tools.iter().map(|t| t.name.clone()).collect();
+    reported.sort();
+    assert_eq!(
+        reported, visible,
+        "prompt-size must report the provider-facing visible tool set"
+    );
+    assert!(
+        report.tool_count < dumped.tool_names.len(),
+        "critic's belt ({}) must be narrower than its registry ({}), or this test \
+         cannot tell the two apart",
+        report.tool_count,
+        dumped.tool_names.len()
+    );
+}

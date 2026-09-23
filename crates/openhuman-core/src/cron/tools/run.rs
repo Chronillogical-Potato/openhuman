@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::cron;
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
 
 pub struct CronRunTool {
     config: Arc<Config>,

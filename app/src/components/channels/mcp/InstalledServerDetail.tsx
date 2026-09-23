@@ -9,8 +9,6 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { mcpClientsApi } from '../../../services/api/mcpClientsApi';
 import Button from '../../ui/Button';
 import TextField from '../../ui/TextField';
-import { clearConfigChat } from './ConfigAssistantPanel';
-import ConfigHelpModal from './ConfigHelpModal';
 import ConnectAuthModal, { authHintMessageKey } from './ConnectAuthModal';
 import McpStatusBadge from './McpStatusBadge';
 import McpToolList from './McpToolList';
@@ -18,11 +16,6 @@ import McpToolPlayground from './McpToolPlayground';
 import type { ConnStatus, InstalledServer, McpTool, ServerStatus } from './types';
 
 const log = debug('mcp-clients:detail');
-
-// The "how do I get the token" AI assistant lives on this detail page (not the
-// Connect modal, which stays focused on entering the credential). It auto-runs a
-// server-specific prompt and can web-research the provider's docs.
-const SHOW_CONFIG_ASSISTANT = true;
 
 interface InstalledServerDetailProps {
   server: InstalledServer;
@@ -51,12 +44,10 @@ const InstalledServerDetail = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmUninstall, setConfirmUninstall] = useState(false);
-  const [showAssistant, setShowAssistant] = useState(false);
   // Reconfigure form: when open, renders one input per env key so the user can
   // supply replacement values and reconnect without uninstall/reinstall
   // (issue #3039 env-reconfiguration). Values are never pre-filled from the
-  // server (we only ever hold key names) — except when the config assistant
-  // suggests values, which seed `reconfigValues` for the user to confirm.
+  // server: we only ever hold key names.
   const [reconfigOpen, setReconfigOpen] = useState(false);
   const [reconfigValues, setReconfigValues] = useState<Record<string, string>>({});
   const [showReconfig, setShowReconfig] = useState<Record<string, boolean>>({});
@@ -68,11 +59,6 @@ const InstalledServerDetail = ({
   // When true, the upfront auth modal is shown so the user can supply tokens
   // (declared required fields + custom headers) before we actually connect.
   const [connectModalOpen, setConnectModalOpen] = useState(false);
-
-  // The help chat persists (cached by qualified_name) while this server's detail
-  // page is open, so closing/reopening the modal keeps the conversation. Clear
-  // it when we leave this server (unmount → back to list, or switch servers).
-  useEffect(() => () => clearConfigChat(server.qualified_name), [server.qualified_name]);
 
   // Poll-driven safety net: if the server leaves `connected` by ANY path —
   // background status poll, parent prop change, auth expiry — not just the
@@ -90,6 +76,25 @@ const InstalledServerDetail = ({
       setPlaygroundTool(null);
     }
   }
+
+  // A server that connected before this view opened (at boot, or in the
+  // background after it was declared) has a tool list the core knows and this
+  // view does not: read it, rather than waiting for a reconnect from here.
+  useEffect(() => {
+    if (status !== 'connected') return;
+    let live = true;
+    mcpClientsApi
+      .listTools(server.server_id)
+      .then(fetched => {
+        if (live && fetched.length > 0) setTools(fetched);
+      })
+      .catch((err: unknown) => {
+        log('list_tools failed (non-fatal): %s', err instanceof Error ? err.message : err);
+      });
+    return () => {
+      live = false;
+    };
+  }, [server.server_id, status]);
 
   const runBusy = useCallback(async (task: () => Promise<void>) => {
     setBusy(true);
@@ -161,34 +166,18 @@ const InstalledServerDetail = ({
     [server.server_id, runBusy, onEnabledChange]
   );
 
-  const openReconfigure = useCallback(
-    (prefill?: Record<string, string>) => {
-      const initial: Record<string, string> = {};
-      const initialVisibility: Record<string, boolean> = {};
-      for (const key of visibleEnvKeys) {
-        initial[key] = prefill?.[key] ?? '';
-        initialVisibility[key] = false;
-      }
-      setReconfigValues(initial);
-      setShowReconfig(initialVisibility);
-      setReconfigDone(false);
-      setReconfigOpen(true);
-    },
-    [server.env_keys]
-  );
-
-  // The config assistant suggests values — seed the reconfigure form with them
-  // so the user can confirm/complete before we persist + reconnect. Suggested
-  // sets may be partial; the form requires every key so a reconnect never drops
-  // a required var (issue #3039 gap B6 — suggested values were never persisted).
-  const handleApplySuggestedEnv = useCallback(
-    (env: Record<string, string>) => {
-      log('suggested_env received, opening reconfigure form keys=%o', Object.keys(env));
-      setShowAssistant(false);
-      openReconfigure(env);
-    },
-    [openReconfigure]
-  );
+  const openReconfigure = useCallback(() => {
+    const initial: Record<string, string> = {};
+    const initialVisibility: Record<string, boolean> = {};
+    for (const key of visibleEnvKeys) {
+      initial[key] = '';
+      initialVisibility[key] = false;
+    }
+    setReconfigValues(initial);
+    setShowReconfig(initialVisibility);
+    setReconfigDone(false);
+    setReconfigOpen(true);
+  }, [server.env_keys]);
 
   const handleSaveReconfigure = useCallback(() => {
     void runBusy(async () => {
@@ -307,16 +296,6 @@ const InstalledServerDetail = ({
           {server.enabled ? t('mcp.detail.disable') : t('mcp.detail.enable')}
         </Button>
 
-        {SHOW_CONFIG_ASSISTANT && (
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => setShowAssistant(prev => !prev)}>
-            {showAssistant ? t('mcp.connectAuth.hideHelp') : t('mcp.connectAuth.howToGetToken')}
-          </Button>
-        )}
-
         {confirmUninstall ? (
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-coral-600 dark:text-coral-400 font-medium">
@@ -400,7 +379,7 @@ const InstalledServerDetail = ({
                     />
                     <Button
                       variant="secondary"
-                      size="xs"
+                      size="sm"
                       onClick={() => setShowReconfig(prev => ({ ...prev, [key]: !prev[key] }))}
                       disabled={busy}
                       className="shrink-0">
@@ -427,17 +406,6 @@ const InstalledServerDetail = ({
           onTryTool={status === 'connected' ? setPlaygroundTool : undefined}
         />
       </div>
-
-      {/* Config-help chat (stacked modal). */}
-      {SHOW_CONFIG_ASSISTANT && showAssistant && (
-        <ConfigHelpModal
-          qualifiedName={server.qualified_name}
-          displayName={server.display_name}
-          description={server.description}
-          onClose={() => setShowAssistant(false)}
-          onApplySuggestedEnv={handleApplySuggestedEnv}
-        />
-      )}
 
       {/* Tool Execution Playground modal. Gated on BOTH a selected tool
           AND a live connection — a disconnected server's tool list is

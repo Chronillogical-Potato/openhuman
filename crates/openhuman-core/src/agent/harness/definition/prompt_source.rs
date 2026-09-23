@@ -5,14 +5,13 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 
 /// Builder function signature for [`PromptSource::Dynamic`]. Takes the
-/// full runtime [`crate::agent::context::prompt::PromptContext`]
+/// full runtime [`crate::agent::prompts::PromptContext`]
 /// (tools, skills, memory, connected integrations, dispatcher, model,
 /// …) and returns the final system prompt body — typically assembled
 /// by calling the `render_*` section helpers in
-/// [`crate::agent::context::prompt`] in the order the builder
+/// [`crate::agent::prompts`] in the order the builder
 /// wants.
-pub type PromptBuilder =
-    fn(&crate::agent::context::prompt::PromptContext<'_>) -> anyhow::Result<String>;
+pub type PromptBuilder = fn(&crate::agent::prompts::PromptContext<'_>) -> anyhow::Result<String>;
 
 /// Where the sub-agent's core system prompt comes from.
 #[derive(Clone)]
@@ -24,7 +23,7 @@ pub enum PromptSource {
     /// at spawn time.
     File { path: String },
     /// Function-driven prompt: the builder is invoked at spawn time with
-    /// a [`crate::agent::context::prompt::PromptContext`] so the returned body can depend on runtime
+    /// a [`crate::agent::prompts::PromptContext`] so the returned body can depend on runtime
     /// state (available tools, user profile, connected skills, etc.).
     ///
     /// Only constructed in-process (by built-in agent loaders). Not

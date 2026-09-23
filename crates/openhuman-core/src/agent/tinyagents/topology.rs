@@ -45,30 +45,24 @@ fn describe(name: &'static str, topology: &GraphTopology) -> GraphTopologyReport
 pub(crate) fn all_graph_topologies() -> Vec<GraphTopologyReport> {
     let mut out = Vec::new();
 
-    if let Ok(t) = crate::agent::orchestration::agent_teams::member_graph_topology() {
+    if let Ok(t) = tinyagents_orchestration::teams::member_graph_topology() {
         out.push(describe("agent_teams:member", &t));
     }
 
-    if let Ok(t) = super::delegation::delegation_graph_topology() {
+    if let Ok(t) = tinyagents_graph::delegation::delegation_graph_topology() {
         out.push(describe("delegation", &t));
     }
 
-    if let Ok(t) = crate::agent::orchestration::workflow_runs::scheduler_graph_topology() {
-        out.push(describe("workflow_runs:scheduler", &t));
+    if let Ok(t) = tinyagents_orchestration::workflow::scheduler_topology_preview() {
+        out.push(describe("workflow_runs:scheduler_preview", &t));
     }
 
     if let Ok(t) = crate::agent::registry::agents::researcher::graph::topology() {
         out.push(describe("agent:researcher", &t));
     }
 
-    if let Ok(t) =
-        crate::agent::orchestration::spawn_parallel_graph::spawn_parallel_graph_topology()
-    {
-        out.push(describe("spawn_parallel_graph", &t));
-    }
-
-    // Not exported: generic item-count-driven `map_reduce` fan-outs whose node
-    // set is determined per run rather than by a fixed named topology.
+    // Not exported: item-count-driven `map_reduce` fan-outs whose node set is
+    // determined per run rather than by a fixed named topology.
 
     out
 }

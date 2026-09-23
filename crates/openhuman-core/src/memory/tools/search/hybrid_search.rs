@@ -12,7 +12,7 @@ use std::fmt::Write;
 use crate::memory::api::provider::MemoryProvider;
 use crate::memory::api::types::MemoryItemKind;
 use crate::memory::ops::guard::active_memory_guard;
-use crate::tools::traits::{Tool, ToolResult};
+use tinytools::{Tool, ToolCallOptions, ToolExposure, ToolResult, ToolRunContext};
 
 pub struct MemoryHybridSearchTool;
 
@@ -169,6 +169,10 @@ impl Tool for MemoryHybridSearchTool {
          'graph_first' (relationship-heavy)."
     }
 
+    fn exposure(&self) -> ToolExposure {
+        ToolExposure::Hidden
+    }
+
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
@@ -202,6 +206,16 @@ impl Tool for MemoryHybridSearchTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        tool_context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let parsed: Args = serde_json::from_value(args)
             .map_err(|e| anyhow::anyhow!("invalid arguments for memory_hybrid_search: {e}"))?;
 
@@ -250,11 +264,10 @@ impl Tool for MemoryHybridSearchTool {
         })?;
 
         // Self-echo guard (agent-agnostic, mirrors `UnifiedMemory::recall`):
-        // exclude documents auto-saved for the ambient chat thread (set by
-        // the web channel around the turn) so a search issued mid-turn
+        // exclude documents auto-saved for the caller chat thread so a search issued mid-turn
         // never retrieves the very request that triggered it. `None`
         // outside a chat turn — unchanged behavior for cron/CLI/tests.
-        let exclude_session_id = crate::agent::tinyagents::thread_context::current_thread_id();
+        let exclude_session_id = tool_context.and_then(ToolRunContext::thread_id);
         if let Some(ref excluded) = exclude_session_id {
             log::debug!(
                 "[tool][memory_hybrid_search] applying same-session exclusion exclude_session_id={excluded}"
@@ -265,7 +278,7 @@ impl Tool for MemoryHybridSearchTool {
                 &parsed.namespace,
                 &parsed.query,
                 limit as usize,
-                exclude_session_id.as_deref(),
+                exclude_session_id,
             )
             .await
             .map_err(|e| anyhow::anyhow!("memory_hybrid_search: query failed: {e}"))?;

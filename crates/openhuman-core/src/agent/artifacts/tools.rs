@@ -20,7 +20,7 @@ use serde_json::json;
 
 use crate::agent::artifacts::ops;
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Read `offset` / `limit` as optional `usize` from tool args.
 fn read_opt_usize(args: &serde_json::Value, key: &str) -> Option<usize> {

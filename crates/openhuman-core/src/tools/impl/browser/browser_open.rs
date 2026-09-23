@@ -1,8 +1,8 @@
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{Tool, ToolResult};
 
 /// Open approved HTTPS URLs in Brave Browser (no scraping, no DOM automation).
 pub struct BrowserOpenTool {

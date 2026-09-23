@@ -90,6 +90,11 @@ function run(tree, script) {
   const env = {
     ...process.env,
     PATH: `${tree.bin}:${process.env.PATH}`,
+    // Do not let a developer's shell select real build tools or different
+    // harness ports; the assertions exercise the fixed contract below.
+    CARGO_BIN: path.join(tree.bin, "cargo"),
+    E2E_MOCK_PORT: "18473",
+    OPENHUMAN_CORE_PORT: "17788",
     RUST_HOST_TRIPLE: "test-triple",
     OPENHUMAN_WORKSPACE: path.join(tree.root, "workspace"),
     E2E_WEB_CORE_TARGET_DIR: path.join(tree.root, "target"),
@@ -119,7 +124,7 @@ test("the session refuses a dist-web that e2e-web-build.sh did not produce", () 
 
     assert.equal(res.status, 1, res.output);
     assert.match(res.output, /was not built for E2E/);
-    assert.match(res.output, /pnpm test:e2e:web:build/);
+    assert.match(res.output, /pnpm --filter openhuman-app test:e2e:web:build/);
     // Refused before anything was started, not after.
     assert.deepEqual(
       tree.calls().filter((c) => c.startsWith("node ")),
@@ -140,6 +145,10 @@ test("the session accepts a marked bundle and proceeds past the guard", () => {
     const distWeb = path.join(tree.root, "app", "dist-web");
     fs.mkdirSync(distWeb, { recursive: true });
     fs.writeFileSync(path.join(distWeb, MARKER), "VITE_OPENHUMAN_TARGET=web\n");
+    fs.writeFileSync(
+      path.join(distWeb, ".e2e-build-ports.json"),
+      '{"e2e_mock_port":"18473","openhuman_core_port":"17788"}\n',
+    );
 
     const res = run(tree, "e2e-web-session.sh");
 

@@ -6,7 +6,7 @@
 
 use std::time::Instant;
 
-use crate::agent::context::prompt::{ConnectedIntegration, ConnectedIntegrationTool};
+use crate::agent::prompts::{ConnectedIntegration, ConnectedIntegrationTool};
 use crate::config::Config;
 
 use super::cache::{cache_key, CachedIntegrations, CACHE_TTL, INTEGRATIONS_CACHE};

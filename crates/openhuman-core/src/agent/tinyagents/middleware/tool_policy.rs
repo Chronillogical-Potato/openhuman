@@ -9,11 +9,11 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
-use tinyagents_harness::tool::ToolResult as TaToolResult;
-use tinyinference::tool::ToolCall as TaToolCall;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
+use tinytools::ToolResult as TaToolResult;
 
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
-use crate::tools::Tool;
+use tinytools::Tool;
 
 /// `wrap_tool`: enforce the agent's builder-configured [`ToolPolicy`] at the tool
 /// boundary (issue #4249). The in-house engine ran this check in
@@ -75,7 +75,8 @@ impl ToolPolicyMiddleware {
     fn callable_delegates_for(&self, owners: &[&str]) -> Vec<String> {
         let mut found: Vec<String> = Vec::new();
         for tool in self.tool_sets.iter().flat_map(|set| set.iter()) {
-            let Some(target) = crate::tools::traits::delegation_target(tool.as_ref()) else {
+            let Some(target) = crate::tools::host_extensions::delegation_target(tool.as_ref())
+            else {
                 continue;
             };
             if !owners.contains(&target) {
@@ -113,6 +114,30 @@ impl ToolPolicyMiddleware {
         found
     }
 
+    /// The answer to a `use_skill` call naming a tool `pack` does not contain:
+    /// the tools in it this session can call, or the pack's route when none.
+    pub(crate) fn no_such_pack_tool<'a>(
+        &self,
+        pack: &'static crate::tools::toolpacks::ToolPack,
+        tool: &'a str,
+    ) -> crate::tools::toolpacks::NoSuchPackTool<'a> {
+        let callable = pack
+            .tools
+            .iter()
+            .copied()
+            .filter(|name| {
+                self.resolve_tool(name).is_some()
+                    && !self.session.decision_for(name).blocks_execution()
+            })
+            .collect();
+        crate::tools::toolpacks::NoSuchPackTool {
+            skill: pack.id,
+            tool,
+            callable,
+            route: self.route_for_pack(pack),
+        }
+    }
+
     /// The route sentence for a pack, resolved against THIS session.
     pub(crate) fn route_for_pack(&self, pack: &crate::tools::toolpacks::ToolPack) -> String {
         crate::tools::toolpacks::route_sentence(
@@ -140,7 +165,7 @@ impl ToolPolicyMiddleware {
             .get("skill")
             .and_then(serde_json::Value::as_str)?;
         let tool = self.resolve_tool(&call.name)?;
-        let handle = crate::tools::traits::pack_registry_handle(tool.as_ref())?;
+        let handle = crate::tools::host_extensions::pack_registry_handle(tool.as_ref())?;
         let is_callable = |name: &str| !self.session.decision_for(name).blocks_execution();
         let route = crate::tools::toolpacks::pack(skill)
             .map(|pack| self.route_for_pack(pack))
@@ -153,17 +178,9 @@ impl ToolPolicyMiddleware {
             &is_callable,
             &route,
         );
-        let (content, error) = match rendered {
-            Ok(text) => (text, None),
-            Err(message) => (message.clone(), Some(message)),
-        };
-        Some(TaToolResult {
-            call_id: call.id.clone(),
-            name: call.name.clone(),
-            content,
-            raw: None,
-            error,
-            elapsed_ms: 0,
+        Some(match rendered {
+            Ok(text) => TaToolResult::success(text),
+            Err(message) => TaToolResult::error(message),
         })
     }
 
@@ -183,29 +200,42 @@ impl ToolPolicyMiddleware {
                 .render(),
             );
         }
-        let tool = self.resolve_tool(&call.name)?;
-        let call_required = tool.permission_level_with_args(&call.arguments);
-        if call_required > decision.allowed_permission {
-            return Some(
-                PolicyDenial::PermissionTooLow {
-                    tool: &call.name,
-                    required: call_required,
-                    allowed: decision.allowed_permission,
-                    channel: &self.channel,
-                }
-                .render(),
-            );
-        }
-        // For `use_skill`, also validate the resolved inner tool against the
-        // session allowlist. Role-hidden packed tools are not checked by the
-        // outer policy name; without this check `use_skill` would bypass the
+        // For `use_skill`, validate the resolved inner tool against the session
+        // allowlist. Role-hidden packed tools are not checked by the outer
+        // policy name; without this check `use_skill` would bypass the
         // session's effective allowlist for any packed tool.
+        //
+        // This runs BEFORE the argument-level permission check below, and the
+        // order is load-bearing. That check asks
+        // `UseSkillTool::permission_level_with_args`, which reports the
+        // pack-wide CEILING for an inner name it cannot resolve — so on a
+        // channel sitting under that ceiling, an invented name came back as
+        // `PermissionTooLow`: a permission denial for a tool that does not
+        // exist. Existence is not a policy question (#6302).
         if call.name == "use_skill" {
             if let Some(inner_tool) = call
                 .arguments
                 .get("tool")
                 .and_then(serde_json::Value::as_str)
             {
+                // Existence before permission. An invented name (`install_skill`
+                // in `skills`) is not a policy problem, and answering it with a
+                // denial reads as "installs are forbidden" (#6302). A tool the
+                // named skill does not contain gets that answer, with what this
+                // session can call in the skill instead — and so does a pack
+                // member this core never registered (feature gate, or an
+                // embedder's `ToolGroups::Off`), which is equally absent no
+                // matter what the static pack table says.
+                if let Some(pack) = call
+                    .arguments
+                    .get("skill")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(crate::tools::toolpacks::pack)
+                {
+                    if !pack.owns(inner_tool) || self.resolve_tool(inner_tool).is_none() {
+                        return Some(self.no_such_pack_tool(pack, inner_tool).render());
+                    }
+                }
                 // `blocks_execution`, NOT `is_denied`. Every withheld packed
                 // tool is `HideFromPrompt`, and `use_skill` is the only route it
                 // has — gating that route on `is_denied` refused all of them.
@@ -229,6 +259,24 @@ impl ToolPolicyMiddleware {
                 }
             }
         }
+
+        // Per-call permission ceiling, last: an unregistered tool has no level
+        // to compare, and for `use_skill` the level comes from the INNER tool
+        // (`permission_level_with_args`), which the block above has already
+        // proved to exist and to be reachable in this session.
+        let tool = self.resolve_tool(&call.name)?;
+        let call_required = tool.permission_level_with_args(&call.arguments);
+        if call_required > decision.allowed_permission {
+            return Some(
+                PolicyDenial::PermissionTooLow {
+                    tool: &call.name,
+                    required: call_required,
+                    allowed: decision.allowed_permission,
+                    channel: &self.channel,
+                }
+                .render(),
+            );
+        }
         None
     }
 }
@@ -243,22 +291,26 @@ impl ToolPolicyMiddleware {
             .iter()
             .flat_map(|set| set.iter())
             .find(|t| t.name() == name)
-            .and_then(|t| crate::tools::traits::generated_runtime_context(t.as_ref(), args))
+            .and_then(|t| {
+                crate::tools::host_extensions::generated_runtime_context(t.as_ref(), args)
+            })
     }
 }
 
 #[async_trait]
-impl ToolMiddleware<()> for ToolPolicyMiddleware {
+impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for ToolPolicyMiddleware
+{
     fn name(&self) -> &str {
         "tool_policy"
     }
 
     async fn wrap_tool(
         &self,
-        ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         state: &(),
         call: TaToolCall,
-        next: ToolHandler<'_, (), ()>,
+        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> TaResult<MiddlewareToolOutcome> {
         use crate::agent::tool_policy::{ToolCallContext, ToolPolicyDecision, ToolPolicyRequest};
 
@@ -270,14 +322,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 channel = self.channel.as_str(),
                 "[tinyagents::mw] tool blocked by channel permission ceiling"
             );
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: message.clone(),
-                raw: None,
-                error: Some(message),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(message)));
         }
 
         let context = ToolCallContext::session(
@@ -326,14 +371,7 @@ impl ToolMiddleware<()> for ToolPolicyMiddleware {
                 },
             }
             .render();
-            return Ok(MiddlewareToolOutcome::Result(TaToolResult {
-                call_id: call.id,
-                name: call.name,
-                content: content.clone(),
-                raw: None,
-                error: Some(content),
-                elapsed_ms: 0,
-            }));
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(content)));
         }
 
         // `use_skill`'s disclosure half (a `skill` with no `tool`) renders its

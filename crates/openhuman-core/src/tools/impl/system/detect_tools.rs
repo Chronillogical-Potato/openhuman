@@ -4,10 +4,10 @@
 //! assuming. Read-only: it only scans `$PATH` for executables (no subprocesses,
 //! no writes), so it is safe in every access mode.
 
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// Common developer tools probed when the caller doesn't specify a list.
 const DEFAULT_CANDIDATES: &[&str] = &[

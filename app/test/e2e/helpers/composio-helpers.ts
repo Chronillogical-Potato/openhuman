@@ -24,7 +24,10 @@ const LOG = '[ComposioHelpers]';
  */
 export function seedComposioConnection(
   toolkit: string,
-  status: 'ACTIVE' | 'FAILED' | 'EXPIRED' | 'CONNECTING',
+  // `INITIATED` / `PENDING` are the statuses Composio reports while an OAuth
+  // handoff is still open — what `deriveComposioState` maps to `pending` and
+  // the modal renders as the waiting phase.
+  status: 'ACTIVE' | 'FAILED' | 'EXPIRED' | 'CONNECTING' | 'INITIATED' | 'PENDING',
   connectionId: string = 'c-e2e'
 ): void {
   setMockBehavior('composioConnections', JSON.stringify([{ id: connectionId, toolkit, status }]));
@@ -148,12 +151,13 @@ export async function openConnectorModal(
  *
  * Phase markers:
  *   idle       — Connect button present (no active connection)
+ *   waiting    — OAuth handoff open: waiting copy / Cancel connection
  *   connected  — "is connected" or Disconnect button visible
  *   expired    — "authorization expired" text visible
  *   error      — error UI present (coral-coloured error block)
  */
 export async function assertModalPhase(
-  phase: 'idle' | 'connected' | 'expired' | 'error',
+  phase: 'idle' | 'connected' | 'expired' | 'error' | 'waiting',
   name: string,
   timeout = 10_000
 ): Promise<void> {
@@ -164,6 +168,7 @@ export async function assertModalPhase(
     connected: ['Disconnect', 'is connected'],
     expired: ['authorization expired', 'Reconnect to re-enable', 'Reconnect'],
     error: ['Something went wrong', 'Authorization failed', 'dismissAll'],
+    waiting: ['Waiting for', 'Cancel connection', 'Reopen browser'],
   };
 
   const markers = phaseMarkers[phase] ?? [];

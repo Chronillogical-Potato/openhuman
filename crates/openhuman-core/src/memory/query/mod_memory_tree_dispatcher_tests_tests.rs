@@ -1,8 +1,8 @@
 use super::*;
 use crate::memory::query::test_workspace::isolated_config;
-use crate::tools::traits::Tool;
 use serde_json::json;
 use tempfile::TempDir;
+use tinytools::Tool;
 
 #[test]
 fn memory_tree_tool_name_is_correct() {

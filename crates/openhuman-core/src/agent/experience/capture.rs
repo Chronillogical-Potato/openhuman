@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use crate::agent::experience::store::AgentExperienceStore;
 use crate::agent::experience::types::{
-    redact_text, stable_experience_id, stable_experience_id_for_profile, AgentExperience,
-    ExperienceOutcome, ExperienceSource,
+    redact_text, stable_experience_id, AgentExperience, ExperienceOutcome, ExperienceSource,
 };
 use crate::agent::hooks::{PostTurnHook, ToolCallRecord, TurnContext};
 use crate::memory::Memory;
@@ -15,37 +14,18 @@ const MAX_SUMMARY_CHARS: usize = 280;
 pub struct AgentExperienceCaptureHook {
     store: AgentExperienceStore,
     enabled: bool,
-    /// Profile the session runs under (1c). Stamped onto every captured record
-    /// so retrieval can partition by profile. `None` for the profile-less
-    /// session — those records stay unstamped (shared/legacy).
-    profile_id: Option<String>,
 }
 
 impl AgentExperienceCaptureHook {
     pub fn new(memory: Arc<dyn Memory>, enabled: bool) -> Self {
-        Self::with_profile(memory, enabled, None)
-    }
-
-    /// [`Self::new`] carrying the active profile id (1c). The session builder
-    /// passes the resolved profile so captured records are stamped with it.
-    pub fn with_profile(
-        memory: Arc<dyn Memory>,
-        enabled: bool,
-        profile_id: Option<String>,
-    ) -> Self {
         Self {
             store: AgentExperienceStore::new(memory),
             enabled,
-            profile_id,
         }
     }
 
     pub fn from_store(store: AgentExperienceStore, enabled: bool) -> Self {
-        Self {
-            store,
-            enabled,
-            profile_id: None,
-        }
+        Self { store, enabled }
     }
 
     pub fn extract_candidates(ctx: &TurnContext) -> Vec<AgentExperience> {
@@ -84,23 +64,7 @@ impl PostTurnHook for AgentExperienceCaptureHook {
             return Ok(());
         }
 
-        for mut candidate in Self::extract_candidates(ctx) {
-            // Stamp the active profile (1c) so retrieval can partition. Left as
-            // `None` for the profile-less session — unstamped records read as
-            // shared/legacy and surface under any profile.
-            candidate.profile_id = self.profile_id.clone();
-            // Re-derive the storage key to include the profile now that it's
-            // stamped: `extract_candidates` builds the id profile-agnostically, so
-            // two profiles hitting the same task/tool/outcome triple would
-            // otherwise share one `experience/<id>` key and overwrite each other.
-            // `None` reproduces the legacy id byte-for-byte (see
-            // `stable_experience_id_for_profile`).
-            candidate.id = stable_experience_id_for_profile(
-                &candidate.task_summary,
-                &candidate.tool_sequence,
-                candidate.outcome,
-                candidate.profile_id.as_deref(),
-            );
+        for candidate in Self::extract_candidates(ctx) {
             if let Err(err) = self.store.put(candidate).await {
                 log::warn!("[agent-experience] failed to capture turn experience: {err}");
             }
@@ -253,10 +217,6 @@ fn build_experience(
         source: ExperienceSource::ToolLoop,
         agent_id: clean_optional(agent_id),
         entrypoint: clean_optional(entrypoint),
-        // Stamped by the hook's `on_turn_complete` from the active profile;
-        // `extract_candidates` stays profile-agnostic so its unit tests need no
-        // profile context.
-        profile_id: None,
         task_fingerprint: stable_task_fingerprint(&task_summary),
         task_summary,
         tools_used,

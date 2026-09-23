@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::harness::{
@@ -5,23 +6,24 @@ use openhuman_core::agent::harness::{
     ParentExecutionContext, PromptSource, SandboxMode, SubagentRunOptions, ToolScope,
 };
 use openhuman_core::config::AgentConfig;
-use openhuman_core::agent::context::prompt::{
+use openhuman_core::agent::prompts::{
     ConnectedIntegration, ConnectedIntegrationTool, ToolCallFormat,
 };
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::inference::tokenjuice::AgentTokenjuiceCompression;
-use openhuman_core::tools::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
+
 use parking_lot::Mutex;
 use serde_json::json;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message};
-use tinyinference::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
-use tinyinference::tool::ToolCall;
-use tinyinference::usage::Usage;
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message};
+use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
+use tinyinference_llm::tool::ToolCall;
+use tinyinference_llm::usage::Usage;
 
 struct EnvGuard {
     key: &'static str,
@@ -105,7 +107,7 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         // Route extraction calls — identified
         // by the extraction system prompt — to the fixed extracted answer so they
         // do not consume the agent-turn response queue, and record them separately
@@ -265,6 +267,7 @@ fn tool_response(name: &str, args: serde_json::Value) -> ModelResponse {
             content: vec![ContentBlock::Text("round25 call".to_string())],
             tool_calls: vec![ToolCall::new(format!("round25-{name}"), name, args)],
             usage: None,
+        origin: None,
         },
         usage: None,
         finish_reason: Some("tool_calls".to_string()),

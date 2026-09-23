@@ -63,21 +63,6 @@ pub struct AppStateSnapshot {
     /// healed; the frontend raises a one-shot "settings were reset" notice
     /// (#5167). Serialized as `configRecovered`.
     pub config_recovered: bool,
-    /// `true` when `current_user` came from the stored snapshot because the
-    /// backend could not be refreshed — the plan tier, credit balance and
-    /// feature flags in it may be out of date (#5930).
-    ///
-    /// The frontend can warn on this; the core deliberately does not decide
-    /// what "significantly out of date" means, because that threshold belongs
-    /// to whatever surface is presenting the number.
-    pub current_user_stale: bool,
-    /// Seconds since the backend last answered `auth_get_me` in this process.
-    ///
-    /// Absent when it never has — the stored snapshot then came off disk and
-    /// its real age is not knowable here, which is a different statement from
-    /// "zero seconds old" and is why this is an `Option`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_user_stale_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

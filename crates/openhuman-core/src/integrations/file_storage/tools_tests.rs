@@ -9,7 +9,7 @@ use super::{
 };
 use crate::integrations::IntegrationClient;
 use crate::security::{AutonomyLevel, SecurityPolicy};
-use crate::tools::traits::{PermissionLevel, Tool, ToolCategory};
+use tinytools::{PermissionLevel, Tool, ToolCategory};
 
 fn dummy_client() -> Arc<IntegrationClient> {
     // No requests are made in these tests; the URL/token are placeholders.

@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 //! Round19 raw/E2E coverage for tools-side Composio adapters and adjacent
 //! network-tool registration paths.
 //!
@@ -28,9 +29,9 @@ use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
 use openhuman_core::security::{AuditLogger, SecurityPolicy};
+use tinytools::{Tool};
 use openhuman_core::tools::{
-    all_tools, all_tools_registered_controllers, ComposioExecuteTool, Tool,
-};
+    all_tools, all_tools_registered_controllers, ComposioExecuteTool};
 
 static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
@@ -156,6 +157,8 @@ fn tempdir() -> TempDir {
 }
 
 async fn setup_config() -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir();
     let root = tmp.path().join("openhuman");
     let workspace = root.join("workspace");

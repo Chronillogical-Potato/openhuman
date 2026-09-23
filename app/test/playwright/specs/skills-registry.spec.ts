@@ -4,13 +4,13 @@ import {
   bootRuntimeReadyGuestPage,
   callCoreRpc,
   dismissWalkthroughIfPresent,
-  signInViaCallbackToken,
+  signInViaBypassUser,
   waitForAppReady,
 } from '../helpers/core-rpc';
 
 async function openSkillsPage(page: Parameters<typeof test>[0]['page'], userId: string) {
   await bootRuntimeReadyGuestPage(page);
-  await signInViaCallbackToken(page, userId);
+  await signInViaBypassUser(page, userId);
   await page.evaluate(() => {
     try {
       localStorage.setItem('openhuman:walkthrough_completed', 'true');
@@ -56,13 +56,8 @@ test.describe('Skills registry flow', () => {
 
   test('MCP Servers tab renders the server table', async ({ page }) => {
     await page.getByTestId('two-pane-nav-mcp').click();
-    await expect(
-      page
-        .getByRole('searchbox')
-        .or(page.getByPlaceholder(/search/i))
-        .first()
-    ).toBeVisible();
-    await expect(page.getByText(/^All$|^Installed$|^Registry$/i).first()).toBeVisible();
+    await expect(page.getByTestId('mcp-servers-section')).toBeVisible();
+    await expect(page.getByTestId('mcp-add-server')).toBeVisible();
   });
 });
 

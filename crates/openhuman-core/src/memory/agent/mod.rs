@@ -16,3 +16,5 @@ pub mod memory_loader;
 pub mod ops;
 pub mod tools;
 pub mod types;
+
+pub(crate) use tools::CallMemoryAgentDispatch;

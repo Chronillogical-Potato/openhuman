@@ -53,10 +53,10 @@ use crate::tools::implementations::meta::collapse::{
     any_external_effect, args_without_action, merge_action_schemas, resolve, strictest_permission,
     unknown_action_message, CollapsedAction,
 };
-use crate::tools::traits::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
 #[cfg(test)]
-use crate::tools::traits::ToolExposure;
+use tinytools::ToolExposure;
 
 /// The advertised name.
 pub const MEMORY_TOOL_NAME: &str = "memory";

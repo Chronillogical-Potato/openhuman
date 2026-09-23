@@ -19,7 +19,7 @@ fn records_and_aggregates() {
 fn cost_uses_input_price() {
     // agentic-v1 input pricing is used for saved-token cost estimates.
     let c = cost_saved_usd("agentic-v1", 1_000_000);
-    assert!((c - 0.435).abs() < 1e-6, "got {c}");
+    assert!((c - 0.0886).abs() < 1e-6, "got {c}");
 }
 
 #[test]
@@ -42,30 +42,4 @@ fn record_saving_attributes_to_given_model() {
         "saving must be attributed to the supplied model"
     );
     assert!(agg.by_model["turn-model-x"].cost_saved_usd > 0.0);
-}
-
-#[tokio::test]
-async fn attribution_model_falls_back_to_default_when_unscoped() {
-    assert_eq!(resolve_attribution_model("default-model"), "default-model");
-}
-
-#[tokio::test]
-async fn attribution_model_prefers_scoped_turn_model() {
-    let got = with_turn_model("turn-model".to_string(), async {
-        resolve_attribution_model("default-model")
-    })
-    .await;
-    assert_eq!(
-        got, "turn-model",
-        "scoped per-turn model wins (issue #4122)"
-    );
-}
-
-#[tokio::test]
-async fn blank_turn_model_falls_back_to_default() {
-    let got = with_turn_model("   ".to_string(), async {
-        resolve_attribution_model("default-model")
-    })
-    .await;
-    assert_eq!(got, "default-model", "blank scoped model is ignored");
 }

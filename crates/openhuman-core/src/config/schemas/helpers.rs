@@ -206,7 +206,6 @@ pub(super) struct AutonomySettingsUpdate {
     /// Replaces the "Always allow" allowlist wholesale — tool names the agent
     /// may run without an approval prompt. Empty list clears it.
     pub(super) auto_approve: Option<Vec<String>>,
-    pub(super) require_task_plan_approval: Option<bool>,
     /// Blanket "auto-approve everything" bypass. `SubconsciousTainted` and
     /// `Unknown` origins are still denied by the gate regardless of this
     /// setting.

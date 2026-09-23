@@ -8,8 +8,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent::task_board::TaskBoard;
-
 /// Lifecycle of an in-flight (or formerly in-flight) turn.
 ///
 /// `Started` is set when the user sends and the agent loop is about
@@ -337,8 +335,6 @@ pub struct TurnState {
     /// snapshots written before this field still load (as empty).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transcript: Vec<TranscriptItem>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub task_board: Option<TaskBoard>,
     pub started_at: String,
     pub updated_at: String,
 }
@@ -413,7 +409,6 @@ impl TurnState {
             thinking: String::new(),
             tool_timeline: Vec::new(),
             transcript: Vec::new(),
-            task_board: None,
             started_at: now.clone(),
             updated_at: now,
         }

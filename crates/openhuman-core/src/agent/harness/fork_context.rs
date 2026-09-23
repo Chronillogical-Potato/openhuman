@@ -1,9 +1,9 @@
 //! Task-local plumbing that lets `SpawnSubagentTool` reach the parent
 //! agent's runtime context (provider, tools, model, …) without widening
-//! the [`crate::tools::Tool`] trait.
+//! the [`tinytools::Tool`] trait.
 //!
 //! [`PARENT_CONTEXT`] is set by the parent
-//! [`crate::agent::Agent`] around its `turn` so that any tool
+//! [`crate::agent::OpenHumanSessionHost`] around its `turn` so that any tool
 //! executing inside that turn (in particular `spawn_subagent`) can read
 //! the parent's provider, tool list, and model information.
 //!
@@ -15,18 +15,18 @@ use crate::agent::tinyagents::TurnModelSource;
 use crate::config::AgentConfig;
 use crate::memory::Memory;
 use crate::skills::Workflow;
-use crate::tools::{Tool, ToolSpec};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
+use tinytools::{Tool, ToolSpec};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parent execution context
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Snapshot of the parent agent's runtime, made available to any tool
-/// running inside [`crate::agent::Agent::turn`] via the
+/// running inside [`crate::agent::OpenHumanSessionHost::turn`] via the
 /// [`PARENT_CONTEXT`] task-local.
 ///
 /// All heavy fields are `Arc`-shared so cloning the context for sub-agents
@@ -119,7 +119,7 @@ pub struct ParentExecutionContext {
     pub channel: String,
 
     /// Active Composio integrations the parent has fetched.
-    pub connected_integrations: Vec<crate::agent::context::prompt::ConnectedIntegration>,
+    pub connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
 
     /// The parent's active tool-call format (Native / PFormat / Json).
     /// Sub-agents render their system prompts with this format so the
@@ -128,7 +128,7 @@ pub struct ParentExecutionContext {
     /// this, sub-agents inherit a hardcoded PFormat default while the
     /// runtime uses native function-calling, and the model emits
     /// uncallable P-Format tool_call blocks.
-    pub tool_call_format: crate::agent::context::prompt::ToolCallFormat,
+    pub tool_call_format: crate::agent::prompts::ToolCallFormat,
 
     /// Parent's own session-transcript key, formatted as
     /// `"{unix_ts}_{agent_id}"`. Sub-agents chain this (plus any
@@ -157,7 +157,8 @@ pub struct ParentExecutionContext {
     /// Parent's active run queue. Tools that create background event sources
     /// use this to inject concise collect-context at the same safe iteration
     /// boundary as web-channel queue messages.
-    pub run_queue: Option<Arc<crate::agent::harness::run_queue::RunQueue>>,
+    pub run_queue:
+        Option<Arc<tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
 }
 
 /// A context-preparation source that already ran for the current parent turn.
@@ -182,7 +183,7 @@ tokio::task_local! {
 
 /// Returns a clone of the current parent execution context, if one is set.
 ///
-/// Returns `None` when called from outside [`crate::agent::Agent::turn`]
+/// Returns `None` when called from outside [`crate::agent::OpenHumanSessionHost::turn`]
 /// (e.g. CLI tool invocation).
 pub fn current_parent() -> Option<ParentExecutionContext> {
     PARENT_CONTEXT.try_with(|ctx| ctx.clone()).ok()
@@ -195,7 +196,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     PARENT_CONTEXT.scope(ctx, Box::pin(future)).await
 }
 
@@ -218,7 +219,7 @@ where
 {
     // Box before `scope` so only a pointer moves into the task-local frame
     // rather than the whole nested turn generator — see the measurements on
-    // `with_turn_collector` in `turn_subagent_usage.rs`.
+    // the explicit usage ledger on `OpenHumanRunContext`.
     AGENT_CONTEXT_PREPARED_SOURCES
         .scope(Arc::new(sources), Box::pin(future))
         .await

@@ -2,10 +2,10 @@ use crate::memory::api::provider::MemoryCore;
 use crate::memory::ops::guard::active_memory_guard;
 use crate::security::policy::ToolOperation;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{Tool, ToolExposure, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
+use tinytools::{Tool, ToolExposure, ToolResult};
 
 /// Let the agent forget/delete a memory entry
 pub struct MemoryForgetTool {

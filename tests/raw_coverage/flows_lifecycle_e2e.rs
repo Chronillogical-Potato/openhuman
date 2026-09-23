@@ -92,6 +92,7 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 /// Initialise the process RPC token (idempotent) and return the bearer the
 /// router will actually accept.
 fn ensure_rpc_auth() -> &'static str {
+    crate::tinyhumans_boot::boot();
     AUTH_INIT.get_or_init(|| {
         if get_rpc_token().is_none() {
             std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN);
@@ -221,6 +222,8 @@ impl Harness {
 }
 
 async fn setup() -> Harness {
+
+    crate::tinyhumans_boot::boot();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
     write_min_config(&home.join(".openhuman"));

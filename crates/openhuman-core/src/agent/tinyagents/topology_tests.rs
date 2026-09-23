@@ -20,11 +20,7 @@ fn all_topologies_includes_the_member_graph() {
 #[test]
 fn all_topologies_includes_delegation_and_workflow_scheduler() {
     let reports = all_graph_topologies();
-    for name in [
-        "delegation",
-        "workflow_runs:scheduler",
-        "spawn_parallel_graph",
-    ] {
+    for name in ["delegation", "workflow_runs:scheduler_preview"] {
         let report = reports
             .iter()
             .find(|r| r.name == name)
@@ -62,7 +58,7 @@ fn all_topologies_names_do_not_collide_with_production_tools() {
     let http = crate::config::HttpRequestConfig::default();
     let agents = std::collections::HashMap::new();
 
-    let tools = crate::tools::all_tools(
+    let tools = crate::tools::ops::all_tools(
         config.clone(),
         &security,
         audit,
@@ -92,7 +88,7 @@ fn all_topologies_names_do_not_collide_with_production_tools() {
 
 #[test]
 fn delegation_topology_names_the_revision_loop_nodes() {
-    let t = super::super::delegation::delegation_graph_topology().expect("builds");
+    let t = tinyagents_graph::delegation::delegation_graph_topology().expect("builds");
     let names: Vec<&str> = t.nodes.iter().map(|n| n.id.as_str()).collect();
     for expected in ["plan", "execute", "review", "finalize"] {
         assert!(
@@ -104,8 +100,8 @@ fn delegation_topology_names_the_revision_loop_nodes() {
 
 #[test]
 fn member_report_renders_mermaid_and_valid_json() {
-    let t = crate::agent::orchestration::agent_teams::member_graph_topology()
-        .expect("member topology builds");
+    let t =
+        tinyagents_orchestration::teams::member_graph_topology().expect("member topology builds");
     let report = describe("agent_teams:member", &t);
 
     // Mermaid is a flowchart with at least the entry node rendered.

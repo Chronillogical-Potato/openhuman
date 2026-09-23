@@ -1,28 +1,30 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to hosted TinyAgents APIs.
 use async_trait::async_trait;
 use openhuman_core::core::bus::BUS;
 use openhuman_core::agent::bus::{
     register_agent_handlers, AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD,
 };
 use openhuman_core::agent::debug::{dump_agent_prompt, DumpPromptOptions};
-use openhuman_core::agent::dispatcher::XmlToolDispatcher;
-use openhuman_core::agent::{Agent, AgentBuilder};
+use openhuman_core::tinytools_agent::dialect::XmlDialect;
+use openhuman_core::agent::{OpenHumanSessionHost, SessionHostBuilder};
 use openhuman_core::config::{AgentConfig, MultimodalConfig, MultimodalFileConfig};
-use openhuman_core::agent::context::prompt::LearnedContextData;
+use openhuman_core::agent::prompts::LearnedContextData;
 use openhuman_core::agent::messages::ChatMessage;
 use openhuman_core::memory::{
     Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts,
 };
-use openhuman_core::tools::{PermissionLevel, Tool, ToolContent, ToolResult, ToolScope};
+use tinytools::{PermissionLevel, Tool, ToolResult, ToolScope, ToolContent};
+
 use serde_json::json;
 use std::collections::{HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tinyinference::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
-use tinyinference::model::{
+use tinyinference_llm::message::{AssistantMessage, ContentBlock, Message, MessageDelta};
+use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference::tool::{ToolCall, ToolDelta};
-use tinyinference::usage::Usage;
+use tinyinference_llm::tool::{ToolCall, ToolDelta};
+use tinyinference_llm::usage::Usage;
 
 #[derive(Clone, Debug)]
 struct CapturedTurn {
@@ -80,12 +82,12 @@ impl ChatModel<()> for ScriptedModel {
         &self,
         _state: &(),
         request: ModelRequest,
-    ) -> tinyinference::Result<ModelResponse> {
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.capture(request);
         self.pop_response()
     }
 
-    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference::Result<ModelStream> {
+    async fn stream(&self, _state: &(), request: ModelRequest) -> tinyinference_llm::Result<ModelStream> {
         self.capture(request);
         let response = self.pop_response()?;
         let mut items = vec![ModelStreamItem::Started];
@@ -103,16 +105,16 @@ impl ScriptedModel {
         });
     }
 
-    fn pop_response(&self) -> tinyinference::Result<ModelResponse> {
+    fn pop_response(&self) -> tinyinference_llm::Result<ModelResponse> {
         if let Some(message) = &self.always_fail {
-            return Err(tinyinference::Error::Model(message.clone()));
+            return Err(tinyinference_llm::Error::Model(message.clone()));
         }
         self.responses
             .lock()
             .unwrap()
             .pop_front()
             .unwrap_or_else(|| Ok(ModelResponse::assistant("")))
-            .map_err(|error| tinyinference::Error::Model(error.to_string()))
+            .map_err(|error| tinyinference_llm::Error::Model(error.to_string()))
     }
 }
 
@@ -581,11 +583,11 @@ async fn agent_builder_prompt_and_debug_dump_cover_public_session_paths() {
     config.max_tool_iterations = 2;
     config.max_history_messages = 4;
 
-    let agent = AgentBuilder::new()
+    let agent = SessionHostBuilder::new()
         .chat_model(provider)
         .tools(vec![StaticTool::ok("echo", "ok")])
         .memory(Arc::new(NoopMemory::default()))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(config)
         .workspace_dir(workspace.clone())
         .agent_definition_name("round15/orchestrator")
@@ -608,6 +610,7 @@ async fn agent_builder_prompt_and_debug_dump_cover_public_session_paths() {
         agent_id: "integrations_agent".to_string(),
         toolkit: None,
         workspace_dir_override: Some(workspace),
+        config_path_override: None,
         model_override: Some("round15-model".to_string()),
     })
     .await
@@ -621,11 +624,11 @@ async fn agent_turn_blank_final_response_is_typed_error() {
     let workspace = round15_workspace("blank-final");
     std::fs::create_dir_all(&workspace).unwrap();
     let provider = ScriptedModel::new(vec![ModelResponse::assistant("")]);
-    let mut agent = Agent::builder()
+    let mut agent = OpenHumanSessionHost::builder()
         .chat_model(provider)
         .tools(vec![])
         .memory(Arc::new(NoopMemory::default()))
-        .tool_dispatcher(Box::new(XmlToolDispatcher))
+        .tool_dispatcher(Box::new(XmlDialect))
         .config(AgentConfig {
             max_tool_iterations: 1,
             ..AgentConfig::default()

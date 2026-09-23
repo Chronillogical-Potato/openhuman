@@ -16,11 +16,19 @@ use types::InstallRequest;
 
 pub const RETRIEVE_TOOL_NAME: &str = "tinyjuice_retrieve";
 pub const LEGACY_RETRIEVE_TOOL_NAME: &str = "retrieve_tool_output";
+/// Every name the recovery surface answers to: the live tool plus the two
+/// migration aliases a replayed transcript may still call.
 pub const RECOVERY_TOOL_NAMES: &[&str] = &[
     RETRIEVE_TOOL_NAME,
     "tokenjuice_retrieve",
     LEGACY_RETRIEVE_TOOL_NAME,
 ];
+
+/// The recovery tool a curated (`ToolScope::Named`) belt is guaranteed to
+/// advertise. Only the live tool: the aliases stay registered so an old
+/// transcript replays, but putting all three on the wire charged every
+/// Named agent for three copies of one schema.
+pub const RECOVERY_TOOL_VISIBLE: &[&str] = &[RETRIEVE_TOOL_NAME];
 
 pub fn is_recovery_tool(name: &str) -> bool {
     RECOVERY_TOOL_NAMES.contains(&name)
@@ -116,21 +124,39 @@ pub async fn compact_output_with_policy(
     enabled: bool,
     profile: AgentTokenjuiceCompression,
 ) -> String {
+    compact_output_with_config(content, tool_name, enabled, profile, None).await
+}
+
+/// Compact tool output using an already-resolved runtime config when available.
+///
+/// Agent turns must not reload configuration from the middle of a deep tool
+/// call stack: startup owns migrations, while a turn only needs the snapshot it
+/// was constructed with.
+pub async fn compact_output_with_config(
+    content: String,
+    tool_name: &str,
+    enabled: bool,
+    profile: AgentTokenjuiceCompression,
+    runtime_config: Option<&std::sync::Arc<crate::config::Config>>,
+) -> String {
     if !enabled || profile == AgentTokenjuiceCompression::Off {
         return content;
     }
-    let config = match crate::config::Config::load_or_init().await {
-        Ok(config) => config,
-        Err(error) => {
-            log::debug!("[tokenjuice] config unavailable, passing through: {error}");
-            return content;
-        }
+    let config = match runtime_config {
+        Some(config) => std::sync::Arc::clone(config),
+        None => match crate::config::Config::load_or_init().await {
+            Ok(config) => std::sync::Arc::new(config),
+            Err(error) => {
+                log::debug!("[tokenjuice] config unavailable, passing through: {error}");
+                return content;
+            }
+        },
     };
     #[cfg(test)]
     let config = if std::env::var_os("TINYJUICE_TEST_MODULE").is_some() {
         // The released-module regression must not inherit an operator's
         // persisted compression thresholds or disabled router flags.
-        crate::config::Config::default()
+        std::sync::Arc::new(crate::config::Config::default())
     } else {
         config
     };

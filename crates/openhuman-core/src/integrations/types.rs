@@ -2,9 +2,6 @@
 
 use serde::Deserialize;
 
-// Re-export ToolScope from the canonical definition in tools::traits.
-pub use crate::tools::traits::ToolScope;
-
 // ── Pricing types (fetched from backend) ────────────────────────────
 
 /// Per-integration pricing returned by `GET /agent-integrations/pricing`.

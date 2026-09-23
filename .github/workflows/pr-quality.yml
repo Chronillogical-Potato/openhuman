@@ -64,6 +64,9 @@ jobs:
           # Product Hunt denies GitHub-hosted runners (403) for the translated
           # README badge destination, so it cannot be a stable external-link
           # check.
+          # The managed Discord vanity endpoint currently returns 404 before
+          # forwarding anonymous requests; keep checking all other links until
+          # its provider-side redirect is restored.
           args: >-
             --no-progress
             --include-fragments
@@ -77,6 +80,7 @@ jobs:
             --exclude '^https://api\.star-history\.com/'
             --exclude '^https://x\.com/karpathy/status/2039805659525644595$'
             --exclude '^https://www\.producthunt\.com/'
+            --exclude '^https://discord\.tinyhumans\.ai/?$'
             'docs/**/*.md'
             'src/**/README.md'
             '.github/PULL_REQUEST_TEMPLATE.md'

@@ -12,11 +12,11 @@
 //! `npm -g`, `cargo install`) work without elevation.
 
 use crate::security::SecurityPolicy;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 use tokio::process::Command as TokioCommand;
 use tokio::time::timeout;
 

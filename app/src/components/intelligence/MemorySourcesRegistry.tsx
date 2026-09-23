@@ -98,6 +98,7 @@ export function MemorySourcesRegistry({
   const [allInModalOpen, setAllInModalOpen] = useState(false);
   const [applyingAllIn, setApplyingAllIn] = useState(false);
   const allInInFlightRef = useRef(false);
+  const isMountedRef = useRef(true);
   // "Repair older memories" (openhuman#6012): the backfill RPC has no other
   // entry point in the app. Two steps — a dry run that only counts, then the
   // real pass behind a confirmation — because the real pass embeds every
@@ -119,6 +120,13 @@ export function MemorySourcesRegistry({
     sourcesRef.current = sources;
     tRef.current = t;
   });
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // The toast for a run that ends while this screen is mounted. The state
   // itself is the store's; a run that ends while no screen is showing still
@@ -195,6 +203,7 @@ export function MemorySourcesRegistry({
           return null;
         }),
       ]);
+      if (!isMountedRef.current) return;
       setSources(list);
       setStatuses(stats);
       setPipeline(health);
@@ -207,7 +216,7 @@ export function MemorySourcesRegistry({
       // finally has the field it needed.
       reconcileWithStatuses(stats);
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   }, []);
 

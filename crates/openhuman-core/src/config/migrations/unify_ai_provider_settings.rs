@@ -96,7 +96,7 @@ pub(super) fn seed_cloud_providers(config: &mut Config, stats: &mut MigrationSta
         .default_model
         .clone()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "reasoning-v1".to_string());
+        .unwrap_or_else(|| crate::config::MODEL_MANAGED_DEFAULT.to_string());
     config.cloud_providers.push(CloudProviderCreds {
         id: generate_provider_id("openhuman"),
         slug: "openhuman".to_string(),

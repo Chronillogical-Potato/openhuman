@@ -237,12 +237,6 @@ pub const BUILTINS: &[BuiltinAgent] = &[
         prompt_fn: super::help::prompt::build,
         graph_fn: None,
     },
-    BuiltinAgent {
-        id: "mcp_setup",
-        toml: include_str!("mcp_setup/agent.toml"),
-        prompt_fn: super::mcp_setup::prompt::build,
-        graph_fn: None,
-    },
     // Connected-server execution specialist. Compiled out with the `mcp`
     // feature, which drops the `delegate_use_mcp_server` tool from the
     // orchestrator's synthesised belt.
@@ -355,15 +349,12 @@ fn builtin_enabled(_b: &BuiltinAgent) -> bool {
 /// * `Reasoning` agents MUST NOT list another `Reasoning` agent in
 ///   `subagents`.
 /// * `Worker` agents MUST NOT list any [`SubagentEntry::AgentId`]
-///   entries. (Workflow wildcards are allowed: they expand to the generic
-///   `integrations_agent`, which is itself a `Worker`, and the call
-///   happens via a single delegation tool rather than recursive spawn.)
+///   entries. (Skills wildcards are allowed: they expand to the connected
+///   integrations' actions as searchable tools on the agent's own belt,
+///   not to a spawn.)
 ///
-/// Workflow-wildcard entries (`{ skills = "*" }`) are intentionally
-/// untouched: they collapse to one `delegate_to_integrations_agent`
-/// tool whose target is a `Worker` and whose use sites are well
-/// understood. Mis-tiering of the `integrations_agent` itself is still
-/// caught because it appears as a normal entry elsewhere.
+/// Skills-wildcard entries (`{ skills = "*" }`) are intentionally
+/// untouched: they name no agent, so there is no tier pair to check.
 ///
 /// Called from [`load_builtins`] for the bundled archetype set and from
 /// [`crate::agent::harness::definition::AgentDefinitionRegistry::load`]
@@ -378,9 +369,8 @@ pub fn validate_tier_hierarchy(defs: &[AgentDefinition]) -> Result<()> {
         for entry in &def.subagents {
             let child_id = match entry {
                 SubagentEntry::AgentId(id) => id.as_str(),
-                // Workflow wildcards always route to `integrations_agent`
-                // (a Worker) via a single collapsed delegation tool —
-                // not subject to the tier-mismatch rule.
+                // Skills wildcards expand to searchable integration
+                // actions, not to an agent — nothing to tier-check.
                 SubagentEntry::Skills(_) => continue,
             };
 

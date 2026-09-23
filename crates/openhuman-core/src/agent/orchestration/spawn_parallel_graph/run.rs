@@ -1,56 +1,36 @@
-//! Public entry points for running the `spawn_parallel_agents` graph:
-//! resolving the parent turn context and agent registry, then handing off to
-//! [`run_spawn_parallel_execution_graph`](super::graph::run_spawn_parallel_execution_graph).
+//! Host-side execution of an already-decoded `spawn_parallel_agents` batch.
+//!
+//! The fixed phase graph formerly here duplicated the graph crate's bounded
+//! fanout facility while capturing OpenHuman-only policy, progress, and
+//! execution adapters in every node. The tool now decodes its JSON contract;
+//! this module runs the host stages directly and delegates concurrent work to
+//! [`tinyagents_graph::parallel::map_reduce`] in `workers`.
 
 use std::path::PathBuf;
 
-use tinyagents_harness::workspace::WorkspaceDescriptor;
 use tinyagents_harness::CancellationToken;
+use tinytools::WorkspaceDescriptor;
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::harness::fork_context::current_parent;
 
-use super::collect::SpawnParallelGraphOutcome;
-use super::graph::run_spawn_parallel_execution_graph;
-use super::request::validate_spawn_parallel_tool_request;
+use super::collect::{
+    collect_spawn_parallel_results, project_spawn_parallel_result, SpawnParallelGraphOutcome,
+};
+use super::dispatch::stage_spawn_parallel_workers_from_defs;
 use super::staging::snapshot_agent_definitions;
+use super::types::ParallelAgentTask;
+use super::workers::run_spawn_parallel_workers;
 
-pub(crate) async fn run_spawn_parallel_graph(
-    args: serde_json::Value,
-) -> Result<SpawnParallelGraphOutcome, String> {
-    run_spawn_parallel_graph_with_workspace(args, None).await
-}
-
-pub(crate) async fn run_spawn_parallel_graph_with_workspace(
-    args: serde_json::Value,
-    parent_workspace_descriptor: Option<WorkspaceDescriptor>,
-) -> Result<SpawnParallelGraphOutcome, String> {
-    run_spawn_parallel_graph_with_cancellation_and_workspace(
-        args,
-        CancellationToken::new(),
-        parent_workspace_descriptor,
-    )
-    .await
-}
-
-pub(crate) async fn run_spawn_parallel_graph_with_cancellation(
-    args: serde_json::Value,
-    cancel: CancellationToken,
-) -> Result<SpawnParallelGraphOutcome, String> {
-    run_spawn_parallel_graph_with_cancellation_and_workspace(args, cancel, None).await
-}
-
-pub(crate) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
-    args: serde_json::Value,
+pub(crate) async fn run_spawn_parallel_tasks_with_cancellation_and_workspace(
+    tasks: Vec<ParallelAgentTask>,
     cancel: CancellationToken,
     parent_workspace_descriptor: Option<WorkspaceDescriptor>,
+    run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
+    live_parent: &tinyagents_harness::context::RunContext<
+        crate::agent::tinyagents::host::OpenHumanRunContext,
+    >,
 ) -> Result<SpawnParallelGraphOutcome, String> {
-    let tasks = match validate_spawn_parallel_tool_request(&args, None) {
-        Ok(tasks) => tasks,
-        Err(err) => return Ok(SpawnParallelGraphOutcome::InvalidRequest(err)),
-    };
-
-    let parent = match current_parent() {
+    let parent = match run_context.parent.clone() {
         Some(parent) => parent,
         None => {
             tracing::debug!("[spawn_parallel_agents] rejected_outside_agent_turn");
@@ -82,18 +62,74 @@ pub(crate) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
     let action_root =
         resolve_spawn_parallel_action_root(parent_workspace_descriptor.as_ref()).await;
     let definitions = snapshot_agent_definitions(registry);
-    let outcome = run_spawn_parallel_execution_graph(
+    if cancel.is_cancelled() {
+        return Ok(SpawnParallelGraphOutcome::Cancelled(
+            "spawn_parallel_agents cancelled at validate".to_string(),
+        ));
+    }
+    if tasks.len() > max_parallel {
+        return Ok(SpawnParallelGraphOutcome::Rejected(format!(
+            "spawn_parallel_agents received {} tasks but max_parallel_tools is {}",
+            tasks.len(),
+            max_parallel
+        )));
+    }
+    if cancel.is_cancelled() {
+        return Ok(SpawnParallelGraphOutcome::Cancelled(
+            "spawn_parallel_agents cancelled at dispatch".to_string(),
+        ));
+    }
+    let (prepared, immediate_results) = stage_spawn_parallel_workers_from_defs(
         &parent_session,
-        progress_sink,
+        progress_sink.as_ref(),
         tasks,
-        max_parallel,
-        definitions,
-        parent,
-        action_root,
-        cancel,
-        parent_workspace_descriptor,
+        &definitions,
+        &parent,
+        action_root.as_deref(),
+        parent_workspace_descriptor.as_ref(),
     )
-    .await?;
+    .await;
+    if cancel.is_cancelled() {
+        return Ok(SpawnParallelGraphOutcome::Cancelled(
+            "spawn_parallel_agents cancelled at worker".to_string(),
+        ));
+    }
+    let fanned = match run_spawn_parallel_workers(
+        prepared,
+        action_root,
+        cancel.clone(),
+        run_context,
+        live_parent,
+    )
+    .await
+    {
+        Ok(fanned) => fanned,
+        Err(tinyagents_harness::TinyAgentsError::Cancelled) => {
+            return Ok(SpawnParallelGraphOutcome::Cancelled(
+                "spawn_parallel_agents cancelled at worker".to_string(),
+            ));
+        }
+        Err(err) => return Err(err.to_string()),
+    };
+    if cancel.is_cancelled() {
+        return Ok(SpawnParallelGraphOutcome::Cancelled(
+            "spawn_parallel_agents cancelled at collect".to_string(),
+        ));
+    }
+    let mut results = immediate_results;
+    for result in fanned {
+        project_spawn_parallel_result(&parent_session, progress_sink.as_ref(), &result).await;
+        results.push(result);
+    }
+    if cancel.is_cancelled() {
+        return Ok(SpawnParallelGraphOutcome::Cancelled(
+            "spawn_parallel_agents cancelled at finalize".to_string(),
+        ));
+    }
+    let outcome = SpawnParallelGraphOutcome::Collected(collect_spawn_parallel_results(
+        &parent_session,
+        results,
+    ));
     match &outcome {
         SpawnParallelGraphOutcome::Collected(collected) => {
             tracing::debug!(
@@ -110,12 +146,6 @@ pub(crate) async fn run_spawn_parallel_graph_with_cancellation_and_workspace(
                 parent_session = %parent_session,
                 error = %message,
                 "[spawn_parallel_agents] rejected_by_graph_validate"
-            );
-        }
-        SpawnParallelGraphOutcome::InvalidRequest(_) => {
-            tracing::debug!(
-                parent_session = %parent_session,
-                "[spawn_parallel_agents] invalid_request_after_graph_run"
             );
         }
         SpawnParallelGraphOutcome::Cancelled(message) => {

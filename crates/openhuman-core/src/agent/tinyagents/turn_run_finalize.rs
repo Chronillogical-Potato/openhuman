@@ -41,6 +41,7 @@ pub(super) async fn finalize_turn_outcome(
     halt_summary: &HaltSummarySlot,
     wrap_up_fired: &Option<Arc<std::sync::atomic::AtomicBool>>,
     tool_outcome_sink: &ToolOutcomeSink,
+    resolved_route: Option<tinyinference_llm::model::ResolvedModelRoute>,
     request_base_len: usize,
 ) -> TinyagentsTurnOutcome {
     // Durable journal: the harness returned a transcript, so stamp the terminal
@@ -246,9 +247,32 @@ pub(super) async fn finalize_turn_outcome(
         subagent = subagent_scope.is_some(),
         "[tinyagents] persisting post-request transcript (shared path; steer-safe boundary)"
     );
+    // Prompt-size and cache summary for the turn (grep `turn prompt summary`):
+    // the frozen system prefix in bytes, per tier segment, beside the token
+    // counts the provider reported. `cached_input_tokens` rising to roughly
+    // the prefix on turn 2 is what a working prefix cache looks like.
+    let system_segment_bytes: Vec<usize> = run
+        .messages
+        .iter()
+        .take_while(|message| matches!(message, tinyinference_llm::Message::System(_)))
+        .map(|message| message.text().len())
+        .collect();
+    tracing::info!(
+        model,
+        system_segments = system_segment_bytes.len(),
+        system_bytes = system_segment_bytes.iter().sum::<usize>(),
+        ?system_segment_bytes,
+        model_calls = run.model_calls,
+        tool_calls = run.tool_calls,
+        input_tokens,
+        cached_input_tokens,
+        output_tokens,
+        "[tinyagents] turn prompt summary"
+    );
 
     TinyagentsTurnOutcome {
         text,
+        resolved_route,
         history: crate::agent::message_convert::messages_to_history(&run.messages),
         conversation,
         model_calls: run.model_calls,

@@ -414,7 +414,7 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
     // are external-effect tools. This pins that invariant independently of
     // belt name-resolution so the hide-list can't silently stop covering a
     // live-run/resume tool.
-    use crate::tools::Tool as _;
+    use tinytools::Tool as _;
     let live_runner = crate::flows::tools::RunFlowTool::new(std::sync::Arc::new(config.clone()));
     assert!(
         live_runner.external_effect(),
@@ -440,8 +440,9 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
     // wired. `Once`-guarded, so this is free when another test got there first.
     crate::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .expect("agent registry init");
-    let mut agent = crate::agent::Agent::from_config_for_agent(&config, "workflow_builder")
-        .expect("build workflow_builder agent");
+    let mut agent =
+        crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "workflow_builder")
+            .expect("build workflow_builder agent");
     agent.set_agent_definition_name("workflow_builder".to_string());
 
     // Precondition: the builder advertises all four run-advancing tools on its
@@ -537,8 +538,9 @@ async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
     // wired. `Once`-guarded, so this is free when another test got there first.
     crate::agent::harness::AgentDefinitionRegistry::init_global(&config.workspace_dir)
         .expect("agent registry init");
-    let mut agent = crate::agent::Agent::from_config_for_agent(&config, "workflow_builder")
-        .expect("build workflow_builder agent");
+    let mut agent =
+        crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "workflow_builder")
+            .expect("build workflow_builder agent");
     agent.set_agent_definition_name("workflow_builder".to_string());
 
     restrict_builder_toolset_for_copilot(&mut agent);
@@ -612,8 +614,9 @@ async fn flows_build_applies_the_builder_definitions_effective_iteration_cap() {
     // End-to-end: the agent actually built for this path carries the
     // definition's cap straight off the unmodified `config` — the session
     // builder resolves it internally now, no `flows_build`-side override.
-    let agent = crate::agent::Agent::from_config_for_agent(&config, "workflow_builder")
-        .expect("build workflow_builder agent");
+    let agent =
+        crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "workflow_builder")
+            .expect("build workflow_builder agent");
     assert_eq!(agent.agent_config().max_tool_iterations, expected);
     assert_ne!(
         agent.agent_config().max_tool_iterations,

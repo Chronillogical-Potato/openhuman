@@ -22,14 +22,20 @@
 //! | `providers_ops`   | `composio_get_user_profile`, `_refresh_...`, `composio_sync`       |
 //! | `direct_mode`     | `composio_get_mode`, `composio_set_api_key`, `_clear_...`          |
 //! | `user_scopes`     | per-toolkit agent scope prefs, over the bound memory driver         |
+//! | `connector_runs`  | Sync History rows for Composio runs (openhuman#6257)                |
+//! | `source_rows`     | which memory-sources row a Composio connection belongs to           |
+//! | `pass_failure`    | when a connector pass failed; the Sources-row retry schedule (openhuman#6255) |
 
 mod connections;
+mod connector_runs;
 mod direct_mode;
 mod error_utils;
 mod execute;
 mod memory_cleanup;
 mod pass_budget;
+mod pass_failure;
 mod providers_ops;
+mod source_rows;
 mod toolkits;
 mod tools_ops;
 mod triggers;
@@ -37,19 +43,20 @@ mod user_scopes;
 
 // ── Public re-exports (match original ops.rs public surface) ───────────────
 
+#[cfg(test)]
+pub(crate) use crate::memory::sources::run_history::completed_sync_detail;
 pub use connections::{composio_authorize, composio_delete_connection, composio_list_connections};
 pub use direct_mode::{composio_clear_api_key, composio_get_mode, composio_set_api_key};
 pub(crate) use error_utils::{report_composio_op_error, should_forward_tags};
 pub use execute::composio_execute;
 #[cfg(test)]
-pub(crate) use providers_ops::{
-    completed_sync_detail, completed_sync_detail_for_test, next_pass_budget,
-    pick_source_sync_depth_days,
-};
+pub(crate) use providers_ops::{completed_sync_detail_for_test, next_pass_budget};
 pub use providers_ops::{
     composio_get_user_profile, composio_refresh_all_identities, composio_sync,
     composio_sync_budgeted, composio_sync_for_source, RefreshIdentitiesReport, SYNC_PASS_MAX_ITEMS,
 };
+#[cfg(test)]
+pub(crate) use source_rows::pick_source_sync_depth_days;
 // The tinyconnectors-mediated sync pass, repeated within one call's item
 // budget for the entry points that sync once per invocation (periodic tick,
 // manual provider sync, `connection_created`, the Slack ingest RPC) — see
@@ -74,7 +81,7 @@ pub(crate) use user_scopes::{
 // ── Re-export connected_integrations public items ──────────────────────────
 // (originally at the bottom of ops.rs)
 
-pub(crate) use super::connected_integrations::{
+pub use super::connected_integrations::{
     cached_active_integrations, cached_active_integrations_including_expired, connected_set_hash,
     fetch_connected_integrations, fetch_connected_integrations_status, fetch_toolkit_actions,
     invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,
@@ -91,7 +98,7 @@ pub(crate) use super::connected_integrations::cache_key;
 #[cfg(test)]
 pub(crate) use super::connected_integrations::{CachedIntegrations, CACHE_TTL, INTEGRATIONS_CACHE};
 #[cfg(test)]
-pub(crate) use crate::agent::context::prompt::ConnectedIntegration;
+pub(crate) use crate::agent::prompts::ConnectedIntegration;
 #[cfg(test)]
 pub(crate) use std::time::{Duration, Instant};
 

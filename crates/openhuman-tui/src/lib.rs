@@ -2,7 +2,7 @@
 //!
 //! A [ratatui]-based agent cockpit with Chat, Logs, Config, and Settings,
 //! persistent thread resume, command/file pickers, approvals, plan review,
-//! task/goal/agent/skill/MCP/artifact views, Git review, and a multiline composer.
+//! agent/skill/MCP/artifact views, Git review, and a multiline composer.
 //! Chat uses the **same `web_chat` surface** the desktop app drives (`openhuman.channel_web_chat` /
 //! `openhuman.channel_web_cancel` +
 //! [`web_chat::subscribe_web_channel_events`](openhuman_core::web_chat::subscribe_web_channel_events)).
@@ -35,6 +35,7 @@ mod controls;
 mod crash_reporting;
 mod render;
 mod runner;
+mod session;
 mod state;
 mod terminal;
 mod ui_state;

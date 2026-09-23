@@ -660,31 +660,3 @@ fn transient_provider_transport_filter_scoped_to_llm_provider() {
     );
     assert!(!is_transient_provider_transport_failure(&event));
 }
-
-// ── is_auth_get_me_opaque_transport_event ────────────────────────────
-// Covers the TAURI-RUST-10 fingerprint shape: `domain=rpc`,
-// `operation=invoke_method`, `method=openhuman.auth_get_me`, message
-// body = exactly "GET /auth/me" (no underlying chain). See the
-// function docstring + the `auth_get_me` fix in
-// `openhuman::security::credentials::ops::auth_get_me` for the broader
-// context.
-
-#[cfg(feature = "crash-reporting")]
-#[test]
-fn auth_get_me_opaque_filter_drops_bare_method_path_message() {
-    let event = event_with_tags_and_message(&auth_get_me_tags(), "GET /auth/me");
-    assert!(
-        is_auth_get_me_opaque_transport_event(&event),
-        "bare 'GET /auth/me' message must be dropped (TAURI-RUST-10 shape)"
-    );
-}
-
-#[cfg(feature = "crash-reporting")]
-#[test]
-fn auth_get_me_opaque_filter_tolerates_surrounding_whitespace() {
-    let event = event_with_tags_and_message(&auth_get_me_tags(), "  GET /auth/me  ");
-    assert!(
-        is_auth_get_me_opaque_transport_event(&event),
-        "trimmed equality must still match the opaque shape"
-    );
-}

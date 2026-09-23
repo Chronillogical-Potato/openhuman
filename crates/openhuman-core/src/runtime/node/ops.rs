@@ -7,7 +7,8 @@ use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::runtime::node::types::{ExecuteToolOutcome, RuntimeToolSummary};
 use crate::security::{CommandClass, SecurityPolicy};
-use crate::tools::{self, PermissionLevel, Tool, ToolCallOptions, ToolScope};
+use crate::tools;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolScope};
 use tracing::{debug, trace};
 
 fn tool_scope_label(scope: ToolScope) -> &'static str {
@@ -92,8 +93,8 @@ pub fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String
     )
     .map_err(|e| e.to_string())?;
     let runtime: Arc<dyn RuntimeAdapter> = Arc::new(NativeRuntime::new());
-    trace!("[runtime_node::ops] build_runtime_tools: tools::all_tools_with_runtime");
-    let built = tools::all_tools_with_runtime(
+    trace!("[runtime_node::ops] build_runtime_tools: tools::ops::all_tools_with_runtime");
+    let built = tools::ops::all_tools_with_runtime(
         Arc::new(config.clone()),
         &security,
         runtime,
@@ -103,10 +104,6 @@ pub fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String
         &config.action_dir,
         &config.agents,
         config,
-        None,
-        None,
-        None,
-        None,
         None,
     );
     debug!(

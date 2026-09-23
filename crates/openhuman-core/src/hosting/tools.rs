@@ -34,7 +34,7 @@ pub use launch::LaunchSiteTool;
 pub use sites::{ListSitesTool, SetEnvTool};
 
 use super::Account;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 /// Every hosting tool, for one account.
 pub fn hosting_tools(account: &Account) -> Vec<Box<dyn Tool>> {

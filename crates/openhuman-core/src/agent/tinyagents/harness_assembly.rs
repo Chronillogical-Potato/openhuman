@@ -12,20 +12,21 @@ use tinyagents_harness::middleware::{
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::steering::SteeringHandle;
 use tinyagents_registry::{CapabilityRegistry, RegistryDiagnostic, RegistrySnapshot};
-use tinyinference::model::CapabilitySet;
+use tinyinference_llm::model::CapabilitySet;
 use tokio::sync::mpsc::Sender;
 
 use crate::agent::harness::tool_result_artifacts::ToolResultArtifactIndexStore;
 use crate::agent::progress::AgentProgress;
+use crate::agent::tinyagents::harness_context_ladder::install_context_ladder;
 use crate::agent::tinyagents::harness_tool_registration::register_turn_tools_and_agents;
+use crate::agent::tinyagents::host::steering;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::middleware::{self, TurnContextMiddleware};
 use crate::agent::tinyagents::observability::{
     IterationCursor, ProviderUsageCarry, SubagentScope, ToolFailureMap, ToolNameMap,
 };
-use crate::agent::tinyagents::orchestration;
 use crate::agent::tinyagents::routes;
 use crate::agent::tinyagents::stop_hooks;
-use crate::agent::tinyagents::summarize;
 use crate::agent::tinyagents::tools::EarlyExitHook;
 use crate::agent::tinyagents::turn_models::TurnModels;
 use crate::agent::tinyagents::turn_outcome::{HaltSummarySlot, ToolOutcomeSink};
@@ -39,7 +40,7 @@ use super::ToolPolicyEnforcement;
 pub(super) struct AssembledTurnHarness {
     /// The fully assembled harness: model, tools, and middleware registered in
     /// the intended order.
-    pub(super) harness: AgentHarness<()>,
+    pub(super) harness: AgentHarness<(), OpenHumanRunContext>,
     /// Shared 1-based model-call cursor (event bridge advances, model adapter
     /// reads for out-of-band thinking attribution).
     pub(super) cursor: IterationCursor,
@@ -110,7 +111,7 @@ pub(super) struct AssembledTurnHarness {
 pub(super) fn assemble_turn_harness(
     turn_models: TurnModels,
     model: &str,
-    tool_sets: Vec<Arc<Vec<Box<dyn crate::tools::Tool>>>>,
+    tool_sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     allowed: Option<HashSet<String>>,
     max_iterations: usize,
     _on_progress: Option<Sender<AgentProgress>>,
@@ -118,27 +119,51 @@ pub(super) fn assemble_turn_harness(
     context_window: Option<u64>,
     early_exit_tools: &[&str],
     context_mw: TurnContextMiddleware,
+    stop_hooks: Vec<Arc<dyn crate::agent::stop_hooks::StopHook>>,
     tool_policy: Option<ToolPolicyEnforcement>,
     required_capabilities: Option<CapabilitySet>,
     deterministic_cacheable: bool,
+    // Hosted roots authorize tools through `OpenHumanSecurityGate`; installing
+    // the legacy approval middleware as well would issue a second approval.
+    hosted_security_gate: bool,
     // Whether this run pauses gracefully at its model-call cap (issue #6014).
     // Only such a run gets the in-loop conclusion: a run that errors at its cap
     // instead (the channel/CLI path, which maps the stop to
     // `MaxIterationsExceeded`) must keep doing that, and handing it a wrap-up
     // would silently convert a documented error into an answer.
     pause_at_cap: bool,
+    // The dialect the session composed its prompt for; see
+    // `OpenHumanRunContext::tool_dialect`.
+    tool_dialect: tinyagents_harness::config::ToolDispatcher,
 ) -> AssembledTurnHarness {
-    let mut harness: AgentHarness<()> = AgentHarness::new();
+    let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
     // SDK `RunPolicy.fallback` with the ordered same-family route chain for this
     // turn's primary model so the harness fails over to a sibling workload tier
-    // (e.g. chat-v1 → burst-v1) when the primary route errors. Retry stays pinned
+    // (e.g. hint:chat → hint:burst) when the primary route errors. Retry stays pinned
     // to a single attempt (see `run_policy_for`) — fallback and retry are
     // independent knobs, and only fallback is enabled here because `ReliableProvider`
     // (still wrapped) does not fail over across the registered tier routes.
     let mut policy = run_policy_for(max_iterations, deterministic_cacheable);
     let route_fallback = routes::route_fallback_policy(model);
     policy.fallback = route_fallback.clone();
+    // Tool discovery: the harness advertises its `tool_search` bridge over the
+    // `Deferred` registrations the allowlist admits, ranked by whatever the
+    // process installed (`agent::tinyagents::discovery`).
+    policy.discovery = super::discovery::discovery_policy();
+
+    policy.tool_dialect = tool_dialect;
+    // The session composes its prompt for this same dialect: `ToolsSection`
+    // renders the protocol block and the catalogue of the visible tools into
+    // the system prompt (inside the cacheable prefix, counted by
+    // `prompt-size`). Without this the harness appended a second copy of
+    // both on every text-dialect call.
+    policy.host_renders_tool_catalogue = true;
+    tracing::debug!(
+        model,
+        ?tool_dialect,
+        "[models] turn harness tool dialect pinned from the session"
+    );
     tracing::debug!(
         model,
         fallback_chain = ?route_fallback.as_ref().map(|f| &f.models),
@@ -208,8 +233,14 @@ pub(super) fn assemble_turn_harness(
         provider_usage_carry.clone(),
     )));
 
+    // Route audit capture is a typed run-context concern. The canonical
+    // TinyInference decorator attached in `turn_models` stamps the successful
+    // unary response and the streamed terminal response, and this middleware
+    // moves that metadata into the explicit OpenHuman carrier.
+    harness.push_model_middleware(Arc::new(routes::ResolvedRouteMiddleware));
+
     // Per-call capability gate (issue #4249, Workstream 02.1): when the turn has
-    // derivable capability needs (today: vision for a `vision-v1` turn), stamp
+    // derivable capability needs (today: vision for a `hint:vision` turn), stamp
     // them onto every `ModelRequest` via `with_required_capabilities` so an unfit
     // model is rejected pre-dispatch (and, once 02.2 lands, a capable fallback is
     // selected) instead of failing at the provider.
@@ -241,11 +272,9 @@ pub(super) fn assemble_turn_harness(
         .as_ref()
         .map(|_| Arc::new(ToolResultArtifactIndexStore::new()));
 
-    // Snapshot the installed stop hooks while the `CURRENT_STOP_HOOKS`
-    // task-local is in scope (the harness drive future runs inline on this
-    // task, but capturing here keeps the wiring robust). When present they fire
-    // via `StopHookMiddleware` and pause through the shared steering handle.
-    let stop_hooks_installed = crate::agent::stop_hooks::current_stop_hooks();
+    // The explicit run carrier supplies the stop hooks; no middleware needs to
+    // recover policy from a task-local while the harness is driving.
+    let stop_hooks_installed = stop_hooks;
 
     // A single steering handle drives mid-flight steering (run queue), the
     // early-exit pause, the model-call-cap pause, and stop-hook pauses, so they
@@ -261,40 +290,53 @@ pub(super) fn assemble_turn_harness(
     // graceful control-flow steering (Resume/Cancel/Redirect). `subagent_scope`
     // is the only run-class signal available at this steer site.
     let steering_run_class = if subagent_scope.is_some() {
-        orchestration::SteeringRunClass::Background
+        steering::SteeringRunClass::Background
     } else {
-        orchestration::SteeringRunClass::Interactive
+        steering::SteeringRunClass::Interactive
     };
-    let handle = Some(orchestration::openhuman_steering_handle(steering_run_class));
+    let handle = Some(steering::openhuman_steering_handle(steering_run_class));
+
+    // Shared by the two breakers below: whichever halts writes the root cause here.
+    let halt_summary: HaltSummarySlot = std::sync::Arc::new(std::sync::Mutex::new(None));
+
+    // Repeat-progress breaker (issue #4463, restoring #4088 / #4095): the failure
+    // breaker below resets on every success, so a model looping on a *successful*
+    // no-op tool or re-emitting an identical narration+call never trips it. This
+    // guard halts on identical successful `(tool, args)` batches / identical
+    // outputs, and on one call returning the identical result again with other
+    // calls in between (#6275), sharing the same halt-summary slot + steering
+    // handle. Polling tools (`wait_subagent`) stay exempt.
+    //
+    // Pushed first / outermost: `after_tool` runs in reverse registration order,
+    // so this guard fingerprints a result only after every other middleware
+    // (byte cap, summarizer, memory-protocol note) has finished rewriting it,
+    // i.e. exactly what the model sees. Registered any later, a result whose
+    // visible note changed between calls would count as identical.
+    let repeat_progress = handle.as_ref().map(|handle| {
+        Arc::new(middleware::RepeatProgressMiddleware::new(
+            handle.clone(),
+            halt_summary.clone(),
+        ))
+    });
+    if let Some(mw) = &repeat_progress {
+        harness.push_middleware(mw.clone());
+    }
 
     // Memory protocol (issue #4116): observe the read → dedupe → write →
     // update-index cycle and append a corrective note when a write skips the
-    // dedupe read or leaves the index stale. Pushed first / outermost so its
-    // `after_tool` runs *after* the byte-cap truncation, keeping the note.
+    // dedupe read or leaves the index stale. Pushed ahead of every other
+    // result-rewriting middleware so its `after_tool` runs *after* the byte-cap
+    // truncation, keeping the note.
     harness.push_middleware(Arc::new(middleware::MemoryProtocolMiddleware::new()));
 
     // Repeated-failure circuit breaker: pause the run when a tool returns the same
     // error `REPEATED_TOOL_FAILURE_THRESHOLD` times in a row, so a deterministic
     // security/approval denial or terminal tool error surfaces its root cause
     // instead of burning the whole iteration budget (legacy ProgressGuard parity).
-    let halt_summary: HaltSummarySlot = std::sync::Arc::new(std::sync::Mutex::new(None));
     if let Some(handle) = &handle {
         harness.push_middleware(Arc::new(middleware::RepeatedToolFailureMiddleware::new(
             handle.clone(),
             REPEATED_TOOL_FAILURE_THRESHOLD,
-            halt_summary.clone(),
-        )));
-    }
-
-    // Repeat-progress breaker (issue #4463, restoring #4088 / #4095): the failure
-    // breaker above resets on every success, so a model looping on a *successful*
-    // no-op tool or re-emitting an identical narration+call never trips it. This
-    // guard halts on identical successful `(tool, args)` batches / identical
-    // outputs, sharing the same halt-summary slot + steering handle. Polling tools
-    // (`wait_subagent`) stay exempt.
-    if let Some(handle) = &handle {
-        harness.push_middleware(Arc::new(middleware::RepeatProgressMiddleware::new(
-            handle.clone(),
             halt_summary.clone(),
         )));
     }
@@ -338,9 +380,9 @@ pub(super) fn assemble_turn_harness(
     // `inheriting`) and run it in shadow: it emits the exposure decision
     // event-native (`AgentEvent::ToolsFiltered`) and logs any divergence between
     // the crate layer's decision and the set OpenHuman actually registered as
-    // callable — WITHOUT changing the callable set (byte-identical to today). The
-    // ownership flip + deletion of `tool_filter.rs`/`tool_prep.rs` is the gated
-    // follow-up once the `[tool-exposure]` divergence logs show parity. Tags encode
+    // callable — WITHOUT changing the callable set (byte-identical to today).
+    // Folding the remaining host selection policy in `tool_prep.rs` into the
+    // middleware is gated on `[tool-exposure]` divergence logs showing parity. Tags encode
     // the OpenHuman run context (agent id / channel / scope) for the flip; the
     // name-based `inheriting` predicate does not consult them yet.
     let exposure_tags: Vec<String> = {
@@ -424,8 +466,8 @@ pub(super) fn assemble_turn_harness(
     //
     // FLIP CRITERIA — what must hold before the crate `BudgetMiddleware` becomes
     // the enforcing owner and the local `CostBudgetMiddleware` + the
-    // `agent/harness/turn_subagent_usage.rs` task-local are DELETED (deletion
-    // ledger row: "crate-internal CostBudgetMiddleware + turn_subagent_usage.rs
+    // `OpenHumanRunContext` explicit carrier owns the per-turn roll-up (deletion
+    // ledger row: "crate-internal CostBudgetMiddleware + explicit run context
     // task-local", `docs/tinyagents-full-migration-plan/99-deletion-ledger.md`):
     //   1. ≥ 500 production turns across BOTH parent and sub-agent runs with
     //      ZERO `[budget_shadow]` divergence log lines — proving the crate
@@ -438,7 +480,7 @@ pub(super) fn assemble_turn_harness(
     //      and the local gate is the sole money-budget authority.
     //   3. Run-tree rollup wired: the same shared `BudgetTracker` handed to every
     //      sub-agent harness so a parent budget halts a recursive run pre-spend —
-    //      replacing the `turn_subagent_usage` parent-turn rollup (06-cost step 3
+    //      replacing the former task-local parent-turn rollup (06-cost step 3
     //      / 07.2 TaskStore rollup).
     // Until all three hold, this middleware is observe-only and the local gate
     // enforces.
@@ -456,159 +498,19 @@ pub(super) fn assemble_turn_harness(
     harness.push_middleware(Arc::new(middleware::CostBudgetMiddleware::with_shadow(
         shadow_budget_tracker,
     )));
-    // Autocompaction parity: when the provider's context window is known, install
-    // the two-stage context-management step (issue #4249).
-    //
-    // 1. `ContextCompressionMiddleware` — the **summarization** step. Once the
-    //    running token estimate crosses `window * SUMMARIZE_THRESHOLD_FRACTION`
-    //    (90% of *this model's* context window), it folds the older slice of the
-    //    transcript into a single LLM-generated system summary (keeping system
-    //    messages + the recent window verbatim). This is keyed to whatever model
-    //    the turn is running on, preserving the legacy context threshold.
-    // 2. `ImageAwareMessageTrimMiddleware` — a deterministic, no-extra-LLM-call
-    //    hard cap (issue #4462; replaces the crate `MessageTrimMiddleware`).
-    //    Pushed **after** compression (so `before_model` runs compression first),
-    //    it front-trims to the legacy proportional budget only as a last resort
-    //    when even the summary + recent window still overflow — image markers
-    //    priced flat, system messages never dropped, evictions logged.
-    //
-    // The LLM summarization step honors the `[context].enabled` /
-    // `autocompact_enabled` opt-outs (a disabled config must not spend summarizer
-    // tokens or rewrite history); the deterministic trim backstop always installs
-    // when a window is known, matching the legacy always-on `trim_history` cap.
-    // Concrete handle to the compression middleware (when installed), retained so
-    // the run loop can drain its `records()` after the drive future returns and
-    // surface each compaction's provenance (source ids + before/after token
-    // estimates) — the `AgentEvent::Compressed` projection only carries the token
-    // deltas, so provenance would otherwise be dropped (issue #4249, 03.1 item 6).
-    let mut compression_mw: Option<Arc<ContextCompressionMiddleware>> = None;
-    if let Some(window) = context_window.filter(|w| *w > 0) {
-        if autocompact_enabled {
-            let policy = summarize::summarization_policy(window);
-            // Wrap the LLM-backed summarizer in a fault-tolerant, per-turn-caching
-            // adapter (issue #4461): a summarizer failure must no longer abort the
-            // turn (warn + circuit-breaker + deterministic trim instead), and an
-            // identical re-issued input slice must not re-run the summarizer LLM.
-            let summarizer = summarize::FaultTolerantCachingSummarizer::new(
-                Box::new(summarize::ModelSummarizer::new(summarizer_model, model)),
-                &policy,
-            );
-            let mw = Arc::new(ContextCompressionMiddleware::with_summarizer(
-                policy,
-                Box::new(summarizer),
-            ));
-            harness.push_middleware(mw.clone());
-            compression_mw = Some(mw);
-        }
-
-        // Deterministic hard-cap trim (issue #4462). The crate
-        // `MessageTrimMiddleware` regressed three legacy `token_budget.rs`
-        // guards: it priced a base64 image at ~2M tokens (chars/4) and could
-        // evict system messages, it reordered system messages to the front, and
-        // its budget was the fixed `window − AGENT_TURN_MAX_OUTPUT_TOKENS`
-        // (floored 1024) that collapses an 8k local model's input budget from
-        // ~7373 to 1024. Our seam-owned `ImageAwareMessageTrimMiddleware`
-        // restores all three: image markers priced at a flat cost, the
-        // proportional reply reserve, system messages always kept in place, and a
-        // grep-able warn with drop/token counts on any eviction.
-    }
-
-    // ── The context ladder, cheapest sufficient step first (issue #6014) ──────
-    //
-    // `before_model` runs in registration order, so what follows IS the firing
-    // order, and each step only matters when the one above was not enough:
-    // 1. compression (above) folds the older slice into a task-aware summary;
-    // 2. microcompact blanks older tool bodies if still over;
-    // 3. the wrap-up undoes (2) for a capped turn's concluding call;
-    // 4. trim evicts oldest whole messages if still over.
-    //
-    // The order used to be 2 -> 1 -> 4, because `context_mw.install` registered
-    // microcompact: the summarizer was handed a transcript whose tool bodies
-    // were already `CLEARED_PLACEHOLDER` and asked, by its own prompt, for "key
-    // results/outputs" it could no longer see. Nothing recovered them.
-    if microcompact_keep_recent > 0 {
-        // The token-budget gate the crate added for this (#4755) and this call
-        // site never used. Constructed bare, microcompact blanks on EVERY call
-        // past `keep_recent` — not only under pressure — so a ten-call turn
-        // answered from the last five results while well inside a window with
-        // room for all ten. Not a capped-turn problem: every turn. The budget
-        // matches the trim's allowance, putting microcompact strictly behind
-        // compression. With no window there is nothing to size against and
-        // nothing else bounding growth, so always-blank stays as the backstop.
-        let microcompact = tinyagents_harness::middleware::MicrocompactMiddleware::new(
-            microcompact_keep_recent,
-            crate::agent::context::CLEARED_PLACEHOLDER,
-        );
-        let microcompact = match context_window.filter(|w| *w > 0) {
-            Some(window) => {
-                microcompact.with_token_budget(middleware::legacy_max_input_tokens(window).max(1))
-            }
-            None => microcompact,
-        };
-        // Emit `AgentEvent::Compressed` when a body is cleared. Off by default —
-        // the middleware was built as "a silent transcript rewrite" — which is
-        // why blanking was, until now, the one reduction step nobody could see
-        // happening: compression logs its provenance, the trim warns on every
-        // eviction, and the per-result artifact store logs each persist. Only
-        // this one destroyed content without saying so, which is how it went
-        // unnoticed that it was doing it on every call.
-        harness.push_middleware(Arc::new(microcompact.with_events(true)));
-    }
-
-    // Issue #6014: make the last permitted model call the turn's conclusion,
-    // rather than leaving the answer to an extra out-of-band call after the loop
-    // has exited.
-    //
-    // **Top-level turns only**, the same cut `CapPauser`'s dispatch guard takes.
-    // A sub-agent reaching its own cap is a routine outcome, not a user-visible
-    // dead end: it summarises, hands the result back to its parent, and
-    // `subagent_runner` already owns that checkpoint. The harm this fixes — a
-    // person left with a status line where an answer should be — belongs to the
-    // turn that answers a human. It also leaves a child's budget alone: the
-    // conclusion costs a call, and turning every delegated run's N tool rounds
-    // into N-1 is not a trade to impose as a side effect.
-    // One allowance, split between the two things that add to the request
-    // (CodeRabbit on #6068). Computed independently they were each bounded and
-    // the pair was not: restoration could fill the whole allowance and the
-    // contents list add its tenth on top. `0` when no window is advertised.
-    let trim_allowance = context_window
-        .filter(|w| *w > 0)
-        .map(|w| middleware::legacy_max_input_tokens(w).max(1))
-        .unwrap_or(0);
-    let (toc_allowance, restore_allowance) = middleware::split_input_allowance(trim_allowance);
-
-    let wrap_up_mw = (pause_at_cap && subagent_scope.is_none()).then(|| {
-        Arc::new(middleware::FinalCallWrapUpMiddleware::new(
-            crate::agent::harness::session::turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION,
-            tool_outcome_sink.clone(),
-            // What is left after the contents list's share, so restoration
-            // stops short of provoking an eviction (see the middleware).
-            restore_allowance,
-        ))
-    });
-    let wrap_up_fired = wrap_up_mw.as_ref().map(|mw| mw.fired());
-    if let Some(mw) = wrap_up_mw {
-        harness.push_middleware(mw);
-    }
-
-    // Issue #6014: say where the offloaded results went, from the index rather
-    // than the transcript. After the reduction steps so it renders what
-    // survived them, before the trim so its message is counted in that budget.
-    // Its share of the allowance split above: the list is a system message, so
-    // nothing downstream can shrink it (see the middleware).
-    harness.push_middleware(Arc::new(middleware::ArtifactIndexTocMiddleware::new(
-        toc_allowance,
-    )));
-
-    if let Some(window) = context_window.filter(|w| *w > 0) {
-        // Deterministic hard-cap trim (issue #4462), last in the ladder: it drops
-        // whole messages, so it runs only once summarizing and blanking have both
-        // failed to fit the window. See `ImageAwareMessageTrimMiddleware` for the
-        // three legacy guards it restores over the crate trim.
-        harness.push_middleware(Arc::new(
-            middleware::ImageAwareMessageTrimMiddleware::for_context_window(window),
-        ));
-    }
+    // The context ladder (compression, microcompact, final-call wrap-up,
+    // artifact contents list, trim), registered here so each step keeps its
+    // place in the middleware order. See `harness_context_ladder.rs`.
+    let (compression_mw, wrap_up_fired) = install_context_ladder(
+        &mut harness,
+        model,
+        context_window,
+        autocompact_enabled,
+        microcompact_keep_recent,
+        summarizer_model,
+        pause_at_cap && subagent_scope.is_none(),
+        &tool_outcome_sink,
+    );
 
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
     // 01.1). Keep this narrow for now: enforce sandbox requirements declared by
@@ -625,10 +527,12 @@ pub(super) fn assemble_turn_harness(
     // Phase 1): an external-effect tool intercepts through the global
     // `ApprovalGate`, a denial short-circuits with a model-consumable result, and
     // an approved call records a terminal audit row. Replaces the inline approval
-    // block that used to live in `execute_openhuman_tool`.
-    harness.push_tool_middleware(Arc::new(middleware::ApprovalSecurityMiddleware::new(
-        tool_sets.clone(),
-    )));
+    // block that used to live in the legacy tool adapter.
+    if !hosted_security_gate {
+        harness.push_tool_middleware(Arc::new(middleware::ApprovalSecurityMiddleware::new(
+            tool_sets.clone(),
+        )));
+    }
 
     // CLI/RPC-only scope gate — a tool restricted to explicit CLI/RPC invocation
     // must not run from the model loop. Intrinsic to the tool, so installed on
@@ -642,6 +546,11 @@ pub(super) fn assemble_turn_harness(
     // path bypassed it, so a deny/require-approval silently no-opped (security
     // regression). Installed only when the caller threads an enforcement context
     // (the session chat path); channel/CLI + sub-agent paths pass `None`.
+    // The packed-tool router below gates on the same session, and `None`
+    // disables it, so take a copy before the enforcement is moved.
+    let route_session = tool_policy
+        .as_ref()
+        .map(|enforcement| enforcement.session.clone());
     if let Some(enforcement) = tool_policy {
         harness.push_tool_middleware(Arc::new(middleware::ToolPolicyMiddleware::new(
             enforcement.policy,
@@ -675,6 +584,18 @@ pub(super) fn assemble_turn_harness(
         tool_sets.clone(),
     )));
 
+    // Bare packed-tool routing (`before_tool`, #6276): a call that names a
+    // withheld packed tool directly becomes the `use_skill` call that reaches
+    // it, ahead of admission, so every gate above still applies. Only when the
+    // session lets that tool run, and never without a session. After
+    // `ArgRecoveryMiddleware` so it wraps recovered arguments; before the
+    // embedder hooks so they observe the call that actually runs.
+    let registered_tools = harness.tools().names();
+    harness.push_middleware(Arc::new(middleware::PackedToolRouteMiddleware::new(
+        registered_tools,
+        route_session,
+    )));
+
     // Embedder tool lifecycle hooks. Registered AFTER `ArgRecoveryMiddleware`:
     // `before_tool` runs in registration order, so a hook installed earlier would
     // observe the provider's raw (possibly JSON-encoded-string / non-object)
@@ -689,6 +610,14 @@ pub(super) fn assemble_turn_harness(
         harness.push_middleware(Arc::new(middleware::EmbedderToolHooksMiddleware::new(
             embedder_tool_hooks,
         )));
+    }
+
+    // Registered last so its `before_model` sees the request after every
+    // reduction step above (compression, microcompact, trim) has run. A tool
+    // result they evicted is no longer a repeat the model can see, so the
+    // repeat-progress recurrence ledger restarts (#6275).
+    if let Some(mw) = &repeat_progress {
+        harness.push_middleware(Arc::new(mw.eviction_observer()));
     }
 
     AssembledTurnHarness {

@@ -1,6 +1,8 @@
 //! [`PromptCacheSegmentMiddleware`]: declare the turn's stable prompt prefix
-//! (system prompt + tool schemas) as cache segments with content-fingerprint
-//! ids, so the crate `PromptCacheGuardMiddleware` has a prefix to protect.
+//! (system prompt + tool schemas) as the harness-layout cache segments
+//! (`system` / `tools`) with a content-derived request fingerprint, so the
+//! crate `PromptCacheGuardMiddleware` has a prefix to protect and the provider
+//! prompt-cache routing key stays stable across a thread's turns.
 
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
@@ -8,8 +10,8 @@ use sha2::{Digest, Sha256};
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::Middleware;
-use tinyinference::message::Message as TaMessage;
-use tinyinference::model::{ModelRequest, PromptSegment, SegmentRole};
+use tinyinference_llm::message::Message as TaMessage;
+use tinyinference_llm::model::{ModelRequest, PromptSegment, SegmentRole};
 
 /// Stable SHA-256 fingerprint over canonical JSON. TinyAgents' prompt builder
 /// uses the same shape for `ModelRequest::prompt_fingerprint`; OpenHuman builds
@@ -33,11 +35,21 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 /// OpenHuman assembles the request's messages/tools directly rather than through
 /// the crate prompt builder, so `cache_segments` would otherwise stay empty and
 /// the crate `PromptCacheGuardMiddleware` (installed immediately after this)
-/// would have no prefix to protect. This stamps the segments with
-/// **content-fingerprint ids**: an unchanged system prompt + full tool-schema set
-/// yields a stable prefix, while an injected timestamp/uuid/etc. or changed tool
-/// schema flips it and the guard records a
-/// [`CacheLayoutEvent`](tinyagents_harness::cache::CacheLayoutEvent). This is
+/// would have no prefix to protect. The segments use the harness-layout ids
+/// `system` (`system.1`, … per leading system message) and `tools` — exactly
+/// those, and only those. The crate's
+/// `refresh_prompt_cache_fingerprint` (agent_loop/run_loop.rs) recognises that
+/// layout at dispatch and rebuilds `prompt_fingerprint` from the bytes actually
+/// sent (system messages + tool schemas), so an unchanged system prompt +
+/// tool-schema set yields the same fingerprint on every call of a thread, while
+/// an injected timestamp/uuid/etc. or a changed tool schema flips it and the
+/// guard records a
+/// [`CacheLayoutEvent`](tinyagents_harness::cache::CacheLayoutEvent). Any
+/// *other* id shape (an earlier version stamped `system:<sha>` / `tools:<sha>`)
+/// is treated by the crate as a custom annotation and fingerprinted over the
+/// **whole request**, which changed the provider `prompt_cache_key` on every
+/// call — OpenRouter uses that key for sticky endpoint routing, so each call
+/// re-rolled the endpoint and the per-endpoint prefix cache missed. This is
 /// the structured, crate-native replacement for the deleted warn-only
 /// `CacheAlignMiddleware` volatile-token scan (C3): the crate
 /// `PromptCacheGuardMiddleware` now owns KV-cache-prefix drift detection via
@@ -45,31 +57,42 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 /// `cache_segments` / `prompt_fingerprint`.
 pub(crate) struct PromptCacheSegmentMiddleware;
 
+/// Tools segment id the crate's `refresh_prompt_cache_fingerprint` recognises
+/// as its own stable-prefix layout (system ids come from
+/// `tinyagents_harness::prompt::system_segment_id`). Any other id opts the
+/// request into whole-request fingerprinting (see the middleware docs).
+const HARNESS_TOOLS_SEGMENT_ID: &str = "tools";
+
 #[async_trait]
-impl Middleware<()> for PromptCacheSegmentMiddleware {
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for PromptCacheSegmentMiddleware
+{
     fn name(&self) -> &str {
         "prompt_cache_segments"
     }
 
     async fn before_model(
         &self,
-        _ctx: &mut RunContext<()>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         request: &mut ModelRequest,
     ) -> TaResult<()> {
         let mut segments: Vec<PromptSegment> = Vec::new();
-        // 1. System prompt — the cache-hottest stable prefix segment.
-        if let Some(sys) = request
+        // 1. System prompt — one segment per leading system message, named
+        //    `system`, `system.1`, … exactly as the harness's
+        //    `refresh_prompt_cache_fingerprint` expects. The session sends its
+        //    prompt as tiers (stable+context, then volatile, see
+        //    `runtime_session::prepare`), so a rewritten volatile tier shows up
+        //    as a change to `system.1` while `system` keeps its id and the
+        //    layout guard can say which tier moved.
+        let leading_system = request
             .messages
             .iter()
-            .find(|m| matches!(m, TaMessage::System(_)))
-        {
-            let fp = stable_prefix_fingerprint(&serde_json::json!({
-                "role": "system",
-                "messages": [sys],
-            }));
+            .take_while(|m| matches!(m, TaMessage::System(_)))
+            .count();
+        for index in 0..leading_system {
             segments.push(PromptSegment {
-                id: format!("system:{fp}"),
+                id: tinyagents_harness::prompt::system_segment_id(index),
                 role: SegmentRole::System,
                 cacheable: true,
             });
@@ -77,21 +100,35 @@ impl Middleware<()> for PromptCacheSegmentMiddleware {
         // 2. Tool schemas — advertised tool surface identity (full schemas, in
         //    registration order) forms the next stable prefix segment. A changed
         //    tool surface legitimately busts the prefix; an unchanged one keeps
-        //    it stable.
-        if !request.tools.is_empty() {
-            let fp = stable_prefix_fingerprint(&serde_json::json!({
-                "role": "tools",
-                "tools": &request.tools,
-            }));
+        //    it stable. Under a text dialect the harness folds the catalogue
+        //    into the system prompt and clears `tools` *after* this hook ran,
+        //    so declaring a `tools` segment here would no longer match the
+        //    layout the harness rebuilds at dispatch — and a mismatch demotes
+        //    the whole request to a per-call digest, which is exactly the
+        //    routing-key churn this middleware exists to prevent.
+        let schemas_stay_on_wire = matches!(
+            ctx.data.tool_dialect,
+            tinyagents_harness::config::ToolDispatcher::Auto
+                | tinyagents_harness::config::ToolDispatcher::Native
+        );
+        if schemas_stay_on_wire && !request.tools.is_empty() {
             segments.push(PromptSegment {
-                id: format!("tools:{fp}"),
+                id: HARNESS_TOOLS_SEGMENT_ID.to_string(),
                 role: SegmentRole::Tools,
                 cacheable: true,
             });
         }
         if !segments.is_empty() {
+            // Content-derived, so a guard reading it before dispatch sees a
+            // system-prompt or tool-schema edit; the crate recomputes it from
+            // the final bytes at dispatch.
+            let system_messages: Vec<&TaMessage> = request
+                .messages
+                .iter()
+                .filter(|m| matches!(m, TaMessage::System(_)))
+                .collect();
             request.prompt_fingerprint = Some(stable_prefix_fingerprint(&serde_json::json!({
-                "segments": &segments,
+                "system": system_messages,
                 "tools": &request.tools,
             })));
             tracing::debug!(

@@ -24,16 +24,14 @@ pub fn render_tool_policy_boundary(
         session.profile.allowed_permission
     );
     let _ = writeln!(rendered, "- Risk: {}", session.profile.risk_level);
+    // The allowed tools are already on the wire as schemas; listing their
+    // names again here charged every session for a second copy of the belt.
+    // The count keeps the boundary legible without the duplication.
     if !session.allowed_tool_names.is_empty() {
         let _ = writeln!(
             rendered,
-            "- Allowed tools: {}",
-            session
-                .allowed_tool_names
-                .iter()
-                .map(String::as_str)
-                .collect::<Vec<_>>()
-                .join(", ")
+            "- Allowed tools: {} (the tools in your list)",
+            session.allowed_tool_names.len()
         );
     }
     let restricted_tool_count = session.restricted_tool_count();

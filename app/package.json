@@ -1,6 +1,6 @@
 {
   "name": "openhuman-app",
-  "version": "0.63.25",
+  "version": "0.63.31",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -26,8 +26,8 @@
     "build:web": "cross-env VITE_OPENHUMAN_TARGET=web node scripts/build-parallel.mjs",
     "compile": "tsc --noEmit",
     "preview": "vite preview",
-    "tauri": "cd ../crates/openhuman-app && ../../app/node_modules/.bin/tauri",
-    "tauri:build:ui": "cd ../crates/openhuman-app && ../../app/node_modules/.bin/tauri build -- --bin OpenHuman",
+    "tauri": "node scripts/tauri.cjs",
+    "tauri:build:ui": "node scripts/tauri.cjs build -- --bin OpenHuman",
     "macos:build:intel": "source ../scripts/load-dotenv.sh && cd ../crates/openhuman-app && cargo tauri build --bundles app dmg --target x86_64-apple-darwin -- --bin OpenHuman",
     "macos:build:intel:debug": "source ../scripts/load-dotenv.sh && cd ../crates/openhuman-app && cargo tauri build --debug --bundles app dmg --target x86_64-apple-darwin -- --bin OpenHuman",
     "macos:build:debug": "source ../scripts/load-dotenv.sh && cd ../crates/openhuman-app && cargo tauri build --debug --bundles app dmg -- --bin OpenHuman",
@@ -66,7 +66,7 @@
     "lint": "eslint . --ext .ts,.tsx --cache",
     "lint:fix": "eslint . --ext .ts,.tsx --fix --cache",
     "lint:commands-tokens": "bash scripts/lint-token-scan.sh lint:commands-tokens -nU \"(bg|text|border|ring|shadow)-(neutral|primary|sage|amber|canvas|stone|slate)\" src/components/commands/",
-    "lint:ui-tokens": "bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*\\b(bg|text|border|ring|divide)-(neutral|stone|slate|canvas|white|black)\\b\" src/components/ui/ src/components/layout/ src/components/settings/ src/features/conversations/ src/components/intelligence/ src/components/feedback/ src/components/flows/ src/components/chat/ src/components/rewards/ src/components/skills/ src/components/channels/ src/pages/ src/components/dashboard/ src/components/composio/ src/components/notifications/ src/components/accounts/ src/components/approvals/ src/features/human/ && bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*(color-mix\\(|oklch\\(|@layer )\" src/components/ui/ src/styles/fonts.css && node scripts/lint-undefined-scales.mjs",
+    "lint:ui-tokens": "bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*\\b(bg|text|border|ring|divide)-(neutral|stone|slate|canvas|white|black)\\b\" src/components/ui/ src/components/layout/ src/components/settings/ src/features/conversations/ src/components/intelligence/ src/components/feedback/ src/components/flows/ src/components/chat/ src/components/skills/ src/components/channels/ src/pages/ src/components/dashboard/ src/components/composio/ src/components/notifications/ src/components/accounts/ src/components/approvals/ src/features/human/ && bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*(color-mix\\(|oklch\\(|@layer )\" src/components/ui/ src/styles/fonts.css && node scripts/lint-undefined-scales.mjs",
     "knip": "knip --config knip.json",
     "knip:production": "knip --config knip.json --production"
   },

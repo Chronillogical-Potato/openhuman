@@ -6,27 +6,27 @@
 //!
 //! ## Key Components
 //!
-//! - **[`harness::session::Agent`]**: The primary entry point for running a
+//! - **[`session_host::OpenHumanSessionHost`]**: The primary entry point for running a
 //!   conversation. It manages the loop of sending prompts to a provider and
 //!   executing the resulting tool calls.
 //! - **[`crate::agent::registry::agents`]**: Definitions for built-in
 //!   specialized agents (Orchestrator, Code Executor, Researcher, etc.).
 //! - **[`triage`]**: A high-performance pipeline for classifying and responding
 //!   to external triggers (webhooks, cron jobs) using small local models.
-//! - **[`dispatcher`]**: Pluggable strategies for how tool calls are formatted
-//!   in prompts and parsed from responses (XML, JSON, P-Format).
-//! - **[`harness::subagent_runner`]**: Logic for spawning "sub-agents" from
+//! - **`tinytools_agent::dialect`**: Canonical strategies for formatting and
+//!   parsing tool calls (XML, JSON, P-Format).
+//! - **[`subagent_host`]**: OpenHuman's planner, executor and persistence
+//!   adapters for sub-agents driven by the neutral TinyAgents lifecycle.
 //!   within a parent agent's tool loop, enabling hierarchical delegation.
 pub mod artifacts;
 pub mod bus;
 pub mod context;
 pub(crate) mod cost;
 pub mod debug;
-pub mod dispatcher;
 pub mod error;
 pub mod experience;
 pub mod file_state;
-pub(crate) mod git_attribution;
+pub mod goals;
 pub mod harness;
 pub mod harness_init;
 pub mod hooks;
@@ -37,19 +37,17 @@ pub(crate) mod message_convert;
 pub mod messages;
 pub mod multimodal;
 pub mod orchestration;
-pub mod pformat;
 pub mod plan_review;
 /// Cross-platform shell selection shared by [`host_runtime::NativeRuntime`]
 /// and [`crate::sandbox::ops`] so all three shell-spawning sites
 /// agree on `cmd.exe` (Windows) vs `bash`/`sh` (Unix). Fixes #4705 where
 /// the sandbox paths hardcoded `sh` and failed at spawn on Windows.
 pub mod platform_shell;
-pub mod profiles;
 pub mod progress;
 /// Task-local [`progress::AgentProgress`] sink — how an in-process embedder
 /// observes a turn driven through an RPC that returns only a final string.
 /// Same shape as [`turn_origin`]; read by entry points that build the
-/// [`Agent`] internally (`inference::local::ops::agent_chat`).
+/// [`Agent`] internally (`inference::host_runtime::ops::agent_chat`).
 pub mod progress_sink;
 /// Structured tracing export off the [`progress`] channel: turns the
 /// real-time [`progress::AgentProgress`] stream into OpenTelemetry/
@@ -57,20 +55,25 @@ pub mod progress_sink;
 /// session id with user attribution (issue #3886).
 pub(crate) mod progress_tracing;
 /// Prompt plumbing — types, section builders, and
-/// [`SystemPromptBuilder`](prompts::SystemPromptBuilder). Moved from
-/// `crate::agent::context::prompt` so prompt rendering lives next to the
-/// agents that consume it. `crate::agent::context::prompt` is retained as
-/// a thin re-export shim for now.
+/// [`SystemPromptBuilder`](prompts::SystemPromptBuilder).
 pub mod prompts;
+/// Host-owned payload carried through TinyAgents run queues.
+pub mod queued_turn;
 pub mod registry;
 mod schemas;
 pub mod session_db;
+/// OpenHuman's composition and policy layer around the neutral TinyAgents
+/// session runtime. Generic history, transcript delta, prefix and tool
+/// snapshots are owned by `tinyagents-runtime`.
+pub mod session_host;
 pub mod session_import;
 pub mod stop_hooks;
-pub mod task_board;
-pub mod task_dispatcher;
-pub(crate) mod task_session;
+/// Product-specific adapters around `tinyagents_orchestration::subagent`.
+/// Generic lifecycle ordering and task-key coalescing live in TinyAgents;
+/// definitions, prompts, tools, policy, checkpoints and progress remain here.
+pub mod subagent_host;
 pub mod tinyagents;
+pub mod todos;
 pub mod tool_policy;
 pub mod tools;
 pub mod triage;
@@ -96,4 +99,4 @@ pub use schemas::{
 mod tests;
 
 #[allow(unused_imports)]
-pub use harness::session::{Agent, AgentBuilder};
+pub use session_host::{OpenHumanSessionHost, SessionHostBuilder, TurnOverrides};

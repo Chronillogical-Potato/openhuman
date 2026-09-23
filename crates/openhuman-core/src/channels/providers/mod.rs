@@ -1,18 +1,13 @@
-//! External channel backends (Telegram, Signal, WhatsApp, Slack, …).
+//! OpenHuman channel glue plus portable provider exports.
+//!
+//! Provider transports belong to `tinychannels`; only Telegram's OpenHuman
+//! event-bus, approval, and remote-control integration remains local.
 
-pub mod dingtalk;
-pub mod discord;
-pub mod email_channel;
-pub mod imessage;
-pub mod irc;
-pub mod lark;
-pub mod linq;
-pub mod mattermost;
-pub mod qq;
-pub mod signal;
-pub mod slack;
+pub use tinychannels::providers::email_channel;
+pub use tinychannels::providers::lark;
+pub use tinychannels::providers::{
+    dingtalk, discord, imessage, irc, linq, mattermost, qq, signal, slack, whatsapp, yuanbao,
+};
 pub mod telegram;
-pub mod whatsapp;
 #[cfg(feature = "whatsapp-web")]
-pub mod whatsapp_web;
-pub mod yuanbao;
+pub use tinychannels::providers::whatsapp_web;

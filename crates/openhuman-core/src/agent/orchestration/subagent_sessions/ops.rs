@@ -5,8 +5,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::agent::harness::subagent_runner::SubagentRunStatus;
 use crate::agent::messages::ChatMessage;
+use crate::agent::subagent_host::SubagentRunStatus;
 
 use super::types::{
     DurableSubagentSession, DurableSubagentStatus, ReuseDecision, SubagentSessionSelector,

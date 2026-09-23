@@ -29,7 +29,7 @@ function isTaskThread(thread: Thread): boolean {
  * suite.
  *
  * Rules:
- *   - Tasks includes task-board threads, legacy worker/sub-agent threads,
+ *   - Tasks includes `tasks`-labelled threads, legacy worker/sub-agent threads,
  *     and meeting transcript threads.
  *   - Subconscious includes new and legacy reflection/tick-generated threads.
  *   - General is the fallback bucket for everything else.

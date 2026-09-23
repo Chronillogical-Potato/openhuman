@@ -6,14 +6,14 @@
 //! sub-agent plumbing.
 
 use super::render_helpers::{
-    inject_inline_content, inject_snapshot_content, inject_workspace_file,
-    inject_workspace_file_capped, sync_workspace_file,
+    inject_snapshot_content, inject_workspace_file, inject_workspace_file_capped,
+    sync_workspace_file,
 };
 use super::types::*;
 use anyhow::Result;
 use std::fmt::Write;
-use tinyagents_harness::tool_calling::dialect::render_pformat_catalogue;
-use tinyinference::tool::ToolSchema;
+use tinytools::ToolSpec;
+use tinytools_agent::dialect::render_pformat_catalogue;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Special sections (archetype, dynamic, reflection)
@@ -67,11 +67,27 @@ impl PromptSection for DynamicPromptSection {
     }
 
     fn tier(&self) -> PromptTier {
+        // A builder that declares no tiers is treated as all-volatile, the
+        // conservative reading: nothing stable is placed behind it by mistake.
         PromptTier::Volatile
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
         (self.builder)(ctx)
+    }
+
+    fn build_parts(&self, ctx: &PromptContext<'_>) -> Result<Vec<(PromptTier, String)>> {
+        let body = (self.builder)(ctx)?;
+        let has_marker =
+            body.contains(PROMPT_TIER_CONTEXT_MARKER) || body.contains(PROMPT_TIER_VOLATILE_MARKER);
+        // A builder that marks its tiers starts in `Stable`; one that does not
+        // stays wholly in `Volatile` (see `tier`).
+        let default_tier = if has_marker {
+            PromptTier::Stable
+        } else {
+            PromptTier::Volatile
+        };
+        Ok(split_prompt_tiers(&body, default_tier))
     }
 }
 
@@ -120,11 +136,8 @@ pub struct UserMemorySection;
 pub struct UserReflectionsSection;
 /// Renders the authenticated user's non-secret identity fields
 /// (`id` / `name` / `email`) into the system prompt — see issue #926.
-///
-/// Empty when [`PromptContext::user_identity`] is `None` or the
-/// identity has no populated fields. Tokens, refresh tokens, and any
-/// opaque credential material are forbidden — only the three
-/// identifying fields ship.
+/// Empty when [`PromptContext::user_identity`] is `None` or the identity has no
+/// populated fields. Tokens and opaque credentials are forbidden.
 pub struct UserIdentitySection;
 
 /// Injects the user-specific, session-frozen workspace files
@@ -224,10 +237,7 @@ impl PromptSection for IdentitySection {
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        let mut prompt = String::from("## Project Context\n\n");
-        prompt.push_str(
-            "The following workspace files define your identity, behavior, and context.\n\n",
-        );
+        let mut prompt = String::new();
         // ROLE.md is the user-facing agent's own role brief (#5701) — the
         // `# Master Agent` / `## Core Responsibilities` preamble that used to
         // be compiled into `orchestrator/prompt.md`. It is synced for every
@@ -249,16 +259,6 @@ impl PromptSection for IdentitySection {
             sync_workspace_file(ctx.workspace_dir, file);
             if skip_in_prompt.contains(file) {
                 continue;
-            }
-            if *file == "SOUL.md" {
-                if let Some(ref soul) = ctx.personality_soul_md {
-                    tracing::debug!(
-                        "[identity] personality SOUL.md override active ({} chars)",
-                        soul.len()
-                    );
-                    inject_inline_content(&mut prompt, "SOUL.md", soul, BOOTSTRAP_MAX_CHARS);
-                    continue;
-                }
             }
             inject_workspace_file(&mut prompt, ctx.workspace_dir, file);
         }
@@ -305,8 +305,7 @@ impl PromptSection for UserFilesSection {
             );
         }
         if ctx.include_memory_md {
-            // Personality-specific MEMORY.md takes highest priority, then
-            // the session-frozen curated-memory snapshot, then the
+            // Prefer the session-frozen curated-memory snapshot, then the
             // workspace file (pure prompt-unit tests and older call sites).
             //
             // Render into a scratch buffer first so the `MEMORY_MD_FRAMING`
@@ -314,13 +313,7 @@ impl PromptSection for UserFilesSection {
             // the inject helpers silently skip empty/missing files, and a
             // dangling frame pointing at nothing would be worse than none.
             let mut mem = String::new();
-            if let Some(ref memory_md) = ctx.personality_memory_md {
-                tracing::debug!(
-                    "[user_files] personality MEMORY.md override active ({} chars)",
-                    memory_md.len()
-                );
-                inject_inline_content(&mut mem, "MEMORY.md", memory_md, USER_FILE_MAX_CHARS);
-            } else if let Some(snap) = &ctx.curated_snapshot {
+            if let Some(snap) = &ctx.curated_snapshot {
                 inject_snapshot_content(&mut mem, "MEMORY.md", &snap.memory, USER_FILE_MAX_CHARS);
                 inject_snapshot_content(&mut mem, "USER.md", &snap.user, USER_FILE_MAX_CHARS);
             } else {
@@ -371,7 +364,7 @@ impl PromptSection for ToolsSection {
         // schemas in the API request — no need to repeat the tool catalogue
         // in the system prompt (pure token bloat). However, any non-empty
         // `dispatcher_instructions` (e.g. the "## Tool Use Protocol" block
-        // from NativeToolDispatcher) must still be included so the model
+        // from NativeDialect) must still be included so the model
         // receives its behavioural guidance.
         if ctx.tool_call_format == ToolCallFormat::Native {
             if ctx.dispatcher_instructions.trim().is_empty() {
@@ -379,19 +372,16 @@ impl PromptSection for ToolsSection {
             }
             return Ok(ctx.dispatcher_instructions.to_string());
         }
-        // One rendering shape for every dispatcher: a compact P-Format
-        // signature (`name[a|b|c]`), rendered by the crate from the same
-        // schemas its parser reconstructs arguments with — so the order the
-        // model reads is by construction the order the parser expects. For
-        // `Native` dispatchers the provider already has the full JSON schema in
-        // the API request (handled above); for `Json` / `PFormat` text
-        // dispatchers the dispatcher's own `prompt_instructions` block
-        // (appended below) carries whatever schema detail the wire format needs.
+        // TinyTools renders the compact catalogue from the same schemas and
+        // argument order that its parser consumes. For `Native` dispatchers
+        // the provider already has the full JSON schema in the API request
+        // (handled above); text dispatchers receive their protocol through
+        // the dialect's `prompt_instructions` block appended below.
         let has_filter = !ctx.visible_tool_names.is_empty();
-        let visible: Vec<ToolSchema> = ctx
+        let visible: Vec<ToolSpec> = ctx
             .tools
             .iter()
-            .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name))
+            .filter(|tool| !has_filter || ctx.visible_tool_names.contains(tool.name.as_ref()))
             .map(|tool| {
                 let parameters = match tool.parameters_schema.as_deref() {
                     Some(schema) => match serde_json::from_str(schema) {
@@ -407,10 +397,24 @@ impl PromptSection for ToolsSection {
                     },
                     None => serde_json::Value::Null,
                 };
-                ToolSchema::new(tool.name, tool.description, parameters)
+                ToolSpec {
+                    name: tool.name.to_string(),
+                    description: tool.description.to_string(),
+                    parameters,
+                }
             })
             .collect();
-        let mut out = render_pformat_catalogue(&visible);
+        // The JSON dialect's protocol block embeds its own full-schema
+        // catalogue (`XmlDialect::embeds_tool_catalogue`), so rendering the
+        // signature catalogue as well listed every tool twice — 13 KB of
+        // compact signatures on top of 28 KB of schemas for the orchestrator.
+        let mut out = match ctx.tool_call_format {
+            ToolCallFormat::Json if !ctx.dispatcher_instructions.trim().is_empty() => String::new(),
+            format => match format.code_style() {
+                Some(style) => tinytools_agent::render::render_code_catalogue(&visible, style),
+                None => render_pformat_catalogue(&visible),
+            },
+        };
         if !ctx.dispatcher_instructions.is_empty() {
             out.push('\n');
             out.push_str(ctx.dispatcher_instructions);
@@ -456,7 +460,7 @@ impl PromptSection for SafetySection {
 pub const GROUNDING_HEADING: &str = "Grounding and tool use";
 
 pub const GROUNDING_BODY: &str = "## Grounding and tool use\n\n\
-    - Your tools are exactly the ones listed in this prompt. You can only act through them. If a capability is not one of your tools, say so plainly rather than pretending it exists.\n\
+    - Your tools are exactly the ones you have been given for this turn, whether they arrive as a tool list or are described in this prompt. You can only act through them. Check that list before saying you lack a capability, and if it is not there, say so plainly rather than pretending it exists.\n\
     - Never invent tool names, arguments, ids, slugs, file paths, URLs, chain ids, addresses, quotes, metrics, or any other value. If you do not have it from a tool result or the user, ask for it or look it up with a tool.\n\
     - Preserve numeric evidence exactly. For numbers, counts, sizes, dates, timestamps, durations, currencies, percentages, quotas, and ids, copy the exact value from the observed tool result, user message, or cited memory into your answer.\n\
     - Do not round, convert units, rewrite relative times, or recalculate numeric values unless the user asks and you show the calculation from observed values. If sources disagree, name the discrepancy instead of choosing a plausible value.\n\
@@ -495,14 +499,9 @@ impl PromptSection for WorkspaceSection {
         // its real working directory at runtime and keep writes/reads there.
         let mut out = String::from(
             "## Workspace\n\n\
-             Run `pwd` to confirm your working directory — that is where `shell` runs and \
-             where every file tool resolves a relative path. Create files in that \
-             directory and read them back from the same place (use the relative path, or \
-             confirm the absolute path with `pwd`). Writes and reads outside your granted \
-             locations (your working directory plus the scratch directory below) are blocked \
-             by the security sandbox.\n\n\
-             Prefer printing results to stdout. Only when output is too large for stdout, \
-             write it to a file in your working directory and read that file back.\n\n",
+             `pwd` is your working directory: commands and file tools resolve there, and \
+             anything outside it and the scratch space is blocked. Prefer stdout; write a \
+             file only when output is too large. ",
         );
         // Only advertise a concrete scratch path when the dir is actually present
         // and safe (real dir, not a symlink) — matching the policy grant in
@@ -516,14 +515,13 @@ impl PromptSection for WorkspaceSection {
         if scratch_granted {
             let _ = write!(
                 out,
-                "For scratch or temporary files, use the directory `{}` (a granted scratch \
-                 space) or your `$TMPDIR` / `%TEMP%` — never a hardcoded `/tmp/<name>` path.",
+                "Scratch: `{}` or `$TMPDIR`, never a hardcoded `/tmp/<name>`.",
                 scratch.display()
             );
         } else {
             out.push_str(
-                "For scratch or temporary files, use `$TMPDIR` / `%TEMP%`, or create them in \
-                 your working directory — never a hardcoded `/tmp/<name>` path, which is blocked.",
+                "Scratch files go in `$TMPDIR` or your working directory, never a hardcoded \
+                 `/tmp/<name>` (blocked).",
             );
         }
         Ok(out)
@@ -670,12 +668,9 @@ impl PromptSection for DateTimeSection {
         // treats the time line as passive reference and defaults to a
         // learned "good morning" regardless of the actual hour (#3602).
         let mut out = String::from(
-            "## Current Date & Time\n\n> The current local date and time is provided on a \
-             `Current Date & Time:` line with the latest message (local time, IANA timezone, \
-             UTC offset, weekday). Before any time-relative wording in your reply — greetings \
-             like \"good morning\"/\"good evening\", or \"today\"/\"tonight\"/\"tomorrow\" — read \
-             that line and match the actual local hour. Never assume it is morning. The time is \
-             already in context; no tool call is needed to greet or to reason about the current day.",
+            "## Current Date & Time\n\nThe `Current Date & Time:` line on the latest message \
+             is authoritative: before \"good morning\" or \"today\", read it and match the \
+             actual local hour. No tool call is needed for the time.",
         );
         // Tool-argument discipline, gated on the agent actually having the
         // `resolve_time` tool. LLMs are unreliable at epoch arithmetic — a
@@ -686,12 +681,7 @@ impl PromptSection for DateTimeSection {
         // tool never see the rule.
         if ctx.tools.iter().any(|t| t.name == "resolve_time") {
             out.push_str(
-                "\n\n> For any date/time you pass as a tool argument \
-                 (`oldest`/`latest`/`since`/`after`, cron times, etc.), call \
-                 `resolve_time` and use its exact value — never hand-compute \
-                 epoch/Unix seconds. For \"recent / last N\" lookups, prefer \
-                 newest-first (omit `oldest`) so a wrong floor can't bury the \
-                 latest data.",
+                " Tool date/time arguments come from `resolve_time`, never hand-computed.",
             );
         }
         Ok(out)

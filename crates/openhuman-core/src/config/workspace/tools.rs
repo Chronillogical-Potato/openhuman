@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 
 use crate::config::workspace::{ops, rpc};
 use crate::config::Config;
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 fn req_str(args: &serde_json::Value, key: &str) -> anyhow::Result<String> {
     args.get(key)

@@ -7,9 +7,7 @@
 //! real external effect (the "propose, never persist" invariant lives in the
 //! archetype body instead).
 
-use crate::agent::context::prompt::{
-    render_tools, render_user_files, render_workspace, PromptContext,
-};
+use crate::agent::prompts::{render_tools, render_user_files, render_workspace, PromptContext};
 use anyhow::Result;
 
 const ARCHETYPE: &str = tinyflows_copilot::prompts::WORKFLOW_BUILDER;
@@ -39,7 +37,3 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
 
     Ok(out)
 }
-
-#[cfg(test)]
-#[path = "prompt_tests.rs"]
-mod tests;

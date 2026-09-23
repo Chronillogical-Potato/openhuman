@@ -34,7 +34,7 @@ omit_memory_md = false
 # Multi-step gathering loop (recall → maybe fetch → assess). Rides the
 # high-throughput `burst` tier: the scout is a cheap, latency-tolerant,
 # non-reasoning pre-flight pass, so raw throughput on a fast model beats the
-# pricier agentic/reasoning tiers. Resolves to `burst-v1` on the managed backend.
+# pricier agentic/reasoning tiers. Resolves to `hint:burst` on the managed backend.
 hint = "burst"
 
 [tools]

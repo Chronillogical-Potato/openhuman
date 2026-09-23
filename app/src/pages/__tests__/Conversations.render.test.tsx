@@ -17,7 +17,6 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 import { threadApi } from '../../services/api/threadApi';
 import { chatCancel, chatClearQueue, chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
-import agentProfileReducer from '../../store/agentProfileSlice';
 import chatRuntimeReducer, {
   beginInferenceTurn,
   bumpInferenceHeartbeatForThread,
@@ -58,8 +57,6 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
     refresh: vi.fn(),
   })),
 }));
-const mockUseOpenRouterFreeModels = vi.hoisted(() => vi.fn());
-
 // ── Module mocks ───────────────────────────────────────────────────────────
 
 vi.mock('../../services/chatService', () => ({
@@ -86,15 +83,6 @@ vi.mock('../../services/api/threadApi', () => ({
         hasMore: false,
         hasTranscript: false,
       }),
-    getTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    putTaskBoard: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
-    decidePlan: vi
-      .fn()
-      .mockResolvedValue({ threadId: 't-1', cards: [], updatedAt: '2026-05-04T10:00:00Z' }),
     appendMessage: vi.fn(async (_threadId: string, message: ThreadMessage) => message),
     deleteThread: vi.fn().mockResolvedValue({ deleted: true }),
     generateTitleIfNeeded: vi.fn().mockResolvedValue({}),
@@ -106,72 +94,9 @@ vi.mock('../../services/api/threadApi', () => ({
   },
 }));
 
-vi.mock('../../services/api/agentProfilesApi', () => ({
-  agentProfilesApi: {
-    list: vi
-      .fn()
-      .mockResolvedValue({
-        activeProfileId: 'default',
-        profiles: [
-          {
-            id: 'default',
-            name: 'Default',
-            description: 'Default',
-            agentId: 'orchestrator',
-            builtIn: true,
-          },
-        ],
-      }),
-    select: vi
-      .fn()
-      .mockResolvedValue({
-        activeProfileId: 'default',
-        profiles: [
-          {
-            id: 'default',
-            name: 'Default',
-            description: 'Default',
-            agentId: 'orchestrator',
-            builtIn: true,
-          },
-        ],
-      }),
-    upsert: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-    delete: vi.fn().mockResolvedValue({ activeProfileId: 'default', profiles: [] }),
-  },
-}));
-
-vi.mock('../../services/api/openrouterFreeModels', () => ({
-  applyOpenRouterFreeModels: () => mockUseOpenRouterFreeModels(),
-}));
-
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-// The new-window hero pulls useUser/useCoreState; stub it so the page renders
-// without a CoreStateProvider (these tests assert the sidebar/composer, not the
-// empty-state hero).
 vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
-
-vi.mock('../../store/socketSelectors', () => ({
-  selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
-    state.socket?.byUser?.__pending__?.status ?? 'disconnected',
-}));
-
-// useStickToBottom returns refs; mock it so layout-effects don't fire in jsdom.
-vi.mock('../../hooks/useStickToBottom', () => ({
-  useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
-}));
-
-// openUrl uses Tauri; stub it.
-vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
-
-// coreRpcClient: the PlanReviewCard resolves a parked plan via callCoreRpc.
-// Preserve the real exports (e.g. CoreRpcError) and only stub the call.
-const mockCallCoreRpc = vi.fn().mockResolvedValue({});
-vi.mock('../../services/coreRpcClient', async orig => {
-  const actual = await orig<typeof import('../../services/coreRpcClient')>();
-  return { ...actual, callCoreRpc: (...args: unknown[]) => mockCallCoreRpc(...args) };
-});
 
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({
@@ -202,7 +127,6 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
-      agentProfiles: agentProfileReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,
@@ -910,7 +834,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       threadId: thread.id,
       message: 'hello cloud',
       model: 'hint:chat',
-      profileId: 'default',
       locale: 'en',
     });
   });
@@ -934,7 +857,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         threadId: thread.id,
         message: 'play highway to hell',
         model: 'hint:chat',
-        profileId: 'default',
         locale: 'en',
       });
     });
@@ -986,7 +908,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       threadId: thread.id,
       message: 'slow backend',
       model: 'hint:chat',
-      profileId: 'default',
       locale: 'en',
     });
     // The send cleared the composer; with an empty composer mid-send the Send
@@ -1521,8 +1442,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // Regression: when a delegated sub-agent (`Research`, `Tools Agent`,
     // …) is running, the parent thread's `inferenceStatusByThread` and
     // `streamingAssistantByThread` references can stay put while
-    // `toolTimelineByThread` and `taskBoardByThread` tick. The rearm
-    // effect must watch all four — otherwise a long sub-agent loop
+    // `toolTimelineByThread` ticks. The rearm effect must watch that timeline —
+    // otherwise a long sub-agent loop
     // trips the 120s safety timer even though the user can see tools
     // firing in the timeline.
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -1761,7 +1682,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         threadId: thread.id,
         message: 'enter send',
         model: 'hint:chat',
-        profileId: 'default',
         locale: 'en',
       });
     });
@@ -1836,7 +1756,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         threadId: thread.id,
         message: '안녕',
         model: 'hint:chat',
-        profileId: 'default',
         locale: 'en',
       });
     });

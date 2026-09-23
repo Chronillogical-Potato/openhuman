@@ -24,25 +24,6 @@ fn composio_envelope_builds_expected_label_and_slug() {
 }
 
 #[test]
-fn with_task_card_attaches_card_link() {
-    let env =
-        TriggerEnvelope::from_external("task_sources:ts-1", "external task ingested", json!({}));
-    assert!(env.card_link.is_none(), "no link by default");
-
-    let location = BoardLocation::Thread {
-        workspace_dir: std::path::PathBuf::from("/tmp/ws"),
-        thread_id: "task-sources".to_string(),
-    };
-    let linked = env.with_task_card("card-1".to_string(), location);
-    let link = linked.card_link.expect("card_link attached");
-    assert_eq!(link.card_id, "card-1");
-    match link.location {
-        BoardLocation::Thread { thread_id, .. } => assert_eq!(thread_id, "task-sources"),
-        _ => panic!("expected Thread board location"),
-    }
-}
-
-#[test]
 fn composio_envelope_falls_back_to_metadata_id_when_uuid_missing() {
     let env = TriggerEnvelope::from_composio(
         "notion",

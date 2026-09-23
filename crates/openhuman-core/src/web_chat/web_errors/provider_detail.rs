@@ -37,7 +37,7 @@ pub(crate) fn extract_provider_error_detail(err: &str) -> Option<String> {
                 if trimmed.is_empty() {
                     return None;
                 }
-                let sanitized = crate::inference::provider::sanitize_api_error(trimmed);
+                let sanitized = tinyinference_core::sanitize::sanitize_api_error(trimmed);
                 return Some(crate::util::truncate_with_ellipsis(
                     &sanitized,
                     MAX_DETAIL_CHARS,

@@ -3,7 +3,8 @@ use super::*;
 #[test]
 fn defaults_are_sane() {
     let c = TokenjuiceConfig::default();
-    assert!(c.router_enabled);
+    // The router is opt-in (see `ContextConfig::compaction_enabled`).
+    assert!(!c.router_enabled);
     assert!(c.ccr_enabled);
     assert!(c.search_enabled);
     assert!(!c.ml_compression_enabled);

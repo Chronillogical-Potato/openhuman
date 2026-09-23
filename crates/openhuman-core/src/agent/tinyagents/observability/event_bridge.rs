@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc::Sender;
 
-use tinyinference::usage::Usage;
+use tinyinference_llm::usage::Usage;
 
 use crate::agent::progress::AgentProgress;
 use crate::inference::provider::UsageInfo;
@@ -306,7 +306,7 @@ impl OpenhumanEventBridge {
             .pop_front();
 
         // Estimate as the floor via the tier-aware `agent::cost` table (managed
-        // handles like `chat-v1`/`burst-v1` + the vendor catalog + heuristics —
+        // handles like `hint:chat`/`hint:burst` + the vendor catalog + heuristics —
         // the catalog-only lookup priced every managed-tier call as $0); prefer
         // the provider's own charged amount when it reported one (charged >
         // estimate precedence, so credit-metered backends surface real billing
@@ -422,7 +422,7 @@ impl OpenhumanEventBridge {
 
     /// Estimate one call's USD cost. Uses the tier-aware
     /// [`agent::cost`](crate::agent::cost) table (managed handles
-    /// like `chat-v1`/`burst-v1` + the vendor catalog + heuristics) — the
+    /// like `hint:chat`/`hint:burst` + the vendor catalog + heuristics) — the
     /// previous `cost::catalog::estimate_cost_usd` only knew concrete vendor
     /// ids, so every managed-tier call priced as $0 in traces and the footer.
     pub(super) fn estimate_call_cost(model: &str, usage: &Usage) -> f64 {

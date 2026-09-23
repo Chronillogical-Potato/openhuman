@@ -11,9 +11,8 @@ mod resolvers;
 
 pub use config::{Config, CustomEmbeddingsConfig, ModelRegistryEntry};
 pub use model_ids::{
-    DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL, MEMORY_SYNC_INTERVAL_PRESETS_SECS,
-    MODEL_AGENTIC_V1, MODEL_BURST_V1, MODEL_CHAT_V1, MODEL_CODING_V1, MODEL_REASONING_QUICK_V1,
-    MODEL_REASONING_V1, MODEL_SUMMARIZATION_V1, MODEL_VISION_V1,
+    is_legacy_tier_model, legacy_tier_role, DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL,
+    LEGACY_TIER_MODELS, MEMORY_SYNC_INTERVAL_PRESETS_SECS, MODEL_MANAGED_DEFAULT, WORKLOAD_ROLES,
 };
 pub use output_language::{normalize_output_language, output_language_directive};
 

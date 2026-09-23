@@ -1,9 +1,9 @@
 use super::*;
 
 use crate::agent::harness::AgentContextPreparedSource;
-use crate::agent::harness::SubagentRunError;
-use crate::tools::Tool;
+use crate::agent::subagent_host::SubagentRunError;
 use serde_json::json;
+use tinytools::Tool;
 #[test]
 fn schema_requires_question_and_makes_focus_optional() {
     let tool = AgentPrepareContextTool::new();
@@ -36,14 +36,14 @@ fn build_scout_prompt_includes_request_focus_and_catalog() {
     let prompt = AgentPrepareContextTool::build_scout_prompt(
         "summarise my unread gmail",
         Some("last 24h"),
-        "- delegate_to_integrations_agent: route to a connected integration\n",
+        "- research: web and docs crawler\n",
     );
     assert!(prompt.contains("[Request]"));
     assert!(prompt.contains("summarise my unread gmail"));
     assert!(prompt.contains("[Focus]"));
     assert!(prompt.contains("last 24h"));
     assert!(prompt.contains("[Orchestrator tools]"));
-    assert!(prompt.contains("delegate_to_integrations_agent"));
+    assert!(prompt.contains("research"));
     assert!(prompt.contains("[context_bundle]"));
 }
 
@@ -308,13 +308,13 @@ fn credits_exhausted_scout_failure_does_not_reach_sentry() {
     );
     let _subscriber_guard = tracing::subscriber::set_default(subscriber);
 
-    log_scout_failure("provider call failed", CREDITS_400_BODY);
+    super::scout_run::log_scout_failure("provider call failed", CREDITS_400_BODY);
     assert!(
         transport.fetch_and_clear_events().is_empty(),
         "an out-of-credits background scout must not page Sentry (TAURI-RUST-HMW)"
     );
 
-    log_scout_failure("provider call failed", "connection reset by peer");
+    super::scout_run::log_scout_failure("provider call failed", "connection reset by peer");
     let events = transport.fetch_and_clear_events();
     assert_eq!(
         events.len(),
@@ -329,8 +329,8 @@ fn credits_exhausted_scout_failure_does_not_reach_sentry() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A spec with the given name and description; the schema is irrelevant here.
-fn catalog_spec(name: &str, description: &str) -> std::sync::Arc<crate::tools::ToolSpec> {
-    std::sync::Arc::new(crate::tools::ToolSpec {
+fn catalog_spec(name: &str, description: &str) -> std::sync::Arc<tinytools::ToolSpec> {
+    std::sync::Arc::new(tinytools::ToolSpec {
         name: name.to_string(),
         description: description.to_string(),
         parameters: serde_json::json!({"type": "object"}),
@@ -342,8 +342,8 @@ fn catalog_spec(name: &str, description: &str) -> std::sync::Arc<crate::tools::T
 /// `visible_tool_names` is derived from the visible specs, as the turn
 /// builder derives it.
 fn parent_context_with_specs(
-    all_tool_specs: Vec<std::sync::Arc<crate::tools::ToolSpec>>,
-    visible_tool_specs: Vec<std::sync::Arc<crate::tools::ToolSpec>>,
+    all_tool_specs: Vec<std::sync::Arc<tinytools::ToolSpec>>,
+    visible_tool_specs: Vec<std::sync::Arc<tinytools::ToolSpec>>,
 ) -> crate::agent::harness::fork_context::ParentExecutionContext {
     use std::sync::Arc;
     let workspace = tempfile::TempDir::new().expect("temp workspace");
@@ -352,7 +352,7 @@ fn parent_context_with_specs(
     // The context needs *a* memory to be constructed with and never reads one
     // back, which is exactly what `noop_memory` is for.
     let memory: Arc<dyn crate::memory::Memory> = crate::memory::test_support::noop_memory();
-    let model: Arc<dyn tinyinference::model::ChatModel<()>> =
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     crate::agent::harness::fork_context::ParentExecutionContext {
         workspace_descriptor: None,
@@ -377,7 +377,7 @@ fn parent_context_with_specs(
         session_id: "parent-session".into(),
         channel: "test".into(),
         connected_integrations: Vec::new(),
-        tool_call_format: crate::agent::context::prompt::ToolCallFormat::Native,
+        tool_call_format: crate::agent::prompts::ToolCallFormat::Native,
         session_key: "parent-key".into(),
         session_parent_prefix: None,
         on_progress: None,
@@ -398,19 +398,13 @@ async fn catalog_lists_the_parents_synthesised_delegates_from_its_visible_specs(
         ],
         vec![
             catalog_spec("echo", "durable"),
-            catalog_spec(
-                "delegate_to_integrations_agent",
-                "route to a connected integration",
-            ),
+            catalog_spec("research", "web and docs crawler"),
             catalog_spec("agent_prepare_context", "this tool"),
         ],
     );
-    let catalog = crate::agent::harness::fork_context::with_parent_context(ctx, async {
-        AgentPrepareContextTool::render_parent_tool_catalog()
-    })
-    .await;
+    let catalog = AgentPrepareContextTool::render_parent_tool_catalog(Some(&ctx));
     assert!(
-        catalog.contains("- delegate_to_integrations_agent: route to a connected integration\n"),
+        catalog.contains("- research: web and docs crawler\n"),
         "the parent's delegate must be recommendable: {catalog:?}"
     );
     assert!(catalog.contains("- echo: durable\n"));
@@ -433,9 +427,6 @@ async fn catalog_falls_back_to_all_tool_specs_when_visible_specs_are_absent() {
         Vec::new(),
     );
     ctx.visible_tool_names = std::iter::once("echo".to_string()).collect();
-    let catalog = crate::agent::harness::fork_context::with_parent_context(ctx, async {
-        AgentPrepareContextTool::render_parent_tool_catalog()
-    })
-    .await;
+    let catalog = AgentPrepareContextTool::render_parent_tool_catalog(Some(&ctx));
     assert_eq!(catalog, "- echo: durable\n");
 }

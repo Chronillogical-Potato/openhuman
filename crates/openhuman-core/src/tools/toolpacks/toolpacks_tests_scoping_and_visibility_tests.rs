@@ -6,10 +6,10 @@ use super::*;
 // ── the index must agree with the gate too ──────────────────────────────────
 
 /// A spec shaped like the one `UseSkillTool` publishes.
-fn use_skill_spec() -> crate::tools::traits::ToolSpec {
+fn use_skill_spec() -> tinytools::ToolSpec {
     let tools = registry_with_all(&["build_workflow"]);
     let tool = find(&tools, USE_SKILL);
-    crate::tools::traits::ToolSpec {
+    tinytools::ToolSpec {
         name: tool.name().to_string(),
         description: tool.description().to_string(),
         parameters: tool.parameters_schema(),
@@ -210,7 +210,7 @@ fn rebinding_a_pack_handle_repoints_it_at_the_new_registry() {
     let rebuilt = Arc::new(rebuilt);
 
     // Re-point the ORIGINAL handle at it, which is what a rebuild does.
-    crate::tools::traits::pack_registry_handle(use_skill)
+    crate::tools::host_extensions::pack_registry_handle(use_skill)
         .expect("use_skill exposes a pack registry handle")
         .bind(Arc::downgrade(&rebuilt));
 
@@ -233,7 +233,7 @@ fn rebinding_a_pack_handle_repoints_it_at_the_new_registry() {
 #[test]
 fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
     let tools = registry_with_all(&["build_workflow", "propose_workflow"]);
-    let handle = crate::tools::traits::pack_registry_handle(find(&tools, USE_SKILL))
+    let handle = crate::tools::host_extensions::pack_registry_handle(find(&tools, USE_SKILL))
         .expect("use_skill carries the pack handle");
 
     let rendered = render_pack_filtered(
@@ -259,7 +259,7 @@ fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
 #[test]
 fn a_listing_with_nothing_callable_names_the_route_out() {
     let tools = registry_with_all(&["build_workflow", "propose_workflow"]);
-    let handle = crate::tools::traits::pack_registry_handle(find(&tools, USE_SKILL))
+    let handle = crate::tools::host_extensions::pack_registry_handle(find(&tools, USE_SKILL))
         .expect("use_skill carries the pack handle");
 
     let route = route_sentence(&["build_workflow".to_string()], &["workflow_builder"]);
@@ -308,5 +308,149 @@ fn the_workflows_pack_is_still_owned_by_the_flow_agents() {
         pack.tools.contains(&"propose_workflow"),
         "propose_workflow left the pack: {:?}",
         pack.tools
+    );
+}
+
+// ── #6302: the MCP and skill hand-offs, and the packs they close ───────────
+
+/// The four hand-offs stay direct tools. See `DELIBERATELY_UNPACKED_HANDOFFS`.
+#[test]
+fn the_mcp_and_skill_hand_offs_are_never_packed() {
+    for name in registry::DELIBERATELY_UNPACKED_HANDOFFS {
+        assert!(
+            registry::pack_for_tool(name).is_none(),
+            "`{name}` is the orchestrator's route into its family and must stay a direct tool"
+        );
+    }
+}
+
+/// A pack whose owner this agent can hand off to directly is closed to it
+/// through `use_skill`; a hand-off inside that pack, a pack the agent owns, and
+/// a pack whose hand-off is itself withheld all stay open.
+#[test]
+fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
+    use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
+
+    let delegate = |name: &str, target: &str| -> Box<dyn tinytools::Tool> {
+        Box::new(ArchetypeDelegationTool {
+            tool_name: name.to_string(),
+            agent_id: DelegationTarget(target.to_string()),
+            tool_description: String::new(),
+        })
+    };
+    let delegates = vec![
+        delegate("setup_skills", "skill_setup"),
+        delegate("create_skill", "skill_creator"),
+        delegate("do_crypto", "crypto_agent"),
+    ];
+    let raw = registry_with_all(&[
+        "skill_registry_install",
+        "wallet_status",
+        "mcp_registry_tool_call",
+    ]);
+    let tools: Vec<&dyn tinytools::Tool> = raw
+        .iter()
+        .map(|t| t.as_ref())
+        .chain(delegates.iter().map(|t| t.as_ref()))
+        .collect();
+    // `setup_skills` is unpacked, so the orchestrator advertises it by
+    // construction; `create_skill` and `do_crypto` are packed.
+    let closed = closed_by_direct_handoff("orchestrator", &tools);
+    assert!(
+        closed.contains(&"skill_registry_install"),
+        "a raw tool of the pack `setup_skills` hands off to must close: {closed:?}"
+    );
+    assert!(
+        !closed.contains(&"create_skill"),
+        "a hand-off inside a closed pack is a route and stays open: {closed:?}"
+    );
+    assert!(
+        !closed.contains(&"wallet_status"),
+        "`do_crypto` is withheld, so the crypto pack stays open: {closed:?}"
+    );
+    assert!(
+        !closed.contains(&"mcp_registry_tool_call"),
+        "no MCP hand-off is on the belt, so integrations stays open: {closed:?}"
+    );
+
+    assert!(
+        closed_by_direct_handoff("skill_setup", &tools).is_empty(),
+        "a pack's owner keeps its own belt"
+    );
+
+    // The live regression (#6302): a `ToolScope::Named` agent is built with
+    // `visible` = its named list, which never contains a synthesised delegate.
+    // Keyed on the visible set, this closed nothing on a real session while
+    // every test passed. Pack membership is knowable as soon as the tools are,
+    // so the raw tools close with no visible set in the picture at all.
+    let named_only: Vec<&dyn tinytools::Tool> = raw.iter().map(|t| t.as_ref()).collect();
+    assert!(
+        closed_by_direct_handoff("orchestrator", &named_only).is_empty(),
+        "with no hand-off among the tools there is nothing to close: the rule \
+         must key on a hand-off existing, not on a pack existing"
+    );
+}
+
+/// The live session shape, which the rule test above cannot catch.
+///
+/// This is the regression the first cut shipped (#6302): a `ToolScope::Named`
+/// agent is built with `visible` = the list its `agent.toml` names, and a
+/// *synthesised* delegate like `setup_skills` is by definition not in it — those
+/// names arrive later, when `refresh_delegation_tools` inserts them. Keyed on
+/// `visible`, the closing rule did nothing on a real chat session: the live
+/// orchestrator went on calling `use_skill skills/skill_registry_search` and
+/// `skill_registry_install` for real, while every harness test passed, because a
+/// harness agent's empty visible set is seeded from every tool, synthesised ones
+/// included.
+///
+/// Asserts `blocks_execution`, not `is_denied`: a merely withheld packed tool is
+/// `HideFromPrompt`, for which `is_denied()` answers true, so an `is_denied`
+/// assertion would pass without the fix.
+#[test]
+fn a_named_scope_session_closes_the_pack_its_visible_list_never_mentions() {
+    use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
+    use crate::tools::agent_policy::ToolPolicyEngine;
+
+    let delegate: Box<dyn tinytools::Tool> = Box::new(ArchetypeDelegationTool {
+        tool_name: "setup_skills".to_string(),
+        agent_id: DelegationTarget("skill_setup".to_string()),
+        tool_description: String::new(),
+    });
+    let raw = registry_with_all(&["skill_registry_install"]);
+    let tools: Vec<&dyn tinytools::Tool> = raw
+        .iter()
+        .map(|t| t.as_ref())
+        .chain(std::iter::once(delegate.as_ref()))
+        .collect();
+
+    // Exactly what the builder hands a Named agent: its own list. No delegate.
+    let visible: HashSet<String> = ["shell", USE_SKILL].iter().map(|s| s.to_string()).collect();
+    let build = || {
+        ToolPolicyEngine::build_session_from_refs(
+            "orchestrator",
+            "web_chat",
+            "session",
+            &Default::default(),
+            &tools,
+            &visible,
+        )
+    };
+
+    assert!(
+        !build()
+            .decision_for("skill_registry_install")
+            .blocks_execution(),
+        "precondition: withheld-but-callable is the pack default, so this test \
+         can only fail for the right reason if closing is what blocks it"
+    );
+
+    let mut session = build();
+    close_handed_off_packs(&mut session, "orchestrator", &tools);
+    assert!(
+        session
+            .decision_for("skill_registry_install")
+            .blocks_execution(),
+        "`setup_skills` is unpacked, so the orchestrator advertises it and the \
+         raw registry tool must close — even though `visible` never named it"
     );
 }

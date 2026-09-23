@@ -4,6 +4,7 @@ use crate::agent::tinyagents::middleware::tool_output::ToolOutputMiddleware;
 // fully-qualified), so the module itself no longer references the type.
 use super::*;
 use tinyagents_harness::middleware::MicrocompactMiddleware;
+use tinytools::{ToolRuntime, ToolTimeout};
 
 // #4462: image-aware token estimation. A base64 image marker must be priced
 // at the flat IMAGE_MARKER_TOKEN_COST, not chars/4 of its payload — otherwise
@@ -53,22 +54,25 @@ async fn unavailable_summarization_is_disclosed_in_the_payload() {
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx, &(), &mut result)
-        .await
-        .expect("after_tool should not fail");
+    mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("test-1", "test_tool"),
+        &mut result,
+    )
+    .await
+    .expect("after_tool should not fail");
 
     assert!(
-        result
-            .content
-            .starts_with(UnavailableReason::Failed.notice()),
+        result_text(&result).starts_with(UnavailableReason::Failed.notice()),
         "the notice must be a PREFIX — the downstream per-tool cap keeps the \
          head, so an appended notice is the first thing truncated away; got: {}",
-        result.content
+        result_text(&result)
     );
     assert!(
-        result.content.contains("RAW-TOOL-OUTPUT"),
+        result_text(&result).contains("RAW-TOOL-OUTPUT"),
         "disclosure must not cost the payload: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -80,12 +84,18 @@ async fn a_payload_that_needed_nothing_is_left_completely_alone() {
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx, &(), &mut result)
-        .await
-        .expect("after_tool should not fail");
+    mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("test-2", "test_tool"),
+        &mut result,
+    )
+    .await
+    .expect("after_tool should not fail");
 
     assert_eq!(
-        result.content, "RAW-TOOL-OUTPUT",
+        result_text(&result),
+        "RAW-TOOL-OUTPUT",
         "a below-threshold payload must be byte-identical"
     );
 }
@@ -100,7 +110,7 @@ async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
     impl PayloadSummarizer for ErroringSummarizer {
         async fn maybe_summarize_in_parent(
             &self,
-            _parent_ctx: &RunContext<()>,
+            _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
             _tool_name: &str,
             _parent_task_hint: Option<&str>,
             _raw: &str,
@@ -113,16 +123,19 @@ async fn a_summarizer_error_is_disclosed_rather_than_swallowed() {
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 
-    mw.after_tool(&mut ctx, &(), &mut result)
-        .await
-        .expect("a summarizer error must never break the tool call");
+    mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("test-3", "test_tool"),
+        &mut result,
+    )
+    .await
+    .expect("a summarizer error must never break the tool call");
 
     assert!(
-        result
-            .content
-            .starts_with(UnavailableReason::Failed.notice()),
+        result_text(&result).starts_with(UnavailableReason::Failed.notice()),
         "an errored summarizer must be disclosed too; got: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -166,16 +179,135 @@ async fn prompt_cache_segments_fingerprint_full_tool_schema() {
         .find(|segment| segment.role == SegmentRole::Tools)
         .expect("tool segment");
 
+    // Segment ids are the harness-layout constants, never content-suffixed:
+    // `refresh_prompt_cache_fingerprint` only recognises exactly `system` /
+    // `tools`, and any other id is fingerprinted over the whole request, which
+    // re-rolls the provider `prompt_cache_key` (OpenRouter's sticky-routing
+    // key) on every call.
+    assert_eq!(first_tool_segment.id, "tools");
+    assert_eq!(second_tool_segment.id, "tools");
+    assert!(first.cache_segments.iter().all(|s| s.cacheable));
+    assert_eq!(
+        first
+            .cache_segments
+            .iter()
+            .find(|s| s.role == SegmentRole::System)
+            .expect("system segment")
+            .id,
+        "system"
+    );
+    // The content difference is carried by the request fingerprint instead.
     assert_ne!(
-        first_tool_segment.id, second_tool_segment.id,
+        first.prompt_fingerprint, second.prompt_fingerprint,
         "same-name tools with different schemas must bust the stable prefix"
     );
-    assert_ne!(first.prompt_fingerprint, second.prompt_fingerprint);
     assert_eq!(
         first.prompt_fingerprint.as_deref().unwrap().len(),
         64,
         "request prompt fingerprints use TinyAgents' SHA-256 shape"
     );
+}
+
+#[tokio::test]
+async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
+    // The whole point: two calls of one thread — same system prompt, same
+    // tools, longer conversation — must declare identical segments and an
+    // identical request fingerprint, so the provider routing key derived from
+    // them (`tap-<fingerprint>`) does not change turn to turn.
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "lookup",
+        "lookup a user",
+        json!({ "type": "object", "properties": { "id": { "type": "string" } } }),
+    )];
+    let mut turn_one = ModelRequest::new(vec![TaMessage::system("sys"), TaMessage::user("hi")])
+        .with_tools(tools.clone());
+    let mut turn_two = ModelRequest::new(vec![
+        TaMessage::system("sys"),
+        TaMessage::user("hi"),
+        TaMessage::assistant("hello"),
+        TaMessage::user("and again, later"),
+    ])
+    .with_tools(tools);
+    mw.before_model(&mut ctx(), &(), &mut turn_one)
+        .await
+        .unwrap();
+    mw.before_model(&mut ctx(), &(), &mut turn_two)
+        .await
+        .unwrap();
+
+    let ids = |r: &ModelRequest| {
+        r.cache_segments
+            .iter()
+            .map(|s| (s.id.clone(), s.role, s.cacheable))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&turn_one), ids(&turn_two));
+    assert_eq!(
+        ids(&turn_one),
+        vec![
+            ("system".to_string(), SegmentRole::System, true),
+            ("tools".to_string(), SegmentRole::Tools, true),
+        ]
+    );
+    assert_eq!(turn_one.prompt_fingerprint, turn_two.prompt_fingerprint);
+    assert!(turn_one.prompt_fingerprint.is_some());
+}
+
+#[tokio::test]
+async fn prompt_cache_segments_name_each_system_tier_and_skip_tools_under_a_text_dialect() {
+    // Two leading system messages (stable+context, then volatile) are two
+    // segments named the way the harness's `refresh_prompt_cache_fingerprint`
+    // expects (`system`, `system.1`). Under a text dialect the harness folds
+    // the catalogue into the prompt and clears `tools` after this hook, so
+    // no `tools` segment is declared: declaring one would not match the
+    // rebuilt layout and would demote the request to a per-call digest.
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "lookup",
+        "lookup a user",
+        json!({ "type": "object", "properties": { "id": { "type": "string" } } }),
+    )];
+    let messages = vec![
+        TaMessage::system("stable"),
+        TaMessage::system("volatile"),
+        TaMessage::user("hi"),
+    ];
+    let ids = |r: &ModelRequest| {
+        r.cache_segments
+            .iter()
+            .map(|s| (s.id.clone(), s.role))
+            .collect::<Vec<_>>()
+    };
+
+    let mut native = ModelRequest::new(messages.clone()).with_tools(tools.clone());
+    mw.before_model(&mut ctx(), &(), &mut native).await.unwrap();
+    assert_eq!(
+        ids(&native),
+        vec![
+            ("system".to_string(), SegmentRole::System),
+            ("system.1".to_string(), SegmentRole::System),
+            ("tools".to_string(), SegmentRole::Tools),
+        ]
+    );
+
+    let mut python_ctx = ctx();
+    python_ctx.data = python_ctx
+        .data
+        .clone()
+        .with_tool_dialect(tinyagents_harness::config::ToolDispatcher::Python);
+    let mut python = ModelRequest::new(messages).with_tools(tools);
+    mw.before_model(&mut python_ctx, &(), &mut python)
+        .await
+        .unwrap();
+    assert_eq!(
+        ids(&python),
+        vec![
+            ("system".to_string(), SegmentRole::System),
+            ("system.1".to_string(), SegmentRole::System),
+        ]
+    );
+    assert!(python.prompt_fingerprint.is_some());
 }
 
 #[tokio::test]
@@ -185,16 +317,25 @@ async fn raw_security_policy_block_is_enriched_with_workaround_and_relay() {
         "run_command",
         "[policy-blocked] Security policy: read-only mode — only read commands are allowed",
     );
-    result.error = Some(result.content.clone());
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    result = TaToolResult::error(result_text(&result));
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("policy-1", "shell"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     // The bare denial now carries a workaround + relay directive, and keeps the
     // marker so classification / the loop-breaker still recognise it.
-    assert!(result.content.contains("Workaround:"), "{}", result.content);
-    assert!(result.content.contains("Relay this to the user"));
-    assert!(result
-        .content
-        .contains(crate::security::POLICY_BLOCKED_MARKER));
-    assert!(result.content.contains("read-only mode"));
+    assert!(
+        result_text(&result).contains("Workaround:"),
+        "{}",
+        result_text(&result)
+    );
+    assert!(result_text(&result).contains("Relay this to the user"));
+    assert!(result_text(&result).contains(crate::security::POLICY_BLOCKED_MARKER));
+    assert!(result_text(&result).contains("read-only mode"));
 }
 
 #[tokio::test]
@@ -205,13 +346,15 @@ async fn already_structured_denial_is_not_double_wrapped() {
     let structured =
         "Blocked: Tool 'x' denied. Reason: nope. Workaround: do y. Relay this to the user: ...";
     let mut result = tool_result("x", structured);
-    result.error = Some(result.content.clone());
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    result = TaToolResult::error(result_text(&result));
+    mw.after_tool(&mut ctx(), &(), &invocation("policy-2", "x"), &mut result)
+        .await
+        .unwrap();
     assert_eq!(
-        result.content.matches("Workaround:").count(),
+        result_text(&result).matches("Workaround:").count(),
         1,
         "must not double-wrap: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -311,18 +454,31 @@ async fn tool_output_truncates_over_the_flat_budget() {
     let mw = ToolOutputMiddleware {
         budget_bytes: 100,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies: HashMap::new(),
+        artifact_reads: Default::default(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert!(result.content.len() < 5_000, "content should be capped");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("echo-capped", "echo"),
+        &mut result,
+    )
+    .await
+    .unwrap();
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
+        result_text(&result).len() < 5_000,
+        "content should be capped"
+    );
+    assert!(
+        result_text(&result).contains("truncated by tool_result_budget"),
         "a truncation marker should be appended: {}",
-        result.content
+        result_text(&result)
     );
 }
 
@@ -331,14 +487,24 @@ async fn tool_output_leaves_small_results_untouched() {
     let mw = ToolOutputMiddleware {
         budget_bytes: 1_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies: HashMap::new(),
+        artifact_reads: Default::default(),
     };
     let mut result = tool_result("echo", "tiny");
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_eq!(result.content, "tiny");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("echo-small", "echo"),
+        &mut result,
+    )
+    .await
+    .unwrap();
+    assert_eq!(result_text(&result), "tiny");
 }
 
 #[test]
@@ -346,24 +512,28 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "big".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(10),
             streaming: false,
+            replay: Default::default(),
         }),
     );
     let mw = ToolOutputMiddleware {
         budget_bytes: 1_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies,
+        artifact_reads: Default::default(),
     };
     // Tool declares its own char cap → surfaced for the per-tool truncation.
     assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -378,60 +548,61 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
 /// fragment that still reads as tool output. The notice is applied after
 /// every cap now, so it survives intact whatever the tool declared.
 #[tokio::test]
-async fn an_unavailable_notice_survives_a_tool_cap_shorter_than_itself() {
+async fn a_tool_that_caps_itself_is_never_sent_to_the_summarizer() {
+    // The cost bug this replaced. The per-tool cap used to be applied
+    // *after* the summarizer, so a tool declaring `max_result_size_chars`
+    // still shipped its full body to an LLM and the cap only bounded the
+    // summary. One research turn paid 1,083,069 input tokens that way.
+    // A tool that caps itself is already bounded, and step 4 spills the
+    // remainder to a pageable artifact, so the model call buys nothing.
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "terse".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
-            // Far shorter than the ~165-char notice.
-            max_result_bytes: Some(12),
+            sandbox: tinytools::SandboxMode::Inherit,
+            max_result_bytes: Some(64),
             streaming: false,
+            replay: Default::default(),
         }),
     );
+    let stub = StubSummarizer::ok(SummarizeOutcome::Unavailable(UnavailableReason::Failed));
     let mw = ToolOutputMiddleware {
-        // Large enough that the byte-budget backstop never fires, so this
+        // Large enough that the shared backstop never fires, so this
         // observes the per-tool cap alone.
         budget_bytes: 10_000_000,
-        payload_summarizer: Some(StubSummarizer::ok(SummarizeOutcome::Unavailable(
-            UnavailableReason::Failed,
-        ))),
+        payload_summarizer: Some(stub.clone()),
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies,
+        artifact_reads: Default::default(),
     };
 
     let mut result = tool_result("terse", &"payload ".repeat(200));
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("terse-notice", "terse"),
+        &mut result,
+    )
+    .await
+    .unwrap();
 
-    let notice = UnavailableReason::Failed.notice();
     assert!(
-        result.content.starts_with(notice),
-        "the complete notice must lead the content, got {:?}",
-        result.content.chars().take(200).collect::<String>()
+        !stub.was_called(),
+        "a tool with its own cap must not be dispatched to the summarizer"
     );
     assert!(
-        result
-            .content
-            .contains("Do not re-run the tool for a summary"),
-        "the do-not-re-run instruction is the whole point of the notice and must survive"
-    );
-    // The payload itself is still capped — deferring the notice must not
-    // smuggle the tool past its own declared limit.
-    let payload = result
-        .content
-        .strip_prefix(notice)
-        .expect("notice prefix")
-        .trim_start();
-    assert!(
-        payload.contains("[truncated by tool cap:"),
-        "the raw payload must still be truncated to the tool's cap, got {payload:?}"
+        result_text(&result).len() < 1_600,
+        "the cap must still bound the result: {} bytes",
+        result_text(&result).len()
     );
 }
 
@@ -440,196 +611,49 @@ async fn tool_output_honors_a_tools_own_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
         "capped".to_string(),
-        TaToolPolicy::classified().with_runtime(tinyagents_harness::tool::ToolRuntime {
+        TaToolPolicy::classified().with_runtime(ToolRuntime {
             timeout_ms: None,
-            timeout: tinyagents_harness::tool::ToolTimeout::Inherit,
+            timeout: ToolTimeout::Inherit,
             max_retries: None,
             idempotent: false,
             cancelable: true,
-            sandbox: tinyagents_harness::tool::SandboxMode::Inherit,
+            sandbox: tinytools::SandboxMode::Inherit,
             max_result_bytes: Some(20),
             streaming: false,
+            replay: Default::default(),
         }),
     );
     let mw = ToolOutputMiddleware {
         budget_bytes: 100_000,
         payload_summarizer: None,
+        task_hint: None,
         artifact_store: None,
         tokenjuice_compaction_enabled: false,
         tokenjuice_compression: AgentTokenjuiceCompression::Off,
+        runtime_config: None,
         tool_policies,
+        artifact_reads: Default::default(),
     };
     let mut result = tool_result("capped", &"y".repeat(500));
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("capped", "capped"),
+        &mut result,
+    )
+    .await
+    .unwrap();
+    let text = result_text(&result);
     assert!(
-        result
-            .content
-            .contains("truncated by tool cap: 480 more chars not shown"),
-        "the tool's own 20-char cap should truncate with the tool-cap marker: {}",
-        result.content
-    );
-}
-
-#[test]
-fn compaction_exempt_tools_contains_every_proposal_tool() {
-    for tool in [
-        "propose_workflow",
-        "revise_workflow",
-        "edit_workflow",
-        "save_workflow",
-        "create_workflow",
-    ] {
-        assert!(
-            COMPACTION_EXEMPT_TOOLS.contains(&tool),
-            "{tool} must be exempt from tokenjuice/summarizer compaction"
-        );
-    }
-}
-
-#[tokio::test]
-#[ignore = "requires a built TinyJuice module"]
-async fn tool_output_tabulates_a_large_graph_for_a_non_exempt_tool() {
-    // Sanity baseline proving this test's payload actually exercises real
-    // tinyjuice tabulation (and isn't just below-threshold): a tool name
-    // NOT in COMPACTION_EXEMPT_TOOLS loses the `"type"` marker.
-    // Resolve the explicit release fixture before `after_tool` performs
-    // ambient config initialisation. A pristine CI workspace otherwise
-    // exercises the production fail-open path before the test override is
-    // admitted, hiding a usable module behind unchanged output.
-    crate::inference::tokenjuice::install_from_config(&crate::config::Config::default())
-        .await
-        .expect("released TinyJuice module must load and accept host configuration");
-    let mw = compaction_enabled_mw();
-    let payload = large_workflow_proposal_json();
-    assert!(
-        payload.len()
-            >= crate::config::Config::default()
-                .tokenjuice
-                .min_bytes_to_compress,
-        "baseline payload must clear OpenHuman's configured compaction floor"
-    );
-    let mut result = tool_result("some_other_tool", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_ne!(
-        result.content, payload,
-        "a non-exempt tool's large uniform-array payload should be rewritten by tokenjuice"
-    );
-    let reparsed: Result<serde_json::Value, _> = serde_json::from_str(&result.content);
-    let marker_survived = reparsed
-        .ok()
-        .and_then(|v| v.get("type").and_then(|t| t.as_str().map(str::to_string)))
-        == Some("workflow_proposal".to_string());
-    assert!(
-        !marker_survived,
-        "baseline expectation: tabulation strips the type marker for non-exempt tools"
-    );
-}
-
-#[tokio::test]
-async fn tool_output_leaves_propose_workflow_byte_for_byte_intact() {
-    let mw = compaction_enabled_mw();
-    let payload = large_workflow_proposal_json();
-    let mut result = tool_result("propose_workflow", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_eq!(
-        result.content, payload,
-        "propose_workflow results must pass through compaction untouched"
-    );
-    let reparsed: serde_json::Value = serde_json::from_str(&result.content).unwrap();
-    assert_eq!(reparsed["type"], "workflow_proposal");
-    assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 20);
-}
-
-#[tokio::test]
-async fn tool_output_leaves_every_exempt_tool_name_intact() {
-    let mw = compaction_enabled_mw();
-    let payload = large_workflow_proposal_json();
-    for tool in COMPACTION_EXEMPT_TOOLS {
-        let mut result = tool_result(tool, &payload);
-        mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-        assert_eq!(
-            result.content, payload,
-            "{tool}'s result must pass through compaction untouched"
-        );
-    }
-}
-
-#[tokio::test]
-async fn tool_output_leaves_an_oversized_propose_workflow_byte_for_byte_intact() {
-    // Gap 1: a ≥10-node proposal routinely exceeds the ~16 KiB shared
-    // byte-budget backstop. Before the truncation exemption, step 4
-    // truncated it at a UTF-8 boundary — invalid JSON, so both
-    // `flows::ops::extract_workflow_proposal` and the frontend's
-    // `parseWorkflowProposal` silently fell back to `proposal: None` and a
-    // blank canvas. This must survive byte-for-byte regardless of size.
-    let mw = truncation_probe_mw();
-    let payload = oversized_workflow_proposal_json(30);
-    assert!(
-        payload.len() > DEFAULT_TOOL_RESULT_BUDGET_BYTES,
-        "test payload must exceed the shared byte budget to exercise step 4: {} bytes",
-        payload.len()
-    );
-    let mut result = tool_result("propose_workflow", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_eq!(
-        result.content, payload,
-        "an oversized propose_workflow result must not be truncated by the shared byte-budget backstop"
-    );
-    let reparsed: serde_json::Value = serde_json::from_str(&result.content)
-        .expect("must still be valid JSON after passing through after_tool");
-    assert_eq!(reparsed["type"], "workflow_proposal");
-    assert_eq!(reparsed["graph"]["nodes"].as_array().unwrap().len(), 30);
-}
-
-#[tokio::test]
-async fn tool_output_truncates_the_same_oversized_payload_for_a_non_exempt_tool() {
-    // Baseline pairing with the test above: proves the identical oversized
-    // payload IS truncated (and consequently unparseable) for a tool that
-    // is NOT truncation-exempt, so the exemption test isn't vacuously true
-    // because the payload never actually crossed the budget.
-    let mw = truncation_probe_mw();
-    let payload = oversized_workflow_proposal_json(30);
-    let mut result = tool_result("some_other_tool", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_ne!(
-        result.content, payload,
-        "a non-exempt tool's oversized payload should be truncated by the shared byte-budget backstop"
+        text.len() < 500,
+        "the tool's own 20-byte cap must bound the result: {text}"
     );
     assert!(
-        result.content.contains("truncated by tool_result_budget"),
-        "expected the byte-budget truncation marker: {}",
-        result.content
-    );
-    assert!(
-        serde_json::from_str::<serde_json::Value>(&result.content).is_err(),
-        "truncated JSON should no longer parse as a whole document"
+        text.contains("truncated by tool_result_budget"),
+        "a capped tool now takes the shared spill path, which says how much \
+         is missing and how to get it: {text}"
     );
 }
 
-#[tokio::test]
-async fn get_tool_output_sample_is_compaction_exempt() {
-    // Gap 2: tokenjuice tabulation elides the very array the model calls
-    // this tool to observe, so it would derive a wrong or nonexistent
-    // `split_out.path` from the tabulated summary instead of the real
-    // response shape. The sample must reach the model untabulated.
-    let mw = compaction_enabled_mw();
-    let payload = large_sample_response_json(10);
-    let mut result = tool_result("get_tool_output_sample", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_eq!(
-        result.content, payload,
-        "get_tool_output_sample's response must not be tokenjuice-tabulated"
-    );
-}
-
-#[tokio::test]
-async fn get_tool_contract_is_compaction_exempt() {
-    let mw = compaction_enabled_mw();
-    let payload = large_sample_response_json(10);
-    let mut result = tool_result("get_tool_contract", &payload);
-    mw.after_tool(&mut ctx(), &(), &mut result).await.unwrap();
-    assert_eq!(
-        result.content, payload,
-        "get_tool_contract's response must not be tokenjuice-tabulated"
-    );
-}
+#[path = "middleware_tool_output_compaction_tests.rs"]
+mod compaction_tests;

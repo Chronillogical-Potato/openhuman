@@ -14,7 +14,6 @@ const routes: RouteCheck[] = [
   { hash: '/home', markers: ['Your assistant is ready', 'Reasoning'] },
   { hash: '/channels', markers: ['Channels', 'Connections', 'Telegram', 'Discord'] },
   { hash: '/notifications', markers: ['Notifications', 'Alerts', 'No alerts yet'] },
-  { hash: '/rewards', markers: ['Rewards', 'Referral', 'Credits', 'Invite'] },
   { hash: '/settings', markers: ['Settings', 'Account', 'Billing', 'Advanced'] },
   { hash: '/settings/notifications-hub', markers: ['Notifications'] },
   // Home folded into the unified chat surface — /home redirects to /chat.

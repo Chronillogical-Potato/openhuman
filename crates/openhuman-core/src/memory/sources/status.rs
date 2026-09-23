@@ -75,11 +75,17 @@ impl FreshnessLabel {
 /// RPC has always returned it.
 ///
 /// Field for field and name for name the engine's `SourceStatus`, so the
-/// response JSON is unchanged by the move — plus the two in-flight fields the
-/// host adds from its own memory of the stage stream (openhuman#6019).
+/// response JSON is unchanged by the move — plus the fields the host adds: the
+/// source's registry label (openhuman#6257) and the two in-flight fields from
+/// its own memory of the stage stream (openhuman#6019).
 #[derive(Clone, Debug, Serialize)]
 pub struct SourceStatus {
     pub source_id: String,
+    /// The source's display label from the registry, so a screen that reads only
+    /// this list — Brain › Sync's "Now syncing" card — can name the row without
+    /// the full source list, whose read reconciles every connection
+    /// (openhuman#6257).
+    pub label: String,
     pub chunks_synced: u64,
     pub chunks_pending: u64,
     pub last_chunk_at_ms: Option<i64>,
@@ -99,9 +105,10 @@ impl SourceStatus {
     ///
     /// The engine's loop pushed exactly this for a per-source query failure,
     /// and it is what a degraded read answers here too — see [`status_list`].
-    fn idle(source_id: String) -> Self {
+    fn idle(source_id: String, label: String) -> Self {
         Self {
             source_id,
+            label,
             chunks_synced: 0,
             chunks_pending: 0,
             last_chunk_at_ms: None,
@@ -238,6 +245,7 @@ pub async fn status_list(config: &Config) -> Result<Vec<SourceStatus>, String> {
             let status = match rows.iter().find(|row| row.source_id == source.id) {
                 Some(row) => SourceStatus {
                     source_id: source.id,
+                    label: source.label,
                     chunks_synced: row.chunks_synced,
                     chunks_pending: row.chunks_pending,
                     last_chunk_at_ms: row.last_chunk_at_ms,
@@ -245,7 +253,7 @@ pub async fn status_list(config: &Config) -> Result<Vec<SourceStatus>, String> {
                     sync_stage: None,
                     sync_detail: None,
                 },
-                None => SourceStatus::idle(source.id),
+                None => SourceStatus::idle(source.id, source.label),
             };
             status.with_live_sync(live)
         })

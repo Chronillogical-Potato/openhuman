@@ -39,7 +39,7 @@ pub use crate::tools::implementations::document::format::spec::document::{
 #[allow(unused_imports)]
 pub use crate::tools::implementations::document::format::spec::DocumentSection;
 
-/// Tool output returned via [`crate::tools::traits::ToolResult`]
+/// Tool output returned via [`tinytools::ToolResult`]
 /// as the JSON `data` field.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerateDocumentOutput {

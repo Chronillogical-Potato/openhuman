@@ -7,7 +7,7 @@
 //! chokepoint (`run_typed_mode`) consults the resolved value:
 //!
 //! - [`AgentGraph::Default`] runs the shared default sub-agent turn graph
-//!   (`subagent_runner::ops::graph::run_subagent_via_graph`).
+//!   (`subagent_host::ops::graph::run_subagent_via_graph`).
 //! - [`AgentGraph::Custom`] hands the assembled turn to the agent's own graph
 //!   runner — a bespoke tinyagents graph, thin over
 //!   `run_turn_via_tinyagents_shared`.
@@ -22,15 +22,15 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use tinyagents_harness::workspace::WorkspaceDescriptor;
+use tinytools::WorkspaceDescriptor;
 use tokio::sync::mpsc::Sender;
 
-use crate::agent::harness::run_queue::RunQueue;
-use crate::agent::harness::subagent_runner::SubagentRunError;
 use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
+use crate::agent::subagent_host::SubagentRunError;
 use crate::agent::tinyagents::TurnModelSource;
-use crate::tools::{Tool, ToolSpec};
+use tinyagents_harness::run_queue::RunQueue;
+use tinytools::{Tool, ToolSpec};
 
 /// The assembled inputs for one sub-agent turn, handed to a custom
 /// [`AgentGraph::Custom`] runner.
@@ -51,11 +51,15 @@ pub struct AgentTurnRequest {
     pub specs: Vec<ToolSpec>,
     pub allowed_names: HashSet<String>,
     pub max_iterations: usize,
-    pub run_queue: Option<Arc<RunQueue>>,
+    pub run_queue: Option<Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>>,
     pub on_progress: Option<Sender<AgentProgress>>,
     pub agent_id: String,
     pub task_id: String,
     pub extended_policy: bool,
+    /// Explicit caller/worker thread propagated from the originating tool.
+    pub thread_id: Option<String>,
+    /// Explicit host carrier inherited by the recursive child run.
+    pub run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     pub worker_thread_id: Option<String>,
     pub workspace_dir: PathBuf,
     pub workspace_descriptor: Option<WorkspaceDescriptor>,
@@ -63,8 +67,7 @@ pub struct AgentTurnRequest {
     pub model_vision: bool,
     pub transcript_stem: String,
     pub provider_label: String,
-    pub(crate) handoff_cache:
-        Option<Arc<crate::agent::harness::subagent_runner::ResultHandoffCache>>,
+    pub(crate) handoff_cache: Option<Arc<crate::agent::subagent_host::ResultHandoffCache>>,
     /// Agent-level TokenJuice compaction profile
     /// (`definition.effective_tokenjuice_compression()`), threaded into the
     /// sub-agent `TurnContextMiddleware` so tool outputs compact like the chat

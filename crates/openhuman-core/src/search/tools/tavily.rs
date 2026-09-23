@@ -31,8 +31,8 @@ pub use types::{
 // `TavilyClient`s and result rows to exercise the tools' HTTP-adjacent
 // formatting directly.
 #[cfg(test)]
-use crate::tools::traits::{Tool, ToolCallOptions};
-#[cfg(test)]
 pub(crate) use client::TavilyClient;
 #[cfg(test)]
 use serde_json::{json, Value};
+#[cfg(test)]
+use tinytools::{Tool, ToolCallOptions};

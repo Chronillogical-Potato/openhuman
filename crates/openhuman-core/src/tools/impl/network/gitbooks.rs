@@ -2,10 +2,10 @@
 //! GitBook MCP server through the shared `crate::mcp::http_client` path.
 
 use crate::mcp::http_client::{redact_endpoint, McpHttpClient};
-use crate::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use std::sync::Arc;
+use tinytools::{PermissionLevel, Tool, ToolResult};
 
 pub struct GitbooksSearchTool {
     client: Arc<McpHttpClient>,

@@ -323,9 +323,14 @@ fn snapshot_socket_state_is_uninitialized_without_manager() {
         );
         return;
     }
-    let (state, err) = snapshot_socket_state();
+    let (state, err, loop_active, stopped_on_failure) = snapshot_socket_state();
     assert_eq!(state, "uninitialized");
     assert!(err.is_none());
+    assert!(!loop_active, "no manager means nobody is retrying");
+    assert!(
+        !stopped_on_failure,
+        "no manager means nothing has failed either"
+    );
 }
 
 #[test]
@@ -431,6 +436,11 @@ fn snapshot_populates_all_fields() {
         !snap.socket_state.is_empty(),
         "socket_state should be non-empty"
     );
+    // A manager that was never connected (or no manager at all) cannot have a
+    // live loop behind it; `connected` without a loop would be a contradiction.
+    if snap.socket_state == "uninitialized" || snap.socket_state == "disconnected" {
+        assert!(!snap.socket_loop_active || snap.socket_state == "disconnected");
+    }
 }
 
 #[tokio::test]
@@ -446,6 +456,18 @@ async fn diag_returns_serializable_payload() {
     let result = json.get("result").expect("result envelope key present");
     let diag = result.get("diag").expect("diag key present under result");
     assert!(diag.get("socket_state").is_some());
+    assert!(
+        diag.get("socket_loop_active")
+            .and_then(|v| v.as_bool())
+            .is_some(),
+        "socket_loop_active must be a bool on the wire (#6256)"
+    );
+    assert!(
+        diag.get("socket_loop_stopped_on_failure")
+            .and_then(|v| v.as_bool())
+            .is_some(),
+        "socket_loop_stopped_on_failure must be a bool on the wire (#6270)"
+    );
     assert!(diag.get("listen_port").is_some());
     assert!(diag.get("listen_port_in_use").is_some());
 }

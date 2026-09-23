@@ -9,7 +9,7 @@ use tinyagents_harness::cache::CacheLayoutEvent;
 use tinyagents_harness::events::{AgentEvent, EventListener, EventRecord};
 
 use crate::agent::progress::AgentProgress;
-use crate::tools::traits::humanize_tool_name;
+use tinytools::humanize_tool_name;
 
 use super::event_bridge::OpenhumanEventBridge;
 
@@ -245,8 +245,8 @@ impl EventListener for OpenhumanEventBridge {
                 // command (issue #4249, 07.3). A rejected command means the run's
                 // `SteeringPolicy` refused the kind and the crate is aborting the
                 // run with `TinyAgentsError::Steering`, so surface it louder. The
-                // bespoke ack plumbing in `harness/run_queue/` stays live (gated:
-                // web-channel followup/parallel still need a local owner); UI
+                // web-channel queue routing stays host-owned (gated: followup /
+                // parallel still need a local owner); UI
                 // projection of this event remains pending.
                 if *accepted {
                     tracing::debug!(
@@ -266,6 +266,7 @@ impl EventListener for OpenhumanEventBridge {
                 by,
                 excluded,
                 remaining,
+                ..
             } => {
                 tracing::debug!(
                     policy = by.as_str(),
@@ -304,11 +305,13 @@ impl EventListener for OpenhumanEventBridge {
                 // recovers the call without ever emitting Started/Completed for it,
                 // so nothing else in this bridge projects it. Two rows (start +
                 // failed-complete) keyed by the same call_id, mirroring a real
-                // tool call. Classified `Unknown` (recoverable) — the model got the
-                // "valid tools: [...]" corrective and can retry a real tool.
+                // tool call. Classified `NotFound` (permanent) from the typed
+                // event itself (#6277): the identical call can never succeed, so
+                // "try again / run diagnostics" copy would be wrong. The model
+                // still got the "valid tools: [...]" corrective.
                 let iteration = self.iteration();
                 let failure = Some(crate::tools::status::describe(
-                    crate::tools::status::ToolFailureClass::Unknown,
+                    crate::tools::status::ToolFailureClass::NotFound,
                 ));
                 let label = format!("{} (unavailable)", humanize_tool_name(requested_name));
                 match &self.scope {
@@ -356,6 +359,117 @@ impl EventListener for OpenhumanEventBridge {
                             elapsed_ms: 0,
                             iteration,
                             failure,
+                        });
+                    }
+                }
+            }
+            AgentEvent::ToolsAdvertised {
+                direct,
+                deferred,
+                schema_bytes,
+            } => {
+                tracing::info!(
+                    direct,
+                    deferred,
+                    schema_bytes,
+                    "[tool-search] tools advertised for run (deferred reachable via tool_search)"
+                );
+            }
+            AgentEvent::DeferredToolCall { call_id, tool_name } => {
+                // The following `ToolStarted` names the real tool; this only
+                // records that it arrived through the bridge.
+                tracing::debug!(
+                    call_id = call_id.as_str(),
+                    tool = tool_name.as_str(),
+                    "[tool-search] deferred tool invoked through tool_call"
+                );
+            }
+            AgentEvent::ToolSearched {
+                call_id,
+                query,
+                matched,
+                ranker,
+                top_confidence,
+                fallback,
+                shadow_matched,
+                latency_ms,
+            } => {
+                // The harness answers `tool_search` itself, so no
+                // `ToolStarted`/`ToolCompleted` pair exists for it. Project a
+                // synthetic pair so the timeline shows the search and the trace
+                // gets a `tool.tool_search` span carrying the ranking facts —
+                // that span is how a Jev-vs-BM25 comparison is read off live
+                // traffic. Never the query text in a log line; it is user
+                // content. The arguments ride the progress event, which is
+                // content-gated at the collector like every tool's.
+                tracing::info!(
+                    call_id = call_id.as_str(),
+                    matched,
+                    ranker = ranker.as_str(),
+                    top_confidence = ?top_confidence,
+                    fallback = ?fallback,
+                    shadow_agrees = ?shadow_matched.as_ref().map(|_| ()),
+                    latency_ms,
+                    "[tool-search] answered"
+                );
+                let iteration = self.iteration();
+                let tool_name = tinyagents_harness::tool::discover::TOOL_SEARCH_NAME.to_string();
+                let arguments = serde_json::json!({ "query": query });
+                let output = serde_json::json!({
+                    "matched": matched,
+                    "ranker": ranker,
+                    "top_confidence": top_confidence,
+                    "fallback": fallback,
+                    "shadow_matched": shadow_matched,
+                    "latency_ms": latency_ms,
+                })
+                .to_string();
+                let output_chars = output.chars().count();
+                match &self.scope {
+                    None => {
+                        self.send(AgentProgress::ToolCallStarted {
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: tool_name.clone(),
+                            arguments: arguments.clone(),
+                            iteration,
+                            display_label: Some("Searching tools".to_string()),
+                            display_detail: None,
+                        });
+                        self.send(AgentProgress::ToolCallCompleted {
+                            call_id: call_id.as_str().to_string(),
+                            tool_name,
+                            success: true,
+                            output_chars,
+                            output,
+                            arguments: Some(arguments),
+                            elapsed_ms: *latency_ms,
+                            iteration,
+                            failure: None,
+                        });
+                    }
+                    Some(s) => {
+                        self.send(AgentProgress::SubagentToolCallStarted {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            call_id: call_id.as_str().to_string(),
+                            tool_name: tool_name.clone(),
+                            arguments: arguments.clone(),
+                            iteration,
+                            display_label: Some("Searching tools".to_string()),
+                            display_detail: None,
+                        });
+                        self.send(AgentProgress::SubagentToolCallCompleted {
+                            agent_id: s.agent_id.clone(),
+                            task_id: s.task_id.clone(),
+                            call_id: call_id.as_str().to_string(),
+                            tool_name,
+                            success: true,
+                            output_chars,
+                            output,
+                            arguments: Some(arguments),
+                            elapsed_ms: *latency_ms,
+                            iteration,
+                            failure: None,
                         });
                     }
                 }

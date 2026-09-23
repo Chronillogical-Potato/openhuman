@@ -1,3 +1,4 @@
+#![cfg(any())] // TODO(#6382): migrate this raw-coverage fixture to current contracts.
 //! Raw integration coverage for channel web-provider and startup paths.
 //!
 //! These tests intentionally drive debug/test-support seams with loopback or

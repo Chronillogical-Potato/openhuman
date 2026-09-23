@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::config::Config;
 use crate::security::SecurityPolicy;
-use crate::tools::traits::Tool;
+use tinytools::Tool;
 
 use super::delete::StorageDeleteFileTool;
 use super::download::StorageDownloadFileTool;

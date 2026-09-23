@@ -1,9 +1,9 @@
 //! Cache hit/miss + invalidation tests for the transcript view cache.
 
 use super::TranscriptViewCache;
-use crate::agent::harness::session::transcript;
 use std::path::Path;
 use tempfile::TempDir;
+use tinyagents_session::transcript;
 
 fn meta_line(thread_id: &str) -> String {
     format!(

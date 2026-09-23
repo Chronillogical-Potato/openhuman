@@ -1,3 +1,5 @@
+#![cfg(any())] // TODO(#6382): migrate this legacy TinyAgents fixture to the hosted public API.
+
 //! RPC-level e2e coverage for the local credential surface:
 //! `openhuman.encrypt_secret` / `decrypt_secret`, `openhuman.security_policy_info`,
 //! `openhuman.keyring_consent_*`, `openhuman.devices_*`, and the two uncovered

@@ -127,7 +127,7 @@ impl ConversationStore {
     /// with that id, nothing is written (no message row, no stat bump, no index
     /// insert) and the stored row is returned exactly as a fresh append would
     /// return its input. Two writers can legitimately persist the same reply —
-    /// an autonomous run's `task_session::append_final` and the client that
+    /// background delivery and the client that
     /// also persists the `chat_done` it announced (#5933) — and a thread must
     /// never carry two messages under one id (the frontend keys React and
     /// assistant-ui resources by it).
