@@ -257,13 +257,46 @@ impl ApplyPatchTool {
                     }
                 }
 
-                // Security check: validate path string, resolve symlinks, confirm workspace containment.
-                let resolved = match path_policy.validate_path(&edit.path).await {
-                    Ok(p) => p,
-                    Err(msg) => {
-                        return Ok(ToolResult::error(format!("edit[{}]: {msg}", edit.index)));
+                // Security check: validate path string, resolve symlinks, confirm
+                // workspace containment. A create has no file to canonicalize,
+                // so it resolves through the parent — the same gate
+                // `file_write` uses, which walks up to the deepest existing
+                // ancestor and still checks it for symlink escapes.
+                let resolved = if edit.create {
+                    match path_policy.validate_parent_path(&edit.path).await {
+                        Ok(p) => p,
+                        Err(msg) => {
+                            return Ok(ToolResult::error(format!("edit[{}]: {msg}", edit.index)));
+                        }
+                    }
+                } else {
+                    match path_policy.validate_path(&edit.path).await {
+                        Ok(p) => p,
+                        Err(msg) => {
+                            return Ok(ToolResult::error(format!("edit[{}]: {msg}", edit.index)));
+                        }
                     }
                 };
+                if edit.create {
+                    if let Some(parent) = resolved.parent() {
+                        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                            return Ok(ToolResult::error(format!(
+                                "edit[{}]: failed to create parent of {}: {e}",
+                                edit.index, edit.path
+                            )));
+                        }
+                    }
+                    buffers.insert(
+                        edit.path.clone(),
+                        FileBuffer {
+                            resolved,
+                            original: None,
+                            contents: edit.new_string.clone(),
+                            edit_count: 1,
+                        },
+                    );
+                    continue;
+                }
                 if let Ok(meta) = tokio::fs::metadata(&resolved).await {
                     if meta.len() > MAX_FILE_BYTES {
                         return Ok(ToolResult::error(format!(
@@ -286,11 +319,21 @@ impl ApplyPatchTool {
                     edit.path.clone(),
                     FileBuffer {
                         resolved,
-                        original: contents.clone(),
+                        original: Some(contents.clone()),
                         contents,
                         edit_count: 0,
                     },
                 );
+            }
+
+            if edit.create {
+                // A second create for the same path in one batch. The first one
+                // already populated the buffer; a duplicate would silently
+                // discard one of the two bodies, so say so.
+                return Ok(ToolResult::error(format!(
+                    "edit[{}]: {} is created earlier in this batch; only one create per path",
+                    edit.index, edit.path
+                )));
             }
 
             let buf = buffers.get_mut(&edit.path).unwrap();
