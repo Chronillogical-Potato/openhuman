@@ -25,4 +25,8 @@ use std::path::{Path, PathBuf};
 mod tests;
 
 #[cfg(test)]
+#[path = "policy_disabled_tests.rs"]
+mod policy_disabled_tests;
+
+#[cfg(test)]
 mod proptest_tests;
