@@ -15,7 +15,9 @@ import { Thread } from './thread';
  * they happened, with the answer outside it. The previous grouping split the
  * same run into alternating reasoning and tool sub-groups.
  */
-const tool = (id: string, name: string): ThreadMessageLike['content'][number] =>
+type Part = Exclude<ThreadMessageLike['content'], string>[number];
+
+const tool = (id: string, name: string): Part =>
   ({
     type: 'tool-call',
     toolCallId: id,
@@ -78,13 +80,14 @@ describe('activity group', () => {
   it('is open while the turn is still running', () => {
     render(
       <Harness
-        messages={interleaved({ type: 'running' }).map((m, i) =>
-          i === 1
-            ? {
-                ...m,
-                content: [{ type: 'reasoning', text: 'live thought' }, tool('t1', 'search_one')],
-              }
-            : m
+        messages={interleaved({ type: 'running' }).map(
+          (m, i): ThreadMessageLike =>
+            i === 1
+              ? {
+                  ...m,
+                  content: [{ type: 'reasoning', text: 'live thought' }, tool('t1', 'search_one')],
+                }
+              : m
         )}
         isRunning
       />
