@@ -146,6 +146,11 @@ struct OpenHumanTurnPreludeMutable {
     pending_skill_retraction: Vec<String>,
     connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     connected_integrations_initialized: bool,
+    /// Integration action declarations this thread was already sent,
+    /// restored by the tinyagents session on resume. Rebuilt into deferred
+    /// executors whenever the live integrations list does not supply them
+    /// (see `recorded_tools`).
+    recorded_integration_actions: Vec<tinytools::ToolSpec>,
     workflows: Vec<crate::skills::Workflow>,
     composio_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     skill_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
@@ -219,7 +224,30 @@ impl OpenHumanTurnPrelude {
         Ok(TurnPreparation {
             prefix,
             tools: Some(tools),
+            exact_tools: false,
         })
+    }
+
+    /// Takes the declarations the tinyagents session restored for this
+    /// thread. Called before the boundary refresh so the rebuilt surface can
+    /// include them.
+    fn adopt_recorded_tools(&self, recorded: Option<&ToolSnapshot>) {
+        let Some(recorded) = recorded else {
+            return;
+        };
+        let actions = super::recorded_tools::recorded_integration_actions(recorded.specs());
+        if actions.is_empty() {
+            return;
+        }
+        log::debug!(
+            "[session] adopting {} recorded integration action declaration(s) agent={}",
+            actions.len(),
+            self.agent_definition_id
+        );
+        self.mutable
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .recorded_integration_actions = actions;
     }
 
     async fn refresh_turn_boundary(&self, cold: bool) {
@@ -563,10 +591,35 @@ impl OpenHumanTurnPrelude {
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let synthesized = super::builder::drop_synthesized_name_collisions(
-            &surface.tools,
-            collect_orchestrator_tools(&definition, registry, &integrations),
-        );
+        let mut collected = collect_orchestrator_tools(&definition, registry, &integrations);
+        // Integration actions the thread already declared stay executable
+        // even when this process has not (re)fetched their integration yet.
+        // Only an agent that carries integration actions at all gets them.
+        if definition.subagents.iter().any(|entry| {
+            matches!(
+                entry,
+                crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
+                    if wildcard.matches_all()
+            )
+        }) {
+            let recorded = self
+                .mutable
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .recorded_integration_actions
+                .clone();
+            let rebuilt = super::recorded_tools::rehydrate_integration_actions(&recorded, &collected);
+            if !rebuilt.is_empty() {
+                log::info!(
+                    "[session] rebuilt {} recorded integration action(s) the live integrations did not supply agent={}",
+                    rebuilt.len(),
+                    self.agent_definition_id
+                );
+                collected.extend(rebuilt);
+            }
+        }
+        let synthesized =
+            super::builder::drop_synthesized_name_collisions(&surface.tools, collected);
         let synthesized_names = synthesized
             .iter()
             .map(|tool| tool.name().to_string())
@@ -1589,6 +1642,7 @@ impl OpenHumanSessionHost {
                     pending_skill_retraction: self.pending_skill_retraction.clone(),
                     connected_integrations: self.connected_integrations.clone(),
                     connected_integrations_initialized: self.connected_integrations_initialized,
+                    recorded_integration_actions: Vec::new(),
                     workflows: self.workflows.clone(),
                     composio_events: None,
                     skill_events: None,
@@ -1621,9 +1675,10 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    let resumed_prefix = view
-                        .resumed
-                        .then(|| super::prefix_snapshot::leading_system_prefix(view.history));
+                    // The session restores the prefix and the tool
+                    // declarations this thread was sent; the host only
+                    // rebuilds executors for them.
+                    let recorded_tools = view.recorded_tools.cloned();
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
@@ -1641,6 +1696,7 @@ impl OpenHumanSessionHost {
                                 "OpenHumanTurnPrelude",
                             )
                         })?;
+                        prelude.adopt_recorded_tools(recorded_tools.as_ref());
                         prelude
                             .refresh_turn_boundary(!view.resumed && view.history.is_empty())
                             .await;
@@ -1684,7 +1740,10 @@ impl OpenHumanSessionHost {
                                 tinyagents_runtime::RuntimeError::Driver(error.to_string())
                             })?;
                         if overrides.suppress_tools {
+                            // One-off tool-less turn: must not become the
+                            // thread's recorded tool list.
                             preparation.tools = Some(ToolSnapshot::default());
+                            preparation.exact_tools = true;
                         }
                         let (
                             mut current_tools,
@@ -1725,9 +1784,6 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .required_output
                             .clone();
-                        if let Some(prefix) = resumed_prefix {
-                            preparation.prefix = prefix;
-                        }
                         Ok(preparation)
                     })
                 }
