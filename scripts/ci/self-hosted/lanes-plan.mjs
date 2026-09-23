@@ -360,11 +360,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
         {
-          name: "check-e2e-test-support",
-          when: rust,
-          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support",
-        },
-        {
           name: "gate-contract-tests",
           when: rust,
           run:
@@ -374,17 +369,20 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::",
         },
         {
-          name: "gate-contract-tests-mcp",
-          when: rust,
-          run: "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features mcp --lib -- mcp::server::resources::",
-        },
-        {
-          // Scoped to `introspect::` on purpose; see ci-lite.yml for the hole.
-          name: "gate-contract-tests-e2e-support",
+          // One core build for both feature-gated suites: `mcp` and
+          // `e2e-test-support` gate disjoint code (mcp::server::resources
+          // does not touch test_support, and vice versa), so each suite sees
+          // the same code it would under its feature alone. Separately they
+          // were two full core test builds. The introspect filter is scoped
+          // on purpose; see ci-lite.yml for the hole. The `cargo check` of
+          // the e2e-test-support set runs on pushes to main (CI Lite): this
+          // build already compiles that set, under cfg(test).
+          name: "gate-contract-tests-features",
           when: rust,
           run:
-            "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support --lib --" +
-            " test_support::introspect::",
+            "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features" +
+            " --features mcp,e2e-test-support --lib --" +
+            " mcp::server::resources:: test_support::introspect::",
         },
         {
           name: "kernel-floor",
