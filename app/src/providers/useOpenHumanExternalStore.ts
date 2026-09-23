@@ -22,6 +22,7 @@ import type { DerivedDisplayItem } from '../types/derivedTranscript';
 import type { ThreadMessage } from '../types/thread';
 import { buildRuntimeMessages, STREAMING_TAIL_ID } from './assistantUiMessages';
 import { getChatSurface } from './chatSurfaceHandlers';
+import { openHumanSpeechAdapter } from './speechAdapter';
 
 const EMPTY_MESSAGES: ThreadMessage[] = [];
 const EMPTY_SUGGESTIONS: readonly ThreadSuggestion[] = [];
@@ -433,7 +434,8 @@ export function useOpenHumanExternalStore(threadId: string | null) {
     [dispatch, threadId]
   );
 
-  // DO NOT add `adapters: { dictation: new WebSpeechDictationAdapter() }` here.
+  // DO NOT add `dictation: new WebSpeechDictationAdapter()` to the `adapters`
+  // key below.
   //
   // It is exported by `@assistant-ui/react` at our pinned 0.15.16 and looks like
   // a one-line win: the transcript already renders Dictate / StopDictation
@@ -479,10 +481,19 @@ export function useOpenHumanExternalStore(threadId: string | null) {
       suggestions,
       // Already `ThreadMessageLike`; the runtime's converter is the identity.
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
-      adapters: { feedback: feedbackAdapter },
       onNew,
       onCancel,
       onRespondToToolApproval,
+      // Read-aloud for a single message. Supplying this is what makes
+      // `capabilities.speech` true and the Speak / StopSpeaking controls
+      // usable — and it must ship WITH the buttons, never before or after
+      // them: `actionBarSpeakDisabled` does not consult the capability (it
+      // checks only role and running status), so a Speak button rendered
+      // without an adapter is enabled, clickable, and throws "Runtime does not
+      // support speech." That is the #5897 defect shape, and Reload already
+      // sits in the same trap today.
+      // No `dictation` key here — see the Web Speech note above this object.
+      adapters: { feedback: feedbackAdapter, speech: openHumanSpeechAdapter },
     }),
     [
       runtimeMessages,
