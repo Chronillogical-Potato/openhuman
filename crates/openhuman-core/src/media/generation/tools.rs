@@ -45,11 +45,22 @@ const VIDEO_DESCRIPTION: &str = "Generate a short video clip via OpenRouter (def
 
 /// Registers the media tools, or nothing when no backend is reachable.
 pub fn build_media_tools(root_config: &Config, action_dir: &Path) -> Vec<Box<dyn Tool>> {
-    let Some(MediaGenerators { image, video }) = managed_generators(root_config) else {
+    let Some(generators) = managed_generators(root_config) else {
         return Vec::new();
     };
+    media_tools_from(generators, action_dir, &root_config.workspace_dir)
+}
+
+/// Builds the tool set over any generators (the managed ones in production,
+/// mocks in tests), writing under `action_dir`.
+pub fn media_tools_from(
+    generators: MediaGenerators,
+    action_dir: &Path,
+    workspace_dir: &Path,
+) -> Vec<Box<dyn Tool>> {
+    let MediaGenerators { image, video } = generators;
     let output = MediaOutput::new(action_dir)
-        .with_reference_policy(reference_policy(action_dir, &root_config.workspace_dir));
+        .with_reference_policy(reference_policy(action_dir, workspace_dir));
     let tools: Vec<Box<dyn Tool>> = vec![
         Box::new(
             GenerateImageTool::new(Arc::clone(&image), output.clone())

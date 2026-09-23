@@ -19,6 +19,6 @@ pub mod tools;
 
 pub use provider::{managed_generators, MediaGenerators, OPENROUTER_PROXY_PATH};
 pub use tools::{
-    build_media_tools, MediaListModelsTool, IMAGE_TOOL_NAME, LIST_MODELS_TOOL_NAME,
+    build_media_tools, media_tools_from, MediaListModelsTool, IMAGE_TOOL_NAME, LIST_MODELS_TOOL_NAME,
     VIDEO_TOOL_NAME,
 };
