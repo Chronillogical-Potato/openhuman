@@ -17,8 +17,13 @@ import {
   validatePlan,
 } from "../ci/self-hosted/lanes-plan.mjs";
 import {
+  PrioritySemaphore,
+  sccacheSummary,
   Runner,
+  defaultHeavySlots,
+  foldLine,
   gatingFailures,
+  renderLaneTable,
   orderProblems,
   parseArgs,
   renderSummary,
@@ -114,7 +119,6 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
     "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
     "cargo test -p openhuman-tinyhumans",
     "bash scripts/check-prompt-budget.sh --verbose",
-    "cargo test --features rss-bench --bin rss-bench",
     "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
     "bash scripts/check-kernel-floor.sh --verbose",
     "bash scripts/ci/check-dep-sim-calibration.sh",
@@ -183,15 +187,43 @@ test("ex63 needs a scratch dir and gives every Rust lane its own target dir unde
   );
 });
 
-test("instrumented coverage never runs under a rustc wrapper", () => {
+test("instrumented coverage uses sccache on ex63 and no wrapper on hosted", () => {
   for (const plan of plans()) {
+    const ex63 = plan.profile === "ex63";
     const cov = plan.lanes.find((l) => l.name === "rust-cov");
-    assert.equal(cov.env.RUSTC_WRAPPER, undefined);
+    assert.equal(cov.env.RUSTC_WRAPPER, ex63 ? "sccache" : undefined);
     const tauriCov = plan.lanes
       .find((l) => l.name === "tauri")
       .checks.find((c) => c.name === "tauri-coverage");
-    assert.match(tauriCov.run, /^unset RUSTFLAGS RUSTC_WRAPPER/);
+    assert.equal(tauriCov.env.RUSTC_WRAPPER, ex63 ? "sccache" : undefined);
+    // The linker flag always goes: llvm-cov sets RUSTFLAGS itself.
+    assert.match(
+      tauriCov.run,
+      ex63 ? /^unset RUSTFLAGS &&/ : /^unset RUSTFLAGS RUSTC_WRAPPER &&/,
+    );
+    assert.match(tauriCov.run, /--no-rustc-wrapper/);
   }
+});
+
+test("sccache summary reports hit rate and the store in use", () => {
+  assert.equal(sccacheSummary(null), null);
+  assert.equal(
+    sccacheSummary({
+      stats: {
+        cache_hits: { counts: { Rust: 30 } },
+        cache_misses: { counts: { Rust: 10 } },
+      },
+      cache_location: "webdav, name: , prefix: /",
+    }),
+    "sccache (shared store): 30 Rust hits, 10 misses (75%).",
+  );
+  assert.equal(
+    sccacheSummary({
+      stats: { cache_hits: { counts: {} }, cache_misses: { counts: {} } },
+      cache_location: 'Local disk: "/cache/sccache"',
+    }),
+    "sccache (slot disk): 0 Rust hits, 0 misses.",
+  );
 });
 
 test("area flags are read strictly from CI_AREA_*", () => {
@@ -275,7 +307,10 @@ test("runner: a failure never stops later checks, blocks its dependants, and gat
   assert.deepEqual(gatingFailures({ lanes }), ["a:fails", "a:needs-failed"]);
   assert.match(fs.readFileSync(path.join(out, "logs", "a.log"), "utf8"), /ran/);
   const summary = renderSummary({ lanes });
-  assert.match(summary, /\| a \| report-only \| failure \(report-only\) \|/);
+  assert.match(
+    summary,
+    /\| a \| report-only \| failure \(report-only\) \| \S+ \|/,
+  );
   assert.match(summary, /\| a \| needs-failed \| blocked \|/);
   fs.rmSync(out, { recursive: true, force: true });
 });
@@ -319,4 +354,95 @@ test("compare-runs pairs the newest completed run per workflow by head SHA", asy
     }),
     { "rust-cov": 30 },
   );
+});
+
+test("step-per-lane mode: args, folded check groups and the lane table", () => {
+  assert.equal(parseArgs(["--wait", "rust-cov"]).wait, "rust-cov");
+  assert.equal(parseArgs(["--wait-all"]).waitAll, true);
+  assert.equal(parseArgs(["--profile", "ex63", "--detach"]).detach, true);
+
+  const state = { open: false };
+  const out = [
+    "[ci][lanes] ===== clippy =====",
+    "$ cargo clippy",
+    "warning: x",
+    "[ci][lanes] clippy: failure (exit 101, 3s)",
+    "[ci][lanes] next: blocked — needs lane:clippy",
+    "[ci][lanes] ===== fmt =====",
+    "[ci][lanes] ===== tests =====",
+  ].map((l) => foldLine(l, state));
+  assert.equal(out[0], "::group::clippy");
+  assert.equal(
+    out[3],
+    "[ci][lanes] clippy: failure (exit 101, 3s)\n::endgroup::",
+  );
+  assert.equal(out[4], "[ci][lanes] next: blocked — needs lane:clippy");
+  // A check whose outcome line never came is closed by the next check.
+  assert.equal(out[6], "::endgroup::\n::group::tests");
+  assert.equal(state.open, true);
+
+  const table = renderLaneTable({
+    name: "rust-lint",
+    checks: [
+      { name: "clippy", status: "failure", durationS: 3, reportOnly: false },
+      { name: "off", status: "skipped", durationS: null, reportOnly: false },
+      { name: "bench", status: "failure", durationS: 9, reportOnly: true },
+    ],
+  });
+  assert.match(table, /failure\s+clippy 3s/);
+  assert.doesNotMatch(table, /off/);
+  assert.match(table, /bench 9s \(report-only\)/);
+});
+
+test("heavy-compile slots: priority order, FIFO within a priority, sized from RAM", async () => {
+  const sem = new PrioritySemaphore(1);
+  const order = [];
+  await sem.acquire(5); // holder
+  const waits = [
+    sem.acquire(9).then(() => order.push("bench")),
+    sem.acquire(1).then(() => order.push("lint")),
+    sem.acquire(0).then(() => order.push("cov")),
+    sem.acquire(1).then(() => order.push("gatesoff")),
+  ];
+  for (let i = 0; i < 4; i++) {
+    sem.release();
+    await new Promise((r) => setImmediate(r));
+  }
+  sem.release();
+  await Promise.all(waits);
+  assert.deepEqual(order, ["cov", "lint", "gatesoff", "bench"]);
+
+  assert.equal(defaultHeavySlots(24 * 1024), 2);
+  assert.equal(defaultHeavySlots(28 * 1024), 3);
+  assert.equal(defaultHeavySlots(48 * 1024), 5);
+  assert.equal(defaultHeavySlots(4 * 1024), 1);
+});
+
+test("runner: heavy lanes wait for a slot, light lanes never do", async () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "lanes-heavy-"));
+  fs.mkdirSync(path.join(out, "logs"));
+  const check = (name) => ({ name, run: "sleep 0.2", when: true, needs: [] });
+  const plan = {
+    profile: "ex63",
+    lanes: [
+      { name: "h1", heavy: 0, active: true, checks: [check("x")] },
+      { name: "h2", heavy: 1, active: true, checks: [check("x")] },
+      { name: "light", active: true, checks: [check("x")] },
+    ],
+  };
+  const lanes = await new Runner(plan, {
+    out,
+    maxParallel: 0,
+    maxHeavy: 1,
+  }).run();
+  const by = Object.fromEntries(lanes.map((l) => [l.name, l]));
+  assert.equal(by.h1.heavyWaitS, 0);
+  assert.ok(
+    Date.parse(by.h2.checks[0].start) >= Date.parse(by.h1.checks[0].end),
+  );
+  assert.equal(by.light.heavyWaitS, null);
+  assert.ok(
+    Date.parse(by.light.checks[0].start) < Date.parse(by.h1.checks[0].end),
+  );
+  fs.rmSync(out, { recursive: true, force: true });
 });

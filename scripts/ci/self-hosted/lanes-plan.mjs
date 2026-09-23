@@ -85,7 +85,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   const core = areas.rustCore;
 
   // ex63: one throwaway target dir per lane so lanes never queue on cargo's
-  // build-dir lock; sccache (on the capped /cache disk) warms the deps.
+  // build-dir lock; sccache warms the build from the host's shared, capped
+  // store (or the slot's /cache disk when the store is down). sccache keys
+  // include the target dir, so a lane shares with the same lane of every
+  // earlier job on any VM, not with the other lanes.
   // hosted: cargo's default target dirs, which Swatinem/rust-cache restores.
   const targetDir = (lane) => (ex63 ? `${scratch}/target/${lane}` : null);
   const sccache = ex63 ? { RUSTC_WRAPPER: "sccache" } : {};
@@ -93,14 +96,17 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     CARGO_INCREMENTAL: "0",
     RUSTFLAGS: "-C link-arg=-fuse-ld=mold",
   };
-  // Instrumented builds: no sccache (cargo-llvm-cov owns the wrapper and
-  // RUSTFLAGS, exactly as in ci-lite), no DWARF, a large test stack, and on
-  // hosted the serialized build ci-lite needs to fit the runner's disk.
+  // Instrumented builds: no DWARF, a large test stack, and on hosted the
+  // serialized build ci-lite needs to fit the runner's disk. On ex63 they go
+  // through sccache too: cargo-llvm-cov chains an existing RUSTC_WRAPPER in
+  // both its wrapper and RUSTFLAGS modes, and cache hits give byte-identical
+  // lcov (checked with cargo-llvm-cov 0.8 and sccache 0.10). Hosted keeps
+  // ci-lite's wrapper-free setup.
   const covEnv = {
     ...rustEnv,
     CARGO_PROFILE_DEV_DEBUG: "0",
     RUST_MIN_STACK: "67108864",
-    ...(ex63 ? {} : { CARGO_BUILD_JOBS: "1" }),
+    ...(ex63 ? sccache : { CARGO_BUILD_JOBS: "1" }),
   };
   const modulesDir = ex63
     ? `${scratch}/test-modules`
@@ -255,6 +261,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       // First among the Rust lanes: it is the long pole, and rust-lint waits
       // on its test-modules check.
       name: "rust-cov",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 0,
       targetDir: targetDir("cov"),
       env: covEnv,
       checks: [
@@ -282,6 +291,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "rust-lint",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("lint"),
       env: { ...rustEnv, ...sccache },
       checks: [
@@ -327,17 +339,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "bash scripts/check-prompt-budget.sh --verbose",
         },
         ...(ex63 ? [juiceRegression] : []),
-        // Report-only in ci-lite (never in the gate), so report-only here.
-        {
-          name: "rss-bench-fixture-tests",
-          when: core,
-          reportOnly: true,
-          run: "cargo test --features rss-bench --bin rss-bench",
-        },
       ],
     },
     {
       name: "rust-gates-off",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("gatesoff"),
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
@@ -387,6 +395,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "tauri",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 2,
       targetDir: targetDir("tauri"),
       env: { ...rustEnv },
       checks: [
@@ -397,13 +408,14 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings",
         },
         {
-          // llvm-cov's RUSTFLAGS mode, with the linker flag cleared, exactly as
-          // ci-lite: a rustc wrapper would silently drop .profraw output.
+          // llvm-cov's RUSTFLAGS mode with the linker flag cleared, as in
+          // ci-lite. ci-lite also clears RUSTC_WRAPPER because its container
+          // config installs sccache; on ex63 covEnv sets sccache on purpose.
           name: "tauri-coverage",
           when: areas.rustTauri,
           env: { ...covEnv },
           run:
-            "unset RUSTFLAGS RUSTC_WRAPPER" +
+            (ex63 ? "unset RUSTFLAGS" : "unset RUSTFLAGS RUSTC_WRAPPER") +
             " && cargo llvm-cov clean --manifest-path crates/openhuman-app/Cargo.toml" +
             " && cargo llvm-cov --no-rustc-wrapper --manifest-path crates/openhuman-app/Cargo.toml" +
             " --lcov --output-path ci-out/lcov/lcov-tauri.info",
@@ -421,27 +433,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       ],
     },
   ];
-
-  if (ex63) {
-    // Report-only: ci-lite never gates on it. The release build is the most
-    // expensive compile here, so it yields the CPU to the gating lanes.
-    lanes.push({
-      name: "bench",
-      targetDir: targetDir("bench"),
-      env: { ...rustEnv, ...sccache },
-      nice: 10,
-      checks: [
-        {
-          name: "rss-bench",
-          when: core,
-          reportOnly: true,
-          run:
-            "cargo build --release --features rss-bench --bin rss-bench" +
-            ` && "${targetDir("bench")}/release/rss-bench" --out ci-out/bench-rss.json`,
-        },
-      ],
-    });
-  }
 
   for (const lane of lanes) {
     lane.checks = lane.checks.map((c) => ({
@@ -517,5 +508,7 @@ export function validatePlan(plan) {
  * @property {string|null} [targetDir]  CARGO_TARGET_DIR for this lane
  * @property {object} [env]
  * @property {number} [nice]
+ * @property {number} [heavy]  compiles the core crate; priority for a
+ *   heavy-compile slot (lower first). Absent for light lanes.
  * @property {boolean} active
  */
