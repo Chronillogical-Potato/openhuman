@@ -799,6 +799,16 @@ const ComposerAction: FC<{
             <MicIcon className="size-4" />
           </TooltipIconButton>
         )}
+        {/*
+          Permanently false, deliberately: `useOpenHumanExternalStore` supplies
+          no `adapters.dictation`, and the reasoning for keeping it that way
+          lives there. Short version — Web Speech's constructor exists in our
+          WKWebView but `start()` never succeeds, and with the speech usage
+          strings present it hangs silently rather than erroring, which would
+          strand the composer in `dictation != null`. Working dictation already
+          ships as the `mic-cloud` composer, whose "Voice mode" button is the
+          one directly above this block.
+        */}
         <AuiIf condition={s => s.thread.capabilities.dictation}>
           <AuiIf condition={s => s.composer.dictation == null}>
             <ComposerPrimitive.Dictate asChild>
