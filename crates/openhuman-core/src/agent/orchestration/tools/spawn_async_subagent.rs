@@ -257,6 +257,7 @@ impl SpawnAsyncSubagentTool {
 }
 
 include!("spawn_async_subagent_execute.rs");
+include!("spawn_async_subagent_args.rs");
 
 /// Format the user-facing acceptance text around a structured async sub-agent reference.
 ///

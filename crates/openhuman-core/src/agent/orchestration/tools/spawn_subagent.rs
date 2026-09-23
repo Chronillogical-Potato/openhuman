@@ -108,6 +108,7 @@ impl SpawnSubagentTool {
 }
 
 include!("spawn_subagent_tool_impl.rs");
+include!("spawn_subagent_parameters.rs");
 
 /// Trim a raw prompt down to a thread-list-friendly title.
 ///
