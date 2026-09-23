@@ -1,0 +1,301 @@
+---
+# CI lanes — the shared body behind ci-fast.yml (org members, EX63 microVMs)
+# and ci-fast-hosted.yml (everyone else, GitHub-hosted runners).
+#
+# Both profiles run the same lane plan (scripts/ci/self-hosted/lanes-plan.mjs):
+# every check ci-lite.yml runs, grouped into lanes that execute in parallel,
+# with changed-line coverage enforced at >= 80% by the same diff-cover gate.
+#
+#   ex63    one job on one throwaway Firecracker microVM (runner group
+#           `openhuman-ex63`, host code in tinyhumansai/gh-hosted-runner). All
+#           lanes run at once; target dirs live on the per-job scratch disk;
+#           sccache, cargo and pnpm caches live on a 10 GB capped cache disk.
+#   hosted  the same lanes split over a few GitHub-hosted jobs sized to fit
+#           those runners, with GitHub's Actions cache.
+#
+# Area flags pick whole suites. Nothing here narrows a suite to changed files.
+name: CI Lanes
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        description: "ex63 or hosted"
+        type: string
+        required: true
+      pr-number:
+        type: number
+        required: true
+      base-ref:
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
+  GH_TOKEN: ${{ github.token }}
+  PR_TITLE: ${{ github.event.pull_request.title }}
+
+jobs:
+  # ── ex63: the whole CI in one job on one microVM ────────────────────────────
+  ex63:
+    name: CI Fast (EX63)
+    if: inputs.profile == 'ex63'
+    runs-on: [self-hosted, openhuman-ex63]
+    timeout-minutes: 120
+    steps:
+      - name: Checkout PR merge commit
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}
+          ref: refs/pull/${{ inputs.pr-number }}/merge
+          # Full history: the module-pin monotonicity check and diff-cover
+          # both compare against the base branch.
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Detect changed areas
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: .github/ci-paths-filter.yml
+          base: ${{ inputs.base-ref }}
+
+      - name: Run lanes
+        id: lanes
+        env:
+          CI_AREA_FRONTEND: ${{ steps.filter.outputs.frontend }}
+          CI_AREA_I18N: ${{ steps.filter.outputs.i18n }}
+          CI_AREA_DOCS: ${{ steps.filter.outputs.docs }}
+          CI_AREA_RUST_CORE: ${{ steps.filter.outputs['rust-core'] }}
+          CI_AREA_RUST_TAURI: ${{ steps.filter.outputs['rust-tauri'] }}
+          CI_AREA_SCRIPTS: ${{ steps.filter.outputs.scripts }}
+          CI_AREA_INVENTORY: ${{ steps.filter.outputs.inventory }}
+          CI_AREA_TOOLCHAIN_IMAGE: ${{ steps.filter.outputs['toolchain-image'] }}
+          CI_AREA_INSTALL_PS1: ${{ steps.filter.outputs.install_ps1 }}
+        run: bash scripts/ci-cancel-aware.sh node scripts/ci/self-hosted/lanes.mjs --profile ex63
+
+      - name: Enforce >= 80% coverage on changed lines
+        # Only over complete coverage: a failed lane already fails this job.
+        if: >-
+          steps.lanes.outcome == 'success' &&
+          (steps.filter.outputs.frontend == 'true' ||
+           steps.filter.outputs['rust-core'] == 'true' ||
+           steps.filter.outputs['rust-tauri'] == 'true')
+        run: bash scripts/ci/self-hosted/diff-cover.sh ci-out/lcov "origin/${{ inputs.base-ref }}" ci-out/diff-cover
+
+      - name: Upload lane logs, timings and coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-out-ex63
+          path: ci-out/
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ── hosted: plan, then one GitHub-hosted job per lane group ─────────────────
+  plan:
+    name: Plan lanes
+    if: inputs.profile == 'hosted'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      i18n: ${{ steps.filter.outputs.i18n }}
+      docs: ${{ steps.filter.outputs.docs }}
+      rust-core: ${{ steps.filter.outputs['rust-core'] }}
+      rust-tauri: ${{ steps.filter.outputs['rust-tauri'] }}
+      scripts: ${{ steps.filter.outputs.scripts }}
+      inventory: ${{ steps.filter.outputs.inventory }}
+      toolchain-image: ${{ steps.filter.outputs['toolchain-image'] }}
+      install-ps1: ${{ steps.filter.outputs.install_ps1 }}
+      coverage: ${{ steps.filter.outputs.frontend == 'true' || steps.filter.outputs['rust-core'] == 'true' || steps.filter.outputs['rust-tauri'] == 'true' }}
+    steps:
+      - name: Checkout filter and lane plan
+        uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ inputs.pr-number }}/merge
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+            scripts/ci/self-hosted
+            scripts/lib
+
+      - name: Detect changed areas
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: .github/ci-paths-filter.yml
+
+      - name: Build the job matrix
+        id: plan
+        env:
+          CI_AREA_FRONTEND: ${{ steps.filter.outputs.frontend }}
+          CI_AREA_I18N: ${{ steps.filter.outputs.i18n }}
+          CI_AREA_DOCS: ${{ steps.filter.outputs.docs }}
+          CI_AREA_RUST_CORE: ${{ steps.filter.outputs['rust-core'] }}
+          CI_AREA_RUST_TAURI: ${{ steps.filter.outputs['rust-tauri'] }}
+          CI_AREA_SCRIPTS: ${{ steps.filter.outputs.scripts }}
+          CI_AREA_INVENTORY: ${{ steps.filter.outputs.inventory }}
+          CI_AREA_TOOLCHAIN_IMAGE: ${{ steps.filter.outputs['toolchain-image'] }}
+          CI_AREA_INSTALL_PS1: ${{ steps.filter.outputs.install_ps1 }}
+        run: |
+          set -euo pipefail
+          matrix="$(node scripts/ci/self-hosted/lanes.mjs --profile hosted --print-matrix)"
+          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
+          echo "[ci][plan] ${matrix}"
+
+  lanes:
+    name: Lanes (${{ matrix.group }})
+    needs: plan
+    if: inputs.profile == 'hosted' && fromJSON(needs.plan.outputs.matrix).include[0] != null
+    runs-on: ubuntu-22.04
+    timeout-minutes: 100
+    container:
+      # Empty for the pester group: pwsh ships on the bare runner image.
+      image: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      NPM_CONFIG_STORE_DIR: .pnpm-store
+      CI_AREA_FRONTEND: ${{ needs.plan.outputs.frontend }}
+      CI_AREA_I18N: ${{ needs.plan.outputs.i18n }}
+      CI_AREA_DOCS: ${{ needs.plan.outputs.docs }}
+      CI_AREA_RUST_CORE: ${{ needs.plan.outputs['rust-core'] }}
+      CI_AREA_RUST_TAURI: ${{ needs.plan.outputs['rust-tauri'] }}
+      CI_AREA_SCRIPTS: ${{ needs.plan.outputs.scripts }}
+      CI_AREA_INVENTORY: ${{ needs.plan.outputs.inventory }}
+      CI_AREA_TOOLCHAIN_IMAGE: ${{ needs.plan.outputs['toolchain-image'] }}
+      CI_AREA_INSTALL_PS1: ${{ needs.plan.outputs['install-ps1'] }}
+    steps:
+      - name: Free disk space
+        # Inside the container /opt/hostedtoolcache is bind-mounted at /__t;
+        # clearing it frees ~8 GB on the partition the build uses.
+        if: matrix.container != ''
+        run: |
+          rm -rf /__t/* || true
+          df -h /__w || true
+
+      - name: Checkout PR merge commit
+        uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ inputs.pr-number }}/merge
+          # Only the checks group compares against the base branch.
+          fetch-depth: ${{ matrix.group == 'checks' && '0' || '1' }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Trust the workspace for git
+        # The checkout is owned by the runner uid; the container runs as root.
+        if: matrix.container != ''
+        run: git config --global --add safe.directory '*'
+
+      - name: Cache Rust build artifacts
+        if: matrix.group == 'rust-lint' || matrix.group == 'rust-cov' || matrix.group == 'tauri'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            crates/openhuman-app -> target
+          cache-on-failure: ${{ matrix.group != 'rust-cov' }}
+          shared-key: ci-fast-${{ matrix.group }}
+
+      - name: Prune stale coverage test executables
+        # Instrumented test binaries in a restored cache can exhaust the disk.
+        if: matrix.group == 'rust-cov'
+        run: find target/llvm-cov-target -type f -path '*/debug/deps/*' -perm -111 -delete 2>/dev/null || true
+
+      - name: Cache pnpm store
+        if: matrix.group == 'checks'
+        uses: actions/cache@v5
+        with:
+          path: .pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      - name: Install cargo-llvm-cov
+        if: matrix.group == 'rust-cov' || matrix.group == 'tauri'
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Run lanes
+        run: >-
+          bash scripts/ci-cancel-aware.sh node scripts/ci/self-hosted/lanes.mjs
+          --profile hosted --lanes '${{ matrix.lanes }}' --max-parallel ${{ matrix['max-parallel'] }}
+
+      - name: Prune coverage test executables before cache save
+        if: always() && matrix.group == 'rust-cov'
+        run: find target/llvm-cov-target -type f -path '*/debug/deps/*' -perm -111 -delete 2>/dev/null || true
+
+      - name: Upload lane logs, timings and coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-out-${{ matrix.group }}
+          path: ci-out/
+          retention-days: 14
+          if-no-files-found: warn
+
+  gate:
+    name: CI Fast (hosted) Gate
+    needs: [plan, lanes]
+    if: always() && inputs.profile == 'hosted'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require every lane job to pass
+        run: |
+          set -euo pipefail
+          echo "plan=${{ needs.plan.result }} lanes=${{ needs.lanes.result }}"
+          if [ "${{ needs.plan.result }}" != "success" ]; then
+            echo "::error::Lane planning did not succeed."
+            exit 1
+          fi
+          case "${{ needs.lanes.result }}" in
+            success|skipped) ;;
+            *) echo "::error::A lane job did not pass (result=${{ needs.lanes.result }})."; exit 1 ;;
+          esac
+
+      - name: Checkout for the coverage compare ref
+        if: needs.plan.outputs.coverage == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: refs/pull/${{ inputs.pr-number }}/merge
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Python
+        if: needs.plan.outputs.coverage == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install diff-cover
+        if: needs.plan.outputs.coverage == 'true'
+        run: pip install 'diff-cover>=9.2.0'
+
+      - name: Download lane outputs
+        if: needs.plan.outputs.coverage == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: ci-artifacts
+          pattern: ci-out-*
+
+      - name: Enforce >= 80% coverage on changed lines
+        if: needs.plan.outputs.coverage == 'true'
+        run: bash scripts/ci/self-hosted/diff-cover.sh ci-artifacts "origin/${{ inputs.base-ref }}" diff-cover
+
+      - name: Upload diff-cover report
+        if: always() && needs.plan.outputs.coverage == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: diff-coverage-report
+          path: diff-cover/
+          retention-days: 14
+          if-no-files-found: warn
