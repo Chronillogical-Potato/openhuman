@@ -352,7 +352,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             // Bind a summary call to this turn only when the result is big
             // enough for TinyJuice to want one; building the child context for
             // every small result would be waste.
-            let (ticket, unprepared) = match self.summary_ticket(ctx, tool_name, content.len()) {
+            let (ticket, unprepared) = match self.summary_ticket(ctx, tool_name, &content) {
                 Some(Ok(ticket)) => (Some(ticket), false),
                 Some(Err(())) => (None, true),
                 None => (None, false),
@@ -366,6 +366,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 .clone()
                 .unwrap_or_else(|| format!("run-{}", ctx.instance_id()));
             let before_bytes = content.len();
+            let before_tokens = estimate_output_tokens(&content);
             let compacted = crate::inference::tokenjuice::compact_tool_output(
                 crate::inference::tokenjuice::ToolOutputCompaction {
                     content: std::mem::take(&mut content),
