@@ -496,6 +496,17 @@ function useOpenThreadAtBottom(
 const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
 
 /**
+ * How long after a scroll-capable input a falling `scrollTop` still counts as
+ * the reader moving. Generous enough for a wheel's momentum tail and a held
+ * key's repeat; far shorter than any gap between a gesture and an unrelated
+ * layout shift worth ignoring.
+ */
+const USER_SCROLL_INTENT_WINDOW_MS = 1000;
+
+/** Keys that scroll a focused scroller up (or anywhere — any of them is intent). */
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+
+/**
  * Keep the newest content in view while the assistant streams.
  *
  * `ThreadBottomFollower` below cannot do this. It keys on
@@ -629,7 +640,9 @@ function useFollowBottom(
     viewport.addEventListener('scroll', onScroll, { passive: true });
     viewport.addEventListener('wheel', markIntent, { passive: true });
     viewport.addEventListener('touchmove', markIntent, { passive: true });
-    viewport.addEventListener('keydown', onKeyDown);
+    // Scroll keys are delivered to whatever has focus, not to the viewport.
+    const keyTarget = viewport.ownerDocument;
+    keyTarget.addEventListener('keydown', onKeyDown);
     viewport.addEventListener('pointerdown', onPointerDown);
 
     const observer = new ResizeObserver(() => {
@@ -674,7 +687,7 @@ function useFollowBottom(
       viewport.removeEventListener('scroll', onScroll);
       viewport.removeEventListener('wheel', markIntent);
       viewport.removeEventListener('touchmove', markIntent);
-      viewport.removeEventListener('keydown', onKeyDown);
+      keyTarget.removeEventListener('keydown', onKeyDown);
       viewport.removeEventListener('pointerdown', onPointerDown);
       observer.disconnect();
     };
