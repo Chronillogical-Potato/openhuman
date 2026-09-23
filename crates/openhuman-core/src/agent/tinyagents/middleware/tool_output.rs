@@ -275,6 +275,59 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // oversized tool output; both truncate and hand back a way to read the
         // rest.
         if !compaction_exempt && tool_cap.is_none() {
+            // 1. TokenJuice content-aware compaction — the cheap, deterministic
+            //    step, and so the one that runs first.
+            //
+            //    It used to run *after* the summarizer, mirroring the legacy
+            //    `agent_tool_exec` order. That made it dead weight on the only
+            //    axis that costs anything: compaction never got to shrink the
+            //    payload an LLM was about to read, it only ever re-compacted a
+            //    summary the summarizer had already shrunk. The expensive stage
+            //    paid full price for the raw bytes and the cheap stage tidied
+            //    the leftovers.
+            //
+            //    Ordered this way, a payload TokenJuice can bring under
+            //    `threshold_tokens` skips the summarizer model call entirely —
+            //    `maybe_summarize_in_parent` reads `content` *after* this stage
+            //    and answers `NotNeeded`. Same ladder discipline as the context
+            //    ladder's "cheapest sufficient step first" (#6014).
+            //
+            //    This is only sound because TokenJuice's transforms are
+            //    representation changes an LLM can still read (tabulating a
+            //    uniform object-array into a `[json table: …]` marker), not
+            //    erasure. The context ladder's own ordering bug is the
+            //    counter-example to respect: microcompact *blanks* tool bodies
+            //    to `CLEARED_PLACEHOLDER`, so running it before summarization
+            //    asked the summarizer for "key results" it could no longer see.
+            //    Any future TokenJuice profile that drops content outright
+            //    rather than re-encoding it belongs behind the summarizer
+            //    again.
+            //
+            //    Compaction is off by default (`[context].compaction_enabled`
+            //    is `false` and the router lives behind the TinyBus module
+            //    boundary), so on a default install
+            //    `compact_output_with_config` returns `content` untouched and
+            //    this stage changes nothing. The ordering matters for installs
+            //    that turn it on.
+            let before_tokenjuice_bytes = content.len();
+            let compacted = crate::inference::tokenjuice::compact_output_with_config(
+                std::mem::take(&mut content),
+                tool_name,
+                self.tokenjuice_compaction_enabled,
+                self.tokenjuice_compression,
+                self.runtime_config.as_ref(),
+            )
+            .await;
+            content = compacted;
+            let after_tokenjuice_bytes = content.len();
+            if after_tokenjuice_bytes < before_tokenjuice_bytes {
+                ctx.emit(AgentEvent::Compressed {
+                    from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
+                    to_tokens: estimate_output_tokens(after_tokenjuice_bytes),
+                });
+            }
+
+            // 2. Semantic summarization, on whatever step 1 left behind.
             if let Some(ps) = &self.payload_summarizer {
                 match ps
                     .maybe_summarize_in_parent(ctx, tool_name, self.task_hint.as_deref(), &content)
