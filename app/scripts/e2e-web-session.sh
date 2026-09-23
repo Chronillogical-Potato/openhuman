@@ -38,8 +38,10 @@ cleanup() {
   fi
   if [ -n "$CORE_PID" ]; then
     # The core may have launched acting-tool subprocesses while an E2E case
-    # was running. It is a dedicated session leader, so stop its whole group
-    # rather than leaving descendants alive to accumulate across CI shards.
+    # was running. It leads its own process group either way it was started
+    # (`setsid` where available, otherwise bash job control — see the launch
+    # site), so stop the whole group rather than leaving descendants alive to
+    # accumulate across CI shards.
     kill -- "-$CORE_PID" 2>/dev/null || true
     wait "$CORE_PID" 2>/dev/null || true
   fi
@@ -179,9 +181,26 @@ export RUST_MIN_STACK="${RUST_MIN_STACK:-16777216}"
 # Give each standalone core its own process group. Playwright shards are run
 # serially in CI, and a parent-only shutdown leaves tool children alive across
 # shards until the runner terminates the next core for resource exhaustion.
-env HOME="$E2E_WEB_CORE_HOME" setsid "$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
-  >"$OPENHUMAN_WORKSPACE/core.log" 2>&1 &
-CORE_PID=$!
+#
+# `setsid` is util-linux: it exists on the CI runners and not on macOS, where
+# this lane is run locally. Bash's own job control provides the part `cleanup`
+# depends on — with `set -m`, a background job becomes the leader of a new
+# process group, so `kill -- "-$CORE_PID"` addresses the core and its tool
+# children on both platforms and needs no branch of its own. `setsid` is kept
+# where it exists so the CI path is unchanged: it also detaches the controlling
+# terminal, making the core a full session leader rather than only a process
+# group leader.
+if command -v setsid >/dev/null 2>&1; then
+  env HOME="$E2E_WEB_CORE_HOME" setsid "$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
+    >"$OPENHUMAN_WORKSPACE/core.log" 2>&1 &
+  CORE_PID=$!
+else
+  set -m
+  env HOME="$E2E_WEB_CORE_HOME" "$OPENHUMAN_CORE_BIN" run --host 127.0.0.1 --port "$OPENHUMAN_CORE_PORT" \
+    >"$OPENHUMAN_WORKSPACE/core.log" 2>&1 &
+  CORE_PID=$!
+  set +m
+fi
 
 # Preserve the core's final resource samples for a long Playwright lane. This
 # distinguishes a likely runner OOM from an in-process failure once later tests
