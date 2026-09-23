@@ -460,6 +460,7 @@ async fn run_turn_via_tinyagents_inner(
             tool_names.clone(),
             failure_map.clone(),
             provider_usage_carry.clone(),
+            bridge_tool_sets,
         );
         events.subscribe(bridge.clone());
         bridge
