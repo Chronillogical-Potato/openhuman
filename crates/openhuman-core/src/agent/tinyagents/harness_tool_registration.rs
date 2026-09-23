@@ -144,43 +144,32 @@ pub(super) fn register_turn_tools_and_agents(
                 registered.insert(name.to_string());
                 let adapter = Arc::new(adapter);
                 capability_registry.replace_tool(adapter.clone());
-                if name == "spawn_parallel_agents" {
-                    harness.register_tool_dispatch(Arc::new(SpawnParallelAgentsDispatch::new(
-                        adapter,
-                    )));
-                } else if name == "spawn_async_subagent" {
-                    harness
-                        .register_tool_dispatch(Arc::new(SpawnAsyncSubagentDispatch::new(adapter)));
-                } else if name == "spawn_worker_thread" {
-                    harness
-                        .register_tool_dispatch(Arc::new(SpawnWorkerThreadDispatch::new(adapter)));
-                } else if name == "spawn_subagent" {
-                    harness.register_tool_dispatch(Arc::new(SpawnSubagentDispatch::new(adapter)));
-                } else if name == "continue_subagent" {
-                    harness
-                        .register_tool_dispatch(Arc::new(ContinueSubagentDispatch::new(adapter)));
-                } else if name == "wait_subagent" {
-                    harness.register_tool_dispatch(Arc::new(WaitSubagentDispatch::new(adapter)));
-                } else if name == "steer_subagent" {
-                    harness.register_tool_dispatch(Arc::new(SteerSubagentDispatch::new(adapter)));
-                } else if name == "close_subagent" {
-                    harness.register_tool_dispatch(Arc::new(CloseSubagentDispatch::new(adapter)));
-                } else if name == "list_subagents" {
-                    harness.register_tool_dispatch(Arc::new(ListSubagentsDispatch::new(adapter)));
-                } else if name == "agent_prepare_context" {
-                    harness.register_tool_dispatch(Arc::new(AgentPrepareContextDispatch::new(
-                        adapter,
-                    )));
-                } else if name == "delegate_graph" {
-                    harness.register_tool_dispatch(Arc::new(DelegateGraphDispatch::new(adapter)));
-                } else if name == "delegate" {
-                    harness.register_tool_dispatch(Arc::new(DelegateToolDispatch::new(adapter)));
-                } else if name == "todo" {
-                    harness.register_tool_dispatch(Arc::new(TodoToolDispatch::new(adapter)));
-                } else if name == "call_memory_agent" {
-                    harness.register_tool_dispatch(Arc::new(CallMemoryAgentDispatch::new(adapter)));
-                } else if let Some(dispatch) = DelegationDispatch::for_tool(adapter.clone()) {
-                    harness.register_tool_dispatch(Arc::new(dispatch));
+                if name == USE_SKILL {
+                    // `use_skill` needs its own typed dispatch (regression
+                    // R3): it is the proxy every packed archetype delegation
+                    // (`create_image`, `do_crypto`, `make_presentation`, …)
+                    // is reached through, and it must resolve the SAME live
+                    // parent `typed_dispatch_for` gives a natively advertised
+                    // delegate tool. The pack-registry handle comes off the
+                    // raw registered tool (not this adapter, which has no
+                    // erased host extension of its own).
+                    let handle = tool_sets
+                        .iter()
+                        .flat_map(|set| set.iter())
+                        .find(|tool| tool.name() == name)
+                        .and_then(|tool| {
+                            crate::tools::host_extensions::pack_registry_handle(tool.as_ref())
+                        })
+                        .cloned();
+                    match handle {
+                        Some(handle) => harness
+                            .register_tool_dispatch(Arc::new(UseSkillDispatch::new(
+                                adapter, handle,
+                            ))),
+                        None => harness.register_tool(adapter),
+                    }
+                } else if let Some(dispatch) = typed_dispatch_for(name, adapter.clone()) {
+                    harness.register_tool_dispatch(dispatch);
                 } else {
                     harness.register_tool(adapter);
                 }
