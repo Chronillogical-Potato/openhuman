@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { describe, expect, it } from 'vitest';
 
@@ -17,7 +17,13 @@ describe('InterruptedAnswer', () => {
 
     const block = screen.getByTestId('interrupted-answer');
     expect(block.textContent).toContain('Here is the partial answer');
-    // The reasoning it had streamed is kept in a collapsed block.
+    // The reasoning it had streamed is kept in a collapsed reasoning panel
+    // (settled, no timing on an interrupted buffer → "Thought").
+    const thinking = screen.getByTestId('interrupted-answer-thinking');
+    const trigger = thinking.querySelector('button')!;
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(thinking.querySelector('[data-swap-layer="resting"]')?.textContent).toBe('Thought');
+    fireEvent.click(trigger);
     expect(block.textContent).toContain('was reasoning about it');
     // Marked interrupted rather than presented as a finished answer.
     expect(screen.getByTestId('interrupted-answer-marker')).toBeTruthy();

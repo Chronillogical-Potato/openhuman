@@ -87,12 +87,16 @@ describe('ProcessingTranscriptView live thinking', () => {
       />
     );
     const live = screen.getByTestId('processing-thinking-live');
-    expect(live.textContent).toContain('The user wants a week in Kashmir in October.');
-    // No collapsed <details> row for the same thought.
+    // Rendered as a step of the live reasoning panel (its title drops the
+    // sentence's closing period).
+    expect(live.textContent).toContain('The user wants a week in Kashmir in October');
+    expect(live.getAttribute('aria-busy')).toBe('true');
+    expect(live.querySelector('[data-shimmer]')).not.toBeNull();
+    // No settled row for the same thought.
     expect(screen.queryByTestId('processing-thinking')).toBeNull();
   });
 
-  it('keeps every thought collapsed once the turn has settled', () => {
+  it('renders settled thoughts as a quiet, non-collapsible reasoning panel', () => {
     render(
       <ProcessingTranscriptView
         transcript={[thought(0, 'Settled reasoning that should stay quiet.')]}
@@ -100,8 +104,28 @@ describe('ProcessingTranscriptView live thinking', () => {
       />
     );
     expect(screen.queryByTestId('processing-thinking-live')).toBeNull();
-    const collapsed = screen.getByTestId('processing-thinking') as HTMLDetailsElement;
-    expect(collapsed.open).toBe(false);
+    const settled = screen.getByTestId('processing-thinking');
+    // The rail keeps the trail visible: no disclosure, no live shimmer.
+    expect(settled.getAttribute('data-variant')).toBe('static');
+    expect(settled.querySelector('button')).toBeNull();
+    expect(settled.querySelector('[data-shimmer]')).toBeNull();
+    expect(settled.textContent).toContain('Settled reasoning that should stay quiet');
+  });
+
+  it('labels a settled thought with its recorded duration', () => {
+    render(
+      <ProcessingTranscriptView
+        transcript={[{ ...thought(0, '**Planning**\nok'), startedAt: 1_000, endedAt: 13_000 }]}
+        entries={[]}
+      />
+    );
+    const settled = screen.getByTestId('processing-thinking');
+    expect(settled.querySelector('[data-swap-layer="resting"]')?.textContent).toBe(
+      'chat.reasoning.thoughtFor'.replace('{n}', '12s')
+    );
+    expect(settled.querySelector('[data-slot="reasoning-step-title"]')?.textContent).toBe(
+      'Planning'
+    );
   });
 
   it('only expands the LAST thought while live; earlier ones stay collapsed', () => {
@@ -121,12 +145,13 @@ describe('ProcessingTranscriptView live thinking', () => {
     expect(screen.getByTestId('processing-thinking-live').textContent).toContain('Second pass');
   });
 
-  it('shows only the tail of a long live thought with a leading ellipsis', () => {
+  it('keeps a long live thought whole inside a bounded, bottom-pinned scroll region', () => {
     const long = 'x'.repeat(2000) + 'TAIL';
     render(<ProcessingTranscriptView transcript={[thought(0, long)]} entries={[]} live />);
     const live = screen.getByTestId('processing-thinking-live');
-    expect(live.textContent).toContain('…');
     expect(live.textContent).toContain('TAIL');
-    expect(live.textContent!.length).toBeLessThan(long.length);
+    const scroll = live.querySelector('[data-slot="reasoning-panel-scroll"]');
+    expect(scroll?.className).toContain('max-h-80');
+    expect(scroll?.className).toContain('overflow-y-auto');
   });
 });
