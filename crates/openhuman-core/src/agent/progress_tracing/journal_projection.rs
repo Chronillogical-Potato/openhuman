@@ -306,6 +306,12 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                     elapsed_ms: duration_ms.unwrap_or(0),
                     iteration: scope.iteration,
                     failure,
+                    // The journal has no live tool registry to recompute a
+                    // real label/detail from, and no `ToolResult.metadata` to
+                    // replay structured payloads from.
+                    display_label: None,
+                    display_detail: None,
+                    structured: None,
                 }],
                 None => vec![AgentProgress::ToolCallCompleted {
                     call_id: call_id.as_str().to_string(),
@@ -317,6 +323,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                     elapsed_ms: duration_ms.unwrap_or(0),
                     iteration: state.iteration,
                     failure,
+                    display_label: None,
+                    display_detail: None,
+                    structured: None,
                 }],
             }
         }
