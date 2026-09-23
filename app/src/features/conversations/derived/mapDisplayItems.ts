@@ -345,6 +345,56 @@ export function mapDisplayItems(
   return { timelines, transcripts, interrupted };
 }
 
+/** Tool names that open a delegation — mirrors `findPendingDelegationContext`. */
+function isDelegationToolName(name: string): boolean {
+  return name === 'spawn_subagent' || name === 'spawn_async_subagent' || name.startsWith('delegate_');
+}
+
+/** `subagent:<id>`, disambiguated when one turn delegates to the same agent twice. */
+function uniqueSubagentRowId(turn: TurnAccumulator, agentId: string): string {
+  const base = `subagent:${agentId}`;
+  let id = base;
+  for (let n = 2; turn.callIds.has(id); n += 1) id = `${base}#${n}`;
+  turn.callIds.add(id);
+  return id;
+}
+
+/**
+ * Put a sub-agent row where the live stream puts it: in the slot of the call
+ * that spawned it.
+ *
+ * The projection nests sub-agents as sibling items after every root item (the
+ * transcript records no link from a delegation call to the child's file), so
+ * appending them gave every reopened turn a different shape from the one the
+ * user watched stream: the spawn call rendered as a plain tool card and the
+ * delegation card sat at the bottom of the turn. Children are ordered by spawn
+ * time, and so are the turn's delegation calls, so the Nth child takes the Nth
+ * not-yet-claimed delegation row — its `seq` and its transcript pointer —
+ * exactly as `subagentSpawned` does live. With no such row (an older
+ * transcript, or a spawn outside this turn's page) it is appended as before.
+ */
+function placeSubagentRow(turn: TurnAccumulator, row: ToolTimelineEntry): void {
+  const spawnIdx = turn.entries.findIndex(
+    entry => entry.subagent === undefined && isDelegationToolName(entry.name)
+  );
+  if (spawnIdx < 0) {
+    turn.entries.push({ ...row, seq: turn.seq++ });
+    return;
+  }
+  const spawn = turn.entries[spawnIdx];
+  turn.entries[spawnIdx] = {
+    ...row,
+    seq: spawn.seq,
+    detail: spawn.detail,
+    sourceToolName: spawn.name,
+    subagent: row.subagent ? { ...row.subagent, prompt: spawn.detail } : row.subagent,
+  };
+  const pointer = turn.transcript.find(
+    item => item.kind === 'toolCall' && item.callId === spawn.id
+  );
+  if (pointer && pointer.kind === 'toolCall') pointer.callId = row.id;
+}
+
 /**
  * A row id that is unique within the turn.
  *
