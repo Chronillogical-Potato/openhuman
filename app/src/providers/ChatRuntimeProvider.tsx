@@ -13,6 +13,7 @@ import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposa
 import {
   type ChatApprovalRequestEvent,
   type ChatDoneEvent,
+  type ChatEventListeners,
   type ChatInferenceHeartbeatEvent,
   type ChatInferenceStartEvent,
   type ChatInterimEvent,
@@ -22,12 +23,14 @@ import {
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
+  type ChatTextDeltaEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
   type ProactiveMessageEvent,
   segmentText,
   subscribeChatEvents,
 } from '../services/chatService';
+import { withCoalescedDeltas } from '../services/chatDeltaCoalescer';
 import { socketService } from '../services/socketService';
 import { store } from '../store';
 import {
