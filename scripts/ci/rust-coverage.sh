@@ -140,13 +140,41 @@ fi
 log "running complete instrumented Rust suite (runner: ${OH_COV_RUNNER:-cargo})"
 llvm_cov clean --workspace
 
+UNIT_PID=""
 if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
   # cargo-nextest runs every test in its own process, in parallel. Process
   # globals (the event bus, registries, env vars, one-shot OnceLocks) are then
   # per test, so the serial runner and the isolated reaper run below are not
   # needed: every test is isolated. Settings: .config/nextest.toml [profile.ci].
-  suite "openhuman lib+bins (nextest)" llvm_cov nextest --profile ci --no-report \
-    --no-fail-fast -p openhuman --lib --bins
+  #
+  # The core's unit tests compile the core as a test program; every other suite
+  # below compiles it as a library. Neither build needs the other, so the unit
+  # tests run in the background in a target dir of their own (one cargo per
+  # target dir; a shared one would serialize them on its lock) and write their
+  # own lcov file, beside this run's. Each invocation keeps exactly the package
+  # selection, and so the feature resolution, it has when run alone.
+  UNIT_TARGET_DIR="${CARGO_TARGET_DIR:-${PWD}/target}/cov-unit"
+  UNIT_OUT="${OUT%.info}-unit.info"
+  UNIT_LOG="${OUT%.info}-unit.log"
+  UNIT_STATUS="${OUT%.info}-unit.status"
+  rm -f "${UNIT_OUT}" "${UNIT_STATUS}"
+  (
+    export CARGO_TARGET_DIR="${UNIT_TARGET_DIR}"
+    rc=0
+    llvm_cov clean --workspace || rc=$?
+    if [ "${rc}" = 0 ]; then
+      llvm_cov nextest --profile ci --no-report --no-fail-fast -p openhuman --lib --bins || rc=$?
+    fi
+    case "${rc}" in 130 | 143) ;; *)
+      report_rc=0
+      llvm_cov report --lcov --output-path "${UNIT_OUT}" || report_rc=$?
+      [ "${rc}" != 0 ] || rc="${report_rc}"
+      ;;
+    esac
+    echo "${rc}" >"${UNIT_STATUS}"
+  ) >"${UNIT_LOG}" 2>&1 &
+  UNIT_PID=$!
+  log "core unit tests started in the background (pid ${UNIT_PID}, target ${UNIT_TARGET_DIR}, log ${UNIT_LOG})"
 else
   # Keep the aggregate unit-test process aligned with the canonical Rust runner.
   # The isolated reaper test installs one-shot process globals, so it cannot run
@@ -206,13 +234,29 @@ fi
 log "merging coverage into ${OUT}"
 suite "lcov report" llvm_cov report --lcov --output-path "${OUT}"
 
+presence_lcov="${OUT}"
+if [ -n "${UNIT_PID}" ]; then
+  log "waiting for the core unit tests (pid ${UNIT_PID})"
+  wait "${UNIT_PID}" || true
+  echo "::group::[ci][rust-cov] core unit tests (nextest, background)"
+  cat "${UNIT_LOG}"
+  echo "::endgroup::"
+  unit_rc="$(cat "${UNIT_STATUS}" 2>/dev/null || echo 1)"
+  suite "openhuman lib+bins (nextest)" test "${unit_rc}" = 0 || true
+  case "${unit_rc}" in 130 | 143) exit "${unit_rc}" ;; esac
+  # One file for the presence gate; diff-cover reads both lcov files itself.
+  presence_lcov="${OUT%.info}.presence"
+  cat "${OUT}" "${UNIT_OUT}" >"${presence_lcov}" 2>/dev/null || true
+fi
+
 # A full product build must produce records for every eligible source file,
 # except in the crates whose suites this run skipped (OH_COV_TUI=0).
 presence_skip=""
 [ "${OH_COV_TUI:-1}" = "1" ] || presence_skip="crates/openhuman-tui/src/"
 [ -z "${presence_skip}" ] || log "coverage presence: not checking ${presence_skip} (suite skipped)"
 suite "coverage presence" env COVERAGE_PRESENCE_SKIP_PREFIXES="${presence_skip}" \
-  bash scripts/ci/assert-coverage-presence.sh "${OUT}" --all
+  bash scripts/ci/assert-coverage-presence.sh "${presence_lcov}" --all
+[ "${presence_lcov}" = "${OUT}" ] || rm -f "${presence_lcov}"
 
 if [ "${#FAILED_SUITES[@]}" -gt 0 ]; then
   log "${#FAILED_SUITES[@]} suite(s) failed:"
