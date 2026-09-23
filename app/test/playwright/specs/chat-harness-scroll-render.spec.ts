@@ -21,7 +21,12 @@ const REPLY_MARKDOWN = [
   '',
   `Visit [the docs](${LINK_URL}) for more.`,
 ].join('\n');
-const FILLER_LINES = Array.from({ length: 30 }, (_, index) => `Filler line ${index + 1}.`);
+// 120, not 30. At 30 the transcript did not reliably exceed the viewport, so
+// the `scrollHeight > clientHeight` guard below was false and every assertion
+// inside it was skipped — the spec passed while measuring nothing. Proven by
+// tightening `toBeLessThan(40)` to an impossible bound and watching the spec
+// still pass.
+const FILLER_LINES = Array.from({ length: 120 }, (_, index) => `Filler line ${index + 1}.`);
 const STREAM_SCRIPT = [
   ...FILLER_LINES.map(line => ({ text: `${line}\n`, delayMs: 5 })),
   { text: '\n', delayMs: 5 },
@@ -138,27 +143,71 @@ test.describe('Chat Harness - Scroll Render', () => {
 
     const tags = await page.evaluate(() => {
       const column = document.querySelector(
-        'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
+        '[data-slot="aui_thread-viewport"]'
       ) as HTMLElement | null;
+      // Throw rather than defaulting to zeros. With `?? 0` a selector that
+      // matches nothing yields scrollHeight === clientHeight === 0, the
+      // `scrollHeight > clientHeight` guard below reads `0 > 0` and every
+      // assertion inside it is skipped — the spec passes while measuring
+      // nothing. That is exactly how this file was green against a selector
+      // (`div.flex-1.overflow-y-auto.bg-[#f6f6f6]`) that matched no element.
+      if (!column) throw new Error('transcript viewport [data-slot=aui_thread-viewport] not found');
       return {
-        scrollTop: column?.scrollTop ?? 0,
-        scrollHeight: column?.scrollHeight ?? 0,
-        clientHeight: column?.clientHeight ?? 0,
+        scrollTop: column.scrollTop,
+        scrollHeight: column.scrollHeight,
+        clientHeight: column.clientHeight,
       };
     });
 
     await expect(page.getByText(CANARY_BOLD)).toBeVisible();
     await expect(page.getByText(CANARY_CODE)).toBeVisible();
     await expect(page.getByText('the docs')).toBeVisible();
-    expect(tags.scrollHeight).toBeGreaterThanOrEqual(tags.clientHeight);
-    if (tags.scrollHeight > tags.clientHeight) {
-      const initialRemaining = tags.scrollHeight - (tags.scrollTop + tags.clientHeight);
-      expect(initialRemaining).toBeLessThan(40);
+    // Hard assertion, not a silent precondition. If the transcript does not
+    // overflow there is nothing to measure, and the spec must SAY so rather
+    // than skip its assertions behind a false `if` and report success.
+    expect(
+      tags.scrollHeight,
+      `transcript must overflow for this spec to measure anything: ${JSON.stringify(tags)}`
+    ).toBeGreaterThan(tags.clientHeight);
+    {
+      // Poll rather than assert the `tags` snapshot. That snapshot is taken at
+      // one instant and the follower scrolls in a ResizeObserver callback, so a
+      // one-shot read races the settle: measured 264px remaining on one run and
+      // under 40 on the next, from identical code. Polling asserts the property
+      // ("the transcript ends up at the bottom") instead of the timing.
+      await expect
+        .poll(
+          async () =>
+            page.evaluate(() => {
+              const column = document.querySelector(
+                '[data-slot="aui_thread-viewport"]'
+              ) as HTMLElement | null;
+              if (!column) throw new Error('transcript viewport not found');
+              return column.scrollHeight - column.scrollTop - column.clientHeight;
+            }),
+          {
+            timeout: 5_000,
+            message: 'the transcript must settle at the bottom once the reply has streamed',
+          }
+        )
+        .toBeLessThan(40);
 
-      const targetTop = Math.max(0, tags.scrollTop - Math.floor(tags.clientHeight / 2));
+      const settled = await page.evaluate(() => {
+        const column = document.querySelector(
+          '[data-slot="aui_thread-viewport"]'
+        ) as HTMLElement | null;
+        if (!column) throw new Error('transcript viewport not found');
+        return {
+          scrollTop: column.scrollTop,
+          scrollHeight: column.scrollHeight,
+          clientHeight: column.clientHeight,
+        };
+      });
+      const settledRemaining = settled.scrollHeight - settled.scrollTop - settled.clientHeight;
+      const targetTop = Math.max(0, settled.scrollTop - Math.floor(settled.clientHeight / 2));
       await page.evaluate(nextTop => {
         const column = document.querySelector(
-          'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
+          '[data-slot="aui_thread-viewport"]'
         ) as HTMLElement | null;
         column?.scrollTo({ top: nextTop, behavior: 'auto' });
       }, targetTop);
@@ -168,7 +217,7 @@ test.describe('Chat Harness - Scroll Render', () => {
           async () =>
             page.evaluate(expected => {
               const column = document.querySelector(
-                'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
+                '[data-slot="aui_thread-viewport"]'
               ) as HTMLElement | null;
               return Math.abs((column?.scrollTop ?? 0) - expected) < 40;
             }, targetTop),
@@ -178,7 +227,7 @@ test.describe('Chat Harness - Scroll Render', () => {
 
       const afterScrollUp = await page.evaluate(() => {
         const column = document.querySelector(
-          'div.flex-1.overflow-y-auto.bg-\\[\\#f6f6f6\\]'
+          '[data-slot="aui_thread-viewport"]'
         ) as HTMLElement | null;
         return {
           scrollTop: column?.scrollTop ?? 0,
@@ -191,7 +240,7 @@ test.describe('Chat Harness - Scroll Render', () => {
       expect(afterScrollUp.scrollTop).toBeLessThan(tags.scrollTop - 20);
       expect(
         afterScrollUp.scrollHeight - (afterScrollUp.scrollTop + afterScrollUp.clientHeight)
-      ).toBeGreaterThan(initialRemaining + 10);
+      ).toBeGreaterThan(settledRemaining + 10);
     }
   });
 });

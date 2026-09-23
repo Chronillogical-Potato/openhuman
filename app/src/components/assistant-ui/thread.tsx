@@ -327,6 +327,7 @@ const ThreadRoot: FC<{
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
 
+  useFollowBottom(viewportRef, messageGroupRef);
   useOpenThreadAtBottom(viewportRef);
 
   return (
@@ -472,6 +473,97 @@ function useOpenThreadAtBottom(viewportRef: RefObject<HTMLDivElement | null>) {
 }
 
 const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
+
+/**
+ * Keep the newest content in view while the assistant streams.
+ *
+ * `ThreadBottomFollower` below cannot do this. It keys on
+ * `latestMessage.id`/`.role`, and a streaming reply is ONE message whose id
+ * never changes (`STREAMING_TAIL_ID`, `providers/assistantUiMessages.ts`) and
+ * whose role is `assistant` — so it neither passes that hook's `role ===
+ * 'user'` guard nor re-runs as tokens land. assistant-ui's own `autoScroll` is
+ * off here deliberately: its stick threshold is ~1px against this host's 80,
+ * and its run-start jump is unconditional, so enabling it would put two
+ * followers with different ideas of "at the bottom" on one viewport.
+ *
+ * So follow the content box rather than the message list. A `ResizeObserver`
+ * fires on every height change from any cause — tokens, markdown reflow, a
+ * code block, a tool timeline expanding, an image decoding — none of which the
+ * message identity reports.
+ *
+ * The reader stays in charge: `followRef` tracks their live distance from the
+ * bottom, so scrolling up into history stops the following, and scrolling back
+ * within `FOLLOW_BOTTOM_THRESHOLD_PX` resumes it. That is the contract the
+ * viewport comment states — never yank a reader who deliberately left the
+ * bottom — and it is enforced here rather than assumed.
+ *
+ * ## Pin-then-follow, and what that costs
+ *
+ * `ThreadBottomFollower` aligns a new USER message to the TOP of the viewport
+ * so the reply streams beneath it. For a reply taller than the viewport that
+ * alignment and this following are mutually exclusive: keep the question
+ * pinned and the answer streams below the fold — the reported defect — or
+ * follow the answer and the question eventually scrolls off the top.
+ *
+ * The choice made here is **pin at turn start, follow thereafter**, with the
+ * reader overriding both by scrolling away. The pin is an alignment for the
+ * moment a turn begins, not a claim on the whole turn, and every mainstream
+ * chat client resolves it the same way. This is a visible change to how a long
+ * reply reads, so it is recorded rather than left to be rediscovered.
+ *
+ * What a reader gives up: on a reply taller than the viewport, their own
+ * question scrolls off the top as the answer streams. What they get back is
+ * the answer being on screen while it arrives, which is the defect this fixes.
+ */
+function useFollowBottom(
+  viewportRef: RefObject<HTMLDivElement | null>,
+  contentRef: RefObject<HTMLDivElement | null>
+) {
+  // Starts true so a thread opens following; the first user scroll away from
+  // the bottom is what turns it off.
+  const followRef = useRef(true);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content) return;
+
+    const distanceFromBottom = () =>
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+
+    const onScroll = () => {
+      followRef.current = distanceFromBottom() <= FOLLOW_BOTTOM_THRESHOLD_PX;
+    };
+    viewport.addEventListener('scroll', onScroll, { passive: true });
+
+    const observer = new ResizeObserver(() => {
+      // Read the flag; do NOT recompute the distance here. By the time this
+      // callback runs the content has already grown: `scrollHeight` is the new
+      // larger value while `scrollTop` has not moved, so a fresh measurement
+      // reads "far from the bottom" *because of the growth being reacted to*.
+      // Recomputing would decline to follow on the first token batch and never
+      // recover, which looks identical to the defect this hook fixes. The
+      // question is "was the reader at the bottom BEFORE this growth", and only
+      // a value captured before it can answer that.
+      //
+      // The flag is not stale: `scrollIntoView` and `scrollTo` fire `scroll`
+      // events too, so our own scrolls refresh it alongside the reader's. A
+      // height change is the one thing that must not refresh it.
+      if (!followRef.current) return;
+      // `instant` overrides the viewport's `scroll-smooth`: a smooth animation
+      // per token would lag permanently behind the stream.
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'instant' });
+    });
+    observer.observe(content);
+
+    return () => {
+      viewport.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  }, [contentRef, viewportRef]);
+
+  return followRef;
+}
 
 /**
  * Align a new turn only for a reader who remains near the bottom. assistant-ui's
