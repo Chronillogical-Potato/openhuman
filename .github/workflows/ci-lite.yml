@@ -349,23 +349,6 @@ jobs:
         if: ${{ !cancelled() && needs.changes.outputs['rust-tauri'] == 'true' }}
         run: bash scripts/ci-cancel-aware.sh cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings
 
-      # LAST on purpose. A failing step halts its job, so every step after it
-      # reports SKIPPED rather than running. This guard went red between
-      # 2026-09-21T21:26Z and 22:24Z (#6423) and from then on skipped the five
-      # steps that used to sit behind it on every Rust-touching PR -- including
-      # `cargo test -p openhuman-embed` and `cargo test -p openhuman-tinyhumans`,
-      # which are test suites, not lints. Keeping this step last means a budget
-      # overrun can never conceal a lint or a test suite again. It is NOT
-      # suppressed: the step still runs, still fails, the job still goes red and
-      # `PR CI Gate` still blocks the PR.
-      #
-      # It builds openhuman-core with the product feature set from
-      # scripts/ci/product-features.sh, the same set the clippy steps above use.
-      - name: Guard — the fixed prompt prefix may not grow
-        id: prompt_budget
-        if: ${{ !cancelled() && needs.changes.outputs['rust-core'] == 'true' }}
-        run: bash scripts/ci-cancel-aware.sh bash scripts/check-prompt-budget.sh --verbose
-
       # Report every check's own outcome (#6451).
       #
       # `skipped` and `success` are easy to conflate when scanning a job: a

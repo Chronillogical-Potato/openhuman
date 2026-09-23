@@ -343,9 +343,8 @@ impl SystemPromptBuilder {
     /// single `MEMORY.md` write invalidated all of them.
     ///
     /// It does not change the prompt's **size**: the same sections render the
-    /// same bytes, in a different order. `scripts/prompt-budget.limits` should
-    /// therefore not move when this lands, and if it does, something else
-    /// changed too.
+    /// same bytes, in a different order (`scripts/prompt-report.sh` shows the
+    /// per-agent totals).
     pub fn build_tiered(&self, ctx: &PromptContext<'_>) -> Result<TieredPrompt> {
         // Render each section once and bucket its parts by tier. A section
         // usually yields one part in its own tier; a dynamic builder that

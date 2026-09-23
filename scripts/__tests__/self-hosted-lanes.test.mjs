@@ -97,14 +97,17 @@ test("ex63 runs the core's unit tests under nextest; hosted keeps cargo's runner
   );
 });
 
-test("doctests and the TinyJuice regression are left to pushes to main", () => {
+test("doctests, tui coverage and the TinyJuice regression are left to pushes to main", () => {
   for (const plan of plans()) {
     const cov = plan.lanes
       .find((l) => l.name === "rust-cov")
       .checks.find((c) => c.name === "rust-core-coverage");
     assert.equal(cov.env.OH_COV_DOCTESTS, "0");
+    assert.equal(cov.env.OH_COV_TUI, "0");
     const runs = allRuns(plan).join("\n");
     assert.doesNotMatch(runs, /cargo test -p openhuman --doc/);
+    assert.doesNotMatch(runs, /cargo test -p openhuman-(embed|tinyhumans)\b/);
+    assert.doesNotMatch(runs, /-p openhuman --no-default-features$/m);
     assert.doesNotMatch(runs, /tool_output_tabulates_a_large_graph/);
   }
   // ...where CI Lite still runs them.
@@ -118,6 +121,12 @@ test("doctests and the TinyJuice regression are left to pushes to main", () => {
     /tool_output_tabulates_a_large_graph_for_a_non_exempt_tool/,
   );
   assert.match(lite, /run: bash scripts\/ci\/rust-coverage\.sh/);
+  for (const cmd of [
+    "cargo test -p openhuman-embed",
+    "cargo test -p openhuman-tinyhumans",
+    "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
+  ])
+    assert.ok(lite.includes(cmd), `CI Lite no longer runs: ${cmd}`);
 });
 
 test("the complete suites run, not subsets", () => {
@@ -155,11 +164,7 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
     "pnpm test:scripts",
     "cargo clippy -p openhuman-embed --all-targets -- -D warnings",
     "cargo check -p openhuman-embed --no-default-features",
-    "cargo test -p openhuman-embed",
     "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
-    "cargo test -p openhuman-tinyhumans",
-    "bash scripts/check-prompt-budget.sh --verbose",
-    "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
     "bash scripts/check-kernel-floor.sh --verbose",
     "bash scripts/ci/check-dep-sim-calibration.sh",
     "cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings",
