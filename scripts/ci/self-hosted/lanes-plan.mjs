@@ -39,9 +39,19 @@ export function areasFromEnv(env) {
 /** Hosted-runner job groups: lanes that share one GitHub-hosted job. */
 export const HOSTED_GROUPS = [
   // Quick checks and the frontend suite fit one 4-core runner side by side.
-  { group: "checks", lanes: ["static", "frontend", "frontend-tests"], maxParallel: 3, container: true },
+  {
+    group: "checks",
+    lanes: ["static", "frontend", "frontend-tests"],
+    maxParallel: 3,
+    container: true,
+  },
   // Lint and gates-off share one `target/` on a ~14 GB disk, so run in turn.
-  { group: "rust-lint", lanes: ["rust-lint", "rust-gates-off"], maxParallel: 1, container: true },
+  {
+    group: "rust-lint",
+    lanes: ["rust-lint", "rust-gates-off"],
+    maxParallel: 1,
+    container: true,
+  },
   { group: "rust-cov", lanes: ["rust-cov"], maxParallel: 1, container: true },
   { group: "tauri", lanes: ["tauri"], maxParallel: 1, container: true },
   // pwsh ships on the bare ubuntu-latest image, not in the CI container.
@@ -67,7 +77,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   const ex63 = profile === "ex63";
   const scratch = env.CI_SCRATCH_DIR;
   if (ex63 && !scratch) {
-    throw new Error("profile ex63 needs CI_SCRATCH_DIR (set by the microVM guest)");
+    throw new Error(
+      "profile ex63 needs CI_SCRATCH_DIR (set by the microVM guest)",
+    );
   }
   const rust = areas.rustCore || areas.rustTauri;
   const core = areas.rustCore;
@@ -117,13 +129,41 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       name: "static",
       checks: [
         { name: "rust-fmt", when: rust, run: "cargo fmt --all -- --check" },
-        { name: "rust-layout", when: core, run: "node scripts/ci/check-openhuman-rust-layout.mjs" },
-        { name: "agent-runtime-boundary", when: core, run: "pnpm agent:runtime-boundary" },
-        { name: "ignored-tests-ratchet", when: rust, run: "pnpm rust:ignored-tests" },
-        { name: "linux-tls-policy", when: rust, run: "bash scripts/check-linux-tls-dependencies.sh" },
-        { name: "gated-test-allowlist", when: rust, run: "bash scripts/ci/check-gated-test-allowlist.sh" },
-        { name: "orch-ip-gate", when: true, run: "bash scripts/ci/orch-ip-gate.sh" },
-        { name: "feature-forwarding", when: true, run: "node scripts/ci/check-feature-forwarding.mjs" },
+        {
+          name: "rust-layout",
+          when: core,
+          run: "node scripts/ci/check-openhuman-rust-layout.mjs",
+        },
+        {
+          name: "agent-runtime-boundary",
+          when: core,
+          run: "pnpm agent:runtime-boundary",
+        },
+        {
+          name: "ignored-tests-ratchet",
+          when: rust,
+          run: "pnpm rust:ignored-tests",
+        },
+        {
+          name: "linux-tls-policy",
+          when: rust,
+          run: "bash scripts/check-linux-tls-dependencies.sh",
+        },
+        {
+          name: "gated-test-allowlist",
+          when: rust,
+          run: "bash scripts/ci/check-gated-test-allowlist.sh",
+        },
+        {
+          name: "orch-ip-gate",
+          when: true,
+          run: "bash scripts/ci/orch-ip-gate.sh",
+        },
+        {
+          name: "feature-forwarding",
+          when: true,
+          run: "node scripts/ci/check-feature-forwarding.mjs",
+        },
         {
           name: "module-pins",
           when: true,
@@ -135,8 +175,16 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           needs: ["module-pins"],
           run: "node scripts/ci/check-submodule-monotonic.mjs",
         },
-        { name: "toolchain-image-drift", when: areas.toolchainImage, run: "node scripts/ci/check-toolchain-image.mjs" },
-        { name: "test-inventory", when: areas.inventory, run: "pnpm test:inventory" },
+        {
+          name: "toolchain-image-drift",
+          when: areas.toolchainImage,
+          run: "node scripts/ci/check-toolchain-image.mjs",
+        },
+        {
+          name: "test-inventory",
+          when: areas.inventory,
+          run: "pnpm test:inventory",
+        },
       ],
     },
     {
@@ -148,13 +196,42 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: areas.frontend || areas.i18n || areas.scripts,
           run: "pnpm install --frozen-lockfile",
         },
-        { name: "tsc", when: areas.frontend, needs: ["pnpm-install"], run: "pnpm --filter openhuman-app compile" },
-        { name: "prettier", when: areas.frontend, needs: ["pnpm-install"], run: "pnpm --filter openhuman-app format:check" },
-        { name: "eslint", when: areas.frontend, needs: ["pnpm-install"], run: "pnpm --filter openhuman-app lint" },
-        { name: "i18n", when: areas.i18n, needs: ["pnpm-install"], run: "pnpm i18n:check" },
-        { name: "docs-generator-tests", when: areas.docs, run: "pnpm docs:test" },
+        {
+          name: "tsc",
+          when: areas.frontend,
+          needs: ["pnpm-install"],
+          run: "pnpm --filter openhuman-app compile",
+        },
+        {
+          name: "prettier",
+          when: areas.frontend,
+          needs: ["pnpm-install"],
+          run: "pnpm --filter openhuman-app format:check",
+        },
+        {
+          name: "eslint",
+          when: areas.frontend,
+          needs: ["pnpm-install"],
+          run: "pnpm --filter openhuman-app lint",
+        },
+        {
+          name: "i18n",
+          when: areas.i18n,
+          needs: ["pnpm-install"],
+          run: "pnpm i18n:check",
+        },
+        {
+          name: "docs-generator-tests",
+          when: areas.docs,
+          run: "pnpm docs:test",
+        },
         { name: "docs-drift", when: areas.docs, run: "pnpm docs:check" },
-        { name: "scripts-self-tests", when: areas.scripts, needs: ["pnpm-install"], run: "pnpm test:scripts" },
+        {
+          name: "scripts-self-tests",
+          when: areas.scripts,
+          needs: ["pnpm-install"],
+          run: "pnpm test:scripts",
+        },
       ],
     },
     {
@@ -184,7 +261,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
         {
           name: "test-modules",
           when: core,
-          env: ex63 ? { TINYCONNECTORS_TARGET_DIR: `${scratch}/target/tinyconnectors`, ...rustEnv, ...sccache } : {},
+          env: ex63
+            ? {
+                TINYCONNECTORS_TARGET_DIR: `${scratch}/target/tinyconnectors`,
+                ...rustEnv,
+                ...sccache,
+              }
+            : {},
           run: `bash scripts/ci/self-hosted/install-test-modules.sh "${modulesDir}" ${modulesEnvFile}`,
         },
         {
@@ -203,17 +286,54 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       env: { ...rustEnv, ...sccache },
       checks: [
         // `--features` is load-bearing: `default` is the contributor set.
-        { name: "clippy-product", when: core, run: `cargo clippy -p openhuman --features ${PRODUCT} -- -D warnings` },
-        { name: "clippy-default", when: core, run: "cargo clippy -p openhuman -- -D warnings" },
-        { name: "embed-clippy", when: core, run: "cargo clippy -p openhuman-embed --all-targets -- -D warnings" },
-        { name: "embed-check-no-default", when: core, run: "cargo check -p openhuman-embed --no-default-features" },
-        { name: "embed-test", when: core, run: "cargo test -p openhuman-embed" },
-        { name: "tinyhumans-clippy", when: core, run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings" },
-        { name: "tinyhumans-test", when: core, run: "cargo test -p openhuman-tinyhumans" },
-        { name: "prompt-budget", when: core, run: "bash scripts/check-prompt-budget.sh --verbose" },
+        {
+          name: "clippy-product",
+          when: core,
+          run: `cargo clippy -p openhuman --features ${PRODUCT} -- -D warnings`,
+        },
+        {
+          name: "clippy-default",
+          when: core,
+          run: "cargo clippy -p openhuman -- -D warnings",
+        },
+        {
+          name: "embed-clippy",
+          when: core,
+          run: "cargo clippy -p openhuman-embed --all-targets -- -D warnings",
+        },
+        {
+          name: "embed-check-no-default",
+          when: core,
+          run: "cargo check -p openhuman-embed --no-default-features",
+        },
+        {
+          name: "embed-test",
+          when: core,
+          run: "cargo test -p openhuman-embed",
+        },
+        {
+          name: "tinyhumans-clippy",
+          when: core,
+          run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
+        },
+        {
+          name: "tinyhumans-test",
+          when: core,
+          run: "cargo test -p openhuman-tinyhumans",
+        },
+        {
+          name: "prompt-budget",
+          when: core,
+          run: "bash scripts/check-prompt-budget.sh --verbose",
+        },
         ...(ex63 ? [juiceRegression] : []),
         // Report-only in ci-lite (never in the gate), so report-only here.
-        { name: "rss-bench-fixture-tests", when: core, reportOnly: true, run: "cargo test --features rss-bench --bin rss-bench" },
+        {
+          name: "rss-bench-fixture-tests",
+          when: core,
+          reportOnly: true,
+          run: "cargo test --features rss-bench --bin rss-bench",
+        },
       ],
     },
     {
@@ -221,7 +341,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       targetDir: targetDir("gatesoff"),
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
-        { name: "check-gates-off", when: rust, run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features" },
+        {
+          name: "check-gates-off",
+          when: rust,
+          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
+        },
         {
           name: "check-e2e-test-support",
           when: rust,
@@ -249,8 +373,16 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support --lib --" +
             " test_support::introspect::",
         },
-        { name: "kernel-floor", when: rust, run: "bash scripts/check-kernel-floor.sh --verbose" },
-        { name: "dep-sim-calibration", when: rust, run: "bash scripts/ci/check-dep-sim-calibration.sh" },
+        {
+          name: "kernel-floor",
+          when: rust,
+          run: "bash scripts/check-kernel-floor.sh --verbose",
+        },
+        {
+          name: "dep-sim-calibration",
+          when: rust,
+          run: "bash scripts/ci/check-dep-sim-calibration.sh",
+        },
       ],
     },
     {
@@ -312,7 +444,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   }
 
   for (const lane of lanes) {
-    lane.checks = lane.checks.map((c) => ({ ...c, when: Boolean(c.when), needs: c.needs ?? [] }));
+    lane.checks = lane.checks.map((c) => ({
+      ...c,
+      when: Boolean(c.when),
+      needs: c.needs ?? [],
+    }));
     lane.active = lane.checks.some((c) => c.when);
   }
   return { profile, lanes };
@@ -334,12 +470,14 @@ export function selectLanes(plan, names) {
  */
 export function hostedMatrix(plan) {
   const active = new Set(plan.lanes.filter((l) => l.active).map((l) => l.name));
-  return HOSTED_GROUPS.filter((g) => g.lanes.some((l) => active.has(l))).map((g) => ({
-    group: g.group,
-    lanes: g.lanes.join(","),
-    "max-parallel": g.maxParallel,
-    container: g.container ? "ghcr.io/tinyhumansai/openhuman_ci:latest" : "",
-  }));
+  return HOSTED_GROUPS.filter((g) => g.lanes.some((l) => active.has(l))).map(
+    (g) => ({
+      group: g.group,
+      lanes: g.lanes.join(","),
+      "max-parallel": g.maxParallel,
+      container: g.container ? "ghcr.io/tinyhumansai/openhuman_ci:latest" : "",
+    }),
+  );
 }
 
 /**
@@ -356,7 +494,8 @@ export function validatePlan(plan) {
     for (const c of lane.checks) {
       for (const need of c.needs) {
         const id = need.includes(":") ? need : `${lane.name}:${need}`;
-        if (!ids.has(id)) problems.push(`${lane.name}:${c.name} needs unknown check ${id}`);
+        if (!ids.has(id))
+          problems.push(`${lane.name}:${c.name} needs unknown check ${id}`);
       }
     }
   }

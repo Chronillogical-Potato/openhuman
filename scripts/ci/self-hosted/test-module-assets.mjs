@@ -26,7 +26,9 @@ export function readRegistrySource(dir = REGISTRY_DIR) {
     .filter((f) => /^records_.*\.rs$/.test(f))
     .sort()
     .map((f) => readFileSync(join(dir, "registry", f), "utf8"));
-  return [readFileSync(join(dir, "registry.rs"), "utf8"), ...fragments].join("\n");
+  return [readFileSync(join(dir, "registry.rs"), "utf8"), ...fragments].join(
+    "\n",
+  );
 }
 
 /** `release_url` per record id, from the same source text. */
@@ -45,9 +47,11 @@ export function resolveTestModuleAssets(src, hostKey, ids = TEST_MODULE_IDS) {
   const releaseUrls = parseReleaseUrls(src);
   return ids.map((id) => {
     const record = byId.get(id);
-    if (!record) throw new Error(`registry has no ModuleRecord with id "${id}"`);
+    if (!record)
+      throw new Error(`registry has no ModuleRecord with id "${id}"`);
     const asset = record.assets.find((a) => a.hostKey === hostKey);
-    if (!asset) throw new Error(`${id} ${record.version} has no ${hostKey} asset`);
+    if (!asset)
+      throw new Error(`${id} ${record.version} has no ${hostKey} asset`);
     const release = releaseUrls.get(id);
     if (!release || !release.includes("/releases/tag/")) {
       throw new Error(`${id}: release_url missing or not a /releases/tag/ URL`);
