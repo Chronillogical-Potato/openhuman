@@ -53,6 +53,8 @@ fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, ro
         .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
         .collect();
     let meta = TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "orchestrator_thread".into(),
         agent_id: Some("orchestrator".into()),
         agent_type: Some("root".into()),
@@ -115,7 +117,10 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
     );
 
     // A host-authored turn checks out with no overrides and no user text.
-    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+    let CheckedOutSession {
+        mut agent,
+        fingerprint,
+    } = checkout_session_agent(
         &config,
         super::super::SYSTEM_CLIENT_ID,
         &thread_id,
@@ -123,10 +128,16 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .unwrap();
+    // Checkout binds the thread's durable session identity; the history loads
+    // when the session resumes, which every turn does for itself. The
+    // conversation the transcript holds must come back either way.
+    assert!(
+        agent.resume_bound_session().await.unwrap(),
+        "a thread with a transcript must resume"
+    );
     let history = prose(&agent.history());
     assert!(
         history
@@ -150,7 +161,6 @@ async fn checkout_cold_boots_from_the_thread_transcript_and_checkin_keeps_it_war
         None,
         None,
         CheckoutPolicy::Exact,
-        "so lets do 20-30 days then?",
     )
     .await
     .unwrap();
@@ -194,7 +204,6 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
         None,
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
@@ -213,7 +222,6 @@ async fn checkin_if_vacant_yields_to_a_turn_that_re_cached_meanwhile() {
         None,
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
@@ -243,7 +251,6 @@ async fn a_fork_never_takes_or_returns_the_cached_agent() {
         None,
         None,
         CheckoutPolicy::Fork,
-        "",
     )
     .await
     .unwrap();
@@ -281,7 +288,6 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
         None,
         None,
         CheckoutPolicy::AdoptCached,
-        "",
     )
     .await
     .unwrap();
@@ -298,10 +304,64 @@ async fn a_system_turn_adopts_the_cached_agent_and_its_fingerprint() {
         Some(0.2),
         None,
         CheckoutPolicy::Exact,
-        "",
     )
     .await
     .unwrap();
     assert_eq!(prose(&agent.history()), vec!["pinned-history", "ok"]);
+    evict(&thread_id).await;
+}
+
+/// The identity that fixes the reported bug: a thread resolves to one
+/// transcript, named without a timestamp, so two cold boots address the same
+/// file instead of accumulating one root per launch.
+#[tokio::test]
+async fn a_thread_binds_one_stable_session_across_cold_boots() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("stable");
+
+    let first = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+    )
+    .await
+    .unwrap();
+    // Nothing is checked back in, so the next checkout is a genuine cold boot.
+    let second = checkout_session_agent(
+        &config,
+        "client-1",
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::Exact,
+    )
+    .await
+    .unwrap();
+
+    let session_id = first
+        .agent
+        .session_id()
+        .expect("a chat thread is a session");
+    assert_eq!(
+        second.agent.session_id().as_deref(),
+        Some(session_id.as_str()),
+        "two cold boots of one thread must address the same session"
+    );
+    assert!(
+        session_id.starts_with(&thread_id),
+        "the session is named for its conversation, got {session_id}"
+    );
+    assert!(
+        !session_id
+            .split(['.', '_'])
+            .any(|part| part.len() >= 10 && part.chars().all(|c| c.is_ascii_digit())),
+        "a timestamp in the name is what made every launch a new transcript: {session_id}"
+    );
     evict(&thread_id).await;
 }

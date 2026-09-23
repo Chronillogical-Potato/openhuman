@@ -280,6 +280,8 @@ async fn committed_goal_accounting_uses_direct_and_completed_child_usage() {
 
 fn meta() -> TranscriptMeta {
     TranscriptMeta {
+        session_id: None,
+        parent_session_id: None,
         agent_name: "adapter-test".into(),
         agent_id: Some("adapter-test".into()),
         agent_type: Some("root".into()),
@@ -355,6 +357,7 @@ async fn runtime_adapter_passes_host_context_commits_before_finalize_and_emits_o
                 request_id: Some("request-1".into()),
                 thread_id: Some("thread-1".into()),
                 stream: false,
+                session: None,
                 resume: Default::default(),
                 cancellation: cancellation.clone(),
                 run_context: context
@@ -407,4 +410,39 @@ fn availability_notes_are_status_not_instructions() {
     assert!(integration_announcement_note(&[]).is_none());
     assert!(mcp_announcement_note(&[]).is_none());
     assert!(skill_announcement_note(&[]).is_none());
+}
+
+/// A sub-agent inherits its parent's thread id for correlation, but each spawn
+/// is genuinely its own transcript. It must therefore not claim the
+/// conversation's durable session identity, or two concurrent workers on one
+/// thread would write into the same file.
+#[test]
+fn a_subagent_thread_binding_claims_no_session_identity() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..crate::config::Config::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+
+    let mut root =
+        super::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+    root.set_thread_id(Some("thread-1"));
+    // The exact stem encoding (sanitisation, per-component digest, generation
+    // suffix) belongs to tinyagents and is pinned by its own tests. What
+    // OpenHuman owns, and what this asserts, is that a root chat session is
+    // addressed by its conversation at all.
+    let root_session = root.session_id().expect("a root chat session has an identity");
+    assert!(
+        root_session.starts_with("thread-1"),
+        "a root chat session is addressed by its conversation, got {root_session}"
+    );
+
+    let mut child =
+        super::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator").unwrap();
+    child.session_parent_prefix = Some("1713000000_orchestrator".into());
+    child.set_thread_id(Some("thread-1"));
+    assert_eq!(child.session_id(), None);
 }
