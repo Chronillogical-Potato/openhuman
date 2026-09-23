@@ -643,8 +643,14 @@ function formatToolDetail(
  * `delegate_summarize`, `delegate_router`) don't get fake-humanised
  * into bogus "integration" labels in the tool timeline.
  */
+// Composio's own slugs have NO separator inside a multi-word toolkit:
+// `GOOGLECALENDAR_EVENTS_LIST`, not `GOOGLE_CALENDAR_EVENTS_LIST`. Only the
+// underscored spellings were listed here, so `GMAIL_*` and `DISCORD_*`
+// resolved while every `GOOGLECALENDAR_*` action fell through to the raw
+// humanizer and rendered "GOOGLECALENDAR EVENTS LIST". Both spellings are
+// kept: the underscored ones are how `delegate_<toolkit>` names arrive.
 const KNOWN_TOOLKIT_RE =
-  /^(gmail|notion|github|slack|discord|linear|jira|google_calendar|google_drive|calendar)$/i;
+  /^(gmail|notion|github|slack|discord|linear|jira|google_calendar|googlecalendar|google_drive|googledrive|calendar)$/i;
 
 function inferIntegrationName(input?: string): string | undefined {
   if (!input) return undefined;
@@ -743,9 +749,11 @@ function normalizeIntegrationName(value: string): string {
     case 'gmail':
       return 'Gmail';
     case 'google_calendar':
+    case 'googlecalendar':
     case 'calendar':
       return 'Google Calendar';
     case 'google_drive':
+    case 'googledrive':
       return 'Google Drive';
     default:
       return humanizeIdentifier(value);
