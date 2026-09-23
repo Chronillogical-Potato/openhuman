@@ -183,6 +183,12 @@ impl ProgressReporter for TurnProgress {
                     elapsed_ms,
                     iteration,
                     failure: None,
+                    // The legacy reporter path has no live tool registry or
+                    // captured `ToolResult` to recompute a label or read
+                    // structured metadata from.
+                    display_label: None,
+                    display_detail: None,
+                    structured: None,
                 },
             );
         }
