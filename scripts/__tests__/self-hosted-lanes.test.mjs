@@ -18,6 +18,7 @@ import {
 } from "../ci/self-hosted/lanes-plan.mjs";
 import {
   PrioritySemaphore,
+  sccacheSummary,
   Runner,
   defaultHeavySlots,
   foldLine,
