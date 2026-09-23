@@ -362,7 +362,8 @@ describe('RecoveryPhrasePanel — generate mode will not save without the confir
   // reachable guard rather than pretending to exercise the other one.
   it('leaves Save disabled while the confirm checkbox is unticked', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByRole('checkbox'));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     expect(screen.getByRole('checkbox')).not.toBeChecked();
 
     expect(screen.getByText(/^Save/i).closest('button')!).toBeDisabled();
@@ -371,14 +372,16 @@ describe('RecoveryPhrasePanel — generate mode will not save without the confir
 
   it('enables Save the moment the confirmation is ticked', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByRole('checkbox'));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     fireEvent.click(screen.getByRole('checkbox'));
     expect(screen.getByText(/^Save/i).closest('button')!).not.toBeDisabled();
   });
 
   it('persists once the confirmation is ticked', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByRole('checkbox'));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByText(/^Save/i).closest('button')!);
 
