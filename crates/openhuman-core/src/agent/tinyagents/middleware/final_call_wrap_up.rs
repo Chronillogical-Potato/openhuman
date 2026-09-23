@@ -60,9 +60,33 @@ use super::message_trim::{estimate_message_tokens, estimate_text_tokens};
 /// request makes it structural instead: there is nothing to call. `tool_choice`
 /// is reset alongside them because a `Required` choice with an empty tool array
 /// is a provider 400.
+/// The tools left on the belt for the **penultimate** call of a capped turn
+/// (see [`FinalCallWrapUpMiddleware::reserve_final_write`]).
+///
+/// The membership rule is "can only emit, never gather". Both of these write a
+/// file the caller already knows the contents of, so neither can be spent
+/// discovering something the turn then has no room to report — which is what
+/// makes reserving the call for them a safe trade rather than a gamble.
+///
+/// `file_write` is the only create-capable file tool (it resolves through
+/// `validate_parent_path` rather than `validate_path`); `apply_patch` gained a
+/// create mode in #6548 and is the one an agent editing an existing artifact
+/// reaches for. `shell` is deliberately absent even though it can redirect into
+/// a file: it can equally run a crawler, so keeping it would leave the belt
+/// effectively unnarrowed.
+pub(crate) const DELIVERABLE_TOOLS: &[&str] = &["file_write", "apply_patch"];
+
+/// Whether a tool is one the penultimate call keeps.
+fn is_deliverable_tool(name: &str) -> bool {
+    DELIVERABLE_TOOLS.contains(&name)
+}
+
 pub(crate) struct FinalCallWrapUpMiddleware {
     /// The synthetic user turn appended on the final call.
     instruction: &'static str,
+    /// The synthetic user turn appended on the call before it, when the belt is
+    /// narrowed to [`DELIVERABLE_TOOLS`] instead of cleared.
+    final_write_instruction: &'static str,
     /// Every tool call's captured outcome, so the concluding call can be given
     /// back the results microcompact blanked (see `before_model`).
     outcomes: crate::agent::tinyagents::ToolOutcomeSink,
@@ -81,11 +105,13 @@ pub(crate) struct FinalCallWrapUpMiddleware {
 impl FinalCallWrapUpMiddleware {
     pub(crate) fn new(
         instruction: &'static str,
+        final_write_instruction: &'static str,
         outcomes: crate::agent::tinyagents::ToolOutcomeSink,
         input_budget: u64,
     ) -> Self {
         Self {
             instruction,
+            final_write_instruction,
             outcomes,
             input_budget,
             fired: Arc::new(std::sync::atomic::AtomicBool::new(false)),
