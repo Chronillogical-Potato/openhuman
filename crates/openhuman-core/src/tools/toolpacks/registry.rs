@@ -242,14 +242,19 @@ pub const PACKS: &[ToolPack] = &[
         // `apply_patch` is deliberately NOT here. Editing an existing file
         // through a shell heredoc is the failure mode the patch tool exists to
         // prevent, so it is not duplicate surface in the way a `cat` is.
-        tools: &[
-            "file_read",
-            "file_write",
-            "grep",
-            "glob",
-            "list",
-            "git_operations",
-        ],
+        //
+        // `file_write` left for the same reason, and a measured one. It is the
+        // only tool on any belt that can CREATE a file: `apply_patch` and `edit`
+        // both canonicalize an existing target, and `shell` means a heredoc.
+        // Packed, it was not one `use_skill` away either — every owner below is
+        // in the orchestrator's `[subagents]` allowlist, so
+        // `ops::closed_by_direct_handoff` DENIED the whole pack to the agent
+        // whose own `agent.toml` says "`file_write` creates new files". The
+        // life-scenario benchmark caught the result: four of six tasks produced
+        // no file at all, and `meal-plan` burned eleven rounds discovering it
+        // had no writer. One ~300 B schema per turn is the right price for the
+        // single most common assistant task.
+        tools: &["file_read", "grep", "glob", "list", "git_operations"],
         owners: &[
             "code_executor",
             "critic",

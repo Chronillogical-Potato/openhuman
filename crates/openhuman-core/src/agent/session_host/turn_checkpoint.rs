@@ -96,6 +96,41 @@ Then close with a brief **Still to do** line naming what remains, so the user ca
 Let the length follow the substance — neither a one-line status nor a raw dump of tool output. If the results support no \
 conclusion yet, say that plainly and name what is missing.";
 
+/// The penultimate call of a capped turn: the last call that may still *emit*
+/// a deliverable (issue #6548 follow-up).
+///
+/// [`MAX_ITER_CHECKPOINT_INSTRUCTION`] asks the final call to report what the
+/// turn produced, and [`FinalCallWrapUpMiddleware`](crate::agent::tinyagents::middleware::FinalCallWrapUpMiddleware)
+/// withdraws the whole tool belt so that request cannot be spent on another
+/// tool call. That is right for a turn whose product is *text*, and exactly
+/// wrong for one whose product is a **file**: the model holds the finished
+/// content in context and has, structurally, no way to put it anywhere. The
+/// `baggage-policy` life scenario failed precisely there — 27 tool calls of
+/// research, a correct summary in the reply, and the requested
+/// `out/delta_baggage_guide.md` never written, so it graded 0/1 with the reply
+/// itself saying "Still to do: write the guide".
+///
+/// So one call earlier the belt is narrowed to the tools that can only write
+/// (see `DELIVERABLE_TOOLS`) rather than cleared: a gathering tool here would
+/// just buy another round of findings the turn has no room to report, while a
+/// writer turns findings already in hand into the artifact that was asked for.
+///
+/// The trade is the same one the final call already makes, moved one step
+/// earlier and stated plainly: a capped turn spends its second-to-last round
+/// persisting rather than gathering. A turn with nothing to persist loses that
+/// round — which is the cost of making the artifact structural instead of
+/// merely requested.
+pub(crate) const FINAL_WRITE_INSTRUCTION: &str = "\
+This is the last call on which you can use a tool, and the only tools left are the ones that write files. \
+Gathering is over — anything you have not found by now will not be found in this turn.\n\
+\n\
+If this task asked you to produce a file and you have not written it yet, write it now, from what is already in the \
+results above. An incomplete file that marks its gaps honestly is worth far more than no file at all: write down what \
+you did establish, and say explicitly inside the file which parts you could not confirm.\n\
+\n\
+If there is nothing to write — the task asked only for an answer, or you have already written the file — then do not \
+call a tool. Answer instead, and you will be asked to conclude next.";
+
 /// One completed tool call, carrying enough of its **actual output** to stand
 /// in for an answer (issue #6014).
 ///
@@ -341,6 +376,7 @@ fn harness_instruction_needles(stop_reason: Option<&str>) -> Vec<String> {
     let mut sources = vec![
         FINAL_ANSWER_INSTRUCTION,
         MAX_ITER_CHECKPOINT_INSTRUCTION,
+        FINAL_WRITE_INSTRUCTION,
         STOP_NOTE_PREAMBLE,
     ];
     if let Some(reason) = stop_reason {

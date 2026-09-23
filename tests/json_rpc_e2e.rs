@@ -3,6 +3,9 @@
 //! Isolates config under a temp `HOME` so auth profiles and the OpenHuman provider resolve
 //! the same state directory. Run with: `cargo test --test json_rpc_e2e`
 
+#[path = "support/memory_module.rs"]
+mod memory_module;
+
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -12019,6 +12022,8 @@ async fn json_rpc_memory_sources_reconcile_reports_pending_raw_files() {
         EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", json_rpc_e2e_shared_workspace());
     let _action_guard = EnvVarGuard::set_to_path("OPENHUMAN_ACTION_DIR", home);
     let _backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    // reconcile reads the module's store; wait out the module's load first.
+    memory_module::settle().await;
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");

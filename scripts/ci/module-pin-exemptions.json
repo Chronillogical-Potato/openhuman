@@ -31,12 +31,6 @@
       "reason": "The host compiles the MCP contract against the current tinymcp main, which includes the v0.3.2 follow-up dependency and vendor-sync commits plus the reconnect-supervisor fix that parks a server whose credential was rejected instead of retrying it forever (tinymcp#20, openhuman#6412). The registry retains the published v0.3.2 artifact. This is compile-only: the tinymcp module is registry-entered but not wired (AGENTS.md, 'step two of the extraction'), so no build downloads or loads that artifact. Delete this entry when tinymcp cuts its next release and the registry pin moves onto it."
     },
     {
-      "id": "tinyjuice",
-      "submodule": "vendor/tinyjuice",
-      "expect": "v0.2.5-157-g36e9657a",
-      "reason": "The host compiles the compression contract against current tinyjuice main, which carries the web-extract and code-stub additions; the registry retains the published v0.2.5 artifact and its release digests (v0.2.5 is still tinyjuice's latest release). The drift is additive and wire-compatible: tinyjuice-bus CONTRACT_VERSION is unchanged at (1, 0) since v0.2.5, the new bus types only add variants and structs, no request type sets deny_unknown_fields, and the host's single use of the new surface (inference/tokenjuice/schemas.rs sends ReadIntent::Exact) is the serde default, so the v0.2.5 module sees the same request it saw before. Delete this entry when tinyjuice cuts the release containing this contract and the registry pin moves onto it."
-    },
-    {
       "id": "tinymemory",
       "submodule": "vendor/tinymemory",
       "expect": "v1.16.0-26-g46f92206",

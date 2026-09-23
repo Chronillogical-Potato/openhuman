@@ -125,6 +125,9 @@ async fn readonly_blocks_mutating_actions() {
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         autonomy: crate::config::AutonomyConfig {
+            // The tier only binds when the policy is on, and the shipped config
+            // default is off (`[autonomy] enabled = false`).
+            enabled: true,
             level: AutonomyLevel::ReadOnly,
             ..Default::default()
         },

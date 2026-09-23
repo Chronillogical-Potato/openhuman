@@ -165,6 +165,7 @@ pub(super) fn install_context_ladder(
     let wrap_up_mw = wrap_up_at_cap.then(|| {
         Arc::new(middleware::FinalCallWrapUpMiddleware::new(
             crate::agent::session_host::turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION,
+            crate::agent::session_host::turn_checkpoint::FINAL_WRITE_INSTRUCTION,
             tool_outcome_sink.clone(),
             // What is left after the contents list's share, so restoration
             // stops short of provoking an eviction (see the middleware).

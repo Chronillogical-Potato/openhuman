@@ -20,7 +20,8 @@ pub use tinyjuice_bus::types::{
     ContentKind,
 };
 pub use tinyjuice_bus::wire::{
-    CacheStats, CompactResponse, InstallRequest, RangeUnit, RetrieveRange,
+    CacheStats, CompactRequest, CompactResponse, GenerateRequest, InstallRequest, RangeUnit,
+    RetrieveRange,
 };
 
 #[cfg(test)]

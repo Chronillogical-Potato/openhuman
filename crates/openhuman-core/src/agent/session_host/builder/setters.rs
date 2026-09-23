@@ -37,6 +37,7 @@ impl SessionHostBuilder {
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
+            session_definition: None,
             session_parent_prefix: None,
             session_history_locator: None,
             omit_profile: None,
@@ -294,6 +295,52 @@ impl SessionHostBuilder {
         self
     }
 
+    /// Give this session its own agent definition, rather than a registry id
+    /// for it to be looked up by.
+    ///
+    /// Every session turn is a hosted root invocation: it resolves its agent
+    /// id against the host catalogue before composing a message, and refuses
+    /// the turn outright when the id is not there.
+    /// [`OpenHumanSessionHost::from_config_with_definition`] already stamps a
+    /// caller's definition on the session for that reason. A direct builder
+    /// caller had no equivalent, so the only catalogue it could be resolved
+    /// against was the process-wide registry, read once from
+    /// `<workspace>/agents/*.toml` at startup and never refreshed.
+    ///
+    /// That left a library host — one already supplying its own tools, tool
+    /// policy, memory, prompt and model through this same builder — writing
+    /// TOML into a directory so the runtime could read back what the host
+    /// already knew, and unable to add an agent or widen one's tools without
+    /// restarting the process.
+    ///
+    /// The definition outranks the registry for this session's own id (see
+    /// [`OpenHumanDefinitionRegistry::with_session_definition`]), so a host
+    /// that brings its own agents is not shadowed by a built-in that happens
+    /// to share an id.
+    ///
+    /// The session is stamped with the definition's own id, so
+    /// [`agent_definition_name`](Self::agent_definition_name) does not have to
+    /// be set alongside this. Setting it to something the definition
+    /// contradicts fails the build: the session is resolved by the name it is
+    /// stamped with, so a definition filed under a different id could never
+    /// answer for it, and every turn would be refused for want of one.
+    ///
+    /// Note that the resolved definition's tool list *is* the turn's
+    /// allow-list, intersected with the tools the session was built with, and
+    /// that the hosted allow-list is fail-closed: a definition declaring no
+    /// tools denies every call rather than allowing all of them. A caller
+    /// must name the belt it built the session with.
+    ///
+    /// [`OpenHumanSessionHost::from_config_with_definition`]: crate::agent::OpenHumanSessionHost::from_config_with_definition
+    /// [`OpenHumanDefinitionRegistry::with_session_definition`]: crate::agent::tinyagents::host::OpenHumanDefinitionRegistry::with_session_definition
+    pub fn agent_definition(
+        mut self,
+        definition: Arc<crate::agent::harness::definition::AgentDefinition>,
+    ) -> Self {
+        self.session_definition = Some(definition);
+        self
+    }
+
     /// Set the parent session-key chain for a sub-agent. Passing
     /// `Some("1713000000_orchestrator")` produces a sub-agent whose
     /// transcript filename is prefixed with the parent's session key,
@@ -341,12 +388,12 @@ impl SessionHostBuilder {
         self
     }
 
-    /// Wire an oversized-tool-result summarizer into the agent. The live
-    /// TinyAgents turn path passes it to `ToolOutputMiddleware`, which calls
-    /// [`crate::agent::tinyagents::payload_summarizer::PayloadSummarizer::maybe_summarize_in_parent`]
-    /// on successful tool output and replaces the raw payload with the
-    /// compressed summary on success. Currently set only for the orchestrator
-    /// session by [`OpenHumanSessionHost::build_session_agent_inner`].
+    /// Wire the model behind TinyJuice's oversized-tool-result summary into the
+    /// agent. `ToolOutputMiddleware` calls
+    /// [`crate::agent::tinyagents::payload_summarizer::PayloadSummarizer::prepare`]
+    /// for a large result and TinyJuice runs the call if it decides to
+    /// summarize. Currently set only for the orchestrator session by
+    /// [`OpenHumanSessionHost::build_session_agent_inner`].
     pub fn payload_summarizer(
         mut self,
         summarizer: Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,

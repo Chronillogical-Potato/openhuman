@@ -1,0 +1,15 @@
+# cargo-nextest settings. CI Fast's coverage lane runs the Rust suites with
+# `OH_COV_RUNNER=nextest` (scripts/ci/rust-coverage.sh): every test in its own
+# process, in parallel, which isolates the core's process globals (event bus,
+# registries, env vars, one-shot OnceLocks) without changing them.
+
+[profile.ci]
+# Report every failure, never stop at the first.
+fail-fast = false
+# Flag a slow test after 60 s; a hung one is killed after 10 minutes.
+slow-timeout = { period = "60s", terminate-after = 10 }
+# Print failures at the end, where the lane log's tail shows them.
+failure-output = "final"
+success-output = "never"
+status-level = "fail"
+final-status-level = "fail"

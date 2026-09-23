@@ -36,8 +36,13 @@ const DEFAULT_TEST_MOCK_API_PORT = 5005;
 
 function readMockApiPort() {
   const rawPort = process.env.VITEST_MOCK_API_PORT ?? process.env.MOCK_API_PORT;
-  const port = rawPort ? Number(rawPort) : DEFAULT_TEST_MOCK_API_PORT;
-  return Number.isInteger(port) && port > 0 ? port : DEFAULT_TEST_MOCK_API_PORT;
+  const base = rawPort ? Number(rawPort) : DEFAULT_TEST_MOCK_API_PORT;
+  const port = Number.isInteger(base) && base > 0 ? base : DEFAULT_TEST_MOCK_API_PORT;
+  // One port per vitest worker (VITEST_POOL_ID is 1..maxWorkers). Every test
+  // file starts its own server, so parallel workers sharing one preferred
+  // port sent all but one of them through the EADDRINUSE retry loop.
+  const poolId = Number(process.env.VITEST_POOL_ID);
+  return Number.isInteger(poolId) && poolId > 1 ? port + poolId - 1 : port;
 }
 
 const mockApiServer = await startMockServer(readMockApiPort(), { retryIfInUse: true });

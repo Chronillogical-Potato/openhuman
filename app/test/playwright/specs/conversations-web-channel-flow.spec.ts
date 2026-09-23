@@ -128,10 +128,13 @@ test.describe('Conversations web channel flow', () => {
     await createNewThread(page);
     await sendMessage(page, PROMPT);
 
-    await expect(page.locator('p').filter({ hasText: PROMPT }).first()).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(page.locator('p').filter({ hasText: REPLY }).first()).toBeVisible({
+    // assistant-ui renders user text in its message root rather than a
+    // paragraph. Keep this scoped to the user bubble so a matching string in
+    // a transcript/tool card cannot satisfy the assertion.
+    await expect(
+      page.locator('[data-slot="aui_user-message-root"]').filter({ hasText: PROMPT }).first()
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('agent-message').filter({ hasText: REPLY }).first()).toBeVisible({
       timeout: 30_000,
     });
 

@@ -223,6 +223,27 @@ pub(super) const WORKSPACE_INTERNAL_FILES: &[&str] = &[
 /// Security policy enforced on all tool executions
 #[derive(Debug, Clone)]
 pub struct SecurityPolicy {
+    /// Master switch for the autonomy policy. **Off by default** — these agents
+    /// run inside containers, platform jails and Docker sandboxes that already
+    /// provide the isolation this in-process policy was approximating, and an
+    /// agent whose shell refuses ordinary shell syntax is not a usable agent.
+    ///
+    /// When `false`, command classification, the approval gate, the command
+    /// allowlist, the hourly action budget, `workspace_only`, `forbidden_paths`
+    /// and the workspace-internal boundary are all skipped.
+    ///
+    /// [`Self::is_always_forbidden`] still applies either way: credential
+    /// stores (`~/.ssh`, `~/.gnupg`, `~/.aws`, …) and system roots stay
+    /// unreachable. That is a deliberate floor, not an oversight — it has never
+    /// blocked legitimate agent work, and removing it is a one-line change if
+    /// a host genuinely wants no path policy at all.
+    ///
+    /// Set `[autonomy] enabled = true` to restore the full policy.
+    ///
+    /// Note the asymmetry with [`Default`]: a policy built from config defaults
+    /// to disabled, a policy built with no config at all defaults to enabled.
+    /// See the comment on the `Default` impl below.
+    pub enabled: bool,
     pub autonomy: AutonomyLevel,
     /// Data-egress posture (Privacy Mode) — DISTINCT from `autonomy`, which
     /// governs act-power. `LocalOnly` blocks external model calls at the
@@ -303,6 +324,15 @@ pub struct SecurityPolicy {
 impl Default for SecurityPolicy {
     fn default() -> Self {
         Self {
+            // Deliberately the opposite of `AutonomyConfig::default()`, which is
+            // `false`. That one is the *shipped* default, chosen once, from
+            // config, at the single `from_config` chokepoint. This one is the
+            // fallback for a `SecurityPolicy` built without any config at all —
+            // bare `SecurityPolicy::default()` constructions in tests, examples
+            // and a handful of internal call sites — and there fail-closed is
+            // right: a policy nobody configured should not be a policy nobody
+            // enforces.
+            enabled: true,
             autonomy: AutonomyLevel::Supervised,
             privacy_mode: PrivacyMode::Standard,
             workspace_dir: PathBuf::from("."),

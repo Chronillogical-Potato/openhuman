@@ -454,3 +454,50 @@ fn a_named_scope_session_closes_the_pack_its_visible_list_never_mentions() {
          raw registry tool must close — even though `visible` never named it"
     );
 }
+
+/// `file_write` must survive on the orchestrator's belt.
+///
+/// It is the only create-capable file tool anywhere (`apply_patch` and `edit`
+/// both canonicalize an existing target; `shell` means a heredoc). While it was
+/// a member of the `files` pack, every one of that pack's owners —
+/// `code_executor`, `planner`, `critic`, … — was one synthesised delegate away
+/// on the orchestrator's belt, so `closed_by_direct_handoff` DENIED the pack
+/// and `use_skill { skill: "files" }` answered "has no tools available in this
+/// session". The agent's own `agent.toml` names `file_write` and says it
+/// "creates new files"; this pins that the pack table no longer contradicts it.
+#[test]
+fn the_orchestrators_only_file_creator_is_never_closed() {
+    use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
+
+    let delegates: Vec<Box<dyn tinytools::Tool>> = ["run_code", "plan", "review_code"]
+        .iter()
+        .zip(["code_executor", "planner", "critic"])
+        .map(|(name, target)| {
+            Box::new(ArchetypeDelegationTool {
+                tool_name: (*name).to_string(),
+                agent_id: DelegationTarget(target.to_string()),
+                tool_description: String::new(),
+            }) as Box<dyn tinytools::Tool>
+        })
+        .collect();
+    let raw = registry_with_all(&["file_write", "file_read"]);
+    let tools: Vec<&dyn tinytools::Tool> = raw
+        .iter()
+        .map(|t| t.as_ref())
+        .chain(delegates.iter().map(|t| t.as_ref()))
+        .collect();
+
+    let closed = closed_by_direct_handoff("orchestrator", &tools);
+    assert!(
+        !closed.contains(&"file_write"),
+        "`file_write` must stay reachable to the orchestrator: {closed:?}"
+    );
+    assert!(
+        closed.contains(&"file_read"),
+        "the rest of the `files` pack is still the specialists' belt: {closed:?}"
+    );
+    assert!(
+        registry::pack_for_tool("file_write").is_none(),
+        "`file_write` must belong to no pack — that is what keeps it open"
+    );
+}

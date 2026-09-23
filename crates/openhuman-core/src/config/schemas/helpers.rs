@@ -189,6 +189,12 @@ pub(super) struct ComposioTriggerSettingsUpdate {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct AutonomySettingsUpdate {
+    /// Master switch for the whole autonomy policy. Defaults to `false`
+    /// (`AutonomyConfig::enabled`): with it off, classification, the approval
+    /// gate, the allowlist, the action budget and containment are all inert,
+    /// and every other field in this patch has no effect until it is `true`.
+    /// `is_always_forbidden` applies either way.
+    pub(super) enabled: Option<bool>,
     /// `"readonly" | "supervised" | "full"` (case-insensitive).
     pub(super) level: Option<String>,
     pub(super) workspace_only: Option<bool>,
