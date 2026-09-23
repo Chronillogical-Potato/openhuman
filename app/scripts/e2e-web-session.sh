@@ -158,6 +158,34 @@ node "$REPO_ROOT/scripts/mock-api-server.mjs" --port "$E2E_MOCK_PORT" >"$OPENHUM
 MOCK_PID=$!
 wait_for_http "http://127.0.0.1:${E2E_MOCK_PORT}/__admin/health" "mock backend"
 
+# Refuse a bundle built for different ports (#6478).
+#
+# `VITE_BACKEND_URL` is substituted into the bundle at BUILD time and has no
+# runtime override in web mode, so a bundle built on one `E2E_MOCK_PORT` and
+# served against another sends the frontend's own API calls to a mock that is
+# not listening — while the core, reading `api_url` from the `config.toml`
+# generated below, reaches the right one. Some specs fail and others pass, with
+# nothing reporting why. Checked before anything is started so the failure is a
+# one-line message rather than a debugging session.
+BUILD_PORTS_FILE="$APP_DIR/dist-web/.e2e-build-ports.json"
+if [ ! -f "$BUILD_PORTS_FILE" ]; then
+  echo "ERROR: $APP_DIR/dist-web has no .e2e-build-ports.json, so the ports it was built for are unknown." >&2
+  echo "       It predates this check. Rebuild with: pnpm test:e2e:web:build" >&2
+  exit 1
+fi
+BUILT_MOCK_PORT="$(sed -n 's/.*"e2e_mock_port"[[:space:]]*:[[:space:]]*"\([0-9]*\)".*/\1/p' "$BUILD_PORTS_FILE")"
+if [ -z "$BUILT_MOCK_PORT" ]; then
+  echo "ERROR: could not read e2e_mock_port from $BUILD_PORTS_FILE. Rebuild with: pnpm test:e2e:web:build" >&2
+  exit 1
+fi
+if [ "$BUILT_MOCK_PORT" != "$E2E_MOCK_PORT" ]; then
+  echo "ERROR: dist-web was built for E2E_MOCK_PORT=$BUILT_MOCK_PORT but this session uses $E2E_MOCK_PORT." >&2
+  echo "       The backend URL is baked into the bundle and cannot be changed at run time," >&2
+  echo "       so the app would call a mock that is not listening while the core called the right one." >&2
+  echo "       Rebuild with the ports this session uses: E2E_MOCK_PORT=$E2E_MOCK_PORT pnpm test:e2e:web:build" >&2
+  exit 1
+fi
+
 export OPENHUMAN_CORE_BIN="$E2E_WEB_CORE_TARGET_DIR/debug/openhuman-core"
 if [ ! -x "$OPENHUMAN_CORE_BIN" ]; then
   echo "ERROR: standalone core binary is missing at $OPENHUMAN_CORE_BIN. Run pnpm test:e2e:web:build first." >&2
