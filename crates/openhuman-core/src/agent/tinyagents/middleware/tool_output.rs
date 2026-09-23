@@ -184,6 +184,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 reads.insert(call.id.clone(), read);
             }
         }
+        if is_raw_fetch(&call.name, &call.arguments) {
+            tracing::debug!(
+                tool = %call.name,
+                call_id = %call.id,
+                "[tinyagents::mw] raw fetch: exempting the result from the payload summarizer"
+            );
+            if let Ok(mut raw) = self.raw_fetches.lock() {
+                raw.insert(call.id.clone());
+            }
+        }
         Ok(())
     }
 
@@ -363,8 +373,17 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 });
             }
 
-            // 2. Semantic summarization, on whatever step 1 left behind.
-            if let Some(ps) = &self.payload_summarizer {
+            // 2. Semantic summarization, on whatever step 1 left behind —
+            //    unless the caller asked for the raw body, see `is_raw_fetch`.
+            if raw_fetch {
+                tracing::info!(
+                    tool = tool_name,
+                    bytes = content.len(),
+                    "[tinyagents::mw] raw fetch: skipping payload summarizer, \
+                     capping and spilling to an artifact instead"
+                );
+            }
+            if let Some(ps) = (!raw_fetch).then_some(self.payload_summarizer.as_ref()).flatten() {
                 match ps
                     .maybe_summarize_in_parent(ctx, tool_name, self.task_hint.as_deref(), &content)
                     .await
