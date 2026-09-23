@@ -114,9 +114,23 @@ Capability {
         name: "Suggested Questions",
         domain: "conversation",
         category: CapabilityCategory::Conversation,
-        description: "Offer prompt suggestions to help continue a conversation.",
-        how_to: "Home or Conversations > Suggested prompts",
-        status: CapabilityStatus::Beta,
+        // Not Beta: nothing produces these yet. Both chat surfaces that would
+        // show them — the welcome chips and the follow-up row — read
+        // `s.thread.suggestions`, which is only ever filled by the `suggestions`
+        // key on the assistant-ui ExternalStoreAdapter. `useOpenHumanExternalStore`
+        // does not declare it, and no other producer exists in `app/src` or in
+        // `crates/`, so the array is permanently empty and both surfaces render
+        // nothing. The previous entry advertised Beta and pointed at
+        // "Suggested prompts", sending users to look for a control that is not
+        // there (#6464). Move this back to Beta in the same change that lands a
+        // producer, not before.
+        description: "Offer prompt suggestions to help start or continue a conversation. \
+                      Not available yet: no part of OpenHuman produces suggestions, so \
+                      the chat surfaces that would display them stay empty.",
+        how_to: "Nothing to do yet — the starter prompts on a new chat are the first half \
+                 and land with the welcome-chips change; follow-up suggestions after a \
+                 reply need a producer that does not exist yet.",
+        status: CapabilityStatus::ComingSoon,
         privacy: None,
     },
 Capability {
