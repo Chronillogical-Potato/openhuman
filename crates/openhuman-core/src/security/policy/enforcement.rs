@@ -8,8 +8,13 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 
 impl SecurityPolicy {
-    /// Check if autonomy level permits any action at all
+    /// Check if autonomy level permits any action at all.
+    ///
+    /// Always `true` when the policy is disabled ([`SecurityPolicy::enabled`]).
     pub fn can_act(&self) -> bool {
+        if !self.enabled {
+            return true;
+        }
         self.autonomy != AutonomyLevel::ReadOnly
     }
 
@@ -78,11 +83,17 @@ impl SecurityPolicy {
     /// Returns `true` if the action is allowed, `false` if rate-limited.
     pub fn record_action(&self) -> bool {
         let count = self.tracker.record();
+        if !self.enabled {
+            return true;
+        }
         count <= self.max_actions_per_hour as usize
     }
 
     /// Check if the rate limit would be exceeded without recording.
     pub fn is_rate_limited(&self) -> bool {
+        if !self.enabled {
+            return false;
+        }
         self.tracker.count() >= self.max_actions_per_hour as usize
     }
 
@@ -100,6 +111,11 @@ impl SecurityPolicy {
             autonomy_config.max_actions_per_hour,
             autonomy_config.auto_approve_all
         );
+        if !autonomy_config.enabled {
+            log::info!(
+                "[openhuman:policy] autonomy policy DISABLED ([autonomy] enabled = false) —                  command classification, the approval gate, the command allowlist, the action                  budget and workspace containment are all inert. Credential stores and system                  roots (`is_always_forbidden`) remain blocked."
+            );
+        }
 
         // `auto_approve` is the user's "Always allow" allowlist: the
         // `ApprovalGate` reads it via `live_policy::current()` and skips the
@@ -159,6 +175,7 @@ impl SecurityPolicy {
         }
 
         Self {
+            enabled: autonomy_config.enabled,
             autonomy: autonomy_config.level,
             // Privacy mode is not carried on `AutonomyConfig` (it lives in the
             // separate `[privacy]` block), and `from_config` has ~40 call sites
