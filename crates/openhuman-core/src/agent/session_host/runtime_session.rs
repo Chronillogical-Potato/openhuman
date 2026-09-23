@@ -223,9 +223,14 @@ impl OpenHumanTurnPrelude {
     }
 
     async fn refresh_turn_boundary(&self, cold: bool) {
-        if cold {
-            self.refresh_cold_integrations().await;
-        } else {
+        // Fetch whenever the session has no integration view yet, warm turn or
+        // not. The builder only prewarms from the TTL-bound cache, so a session
+        // built after it expired starts uninitialized; a resumed (warm) turn
+        // used to read that same expired cache, get nothing, and run with zero
+        // integration actions — a cron job could not reach `GMAIL_SEND_EMAIL`.
+        // A no-op once initialized.
+        self.refresh_cold_integrations().await;
+        if !cold {
             self.refresh_dynamic_announcements().await;
         }
         // Integration changes are authority changes, not only display
