@@ -626,6 +626,10 @@ impl SpawnSubagentTool {
                                         iterations: outcome.iterations as u32,
                                         output_chars: outcome.output.chars().count(),
                                         output: outcome.output.clone(),
+                                        // BLOCKING spawn: this child's usage DID reach the parent's
+                                        // ledger, so `chat_done` already carries its tokens AND its
+                                        // cost. Populating here would double both. See the field's docs.
+                                        usage: None,
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,
@@ -700,6 +704,10 @@ impl SpawnSubagentTool {
                                         iterations: outcome.iterations as u32,
                                         output_chars: outcome.output.chars().count(),
                                         output: outcome.output.clone(),
+                                        // BLOCKING spawn: this child's usage DID reach the parent's
+                                        // ledger, so `chat_done` already carries its tokens AND its
+                                        // cost. Populating here would double both. See the field's docs.
+                                        usage: None,
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,

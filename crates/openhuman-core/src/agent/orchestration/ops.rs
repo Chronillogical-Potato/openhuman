@@ -511,6 +511,12 @@ impl AgentOrchestrationSession {
                                     iterations: outcome.iterations as u32,
                                     output_chars: outcome.output.chars().count(),
                                     output: outcome.output.clone(),
+                                    // Detached by construction: this spawn path
+                                    // builds a fresh `OpenHumanRunContext::new()`
+                                    // (see `spawn_agent`) and never sets
+                                    // `parent_subagent_usage`, so the child's
+                                    // spend is not in the parent turn's totals.
+                                    usage: Some(outcome.usage),
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
