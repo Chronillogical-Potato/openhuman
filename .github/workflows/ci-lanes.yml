@@ -57,6 +57,14 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
+          # Deliberate. This job only runs when ci-fast.yml's route job (run
+          # from main, never from the PR) found the PR author and pusher to be
+          # org members, and only on the `openhuman-ex63` runner group, which
+          # admits nothing but ci-fast.yml / ci-lanes.yml at refs/heads/main.
+          # The token is read-only, no secrets reach this job, and each job
+          # runs in a throwaway microVM whose supervisor re-checks membership.
+          # Without the opt-in, checkout@v7 refuses every fork PR here.
+          allow-unsafe-pr-checkout: true
 
       - name: Detect changed areas
         id: filter
