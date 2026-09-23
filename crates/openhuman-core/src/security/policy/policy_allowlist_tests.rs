@@ -167,7 +167,12 @@ fn allowed_commands_include_windows_read_equivalents() {
 
 #[test]
 fn config_default_policy_includes_windows_read_equivalents() {
-    let cfg = crate::config::AutonomyConfig::default();
+    // Explicitly enabled: the allowlist / risk gate this test is about only
+    // exists when the policy is on, and the shipped config default is off.
+    let cfg = crate::config::AutonomyConfig {
+        enabled: true,
+        ..crate::config::AutonomyConfig::default()
+    };
     let p = SecurityPolicy::from_config(&cfg, std::path::Path::new("."), std::path::Path::new("."));
     for command in [
         "dir",
@@ -186,7 +191,12 @@ fn config_default_policy_includes_windows_read_equivalents() {
 
 #[test]
 fn config_default_policy_allows_prompt_date_command() {
-    let cfg = crate::config::AutonomyConfig::default();
+    // Explicitly enabled: the allowlist / risk gate this test is about only
+    // exists when the policy is on, and the shipped config default is off.
+    let cfg = crate::config::AutonomyConfig {
+        enabled: true,
+        ..crate::config::AutonomyConfig::default()
+    };
     let p = SecurityPolicy::from_config(&cfg, std::path::Path::new("."), std::path::Path::new("."));
 
     assert!(
