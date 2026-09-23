@@ -223,9 +223,15 @@ impl OpenHumanTurnPrelude {
     }
 
     async fn refresh_turn_boundary(&self, cold: bool) {
-        if cold {
-            self.refresh_cold_integrations().await;
-        } else {
+        // Hydrate on the first turn of *this session instance*, not only on a
+        // brand-new thread. A resumed thread is never `cold`, and a session
+        // rebuilt after a restart (or any rebuild past the 60 s integrations
+        // cache TTL) is seeded from an empty cache — gating the fetch on
+        // `cold` left it with zero integrations, no deferred Composio
+        // actions, and no `tool_search` bridge for the whole thread.
+        // `refresh_cold_integrations` is a no-op once hydrated.
+        self.refresh_cold_integrations().await;
+        if !cold {
             self.refresh_dynamic_announcements().await;
         }
         // Integration changes are authority changes, not only display
@@ -419,7 +425,20 @@ impl OpenHumanTurnPrelude {
         let Some(config) = config else {
             return;
         };
-        let connected = crate::integrations::composio::fetch_connected_integrations(&config).await;
+        let Some(connected) = load_connected_integrations(&config).await else {
+            // Backend unreachable and nothing cached: stay un-hydrated so the
+            // next turn retries rather than pinning an empty surface.
+            log::warn!(
+                "[session] integrations unavailable and no cached snapshot; will retry next turn agent={}",
+                self.agent_definition_id
+            );
+            return;
+        };
+        log::info!(
+            "[session] hydrated connected integrations count={} agent={}",
+            connected.len(),
+            self.agent_definition_id
+        );
         let mcp_servers = crate::mcp::registry::connections::connected_overview()
             .await
             .into_iter()
@@ -442,8 +461,13 @@ impl OpenHumanTurnPrelude {
     async fn refresh_dynamic_announcements(&self) {
         let skills_changed = self.drain_host_events();
         if let Some(config) = self.runtime_config.as_deref() {
-            if let Some(current) = crate::integrations::composio::cached_active_integrations(config)
-            {
+            // An expired cache is refetched rather than skipped, so a
+            // long-lived session keeps tracking connects/revokes.
+            let current = match crate::integrations::composio::cached_active_integrations(config) {
+                Some(current) => Some(current),
+                None => load_connected_integrations(config).await,
+            };
+            if let Some(current) = current {
                 let mut mutable = self
                     .mutable
                     .lock()
@@ -1982,6 +2006,27 @@ impl OpenHumanSessionHost {
                 .session
                 .as_ref()
                 .and_then(|session| session.parent_session_id()),
+        }
+    }
+}
+
+/// Live connected integrations, falling back to the last cached snapshot
+/// (even past its TTL) when the backend is unreachable. `None` only when
+/// there is neither a live answer nor any snapshot to fall back to.
+async fn load_connected_integrations(
+    config: &crate::config::Config,
+) -> Option<Vec<crate::agent::prompts::ConnectedIntegration>> {
+    use crate::integrations::composio::FetchConnectedIntegrationsStatus;
+    match crate::integrations::composio::fetch_connected_integrations_status(config).await {
+        FetchConnectedIntegrationsStatus::Authoritative(connected) => Some(connected),
+        FetchConnectedIntegrationsStatus::Unavailable => {
+            let stale =
+                crate::integrations::composio::cached_active_integrations_including_expired(config);
+            log::warn!(
+                "[session] integrations fetch unavailable; using stale snapshot={}",
+                stale.as_ref().map_or(0, Vec::len)
+            );
+            stale
         }
     }
 }
