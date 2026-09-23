@@ -12,6 +12,7 @@ import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-s
 import { Image } from '@/components/assistant-ui/image';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
+import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
 import {
   Reasoning,
   ReasoningContent,
@@ -386,6 +387,18 @@ const ThreadRoot: FC<{
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
+
+      {/*
+       * Select text in any message and a floating "Quote" button appears over
+       * the selection; clicking it drops the excerpt into the composer.
+       *
+       * It lives OUTSIDE the viewport on purpose: it portals itself to the
+       * selection's screen position, so nesting it inside the scroller would
+       * only give it a clipped, scrolling ancestor for no benefit. It finds the
+       * message by the `data-message-id` that `MessagePrimitive.Root` already
+       * emits, so neither message component needed changing.
+       */}
+      <SelectionToolbar />
     </ThreadPrimitive.Root>
   );
 };
@@ -756,6 +769,8 @@ const Composer: FC<{
             // `border-ring` on drag is untouched — that state is meant to break
             // the pattern.
             className="border-content-faint/35 focus-within:border-content-faint/90 data-[dragging=true]:border-ring shadow-[0_8px_12px_-4px_rgb(0_0_0/0.09),0_30px_44px_-16px_rgb(0_0_0/0.12)] animate-composer-shadow motion-reduce:animate-none flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color] duration-200 ease-out motion-reduce:transition-none data-[dragging=true]:border-dashed data-[dragging=true]:bg-[color-mix(in_oklab,var(--color-accent)_50%,var(--color-background))]">
+            {/* Renders only while a quote is set; dismissing it clears the quote. */}
+            <ComposerQuotePreview />
             {HostComposerAttachments ? <HostComposerAttachments /> : <ComposerAttachments />}
             {/*
              * Lexical rather than the plain `ComposerPrimitive.Input` textarea,
