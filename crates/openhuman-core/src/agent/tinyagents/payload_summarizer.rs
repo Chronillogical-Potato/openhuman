@@ -78,9 +78,10 @@ pub(crate) fn unary_child_context(
 
 impl PayloadSummarizer for SubagentPayloadSummarizer {
     fn prepare(&self, parent_ctx: &RunContext<OpenHumanRunContext>) -> Result<PreparedGenerate> {
-        let parent = parent_ctx.data.parent.clone().ok_or_else(|| {
-            anyhow!("payload summarizer needs the turn's ParentExecutionContext")
-        })?;
+        let parent =
+            parent_ctx.data.parent.clone().ok_or_else(|| {
+                anyhow!("payload summarizer needs the turn's ParentExecutionContext")
+            })?;
         let definition = self.definition.clone();
         let thread_id = parent_ctx.data.thread_id.clone();
         let max_output_tokens = definition
@@ -125,7 +126,11 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                 let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
                 harness.with_policy(policy);
                 let provider_model = super::model::MaxTokensModel::new(
-                    source.build_summarizer(&model, definition.temperature, thread_id.as_deref())?,
+                    source.build_summarizer(
+                        &model,
+                        definition.temperature,
+                        thread_id.as_deref(),
+                    )?,
                     max_output_tokens,
                 );
                 harness
@@ -142,7 +147,10 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                     .invoke_in_context(
                         &(),
                         child_context,
-                        vec![Message::system(system_prompt), Message::user(request.prompt)],
+                        vec![
+                            Message::system(system_prompt),
+                            Message::user(request.prompt),
+                        ],
                     )
                     .await?;
                 Ok(run.text().unwrap_or_default())

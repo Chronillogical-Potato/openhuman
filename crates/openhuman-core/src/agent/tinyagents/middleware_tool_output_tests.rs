@@ -49,7 +49,9 @@ fn estimate_text_tokens_charges_each_image_marker_once() {
 #[tokio::test]
 async fn unavailable_summarization_is_disclosed_in_the_payload() {
     use crate::inference::tokenjuice::module_stub::FAILED_NOTICE;
-    let mw = summarizer_mw(StubSummarizer::replying(Err(anyhow::anyhow!("model offline"))));
+    let mw = summarizer_mw(StubSummarizer::replying(Err(anyhow::anyhow!(
+        "model offline"
+    ))));
     let mut ctx = ctx();
     let mut result = tool_result("test_tool", "RAW-TOOL-OUTPUT");
 

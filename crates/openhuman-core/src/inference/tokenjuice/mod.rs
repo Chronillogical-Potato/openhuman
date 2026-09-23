@@ -278,33 +278,31 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
         context_token,
         scope,
     };
-    let response: types::CompactResponse =
-        match proxy.call(methods::COMPACT_WITH, (request,)).await {
-            Ok(response) => response,
-            // A module released before contract 1.1 has no `CompactWith`.
-            // Fall back to the positional member it does have, without the
-            // focus or a summary.
-            Err(error) => {
-                log::debug!(
-                    "[tokenjuice] CompactWith failed, retrying as Compact tool={tool_name}: {error}"
-                );
-                match proxy
-                    .call(
-                        methods::COMPACT,
-                        (content.clone(), tool_name.to_string(), enabled, profile),
-                    )
-                    .await
-                {
-                    Ok(response) => response,
-                    Err(error) => {
-                        log::debug!(
-                            "[tokenjuice] module compaction failed, passing through: {error}"
-                        );
-                        return CompactedToolOutput::unchanged(content);
-                    }
+    let response: types::CompactResponse = match proxy.call(methods::COMPACT_WITH, (request,)).await
+    {
+        Ok(response) => response,
+        // A module released before contract 1.1 has no `CompactWith`.
+        // Fall back to the positional member it does have, without the
+        // focus or a summary.
+        Err(error) => {
+            log::debug!(
+                "[tokenjuice] CompactWith failed, retrying as Compact tool={tool_name}: {error}"
+            );
+            match proxy
+                .call(
+                    methods::COMPACT,
+                    (content.clone(), tool_name.to_string(), enabled, profile),
+                )
+                .await
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    log::debug!("[tokenjuice] module compaction failed, passing through: {error}");
+                    return CompactedToolOutput::unchanged(content);
                 }
             }
-        };
+        }
+    };
     record_savings(&response);
     compacted_from(response)
 }

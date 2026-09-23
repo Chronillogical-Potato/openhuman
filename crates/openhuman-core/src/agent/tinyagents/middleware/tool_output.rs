@@ -170,7 +170,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
     ) -> TaResult<()> {
         // Taken out before validation and before the tool runs: it is an
         // argument to the summary of the result, not to the tool.
-        if let Some(focus) = crate::inference::tokenjuice::focus::take_summary_focus(&mut call.arguments) {
+        if let Some(focus) =
+            crate::inference::tokenjuice::focus::take_summary_focus(&mut call.arguments)
+        {
             tracing::debug!(
                 tool = %call.name,
                 call_id = %call.id,

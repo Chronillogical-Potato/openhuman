@@ -65,13 +65,19 @@ async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
     .await;
 
     assert_eq!(output.summarized_from_bytes, Some(content.len()));
-    assert!(output.text.starts_with("the rate limit is 60 requests a minute"));
+    assert!(output
+        .text
+        .starts_with("the rate limit is 60 requests a minute"));
     assert!(
         output.text.contains(RETRIEVE_TOOL_NAME),
         "the original stays retrievable: {}",
         output.text
     );
-    let request = seen.lock().unwrap().clone().expect("the module called back");
+    let request = seen
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("the module called back");
     assert!(request.prompt.contains("Caller focus: the rate limits"));
     assert!(request.system.contains("caller focus"));
 }

@@ -270,13 +270,8 @@ async fn a_focus_belongs_to_its_own_call() {
     mw.before_tool(&mut ctx, &(), &mut call).await.unwrap();
 
     let mut result = tool_result("web_fetch", &"page ".repeat(200));
-    let (_, requests) = with_module(mw.after_tool(
-        &mut ctx,
-        &(),
-        &invocation("b", "web_fetch"),
-        &mut result,
-    ))
-    .await;
+    let (_, requests) =
+        with_module(mw.after_tool(&mut ctx, &(), &invocation("b", "web_fetch"), &mut result)).await;
     assert_eq!(requests[0].focus, None);
 }
 
