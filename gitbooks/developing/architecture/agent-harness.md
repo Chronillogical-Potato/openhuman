@@ -179,11 +179,11 @@ Freezing the prompt is only one third of the contract, and the other two are eas
 - **The tool block counts, and it comes _first_.** Every prefix cache in production renders the tool catalogue ahead of the conversation — a chat template has to put it somewhere the model reads before the first user turn. OpenAI's automatic cache, Anthropic's `cache_control` (tools → system → messages), DeepSeek's context cache and any vLLM/SGLang radix cache all work this way. So a `tools` array that changes between turns invalidates the frozen system prompt too, and the JSON key order of the request body (which puts `messages` before `tools`) says nothing about it. The mid-session Composio reconcile is still correct — a tool surface that lies about what the model can call is worse than a cold prefill — but it must fire only on a real capability change and be byte-stable otherwise. `connected_set_hash` sorts before hashing so a reordered backend response never reaches a rebuild, and `collect_orchestrator_tools` sorts the connected-toolkit enum for the same reason.
 - **History must be append-only.** Turn N's serialization has to survive verbatim as the opening of turn N+1. `pair_tool_cycles` drops half-finished tool cycles at serialization time, so its verdict for an entry must depend only on that entry and its immediate neighbour — never on anything appended later, or an earlier message's presence flips retroactively and the prefix moves under the cache. Context compaction is the one deliberate exception; it rewrites the middle and pays for a re-prefill.
 
-A resumed session's replayed prefix is folded into `Agent::history` rather than spliced into one request, so the request, the following turn and the persisted transcript all read the same sequence. Splicing it cost the conversation twice: the next turn went out without it, and the transcript written afterwards (serialized from `history`) held only the new turn — which the *next* resume then read back, truncating the thread a little further on every restart.
+A resumed session's replayed prefix is folded into `Agent::history` rather than spliced into one request, so the request, the following turn and the persisted transcript all read the same sequence. Splicing it cost the conversation twice: the next turn went out without it, and the transcript written afterwards (serialized from `history`) held only the new turn — which the _next_ resume then read back, truncating the thread a little further on every restart.
 
 #### A stable prefix only pays out when the wire says so
 
-Keeping the bytes stable is necessary, not sufficient: the provider still has to be *told* to cache, and two providers need telling explicitly.
+Keeping the bytes stable is necessary, not sufficient: the provider still has to be _told_ to cache, and two providers need telling explicitly.
 
 - **Anthropic caches nothing without `cache_control` markers, and its OpenAI-compatible endpoint cannot carry them** — Anthropic documents prompt caching as unsupported on that path and reports `prompt_tokens_details` as always empty. A `cloud_providers` entry with `auth_style = "anthropic"` is therefore built as the crate's native Messages adapter (`inference::provider::crate_anthropic`), which places markers on the last tool, the last system block, and the final message so a growing tool loop reuses the previous iteration's cache rather than only the system prompt. The one exception is text mode (`native_tools = false`, prompt-guided tools), which only the Chat Completions adapter implements and which keeps the compat client — and so keeps paying full price.
 - **OpenRouter forwards markers to Anthropic and Gemini** but adds none itself; hosted OpenAI rejects unknown content-part fields. The OpenRouter slug (and any endpoint on `openrouter.ai`) enables `OpenAiModel::with_explicit_cache_control`, which marks the last system and last user message; every other Chat Completions endpoint stays unmarked.
@@ -335,22 +335,22 @@ A single agent that knows everything also has a system prompt the size of a smal
 
 Each archetype lives under `agents/<name>/` with an `agent.toml` (metadata, tool scope, model hint) and a prompt:
 
-| Archetype            | When the orchestrator picks it                                                           |
-| -------------------- | ---------------------------------------------------------------------------------------- |
-| `orchestrator`       | The Master Agent: top-level, direct-capable default. Never spawned by another orchestrator. |
-| `planner`            | Multi-step decomposition - break a complex request into ordered sub-tasks.               |
-| `researcher`         | Web/doc lookups, citation hunting.                                                       |
-| `code_executor`      | Writing, running, and debugging code in the workspace.                                   |
-| `critic`             | Code review, quality checks on another agent's output.                                   |
-| `summarizer`         | Compressing oversized tool results (called by the harness, not usually the model).       |
-| `archivist`          | Memory distillation - what to persist, what to forget.                                   |
-| `tool_maker`         | Self-healing - writes polyfills for missing shell commands.                              |
-| `tools_agent`        | Generic specialist for arbitrary tool-bound tasks.                                       |
+| Archetype            | When the orchestrator picks it                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orchestrator`       | The Master Agent: top-level, direct-capable default. Never spawned by another orchestrator.                                                                                                              |
+| `planner`            | Multi-step decomposition - break a complex request into ordered sub-tasks.                                                                                                                               |
+| `researcher`         | Web/doc lookups, citation hunting.                                                                                                                                                                       |
+| `code_executor`      | Writing, running, and debugging code in the workspace.                                                                                                                                                   |
+| `critic`             | Code review, quality checks on another agent's output.                                                                                                                                                   |
+| `summarizer`         | Compressing oversized tool results (called by the harness, not usually the model).                                                                                                                       |
+| `archivist`          | Memory distillation - what to persist, what to forget.                                                                                                                                                   |
+| `tool_maker`         | Self-healing - writes polyfills for missing shell commands.                                                                                                                                              |
+| `tools_agent`        | Generic specialist for arbitrary tool-bound tasks.                                                                                                                                                       |
 | `integrations_agent` | Bound to a specific Composio toolkit (Gmail, GitHub, Slack…) for that toolkit's actions. Not reachable from chat: the orchestrator finds a connected action through `tool_search` and calls it directly. |
-| `trigger_triage`     | Classifies incoming external events into drop / notify / spawn-reactor / spawn-agent.    |
-| `trigger_reactor`    | Lightweight reaction to a triaged trigger that doesn't need a full orchestrator turn.    |
-| `morning_briefing`   | Curated daily digest run by cron.                                                        |
-| `welcome` / `help`   | Onboarding flows.                                                                        |
+| `trigger_triage`     | Classifies incoming external events into drop / notify / spawn-reactor / spawn-agent.                                                                                                                    |
+| `trigger_reactor`    | Lightweight reaction to a triaged trigger that doesn't need a full orchestrator turn.                                                                                                                    |
+| `morning_briefing`   | Curated daily digest run by cron.                                                                                                                                                                        |
+| `welcome` / `help`   | Onboarding flows.                                                                                                                                                                                        |
 
 Custom archetypes ship as TOML files under `$OPENHUMAN_WORKSPACE/agents/*.toml` (or `~/.openhuman/agents/*.toml` for user-global specialists). Custom definitions override built-ins on id collision.
 
@@ -540,25 +540,25 @@ None of these change the loop's shape - they just make the common failure modes 
 
 The harness shell lives under `crates/openhuman-core/src/agent/`, with the tinyagents adapter seam in `crates/openhuman-core/src/agent/tinyagents/` and archetype definitions in `crates/openhuman-core/src/agent/registry/`. The README in `crates/openhuman-core/src/agent/` enumerates the public surface; the most load-bearing files (paths relative to `crates/openhuman-core/src/agent/` unless prefixed) are:
 
-| File / dir                               | What lives there                                                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `session_host/turn/core.rs`           | `Agent::turn` - the lifecycle described above; routes into the tinyagents runner via `session/turn/graph.rs`. |
-| `../tinyagents/mod.rs`                   | `run_turn_via_tinyagents_shared` - the shared tinyagents harness assembly (the live loop).                    |
-| `../tinyagents/middleware.rs`            | The named OpenHuman middleware stack (approval/security, tool policy, recovery, budgets, circuit breaker).    |
-| `harness/graph.rs`                       | The channel/CLI bus turn route into the tinyagents runner.                                                    |
-| `subagent_host/`                         | Direct OpenHuman planner/executor/persistence adapters for `tinyagents-orchestration::subagent`; product prompt/tool/model/security/artifact/progress behavior remains here. |
-| `orchestration/subagent_sessions/`       | Durable reusable sub-agent identity, compatibility matching, persisted status/history.                        |
-| `harness/definition.rs`                  | `AgentDefinition` - what an archetype declares.                                                               |
-| `subagent_host/ops/runner.rs`            | Integration-tool ranking and the host execution leaf; generic lifecycle stays in `tinyagents-orchestration`.  |
-| `../tinyagents/payload_summarizer.rs`    | The model call behind TinyJuice's oversized-tool-result summary.                                              |
-| `session_host/tool_progress.rs`       | Surviving OpenHuman seam: `TurnProgress`.                                                                     |
-| `message_convert.rs`                     | Concrete durable/provider conversion around canonical tool-call dialect APIs.                                  |
-| `triage/`                                | External-trigger classification + escalation.                                                                 |
-| `registry/agents/`                       | Built-in archetypes - one subdirectory per agent.                                                             |
-| `hooks.rs` / `stop_hooks.rs`             | Post-turn and mid-turn hook surfaces.                                                                         |
-| `cost.rs`                                | Per-turn USD/token accounting.                                                                                |
-| `progress.rs`                            | Real-time progress events to the UI.                                                                          |
-| `harness/memory_context.rs`              | Memory-Tree context injection per user message.                                                               |
+| File / dir                            | What lives there                                                                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session_host/turn/core.rs`           | `Agent::turn` - the lifecycle described above; routes into the tinyagents runner via `session/turn/graph.rs`.                                                                |
+| `../tinyagents/mod.rs`                | `run_turn_via_tinyagents_shared` - the shared tinyagents harness assembly (the live loop).                                                                                   |
+| `../tinyagents/middleware.rs`         | The named OpenHuman middleware stack (approval/security, tool policy, recovery, budgets, circuit breaker).                                                                   |
+| `harness/graph.rs`                    | The channel/CLI bus turn route into the tinyagents runner.                                                                                                                   |
+| `subagent_host/`                      | Direct OpenHuman planner/executor/persistence adapters for `tinyagents-orchestration::subagent`; product prompt/tool/model/security/artifact/progress behavior remains here. |
+| `orchestration/subagent_sessions/`    | Durable reusable sub-agent identity, compatibility matching, persisted status/history.                                                                                       |
+| `harness/definition.rs`               | `AgentDefinition` - what an archetype declares.                                                                                                                              |
+| `subagent_host/ops/runner.rs`         | Integration-tool ranking and the host execution leaf; generic lifecycle stays in `tinyagents-orchestration`.                                                                 |
+| `../tinyagents/payload_summarizer.rs` | The model call behind TinyJuice's oversized-tool-result summary.                                                                                                             |
+| `session_host/tool_progress.rs`       | Surviving OpenHuman seam: `TurnProgress`.                                                                                                                                    |
+| `message_convert.rs`                  | Concrete durable/provider conversion around canonical tool-call dialect APIs.                                                                                                |
+| `triage/`                             | External-trigger classification + escalation.                                                                                                                                |
+| `registry/agents/`                    | Built-in archetypes - one subdirectory per agent.                                                                                                                            |
+| `hooks.rs` / `stop_hooks.rs`          | Post-turn and mid-turn hook surfaces.                                                                                                                                        |
+| `cost.rs`                             | Per-turn USD/token accounting.                                                                                                                                               |
+| `progress.rs`                         | Real-time progress events to the UI.                                                                                                                                         |
+| `harness/memory_context.rs`           | Memory-Tree context injection per user message.                                                                                                                              |
 
 ## Agent state graphs (`agent_graph`): HISTORICAL (removed)
 
@@ -618,13 +618,13 @@ session/turn host, while a sub-agent call enters `agent/subagent_host` and its
 direct `tinyagents-orchestration::subagent` lifecycle. There is no
 `harness/subagent_runner` compatibility path. The surrounding OpenHuman seam:
 
-| File (`crates/openhuman-core/src/agent/tinyagents/`)          | Role                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mod.rs`                                          | The runner (`run_turn_via_tinyagents_shared`): installs the native `ChatModel`, host tool adapters, and middleware on an `AgentHarness`; runs one turn; caps output through `MaxTokenModel`; mirrors progress; forwards steering; and pauses gracefully at the model-call cap. |
-| `mod.rs` / `model.rs` / `tools.rs` / `convert.rs` | `RunPolicy` / `ChatModel` / `Tool` / message adapters (incl. unknown-tool policy and out-of-band reasoning forwarding).                                                                                                                                                        |
-| `observability.rs`                                | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events.                                                                                                                                                                                            |
-| `orchestration.rs`                                | Re-exported `graph::orchestration` task-store types; map-reduce fanout now uses the TinyAgents SDK surface directly.                                                                                                                                                           |
-| `delegation.rs`                                   | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `orchestration::delegation`), checkpointed via TinyAgents 2.1's own `SqliteCheckpointer`. The earlier `SqlRunLedgerCheckpointer` adapter and its `checkpoint.rs` are retired.    |
+| File (`crates/openhuman-core/src/agent/tinyagents/`) | Role                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mod.rs`                                             | The runner (`run_turn_via_tinyagents_shared`): installs the native `ChatModel`, host tool adapters, and middleware on an `AgentHarness`; runs one turn; caps output through `MaxTokenModel`; mirrors progress; forwards steering; and pauses gracefully at the model-call cap. |
+| `mod.rs` / `model.rs` / `tools.rs` / `convert.rs`    | `RunPolicy` / `ChatModel` / `Tool` / message adapters (incl. unknown-tool policy and out-of-band reasoning forwarding).                                                                                                                                                        |
+| `observability.rs`                                   | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events.                                                                                                                                                                                            |
+| `orchestration.rs`                                   | Re-exported `graph::orchestration` task-store types; map-reduce fanout now uses the TinyAgents SDK surface directly.                                                                                                                                                           |
+| `delegation.rs`                                      | The durable `plan → execute ⇄ review → finalize` delegation graph (production worker wired in `orchestration::delegation`), checkpointed via TinyAgents 2.1's own `SqliteCheckpointer`. The earlier `SqlRunLedgerCheckpointer` adapter and its `checkpoint.rs` are retired.    |
 
 **Orchestration on graphs** (`crates/openhuman-core/src/agent/orchestration/`):
 
