@@ -132,6 +132,9 @@ fn tool_call_and_result_map_to_their_kinds() {
         elapsed_ms: 5,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     };
     match progress_to_event_kind(&completed) {
         Some(HarnessEventKind::ToolResult(tr)) => {
