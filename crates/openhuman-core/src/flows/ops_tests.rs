@@ -335,7 +335,7 @@ fn graph(value: Value) -> WorkflowGraph {
 
 fn seed_app_session_for_gate_test(tmp: &TempDir) {
     use crate::security::credentials::{
-        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+        APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
     };
     // `verify_session_active` reads from `config.config_path.parent()`, which
     // `test_config` sets to `tmp.path()` itself (distinct from
@@ -358,7 +358,7 @@ fn seed_app_session_for_gate_test(tmp: &TempDir) {
 // so none of this touches a live Composio backend.
 
 use crate::flows::tinyflows::caps::{
-    seed_live_catalog_cache, seed_probe_cache, ProbedOutputSample, ToolContract,
+    ProbedOutputSample, ToolContract, seed_live_catalog_cache, seed_probe_cache,
 };
 
 fn seeded_slack_send_contract() -> ToolContract {
@@ -697,6 +697,8 @@ use support_tests::*;
 mod agent_binding_tests;
 #[path = "ops_approval_manifest_and_catalog_tests.rs"]
 mod approval_manifest_and_catalog_tests;
+#[path = "ops_builder_repair_tests.rs"]
+mod builder_repair_tests;
 #[path = "ops_builder_trail_off_tests.rs"]
 mod builder_trail_off_tests;
 #[path = "ops_connection_ref_gate_tests.rs"]

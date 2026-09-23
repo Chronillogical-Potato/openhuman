@@ -494,7 +494,7 @@ pub(crate) fn start_builder_turn_clean(agent: &mut crate::agent::OpenHumanSessio
     });
 }
 
-fn is_backend_or_infrastructure_failure(error: &str) -> bool {
+pub(super) fn is_backend_or_infrastructure_failure(error: &str) -> bool {
     let error = error.to_ascii_lowercase();
     [
         "backend returned",
@@ -504,10 +504,8 @@ fn is_backend_or_infrastructure_failure(error: &str) -> bool {
         "gateway timeout",
         "connection refused",
         "connection reset",
-        "connection timed out",
-        "timed out",
-        "timeout",
-        "transport error",
+        "connection timed out while calling",
+        "transport error while calling",
         "bucket does not exist",
         "http 5",
         "status 5",
@@ -517,37 +515,10 @@ fn is_backend_or_infrastructure_failure(error: &str) -> bool {
     .any(|marker| error.contains(marker))
 }
 
-fn backend_repair_message(error: &str) -> Option<String> {
+pub(super) fn backend_repair_message(error: &str) -> Option<String> {
     is_backend_or_infrastructure_failure(error).then(|| {
         format!(
             "The workflow was not changed because this run failed in an external service.\n\n{error}"
         )
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{backend_repair_message, is_backend_or_infrastructure_failure};
-
-    #[test]
-    fn classifies_backend_failure_without_classifying_graph_errors() {
-        assert!(is_backend_or_infrastructure_failure(
-            "File upload failed: Backend returned 500 Internal Server Error"
-        ));
-        assert!(is_backend_or_infrastructure_failure(
-            "connection timed out while calling file storage"
-        ));
-        assert!(!is_backend_or_infrastructure_failure(
-            "required argument resolved null: nodes.get_link.item.json.url"
-        ));
-    }
-
-    #[test]
-    fn backend_repair_message_explains_why_the_graph_was_preserved() {
-        let message = backend_repair_message("HTTP 503 from file storage").unwrap();
-
-        assert!(message.contains("workflow was not changed"));
-        assert!(message.contains("HTTP 503 from file storage"));
-        assert!(backend_repair_message("required argument resolved null").is_none());
-    }
 }
