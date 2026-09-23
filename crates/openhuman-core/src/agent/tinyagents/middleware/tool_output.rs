@@ -213,6 +213,13 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // compacts it, and the byte budget persists it as a *new* artifact with
         // the same bounded preview — a loop that never reaches the data (#6284).
         // Serve it verbatim, one bounded page at a time.
+        // Consumed unconditionally so the entry cannot outlive its call, even on
+        // the artifact-read early return below.
+        let raw_fetch = self
+            .raw_fetches
+            .lock()
+            .ok()
+            .is_some_and(|mut raw| raw.remove(&call_id));
         let artifact_read = self
             .artifact_reads
             .lock()
