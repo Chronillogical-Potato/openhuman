@@ -69,7 +69,7 @@ pub(crate) const COMPACTION_EXEMPT_TOOLS: &[&str] = &[
 /// backstop keeps these calls from blowing the context budget.
 pub(crate) const SAMPLING_TOOLS: &[&str] = &["get_tool_output_sample", "get_tool_contract"];
 
-/// Steps 1 (payload summarizer) + 2 (tokenjuice compaction) exemption:
+/// Steps 1 (TinyJuice summary) + 2 (tokenjuice compaction) exemption:
 /// proposal tools (final-output contract, see [`COMPACTION_EXEMPT_TOOLS`])
 /// plus sampling tools (tabulation would corrupt the schema they exist to
 /// reveal, see [`SAMPLING_TOOLS`]).
@@ -264,14 +264,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             );
         }
 
-        // 1. Semantic summarization (progressive disclosure) — swap the raw
-        //    payload for a compressed summary when the summarizer opts in.
-        //    Failures never break the tool call, but they are no longer
-        //    silent: when summarization does not happen the model is told so
-        //    in the payload itself. This used to be
-        //    `if let Ok(Some(payload)) = …`, which discarded `Err(_)` and
-        //    `Ok(None)` identically — so a failed summarization reached the
-        //    model as an unannounced raw dump and it re-called the same tool.
+        // TinyJuice's "summarization unavailable" notice. A failed summary
+        // never breaks the tool call, but it is not silent either: the model
+        // is told in the payload itself, or it re-calls the same tool.
         // Held until after the caps below rather than prefixed here. The notice
         // is ~165 chars; a tool declaring a `max_result_size_chars` smaller than
         // that had step 3 run `chars().take(cap)` straight through it, cutting
