@@ -89,6 +89,9 @@ fn tool_io_is_captured_when_capture_content_is_on() {
             elapsed_ms: 4,
             iteration: 1,
             failure: None,
+            display_label: None,
+            display_detail: None,
+            structured: None,
         },
         4,
     );
