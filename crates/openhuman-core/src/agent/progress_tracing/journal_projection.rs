@@ -217,6 +217,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                         elapsed_ms: *latency_ms,
                         iteration: scope.iteration,
                         failure: None,
+                        display_label: Some("Searching tools".to_string()),
+                        display_detail: None,
+                        structured: None,
                     },
                 ],
                 None => vec![
@@ -238,6 +241,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                         elapsed_ms: *latency_ms,
                         iteration: state.iteration,
                         failure: None,
+                        display_label: Some("Searching tools".to_string()),
+                        display_detail: None,
+                        structured: None,
                     },
                 ],
             }
