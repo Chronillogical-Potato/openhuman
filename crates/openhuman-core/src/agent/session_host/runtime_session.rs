@@ -10,8 +10,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use tinyagents_runtime::{
     CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
-    SessionTurnRequest, ToolSnapshot, TranscriptCodec, TranscriptTarget, TurnOptions,
-    TurnPreparation,
+    SessionTurnRequest, ToolSnapshot, TranscriptTarget, TurnOptions, TurnPreparation,
 };
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
@@ -39,7 +38,7 @@ pub(super) struct OpenHumanSessionState {
     terminals: Vec<SessionTerminal>,
     pub(super) last_turn_hit_cap: bool,
     pub(super) last_turn_usage: Option<crate::agent::tinyagents::host::LastTurnUsage>,
-    context_middleware: Option<TurnContextMiddleware>,
+    pub(super) context_middleware: Option<TurnContextMiddleware>,
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
     pub(super) active_turn_overrides: super::types::TurnOverrides,
@@ -1435,11 +1434,19 @@ impl OpenHumanSessionHost {
                 context.autocompact_enabled(),
             )
         };
+        let artifact_store = super::artifact_wiring::build_artifact_store(
+            self.workspace_descriptor.as_ref(),
+            &self.action_dir,
+            &self.event_session_id,
+        );
+
         let context_mw = TurnContextMiddleware {
             tool_result_budget_bytes,
             payload_summarizer: self.payload_summarizer.clone(),
             task_hint: None,
-            artifact_store: None,
+            // Was `None` in both production constructors; `artifact_wiring`
+            // documents why its root is the correctness question (#6408, #6483).
+            artifact_store: Some(artifact_store),
             tokenjuice_compaction_enabled,
             tokenjuice_compression: self.tokenjuice_compression,
             runtime_config: self.runtime_config.clone(),
