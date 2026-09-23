@@ -50,6 +50,9 @@ async fn migrate_openclaw_dry_run_on_empty_source_returns_report() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn migrate_openclaw_apply_imports_markdown_entries_into_target_workspace() {
+    // Apply writes through the memory module: wait out its load first (see
+    // `migrate_hermes_apply_imports_markdown_entries`).
+    crate::memory::test_support::settle_memory_module().await;
     // Regression for #1440: prior to this PR the Apply path
     // (`dry_run = false`) bailed at `create_memory_for_migration`
     // because the unified namespace memory core hard-disabled it.

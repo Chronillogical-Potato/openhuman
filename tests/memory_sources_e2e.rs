@@ -6,6 +6,9 @@
 //!
 //! Run with: `cargo test --test memory_sources_e2e`
 
+#[path = "support/memory_module.rs"]
+mod memory_module;
+
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -113,6 +116,9 @@ embedding_strict = false
 async fn serve() -> (String, tokio::task::JoinHandle<Result<(), std::io::Error>>) {
     ensure_memory_seams();
     ensure_rpc_auth();
+    // Every flow here reaches the memory module; wait out its load so a test
+    // running in its own process does not race it (tests/support/memory_module.rs).
+    memory_module::settle().await;
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind");
