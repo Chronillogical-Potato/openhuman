@@ -81,8 +81,11 @@ jobs:
             exit 0
           fi
           out="$(mktemp)"
-          # Any routing error runs CI Lite: skipping is the only unsafe answer.
-          if GITHUB_OUTPUT="${out}" bash scripts/ci/ci-fast-route.sh && grep -q '^outsider=false$' "${out}"; then
+          # Skip only on ci-fast.yml's own decision. Its fallback (no CI Fast
+          # run within 3 minutes) or any error runs CI Lite: skipping is the
+          # only unsafe answer.
+          if GITHUB_OUTPUT="${out}" bash scripts/ci/ci-fast-route.sh &&
+            grep -q '^outsider=false$' "${out}" && grep -q '^source=ci-fast$' "${out}"; then
             echo "[ci][route] the EX63 runs this commit: CI Lite skips"
             echo "run=false" >> "$GITHUB_OUTPUT"
           else
@@ -1044,7 +1047,9 @@ jobs:
       - orch-ip-gate
       - feature-forwarding-gate
       - module-pin-gate
-    if: always()
+    # Skipped with the rest when the EX63 runs this commit, so a skipped CI
+    # Lite never reads as a pass (ci-gate.yml counts only a success).
+    if: always() && needs.route.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

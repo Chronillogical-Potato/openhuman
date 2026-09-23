@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Is this PR commit being run on the EX63 by CI Fast (ci-fast.yml)?
 #
-# Writes outsider=true|false to $GITHUB_OUTPUT: false when ci-fast.yml routed
+# Writes outsider=true|false and source=ci-fast|fallback to $GITHUB_OUTPUT: false when ci-fast.yml routed
 # the commit to the EX63 (an org member's PR), true otherwise. Used by
 # ci-fast-hosted.yml (run the hosted lanes for outsiders) and ci-lite.yml
 # (skip GitHub-hosted CI when the EX63 runs it). ci-gate.yml then requires
@@ -56,3 +56,6 @@ else
 fi
 echo "[ci][route] author=${AUTHOR} actor=${ACTOR} outsider=${outsider} (${reason})"
 echo "outsider=${outsider}" >> "$GITHUB_OUTPUT"
+# Whether ci-fast.yml's own run decided (ci-fast) or the association fallback
+# did (fallback). ci-lite.yml skips only on a ci-fast decision.
+case "${reason}" in fallback*) echo "source=fallback" ;; *) echo "source=ci-fast" ;; esac >> "$GITHUB_OUTPUT"
