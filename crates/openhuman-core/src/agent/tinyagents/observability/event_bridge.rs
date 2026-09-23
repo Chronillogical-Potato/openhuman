@@ -132,12 +132,17 @@ impl OpenhumanEventBridge {
             Arc::default(),
             Arc::default(),
             Arc::default(),
+            Vec::new(),
         )
     }
 
     /// Build a bridge, optionally child-scoped, sharing `cursor` (iteration
     /// attribution) and `tool_names` (tool-call name lookup for the streamed
-    /// argument fragments) with the model adapter.
+    /// argument fragments) with the model adapter. `tool_sets` is the turn's
+    /// registered tool sets (cheap `Arc` clones), used to resolve a live
+    /// `&dyn Tool` for `display_label`/`display_detail` — pass `Vec::new()`
+    /// when none are available (e.g. tests).
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn with_scope(
         on_progress: Option<Sender<AgentProgress>>,
         model: impl Into<String>,
@@ -148,6 +153,7 @@ impl OpenhumanEventBridge {
         tool_names: ToolNameMap,
         failure_map: ToolFailureMap,
         usage_carry: ProviderUsageCarry,
+        tool_sets: Vec<Arc<Vec<Box<dyn tinytools::Tool>>>>,
     ) -> Arc<Self> {
         Arc::new(Self {
             on_progress,
@@ -162,9 +168,50 @@ impl OpenhumanEventBridge {
             recorded_iterations: Mutex::new(std::collections::HashSet::new()),
             resolved_calls: Mutex::new(std::collections::HashMap::new()),
             tool_started_at: Mutex::new(std::collections::HashMap::new()),
+            tool_sets,
             state: Mutex::new(BridgeState::default()),
             overflow: Arc::default(),
         })
+    }
+
+    /// Resolve `tool_name` against the turn's registered tool sets and
+    /// compute the presentation pair from the tool's OWN
+    /// [`tinytools::Tool::display_label`] / [`tinytools::Tool::display_detail`]
+    /// using `args` (the real call arguments when known, `Null` at call-start
+    /// before they've arrived). Unknown tools (not found in any set — the
+    /// unknown-tool-call path never registers one) fall back to a humanized
+    /// name with no detail, matching the pre-existing behavior.
+    pub(super) fn resolve_display(
+        &self,
+        tool_name: &str,
+        args: &serde_json::Value,
+    ) -> (Option<String>, Option<String>) {
+        match self
+            .tool_sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .find(|t| t.name() == tool_name)
+        {
+            Some(tool) => {
+                let label = tool.display_label(args);
+                let detail = tool.display_detail(args);
+                tracing::trace!(
+                    tool_name,
+                    label = ?label,
+                    detail = ?detail,
+                    "[tool-presentation] resolved display label/detail from registered tool"
+                );
+                (label, detail)
+            }
+            None => {
+                tracing::debug!(
+                    tool_name,
+                    "[tool-presentation] tool not found in turn's registered sets — \
+                     falling back to humanized name"
+                );
+                (Some(humanize_tool_name(tool_name)), None)
+            }
+        }
     }
 
     /// Cumulative `(input_tokens, output_tokens, charged_usd)` observed so far.
