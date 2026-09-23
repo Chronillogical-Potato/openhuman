@@ -303,7 +303,9 @@ impl Tool for WebSearchTool {
                 "query": {
                     "type": "string",
                     "description": "The search query. Be specific for better results."
-                }
+                },
+                crate::inference::tokenjuice::focus::SUMMARY_FOCUS_ARG:
+                    crate::inference::tokenjuice::focus::summary_focus_property()
             },
             "required": ["query"]
         })
