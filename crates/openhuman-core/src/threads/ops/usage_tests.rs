@@ -32,6 +32,8 @@ fn meta(agent: &str, agent_type: &str, thread_id: Option<&str>) -> TranscriptMet
         charged_amount_usd: 0.0,
         thread_id: thread_id.map(str::to_owned),
         task_id: None,
+        session_id: None,
+        parent_session_id: None,
     }
 }
 
