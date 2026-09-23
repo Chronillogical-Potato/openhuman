@@ -44,6 +44,7 @@ import { fileURLToPath } from "node:url";
 
 import { SCENARIOS, scenarioById } from "./scenarios.mjs";
 import { startMockComposio } from "./mock-composio.mjs";
+import { startMockSearch, DEFAULT_INDEX_PATH } from "./mock-search.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -69,6 +70,8 @@ function parseArgs(argv) {
     managed: false,
     mockComposio: true,
     composioPort: 0,
+    mockSearch: true,
+    searchPort: 0,
     repeat: 1,
     turnTimeoutMs: 900_000,
     coreBin:
@@ -99,6 +102,7 @@ function parseArgs(argv) {
     else if (a === "--api-key") o.apiKey = next();
     else if (a === "--managed") o.managed = true;
     else if (a === "--no-mock-composio") o.mockComposio = false;
+    else if (a === "--no-mock-search") o.mockSearch = false;
     else if (a === "--no-approvals") o.approvals = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
@@ -211,7 +215,7 @@ function mintLocalSessionToken(userId) {
  * to have, and a benchmark that silently inherits those measures the machine
  * rather than the harness.
  */
-async function prepareHome(runDir) {
+async function prepareHome(runDir, { searchBase } = {}) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
@@ -219,7 +223,15 @@ async function prepareHome(runDir) {
 
   const config = [
     "schema_version = 13",
-    'api_url = "https://api.tinyhumans.ai"',
+    // The backend base every non-inference call resolves through
+    // (`api::config::effective_backend_api_url`). Pointed at the local mock so
+    // `web_search_tool` has something to talk to: it posts to
+    // `/agent-integrations/parallel/search` on this base, and against the
+    // hosted backend this run's offline token is rejected 401 every time.
+    // See also BACKEND_URL in `Core.start` — this file alone is not enough.
+    searchBase
+      ? `api_url = "${searchBase}"`
+      : 'api_url = "https://api.tinyhumans.ai"',
     "default_temperature = 0.7",
     "onboarding_completed = true",
     "chat_onboarding_completed = true",
@@ -299,7 +311,7 @@ class Core {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async start({ actionDir, logPath, home, composioBase, approvals }) {
+  async start({ actionDir, logPath, home, composioBase, searchBase, approvals }) {
     this.port = await freePort();
     const log = fs.createWriteStream(logPath, { flags: "a" });
 
@@ -326,6 +338,17 @@ class Core {
     };
     if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
     if (process.env.BACKEND_URL) env.BACKEND_URL = process.env.BACKEND_URL;
+    // The same backend base as `api_url` above, set again as an env var
+    // because the config file loses a race that is easy to miss:
+    // `auth.set_credential` activates a per-user config dir
+    // (`users/<id>/config.toml`) whose id the core derives at runtime, and a
+    // config there takes precedence over the root one. `prepareHome` cannot
+    // know that id, so it writes `users/local/`; the core activates
+    // `users/local-dragonfly/`, finds no `api_url` and falls back to the
+    // hosted backend. `api_base_from_env` reads BACKEND_URL ahead of the
+    // compile-time default whichever config wins, so this is the override
+    // that actually holds.
+    if (searchBase) env.BACKEND_URL = searchBase;
     if (composioBase) {
       // Both are read by `integrations/composio/client/factory.rs`; the match
       // arm is `(Some, Some)`, so setting only one silently falls through to
@@ -944,7 +967,19 @@ async function main() {
   console.log(`run dir : ${runDir}`);
   console.log(`driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`);
 
-  const home = await prepareHome(runDir);
+  let search = null;
+  if (opts.mockSearch) {
+    search = await startMockSearch({
+      indexPath: DEFAULT_INDEX_PATH,
+      requestsPath: path.join(runDir, "search-requests.json"),
+      port: opts.searchPort,
+    });
+    console.log(
+      `search  : mock at ${search.url} (${search.ctx.documents.length} documents)`,
+    );
+  }
+
+  const home = await prepareHome(runDir, { searchBase: search ? search.url : "" });
 
   let composio = null;
   if (opts.mockComposio) {
@@ -964,6 +999,7 @@ async function main() {
     logPath: path.join(runDir, "core.log"),
     home,
     composioBase: composio ? composio.url : "",
+    searchBase: search ? search.url : "",
     approvals: opts.approvals,
   });
   console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
@@ -1087,6 +1123,10 @@ async function main() {
       );
       await composio.close();
     }
+    // `close` flushes the search log itself, so the record survives a run that
+    // failed partway: it is the only evidence of what discovery returned, and
+    // a post-mortem needs it most on the runs that went wrong.
+    if (search) await search.close();
   }
 
   printReport(results);
