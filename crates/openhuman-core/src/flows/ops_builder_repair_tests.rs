@@ -55,12 +55,10 @@ async fn repair_backend_failure_returns_no_proposal_before_starting_the_builder(
 
     assert_eq!(outcome.value["proposal"], Value::Null);
     assert_eq!(outcome.value["error"], Value::Null);
-    assert!(
-        outcome.value["assistant_text"]
-            .as_str()
-            .expect("assistant text")
-            .contains("workflow was not changed")
-    );
+    assert!(outcome.value["assistant_text"]
+        .as_str()
+        .expect("assistant text")
+        .contains("workflow was not changed"));
 
     let request_id = format!("backend-repair-{}", uuid::Uuid::new_v4());
     let stream = FlowStreamTarget {
@@ -82,10 +80,9 @@ async fn repair_backend_failure_returns_no_proposal_before_starting_the_builder(
     };
     assert_eq!(done.event, "chat_done");
     assert_eq!(done.thread_id, "backend-repair-thread");
-    assert!(
-        done.full_response
-            .as_deref()
-            .expect("terminal response text")
-            .contains("workflow was not changed")
-    );
+    assert!(done
+        .full_response
+        .as_deref()
+        .expect("terminal response text")
+        .contains("workflow was not changed"));
 }
