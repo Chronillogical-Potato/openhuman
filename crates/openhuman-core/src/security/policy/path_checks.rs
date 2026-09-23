@@ -54,9 +54,20 @@ impl SecurityPolicy {
             return false;
         }
 
-        // Credential stores are never reachable, even via a trusted-root grant.
+        // Credential stores are never reachable, even via a trusted-root grant,
+        // and never via a disabled policy either — that floor is the one path
+        // rule `enabled = false` keeps.
         if Self::is_always_forbidden(expanded_path) {
             return false;
+        }
+
+        // With the policy disabled, containment (`workspace_only`,
+        // `forbidden_paths`, trusted roots, the workspace-internal boundary) is
+        // inert; the host's container/jail is what bounds the agent. The
+        // traversal and null-byte checks above are correctness, not policy, so
+        // they stay.
+        if !self.enabled {
+            return true;
         }
 
         // A trusted root grants access to its subtree, taking precedence over
@@ -517,6 +528,9 @@ impl SecurityPolicy {
         if Self::is_always_forbidden(resolved) {
             return false;
         }
+        if !self.enabled {
+            return true;
+        }
         let workspace_root = self.workspace_root_sync();
         resolved.starts_with(&workspace_root)
             || self.is_within_trusted_root(resolved, require_write)
@@ -536,6 +550,9 @@ impl SecurityPolicy {
                 "{POLICY_BLOCKED_MARKER} Resolved path is a protected credential store: {}",
                 resolved.display()
             ));
+        }
+        if !self.enabled {
+            return Ok(());
         }
         // Trusted roots may override user-configured forbidden paths, but never
         // the core-managed workspace-state boundary.
