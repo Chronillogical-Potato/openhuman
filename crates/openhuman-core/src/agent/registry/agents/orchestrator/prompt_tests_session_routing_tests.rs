@@ -58,9 +58,27 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
         "expected the generated heading, got: {:?}",
         block.chars().take(120).collect::<String>()
     );
+    // The row this pins is a `documents`-gated skill, so the assertion depends
+    // on a Cargo feature the test does not declare. Under `default` the skill
+    // is not compiled, the row cannot render, and the failure reads as a broken
+    // block — which is how openhuman#6507 came to be filed and retracted.
+    //
+    // Unlike the tool-universe guard in `fleet_prompt_tests`, this test depends
+    // on exactly ONE feature and can ask about it directly, so there is no
+    // tool-to-feature mapping here to drift out of date.
     assert!(
         block.contains("- skill `documents`: `make_presentation`"),
-        "a packed delegate must render with its route:\n{block}"
+        "a packed delegate must render with its route:{}\n{block}",
+        if cfg!(feature = "documents") {
+            String::new()
+        } else {
+            "\n\nNOTE — this may be a feature-profile artefact, not a rendering defect: \
+             the `documents` feature is NOT enabled in this build, so `make_presentation` \
+             does not exist and the row cannot render. Settle it by reproducing CI exactly:\
+             \n\n    cargo test -p openhuman --lib --features \"$(bash scripts/ci/product-features.sh)\"\
+             \n\nIf it passes there, this profile simply lacks the skill. See openhuman#6512."
+                .to_string()
+        }
     );
 }
 
