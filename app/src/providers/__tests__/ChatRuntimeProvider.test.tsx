@@ -1598,7 +1598,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(threadApi.appendMessage).not.toHaveBeenCalled();
     });
 
-    it('sets inference status to thinking on inference_start and clears it on chat_done', () => {
+    it('sets inference status to thinking on inference_start and clears it on chat_done', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1616,11 +1616,15 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           total_output_tokens: 0,
         });
       });
-      expect(store.getState().chatRuntime.inferenceStatusByThread['t-inv']).toBeUndefined();
+      // Cleared by `turnSettled`, once the reply is persisted — not before, so
+      // the status line does not vanish ahead of the reply that replaces it.
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.inferenceStatusByThread['t-inv']).toBeUndefined()
+      );
       expect(store.getState().chatRuntime.streamingAssistantByThread['t-inv']).toBeUndefined();
     });
 
-    it('terminates running tool-timeline rows on chat_done', () => {
+    it('terminates running tool-timeline rows on chat_done', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1649,9 +1653,17 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         });
       });
 
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.toolTimelineByThread['t-inv']?.[0]?.status).toBe(
+          'success'
+        )
+      );
       const timeline = store.getState().chatRuntime.toolTimelineByThread['t-inv'] ?? [];
       expect(timeline).toHaveLength(1);
-      expect(timeline[0]?.status).toBe('success');
+      // Frozen for the settled message too, so it keeps rendering these rows.
+      expect(
+        store.getState().chatRuntime.settledTurnsByThread['t-inv']?.['r1']?.timeline[0]?.status
+      ).toBe('success');
     });
 
     it('transitions running tool-timeline rows to error on chat_error', () => {
