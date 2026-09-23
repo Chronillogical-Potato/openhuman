@@ -12,7 +12,8 @@ import type {
   ToolFailureExplanation,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
-import { formatToolName } from '../../../utils/toolTimelineFormatting';
+import type { ToolLabelArtifact } from '../../../providers/assistantUiMessages';
+import { toolCallLabel } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { ToolFailureLines } from './ToolFailureLines';
 
@@ -78,25 +79,14 @@ function ToolDataView({ value }: { value: unknown }) {
   return <span className="whitespace-pre-wrap">{String(parsed ?? '')}</span>;
 }
 
-function inferredToolLabel(toolName: string, running: boolean, args: unknown, result: unknown) {
-  const lowerName = toolName.toLowerCase();
-  const parsedArgs = parsedValue(args);
-  const argKeys =
-    parsedArgs && typeof parsedArgs === 'object' && !Array.isArray(parsedArgs)
-      ? Object.keys(parsedArgs as object).map(key => key.toLowerCase())
-      : [];
-  const renderedResult = typeof result === 'string' ? result : JSON.stringify(result ?? '');
-  const looksLikeSearch =
-    lowerName.includes('search') ||
-    argKeys.some(key => ['query', 'q', 'search_query'].includes(key)) ||
-    /(?:^|\n)#?\s*search results\b/i.test(renderedResult);
-  const looksLikeFetch =
-    lowerName.includes('fetch') ||
-    argKeys.some(key => ['url', 'uri'].includes(key)) ||
-    /\bstatus=\d{3}\s+url=/i.test(renderedResult);
-  if (looksLikeSearch) return running ? 'Searching the web' : 'Searched the web';
-  if (looksLikeFetch) return running ? 'Fetching from the web' : 'Fetched from the web';
-  return formatToolName(toolName);
+function resultText(result: unknown): string | undefined {
+  if (result === undefined) return undefined;
+  if (typeof result === 'string') return result;
+  try {
+    return JSON.stringify(result);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -149,11 +139,16 @@ export function AssistantUiToolCallCard({
     (status ? status === 'running' || status === 'awaiting_user' : result === undefined);
   const input = hasDisplayValue(args) ? args : parsedValue(argsText ?? '');
   const output = result === '' && status && !running ? 'No output' : parsedValue(result);
+  // The row's own label when it has one; otherwise the shared formatter keyed
+  // on the tool's identity. Never a guess from the name's substrings or the
+  // argument keys — see `toolCallLabel`.
   const suppliedLabel = displayName?.trim();
-  const label =
+  const formatted =
     suppliedLabel && suppliedLabel.toLowerCase() !== 'tool'
-      ? suppliedLabel
-      : inferredToolLabel(toolName, running, args, result);
+      ? undefined
+      : toolCallLabel(toolName, argsText, resultText(result));
+  const label = suppliedLabel && !formatted ? suppliedLabel : (formatted?.title ?? toolName);
+  const shownDetail = detail ?? formatted?.detail;
   // `awaiting input` was previously reachable only via `status`, which the
   // adapter forwards for `error` / `cancelled` alone — so the label could never
   // render for the case it was written for. A parked call now says so.
@@ -187,9 +182,9 @@ export function AssistantUiToolCallCard({
       <CollapsibleTrigger className="group/tool text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors">
         <WrenchIcon className="size-4 shrink-0" />
         <span className="text-foreground text-start font-medium">{label}</span>
-        {detail ? (
+        {shownDetail ? (
           <span className="bg-muted min-w-0 truncate rounded px-1.5 py-0.5 font-mono text-[11px]">
-            {detail}
+            {shownDetail}
           </span>
         ) : null}
         <span className="flex shrink-0 items-center gap-1 text-[11px]">
@@ -265,6 +260,16 @@ function toolStatusEnvelope(
     : undefined;
 }
 
+/** The label `toolPart` put on the part's UI-only `artifact`, if any. */
+function toolLabelArtifact(artifact: unknown): ToolLabelArtifact {
+  if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) return {};
+  const { displayName, detail } = artifact as Record<string, unknown>;
+  return {
+    ...(typeof displayName === 'string' && displayName.trim() ? { displayName } : {}),
+    ...(typeof detail === 'string' && detail.trim() ? { detail } : {}),
+  };
+}
+
 /**
  * One tool call in the assistant-ui transcript.
  *
@@ -284,9 +289,12 @@ export const OpenHumanToolCall: FC<
   }
 > = props => {
   const envelope = toolStatusEnvelope(props.result);
+  const label = toolLabelArtifact(props.artifact);
   return (
     <AssistantUiToolCallCard
       toolName={props.toolName}
+      displayName={label.displayName}
+      detail={label.detail}
       args={props.args}
       argsText={props.argsText}
       result={envelope ? envelope.value : props.result}
