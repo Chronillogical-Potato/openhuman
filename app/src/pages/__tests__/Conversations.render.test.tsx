@@ -1589,6 +1589,36 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     }
   });
 
+  it('does not schedule a silence timer once the page has unmounted', async () => {
+    // The send path awaits `addMessageLocal` before arming, so an unmount that
+    // lands inside that await runs the cleanup — which finds nothing — and the
+    // continuation would then schedule a timer no cleanup can ever reach.
+    // Nothing can rearm it either, so it would survive to clear shared runtime
+    // state for a turn that may still be live.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+
+      // Tear down, then let hydration's own effects settle. Any arming that
+      // happens after this point is arming onto a dead instance.
+      await act(async () => {
+        cleanup();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
   it('does not fire an armed silence timer after the page unmounts', async () => {
     // The timer's callback outlives this component: it dispatches
     // `clearRuntimeForThread` / `clearThreadInferenceActive` into the shared

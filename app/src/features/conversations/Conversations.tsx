@@ -581,6 +581,9 @@ const Conversations = ({
   // timer keyed by thread id, so concurrent turns on different threads don't
   // share (and clobber) a single timeout.
   const sendingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Live for as long as this instance is: flipped in the unmount cleanup so an
+  // async continuation cannot schedule a watchdog onto a torn-down page.
+  const isMountedRef = useRef(true);
   // Ref so the mount-time dictation event handler can call the latest send fn.
   const handleSendMessageRef = useRef<((text?: string) => Promise<void>) | null>(null);
   // Refs the assistant-ui chat-surface registration binds through. Both target
@@ -842,6 +845,17 @@ const Conversations = ({
 
   const armSilenceTimer = (threadId: string) => {
     clearSilenceTimer(threadId);
+    // Never schedule onto a torn-down instance. `handleSendMessage` awaits
+    // `addMessageLocal` before arming, so an unmount landing inside that await
+    // runs the cleanup below — which finds nothing — and the continuation then
+    // schedules a timer no cleanup will ever reach. Nothing can rearm it
+    // either, so it survives to clear shared runtime state for a turn that may
+    // still be live. The send itself is unaffected; only the watchdog is
+    // skipped, which is correct: a page that is gone cannot supervise a turn.
+    if (!isMountedRef.current) {
+      debug(`armSilenceTimer: instance unmounted — not scheduling for ${threadId}`);
+      return;
+    }
     const timeout = setTimeout(() => {
       debug(`armSilenceTimer: no inference signal for 120s — clearing runtime (${threadId})`);
       setSendError(chatSendError('safety_timeout', t('chat.safetyTimeout')));
@@ -872,6 +886,7 @@ const Conversations = ({
   useEffect(() => {
     const timers = sendingTimeoutsRef.current;
     return () => {
+      isMountedRef.current = false;
       for (const timeout of timers.values()) clearTimeout(timeout);
       timers.clear();
     };
