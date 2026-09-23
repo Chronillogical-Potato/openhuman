@@ -681,6 +681,23 @@ export type AssistantUiProjection = {
   liveTranscript?: readonly ProcessingTranscriptItem[];
   turnTimelines?: Readonly<Record<string, readonly ToolTimelineEntry[]>>;
   turnTranscripts?: Readonly<Record<string, readonly ProcessingTranscriptItem[]>>;
+  /**
+   * Trails of turns that settled while this thread was open, frozen at
+   * settlement (`chatRuntime.settledTurnsByThread`). They win over the core
+   * projection for their request, so a turn keeps the exact parts it streamed
+   * with — see `ChatRuntimeState.settledTurnsByThread`.
+   */
+  settledTurns?: Readonly<
+    Record<
+      string,
+      {
+        timeline: readonly ToolTimelineEntry[];
+        transcript: readonly ProcessingTranscriptItem[];
+      }
+    >
+  >;
+  /** `request_id` of the turn the live tail stands for, when known. */
+  liveRequestId?: string;
 };
 
 /**
@@ -734,12 +751,34 @@ export function buildRuntimeMessages(
   const lastVisibleAgentId = [...coalescedMessages]
     .reverse()
     .find(message => message.sender === 'agent' && !message.extraMetadata?.hidden)?.id;
+  const tail =
+    projection.isRunning === false && !pendingApproval
+      ? null
+      : streamingTailMessage(
+          streaming,
+          projection.liveTimeline ?? EMPTY_TIMELINE,
+          projection.liveTranscript ?? EMPTY_TRANSCRIPT,
+          pendingApproval
+        );
+  // While the tail stands for the live turn, that turn's own persisted rows
+  // (the reply appended before `turnSettled`, or segments delivered mid-turn)
+  // are not rendered beside it. Rendering both put the reply at the tail's
+  // index and pushed the tail — with every tool card — one slot down, where
+  // assistant-ui (which keys messages by index) remounted it. `turnSettled`
+  // ends the tail and reveals the row in one store update, at the same index.
+  const hiddenLiveRequestId = tail ? projection.liveRequestId : undefined;
   for (const msg of coalescedMessages) {
     if (msg.extraMetadata?.hidden) continue;
     const requestId =
       msg.sender === 'agent' && typeof msg.extraMetadata?.requestId === 'string'
         ? msg.extraMetadata.requestId
         : undefined;
+    if (hiddenLiveRequestId !== undefined && requestId === hiddenLiveRequestId) continue;
+    const frozen = requestId ? projection.settledTurns?.[requestId] : undefined;
+    if (frozen) {
+      out.push(toThreadMessageLike(msg, frozen.timeline, frozen.transcript));
+      continue;
+    }
     const effectiveRequestId =
       requestId ??
       (msg.sender === 'agent' && pairOrphanTrails
@@ -776,15 +815,6 @@ export function buildRuntimeMessages(
       )
     );
   }
-  const tail =
-    projection.isRunning === false && !pendingApproval
-      ? null
-      : streamingTailMessage(
-          streaming,
-          projection.liveTimeline ?? EMPTY_TIMELINE,
-          projection.liveTranscript ?? EMPTY_TRANSCRIPT,
-          pendingApproval
-        );
   if (tail) out.push(tail);
   return out;
 }
