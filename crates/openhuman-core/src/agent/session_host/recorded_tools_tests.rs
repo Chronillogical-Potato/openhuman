@@ -59,7 +59,10 @@ fn unavailable_authorization_does_not_rebuild_recorded_actions() {
 #[test]
 fn non_integration_declarations_are_never_rehydrated() {
     let recorded = vec![spec("web_fetch"), spec("GMAIL_SEND_EMAIL")];
-    let integrations = vec![integration("web", true, Vec::new()), integration("gmail", true, Vec::new())];
+    let integrations = vec![
+        integration("web", true, Vec::new()),
+        integration("gmail", true, Vec::new()),
+    ];
 
     let rebuilt = rehydrate_integration_actions(&recorded, &[], &integrations, true);
     let names: Vec<&str> = rebuilt.iter().map(|tool| tool.name()).collect();
