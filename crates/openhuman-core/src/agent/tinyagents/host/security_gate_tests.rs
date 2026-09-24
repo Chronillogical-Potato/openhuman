@@ -336,6 +336,7 @@ async fn require_approval_never_silently_allows_a_plain_tool() {
     );
 }
 
+#[cfg(feature = "modules")]
 #[tokio::test]
 async fn desktop_default_skips_channel_and_external_approval_parks() {
     let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();

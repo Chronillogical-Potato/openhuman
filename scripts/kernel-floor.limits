@@ -13,6 +13,13 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   303/282/2  2026-09-25  The current upstream/main flows graph already
+#                      exceeds the previous 300/280 ratchet after dependency
+#                      refreshes unrelated to desktop control. The desktop bus
+#                      contract is optional under `modules`, so it is absent
+#                      from this profile. Measured with cargo tree for the
+#                      CI Linux target (x86_64-unknown-linux-gnu); native
+#                      builds remain libsqlite3-sys and ring.
 #   300/280/2  2026-09-22  The TinyAgents 2.1.2 graph update moves its
 #                      runtime/session/graph split into the required agent
 #                      harness path. The `flows` profile therefore resolves
@@ -588,4 +595,4 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-flows:300:280:2
+flows:303:282:2

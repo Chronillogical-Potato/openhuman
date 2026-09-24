@@ -23,6 +23,7 @@ fn approval_external_effect_resolution_walks_the_tool_sets() {
     assert!(!mw.has_external_effect("missing", &json!({})));
 }
 
+#[cfg(feature = "modules")]
 #[test]
 fn desktop_external_effect_keeps_metadata_but_skips_approval_when_disabled() {
     std::thread::Builder::new()
@@ -39,6 +40,7 @@ fn desktop_external_effect_keeps_metadata_but_skips_approval_when_disabled() {
         .unwrap();
 }
 
+#[cfg(feature = "modules")]
 async fn desktop_external_effect_inner() {
     let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();
     let previous = std::env::var_os("OPENHUMAN_WORKSPACE");

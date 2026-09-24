@@ -905,6 +905,7 @@ impl CoreRuntime {
         let listen_port = pick.port;
         let bind_addr = format!("{host}:{listen_port}");
         let listener = pick.listener;
+        #[cfg(feature = "modules")]
         crate::desktop::control::set_listener_is_loopback(
             listener
                 .local_addr()

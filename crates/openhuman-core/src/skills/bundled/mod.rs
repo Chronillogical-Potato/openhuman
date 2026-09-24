@@ -10,6 +10,7 @@ mod mod_tests;
 
 /// Skills compiled into this product build.
 pub const BUNDLED: &[BundledSkill] = &[
+    #[cfg(feature = "modules")]
     BundledSkill {
         dir_name: "desktop-control",
         files: &[BundledFile {

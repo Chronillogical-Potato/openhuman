@@ -77,6 +77,7 @@ impl ApprovalSecurityMiddleware {
     }
 
     pub(crate) async fn requires_approval(&self, name: &str, args: &serde_json::Value) -> bool {
+        #[cfg(feature = "modules")]
         let desktop_approval_disabled = match self
             .tool_sets
             .iter()
@@ -86,6 +87,8 @@ impl ApprovalSecurityMiddleware {
             Some(tool) => crate::desktop::control::approvals_disabled_for(tool.as_ref()).await,
             None => false,
         };
+        #[cfg(not(feature = "modules"))]
+        let desktop_approval_disabled = false;
         self.has_external_effect(name, args) && !desktop_approval_disabled
     }
 }

@@ -391,10 +391,13 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// is carried forward so a later prompting stage does not ask twice.
     async fn authorize_tool(&self, call: &ToolCallRequest) -> TaResult<GateDecision> {
         let policy = self.effective_policy();
+        #[cfg(feature = "modules")]
         let desktop_approval_disabled = match self.resolve_tool(&call.tool_name) {
             Some(tool) => crate::desktop::control::approvals_disabled_for(tool).await,
             None => false,
         };
+        #[cfg(not(feature = "modules"))]
+        let desktop_approval_disabled = false;
         tracing::debug!(
             target: "tinyagents",
             tool = %call.tool_name,

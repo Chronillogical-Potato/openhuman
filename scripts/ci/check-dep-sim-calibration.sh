@@ -55,6 +55,8 @@
 # 277 -> 280 on 2026-09-22: TinyAgents 2.1.2 moves its required
 # runtime/session/graph split into the harness path; it adds three
 # crate names and no native build dependency.
+# 280 -> 282 on 2026-09-25: reconcile this Linux baseline with the current
+# upstream graph; the optional desktop bus is absent from the flows profile.
 #
 # Called by ci-lite.yml's feature-gate smoke lane and by the lane runner, so the
 # expected count lives here once (plus scripts/kernel-floor.limits).
@@ -62,6 +64,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-EXPECTED_NAMES=280
+EXPECTED_NAMES=282
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

@@ -325,10 +325,13 @@ impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
         // Channel-permission ceiling first (session deny + per-call permission
         // level), mirroring the engine order in `agent_tool_exec`.
+        #[cfg(feature = "modules")]
         let desktop_approval_disabled = match self.resolve_tool(&call.name) {
             Some(tool) => crate::desktop::control::approvals_disabled_for(tool.as_ref()).await,
             None => false,
         };
+        #[cfg(not(feature = "modules"))]
+        let desktop_approval_disabled = false;
         if let Some(message) = self.channel_permission_block(&call, desktop_approval_disabled) {
             tracing::debug!(
                 tool = call.name.as_str(),

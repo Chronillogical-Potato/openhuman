@@ -559,12 +559,19 @@ pub fn all_tools_with_runtime(
         Box::new(CostDailyHistoryTool::new(config.clone())),
         Box::new(CostSummaryTool::new(config.clone())),
         Box::new(DashboardModelHealthTool::new(config.clone())),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Apps)),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Windows)),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Launch)),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Snapshot)),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Find)),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Goal)),
+        #[cfg(feature = "modules")]
         Box::new(DesktopTool::new(
             config.clone(),
             DesktopToolKind::ContinueGoal,

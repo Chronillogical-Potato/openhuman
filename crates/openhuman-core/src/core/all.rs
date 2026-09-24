@@ -1132,6 +1132,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
 /// (e.g. the desktop shell) that should not appear in agent tool listings.
 fn build_internal_only_controllers() -> Vec<GroupedController> {
     let mut controllers = Vec::new();
+    #[cfg(feature = "modules")]
     push(
         &mut controllers,
         DomainGroup::Desktop,
