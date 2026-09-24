@@ -62,7 +62,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     async fn execute(
         &self,
         _state: &(),
-        _call_id: tinyagents_harness::CallId,
+        call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         _options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
@@ -73,6 +73,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             parent.workspace.clone(),
             parent.data.child(),
             Some(parent),
+            Some(call_id.as_str().to_string()),
         )
         .await
     }
