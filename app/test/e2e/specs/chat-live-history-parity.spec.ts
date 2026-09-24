@@ -81,8 +81,8 @@ interface Block {
 }
 
 /**
- * The last assistant message's top-level blocks, in document order: tool
- * cards, delegation cards, reasoning disclosures and markdown text. Nested
+ * The last assistant message's top-level blocks, in document order: activity
+ * groups, tool cards, delegation cards, reasoning disclosures and markdown text. Nested
  * blocks (markdown inside a reasoning block) belong to their parent.
  */
 async function replyBlocks(): Promise<Block[]> {

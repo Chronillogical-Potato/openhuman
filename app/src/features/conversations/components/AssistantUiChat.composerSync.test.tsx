@@ -19,7 +19,7 @@ import {
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import { act, render, waitFor } from '@testing-library/react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useLayoutEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -41,14 +41,18 @@ function Harness({ handles }: { handles: Partial<Handles> }) {
   const [value, setValue] = useState('');
   const aui = useAui();
   const composerText = useAuiState(s => s.composer.text);
-  handles.hostSet = setValue;
-  handles.hostValue = () => value;
-  handles.composerText = () => composerText;
-  handles.type = text => {
-    for (let n = 1; n <= text.length; n += 1) {
-      flushSync(() => aui.composer.setText(text.slice(0, n)));
-    }
-  };
+  useLayoutEffect(() => {
+    Object.assign(handles, {
+      hostSet: setValue,
+      hostValue: () => value,
+      composerText: () => composerText,
+      type: (text: string) => {
+        for (let n = 1; n <= text.length; n += 1) {
+          flushSync(() => aui.composer.setText(text.slice(0, n)));
+        }
+      },
+    });
+  });
   return <ComposerTextBridge value={value} onChange={setValue} />;
 }
 
