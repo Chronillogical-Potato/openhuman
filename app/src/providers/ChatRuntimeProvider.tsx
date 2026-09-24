@@ -82,6 +82,7 @@ import { setThreadTodos } from '../store/threadTodosSlice';
 import {
   addInferenceResponse,
   addMessageLocal,
+  CHAT_ERROR_METADATA_KEY,
   clearThreadInferenceActive,
   createNewThread,
   generateThreadTitleIfNeeded,

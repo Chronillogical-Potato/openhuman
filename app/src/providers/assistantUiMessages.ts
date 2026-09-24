@@ -516,7 +516,7 @@ function assistantParts(
 
   // Rows with no pointer, oldest first. These are merged into the walk below
   // rather than appended after it.
-  const unreferenced = timeline
+  const unreferenced = resolvedTimeline
     .filter(entry => !referenced.has(entry.id))
     .sort((a, b) => a.seq - b.seq);
   let nextUnreferenced = 0;
