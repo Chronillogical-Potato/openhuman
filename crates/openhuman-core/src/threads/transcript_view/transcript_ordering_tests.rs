@@ -552,7 +552,12 @@ fn generation_chain_projects_in_order_without_duplicating_retained_rows() {
 #[test]
 fn get_page_missing_thread_is_empty_not_error() {
     let dir = TempDir::new().unwrap();
-    let page = super::get_page(dir.path(), "no_such_thread", None, Some(super::DEFAULT_LIMIT));
+    let page = super::get_page(
+        dir.path(),
+        "no_such_thread",
+        None,
+        Some(super::DEFAULT_LIMIT),
+    );
     assert!(!page.has_transcript);
     assert_eq!(page.total, 0);
     assert!(page.items.is_empty());

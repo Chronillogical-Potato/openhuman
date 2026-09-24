@@ -1,8 +1,8 @@
 //! Projection + pagination + sanitization tests for the transcript view.
 
+use super::get_page;
 use super::project::{project_records, project_thread};
 use super::types::{DisplayItem, ToolCallStatus};
-use super::{get_page, DEFAULT_LIMIT};
 use crate::agent::messages::{
     attach_chat_tool_failure_metadata, transcript_message_from_chat, ChatMessage,
 };
