@@ -683,6 +683,15 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_context_breakdown(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = deserialize_params::<crate::agent::context_breakdown::ContextBreakdownParams>(
+            params,
+        )?;
+        to_json(crate::agent::context_breakdown::context_breakdown(p).await?)
+    })
+}
+
 fn deserialize_params<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params)).map_err(|e| format!("invalid params: {e}"))
 }
