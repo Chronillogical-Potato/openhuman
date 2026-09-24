@@ -135,6 +135,13 @@ pub(super) fn assemble_turn_harness(
     // The dialect the session composed its prompt for; see
     // `OpenHumanRunContext::tool_dialect`.
     tool_dialect: tinyagents_harness::config::ToolDispatcher,
+    // Live per-thread Plan/Build mode handle (`agent::tinyagents::run_mode`).
+    // `Some` installs `PlanModeMiddleware`, which hides/denies side-effecting
+    // tools while the thread is in `RunMode::Plan` — flipped without
+    // restarting the run by `plan_exit` or the `agent.set_run_mode` RPC.
+    // `None` for a caller with no thread identity (a sub-agent child, most
+    // notably), which never runs in plan mode.
+    run_mode: Option<RunModeHandle>,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
