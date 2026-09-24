@@ -375,6 +375,16 @@ export const FEEDBACK_ROW_IDS_METADATA_KEY = 'feedbackRowIds';
 export const TIMING_METADATA_KEY = 'timing';
 
 /**
+ * `extraMetadata` key holding a `chat_error`'s `error_type` (and, for
+ * `"guardrail"`, its `GuardrailPayload`) — wire-contract.md. Stamped by
+ * `ChatRuntimeProvider`'s `onError` handler on the assistant message it
+ * appends for the failed turn; read back by `assistantUiMessages.ts` and
+ * `ChatErrorNotice` (`features/conversations/aui/`) to render the vendored
+ * `GuardrailNotice` element in place of the plain error text.
+ */
+export const CHAT_ERROR_METADATA_KEY = 'chatError';
+
+/**
  * Persist a thumbs rating on one assistant message: read the row from Redux,
  * patch its `extraMetadata`, and write back the persisted row.
  *
