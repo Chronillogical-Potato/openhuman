@@ -15,6 +15,7 @@
  * See `useThreadSuggestions` there for why the welcome and follow-up chips
  * must never show together.
  */
+import type { ThreadSuggestion } from '@assistant-ui/react';
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 import {
@@ -55,6 +56,18 @@ function normalize(
     out.push({ prompt, label: label.length > 0 ? label : null });
   }
   return out;
+}
+
+/**
+ * Stored follow-ups as assistant-ui chips. The core's `label` is "a short 2-4
+ * word button label" for the prompt (`web_chat/suggestions.rs`), which is
+ * assistant-ui's `title` (the chip's text), not its `label` (secondary text
+ * appended after the title).
+ */
+export function toThreadSuggestions(
+  suggestions: readonly FollowupSuggestion[]
+): ThreadSuggestion[] {
+  return suggestions.map(({ prompt, label }) => (label ? { prompt, title: label } : { prompt }));
 }
 
 function clearThread(state: FollowupSuggestionsState, threadId: string) {

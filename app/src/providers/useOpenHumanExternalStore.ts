@@ -20,6 +20,7 @@ import {
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { toThreadSuggestions } from '../store/followupSuggestionsSlice';
 import {
   FEEDBACK_ROW_IDS_METADATA_KEY,
   persistMessageFeedback,
@@ -249,10 +250,6 @@ function useWelcomeSuggestions(
  * the transcript ends on an assistant reply, because the chips follow that
  * reply. The set comes from `chat_suggestions` via `followupSuggestionsSlice`,
  * which also drops it the moment the next turn starts.
- *
- * The core's `label` is "a short 2-4 word button label" for the prompt
- * (`web_chat/suggestions.rs`), which is assistant-ui's `title` (the chip's
- * text), not its `label` (secondary text appended after the title).
  */
 function useFollowupSuggestions(
   threadId: string | null,
@@ -267,9 +264,7 @@ function useFollowupSuggestions(
     if (!stored || messageCount === 0 || isRunning || lastRole !== 'assistant') {
       return EMPTY_SUGGESTIONS;
     }
-    return stored.suggestions.map(({ prompt, label }) =>
-      label ? { prompt, title: label } : { prompt }
-    );
+    return toThreadSuggestions(stored.suggestions);
   }, [stored, messageCount, lastRole, isRunning]);
 }
 
