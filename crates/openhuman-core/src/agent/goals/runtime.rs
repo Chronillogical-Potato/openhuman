@@ -190,14 +190,16 @@ pub async fn account_turn_against_goal(
     let Some(thread_id) = normalized_thread(thread_id) else {
         return;
     };
-    let prev_status = match store::get(workspace_dir, &thread_id).await {
-        Ok(Some(goal)) => goal.status,
+    let prev = match store::get(workspace_dir, &thread_id).await {
+        Ok(Some(goal)) => goal,
         Ok(None) => return,
         Err(e) => {
             tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] account get failed");
             return;
         }
     };
+    let prev_status = prev.status;
+    let prev_tokens_used = prev.tokens_used;
 
     let store = goals_store(workspace_dir);
     let user_initiated = !is_goal_continuation_turn();
