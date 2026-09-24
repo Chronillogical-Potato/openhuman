@@ -41,14 +41,9 @@ fn fixture_path() -> PathBuf {
 ///   API-key-gated tools that require a live key in config are absent here;
 ///   only the managed `web_search_tool` (or whichever tool the enabled
 ///   feature set + config resolves to) is registered.
-/// * **Cargo feature gates**: this test runs under this crate's default
-///   features (`cargo test -p openhuman`), matching the contributor build
-///   `AGENTS.md` documents as authoritative for the test lane. A tool
-///   compiled out under a non-default feature set (see
-///   `scripts/ci/product-features.txt` for the shipped product's gates)
-///   will not appear here even though it exists in the source tree; this is
-///   intentional; add a comment at the call site (not in the fixture) when
-///   a name conditionally disappears under a feature combination CI covers.
+/// * **Cargo feature gates**: the fixture names the shipped product's set
+///   (`scripts/ci/product-features.txt`). Narrow builds can register a subset;
+///   the product build must match the fixture exactly.
 ///
 /// On top of the domain registry this adds the two harness-intrinsic bridge
 /// tool names, `tool_search` and `tool_call`
@@ -95,8 +90,31 @@ fn full_tool_catalog_names() -> Vec<String> {
     names
 }
 
-const REGENERATE_COMMAND: &str = "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman --lib \
+const REGENERATE_COMMAND: &str = "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman \
+     --features \"$(bash scripts/ci/product-features.sh)\" --lib \
      tools::ops::tests::catalog_fixture_tests::tool_catalog_matches_frontend_fixture";
+
+/// Keep this list in sync with `scripts/ci/product-features.txt`; it decides
+/// whether a missing fixture name is a real product regression or a compiled-out tool.
+const PRODUCT_FEATURES_COMPILED: bool = cfg!(all(
+    feature = "channels",
+    feature = "media",
+    feature = "inference",
+    feature = "voice",
+    feature = "web3",
+    feature = "documents",
+    feature = "modules",
+    feature = "flows",
+    feature = "skills",
+    feature = "mcp",
+    feature = "crash-reporting",
+    feature = "http-server",
+    feature = "scheduler-gate",
+    feature = "file-logging",
+    feature = "contacts",
+    feature = "runtime-node",
+    feature = "hosting",
+));
 
 /// Regenerates the fixture when `UPDATE_TOOL_CATALOG=1`, otherwise fails with
 /// exactly what was added/removed relative to it.
@@ -106,6 +124,7 @@ fn tool_catalog_matches_frontend_fixture() {
     let path = fixture_path();
 
     if std::env::var("UPDATE_TOOL_CATALOG").as_deref() == Ok("1") {
+        assert!(PRODUCT_FEATURES_COMPILED, "{REGENERATE_COMMAND}");
         let json = serde_json::to_string_pretty(&names).expect("serialize tool catalog");
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).expect("create fixture directory");
@@ -134,11 +153,11 @@ fn tool_catalog_matches_frontend_fixture() {
     expected.sort();
     expected.dedup();
 
-    if names != expected {
-        let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
-        let removed: Vec<&String> = expected.iter().filter(|n| !names.contains(n)).collect();
+    let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
+    let removed: Vec<&String> = expected.iter().filter(|n| !names.contains(n)).collect();
+    if !added.is_empty() || (PRODUCT_FEATURES_COMPILED && !removed.is_empty()) {
         panic!(
-            "core tool catalog drifted from the frontend fixture at {}.\n\
+            "core tool catalog drifted from the frontend fixture at {} (product features compiled: {PRODUCT_FEATURES_COMPILED}).\n\
              added:   {added:?}\n\
              removed: {removed:?}\n\n\
              Regenerate with:\n  {REGENERATE_COMMAND}",
