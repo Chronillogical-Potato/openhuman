@@ -188,6 +188,7 @@ impl Tool for MemoryStoreTool {
         }
 
         let display_key = format!("{namespace}/{key}");
+        let category_label = category.to_string();
         let guard = active_memory_guard()
             .await
             .map_err(|e| anyhow::anyhow!("memory_store: {e}"))?;
@@ -212,7 +213,7 @@ impl Tool for MemoryStoreTool {
                 // indicator wants to light up on. Never carries `content`.
                 crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemoryStored {
                     key: key.clone(),
-                    category: category.to_string(),
+                    category: category_label,
                     namespace: namespace.clone(),
                 });
                 Ok(ToolResult::success(format!("Stored memory: {display_key}")))
