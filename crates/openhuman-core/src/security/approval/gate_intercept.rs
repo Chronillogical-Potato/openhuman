@@ -13,6 +13,7 @@ impl ApprovalGate {
         args_redacted: serde_json::Value,
         park_bound: Option<Duration>,
         park_bound_elapsed: &mut bool,
+        tool_call_id: Option<&str>,
     ) -> (GateOutcome, Option<String>) {
         // Origin tells us who scheduled this turn. Entry points (web channel,
         // channel runtime, subconscious, cron, CLI) scope a typed
