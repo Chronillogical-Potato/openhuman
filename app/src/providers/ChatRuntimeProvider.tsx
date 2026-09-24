@@ -551,7 +551,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     // prompt — the web channel never writes user messages; the composer does
     // (`addMessageLocal` → `appendMessage`) — so append them to the transcript
     // now. Doing it here (after this turn's assistant reply was appended, before
-    // `endInferenceTurn` clears the pills) keeps the append-log order correct:
+    // `endInferenceTurn` clears `queueSlice`) keeps the append-log order correct:
     // user → assistant → queued follow-up. Without this the queued prompts are
     // lost on reload and the dispatched answer has no visible user message.
     const flushQueuedFollowups = async (threadId: string) => {
