@@ -1,5 +1,5 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -138,8 +138,8 @@ describe('ContextUsage', () => {
     const popover = await screen.findByTestId('composer-token-breakdown');
     await waitFor(() => expect(popover).toHaveTextContent('Tools'));
 
-    failFirst(new Error('late failure'));
-    await Promise.resolve();
+    expect(mockCall).toHaveBeenCalledTimes(2);
+    await act(async () => failFirst(new Error('late failure')));
 
     expect(popover).toHaveTextContent('Tools');
     expect(popover).not.toHaveTextContent('Context breakdown unavailable');
