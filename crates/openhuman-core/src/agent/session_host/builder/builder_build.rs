@@ -421,7 +421,6 @@ impl SessionHostBuilder {
             run_queue: None,
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
-            connected_integrations_authoritative: false,
             runtime_config: None,
             hosted_base,
             definition: None,
