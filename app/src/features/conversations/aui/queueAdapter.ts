@@ -63,25 +63,32 @@ export function buildOpenHumanQueueAdapter({
   send: (message: AppendMessage) => Promise<void>;
   remove: (itemId: string) => void;
 }): ExternalThreadQueueAdapter {
-  const forward = (lane: 'enqueue' | 'steer') => (message: AppendMessage) => {
-    log('[aui-queue] %s → host send', lane);
-    // One macrotask later, so the composer clear the runtime made just before
-    // calling us has reached the host draft first. The host restores a failed
-    // send by writing its draft back; a failure that landed before the clear
-    // (a disconnected socket fails at once) would be wiped out by it.
-    setTimeout(() => {
-      // The host reports its own failures (send-error banner); this only keeps
-      // a rejection from going unhandled.
-      send(message).catch((error: unknown) => {
-        log('[aui-queue] %s send failed: %s', lane, error instanceof Error ? error.message : error);
-      });
-    }, 0);
+  const deliver = (lane: 'enqueue' | 'steer', message: AppendMessage) => {
+    // The host reports its own failures (send-error banner); this only keeps a
+    // rejection from going unhandled.
+    send(message).catch((error: unknown) => {
+      log('[aui-queue] %s send failed: %s', lane, error instanceof Error ? error.message : error);
+    });
+  };
+  // Idle thread: the runtime calls `enqueue` exactly where it used to call
+  // `onNew`, so deliver synchronously and keep that path unchanged.
+  const enqueue = (message: AppendMessage) => {
+    log('[aui-queue] enqueue (idle) → host send');
+    deliver('enqueue', message);
+  };
+  // Running thread: the host queues it as a follow-up. One macrotask later, so
+  // the composer clear the runtime made just before calling us reaches the host
+  // draft first; the host restores a failed follow-up by writing the draft
+  // back, and a failure landing before that clear would be wiped out by it.
+  const steer = (message: AppendMessage) => {
+    log('[aui-queue] steer (running) → host send, deferred');
+    setTimeout(() => deliver('steer', message), 0);
   };
   return {
     items: toQueueItemStates(items),
     steerItems: EMPTY_QUEUE_STATE,
-    enqueue: forward('enqueue'),
-    steer: forward('steer'),
+    enqueue,
+    steer,
     move: queueItemId => log('[aui-queue] move ignored item=%s (core queue is fixed)', queueItemId),
     edit: queueItemId => log('[aui-queue] edit ignored item=%s (core queue is fixed)', queueItemId),
     remove,
