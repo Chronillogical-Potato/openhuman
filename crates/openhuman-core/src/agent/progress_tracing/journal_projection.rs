@@ -531,6 +531,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                 worker_thread_id: None,
                 display_name: Some(name.clone()),
                 prompt: String::new(),
+                parent_call_id: None,
             }]
         }
 
