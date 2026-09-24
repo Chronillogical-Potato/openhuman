@@ -245,13 +245,14 @@ type ContextSegment = {
 // provider's own total against the window.
 const getContextSegments = (
   usage: TokenUsage | undefined,
+  labels: ContextDisplayLabels,
 ): ContextSegment[] => {
   if (!usage) return [];
   return [
-    { label: "Input", tokens: usage.inputTokens ?? 0 },
-    { label: "Cached input", tokens: usage.cachedInputTokens ?? 0 },
-    { label: "Output", tokens: usage.outputTokens ?? 0 },
-    { label: "Reasoning", tokens: usage.reasoningTokens ?? 0 },
+    { label: labels.input, tokens: usage.inputTokens ?? 0 },
+    { label: labels.cachedInput, tokens: usage.cachedInputTokens ?? 0 },
+    { label: labels.output, tokens: usage.outputTokens ?? 0 },
+    { label: labels.reasoning, tokens: usage.reasoningTokens ?? 0 },
   ].filter((segment) => segment.tokens > 0);
 };
 
@@ -262,9 +263,9 @@ function ContextDisplayContent({
   side?: "top" | "bottom" | "left" | "right" | undefined;
   className?: string;
 }) {
-  const { usage, totalTokens, percent, modelContextWindow } =
+  const { usage, totalTokens, percent, modelContextWindow, labels } =
     useContextDisplay();
-  const segments = getContextSegments(usage);
+  const segments = getContextSegments(usage, labels);
 
   return (
     <TooltipContent
