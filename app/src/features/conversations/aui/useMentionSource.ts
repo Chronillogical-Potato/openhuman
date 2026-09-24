@@ -19,10 +19,10 @@
 import {
   type Unstable_IconComponent,
   type Unstable_Mention,
-  type Unstable_TriggerAdapter,
   unstable_useMentionAdapter,
   useAuiState,
 } from '@assistant-ui/react';
+import type { Unstable_TriggerAdapter } from '@assistant-ui/core';
 import debug from 'debug';
 import { AtSignIcon, BrainIcon, FileIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
