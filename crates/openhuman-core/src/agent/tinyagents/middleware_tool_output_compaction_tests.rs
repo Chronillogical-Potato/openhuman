@@ -309,3 +309,33 @@ async fn the_summarized_size_leads_the_content_for_an_uncapped_tool() {
         result_text(&result).chars().take(160).collect::<String>()
     );
 }
+
+/// `summary_focus` belongs to TinyJuice only on a tool that declared it. Any
+/// other tool with a parameter of that name (an MCP server's) keeps its value.
+#[tokio::test]
+async fn a_tool_that_did_not_declare_summary_focus_keeps_the_argument() {
+    let mw = summarizer_mw(StubSummarizer::replying(Ok("note".into())));
+    let arguments = json!({"query": "q", "summary_focus": "its own meaning"});
+    let mut call = TaToolCall::new("mcp-1", "mcp_search", arguments.clone());
+    mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+    assert_eq!(call.arguments, arguments);
+}
+
+/// With no thread, summary reuse and the breaker are scoped to the run, one
+/// scope for every result in it, rather than a fresh one per call.
+#[tokio::test]
+async fn a_run_without_a_thread_keeps_one_scope() {
+    let mut ctx = ctx();
+    assert!(ctx.data.thread_id.is_none());
+    let mut scopes = Vec::new();
+    for id in ["first", "second"] {
+        let mw = summarizer_mw(StubSummarizer::replying(Ok("note".into())));
+        let mut result = tool_result("test_tool", &"payload ".repeat(200));
+        let (_, requests) =
+            with_module(mw.after_tool(&mut ctx, &(), &invocation(id, "test_tool"), &mut result))
+                .await;
+        scopes.push(requests[0].scope.clone());
+    }
+    assert_eq!(scopes[0], Some(format!("run-{}", ctx.instance_id())));
+    assert_eq!(scopes[0], scopes[1]);
+}

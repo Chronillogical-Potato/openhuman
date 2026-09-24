@@ -552,6 +552,13 @@ const en: TranslationMap = {
   'chat.createThreadFailed': "Couldn't create a new thread. Please try again.",
   'chat.parallelBranchLabel': 'Parallel branch',
   'chat.thinking': 'Thinking...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': 'Thinking',
+  'chat.reasoning.thoughtFor': 'Thought for {n}',
+  'chat.reasoning.thoughtBriefly': 'Thought briefly',
+  'chat.reasoning.thought': 'Thought',
+  'chat.reasoning.elapsedSeconds': '{n}s',
+  'chat.reasoning.elapsedMinutes': '{m}m {s}s',
   'chat.noMessages': 'No messages yet',
   'chat.startConversation': 'Start a conversation',
   'chat.regenerate': 'Regenerate',
@@ -2177,6 +2184,9 @@ const en: TranslationMap = {
   'mnemonic.viewAccounts': 'Wallet accounts',
   'mnemonic.revealRecoveryPhrase': 'Reveal recovery phrase',
   'mnemonic.hidePhrase': 'Hide phrase',
+  'mnemonic.importAnExistingWallet': 'Import an Existing Wallet',
+  'mnemonic.createANewWallet': 'Create a New Wallet',
+  'mnemonic.importWallet': 'Import Wallet',
 
   // Team
   'team.failedToCreate': 'Failed to create team',

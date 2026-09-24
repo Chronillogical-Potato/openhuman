@@ -223,6 +223,25 @@ function withApproval(
 }
 
 /**
+ * A reasoning part, carrying the block's timing (epoch ms) under
+ * `providerMetadata.openhuman` when it is known. `OpenHumanReasoningGroup`
+ * reads it back (`reasoningTimingOf`) to show "Thinking… Ns" while the block
+ * streams and "Thought for Ns" once it settles. Blocks recorded before timing
+ * existed carry none and settle to a plain "Thought".
+ */
+export function reasoningPart(
+  text: string,
+  startedAt: number | undefined,
+  endedAt: number | undefined
+): ThreadAssistantMessagePart {
+  if (startedAt === undefined && endedAt === undefined) return { type: 'reasoning', text };
+  const timing: { startedAt?: number; endedAt?: number } = {};
+  if (startedAt !== undefined) timing.startedAt = startedAt;
+  if (endedAt !== undefined) timing.endedAt = endedAt;
+  return { type: 'reasoning', text, providerMetadata: { openhuman: timing } };
+}
+
+/**
  * Project one assistant message into assistant-ui parts.
  *
  * The surface carries the turn as it happened, in the order it happened:
@@ -239,6 +258,10 @@ function withApproval(
  * reasoning parts by their INDEX, so each reshaping remounted the markdown,
  * restarted its reveal from nothing, reset every disclosure and jumped the
  * scroll. So:
+ *
+ * - **Reasoning** (`kind: 'thinking'`) renders through the static reasoning
+ *   panel: one "Thought for Ns" line once settled, titled steps while it
+ *   streams.
  *
  * - **Narration renders inline** where it was said, live and on reload. It is
  *   the agent explaining the call it is about to make; showing it and then
@@ -330,7 +353,9 @@ function assistantParts(
 
   for (const [index, item] of transcript.entries()) {
     if (item.kind === 'thinking') {
-      if (item.text.trim().length > 0) parts.push({ type: 'reasoning', text: item.text });
+      if (item.text.trim().length > 0) {
+        parts.push(reasoningPart(item.text, item.startedAt, item.endedAt));
+      }
       continue;
     }
     if (item.kind === 'narration') {
@@ -647,7 +672,9 @@ export function streamingTailMessage(
   // turn that has so far produced only thinking still mints a tail, which is
   // the point: the block is the in-flight signal, alongside `RunningStatus`.
   if (streaming?.thinking.trim() && !transcript.some(item => item.kind === 'thinking')) {
-    parts.push({ type: 'reasoning', text: streaming.thinking });
+    parts.push(
+      reasoningPart(streaming.thinking, streaming.thinkingStartedAt, streaming.thinkingEndedAt)
+    );
   }
   if (streaming?.content.trim() && !transcript.some(item => item.kind === 'narration')) {
     parts.push({ type: 'text', text: streaming.content });

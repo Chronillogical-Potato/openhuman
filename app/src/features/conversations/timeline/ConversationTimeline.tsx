@@ -81,6 +81,7 @@ export function ConversationTimeline({
             key={item.id}
             text={item.text}
             thinking={item.thinking}
+            thinkingStartedAt={item.thinkingStartedAt}
             branch={item.branch}
           />
         );
