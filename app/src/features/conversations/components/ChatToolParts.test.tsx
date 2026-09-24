@@ -284,7 +284,9 @@ describe('ChatToolParts', () => {
       />
     );
 
-    expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent('Finding the right tool');
+    expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent(
+      'Finding the right tool'
+    );
     // The regression this pins: the old name/argument-key heuristic matched
     // this row on both legs.
     expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent('Searched the web');
