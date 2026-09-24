@@ -1718,9 +1718,9 @@ const EditComposer: FC = () => {
         value={value}
         discardedReplies={discardedReplies}
         editing
-        onValueChange={text => aui.message.composer.setText(text)}
-        onSave={() => aui.message.composer.send()}
-        onCancel={() => aui.message.composer.cancel()}
+        onValueChange={text => aui.message.composer().setText(text)}
+        onSave={() => aui.message.composer().send()}
+        onCancel={() => aui.message.composer().cancel()}
         cancelLabel={t('common.cancel')}
         sendLabel={t('chat.elicitation.send')}
         editAriaLabel={t('conversations.assistantUi.edit.ariaLabel')}
