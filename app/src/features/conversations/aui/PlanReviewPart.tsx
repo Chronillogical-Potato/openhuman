@@ -3,7 +3,6 @@ import debug from 'debug';
 import { useCallback, useState } from 'react';
 
 import { AgentPlan } from '../../../components/assistant-ui/elements/agent-plan';
-import { ApprovalCard } from '../../../components/assistant-ui/elements/approval-card';
 import { field } from '../../../components/assistant-ui/elements/surfaces';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
@@ -13,6 +12,7 @@ import {
   type PendingPlanReview,
 } from '../../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { ApprovalCardAdapter } from './ApprovalCardAdapter';
 import { useThreadTodos } from './useThreadTodos';
 
 const log = debug('openhuman:chat:plan-review-part');
