@@ -335,7 +335,7 @@ async fn project_spawn_parallel_spawned(
                 prompt: prompt.to_string(),
                 worker_thread_id: None,
                 display_name: Some(definition.display_name().to_string()),
-                parent_call_id: None,
+                parent_call_id: parent_call_id.map(str::to_string),
             })
             .await
         {
