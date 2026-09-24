@@ -637,11 +637,7 @@ export function streamingTailMessage(
     const hasTranscriptThinking = transcript.some(item => item.kind === 'thinking');
     if (!hasTranscriptThinking) {
       parts.unshift(
-        reasoningPart(
-          streaming.thinking,
-          streaming.thinkingStartedAt,
-          streaming.thinkingEndedAt
-        )
+        reasoningPart(streaming.thinking, streaming.thinkingStartedAt, streaming.thinkingEndedAt)
       );
     }
   }

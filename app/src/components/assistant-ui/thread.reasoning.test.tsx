@@ -59,9 +59,7 @@ describe('thread reasoning panel', () => {
     expect(panels).toHaveLength(1);
     const panel = panels[0]!;
     expect(panel.getAttribute('data-variant')).toBe('collapsible');
-    expect(panel.querySelector('[data-swap-layer="resting"]')?.textContent).toBe(
-      'Thought for 12s'
-    );
+    expect(panel.querySelector('[data-swap-layer="resting"]')?.textContent).toBe('Thought for 12s');
     const trigger = panel.querySelector('button')!;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
 

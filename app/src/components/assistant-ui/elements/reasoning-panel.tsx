@@ -61,7 +61,7 @@ export interface ReasoningPanelProps {
 
 const REMARK_PLUGINS = [remarkGfm];
 
-const StepBody = memo(function StepBody({ body }: { body: string }) {
+const StepBody = memo(({ body }: { body: string }) => {
   return (
     <div
       data-slot="reasoning-step-body"
@@ -77,6 +77,7 @@ const StepBody = memo(function StepBody({ body }: { body: string }) {
     </div>
   );
 });
+StepBody.displayName = 'ReasoningStepBody';
 
 /**
  * Keeps a bounded scroll region pinned to its newest content while `active`,
@@ -192,9 +193,7 @@ function StepList({
                 aria-hidden
                 className={cn(
                   'relative mt-[7px] size-[5px] shrink-0 rounded-full transition-colors duration-300',
-                  active
-                    ? 'bg-primary-500 motion-safe:animate-pulse'
-                    : 'bg-foreground/25'
+                  active ? 'bg-primary-500 motion-safe:animate-pulse' : 'bg-foreground/25'
                 )}
               />
               <div className="flex min-w-0 flex-1 flex-col">

@@ -47,10 +47,7 @@ describe('timing on projected reasoning parts', () => {
       [],
       [{ kind: 'thinking', round: 1, seq: 0, text: 'plan', startedAt: 10, endedAt: 20 }]
     );
-    expect(like.content).toEqual([
-      reasoningPart('plan', 10, 20),
-      { type: 'text', text: 'answer' },
-    ]);
+    expect(like.content).toEqual([reasoningPart('plan', 10, 20), { type: 'text', text: 'answer' }]);
   });
 
   it('the live tail carries the streaming thinking span', () => {

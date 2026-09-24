@@ -138,7 +138,8 @@ export function reasoningSpan(
   for (const timing of timings) {
     if (!timing) continue;
     if (typeof timing.startedAt === 'number') {
-      startedAt = startedAt === undefined ? timing.startedAt : Math.min(startedAt, timing.startedAt);
+      startedAt =
+        startedAt === undefined ? timing.startedAt : Math.min(startedAt, timing.startedAt);
     }
     if (typeof timing.endedAt === 'number') {
       endedAt = endedAt === undefined ? timing.endedAt : Math.max(endedAt, timing.endedAt);

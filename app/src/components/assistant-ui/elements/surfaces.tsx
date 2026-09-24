@@ -8,8 +8,7 @@
  * `collapsible-down/up` keyframes over `--radix-collapsible-content-height`).
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
-import type { ComponentProps, ReactNode } from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { type ComponentProps, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 
 export const labelSwap =
   'col-start-1 row-start-1 flex w-max items-center gap-1.5 leading-none transition-[opacity,filter] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none';

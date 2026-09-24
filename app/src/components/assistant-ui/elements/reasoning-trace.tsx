@@ -28,7 +28,6 @@ export function useElapsedMs(startedAt: number | undefined, active: boolean): nu
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active || startedAt === undefined) return;
-    setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [active, startedAt]);
@@ -65,8 +64,7 @@ export function ReasoningTrace({
   const elapsedMs = useElapsedMs(span?.startedAt, streaming);
 
   const liveLabel = latestHeading(steps) ?? t('chat.reasoning.thinking');
-  const settledMs =
-    span && span.endedAt !== undefined ? span.endedAt - span.startedAt : undefined;
+  const settledMs = span && span.endedAt !== undefined ? span.endedAt - span.startedAt : undefined;
   const restingLabel = thoughtForLabel(settledMs, t);
 
   return (

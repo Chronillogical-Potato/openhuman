@@ -64,26 +64,23 @@ function useGroupReasoning(indices: readonly number[]) {
   }, [parts, indices]);
 }
 
-export const OpenHumanReasoningGroup = memo(function OpenHumanReasoningGroup({
-  indices,
-  running,
-}: {
-  indices: readonly number[];
-  running: boolean;
-}) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const lockScroll = useScrollLock(rootRef, ANIMATION_DURATION);
-  const { texts, timings } = useGroupReasoning(indices);
+export const OpenHumanReasoningGroup = memo(
+  ({ indices, running }: { indices: readonly number[]; running: boolean }) => {
+    const rootRef = useRef<HTMLDivElement>(null);
+    const lockScroll = useScrollLock(rootRef, ANIMATION_DURATION);
+    const { texts, timings } = useGroupReasoning(indices);
 
-  return (
-    <div ref={rootRef} data-slot="aui_reasoning-group">
-      <ReasoningTrace
-        texts={texts}
-        timings={timings}
-        streaming={running}
-        onAnimationStart={lockScroll}
-        data-testid="reasoning-panel"
-      />
-    </div>
-  );
-});
+    return (
+      <div ref={rootRef} data-slot="aui_reasoning-group">
+        <ReasoningTrace
+          texts={texts}
+          timings={timings}
+          streaming={running}
+          onAnimationStart={lockScroll}
+          data-testid="reasoning-panel"
+        />
+      </div>
+    );
+  }
+);
+OpenHumanReasoningGroup.displayName = 'OpenHumanReasoningGroup';
