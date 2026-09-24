@@ -20,6 +20,8 @@ import {
   ConversationSearch,
   type SearchHit,
 } from '../../components/assistant-ui/elements/conversation-search';
+import { ContextBreakdown } from '../../components/assistant-ui/elements/context-breakdown';
+import { ContextDisplayRing } from '../../components/assistant-ui/elements/context-display';
 import { CitationMarker } from '../../components/assistant-ui/elements/inline-citation';
 import { MemoryChips } from '../../components/assistant-ui/elements/memory-chips';
 import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
@@ -33,6 +35,7 @@ import { Timeline, type TimelineEvent } from '../../components/assistant-ui/elem
 import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeline';
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
+import { contextBreakdownSegments } from '../../features/conversations/aui/ContextUsage';
 import { ElicitationAdapter } from '../../features/conversations/aui/ElicitationAdapter';
 import { PermissionGrantAdapter } from '../../features/conversations/aui/PermissionGrantAdapter';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
@@ -44,6 +47,8 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { PendingApproval } from '../../store/chatRuntimeSlice';
 import {
   MOCK_COMMANDS_LIST,
+  MOCK_CONTEXT_BREAKDOWN,
+  MOCK_CONTEXT_USAGE,
   MOCK_MEMORY_RECALL,
   MOCK_MESSAGE_QUEUE,
   MOCK_THREAD_FILES,
@@ -395,6 +400,26 @@ export default function ToolCallGallery() {
             }
             pendingHint={t('chat.messageQueue.pendingHint')}
             removeLabel={text => t('chat.messageQueue.remove').replace('{text}', text)}
+          />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Context usage (ring + breakdown popover body)
+          </h2>
+          <ContextDisplayRing
+            data-testid="tool-gallery-context-ring"
+            aria-label={t('conversations.composer.context.usage')}
+            modelContextWindow={MOCK_CONTEXT_USAGE.modelContextWindow}
+            usage={MOCK_CONTEXT_USAGE.usage}
+            className="self-start"
+          />
+          <ContextBreakdown
+            data-testid="tool-gallery-context-breakdown"
+            segments={contextBreakdownSegments(MOCK_CONTEXT_BREAKDOWN, t)}
+            limit={MOCK_CONTEXT_BREAKDOWN.context_window}
+            title={t('conversations.composer.context.title')}
+            headroomLabel={t('conversations.composer.context.headroom')}
           />
         </section>
 
