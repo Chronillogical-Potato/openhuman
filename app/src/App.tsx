@@ -31,6 +31,7 @@ import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import PttHotkeyManager from './components/PttHotkeyManager';
 import SecurityBanner from './components/SecurityBanner';
 import AppWalkthrough from './components/walkthrough/AppWalkthrough';
+import { useDevSkipOnboarding } from './hooks/useDevSkipOnboarding';
 import { useNotchBootSync } from './hooks/useNotchBootSync';
 import { I18nProvider } from './lib/i18n/I18nContext';
 import {
@@ -186,24 +187,12 @@ export function AppShellDesktop() {
     !!snapshot.sessionToken &&
     (DEV_FORCE_ONBOARDING || (!snapshot.onboardingCompleted && !DEV_SKIP_ONBOARDING));
 
-  // Dev-only auto-skip (`VITE_DEV_SKIP_ONBOARDING`): record completion in the
-  // core once per shell mount rather than just hiding the stepper, so state
-  // that keys off the core flag agrees with what the UI shows.
-  const devSkipRequestedRef = useRef(false);
-  useEffect(() => {
-    if (!DEV_SKIP_ONBOARDING || devSkipRequestedRef.current) return;
-    if (isBootstrapping || !snapshot.sessionToken || snapshot.onboardingCompleted) return;
-    devSkipRequestedRef.current = true;
-    console.debug('[onboarding-gate] dev skip: marking onboarding complete');
-    void setOnboardingCompletedFlag(true).catch(err =>
-      console.warn('[onboarding-gate] dev skip: could not mark onboarding complete', err)
-    );
-  }, [
+  useDevSkipOnboarding({
     isBootstrapping,
-    snapshot.sessionToken,
-    snapshot.onboardingCompleted,
+    sessionToken: snapshot.sessionToken,
+    onboardingCompleted: snapshot.onboardingCompleted,
     setOnboardingCompletedFlag,
-  ]);
+  });
 
   // Onboarding gate: while `onboarding_completed=false`, force any non-
   // onboarding route back to `/onboarding`. Once completed, bounce the
