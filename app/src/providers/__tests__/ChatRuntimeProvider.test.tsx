@@ -2257,10 +2257,6 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
     });
 
     it('falls back to USER_FACING constant when inference error has empty message', async () => {
-      // placeholder-remove-marker
-    });
-    it.skip('placeholder', () => {});
-    it('falls back to USER_FACING constant when inference error has empty message [duplicate-remove]', async () => {
       const listeners = renderProvider();
       const threadId = 't-empty-msg';
 
