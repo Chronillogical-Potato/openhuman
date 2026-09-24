@@ -18,7 +18,7 @@ fn meta_line(thread_id: &str) -> String {
 
 /// Write a raw JSONL transcript (meta header + given body lines) into
 /// `session_raw/{stem}.jsonl` and return the path.
-fn write_raw(workspace: &Path, stem: &str, thread_id: &str, body: &[&str]) -> PathBuf {
+pub(super) fn write_raw(workspace: &Path, stem: &str, thread_id: &str, body: &[&str]) -> PathBuf {
     let path = transcript::resolve_keyed_transcript_path(workspace, stem).expect("resolve");
     write_raw_at(&path, thread_id, body);
     path
@@ -662,80 +662,6 @@ fn append_transcript_turn_projects_full_display_shape() {
     assert_eq!(assistants[1].3.as_deref(), Some("req-1"));
     assert!(!assistants[1].4, "final answer is not interim");
 }
-
-#[test]
-fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
-    let dir = TempDir::new().unwrap();
-    let root_stem = "800_orchestrator";
-    let thread_id = "thr_anchor";
-
-    let t1 = chrono::DateTime::from_timestamp(1_000_000, 0)
-        .unwrap()
-        .to_rfc3339();
-    let t2 = chrono::DateTime::from_timestamp(2_000_000, 0)
-        .unwrap()
-        .to_rfc3339();
-
-    // Two turns: req-1 (assistant ts t1), req-2 (assistant ts t2).
-    let root_body = vec![
-        r#"{"role":"user","content":"one","request_id":"req-1"}"#.to_string(),
-        format!(
-            r#"{{"role":"assistant","content":"a1","provider":"anthropic","model":"m","usage":{{"input":1,"output":1,"cached_input":0,"cost_usd":0.0}},"ts":"{t1}","iteration":1,"request_id":"req-1"}}"#
-        ),
-        r#"{"role":"user","content":"two","request_id":"req-2"}"#.to_string(),
-        format!(
-            r#"{{"role":"assistant","content":"a2","provider":"anthropic","model":"m","usage":{{"input":1,"output":1,"cached_input":0,"cost_usd":0.0}},"ts":"{t2}","iteration":1,"request_id":"req-2"}}"#
-        ),
-    ];
-    let root_refs: Vec<&str> = root_body.iter().map(String::as_str).collect();
-    write_raw(dir.path(), root_stem, thread_id, &root_refs);
-
-    // Sub-agent stems encode the spawn unix timestamp: coder spawned during
-    // turn 1 (1_000_050), planner during turn 2 (2_000_050).
-    write_raw(
-        dir.path(),
-        &format!("{root_stem}__1000050_coder"),
-        thread_id,
-        &[r#"{"role":"assistant","content":"coder work"}"#],
-    );
-    write_raw(
-        dir.path(),
-        &format!("{root_stem}__2000050_planner"),
-        thread_id,
-        &[r#"{"role":"assistant","content":"planner work"}"#],
-    );
-
-    let projected = project_thread(dir.path(), thread_id).expect("project thread");
-    // The seeded sub-agent files share the `orchestrator` meta agent name, so
-    // key the anchoring by each sub-agent's inner work content instead of `id`.
-    let mut anchors: Vec<(String, Option<String>)> = projected
-        .items
-        .iter()
-        .filter_map(|i| match i {
-            DisplayItem::Subagent {
-                request_id, items, ..
-            } => {
-                let marker = items.iter().find_map(|inner| match inner {
-                    DisplayItem::AssistantMessage { content, .. } => Some(content.clone()),
-                    _ => None,
-                })?;
-                Some((marker, request_id.clone()))
-            }
-            _ => None,
-        })
-        .collect();
-    anchors.sort();
-
-    assert_eq!(
-        anchors,
-        vec![
-            ("coder work".to_string(), Some("req-1".to_string())),
-            ("planner work".to_string(), Some("req-2".to_string())),
-        ],
-        "each sub-agent anchors to the turn active at its spawn time"
-    );
-}
-
 #[test]
 fn get_page_missing_thread_is_empty_not_error() {
     let dir = TempDir::new().unwrap();

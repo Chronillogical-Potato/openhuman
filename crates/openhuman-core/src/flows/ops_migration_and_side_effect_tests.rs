@@ -605,3 +605,95 @@ async fn draft_promote_of_invalid_graph_is_rejected_and_keeps_the_draft() {
     // The draft survives a failed promote so the user can fix it.
     assert!(flows_draft_get(&config, &draft.id).is_ok());
 }
+
+/// Regression for #6540: a graph whose *node* omits `name` must report which
+/// object is at fault, not a bare `missing field \`name\``.
+///
+/// The bare message is worse than uninformative here, because the one reading
+/// it cannot even rule out the obvious candidate: every field of
+/// `WorkflowGraph` is `#[serde(default)]`, so the top-level `name` can never be
+/// the cause — yet an authoring agent that assumes it is will re-send the same
+/// graph until it exhausts its iteration cap. That is exactly what happened
+/// live: six identical retries, 392k input tokens, no workflow created.
+#[test]
+fn migrate_and_deserialize_graph_names_the_node_that_is_missing_a_field() {
+    let missing_node_name = json!({
+        "name": "top-level name is present and is NOT the problem",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "nameless", "kind": "trigger" }
+        ]
+    });
+
+    let err = migrate_and_deserialize_graph(missing_node_name)
+        .expect_err("a node without `name` must not deserialize");
+
+    // The path is the point of the fix: `nodes[1]` is the second node, and
+    // naming it is what distinguishes this from the two other required `name`
+    // fields reachable from one graph (`Port::name`, `WorkflowInput::name`).
+    assert!(
+        err.contains("nodes[1]"),
+        "error must name the offending node's path, got: {err}"
+    );
+    // ...and the original serde detail must survive the wrapping, or the fix
+    // would have traded one unactionable message for another.
+    assert!(
+        err.contains("missing field") && err.contains("name"),
+        "error must still say which field is missing, got: {err}"
+    );
+}
+
+/// The premise of the test above: a graph with no top-level `name` at all
+/// deserializes fine. If this ever starts failing, `missing field \`name\``
+/// becomes genuinely ambiguous and the path in the message matters more, not
+/// less.
+#[test]
+fn migrate_and_deserialize_graph_accepts_a_graph_with_no_top_level_name() {
+    let no_top_level_name = json!({
+        "nodes": [ { "id": "start", "kind": "trigger", "name": "Trigger" } ]
+    });
+
+    let graph = migrate_and_deserialize_graph(no_top_level_name)
+        .expect("top-level `name` is #[serde(default)] and must not be required");
+    assert_eq!(
+        graph.name, "",
+        "absent top-level name must default to empty"
+    );
+}
+
+/// Regression for the misattribution case raised in review on #6545: when the
+/// graph's own fields are at fault *and* a node is independently invalid, the
+/// error must not be pinned on the node.
+///
+/// Locating by "first member that fails on its own" is only sound once the
+/// top level is known good — otherwise it turns a correct vague message into a
+/// confident wrong one, which is worse than what this PR set out to fix.
+#[test]
+fn migrate_and_deserialize_graph_does_not_blame_a_node_for_a_top_level_fault() {
+    let top_level_fault = json!({
+        // Wrong type, not missing: `name` is `String`, so this fails the graph
+        // parse on its own account.
+        "name": 123,
+        "nodes": [
+            // Independently invalid too — the bait for the member scan.
+            { "id": "nameless", "kind": "trigger" }
+        ]
+    });
+
+    let err = migrate_and_deserialize_graph(top_level_fault)
+        .expect_err("a non-string top-level `name` must not deserialize");
+
+    // Assert what must NOT be claimed. Comparing the rendered string to the
+    // bare serde message would pass for the wrong reason: the two messages can
+    // coincide without the failing path being the same one.
+    assert!(
+        !err.contains("nodes["),
+        "a top-level fault must not be attributed to a node, got: {err}"
+    );
+    assert!(
+        err.contains("name"),
+        "error should still name the offending field, got: {err}"
+    );
+}
+
+// The member scan covers four arrays, and until now only `nodes` was ever
