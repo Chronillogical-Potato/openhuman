@@ -104,7 +104,7 @@ core_bin="$REPO_ROOT/target/debug/openhuman-core"
 # core against a current frontend, which is misleading to debug against.
 echo "[dev:web] building openhuman-core…"
 # GGML_NATIVE=OFF is the documented Apple-Silicon workaround for llama.cpp.
-GGML_NATIVE=OFF cargo build --manifest-path "$REPO_ROOT/Cargo.toml" \
+GGML_NATIVE=OFF cargo build --manifest-path "$REPO_ROOT/Cargo.toml" -p openhuman-cli \
   --bin openhuman-core
 
 core_pid=""
