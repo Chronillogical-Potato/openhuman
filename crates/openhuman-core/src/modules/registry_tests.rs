@@ -2,6 +2,19 @@ use super::{find, ALL};
 use crate::modules::platform::candidates_for;
 
 #[test]
+fn tinydesktop_registry_matches_bus_contract_and_published_release() {
+    let desktop = find("tinydesktop").expect("compiled desktop module");
+    assert_eq!(desktop.bus_name, tinydesktop_bus::names::INTERFACE);
+    assert_eq!(desktop.object_path, tinydesktop_bus::names::OBJECT_PATH);
+    assert_eq!(desktop.version, "0.3.0");
+    assert_eq!(desktop.assets.len(), 7);
+    assert_eq!(
+        desktop.asset_for("macos-26-arm64").unwrap().sha256,
+        "83d245497c15ee7a385d53cbd0f9b251b7ddc90c76b6bc2ec96b77b76cc909b7"
+    );
+}
+
+#[test]
 fn ids_and_bus_names_are_unique() {
     // Two records claiming one bus name is a conflict tinybus would only
     // surface at load time, on whichever one happened to be second.

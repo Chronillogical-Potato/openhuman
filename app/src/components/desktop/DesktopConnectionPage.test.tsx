@@ -22,6 +22,7 @@ const enabled: DesktopStatus = {
   accessibility: 'granted',
   screen_recording: 'denied',
   jev_ready: true,
+  approvals_enabled: false,
 };
 
 describe('Desktop connection', () => {
@@ -48,6 +49,7 @@ describe('Desktop connection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test desktop access' }));
     expect(await screen.findByText('Desktop access works.')).toBeInTheDocument();
     expect(callCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.desktop_probe' });
+    expect(callCoreRpc).not.toHaveBeenCalledWith({ method: 'openhuman.desktop_pending' });
   });
 
   it('keeps the switch off on a failed write and surfaces the failure', async () => {
@@ -90,7 +92,8 @@ describe('Desktop connection', () => {
   it('sends a pending action approval through the trusted core RPC', async () => {
     let approved = false;
     vi.mocked(callCoreRpc).mockImplementation(async ({ method, params }) => {
-      if (method === 'openhuman.desktop_status') return enabled as never;
+      if (method === 'openhuman.desktop_status')
+        return { ...enabled, approvals_enabled: true } as never;
       if (method === 'openhuman.desktop_pending') {
         return (
           approved
@@ -130,7 +133,8 @@ describe('Desktop connection', () => {
 
   it('surfaces a pending approval read failure instead of silently hiding it', async () => {
     vi.mocked(callCoreRpc).mockImplementation(async ({ method }) => {
-      if (method === 'openhuman.desktop_status') return enabled as never;
+      if (method === 'openhuman.desktop_status')
+        return { ...enabled, approvals_enabled: true } as never;
       if (method === 'openhuman.desktop_pending') throw new Error('unavailable');
       throw new Error(`Unexpected method: ${method}`);
     });

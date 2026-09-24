@@ -574,9 +574,12 @@ fn desktop_tools_are_registered() {
     let names = tool_names(&expansion_tools_for(&tmp));
     assert_contains_all(&names, DESKTOP_TOOLS);
     assert!(names.iter().any(|name| name == "desktop_goal"));
+    assert!(names.iter().any(|name| name == "desktop_launch"));
     assert!(names.iter().any(|name| name == "desktop_snapshot"));
-    assert!(!names.iter().any(|name| name == "desktop_act"),
-        "raw ref actions must not enter the agent/tool_search registry");
+    assert!(
+        !names.iter().any(|name| name == "desktop_act"),
+        "raw ref actions must not enter the agent/tool_search registry"
+    );
 }
 
 #[test]

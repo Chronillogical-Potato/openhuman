@@ -72,12 +72,13 @@ pub async fn fetch_connected_integrations_status(
     // credential. Asking the hosted integrations endpoint with it yields 401,
     // can race the scheduler gate into signed-out state, and cannot discover a
     // real connection. An authoritative empty set keeps this session local.
-    if crate::security::credentials::session_support::get_session_token(config)
-        .ok()
-        .flatten()
-        .is_some_and(|token| {
-            crate::security::credentials::session_support::is_local_session_token(&token)
-        })
+    if config.composio.mode.trim() != crate::config::schema::COMPOSIO_MODE_DIRECT
+        && crate::security::credentials::session_support::get_session_token(config)
+            .ok()
+            .flatten()
+            .is_some_and(|token| {
+                crate::security::credentials::session_support::is_local_session_token(&token)
+            })
     {
         return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
     }

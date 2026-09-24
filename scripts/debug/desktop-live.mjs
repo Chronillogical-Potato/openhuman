@@ -2,7 +2,7 @@
 /**
  * Opt-in core-only desktop smoke test against an already-running local core.
  *
- * Prepare an empty, unsaved TextEdit document first. Set
+ * Prepare a disposable TextEdit document first for the textedit scenario. Set
  * `[agent] tool_dispatcher = "native"` in the isolated config for an OpenRouter
  * model that supports structured tool calls. Start the core with an
  * isolated OPENHUMAN_WORKSPACE, an operator-supplied OPENHUMAN_CORE_TOKEN (so it
@@ -15,8 +15,8 @@
  * The script prints only method names and counts. It never prints a prompt,
  * transcript body, credential, accessibility value, or the random test marker.
  * It makes three bounded orchestrator turns: discover/list apps, type into the
- * unsaved document through Jev, and read the value back through accessibility.
- * Clean up by closing the unsaved document without saving after the run.
+ * disposable document through Jev, and read the value back through accessibility.
+ * Clean up the disposable document after the run.
  */
 
 import { createHash, randomUUID } from 'node:crypto';
@@ -56,6 +56,8 @@ const token = process.env.OPENHUMAN_CORE_TOKEN;
 const openRouterKey = process.env.OPENROUTER_API_KEY;
 const approveDisposable = process.argv.includes('--approve-disposable');
 const localOfflineSession = process.argv.includes('--local-offline-session');
+const scenario = option('--scenario', 'textedit');
+if (!['textedit', 'spotify', 'spotify_pause'].includes(scenario)) fail('--scenario must be textedit, spotify, or spotify_pause');
 if (!workspace || !model || !token) {
   fail('Set --workspace, --model, and OPENHUMAN_CORE_TOKEN.');
 }
@@ -124,6 +126,28 @@ function calls(messages) {
   return names;
 }
 
+function toolOutput(messages, wanted) {
+  const targets = new Map();
+  let result = null;
+  for (const message of messages) {
+    for (const call of message.tool_calls ?? []) {
+      if (call.name !== 'tool_call') continue;
+      let args = call.arguments;
+      if (typeof args === 'string') {
+        try { args = JSON.parse(args); } catch { args = {}; }
+      }
+      targets.set(call.id, args?.name);
+    }
+    if (message.role !== 'tool') continue;
+    try {
+      const wrapper = JSON.parse(message.content);
+      if (targets.get(wrapper.tool_call_id) !== wanted) continue;
+      result = typeof wrapper.content === 'string' ? JSON.parse(wrapper.content) : wrapper.content;
+    } catch { /* Non-JSON tool output is not a structured result. */ }
+  }
+  return result;
+}
+
 const threadId = `desktop-live-${randomUUID()}`;
 const marker = `OH desktop live ${randomUUID()}`;
 const route = openRouterKey ? {
@@ -149,15 +173,21 @@ if (localOfflineSession) {
   });
   console.log('auth: isolated offline local session installed');
 }
-const status = await rpc('openhuman.desktop_set_enabled', { enabled: true });
+let status = await rpc('openhuman.desktop_set_enabled', { enabled: true });
+for (let attempt = 0; status.module_state === 'loading' && attempt < 15; attempt++) {
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  status = await rpc('openhuman.desktop_status');
+}
 if (!status.supported) fail('Desktop control is unsupported on this host.');
 if (status.module_state === 'failed') fail('Desktop module failed to load; inspect local core logs.');
 if (status.accessibility !== 'granted') fail('Grant Accessibility to the core process, then retry.');
-console.log(`desktop: module=${status.module_state}, accessibility=${status.accessibility}, jev_ready=${status.jev_ready}`);
+console.log(`desktop: module=${status.module_state}, accessibility=${status.accessibility}, jev_ready=${status.jev_ready}, approvals_enabled=${status.approvals_enabled}`);
 if (!status.jev_ready) fail('No Jev credential is available to the core.');
+if (status.approvals_enabled !== false) fail('Live no-prompt run requires desktop approvals disabled.');
 
+const appName = scenario === 'textedit' ? 'TextEdit' : 'Spotify';
 let transcript = await turn('discover',
-  'List the running desktop applications on this computer. Discover desktop tools with tool_search first, then call the matching desktop tool. Report only whether TextEdit is running.');
+  `List the running desktop applications on this computer. Discover desktop tools with tool_search first, then call the matching desktop tool. Report only whether ${appName} is running.`);
 let names = calls(transcript);
 if (!names.includes('tool_search') || !names.includes('desktop_list_apps')) {
   fail(`discover: expected tool_search then desktop_list_apps; saw ${names.join(', ')}`);
@@ -165,20 +195,32 @@ if (!names.includes('tool_search') || !names.includes('desktop_list_apps')) {
 console.log('discover: tool_search -> desktop_list_apps observed');
 
 transcript = await turn('windows',
-  'Use the desktop window listing tool to list windows belonging to TextEdit. Do not change any app.');
+  `Use tool_search to find desktop_launch. Call desktop_launch with app ${appName} to activate its window, then call desktop_list_windows for ${appName}. Do not change app content.`);
 names = calls(transcript);
+if (!names.includes('desktop_launch')) fail(`windows: desktop_launch was not called; saw ${names.join(', ')}`);
 if (!names.includes('desktop_list_windows')) fail(`windows: desktop_list_windows was not called; saw ${names.join(', ')}`);
-console.log('windows: desktop_list_windows observed');
+console.log('windows: desktop_launch -> desktop_list_windows observed');
 
-transcript = await turn('type',
-  `In the already open, empty, unsaved TextEdit document, type this exact marker: ${marker}. ` +
-  'Use tool_search to find desktop_goal and run the bounded goal with max_steps 4 and max_model_calls 8. Do not save or close the document.');
+transcript = await turn('goal', scenario !== 'textedit'
+  ? `In the running Spotify desktop app, ${scenario === 'spotify_pause' ? 'pause playback' : 'play the current track if paused'}. Use tool_search to find desktop_goal and run it with max_steps 4 and max_model_calls 8. Verify the player shows a ${scenario === 'spotify_pause' ? 'Play' : 'Pause'} control. Do not change playlists or account settings.`
+  : `In the already open disposable TextEdit document, append this exact marker: ${marker}. ` +
+    'Use tool_search to find desktop_goal. Pass the marker as the first value in its text array, and run the bounded goal with max_steps 4 and max_model_calls 8. Do not save or close the document.');
 names = calls(transcript);
-if (!names.includes('desktop_goal')) fail(`type: desktop_goal was not called; saw ${names.join(', ')}`);
+if (!names.includes('desktop_goal')) fail(`goal: desktop_goal was not called; saw ${names.join(', ')}`);
+const goalResult = toolOutput(transcript, 'desktop_goal');
+if (!goalResult || goalResult.turns?.length < 1) {
+  fail('goal: no desktop action was executed; an observed app state alone is insufficient');
+}
+if (goalResult) console.log(`goal: stop=${goalResult.stop}, executed_steps=${goalResult.turns?.length ?? 0}, jev_calls=${goalResult.metrics?.calls ?? 0}`);
 
 const pending = await rpc('openhuman.desktop_pending');
+const genericPending = await rpc('openhuman.approval_list_pending');
+const genericRows = Array.isArray(genericPending) ? genericPending : genericPending?.result;
+if (!Array.isArray(genericRows) || genericRows.length !== 0) {
+  fail('An OpenHuman generic approval request was left pending during the desktop goal.');
+}
 if (Array.isArray(pending) && pending.length > 0) {
-  console.log(`type: ${pending.length} action(s) paused for user confirmation`);
+  console.log(`goal: ${pending.length} action(s) paused for user confirmation`);
   if (!approveDisposable) {
     fail('Inspect the pending action in Connections. Rerun with --approve-disposable only for a disposable TextEdit document.');
   }
@@ -190,17 +232,18 @@ if (Array.isArray(pending) && pending.length > 0) {
   });
   transcript = await turn('continue',
     `Continue the previously paused TextEdit desktop goal using confirmation_id ${pending[0].confirmation_id}. ` +
-    'The user approved the action in the trusted connection UI. Call desktop_goal with only that confirmation_id; the core restores the original goal.');
-  if (!calls(transcript).includes('desktop_goal')) fail('continue: desktop_goal was not called');
-  console.log('continue: trusted confirmation consumed by agent desktop_goal call');
+    'The user approved the action in the trusted connection UI. Use tool_search to find desktop_continue_goal and call it with only that confirmation_id; the core restores the original goal.');
+  if (!calls(transcript).includes('desktop_continue_goal')) fail('continue: desktop_continue_goal was not called');
+  console.log('continue: trusted confirmation consumed by agent desktop_continue_goal call');
 }
 
-transcript = await turn('verify',
-  'Read the full accessibility snapshot of the current TextEdit document using desktop_snapshot with skeleton false. Do not change the document.');
+transcript = await turn('verify', scenario !== 'textedit'
+  ? `Read the full accessibility snapshot of the Spotify player using desktop_snapshot with skeleton false. Do not change playback. Report whether a ${scenario === 'spotify_pause' ? 'Play' : 'Pause'} control is visible.`
+  : 'Read the full accessibility snapshot of the current TextEdit document using desktop_snapshot with skeleton false. Do not change the document.');
 names = calls(transcript);
 if (!names.includes('desktop_snapshot')) fail(`verify: desktop_snapshot was not called; saw ${names.join(', ')}`);
 const observed = transcript.some((message) => message.role === 'tool' &&
-  JSON.stringify(message.content ?? '').includes(marker));
-if (!observed) fail('verify: marker was not observed in a desktop tool result');
-console.log('verify: marker observed in desktop_snapshot tool result');
-console.log('PASS: direct-core orchestrator discovered and used desktop tools; close the unsaved TextEdit document without saving.');
+  JSON.stringify(message.content ?? '').includes(scenario === 'textedit' ? marker : scenario === 'spotify_pause' ? 'Play' : 'Pause'));
+if (!observed) fail(`verify: ${scenario === 'textedit' ? 'marker' : scenario === 'spotify_pause' ? 'Play control' : 'Pause control'} was not observed in a desktop tool result`);
+console.log(`verify: ${scenario === 'textedit' ? 'marker' : scenario === 'spotify_pause' ? 'Play control' : 'Pause control'} observed in desktop_snapshot tool result`);
+console.log(`PASS: direct-core orchestrator discovered and used desktop tools${scenario === 'textedit' ? '; clean up the disposable TextEdit document' : ''}.`);

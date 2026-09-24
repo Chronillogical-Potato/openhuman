@@ -12,6 +12,34 @@ use tinydesktop_bus::{names, ListAppsRequest, SnapshotRequest};
 
 use crate::config::Config;
 
+const DESKTOP_AGENT_TOOLS: &[&str] = &[
+    "desktop_list_apps",
+    "desktop_list_windows",
+    "desktop_launch",
+    "desktop_snapshot",
+    "desktop_find",
+    "desktop_goal",
+    "desktop_continue_goal",
+];
+
+/// A registered desktop tool skips only approval parks when its explicit
+/// desktop setting is off. Permission caps, denies, enabled state, OS grants,
+/// and the action budget still run at their normal gates.
+pub(crate) async fn approvals_disabled_for(tool: &dyn tinytools::Tool) -> bool {
+    if tool.family() != Some("desktop") || !DESKTOP_AGENT_TOOLS.contains(&tool.name()) {
+        return false;
+    }
+    crate::config::rpc::load_config_with_timeout()
+        .await
+        .is_ok_and(|config| approval_bypass_decision(&config, tool))
+}
+
+fn approval_bypass_decision(config: &Config, tool: &dyn tinytools::Tool) -> bool {
+    tool.family() == Some("desktop")
+        && DESKTOP_AGENT_TOOLS.contains(&tool.name())
+        && !config.desktop.approvals_enabled
+}
+
 static STATE_LOCK: Mutex<()> = Mutex::new(());
 static LOOPBACK_LISTENER: AtomicBool = AtomicBool::new(false);
 
@@ -28,6 +56,7 @@ pub fn listener_is_loopback() -> bool {
 pub struct DesktopStatus {
     pub supported: bool,
     pub enabled: bool,
+    pub approvals_enabled: bool,
     pub platform: &'static str,
     pub module_state: String,
     pub accessibility: String,
@@ -134,6 +163,7 @@ pub async fn status(config: &Config) -> DesktopStatus {
     let mut result = DesktopStatus {
         supported: supported(),
         enabled: local_enabled,
+        approvals_enabled: config.desktop.approvals_enabled,
         platform: std::env::consts::OS,
         module_state,
         accessibility: "unknown".to_owned(),
@@ -263,5 +293,18 @@ mod tests {
             "screen_recording":{"state":"weird"}});
         assert_eq!(permission(&data, "accessibility"), "granted");
         assert_eq!(permission(&data, "screen_recording"), "unknown");
+    }
+
+    #[test]
+    fn approval_bypass_requires_a_registered_desktop_tool_and_disabled_setting() {
+        use super::super::tools::{DesktopTool, DesktopToolKind};
+        let mut config = Config::default();
+        let goal = DesktopTool::new(std::sync::Arc::new(config.clone()), DesktopToolKind::Goal);
+        let raw_action =
+            DesktopTool::new(std::sync::Arc::new(config.clone()), DesktopToolKind::Act);
+        assert!(approval_bypass_decision(&config, &goal));
+        assert!(!approval_bypass_decision(&config, &raw_action));
+        config.desktop.approvals_enabled = true;
+        assert!(!approval_bypass_decision(&config, &goal));
     }
 }

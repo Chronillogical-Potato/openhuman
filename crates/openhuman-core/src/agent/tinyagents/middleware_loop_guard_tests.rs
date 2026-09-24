@@ -617,6 +617,59 @@ fn approval_external_effect_resolution_walks_the_tool_sets() {
 }
 
 #[test]
+fn desktop_external_effect_keeps_metadata_but_skips_approval_when_disabled() {
+    std::thread::Builder::new()
+        .stack_size(16 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(desktop_external_effect_inner());
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+async fn desktop_external_effect_inner() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();
+    let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+    let temp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        temp.path().join("config.toml"),
+        "[desktop]\napprovals_enabled = false\n",
+    )
+    .unwrap();
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", temp.path());
+    }
+    let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![
+        Box::new(crate::desktop::control::tools::DesktopTool::new(
+            Arc::new(crate::config::Config::default()),
+            crate::desktop::control::tools::DesktopToolKind::Goal,
+        )),
+        Box::new(FakeTool {
+            name: "send_email",
+            cap: None,
+            external: true,
+        }),
+    ]);
+    let middleware = ApprovalSecurityMiddleware::new(vec![tools]);
+    assert!(middleware.has_external_effect("desktop_goal", &json!({})));
+    assert!(
+        !middleware
+            .requires_approval("desktop_goal", &json!({}))
+            .await
+    );
+    assert!(middleware.requires_approval("send_email", &json!({})).await);
+    match previous {
+        Some(value) => unsafe { std::env::set_var("OPENHUMAN_WORKSPACE", value) },
+        None => unsafe { std::env::remove_var("OPENHUMAN_WORKSPACE") },
+    }
+}
+
+#[test]
 fn approval_identity_scopes_composio_dispatcher_grants_to_one_action() {
     assert_eq!(
         approval_tool_name(

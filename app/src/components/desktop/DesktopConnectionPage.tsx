@@ -16,6 +16,7 @@ export interface DesktopStatus {
   accessibility: string;
   screen_recording: string;
   jev_ready: boolean;
+  approvals_enabled?: boolean;
   reason?: string;
 }
 
@@ -109,11 +110,11 @@ export default function DesktopConnectionPage() {
   }, [refresh]);
 
   useEffect(() => {
-    if (!status?.enabled) return;
+    if (!status?.enabled || !status.approvals_enabled) return;
     void Promise.resolve().then(refreshPending);
     const timer = window.setInterval(() => void refreshPending(), 5000);
     return () => window.clearInterval(timer);
-  }, [status?.enabled, refreshPending]);
+  }, [status?.enabled, status?.approvals_enabled, refreshPending]);
 
   const setEnabled = async () => {
     if (!localHost || !status || busy) return;
@@ -207,7 +208,7 @@ export default function DesktopConnectionPage() {
           size="sm"
           onClick={() => {
             void refresh();
-            if (status?.enabled) void refreshPending();
+            if (status?.enabled && status.approvals_enabled) void refreshPending();
           }}
           disabled={loading}>
           {t('common.refresh')}
@@ -252,7 +253,7 @@ export default function DesktopConnectionPage() {
 
         {status?.supported && status.enabled && (
           <>
-            {pending.length > 0 && (
+            {status.approvals_enabled && pending.length > 0 && (
               <Card title={t('chat.approval.title')} padded>
                 {pending.map(entry => (
                   <div key={entry.confirmation_id} className="space-y-2 py-3">

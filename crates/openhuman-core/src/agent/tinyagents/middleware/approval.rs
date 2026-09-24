@@ -75,6 +75,19 @@ impl ApprovalSecurityMiddleware {
             .map(|t| t.external_effect_with_args(args))
             .unwrap_or(false)
     }
+
+    pub(crate) async fn requires_approval(&self, name: &str, args: &serde_json::Value) -> bool {
+        let desktop_approval_disabled = match self
+            .tool_sets
+            .iter()
+            .flat_map(|set| set.iter())
+            .find(|tool| tool.name() == name)
+        {
+            Some(tool) => crate::desktop::control::approvals_disabled_for(tool.as_ref()).await,
+            None => false,
+        };
+        self.has_external_effect(name, args) && !desktop_approval_disabled
+    }
 }
 
 #[async_trait]
@@ -95,7 +108,7 @@ impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // Resolve external-effect up front so no tool borrow is held across the
         // approval await.
         let mut audit_id: Option<String> = None;
-        let has_ext = self.has_external_effect(&call.name, &call.arguments);
+        let has_ext = self.requires_approval(&call.name, &call.arguments).await;
         tracing::debug!(
             tool = %call.name,
             has_external_effect = has_ext,

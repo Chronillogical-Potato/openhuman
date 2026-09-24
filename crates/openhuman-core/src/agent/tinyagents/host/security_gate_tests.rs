@@ -336,6 +336,43 @@ async fn require_approval_never_silently_allows_a_plain_tool() {
     );
 }
 
+#[tokio::test]
+async fn desktop_default_skips_channel_and_external_approval_parks() {
+    let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();
+    let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+    let temp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        temp.path().join("config.toml"),
+        "[desktop]\napprovals_enabled = false\n",
+    )
+    .unwrap();
+    unsafe {
+        std::env::set_var("OPENHUMAN_WORKSPACE", temp.path());
+    }
+    let desktop = Box::new(crate::desktop::control::tools::DesktopTool::new(
+        Arc::new(crate::config::Config::default()),
+        crate::desktop::control::tools::DesktopToolKind::Goal,
+    )) as Box<dyn Tool>;
+    let gate =
+        OpenHumanSecurityGate::new(policy(AutonomyLevel::Full), vec![Arc::new(vec![desktop])])
+            .with_tool_policy(policy_session(
+                "desktop_goal",
+                ToolPolicyAction::RequireApproval,
+            ));
+    let decision = gate
+        .authorize_tool(&req(
+            "desktop_goal",
+            json!({"app":"TextEdit","goal":"test"}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(decision, GateDecision::Allow);
+    match previous {
+        Some(value) => unsafe { std::env::set_var("OPENHUMAN_WORKSPACE", value) },
+        None => unsafe { std::env::remove_var("OPENHUMAN_WORKSPACE") },
+    }
+}
+
 /// A channel `RequireApproval` must not become an autonomy-tier override.
 ///
 /// With no approval gate installed the park denies, so this asserts the

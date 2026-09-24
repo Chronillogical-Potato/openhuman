@@ -1,12 +1,13 @@
 //! Deferred desktop tools. Only their names and descriptions enter discovery.
 
+use std::future::Future;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinydesktop_bus::{
-    names, FindRequest, ListAppsRequest, ListWindowsRequest, RefRequest, SnapshotRequest,
-    TypeRequest,
+    names, DesktopResponse, FindRequest, LaunchRequest, ListAppsRequest, ListWindowsRequest,
+    RefRequest, SnapshotRequest, TypeRequest,
 };
 use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};
 
@@ -16,10 +17,12 @@ use crate::config::Config;
 pub enum DesktopToolKind {
     Apps,
     Windows,
+    Launch,
     Snapshot,
     Find,
     Act,
     Goal,
+    ContinueGoal,
 }
 
 pub struct DesktopTool {
@@ -42,16 +45,86 @@ fn required(args: &Value, key: &str) -> anyhow::Result<String> {
         .ok_or_else(|| anyhow::anyhow!("missing required parameter: {key}"))
 }
 
+fn confirmation_id(response: &DesktopResponse) -> Result<Option<String>, String> {
+    if !response.ok {
+        return Ok(None);
+    }
+    let Some(data) = response.data.as_ref() else {
+        return Ok(None);
+    };
+    if data.get("stop").and_then(Value::as_str) != Some("confirmation_required") {
+        return Ok(None);
+    }
+    data.get("confirmation_id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map(str::to_owned)
+        .map(Some)
+        .ok_or_else(|| {
+            "desktop goal requested confirmation without a continuation handle".to_owned()
+        })
+}
+
+/// The module owns remaining action/model budgets and revalidates a one-use
+/// target against a fresh snapshot on every continuation. The host adds a hard
+/// eight-confirmation ceiling so a module bug cannot hold this tool forever.
+async fn advance_goal_confirmations<F, Fut>(
+    mut response: DesktopResponse,
+    approvals_enabled: bool,
+    mut continue_with: F,
+) -> Result<DesktopResponse, String>
+where
+    F: FnMut(String, bool) -> Fut,
+    Fut: Future<Output = Result<DesktopResponse, String>>,
+{
+    if approvals_enabled {
+        return Ok(response);
+    }
+    for _ in 0..8 {
+        let Some(id) = confirmation_id(&response)? else {
+            return Ok(response);
+        };
+        tracing::info!(
+            "[desktop] continuing module-confirmed action under approvals-disabled policy"
+        );
+        response = continue_with(id, true).await?;
+    }
+    if let Some(id) = confirmation_id(&response)? {
+        let executed = response
+            .data
+            .as_ref()
+            .and_then(|data| data.get("turns"))
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len);
+        let cancelled = continue_with(id, false).await.map_err(|error| {
+            format!(
+                "desktop goal reached the confirmation continuation limit after {executed} \
+             executed action(s); cancellation delivery is uncertain: {error}"
+            )
+        })?;
+        if !cancelled.ok {
+            return Err(format!(
+                "desktop goal reached the confirmation continuation limit after {executed} \
+                 executed action(s); module refused cancellation"
+            ));
+        }
+        return Ok(cancelled);
+    }
+    Ok(response)
+}
+
 #[async_trait]
 impl Tool for DesktopTool {
     fn name(&self) -> &str {
         match self.kind {
             DesktopToolKind::Apps => "desktop_list_apps",
             DesktopToolKind::Windows => "desktop_list_windows",
+            DesktopToolKind::Launch => "desktop_launch",
             DesktopToolKind::Snapshot => "desktop_snapshot",
             DesktopToolKind::Find => "desktop_find",
             DesktopToolKind::Act => "desktop_act",
             DesktopToolKind::Goal => "desktop_goal",
+            DesktopToolKind::ContinueGoal => "desktop_continue_goal",
         }
     }
 
@@ -59,10 +132,12 @@ impl Tool for DesktopTool {
         match self.kind {
             DesktopToolKind::Apps => "List running desktop applications on this computer.",
             DesktopToolKind::Windows => "List native windows for a running desktop app.",
+            DesktopToolKind::Launch => "Launch or activate a named desktop app so its window becomes available.",
             DesktopToolKind::Snapshot => "Inspect an app's accessibility tree and obtain snapshot-qualified element refs.",
             DesktopToolKind::Find => "Find a desktop accessibility element by role and name, returning a ref.",
             DesktopToolKind::Act => "Act on a desktop element ref: click, focus, type, check, uncheck, expand, or collapse.",
             DesktopToolKind::Goal => "Run a bounded Jev-guided desktop goal. Search for desktop tools before use; consequential actions require confirmation.",
+            DesktopToolKind::ContinueGoal => "Resume a desktop goal after the user approved its exact pending action in Connections.",
         }
     }
 
@@ -70,15 +145,28 @@ impl Tool for DesktopTool {
         ToolExposure::Deferred
     }
 
+    fn family(&self) -> Option<&str> {
+        Some("desktop")
+    }
+
     fn permission_level(&self) -> PermissionLevel {
         match self.kind {
-            DesktopToolKind::Act | DesktopToolKind::Goal => PermissionLevel::Write,
+            DesktopToolKind::Act
+            | DesktopToolKind::Goal
+            | DesktopToolKind::ContinueGoal
+            | DesktopToolKind::Launch => PermissionLevel::Write,
             _ => PermissionLevel::ReadOnly,
         }
     }
 
     fn external_effect(&self) -> bool {
-        matches!(self.kind, DesktopToolKind::Act | DesktopToolKind::Goal)
+        matches!(
+            self.kind,
+            DesktopToolKind::Act
+                | DesktopToolKind::Goal
+                | DesktopToolKind::ContinueGoal
+                | DesktopToolKind::Launch
+        )
     }
 
     fn parameters_schema(&self) -> Value {
@@ -86,6 +174,9 @@ impl Tool for DesktopTool {
             DesktopToolKind::Apps => json!({"type":"object","properties":{}}),
             DesktopToolKind::Windows => json!({"type":"object","properties":{
                 "app":{"type":"string","description":"Optional application name"}}}),
+            DesktopToolKind::Launch => json!({"type":"object","properties":{
+                "app":{"type":"string","description":"Application name, e.g. Spotify or TextEdit"}},
+                "required":["app"],"additionalProperties":false}),
             DesktopToolKind::Snapshot => json!({"type":"object","properties":{
                 "app":{"type":"string"}, "skeleton":{"type":"boolean"},
                 "root_ref":{"type":"string"}, "max_depth":{"type":"integer","minimum":1,"maximum":12}}}),
@@ -101,8 +192,11 @@ impl Tool for DesktopTool {
                 "app":{"type":"string"},"goal":{"type":"string"},
                 "text":{"type":"array","items":{"type":"string"}},
                 "max_steps":{"type":"integer","minimum":1,"maximum":8},
-                "max_model_calls":{"type":"integer","minimum":1,"maximum":16},
-                "confirmation_id":{"type":"string","description":"Continue only after the user approved this pending action in the desktop confirmation UI"}}}),
+                "max_model_calls":{"type":"integer","minimum":1,"maximum":16}},
+                "required":["app","goal"]}),
+            DesktopToolKind::ContinueGoal => json!({"type":"object","properties":{
+                "confirmation_id":{"type":"string","description":"One-use handle approved by the user in Connections"}},
+                "required":["confirmation_id"]}),
         }
     }
 
@@ -133,7 +227,10 @@ impl Tool for DesktopTool {
             .and_then(Value::as_str)
             .unwrap_or("unknown");
         if accessibility != "granted"
-            && !matches!(self.kind, DesktopToolKind::Apps | DesktopToolKind::Windows)
+            && !matches!(
+                self.kind,
+                DesktopToolKind::Apps | DesktopToolKind::Windows | DesktopToolKind::Launch
+            )
         {
             return Ok(ToolResult::error("Desktop Accessibility permission is not granted. Enable it in system settings and retry."));
         }
@@ -149,6 +246,12 @@ impl Tool for DesktopTool {
                     app: args.get("app").and_then(Value::as_str).map(str::to_owned),
                 })?,
             ),
+            DesktopToolKind::Launch => {
+                let mut request = LaunchRequest::new(required(&args, "app")?);
+                request.activate = true;
+                request.attach_if_running = Some(true);
+                (names::methods::LAUNCH, serde_json::to_value(request)?)
+            }
             DesktopToolKind::Snapshot => {
                 let request = SnapshotRequest {
                     app: args.get("app").and_then(Value::as_str).map(str::to_owned),
@@ -210,11 +313,12 @@ impl Tool for DesktopTool {
                     (member, serde_json::to_value(RefRequest::new(reference))?)
                 }
             }
-            DesktopToolKind::Goal => {
+            DesktopToolKind::Goal | DesktopToolKind::ContinueGoal => {
                 let (app, goal, continuation) =
-                    if let Some(id) = args.get("confirmation_id").and_then(Value::as_str) {
+                    if matches!(self.kind, DesktopToolKind::ContinueGoal) {
+                        let id = required(&args, "confirmation_id")?;
                         let (app, goal) =
-                            super::confirmation::take_approved(id).map_err(anyhow::Error::msg)?;
+                            super::confirmation::take_approved(&id).map_err(anyhow::Error::msg)?;
                         (app, goal, Some(json!({"id":id,"approve":true})))
                     } else {
                         (required(&args, "app")?, required(&args, "goal")?, None)
@@ -231,11 +335,50 @@ impl Tool for DesktopTool {
                 (names::methods::RUN_GOAL, request)
             }
         };
+        let goal_action = matches!(
+            self.kind,
+            DesktopToolKind::Goal | DesktopToolKind::ContinueGoal
+        );
+        let approvals_enabled = if goal_action {
+            let live_config = match crate::config::rpc::load_config_with_timeout().await {
+                Ok(config) => config,
+                Err(error) => {
+                    return Ok(ToolResult::error(format!(
+                        "Desktop approval setting is unavailable: {error}"
+                    )))
+                }
+            };
+            live_config.desktop.approvals_enabled
+        } else {
+            true
+        };
         let reply = crate::modules::desktop::call(&self.config, member, request).await;
+        let reply = if goal_action {
+            match reply {
+                Ok(response) => {
+                    let config = Arc::clone(&self.config);
+                    advance_goal_confirmations(response, approvals_enabled, move |id, approve| {
+                        let config = Arc::clone(&config);
+                        async move {
+                            crate::modules::desktop::call(
+                                &config,
+                                names::methods::RUN_GOAL,
+                                json!({"continuation":{"id":id,"approve":approve}}),
+                            )
+                            .await
+                        }
+                    })
+                    .await
+                }
+                Err(error) => Err(error),
+            }
+        } else {
+            reply
+        };
         match reply {
             Ok(response) if response.ok => {
                 let data = response.data.unwrap_or(Value::Null);
-                if let Some((app, goal)) = goal_identity {
+                if let Some((app, goal)) = goal_identity.filter(|_| approvals_enabled) {
                     super::confirmation::record(&app, &goal, &data);
                 }
                 let rendered = serde_json::to_string(&data)?;
@@ -266,5 +409,130 @@ mod tests {
         assert_eq!(tool.exposure(), ToolExposure::Deferred);
         let result = tool.execute(json!({})).await.unwrap();
         assert!(result.output().contains("disabled in Connections"));
+    }
+
+    #[test]
+    fn launch_tool_cannot_accept_process_arguments_or_environment() {
+        let tool = DesktopTool::new(Arc::new(Config::default()), DesktopToolKind::Launch);
+        let schema = tool.parameters_schema();
+        assert_eq!(tool.exposure(), ToolExposure::Deferred);
+        assert_eq!(tool.permission_level(), PermissionLevel::Write);
+        assert!(tool.external_effect());
+        assert_eq!(schema["required"], json!(["app"]));
+        assert!(schema["properties"].get("args").is_none());
+        assert!(schema["properties"].get("env").is_none());
+        assert!(schema["properties"].get("cdp_port").is_none());
+    }
+
+    #[test]
+    fn goal_and_continuation_have_distinct_required_inputs() {
+        let config = Arc::new(Config::default());
+        let goal = DesktopTool::new(config.clone(), DesktopToolKind::Goal);
+        let continuation = DesktopTool::new(config, DesktopToolKind::ContinueGoal);
+        assert_eq!(goal.parameters_schema()["required"], json!(["app", "goal"]));
+        assert!(goal.parameters_schema()["properties"]
+            .get("confirmation_id")
+            .is_none());
+        assert_eq!(
+            continuation.parameters_schema()["required"],
+            json!(["confirmation_id"])
+        );
+        assert!(continuation.parameters_schema()["properties"]
+            .get("approve")
+            .is_none());
+        assert!(super::super::confirmation::take_approved("unknown").is_err());
+    }
+
+    #[tokio::test]
+    async fn approvals_off_continues_one_use_handle_and_reports_module_result() {
+        assert!(!Config::default().desktop.approvals_enabled);
+        let called = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed = Arc::clone(&called);
+        let initial = DesktopResponse::ok(
+            "run-goal",
+            json!({
+                "stop":"confirmation_required", "confirmation_id":"once"
+            }),
+        );
+        let result = advance_goal_confirmations(initial, false, move |id, approve| {
+            let observed = Arc::clone(&observed);
+            async move {
+                assert_eq!(id, "once");
+                assert!(approve);
+                observed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(DesktopResponse::ok(
+                    "run-goal",
+                    json!({
+                        "stop":"stale_target", "turns":[], "metrics":{"calls":1}
+                    }),
+                ))
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(called.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(result.data.unwrap()["stop"], "stale_target");
+    }
+
+    #[tokio::test]
+    async fn approvals_on_returns_pending_without_self_approval() {
+        let initial = DesktopResponse::ok(
+            "run-goal",
+            json!({
+                "stop":"confirmation_required", "confirmation_id":"once"
+            }),
+        );
+        let result = advance_goal_confirmations(initial, true, |_id, _approve| async {
+            panic!("manual approval mode must never auto-continue")
+        })
+        .await
+        .unwrap();
+        assert_eq!(result.data.unwrap()["confirmation_id"], "once");
+    }
+
+    #[tokio::test]
+    async fn continuation_ceiling_returns_cancelled_result_with_all_executed_turns() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let seen = Arc::clone(&calls);
+        let initial = DesktopResponse::ok(
+            "run-goal",
+            json!({
+                "stop":"confirmation_required", "confirmation_id":"id-0", "turns":[]
+            }),
+        );
+        let result = advance_goal_confirmations(initial, false, move |id, approve| {
+            let seen = Arc::clone(&seen);
+            async move {
+                let index = seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                assert_eq!(id, format!("id-{index}"));
+                if approve {
+                    Ok(DesktopResponse::ok(
+                        "run-goal",
+                        json!({
+                            "stop":"confirmation_required",
+                            "confirmation_id":format!("id-{}", index + 1),
+                            "turns":vec![Value::Null; index + 1],
+                            "metrics":{"calls":index + 1}
+                        }),
+                    ))
+                } else {
+                    assert_eq!(index, 8);
+                    Ok(DesktopResponse::ok(
+                        "run-goal",
+                        json!({
+                            "stop":"cancelled", "turns":vec![Value::Null; 8],
+                            "metrics":{"calls":8}
+                        }),
+                    ))
+                }
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 9);
+        let data = result.data.unwrap();
+        assert_eq!(data["stop"], "cancelled");
+        assert_eq!(data["turns"].as_array().unwrap().len(), 8);
+        assert_eq!(data["metrics"]["calls"], 8);
     }
 }

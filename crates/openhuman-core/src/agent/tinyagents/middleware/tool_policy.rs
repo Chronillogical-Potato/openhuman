@@ -187,9 +187,18 @@ impl ToolPolicyMiddleware {
     /// The channel-permission gate the engine ran before the builder policy: a
     /// session-level deny, then a per-call permission-level ceiling check. Returns
     /// the blocking message when the call must not execute.
-    pub(crate) fn channel_permission_block(&self, call: &TaToolCall) -> Option<String> {
+    pub(crate) fn channel_permission_block(
+        &self,
+        call: &TaToolCall,
+        desktop_approval_disabled: bool,
+    ) -> Option<String> {
         let decision = self.session.decision_for(&call.name);
-        if decision.is_denied() {
+        let approval_only = desktop_approval_disabled
+            && matches!(
+                decision.action,
+                crate::tools::agent_policy::ToolPolicyAction::RequireApproval
+            );
+        if decision.is_denied() && !approval_only {
             return Some(
                 PolicyDenial::SessionForbidden {
                     tool: &call.name,
@@ -316,7 +325,11 @@ impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
         // Channel-permission ceiling first (session deny + per-call permission
         // level), mirroring the engine order in `agent_tool_exec`.
-        if let Some(message) = self.channel_permission_block(&call) {
+        let desktop_approval_disabled = match self.resolve_tool(&call.name) {
+            Some(tool) => crate::desktop::control::approvals_disabled_for(tool.as_ref()).await,
+            None => false,
+        };
+        if let Some(message) = self.channel_permission_block(&call, desktop_approval_disabled) {
             tracing::debug!(
                 tool = call.name.as_str(),
                 channel = self.channel.as_str(),
@@ -339,7 +352,10 @@ impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         }
 
         let decision = self.policy.check(&request).await;
-        if let Some(reason) = decision.blocking_reason() {
+        if let Some(reason) = decision.blocking_reason().filter(|_| {
+            !(desktop_approval_disabled
+                && matches!(&decision, ToolPolicyDecision::RequireApproval { .. }))
+        }) {
             let blocked_action = match &decision {
                 ToolPolicyDecision::RequireApproval { .. } => "requires approval",
                 ToolPolicyDecision::Deny { .. } => "denied",
