@@ -6,11 +6,10 @@ import { SheetContent, SheetRoot, SheetTitle } from '../../../components/ui/Shee
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { extractAgentSources, formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
+import { SubagentActivityCard } from '../aui/SubagentActivityCard';
+import { ToolTimelineAdapter } from '../aui/ToolTimelineAdapter';
+import { AgentSparkIcon } from '../aui/toolTimelineRowHelpers';
 import { AgentSourceRow } from './AgentSourceRow';
-import { AgentSparkIcon } from './AgentTimelineRail';
-import { AssistantUiSubagentCall } from './AssistantUiSubagentCall';
-import { ProcessingTranscriptView } from './ProcessingTranscriptView';
-import { ToolTimelineBlock } from './ToolTimelineBlock';
 
 const log = createDebug('app:conversations:agent-process-source');
 
