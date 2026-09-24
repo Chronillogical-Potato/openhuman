@@ -185,6 +185,29 @@ impl ApprovalGate {
         waiters.remove(request_id)
     }
 
+    /// Record the routing correlation for a newly-parked request. Called at
+    /// park time in `intercept_audited_inner`, alongside the `thread_to_request`
+    /// insert.
+    pub(super) fn insert_request_route(&self, request_id: &str, route: super::gate::RequestRoute) {
+        self.request_routes.lock().insert(request_id.to_string(), route);
+    }
+
+    /// Remove and return the routing correlation for `request_id`, if any.
+    /// Consumed exactly once per request — by whichever path resolves the
+    /// decision first (`decide`, a TTL timeout, or a dropped channel).
+    pub(super) fn take_request_route(&self, request_id: &str) -> Option<super::gate::RequestRoute> {
+        self.request_routes.lock().remove(request_id)
+    }
+
+    /// Drop the routing correlation for `request_id` without reading it —
+    /// used on the caller-bound-abandon path, which leaves the row pending
+    /// and must not consume the route a later real decision still needs...
+    /// except the abandon path removes the routing precisely because no
+    /// later decision from THIS process will use it (see `WaiterGuard`).
+    pub(super) fn clear_request_route(&self, request_id: &str) {
+        self.request_routes.lock().remove(request_id);
+    }
+
     fn evict_waiter(&self, request_id: &str) {
         let mut waiters = self.waiters.lock();
         waiters.remove(request_id);

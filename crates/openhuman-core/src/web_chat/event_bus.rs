@@ -74,6 +74,165 @@ pub fn register_artifact_surface_subscriber() {
     }
 }
 
+static AGENT_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+/// Register the agent-surface bridge that turns thread-goal, thread-todo, and
+/// run-queue lifecycle events (domain `"agent"`) into `thread_goal_updated` /
+/// `thread_goal_cleared` / `thread_todos_changed` / `queue_item_queued` /
+/// `queue_item_delivered` web-channel events (C3: goals/todos/queue UI).
+/// Idempotent via a process-level [`OnceLock`].
+pub fn register_agent_surface_subscriber() {
+    if AGENT_SURFACE_HANDLE.get().is_some() {
+        return;
+    }
+    match crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber)) {
+        Some(handle) => {
+            let _ = AGENT_SURFACE_HANDLE.set(handle);
+            log::info!(
+                "[web-channel] agent-surface subscriber registered (domain=agent) — bridges ThreadGoalUpdated/ThreadGoalCleared/ThreadTodosChanged/RunQueue* → thread_goal_updated/thread_goal_cleared/thread_todos_changed/queue_item_queued/queue_item_delivered socket events"
+            );
+        }
+        None => {
+            log::warn!(
+                "[web-channel] failed to register agent-surface subscriber — bus not initialized"
+            );
+        }
+    }
+}
+
+/// Bridge thread-goal / thread-todo / run-queue [`DomainEvent`]s onto the web
+/// channel. These events carry only a `thread_id` (no `client_id` — a goal,
+/// todo list, or queue is thread-scoped, not client-scoped), so every emitted
+/// [`WebChannelEvent`] uses an empty `client_id`; `emit_web_channel_event`
+/// still routes it to the `thread:<id>` room because room selection only
+/// requires a non-empty `thread_id` and a `client_id` that isn't `"system"`.
+struct AgentSurfaceSubscriber;
+
+#[async_trait]
+impl EventHandler<DomainEvent> for AgentSurfaceSubscriber {
+    fn name(&self) -> &str {
+        "web_chat::agent_surface"
+    }
+
+    fn domains(&self) -> Option<&[&str]> {
+        Some(&["agent"])
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        match event {
+            DomainEvent::ThreadGoalUpdated {
+                thread_id, goal, ..
+            } => {
+                log::debug!(
+                    "[web-channel] agent-surface emitting thread_goal_updated thread_id={thread_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "thread_goal_updated".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    goal: goal.clone(),
+                    ..Default::default()
+                });
+            }
+            DomainEvent::ThreadGoalCleared { thread_id } => {
+                log::debug!(
+                    "[web-channel] agent-surface emitting thread_goal_cleared thread_id={thread_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "thread_goal_cleared".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    ..Default::default()
+                });
+            }
+            DomainEvent::ThreadTodosChanged { thread_id, todos } => {
+                log::debug!(
+                    "[web-channel] agent-surface emitting thread_todos_changed thread_id={thread_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "thread_todos_changed".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    todos: Some(todos.clone()),
+                    ..Default::default()
+                });
+            }
+            DomainEvent::RunQueueMessageQueued {
+                thread_id,
+                item_id,
+                text_preview,
+                ..
+            }
+            | DomainEvent::RunQueueSteerRequeued {
+                thread_id,
+                item_id,
+                text_preview,
+                ..
+            } => {
+                let Some(item_id) = item_id.clone() else {
+                    return;
+                };
+                log::debug!(
+                    "[web-channel] agent-surface emitting queue_item_queued thread_id={thread_id} item_id={item_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "queue_item_queued".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    queue_item: Some(crate::core::socketio::QueueItemPayload {
+                        id: item_id,
+                        lane: None,
+                        text_preview: text_preview.clone(),
+                    }),
+                    ..Default::default()
+                });
+            }
+            DomainEvent::RunQueueMessageDelivered {
+                thread_id,
+                mode,
+                item_id,
+                text_preview,
+                ..
+            }
+            | DomainEvent::RunQueueFollowupDispatched {
+                thread_id,
+                item_id,
+                text_preview,
+                ..
+            }
+            | DomainEvent::RunQueueInterrupted {
+                thread_id,
+                item_id,
+                text_preview,
+                ..
+            } => {
+                let Some(item_id) = item_id.clone() else {
+                    return;
+                };
+                let lane = match event {
+                    DomainEvent::RunQueueMessageDelivered { .. } => Some(mode.clone()),
+                    _ => None,
+                };
+                log::debug!(
+                    "[web-channel] agent-surface emitting queue_item_delivered thread_id={thread_id} item_id={item_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "queue_item_delivered".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    queue_item: Some(crate::core::socketio::QueueItemPayload {
+                        id: item_id,
+                        lane,
+                        text_preview: text_preview.clone(),
+                    }),
+                    ..Default::default()
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
 static EGRESS_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
 /// Register the egress-surface bridge that turns
