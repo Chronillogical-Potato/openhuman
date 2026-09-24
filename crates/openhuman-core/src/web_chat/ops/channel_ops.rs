@@ -140,15 +140,27 @@ async fn cancel_chat_inner(
     };
 
     // Emit a cancelled chat_error for each cancelled turn (primary + parallels)
-    // so every interleaved branch's UI is resolved.
+    // so every interleaved branch's UI is resolved. `chat_cancelled` is the new,
+    // purpose-built terminal event (structured `cancel_reason`, no
+    // `error_type` string to parse); `chat_error{error_type:"cancelled"}` is
+    // kept alongside it for one release so an older frontend build still
+    // resolves the turn.
     for request_id in removed_request_id.into_iter().chain(cancelled_parallel) {
         publish_web_channel_event(WebChannelEvent {
             event: "chat_error".to_string(),
             client_id: client_id.to_string(),
             thread_id: thread_id.to_string(),
-            request_id,
+            request_id: request_id.clone(),
             message: Some("Cancelled".to_string()),
             error_type: Some("cancelled".to_string()),
+            ..Default::default()
+        });
+        publish_web_channel_event(WebChannelEvent {
+            event: "chat_cancelled".to_string(),
+            client_id: client_id.to_string(),
+            thread_id: thread_id.to_string(),
+            request_id,
+            cancel_reason: Some("user_stop".to_string()),
             ..Default::default()
         });
     }
@@ -196,11 +208,28 @@ pub async fn channel_web_chat(
     ))
 }
 
+/// Render one snapshotted queue item as the wire shape `web_queue_status` and
+/// `queue_item_*` socket events share: `{ id, lane, text_preview }`.
+fn queue_item_json(lane: tinyagents_harness::run_queue::QueueLane, item: &crate::agent::queued_turn::QueuedTurn) -> Value {
+    json!({
+        "id": item.id,
+        "lane": lane.as_str(),
+        "text_preview": crate::agent::queued_turn::text_preview(&item.text),
+    })
+}
+
 pub async fn channel_web_queue_status(thread_id: &str) -> Result<RpcOutcome<Value>, String> {
     let map_key = key_for(thread_id);
     let in_flight = IN_FLIGHT.lock().await;
     if let Some(entry) = in_flight.get(&map_key) {
         let status = entry.run_queue.status().await;
+        let items: Vec<Value> = entry
+            .run_queue
+            .snapshot()
+            .await
+            .iter()
+            .map(|(lane, item)| queue_item_json(*lane, item))
+            .collect();
         Ok(RpcOutcome::single_log(
             json!({
                 "thread_id": thread_id.trim(),
@@ -210,6 +239,7 @@ pub async fn channel_web_queue_status(thread_id: &str) -> Result<RpcOutcome<Valu
                 "followups": status.followups,
                 "collects": status.collects,
                 "total": status.total,
+                "items": items,
             }),
             "queue status retrieved",
         ))
@@ -222,10 +252,67 @@ pub async fn channel_web_queue_status(thread_id: &str) -> Result<RpcOutcome<Valu
                 "followups": 0,
                 "collects": 0,
                 "total": 0,
+                "items": Vec::<Value>::new(),
             }),
             "no active turn for thread",
         ))
     }
+}
+
+/// `channel.web_queue_remove` — retract one specific queued item (e.g. the
+/// user deleted a queued message from the composer's queue UI) without
+/// touching the rest of the queue. Emits `queue_item_removed` on an actual
+/// removal; a no-op removal (unknown id, or no active turn) is silently
+/// `removed: false` — the item is already gone either way.
+pub async fn channel_web_queue_remove(
+    client_id: &str,
+    thread_id: &str,
+    item_id: &str,
+) -> Result<RpcOutcome<Value>, String> {
+    let client_id = client_id.trim();
+    let thread_id = thread_id.trim();
+    let item_id = item_id.trim();
+    if item_id.is_empty() {
+        return Err("item_id is required".to_string());
+    }
+    let map_key = key_for(thread_id);
+    let in_flight = IN_FLIGHT.lock().await;
+    let Some(entry) = in_flight.get(&map_key) else {
+        return Ok(RpcOutcome::single_log(
+            json!({
+                "thread_id": thread_id,
+                "item_id": item_id,
+                "removed": false,
+            }),
+            "no active turn for thread",
+        ));
+    };
+    let removed = entry.run_queue.remove_where(|item| item.id == item_id).await;
+    drop(in_flight);
+    if removed > 0 {
+        log::info!(
+            "[web-channel] removed queued item thread_id={thread_id} item_id={item_id}"
+        );
+        publish_web_channel_event(WebChannelEvent {
+            event: "queue_item_removed".to_string(),
+            client_id: client_id.to_string(),
+            thread_id: thread_id.to_string(),
+            queue_item: Some(crate::core::socketio::QueueItemPayload {
+                id: item_id.to_string(),
+                lane: None,
+                text_preview: None,
+            }),
+            ..Default::default()
+        });
+    }
+    Ok(RpcOutcome::single_log(
+        json!({
+            "thread_id": thread_id,
+            "item_id": item_id,
+            "removed": removed > 0,
+        }),
+        "queue item remove processed",
+    ))
 }
 
 pub async fn channel_web_queue_clear(thread_id: &str) -> Result<RpcOutcome<Value>, String> {

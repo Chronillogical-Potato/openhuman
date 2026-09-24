@@ -33,6 +33,7 @@ import notificationReducer from './notificationSlice';
 import personaReducer from './personaSlice';
 import providerSurfacesReducer from './providerSurfaceSlice';
 import { pttReducer } from './pttSlice';
+import queueReducer from './queueSlice';
 import runModeReducer from './runModeSlice';
 import socketReducer from './socketSlice';
 import themeReducer from './themeSlice';
@@ -256,6 +257,8 @@ export const store = configureStore({
     thread: persistedThreadReducer,
     layout: persistedLayoutReducer,
     chatRuntime: persistedChatRuntimeReducer,
+    // In-memory only: the core's run queue for running turns.
+    queue: queueReducer,
     channelConnections: persistedChannelConnectionsReducer,
     accounts: persistedAccountsReducer,
     notifications: persistedNotificationReducer,
