@@ -212,6 +212,25 @@ impl Tool for TavilySearchTool {
         if options.prefer_markdown {
             result.markdown_formatted = Some(markdown);
         }
+        // Host-only structured payload for the chat UI's tool-call
+        // presentation — never rendered to the model, so the plain/markdown
+        // text above (and the cache key that depends on it) is unaffected.
+        let structured_results: Vec<crate::search::tools::WebSearchResultRef<'_>> = parsed
+            .results
+            .iter()
+            .map(|r| crate::search::tools::WebSearchResultRef {
+                title: r.title.as_deref().map(str::trim).filter(|t| !t.is_empty()).unwrap_or("Untitled"),
+                url: r.url.as_str(),
+                published: None,
+                excerpt: r.content.as_deref(),
+            })
+            .collect();
+        result.metadata = Some(crate::search::tools::web_search_metadata(
+            &query,
+            "Tavily",
+            &structured_results,
+            limit,
+        ));
         Ok(result)
     }
 }
