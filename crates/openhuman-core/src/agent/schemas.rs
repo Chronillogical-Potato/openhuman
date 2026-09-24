@@ -80,6 +80,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             schema: schemas("registry_snapshot"),
             handler: handle_registry_snapshot,
         },
+        RegisteredController {
+            schema: schemas("context_breakdown"),
+            handler: handle_context_breakdown,
+        },
     ]
 }
 
