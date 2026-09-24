@@ -8,18 +8,12 @@
  * Kept deliberately small and provider-light so it stays fast and stable; grow
  * it screen-by-screen rather than pulling in the full app shell.
  */
-import { configureStore } from '@reduxjs/toolkit';
 import { render } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
-import chatRuntimeReducer, {
-  type ArtifactSnapshot,
-  type PendingApproval,
-  setPendingApprovalForThread,
-} from '../../store/chatRuntimeSlice';
-import ApprovalRequestCard from '../chat/ApprovalRequestCard';
+import type { ArtifactSnapshot } from '../../store/chatRuntimeSlice';
+import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
 import ArtifactCard from '../chat/ArtifactCard';
 
 vi.mock('../../services/artifactDownloadService', () => ({
