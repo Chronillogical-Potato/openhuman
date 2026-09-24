@@ -98,6 +98,8 @@ pub(super) async fn forward_steers(
         thread_id: thread_label.to_string(),
         mode: "steer".to_string(),
         delivered,
+        item_id: None,
+        text_preview: None,
     });
 }
 
@@ -131,6 +133,8 @@ pub(super) async fn forward_collects(
         thread_id: thread_label.to_string(),
         mode: "collect".to_string(),
         delivered,
+        item_id: None,
+        text_preview: None,
     });
 }
 
@@ -308,6 +312,8 @@ impl Drop for SteeringForwarderGuard {
         BUS.publish(DomainEvent::RunQueueSteerRequeued {
             thread_id: thread_label,
             requeued,
+            item_id: None,
+            text_preview: None,
         });
     }
 }
