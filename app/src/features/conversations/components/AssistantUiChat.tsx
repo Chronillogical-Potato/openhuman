@@ -16,7 +16,6 @@ import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ComposerTriggers } from '../aui/ComposerTriggers';
 import { ChatSources } from './aui/ChatSources';
-import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { ChatToolFallback } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
 
