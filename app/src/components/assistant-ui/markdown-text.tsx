@@ -96,19 +96,29 @@ const MarkdownTextImpl = () => {
   // renders: the gate must not flip mid-reveal.
   const { text } = useMessagePartText();
   const hasMath = hasLatexContent(text);
+  const sources = useAuiState(state => sourcePartsToCitations(state.message.parts));
+
+  const preprocess = (input: string): string => {
+    const withCitations = linkifyCitationMarkers(input, sources.length);
+    return hasMath ? normalizeLatexDelimiters(withCitations) : withCitations;
+  };
 
   return (
-    <MarkdownTextPrimitive
-      remarkPlugins={hasMath ? MATH_REMARK_PLUGINS : GFM_REMARK_PLUGINS}
-      rehypePlugins={hasMath ? MATH_REHYPE_PLUGINS : HIGHLIGHT_REHYPE_PLUGINS}
-      // `\[ … \]` / `\( … \)` are what models actually emit; `remark-math`
-      // only understands `$ … $`. Runs before the smooth reveal, so the text is
-      // normalised once rather than per frame.
-      preprocess={hasMath ? normalizeLatexDelimiters : undefined}
-      className="aui-md"
-      components={defaultComponents}
-      defer
-    />
+    <CitationSourcesContext.Provider value={sources}>
+      <MarkdownTextPrimitive
+        remarkPlugins={hasMath ? MATH_REMARK_PLUGINS : GFM_REMARK_PLUGINS}
+        rehypePlugins={hasMath ? MATH_REHYPE_PLUGINS : HIGHLIGHT_REHYPE_PLUGINS}
+        // `\[ … \]` / `\( … \)` are what models actually emit; `remark-math`
+        // only understands `$ … $`. Citation linkification always runs
+        // (a no-op when the message has no sources); LaTeX normalization is
+        // gated as before. Runs before the smooth reveal, so the text is
+        // normalised once rather than per frame.
+        preprocess={preprocess}
+        className="aui-md"
+        components={defaultComponents}
+        defer
+      />
+    </CitationSourcesContext.Provider>
   );
 };
 

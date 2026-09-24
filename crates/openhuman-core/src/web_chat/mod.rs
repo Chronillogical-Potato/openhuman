@@ -36,6 +36,7 @@ mod reply_persistence;
 mod run_task;
 mod schemas;
 mod session;
+mod suggestions;
 mod turn_timing;
 mod types;
 

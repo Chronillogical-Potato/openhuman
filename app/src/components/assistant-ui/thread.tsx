@@ -8,16 +8,16 @@ import {
 } from '@/components/assistant-ui/attachment';
 import { ComposerTriggerPopover } from '@/components/assistant-ui/composer-trigger-popover';
 import { DirectiveText } from '@/components/assistant-ui/directive-text';
-import { File } from '@/components/assistant-ui/file';
-import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-suggestions';
 import { ErrorState } from '@/components/assistant-ui/elements/error-state';
 import { Image } from '@/components/assistant-ui/elements/image';
 import { MessageTiming } from '@/components/assistant-ui/elements/message-timing.aui';
+import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
+import { File } from '@/components/assistant-ui/file';
+import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-suggestions';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
 import { Reasoning } from '@/components/assistant-ui/reasoning';
-import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
@@ -28,6 +28,7 @@ import {
   useAuiReloadCapability,
 } from '@/features/conversations/components/aui/auiThreadState';
 import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
+import { useActionBarReload, useMessageError } from '@assistant-ui/core/react';
 import {
   ActionBarMorePrimitive,
   ActionBarPrimitive,
@@ -47,7 +48,6 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useActionBarReload, useMessageError } from '@assistant-ui/core/react';
 import { LexicalComposerInput } from '@assistant-ui/react-lexical';
 import debugFactory from 'debug';
 import {
@@ -1272,10 +1272,19 @@ const SourceGroupSlot: FC<{ Component: ComponentType<{ sources: readonly SourceI
   const sources = parts.flatMap((part): SourceItemPart[] => {
     if (part.type !== 'source') return [];
     if (part.sourceType === 'url') {
-      return [{ id: part.id, sourceType: 'url', url: part.url, ...(part.title ? { title: part.title } : {}) }];
+      return [
+        {
+          id: part.id,
+          sourceType: 'url',
+          url: part.url,
+          ...(part.title ? { title: part.title } : {}),
+        },
+      ];
     }
     if (part.sourceType === 'document') {
-      return [{ id: part.id, sourceType: 'document', ...(part.title ? { title: part.title } : {}) }];
+      return [
+        { id: part.id, sourceType: 'document', ...(part.title ? { title: part.title } : {}) },
+      ];
     }
     return [];
   });

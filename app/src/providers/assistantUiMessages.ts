@@ -1,7 +1,7 @@
 import {
+  type ThreadMessage as AuiThreadMessage,
   fromThreadMessageLike,
   type ThreadAssistantMessagePart,
-  type ThreadMessage as AuiThreadMessage,
   type ThreadMessageLike,
   type ThreadUserMessagePart,
   type ToolApprovalOption,
@@ -186,7 +186,9 @@ function toolArtifact(entry: ToolTimelineEntry): OpenHumanToolArtifact | undefin
  * `parentCallId` (older history) pass through unchanged — those still rely on
  * the reducer-side heuristic collapse.
  */
-function resolveSubagentTimeline(timeline: readonly ToolTimelineEntry[]): readonly ToolTimelineEntry[] {
+function resolveSubagentTimeline(
+  timeline: readonly ToolTimelineEntry[]
+): readonly ToolTimelineEntry[] {
   const byParentCallId = new Map<string, ToolTimelineEntry>();
   for (const entry of timeline) {
     if (entry.subagent?.parentCallId) byParentCallId.set(entry.subagent.parentCallId, entry);
@@ -207,15 +209,15 @@ function resolveSubagentTimeline(timeline: readonly ToolTimelineEntry[]): readon
 }
 
 /** One item of a sub-agent's transcript, normalized to the `{kind:'tool', ...}` shape. */
-function subagentTranscriptItems(
-  activity: SubagentActivity
-): readonly SubagentTranscriptItem[] {
+function subagentTranscriptItems(activity: SubagentActivity): readonly SubagentTranscriptItem[] {
   if (activity.transcript && activity.transcript.length > 0) return activity.transcript;
   return activity.toolCalls.map(call => ({ kind: 'tool' as const, ...call }));
 }
 
 /** A sub-agent's child tool call as a plain (non-nested) `tool-call` part. */
-function subagentChildToolPart(item: Extract<SubagentTranscriptItem, { kind: 'tool' }>): ToolCallMessagePart {
+function subagentChildToolPart(
+  item: Extract<SubagentTranscriptItem, { kind: 'tool' }>
+): ToolCallMessagePart {
   const running = isActiveTimelineStatus(item.status);
   const args = jsonObject(item.args);
   return {
@@ -228,8 +230,12 @@ function subagentChildToolPart(item: Extract<SubagentTranscriptItem, { kind: 'to
       ? {
           result:
             item.status === 'error' || item.status === 'cancelled'
-              ? { status: item.status, failure: item.failure, ...(item.result !== undefined ? { value: item.result } : {}) }
-              : item.result ?? { status: item.status },
+              ? {
+                  status: item.status,
+                  failure: item.failure,
+                  ...(item.result !== undefined ? { value: item.result } : {}),
+                }
+              : (item.result ?? { status: item.status }),
         }
       : {}),
   };
@@ -302,7 +308,7 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   // it here (rather than this row's synthetic id) is what lets the part
   // render as ONE task card on the exact call the model made, instead of two
   // separate rows.
-  const toolCallId = isSubagent ? entry.subagent?.parentCallId ?? entry.id : entry.id;
+  const toolCallId = isSubagent ? (entry.subagent?.parentCallId ?? entry.id) : entry.id;
   const nestedMessages = isSubagent && entry.subagent ? subagentMessages(entry.subagent) : [];
 
   return {
@@ -363,9 +369,7 @@ function approvalField(approval: PendingApproval): NonNullable<ToolCallMessagePa
   return {
     id: approval.requestId,
     options: APPROVAL_DECISION_OPTIONS,
-    ...(approval.resolution
-      ? { resolution: approval.resolution, approved: false as const }
-      : {}),
+    ...(approval.resolution ? { resolution: approval.resolution, approved: false as const } : {}),
   };
 }
 
@@ -418,7 +422,9 @@ function withApproval(
         -1
       );
   if (index < 0) return [...parts, syntheticApprovalPart(approval)];
-  return parts.map((part, at) => (at === index ? { ...part, approval: approvalField(approval) } : part));
+  return parts.map((part, at) =>
+    at === index ? { ...part, approval: approvalField(approval) } : part
+  );
 }
 
 /**

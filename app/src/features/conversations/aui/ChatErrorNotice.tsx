@@ -20,7 +20,9 @@ interface ChatErrorMetadata {
 }
 
 const selectChatError = (s: AssistantState): ChatErrorMetadata | undefined => {
-  const custom = s.message.metadata?.custom as { extraMetadata?: Record<string, unknown> } | undefined;
+  const custom = s.message.metadata?.custom as
+    | { extraMetadata?: Record<string, unknown> }
+    | undefined;
   return custom?.extraMetadata?.[CHAT_ERROR_METADATA_KEY] as ChatErrorMetadata | undefined;
 };
 
