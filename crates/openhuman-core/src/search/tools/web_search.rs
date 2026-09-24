@@ -412,6 +412,26 @@ impl Tool for WebSearchTool {
             result.markdown_formatted =
                 Some(self.render_results_markdown(&resp.results, &query, provider));
         }
+        // Host-only structured payload for the chat UI's tool-call
+        // presentation (issue: tool-call presentation) — never rendered to
+        // the model, so `parse_parallel_results`'s text above (and the cache
+        // key that depends on it) is unaffected.
+        let structured_results: Vec<WebSearchResultRef<'_>> = resp
+            .results
+            .iter()
+            .map(|r| WebSearchResultRef {
+                title: &r.title,
+                url: &r.url,
+                published: r.publish_date.as_deref(),
+                excerpt: r.excerpts.first().map(String::as_str),
+            })
+            .collect();
+        result.metadata = Some(web_search_metadata(
+            &query,
+            provider,
+            &structured_results,
+            self.max_results,
+        ));
         Ok(result)
     }
 }
