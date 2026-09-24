@@ -31,6 +31,7 @@ import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import PttHotkeyManager from './components/PttHotkeyManager';
 import SecurityBanner from './components/SecurityBanner';
 import AppWalkthrough from './components/walkthrough/AppWalkthrough';
+import { useDevSkipOnboarding } from './hooks/useDevSkipOnboarding';
 import { useNotchBootSync } from './hooks/useNotchBootSync';
 import { I18nProvider } from './lib/i18n/I18nContext';
 import {
@@ -48,7 +49,7 @@ import {
   stopInternetStatusListener,
 } from './services/internetStatusListener';
 import { persistor, store } from './store';
-import { DEV_FORCE_ONBOARDING } from './utils/config';
+import { DEV_FORCE_ONBOARDING, DEV_SKIP_ONBOARDING } from './utils/config';
 import { installExternalLinkGuard } from './utils/externalLinkGuard';
 import { installFileDropGuard } from './utils/fileDropGuard';
 
@@ -186,10 +187,18 @@ function AppShell() {
 export function AppShellDesktop() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { snapshot, isBootstrapping } = useCoreState();
+  const { snapshot, isBootstrapping, setOnboardingCompletedFlag } = useCoreState();
   const onOnboardingRoute = location.pathname.startsWith('/onboarding');
   const onboardingPending =
-    !!snapshot.sessionToken && (DEV_FORCE_ONBOARDING || !snapshot.onboardingCompleted);
+    !!snapshot.sessionToken &&
+    (DEV_FORCE_ONBOARDING || (!snapshot.onboardingCompleted && !DEV_SKIP_ONBOARDING));
+
+  useDevSkipOnboarding({
+    isBootstrapping,
+    sessionToken: snapshot.sessionToken,
+    onboardingCompleted: snapshot.onboardingCompleted,
+    setOnboardingCompletedFlag,
+  });
 
   // Onboarding gate: while `onboarding_completed=false`, force any non-
   // onboarding route back to `/onboarding`. Once completed, bounce the

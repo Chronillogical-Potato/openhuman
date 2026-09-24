@@ -90,6 +90,19 @@ export const DEV_FORCE_ONBOARDING =
   import.meta.env.DEV && import.meta.env.VITE_DEV_FORCE_ONBOARDING === 'true';
 
 /**
+ * Dev only: treat onboarding and the walkthrough tour as done, so a debugging
+ * session lands straight in the app. A signed-in user whose core still has
+ * `onboarding_completed=false` gets it set to `true` through the core (so the
+ * flag really persists). `scripts/run-dev-web.sh` sets
+ * `VITE_DEV_SKIP_ONBOARDING=true` unless run with `--onboarding`.
+ * `VITE_DEV_FORCE_ONBOARDING` wins when both are set.
+ */
+export const DEV_SKIP_ONBOARDING =
+  import.meta.env.DEV &&
+  import.meta.env.VITE_DEV_SKIP_ONBOARDING === 'true' &&
+  !DEV_FORCE_ONBOARDING;
+
+/**
  * Consumer-first-session UX (intent picker, home IA, trust affordances).
  * **Default off** so `main` stays unchanged until slices ship behind this flag.
  * Opt in locally or in staging: `VITE_CONSUMER_FIRST_SESSION=true` in `app/.env.local`.
