@@ -117,7 +117,7 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
         "the rule must name the delegate to call"
     );
     assert!(
-        ARCHETYPE.contains("it can list saved flows and return a flow's definition"),
+        ARCHETYPE.contains("it calls `list_flows` or `get_flow` on its own tool belt"),
         "saved-flow lookup must route to the specialist that can return its result"
     );
 
