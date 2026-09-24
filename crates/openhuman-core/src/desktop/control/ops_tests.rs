@@ -1,5 +1,34 @@
 use super::*;
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+static TEST_LOOPBACK_LOCK: Mutex<()> = Mutex::new(());
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+struct LoopbackTestGuard {
+    previous: bool,
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl LoopbackTestGuard {
+    fn enable() -> Self {
+        let lock = TEST_LOOPBACK_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Self {
+            previous: LOOPBACK_LISTENER.swap(true, Ordering::AcqRel),
+            _lock: lock,
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl Drop for LoopbackTestGuard {
+    fn drop(&mut self) {
+        set_listener_is_loopback(self.previous);
+    }
+}
+
 #[test]
 fn disabled_by_default_and_persists() {
     let dir = tempfile::tempdir().unwrap();
@@ -68,7 +97,7 @@ async fn disabled_status_reports_local_setting_without_contacting_module() {
 async fn enabled_status_reports_module_permissions_and_errors() {
     use tinydesktop_bus::{DesktopError, DesktopResponse};
 
-    set_listener_is_loopback(true);
+    let _loopback = LoopbackTestGuard::enable();
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
@@ -124,7 +153,7 @@ async fn disabling_desktop_persists_even_if_state_was_enabled() {
 async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
     use tinydesktop_bus::{DesktopError, DesktopResponse};
 
-    set_listener_is_loopback(true);
+    let _loopback = LoopbackTestGuard::enable();
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
@@ -184,6 +213,50 @@ async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
     assert!(success.ok);
     assert_eq!(success.app_count, Some(2));
     assert!(success.reason.is_none());
+
+    let transport_error = probe_with(&config, |member| async move {
+        match member {
+            names::methods::PERMISSIONS => Ok(DesktopResponse::ok(
+                member,
+                serde_json::json!({"accessibility":{"state":"granted"}}),
+            )),
+            names::methods::SNAPSHOT => Ok(DesktopResponse::ok(
+                member,
+                serde_json::json!({"elements":[]}),
+            )),
+            names::methods::LIST_APPS => Err("app list bus disconnected".to_owned()),
+            _ => panic!("unexpected member"),
+        }
+    })
+    .await;
+    assert!(!transport_error.ok);
+    assert_eq!(transport_error.app_count, None);
+    assert_eq!(
+        transport_error.reason.as_deref(),
+        Some("app list bus disconnected")
+    );
+
+    let module_error = probe_with(&config, |member| async move {
+        match member {
+            names::methods::PERMISSIONS => Ok(DesktopResponse::ok(
+                member,
+                serde_json::json!({"accessibility":{"state":"granted"}}),
+            )),
+            names::methods::SNAPSHOT => Ok(DesktopResponse::ok(
+                member,
+                serde_json::json!({"elements":[]}),
+            )),
+            names::methods::LIST_APPS => Ok(DesktopResponse::err(
+                member,
+                DesktopError::new("PERM_DENIED", "App listing denied"),
+            )),
+            _ => panic!("unexpected member"),
+        }
+    })
+    .await;
+    assert!(!module_error.ok);
+    assert_eq!(module_error.app_count, None);
+    assert_eq!(module_error.reason.as_deref(), Some("App listing denied"));
 }
 
 #[test]

@@ -269,18 +269,32 @@ where
     }
     let snapshot = call(names::methods::SNAPSHOT).await;
     match snapshot {
-        Ok(response) if response.ok => {
-            let apps = call(names::methods::LIST_APPS).await;
-            DesktopProbe {
-                ok: true,
-                app_count: apps.ok().and_then(|reply| reply.data).and_then(|data| {
+        Ok(response) if response.ok => match call(names::methods::LIST_APPS).await {
+            Ok(reply) if reply.ok => {
+                let count = reply.data.as_ref().and_then(|data| {
                     data.get("apps")
                         .and_then(serde_json::Value::as_array)
                         .map(Vec::len)
-                }),
-                reason: None,
+                });
+                DesktopProbe {
+                    ok: count.is_some(),
+                    app_count: count,
+                    reason: count
+                        .is_none()
+                        .then(|| "desktop app list is missing".to_owned()),
+                }
             }
-        }
+            Ok(reply) => DesktopProbe {
+                ok: false,
+                app_count: None,
+                reason: reply.error.map(|error| error.message),
+            },
+            Err(error) => DesktopProbe {
+                ok: false,
+                app_count: None,
+                reason: Some(error),
+            },
+        },
         Ok(response) => DesktopProbe {
             ok: false,
             app_count: None,
