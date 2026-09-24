@@ -205,20 +205,23 @@ export function ContextUsage({
   if (breakdown.status === 'ready') {
     const limit = breakdown.data.context_window > 0 ? breakdown.data.context_window : contextWindow;
     body = (
-      <ContextBreakdown
-        segments={contextBreakdownSegments(breakdown.data, t)}
-        limit={limit}
-        title={t('conversations.composer.context.title')}
-        headroomLabel={t('conversations.composer.context.headroom')}
-        meterLabel={label =>
-          t('conversations.composer.context.meterLabel').replace('{label}', label)
-        }
-        meterValueText={(used, max) =>
-          t('conversations.composer.context.meterValue')
-            .replace('{used}', used)
-            .replace('{limit}', max)
-        }
-      />
+      <div className="flex flex-col gap-2">
+        <ContextBreakdown
+          segments={contextBreakdownSegments(breakdown.data, t)}
+          limit={limit}
+          title={t('conversations.composer.context.title')}
+          headroomLabel={t('conversations.composer.context.headroom')}
+          meterLabel={label =>
+            t('conversations.composer.context.meterLabel').replace('{label}', label)
+          }
+          meterValueText={(used, max) =>
+            t('conversations.composer.context.meterValue')
+              .replace('{used}', used)
+              .replace('{limit}', max)
+          }
+        />
+        <CostFooter usage={usage} t={t} />
+      </div>
     );
   } else if (breakdown.status === 'error') {
     body = (
