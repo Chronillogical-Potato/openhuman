@@ -15,7 +15,7 @@ describe('buildOpenHumanToolkit', () => {
     // `type: 'backend'` requires these to stay `undefined`: they are the
     // core's tool schema, sent to the model over the wire, not something the
     // frontend toolkit re-declares.
-    for (const entry of Object.values(openHumanToolEntries)) {
+    for (const entry of Object.values(openHumanToolEntries())) {
       expect(entry.type).toBe('backend');
     }
   });
