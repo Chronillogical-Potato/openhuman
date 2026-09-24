@@ -11,6 +11,13 @@
  * so it is fetched only when the popover opens, and an older core without the
  * method leaves the popover in an error state rather than breaking the
  * composer.
+ *
+ * `CostFooter` restores the dollar cost / per-sub-agent spend the bespoke
+ * pre-vendoring widget used to show — `chatRuntime.usageByThread`'s
+ * `costUsd`/`subAgents`, accumulated from `chat_done.usage` (and
+ * `subagent_completed`'s late delta). The vendored `ContextBreakdown` element
+ * has no cost field, so this renders underneath it as its own small card
+ * rather than being folded into that element.
  */
 import {
   ContextBreakdown,
