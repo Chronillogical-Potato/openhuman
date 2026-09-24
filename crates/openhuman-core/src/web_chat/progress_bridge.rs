@@ -1490,6 +1490,39 @@ pub(crate) fn spawn_progress_bridge(
                          in={input_tokens} out={output_tokens} cached_in={cached_input_tokens} \
                          total_usd={total_usd:.4} client_id={client_id} thread_id={thread_id}"
                     );
+
+                    // Live cost readout: throttled so a fast multi-round turn
+                    // doesn't flood the socket with one `turn_cost` per model
+                    // call. `TurnCostUpdated` is the parent's cumulative
+                    // rollup only — it carries no per-sub-agent breakdown, so
+                    // `subagents` stays empty here; the final `chat_done.usage`
+                    // (built from `LastTurnUsage` at delivery) is still where
+                    // sub-agent attribution shows up.
+                    let should_emit_turn_cost = last_turn_cost_emit
+                        .map(|at| at.elapsed() >= TURN_COST_EMIT_MIN_INTERVAL)
+                        .unwrap_or(true);
+                    if should_emit_turn_cost {
+                        last_turn_cost_emit = Some(std::time::Instant::now());
+                        publish_seq_stamped(
+                            &mut emit_seq,
+                            WebChannelEvent {
+                                event: "turn_cost".to_string(),
+                                client_id: client_id.clone(),
+                                thread_id: thread_id.clone(),
+                                request_id: request_id.clone(),
+                                round: Some(iteration),
+                                usage: Some(crate::core::socketio::TurnUsagePayload {
+                                    input_tokens,
+                                    output_tokens,
+                                    cached_input_tokens,
+                                    cost_usd: total_usd,
+                                    context_window: 0,
+                                    subagents: Vec::new(),
+                                }),
+                                ..Default::default()
+                            },
+                        );
+                    }
                 }
                 AgentProgress::TurnContent { .. } => {
                     // Prompt/reply content is attached to the trace span by the
