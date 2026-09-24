@@ -1,18 +1,19 @@
 import { useState } from 'react';
 
 import Button from '../../components/ui/Button';
+import { ToolTimelineAdapter } from '../../features/conversations/aui/ToolTimelineAdapter';
 import { AgentProcessSourcePanel } from '../../features/conversations/components/AgentProcessSourcePanel';
-import { ToolTimelineBlock } from '../../features/conversations/components/ToolTimelineBlock';
 import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
 
 /**
  * Dev-only visual preview of the "Agentic task insights" Chat surface.
  *
- * Renders {@link ToolTimelineBlock} and {@link AgentProcessSourcePanel} with
- * hand-built sample timeline entries so the layout, the timeline rail, the
- * name blink/done/error states, the collapsible accordion, and the source
- * panel can be eyeballed under plain `pnpm dev` — no core / model / live
- * agent run required. Reachable at `#/dev/agent-insights`.
+ * Renders {@link ToolTimelineAdapter} (the vendored `tool-timeline` element's
+ * OpenHuman host) and {@link AgentProcessSourcePanel} with hand-built sample
+ * timeline entries so the layout, the timeline rows, the name blink/done/error
+ * states, the collapsible disclosure, and the source panel can be eyeballed
+ * under plain `pnpm dev` — no core / model / live agent run required.
+ * Reachable at `#/dev/agent-insights`.
  *
  * Not linked from any nav; throwaway harness for design review.
  */
