@@ -239,9 +239,7 @@ const Conversations = ({
   const location = useLocation();
   const { threadId: routeThreadId } = useParams<{ threadId?: string }>();
   const shouldSyncChatRoute = variant === 'page' && location.pathname.startsWith('/chat');
-  const { threads, selectedThreadId, messages } = useAppSelector(
-    state => state.thread
-  );
+  const { threads, selectedThreadId, messages } = useAppSelector(state => state.thread);
   // Optional-chain + default: narrow test stores may omit `activeThreadIds`.
   const activeThreadIds = useAppSelector(
     state => state.thread.activeThreadIds ?? EMPTY_ACTIVE_THREADS
@@ -499,7 +497,6 @@ const Conversations = ({
     };
   }, [composerModelOverride]);
 
-
   // One-shot guard for the Stop/ESC partial-preservation path (#4862): request
   // ids whose partial reply has already been persisted, so a repeated Stop/ESC
   // fired before the `cancelled` event clears the live stream can't append the
@@ -534,7 +531,6 @@ const Conversations = ({
   // thread's own state changed — unrelated threads' activity must not keep a
   // foreground turn's timer alive.
   const turnSignatureByThreadRef = useRef<Map<string, readonly unknown[]>>(new Map());
-
 
   const handleCreateNewThread = async () => {
     try {
@@ -922,8 +918,6 @@ const Conversations = ({
     inferenceHeartbeatByThread,
   ]);
 
-
-
   const handleSlashCommand = (command: string): boolean => {
     const decision = handleComposerSlashCommand(command);
     if (decision.kind === 'not_handled') return false;
@@ -1189,7 +1183,6 @@ const Conversations = ({
 
   handleSendMessageRef.current = handleSendMessage;
 
-
   // Queue a FOLLOW-UP on the selected thread while a turn is streaming
   // (queue_mode 'followup'): the backend sends it as a fresh turn once the
   // current turn finishes. We do NOT insert it into the transcript now —
@@ -1372,7 +1365,6 @@ const Conversations = ({
     handleStopGenerationRef,
     true
   );
-
 
   const handleComposerEscape = useCallback(() => {
     if (!selectedThreadActive) return;

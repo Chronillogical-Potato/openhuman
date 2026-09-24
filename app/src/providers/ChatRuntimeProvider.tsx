@@ -1280,7 +1280,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
 
-
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
@@ -1441,7 +1440,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             );
           }
         }
-
 
         deleteSegmentDelivery(
           segmentDeliveriesRef.current,
