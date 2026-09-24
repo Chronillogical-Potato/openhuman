@@ -230,6 +230,16 @@ describe('live ≡ history rendering of one turn', () => {
       expect(after.length).toBeGreaterThanOrEqual(before.length);
       before.forEach((part, index) => {
         const next = after[index];
+        // The one sanctioned change: `subagent_spawned` promotes the
+        // `spawn_subagent` call, in its own slot, into the delegation card.
+        // It becomes a different component either way; what matters is that
+        // it stays where the agent issued it and nothing around it moves.
+        const promoted =
+          part.type === 'tool-call' &&
+          part.toolName === 'spawn_subagent' &&
+          next.type === 'tool-call' &&
+          next.toolName === 'task';
+        if (promoted) return;
         // Same key at the same index — what keeps React from remounting it.
         expect(partKey(next, index)).toBe(partKey(part, index));
         if ((part.type === 'text' || part.type === 'reasoning') && next.type === part.type) {
