@@ -167,6 +167,114 @@ function toolArtifact(entry: ToolTimelineEntry): OpenHumanToolArtifact | undefin
   return Object.keys(artifact).length > 1 ? artifact : undefined;
 }
 
+/**
+ * Fold a live subagent activity's synthetic timeline row into the ORIGINAL
+ * spawn/delegate tool-call row it belongs to, when the core told us which one
+ * that is (`SubagentActivity.parentCallId`, from `subagent_spawned.subagent.
+ * parent_call_id`).
+ *
+ * Before `parent_call_id` existed, the reducer had to guess which running
+ * `spawn_subagent`/`delegate_*` row started a delegation and splice it out of
+ * the timeline (`findPendingDelegationContext`) so only the subagent's own
+ * synthetic row survived. With the real id, the two rows can both stay in
+ * `chatRuntimeSlice` (simpler, and the delegation's OWN args/timing are still
+ * on the spawn row) — the substitution happens here, once, at render time:
+ * the spawn row's SLOT (its `seq`/position in issue order) is kept, but its
+ * CONTENT is replaced by the subagent activity row, and the subagent row's own
+ * synthetic entry is dropped so it is never emitted twice. Threads with no
+ * `parentCallId` (older history) pass through unchanged — those still rely on
+ * the reducer-side heuristic collapse.
+ */
+function resolveSubagentTimeline(timeline: readonly ToolTimelineEntry[]): readonly ToolTimelineEntry[] {
+  const byParentCallId = new Map<string, ToolTimelineEntry>();
+  for (const entry of timeline) {
+    if (entry.subagent?.parentCallId) byParentCallId.set(entry.subagent.parentCallId, entry);
+  }
+  if (byParentCallId.size === 0) return timeline;
+  const substituted = new Set(byParentCallId.values());
+  return timeline.filter(entry => !substituted.has(entry)).map(entry => byParentCallId.get(entry.id) ?? entry);
+}
+
+/** One item of a sub-agent's transcript, normalized to the `{kind:'tool', ...}` shape. */
+function subagentTranscriptItems(
+  activity: SubagentActivity
+): readonly SubagentTranscriptItem[] {
+  if (activity.transcript && activity.transcript.length > 0) return activity.transcript;
+  return activity.toolCalls.map(call => ({ kind: 'tool' as const, ...call }));
+}
+
+/** A sub-agent's child tool call as a plain (non-nested) `tool-call` part. */
+function subagentChildToolPart(item: Extract<SubagentTranscriptItem, { kind: 'tool' }>): ToolCallMessagePart {
+  const running = isActiveTimelineStatus(item.status);
+  const args = jsonObject(item.args);
+  return {
+    type: 'tool-call',
+    toolCallId: item.callId,
+    toolName: item.toolName,
+    args,
+    argsText: JSON.stringify(args, null, 2),
+    ...(!running
+      ? {
+          result:
+            item.status === 'error' || item.status === 'cancelled'
+              ? { status: item.status, failure: item.failure, ...(item.result !== undefined ? { value: item.result } : {}) }
+              : item.result ?? { status: item.status },
+        }
+      : {}),
+  };
+}
+
+/**
+ * A sub-agent delegation's full run, as the nested `ThreadMessage[]` a
+ * `task` part's `messages` field carries (assistant-ui's `TaskCard`/
+ * `ReadonlyThreadProvider` convention — see `elements/task-card.aui.tsx`).
+ *
+ * One opening `user` message for the parent's delegation prompt (the
+ * "instruction" row), then one `assistant` message replaying the child's own
+ * thinking/text/tool-call sequence in the order it happened. Built with
+ * `fromThreadMessageLike` — the same `ThreadMessageLike` shape this module's
+ * own `toThreadMessageLike` produces for the top-level thread — rather than
+ * hand-assembling a full `ThreadMessage`, which carries several
+ * runtime-internal fields (branching, per-part provider metadata) that have
+ * no source of truth on `SubagentActivity` and are not this adapter's to
+ * invent.
+ */
+export function subagentMessages(activity: SubagentActivity): readonly AuiThreadMessage[] {
+  const likes: ThreadMessageLike[] = [];
+  if (activity.prompt?.trim()) {
+    likes.push({ role: 'user', content: [{ type: 'text', text: activity.prompt }] });
+  }
+  const parts: ThreadAssistantMessagePart[] = [];
+  for (const item of subagentTranscriptItems(activity)) {
+    if (item.kind === 'thinking') {
+      if (item.text.trim().length > 0) parts.push(reasoningPart(item.text, undefined, undefined));
+      continue;
+    }
+    if (item.kind === 'text') {
+      if (item.text.trim().length > 0) parts.push({ type: 'text', text: item.text });
+      continue;
+    }
+    parts.push(subagentChildToolPart(item));
+  }
+  if (parts.length > 0) {
+    const running = isActiveTimelineStatus(activity.status);
+    likes.push({
+      role: 'assistant',
+      content: parts,
+      status: running
+        ? { type: 'running' }
+        : activity.status === 'failed' || activity.status === 'error'
+          ? { type: 'incomplete', reason: 'error' }
+          : activity.status === 'cancelled'
+            ? { type: 'incomplete', reason: 'cancelled' }
+            : { type: 'complete' },
+    });
+  }
+  return likes.map((like, index) =>
+    fromThreadMessageLike(like, `${activity.taskId}:${index}`, { type: 'complete' })
+  );
+}
+
 function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   const running = isActiveTimelineStatus(entry.status);
   const isSubagent = entry.name.startsWith('subagent:') || entry.subagent !== undefined;
@@ -178,17 +286,27 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
       })
     : toolArgs(entry);
 
+  // The spawn/delegate call's own real `tool_call_id`, when the core told us
+  // which one started this delegation — see `resolveSubagentTimeline`. Using
+  // it here (rather than this row's synthetic id) is what lets the part
+  // render as ONE task card on the exact call the model made, instead of two
+  // separate rows.
+  const toolCallId = isSubagent ? entry.subagent?.parentCallId ?? entry.id : entry.id;
+
   return {
     type: 'tool-call',
-    toolCallId: entry.id,
+    toolCallId,
     toolName: isSubagent ? 'task' : entry.name,
     args,
     argsText: JSON.stringify(args, null, 2),
     ...(!isSubagent && toolArtifact(entry) ? { artifact: toolArtifact(entry) } : {}),
+    ...(isSubagent && entry.subagent && subagentMessages(entry.subagent).length > 0
+      ? { messages: subagentMessages(entry.subagent) }
+      : {}),
     ...(!running
       ? {
           result: isSubagent
-            ? (entry.subagent ?? { status: entry.status })
+            ? { status: entry.status, activity: entry.subagent }
             : toolResultPayload(entry),
         }
       : {}),
