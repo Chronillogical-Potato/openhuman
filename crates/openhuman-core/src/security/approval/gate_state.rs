@@ -53,6 +53,9 @@ impl ApprovalGate {
                 request_id: row.request_id.clone(),
                 tool_name: row.tool_name.clone(),
                 decision: decision.as_str().to_string(),
+                thread_id: None,
+                client_id: None,
+                tool_call_id: None,
             });
         }
         Ok(decided)
