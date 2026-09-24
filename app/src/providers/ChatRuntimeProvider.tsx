@@ -1651,6 +1651,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 content: errorContent,
                 threadId: event.thread_id,
                 messageId: errorMessageId,
+                extraMetadata: chatErrorExtraMetadata(event),
               })
             );
           }
