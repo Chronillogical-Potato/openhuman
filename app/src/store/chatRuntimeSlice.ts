@@ -2044,9 +2044,10 @@ const chatRuntimeSlice = createSlice({
         artifactId: string;
         kind: ArtifactSnapshot['kind'];
         title: string;
+        toolCallId?: string;
       }>
     ) => {
-      const { threadId, artifactId, kind, title } = action.payload;
+      const { threadId, artifactId, kind, title, toolCallId } = action.payload;
       // No-downgrade guard: a late `artifact_pending` (re-delivery, or a
       // socket race) must never regress an artifact that already reached
       // `ready` / `failed` back to a spinner. Only the regenerate flow
