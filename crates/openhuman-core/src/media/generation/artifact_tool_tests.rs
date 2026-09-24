@@ -167,6 +167,3 @@ async fn host_metadata_forwards_to_the_inner_tool() {
     assert_eq!(wrapped.permission_level(), PermissionLevel::ReadOnly);
     assert_eq!(wrapped.category(), ToolCategory::System);
 }
-
-#[allow(dead_code)]
-fn silence_unused_path_import(_p: &Path) {}
