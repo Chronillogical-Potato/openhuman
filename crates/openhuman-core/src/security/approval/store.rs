@@ -115,6 +115,10 @@ fn migrate_columns(conn: &Connection) -> Result<()> {
             "source_context",
             "ALTER TABLE pending_approvals ADD COLUMN source_context TEXT",
         ),
+        (
+            "tool_call_id",
+            "ALTER TABLE pending_approvals ADD COLUMN tool_call_id TEXT",
+        ),
     ] {
         if !have.contains(col) {
             conn.execute(ddl, params![])
@@ -217,8 +221,8 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
         conn.execute(
             "INSERT INTO pending_approvals
                 (request_id, tool_name, action_summary, args_redacted,
-                 session_id, created_at, expires_at, source_context)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                 session_id, created_at, expires_at, source_context, tool_call_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 pending.request_id,
                 pending.tool_name,
@@ -228,6 +232,7 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
                 created,
                 expires,
                 source_context,
+                pending.tool_call_id,
             ],
         )
         .context("[approval::store] insert pending row")?;

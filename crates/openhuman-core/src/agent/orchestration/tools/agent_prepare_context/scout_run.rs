@@ -135,6 +135,7 @@ pub async fn run_context_scout_with_catalog(
         None,
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         None,
+        None,
     )
     .await
 }
@@ -224,6 +225,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
             crate::agent::tinyagents::host::OpenHumanRunContext,
         >,
     >,
+    parent_call_id: Option<String>,
 ) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
