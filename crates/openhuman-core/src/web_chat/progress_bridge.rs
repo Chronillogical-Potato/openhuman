@@ -1070,7 +1070,8 @@ pub(crate) fn spawn_progress_bridge(
                             payload: json!({
                                 "agentId": agent_id,
                                 "question": question,
-                                "workerThreadId": worker_thread_id
+                                "workerThreadId": worker_thread_id,
+                                "parentCallId": parent_call_id
                             }),
                         },
                     );
@@ -1088,6 +1089,7 @@ pub(crate) fn spawn_progress_bridge(
                             round: Some(round),
                             subagent: Some(SubagentProgressDetail {
                                 worker_thread_id,
+                                parent_call_id,
                                 ..Default::default()
                             }),
                             ..Default::default()
