@@ -172,6 +172,21 @@ export type ThreadComponents = {
    * validates whatever arrives.
    */
   canAcceptComposerFiles?: boolean | undefined;
+  /**
+   * Host composer that REPLACES the built-in one (and the welcome suggestions
+   * that belong to it) in the viewport footer, while the transcript above it
+   * stays assistant-ui. For surfaces whose input is not a text box at all —
+   * the mic-first voice composer — and which still want this transcript.
+   */
+  Composer?: ComponentType | undefined;
+  /** Placeholder for the built-in composer's input. */
+  composerPlaceholder?: string | undefined;
+  /**
+   * Whether the built-in composer offers the model pill. Defaults to `true`;
+   * a surface whose turns are not routed by the chat model (the workflow
+   * copilot, which runs a fixed specialist) turns it off.
+   */
+  showModelSelector?: boolean | undefined;
 };
 
 export type ThreadProps = {
@@ -310,7 +325,7 @@ const ThreadRoot: FC<{
   loadError: string | null;
   onEscape?: () => void;
 }> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
-  const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+  const { Welcome = ThreadWelcome, Composer: HostComposer } = useContext(ThreadComponentsContext);
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
   // Everything the viewport scrolls over, which is MORE than the message group:
@@ -382,10 +397,16 @@ const ThreadRoot: FC<{
             )}>
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
-            <Composer model={model} onModelChange={onModelChange} onEscape={onEscape} />
-            <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
-              <ThreadSuggestions />
-            </AuiIf>
+            {HostComposer ? (
+              <HostComposer />
+            ) : (
+              <>
+                <Composer model={model} onModelChange={onModelChange} onEscape={onEscape} />
+                <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
+                  <ThreadSuggestions />
+                </AuiIf>
+              </>
+            )}
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
@@ -770,6 +791,7 @@ const Composer: FC<{
     ComposerAttachments: HostComposerAttachments,
     onComposerFiles,
     canAcceptComposerFiles,
+    composerPlaceholder = 'Send a message...',
   } = useContext(ThreadComponentsContext);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   useEffect(() => {
@@ -970,7 +992,7 @@ const Composer: FC<{
              */}
             <LexicalComposerInput
               ref={inputWrapperRef}
-              placeholder="Send a message..."
+              placeholder={composerPlaceholder}
               onPasteCapture={handlePasteCapture}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
@@ -1054,6 +1076,7 @@ const ComposerAction: FC<{
     onComposerAttachmentSend,
     ComposerIdleAction,
     onSwitchToMicCloud,
+    showModelSelector = true,
   } = useContext(ThreadComponentsContext);
   const isRunning = useAuiState(state => state.thread.isRunning);
   // Nothing to send: the primary slot goes to the host's idle control instead
@@ -1066,7 +1089,7 @@ const ComposerAction: FC<{
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <div className="flex min-w-0 items-center gap-1">
         {HostComposerAddAttachment ? <HostComposerAddAttachment /> : <ComposerAddAttachment />}
-        <ModelQualityPill value={model} onValueChange={onModelChange} />
+        {showModelSelector ? <ModelQualityPill value={model} onValueChange={onModelChange} /> : null}
         <ComposerExtrasSlot />
       </div>
       <div className="flex items-center gap-1.5">
