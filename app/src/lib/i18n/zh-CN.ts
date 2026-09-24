@@ -3180,6 +3180,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': '处理中',
   'conversations.tools.noOutput': '无输出',
   'conversations.tools.delegatedTo': '已委派给 {agent}',
+  'conversations.tools.parallelAgentsAggregating': '正在汇总结果',
   'conversations.tools.openInBrowser': '在浏览器中打开',
   'conversations.tools.status.running': '运行中',
   'conversations.tools.status.done': '已完成',

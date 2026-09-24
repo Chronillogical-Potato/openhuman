@@ -3435,6 +3435,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'In corso',
   'conversations.tools.noOutput': 'Nessun output',
   'conversations.tools.delegatedTo': 'Delegato a {agent}',
+  'conversations.tools.parallelAgentsAggregating': 'Aggregazione dei risultati',
   'conversations.tools.openInBrowser': 'Apri nel browser',
   'conversations.tools.status.running': 'in corso',
   'conversations.tools.status.done': 'completato',

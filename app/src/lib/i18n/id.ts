@@ -3392,6 +3392,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'Sedang bekerja',
   'conversations.tools.noOutput': 'Tidak ada keluaran',
   'conversations.tools.delegatedTo': 'Didelegasikan ke {agent}',
+  'conversations.tools.parallelAgentsAggregating': 'Menggabungkan hasil',
   'conversations.tools.openInBrowser': 'Buka di peramban',
   'conversations.tools.status.running': 'berjalan',
   'conversations.tools.status.done': 'selesai',

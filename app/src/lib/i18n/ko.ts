@@ -3342,6 +3342,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': '작업 중',
   'conversations.tools.noOutput': '출력 없음',
   'conversations.tools.delegatedTo': '{agent}에게 위임함',
+  'conversations.tools.parallelAgentsAggregating': '결과 집계 중',
   'conversations.tools.openInBrowser': '브라우저에서 열기',
   'conversations.tools.status.running': '실행 중',
   'conversations.tools.status.done': '완료',

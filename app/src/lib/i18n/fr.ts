@@ -3458,6 +3458,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'En cours',
   'conversations.tools.noOutput': 'Aucune sortie',
   'conversations.tools.delegatedTo': 'Délégué à {agent}',
+  'conversations.tools.parallelAgentsAggregating': 'Agrégation des résultats',
   'conversations.tools.openInBrowser': 'Ouvrir dans le navigateur',
   'conversations.tools.status.running': 'en cours',
   'conversations.tools.status.done': 'terminé',

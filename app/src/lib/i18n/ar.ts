@@ -3297,6 +3297,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'جارٍ العمل',
   'conversations.tools.noOutput': 'لا توجد مخرجات',
   'conversations.tools.delegatedTo': 'تم التفويض إلى {agent}',
+  'conversations.tools.parallelAgentsAggregating': 'تجميع النتائج',
   'conversations.tools.openInBrowser': 'فتح في المتصفح',
   'conversations.tools.status.running': 'قيد التشغيل',
   'conversations.tools.status.done': 'مكتمل',

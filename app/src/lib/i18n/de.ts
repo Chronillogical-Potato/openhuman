@@ -3471,6 +3471,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'Arbeitet',
   'conversations.tools.noOutput': 'Keine Ausgabe',
   'conversations.tools.delegatedTo': 'An {agent} delegiert',
+  'conversations.tools.parallelAgentsAggregating': 'Ergebnisse werden zusammengeführt',
   'conversations.tools.openInBrowser': 'Im Browser öffnen',
   'conversations.tools.status.running': 'läuft',
   'conversations.tools.status.done': 'fertig',

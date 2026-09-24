@@ -3376,6 +3376,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'काम जारी है',
   'conversations.tools.noOutput': 'कोई आउटपुट नहीं',
   'conversations.tools.delegatedTo': '{agent} को सौंपा गया',
+  'conversations.tools.parallelAgentsAggregating': 'परिणाम एकत्रित किए जा रहे हैं',
   'conversations.tools.openInBrowser': 'ब्राउज़र में खोलें',
   'conversations.tools.status.running': 'चल रहा है',
   'conversations.tools.status.done': 'पूरा',

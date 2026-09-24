@@ -3416,6 +3416,7 @@ const messages: TranslationMap = {
   'conversations.tools.working': 'Pracuje',
   'conversations.tools.noOutput': 'Brak wyniku',
   'conversations.tools.delegatedTo': 'Przekazano do {agent}',
+  'conversations.tools.parallelAgentsAggregating': 'Agregowanie wyników',
   'conversations.tools.openInBrowser': 'Otwórz w przeglądarce',
   'conversations.tools.status.running': 'w toku',
   'conversations.tools.status.done': 'gotowe',

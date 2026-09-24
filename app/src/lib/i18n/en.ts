@@ -3786,6 +3786,7 @@ const en: TranslationMap = {
   'conversations.tools.working': 'Working',
   'conversations.tools.noOutput': 'No output',
   'conversations.tools.delegatedTo': 'Delegated to {agent}',
+  'conversations.tools.parallelAgentsAggregating': 'Aggregating results',
   'conversations.tools.openInBrowser': 'Open in browser',
   'conversations.tools.status.running': 'running',
   'conversations.tools.status.done': 'done',
