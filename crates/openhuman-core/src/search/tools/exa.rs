@@ -1,10 +1,8 @@
 //! Exa neural search integration -- direct API (BYOK, not backend-proxied).
 //!
 //! **Scope**: Agent + CLI/RPC.
-//!
 //! **Endpoints**: `POST https://api.exa.ai/search`,
 //! `POST https://api.exa.ai/findSimilar`, `POST https://api.exa.ai/contents`.
-//!
 //! **Auth**: `x-api-key: <api key>`.
 //!
 //! When the user selects `exa` as their search engine and has saved their own
