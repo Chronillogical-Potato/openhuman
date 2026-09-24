@@ -25,6 +25,7 @@ import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
 import ModelQualityPill from '@/components/chat/ModelQualityPill';
 import { ChatErrorNotice } from '@/features/conversations/aui/ChatErrorNotice';
+import { ConnectionStateBanner } from '@/features/conversations/aui/ConnectionStateBanner';
 import {
   useAuiEditCapabilities,
   useAuiReloadCapability,
