@@ -144,10 +144,14 @@ describe('streamingTailMessage', () => {
     const complete = streamingTailMessage(null, [
       tool({ id: 'sub-1', name: 'subagent:researcher', status: 'success', subagent }),
     ]);
+    // `result` is `{status, activity}`, not the bare activity: the outer row's
+    // OWN `entry.status` is what settles reliably (`subagentDone` never
+    // touches `activity.status` itself), so `SubagentTaskCard` reads that
+    // rather than the activity's possibly-stale `status` field.
     expect(complete?.content[0]).toMatchObject({
       type: 'tool-call',
       toolName: 'task',
-      result: subagent,
+      result: { status: 'success', activity: subagent },
     });
   });
 });
