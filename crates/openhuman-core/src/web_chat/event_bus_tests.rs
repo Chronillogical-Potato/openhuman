@@ -65,7 +65,7 @@ async fn find_egress_web_event(
 #[tokio::test]
 async fn egress_surface_bridges_pending_with_chat_context() {
     crate::core::bus::init().await.expect("bus init");
-    let _handle = crate::core::bus::BUS.subscribe(Arc::new(EgressSurfaceSubscriber));
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(crate::web_chat::egress_surface::EgressSurfaceSubscriber));
     let mut web_rx = subscribe_web_channel_events();
 
     let marker = "svc-bridge-with-context";
@@ -91,7 +91,7 @@ async fn egress_surface_bridges_pending_with_chat_context() {
 #[tokio::test]
 async fn egress_surface_drops_pending_without_chat_context() {
     crate::core::bus::init().await.expect("bus init");
-    let _handle = crate::core::bus::BUS.subscribe(Arc::new(EgressSurfaceSubscriber));
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(crate::web_chat::egress_surface::EgressSurfaceSubscriber));
     let mut web_rx = subscribe_web_channel_events();
 
     let dropped_marker = "svc-bridge-no-context";
