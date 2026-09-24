@@ -1311,11 +1311,15 @@ const chatRuntimeSlice = createSlice({
       const rowId = toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`;
       if (existingIdx >= 0) {
         const prev = entries[existingIdx];
+        // A settled row stays settled. A replayed/late `tool_call` for a call
+        // whose result already landed used to flip it back to `running`, and
+        // nothing would ever settle it again.
+        const settled = prev.status === 'success' || prev.status === 'error';
         entries[existingIdx] = decorateEntry({
           ...prev,
           name: toolName,
           round,
-          status: 'running',
+          status: settled ? prev.status : 'running',
           displayName: displayLabel ?? prev.displayName,
           detail: displayDetail ?? prev.detail,
         });

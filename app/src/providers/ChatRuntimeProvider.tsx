@@ -655,7 +655,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           })
         );
 
-        const eventKey = `tool_call:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.tool_call_id ?? ''}`;
+        const eventKey = `tool_call:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${toolEventIdentity(event)}`;
         if (
           !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
         )
@@ -680,7 +680,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onToolResult: (event: ChatToolResultEvent) => {
-        const eventKey = `tool_result:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.success}:${event.tool_call_id ?? ''}`;
+        const eventKey = `tool_result:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.success}:${toolEventIdentity(event)}`;
         if (
           !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
         )
@@ -1083,6 +1083,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         }
       },
       onTextDelta: event => {
+        if (isReplayedDelta(event)) return;
         // Parallel-vs-primary routing + processing transcript now live in the
         // reducer (Phase 3) — no getState() in the provider.
         dispatch(
@@ -1096,6 +1097,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onThinkingDelta: event => {
+        if (isReplayedDelta(event)) return;
         dispatch(
           streamDeltaReceived({
             threadId: event.thread_id,
@@ -1341,13 +1343,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
         dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        if (existing.length > 0) {
-          const entries = existing.map(entry =>
-            entry.status === 'running' ? { ...entry, status: 'success' as const } : entry
-          );
-          dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
-        }
+        // Rows still `running` are NOT forced to `success` here. The core now
+        // forwards every queued progress event before `chat_done`, so a row
+        // still running at this point genuinely has no result — marking it
+        // successful invented an outcome. The settled turn_state snapshot /
+        // transcript projection settles it (to its real status, or
+        // `cancelled`).
         if (!event.segment_total) {
           void (async () => {
             try {
