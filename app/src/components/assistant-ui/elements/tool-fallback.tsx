@@ -14,16 +14,27 @@
  *   hidden (`!isCancelled && <ToolFallbackResult .../>`) rather than always
  *   rendered — a cancelled call's stale result would otherwise read as a
  *   real one.
- * - **Not ported (blocked on a dependency bump, not a design choice):**
- *   upstream's free-text answer path (`Textarea`, `toolApprovalAcceptsText`,
+ * - Upstream's free-text answer path (`Textarea`, `toolApprovalAcceptsText`,
  *   the `isQuestion`/`dismiss`/`promptText` branches) and the voice-session
- *   lock (`useAuiState(s => s.thread.voice)`) all read fields — `approval.
- *   display`, `approval.prompt`, `approval.dismissible`, a `text` member on
- *   `ToolApprovalResponse`, `thread.voice` — that do not exist on the
- *   `@assistant-ui/react` 0.15.16 / `@assistant-ui/core` 0.3.15 types pinned
- *   here (`toolApprovalAcceptsText` is not exported at all). Adding them
- *   needs the version bump the ground rules reserve for WS-A; until then the
- *   options/confirm decision bar below is the full approval surface.
+ *   lock (`useAuiState(s => s.thread.voice)`) are now ported — the
+ *   `@assistant-ui/react` / `@assistant-ui/core` pin WS-A landed
+ *   (`^0.15.21` / `^0.3.20`) exports `toolApprovalAcceptsText` and carries
+ *   `approval.display` / `approval.prompt` / `approval.dismissible` and a
+ *   `text` member on `ToolApprovalResponse`.
+ *
+ *   `ChatToolFallback` (`features/conversations/components/ChatToolParts.tsx`)
+ *   intercepts OpenHuman's own gated-approval path before it ever reaches
+ *   this element — `GatedToolCall` renders `ApprovalCardAdapter` for a
+ *   `status.type === 'requires-action'` call with `part.approval` set, and
+ *   `ComposioConnectCall` handles the connector-auth case — so this
+ *   `ToolFallbackApproval` bar is reached only by an interrupt/approval this
+ *   app does not already have its own card for (a `human()`/HITL pause or a
+ *   raw MCP elicitation the toolkit has no dedicated entry for). WS-B's own
+ *   adapters (`ApprovalCardAdapter.tsx`, `PermissionGrantAdapter.tsx`,
+ *   `ElicitationAdapter.tsx`) cover the OpenHuman-specific gate/permission/
+ *   elicitation surfaces directly; this element stays the generic upstream
+ *   fallback underneath them, kept in sync with upstream rather than
+ *   duplicating that logic.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { Button } from '@/components/assistant-ui/ui/button';
