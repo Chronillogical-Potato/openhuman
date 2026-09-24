@@ -112,6 +112,8 @@ fn roundtrips_subagent_interleaved_transcript_with_full_fidelity() {
         elapsed_ms: Some(1234),
         output_chars: Some(42),
         worker_thread_id: Some("worker-thread-9".into()),
+        parent_call_id: Some("call-1".into()),
+        output: Some("done".into()),
         tool_calls: vec![SubagentToolCall {
             call_id: "c1".into(),
             tool_name: "search".into(),
