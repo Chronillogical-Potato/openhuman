@@ -47,25 +47,22 @@ type SocketStatus = ReturnType<typeof selectSocketStatus>;
 function useConnectionPhase(status: SocketStatus): ConnectionPhase {
   const [phase, setPhase] = useState<ConnectionPhase>('online');
   const everConnected = useRef(false);
+  const droppedSinceConnect = useRef(false);
 
   useEffect(() => {
     if (status === 'connected') {
-      const wasDown = everConnected.current && phase !== 'online' && phase !== 'resumed';
+      const resumed = droppedSinceConnect.current;
       everConnected.current = true;
-      if (!wasDown) {
-        if (phase !== 'resumed') setPhase('online');
-        return;
-      }
-      log('resumed after %s', phase);
-      setPhase('resumed');
+      droppedSinceConnect.current = false;
+      if (resumed) log('socket reconnected → resumed');
+      setPhase(resumed ? 'resumed' : 'online');
       return;
     }
     if (!everConnected.current) return;
+    droppedSinceConnect.current = true;
     const next: ConnectionPhase = status === 'connecting' ? 'reconnecting' : 'dropped';
     log('socket %s → %s', status, next);
     setPhase(next);
-    // `phase` is read, not reacted to: only a status change moves the banner.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   useEffect(() => {
