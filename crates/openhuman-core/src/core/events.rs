@@ -619,6 +619,18 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the approval question to,
         /// when known. `None` for non-chat callers.
         client_id: Option<String>,
+        /// The gated tool call's provider-assigned call id, when the parked
+        /// call originated from a tracked tool-call turn. Lets a frontend
+        /// correlate the approval card back to the exact `tool_call` /
+        /// `tool_args_delta` timeline row instead of matching on tool name.
+        /// `None` until every publish site is updated to pass it through.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// RFC3339 expiry of this pending approval, mirrored from
+        /// `PendingApproval::expires_at`. `None` when the approval has no
+        /// expiry or the publish site hasn't been updated yet.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expires_at: Option<String>,
     },
     /// User decided a pending approval. Published by `approval_decide`
     /// RPC handler after the gate's parked future resolves.
@@ -628,6 +640,20 @@ pub enum DomainEvent {
         /// `"approve_once"`, `"approve_always_for_tool"`,
         /// `"approve_always_for_flow"`, or `"deny"`.
         decision: String,
+        /// Chat thread the decided approval belongs to, mirrored from the
+        /// original `ApprovalRequested` so a socket bridge can route the
+        /// decision without re-looking up the (possibly already-cleared)
+        /// pending-approval record. `None` for non-chat callers and until
+        /// every publish site is updated.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
+        /// Socket.IO client id (room), mirrored the same way.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        client_id: Option<String>,
+        /// The gated tool call's provider-assigned call id, mirrored from
+        /// `ApprovalRequested::tool_call_id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
     },
     /// A `Workflow`-origin tool call parked in the `ApprovalGate` (issue
     /// flow-approval-surface, PR2/PR3). Unlike `ApprovalRequested`, this
