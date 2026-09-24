@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MOCK_COMMANDS_LIST } from '../../../pages/dev/assistant-ui-demo/assistantUiMock/mockScript';
 import { registry } from '../../../lib/commands/registry';
 import { callCoreRpc } from '../../../services/coreRpcClient';
 import runModeReducer from '../../../store/runModeSlice';
@@ -87,6 +88,11 @@ describe('fetchCoreCommands', () => {
       SKILL,
       { id: 'w', label: 'W', kind: 'workflow' },
     ]);
+  });
+
+  it('accepts the dev fixture as a well-formed commands_list response', async () => {
+    rpcByMethod({ 'openhuman.commands_list': { data: { commands: MOCK_COMMANDS_LIST } } });
+    await expect(fetchCoreCommands()).resolves.toEqual(MOCK_COMMANDS_LIST);
   });
 
   it('accepts a bare array', async () => {

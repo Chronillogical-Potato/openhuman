@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MOCK_MEMORY_RECALL } from '../../../pages/dev/assistant-ui-demo/assistantUiMock/mockScript';
 import { callCoreRpc } from '../../../services/coreRpcClient';
 import chatRuntimeReducer, { type ArtifactSnapshot } from '../../../store/chatRuntimeSlice';
 import type { Chunk } from '../../../utils/tauriCommands/memoryTree';
@@ -101,6 +102,12 @@ describe('memoryMentionsFromChunks', () => {
     expect(unstable_defaultDirectiveFormatter.parse(text)).toEqual([
       { kind: 'mention', type: 'memory', label: mention!.label, id: 'c1' },
     ]);
+  });
+
+  it('maps the dev recall fixture to one memory mention per chunk', () => {
+    const mentions = memoryMentionsFromChunks(MOCK_MEMORY_RECALL.chunks);
+    expect(mentions.map(m => m.id)).toEqual(MOCK_MEMORY_RECALL.chunks.map(c => c.id));
+    expect(mentions.every(m => m.label.length > 0)).toBe(true);
   });
 
   it('falls back to the source id when a chunk has no preview', () => {
