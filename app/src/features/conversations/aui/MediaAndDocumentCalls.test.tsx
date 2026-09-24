@@ -1,7 +1,29 @@
+import { configureStore } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { Provider } from 'react-redux';
+import { describe, expect, it, vi } from 'vitest';
 
+import type { ArtifactSnapshot } from '../../../store/chatRuntimeSlice';
 import { DocumentArtifactCall, MediaGenerationCall } from './MediaAndDocumentCalls';
+
+const THREAD_ID = 'thread-1';
+
+vi.mock('../../../providers/AssistantUiRuntimeProvider', () => ({
+  useAuiThreadId: () => THREAD_ID,
+}));
+
+const aiRegenerateMock = vi.fn().mockResolvedValue(true);
+vi.mock('../../../services/chatService', () => ({
+  aiRegenerate: (...args: unknown[]) => aiRegenerateMock(...args),
+}));
+
+function withStore(node: React.ReactElement, artifacts: ArtifactSnapshot[] = []) {
+  const store = configureStore({
+    reducer: { chatRuntime: () => ({ artifactsByThread: { [THREAD_ID]: artifacts } }) },
+  });
+  return <Provider store={store}>{node}</Provider>;
+}
 
 const baseProps = {
   type: 'tool-call' as const,
