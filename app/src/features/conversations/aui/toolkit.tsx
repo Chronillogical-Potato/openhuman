@@ -62,11 +62,12 @@ export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
     /**
      * A sub-agent delegation. Never approval-gated (the orchestrator spawns
      * it directly), so its render skips the gate check every other entry
-     * would need and goes straight to the shared delegation card — exactly
-     * what the old `ChatToolFallback`'s `toolName === 'task'` branch did
-     * before this registry replaced the manual switch.
+     * would need and goes straight to `SubagentTaskCard`, over the vendored
+     * `task-card` element — nested `messages` transcript, worktree actions,
+     * and the awaiting-user reply box all live there now (`AssistantUiSubagentCall`
+     * / `SubagentDrawer` are deleted).
      */
-    task: { type: 'backend', display: 'inline', render: SubagentCall },
+    task: { type: 'backend', display: 'inline', render: SubagentTaskCard },
 
     /**
      * Image / video generation: the `elements-image-generation` placeholder
