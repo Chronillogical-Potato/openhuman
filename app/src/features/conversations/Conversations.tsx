@@ -1929,7 +1929,6 @@ const Conversations = ({
       {sendAdvisoryBanner}
       {liveArtifactDeck}
       {/* The core's run queue for this thread; renders nothing while empty. */}
-      <ComposerMessageQueue />
     </>
   );
 
