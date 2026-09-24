@@ -371,11 +371,14 @@ const ContextDisplayRing: FC<PresetProps> = ({
   side,
   usage,
   resetKey,
+  labels,
+  ...triggerProps
 }) => (
   <ContextDisplayRoot
     modelContextWindow={modelContextWindow}
     usage={usage}
     resetKey={resetKey}
+    labels={labels}
   >
     <ContextDisplayTrigger
       className={cn(
@@ -383,6 +386,7 @@ const ContextDisplayRing: FC<PresetProps> = ({
         className,
       )}
       aria-label="Context usage"
+      {...triggerProps}
     >
       <RingVisual />
       <RingPercentLabel />
@@ -418,15 +422,19 @@ const ContextDisplayBar: FC<PresetProps> = ({
   side,
   usage,
   resetKey,
+  labels,
+  ...triggerProps
 }) => (
   <ContextDisplayRoot
     modelContextWindow={modelContextWindow}
     usage={usage}
     resetKey={resetKey}
+    labels={labels}
   >
     <ContextDisplayTrigger
       className={cn("px-2 py-1", className)}
       aria-label="Context usage"
+      {...triggerProps}
     >
       <BarVisual />
     </ContextDisplayTrigger>
@@ -450,11 +458,14 @@ const ContextDisplayText: FC<PresetProps> = ({
   side,
   usage,
   resetKey,
+  labels,
+  ...triggerProps
 }) => (
   <ContextDisplayRoot
     modelContextWindow={modelContextWindow}
     usage={usage}
     resetKey={resetKey}
+    labels={labels}
   >
     <ContextDisplayTrigger
       aria-label="Context usage"
@@ -462,6 +473,7 @@ const ContextDisplayText: FC<PresetProps> = ({
         "text-muted-foreground hover:bg-accent hover:text-accent-foreground px-2 py-1 font-mono text-xs tabular-nums",
         className,
       )}
+      {...triggerProps}
     >
       <TextVisual />
     </ContextDisplayTrigger>
