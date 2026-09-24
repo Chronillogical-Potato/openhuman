@@ -515,13 +515,15 @@ impl Tool for ExaSearchTool {
         // `find_similar`/`get_contents` share `to_result` but aren't a
         // query-shaped search, so this is set here rather than in the
         // shared helper.
+        let excerpts: Vec<Option<String>> = results.iter().map(ExaResultItem::excerpt).collect();
         let structured_results: Vec<super::WebSearchResultRef<'_>> = results
             .iter()
-            .map(|r| super::WebSearchResultRef {
+            .zip(excerpts.iter())
+            .map(|(r, excerpt)| super::WebSearchResultRef {
                 title: r.display_title(),
                 url: r.url.as_str(),
                 published: r.published_date.as_deref(),
-                excerpt: r.excerpt().as_deref().map(str::to_string).as_deref(),
+                excerpt: excerpt.as_deref(),
             })
             .collect();
         result.metadata = Some(super::web_search_metadata(
