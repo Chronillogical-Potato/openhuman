@@ -2235,6 +2235,12 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
   it('keeps the draft intact when the follow-up send fails', async () => {
     vi.mocked(chatSend).mockRejectedValueOnce(new Error('send boom'));
     const { store, textarea } = await renderStreamingConversation();
+    // A real mid-turn follow-up: the runtime is running too, so the send takes
+    // the queue's `steer` lane, which hands off after the composer clear.
+    act(() => {
+      store?.dispatch(beginInferenceTurn({ threadId: 'fup-thread' }));
+      store?.dispatch(markInferenceTurnStreaming({ threadId: 'fup-thread' }));
+    });
 
     await act(async () => {
       setComposerText(textarea, 'keep me on failure');
