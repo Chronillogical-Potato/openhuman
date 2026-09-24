@@ -51,7 +51,7 @@ describe('useLoadThreadTodos', () => {
   });
 
   it('leaves the slice untouched when the RPC fails (older core)', async () => {
-    vi.mocked(threadApi.getTodos).mockRejectedValue(new Error('no such method'));
+    vi.mocked(threadApi.getTodos).mockImplementation(() => Promise.reject(new Error('no such method')));
     const { store, wrapper } = setup();
     renderHook(() => useLoadThreadTodos('t1'), { wrapper });
 

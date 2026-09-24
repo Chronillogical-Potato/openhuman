@@ -86,7 +86,7 @@ describe('PlanReviewCardCore', () => {
   });
 
   it('shows an error and does not clear the review when the RPC fails', async () => {
-    vi.mocked(callCoreRpc).mockRejectedValue(new Error('boom'));
+    vi.mocked(callCoreRpc).mockImplementation(() => Promise.reject(new Error('boom')));
     const store = renderCard();
 
     await userEvent.click(screen.getByText('Approve & run'));

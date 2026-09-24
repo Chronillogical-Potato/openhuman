@@ -174,6 +174,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'Хранилище находится на хосте ядра.',
   'crossHostVault.message':
     'Это хранилище памяти размещено на хосте openhuman-core ({os}). Его можно открыть или показать только на той машине, но не с этого устройства.',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'Этот запрос не прошёл проверку безопасности',
+  'conversations.chatError.guardrail.explanationFallback':
+    'Правило блокировало этот ответ до того, как он был отправлен.',
+  'conversations.chatError.guardrail.tryInstead': 'попробовать вместо этого',
   'conversations.toolFailure.whyLabel': 'Почему',
   'conversations.toolFailure.nextLabel': 'Что делать дальше',
   'conversations.toolFailure.missingPermission.cause':

@@ -172,6 +172,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'ভল্টটি কোর হোস্টে রয়েছে।',
   'crossHostVault.message':
     'এই মেমরি ভল্টটি openhuman-core হোস্টে ({os}) সংরক্ষিত আছে। এটি কেবল সেই মেশিনেই খোলা বা দেখানো যায়, এই ডিভাইস থেকে নয়।',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'এই অনুরোধটি সুরক্ষা পরীক্ষায় উত্তীর্ণ হয়নি',
+  'conversations.chatError.guardrail.explanationFallback':
+    'প্রতিক্রিয়াটি পাঠানোর আগে একটি নীতি এটি ব্লক করেছে।',
+  'conversations.chatError.guardrail.tryInstead': 'পরিবর্তে চেষ্টা করুন',
   'conversations.toolFailure.whyLabel': 'কেন',
   'conversations.toolFailure.nextLabel': 'এরপর কী করবেন',
   'conversations.toolFailure.missingPermission.cause': 'OpenHuman-এর এখনও এটি করার অনুমতি নেই।',

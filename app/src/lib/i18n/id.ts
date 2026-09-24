@@ -178,6 +178,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'Vault berada di host core.',
   'crossHostVault.message':
     'Vault memori ini disimpan di host openhuman-core ({os}). Hanya dapat dibuka atau ditampilkan di mesin tersebut, bukan dari perangkat ini.',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'Permintaan ini tidak lolos pemeriksaan keamanan',
+  'conversations.chatError.guardrail.explanationFallback':
+    'Kebijakan memblokir respons ini sebelum dikirim.',
+  'conversations.chatError.guardrail.tryInstead': 'coba sebagai gantinya',
   'conversations.toolFailure.whyLabel': 'Mengapa',
   'conversations.toolFailure.nextLabel': 'Yang harus dilakukan',
   'conversations.toolFailure.missingPermission.cause':

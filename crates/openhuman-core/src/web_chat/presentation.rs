@@ -66,6 +66,7 @@ pub(crate) async fn deliver_response(
     usage: Option<&LastTurnUsage>,
     workspace_dir: Option<&std::path::Path>,
     timing: Option<super::turn_timing::TurnTimingSnapshot>,
+    suggest_follow_ups: bool,
 ) {
     let usage_payload = usage_payload(usage);
     let timing_payload =

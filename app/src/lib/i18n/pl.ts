@@ -179,6 +179,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'Skarbiec znajduje się na hoście rdzenia.',
   'crossHostVault.message':
     'Ten skarbiec pamięci jest przechowywany na hoście openhuman-core ({os}). Można go otworzyć lub pokazać tylko na tym komputerze, a nie z tego urządzenia.',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'Ta prośba nie przeszła kontroli bezpieczeństwa',
+  'conversations.chatError.guardrail.explanationFallback':
+    'Zasada zablokowała tę odpowiedź przed jej wysłaniem.',
+  'conversations.chatError.guardrail.tryInstead': 'wypróbuj zamiast tego',
   'conversations.toolFailure.whyLabel': 'Dlaczego',
   'conversations.toolFailure.nextLabel': 'Co dalej',
   'conversations.toolFailure.missingPermission.cause':

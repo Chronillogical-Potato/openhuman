@@ -186,6 +186,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'Der Vault liegt auf dem Core-Host.',
   'crossHostVault.message':
     'Dieser Memory-Vault wird auf dem openhuman-core-Host ({os}) gespeichert. Er kann nur auf diesem Rechner geöffnet oder angezeigt werden, nicht von diesem Gerät.',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'Diese Anfrage hat eine Sicherheitsprüfung nicht bestanden',
+  'conversations.chatError.guardrail.explanationFallback':
+    'Eine Richtlinie hat diese Antwort blockiert, bevor sie gesendet wurde.',
+  'conversations.chatError.guardrail.tryInstead': 'stattdessen versuchen',
   'conversations.toolFailure.whyLabel': 'Warum',
   'conversations.toolFailure.nextLabel': 'Nächste Schritte',
   'conversations.toolFailure.missingPermission.cause':

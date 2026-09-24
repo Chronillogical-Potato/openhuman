@@ -186,6 +186,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': "Le coffre se trouve sur l'hôte du cœur.",
   'crossHostVault.message':
     "Ce coffre de mémoire est stocké sur l'hôte openhuman-core ({os}). Il ne peut être ouvert ou affiché que sur cette machine, pas depuis cet appareil.",
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': "Cette demande n'a pas passé un contrôle de sécurité",
+  'conversations.chatError.guardrail.explanationFallback':
+    'Une politique a bloqué cette réponse avant son envoi.',
+  'conversations.chatError.guardrail.tryInstead': 'essayer plutôt',
   'conversations.toolFailure.whyLabel': 'Pourquoi',
   'conversations.toolFailure.nextLabel': 'Que faire ensuite',
   'conversations.toolFailure.missingPermission.cause':

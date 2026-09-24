@@ -169,6 +169,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': '보관소가 코어 호스트에 있습니다.',
   'crossHostVault.message':
     '이 메모리 보관소는 openhuman-core 호스트({os})에 저장되어 있습니다. 해당 컴퓨터에서만 열거나 표시할 수 있으며 이 기기에서는 불가능합니다.',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': '이 요청은 안전성 검사를 통과하지 못했습니다',
+  'conversations.chatError.guardrail.explanationFallback':
+    '정책에 따라 이 응답이 전송되기 전에 차단되었습니다.',
+  'conversations.chatError.guardrail.tryInstead': '대신 시도',
   'conversations.toolFailure.whyLabel': '이유',
   'conversations.toolFailure.nextLabel': '다음 할 일',
   'conversations.toolFailure.missingPermission.cause':

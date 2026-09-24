@@ -165,6 +165,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'الخزنة موجودة على مضيف النواة.',
   'crossHostVault.message':
     'يتم تخزين خزنة الذاكرة هذه على مضيف openhuman-core ({os}). لا يمكن فتحها أو عرضها إلا على ذلك الجهاز، وليس من هذا الجهاز.',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'لم يمر هذا الطلب بفحص أمان',
+  'conversations.chatError.guardrail.explanationFallback':
+    'منعت السياسة هذا الرد قبل إرساله.',
+  'conversations.chatError.guardrail.tryInstead': 'جرّب بدلاً من ذلك',
   'conversations.toolFailure.whyLabel': 'لماذا',
   'conversations.toolFailure.nextLabel': 'ما الذي يجب فعله بعد ذلك',
   'conversations.toolFailure.missingPermission.cause': 'لا يملك OpenHuman الإذن للقيام بهذا بعد.',

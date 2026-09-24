@@ -58,7 +58,7 @@ describe('useLoadThreadGoal', () => {
   });
 
   it('leaves the slice untouched when the RPC fails', async () => {
-    vi.mocked(threadApi.getGoal).mockRejectedValue(new Error('no such method'));
+    vi.mocked(threadApi.getGoal).mockImplementation(() => Promise.reject(new Error('no such method')));
     const { store, wrapper } = setup();
     renderHook(() => useLoadThreadGoal('t1'), { wrapper });
 

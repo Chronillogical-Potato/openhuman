@@ -174,6 +174,11 @@ const messages: TranslationMap = {
   'crossHostVault.title': 'वॉल्ट कोर होस्ट पर है।',
   'crossHostVault.message':
     'यह मेमोरी वॉल्ट openhuman-core होस्ट ({os}) पर संग्रहीत है। इसे केवल उसी मशीन पर खोला या दिखाया जा सकता है, इस डिवाइस से नहीं।',
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': 'यह अनुरोध सुरक्षा जांच में पास नहीं हुआ',
+  'conversations.chatError.guardrail.explanationFallback':
+    'यह प्रतिक्रिया भेजे जाने से पहले एक नीति द्वारा रोक दी गई।',
+  'conversations.chatError.guardrail.tryInstead': 'इसके बजाय आज़माएं',
   'conversations.toolFailure.whyLabel': 'क्यों',
   'conversations.toolFailure.nextLabel': 'आगे क्या करें',
   'conversations.toolFailure.missingPermission.cause':
