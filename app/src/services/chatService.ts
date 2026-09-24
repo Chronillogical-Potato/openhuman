@@ -1173,6 +1173,46 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     handlers.push([EVENTS.planReviewRequest, cb]);
   }
 
+  if (listeners.onThreadTodosChanged) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatThreadTodosChangedEvent;
+      chatLog('%s thread_id=%s count=%d', EVENTS.threadTodosChanged, e.thread_id, e.todos?.length ?? 0);
+      listeners.onThreadTodosChanged?.(e);
+    };
+    socket.on(EVENTS.threadTodosChanged, cb);
+    handlers.push([EVENTS.threadTodosChanged, cb]);
+  }
+
+  if (listeners.onThreadGoalUpdated) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatThreadGoalUpdatedEvent;
+      chatLog('%s thread_id=%s status=%s', EVENTS.threadGoalUpdated, e.thread_id, e.goal?.status);
+      listeners.onThreadGoalUpdated?.(e);
+    };
+    socket.on(EVENTS.threadGoalUpdated, cb);
+    handlers.push([EVENTS.threadGoalUpdated, cb]);
+  }
+
+  if (listeners.onThreadGoalCleared) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatThreadGoalClearedEvent;
+      chatLog('%s thread_id=%s', EVENTS.threadGoalCleared, e.thread_id);
+      listeners.onThreadGoalCleared?.(e);
+    };
+    socket.on(EVENTS.threadGoalCleared, cb);
+    handlers.push([EVENTS.threadGoalCleared, cb]);
+  }
+
+  if (listeners.onRunModeChanged) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatRunModeChangedEvent;
+      chatLog('%s thread_id=%s mode=%s', EVENTS.runModeChanged, e.thread_id, e.mode);
+      listeners.onRunModeChanged?.(e);
+    };
+    socket.on(EVENTS.runModeChanged, cb);
+    handlers.push([EVENTS.runModeChanged, cb]);
+  }
+
   // Artifact lifecycle events (#2779). The Rust subscriber in
   // `web_chat::ArtifactSurfaceSubscriber` packs the
   // artifact payload into the generic `args` field of the wire

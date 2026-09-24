@@ -157,6 +157,18 @@ impl EventHandler<DomainEvent> for AgentSurfaceSubscriber {
                     ..Default::default()
                 });
             }
+            DomainEvent::ThreadRunModeChanged { thread_id, mode } => {
+                log::debug!(
+                    "[web-channel] agent-surface emitting run_mode_changed thread_id={thread_id} mode={mode}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "run_mode_changed".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    message: Some(mode.clone()),
+                    ..Default::default()
+                });
+            }
             DomainEvent::RunQueueMessageQueued {
                 thread_id,
                 item_id,
