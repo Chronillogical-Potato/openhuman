@@ -219,7 +219,12 @@ impl Tool for TavilySearchTool {
             .results
             .iter()
             .map(|r| crate::search::tools::WebSearchResultRef {
-                title: r.title.as_deref().map(str::trim).filter(|t| !t.is_empty()).unwrap_or("Untitled"),
+                title: r
+                    .title
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|t| !t.is_empty())
+                    .unwrap_or("Untitled"),
                 url: r.url.as_str(),
                 published: None,
                 excerpt: r.content.as_deref(),

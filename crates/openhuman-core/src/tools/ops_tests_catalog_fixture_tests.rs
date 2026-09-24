@@ -15,9 +15,8 @@ use std::path::PathBuf;
 /// Path to the frontend's copy of the tool-name list, relative to this
 /// crate's manifest directory (`crates/openhuman-core`).
 fn fixture_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
-        "../../app/src/features/conversations/tools/__fixtures__/coreToolNames.json",
-    )
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../app/src/features/conversations/tools/__fixtures__/coreToolNames.json")
 }
 
 /// The full model-facing tool catalog this build can register, sorted and
@@ -96,8 +95,7 @@ fn full_tool_catalog_names() -> Vec<String> {
     names
 }
 
-const REGENERATE_COMMAND: &str =
-    "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman --lib \
+const REGENERATE_COMMAND: &str = "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman --lib \
      tools::ops::tests::catalog_fixture_tests::tool_catalog_matches_frontend_fixture";
 
 /// Regenerates the fixture when `UPDATE_TOOL_CATALOG=1`, otherwise fails with
