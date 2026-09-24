@@ -13,7 +13,9 @@ fn is_guardrail_error_message_matches_only_the_sentinel() {
     assert!(!is_guardrail_error_message(""));
     // A message that merely mentions the word must not match — only the
     // leading sentinel counts.
-    assert!(!is_guardrail_error_message("this GUARDRAIL: is not at the start"));
+    assert!(!is_guardrail_error_message(
+        "this GUARDRAIL: is not at the start"
+    ));
 }
 
 /// `From<StartChatError> for String` on the `Other` variant passes the

@@ -14647,7 +14647,9 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn() {
         .get("result")
         .and_then(|v| v.get("request_id"))
         .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("expected request_id in channel_web_chat response: {turn1_result}"))
+        .unwrap_or_else(|| {
+            panic!("expected request_id in channel_web_chat response: {turn1_result}")
+        })
         .to_string();
     let sse_event_1 = sse_task_1.await.expect("sse task 1 join should succeed");
     assert_eq!(

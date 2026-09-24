@@ -40,7 +40,9 @@ fn turn_cost_throttle_emits_again_after_interval_elapses() {
     // Fast-forward past the throttle window by backdating `last_emit`
     // directly rather than sleeping the test for 750ms.
     throttle.last_emit = Some(
-        std::time::Instant::now() - TURN_COST_EMIT_MIN_INTERVAL - std::time::Duration::from_millis(1),
+        std::time::Instant::now()
+            - TURN_COST_EMIT_MIN_INTERVAL
+            - std::time::Duration::from_millis(1),
     );
     assert!(
         throttle.should_emit(),

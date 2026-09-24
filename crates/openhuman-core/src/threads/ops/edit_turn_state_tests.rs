@@ -39,8 +39,8 @@ async fn clear_dropped_turn_states_drops_cut_turn_and_every_later_turn() {
 
     clear_dropped_turn_states(dir.path(), thread_id, "req-2").await;
 
-    let remaining = turn_state_store::list_thread(dir.path().to_path_buf(), thread_id)
-        .expect("list_thread");
+    let remaining =
+        turn_state_store::list_thread(dir.path().to_path_buf(), thread_id).expect("list_thread");
     let remaining_ids: Vec<&str> = remaining.iter().map(|t| t.request_id.as_str()).collect();
     assert_eq!(
         remaining_ids,
@@ -71,8 +71,8 @@ async fn clear_dropped_turn_states_is_best_effort_when_cut_turn_never_got_a_snap
     // be left alone.
     clear_dropped_turn_states(dir.path(), thread_id, "req-2").await;
 
-    let remaining = turn_state_store::list_thread(dir.path().to_path_buf(), thread_id)
-        .expect("list_thread");
+    let remaining =
+        turn_state_store::list_thread(dir.path().to_path_buf(), thread_id).expect("list_thread");
     let mut remaining_ids: Vec<&str> = remaining.iter().map(|t| t.request_id.as_str()).collect();
     remaining_ids.sort();
     assert_eq!(
@@ -122,11 +122,7 @@ async fn seed_message_log(dir: &std::path::Path, thread_id: &str) {
     conversations::blocking::append_message(
         dir.to_path_buf(),
         thread_id.to_string(),
-        message(
-            &run_reply_message_id("turn-1"),
-            "first answer",
-            "assistant",
-        ),
+        message(&run_reply_message_id("turn-1"), "first answer", "assistant"),
     )
     .await
     .expect("append reply for turn-1");
@@ -172,7 +168,10 @@ async fn next_reply_request_id_after_none_when_message_is_the_log_tail() {
     let found = next_reply_request_id_after(dir.path(), thread_id, &last_reply_id)
         .await
         .expect("lookup");
-    assert_eq!(found, None, "the last message in the log has no reply after it");
+    assert_eq!(
+        found, None,
+        "the last message in the log has no reply after it"
+    );
 }
 
 #[tokio::test]

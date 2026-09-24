@@ -75,16 +75,30 @@ fn write_two_turn_transcript(workspace: &Path, thread_id: &str) -> (PathBuf, Str
     ];
     let mut turn1_meta = meta.clone();
     turn1_meta.turn_count = 1;
-    append_transcript_turn(&path, &[], &turn1, &turn1_meta, Some(&turn_usage()), Some(&req1))
-        .expect("append turn 1");
+    append_transcript_turn(
+        &path,
+        &[],
+        &turn1,
+        &turn1_meta,
+        Some(&turn_usage()),
+        Some(&req1),
+    )
+    .expect("append turn 1");
 
     let mut turn2 = turn1.clone();
     turn2.push(TranscriptMessage::new("user", "user prompt 2"));
     turn2.push(TranscriptMessage::assistant("answer 2"));
     let mut turn2_meta = meta.clone();
     turn2_meta.turn_count = 2;
-    append_transcript_turn(&path, &turn1, &turn2, &turn2_meta, Some(&turn_usage()), Some(&req2))
-        .expect("append turn 2");
+    append_transcript_turn(
+        &path,
+        &turn1,
+        &turn2,
+        &turn2_meta,
+        Some(&turn_usage()),
+        Some(&req2),
+    )
+    .expect("append turn 2");
 
     (path, req1, req2)
 }
@@ -172,9 +186,7 @@ fn truncate_transcript_for_regenerate_targets_specific_turn() {
     assert_eq!(last.role, "user");
     assert_eq!(last.content, "user prompt 2");
     assert!(
-        head.messages
-            .iter()
-            .all(|m| m.content != "answer 2"),
+        head.messages.iter().all(|m| m.content != "answer 2"),
         "turn 2's answer must be dropped: {:?}",
         head.messages
     );
@@ -201,7 +213,6 @@ fn truncate_transcript_for_regenerate_returns_none_when_no_turn_exists() {
     let thread_id = "thread-no-turns";
     write_turnless_transcript(dir.path(), thread_id);
 
-    let result =
-        truncate_transcript_for_regenerate(dir.path(), thread_id, None).expect("truncate");
+    let result = truncate_transcript_for_regenerate(dir.path(), thread_id, None).expect("truncate");
     assert_eq!(result, None, "no user/assistant turn to regenerate");
 }
