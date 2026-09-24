@@ -46,8 +46,6 @@ describe('thread connection-state banner', () => {
     const banner = screen.getByTestId('connection-state-banner');
     const composer = container.querySelector('.aui-composer-root');
     expect(composer).not.toBeNull();
-    expect(banner.compareDocumentPosition(composer as Node)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING
-    );
+    expect(banner.compareDocumentPosition(composer as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 });
