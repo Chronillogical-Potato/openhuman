@@ -56,4 +56,4 @@
 	url = https://github.com/tinyhumansai/tinyskills
 [submodule "vendor/tinydesktop"]
 	path = vendor/tinydesktop
-	url = git@github.com:tinyhumansai/tinydesktop.git
+	url = https://github.com/tinyhumansai/tinydesktop.git
