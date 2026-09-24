@@ -255,6 +255,16 @@ pub(crate) async fn deliver_response(
         seq: None,
         ..Default::default()
     });
+
+    if suggest_follow_ups {
+        super::suggestions::spawn_follow_up_suggestions(
+            client_id.to_string(),
+            thread_id.to_string(),
+            request_id.to_string(),
+            user_message.to_string(),
+            full_response.to_string(),
+        );
+    }
 }
 
 /// Deliver an agent response as exactly one `chat_done` bubble — no
