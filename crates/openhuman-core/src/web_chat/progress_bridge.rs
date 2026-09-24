@@ -308,6 +308,10 @@ pub(crate) fn spawn_progress_bridge(
     };
 
     let (drained_tx, drained_rx) = tokio::sync::watch::channel(false);
+    let timing_snapshot: std::sync::Arc<
+        std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>,
+    > = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let timing_snapshot_for_task = timing_snapshot.clone();
     tokio::spawn(async move {
         log::debug!(
             "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
@@ -1355,6 +1359,9 @@ pub(crate) fn spawn_progress_bridge(
                 AgentProgress::TurnCompleted { iterations } => {
                     parent_completed = true;
                     timing.done(iterations, MIN_INTERIM_NARRATION_CHARS, &request_id);
+                    if let Ok(mut guard) = timing_snapshot_for_task.lock() {
+                        *guard = Some(timing.snapshot());
+                    }
                     // Turn is done — stop liveness beats (issue #4270). The FE
                     // clears its silence timer on `chat_done`/`chat_error`; this
                     // also prevents a stray beat racing the channel close.
@@ -1531,6 +1538,7 @@ pub(crate) fn spawn_progress_bridge(
     });
     ProgressBridgeHandle {
         drained: drained_rx,
+        timing: timing_snapshot,
     }
 }
 

@@ -307,7 +307,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                 prompt: scout_prompt.clone(),
                 worker_thread_id: None,
                 display_name: Some(definition.display_name().to_string()),
-                parent_call_id: None,
+                parent_call_id: parent_call_id.clone(),
             })
             .await;
     }
