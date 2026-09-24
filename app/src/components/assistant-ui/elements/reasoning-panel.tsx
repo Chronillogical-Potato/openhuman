@@ -24,7 +24,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
-import { cn } from '@/lib/cn';
+import { cn } from '@/components/assistant-ui/lib/utils';
 import { TextMessagePartProvider } from '@assistant-ui/react';
 import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
