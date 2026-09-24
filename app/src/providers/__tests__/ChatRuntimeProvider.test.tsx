@@ -12,10 +12,12 @@ import {
   findPendingDelegationContext,
   resetSessionTokenUsage,
   setPendingPlanReviewForThread,
+  setStreamingAssistantForThread,
 } from '../../store/chatRuntimeSlice';
 import { pendingFollowupAdded } from '../../store/queueSlice';
 import { setStatusForUser } from '../../store/socketSlice';
 import {
+  addMessageLocal,
   clearAllThreads,
   loadThreads,
   setActiveThread,
