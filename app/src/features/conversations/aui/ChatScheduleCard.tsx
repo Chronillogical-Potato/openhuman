@@ -18,8 +18,7 @@ import { useCallback, useState } from 'react';
 
 import { ScheduleCard, type ScheduleRun } from '../../../components/assistant-ui/elements/schedule-card';
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { CoreCronJob, CoreCronRun } from '../../../utils/tauriCommands/cron';
-import { openhumanCronUpdate } from '../../../utils/tauriCommands/cron';
+import { openhumanCronUpdate, type CoreCronJob, type CoreCronRun } from '../../../utils/tauriCommands/cron';
 
 function cadenceOf(job: CoreCronJob): string {
   if (job.schedule.kind === 'cron') return job.schedule.expr;
