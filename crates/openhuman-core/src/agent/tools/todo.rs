@@ -130,29 +130,92 @@ impl TodoTool {
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let scope = current_scope(parent.as_ref(), tool_context);
+        // One-time fallback: a list written under the pre-rekey
+        // `session_id` key (the web channel's `{client_id,thread_id}` JSON
+        // blob) is otherwise invisible once `current_scope` starts keying by
+        // thread id. If the new key has no list yet and the legacy key does,
+        // migrate it forward so an in-flight list isn't dropped by the rekey.
+        if let Some(legacy_key) = legacy_session_key(parent.as_ref(), &scope) {
+            self.migrate_legacy_list_if_absent(&scope, &legacy_key).await;
+        }
         tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
         let key = ScopedKey(scope.key());
         self.inner
             .execute_with_context(args, ToolCallOptions::default(), Some(&key))
             .await
     }
+
+    /// If `scope`'s list is empty and `legacy_key` has a non-empty one,
+    /// copy it forward under `scope`'s key so the rekey is transparent to an
+    /// in-flight session. Best-effort: any store error is logged and
+    /// swallowed — a failed migration just means the tool starts from an
+    /// empty list, same as any other first `todo` call.
+    async fn migrate_legacy_list_if_absent(&self, scope: &TodoScope, legacy_key: &str) {
+        let current = match ops::list(&self.workspace_dir, scope).await {
+            Ok(snapshot) => snapshot,
+            Err(e) => {
+                tracing::debug!(error = %e, "[tool][todo] legacy-migration: current list read failed");
+                return;
+            }
+        };
+        if !current.items.is_empty() {
+            return;
+        }
+        let legacy_scope = TodoScope::Session {
+            id: legacy_key.to_string(),
+        };
+        match ops::list(&self.workspace_dir, &legacy_scope).await {
+            Ok(legacy) if !legacy.items.is_empty() => {
+                tracing::info!(
+                    legacy_key,
+                    thread_key = scope.key(),
+                    items = legacy.items.len(),
+                    "[tool][todo] migrating legacy session-keyed list to thread-keyed list"
+                );
+                if let Err(e) = ops::replace(&self.workspace_dir, scope, legacy.items).await {
+                    tracing::debug!(error = %e, "[tool][todo] legacy-migration: write failed");
+                }
+            }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::debug!(error = %e, "[tool][todo] legacy-migration: legacy list read failed");
+            }
+        }
+    }
 }
 
+/// The scope this call resolves to: the chat thread id when available,
+/// falling back to the legacy `ParentExecutionContext::session_id` (for
+/// non-web-chat callers that never carry a `thread_id`), and finally the
+/// scratch scope for a bare `Tool::execute` with neither.
 fn current_scope(
     parent: Option<&ParentExecutionContext>,
     tool_context: Option<&dyn ToolRunContext>,
 ) -> TodoScope {
-    if let Some(parent) = parent {
+    if let Some(thread_id) = tool_context.and_then(ToolRunContext::thread_id) {
         return TodoScope::Session {
-            id: parent.session_id.clone(),
+            id: thread_id.to_owned(),
         };
     }
-    match tool_context.and_then(ToolRunContext::thread_id) {
-        Some(thread_id) => TodoScope::Session {
-            id: thread_id.to_owned(),
+    match parent {
+        Some(parent) => TodoScope::Session {
+            id: parent.session_id.clone(),
         },
         None => TodoScope::Scratch,
     }
+}
+
+/// The pre-rekey `session_id` key to check as a one-time fallback, when it
+/// differs from the scope's own (now thread-id-first) key.
+fn legacy_session_key(
+    parent: Option<&ParentExecutionContext>,
+    scope: &TodoScope,
+) -> Option<String> {
+    let parent = parent?;
+    if parent.session_id == scope.key() {
+        return None;
+    }
+    Some(parent.session_id.clone())
 }
 
 #[cfg(test)]

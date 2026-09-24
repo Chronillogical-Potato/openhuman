@@ -1062,6 +1062,22 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     handlers.push([EVENTS.approvalRequest, cb]);
   }
 
+  if (listeners.onApprovalDecided) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatApprovalDecidedEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s resolution=%s',
+        EVENTS.approvalDecided,
+        e.thread_id,
+        e.request_id,
+        e.resolution
+      );
+      listeners.onApprovalDecided?.(e);
+    };
+    socket.on(EVENTS.approvalDecided, cb);
+    handlers.push([EVENTS.approvalDecided, cb]);
+  }
+
   if (listeners.onPlanReviewRequest) {
     const cb = (payload: unknown) => {
       const e = payload as ChatPlanReviewRequestEvent;
