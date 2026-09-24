@@ -883,9 +883,19 @@ impl CoreRuntime {
 
         let preferred_port = resolved_port;
         let host = resolved_host;
-        let pick = crate::platform::connectivity::rpc::pick_listen_port_for_host(
+        // The desktop shell hands in `ready_tx` and owns the stale-listener
+        // takeover (#1130) for its own leftover core. A headless `serve` has
+        // nothing to take over: another live core on the port (the desktop
+        // app's, another checkout's) is a neighbour, so move to a free port.
+        let occupied_by_core = if ready_tx.is_some() {
+            crate::platform::connectivity::rpc::OccupiedByCore::Takeover
+        } else {
+            crate::platform::connectivity::rpc::OccupiedByCore::Fallback
+        };
+        let pick = crate::platform::connectivity::rpc::pick_listen_port_for_host_with(
             host.as_str(),
             preferred_port,
+            occupied_by_core,
         )
         .await
         .map_err(|err| {
