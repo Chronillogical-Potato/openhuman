@@ -1,7 +1,7 @@
-import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 import { describe, expect, it } from 'vitest';
 
 import type { DerivedDisplayItem } from '../../../types/derivedTranscript';
+import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 import { mapDisplayItems } from './mapDisplayItems';
 
 /**
