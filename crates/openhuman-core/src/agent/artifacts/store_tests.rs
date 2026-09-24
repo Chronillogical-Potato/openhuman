@@ -15,6 +15,7 @@ fn make_meta(id: &str, title: &str, created_at: chrono::DateTime<Utc>) -> Artifa
         created_at,
         error: None,
         thread_id: None,
+        tool_call_id: None,
     }
 }
 
