@@ -127,7 +127,7 @@ function buildStore(preload: Record<string, unknown>) {
   });
 }
 
-async function renderChat(composer?: 'text' | 'mic-cloud') {
+async function renderChat(composer?: 'text' | 'mic-cloud', withProcessData = false) {
   mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
   const store = buildStore({
     thread: {
@@ -142,6 +142,16 @@ async function renderChat(composer?: 'text' | 'mic-cloud') {
       messagesError: null,
     },
     socket: { byUser: { __pending__: { status: 'connected', socketId: 'socket-1' } } },
+    ...(withProcessData
+      ? {
+          chatRuntime: {
+            ...chatRuntimeReducer(undefined, { type: '@@init' }),
+            toolTimelineByThread: {
+              [THREAD_ID]: [{ id: 'c1', name: 'web_fetch', round: 1, seq: 0, status: 'success' }],
+            },
+          },
+        }
+      : {}),
   });
   const { default: Conversations } = await import('./Conversations');
 
@@ -180,7 +190,9 @@ describe('the agent-process-source command follows the panel that hosts it', () 
   });
 
   it('is enabled in mic-cloud voice mode too, which renders the same assistant-ui panel', async () => {
-    await renderChat('mic-cloud');
+    // With something to show: the command is gated on process data (above),
+    // and voice mode must not add a gate of its own.
+    await renderChat('mic-cloud', true);
 
     // Voice mode swaps only the composer: the transcript is the assistant-ui
     // viewport and the text composer is replaced by the voice composer.
