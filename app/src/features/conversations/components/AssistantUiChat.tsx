@@ -6,7 +6,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import AttachmentPreview from '../../../components/chat/AttachmentPreview';
 import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
-import { useSlashCommands } from '../../../lib/commands/useSlashCommands';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { AssistantUiRuntimeProvider } from '../../../providers/AssistantUiRuntimeProvider';
 import { emptySessionTokenUsage } from '../../../store/chatRuntimeSlice';
@@ -15,6 +14,7 @@ import { DEFAULT_MASCOT_COLOR } from '../../../store/mascotSlice';
 import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
 import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
+import { ComposerTriggers } from '../aui/ComposerTriggers';
 import { ChatSources } from './aui/ChatSources';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { ChatToolFallback } from './ChatToolParts';
@@ -140,7 +140,6 @@ export function AssistantUiChat({
     () => contextUsageFromTokenUsage(tokenUsage, modelContextWindow),
     [modelContextWindow, tokenUsage]
   );
-  const slashCommands = useSlashCommands();
 
   // Every prop the composer slots below read, refreshed on each host render.
   //
@@ -284,6 +283,9 @@ export function AssistantUiChat({
   const components: ThreadComponents = useMemo(
     () => ({
       ToolFallback: ChatToolFallback,
+      // `/` commands (builtins + core `commands_list` + registry actions) and
+      // `@` mentions (memory recall, thread files); see `aui/ComposerTriggers`.
+      ComposerTriggers,
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
@@ -343,7 +345,6 @@ export function AssistantUiChat({
             onModelChange={onModelChange}
             loadError={loadError}
             onEscape={onEscape}
-            slashCommands={slashCommands}
           />
         </ChatConversationMap>
       </SubagentDrawerHost>
