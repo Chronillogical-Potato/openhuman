@@ -387,7 +387,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     const seen = lastDeltaSeqRef.current;
     const last = seen.get(key);
     if (last !== undefined && event.seq <= last) {
-      rtLog('delta_replay_drop', { thread: event.thread_id, request: event.request_id, seq: event.seq });
+      rtLog('delta_replay_drop', {
+        thread: event.thread_id,
+        request: event.request_id,
+        seq: event.seq,
+      });
       return true;
     }
     seen.delete(key);
