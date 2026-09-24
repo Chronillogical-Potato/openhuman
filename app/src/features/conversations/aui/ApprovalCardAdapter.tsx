@@ -89,6 +89,7 @@ export function ApprovalCardAdapter<D = ApprovalDecision>({
   expiresAt,
   alwaysDecision,
   alwaysHint,
+  onAlwaysAllowClick,
   denyDecision = 'deny' as D,
   allowOnceDecision = 'approve_once' as D,
   onDecide,
