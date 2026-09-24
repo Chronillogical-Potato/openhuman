@@ -81,7 +81,7 @@ function gatedPart(over: Record<string, unknown> = {}) {
     approval: { id: REQUEST_ID, options: OPTIONS },
     addResult: () => {},
     resume: () => {},
-    respondToApproval: () => {},
+    respondToApproval: async () => {},
     ...over,
   };
 }
