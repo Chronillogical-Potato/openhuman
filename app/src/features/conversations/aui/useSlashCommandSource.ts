@@ -183,7 +183,7 @@ export function useSlashCommandSource(threadId: string | null) {
           return;
         case 'stop':
           try {
-            aui.thread().cancelRun();
+            aui.thread.cancelRun();
           } catch (error) {
             log('cancel failed: %o', error);
           }
@@ -197,8 +197,8 @@ export function useSlashCommandSource(threadId: string | null) {
       return { id, description: t(key, fallback), icon: id, execute: () => runBuiltin(id) };
     });
     const insert = (text: string) => {
-      const current = aui.composer().getState().text;
-      aui.composer().setText(`${text}${current}`);
+      const current = aui.composer.getState().text;
+      aui.composer.setText(`${text}${current}`);
     };
     return mergeSlashCommands({ builtins, core, registry: registryCommands, insert });
   }, [aui, core, registryCommands, setMode, t]);
