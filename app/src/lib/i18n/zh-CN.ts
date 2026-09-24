@@ -163,8 +163,7 @@ const messages: TranslationMap = {
     '此记忆库存储在 openhuman-core 主机（{os}）上。只能在该机器上打开或显示，无法从本设备访问。',
   // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
   'conversations.chatError.guardrail.title': '此请求未通过安全检查',
-  'conversations.chatError.guardrail.explanationFallback':
-    '策略在此回复发送前将其拦截。',
+  'conversations.chatError.guardrail.explanationFallback': '策略在此回复发送前将其拦截。',
   'conversations.chatError.guardrail.tryInstead': '改为尝试',
   'conversations.toolFailure.whyLabel': '原因',
   'conversations.toolFailure.nextLabel': '接下来该怎么做',

@@ -187,7 +187,8 @@ const messages: TranslationMap = {
   'crossHostVault.message':
     'Dieser Memory-Vault wird auf dem openhuman-core-Host ({os}) gespeichert. Er kann nur auf diesem Rechner geöffnet oder angezeigt werden, nicht von diesem Gerät.',
   // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
-  'conversations.chatError.guardrail.title': 'Diese Anfrage hat eine Sicherheitsprüfung nicht bestanden',
+  'conversations.chatError.guardrail.title':
+    'Diese Anfrage hat eine Sicherheitsprüfung nicht bestanden',
   'conversations.chatError.guardrail.explanationFallback':
     'Eine Richtlinie hat diese Antwort blockiert, bevor sie gesendet wurde.',
   'conversations.chatError.guardrail.tryInstead': 'stattdessen versuchen',
@@ -3390,7 +3391,8 @@ const messages: TranslationMap = {
   'conversations.composer.command.clear': 'Unterhaltung leeren',
   'conversations.composer.command.new': 'Neue Unterhaltung beginnen',
   'conversations.composer.command.stop': 'Laufende Antwort stoppen',
-  'conversations.composer.command.plan': 'Erst planen: Schritte prüfen, bevor etwas ausgeführt wird',
+  'conversations.composer.command.plan':
+    'Erst planen: Schritte prüfen, bevor etwas ausgeführt wird',
   'conversations.composer.command.build': 'Umsetzen: den Agenten direkt handeln lassen',
   'conversations.composer.trigger.back': 'Zurück',
   'conversations.composer.trigger.loading': 'Wird geladen…',

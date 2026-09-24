@@ -3313,7 +3313,8 @@ const messages: TranslationMap = {
   'conversations.composer.command.clear': 'Bersihkan percakapan',
   'conversations.composer.command.new': 'Mulai percakapan baru',
   'conversations.composer.command.stop': 'Hentikan balasan yang sedang berjalan',
-  'conversations.composer.command.plan': 'Rencanakan dulu: tinjau langkahnya sebelum apa pun dijalankan',
+  'conversations.composer.command.plan':
+    'Rencanakan dulu: tinjau langkahnya sebelum apa pun dijalankan',
   'conversations.composer.command.build': 'Bangun: biarkan agen bertindak langsung',
   'conversations.composer.trigger.back': 'Kembali',
   'conversations.composer.trigger.loading': 'Memuat…',

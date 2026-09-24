@@ -3337,7 +3337,8 @@ const messages: TranslationMap = {
   'conversations.composer.command.clear': 'Wyczyść rozmowę',
   'conversations.composer.command.new': 'Rozpocznij nową rozmowę',
   'conversations.composer.command.stop': 'Zatrzymaj bieżącą odpowiedź',
-  'conversations.composer.command.plan': 'Najpierw plan: przejrzyj kroki, zanim cokolwiek się uruchomi',
+  'conversations.composer.command.plan':
+    'Najpierw plan: przejrzyj kroki, zanim cokolwiek się uruchomi',
   'conversations.composer.command.build': 'Buduj: pozwól agentowi działać bezpośrednio',
   'conversations.composer.trigger.back': 'Wstecz',
   'conversations.composer.trigger.loading': 'Ładowanie…',
