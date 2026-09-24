@@ -269,6 +269,25 @@ function chatErrorExtraMetadata(event: ChatErrorEvent): Record<string, unknown> 
 }
 
 /**
+ * `extraMetadata` for the partial reply a `chat_cancelled` turn persists.
+ *
+ * `stopped: true` is the flag `assistantUiMessages.ts` reads to give the
+ * message `status: { type: 'incomplete', reason: 'cancelled' }`, which is
+ * what makes `thread.tsx` render the vendored `StoppedRun` element instead of
+ * the plain text. `cancelReason`/`supersededBy` ride through unchanged on
+ * `metadata.custom.extraMetadata` (that converter's existing pass-through) so
+ * `StoppedRunSlot` can pick "Stopped" vs "Replaced by a newer message".
+ */
+function chatCancelledExtraMetadata(event: ChatCancelledEvent): Record<string, unknown> {
+  return {
+    stopped: true,
+    ...(event.cancel_reason ? { cancelReason: event.cancel_reason } : {}),
+    ...(event.superseded_by ? { supersededBy: event.superseded_by } : {}),
+    ...(event.request_id ? { requestId: event.request_id } : {}),
+  };
+}
+
+/**
  * Message id for a reply the CORE already persisted before announcing it.
  *
  * Core-initiated turns (`client_id === 'system'`: background sub-agent result
