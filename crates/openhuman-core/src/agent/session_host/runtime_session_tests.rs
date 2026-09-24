@@ -5,6 +5,32 @@ use std::sync::Arc;
 use tinyagents_runtime::ToolSnapshot;
 use tinytools::ToolSpec;
 
+/// A full progress channel must not discard the only terminal signal. A busy
+/// bridge can catch up after the turn commits; it cannot infer completion from
+/// an event that was dropped.
+#[tokio::test]
+async fn committed_turn_completion_waits_for_a_full_progress_channel() {
+    use crate::agent::progress::AgentProgress;
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    tx.send(AgentProgress::TurnStarted).await.unwrap();
+    let send = super::send_committed_turn_progress(&tx, "question", "answer", 2);
+    tokio::pin!(send);
+    assert!(matches!(
+        futures::poll!(send.as_mut()),
+        std::task::Poll::Pending
+    ));
+
+    assert!(matches!(rx.recv().await, Some(AgentProgress::TurnStarted)));
+    send.await;
+    assert!(matches!(
+        tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .expect("terminal progress event"),
+        Some(AgentProgress::TurnCompleted { iterations: 2 })
+    ));
+}
+
 fn spec(name: &str) -> ToolSpec {
     ToolSpec {
         name: name.into(),
