@@ -228,18 +228,30 @@ export function FileBody({ args, result }: { args: ToolArgs; result: unknown }):
     );
   }
   const written = typeof args.content === 'string' ? args.content : undefined;
-  const content = written ?? (typeof result === 'string' ? result : '');
+  if (written !== undefined) {
+    if (!written.trim()) return null;
+    const lines = linesOf(written);
+    return (
+      <CodeDiff
+        data-testid="tool-body-file"
+        className={`${FULL_WIDTH} max-h-72 overflow-auto`}
+        filename={filename}
+        additions={lines.length}
+        deletions={0}
+        lines={lines.map(text => ({ kind: 'added' as const, text }))}
+        cycle={0}
+      />
+    );
+  }
+  // A read changed nothing, so a diff header ("+0 −0") would mislead: show the
+  // content as a fenced code block through the chat's markdown renderer.
+  const content = typeof result === 'string' ? result : '';
   if (!content.trim()) return null;
-  const lines = linesOf(content);
+  const language = /\.([a-z0-9]+)$/i.exec(path)?.[1]?.toLowerCase() ?? '';
+  const fence = content.includes('```') ? '````' : '```';
   return (
-    <CodeDiff
-      data-testid="tool-body-file"
-      className={`${FULL_WIDTH} max-h-72 overflow-auto`}
-      filename={filename}
-      additions={written !== undefined ? lines.length : 0}
-      deletions={0}
-      lines={lines.map(text => ({ kind: written !== undefined ? 'added' : 'context', text }))}
-      cycle={0}
-    />
+    <div data-testid="tool-body-file" className="max-h-72 overflow-auto text-xs">
+      <BubbleMarkdown content={`${fence}${language}\n${linesOf(content).join('\n')}\n${fence}`} />
+    </div>
   );
 }
