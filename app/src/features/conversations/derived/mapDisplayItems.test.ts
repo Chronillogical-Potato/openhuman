@@ -436,4 +436,87 @@ describe('mapDisplayItems', () => {
     expect(second.status).toBe('error');
     expect(second.subagent?.status).toBe('failed');
   });
+
+  describe('sub-agent placement (live parity)', () => {
+    /**
+     * Live, `subagentSpawned` turns the `spawn_subagent` row into the
+     * delegation card IN ITS SLOT. The projection nests sub-agents after every
+     * root item, so a reopened turn used to show the spawn call as a plain
+     * tool card and the delegation card at the bottom — a different turn from
+     * the one the user watched stream.
+     */
+    it('puts the sub-agent in the slot of the call that spawned it', () => {
+      const { timelines, transcripts } = mapDisplayItems(
+        newestFirst([
+          { kind: 'turnBoundary', requestId: 'req-1' },
+          { kind: 'toolCall', callId: 'call-a', name: 'shell', status: 'success' },
+          {
+            kind: 'toolCall',
+            callId: 'call-spawn',
+            name: 'spawn_subagent',
+            args: { prompt: 'dig in' },
+            status: 'success',
+          },
+          { kind: 'toolCall', callId: 'call-b', name: 'shell', status: 'success' },
+          { kind: 'subagent', id: 'researcher', requestId: 'req-1', items: [] },
+        ])
+      );
+      const rows = timelines['req-1'] ?? [];
+      expect(rows.map(row => row.id)).toEqual(['call-a', 'subagent:researcher', 'call-b']);
+      expect(rows[1]?.seq).toBeLessThan(rows[2]?.seq ?? -1);
+      expect(rows[1]?.sourceToolName).toBe('spawn_subagent');
+      // The transcript pointer follows the row, so the card renders in place.
+      const pointers = (transcripts['req-1'] ?? []).flatMap(item =>
+        item.kind === 'toolCall' ? [item.callId] : []
+      );
+      expect(pointers).toEqual(['call-a', 'subagent:researcher', 'call-b']);
+    });
+
+    it('pairs several sub-agents with their spawn calls in order', () => {
+      const { timelines } = mapDisplayItems(
+        newestFirst([
+          { kind: 'turnBoundary', requestId: 'req-1' },
+          { kind: 'toolCall', callId: 's1', name: 'spawn_subagent', status: 'success' },
+          { kind: 'toolCall', callId: 's2', name: 'delegate_coder', status: 'success' },
+          { kind: 'subagent', id: 'researcher', requestId: 'req-1', items: [] },
+          { kind: 'subagent', id: 'researcher', requestId: 'req-1', items: [] },
+        ])
+      );
+      expect((timelines['req-1'] ?? []).map(row => row.id)).toEqual([
+        'subagent:researcher',
+        'subagent:researcher#2',
+      ]);
+    });
+
+    it('appends a sub-agent with no spawn call to pair with, as before', () => {
+      const { timelines } = mapDisplayItems(
+        newestFirst([
+          { kind: 'turnBoundary', requestId: 'req-1' },
+          { kind: 'toolCall', callId: 'call-a', name: 'shell', status: 'success' },
+          { kind: 'subagent', id: 'coder', requestId: 'req-1', items: [] },
+        ])
+      );
+      expect((timelines['req-1'] ?? []).map(row => row.id)).toEqual(['call-a', 'subagent:coder']);
+    });
+
+    it('folds a delegation the core names by callId into that call’s slot', () => {
+      const { timelines } = mapDisplayItems(
+        newestFirst([
+          { kind: 'turnBoundary', requestId: 'req-1' },
+          { kind: 'toolCall', callId: 'call-spawn', name: 'spawn_subagent', status: 'success' },
+          {
+            kind: 'subagent',
+            id: 'sub-1',
+            agentId: 'researcher',
+            callId: 'call-spawn',
+            status: 'completed',
+            requestId: 'req-1',
+            items: [],
+          },
+          { kind: 'toolCall', callId: 'call-b', name: 'shell', status: 'success' },
+        ])
+      );
+      expect((timelines['req-1'] ?? []).map(row => row.id)).toEqual(['subagent:sub-1', 'call-b']);
+    });
+  });
 });

@@ -85,6 +85,18 @@ function setGeometry(el: HTMLElement, scrollTop: number, scrollHeight: number, c
   el.scrollTop = scrollTop;
 }
 
+/**
+ * The reader scrolling: an input that can scroll (a wheel notch here), then the
+ * `scroll` event it produced. A bare `scroll` event is a layout shift or
+ * someone else's programmatic scroll, not the reader.
+ */
+function readerScrolls(viewport: HTMLElement) {
+  act(() => {
+    viewport.dispatchEvent(new WheelEvent('wheel', { deltaY: -100 }));
+    viewport.dispatchEvent(new Event('scroll'));
+  });
+}
+
 /** Fire every captured resize callback, as a height change would. */
 function growContent() {
   act(() => {
@@ -138,7 +150,7 @@ describe('useFollowBottom', () => {
 
     // Up, and past the 80px threshold — a deliberate move into history.
     setGeometry(viewport, 100, 1000);
-    act(() => viewport.dispatchEvent(new Event('scroll')));
+    readerScrolls(viewport);
     scrollToSpy.mockClear();
 
     setGeometry(viewport, 100, 1400);
@@ -157,10 +169,10 @@ describe('useFollowBottom', () => {
     act(() => viewport.dispatchEvent(new Event('scroll')));
 
     setGeometry(viewport, 100, 1000);
-    act(() => viewport.dispatchEvent(new Event('scroll')));
+    readerScrolls(viewport);
 
     setGeometry(viewport, 500, 1000);
-    act(() => viewport.dispatchEvent(new Event('scroll')));
+    readerScrolls(viewport);
     scrollToSpy.mockClear();
 
     setGeometry(viewport, 500, 1400);
@@ -265,6 +277,43 @@ describe('useFollowBottom', () => {
     setGeometry(viewport, 150, 1900);
     growContent();
     expect(followedBottom(viewport)).toBe(true);
+  });
+
+  it('keeps following when scrollTop drops with no reader input behind it', () => {
+    // A disclosure collapsing, content shrinking as parts are swapped, and
+    // assistant-ui's `useScrollLock` writing an old `scrollTop` back all lower
+    // `scrollTop` past the threshold with nobody touching anything. Each used
+    // to read as the reader leaving and stop following mid-turn.
+    const { viewport } = renderThread();
+    setGeometry(viewport, 500, 1000);
+    act(() => viewport.dispatchEvent(new Event('scroll')));
+
+    setGeometry(viewport, 100, 1000);
+    act(() => viewport.dispatchEvent(new Event('scroll')));
+    scrollToSpy.mockClear();
+
+    setGeometry(viewport, 100, 1400);
+    growContent();
+
+    expect(followedBottom(viewport)).toBe(true);
+  });
+
+  it('stops following on a keyboard scroll up', () => {
+    const { viewport } = renderThread();
+    setGeometry(viewport, 500, 1000);
+    act(() => viewport.dispatchEvent(new Event('scroll')));
+
+    setGeometry(viewport, 100, 1000);
+    act(() => {
+      viewport.ownerDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageUp' }));
+      viewport.dispatchEvent(new Event('scroll'));
+    });
+    scrollToSpy.mockClear();
+
+    setGeometry(viewport, 100, 1400);
+    growContent();
+
+    expect(followedBottom(viewport)).toBe(false);
   });
 
   it('does not treat a growth-only scroll event as the reader leaving', () => {

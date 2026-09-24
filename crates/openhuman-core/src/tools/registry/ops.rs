@@ -421,6 +421,11 @@ fn type_schema_to_json(ty: &TypeSchema) -> Value {
     match ty {
         TypeSchema::Bool => json!({ "type": "boolean" }),
         TypeSchema::I64 | TypeSchema::U64 => json!({ "type": "integer" }),
+        TypeSchema::BoundedU64 { min, max } => json!({
+            "type": "integer",
+            "minimum": min,
+            "maximum": max,
+        }),
         TypeSchema::F64 => json!({ "type": "number" }),
         TypeSchema::String => json!({ "type": "string" }),
         TypeSchema::Json => json!({}),

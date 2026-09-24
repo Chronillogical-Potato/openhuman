@@ -24,6 +24,7 @@ import { useCallback, useState } from 'react';
 
 import { TaskCard, type TaskCardState } from '../../../components/assistant-ui/elements/task-card';
 import { TaskTranscript } from '../../../components/assistant-ui/elements/task-card.aui';
+import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import { formatElapsed } from '../../../components/assistant-ui/utils/task';
 import { Button } from '../../../components/ui';
 import Badge from '../../../components/ui/Badge';
@@ -209,7 +210,12 @@ function WorktreeRow({ activity }: { activity: SubagentActivity }) {
 }
 
 /** Adapt an assistant-ui `task` part onto {@link TaskCard} for a sub-agent delegation. */
-export const SubagentTaskCard: ToolCallMessagePartComponent = ({ args, result, messages }) => {
+export const SubagentTaskCard: ToolCallMessagePartComponent = ({
+  args,
+  result,
+  messages,
+  toolCallId,
+}) => {
   const { t } = useT();
   const { activity, state } = readSubagentCall(args, result);
   const fallbackAgent = (args as { subagent_type?: string } | undefined)?.subagent_type;
@@ -221,6 +227,18 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({ args, result, m
   const name = resolved.displayName ?? resolved.agentId ?? 'subagent';
   const elapsed = resolved.elapsedMs !== undefined ? formatElapsed(resolved.elapsedMs) : undefined;
   const awaiting = state === 'waiting' && resolved.status === 'awaiting_user';
+  // The user's own open/closed choice, remembered by the part's tool-call id
+  // so it survives assistant-ui's remounts (a virtualized history, a thread
+  // switch, a part whose shape changes) — see `useDisclosure`. Pinned open
+  // for as long as the delegation is actually awaiting a reply, regardless of
+  // that choice: a question the user cannot see is a question they cannot
+  // answer, and the row is normally already mounted (and collapsed) by the
+  // time the pause arrives, so a one-time `defaultOpen` would be too late.
+  const [open, setOpen] = useDisclosure(
+    toolCallId ? `subagent:${toolCallId}` : undefined,
+    false
+  );
+  const disclosureOpen = open || awaiting;
 
   const cancellable =
     (state === 'working' || state === 'waiting') && resolved.taskId !== 'pending-subagent';
@@ -253,6 +271,8 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({ args, result, m
       meta={resolved.mode}
       state={state}
       elapsed={elapsed}
+      open={disclosureOpen}
+      onOpenChange={setOpen}
       actions={actions}
       result={resultNode}>
       {nestedMessages.length > 0 ? (

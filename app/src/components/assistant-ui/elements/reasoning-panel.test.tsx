@@ -108,6 +108,12 @@ describe('ReasoningPanel (collapsible)', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     rerender(<ReasoningPanel {...props} streaming={false} onAnimationStart={onAnimationStart} />);
     expect(trigger().getAttribute('aria-expanded')).toBe('false');
+    // The automatic collapse does not take the host's scroll lock: it runs
+    // while the thread follows the reply to the bottom, and the lock dragging
+    // `scrollTop` back read as the reader scrolling away — following stopped
+    // for the rest of the turn. Only the reader's own toggle locks.
+    expect(onAnimationStart).not.toHaveBeenCalled();
+    fireEvent.click(trigger());
     expect(onAnimationStart).toHaveBeenCalledTimes(1);
 
     // A second instance the reader keeps open across the transition.

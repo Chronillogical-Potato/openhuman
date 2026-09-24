@@ -714,6 +714,9 @@ mod engine_compatibility_tests;
 mod inference_gate_tests;
 #[path = "ops_migration_and_side_effect_tests.rs"]
 mod migration_and_side_effect_tests;
+#[cfg(test)]
+#[path = "ops_migration_tests.rs"]
+mod migration_tests;
 #[path = "ops_resume_checkpoint_tests.rs"]
 mod resume_checkpoint_tests;
 #[path = "ops_run_lifecycle_tests.rs"]

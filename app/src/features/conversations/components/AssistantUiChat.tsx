@@ -1,7 +1,7 @@
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/thread';
 import { type AssistantState, useAui, useAuiState } from '@assistant-ui/react';
 import { PlusIcon } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
+import { type ReactNode, startTransition, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import AttachmentPreview from '../../../components/chat/AttachmentPreview';
 import { Button } from '../../../components/ui';
@@ -20,7 +20,25 @@ import { ChatToolFallback } from './ChatToolParts';
 
 const selectComposerText = (state: AssistantState) => state.composer.text;
 
-function ComposerTextBridge({
+/**
+ * Keep the host's draft (`inputValue`) and assistant-ui's composer text in step.
+ *
+ * Two directions, and the one that fires on every keystroke is the dangerous
+ * one. Editor → host used to call `onChange` (a `useState` setter) inside this
+ * effect synchronously. A keystroke is a discrete event, so React flushes the
+ * effect — and the update it schedules — synchronously too, and a burst of
+ * keystrokes (key-repeat, fast typing, an automated driver) chained those sync
+ * updates past React's nested-update limit: "Maximum update depth exceeded",
+ * and the whole chat surface fell to the error boundary.
+ *
+ * So editor → host now runs as a transition, which is not a sync update. The
+ * host value then lags the editor by a render, and the other direction must
+ * not mistake that lag for a host write: a host value that is one we emitted
+ * ourselves is an echo and is never written back into the editor (doing so
+ * would overwrite what was typed since). Only a value we did not emit —
+ * dictation, ESC restore, clear after send — is a host write, and it wins.
+ */
+export function ComposerTextBridge({
   value,
   onChange,
 }: {
@@ -30,16 +48,30 @@ function ComposerTextBridge({
   const aui = useAui();
   const composerText = useAuiState(selectComposerText);
   const previousHostValue = useRef(value);
+  // Editor texts sent to the host that it has not echoed back yet.
+  const inFlight = useRef<string[]>([]);
 
   useEffect(() => {
-    // A host-side write (dictation, ESC restore, clear) wins for this pass.
     if (previousHostValue.current !== value) {
       previousHostValue.current = value;
-      if (composerText !== value) aui.composer.setText(value);
-      return;
+      const echoAt = inFlight.current.indexOf(value);
+      if (echoAt >= 0) {
+        // Our own write coming back (possibly behind newer typing): drop it and
+        // everything sent before it; the editor already holds newer text.
+        inFlight.current = inFlight.current.slice(echoAt + 1);
+        // Do not return: the editor may already contain text typed after this
+        // echo. Let the normal editor-to-host comparison forward it now.
+      } else {
+        // A host-side write (dictation, ESC restore, clear) wins for this pass.
+        inFlight.current = [];
+        if (composerText !== value) aui.composer.setText(value);
+        return;
+      }
     }
-    // Otherwise the editor changed and the host draft follows it.
-    if (composerText !== value) onChange(composerText);
+    // Otherwise the editor changed and the host draft follows it, once per text.
+    if (composerText === value || inFlight.current.at(-1) === composerText) return;
+    inFlight.current.push(composerText);
+    startTransition(() => onChange(composerText));
   }, [aui, composerText, onChange, value]);
 
   return null;

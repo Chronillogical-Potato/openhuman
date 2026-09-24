@@ -37,6 +37,7 @@ const EMPTY_SUGGESTIONS: readonly ThreadSuggestion[] = [];
 const EMPTY_TIMELINE: never[] = [];
 const EMPTY_TRANSCRIPT: never[] = [];
 const EMPTY_TURN_MAP = {};
+const EMPTY_SETTLED = {};
 /** Items per derived-transcript RPC page; the core caps a page at this size. */
 const DERIVED_TRANSCRIPT_PAGE_LIMIT = 500;
 /**
@@ -100,6 +101,34 @@ const EMPTY_CORE_TRANSCRIPT: CoreTranscriptProjection = {
 };
 
 /**
+ * Keep the previous array for every turn whose re-projection is unchanged.
+ *
+ * The projection refetches whenever the thread's last message or lifecycle
+ * moves — several times per turn — and each fetch minted fresh arrays for
+ * EVERY turn. The settled-message conversion cache is keyed on those array
+ * identities, so each refetch re-converted the whole thread and handed
+ * assistant-ui new part objects for turns nothing had happened to.
+ */
+function reuseUnchangedTurns<T>(
+  previous: Record<string, T[]>,
+  next: Record<string, T[]>
+): Record<string, T[]> {
+  const nextKeys = Object.keys(next);
+  let allReused = nextKeys.length === Object.keys(previous).length;
+  const merged: Record<string, T[]> = {};
+  for (const key of nextKeys) {
+    const before = previous[key];
+    if (before !== undefined && JSON.stringify(before) === JSON.stringify(next[key])) {
+      merged[key] = before;
+    } else {
+      merged[key] = next[key];
+      allReused = false;
+    }
+  }
+  return allReused ? previous : merged;
+}
+
+/**
  * Read settled process history straight from the core's transcript projection.
  * The Rust side owns a bounded, mtime-keyed LRU, so this hook deliberately does
  * not establish a second Redux transcript store or duplicate cache policy.
@@ -126,7 +155,17 @@ export function useCoreTranscriptProjection(
     const skipRequestIds = liveRequestId ? new Set([liveRequestId]) : undefined;
     const project = (items: DerivedDisplayItem[]) => {
       const mapped = mapDisplayItems(items, { skipRequestIds });
-      setProjection({ threadId, timelines: mapped.timelines, transcripts: mapped.transcripts });
+      setProjection(previous => {
+        if (previous.threadId !== threadId) {
+          return { threadId, timelines: mapped.timelines, transcripts: mapped.transcripts };
+        }
+        const timelines = reuseUnchangedTurns(previous.timelines, mapped.timelines);
+        const transcripts = reuseUnchangedTurns(previous.transcripts, mapped.transcripts);
+        if (timelines === previous.timelines && transcripts === previous.transcripts) {
+          return previous;
+        }
+        return { threadId, timelines, transcripts };
+      });
     };
     void (async () => {
       try {
@@ -349,12 +388,15 @@ export function useOpenHumanExternalStore(
   const pendingApproval = useAppSelector(state =>
     threadId ? (state.chatRuntime.pendingApprovalByThread?.[threadId] ?? null) : null
   );
-  const settledRevision = `${messages.at(-1)?.id ?? ''}:${messages.at(-1)?.content?.length ?? 0}:${lifecycle ?? ''}`;
-  const coreTranscript = useCoreTranscriptProjection(
-    threadId,
-    settledRevision,
-    streaming?.requestId
+  const liveRequestId = useAppSelector(state =>
+    threadId ? state.chatRuntime.liveRequestIdByThread?.[threadId] : undefined
   );
+  const settledTurns = useAppSelector(state =>
+    threadId ? (state.chatRuntime.settledTurnsByThread?.[threadId] ?? EMPTY_SETTLED) : EMPTY_SETTLED
+  );
+  const settledRevision = `${messages.at(-1)?.id ?? ''}:${messages.at(-1)?.content?.length ?? 0}:${lifecycle ?? ''}`;
+  const tailRequestId = liveRequestId ?? streaming?.requestId;
+  const coreTranscript = useCoreTranscriptProjection(threadId, settledRevision, tailRequestId);
 
   // `started` and `streaming` are both in-flight. A completed turn can retain
   // its tool/reasoning arrays while the persisted projection catches up; those
@@ -373,8 +415,20 @@ export function useOpenHumanExternalStore(
         pendingApproval,
         turnTimelines: coreTranscript.timelines,
         turnTranscripts: coreTranscript.transcripts,
+        settledTurns,
+        liveRequestId: tailRequestId,
       }),
-    [messages, streaming, isRunning, liveTimeline, liveTranscript, pendingApproval, coreTranscript]
+    [
+      messages,
+      streaming,
+      isRunning,
+      liveTimeline,
+      liveTranscript,
+      pendingApproval,
+      coreTranscript,
+      settledTurns,
+      tailRequestId,
+    ]
   );
 
   // The two gates are disjoint (welcome needs an empty thread, follow-ups a

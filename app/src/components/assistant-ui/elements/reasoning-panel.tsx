@@ -211,13 +211,13 @@ export function ReasoningPanel({
   const isOpen = isControlled ? controlledOpen : (userOpen ?? (streaming || defaultOpen));
 
   // Streaming → settled collapses the panel (unless the reader took over),
-  // an animation the host may need to scroll-lock.
-  const prevStreaming = useRef(streaming);
-  useEffect(() => {
-    if (prevStreaming.current === streaming) return;
-    prevStreaming.current = streaming;
-    if (!isControlled && userOpen === null && !defaultOpen) onAnimationStart?.();
-  }, [streaming, isControlled, userOpen, defaultOpen, onAnimationStart]);
+  // and that collapse deliberately does NOT call `onAnimationStart`. The host
+  // wires it to assistant-ui's `useScrollLock`, which pins `scrollTop` by
+  // writing it back on every scroll event for the animation's length — and an
+  // automatic collapse happens while the thread is following the reply to the
+  // bottom. The follower scrolled down, the lock dragged it back, and the
+  // follower read the drop as the reader leaving: following stopped for the
+  // rest of the turn. The lock is for a toggle the READER makes (below).
 
   const handleOpenChange = useCallback(
     (next: boolean) => {

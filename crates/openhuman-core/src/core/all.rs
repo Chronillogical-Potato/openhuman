@@ -1528,20 +1528,46 @@ pub fn validate_params(
     // already handled by the required-presence check above.
     for input in &schema.inputs {
         if let Some(value) = params.get(input.name) {
-            check_type(value, &input.ty).map_err(|expected| {
+            check_type(value, &input.ty).map_err(|mismatch| {
+                let (expected, got) = match mismatch {
+                    TypeMismatch::Kind(expected) => {
+                        (expected.to_string(), json_type_name(value).to_string())
+                    }
+                    TypeMismatch::OutOfRange { min, max, got } => {
+                        log::debug!(
+                            "[rpc][validate] param '{}' in {}.{} out of range: {got} not in {min}..={max}",
+                            input.name,
+                            schema.namespace,
+                            schema.function,
+                        );
+                        // Name the limit that was actually crossed.
+                        let bound = if got > max {
+                            format!("unsigned integer <= {max}")
+                        } else {
+                            format!("unsigned integer >= {min}")
+                        };
+                        (bound, got.to_string())
+                    }
+                };
                 format!(
                     "invalid type for param '{}' in {}.{}: expected {}, got {}",
-                    input.name,
-                    schema.namespace,
-                    schema.function,
-                    expected,
-                    json_type_name(value),
+                    input.name, schema.namespace, schema.function, expected, got,
                 )
             })?;
         }
     }
 
     Ok(())
+}
+
+/// Why a value failed [`check_type`].
+enum TypeMismatch {
+    /// The JSON kind is wrong; carries a short description of the required type.
+    Kind(&'static str),
+    /// An unsigned integer outside a [`TypeSchema::BoundedU64`] range.
+    ///
+    /// [`TypeSchema::BoundedU64`]: crate::core::TypeSchema::BoundedU64
+    OutOfRange { min: u64, max: u64, got: u64 },
 }
 
 /// A short, human-readable name for the JSON kind of `value`, used in
@@ -1559,11 +1585,10 @@ fn json_type_name(value: &Value) -> &'static str {
 
 /// Validate a JSON `value` against a declared [`TypeSchema`].
 ///
-/// Returns `Ok(())` on a match, or `Err(expected)` where `expected` is a short
-/// description of the type that was required. Unknown/opaque shapes
-/// (`Json`, `Bytes`, `Ref`) accept any value — they are validated by the
-/// handler's typed deserialization.
-fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), &'static str> {
+/// Returns `Ok(())` on a match, or a [`TypeMismatch`] describing what was
+/// required. Unknown/opaque shapes (`Json`, `Bytes`, `Ref`) accept any value —
+/// they are validated by the handler's typed deserialization.
+fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), TypeMismatch> {
     use crate::core::TypeSchema;
 
     // JSON-RPC semantics (preserved from the prior presence-only check):
@@ -1593,13 +1618,22 @@ fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), &'stati
         | TypeSchema::Object { .. }
         | TypeSchema::Map(_) => Ok(()),
 
-        TypeSchema::Bool => value.is_boolean().then_some(()).ok_or("bool"),
-        TypeSchema::String => value.is_string().then_some(()).ok_or("string"),
-        TypeSchema::I64 => value.is_i64().then_some(()).ok_or("integer"),
-        TypeSchema::U64 => value.is_u64().then_some(()).ok_or("unsigned integer"),
+        TypeSchema::Bool => kind(value.is_boolean(), "bool"),
+        TypeSchema::String => kind(value.is_string(), "string"),
+        TypeSchema::I64 => kind(value.is_i64(), "integer"),
+        TypeSchema::U64 => kind(value.is_u64(), "unsigned integer"),
+        TypeSchema::BoundedU64 { min, max } => match value.as_u64() {
+            Some(got) if (*min..=*max).contains(&got) => Ok(()),
+            Some(got) => Err(TypeMismatch::OutOfRange {
+                min: *min,
+                max: *max,
+                got,
+            }),
+            None => Err(TypeMismatch::Kind("unsigned integer")),
+        },
         TypeSchema::F64 => {
             // Accept any JSON number (ints are valid floats).
-            value.is_number().then_some(()).ok_or("number")
+            kind(value.is_number(), "number")
         }
 
         // `Option<T>` accepts null or a value matching the inner type.
@@ -1618,15 +1652,20 @@ fn check_type(value: &Value, ty: &crate::core::TypeSchema) -> Result<(), &'stati
                 }
                 Ok(())
             }
-            None => Err("array"),
+            None => Err(TypeMismatch::Kind("array")),
         },
 
         TypeSchema::Enum { variants } => match value.as_str() {
             Some(s) if variants.contains(&s) => Ok(()),
-            Some(_) => Err("one of the allowed enum variants"),
-            None => Err("string"),
+            Some(_) => Err(TypeMismatch::Kind("one of the allowed enum variants")),
+            None => Err(TypeMismatch::Kind("string")),
         },
     }
+}
+
+/// `Ok(())` when `matches`, else a [`TypeMismatch::Kind`] naming `expected`.
+fn kind(matches: bool, expected: &'static str) -> Result<(), TypeMismatch> {
+    matches.then_some(()).ok_or(TypeMismatch::Kind(expected))
 }
 
 /// Attempts to invoke a registered RPC method by name.

@@ -10,6 +10,7 @@ import { store } from '../../store';
 import {
   clearAllChatRuntime,
   findPendingDelegationContext,
+  registerParallelRequest,
   resetSessionTokenUsage,
   setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
@@ -370,6 +371,91 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         e => e.subagent?.taskId === 'sub-1'
       );
       expect(row?.subagent?.transcript).toEqual([]);
+    });
+
+    it('routes a parallel (forked) turn into its own lane, leaving the primary stream untouched', async () => {
+      const listeners = renderProvider();
+
+      // Primary turn streams on the thread.
+      act(() => {
+        listeners.onTextDelta?.({
+          thread_id: 't-par',
+          request_id: 'primary',
+          round: 0,
+          delta: 'P',
+        });
+      });
+      // A parallel turn is registered and streams concurrently on the SAME thread.
+      act(() => {
+        store.dispatch(registerParallelRequest({ threadId: 't-par', requestId: 'branch' }));
+        listeners.onTextDelta?.({
+          thread_id: 't-par',
+          request_id: 'branch',
+          round: 0,
+          delta: 'B1',
+        });
+        listeners.onTextDelta?.({
+          thread_id: 't-par',
+          request_id: 'branch',
+          round: 0,
+          delta: 'B2',
+        });
+      });
+
+      // Deltas are coalesced per frame (`chatDeltaCoalescer`); wait for the flush.
+      await waitFor(() =>
+        expect(
+          store.getState().chatRuntime.parallelStreamsByThread['t-par']?.['branch']?.content
+        ).toBe('B1B2')
+      );
+      const mid = store.getState().chatRuntime;
+      // Primary stream is not clobbered by the parallel branch.
+      expect(mid.streamingAssistantByThread['t-par']?.content).toBe('P');
+      expect(mid.parallelStreamsByThread['t-par']?.['branch']?.content).toBe('B1B2');
+
+      // The parallel turn's chat_done resolves ONLY its lane; the primary
+      // stream and its (still-running) state survive.
+      act(() => {
+        listeners.onDone?.({
+          thread_id: 't-par',
+          request_id: 'branch',
+          full_response: 'branch done',
+          rounds_used: 1,
+          total_input_tokens: 0,
+          total_output_tokens: 0,
+          segment_total: 0,
+        });
+      });
+
+      const after = store.getState().chatRuntime;
+      expect(after.parallelStreamsByThread['t-par']).toBeUndefined();
+      expect(after.parallelRequestThreads['branch']).toBeUndefined();
+      expect(after.streamingAssistantByThread['t-par']?.content).toBe('P');
+    });
+
+    it('bumps the heartbeat counter only for the primary turn, never a parallel branch (#4282)', () => {
+      const listeners = renderProvider();
+
+      // Primary turn's heartbeat advances the thread's liveness counter.
+      act(() => {
+        listeners.onInferenceHeartbeat?.({ thread_id: 't-par', request_id: 'primary' });
+      });
+      expect(store.getState().chatRuntime.inferenceHeartbeatByThread['t-par']).toBe(1);
+
+      // A registered parallel branch's heartbeat must NOT rearm the primary
+      // silence timer — otherwise a sibling would mask a stalled primary turn.
+      act(() => {
+        store.dispatch(registerParallelRequest({ threadId: 't-par', requestId: 'branch' }));
+        listeners.onInferenceHeartbeat?.({ thread_id: 't-par', request_id: 'branch' });
+        listeners.onInferenceHeartbeat?.({ thread_id: 't-par', request_id: 'branch' });
+      });
+      expect(store.getState().chatRuntime.inferenceHeartbeatByThread['t-par']).toBe(1);
+
+      // The primary turn keeps beating independently.
+      act(() => {
+        listeners.onInferenceHeartbeat?.({ thread_id: 't-par', request_id: 'primary' });
+      });
+      expect(store.getState().chatRuntime.inferenceHeartbeatByThread['t-par']).toBe(2);
     });
 
     it('drops duplicate chat_done events with the same thread/request', async () => {
@@ -1401,7 +1487,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       }
     });
 
-    it('accumulates text_delta chunks within the same request_id', () => {
+    it('accumulates text_delta chunks within the same request_id', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1409,13 +1495,15 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onTextDelta?.({ thread_id: 't-mid', request_id: 'r1', round: 0, delta: 'lo!' });
       });
 
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-mid']).toBeDefined()
+      );
       const streaming = store.getState().chatRuntime.streamingAssistantByThread['t-mid'];
-      expect(streaming).toBeDefined();
       expect(streaming?.requestId).toBe('r1');
       expect(streaming?.content).toBe('Hello!');
     });
 
-    it('replaces streaming state when request_id changes mid-turn', () => {
+    it('replaces streaming state when request_id changes mid-turn', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1423,6 +1511,11 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onTextDelta?.({ thread_id: 't-mid', request_id: 'r2', round: 0, delta: 'bbb' });
       });
 
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-mid']?.requestId).toBe(
+          'r2'
+        )
+      );
       const streaming = store.getState().chatRuntime.streamingAssistantByThread['t-mid'];
       expect(streaming?.requestId).toBe('r2');
       expect(streaming?.content).toBe('bbb');
@@ -1448,8 +1541,10 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           delta: 'Let me check your calendar first.',
         });
       });
-      expect(store.getState().chatRuntime.streamingAssistantByThread['t-interim']?.content).toBe(
-        'Let me check your calendar first.'
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-interim']?.content).toBe(
+          'Let me check your calendar first.'
+        )
       );
       // …and is already captured as a narration transcript item by the delta
       // reducer — this is what the rail renders.
@@ -1525,7 +1620,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(threadApi.appendMessage).not.toHaveBeenCalled();
     });
 
-    it('sets inference status to thinking on inference_start and clears it on chat_done', () => {
+    it('sets inference status to thinking on inference_start and clears it on chat_done', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1543,7 +1638,11 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           total_output_tokens: 0,
         });
       });
-      expect(store.getState().chatRuntime.inferenceStatusByThread['t-inv']).toBeUndefined();
+      // Cleared by `turnSettled`, once the reply is persisted — not before, so
+      // the status line does not vanish ahead of the reply that replaces it.
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.inferenceStatusByThread['t-inv']).toBeUndefined()
+      );
       expect(store.getState().chatRuntime.streamingAssistantByThread['t-inv']).toBeUndefined();
     });
 
@@ -1609,7 +1708,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(store.getState().chatRuntime.toolTimelineByThread['t-seq']).toHaveLength(2);
     });
 
-    it('drops a redelivered text delta by seq instead of appending it twice', () => {
+    it('drops a redelivered text delta by seq instead of appending it twice', async () => {
       const listeners = renderProvider();
       const delta = (seq: number, text: string) => ({
         thread_id: 't-delta',
@@ -1627,8 +1726,11 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         listeners.onTextDelta?.(delta(3, '!'));
       });
 
-      expect(store.getState().chatRuntime.streamingAssistantByThread['t-delta']?.content).toBe(
-        'Hello!'
+      // Deltas are coalesced per frame (`chatDeltaCoalescer`); wait for the flush.
+      await waitFor(() =>
+        expect(store.getState().chatRuntime.streamingAssistantByThread['t-delta']?.content).toBe(
+          'Hello!'
+        )
       );
     });
 

@@ -1,6 +1,7 @@
 import type { ToolCallMessagePart, ToolCallMessagePartProps } from '@assistant-ui/react';
 import type { FC, ReactNode } from 'react';
 
+import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import {
   ToolCall,
   type ToolCallOutcome,
@@ -59,6 +60,11 @@ export interface AssistantUiToolCallCardProps {
   awaitingUser?: boolean;
   /** Decision row / connect affordance, rendered under the call's header. */
   footer?: ReactNode;
+  /**
+   * Stable identity (the tool-call id) under which the user's open/closed
+   * choice is remembered across remounts. See `useDisclosure`.
+   */
+  disclosureKey?: string;
 }
 
 /**
@@ -83,8 +89,18 @@ export function AssistantUiToolCallCard({
   failure,
   awaitingUser = false,
   footer,
+  disclosureKey,
 }: AssistantUiToolCallCardProps) {
   const { t } = useT();
+  // Defaults open while the call is waiting on the user (an approval or a
+  // sub-agent question needs to be visible without an extra click); once the
+  // user has explicitly toggled it, that choice is remembered by
+  // `disclosureKey` (the tool-call id) so it survives assistant-ui's remounts
+  // — a virtualized history, a thread switch, a part whose shape changes.
+  const [open, setOpen] = useDisclosure(
+    disclosureKey ? `tool:${disclosureKey}` : undefined,
+    awaitingUser
+  );
   const running =
     awaitingUser ||
     (status ? status === 'running' || status === 'awaiting_user' : result === undefined);
@@ -150,7 +166,8 @@ export function AssistantUiToolCallCard({
       query={searchBody ? undefined : presentation.chip}
       running={running}
       outcome={outcome}
-      defaultOpen={awaitingUser}
+      open={open}
+      onOpenChange={setOpen}
       icon={<ToolIcon presentation={presentation} className="text-foreground/45 size-3.5" />}
       requestLabel={t('conversations.subagent.input')}
       resultLabel={t('conversations.subagent.output')}
@@ -277,6 +294,7 @@ export const OpenHumanToolCall: FC<
       structured={artifact?.structured}
       awaitingUser={isApprovalPending(props.approval)}
       footer={props.approvalCard}
+      disclosureKey={props.toolCallId}
     />
   );
 };
