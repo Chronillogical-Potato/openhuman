@@ -54,6 +54,7 @@ const conversionCache = new WeakMap<ThreadMessage, ConversionCacheEntry>();
 
 const EMPTY_TIMELINE: readonly ToolTimelineEntry[] = [];
 const EMPTY_TRANSCRIPT: readonly ProcessingTranscriptItem[] = [];
+const EMPTY_CITATIONS: readonly ChatCitation[] = [];
 
 const RECOVERED_TOOL_NAMES_KEY = 'assistantUiToolNames';
 
