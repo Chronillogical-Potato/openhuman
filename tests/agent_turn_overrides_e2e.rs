@@ -35,6 +35,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 use tempfile::TempDir;
 
 use openhuman_core::agent::goals::{runtime as goal_runtime, store as goal_store};
+use openhuman_core::agent::harness::definition::{
+    AgentDefinition, AgentDefinitionRegistry, ToolScope,
+};
 use openhuman_core::agent::session_host::TurnOverrides;
 use openhuman_core::agent::OpenHumanSessionHost;
 use openhuman_core::config::{AgentConfig, ContextConfig};
@@ -221,11 +224,46 @@ impl Tool for EchoTool {
     }
 }
 
+/// The id this fixture stamps its sessions with. No built-in uses it, which is
+/// the point: a hit can only come from the definition below.
+const AGENT_DEFINITION_ID: &str = "turn-overrides/orchestrator";
+
 fn workspace(label: &str) -> (TempDir, PathBuf) {
     let temp = TempDir::new().expect("workspace tempdir");
     let path = temp.path().join(label);
     std::fs::create_dir_all(&path).expect("create workspace dir");
     (temp, path)
+}
+
+/// The session's own root authority.
+///
+/// Every session turn is a hosted root invocation: it resolves its agent id
+/// against the host catalogue before composing a message and refuses the turn
+/// when the id is not there. `agent_definition_name` alone only *stamps* an id
+/// — it does not put a definition behind it, so a name the process registry
+/// has never heard of (which `turn-overrides/orchestrator` is, by design)
+/// leaves every turn unresolvable. Bringing the definition is what gives this
+/// fixture a hosted authority of its own (`SessionHostBuilder::agent_definition`,
+/// `session_host/builder/setters.rs:336`).
+///
+/// The tool scope is not decoration. The resolved definition's tools ARE the
+/// turn's allow-list, intersected with the belt the session was built with.
+/// `Wildcard` — "all tools the parent has" (`definition/execution_spec.rs:42-49`)
+/// — is the right scope for a fixture whose subject is the belt itself: these
+/// tests assert what `suppress_tools` does to the session's own tools, so the
+/// authority must not narrow them. `Named` would also work for the one tool
+/// used here, but it silently drops any name missing from the parent registry,
+/// which would turn a renamed tool into an empty toolbelt and a confusing
+/// failure two asserts later.
+fn turn_overrides_definition() -> Arc<AgentDefinition> {
+    let mut def = AgentDefinitionRegistry::builtins_only()
+        .get("orchestrator")
+        .cloned()
+        .expect("built-in orchestrator definition");
+    def.id = AGENT_DEFINITION_ID.to_string();
+    def.tools = ToolScope::Wildcard;
+    def.disallowed_tools.clear();
+    Arc::new(def)
 }
 
 fn agent_with(
@@ -241,7 +279,11 @@ fn agent_with(
         .tool_dispatcher(dispatcher)
         .workspace_dir(workspace_path)
         .event_context("turn-overrides-session", "turn-overrides-channel")
-        .agent_definition_name("turn-overrides/orchestrator")
+        // Name and definition must agree: the session is resolved by the id it
+        // is stamped with, so a definition filed under a different one could
+        // never answer for it and the build rejects the contradiction.
+        .agent_definition_name(AGENT_DEFINITION_ID)
+        .agent_definition(turn_overrides_definition())
         .config(AgentConfig {
             max_tool_iterations: 2,
             max_history_messages: 12,
@@ -264,7 +306,6 @@ fn text(body: &str) -> ModelResponse {
 /// turn: `suppress_active_goal` keeps the `[thread goal]` block out of the
 /// prompt entirely.
 #[test]
-#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
 fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt() {
     run_on_agent_stack(
         "turn-overrides-suppress-active-goal",
@@ -360,7 +401,17 @@ async fn suppress_active_goal_keeps_the_thread_goal_out_of_the_prompt_inner() {
 /// previous thread's conversation back underneath it and answers grounded in the
 /// wrong one, with no error anywhere (#1725).
 #[test]
-#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
+#[ignore = "TODO(#6377): transcript autoload does not fire for a hosted root session"]
+// The hosted root authority this fixture now brings (`turn_overrides_definition`)
+// was necessary but is NOT sufficient here: with it, two of this file's four
+// quarantined tests pass and this one still fails, and it fails in its own
+// CONTROL (:466) rather than in the assertion under test. The control says a
+// fresh agent must auto-load the prior transcript by agent name; under the
+// hosted path it does not, so the test cannot prove that
+// `suppress_transcript_autoload` prevents anything. Not yet isolated: whether
+// `auto_save` no longer writes where `latest_for_agent` looks, or the lookup
+// key changed with the stamped session id. Do not lift this by relaxing the
+// control — the control is what makes the test non-vacuous.
 fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript() {
     run_on_agent_stack(
         "turn-overrides-suppress-transcript-autoload",
@@ -464,7 +515,17 @@ async fn suppress_transcript_autoload_does_not_replay_a_prior_threads_transcript
 /// suppression that leaked forward would silently strip a real task turn of its
 /// toolbelt.
 #[test]
-#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
+#[ignore = "TODO(#6377): a hosted root turn carries no tool schema upstream"]
+// As above: the hosted root authority is necessary and not sufficient. Turn 2
+// sets no overrides and must therefore carry the session's belt, but
+// `requests[1].tool_names` comes back empty (:549). Tried and ruled out: the
+// definition's `ToolScope` is not the cause — `Named(["turn_overrides_echo"])`
+// and `Wildcard` both produce an empty schema. Note turn 1's assertion cannot
+// distinguish the two explanations, since a suppressed belt and a belt that
+// never arrives are both empty. The open question is whether
+// `suppress_tools` leaks past its one turn or the belt never reaches the
+// model on this path at all; the cheap next step is a variant with no
+// overrides set at all.
 fn turn_overrides_apply_to_exactly_one_turn_and_then_reset() {
     run_on_agent_stack(
         "turn-overrides-reset",
@@ -523,7 +584,6 @@ async fn turn_overrides_apply_to_exactly_one_turn_and_then_reset_inner() {
 /// goal (and a settled goal renders no context block), `clear_for_current_thread`
 /// removes the row outright.
 #[test]
-#[ignore = "TODO(#6377): fixture must use the hosted root authority"]
 fn thread_goal_complete_and_clear_stop_the_goal_reaching_later_turns() {
     run_on_agent_stack(
         "turn-overrides-goal-terminal-apis",
