@@ -470,6 +470,30 @@ pub(super) fn assemble_turn_harness(
         .collect();
     context_mw.install(&mut harness, tool_policies, summary_focus_tools);
 
+    // Plan mode (issue: plan-mode approvals). `run_mode` is `Some` only for a
+    // turn with a thread identity (chat, not a sub-agent child); the
+    // middleware itself is a no-op whenever the live handle reads
+    // `RunMode::Build`, so pushing it unconditionally for those turns is
+    // cheap and lets a mid-run `plan_exit`/`agent.set_run_mode` flip take
+    // effect on the very next tool exposure or execution check. `.allow(..)`
+    // keeps plan-mode-specific and session-bookkeeping tools reachable while
+    // planning even though they are not (or should not be gated as)
+    // side-effect-free: `plan_exit` (the hand-off signal itself),
+    // `request_plan_review` (the review gate IS the consent surface), the
+    // session `todo` list, and the per-thread `goal_*` tools.
+    if let Some(mode) = run_mode {
+        harness.push_middleware(Arc::new(
+            plan_mode_middleware(mode, harness.tools().policies()).allow([
+                "plan_exit",
+                "request_plan_review",
+                "todo",
+                "goal_set",
+                "goal_get",
+                "goal_complete",
+            ]),
+        ));
+    }
+
     // Observe-only crate `BudgetMiddleware` (W2-budget-dedupe / workstream 06).
     // Installed with empty `BudgetLimits` so it NEVER enforces or halts: its
     // `before_model` preflight has no configured limit to trip, and its
