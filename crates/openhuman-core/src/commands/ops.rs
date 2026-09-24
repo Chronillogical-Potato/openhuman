@@ -17,7 +17,10 @@ const BUILTINS: &[(&str, &str)] = &[
     ("/new", "Start a new conversation"),
     ("/clear", "Clear the current conversation"),
     ("/plan", "Switch to plan mode (draft without side effects)"),
-    ("/build", "Switch to build mode (resume normal tool execution)"),
+    (
+        "/build",
+        "Switch to build mode (resume normal tool execution)",
+    ),
     ("/goal", "Set or view this thread's goal"),
     ("/todo", "View or manage the thread's todo list"),
     ("/stop", "Stop the current run"),
@@ -61,11 +64,7 @@ async fn invoke(
     }
 }
 
-fn entries_from_array(
-    value: &Value,
-    array_field: &str,
-    kind: CommandKind,
-) -> Vec<CommandEntry> {
+fn entries_from_array(value: &Value, array_field: &str, kind: CommandKind) -> Vec<CommandEntry> {
     let Some(items) = value.get(array_field).and_then(Value::as_array) else {
         return Vec::new();
     };

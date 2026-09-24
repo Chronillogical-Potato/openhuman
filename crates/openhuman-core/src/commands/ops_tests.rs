@@ -6,7 +6,10 @@ fn builtin_entries_cover_every_documented_slash_command() {
     let entries = builtin_entries();
     let ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
     for expected in ["new", "clear", "plan", "build", "goal", "todo", "stop"] {
-        assert!(ids.contains(&expected), "missing builtin {expected}: {ids:?}");
+        assert!(
+            ids.contains(&expected),
+            "missing builtin {expected}: {ids:?}"
+        );
     }
 }
 
@@ -14,7 +17,10 @@ fn builtin_entries_cover_every_documented_slash_command() {
 fn every_builtin_carries_its_own_insert_text() {
     for entry in builtin_entries() {
         assert_eq!(entry.kind, CommandKind::Builtin);
-        let insert = entry.insert.as_deref().expect("builtins always insert text");
+        let insert = entry
+            .insert
+            .as_deref()
+            .expect("builtins always insert text");
         assert!(insert.starts_with('/'), "{insert}");
         assert_eq!(insert.trim_start_matches('/'), entry.id);
     }
@@ -61,7 +67,10 @@ async fn commands_list_always_includes_every_builtin_even_if_catalogs_fail() {
     let outcome = commands_list().await.expect("commands_list must not fail");
     let ids: Vec<&str> = outcome.value.iter().map(|e| e.id.as_str()).collect();
     for expected in ["new", "clear", "plan", "build", "goal", "todo", "stop"] {
-        assert!(ids.contains(&expected), "missing builtin {expected}: {ids:?}");
+        assert!(
+            ids.contains(&expected),
+            "missing builtin {expected}: {ids:?}"
+        );
     }
     let builtin_count = outcome
         .value

@@ -30,7 +30,9 @@ fn unknown_function_falls_back_to_an_error_schema() {
 async fn handle_list_returns_every_builtin() {
     use serde_json::Map;
 
-    let value = handle_list(Map::new()).await.expect("handler must not fail");
+    let value = handle_list(Map::new())
+        .await
+        .expect("handler must not fail");
     // Bare (no logs) or wrapped ({"result": ...}) — read through both.
     let commands = value
         .get("result")
@@ -43,6 +45,9 @@ async fn handle_list_returns_every_builtin() {
         .filter_map(|c| c.get("id").and_then(|v| v.as_str()))
         .collect();
     for expected in ["new", "clear", "plan", "build", "goal", "todo", "stop"] {
-        assert!(ids.contains(&expected), "missing builtin {expected}: {ids:?}");
+        assert!(
+            ids.contains(&expected),
+            "missing builtin {expected}: {ids:?}"
+        );
     }
 }

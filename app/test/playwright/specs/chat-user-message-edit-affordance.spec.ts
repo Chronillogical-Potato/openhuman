@@ -101,20 +101,28 @@ test.describe('User-message action bar — capability-gated affordances (#5897)'
     await setMockBehavior('llmForcedResponses', JSON.stringify([{ content: REPLY }]));
   });
 
-  test('no Edit button is offered while the runtime cannot edit', async ({ page }) => {
+  test('the Edit button opens the vendored EditMessage composer', async ({ page }) => {
     const input = await openChat(page);
     const userMessage = await sendOneTurn(page, input, 'a message to hover');
 
-    // Hover is the state in which the action bar reveals its controls, so this
-    // is the moment the dead button used to appear.
+    // Hover is the state in which the action bar reveals its controls.
     await userMessage.hover();
     await page.waitForTimeout(300);
 
-    await expect(page.locator('.aui-user-action-edit')).toHaveCount(0);
+    const editButton = page.locator('.aui-user-action-edit');
+    await expect(editButton).toHaveCount(1);
+    await editButton.click();
 
-    // And no edit composer can be reached, which is the reason the button had
-    // to go rather than be left in place.
-    await expect(page.locator('.aui-edit-composer-input')).toHaveCount(0);
+    // The vendored `EditMessage` element's editing state: a textarea seeded
+    // with the original text, plus its Cancel/Send controls.
+    const editTextarea = page.getByRole('textbox', { name: 'Edit your message' });
+    await expect(editTextarea).toBeVisible();
+    await expect(editTextarea).toHaveValue('a message to hover');
+
+    // Cancel exits the composer without truncating the thread.
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(editTextarea).toHaveCount(0);
+    await expect(page.getByText('a message to hover')).toBeVisible();
   });
 
   test('the action bar itself still renders after the Edit button is withheld', async ({

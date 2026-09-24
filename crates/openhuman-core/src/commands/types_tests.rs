@@ -2,9 +2,18 @@ use super::*;
 
 #[test]
 fn command_kind_serializes_snake_case() {
-    assert_eq!(serde_json::to_string(&CommandKind::Builtin).unwrap(), "\"builtin\"");
-    assert_eq!(serde_json::to_string(&CommandKind::Skill).unwrap(), "\"skill\"");
-    assert_eq!(serde_json::to_string(&CommandKind::Workflow).unwrap(), "\"workflow\"");
+    assert_eq!(
+        serde_json::to_string(&CommandKind::Builtin).unwrap(),
+        "\"builtin\""
+    );
+    assert_eq!(
+        serde_json::to_string(&CommandKind::Skill).unwrap(),
+        "\"skill\""
+    );
+    assert_eq!(
+        serde_json::to_string(&CommandKind::Workflow).unwrap(),
+        "\"workflow\""
+    );
 }
 
 #[test]
