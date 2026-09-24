@@ -171,7 +171,7 @@ async fn the_bundled_skill_is_findable_once_installed() {
     };
     let tool = SkillSearchTool::new(Arc::new(config));
     let result = tool
-        .execute(json!({ "query": "tinyflows expression syntax and node configuration" }))
+        .execute(json!({ "query": "flow authoring" }))
         .await
         .expect("dispatch");
     let text = format!("{result:?}");

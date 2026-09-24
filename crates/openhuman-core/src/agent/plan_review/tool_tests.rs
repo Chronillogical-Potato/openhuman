@@ -1,5 +1,6 @@
 use super::*;
 use crate::agent::turn_origin::with_origin;
+use crate::security::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
 
 #[tokio::test]
 async fn non_interactive_origin_auto_approves() {
@@ -30,7 +31,14 @@ async fn interactive_turn_parks_until_resolved() {
             client_id: "c-int".into(),
             request_id: Some("req-int".into()),
         },
-        tool.execute(json!({ "summary": "plan", "steps": ["one"] })),
+        APPROVAL_CHAT_CONTEXT.scope(
+            ApprovalChatContext {
+                thread_id: "t-int".into(),
+                client_id: "c-int".into(),
+                request_id: Some("req-int".into()),
+            },
+            tool.execute(json!({ "summary": "plan", "steps": ["one"] })),
+        ),
     );
     // An interactive turn must BLOCK on the gate rather than return
     // immediately — a short timeout elapses with no result (the parked
