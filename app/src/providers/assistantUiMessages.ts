@@ -451,6 +451,24 @@ function requestIdOf(message: ThreadMessage): string | undefined {
   return typeof requestId === 'string' && requestId.length > 0 ? requestId : undefined;
 }
 
+/**
+ * Memory citations `ChatRuntimeProvider` merged onto this message's
+ * `extraMetadata.citations` (`chatDoneExtraMetadata` / the `onSegment`
+ * handler in `ChatRuntimeProvider.tsx`). Narrowed rather than cast:
+ * `extraMetadata` is untyped JSON from disk.
+ */
+function messageCitations(message: ThreadMessage): readonly ChatCitation[] {
+  const value = message.extraMetadata?.citations;
+  if (!Array.isArray(value)) return EMPTY_CITATIONS;
+  return value.filter(
+    (item): item is ChatCitation =>
+      !!item &&
+      typeof item === 'object' &&
+      typeof (item as ChatCitation).id === 'string' &&
+      typeof (item as ChatCitation).key === 'string'
+  );
+}
+
 function isGenericToolName(name: string): boolean {
   return ['', 'tool', 'unknown', 'unknown_tool'].includes(name.trim().toLowerCase());
 }

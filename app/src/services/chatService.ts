@@ -130,6 +130,19 @@ export interface ChatDoneEvent {
   segment_total?: number | null;
   /** Memory citations captured during retrieval for this response. */
   citations?: ChatCitation[] | null;
+  /**
+   * Turn latency snapshot from the core progress bridge (wire-contract.md;
+   * mirrors the Rust `TurnTimingPayload`). Absent on a core that predates
+   * timing instrumentation, or on a synthetic done event.
+   */
+  timing?: TurnTimingWire | null;
+}
+
+/** Mirrors the Rust `TurnTimingPayload` (`crates/openhuman-core/src/core/socketio.rs`). */
+export interface TurnTimingWire {
+  first_token_ms?: number;
+  first_tool_ms?: number;
+  total_ms?: number;
 }
 
 export interface ChatCitation {
