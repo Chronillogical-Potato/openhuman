@@ -292,7 +292,19 @@ pub enum TranscriptItem {
     /// The agent's visible assistant text between tool calls.
     Narration { round: u32, seq: u32, text: String },
     /// The agent's hidden reasoning (when the model emits it).
-    Thinking { round: u32, seq: u32, text: String },
+    ///
+    /// `started_at` / `ended_at` are epoch milliseconds of the block's first
+    /// and latest delta, so the UI can show "Thought for 12s" after a reload.
+    /// Absent on rows written before timing was recorded.
+    Thinking {
+        round: u32,
+        seq: u32,
+        text: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        started_at: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        ended_at: Option<u64>,
+    },
     /// A pointer to a tool row in [`TurnState::tool_timeline`].
     ToolCall {
         round: u32,

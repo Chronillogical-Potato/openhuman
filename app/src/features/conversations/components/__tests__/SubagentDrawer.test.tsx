@@ -60,7 +60,10 @@ describe('SubagentDrawer', () => {
     expect(order(tool)).toBeLessThan(order(texts[1]));
 
     expect(thinking.textContent).toContain('comparing the two sources');
-    expect(tool.textContent).toContain('Searching the web');
+    // Rendered through the shared reasoning panel, inline (no disclosure).
+    expect(thinking.getAttribute('data-variant')).toBe('static');
+    expect(thinking.querySelector('button')).toBeNull();
+    expect(tool.textContent).toContain('Searched the web');
     expect(tool.textContent).toContain('1.2s');
     expect(texts[1].textContent).toContain('The answer is');
   });
