@@ -30,7 +30,10 @@ fn mw(sink: crate::agent::tinyagents::ToolOutcomeSink) -> FinalCallWrapUpMiddlew
 }
 
 /// A context sitting on the Nth call of an N-call budget, minus `back`.
-fn ctx_at(max: usize, back: usize) -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
+fn ctx_at(
+    max: usize,
+    back: usize,
+) -> RunContext<crate::agent::tinyagents::host::OpenHumanRunContext> {
     let mut ctx = RunContext::new(
         RunConfig::new("mw-test").with_max_model_calls(max),
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),

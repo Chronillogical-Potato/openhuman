@@ -1,8 +1,9 @@
 //! [`ToolOutputMiddleware`]: the `after_tool` ladder every tool result passes
-//! through before it enters the transcript — TokenJuice compaction, payload
-//! summarizer, per-tool char cap, shared byte-budget backstop, disclosure.
+//! through before it enters the transcript — TinyJuice (LLM summary, then
+//! content-aware compaction), per-tool char cap, shared byte-budget backstop,
+//! disclosure.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -18,13 +19,17 @@ use crate::agent::harness::tool_result_artifacts::{
     apply_per_result_persistence, artifact_read_target, page_artifact_read, ArtifactRead,
     ToolResultArtifactStore, TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
-use crate::agent::tinyagents::payload_summarizer::{
-    PayloadSummarizer, SummarizeOutcome, UnavailableReason,
-};
+use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
+use crate::inference::tokenjuice::generate::GenerateTicket;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 
-fn estimate_output_tokens(bytes: usize) -> u64 {
-    bytes.div_ceil(4) as u64
+/// TinyJuice's own estimate: `ceil(characters / 4)`, not bytes. Multibyte
+/// content has more bytes than characters, so a byte-based estimate here
+/// would register a summary ticket TinyJuice's own threshold check would
+/// call `NotNeeded` and silently skip — a wasted prepare-and-summarize call
+/// for content that never gets summarized.
+fn estimate_output_tokens(content: &str) -> u64 {
+    content.chars().count().div_ceil(4) as u64
 }
 
 /// Tools whose results are self-describing JSON payloads that downstream
@@ -69,7 +74,7 @@ pub(crate) const COMPACTION_EXEMPT_TOOLS: &[&str] = &[
 /// backstop keeps these calls from blowing the context budget.
 pub(crate) const SAMPLING_TOOLS: &[&str] = &["get_tool_output_sample", "get_tool_contract"];
 
-/// Steps 1 (tokenjuice compaction) + 2 (payload summarizer) exemption:
+/// Steps 1 (TinyJuice summary) + 2 (tokenjuice compaction) exemption:
 /// proposal tools (final-output contract, see [`COMPACTION_EXEMPT_TOOLS`])
 /// plus sampling tools (tabulation would corrupt the schema they exist to
 /// reveal, see [`SAMPLING_TOOLS`]).
@@ -124,10 +129,9 @@ fn is_raw_fetch(tool_name: &str, args: &serde_json::Value) -> bool {
 pub(crate) struct ToolOutputMiddleware {
     /// Fallback per-tool-result byte cap for tools that don't declare their own.
     pub(crate) budget_bytes: usize,
+    /// The model behind TinyJuice's summary stage. `None` means this agent's
+    /// results are never summarized.
     pub(crate) payload_summarizer: Option<Arc<dyn PayloadSummarizer>>,
-    /// What the user asked for this turn, handed to the payload summarizer so
-    /// it keeps the facts that matter to the task. `None` off the chat path.
-    pub(crate) task_hint: Option<String>,
     pub(crate) artifact_store: Option<ToolResultArtifactStore>,
     pub(crate) tokenjuice_compaction_enabled: bool,
     pub(crate) tokenjuice_compression: AgentTokenjuiceCompression,
@@ -142,6 +146,13 @@ pub(crate) struct ToolOutputMiddleware {
     /// `before_tool`, where the arguments are visible, and consumed in
     /// `after_tool`, where they are not.
     pub(crate) artifact_reads: Mutex<HashMap<String, ArtifactRead>>,
+    /// `summary_focus` values taken out of calls in `before_tool`, keyed by
+    /// call id, for the summary of the same call's result.
+    pub(crate) focus_by_call: Mutex<HashMap<String, String>>,
+    /// Tools whose schema carries TinyJuice's `summary_focus` property. Only
+    /// their calls lose the argument; any other tool with a parameter of the
+    /// same name (an MCP server's, say) keeps it.
+    pub(crate) summary_focus_tools: HashSet<String>,
     /// Calls that asked `web_fetch` for the raw body, keyed by call id. Filled
     /// in `before_tool`, where the arguments are visible, and consumed in
     /// `after_tool`, where they are not — the same seam `artifact_reads` uses,
@@ -158,6 +169,41 @@ impl ToolOutputMiddleware {
             .get(name)
             .and_then(|policy| policy.runtime.max_result_bytes)
     }
+
+    /// Register a summary call bound to this turn, when this agent has a
+    /// summary model and the result is at least TinyJuice's threshold.
+    ///
+    /// `None` means no summary is wanted; `Some(Err(()))` means one was and
+    /// the call could not be prepared, which the result must disclose.
+    fn summary_ticket(
+        &self,
+        ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        tool_name: &str,
+        content: &str,
+    ) -> Option<Result<GenerateTicket, ()>> {
+        let summarizer = self.payload_summarizer.as_ref()?;
+        let threshold_tokens = self
+            .runtime_config
+            .as_ref()
+            .map(|config| config.context.summarizer_payload_threshold_tokens)
+            .unwrap_or_default();
+        if threshold_tokens == 0 || estimate_output_tokens(content) < threshold_tokens as u64 {
+            return None;
+        }
+        match summarizer.prepare(ctx) {
+            Ok(prepared) => Some(Ok(crate::inference::tokenjuice::generate::register(
+                prepared,
+            ))),
+            Err(error) => {
+                tracing::warn!(
+                    tool = tool_name,
+                    error = %error,
+                    "[tinyagents::mw] could not prepare a summary call; compacting without one"
+                );
+                Some(Err(()))
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -172,6 +218,25 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
+        // Taken out before validation and before the tool runs: it is an
+        // argument to the summary of the result, not to the tool. Only from a
+        // tool that declared it; for any other tool it is the tool's own.
+        let focus = if self.summary_focus_tools.contains(&call.name) {
+            crate::inference::tokenjuice::focus::take_summary_focus(&mut call.arguments)
+        } else {
+            None
+        };
+        if let Some(focus) = focus {
+            tracing::debug!(
+                tool = %call.name,
+                call_id = %call.id,
+                focus_chars = focus.chars().count(),
+                "[tinyagents::mw] summary_focus captured"
+            );
+            if let Ok(mut by_call) = self.focus_by_call.lock() {
+                by_call.insert(call.id.clone(), focus);
+            }
+        }
         if let Some(read) = artifact_read_target(&call.name, &call.arguments) {
             tracing::debug!(
                 tool = %call.name,
@@ -226,6 +291,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             .ok()
             .and_then(|mut reads| reads.remove(&call_id));
         if let Some(read) = artifact_read {
+            if let Ok(mut by_call) = self.focus_by_call.lock() {
+                by_call.remove(&call_id);
+            }
             tracing::info!(
                 tool = tool_name,
                 path = %read.path,
@@ -269,14 +337,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             );
         }
 
-        // 1. Semantic summarization (progressive disclosure) — swap the raw
-        //    payload for a compressed summary when the summarizer opts in.
-        //    Failures never break the tool call, but they are no longer
-        //    silent: when summarization does not happen the model is told so
-        //    in the payload itself. This used to be
-        //    `if let Ok(Some(payload)) = …`, which discarded `Err(_)` and
-        //    `Ok(None)` identically — so a failed summarization reached the
-        //    model as an unannounced raw dump and it re-called the same tool.
+        // TinyJuice's "summarization unavailable" notice. A failed summary
+        // never breaks the tool call, but it is not silent either: the model
+        // is told in the payload itself, or it re-calls the same tool.
         // Held until after the caps below rather than prefixed here. The notice
         // is ~165 chars; a tool declaring a `max_result_size_chars` smaller than
         // that had step 3 run `chars().take(cap)` straight through it, cutting
@@ -286,7 +349,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // and prefixing afterwards also means a tool's declared cap bounds the
         // tool's own output, which is what it is a contract about, rather than
         // openhuman's annotation about it.
-        let mut pending_notice: Option<&'static str> = None;
+        let mut pending_notice: Option<String> = None;
         // The byte count a summary replaced, stated in step 5 for the same
         // reason as the notice: a cap that truncates the summary must not take
         // the authoritative size with it (#6283).
@@ -320,120 +383,103 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             && content.len() as u64 <= crate::tools::FileReadTool::MAX_FILE_SIZE_BYTES)
             .then(|| content.clone());
 
-        // A tool that declares its own cap bounds itself, and step 4 spills
-        // the overflow to an artifact the model can page with `file_read`.
-        // Summarizing it as well would pay a model call — at `web_fetch` sizes,
-        // 20s and ~160k prompt tokens — to produce something the paging handle
-        // already gives losslessly. Neither Hermes nor Codex runs a model over
-        // oversized tool output; both truncate and hand back a way to read the
-        // rest.
-        if !compaction_exempt && tool_cap.is_none() {
-            // 1. TokenJuice content-aware compaction — the cheap, deterministic
-            //    step, and so the one that runs first.
-            //
-            //    It used to run *after* the summarizer, mirroring the legacy
-            //    `agent_tool_exec` order. That made it dead weight on the only
-            //    axis that costs anything: compaction never got to shrink the
-            //    payload an LLM was about to read, it only ever re-compacted a
-            //    summary the summarizer had already shrunk. The expensive stage
-            //    paid full price for the raw bytes and the cheap stage tidied
-            //    the leftovers.
-            //
-            //    Ordered this way, a payload TokenJuice can bring under
-            //    `threshold_tokens` skips the summarizer model call entirely —
-            //    `maybe_summarize_in_parent` reads `content` *after* this stage
-            //    and answers `NotNeeded`. Same ladder discipline as the context
-            //    ladder's "cheapest sufficient step first" (#6014).
-            //
-            //    This is only sound because TokenJuice's transforms are
-            //    representation changes an LLM can still read (tabulating a
-            //    uniform object-array into a `[json table: …]` marker), not
-            //    erasure. The context ladder's own ordering bug is the
-            //    counter-example to respect: microcompact *blanks* tool bodies
-            //    to `CLEARED_PLACEHOLDER`, so running it before summarization
-            //    asked the summarizer for "key results" it could no longer see.
-            //    Any future TokenJuice profile that drops content outright
-            //    rather than re-encoding it belongs behind the summarizer
-            //    again.
-            //
-            //    Compaction is off by default (`[context].compaction_enabled`
-            //    is `false` and the router lives behind the TinyBus module
-            //    boundary), so on a default install
-            //    `compact_output_with_config` returns `content` untouched and
-            //    this stage changes nothing. The ordering matters for installs
-            //    that turn it on.
-            let before_tokenjuice_bytes = content.len();
-            let compacted = crate::inference::tokenjuice::compact_output_with_config(
-                std::mem::take(&mut content),
-                tool_name,
-                self.tokenjuice_compaction_enabled,
-                self.tokenjuice_compression,
-                self.runtime_config.as_ref(),
+        // 1+2. TinyJuice: the LLM summary stage (when this agent has a
+        //      summary model), then content-aware compaction (when enabled).
+        //
+        //      A tool that declares its own cap bounds itself, and step 3
+        //      spills the overflow to an artifact the model can page with
+        //      `file_read`. Summarizing it as well would pay a model call — at
+        //      `web_fetch` sizes, 20s and ~160k prompt tokens — to produce
+        //      something the paging handle already gives losslessly. The one
+        //      exception is a caller that said what it needs (`summary_focus`):
+        //      a summary written for that question is worth the call, because
+        //      paging cannot answer it.
+        let focus = self
+            .focus_by_call
+            .lock()
+            .ok()
+            .and_then(|mut focus| focus.remove(&call_id));
+        let wants_tinyjuice =
+            self.tokenjuice_compaction_enabled || self.payload_summarizer.is_some();
+        //      A `raw: true` `web_fetch` is excluded outright, `summary_focus`
+        //      or not: it asked for the body *as sent*, which switches off the
+        //      HTML→Markdown conversion, so the payload is unconverted markup
+        //      and a summary of it is an uncached model call spent paraphrasing
+        //      minified JS. One observed such fetch cost 44,561 prompt tokens —
+        //      over half that turn's summarizer budget — to re-describe a page
+        //      the same turn had already read as clean Markdown. Step 3 still
+        //      bounds it and spills the rest to an artifact, which hands back
+        //      the real markup losslessly and for no model call. See
+        //      [`is_raw_fetch`].
+        if raw_fetch {
+            tracing::info!(
+                tool = tool_name,
+                bytes = content.len(),
+                "[tinyagents::mw] raw fetch: skipping the tinyjuice summary, \
+                 capping and spilling to an artifact instead"
+            );
+        }
+        if !raw_fetch && !compaction_exempt && wants_tinyjuice && (tool_cap.is_none() || focus.is_some()) {
+            // Bind a summary call to this turn only when the result is big
+            // enough for TinyJuice to want one; building the child context for
+            // every small result would be waste.
+            let (ticket, unprepared) = match self.summary_ticket(ctx, tool_name, &content) {
+                Some(Ok(ticket)) => (Some(ticket), false),
+                Some(Err(())) => (None, true),
+                None => (None, false),
+            };
+            // Summary reuse and the failure breaker are per scope. A turn
+            // with no thread still gets one for the life of this run, rather
+            // than a fresh one per call that never reuses or trips.
+            let scope = ctx
+                .data
+                .thread_id
+                .clone()
+                .unwrap_or_else(|| format!("run-{}", ctx.instance_id()));
+            let before_bytes = content.len();
+            let before_tokens = estimate_output_tokens(&content);
+            let compacted = crate::inference::tokenjuice::compact_tool_output(
+                crate::inference::tokenjuice::ToolOutputCompaction {
+                    content: std::mem::take(&mut content),
+                    tool_name,
+                    enabled: self.tokenjuice_compaction_enabled,
+                    profile: self.tokenjuice_compression,
+                    runtime_config: self.runtime_config.as_ref(),
+                    arguments: None,
+                    focus,
+                    context_token: ticket.as_ref().map(|t| t.token().to_string()),
+                    scope: Some(scope),
+                },
             )
             .await;
-            content = compacted;
-            let after_tokenjuice_bytes = content.len();
-            if after_tokenjuice_bytes < before_tokenjuice_bytes {
-                ctx.emit(AgentEvent::Compressed {
-                    from_tokens: estimate_output_tokens(before_tokenjuice_bytes),
-                    to_tokens: estimate_output_tokens(after_tokenjuice_bytes),
-                });
-            }
-
-            // 2. Semantic summarization, on whatever step 1 left behind —
-            //    unless the caller asked for the raw body, see `is_raw_fetch`.
-            if raw_fetch {
+            drop(ticket);
+            content = compacted.text;
+            if let Some(bytes) = compacted.summarized_from_bytes {
                 tracing::info!(
                     tool = tool_name,
-                    bytes = content.len(),
-                    "[tinyagents::mw] raw fetch: skipping payload summarizer, \
-                     capping and spilling to an artifact instead"
+                    from_bytes = bytes,
+                    to_bytes = content.len(),
+                    "[tinyagents::mw] tinyjuice summarized tool output"
                 );
+                summarized_from_bytes = Some(bytes);
             }
-            if let Some(ps) = (!raw_fetch).then_some(self.payload_summarizer.as_ref()).flatten() {
-                match ps
-                    .maybe_summarize_in_parent(ctx, tool_name, self.task_hint.as_deref(), &content)
-                    .await
-                {
-                    Ok(SummarizeOutcome::Summarized(payload)) => {
-                        tracing::info!(
-                            tool = tool_name,
-                            from_bytes = payload.original_bytes,
-                            to_bytes = payload.summary_bytes,
-                            "[tinyagents::mw] payload_summarizer compressed tool output"
-                        );
-                        ctx.emit(AgentEvent::Compressed {
-                            from_tokens: estimate_output_tokens(payload.original_bytes),
-                            to_tokens: estimate_output_tokens(payload.summary_bytes),
-                        });
-                        summarized_from_bytes = Some(payload.original_bytes);
-                        content = payload.summary;
-                    }
-                    // The payload was fine as it was. Say nothing: a notice on
-                    // every small tool result would be pure noise.
-                    Ok(SummarizeOutcome::NotNeeded) => {}
-                    Ok(SummarizeOutcome::Unavailable(reason)) => {
-                        tracing::warn!(
-                            tool = tool_name,
-                            bytes = content.len(),
-                            ?reason,
-                            "[tinyagents::mw] payload_summarizer unavailable; disclosing raw output"
-                        );
-                        pending_notice = Some(reason.notice());
-                    }
-                    // Reserved for fatal misconfiguration. Previously
-                    // indistinguishable from "nothing to do"; the model is now
-                    // told the output is raw for the same reason as above.
-                    Err(error) => {
-                        tracing::warn!(
-                            tool = tool_name,
-                            bytes = content.len(),
-                            error = %error,
-                            "[tinyagents::mw] payload_summarizer errored; disclosing raw output"
-                        );
-                        pending_notice = Some(UnavailableReason::Failed.notice());
-                    }
-                }
+            let notice = compacted
+                .notice
+                .or_else(|| unprepared.then(crate::inference::tokenjuice::summary_failed_notice));
+            if let Some(notice) = notice {
+                tracing::warn!(
+                    tool = tool_name,
+                    bytes = content.len(),
+                    "[tinyagents::mw] tinyjuice summary unavailable; disclosing raw output"
+                );
+                pending_notice = Some(notice);
+            }
+            let after_bytes = content.len();
+            if after_bytes < before_bytes {
+                ctx.emit(AgentEvent::Compressed {
+                    from_tokens: before_tokens,
+                    to_tokens: estimate_output_tokens(&content),
+                });
             }
         }
 

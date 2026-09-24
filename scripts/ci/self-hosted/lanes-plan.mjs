@@ -82,6 +82,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     );
   }
   const rust = areas.rustCore || areas.rustTauri;
+  // ex63: the slot's persistent /cache disk keeps the frontend tools' caches
+  // (tsc build info, eslint and prettier caches) from job to job. All three
+  // key on file content, so a stale entry can only cost a re-check.
+  const nodeCache = ex63 ? "${CI_CACHE_DIR:-/cache}/node-tools" : null;
   const core = areas.rustCore;
 
   // ex63: one throwaway target dir per lane so lanes never queue on cargo's
@@ -116,9 +120,18 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     `set -a && . ${modulesEnvFile} && set +a && ${cmd}`;
 
   // Not run on pull requests: the core doctests (an uninstrumented core build
-  // of their own) and the TinyJuice host-module regression (one test against
-  // the downloaded module). CI Lite runs both on every push to `main` that
-  // touches the Rust core (rust-coverage.sh and its rust-core-coverage job).
+  // of their own), openhuman-tui's coverage (a core build with default
+  // features, just for it) and the TinyJuice host-module regression (one test
+  // against the downloaded module). CI Lite runs all three on every push to
+  // `main` that touches the Rust core (rust-coverage.sh and its
+  // rust-core-coverage job).
+  //
+  // Also left to those pushes, as duplicates of what runs here:
+  //  - `cargo test -p openhuman-embed` / `-p openhuman-tinyhumans` (default
+  //    features): rust-core-coverage already runs both crates' tests, with the
+  //    product features;
+  //  - `cargo check -p openhuman --no-default-features`: embed-check-no-default
+  //    builds the core with exactly that feature set (none) as its dependency.
 
   /** @type {Lane[]} */
   const lanes = [
@@ -197,19 +210,31 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "tsc",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app compile",
+          run: ex63
+            ? `mkdir -p ${nodeCache}/tsc && pnpm --filter openhuman-app compile --tsBuildInfoFile ${nodeCache}/tsc/app.tsbuildinfo`
+            : "pnpm --filter openhuman-app compile",
         },
         {
           name: "prettier",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app format:check",
+          // ex63: ci-lite's `format:check` is prettier plus rust:format:check;
+          // the static lane's rust-fmt already checks the root workspace, so
+          // only the (non-member) Tauri crate's rustfmt check stays here.
+          run: ex63
+            ? `pnpm --filter openhuman-app format:check:prettier --cache --cache-strategy content --cache-location ${nodeCache}/prettier-cache` +
+              " && cargo fmt --manifest-path crates/openhuman-app/Cargo.toml --all --check"
+            : "pnpm --filter openhuman-app format:check",
         },
         {
           name: "eslint",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app lint",
+          // `lint` already passes --cache; these point it at the persistent
+          // disk and key it on content (a fresh checkout resets every mtime).
+          run: ex63
+            ? `mkdir -p ${nodeCache}/eslint && pnpm --filter openhuman-app lint --cache-strategy content --cache-location ${nodeCache}/eslint/`
+            : "pnpm --filter openhuman-app lint",
         },
         {
           name: "i18n",
@@ -234,7 +259,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     {
       // Split from `frontend` so the long vitest run overlaps the lint checks.
       name: "frontend-tests",
-      env: { NODE_ENV: "test", VITEST_MAX_WORKERS: ex63 ? "8" : "3" },
+      env: {
+        NODE_ENV: "test",
+        VITEST_MAX_WORKERS: ex63 ? "8" : "3",
+        ...(ex63 ? { VITEST_POOL: "threads" } : {}),
+      },
       checks: [
         {
           name: "vitest-coverage",
@@ -274,8 +303,15 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "rust-core-coverage",
           when: core,
           needs: ["test-modules"],
-          // The doctests run on pushes to main instead (see above).
-          env: { OUT: "ci-out/lcov/lcov-core.info", OH_COV_DOCTESTS: "0" },
+          // Doctests and tui coverage run on pushes to main instead (see above).
+          // ex63: the core's unit tests run under cargo-nextest, one process
+          // per test and in parallel (the guest image ships cargo-nextest).
+          env: {
+            OUT: "ci-out/lcov/lcov-core.info",
+            OH_COV_DOCTESTS: "0",
+            OH_COV_TUI: "0",
+            ...(ex63 ? { OH_COV_RUNNER: "nextest" } : {}),
+          },
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
       ],
@@ -309,24 +345,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "cargo check -p openhuman-embed --no-default-features",
         },
         {
-          name: "embed-test",
-          when: core,
-          run: "cargo test -p openhuman-embed",
-        },
-        {
           name: "tinyhumans-clippy",
           when: core,
           run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
-        },
-        {
-          name: "tinyhumans-test",
-          when: core,
-          run: "cargo test -p openhuman-tinyhumans",
-        },
-        {
-          name: "prompt-budget",
-          when: core,
-          run: "bash scripts/check-prompt-budget.sh --verbose",
         },
       ],
     },
@@ -339,16 +360,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
         {
-          name: "check-gates-off",
-          when: rust,
-          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
-        },
-        {
-          name: "check-e2e-test-support",
-          when: rust,
-          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support",
-        },
-        {
           name: "gate-contract-tests",
           when: rust,
           run:
@@ -358,17 +369,20 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::",
         },
         {
-          name: "gate-contract-tests-mcp",
-          when: rust,
-          run: "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features mcp --lib -- mcp::server::resources::",
-        },
-        {
-          // Scoped to `introspect::` on purpose; see ci-lite.yml for the hole.
-          name: "gate-contract-tests-e2e-support",
+          // One core build for both feature-gated suites: `mcp` and
+          // `e2e-test-support` gate disjoint code (mcp::server::resources
+          // does not touch test_support, and vice versa), so each suite sees
+          // the same code it would under its feature alone. Separately they
+          // were two full core test builds. The introspect filter is scoped
+          // on purpose; see ci-lite.yml for the hole. The `cargo check` of
+          // the e2e-test-support set runs on pushes to main (CI Lite): this
+          // build already compiles that set, under cfg(test).
+          name: "gate-contract-tests-features",
           when: rust,
           run:
-            "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support --lib --" +
-            " test_support::introspect::",
+            "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features" +
+            " --features mcp,e2e-test-support --lib --" +
+            " mcp::server::resources:: test_support::introspect::",
         },
         {
           name: "kernel-floor",

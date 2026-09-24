@@ -6877,7 +6877,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice"
-version = "0.2.5"
+version = "0.3.1"
 dependencies = [
  "async-trait",
  "dirs 7.0.0",
@@ -6897,7 +6897,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice-bus"
-version = "0.2.5"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",

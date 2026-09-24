@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { balanceNetworkLabel } from '../../../../features/wallet/walletDisplay';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { BalanceInfo } from '../../../../services/walletApi';
+import { Alert } from '../../../ui/Alert';
 import Button from '../../../ui/Button';
+import { WarningIcon } from '../../../ui/icons';
 import { ModalShell } from '../../../ui/ModalShell';
 
 interface ReceiveModalProps {
@@ -19,7 +21,8 @@ interface ReceiveModalProps {
  */
 const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
   const { t } = useT();
-  const networkLabel = balanceNetworkLabel(balance);
+  const baseLabel = balanceNetworkLabel(balance);
+  const networkLabel = baseLabel;
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,30 +64,57 @@ const ReceiveModal = ({ balance, onClose }: ReceiveModalProps) => {
             fgColor="#1c1917"
           />
         </div>
-        <div className="w-full">
-          <span className="block text-[11px] font-medium text-content-muted mb-1">
-            {t('walletReceive.addressLabel').replace('{network}', networkLabel)}
+        <div className="w-full -mb-2">
+          <span className="block text-[11px] font-medium text-content-muted mb-1 text-left">
+            {t('walletReceive.addressLabel').replace('{network}', baseLabel)}
           </span>
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-muted px-3 py-2">
+          <div className="w-full rounded-xl border border-line bg-surface-muted px-3 py-2.5">
             <span
-              className="font-mono text-xs text-content-secondary break-all"
+              className="block font-mono text-[11px] sm:text-xs text-content break-all text-center"
               data-testid="receive-address">
               {balance.address}
             </span>
+          </div>
+          <div className="mt-2 flex justify-center">
             <Button
               variant="tertiary"
-              size="xs"
+              size="sm"
               onClick={() => void handleCopy()}
-              className="shrink-0 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
+              className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 gap-1.5 font-medium">
+              {copied ? (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              )}
               {copied ? t('common.copied') : t('walletBalances.copyAddress')}
             </Button>
           </div>
         </div>
-        <div className="w-full rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3">
-          <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
-            {t('walletReceive.onlyChainWarning').replace('{network}', networkLabel)}
+
+        <Alert variant="info" className="border-none items-start">
+          <WarningIcon className="w-4 h-4 shrink-0 mt-0.5" />
+          <p className="text-xs leading-relaxed">
+            {t('walletReceive.onlyChainWarning').replace('{network}', baseLabel)}
           </p>
-        </div>
+        </Alert>
       </div>
     </ModalShell>
   );

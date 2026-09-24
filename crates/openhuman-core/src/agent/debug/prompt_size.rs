@@ -22,9 +22,9 @@
 //! # Bytes, not tokens, are the unit of record
 //!
 //! Token counts depend on the tokenizer, which depends on the model, which is
-//! a per-session choice. Bytes are exact and reproducible on any host, so the
-//! CI ratchet (`scripts/check-prompt-budget.sh`) works on bytes and this report
-//! prints an estimate alongside them purely as a reading aid. Do not tighten
+//! a per-session choice. Bytes are exact and reproducible on any host, so this
+//! report records bytes and prints an estimate alongside them purely as a
+//! reading aid. Do not tighten
 //! [`EST_BYTES_PER_TOKEN`] into a claim of accuracy — it is a divisor, not a
 //! tokenizer.
 

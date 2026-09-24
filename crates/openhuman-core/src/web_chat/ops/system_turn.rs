@@ -20,7 +20,7 @@ use tinyagents_harness::run_queue::RunQueue;
 use crate::agent::turn_origin::{with_origin, AgentTurnOrigin};
 use crate::config::rpc as config_rpc;
 
-use super::super::run_task::turn_error_poisons_session;
+use super::super::run_task::turn_error_discards_session;
 use super::super::session::{
     checkin_session_agent_if_vacant, checkout_session_agent, CheckedOutSession, CheckoutPolicy,
 };
@@ -91,12 +91,12 @@ pub async fn run_system_turn_on_thread(
     agent.set_on_progress(None);
     progress_drain.abort();
 
-    // Same de-poison rule as a user turn: a provider request rejection means
-    // this agent's history replays the rejection forever, so let it drop and
-    // the next turn cold-boots from the durable transcript.
-    if matches!(&result, Err(err) if turn_error_poisons_session(err)) {
+    // Same rule as a user turn: a failed harness turn can leave the session
+    // partially advanced, so let it drop and cold-boot from the durable
+    // transcript on the next request.
+    if matches!(&result, Err(err) if turn_error_discards_session(err)) {
         log::warn!(
-            "[web-channel] dropping session agent after provider_request_rejected on a system \
+            "[web-channel] dropping session agent after failed system \
              turn thread={} run_id={}",
             thread_id,
             run_id

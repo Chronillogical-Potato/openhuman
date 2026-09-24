@@ -194,9 +194,32 @@ async fn a_streamed_delta_reaches_the_progress_channel_exactly_once() {
         vec!["one delta".to_string()],
         "every model delta is forwarded once, by one producer"
     );
+    // The two counters have OPPOSITE contracts. Read them separately.
+    //
+    // `completed` is asserted by equality at 0, and that is a documented
+    // design: `run_root` passes `defer_turn_completed_to_caller = true`, so
+    // `turn_runner` leaves `turn_completed_sink` as `None` and the seam emits no
+    // terminal event — the caller emits the single one after its post-run
+    // wrap-up. It was `<= 1` before, which a seam emitting once also satisfies,
+    // and a seam emitting once on the deferring path is exactly the duplication
+    // this test exists to prevent. So the ceiling could not fail in the
+    // direction the test was written for. Do not loosen this one back.
+    //
+    // `started` deliberately stays a ceiling. The deferral flag governs
+    // `TurnCompleted` only; it does not suppress the root's `Started` event.
+    // `host/progress_sink.rs:400` forwards `TurnStarted` for the root run, and
+    // the module docs at `:59` and `:185` say only the root projects a
+    // top-level one — and this path IS the root, so exactly one is what the
+    // contract calls for.
+    //
+    // It is nevertheless absent: instrumenting this test measured
+    // `started = 0`. `assert_eq!(started, 1)` is therefore the RIGHT eventual
+    // assertion and would fail today, so it is not made here — a PR tightening
+    // a test should not land a knowingly-red one. Tracked as #6576; tighten
+    // this to `== 1` as part of fixing that, not before.
     assert!(started <= 1, "TurnStarted was emitted {started} times");
-    assert!(
-        completed <= 1,
-        "TurnCompleted was emitted {completed} times"
+    assert_eq!(
+        completed, 0,
+        "the deferring seam must emit no TurnCompleted — the caller owns it"
     );
 }

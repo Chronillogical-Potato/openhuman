@@ -108,18 +108,35 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "composio",
-        summary: "Composio toolkits: list connections and toolkits, list and execute actions.",
+        summary: "Composio toolkits: list connections, list and execute actions.",
         // `composio_connect` is deliberately not a member: it is the
         // orchestrator's inline connect card. Packed, it sat in a pack that
         // `ops::closed_by_direct_handoff` closes to the orchestrator (the
         // planner, one `plan` hand-off away, owns this pack), so the prompt's
         // "raise a connect card" route was a tool the model could not reach.
+        //
+        // `composio_list_toolkits` is unpacked for the same reason, one bug
+        // later. It answers "what can I connect?" — the backend allowlist as
+        // `{toolkits, catalog:[{slug, name, description, categories}]}` — and
+        // the orchestrator owns that conversation. Packed, it was `Deny`ed to
+        // the orchestrator by the rule above, and the only escapes were a
+        // `use_skill` that answers "no tools available" and a `plan` hand-off
+        // whose description ("break a task into a DAG of subtasks") gives a
+        // model no reason to associate it with a catalogue lookup. Observed:
+        // asked to list Composio apps, the orchestrator tried `use_skill`,
+        // then six `tool_search` calls, then scraped docs.composio.dev and
+        // reported a marketing figure of "1,552+ apps" instead of this
+        // install's real 119.
+        //
+        // Its own owners keep it by DECLARING it: `planner/agent.toml:72` and
+        // `workflow_builder/agent.toml:109`. `integrations_agent` reached it
+        // only through this pack, so it now declares it too — unpacking must
+        // not quietly take a capability from a second consumer.
         tools: &[
             "composio",
             "composio_authorize",
             "composio_execute",
             "composio_list_connections",
-            "composio_list_toolkits",
             "composio_list_tools",
         ],
         owners: &["integrations_agent", "workflow_builder", "planner"],

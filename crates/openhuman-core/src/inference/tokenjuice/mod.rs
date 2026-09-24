@@ -1,6 +1,8 @@
 //! OpenHuman host adapter for the separately released TinyJuice module.
 
 pub mod config_patch;
+pub mod focus;
+pub mod generate;
 pub mod ml;
 pub mod savings;
 pub mod schemas;
@@ -54,6 +56,12 @@ pub async fn install_from_config(config: &crate::config::Config) -> Result<(), S
             ml_text_enabled: tj.ml_compression_enabled,
             min_bytes_to_compress: tj.min_bytes_to_compress,
             ccr_min_tokens: tj.ccr_min_tokens,
+            // The summary stage still needs a context token per call, which
+            // only a turn whose agent carries a summary model supplies — so
+            // switching it on here enables it for those turns, not for all.
+            llm_summary_enabled: config.context.summarizer_payload_threshold_tokens > 0,
+            llm_summary_threshold_tokens: config.context.summarizer_payload_threshold_tokens,
+            llm_summary_max_input_tokens: config.context.summarizer_max_payload_tokens,
             ..types::CompressOptions::default()
         },
         max_cache_entries: tj.max_cache_entries,
@@ -139,8 +147,125 @@ pub async fn compact_output_with_config(
     profile: AgentTokenjuiceCompression,
     runtime_config: Option<&std::sync::Arc<crate::config::Config>>,
 ) -> String {
-    if !enabled || profile == AgentTokenjuiceCompression::Off {
-        return content;
+    compact_tool_output(ToolOutputCompaction {
+        content,
+        tool_name,
+        enabled,
+        profile,
+        runtime_config,
+        arguments: None,
+        focus: None,
+        context_token: None,
+        scope: None,
+    })
+    .await
+    .text
+}
+
+/// Everything the module considers about one tool result.
+pub struct ToolOutputCompaction<'a> {
+    pub content: String,
+    pub tool_name: &'a str,
+    pub enabled: bool,
+    pub profile: AgentTokenjuiceCompression,
+    pub runtime_config: Option<&'a std::sync::Arc<crate::config::Config>>,
+    /// The tool call's JSON arguments, for command, extension and query hints.
+    pub arguments: Option<serde_json::Value>,
+    /// What the calling model said it needs from this result.
+    pub focus: Option<String>,
+    /// A [`generate::GenerateTicket`] token. `None` keeps the module from
+    /// asking for a summary.
+    pub context_token: Option<String>,
+    /// Scopes summary reuse and the failure breaker, usually the thread id.
+    pub scope: Option<String>,
+}
+
+/// What came back for one tool result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompactedToolOutput {
+    pub text: String,
+    /// Prefix after the host's caps: the summary stage ran and wrote nothing.
+    pub notice: Option<String>,
+    /// Set when `text` is a model-written summary of this many bytes.
+    pub summarized_from_bytes: Option<usize>,
+}
+
+impl CompactedToolOutput {
+    fn unchanged(text: String) -> Self {
+        Self {
+            text,
+            notice: None,
+            summarized_from_bytes: None,
+        }
+    }
+
+    /// The content untouched, disclosing the summary that did not happen when
+    /// one was wanted.
+    fn passthrough(text: String, wants_summary: bool) -> Self {
+        Self {
+            notice: wants_summary.then(summary_failed_notice),
+            ..Self::unchanged(text)
+        }
+    }
+}
+
+/// TinyJuice's own notice for a summary that was attempted and not produced,
+/// so a host-side failure reads the same as a module-side one.
+pub fn summary_failed_notice() -> String {
+    tinyjuice::summarize::UnavailableReason::Failed
+        .notice()
+        .to_string()
+}
+
+/// Deadline for `CompactWith`. It may wait on a summary model call, which the
+/// module itself bounds at 300s; this sits just past that so the module's own
+/// timeout is the one that fires.
+const COMPACT_WITH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(330);
+
+/// Compact one tool result through the module, passing it through unchanged on
+/// any failure.
+pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToolOutput {
+    let ToolOutputCompaction {
+        content,
+        tool_name,
+        enabled,
+        profile,
+        runtime_config,
+        arguments,
+        focus,
+        context_token,
+        scope,
+    } = call;
+    // A summary call is registered, so the result qualified for one. Any path
+    // below that ends without a module answer says so, rather than handing
+    // the model a raw dump it will re-run the tool to get summarized.
+    let wants_summary = context_token.is_some();
+    // This agent bypasses TinyJuice's router entirely. The middleware caller
+    // never registers a summary ticket for an Off profile, but if one somehow
+    // is, disclose it the same way every other no-answer path does rather
+    // than silently dropping it in an `unchanged` return.
+    if profile == AgentTokenjuiceCompression::Off {
+        return CompactedToolOutput::passthrough(content, wants_summary);
+    }
+    // Nothing to ask the module for: the router is off and no summary call is
+    // registered.
+    if !enabled && !wants_summary {
+        return CompactedToolOutput::unchanged(content);
+    }
+    #[cfg(test)]
+    if let Ok(stub) = module_stub::STUB.try_with(std::sync::Arc::clone) {
+        let response = stub(types::CompactRequest {
+            content,
+            tool_name: tool_name.to_string(),
+            enabled,
+            profile,
+            arguments,
+            focus,
+            context_token,
+            scope,
+        })
+        .await;
+        return compacted_from(response);
     }
     let config = match runtime_config {
         Some(config) => std::sync::Arc::clone(config),
@@ -148,7 +273,7 @@ pub async fn compact_output_with_config(
             Ok(config) => std::sync::Arc::new(config),
             Err(error) => {
                 log::debug!("[tokenjuice] config unavailable, passing through: {error}");
-                return content;
+                return CompactedToolOutput::passthrough(content, wants_summary);
             }
         },
     };
@@ -162,30 +287,113 @@ pub async fn compact_output_with_config(
     };
     if let Err(error) = install_from_config(&config).await {
         log::debug!("[tokenjuice] module configuration failed, passing through: {error}");
-        return content;
+        return CompactedToolOutput::passthrough(content, wants_summary);
     }
     let proxy = match proxy(&config).await {
-        Ok(proxy) => proxy,
+        Ok(proxy) => proxy.with_timeout(COMPACT_WITH_TIMEOUT),
         Err(error) => {
             log::debug!("[tokenjuice] module unavailable, passing through: {error}");
-            return content;
+            return CompactedToolOutput::passthrough(content, wants_summary);
         }
     };
-    let response: types::CompactResponse = match proxy
-        .call(
-            methods::COMPACT,
-            (content.clone(), tool_name.to_string(), enabled, profile),
-        )
-        .await
-    {
-        Ok(response) => response,
-        Err(error) => {
-            log::debug!("[tokenjuice] module compaction failed, passing through: {error}");
-            return content;
+    let request = types::CompactRequest {
+        content: content.clone(),
+        tool_name: tool_name.to_string(),
+        enabled,
+        profile,
+        arguments,
+        focus,
+        context_token,
+        scope,
+    };
+    let compact_with_result = proxy.call(methods::COMPACT_WITH, (request,)).await;
+    let response = match classify_compact_with_reply(compact_with_result, tool_name) {
+        CompactWithOutcome::Response(response) => response,
+        CompactWithOutcome::RetryAsCompact => {
+            let legacy_result = proxy
+                .call::<types::CompactResponse>(
+                    methods::COMPACT,
+                    (content.clone(), tool_name.to_string(), enabled, profile),
+                )
+                .await;
+            match finish_legacy_compact_reply(legacy_result, wants_summary) {
+                Some(response) => response,
+                None => return CompactedToolOutput::passthrough(content, wants_summary),
+            }
+        }
+        CompactWithOutcome::GiveUp => {
+            return CompactedToolOutput::passthrough(content, wants_summary);
         }
     };
     record_savings(&response);
-    response.text
+    compacted_from(response)
+}
+
+/// What the module said about a `CompactWith` call, decided without touching
+/// the network again — kept separate from `compact_tool_output` so the retry
+/// decision is testable against synthetic wire errors.
+enum CompactWithOutcome {
+    /// Use this response as the final result.
+    Response(types::CompactResponse),
+    /// A module released before contract 1.1 has no `CompactWith`. Retry over
+    /// the pre-1.1 `Compact` member.
+    RetryAsCompact,
+    /// Any other failure, a timeout above all, is not retried: the module
+    /// already had its chance, and a second call could double the wait on a
+    /// turn that is already stalled.
+    GiveUp,
+}
+
+fn classify_compact_with_reply(
+    result: Result<types::CompactResponse, tinybus::Error>,
+    tool_name: &str,
+) -> CompactWithOutcome {
+    match result {
+        Ok(response) => CompactWithOutcome::Response(response),
+        Err(error) if error.wire_name() == tinybus::Error::UNKNOWN_METHOD => {
+            log::debug!(
+                "[tokenjuice] CompactWith unknown to the loaded module, retrying as Compact tool={tool_name}"
+            );
+            CompactWithOutcome::RetryAsCompact
+        }
+        Err(error) => {
+            log::debug!(
+                "[tokenjuice] CompactWith failed, passing through tool={tool_name} wire_error={}: {error}",
+                error.wire_name()
+            );
+            CompactWithOutcome::GiveUp
+        }
+    }
+}
+
+/// The fallback `Compact` reply, without the focus or a summary. `None` means
+/// the caller should pass the original content through unchanged.
+fn finish_legacy_compact_reply(
+    result: Result<types::CompactResponse, tinybus::Error>,
+    wants_summary: bool,
+) -> Option<types::CompactResponse> {
+    match result {
+        Ok(mut response) => {
+            if wants_summary && response.notice.is_none() {
+                response.notice = Some(summary_failed_notice());
+            }
+            Some(response)
+        }
+        Err(error) => {
+            log::debug!("[tokenjuice] module compaction failed, passing through: {error}");
+            None
+        }
+    }
+}
+
+fn compacted_from(response: types::CompactResponse) -> CompactedToolOutput {
+    let summarized_from_bytes = (response.compressor == CompressorKind::LlmSummary.as_str())
+        .then_some(response.original_bytes);
+    CompactedToolOutput {
+        text: response.text,
+        notice: response.notice,
+        summarized_from_bytes,
+    }
 }
 
 fn record_savings(response: &types::CompactResponse) {
@@ -271,3 +479,7 @@ pub fn all_tokenjuice_controller_schemas() -> Vec<crate::core::ControllerSchema>
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "module_stub_tests.rs"]
+pub(crate) mod module_stub;
