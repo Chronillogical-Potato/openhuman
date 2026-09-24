@@ -22,13 +22,27 @@ async fn committed_turn_completion_waits_for_a_full_progress_channel() {
     ));
 
     assert!(matches!(rx.recv().await, Some(AgentProgress::TurnStarted)));
-    send.await;
+    assert!(send.await);
     assert!(matches!(
         tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
             .await
             .expect("terminal progress event"),
         Some(AgentProgress::TurnCompleted { iterations: 2 })
     ));
+}
+
+/// A receiver can remain alive while its bridge is stalled. Once the send
+/// deadline passes, the committed chat response must still be able to return.
+#[tokio::test(start_paused = true)]
+async fn committed_turn_completion_is_bounded_when_progress_stalls() {
+    use crate::agent::progress::AgentProgress;
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    tx.send(AgentProgress::TurnStarted).await.unwrap();
+
+    assert!(!super::send_committed_turn_progress(&tx, "question", "answer", 2).await);
+    assert!(matches!(rx.recv().await, Some(AgentProgress::TurnStarted)));
+    assert!(rx.try_recv().is_err(), "timed-out send must be cancelled");
 }
 
 fn spec(name: &str) -> ToolSpec {

@@ -28,6 +28,10 @@ use super::announcement_notes::{
 };
 use super::types::OpenHumanSessionHost;
 
+/// Preserve the response path if a progress receiver stays open but stops
+/// consuming events. The web bridge has its own bounded drain wait afterward.
+const COMMITTED_TURN_PROGRESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
 /// The terminal event is the progress bridge's drain fence. Unlike content
 /// capture, it must wait for space in a busy channel so the response cannot
 /// overtake queued tool events on the web socket.
@@ -36,21 +40,33 @@ async fn send_committed_turn_progress(
     input: &str,
     output: &str,
     iterations: u32,
-) {
+) -> bool {
     use crate::agent::progress::AgentProgress;
 
     let _ = progress.try_send(AgentProgress::TurnContent {
         input: Some(input.to_string()),
         output: Some(output.to_string()),
     });
-    if progress
-        .send(AgentProgress::TurnCompleted { iterations })
-        .await
-        .is_err()
+    match tokio::time::timeout(
+        COMMITTED_TURN_PROGRESS_TIMEOUT,
+        progress.send(AgentProgress::TurnCompleted { iterations }),
+    )
+    .await
     {
-        log::warn!(
-            "[agent_session] committed turn completion not delivered: progress receiver closed"
-        );
+        Ok(Ok(())) => true,
+        Ok(Err(_)) => {
+            log::warn!(
+                "[agent_session] committed turn completion not delivered: progress receiver closed"
+            );
+            false
+        }
+        Err(_) => {
+            log::warn!(
+                "[agent_session] committed turn completion not delivered within {:?}: progress receiver stalled",
+                COMMITTED_TURN_PROGRESS_TIMEOUT
+            );
+            false
+        }
     }
 }
 
@@ -1811,8 +1827,9 @@ impl OpenHumanSessionHost {
                             state.last_turn_citations = citations;
                         }
                         if let Some(progress) = &progress {
-                            send_committed_turn_progress(progress, &input, &output, iterations)
-                                .await;
+                            let _ =
+                                send_committed_turn_progress(progress, &input, &output, iterations)
+                                    .await;
                         }
                         crate::agent::hooks::fire_hooks(
                             &post_turn_hooks,
