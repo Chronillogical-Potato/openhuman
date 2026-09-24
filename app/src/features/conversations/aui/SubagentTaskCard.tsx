@@ -142,6 +142,51 @@ function AwaitingUserActions({ activity }: { activity: SubagentActivity }) {
   );
 }
 
+/**
+ * The old drawer's "Cancel task" button, ported here as a `TaskCard` action:
+ * aborts a still-running (or awaiting-user) detached sub-agent via
+ * `openhuman.subagent_cancel`. Hidden once the delegation has settled
+ * (`done`/`failed`/`cancelled`) — there is nothing left to abort.
+ */
+function CancelTaskAction({ taskId }: { taskId: string }) {
+  const { t } = useT();
+  const [cancelling, setCancelling] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const onCancel = useCallback(() => {
+    setFailed(false);
+    setCancelling(true);
+    void subagentApi
+      .cancel(taskId)
+      .catch(() => {
+        setFailed(true);
+      })
+      .finally(() => {
+        setCancelling(false);
+      });
+  }, [taskId]);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Button
+        type="button"
+        size="xs"
+        variant="secondary"
+        analyticsId="subagent-cancel-task"
+        data-testid="subagent-cancel-task"
+        disabled={cancelling}
+        onClick={onCancel}>
+        {cancelling ? t('conversations.subagent.cancelling') : t('conversations.subagent.cancel')}
+      </Button>
+      {failed ? (
+        <p className="text-[11px] text-red-600 dark:text-red-400">
+          {t('conversations.subagent.cancelFailed')}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function WorktreeRow({ activity }: { activity: SubagentActivity }) {
   const { t } = useT();
   if (!activity.worktreePath) return null;
