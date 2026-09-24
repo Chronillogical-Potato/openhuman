@@ -102,13 +102,22 @@ const MarkdownTextImpl = () => {
   // provide a message-PART scope with no message-level `state.message` — the
   // proxy throws reading it. No sources to linkify is the correct fallback,
   // not a crash.
-  const sources = useAuiState(state => {
+  //
+  // The selector returns the raw `parts` array rather than a derived
+  // `CitationSource[]` on purpose: `useAuiState` runs this through
+  // `useSyncExternalStore`, which requires a snapshot-stable result — a fresh
+  // `.flatMap()` array on every call sends it into a render loop ("Maximum
+  // update depth exceeded"). Deriving `sources` in a `useMemo` below, keyed
+  // on this array's own identity, keeps the selector pure and the derived
+  // value stable across renders that don't change the underlying parts.
+  const parts = useAuiState(state => {
     try {
-      return sourcePartsToCitations(state.message.parts);
+      return state.message.parts;
     } catch {
-      return EMPTY_CITATION_SOURCES;
+      return EMPTY_MESSAGE_PARTS;
     }
   });
+  const sources = useMemo(() => sourcePartsToCitations(parts), [parts]);
 
   const preprocess = (input: string): string => {
     const withCitations = linkifyCitationMarkers(input, sources.length);
