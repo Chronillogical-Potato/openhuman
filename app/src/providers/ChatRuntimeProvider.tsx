@@ -1095,6 +1095,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             round: event.round,
             delta: event.delta,
             channel: 'thinking',
+            at: Date.now(),
           })
         );
       },

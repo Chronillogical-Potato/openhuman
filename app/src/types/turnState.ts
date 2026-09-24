@@ -49,7 +49,16 @@ export interface PersistedSubagentToolCall {
  */
 export type PersistedTranscriptItem =
   | { kind: 'narration'; round: number; seq: number; text: string }
-  | { kind: 'thinking'; round: number; seq: number; text: string }
+  | {
+      kind: 'thinking';
+      round: number;
+      seq: number;
+      text: string;
+      /** Epoch ms of the block's first delta (absent on pre-timing rows). */
+      startedAt?: number;
+      /** Epoch ms of the block's latest delta (absent on pre-timing rows). */
+      endedAt?: number;
+    }
   | { kind: 'toolCall'; round: number; seq: number; callId: string };
 
 /**

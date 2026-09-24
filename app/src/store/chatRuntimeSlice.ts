@@ -374,6 +374,10 @@ export interface StreamingAssistantState {
   requestId: string;
   content: string;
   thinking: string;
+  /** Epoch ms of the turn's first thinking delta (drives "Thinking… Ns"). */
+  thinkingStartedAt?: number;
+  /** Epoch ms of the turn's latest thinking delta (drives "Thought for Ns"). */
+  thinkingEndedAt?: number;
 }
 
 /**
@@ -1347,18 +1351,32 @@ const chatRuntimeSlice = createSlice({
         round: number;
         delta: string;
         channel: 'content' | 'thinking';
+        /**
+         * Epoch ms the delta arrived, stamped by the dispatcher so the
+         * reducer stays pure. Timestamps the thinking block for the
+         * reasoning panel's "Thought for Ns"; omitted deltas carry no timing.
+         */
+        at?: number;
       }>
     ) => {
-      const { threadId, requestId, round, delta, channel } = action.payload;
+      const { threadId, requestId, round, delta, channel, at } = action.payload;
       const existing = state.streamingAssistantByThread[threadId];
       const sameTurn = existing != null && existing.requestId === requestId;
       const carryContent = sameTurn ? existing.content : '';
       const carryThinking = sameTurn ? existing.thinking : '';
-      state.streamingAssistantByThread[threadId] = {
+      const next: StreamingAssistantState = {
         requestId,
         content: channel === 'content' ? `${carryContent}${delta}` : carryContent,
         thinking: channel === 'thinking' ? `${carryThinking}${delta}` : carryThinking,
       };
+      const carryStartedAt = sameTurn ? existing.thinkingStartedAt : undefined;
+      const carryEndedAt = sameTurn ? existing.thinkingEndedAt : undefined;
+      const stampThinking = channel === 'thinking' && delta.length > 0 && at !== undefined;
+      const startedAt = carryStartedAt ?? (stampThinking ? at : undefined);
+      const endedAt = stampThinking ? at : carryEndedAt;
+      if (startedAt !== undefined) next.thinkingStartedAt = startedAt;
+      if (endedAt !== undefined) next.thinkingEndedAt = endedAt;
+      state.streamingAssistantByThread[threadId] = next;
       // Live interleaved processing transcript so a mid-turn "View processing"
       // isn't empty — coalesce into the trailing same-kind, same-round block.
       if (!delta) return;
@@ -1367,6 +1385,12 @@ const chatRuntimeSlice = createSlice({
       const last = list[list.length - 1];
       if (last && last.kind === kind && last.round === round) {
         last.text += delta;
+        if (last.kind === 'thinking' && at !== undefined) {
+          last.startedAt ??= at;
+          last.endedAt = at;
+        }
+      } else if (kind === 'thinking' && at !== undefined) {
+        list.push({ kind, round, seq: list.length, text: delta, startedAt: at, endedAt: at });
       } else {
         list.push({ kind, round, seq: list.length, text: delta });
       }

@@ -3,7 +3,7 @@
  *
  * Shared by the two surfaces that list sources — the process rail
  * (`AgentProcessSourcePanel`) and the inline row under a settled answer
- * (`aui/TurnSources`). Deliberately shared rather than duplicated: this is the
+ * (`aui/ChatSources`). Deliberately shared rather than duplicated: this is the
  * component that renders a model-supplied URL into an `<a href>`, and the URL
  * is a raw tool-call argument, so it is prompt-injection-influenceable. The
  * scheme filtering happens upstream in `extractAgentSources`
