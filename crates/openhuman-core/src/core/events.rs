@@ -1601,7 +1601,9 @@ impl DomainEvent {
             | Self::TaskSourceTaskIngested { .. }
             | Self::TaskSourceFetchFailed { .. } => "task_sources",
 
-            Self::ThreadGoalUpdated { .. } | Self::ThreadGoalCleared { .. } => "agent",
+            Self::ThreadGoalUpdated { .. }
+            | Self::ThreadGoalCleared { .. }
+            | Self::ThreadTodosChanged { .. } => "agent",
 
             Self::SubconsciousTriggerProcessed { .. } => "subconscious",
 
