@@ -138,7 +138,7 @@ async fn history_section(thread_id: &str) -> Option<ContextSection> {
     })
     .await
     .ok()?;
-    let usage = outcome.value.data;
+    let usage = outcome.value.data?;
     if !usage.has_usage {
         return None;
     }
