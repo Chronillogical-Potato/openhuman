@@ -225,7 +225,6 @@ impl OpenHumanTurnPrelude {
         Ok(TurnPreparation {
             prefix,
             tools: Some(tools),
-            exact_tools: false,
         })
     }
     fn begin_user_effects(&self, state: &mut OpenHumanSessionState, request: &SessionTurnRequest) {
@@ -1327,6 +1326,37 @@ impl OpenHumanSessionHost {
             cancellation,
             run_context: context.into_tinyagents(root_config),
         };
+        // `tinyagents_runtime::Session` owns the restored declaration
+        // snapshot. Load a bound, otherwise empty session before its normal
+        // lifecycle runs so the host prelude can rebuild only its permitted
+        // recorded integration executors for this turn.
+        if matches!(options.resume, ResumeMode::Session)
+            && self
+                .runtime_session
+                .as_ref()
+                .is_some_and(|session| session.history().is_empty())
+        {
+            let runtime = self
+                .runtime_session
+                .as_mut()
+                .expect("runtime session initialized");
+            let resumed = runtime
+                .resume(&options)
+                .await
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+            if resumed.loaded {
+                let recorded_tools = runtime.recorded_tools().cloned();
+                if let Some(prelude) = self
+                    .runtime_state
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .prelude
+                    .clone()
+                {
+                    prelude.adopt_recorded_tools(recorded_tools.as_ref());
+                }
+            }
+        }
         let outcome = self
             .runtime_session
             .as_mut()
@@ -1528,10 +1558,6 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    // The session restores the prefix and the tool
-                    // declarations this thread was sent; the host only
-                    // rebuilds executors for them.
-                    let recorded_tools = view.recorded_tools.cloned();
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
@@ -1549,7 +1575,6 @@ impl OpenHumanSessionHost {
                                 "OpenHumanTurnPrelude",
                             )
                         })?;
-                        prelude.adopt_recorded_tools(recorded_tools.as_ref());
                         prelude
                             .refresh_turn_boundary(!view.resumed && view.history.is_empty())
                             .await;
@@ -1595,8 +1620,7 @@ impl OpenHumanSessionHost {
                         if overrides.suppress_tools {
                             // One-off tool-less turn: must not become the
                             // thread's recorded tool list.
-                            preparation.tools = Some(ToolSnapshot::default());
-                            preparation.exact_tools = true;
+                            preparation.tools = Some(ToolSnapshot::default().exact());
                         }
                         let (
                             mut current_tools,
@@ -1804,7 +1828,8 @@ impl OpenHumanSessionHost {
         // driving a provider first.
         let mut builder = SessionBuilder::new(driver)
             .codec(Arc::new(OpenHumanTranscriptCodec))
-            .hooks(hooks);
+            .hooks(hooks)
+            .retain_recorded_tools(true);
         if let Some(session) = self.session.clone() {
             builder = builder.session(
                 self.session_locator(),
