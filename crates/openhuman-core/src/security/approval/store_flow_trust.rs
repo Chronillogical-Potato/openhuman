@@ -12,7 +12,7 @@ use rusqlite::params;
 
 use crate::config::Config;
 
-use super::types::{ApprovalDecision, ApprovalSourceContext};
+use super::super::types::{ApprovalDecision, ApprovalSourceContext};
 use super::with_connection;
 
 /// Record a save-time flow pre-authorization in the durable audit trail as a

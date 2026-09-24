@@ -248,6 +248,7 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
         Ok(())
     })
 }
+
 /// Transition any stale rows into a terminal state so they no longer
 /// appear as actionable pending approvals after restart.
 ///
