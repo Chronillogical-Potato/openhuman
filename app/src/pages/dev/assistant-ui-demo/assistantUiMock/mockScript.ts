@@ -200,6 +200,76 @@ Both delegations are still working. Nothing about them blocks this turn, so I ca
     result: { title: 'Demo transcript summary', path: 'artifacts/demo-transcript-summary.docx' },
   },
 
+  // Exercises the `goal_set` toolkit entry (`GoalToolLine.tsx` — a one-line
+  // inline summary, distinct from the pinned `AgentStatus` pill above the
+  // composer, which is driven live by `thread_goal_updated` instead).
+  {
+    kind: 'tool',
+    toolName: 'goal_set',
+    args: { objective: 'Cover every element the demo transcript can render' },
+    runMs: 400,
+    result: {
+      goal: {
+        goal_id: 'demo-goal-1',
+        objective: 'Cover every element the demo transcript can render',
+        status: 'active',
+        tokens_used: 1200,
+        token_budget: 20000,
+        time_used_seconds: 8,
+      },
+    },
+  },
+
+  // Exercises the `todo` toolkit entry (`TodoListPart.tsx` — the vendored
+  // `TodoList` element, mapping core `pending|in_progress|completed` onto
+  // the element's `pending|active|done|failed`).
+  {
+    kind: 'tool',
+    toolName: 'todo',
+    args: {
+      todos: [
+        { content: 'Stream reasoning and prose', status: 'completed' },
+        { content: 'Run a tool call and a delegation', status: 'completed' },
+        { content: 'Render the goal and plan-review elements', status: 'in_progress' },
+        { content: 'Wrap up with the closing summary', status: 'pending' },
+      ],
+    },
+    runMs: 400,
+    result: {
+      todos: [
+        { content: 'Stream reasoning and prose', status: 'completed' },
+        { content: 'Run a tool call and a delegation', status: 'completed' },
+        { content: 'Render the goal and plan-review elements', status: 'in_progress' },
+        { content: 'Wrap up with the closing summary', status: 'pending' },
+      ],
+    },
+  },
+
+  // Exercises the `request_plan_review` toolkit entry (`PlanReviewPart.tsx` —
+  // the vendored `AgentPlan` element). Rendered as already-decided history
+  // here (no `pendingPlanReviewByThread` entry backs a seeded/scripted
+  // call), so it shows fully "done" rather than the live approve/reject/
+  // revise row — see `/dev/tools` for the interactive decision states.
+  {
+    kind: 'tool',
+    toolName: 'request_plan_review',
+    args: {
+      steps: [
+        'Render the goal and todo elements inline',
+        'Show the plan under review',
+        'Resolve the review and continue',
+      ],
+    },
+    runMs: 400,
+    result: {
+      steps: [
+        'Render the goal and todo elements inline',
+        'Show the plan under review',
+        'Resolve the review and continue',
+      ],
+    },
+  },
+
   { kind: 'text', text: ANSWER },
 ];
 
