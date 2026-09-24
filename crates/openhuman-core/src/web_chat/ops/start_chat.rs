@@ -101,13 +101,13 @@ pub async fn start_chat(
     let message = message.trim().to_string();
 
     if client_id.is_empty() {
-        return Err("client_id is required".to_string());
+        return Err(StartChatError::Other("client_id is required".to_string()));
     }
     if thread_id.is_empty() {
-        return Err("thread_id is required".to_string());
+        return Err(StartChatError::Other("thread_id is required".to_string()));
     }
     if message.is_empty() {
-        return Err("message is required".to_string());
+        return Err(StartChatError::Other("message is required".to_string()));
     }
 
     // [pdf/image-attach fix] Process attachments at ingress, BEFORE the message is
@@ -267,7 +267,7 @@ pub async fn start_chat(
             log::info!(
                 "[web-channel] prompt blocked by a configured hook thread_id={thread_id}: {reason}"
             );
-            return Err(reason);
+            return Err(StartChatError::Other(reason));
         }
     }
 
