@@ -30,6 +30,26 @@ const log = debug('openhuman:aui-queue');
 const EMPTY_ITEMS: readonly RunQueueItem[] = [];
 const EMPTY_QUEUE_STATE: readonly QueueItemState[] = [];
 
+/**
+ * Projected once per store array: the composer caches its queue on array
+ * identity, so a fresh array per render would re-render every queue row.
+ */
+const projected = new WeakMap<readonly RunQueueItem[], readonly QueueItemState[]>();
+
+function toQueueItemStates(items: readonly RunQueueItem[]): readonly QueueItemState[] {
+  if (items.length === 0) return EMPTY_QUEUE_STATE;
+  let states = projected.get(items);
+  if (!states) {
+    states = items.map(item => ({
+      id: item.id,
+      prompt: item.textPreview,
+      parts: [{ type: 'text' as const, text: item.textPreview }],
+    }));
+    projected.set(items, states);
+  }
+  return states;
+}
+
 export function buildOpenHumanQueueAdapter({
   items,
   send,
@@ -48,14 +68,7 @@ export function buildOpenHumanQueueAdapter({
     });
   };
   return {
-    items:
-      items.length === 0
-        ? EMPTY_QUEUE_STATE
-        : items.map(item => ({
-            id: item.id,
-            prompt: item.textPreview,
-            parts: [{ type: 'text' as const, text: item.textPreview }],
-          })),
+    items: toQueueItemStates(items),
     steerItems: EMPTY_QUEUE_STATE,
     enqueue: forward('enqueue'),
     steer: forward('steer'),

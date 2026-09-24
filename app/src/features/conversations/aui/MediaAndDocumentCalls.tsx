@@ -63,7 +63,9 @@ export const MediaGenerationCall: ToolCallMessagePartComponent = ({ args, result
         return (
           <Image
             key={artifact.artifact_id ?? `${artifact.path ?? 'artifact'}-${index}`}
+            type="image"
             image={src}
+            status={{ type: 'complete' }}
           />
         );
       })}
