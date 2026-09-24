@@ -19,10 +19,14 @@ function entry(overrides: Partial<ToolTimelineEntry>): ToolTimelineEntry {
 }
 
 describe('formatTimelineEntry', () => {
-  it('falls back to the bridge label for a malformed tool-call name', () => {
+  it('falls back to the exact tool_call spec for a malformed bridge name', () => {
+    // The bridge unwrap (rule 1) only fires for a string `args.name`; a
+    // malformed bridge call (name not a string) falls through to the exact
+    // `tool_call` spec (rule 4) instead of the bare "used a tool" fallback,
+    // and shows the malformed value verbatim rather than hiding it.
     expect(
       formatTimelineEntry(entry({ name: 'tool_call', argsBuffer: JSON.stringify({ name: 42 }) }))
-    ).toEqual({ title: 'Using a tool', detail: undefined });
+    ).toEqual({ title: 'Using tools', detail: '42' });
   });
   it('formats integration delegation tools with a user-facing provider label', () => {
     expect(
