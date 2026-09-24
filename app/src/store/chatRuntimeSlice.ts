@@ -1863,7 +1863,7 @@ const chatRuntimeSlice = createSlice({
           ? entries.findIndex(e => e.id === pending.spawnEntryId)
           : -1;
         const spawnSeq = spawnIdx >= 0 ? entries[spawnIdx].seq : undefined;
-        seq = spawnSeq ?? (state.toolTimelineSeqByThread[threadId] ?? 0);
+        seq = spawnSeq ?? state.toolTimelineSeqByThread[threadId] ?? 0;
         if (spawnSeq === undefined) state.toolTimelineSeqByThread[threadId] = seq + 1;
         const row = decorateEntry({
           id: rowId,
@@ -1998,7 +1998,13 @@ const chatRuntimeSlice = createSlice({
       for (const entry of subagentRows(state, threadId, e => e.id === rowId)) {
         if (!entry.subagent || entry.subagent.toolCalls.some(c => c.callId === callId)) continue;
         entry.subagent.toolCalls.push({
-          callId, toolName, status: 'running', iteration, args, displayName, detail,
+          callId,
+          toolName,
+          status: 'running',
+          iteration,
+          args,
+          displayName,
+          detail,
         });
       }
     },
@@ -2089,9 +2095,9 @@ const chatRuntimeSlice = createSlice({
         if (!entry.subagent) continue;
         const transcript = (entry.subagent.transcript ??= []);
         const last = transcript[transcript.length - 1];
-      // Extend the trailing item only when it's the same kind AND the same
-      // iteration — otherwise two same-kind chunks from different turns (with
-      // no tool call between them) would fuse into one transcript entry.
+        // Extend the trailing item only when it's the same kind AND the same
+        // iteration — otherwise two same-kind chunks from different turns (with
+        // no tool call between them) would fuse into one transcript entry.
         if (
           last &&
           (last.kind === 'text' || last.kind === 'thinking') &&

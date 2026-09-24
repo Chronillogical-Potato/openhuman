@@ -234,10 +234,7 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
   // that choice: a question the user cannot see is a question they cannot
   // answer, and the row is normally already mounted (and collapsed) by the
   // time the pause arrives, so a one-time `defaultOpen` would be too late.
-  const [open, setOpen] = useDisclosure(
-    toolCallId ? `subagent:${toolCallId}` : undefined,
-    false
-  );
+  const [open, setOpen] = useDisclosure(toolCallId ? `subagent:${toolCallId}` : undefined, false);
   const disclosureOpen = open || awaiting;
 
   const cancellable =

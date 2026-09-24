@@ -1,11 +1,11 @@
 import type { ToolCallMessagePart, ToolCallMessagePartProps } from '@assistant-ui/react';
 import type { FC, ReactNode } from 'react';
 
-import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import {
   ToolCall,
   type ToolCallOutcome,
 } from '../../../components/assistant-ui/elements/tool-call';
+import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { readOpenHumanToolArtifact } from '../../../providers/assistantUiMessages';
 import type {
