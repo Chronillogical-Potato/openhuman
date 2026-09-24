@@ -57,7 +57,16 @@ describe('buildOpenHumanQueueAdapter', () => {
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   });
 
-  it('hands the message to the host after the current task, not synchronously', async () => {
+  it('sends an idle-thread message straight through, synchronously (as onNew did)', () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
+
+    adapter.enqueue(append('idle'));
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a mid-run message to the host after the current task, not synchronously', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
 
