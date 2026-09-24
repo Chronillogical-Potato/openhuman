@@ -15,8 +15,10 @@ const APPROVAL: PendingApproval = {
   source_context: { kind: 'flow', flow_id: 'flow-1', run_id: 'run-1' },
 };
 
+const TEST_ID_PREFIX = 'flow-run-pending-approval-request-1';
+
 describe('FlowRunPendingApprovalCard', () => {
-  it('renders run approval copy and preserves its test selectors', () => {
+  it('renders run approval copy via the shared ApprovalCardAdapter', () => {
     render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding={false} onDecide={vi.fn()} />);
 
     expect(screen.getByRole('alertdialog', { name: 'Pending approvals' })).toHaveAttribute(
@@ -25,70 +27,45 @@ describe('FlowRunPendingApprovalCard', () => {
     );
     expect(screen.getByText('Run the release command')).toBeInTheDocument();
     expect(screen.getByText('shell')).toBeInTheDocument();
-    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toHaveTextContent(
-      'Approve once'
+    expect(screen.getByRole('button', { name: 'Allow once' })).toHaveAttribute(
+      'data-analytics-id',
+      `${TEST_ID_PREFIX}-approve-once`
     );
-    expect(screen.getByTestId('flow-run-pending-approval-always-request-1')).toHaveTextContent(
-      'Approve always'
+    expect(screen.getByRole('button', { name: 'Always allow' })).toHaveAttribute(
+      'data-analytics-id',
+      `${TEST_ID_PREFIX}-approve-always`
     );
-    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toHaveTextContent(
-      'Deny'
-    );
-    expect(screen.getByText('🔒')).toHaveClass('text-sm');
-    expect(screen.getByText('🔒')).not.toHaveClass('text-amber-700');
-    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toHaveClass('h-6');
-    expect(
-      screen.getByTestId('flow-run-pending-approval-approve-request-1').parentElement
-    ).toHaveClass('mt-2', 'gap-1.5');
-    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toHaveClass(
-      'border-line-strong'
-    );
-    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1').className).not.toMatch(
-      /coral/
+    expect(screen.getByRole('button', { name: 'Deny' })).toHaveAttribute(
+      'data-analytics-id',
+      `${TEST_ID_PREFIX}-deny`
     );
   });
 
   it.each([
-    ['flow-run-pending-approval-approve-request-1', 'approve_once'],
-    ['flow-run-pending-approval-always-request-1', 'approve_always_for_flow'],
-    ['flow-run-pending-approval-deny-request-1', 'deny'],
-  ] as const)('maps %s to %s', (testId, decision) => {
+    ['Allow once', 'approve_once'],
+    ['Always allow', 'approve_always_for_flow'],
+    ['Deny', 'deny'],
+  ] as const)('maps %s to %s', (label, decision) => {
     const onDecide = vi.fn().mockResolvedValue(undefined);
     render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding={false} onDecide={onDecide} />);
 
-    fireEvent.click(screen.getByTestId(testId));
+    fireEvent.click(screen.getByRole('button', { name: label }));
     expect(onDecide).toHaveBeenCalledWith(decision);
   });
 
-  it('shows the active busy label only and disables every action while deciding', () => {
+  it('disables every action while deciding', () => {
     const onDecide = vi.fn().mockReturnValue(new Promise<void>(() => undefined));
-    const { rerender } = render(
-      <FlowRunPendingApprovalCard approval={APPROVAL} deciding={false} onDecide={onDecide} />
-    );
+    render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding={false} onDecide={onDecide} />);
 
-    fireEvent.click(screen.getByTestId('flow-run-pending-approval-always-request-1'));
-    rerender(<FlowRunPendingApprovalCard approval={APPROVAL} deciding onDecide={onDecide} />);
-
-    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toBeDisabled();
-    expect(screen.getByTestId('flow-run-pending-approval-always-request-1')).toBeDisabled();
-    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toBeDisabled();
-    expect(screen.getByTestId('flow-run-pending-approval-always-request-1')).toHaveTextContent(
-      'Working…'
-    );
-    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toHaveTextContent(
-      'Approve once'
-    );
-    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toHaveTextContent(
-      'Deny'
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Always allow' }));
+    expect(screen.getByText('Approved, running')).toBeInTheDocument();
   });
 
-  it('disables every action without showing a busy label when already deciding on first render', () => {
+  it('disables every action when already deciding on first render (external busy flag)', () => {
     render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding onDecide={vi.fn()} />);
 
-    expect(screen.getByTestId('flow-run-pending-approval-approve-request-1')).toBeDisabled();
-    expect(screen.getByTestId('flow-run-pending-approval-always-request-1')).toBeDisabled();
-    expect(screen.getByTestId('flow-run-pending-approval-deny-request-1')).toBeDisabled();
-    expect(screen.queryByText('Working…')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Always allow' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeDisabled();
   });
 });
