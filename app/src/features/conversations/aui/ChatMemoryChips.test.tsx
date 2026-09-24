@@ -1,19 +1,13 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
-import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { I18nProvider } from '../../../lib/i18n/I18nContext';
 import {
   MemoryHybridSearchCall,
   MemoryRecallCall,
   MemoryStoreCall,
   memoryToolChips,
 } from './ChatMemoryChips';
-
-function withI18n(node: ReactElement) {
-  return render(<I18nProvider>{node}</I18nProvider>);
-}
 
 /** The prop fields every `ToolCallMessagePartComponent` requires, beyond `args`/`result`. */
 function toolCallProps(
