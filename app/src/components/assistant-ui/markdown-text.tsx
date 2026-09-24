@@ -39,7 +39,7 @@ import { extractLanguage, extractTextContent } from '../markdown/CodeBlock';
  * reach its components through context rather than a closure.
  */
 const CitationSourcesContext = createContext<readonly CitationSource[]>([]);
-const EMPTY_CITATION_SOURCES: readonly CitationSource[] = [];
+const EMPTY_MESSAGE_PARTS: AssistantState['message']['parts'] = [];
 
 function sourcePartsToCitations(parts: AssistantState['message']['parts']): CitationSource[] {
   return parts.flatMap((part): CitationSource[] => {
