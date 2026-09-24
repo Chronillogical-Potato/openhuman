@@ -25,6 +25,11 @@ Applies to every release, all platforms.
 - [ ] **An existing chat accepts another turn after restart** — Send a message and wait for its reply, fully quit OpenHuman, then reopen that conversation and send a second message. Expected: the second reply streams normally, retains the earlier context, and does not show a generic error. Repeat after the conversation has compacted if a long-running test profile is available (#6608).
 - [ ] **A failed chat turn does not offer an invalid regenerate action** — Trigger a provider failure in a test profile and inspect its error card. Expected: the diagnostic text remains visible, with no Retry or Refresh button on that failed message. A completed assistant reply still offers Refresh (#6613).
 
+### Native desktop control
+
+- [ ] **Connections enables the published desktop module on an unlocked macOS or Windows session** — Open Connections → Desktop, enable it, grant Accessibility if prompted, and run the read-only test. Expected: the module loads from the pinned release, the panel reports the actual permission state, and the test sees an accessibility snapshot. Screen Recording is required only when testing capture. A locked macOS screen must not be reported as a successful probe.
+- [ ] **An agent completes a disposable desktop task without an approval wait by default** — In a fresh thread, ask the orchestrator to use a harmless app such as TextEdit or Calculator, make one visible change, and verify it through a new accessibility snapshot. Expected: `tool_search` discovers the deferred desktop tool, the released module performs the action, no approval card parks the turn, and the observed app state matches the request. Disable Desktop afterward and verify a subsequent tool call is refused.
+
 ### Checkbox appearance
 
 - [ ] **Skill source filters show their selection** — In Connections → Skills, open the catalog source filter and toggle a source off and on. Verify that the rows filter correctly, the menu stays open, and the selected source has a visible checkmark. Repeat in light and dark themes, including Matrix, Ocean and Sepia dark; selected and indeterminate shared checkboxes must show a contrasting mark, while unchecked boxes remain empty.
