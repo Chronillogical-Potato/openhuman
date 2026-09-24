@@ -152,8 +152,8 @@ function installExecCommand(ok: boolean) {
 /** Drive generate mode to the point where the phrase is revealed. */
 async function revealGenerateModePhrase() {
   renderWithProviders(<RecoveryPhrasePanel />);
-  await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
-  fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
+  await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+  fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
 }
 
 const generateCopyButton = () => screen.getByText(/Copy to Clipboard/i).closest('button')!;
@@ -219,7 +219,7 @@ describe('RecoveryPhrasePanel — clipboard fallback when the async API fails', 
   it('does not touch the clipboard at all before the phrase is revealed', async () => {
     const writeText = installWorkingClipboard();
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
 
     expect(generateCopyButton()).toBeDisabled();
     expect(writeText).not.toHaveBeenCalled();
@@ -242,6 +242,8 @@ describe('RecoveryPhrasePanel — view-mode copy', () => {
     fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     await waitFor(() => expect(mockRevealRecoveryPhrase).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText('word1')).toBeInTheDocument());
+    // The modal blurs words by default — click the overlay to unblur so the Copy button enables.
+    fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
   }
 
   it('copies the stored phrase via the async clipboard', async () => {
@@ -360,7 +362,8 @@ describe('RecoveryPhrasePanel — generate mode will not save without the confir
   // reachable guard rather than pretending to exercise the other one.
   it('leaves Save disabled while the confirm checkbox is unticked', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByRole('checkbox'));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     expect(screen.getByRole('checkbox')).not.toBeChecked();
 
     expect(screen.getByText(/^Save/i).closest('button')!).toBeDisabled();
@@ -369,14 +372,16 @@ describe('RecoveryPhrasePanel — generate mode will not save without the confir
 
   it('enables Save the moment the confirmation is ticked', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByRole('checkbox'));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     fireEvent.click(screen.getByRole('checkbox'));
     expect(screen.getByText(/^Save/i).closest('button')!).not.toBeDisabled();
   });
 
   it('persists once the confirmation is ticked', async () => {
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByRole('checkbox'));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByText(/^Save/i).closest('button')!);
 
@@ -393,8 +398,8 @@ describe('RecoveryPhrasePanel — the Copied indicator resets itself', () => {
     installWorkingClipboard();
 
     renderWithProviders(<RecoveryPhrasePanel />);
-    await waitFor(() => screen.getByLabelText(/Reveal recovery phrase/i));
-    fireEvent.click(screen.getByLabelText(/Reveal recovery phrase/i));
+    await waitFor(() => screen.getByText(/Reveal recovery phrase/i));
+    fireEvent.click(screen.getByText(/Reveal recovery phrase/i));
     fireEvent.click(generateCopyButton());
 
     await waitFor(() => expect(screen.getByText(/Copied/i)).toBeInTheDocument());

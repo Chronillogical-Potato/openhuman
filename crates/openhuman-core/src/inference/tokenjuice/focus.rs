@@ -20,6 +20,15 @@ pub fn summary_focus_property() -> Value {
     })
 }
 
+/// Whether a tool's parameter schema declares TinyJuice's `summary_focus`,
+/// as opposed to a parameter of its own that happens to share the name.
+pub fn declares_summary_focus(parameters: &Value) -> bool {
+    parameters
+        .get("properties")
+        .and_then(|properties| properties.get(SUMMARY_FOCUS_ARG))
+        == Some(&summary_focus_property())
+}
+
 /// Remove `summary_focus` from a call's arguments, returning it when it holds
 /// non-blank text.
 pub fn take_summary_focus(arguments: &mut Value) -> Option<String> {

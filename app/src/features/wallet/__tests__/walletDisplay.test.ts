@@ -11,7 +11,9 @@ import {
 describe('walletDisplay — labels', () => {
   it('labels EVM rows by network and others by chain', () => {
     expect(balanceNetworkLabel({ chain: 'evm', evmNetwork: 'ethereum_mainnet' })).toBe('Ethereum');
-    expect(balanceNetworkLabel({ chain: 'evm', evmNetwork: 'bsc_mainnet' })).toBe('BNB Chain');
+    expect(balanceNetworkLabel({ chain: 'evm', evmNetwork: 'bsc_mainnet' })).toBe(
+      'BNB Smart Chain'
+    );
     expect(balanceNetworkLabel({ chain: 'btc' })).toBe('Bitcoin');
   });
 
