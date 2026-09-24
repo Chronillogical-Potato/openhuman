@@ -101,8 +101,8 @@ fn parse_cursor(cursor: Option<&str>) -> usize {
 }
 
 #[cfg(test)]
-#[path = "transcript_view_tests.rs"]
-mod tests;
-#[cfg(test)]
 #[path = "transcript_subagent_anchor_tests.rs"]
 mod subagent_anchor_tests;
+#[cfg(test)]
+#[path = "transcript_view_tests.rs"]
+mod tests;
