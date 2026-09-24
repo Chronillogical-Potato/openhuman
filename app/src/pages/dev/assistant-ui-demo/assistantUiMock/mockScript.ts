@@ -13,6 +13,7 @@
  */
 import type { CoreCommand } from '../../../../features/conversations/aui/useSlashCommandSource';
 import type { ContextBreakdown } from '../../../../services/api/agentContextApi';
+import type { ChatSuggestionsEvent } from '../../../../services/chatService';
 import type { RecallResponse } from '../../../../utils/tauriCommands/memoryTree';
 
 /**
@@ -462,3 +463,25 @@ export const MOCK_CONTEXT_BREAKDOWN: ContextBreakdown = {
  * renderer's socket status; here it is picked by hand.
  */
 export const MOCK_CONNECTION_PHASES = ['dropped', 'reconnecting', 'resumed', 'online'] as const;
+
+/**
+ * A settled turn and the `chat_suggestions` event the core emits after its
+ * `chat_done` (`web_chat/suggestions.rs`: up to three `{ prompt, label }`
+ * pairs). The gallery (`/dev/tools`) runs the event through the same reducer
+ * and chip mapping as the app, then renders the vendored follow-up element.
+ */
+export const MOCK_SUGGESTIONS_TURN = {
+  user: 'What is on my calendar today?',
+  assistant: 'Two meetings: design review at 11:00 and a 1:1 with Sam at 15:30.',
+} as const;
+
+export const MOCK_CHAT_SUGGESTIONS_EVENT: ChatSuggestionsEvent = {
+  thread_id: 'mock-suggestions-thread',
+  client_id: 'mock-client',
+  turn_request_id: 'mock-request-1',
+  suggestions: [
+    { prompt: 'Move the design review to tomorrow morning', label: 'Reschedule review' },
+    { prompt: 'Draft an agenda for my 1:1 with Sam', label: 'Draft 1:1 agenda' },
+    { prompt: 'Is anything due before the design review?' },
+  ],
+};
