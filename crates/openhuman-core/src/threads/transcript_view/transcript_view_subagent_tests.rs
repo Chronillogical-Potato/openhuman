@@ -91,26 +91,17 @@ fn subagent_correlates_by_ledger_parent_call_id_over_the_heuristic() {
     // call names an agent. Only the exact ledger lookup can tell them apart.
     let child_stem = format!("{root_stem}__2000000_000000001_researcher");
     let child = transcript::resolve_keyed_transcript_path(dir.path(), &child_stem).unwrap();
-    write_raw_at(
-        &child,
-        thread_id,
-        &[r#"{"role":"assistant","content":"Bali is great."}"#],
+    // Written by hand (not `write_raw_at`'s default `meta_line`) so the
+    // `_meta` header carries `task_id`/`agent_id` — the ledger correlation
+    // key `build_child` reads.
+    let child_meta_line = format!(
+        r#"{{"_meta":{{"version":1,"agent":"researcher","agent_id":"researcher","agent_name":"researcher","agent_type":"subagent","dispatcher":"native","created":"2026-07-21T00:00:00Z","updated":"2026-07-21T00:00:10Z","turn_count":1,"input_tokens":1,"output_tokens":1,"cached_input_tokens":0,"charged_amount_usd":0.0,"thread_id":"{thread_id}","task_id":"sub-exact-1"}}}}"#
     );
-    // `write_raw_at` doesn't set `_meta.task_id`; patch it in directly so
-    // `build_child` picks it up as the ledger correlation key.
-    let raw = std::fs::read_to_string(&child).unwrap();
-    let mut lines: Vec<String> = raw.lines().map(str::to_string).collect();
-    let mut meta_json: serde_json::Value = serde_json::from_str(
-        lines[0]
-            .strip_prefix('{')
-            .map(|_| lines[0].as_str())
-            .unwrap(),
+    std::fs::write(
+        &child,
+        format!("{child_meta_line}\n{{\"role\":\"assistant\",\"content\":\"Bali is great.\"}}\n"),
     )
     .unwrap();
-    meta_json["_meta"]["task_id"] = serde_json::json!("sub-exact-1");
-    meta_json["_meta"]["agent_id"] = serde_json::json!("researcher");
-    lines[0] = meta_json.to_string();
-    std::fs::write(&child, lines.join("\n") + "\n").unwrap();
 
     tinyagents_session::run_ledger::upsert_agent_run(
         dir.path(),
