@@ -289,7 +289,7 @@ export function AssistantUiChat({
       ComposerIdleAction,
       // Phase / reasoning round / active tool for the turn in flight. Reads the
       // runtime's `extras`, so it needs no props and no dependency here.
-      RunningStatus: AssistantUiInferenceStatus,
+      RunningStatus: AgentRunningStatus,
       // The web pages the turn fetched, grouped from its `source` parts into
       // one collapsed disclosure under the answer.
       SourceGroup: ChatSources,

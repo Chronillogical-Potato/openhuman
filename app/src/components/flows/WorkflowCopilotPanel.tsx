@@ -31,7 +31,7 @@ import { Thread, type ThreadComponents } from '@/components/assistant-ui/thread'
 import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { AssistantUiInferenceStatus } from '../../features/conversations/components/AssistantUiInferenceStatus';
+import { AgentRunningStatus } from '../../features/conversations/aui/AgentRunningStatus';
 import { ChatSources } from '../../features/conversations/components/aui/ChatSources';
 import { SubagentDrawerHost } from '../../features/conversations/components/aui/subagentDrawerHost';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
@@ -679,7 +679,7 @@ export default function WorkflowCopilotPanel({
   const components = useMemo<ThreadComponents>(
     () => ({
       ToolFallback: ChatToolFallback,
-      RunningStatus: AssistantUiInferenceStatus,
+      RunningStatus: AgentRunningStatus,
       SourceGroup: ChatSources,
       Welcome: CopilotWelcome,
       Composer: CopilotComposer,
