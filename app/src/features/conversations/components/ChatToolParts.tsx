@@ -235,8 +235,8 @@ export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = 
     () =>
       group.indices
         .map(index => parts[index])
-        .filter((part): part is ToolCallMessagePart => part?.type === 'tool-call')
-        .map(toolPartPresentation),
+        .filter(part => part?.type === 'tool-call')
+        .map(part => toolPartPresentation(part as unknown as ToolCallMessagePart)),
     [group.indices, parts]
   );
   if (group.indices.length <= 1) {
