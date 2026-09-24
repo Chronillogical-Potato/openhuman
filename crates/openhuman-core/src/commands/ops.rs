@@ -111,9 +111,17 @@ pub async fn commands_list() -> Result<RpcOutcome<CommandsListResponse>, String>
         entries.extend(entries_from_array(&value, "skills", CommandKind::Skill));
     }
 
-    let flows_controllers = crate::flows::all_flows_registered_controllers();
-    if let Some(value) = invoke(&flows_controllers, "flows", "list", Map::new()).await {
-        entries.extend(entries_from_array(&value, "flows", CommandKind::Workflow));
+    // Gated like the module it calls. `crate::flows` is `#[cfg(feature =
+    // "flows")]`, so naming it unconditionally builds only for the feature
+    // sets that happen to enable it -- and a consumer with
+    // `default-features = false`, which is how `tinyhivemind` depends on this
+    // crate, cannot compile it at all.
+    #[cfg(feature = "flows")]
+    {
+        let flows_controllers = crate::flows::all_flows_registered_controllers();
+        if let Some(value) = invoke(&flows_controllers, "flows", "list", Map::new()).await {
+            entries.extend(entries_from_array(&value, "flows", CommandKind::Workflow));
+        }
     }
 
     log::debug!(

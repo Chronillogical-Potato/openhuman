@@ -288,9 +288,17 @@ impl Turn {
     /// the agent's own prior turns into quoted text, which is not the same
     /// input.
     ///
-    /// Pair it with a [`session`](Self::session) id of its own. Seeding is
-    /// refused on a session that already holds history, and a turn that varies
-    /// its belt or its prompt wants a session it is not sharing.
+    /// # It replaces, silently
+    ///
+    /// Seeding a session that already holds a conversation **discards that
+    /// conversation** -- the history is cleared and these rows put in its
+    /// place. Nothing refuses the call, because the case this exists for is a
+    /// host re-deriving the whole view every turn, for which replacement is
+    /// the point rather than a hazard.
+    ///
+    /// So pair it with a [`session`](Self::session) id of its own. A turn that
+    /// seeds, or that varies its belt or its prompt, wants a session it is not
+    /// sharing with turns that expect their history to still be there.
     ///
     /// Only a runtime-owned [`Agent`](crate::Agent) can honour this; a turn on
     /// a caller-built runtime's orchestrator is refused rather than run
