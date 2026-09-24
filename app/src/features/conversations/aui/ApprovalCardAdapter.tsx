@@ -117,7 +117,7 @@ export function ApprovalCardAdapter({
         alwaysAllowProps={
           alwaysDecision
             ? {
-                'data-analytics-id': `${analyticsPrefix}-always`,
+                'data-analytics-id': `${analyticsPrefix}-approve-always`,
                 disabled,
                 title: alwaysHint,
               }
