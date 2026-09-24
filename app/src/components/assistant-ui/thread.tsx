@@ -617,7 +617,7 @@ function useFollowBottom(
     // viewport itself (its scrollbar).
     let userIntentAt = Number.NEGATIVE_INFINITY;
     const markIntent = () => {
-      userIntentAt = performance.now();
+      userIntentAt = window.performance.now();
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (SCROLL_KEYS.has(event.key)) markIntent();
@@ -631,7 +631,7 @@ function useFollowBottom(
         followRef.current = true;
       } else if (
         viewport.scrollTop < lastScrollTopRef.current &&
-        performance.now() - userIntentAt <= USER_SCROLL_INTENT_WINDOW_MS
+        window.performance.now() - userIntentAt <= USER_SCROLL_INTENT_WINDOW_MS
       ) {
         followRef.current = false;
       }
