@@ -747,7 +747,7 @@ pub(crate) fn spawn_progress_bridge(
                             // completion (`ToolCallStarted.arguments` is
                             // always `Null` on this path). Omitted when the
                             // harness ran with payload capture off.
-                            args: arguments.filter(|v| !v.is_null()),
+                            args: cap_wire_args(arguments),
                             success: Some(success),
                             round: Some(iteration),
                             tool_call_id: Some(call_id),
@@ -1268,7 +1268,7 @@ pub(crate) fn spawn_progress_bridge(
                             // bounded size for the wire (#4007); `output_chars` +
                             // `elapsed_ms` still ride along in `subagent` below.
                             output: Some(cap_wire_output(output)),
-                            args: arguments.filter(|v| !v.is_null()),
+                            args: cap_wire_args(arguments),
                             elapsed_ms: Some(elapsed_ms),
                             structured,
                             tool_display_label: display_label,
