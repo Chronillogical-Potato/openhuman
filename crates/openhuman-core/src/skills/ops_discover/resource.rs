@@ -48,5 +48,5 @@ pub fn read_workflow_resource(
         .and_then(Path::parent)
         .ok_or_else(|| format!("skill '{skill_id}' has no on-disk location"))?;
     reject_symlink_components(root, relative_path)?;
-    tinyskills::read_resource(&skill, relative_path)
+    tinyskills::read_resource(&skill, relative_path).map_err(|error| error.to_string())
 }

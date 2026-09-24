@@ -38,7 +38,7 @@ fn validate_relative_path(dir_name: &str, path: &str) -> Result<(), String> {
 }
 
 fn install_one(root: &std::path::Path, skill: &BundledSkill) -> Result<bool, String> {
-    let report = tinyskills::bundle::install(root, &[*skill]);
+    let report = tinyskills::install(root, &[*skill]);
     if let Some((_, error)) = report.failed.into_iter().next() {
         return Err(error);
     }

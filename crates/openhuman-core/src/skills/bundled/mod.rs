@@ -22,7 +22,7 @@ pub fn builtin_root(workspace_dir: &Path) -> PathBuf {
 /// Materialize all compiled-in skills and log the outcome.
 pub fn install(workspace_dir: &Path) -> InstallReport {
     let root = builtin_root(workspace_dir);
-    let report = tinyskills::bundle::install(&root, BUNDLED);
+    let report = tinyskills::install(&root, BUNDLED);
     for skill in &report.written {
         tracing::info!(skill, "[skills][bundled] wrote builtin skill");
     }
@@ -46,5 +46,5 @@ pub fn install_bundled_skills(workspace_dir: &Path) {
 
 /// Verify a materialized builtin still exactly matches its compiled bytes.
 pub fn is_current_materialization(dir: &Path, skill: &BundledSkill) -> bool {
-    tinyskills::bundle::is_current_materialization(dir, *skill)
+    tinyskills::is_current_materialization(dir, *skill)
 }
