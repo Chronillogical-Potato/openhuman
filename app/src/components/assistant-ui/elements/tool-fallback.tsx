@@ -462,13 +462,12 @@ function ToolFallbackApproval({
     confirmingId != null ? declaredOptions?.find(o => o.id === confirmingId) : undefined;
 
   const question = isQuestion(approval);
-  const dismissible = question && respondToApproval != null && approval?.dismissible === true;
-
-  const dismissButton = dismissible ? (
-    <Button size="sm" variant="outline" className={pressable} onClick={dismiss} disabled={locked}>
-      Dismiss
-    </Button>
-  ) : null;
+  // `approval.dismissible` is not on the `@assistant-ui/core` 0.3.20 type
+  // pinned here (only `id`/`prompt`/`display`/`allowFreeform`/decision fields
+  // are) — a further version bump is needed before a question can offer a
+  // "Dismiss" affordance; until then a question-mode request always renders
+  // its full answer surface.
+  const dismissButton = null;
 
   const promptText = approval?.prompt ? (
     <p className="aui-tool-fallback-approval-prompt text-foreground whitespace-pre-line">
