@@ -188,14 +188,14 @@ impl ApprovalGate {
     /// Record the routing correlation for a newly-parked request. Called at
     /// park time in `intercept_audited_inner`, alongside the `thread_to_request`
     /// insert.
-    pub(super) fn insert_request_route(&self, request_id: &str, route: RequestRoute) {
+    fn insert_request_route(&self, request_id: &str, route: RequestRoute) {
         self.request_routes.lock().insert(request_id.to_string(), route);
     }
 
     /// Remove and return the routing correlation for `request_id`, if any.
     /// Consumed exactly once per request — by whichever path resolves the
     /// decision first (`decide`, a TTL timeout, or a dropped channel).
-    pub(super) fn take_request_route(&self, request_id: &str) -> Option<RequestRoute> {
+    fn take_request_route(&self, request_id: &str) -> Option<RequestRoute> {
         self.request_routes.lock().remove(request_id)
     }
 
