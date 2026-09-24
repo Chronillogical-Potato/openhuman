@@ -1,11 +1,13 @@
-import { useState } from 'react';
-
-import type {
-  ProcessingTranscriptItem,
-  ToolTimelineEntry,
+import { subagentApi } from '../../../../services/api/subagentApi';
+import {
+  markSubagentCancelled,
+  type ProcessingTranscriptItem,
+  type ToolTimelineEntry,
 } from '../../../../store/chatRuntimeSlice';
+import { useAppDispatch } from '../../../../store/hooks';
 import { AgentProcessSourcePanel } from '../AgentProcessSourcePanel';
 import { type BackgroundProcess, BackgroundProcessesPanel } from '../BackgroundProcessesPanel';
+import { SubagentDrawer } from '../SubagentDrawer';
 
 export interface TranscriptOverlaysProps {
   threadId: string | null;
@@ -16,6 +18,9 @@ export interface TranscriptOverlaysProps {
   backgroundProcesses: BackgroundProcess[];
   showBackgroundProcesses: boolean;
   onCloseBackgroundProcesses: () => void;
+  /** Spawn `taskId` of the sub-agent whose drawer is open, or `null`. */
+  openSubagentTaskId: string | null;
+  onOpenSubagent: (taskId: string | null) => void;
   showProcessSource: boolean;
   /** Scopes the process-source panel to one step; `undefined` = whole run. */
   scopedEntry?: ToolTimelineEntry;
@@ -23,48 +28,33 @@ export interface TranscriptOverlaysProps {
 }
 
 /**
- * The transcript-local overlays: background sub-agents, and the Agent
- * Process Source panel.
+ * The three transcript-local modals: background sub-agents, the sub-agent
+ * drawer, and the Agent Process Source panel.
  *
  * Mounted beside the assistant-ui `Thread` by each host (the home chat and the
  * workflow copilot) because none of it is part of the transcript's render path
  * — it is driven entirely by the host's own disclosure state.
- *
- * The dedicated sub-agent drawer (`SubagentDrawer`) is gone: a delegation's
- * nested activity now always renders inline through its own `TaskCard`
- * disclosure (`SubagentTaskCard` for a live `task` part, `SubagentActivityCard`
- * for a bare `SubagentActivity` here), mirroring what already shipped for the
- * `task` toolkit entry. Clicking a background process now opens the whole-run
- * Agent Process Source panel scoped to that task's step instead of a
- * dedicated drawer.
- *
- * Known gap: the drawer used to offer a "Cancel task" affordance for a still-
- * running detached (`async`) sub-agent, backed by `subagentApi.cancel`. Neither
- * `SubagentTaskCard` nor `SubagentActivityCard` exposes an equivalent action —
- * there is currently no UI to cancel a running background task. Filed as a
- * product gap rather than invented here.
  */
 export function TranscriptOverlays({
-  threadId: _threadId,
+  threadId,
   entries,
   transcript,
   backgroundProcesses,
   showBackgroundProcesses,
   onCloseBackgroundProcesses,
+  openSubagentTaskId,
+  onOpenSubagent,
   showProcessSource,
   scopedEntry,
   onCloseProcessSource,
 }: TranscriptOverlaysProps) {
-  // A background process opened from its own panel scopes the Agent Process
-  // Source panel to that task's step, without disturbing the caller's own
-  // whole-run `showProcessSource` toggle (the command palette's "Open agent
-  // process source" action).
-  const [scopedTaskId, setScopedTaskId] = useState<string | null>(null);
-  const backgroundScopedEntry = scopedTaskId
-    ? entries.find(entry => entry.subagent?.taskId === scopedTaskId)
+  const dispatch = useAppDispatch();
+  // Re-derived from the timeline on every render so the drawer streams
+  // token-by-token as subagent_text_delta / subagent_thinking_delta events land
+  // in Redux.
+  const openSubagentEntry = openSubagentTaskId
+    ? entries.find(entry => entry.subagent?.taskId === openSubagentTaskId)
     : undefined;
-  const effectiveOpen = showProcessSource || backgroundScopedEntry !== undefined;
-  const effectiveScopedEntry = backgroundScopedEntry ?? scopedEntry;
 
   return (
     <>
@@ -74,18 +64,38 @@ export function TranscriptOverlays({
         onClose={onCloseBackgroundProcesses}
         onOpenProcess={taskId => {
           onCloseBackgroundProcesses();
-          setScopedTaskId(taskId);
+          onOpenSubagent(taskId);
         }}
       />
+      <SubagentDrawer
+        key={openSubagentTaskId ?? 'none'}
+        subagent={openSubagentEntry?.subagent ?? null}
+        status={openSubagentEntry?.status}
+        onCancel={
+          openSubagentEntry?.subagent && threadId
+            ? async () => {
+                const taskId = openSubagentEntry.subagent!.taskId;
+                const result = await subagentApi.cancel(taskId);
+                // Only flip the row when something was actually aborted — a
+                // cancelled=false result means the run already finished/unknown,
+                // and overwriting its real terminal state would hide it. No
+                // terminal socket event arrives for an aborted run, so the
+                // optimistic mark is what surfaces the cancellation (the notice
+                // itself reaches chat via the idle-gated delivery path).
+                if (result.cancelled) {
+                  dispatch(markSubagentCancelled({ threadId, taskId: result.taskId }));
+                }
+              }
+            : undefined
+        }
+        onClose={() => onOpenSubagent(null)}
+      />
       <AgentProcessSourcePanel
-        open={effectiveOpen}
+        open={showProcessSource}
         entries={entries}
         transcript={transcript}
-        scopedEntry={effectiveScopedEntry}
-        onClose={() => {
-          setScopedTaskId(null);
-          onCloseProcessSource();
-        }}
+        scopedEntry={scopedEntry}
+        onClose={onCloseProcessSource}
       />
     </>
   );
