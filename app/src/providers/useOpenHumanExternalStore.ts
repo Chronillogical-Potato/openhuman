@@ -17,7 +17,12 @@ import {
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { FEEDBACK_ROW_IDS_METADATA_KEY, persistMessageFeedback } from '../store/threadSlice';
+import {
+  FEEDBACK_ROW_IDS_METADATA_KEY,
+  persistMessageFeedback,
+  truncateMessagesFrom,
+} from '../store/threadSlice';
+import { editMessage, regenerateMessage } from '../services/chatService';
 import type { DerivedDisplayItem } from '../types/derivedTranscript';
 import type { ThreadMessage } from '../types/thread';
 import { buildRuntimeMessages, STREAMING_TAIL_ID } from './assistantUiMessages';
