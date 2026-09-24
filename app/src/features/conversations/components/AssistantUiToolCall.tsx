@@ -191,17 +191,17 @@ export function AssistantUiToolCallCard({
       aside={
         <>
           {failed && failure ? (
-            <div className="pt-1 pb-2">
+            <div className="ps-5.5 pt-1 pb-2">
               <ToolFailureLines failure={failure} />
             </div>
           ) : null}
-          {footer}
+          {footer ? <div className="ps-5.5">{footer}</div> : null}
           {/* Search results are the call's whole point: visible without
               opening the disclosure, as in assistant-ui's own web-search. */}
-          {searchBody ? <div className="ps-5 pt-1 pb-2">{searchBody}</div> : null}
+          {searchBody ? <div className="ps-5.5 pt-1 pb-2">{searchBody}</div> : null}
         </>
       }>
-      {richBody ? <div className="mt-2">{richBody}</div> : undefined}
+      {richBody ? <div className="mt-2 ps-5.5">{richBody}</div> : undefined}
     </ToolCall>
   );
 }
