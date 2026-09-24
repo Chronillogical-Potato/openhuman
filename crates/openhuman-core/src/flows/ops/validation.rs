@@ -101,8 +101,37 @@ pub(super) fn ensure_config_aware_engine_compatible(
 /// validation can surface many at once.
 pub(crate) fn migrate_and_deserialize_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
     let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
-    let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
+    let graph: WorkflowGraph = serde_json::from_value(migrated.clone()).map_err(|error| {
+        graph_member_deserialization_error(&migrated).unwrap_or_else(|| error.to_string())
+    })?;
     Ok(graph)
+}
+
+/// Returns an indexed member path when a graph collection contains the value
+/// that failed to deserialize. Serde's error reports the missing field but not
+/// which item in a collection owns it, which leaves flow authors unable to
+/// repair a multi-node graph from the error alone.
+fn graph_member_deserialization_error(graph: &Value) -> Option<String> {
+    let object = graph.as_object()?;
+
+    member_deserialization_error::<tinyflows::model::WorkflowInput>(object, "inputs")
+        .or_else(|| {
+            member_deserialization_error::<tinyflows::model::AgentDefinition>(object, "agents")
+        })
+        .or_else(|| member_deserialization_error::<tinyflows::model::Node>(object, "nodes"))
+        .or_else(|| member_deserialization_error::<tinyflows::model::Edge>(object, "edges"))
+}
+
+fn member_deserialization_error<T: serde::de::DeserializeOwned>(
+    graph: &serde_json::Map<String, Value>,
+    field: &str,
+) -> Option<String> {
+    let members = graph.get(field)?.as_array()?;
+    members.iter().enumerate().find_map(|(index, member)| {
+        serde_json::from_value::<T>(member.clone())
+            .err()
+            .map(|error| format!("{field}[{index}]: {error}"))
+    })
 }
 
 /// Maps a portable `tinyflows` [`ValidationError`](tinyflows::error::ValidationError)
