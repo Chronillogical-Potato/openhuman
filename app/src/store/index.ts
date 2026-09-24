@@ -273,6 +273,12 @@ export const store = configureStore({
     // completion, resets on restart + user switch. Durable storage is a #3931
     // follow-up.
     userErrors: userErrorsReducer,
+    // Live thread-level harness state (todos, goal, plan/build run mode),
+    // driven by dedicated core events/RPCs rather than tool-result scraping.
+    // In-memory only: re-fetched on thread open / reconnect.
+    threadTodos: threadTodosReducer,
+    threadGoal: threadGoalReducer,
+    runMode: runModeReducer,
   },
   middleware: getDefaultMiddleware => {
     const middleware = getDefaultMiddleware({
