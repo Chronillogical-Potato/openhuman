@@ -31,7 +31,9 @@ use tinyagents_harness::tinyinference_video::{
 use crate::api::config::effective_backend_api_url;
 use crate::api::BackendOAuthClient;
 use crate::config::Config;
-use crate::security::credentials::session_support::{resolve_backend_credential, BackendCredential};
+use crate::security::credentials::session_support::{
+    resolve_backend_credential, BackendCredential,
+};
 
 /// Backend route prefix that proxies OpenRouter's media API.
 pub const OPENROUTER_PROXY_PATH: &str = "/agent-integrations/openrouter";
@@ -118,7 +120,8 @@ impl Guard {
 
     /// Refuses a billed submit when managed credits are exhausted.
     async fn budget(&self) -> ti_image::Result<()> {
-        if crate::integrations::client::budget_gate::managed_tool_budget_exhausted(&self.config).await
+        if crate::integrations::client::budget_gate::managed_tool_budget_exhausted(&self.config)
+            .await
         {
             tracing::info!("[media_generation] managed credits exhausted; submit refused");
             return Err(ti_image::Error::Validation(

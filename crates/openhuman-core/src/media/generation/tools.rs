@@ -100,10 +100,16 @@ pub(crate) fn reference_policy(
     let roots: Vec<PathBuf> = vec![action_dir.to_path_buf(), workspace_dir.to_path_buf()];
     Arc::new(move |path: &Path| {
         if path.components().any(|c| matches!(c, Component::ParentDir)) {
-            return Err(format!("reference path {} may not contain '..'", path.display()));
+            return Err(format!(
+                "reference path {} may not contain '..'",
+                path.display()
+            ));
         }
         if crate::security::SecurityPolicy::is_always_forbidden(path) {
-            return Err(format!("reference path {} is in a protected location", path.display()));
+            return Err(format!(
+                "reference path {} is in a protected location",
+                path.display()
+            ));
         }
         if !roots.iter().any(|root| path.starts_with(root)) {
             return Err(format!(
@@ -172,9 +178,16 @@ impl Tool for MediaListModelsTool {
                         .filter(|m| keep(&m.id, m.name.as_deref()))
                         .map(|m| json!({ "id": m.id, "name": m.name }))
                         .collect();
-                    out.insert("image".into(), json!({ "default": self.image.default_model(), "models": list }));
+                    out.insert(
+                        "image".into(),
+                        json!({ "default": self.image.default_model(), "models": list }),
+                    );
                 }
-                Err(error) => return Ok(ToolResult::error(format!("Listing image models failed: {error}"))),
+                Err(error) => {
+                    return Ok(ToolResult::error(format!(
+                        "Listing image models failed: {error}"
+                    )))
+                }
             }
         }
         if kind != "image" {
@@ -185,9 +198,16 @@ impl Tool for MediaListModelsTool {
                         .filter(|m| keep(&m.id, m.name.as_deref()))
                         .map(|m| json!({ "id": m.id, "name": m.name }))
                         .collect();
-                    out.insert("video".into(), json!({ "default": self.video.default_model(), "models": list }));
+                    out.insert(
+                        "video".into(),
+                        json!({ "default": self.video.default_model(), "models": list }),
+                    );
                 }
-                Err(error) => return Ok(ToolResult::error(format!("Listing video models failed: {error}"))),
+                Err(error) => {
+                    return Ok(ToolResult::error(format!(
+                        "Listing video models failed: {error}"
+                    )))
+                }
             }
         }
         Ok(ToolResult::json(Value::Object(out)))

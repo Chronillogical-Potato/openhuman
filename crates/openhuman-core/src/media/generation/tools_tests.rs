@@ -6,7 +6,9 @@ use tinyagents_harness::tinyinference_image::MockImageGenerator;
 use tinyagents_harness::tinyinference_video::{MockVideoGenerator, MockVideoScript};
 use tinytools::{PermissionLevel, Tool, ToolCategory};
 
-use super::{media_tools_from, reference_policy, IMAGE_TOOL_NAME, LIST_MODELS_TOOL_NAME, VIDEO_TOOL_NAME};
+use super::{
+    media_tools_from, reference_policy, IMAGE_TOOL_NAME, LIST_MODELS_TOOL_NAME, VIDEO_TOOL_NAME,
+};
 use crate::media::generation::MediaGenerators;
 
 fn tools(action_dir: &Path) -> Vec<Box<dyn Tool>> {
@@ -39,10 +41,17 @@ fn tool_names_match_the_media_pack() {
     let dir = tempfile::tempdir().unwrap();
     let tools = tools(dir.path());
     let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
-    assert_eq!(names, vec![IMAGE_TOOL_NAME, VIDEO_TOOL_NAME, LIST_MODELS_TOOL_NAME]);
     assert_eq!(
         names,
-        vec!["media_generate_image", "media_generate_video", "media_list_models"]
+        vec![IMAGE_TOOL_NAME, VIDEO_TOOL_NAME, LIST_MODELS_TOOL_NAME]
+    );
+    assert_eq!(
+        names,
+        vec![
+            "media_generate_image",
+            "media_generate_video",
+            "media_list_models"
+        ]
     );
 }
 
@@ -67,12 +76,36 @@ fn schemas_expose_the_reference_standards() {
     let tools = tools(dir.path());
     let image = by_name(&tools, IMAGE_TOOL_NAME).parameters_schema();
     assert_eq!(image["required"], json!(["prompt"]));
-    for key in ["prompt", "model", "n", "aspect_ratio", "resolution", "size", "seed", "references"] {
-        assert!(image["properties"].get(key).is_some(), "image schema missing {key}");
+    for key in [
+        "prompt",
+        "model",
+        "n",
+        "aspect_ratio",
+        "resolution",
+        "size",
+        "seed",
+        "references",
+    ] {
+        assert!(
+            image["properties"].get(key).is_some(),
+            "image schema missing {key}"
+        );
     }
     let video = by_name(&tools, VIDEO_TOOL_NAME).parameters_schema();
-    for key in ["prompt", "duration", "resolution", "aspect_ratio", "first_frame", "last_frame", "references", "resume_job_id"] {
-        assert!(video["properties"].get(key).is_some(), "video schema missing {key}");
+    for key in [
+        "prompt",
+        "duration",
+        "resolution",
+        "aspect_ratio",
+        "first_frame",
+        "last_frame",
+        "references",
+        "resume_job_id",
+    ] {
+        assert!(
+            video["properties"].get(key).is_some(),
+            "video schema missing {key}"
+        );
     }
 }
 
@@ -85,7 +118,9 @@ async fn image_tool_saves_under_generated_media_in_the_action_dir() {
         .await
         .unwrap();
     assert!(!result.is_error, "{result:?}");
-    let saved = std::fs::read_dir(dir.path().join("generated-media")).unwrap().count();
+    let saved = std::fs::read_dir(dir.path().join("generated-media"))
+        .unwrap()
+        .count();
     assert_eq!(saved, 1);
 }
 
@@ -98,7 +133,10 @@ async fn list_models_reports_both_catalogs_and_defaults() {
         .await
         .unwrap();
     let text = serde_json::to_string(&result).unwrap();
-    assert!(text.contains("mock/image") && text.contains("mock/video"), "{text}");
+    assert!(
+        text.contains("mock/image") && text.contains("mock/video"),
+        "{text}"
+    );
 }
 
 #[test]
@@ -112,5 +150,8 @@ fn reference_policy_admits_workspace_files_only() {
     assert!(policy(&action.join("../secret.png")).is_err());
     assert!(policy(Path::new("/etc/passwd")).is_err());
     assert!(policy(Path::new("/home/user/Documents/private.png")).is_err());
-    assert!(policy(&action.join(".ssh/id_rsa")).is_err(), "credential stores stay forbidden");
+    assert!(
+        policy(&action.join(".ssh/id_rsa")).is_err(),
+        "credential stores stay forbidden"
+    );
 }

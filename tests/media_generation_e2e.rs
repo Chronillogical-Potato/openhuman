@@ -252,6 +252,12 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
         assert_eq!(auth, &format!("Bearer {API_KEY}"), "{route} credential");
         assert!(*sdk_name, "{route} is missing x-sdk-name");
     }
-    let submits = requests.iter().filter(|(r, _, _)| r.starts_with("POST")).count();
-    assert_eq!(submits, 2, "exactly one billed submit per tool call: {requests:?}");
+    let submits = requests
+        .iter()
+        .filter(|(r, _, _)| r.starts_with("POST"))
+        .count();
+    assert_eq!(
+        submits, 2,
+        "exactly one billed submit per tool call: {requests:?}"
+    );
 }
