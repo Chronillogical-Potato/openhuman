@@ -17,9 +17,13 @@ import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
 import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
-import { GoalBanner } from '../../features/conversations/components/GoalBanner';
-import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
-import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
+import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
+import { TodoList } from '../../components/assistant-ui/elements/todo-list';
+import { toAuiTodoItems } from '../../features/conversations/aui/PlanReviewPart';
+import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
+import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
+import { useThreadGoal, useLoadThreadGoal } from '../../features/conversations/aui/useThreadGoal';
+import { useThreadTodos, useLoadThreadTodos } from '../../features/conversations/aui/useThreadTodos';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
