@@ -266,15 +266,23 @@ const defaultComponents = memoizeMarkdownComponents({
   p: ({ className, ...props }) => (
     <p className={cn('aui-md-p my-3 leading-relaxed first:mt-0 last:mb-0', className)} {...props} />
   ),
-  a: ({ className, ...props }) => (
-    <a
-      className={cn(
-        'aui-md-a text-primary hover:text-primary/80 underline underline-offset-2',
-        className
-      )}
-      {...props}
-    />
-  ),
+  a: function MarkdownLink({ className, href, children, ...props }) {
+    const sources = useContext(CitationSourcesContext);
+    const citationIndex = href?.startsWith('citation:') ? Number.parseInt(href.slice(9), 10) - 1 : -1;
+    const source = citationIndex >= 0 ? sources[citationIndex] : undefined;
+    if (source) return <CitationMarker index={citationIndex} source={source} />;
+    return (
+      <a
+        className={cn(
+          'aui-md-a text-primary hover:text-primary/80 underline underline-offset-2',
+          className
+        )}
+        href={href}
+        {...props}>
+        {children}
+      </a>
+    );
+  },
   blockquote: ({ className, ...props }) => (
     <blockquote
       className={cn(
