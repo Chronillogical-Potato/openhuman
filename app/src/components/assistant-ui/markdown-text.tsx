@@ -59,16 +59,19 @@ function sourcePartsToCitations(parts: AssistantState['message']['parts']): Cita
 
 /**
  * `[n]` / `[^n]` in the model's own text, for `n` within the message's
- * source count, become a real markdown link to a `citation:` pseudo-URL —
- * the `a` node override below recognizes that scheme and swaps in
- * `CitationMarker` instead of an anchor. Everything else (an ordinary
- * bracketed aside, a footnote number past the source list) is left alone.
+ * source count, become a real markdown link to a `#citation-n` fragment —
+ * a relative ref, so react-markdown's default `urlTransform` allowlist
+ * (which blanks any URL scheme it does not recognize, e.g. a `citation:`
+ * one) leaves it alone. The `a` node override below recognizes that
+ * fragment shape and swaps in `CitationMarker` instead of an anchor.
+ * Everything else (an ordinary bracketed aside, a footnote number past
+ * the source list) is left alone.
  */
 function linkifyCitationMarkers(text: string, sourceCount: number): string {
   if (sourceCount === 0) return text;
   return text.replace(/\[\^?(\d+)\]/g, (match, digits: string) => {
     const n = Number.parseInt(digits, 10);
-    return n >= 1 && n <= sourceCount ? `[${digits}](citation:${digits})` : match;
+    return n >= 1 && n <= sourceCount ? `[${digits}](#citation-${digits})` : match;
   });
 }
 
@@ -290,7 +293,8 @@ const defaultComponents = memoizeMarkdownComponents({
   ),
   a: function MarkdownLink({ className, href, children, ...props }) {
     const sources = useContext(CitationSourcesContext);
-    const citationIndex = href?.startsWith('citation:') ? Number.parseInt(href.slice(9), 10) - 1 : -1;
+    const citationMatch = href?.match(/^#citation-(\d+)$/);
+    const citationIndex = citationMatch ? Number.parseInt(citationMatch[1], 10) - 1 : -1;
     const source = citationIndex >= 0 ? sources[citationIndex] : undefined;
     if (source) return <CitationMarker index={citationIndex} source={source} />;
     return (
