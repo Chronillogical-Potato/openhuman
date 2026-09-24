@@ -519,6 +519,8 @@ pub async fn start_chat(
                     crate::core::events::DomainEvent::RunQueueFollowupDispatched {
                         thread_id: thread_id_task.clone(),
                         followup_count: followups.len(),
+                        item_id: None,
+                        text_preview: None,
                     },
                 );
                 dispatch_followups(followups);
