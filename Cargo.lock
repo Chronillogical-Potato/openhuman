@@ -4025,7 +4025,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openhuman"
-version = "0.63.32"
+version = "0.63.33"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -4151,7 +4151,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-cli"
-version = "0.63.32"
+version = "0.63.33"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4214,7 +4214,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-embed"
-version = "0.63.32"
+version = "0.63.33"
 dependencies = [
  "anyhow",
  "dirs 6.0.0",
@@ -4235,7 +4235,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-rpc"
-version = "0.63.32"
+version = "0.63.33"
 dependencies = [
  "log",
  "reqwest",
@@ -4246,7 +4246,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tinyhumans"
-version = "0.63.32"
+version = "0.63.33"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4274,7 +4274,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tui"
-version = "0.63.32"
+version = "0.63.33"
 dependencies = [
  "anyhow",
  "async-trait",
