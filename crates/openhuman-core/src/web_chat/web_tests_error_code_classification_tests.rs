@@ -446,12 +446,13 @@ fn web_channel_catalog_has_chat_and_cancel() {
     let s = all_web_channel_controller_schemas();
     let c = all_web_channel_registered_controllers();
     assert_eq!(s.len(), c.len());
-    assert_eq!(s.len(), 4);
+    assert_eq!(s.len(), 5);
     let fns: Vec<&str> = s.iter().map(|x| x.function).collect();
     assert!(fns.contains(&"web_chat"));
     assert!(fns.contains(&"web_cancel"));
     assert!(fns.contains(&"web_queue_status"));
     assert!(fns.contains(&"web_queue_clear"));
+    assert!(fns.contains(&"web_queue_remove"));
 }
 
 #[test]

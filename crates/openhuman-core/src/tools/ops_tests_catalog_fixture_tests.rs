@@ -7,8 +7,9 @@
 //! replays a persisted timeline). That fallback table is only ever as
 //! accurate as the day someone last updated it by hand, so this test builds
 //! the REAL registered catalog on every core test run and fails loudly the
-//! moment it disagrees with the frontend's copy, naming exactly what was
-//! added or removed and how to regenerate.
+//! moment the shipped product disagrees with the frontend's copy. Contributor
+//! builds may omit product-only gates, so they check only for unrecognized
+//! registered names rather than treating gated names as removals.
 use super::*;
 use std::path::PathBuf;
 
@@ -41,14 +42,10 @@ fn fixture_path() -> PathBuf {
 ///   API-key-gated tools that require a live key in config are absent here;
 ///   only the managed `web_search_tool` (or whichever tool the enabled
 ///   feature set + config resolves to) is registered.
-/// * **Cargo feature gates**: this test runs under this crate's default
-///   features (`cargo test -p openhuman`), matching the contributor build
-///   `AGENTS.md` documents as authoritative for the test lane. A tool
-///   compiled out under a non-default feature set (see
-///   `scripts/ci/product-features.txt` for the shipped product's gates)
-///   will not appear here even though it exists in the source tree; this is
-///   intentional; add a comment at the call site (not in the fixture) when
-///   a name conditionally disappears under a feature combination CI covers.
+/// * **Cargo feature gates**: the fixture represents the shipped product
+///   feature set (`scripts/ci/product-features.txt`). A default contributor
+///   build may register fewer tools, but every name it registers must be in
+///   the product catalog. The full product build checks exact equality.
 ///
 /// On top of the domain registry this adds the two harness-intrinsic bridge
 /// tool names, `tool_search` and `tool_call`
@@ -96,6 +93,7 @@ fn full_tool_catalog_names() -> Vec<String> {
 }
 
 const REGENERATE_COMMAND: &str = "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman --lib \
+     --features \"$(bash scripts/ci/product-features.sh)\" \
      tools::ops::tests::catalog_fixture_tests::tool_catalog_matches_frontend_fixture";
 
 /// Regenerates the fixture when `UPDATE_TOOL_CATALOG=1`, otherwise fails with
@@ -134,9 +132,26 @@ fn tool_catalog_matches_frontend_fixture() {
     expected.sort();
     expected.dedup();
 
-    if names != expected {
-        let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
-        let removed: Vec<&String> = expected.iter().filter(|n| !names.contains(n)).collect();
+    // All product-only tool families are represented only when these product
+    // gates are enabled together. Contributor and partial-feature builds may
+    // lack them; they still must never register an unknown name.
+    let full_product = cfg!(all(
+        feature = "voice",
+        feature = "web3",
+        feature = "documents",
+        feature = "runtime-node",
+        feature = "inference",
+        feature = "hosting",
+        feature = "contacts",
+        feature = "crash-reporting"
+    ));
+    let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
+    let removed: Vec<&String> = if full_product {
+        expected.iter().filter(|n| !names.contains(n)).collect()
+    } else {
+        Vec::new()
+    };
+    if !added.is_empty() || !removed.is_empty() {
         panic!(
             "core tool catalog drifted from the frontend fixture at {}.\n\
              added:   {added:?}\n\
