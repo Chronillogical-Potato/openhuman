@@ -739,6 +739,10 @@ export interface ChatEventListeners {
   onApprovalRequest?: (event: ChatApprovalRequestEvent) => void;
   onApprovalDecided?: (event: ChatApprovalDecidedEvent) => void;
   onPlanReviewRequest?: (event: ChatPlanReviewRequestEvent) => void;
+  onThreadTodosChanged?: (event: ChatThreadTodosChangedEvent) => void;
+  onThreadGoalUpdated?: (event: ChatThreadGoalUpdatedEvent) => void;
+  onThreadGoalCleared?: (event: ChatThreadGoalClearedEvent) => void;
+  onRunModeChanged?: (event: ChatRunModeChangedEvent) => void;
   onArtifactPending?: (event: ArtifactPendingEvent) => void;
   onArtifactReady?: (event: ArtifactReadyEvent) => void;
   onArtifactFailed?: (event: ArtifactFailedEvent) => void;
