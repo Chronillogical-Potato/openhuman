@@ -16,12 +16,12 @@ import {
   ComposerMenu,
   ComposerMenuItem,
 } from '../../components/assistant-ui/elements/composer';
+import { ContextBreakdown } from '../../components/assistant-ui/elements/context-breakdown';
+import { ContextDisplayRing } from '../../components/assistant-ui/elements/context-display';
 import {
   ConversationSearch,
   type SearchHit,
 } from '../../components/assistant-ui/elements/conversation-search';
-import { ContextBreakdown } from '../../components/assistant-ui/elements/context-breakdown';
-import { ContextDisplayRing } from '../../components/assistant-ui/elements/context-display';
 import { CitationMarker } from '../../components/assistant-ui/elements/inline-citation';
 import { MemoryChips } from '../../components/assistant-ui/elements/memory-chips';
 import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
