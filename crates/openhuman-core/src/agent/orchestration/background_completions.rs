@@ -193,7 +193,8 @@ pub(crate) fn record_outcome(
         .lock()
         .expect("background_completions queue poisoned");
     if let Some(thread_id) = entry.parent_thread_id.as_deref() {
-        if state.cancelled_threads.contains(thread_id) || state.stopped_threads.contains(thread_id) {
+        if state.cancelled_threads.contains(thread_id) || state.stopped_threads.contains(thread_id)
+        {
             log::debug!(
                 "[background_completions] dropping completion task_id={} for stopped/cancelled thread_id={}",
                 entry.task_id,
