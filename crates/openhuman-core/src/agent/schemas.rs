@@ -213,6 +213,32 @@ pub fn schemas(function: &str) -> ControllerSchema {
                  not fully projected outside a turn).",
             )],
         },
+        "context_breakdown" => ControllerSchema {
+            namespace: "agent",
+            function: "context_breakdown",
+            description: "Where an agent turn's fixed prompt budget goes: rendered system-prompt \
+                          sections, advertised tool-schema bytes, and (with a thread_id) that \
+                          thread's persisted history spend, as {label, bytes, est_tokens} rows \
+                          the composer's context-usage indicator can render as a stacked bar. \
+                          Expensive (rebuilds the agent and fetches live Composio connections); \
+                          cached per agent id and invalidated only when config content changes.",
+            inputs: vec![
+                optional_string(
+                    "agent_id",
+                    "Agent whose prompt to measure. Defaults to 'orchestrator'.",
+                ),
+                optional_string(
+                    "thread_id",
+                    "When given, adds a 'history' section sized from this thread's persisted \
+                     usage.",
+                ),
+            ],
+            outputs: vec![json_output(
+                "breakdown",
+                "{agent_id, model, sections: [{label, bytes, est_tokens}], tools_bytes, \
+                 total_est_tokens, context_window}.",
+            )],
+        },
         _ => ControllerSchema {
             namespace: "agent",
             function: "unknown",
