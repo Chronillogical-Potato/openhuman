@@ -14,6 +14,11 @@
 # dev-server-only `/__dev-connect` route (see `devConnectPlugin` in
 # `app/vite.config.ts`), which is where the browser is pointed first.
 #
+# Sign-in is one click: the OAuth buttons pass `<vite origin>/__dev-auth` as the
+# backend redirectUri (loopback URIs are accepted), and that route bounces the
+# returned token onto the `#/auth` callback. The session is stored in the core's
+# workspace, so later runs against the same workspace start signed in.
+#
 # Usage:
 #   pnpm dev:app:web                # start core + vite, open the browser
 #   pnpm dev:app:web --no-browser   # start both, just print the URL (for agents)
@@ -169,6 +174,7 @@ echo
 echo "[dev:web] ready"
 echo "[dev:web]   core : http://127.0.0.1:$core_port/rpc"
 echo "[dev:web]   open : $connect_url"
+echo "[dev:web]   sign in with one click on a provider; the session persists in the core workspace"
 echo
 
 if (( open_browser )); then
