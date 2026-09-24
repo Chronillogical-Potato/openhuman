@@ -12,6 +12,7 @@
  * `mockChatModel` for how that is scheduled.
  */
 import type { CoreCommand } from '../../../../features/conversations/aui/useSlashCommandSource';
+import type { ContextBreakdown } from '../../../../services/api/agentContextApi';
 import type { RecallResponse } from '../../../../utils/tauriCommands/memoryTree';
 
 /**
@@ -425,3 +426,32 @@ export const MOCK_THREAD_FILES = [
     description: 'artifacts/signed-contract.docx',
   },
 ] as const;
+
+/**
+ * The composer's context-usage ring for a thread mid-conversation: the last
+ * turn's orchestrator tokens (what `chat_done.usage` leaves in
+ * `usageByThread`) against the model's window.
+ */
+export const MOCK_CONTEXT_USAGE = {
+  modelContextWindow: 200_000,
+  usage: { totalTokens: 61_400, inputTokens: 58_200, outputTokens: 3_200 },
+} as const;
+
+/**
+ * An `openhuman.agent_context_breakdown` response for the same thread, as the
+ * core shapes it: one row per rendered prompt heading, one `tools` row and one
+ * `history` row. The breakdown popover renders it through the vendored
+ * context-breakdown element.
+ */
+export const MOCK_CONTEXT_BREAKDOWN: ContextBreakdown = {
+  sections: [
+    { label: '(preamble)', bytes: 2_400, est_tokens: 600 },
+    { label: '## Identity', bytes: 3_200, est_tokens: 800 },
+    { label: '## Tools and delegation', bytes: 9_600, est_tokens: 2_400 },
+    { label: '## Memory', bytes: 4_800, est_tokens: 1_200 },
+    { label: 'tools', bytes: 72_000, est_tokens: 18_000 },
+    { label: 'history', bytes: 154_000, est_tokens: 38_500 },
+  ],
+  total_est_tokens: 61_500,
+  context_window: 200_000,
+};
