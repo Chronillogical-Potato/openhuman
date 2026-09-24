@@ -8,6 +8,12 @@ import {
 import { ComposerTriggerPopover } from '@/components/assistant-ui/composer-trigger-popover';
 import { DirectiveText } from '@/components/assistant-ui/directive-text';
 import { DotMatrix } from '@/components/assistant-ui/dot-matrix';
+import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
+import {
+  ToolGroupContent,
+  ToolGroupRoot,
+  ToolGroupTrigger,
+} from '@/components/assistant-ui/elements/tool-group';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import { MessageTiming } from '@/components/assistant-ui/message-timing';
@@ -19,12 +25,6 @@ import {
 } from '@/components/assistant-ui/quote';
 import { Reasoning } from '@/components/assistant-ui/reasoning';
 import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
-import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
-import {
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-} from '@/components/assistant-ui/elements/tool-group';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';

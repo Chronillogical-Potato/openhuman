@@ -2510,13 +2510,7 @@ async fn json_rpc_thread_goal_and_todos_get_and_queue_remove_are_wired() {
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
 
-    let create = post_json_rpc(
-        &rpc_base,
-        9101,
-        "openhuman.threads_create_new",
-        json!({}),
-    )
-    .await;
+    let create = post_json_rpc(&rpc_base, 9101, "openhuman.threads_create_new", json!({})).await;
     let create_outer = assert_no_jsonrpc_error(&create, "threads_create_new");
     let thread_id = create_outer
         .get("data")

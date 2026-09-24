@@ -1465,7 +1465,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         // any runtime state below — those dispatches are what the partial and
         // the "already persisted?" check would otherwise be racing against.
         const stateBefore = store.getState();
-        const partial = stateBefore.chatRuntime.streamingAssistantByThread[event.thread_id]?.content ?? '';
+        const partial =
+          stateBefore.chatRuntime.streamingAssistantByThread[event.thread_id]?.content ?? '';
         const threadMessages = stateBefore.thread.messagesByThreadId[event.thread_id] ?? [];
         const alreadyStopped = event.request_id
           ? threadMessages.some(message => {
