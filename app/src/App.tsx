@@ -48,7 +48,7 @@ import {
   stopInternetStatusListener,
 } from './services/internetStatusListener';
 import { persistor, store } from './store';
-import { DEV_FORCE_ONBOARDING } from './utils/config';
+import { DEV_FORCE_ONBOARDING, DEV_SKIP_ONBOARDING } from './utils/config';
 import { installExternalLinkGuard } from './utils/externalLinkGuard';
 
 startNativeNotificationsService();
@@ -180,10 +180,30 @@ function AppShell() {
 export function AppShellDesktop() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { snapshot, isBootstrapping } = useCoreState();
+  const { snapshot, isBootstrapping, setOnboardingCompletedFlag } = useCoreState();
   const onOnboardingRoute = location.pathname.startsWith('/onboarding');
   const onboardingPending =
-    !!snapshot.sessionToken && (DEV_FORCE_ONBOARDING || !snapshot.onboardingCompleted);
+    !!snapshot.sessionToken &&
+    (DEV_FORCE_ONBOARDING || (!snapshot.onboardingCompleted && !DEV_SKIP_ONBOARDING));
+
+  // Dev-only auto-skip (`VITE_DEV_SKIP_ONBOARDING`): record completion in the
+  // core once per shell mount rather than just hiding the stepper, so state
+  // that keys off the core flag agrees with what the UI shows.
+  const devSkipRequestedRef = useRef(false);
+  useEffect(() => {
+    if (!DEV_SKIP_ONBOARDING || devSkipRequestedRef.current) return;
+    if (isBootstrapping || !snapshot.sessionToken || snapshot.onboardingCompleted) return;
+    devSkipRequestedRef.current = true;
+    console.debug('[onboarding-gate] dev skip: marking onboarding complete');
+    void setOnboardingCompletedFlag(true).catch(err =>
+      console.warn('[onboarding-gate] dev skip: could not mark onboarding complete', err)
+    );
+  }, [
+    isBootstrapping,
+    snapshot.sessionToken,
+    snapshot.onboardingCompleted,
+    setOnboardingCompletedFlag,
+  ]);
 
   // Onboarding gate: while `onboarding_completed=false`, force any non-
   // onboarding route back to `/onboarding`. Once completed, bounce the
