@@ -38,6 +38,7 @@ import {
   clearInferenceStatusForThread,
   clearPendingApprovalForThread,
   clearPendingPlanReviewForThread,
+  resolvePendingApprovalForThread,
   clearProcessingForThread,
   clearStreamingAssistantForThread,
   endInferenceTurn,

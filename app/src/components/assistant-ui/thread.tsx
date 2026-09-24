@@ -98,8 +98,12 @@ export type ThreadComponents = {
    * and the answer — as a single group. Defaults to `ActivityGroup`.
    */
   ActivityGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
-  /** Host-owned disclosure for the URL source parts emitted after an answer. */
-  SourceGroup?: ComponentType<{ sources: readonly SourceUrlPart[] }> | undefined;
+  /**
+   * Host-owned disclosure for the source parts emitted after an answer:
+   * `url` sources (web fetch/search) and `document` sources (memory
+   * citations, `sourceType: 'document'`).
+   */
+  SourceGroup?: ComponentType<{ sources: readonly SourceItemPart[] }> | undefined;
   /**
    * Extra controls in the composer's action row, to the right of the model
    * selector. A seam rather than a fixed set because what belongs there is
@@ -1226,21 +1230,30 @@ const MessageError: FC = () => {
   );
 };
 
-/** A URL `source` part, the only kind this app emits. */
-export type SourceUrlPart = { id: string; url: string; title?: string };
+/** A URL `source` part, e.g. a web fetch/search result. */
+export type SourceUrlPart = { id: string; sourceType: 'url'; url: string; title?: string };
+/** A document `source` part, e.g. a memory citation. */
+export type SourceDocumentPart = { id: string; sourceType: 'document'; title?: string };
+/** Either kind of `source` part this app emits. */
+export type SourceItemPart = SourceUrlPart | SourceDocumentPart;
 
 const selectMessageParts = (state: AssistantState) => state.message.parts;
 
-/** Gives the host all URL source parts represented by one grouped source node. */
-const SourceGroupSlot: FC<{ Component: ComponentType<{ sources: readonly SourceUrlPart[] }> }> = ({
+/** Gives the host all source parts (`url` and `document`) represented by one grouped source node. */
+const SourceGroupSlot: FC<{ Component: ComponentType<{ sources: readonly SourceItemPart[] }> }> = ({
   Component,
 }) => {
   const parts = useAuiState(selectMessageParts);
-  const sources = parts.flatMap(part =>
-    part.type === 'source' && part.sourceType === 'url'
-      ? [{ id: part.id, url: part.url, ...(part.title ? { title: part.title } : {}) }]
-      : []
-  );
+  const sources = parts.flatMap((part): SourceItemPart[] => {
+    if (part.type !== 'source') return [];
+    if (part.sourceType === 'url') {
+      return [{ id: part.id, sourceType: 'url', url: part.url, ...(part.title ? { title: part.title } : {}) }];
+    }
+    if (part.sourceType === 'document') {
+      return [{ id: part.id, sourceType: 'document', ...(part.title ? { title: part.title } : {}) }];
+    }
+    return [];
+  });
   return sources.length > 0 ? <Component sources={sources} /> : null;
 };
 
