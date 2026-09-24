@@ -44,6 +44,10 @@ struct ChildRun {
     /// Unix seconds the child was spawned at, from its stem.
     spawn_unix: Option<i64>,
     agent_id: Option<String>,
+    /// Spawn task id, when the transcript recorded one — the key the run
+    /// ledger's `AgentRunUpsert.id` uses, so it's also the key for the exact
+    /// `parentCallId` correlation in [`find_exact_spawning_call`].
+    task_id: Option<String>,
     item: DisplayItem,
     /// The child's own terminal evidence, before the spawning call is known.
     own_state: OwnState,
@@ -62,9 +66,10 @@ pub(super) fn attach(
     items: &mut Vec<DisplayItem>,
     sub_paths: &[PathBuf],
     segments: &[(String, i64)],
+    workspace_dir: Option<&Path>,
 ) {
     let children = build_children(sub_paths, None, 0);
-    place(items, children, segments);
+    place(items, children, segments, workspace_dir);
 }
 
 /// Project the direct children of `parent_stem` (or of the roots, when

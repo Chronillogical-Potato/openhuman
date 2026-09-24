@@ -2,13 +2,25 @@
 //!
 //! The tool itself is TinyAgents' `todos::TodoTool` (schema, argument
 //! validation, the whole-list write, markdown). This file is only the host
-//! adapter: it selects the session-scoped list for a turn and registers the
+//! adapter: it selects the thread-scoped list for a turn and registers the
 //! harness dispatch. Bad arguments must become a tool error, never a fatal
 //! harness error.
+//!
+//! **Scope key.** The list is keyed by the chat **thread id**
+//! (`ToolRunContext::thread_id`) rather than `ParentExecutionContext::session_id`
+//! — for the web channel, `session_id` is the `{client_id,thread_id}` JSON
+//! blob (`fork_context.rs`), which changes with the client and is not what
+//! `threads.todos_get` or the `thread_todos_changed` socket event key on. A
+//! thread id is stable across reconnects and matches every other thread-scoped
+//! surface (goals, turn state). Older lists written under the legacy
+//! `session_id` key before this change are found via a one-time fallback read
+//! (see [`current_scope`] / [`legacy_session_key`]) so an in-flight list isn't
+//! dropped by the rekey.
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
 use crate::agent::todos::ops::{self, TodoScope};
 use async_trait::async_trait;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tinyagents_graph::todos as graph_todos;
 use tinyagents_harness::context::RunContext;
@@ -17,6 +29,7 @@ use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunConte
 
 pub struct TodoTool {
     inner: graph_todos::TodoTool,
+    workspace_dir: PathBuf,
 }
 
 pub(crate) struct TodoToolDispatch {
@@ -51,16 +64,11 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for T
 }
 
 impl TodoTool {
-    pub fn new() -> Self {
+    pub fn new(workspace_dir: PathBuf) -> Self {
         Self {
-            inner: graph_todos::TodoTool::new(ops::store()),
+            inner: graph_todos::TodoTool::new(ops::store(&workspace_dir)),
+            workspace_dir,
         }
-    }
-}
-
-impl Default for TodoTool {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
