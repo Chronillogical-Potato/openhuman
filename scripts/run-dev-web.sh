@@ -111,7 +111,11 @@ core_pid=""
 vite_pid=""
 cleanup() {
   trap - EXIT INT TERM
-  [[ -n "$vite_pid" ]] && kill "$vite_pid" 2>/dev/null || true
+  # Vite runs in its own process group (see below); signal the whole group so
+  # the `pnpm` -> `node vite` grandchildren go too, not just the subshell.
+  if [[ -n "$vite_pid" ]]; then
+    kill -- "-$vite_pid" 2>/dev/null || kill "$vite_pid" 2>/dev/null || true
+  fi
   [[ -n "$core_pid" ]] && kill "$core_pid" 2>/dev/null || true
   wait 2>/dev/null || true
 }
@@ -155,8 +159,12 @@ export VITE_OPENHUMAN_CORE_RPC_URL="http://127.0.0.1:$core_port/rpc"
 export OPENHUMAN_DEV_PORT="$dev_port"
 
 echo "[dev:web] starting vite on :$dev_port"
-(cd "$REPO_ROOT/app" && pnpm dev) &
+# Job control gives the background job its own process group (pgid == pid),
+# which is what lets cleanup reach the node process pnpm spawns.
+set -m
+(cd "$REPO_ROOT/app" && exec pnpm dev) &
 vite_pid=$!
+set +m
 
 connect_url="http://localhost:$dev_port/__dev-connect"
 for _ in $(seq 1 60); do
