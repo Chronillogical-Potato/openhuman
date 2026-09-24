@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 use crate::core::all::RegisteredController;
 use crate::rpc::{unwrap_rpc, RpcOutcome};
 
-use super::types::{CommandEntry, CommandKind};
+use super::types::{CommandEntry, CommandKind, CommandsListResponse};
 
 /// Fixed slash commands the core itself understands. `(command, description)`;
 /// the leading `/` is part of the wire `label`/`insert` text, not the `id`.
