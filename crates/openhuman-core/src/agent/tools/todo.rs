@@ -57,7 +57,14 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for T
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let context = ToolExecutionContext::from_run_context(parent, call_id);
-        TodoTool::new()
+        let workspace_dir = match parent.data.parent.as_ref() {
+            Some(parent_ctx) => parent_ctx.workspace_dir.clone(),
+            None => crate::config::Config::load_or_init()
+                .await
+                .map(|c| c.workspace_dir)
+                .map_err(|e| anyhow::anyhow!("[tool][todo] load config: {e}"))?,
+        };
+        TodoTool::new(workspace_dir)
             .execute_with_parent_context(arguments, parent.data.parent.clone(), Some(&context))
             .await
     }

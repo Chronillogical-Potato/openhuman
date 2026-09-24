@@ -68,7 +68,7 @@ pub(super) fn attach(
     segments: &[(String, i64)],
     workspace_dir: Option<&Path>,
 ) {
-    let children = build_children(sub_paths, None, 0);
+    let children = build_children(sub_paths, None, 0, workspace_dir);
     place(items, children, segments, workspace_dir);
 }
 
