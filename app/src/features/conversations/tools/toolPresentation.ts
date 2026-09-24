@@ -331,6 +331,9 @@ export function describeToolCall(input: DescribeToolCallInput): ToolCallPresenta
   // 6. Composio action slug.
   const composio = matchComposioActionSlug(baseName);
   if (composio) {
+    // The action names what was done; the server detail (or the obvious
+    // argument, e.g. a recipient) names what it was done to.
+    const target = cleanDetail(serverDetail) ?? genericChip(args);
     return {
       baseName,
       icon: INTEGRATION_ICON,
@@ -340,7 +343,7 @@ export function describeToolCall(input: DescribeToolCallInput): ToolCallPresenta
       phrase: 'useApp',
       params: { app: composio.name },
       integration: { slug: composio.slug, name: composio.name, known: composio.known },
-      chip: composio.action,
+      chip: target ? truncateChip(`${composio.action} · ${target}`) : composio.action,
       source: 'integration',
     };
   }

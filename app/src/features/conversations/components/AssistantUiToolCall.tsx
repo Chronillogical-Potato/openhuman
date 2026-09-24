@@ -118,7 +118,12 @@ export function AssistantUiToolCallCard({
         ? t('conversations.tools.status.cancelled')
         : outcome === 'awaiting'
           ? t('conversations.tools.status.awaiting')
-          : undefined;
+          : running
+            ? t('conversations.tools.status.running')
+            : t('conversations.tools.status.done');
+  // Running and done are carried by the spinner / check; they stay readable
+  // to a screen reader. The states that need attention are spelled out.
+  const statusVisible = outcome !== 'success';
 
   const searchBody =
     presentation.body === 'webSearch'
@@ -164,13 +169,17 @@ export function AssistantUiToolCallCard({
       }
       meta={
         <>
-          {statusText ? (
-            <span
-              data-testid="tool-call-status"
-              className={outcome === 'awaiting' ? 'text-amber-600 dark:text-amber-400' : undefined}>
-              {statusText}
-            </span>
-          ) : null}
+          <span
+            data-testid="tool-call-status"
+            className={
+              !statusVisible || (running && outcome !== 'awaiting')
+                ? 'sr-only'
+                : outcome === 'awaiting'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : undefined
+            }>
+            {statusText}
+          </span>
           {elapsedMs != null && !running ? (
             <span data-testid="tool-call-elapsed" className="tabular-nums">
               {formatElapsed(elapsedMs)}

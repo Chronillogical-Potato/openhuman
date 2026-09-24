@@ -124,10 +124,10 @@ describe('SubagentActivityBlock', () => {
     expect(calls[0].textContent).toContain('Searched the web');
     expect(calls[0].textContent?.toLowerCase()).toContain('done');
     expect(calls[0].textContent).toContain('312ms');
-    expect(calls[1].textContent).toContain('Composio Execute');
+    expect(calls[1].textContent).toContain('Running app action');
     expect(calls[1].textContent?.toLowerCase()).toContain('running');
     expect(calls[1].textContent).not.toContain('·t2');
-    expect(calls[2].textContent).toContain('Reading file');
+    expect(calls[2].textContent).toContain('Read file');
     expect(calls[2].textContent?.toLowerCase()).toContain('failed');
     expect(calls[2].textContent).toContain('50ms');
   });
@@ -160,7 +160,9 @@ describe('SubagentActivityBlock', () => {
     expect(screen.queryByText(/"content"/)).not.toBeInTheDocument();
   });
 
-  it('infers a descriptive search label for a degraded subagent tool name', () => {
+  // A query argument alone no longer makes a call "Searched the web"; that
+  // heuristic mislabelled memory, tool and email searches.
+  it('labels a degraded subagent tool name honestly, keeping its query visible', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -179,7 +181,10 @@ describe('SubagentActivityBlock', () => {
       />
     );
 
-    expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent('Searched the web');
+    const call = screen.getByTestId('assistant-ui-tool-call');
+    expect(call).toHaveTextContent('Used tool');
+    expect(call).toHaveTextContent('world news');
+    expect(call).not.toHaveTextContent('Searched the web');
   });
 
   it('labels cancelled / awaiting-user calls distinctly (not the green "Done" pill)', () => {
@@ -204,7 +209,7 @@ describe('SubagentActivityBlock', () => {
     expect(calls[1].textContent?.toLowerCase()).not.toContain('done');
   });
 
-  it('prefers the server-supplied label + contextual detail for a child tool call', () => {
+  it('names a connected-app action by its app, with the server detail beside the action', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -223,8 +228,8 @@ describe('SubagentActivityBlock', () => {
       />
     );
     const row = screen.getByTestId('assistant-ui-tool-call');
-    expect(row.textContent).toContain('Reading messages');
-    expect(row.textContent).toContain('steven@gmail.com');
+    expect(row.textContent).toContain('Used Gmail');
+    expect(row.textContent).toContain('Read messages · steven@gmail.com');
     // Never the raw snake_case slug.
     expect(row.textContent).not.toContain('GMAIL_READ_MESSAGES');
   });
