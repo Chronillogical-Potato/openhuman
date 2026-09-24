@@ -477,6 +477,8 @@ impl ApprovalGate {
             args_redacted,
             thread_id: chat_thread_id.clone(),
             client_id: chat_client_id.clone(),
+            tool_call_id: None,
+            expires_at: None,
         });
 
         // Flow-origin surface bridge (flow-approval-surface, PR3): a flow run
