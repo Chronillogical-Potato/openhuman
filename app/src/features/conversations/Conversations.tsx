@@ -1380,7 +1380,16 @@ const Conversations = ({
           addInferenceResponse({
             content: partial,
             threadId,
-            extraMetadata: { stopped: true, ...(requestId ? { requestId } : {}) },
+            // `cancelReason: 'user_stop'` is what the vendored `StoppedRun`
+            // element's reason chip reads (`thread.tsx`'s `StoppedRunSlot`);
+            // this is the user-initiated Stop path, as opposed to the core
+            // superseding the turn (`chat_cancelled{cancel_reason:
+            // "superseded"}`, handled in `ChatRuntimeProvider`).
+            extraMetadata: {
+              stopped: true,
+              cancelReason: 'user_stop',
+              ...(requestId ? { requestId } : {}),
+            },
           })
         ).then(() => debug('[chat] stop generation: persisted stopped reply thread=%s', threadId));
       }
