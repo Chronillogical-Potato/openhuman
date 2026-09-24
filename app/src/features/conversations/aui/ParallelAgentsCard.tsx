@@ -18,7 +18,6 @@
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 
 import { type SubagentItem, SubagentList } from '../../../components/assistant-ui/elements/subagent-list';
-import { formatElapsed } from '../../../components/assistant-ui/utils/task';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import { isActiveTimelineStatus, selectSubagentChildrenByParentCallId } from '../../../store/chatRuntimeSlice';
