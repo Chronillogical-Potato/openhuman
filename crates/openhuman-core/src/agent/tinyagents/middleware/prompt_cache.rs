@@ -122,11 +122,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             // Content-derived, so a guard reading it before dispatch sees a
             // system-prompt or tool-schema edit; the crate recomputes it from
             // the final bytes at dispatch.
-            let system_messages: Vec<&TaMessage> = request
-                .messages
-                .iter()
-                .filter(|m| matches!(m, TaMessage::System(_)))
-                .collect();
+            // Steering nudges and other runtime notes may be System messages
+            // after the first user turn. They belong to the changing history,
+            // not to the cacheable leading system tiers declared above.
+            let system_messages: Vec<&TaMessage> =
+                request.messages.iter().take(leading_system).collect();
             request.prompt_fingerprint = Some(stable_prefix_fingerprint(&serde_json::json!({
                 "system": system_messages,
                 "tools": &request.tools,

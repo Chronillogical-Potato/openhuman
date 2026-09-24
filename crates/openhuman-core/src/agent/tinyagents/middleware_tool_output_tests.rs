@@ -261,6 +261,37 @@ async fn prompt_cache_segments_are_stable_across_a_threads_turns() {
 }
 
 #[tokio::test]
+async fn prompt_cache_segments_ignore_system_nudges_after_the_user_turn() {
+    let mw = PromptCacheSegmentMiddleware;
+    let tools = vec![ToolSchema::new(
+        "shell",
+        "run a command",
+        json!({"type": "object"}),
+    )];
+    let prefix = vec![
+        TaMessage::system("stable"),
+        TaMessage::system("context"),
+        TaMessage::user("work on this"),
+    ];
+    let mut before = ModelRequest::new(prefix.clone()).with_tools(tools.clone());
+    let mut after = ModelRequest::new(
+        prefix
+            .into_iter()
+            .chain([TaMessage::system(
+                "[no progress since step 4] change strategy",
+            )])
+            .collect(),
+    )
+    .with_tools(tools);
+
+    mw.before_model(&mut ctx(), &(), &mut before).await.unwrap();
+    mw.before_model(&mut ctx(), &(), &mut after).await.unwrap();
+
+    assert_eq!(before.cache_segments, after.cache_segments);
+    assert_eq!(before.prompt_fingerprint, after.prompt_fingerprint);
+}
+
+#[tokio::test]
 async fn prompt_cache_segments_name_each_system_tier_and_skip_tools_under_a_text_dialect() {
     // Two leading system messages (stable+context, then volatile) are two
     // segments named the way the harness's `refresh_prompt_cache_fingerprint`
