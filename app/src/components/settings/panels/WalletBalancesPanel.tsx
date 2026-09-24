@@ -214,7 +214,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
         <div className="flex justify-start gap-4 pr-2">
           <button
             type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface dark:bg-white/5 border border-line hover:bg-surface-hover dark:hover:bg-white/10 group outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 hover:scale-105 active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface dark:bg-content-inverted/5 border border-line hover:bg-surface-hover dark:hover:bg-content-inverted/10 group outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 hover:scale-105 active:scale-95"
             onClick={() => onSend(balance)}
             data-testid={`wallet-send-${balanceKey(balance)}`}
             aria-label={t('walletBalances.send')}>
@@ -236,7 +236,7 @@ const BalanceRow = ({ balance, onSend, onReceive }: BalanceRowProps) => {
           </button>
           <button
             type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface dark:bg-white/5 border border-line hover:bg-surface-hover dark:hover:bg-white/10 group outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 hover:scale-105 active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface dark:bg-content-inverted/5 border border-line hover:bg-surface-hover dark:hover:bg-content-inverted/10 group outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 hover:scale-105 active:scale-95"
             onClick={() => onReceive(balance)}
             data-testid={`wallet-receive-${balanceKey(balance)}`}
             aria-label={t('walletBalances.receive')}>
@@ -280,7 +280,7 @@ const ChainPlaceholderRow = ({
   const { t } = useT();
 
   return (
-    <TableRow className="hover:bg-white/5 opacity-70 group">
+    <TableRow className="hover:bg-content-inverted/5 opacity-70 group">
       <TableCell className="whitespace-nowrap px-4">
         <div className="flex items-center gap-3">
           <ChainIcon chain={chain} evmNetwork={evmNetwork} />
