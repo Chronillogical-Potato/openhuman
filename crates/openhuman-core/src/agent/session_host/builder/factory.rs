@@ -113,7 +113,7 @@ impl OpenHumanSessionHost {
                 .unwrap_or(config.default_temperature)
         );
 
-        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false, None)
+        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false, None, None)
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -135,7 +135,7 @@ impl OpenHumanSessionHost {
             definition.id,
             definition.sandbox_mode,
         );
-        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, None)
+        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, None, None)
     }
 
     /// [`Self::from_config_with_definition`], plus a belt the host supplies
@@ -156,12 +156,18 @@ impl OpenHumanSessionHost {
     /// # Errors
     ///
     /// As [`Self::from_config_with_definition`].
+    ///
+    /// `session_id` is the conversation the turn will run in, when the caller
+    /// named one. It reaches the factory as [`TurnContext::session_id`] and is
+    /// the only thing that lets a belt differ per conversation rather than per
+    /// agent; pass `None` where no session is named yet.
     pub fn from_config_with_host_tools(
         config: &Config,
         definition: &crate::agent::harness::definition::AgentDefinition,
         host: &super::HostTools,
+        session_id: Option<&str>,
     ) -> Result<Self> {
-        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, Some(host))
+        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, Some(host), session_id)
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -180,6 +186,7 @@ impl OpenHumanSessionHost {
         target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
         read_only_tools_only: bool,
         host: Option<&super::HostTools>,
+        session_id: Option<&str>,
     ) -> Result<Self> {
         let workspace_descriptor = derive_turn_workspace_descriptor();
 
@@ -1025,7 +1032,9 @@ impl OpenHumanSessionHost {
         // a config-derived one: the host asked for this object specifically,
         // and `dedup_visible_tool_specs` keeps the first occurrence, so the
         // advertised spec must be the one that will actually run.
-        let host_policy = match host.map(|build| build()) {
+        let host_policy = match host.map(|build| {
+            build(super::host_tools::TurnContext::new(agent_id, session_id))
+        }) {
             Some(host_tools) if !host_tools.is_empty() => {
                 log::debug!(
                     "[agent::builder] host supplied {} tool(s) for agent_id={agent_id}: {:?}",

@@ -102,6 +102,17 @@ pub enum AgentChatTarget<'a> {
         ///
         /// `None` leaves resume untouched, which is every existing caller.
         seed: Option<&'a [(String, String)]>,
+        /// Where to report what the turn spent.
+        ///
+        /// An out-parameter because this is the only target that can fill it:
+        /// the turn runs in-process here, so the session that counted the
+        /// tokens is still in hand when it ends. The other two answer over
+        /// `AGENT_CHAT`, whose reply is a string.
+        ///
+        /// Written whether the turn succeeded or failed -- a turn that ended
+        /// badly still spent what it spent, and a host that meters only
+        /// successes bills nothing for the ones that cost most.
+        usage: Option<&'a std::sync::Mutex<Option<crate::agent::tinyagents::host::LastTurnUsage>>>,
     },
 }
 
@@ -117,11 +128,13 @@ impl std::fmt::Debug for AgentChatTarget<'_> {
                 definition,
                 host,
                 seed,
+                usage,
             } => f
                 .debug_struct("Definition")
                 .field("definition", &definition.id)
                 .field("host_tools", &host.is_some())
                 .field("seed_rows", &seed.map_or(0, <[(String, String)]>::len))
+                .field("meters", &usage.is_some())
                 .finish(),
         }
     }
@@ -130,6 +143,7 @@ impl std::fmt::Debug for AgentChatTarget<'_> {
 fn build_turn_agent(
     config: &Config,
     target: &AgentChatTarget<'_>,
+    session_id: Option<&str>,
 ) -> Result<OpenHumanSessionHost, String> {
     match target {
         AgentChatTarget::Orchestrator => OpenHumanSessionHost::from_config(config),
@@ -140,9 +154,9 @@ fn build_turn_agent(
         AgentChatTarget::Definition {
             definition, host, ..
         } => match host {
-            Some(host) => {
-                OpenHumanSessionHost::from_config_with_host_tools(config, definition, host)
-            }
+            Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
+                config, definition, host, session_id,
+            ),
             None => OpenHumanSessionHost::from_config_with_definition(config, definition),
         },
     }
@@ -188,6 +202,13 @@ pub async fn agent_chat_for(
     if let Some(route) = route {
         crate::config::schema::ephemeral_route::apply(config, route);
     }
+    // The conversation this turn runs in, normalised once: the factory below is
+    // told the same id `set_thread_id` will bind, so a belt keyed on the
+    // session cannot disagree with the session it is built for.
+    let turn_session_id = thread_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty());
     let turn_cwd = resolve_turn_cwd(cwd)?;
     let mut agent = match turn_cwd.as_ref() {
         // Per-turn root. Building from a config clone whose `action_dir` is the
@@ -206,14 +227,14 @@ pub async fn agent_chat_for(
                 "[inference] agent_chat rooting turn tools at cwd={}",
                 root.display()
             );
-            let mut agent = build_turn_agent(&scoped, &target)?;
+            let mut agent = build_turn_agent(&scoped, &target, turn_session_id)?;
             // Also thread it as the turn's workspace descriptor so acting tools
             // that read `ToolExecutionContext::workspace` (shell) resolve their
             // default cwd here, and so spawned sub-agents inherit the same root.
             agent.set_workspace_descriptor(Some(tinytools::WorkspaceDescriptor::new(root.clone())));
             agent
         }
-        None => build_turn_agent(config, &target)?,
+        None => build_turn_agent(config, &target, turn_session_id)?,
     };
     // Thread-correct resume. `OpenHumanSessionHost::turn` would otherwise auto-load the
     // newest transcript for the agent *name*, which is another thread's
@@ -280,7 +301,16 @@ pub async fn agent_chat_for(
         effective_agent_chat_origin(),
         agent.run_single(message),
     );
-    let response = run.await.map_err(|e| e.to_string())?;
+    let outcome = run.await;
+    // Before the `?`. A turn that failed still spent what it spent, and the
+    // session that counted it is about to go out of scope with the error.
+    if let AgentChatTarget::Definition {
+        usage: Some(sink), ..
+    } = target
+    {
+        *sink.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = agent.last_turn_usage();
+    }
+    let response = outcome.map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(response, "agent chat completed"))
 }
 

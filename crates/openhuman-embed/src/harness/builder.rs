@@ -129,7 +129,10 @@ impl HarnessBuilder {
     #[must_use]
     pub fn tools(
         mut self,
-        f: impl Fn() -> openhuman_core::agent::HostTurnTools + Send + Sync + 'static,
+        f: impl for<'a> Fn(openhuman_core::agent::TurnContext<'a>) -> openhuman_core::agent::HostTurnTools
+            + Send
+            + Sync
+            + 'static,
     ) -> Self {
         self.host_tools = Some(std::sync::Arc::new(f));
         self

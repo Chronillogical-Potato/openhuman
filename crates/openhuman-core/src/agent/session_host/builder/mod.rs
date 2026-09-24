@@ -15,7 +15,7 @@ mod helpers;
 mod host_tools;
 mod setters;
 
-pub use host_tools::{HostTools, HostTurnTools};
+pub use host_tools::{HostTools, HostTurnTools, TurnContext};
 
 #[cfg(test)]
 mod builder_tests;

@@ -46,7 +46,7 @@ fn definition() -> crate::agent::harness::definition::AgentDefinition {
 fn a_host_tool_is_on_the_belt_and_advertised() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let host: crate::agent::HostTools = Arc::new(|| {
+    let host: crate::agent::HostTools = Arc::new(|_| {
         crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_marker_tool"))])
     });
 
@@ -54,6 +54,7 @@ fn a_host_tool_is_on_the_belt_and_advertised() {
         &config,
         &definition(),
         &host,
+        None,
     )
     .expect("build a session with a host belt");
 
@@ -78,7 +79,7 @@ fn the_factory_runs_once_per_session_build() {
     let calls = Arc::new(AtomicUsize::new(0));
     let host: crate::agent::HostTools = {
         let calls = Arc::clone(&calls);
-        Arc::new(move || {
+        Arc::new(move |_| {
             calls.fetch_add(1, Ordering::SeqCst);
             crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_marker_tool"))])
         })
@@ -89,6 +90,7 @@ fn the_factory_runs_once_per_session_build() {
             &config,
             &definition(),
             &host,
+            None,
         )
         .expect("build a session with a host belt");
     }
@@ -116,5 +118,78 @@ fn no_host_belt_leaves_the_advertised_set_alone() {
             .iter()
             .any(|spec| spec.name == "oc_marker_tool"),
         "nothing should advertise a host tool that was never supplied"
+    );
+}
+
+/// The factory is told which conversation it is building for.
+///
+/// Without this a host keying its belt on the chat has to read the occasion
+/// out of state it closed over, which is correct only while the agent serves
+/// one conversation at a time. Two at once and that state is a race, so the
+/// occasion has to arrive as an argument.
+#[test]
+fn the_factory_is_told_the_session_it_is_building_for() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let seen = Arc::new(std::sync::Mutex::new(Vec::<(String, Option<String>)>::new()));
+
+    let host: crate::agent::HostTools = {
+        let seen = Arc::clone(&seen);
+        Arc::new(move |turn: crate::agent::TurnContext<'_>| {
+            seen.lock().unwrap().push((
+                turn.agent_id().to_owned(),
+                turn.session_id().map(str::to_owned),
+            ));
+            // The belt itself varies with the occasion, which is the point.
+            let name = match turn.session_id() {
+                Some("desk:eng") => "oc_desk_tool",
+                _ => "oc_plain_tool",
+            };
+            crate::agent::HostTurnTools::advertised(vec![Box::new(Marker(name))])
+        })
+    };
+
+    let desked = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
+        &config,
+        &definition(),
+        &host,
+        Some("desk:eng"),
+    )
+    .expect("build a session for a named conversation");
+
+    assert!(
+        desked
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "oc_desk_tool"),
+        "the belt must be able to differ per conversation"
+    );
+
+    let unnamed = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
+        &config,
+        &definition(),
+        &host,
+        None,
+    )
+    .expect("build a session with no conversation named");
+
+    assert!(
+        unnamed
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == "oc_plain_tool"),
+        "an unnamed turn is a case the host decides, not one it cannot observe"
+    );
+
+    let seen = seen.lock().unwrap();
+    assert_eq!(
+        seen.iter()
+            .map(|(agent, session)| (agent.as_str(), session.as_deref()))
+            .collect::<Vec<_>>(),
+        vec![
+            (definition().id.as_str(), Some("desk:eng")),
+            (definition().id.as_str(), None),
+        ],
+        "the factory is told the agent every time, and the session when one was named"
     );
 }

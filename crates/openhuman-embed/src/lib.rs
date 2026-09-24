@@ -70,7 +70,8 @@ pub use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
 // The seam `AgentSpec::tools` needs: the belt types, and `Tool` itself from the
 // vendored tinytools. An embedder that took `tinytools` as its own dependency
 // would build tools of a different, incompatible type.
-pub use openhuman_core::agent::{HostTools, HostTurnTools};
+pub use openhuman_core::agent::tinyagents::host::LastTurnUsage;
+pub use openhuman_core::agent::{HostTools, HostTurnTools, TurnContext};
 pub use openhuman_core::tools::Tool;
 pub use openhuman_core::{
     CoreBuilder, CoreRuntime, DaemonConfig, DomainSet, HostKind, ServiceSet, TokenSource,

@@ -196,7 +196,10 @@ impl TurnRequest {
 }
 
 /// What one turn produced.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Not `Eq`: [`usage`](Self::usage) carries a cost in dollars, and a float has
+/// no total equality. Compare the fields that matter to you.
+#[derive(Debug, Clone, PartialEq)]
 pub struct TurnOutcome {
     /// The assistant's final text.
     pub reply: String,
@@ -204,6 +207,18 @@ pub struct TurnOutcome {
     /// was supplied, otherwise the one minted for it. Pass it to the next
     /// [`Turn::session`] to continue the conversation.
     pub session_id: String,
+    /// What the turn spent: tokens, cost, context window, and any synchronous
+    /// children it ran.
+    ///
+    /// A host that meters its agents needs this at the only moment it exists --
+    /// when the turn ends -- and it is reported for a failed turn too, because
+    /// a turn that ended badly still spent what it spent.
+    ///
+    /// `None` when the turn ran against a caller-built runtime's orchestrator
+    /// rather than a runtime-owned [`Agent`](crate::Agent): that path answers
+    /// over `AGENT_CHAT`, whose reply is a string, so there is nothing to
+    /// report from. `None` also when the session reported nothing at all.
+    pub usage: Option<openhuman_core::agent::tinyagents::host::LastTurnUsage>,
 }
 
 /// Where a [`Turn`] is dispatched.
@@ -402,7 +417,11 @@ impl Turn {
             }
         }
 
-        let dispatch = dispatch(self.target, self.request, self.seed.take());
+        // Filled by the turn itself, before any error is raised, so a failed
+        // turn is still metered. Read back below whether the dispatch returned
+        // a reply or an error.
+        let usage: UsageSink = std::sync::Mutex::new(None);
+        let dispatch = dispatch(self.target, self.request, self.seed.take(), &usage);
 
         let reply = match (self.origin, self.progress) {
             (Some(origin), Some(sink)) => {
@@ -444,7 +463,13 @@ impl Turn {
             reply.len()
         );
 
-        Ok(TurnOutcome { reply, session_id })
+        Ok(TurnOutcome {
+            reply,
+            session_id,
+            usage: usage
+                .into_inner()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        })
     }
 }
 
@@ -456,10 +481,13 @@ impl Turn {
 /// target reaches `agent_chat_for` natively under the agent's own context —
 /// the definition it carries cannot travel as JSON — so it applies the
 /// DomainSet gate itself before touching the core.
+type UsageSink = std::sync::Mutex<Option<openhuman_core::agent::tinyagents::host::LastTurnUsage>>;
+
 async fn dispatch(
     target: TurnTarget,
     request: TurnRequest,
     seed: Option<Vec<(String, String)>>,
+    usage: &UsageSink,
 ) -> Result<String, CoreError> {
     match target {
         TurnTarget::Runtime(rt) => {
@@ -498,6 +526,7 @@ async fn dispatch(
                     definition: &inner.definition,
                     host: inner.host_tools.as_ref(),
                     seed: seed.as_deref(),
+                    usage: Some(usage),
                 };
                 agent_chat_for(
                     &mut config,

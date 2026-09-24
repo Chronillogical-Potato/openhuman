@@ -90,6 +90,53 @@ impl std::fmt::Debug for HostTurnTools {
     }
 }
 
+/// What the turn being built is, as far as a host's tool factory needs to know.
+///
+/// A belt that varies has to vary on *something*. Without this the factory is
+/// called with no argument and has to infer its own occasion from state it
+/// closed over, which works only while the agent serves one conversation at a
+/// time -- the moment it serves two, a belt bound to "the current episode" is
+/// a race rather than a decision.
+///
+/// Non-exhaustive: this describes an occasion, and occasions gain detail.
+/// Construct it with [`TurnContext::new`] and read it through the accessors so
+/// a later field cannot break a host that matched on it.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct TurnContext<'a> {
+    agent_id: &'a str,
+    session_id: Option<&'a str>,
+}
+
+impl<'a> TurnContext<'a> {
+    /// The turn's occasion: which agent, and which conversation if one was named.
+    #[must_use]
+    pub fn new(agent_id: &'a str, session_id: Option<&'a str>) -> Self {
+        Self {
+            agent_id,
+            session_id,
+        }
+    }
+
+    /// The agent definition this turn runs as.
+    #[must_use]
+    pub fn agent_id(&self) -> &'a str {
+        self.agent_id
+    }
+
+    /// The conversation this turn runs in, as the caller named it.
+    ///
+    /// `None` when no session was named -- a one-shot turn, or a path that
+    /// mints an id only after the session is built. A host keying its belt on
+    /// this should decide what an unnamed turn gets rather than assume it
+    /// cannot happen.
+    #[must_use]
+    pub fn session_id(&self) -> Option<&'a str> {
+        self.session_id
+    }
+}
+
 /// Builds one turn's host belt. Invoked once per session build, so a host may
-/// return a different belt each time.
-pub type HostTools = Arc<dyn Fn() -> HostTurnTools + Send + Sync>;
+/// return a different belt each time -- see [`TurnContext`] for what it is told
+/// about the turn it is building for.
+pub type HostTools = Arc<dyn for<'a> Fn(TurnContext<'a>) -> HostTurnTools + Send + Sync>;

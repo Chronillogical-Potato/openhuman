@@ -227,16 +227,30 @@ impl AgentSpec {
     /// thread will be described by the prompt that thread opened with. Vary a
     /// belt only on turns that run on a session of their own.
     ///
+    /// # What the factory is told
+    ///
+    /// `f` receives a [`TurnContext`](openhuman_core::agent::TurnContext): the
+    /// agent, and the conversation the turn runs in when the caller named one
+    /// with [`Turn::session`](crate::Turn::session). A belt that varies has to
+    /// vary on something, and without this the factory would have to infer its
+    /// own occasion from state it closed over -- which holds only while the
+    /// agent serves one conversation at a time. The moment it serves two, a
+    /// belt bound to "the current episode" is a race rather than a decision.
+    ///
     /// ```no_run
     /// use openhuman_embed::{AgentSpec, HostTurnTools, Tool};
     ///
-    /// # fn belt() -> Vec<Box<dyn Tool>> { Vec::new() }
-    /// let spec = AgentSpec::new("reviewer").tools(|| HostTurnTools::advertised(belt()));
+    /// # fn belt_for(_chat: Option<&str>) -> Vec<Box<dyn Tool>> { Vec::new() }
+    /// let spec = AgentSpec::new("reviewer")
+    ///     .tools(|turn| HostTurnTools::advertised(belt_for(turn.session_id())));
     /// ```
     #[must_use]
     pub fn tools(
         mut self,
-        f: impl Fn() -> openhuman_core::agent::HostTurnTools + Send + Sync + 'static,
+        f: impl for<'a> Fn(openhuman_core::agent::TurnContext<'a>) -> openhuman_core::agent::HostTurnTools
+            + Send
+            + Sync
+            + 'static,
     ) -> Self {
         self.host_tools = Some(std::sync::Arc::new(f));
         self
