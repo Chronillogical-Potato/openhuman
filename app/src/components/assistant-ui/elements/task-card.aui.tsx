@@ -20,6 +20,10 @@
  * - `./tool-fallback.aui` -> `./tool-fallback` (this app vendored the
  *   `tool-fallback` registry item's `.aui` content directly under that
  *   filename, without a plain/`.aui` split).
+ * - The hard-coded role tag (`instruction`/`agent`/`system`) and `TaskGroup`
+ *   summary/"Show N more" copy are now `roleLabels`/`strings` props (English
+ *   defaults matching upstream) so a host can supply `useT()`-sourced copy —
+ *   see `SubagentTaskCard.tsx`'s `TaskTranscript` call.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
@@ -254,7 +258,7 @@ export const TaskGroup: FC<{
           data-slot="aui_task-group-more"
           onClick={() => setVisible(count => count + TASK_PAGE_SIZE)}
           className="text-muted-foreground hover:text-foreground w-fit px-1 text-xs transition-colors">
-          Show {Math.min(hidden, TASK_PAGE_SIZE)} more
+          {strings.showMore(Math.min(hidden, TASK_PAGE_SIZE))}
         </button>
       )}
     </div>
