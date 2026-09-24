@@ -592,7 +592,7 @@ pub async fn finalize_artifact(
         thread_id,
         client_id,
         tool_call_id: meta.tool_call_id.clone(),
-        request_id: None,
+        request_id,
     });
     Ok(meta)
 }
