@@ -315,7 +315,17 @@ const Conversations = ({
     labelKey: 'conversations.agentTaskInsights.viewProcessSource',
     group: 'Chat',
     handler: () => setShowProcessSource(true),
-    enabled: () => selectedThreadId !== null && composer !== 'mic-cloud',
+    enabled: () => {
+      if (selectedThreadId === null || composer === 'mic-cloud') return false;
+      return (
+        (toolTimelineByThread[selectedThreadId]?.length ?? 0) > 0 ||
+        (processingByThread[selectedThreadId]?.length ?? 0) > 0 ||
+        Object.values(turnTimelinesByThread[selectedThreadId] ?? {}).some(entries => entries.length > 0) ||
+        Object.values(turnTranscriptsByThread[selectedThreadId] ?? {}).some(
+          transcript => transcript.length > 0
+        )
+      );
+    },
     keywords: ['agent', 'process', 'source', 'timeline', 'run'],
   });
   const [inputMode, setInputMode] = useState<InputMode>('text');
@@ -397,10 +407,12 @@ const Conversations = ({
   // behaviour stays intact.
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
+  const turnTimelinesByThread = useAppSelector(state => state.chatRuntime.turnTimelinesByThread);
   const interruptedAssistantByThread = useAppSelector(
     state => state.chatRuntime.interruptedAssistantByThread
   );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
+  const turnTranscriptsByThread = useAppSelector(state => state.chatRuntime.turnTranscriptsByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
   );
@@ -1827,6 +1839,22 @@ const Conversations = ({
   const selectedThreadProcessing = selectedThreadId
     ? (processingByThread[selectedThreadId] ?? EMPTY_PROCESSING)
     : EMPTY_PROCESSING;
+  // The command-palette panel describes the whole selected conversation, not
+  // only a currently streaming turn. Settled trails are stored per-turn, so
+  // combine them with live data here instead of opening an empty panel after a
+  // thread is reloaded.
+  const selectedThreadProcessSourceEntries = selectedThreadId
+    ? [
+        ...Object.values(turnTimelinesByThread[selectedThreadId] ?? {}).flat(),
+        ...selectedThreadToolTimeline,
+      ]
+    : EMPTY_TOOL_TIMELINE;
+  const selectedThreadProcessSourceTranscript = selectedThreadId
+    ? [
+        ...Object.values(turnTranscriptsByThread[selectedThreadId] ?? {}).flat(),
+        ...selectedThreadProcessing,
+      ]
+    : EMPTY_PROCESSING;
   // Detached background sub-agents (mode === 'async') spawned in this thread.
   // Kept here (in addition to ChatThreadView's own copy) because the header's
   // background-processes badge needs the count/status without reaching into
@@ -2728,8 +2756,8 @@ const Conversations = ({
           overlay, positioned against the viewport. */}
       <TranscriptOverlays
         threadId={selectedThreadId ?? null}
-        entries={selectedThreadToolTimeline}
-        transcript={selectedThreadProcessing}
+        entries={selectedThreadProcessSourceEntries}
+        transcript={selectedThreadProcessSourceTranscript}
         backgroundProcesses={backgroundProcesses}
         showBackgroundProcesses={showBackgroundProcesses}
         onCloseBackgroundProcesses={() => setShowBackgroundProcesses(false)}

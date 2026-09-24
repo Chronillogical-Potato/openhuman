@@ -496,7 +496,7 @@ describe('formatter null-safety (malformed / legacy snapshot guard)', () => {
 
 describe('extractAgentSources', () => {
   const source = (id: string, url: string): ToolTimelineEntry =>
-    entry({ id, name: 'web_fetch', argsBuffer: JSON.stringify({ url }) });
+    entry({ id, name: 'web_fetch', status: 'success', argsBuffer: JSON.stringify({ url }) });
 
   it('surfaces http(s) sources with hostname titles, deduped in first-seen order', () => {
     const out = extractAgentSources([
@@ -524,6 +524,19 @@ describe('extractAgentSources', () => {
     expect(
       extractAgentSources([
         entry({ id: 'g', name: 'grep', argsBuffer: JSON.stringify({ url: 'https://x.com' }) }),
+      ])
+    ).toEqual([]);
+  });
+
+  it('does not present an unsuccessful fetch as a visited source', () => {
+    expect(
+      extractAgentSources([
+        entry({
+          id: 'failed',
+          name: 'web_fetch',
+          status: 'error',
+          argsBuffer: JSON.stringify({ url: 'https://unreachable.example.com' }),
+        }),
       ])
     ).toEqual([]);
   });
