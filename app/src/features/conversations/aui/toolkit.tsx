@@ -6,6 +6,7 @@ import {
 import { useMemo } from 'react';
 
 import { SubagentCall } from '../components/ChatToolParts';
+import { DocumentArtifactCall, MediaGenerationCall } from './MediaAndDocumentCalls';
 
 /**
  * One assistant-ui toolkit entry.
