@@ -707,6 +707,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     toolArgsDelta: 'tool_args_delta',
     proactiveMessage: 'proactive_message',
     approvalRequest: 'approval_request',
+    approvalDecided: 'approval_decided',
     planReviewRequest: 'plan_review_request',
     artifactPending: 'artifact_pending',
     artifactReady: 'artifact_ready',
