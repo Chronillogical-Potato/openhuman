@@ -60,37 +60,39 @@ export function PlanReviewCardCore({
   const todos = useThreadTodos(threadId);
   const [revising, setRevising] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [deciding, setDeciding] = useState<Decision | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Only for the "Revise" feedback box, which sends its decision outside
+  // `ApprovalCardAdapter` (its Deny/Allow-once buttons already track their
+  // own deciding/error state internally). Approve/reject busy+error UI comes
+  // entirely from the adapter now.
+  const [revisingBusy, setRevisingBusy] = useState(false);
+  const [revisingError, setRevisingError] = useState<string | null>(null);
 
   const matched = activeIndexFromTodos(review.steps, todos);
   const activeIndex = matched === null ? 0 : matched;
 
+  /** Sends the decision; rethrows on failure so each caller shows its own busy/error UI. */
   const decide = useCallback(
     async (decision: Decision, feedbackText?: string) => {
-      if (deciding) return;
-      setDeciding(decision);
-      setErrorMsg(null);
-      try {
-        await callCoreRpc({
-          method: 'openhuman.plan_review_decide',
-          params: { request_id: review.requestId, decision, feedback: feedbackText },
-        });
-        dispatch(clearPendingPlanReviewForThread({ threadId }));
-      } catch (e) {
-        log('plan_review_decide failed: %o', e);
-        setErrorMsg(t('chat.approval.error'));
-        setDeciding(null);
-      }
+      await callCoreRpc({
+        method: 'openhuman.plan_review_decide',
+        params: { request_id: review.requestId, decision, feedback: feedbackText },
+      });
+      dispatch(clearPendingPlanReviewForThread({ threadId }));
     },
-    [deciding, dispatch, review.requestId, t, threadId]
+    [dispatch, review.requestId, threadId]
   );
 
   const submitFeedback = useCallback(() => {
     const trimmed = feedback.trim();
-    if (!trimmed) return;
-    void decide('revise', trimmed);
-  }, [decide, feedback]);
+    if (!trimmed || revisingBusy) return;
+    setRevisingBusy(true);
+    setRevisingError(null);
+    decide('revise', trimmed).catch(e => {
+      log('plan_review_decide(revise) failed: %o', e);
+      setRevisingError(t('chat.approval.error'));
+      setRevisingBusy(false);
+    });
+  }, [decide, feedback, revisingBusy, t]);
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-3" data-testid="plan-review-card">
@@ -99,8 +101,6 @@ export function PlanReviewCardCore({
         activeIndex={activeIndex}
         title={t('conversations.planReview.title')}
       />
-
-      {errorMsg && <p className="text-xs text-red-600 dark:text-red-400">{errorMsg}</p>}
 
       <ApprovalCardAdapter<Decision>
         ariaLabel={t('conversations.planReview.title')}
