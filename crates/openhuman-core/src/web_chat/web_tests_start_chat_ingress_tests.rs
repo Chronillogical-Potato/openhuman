@@ -14,7 +14,7 @@ async fn start_chat_validates_required_fields() {
     )
     .await
     .expect_err("client id should be required");
-    assert!(err.contains("client_id is required"));
+    assert!(err.to_string().contains("client_id is required"));
 
     let err = start_chat(
         "client",
@@ -28,7 +28,7 @@ async fn start_chat_validates_required_fields() {
     )
     .await
     .expect_err("thread id should be required");
-    assert!(err.contains("thread_id is required"));
+    assert!(err.to_string().contains("thread_id is required"));
 
     let err = start_chat(
         "client",
@@ -42,7 +42,7 @@ async fn start_chat_validates_required_fields() {
     )
     .await
     .expect_err("message should be required");
-    assert!(err.contains("message is required"));
+    assert!(err.to_string().contains("message is required"));
 }
 
 #[tokio::test]
