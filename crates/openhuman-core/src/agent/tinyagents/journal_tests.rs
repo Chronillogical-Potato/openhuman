@@ -32,6 +32,7 @@ async fn journal_persists_and_replays_run() {
     sink.emit(AgentEvent::ToolStarted {
         call_id: "c1".into(),
         tool_name: "echo".to_string(),
+        input: None,
     });
     // Drain the async persistence worker so the durable log has caught up
     // (flush blocks on the drain thread's ack, not on this runtime).
