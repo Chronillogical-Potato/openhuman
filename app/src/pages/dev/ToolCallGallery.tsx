@@ -55,6 +55,7 @@ import {
   MOCK_MESSAGE_QUEUE,
   MOCK_THREAD_FILES,
 } from './assistant-ui-demo/assistantUiMock/mockScript';
+import { FollowupSuggestionsDemo } from './assistant-ui-demo/FollowupSuggestionsDemo';
 
 /** Icon per `commands_list` kind for the composer menu fixture. */
 const COMMAND_KIND_ICONS = {
@@ -406,6 +407,13 @@ export default function ToolCallGallery() {
             pendingHint={t('chat.messageQueue.pendingHint')}
             removeLabel={text => t('chat.messageQueue.remove').replace('{text}', text)}
           />
+        </section>
+
+        <section className="flex flex-col gap-2" data-testid="tool-gallery-followup-suggestions">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Follow-up suggestions (chat_suggestions)
+          </h2>
+          <FollowupSuggestionsDemo />
         </section>
 
         <section className="flex flex-col gap-2">
