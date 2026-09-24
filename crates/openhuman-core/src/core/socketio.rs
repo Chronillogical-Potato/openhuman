@@ -863,14 +863,33 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                             emit_with_aliases(&socket, "chat_accepted", &accepted_payload);
                         }
                         Err(error) => {
-                            let error_payload = json!({
+                            let mut error_payload = json!({
                                 "event": "chat_error",
                                 "client_id": client_id,
                                 "thread_id": thread_id,
                                 "request_id": "",
-                                "message": error,
+                                "message": error.to_string(),
                                 "error_type": "inference",
                             });
+                            // A guardrail rejection is structured (verdict/
+                            // score/reasons), not just a user-facing message —
+                            // surface it the same way the frontend classifies
+                            // every other `chat_error`: by `error_type`, plus
+                            // a typed `guardrail` payload it doesn't have to
+                            // parse out of `message`.
+                            if let crate::web_chat::StartChatError::Guardrail {
+                                verdict,
+                                score,
+                                reasons,
+                            } = &error
+                            {
+                                error_payload["error_type"] = json!("guardrail");
+                                error_payload["guardrail"] = json!(GuardrailPayload {
+                                    verdict: verdict.clone(),
+                                    score: *score,
+                                    reasons: reasons.clone(),
+                                });
+                            }
                             emit_with_aliases(&socket, "chat_error", &error_payload);
                         }
                     }
