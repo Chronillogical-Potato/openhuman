@@ -1764,6 +1764,7 @@ impl DomainEvent {
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
             Self::ThreadGoalUpdated { .. } => "ThreadGoalUpdated",
             Self::ThreadGoalCleared { .. } => "ThreadGoalCleared",
+            Self::ThreadTodosChanged { .. } => "ThreadTodosChanged",
             Self::Voice(_) => "Voice",
         }
     }
