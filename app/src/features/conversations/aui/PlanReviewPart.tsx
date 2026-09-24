@@ -110,8 +110,10 @@ export function PlanReviewCardCore({
         toolName="request_plan_review"
         denyDecision="reject"
         allowOnceDecision="approve"
+        denyLabel={t('conversations.planReview.reject')}
+        allowOnceLabel={t('conversations.planReview.approve')}
+        alwaysAllowLabel={t('conversations.planReview.revise')}
         onAlwaysAllowClick={() => setRevising(prev => !prev)}
-        alwaysHint={t('conversations.planReview.revise')}
         onDecide={decision => decide(decision)}
         analyticsPrefix="plan-review"
         testId="plan-review-approval-card"
