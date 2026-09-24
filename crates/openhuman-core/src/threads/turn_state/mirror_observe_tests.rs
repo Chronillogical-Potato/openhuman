@@ -519,3 +519,88 @@ fn subagent_lifecycle_records_and_clears_active() {
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
     assert!(s.active_subagent.is_none());
 }
+
+#[test]
+fn thinking_blocks_record_start_and_end_timing() {
+    // Regression: the "Thought for Ns" label reads these; a coalesced block
+    // must keep its first-delta start and advance its end, and a new round's
+    // block must open with its own start.
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::ThinkingDelta {
+        delta: "First ".into(),
+        iteration: 1,
+    });
+    let first_start = match &m.snapshot().transcript[0] {
+        TranscriptItem::Thinking { started_at, .. } => started_at.expect("started_at stamped"),
+        other => panic!("expected thinking, got {other:?}"),
+    };
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    m.observe(&AgentProgress::ThinkingDelta {
+        delta: "round.".into(),
+        iteration: 1,
+    });
+    m.observe(&AgentProgress::ThinkingDelta {
+        delta: "Second round.".into(),
+        iteration: 2,
+    });
+
+    let s = m.snapshot();
+    assert_eq!(s.transcript.len(), 2, "one block per round");
+    match &s.transcript[0] {
+        TranscriptItem::Thinking {
+            started_at,
+            ended_at,
+            text,
+            ..
+        } => {
+            assert_eq!(text, "First round.");
+            assert_eq!(*started_at, Some(first_start), "start is the first delta");
+            let end = ended_at.expect("ended_at stamped");
+            assert!(end > first_start, "end advances on coalesced deltas");
+        }
+        other => panic!("expected thinking, got {other:?}"),
+    }
+    match &s.transcript[1] {
+        TranscriptItem::Thinking {
+            started_at,
+            ended_at,
+            ..
+        } => {
+            let (start, end) = (started_at.unwrap(), ended_at.unwrap());
+            assert!(start >= first_start && end >= start);
+        }
+        other => panic!("expected thinking, got {other:?}"),
+    }
+}
+
+#[test]
+fn thinking_timing_wire_shape_is_camel_case_and_backward_compatible() {
+    // The frontend reads `startedAt` / `endedAt`; rows persisted before timing
+    // existed must still deserialize (as `None`) and must not grow the fields.
+    let item = TranscriptItem::Thinking {
+        round: 1,
+        seq: 0,
+        text: "t".into(),
+        started_at: Some(1_000),
+        ended_at: Some(13_000),
+    };
+    let json = serde_json::to_value(&item).unwrap();
+    assert_eq!(json["kind"], "thinking");
+    assert_eq!(json["startedAt"], 1_000);
+    assert_eq!(json["endedAt"], 13_000);
+
+    let legacy: TranscriptItem =
+        serde_json::from_value(serde_json::json!({"kind":"thinking","round":1,"seq":0,"text":"t"}))
+            .unwrap();
+    match &legacy {
+        TranscriptItem::Thinking {
+            started_at,
+            ended_at,
+            ..
+        } => assert!(started_at.is_none() && ended_at.is_none()),
+        other => panic!("expected thinking, got {other:?}"),
+    }
+    let reserialized = serde_json::to_value(&legacy).unwrap();
+    assert!(reserialized.get("startedAt").is_none());
+    assert!(reserialized.get("endedAt").is_none());
+}

@@ -12,7 +12,7 @@ import type {
   ToolFailureExplanation,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
-import { formatToolName } from '../../../utils/toolTimelineFormatting';
+import { formatToolName, inferIntegrationActionName } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { ToolFailureLines } from './ToolFailureLines';
 
@@ -86,6 +86,33 @@ function inferredToolLabel(toolName: string, running: boolean, args: unknown, re
       ? Object.keys(parsedArgs as object).map(key => key.toLowerCase())
       : [];
   const renderedResult = typeof result === 'string' ? result : JSON.stringify(result ?? '');
+  // The harness's tool-discovery bridge, resolved BEFORE the heuristics below.
+  // `tool_search` matches `looksLikeSearch` twice — its name contains "search"
+  // AND its argument is `query` — so it rendered as "Searched the web" even
+  // though it never touches the network: it ranks the deferred tool catalogue
+  // (`vendor/tinyagents/crates/tinyagents-harness/src/tool/discover/bridge.rs`).
+  // Observed cost: a turn that fetched the user's own Google Calendar through
+  // Composio showed "Searched the web" as its first row, and the call that did
+  // the work showed as a bare "Tool Call".
+  //
+  // Both intrinsics are `ToolSchema` values, not `Tool` impls, so they carry no
+  // server `display_label` and there is nothing upstream to override.
+  if (lowerName === 'tool_search') {
+    return running ? 'Finding the right tool' : 'Found the right tool';
+  }
+  if (lowerName === 'tool_call') {
+    // `tool_call_schema()` declares `{name, arguments}` with both required, so
+    // `name` is always the wrapped tool. Label the row by what was actually
+    // invoked rather than by the wrapper.
+    const wrapped =
+      parsedArgs && typeof parsedArgs === 'object' && !Array.isArray(parsedArgs)
+        ? (parsedArgs as { name?: unknown }).name
+        : undefined;
+    if (typeof wrapped === 'string' && wrapped.trim()) {
+      const action = inferIntegrationActionName(wrapped);
+      return action ? `${action.provider}: ${action.action}` : formatToolName(wrapped);
+    }
+  }
   const looksLikeSearch =
     lowerName.includes('search') ||
     argKeys.some(key => ['query', 'q', 'search_query'].includes(key)) ||

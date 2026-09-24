@@ -388,6 +388,7 @@ impl TurnContextMiddleware {
         self,
         harness: &mut AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext>,
         tool_policies: HashMap<String, TaToolPolicy>,
+        summary_focus_tools: std::collections::HashSet<String>,
     ) {
         // Transcript snapshot (#4466) runs first among before_model hooks so it
         // mirrors the *incoming* request transcript (every prior completed round)
@@ -430,6 +431,8 @@ impl TurnContextMiddleware {
                 tool_policies,
                 artifact_reads: Default::default(),
                 focus_by_call: Default::default(),
+                summary_focus_tools,
+                raw_fetches: Default::default(),
             }));
         }
         // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the

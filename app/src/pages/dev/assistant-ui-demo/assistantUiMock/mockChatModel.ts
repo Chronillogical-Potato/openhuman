@@ -190,9 +190,19 @@ export const mockChatModelAdapter: ChatModelAdapter = {
         case 'text': {
           const at = parts.length;
           let text = '';
+          // Reasoning carries the same timing the live app stamps, so the
+          // panel's "Thinking… Ns" badge and "Thought for Ns" label show here.
+          const startedAt = Date.now();
           for (const piece of chunk(step.text)) {
             text += piece;
-            parts[at] = { type: step.kind, text };
+            parts[at] =
+              step.kind === 'reasoning'
+                ? {
+                    type: 'reasoning',
+                    text,
+                    providerMetadata: { openhuman: { startedAt, endedAt: Date.now() } },
+                  }
+                : { type: step.kind, text };
             dirty = false;
             yield emit();
             await sleep(CHUNK_MS, abortSignal);

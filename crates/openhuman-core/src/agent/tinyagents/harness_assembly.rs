@@ -451,7 +451,17 @@ pub(super) fn assemble_turn_harness(
     )));
 
     let tool_policies = harness.tools().policies();
-    context_mw.install(&mut harness, tool_policies);
+    let summary_focus_tools = harness
+        .tools()
+        .schemas()
+        .into_iter()
+        .chain(harness.tools().deferred_schemas())
+        .filter(|schema| {
+            crate::inference::tokenjuice::focus::declares_summary_focus(&schema.parameters)
+        })
+        .map(|schema| schema.name)
+        .collect();
+    context_mw.install(&mut harness, tool_policies, summary_focus_tools);
 
     // Observe-only crate `BudgetMiddleware` (W2-budget-dedupe / workstream 06).
     // Installed with empty `BudgetLimits` so it NEVER enforces or halts: its

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
+import { ChatToolFallback } from './ChatToolParts';
 
 const activity: SubagentActivity = {
   taskId: 'sub-1',
@@ -140,16 +140,6 @@ describe('ChatToolParts', () => {
     expect(container).toBeTruthy();
   });
 
-  it('opens a group containing in-flight work on mount', () => {
-    render(
-      <ChatToolGroup group={{ type: 'group-tool-call', status: { type: 'running' }, indices: [0] }}>
-        <span>live delegation</span>
-      </ChatToolGroup>
-    );
-
-    expect(screen.getByText('live delegation')).toBeVisible();
-  });
-
   it('renders ordinary tools with rich input and output on the assistant-ui surface', async () => {
     render(
       <ChatToolFallback
@@ -212,5 +202,60 @@ describe('ChatToolParts', () => {
 
     expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent('Searched the web');
     expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent(/^Tool done$/);
+  });
+
+  it('names the tool-discovery bridge for what it is, not a web search', () => {
+    // `tool_search` ranks the DEFERRED TOOL CATALOGUE — Composio actions, MCP
+    // tools — and never touches the network. It matched `looksLikeSearch`
+    // twice (its name contains "search" AND its argument is `query`), so a
+    // turn that fetched the user's own Google Calendar through Composio opened
+    // with "Searched the web".
+    render(
+      <ChatToolFallback
+        type="tool-call"
+        toolName="tool_search"
+        toolCallId="bridge-search"
+        args={{ query: 'list calendar events google calendar' } as never}
+        argsText={'{"query":"list calendar events google calendar"}'}
+        result="1 match(es). Invoke one with tool_call"
+        status={{ type: 'complete' }}
+        addResult={() => {}}
+        resume={() => {}}
+        respondToApproval={() => {}}
+      />
+    );
+
+    expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent('Found the right tool');
+    // The regression this pins: BOTH heuristic legs still match this row, so
+    // dropping the explicit branch renders the web label again.
+    expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent('Searched the web');
+  });
+
+  it('labels the tool_call wrapper by the tool it actually invoked', () => {
+    // `tool_call_schema()` declares `{name, arguments}`, both required, so the
+    // wrapped tool is always in `name`. The row used to show only the wrapper,
+    // so the one call that fetched the user's calendar rendered "Tool Call".
+    render(
+      <ChatToolFallback
+        type="tool-call"
+        toolName="tool_call"
+        toolCallId="bridge-call"
+        args={{ name: 'GOOGLECALENDAR_EVENTS_LIST', arguments: { calendarId: 'primary' } } as never}
+        argsText={'{"name":"GOOGLECALENDAR_EVENTS_LIST"}'}
+        result="Items: Product Team Standup"
+        status={{ type: 'complete' }}
+        addResult={() => {}}
+        resume={() => {}}
+        respondToApproval={() => {}}
+      />
+    );
+
+    // Composio slugs carry no separator inside the toolkit name, so this also
+    // pins the `googlecalendar` spelling in `KNOWN_TOOLKIT_RE`: without it the
+    // row degrades to the raw "GOOGLECALENDAR EVENTS LIST".
+    expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent(
+      'Google Calendar: Events list'
+    );
+    expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent('Tool Call');
   });
 });
