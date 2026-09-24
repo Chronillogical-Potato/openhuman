@@ -14439,7 +14439,35 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
     let thread_id = "thread-edit-e2e";
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
 
-    // --- Turn 1: a normal web-channel turn against the mock upstream. ---
+    // The frontend — not the core — is the one that appends the user's own
+    // message to the conversation store (the core only auto-persists the
+    // assistant's reply, see `web_chat::reply_persistence`'s module doc), so
+    // mirror that here *before* running the turn: the store append order
+    // must be [user message, then its auto-persisted reply] for
+    // `next_reply_request_id_after` to find the correlation edit_message
+    // relies on.
+    let user_message_id = "msg-user-edit-e2e";
+    let user_append = post_json_rpc(
+        &rpc_base,
+        9602,
+        "openhuman.threads_message_append",
+        json!({
+            "thread_id": thread_id,
+            "message": {
+                "id": user_message_id,
+                "content": "Original message for edit test",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-01-01T00:00:00Z"
+            }
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&user_append, "threads_message_append user (pre-turn)");
+
+    // --- Turn 1: a normal web-channel turn against the mock upstream, for
+    // the same content just appended above. ---
     let sse_task_1 = {
         let events_url = events_url.clone();
         tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
@@ -14463,31 +14491,6 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
         Some("chat_done"),
         "turn1 should complete successfully: {sse_event_1}"
     );
-
-    // The frontend — not the core — is the one that appends the user's own
-    // message to the conversation store (the core only auto-persists the
-    // assistant's reply, see `web_chat::reply_persistence`'s module doc), so
-    // mirror that here: append the user message the turn above was actually
-    // run for, so it has a real deterministic reply after it in store order.
-    let user_message_id = "msg-user-edit-e2e";
-    let user_append = post_json_rpc(
-        &rpc_base,
-        9602,
-        "openhuman.threads_message_append",
-        json!({
-            "thread_id": thread_id,
-            "message": {
-                "id": user_message_id,
-                "content": "Original message for edit test",
-                "type": "text",
-                "extraMetadata": {},
-                "sender": "user",
-                "createdAt": "2026-01-01T00:00:00Z"
-            }
-        }),
-    )
-    .await;
-    assert_no_jsonrpc_error(&user_append, "threads_message_append user (pre-edit)");
 
     let before_list = post_json_rpc(
         &rpc_base,
