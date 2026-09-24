@@ -396,7 +396,7 @@ pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
 /// before Stop but registered after the registry sweep still cannot enqueue a
 /// completion. Task tombstones additionally protect that stopped generation
 /// after the next turn reopens the thread.
-pub(crate) fn finish_stop_for_thread(thread_id: &str, task_ids: &[String]) {
+pub(crate) fn finish_stop_for_thread(_thread_id: &str, task_ids: &[String]) {
     let mut state = queue()
         .lock()
         .expect("background_completions queue poisoned");
