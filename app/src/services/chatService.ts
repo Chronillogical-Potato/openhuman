@@ -1763,6 +1763,55 @@ export function subscribeQueueEvents(listeners: QueueEventListeners): () => void
   };
 }
 
+/** One follow-up suggestion (`ChatSuggestion` in `core/socketio.rs`). */
+export interface ChatSuggestionWire {
+  /** The message sent when the chip is picked. */
+  prompt: string;
+  /** A short 2-4 word button label for the chip (`web_chat/suggestions.rs`). */
+  label?: string | null;
+}
+
+/**
+ * `chat_suggestions`: follow-up prompts for the turn that just finished,
+ * emitted by the core after `chat_done` (`web_chat/suggestions.rs`). Best
+ * effort — a disabled, slow or malformed suggestions call means the event
+ * simply never arrives for that turn.
+ */
+export interface ChatSuggestionsEvent {
+  thread_id: string;
+  client_id?: string;
+  request_id?: string;
+  /** The turn the suggestions follow; the event fires outside its request. */
+  turn_request_id?: string;
+  suggestions: ChatSuggestionWire[];
+}
+
+export interface SuggestionEventListeners {
+  onSuggestions?: (event: ChatSuggestionsEvent) => void;
+}
+
+/** Subscribe to the core's `chat_suggestions` events; returns the unsubscribe. */
+export function subscribeSuggestionEvents(listeners: SuggestionEventListeners): () => void {
+  const eventName = 'chat_suggestions';
+  const cb = (payload: unknown) => {
+    const e = payload as Partial<ChatSuggestionsEvent> | null;
+    if (!e?.thread_id || !Array.isArray(e.suggestions)) {
+      chatLog('%s thread_id=%s dropped: malformed payload', eventName, e?.thread_id);
+      return;
+    }
+    chatLog(
+      '%s thread_id=%s turn_request_id=%s count=%d',
+      eventName,
+      e.thread_id,
+      e.turn_request_id,
+      e.suggestions.length
+    );
+    listeners.onSuggestions?.(e as ChatSuggestionsEvent);
+  };
+  socketService.on(eventName, cb);
+  return () => socketService.off(eventName, cb);
+}
+
 /**
  * Take one message out of a running turn's queue so it is never sent.
  * `true` only when the core confirmed it; on `false` the item is still queued

@@ -93,14 +93,33 @@ impl PlanExitTool {
             return Ok(ToolResult::error("`plan` must not be empty"));
         }
         if let Some(thread_id) = context.and_then(ToolRunContext::thread_id) {
-            tracing::info!(
-                thread_id = %thread_id,
-                "[tool][plan_exit] flipping thread run mode to build"
-            );
-            crate::agent::tinyagents::run_mode::set_mode(
-                thread_id,
-                tinyagents_harness::middleware::RunMode::Build,
-            );
+            // Only flip to Build when there is no plan review still parked on
+            // this thread. A review resolves (approve/reject/revise) before
+            // `request_plan_review` returns control to the agent, so by the
+            // time a well-behaved agent calls `plan_exit` after an approval
+            // the review is already gone from the gate's parked map — this
+            // check is a no-op there. It only matters for a mis-timed or
+            // concurrent `plan_exit` call that races a still-pending review:
+            // flipping the mode early would unlock every tool for the thread
+            // before the user has actually approved anything.
+            if crate::agent::plan_review::gate::global()
+                .parked_review_for_thread(thread_id)
+                .is_some()
+            {
+                tracing::warn!(
+                    thread_id = %thread_id,
+                    "[tool][plan_exit] a plan review is still parked on this thread — not flipping to build"
+                );
+            } else {
+                tracing::info!(
+                    thread_id = %thread_id,
+                    "[tool][plan_exit] flipping thread run mode to build"
+                );
+                crate::agent::tinyagents::run_mode::set_mode(
+                    thread_id,
+                    tinyagents_harness::middleware::RunMode::Build,
+                );
+            }
         } else {
             tracing::debug!("[tool][plan_exit] no thread id on this run context — nothing to flip");
         }
