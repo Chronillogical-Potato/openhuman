@@ -32,6 +32,9 @@ fn migrate_and_deserialize_graph_reports_a_non_object_graph_without_inventing_a_
     let err = migrate_and_deserialize_graph(json!("this is a string, not a workflow graph"))
         .expect_err("a non-object graph must not deserialize");
     assert!(!err.contains('['), "got: {err}");
-    assert!(!err.contains(": invalid") || !err.starts_with("name"), "got: {err}");
+    assert!(
+        !err.contains(": invalid") || !err.starts_with("name"),
+        "got: {err}"
+    );
     assert!(err.contains("invalid type"), "got: {err}");
 }
