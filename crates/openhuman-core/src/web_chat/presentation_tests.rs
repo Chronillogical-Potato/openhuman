@@ -310,6 +310,93 @@ fn single_bubble_delivery_emits_one_unsegmented_chat_done_without_reaction() {
     assert!(done.usage.is_none());
 }
 
+// ── chat_done.timing ──────────────────────────────────────────────────────
+
+/// `deliver_response` forwards a supplied timing snapshot onto `chat_done`'s
+/// `timing` field, with `tokens_per_second` derived from the usage's
+/// `output_tokens` and the snapshot's `total_ms`.
+#[tokio::test]
+async fn chat_done_carries_timing_when_a_snapshot_is_supplied() {
+    let mut rx = crate::web_chat::subscribe_web_channel_events();
+    let request_id = format!("timing-{}", uuid::Uuid::new_v4());
+
+    let usage = crate::agent::tinyagents::host::LastTurnUsage {
+        input_tokens: 100,
+        output_tokens: 40,
+        cached_input_tokens: 0,
+        cost_usd: 0.01,
+        context_window: 8000,
+        subagents: Vec::new(),
+    };
+    let timing = super::turn_timing::TurnTimingSnapshot {
+        first_token_ms: Some(120),
+        first_tool_ms: None,
+        total_ms: Some(2000),
+    };
+
+    test_support::deliver_response_with_timing_for_test(
+        "system",
+        "thread-timing",
+        &request_id,
+        "Quick answer.",
+        "how fast?",
+        Some(&usage),
+        Some(timing),
+    )
+    .await;
+
+    let done = loop {
+        match rx.try_recv() {
+            Ok(event) if event.request_id == request_id && event.event == "chat_done" => {
+                break event;
+            }
+            Ok(_) => continue,
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+            Err(_) => panic!("chat_done for {request_id} never arrived"),
+        }
+    };
+
+    let payload = done.timing.expect("chat_done.timing must be Some");
+    assert_eq!(payload.first_token_ms, Some(120));
+    assert_eq!(payload.first_tool_ms, None);
+    assert_eq!(payload.total_ms, Some(2000));
+    // 40 output tokens / (2000ms / 1000) = 20 tokens/sec.
+    assert_eq!(payload.tokens_per_second, Some(20.0));
+}
+
+/// A caller with no timing snapshot in scope (e.g. the flows stream
+/// finalizer, which discards its bridge handle) gets `chat_done.timing ==
+/// None` rather than a fabricated zero-valued payload.
+#[tokio::test]
+async fn chat_done_omits_timing_when_no_snapshot_is_supplied() {
+    let mut rx = crate::web_chat::subscribe_web_channel_events();
+    let request_id = format!("timing-none-{}", uuid::Uuid::new_v4());
+
+    test_support::deliver_response_with_timing_for_test(
+        "system",
+        "thread-timing-none",
+        &request_id,
+        "Quick answer.",
+        "how fast?",
+        None,
+        None,
+    )
+    .await;
+
+    let done = loop {
+        match rx.try_recv() {
+            Ok(event) if event.request_id == request_id && event.event == "chat_done" => {
+                break event;
+            }
+            Ok(_) => continue,
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+            Err(_) => panic!("chat_done for {request_id} never arrived"),
+        }
+    };
+
+    assert!(done.timing.is_none());
+}
+
 // ── Delivery persists before it announces (#6034) ───────────────────────
 
 #[tokio::test]
