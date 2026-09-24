@@ -3375,6 +3375,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'Prompt do sistema',
   'conversations.composer.context.section.tools': 'Ferramentas',
   'conversations.composer.context.section.history': 'Histórico da conversa',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'Limpar a conversa',
   'conversations.composer.command.new': 'Iniciar uma nova conversa',
   'conversations.composer.command.stop': 'Parar a resposta em andamento',

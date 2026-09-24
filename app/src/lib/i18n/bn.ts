@@ -3318,6 +3318,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'সিস্টেম প্রম্পট',
   'conversations.composer.context.section.tools': 'টুল',
   'conversations.composer.context.section.history': 'কথোপকথনের ইতিহাস',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'কথোপকথন মুছে ফেলুন',
   'conversations.composer.command.new': 'নতুন কথোপকথন শুরু করুন',
   'conversations.composer.command.stop': 'চলমান উত্তর থামান',

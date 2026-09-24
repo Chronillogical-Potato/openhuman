@@ -3347,6 +3347,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'Системный промпт',
   'conversations.composer.context.section.tools': 'Инструменты',
   'conversations.composer.context.section.history': 'История разговора',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'Очистить переписку',
   'conversations.composer.command.new': 'Начать новую беседу',
   'conversations.composer.command.stop': 'Остановить текущий ответ',

@@ -3358,6 +3358,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'Prompt systemowy',
   'conversations.composer.context.section.tools': 'Narzędzia',
   'conversations.composer.context.section.history': 'Historia rozmowy',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'Wyczyść rozmowę',
   'conversations.composer.command.new': 'Rozpocznij nową rozmowę',
   'conversations.composer.command.stop': 'Zatrzymaj bieżącą odpowiedź',

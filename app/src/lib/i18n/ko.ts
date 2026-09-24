@@ -3285,6 +3285,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': '시스템 프롬프트',
   'conversations.composer.context.section.tools': '도구',
   'conversations.composer.context.section.history': '대화 기록',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': '대화 비우기',
   'conversations.composer.command.new': '새 대화 시작',
   'conversations.composer.command.stop': '진행 중인 답변 중지',

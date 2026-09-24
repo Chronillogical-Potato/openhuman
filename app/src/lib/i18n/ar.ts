@@ -3240,6 +3240,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'موجّه النظام',
   'conversations.composer.context.section.tools': 'الأدوات',
   'conversations.composer.context.section.history': 'سجل المحادثة',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'مسح المحادثة',
   'conversations.composer.command.new': 'بدء محادثة جديدة',
   'conversations.composer.command.stop': 'إيقاف الرد الجاري',

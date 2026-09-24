@@ -3400,6 +3400,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'Prompt système',
   'conversations.composer.context.section.tools': 'Outils',
   'conversations.composer.context.section.history': 'Historique de la conversation',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'Effacer la conversation',
   'conversations.composer.command.new': 'Démarrer une nouvelle conversation',
   'conversations.composer.command.stop': 'Arrêter la réponse en cours',
