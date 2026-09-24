@@ -292,6 +292,8 @@ pub async fn start_chat(
                 thread_id: thread_id.clone(),
                 mode: parsed_mode.to_string(),
                 queue_depth: status.total,
+                item_id: None,
+                text_preview: None,
             });
             return Ok(json!({
                 "queued": true,
