@@ -292,7 +292,7 @@ function ToolFallbackError({
   if (status?.type !== 'incomplete') return null;
 
   const error = status.error;
-  const errorText = error ? (typeof error === 'string' ? error : JSON.stringify(error)) : null;
+  const errorText = error === undefined || error === null ? null : formatUnknownValue(error);
 
   if (!errorText) return null;
 
