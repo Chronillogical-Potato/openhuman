@@ -1,6 +1,3 @@
-use std::path::Path;
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinytools::{PermissionLevel, Tool, ToolCategory, ToolContent, ToolResult};
