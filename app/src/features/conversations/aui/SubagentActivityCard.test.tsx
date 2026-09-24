@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
 import { SubagentActivityCard } from './SubagentActivityCard';
 
 function openDisclosure() {
