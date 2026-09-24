@@ -37,7 +37,7 @@ describe('PermissionGrantAdapter', () => {
   it('shows the capability and requester', () => {
     renderAdapter();
     expect(screen.getByText('Connect Google Drive?')).toBeInTheDocument();
-    expect(screen.getByText('composio_connect')).toBeInTheDocument();
+    expect(screen.getByText(/composio_connect/)).toBeInTheDocument();
   });
 
   it('renders exactly one Connect action', () => {

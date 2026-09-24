@@ -115,6 +115,9 @@ pub(super) async fn finalize_flow_stream(
                 // `ProgressBridgeHandle`, so there is no timing snapshot to
                 // forward here.
                 None,
+                // Flow Canvas copilot streaming is not the interactive chat
+                // surface follow-up suggestions are for (C5).
+                false,
             )
             .await;
         }
