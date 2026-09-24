@@ -1,11 +1,11 @@
 'use client';
 
+import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import {
   ToolGroupContent,
   ToolGroupRoot,
   ToolGroupTrigger,
 } from '@/components/assistant-ui/tool-group';
-import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import { type MessagePrimitive, useAuiState } from '@assistant-ui/react';
 import { type FC, type PropsWithChildren, useState } from 'react';
 
