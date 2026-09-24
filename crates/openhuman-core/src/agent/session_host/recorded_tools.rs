@@ -76,7 +76,9 @@ pub(super) fn rehydrate_integration_actions(
             !integrations_are_authoritative
                 || integrations.iter().any(|integration| {
                     integration.connected
-                        && integration.toolkit.eq_ignore_ascii_case(&toolkit_of(&spec.name))
+                        && integration
+                            .toolkit
+                            .eq_ignore_ascii_case(&toolkit_of(&spec.name))
                         && !integration
                             .gated_tools
                             .iter()
