@@ -510,6 +510,8 @@ export interface ArtifactFailedEvent {
   workspace_dir: string;
   /** Producer-supplied failure reason, already truncated. */
   error: string;
+  /** See {@link ArtifactReadyEvent.tool_call_id}. */
+  tool_call_id?: string;
 }
 
 /**
