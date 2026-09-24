@@ -133,10 +133,18 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
     }
     match &items[5] {
         DisplayItem::AssistantMessage {
-            content, interim, ..
+            content,
+            interim,
+            ts,
+            ..
         } => {
             assert_eq!(content, "It's 72F and sunny in NYC.");
             assert!(!*interim, "final answer is not interim");
+            assert_eq!(
+                ts.as_deref(),
+                Some("2026-07-21T09:00:02Z"),
+                "final assistantMessage carries its own record's ts, not the interim step's"
+            );
         }
         other => panic!("expected final assistantMessage, got {other:?}"),
     }
