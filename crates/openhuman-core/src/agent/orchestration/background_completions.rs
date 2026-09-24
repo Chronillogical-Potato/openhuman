@@ -85,6 +85,12 @@ struct QueueState {
     stopped_threads: HashSet<String>,
     /// Insertion order for `stopped_threads`, used to bound the set.
     stopped_order: VecDeque<String>,
+    /// Detached task ids stopped by the user. Once the thread gate is reopened
+    /// for a later turn, this keeps a straggling task from the old generation
+    /// from recording its completion.
+    stopped_tasks: HashSet<String>,
+    /// Insertion order for `stopped_tasks`, used to bound the set.
+    stopped_task_order: VecDeque<String>,
     /// Task ids the parent already collected inline via `wait_subagent` and will
     /// present in its own turn. A completion for a collected task is dropped by
     /// [`record_completion`] (closing the wait/record ordering race) and any
@@ -120,8 +126,18 @@ impl QueueState {
         }
     }
 
-    fn resume(&mut self, thread_id: &str) {
+    fn finish_stop(&mut self, thread_id: &str, task_ids: &[String]) {
         self.stopped_threads.remove(thread_id);
+        for task_id in task_ids {
+            if self.stopped_tasks.insert(task_id.clone()) {
+                self.stopped_task_order.push_back(task_id.clone());
+                while self.stopped_task_order.len() > COLLECTED_TOMBSTONE_CAP {
+                    if let Some(evicted) = self.stopped_task_order.pop_front() {
+                        self.stopped_tasks.remove(&evicted);
+                    }
+                }
+            }
+        }
     }
 
     /// Tombstone `task_id` so a completion that records after the parent
@@ -211,6 +227,13 @@ pub(crate) fn record_outcome(
     if state.collected_tasks.contains(&entry.task_id) {
         log::debug!(
             "[background_completions] dropping completion task_id={} already collected inline",
+            entry.task_id
+        );
+        return;
+    }
+    if state.stopped_tasks.contains(&entry.task_id) {
+        log::debug!(
+            "[background_completions] dropping completion task_id={} stopped by user",
             entry.task_id
         );
         return;
@@ -337,9 +360,9 @@ pub(crate) fn discard_for_thread(thread_id: &str) -> usize {
 /// The Stop-button counterpart of [`discard_for_thread`]: the user halted the
 /// thread's work, so results that finished but were not yet delivered must not
 /// start a fresh delivery turn behind their back. The thread itself stays
-/// alive; [`resume_for_thread`] reopens it when a later user turn begins, so
-/// sub-agents spawned by that turn deliver normally. Returns the number of
-/// queued completions removed.
+/// alive; after cancellation, old task ids are tombstoned while sub-agents
+/// spawned by later turns use new ids and deliver normally. Returns the number
+/// of queued completions removed.
 pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
     let mut state = queue()
         .lock()
@@ -355,13 +378,17 @@ pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
     removed
 }
 
-/// Reopen a thread that was stopped by the user for work started by a later
-/// user request. Deleted-thread tombstones are deliberately not cleared.
-pub(crate) fn resume_for_thread(thread_id: &str) {
+/// Complete a Stop operation after its registered children have been aborted.
+///
+/// `discard_pending_for_thread` installs the thread gate first. This function
+/// replaces it with task-specific tombstones, allowing later turns on the
+/// thread while still rejecting any old child that reaches completion after
+/// Tokio observes its cooperative cancellation.
+pub(crate) fn finish_stop_for_thread(thread_id: &str, task_ids: &[String]) {
     let mut state = queue()
         .lock()
         .expect("background_completions queue poisoned");
-    state.resume(thread_id);
+    state.finish_stop(thread_id, task_ids);
 }
 
 fn remove_pending_for_thread(state: &mut QueueState, thread_id: &str) -> usize {

@@ -402,8 +402,17 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     );
     assert_eq!(pending_count("sess-stop"), 0);
 
-    // A later user turn deliberately reopens the thread for new work.
-    resume_for_thread("thread-stop-live");
+    // Completing Stop replaces the thread gate with task-specific tombstones,
+    // so later turns can run while this stopped child remains rejected.
+    finish_stop_for_thread("thread-stop-live", &["sub-stop-later".into()]);
+    record_completion(
+        "sess-stop",
+        "sub-stop-later",
+        "researcher",
+        "late stopped result after the next turn starts",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 0);
     record_completion(
         "sess-stop",
         "sub-stop-new-turn",

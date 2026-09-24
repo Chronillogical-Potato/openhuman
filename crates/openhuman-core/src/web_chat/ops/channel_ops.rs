@@ -122,17 +122,19 @@ async fn cancel_chat_inner(
             crate::agent::orchestration::background_completions::discard_pending_for_thread(
                 thread_id,
             );
-        let stopped =
-            crate::agent::orchestration::running_subagents::stop_for_thread(thread_id).len();
+        let stopped = crate::agent::orchestration::running_subagents::stop_for_thread(thread_id);
+        crate::agent::orchestration::background_completions::finish_stop_for_thread(
+            thread_id, &stopped,
+        );
         log::info!(
             "[web-channel] stop thread_id={} turn={:?} parallel={} subagents_cancelled={} completions_discarded={}",
             thread_id,
             removed_request_id,
             cancelled_parallel.len(),
-            stopped,
+            stopped.len(),
             discarded
         );
-        stopped
+        stopped.len()
     } else {
         0
     };
@@ -167,9 +169,6 @@ pub async fn channel_web_chat(
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
 ) -> Result<RpcOutcome<Value>, String> {
-    // A Stop gate only suppresses completions from the halted generation. A
-    // later user request deliberately starts a new generation on this thread.
-    crate::agent::orchestration::background_completions::resume_for_thread(thread_id);
     let result = start_chat(
         client_id,
         thread_id,
