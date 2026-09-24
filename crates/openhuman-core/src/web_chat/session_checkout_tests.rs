@@ -505,6 +505,7 @@ fn fingerprint_diff_reports_every_differing_field() {
 #[test]
 fn chat_agent_id_selects_the_web_chat_agent_and_defaults_to_the_orchestrator() {
     use super::pick_target_agent_id;
+    crate::agent::harness::AgentDefinitionRegistry::init_global_builtins().unwrap();
 
     let mut config = crate::config::Config::default();
     assert_eq!(
@@ -517,13 +518,13 @@ fn chat_agent_id_selects_the_web_chat_agent_and_defaults_to_the_orchestrator() {
         "unset falls back to what the app runs"
     );
 
-    config.agent.chat_agent_id = Some("life_scenarios".to_string());
-    assert_eq!(pick_target_agent_id(&config), "life_scenarios");
+    config.agent.chat_agent_id = Some("researcher".to_string());
+    assert_eq!(pick_target_agent_id(&config), "researcher");
 
     // Padding is an operator typo in a hand-edited config.toml, not a request
     // for an agent whose id has spaces in it.
-    config.agent.chat_agent_id = Some("  life_scenarios  ".to_string());
-    assert_eq!(pick_target_agent_id(&config), "life_scenarios");
+    config.agent.chat_agent_id = Some("  researcher  ".to_string());
+    assert_eq!(pick_target_agent_id(&config), "researcher");
 
     // Blank is "unset", not "an agent named empty string": a turn routed at an
     // id the registry cannot answer would fail chat outright.
@@ -535,4 +536,11 @@ fn chat_agent_id_selects_the_web_chat_agent_and_defaults_to_the_orchestrator() {
             "blank {blank:?} falls back rather than routing nowhere"
         );
     }
+
+    config.agent.chat_agent_id = Some("typoed_agent".to_string());
+    assert_eq!(
+        pick_target_agent_id(&config),
+        "orchestrator",
+        "an unknown optional setting must not take web chat down"
+    );
 }

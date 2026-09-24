@@ -49,6 +49,26 @@ async fn apply_agent_settings_none_leaves_timeout_unchanged() {
     assert_eq!(cfg.agent.agent_timeout_secs, 250);
 }
 
+#[tokio::test]
+async fn apply_agent_settings_rejects_unknown_chat_agent_id() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+
+    let err = apply_agent_settings(
+        &mut cfg,
+        AgentSettingsPatch {
+            chat_agent_id: Some("typoed_agent".into()),
+            ..AgentSettingsPatch::default()
+        },
+    )
+    .await
+    .expect_err("unknown agents must not be persisted as web-chat routes");
+
+    assert!(err.contains("not a runnable agent definition"), "{err}");
+    assert!(cfg.agent.chat_agent_id.is_none());
+}
+
 // ── apply_agent_paths_settings (action_dir editable, issue #3240) ──────────────
 
 #[tokio::test]

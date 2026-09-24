@@ -102,7 +102,15 @@ function parseArgs(argv) {
     if (a === "--only")
       o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
     else if (a === "--driver") o.driver = next();
-    else if (a === "--agent") o.agentId = next();
+    else if (a === "--agent") {
+      const agentId = next();
+      if (agentId && !/^[A-Za-z0-9_-]+$/.test(agentId)) {
+        throw new Error(
+          "--agent must contain only ASCII letters, digits, '_' or '-'",
+        );
+      }
+      o.agentId = agentId;
+    }
     else if (a === "--model") o.model = next();
     else if (a === "--inference-url") o.inferenceUrl = next();
     else if (a === "--api-key") o.apiKey = next();

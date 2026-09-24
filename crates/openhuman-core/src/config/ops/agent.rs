@@ -232,6 +232,13 @@ pub async fn apply_agent_settings(
 
     if let Some(chat_agent_id) = update.chat_agent_id {
         let trimmed = chat_agent_id.trim();
+        if !trimmed.is_empty()
+            && !crate::agent::OpenHumanSessionHost::is_runnable_agent_id(config, trimmed)
+        {
+            return Err(format!(
+                "chat_agent_id '{trimmed}' is not a runnable agent definition"
+            ));
+        }
         config.agent.chat_agent_id = (!trimmed.is_empty()).then(|| trimmed.to_string());
         log::debug!(
             "[config][agent] chat_agent_id -> {:?}",

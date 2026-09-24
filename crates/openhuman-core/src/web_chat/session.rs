@@ -33,14 +33,22 @@ pub(super) fn model_registry_signature(config: &Config) -> String {
 /// not take chat down.
 pub(super) fn pick_target_agent_id(config: &Config) -> String {
     const DEFAULT_CHAT_AGENT_ID: &str = "orchestrator";
-    config
+    let selected = config
         .agent
         .chat_agent_id
         .as_deref()
         .map(str::trim)
         .filter(|id| !id.is_empty())
-        .unwrap_or(DEFAULT_CHAT_AGENT_ID)
-        .to_string()
+        .unwrap_or(DEFAULT_CHAT_AGENT_ID);
+
+    if OpenHumanSessionHost::is_runnable_agent_id(config, selected) {
+        return selected.to_string();
+    }
+
+    log::warn!(
+        "[web-channel] configured chat_agent_id={selected:?} is not a runnable definition; falling back to {DEFAULT_CHAT_AGENT_ID}"
+    );
+    DEFAULT_CHAT_AGENT_ID.to_string()
 }
 
 pub(crate) fn normalize_model_override(model_override: Option<String>) -> Option<String> {
