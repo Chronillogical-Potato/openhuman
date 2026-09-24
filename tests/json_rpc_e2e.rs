@@ -11331,7 +11331,10 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
     assert_eq!(errors.len(), 1, "malformed graph has one parse error");
     let error = errors[0].as_str().expect("string error");
     assert!(error.contains("inputs[0]"), "missing member path: {error}");
-    assert!(error.contains("missing field"), "missing serde detail: {error}");
+    assert!(
+        error.contains("missing field"),
+        "missing serde detail: {error}"
+    );
 
     api_join.abort();
     rpc_join.abort();
