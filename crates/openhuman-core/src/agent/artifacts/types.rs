@@ -9,6 +9,7 @@ pub enum ArtifactKind {
     Presentation,
     Document,
     Image,
+    Video,
     #[default]
     Other,
 }
@@ -19,6 +20,7 @@ impl ArtifactKind {
             Self::Presentation => "presentation",
             Self::Document => "document",
             Self::Image => "image",
+            Self::Video => "video",
             Self::Other => "other",
         }
     }
@@ -30,6 +32,7 @@ impl ArtifactKind {
             "presentation" => Self::Presentation,
             "document" => Self::Document,
             "image" => Self::Image,
+            "video" => Self::Video,
             _ => Self::Other,
         }
     }
