@@ -65,7 +65,11 @@ fn cross_site_navigations_are_refused() {
 
 #[test]
 fn redirect_carries_credentials_in_the_fragment_only() {
-    let target = build_redirect("http://localhost:1420", "http://127.0.0.1:7788/rpc", "a+b/c");
+    let target = build_redirect(
+        "http://localhost:1420",
+        "http://127.0.0.1:7788/rpc",
+        "a+b/c",
+    );
     let (before_hash, fragment) = target.split_once('#').expect("fragment");
     assert_eq!(before_hash, "http://localhost:1420/__dev-connect");
     assert!(!before_hash.contains("token"));

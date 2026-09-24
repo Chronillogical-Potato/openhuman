@@ -93,7 +93,8 @@ pub(crate) fn is_direct_navigation(sec_fetch_site: Option<&str>) -> bool {
 
 /// Builds the redirect target. The bearer rides in the fragment only.
 pub(crate) fn build_redirect(app_origin: &str, rpc_url: &str, token: &str) -> String {
-    let encode = |value: &str| url::form_urlencoded::byte_serialize(value.as_bytes()).collect::<String>();
+    let encode =
+        |value: &str| url::form_urlencoded::byte_serialize(value.as_bytes()).collect::<String>();
     format!(
         "{app_origin}/__dev-connect#rpcUrl={}&token={}",
         encode(rpc_url),
@@ -134,7 +135,10 @@ pub async fn dev_connect_handler(
     };
 
     let Some(rpc_url) = header_str("host").and_then(rpc_url_from_host) else {
-        return refuse(StatusCode::FORBIDDEN, "request did not arrive on a loopback host");
+        return refuse(
+            StatusCode::FORBIDDEN,
+            "request did not arrive on a loopback host",
+        );
     };
 
     let Some(token) = crate::core::auth::get_rpc_token() else {
@@ -146,7 +150,10 @@ pub async fn dev_connect_handler(
     (
         StatusCode::FOUND,
         [
-            (header::LOCATION, build_redirect(&app_origin, &rpc_url, token)),
+            (
+                header::LOCATION,
+                build_redirect(&app_origin, &rpc_url, token),
+            ),
             (header::CACHE_CONTROL, "no-store".to_string()),
             (header::REFERRER_POLICY, "no-referrer".to_string()),
         ],

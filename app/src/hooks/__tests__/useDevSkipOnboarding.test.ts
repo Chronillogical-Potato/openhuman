@@ -3,11 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { useDevSkipOnboarding } from '../useDevSkipOnboarding';
 
-const base = {
-  isBootstrapping: false,
-  sessionToken: 'jwt',
-  onboardingCompleted: false,
-};
+const base = { isBootstrapping: false, sessionToken: 'jwt', onboardingCompleted: false };
 
 describe('useDevSkipOnboarding', () => {
   it('marks onboarding complete once for a signed-in, un-onboarded user', () => {

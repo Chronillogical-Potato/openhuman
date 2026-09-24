@@ -798,7 +798,10 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         .route("/ws/dictation", get(dictation_ws_handler))
         .route("/oauth/mcp/callback", get(oauth_mcp_callback_handler))
         // Dev-only: hand this core (URL + bearer) to a loopback Vite renderer.
-        .route("/dev/connect", get(crate::core::dev_connect::dev_connect_handler))
+        .route(
+            "/dev/connect",
+            get(crate::core::dev_connect::dev_connect_handler),
+        )
         // OpenAI-compatible inference endpoint (/v1/chat/completions, /v1/models)
         .nest("/v1", crate::inference::http::router())
         // Apply `AppState` here so the outer router becomes `Router<()>` and

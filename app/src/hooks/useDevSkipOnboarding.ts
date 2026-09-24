@@ -16,7 +16,12 @@ interface DevSkipOnboardingInput {
  * only hiding the stepper, so state keyed off the core flag agrees with the UI.
  */
 export function useDevSkipOnboarding(
-  { isBootstrapping, sessionToken, onboardingCompleted, setOnboardingCompletedFlag }: DevSkipOnboardingInput,
+  {
+    isBootstrapping,
+    sessionToken,
+    onboardingCompleted,
+    setOnboardingCompletedFlag,
+  }: DevSkipOnboardingInput,
   enabled: boolean = DEV_SKIP_ONBOARDING
 ): void {
   const requestedRef = useRef(false);
