@@ -1530,9 +1530,12 @@ const Conversations = ({
   // would wake the stage on every keystroke. The ref is already maintained for
   // the dictation handler and always holds the latest send fn.
   const mascotSubmit = useCallback((text: string) => handleSendMessageRef.current?.(text), []);
-  const mascotError = useCallback((message: string) => {
-    setSendError(chatSendError('voice_transcription', message));
-  }, [setSendError]);
+  const mascotError = useCallback(
+    (message: string) => {
+      setSendError(chatSendError('voice_transcription', message));
+    },
+    [setSendError]
+  );
   useChatMascotSendBinding(chatMascot, {
     submit: mascotSubmit,
     onError: mascotError,
