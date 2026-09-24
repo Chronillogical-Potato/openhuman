@@ -241,11 +241,7 @@ pub async fn agent_chat_for(
     // history whenever the same agent serves several threads (every library
     // host does exactly that). Seed from this thread's transcript when it has
     // one; when it has none, keep the turn from falling back to that autoload.
-    if let Some(id) = thread_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-    {
+    if let Some(id) = turn_session_id {
         // Binding the thread also binds the session's durable identity, and
         // the turn resumes by that identity. Nothing here has to seed history
         // by hand, suppress an autoload, or reason about which transcript is
@@ -255,16 +251,13 @@ pub async fn agent_chat_for(
         agent.set_thread_id(Some(id));
         log::debug!("[inference] agent_chat bound session for thread_id={id}");
     }
-    // Live progress for in-process embedders. `OpenHumanSessionHost::from_config` never
-    // attaches a sink itself, so there is nothing to clobber here; callers that
-    // set one explicitly (web chat, platform socket, flows, skills) hold their
-    // own `Agent` and never reach this path — where both could apply, the
-    // explicitly-set sink wins because it is applied to the agent it owns.
     // A seeded turn replaces resume rather than adding to it.
     //
     // The three calls are one operation and the order is load-bearing:
     // `clear_history` drops the composed session so `seed_resume_from_messages`
-    // -- which returns early on a live one -- can take effect, and the override
+    // -- which returns `Ok(())` and seeds NOTHING on a live one, so getting
+    // this order wrong runs the turn blind rather than failing -- can take
+    // effect, and the override
     // stops the runtime reloading from its own durable transcript the history
     // that was just replaced. A caller seeding from its own log means that log
     // to be the whole of what this turn has seen; leaving either of the other
@@ -286,6 +279,11 @@ pub async fn agent_chat_for(
             seed.len()
         );
     }
+    // Live progress for in-process embedders. `OpenHumanSessionHost::from_config` never
+    // attaches a sink itself, so there is nothing to clobber here; callers that
+    // set one explicitly (web chat, platform socket, flows, skills) hold their
+    // own `Agent` and never reach this path — where both could apply, the
+    // explicitly-set sink wins because it is applied to the agent it owns.
     if let Some(tx) = crate::agent::progress_sink::current_progress_sink() {
         agent.set_on_progress(Some(tx));
     }

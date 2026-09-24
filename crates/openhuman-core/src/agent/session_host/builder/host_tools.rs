@@ -151,7 +151,13 @@ impl<'a> TurnContext<'a> {
     }
 }
 
-/// Builds one turn's host belt. Invoked once per session build, so a host may
-/// return a different belt each time -- see [`TurnContext`] for what it is told
-/// about the turn it is building for.
+/// Builds one turn's host belt.
+///
+/// Invoked once per **session build**, which on the paths a host reaches --
+/// `agent_chat` builds a session for every turn -- means once per turn. The
+/// distinction matters for anything that composes sessions differently: the
+/// guarantee is per build, not per turn, and a build that is reused serves the
+/// belt it was built with.
+///
+/// See [`TurnContext`] for what the factory is told about the occasion.
 pub type HostTools = Arc<dyn for<'a> Fn(TurnContext<'a>) -> HostTurnTools + Send + Sync>;

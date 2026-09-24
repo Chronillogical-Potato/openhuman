@@ -248,4 +248,18 @@ fn a_host_tool_overrides_a_config_tool_of_the_same_name() {
         advertised[0], "a test marker",
         "the surviving spec must be the host's, not the config-derived one"
     );
+
+    // Advertising the host's spec while executing the config's would be the
+    // same bug wearing a disguise, so check the belt the driver resolves
+    // against, not only what the provider was told.
+    let executable = agent
+        .tools()
+        .iter()
+        .find(|tool| tool.name() == contested)
+        .map(|tool| tool.description().to_owned())
+        .expect("the contested name is callable");
+    assert_eq!(
+        executable, "a test marker",
+        "the tool that runs must be the host's, matching the spec advertised for it"
+    );
 }

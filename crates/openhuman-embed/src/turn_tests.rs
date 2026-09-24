@@ -199,16 +199,32 @@ fn the_controller_declares_nowhere_for_a_seed_to_travel() {
         .find(|s| s.namespace == "inference" && s.function == "agent_chat")
         .expect("inference.agent_chat is a registered controller");
 
-    let carries_history = schema.inputs.iter().any(|field| {
-        let name = field.name.to_ascii_lowercase();
-        name.contains("history") || name.contains("messages") || name.contains("seed")
-    });
+    // An allowlist, not a denylist of suspicious names: a future input called
+    // `context` or `transcript` could carry history just as well, and a
+    // heuristic that guesses at names would pass it silently. Anything new
+    // fails here until someone decides whether a seed could ride it.
+    const KNOWN: [&str; 8] = [
+        "message",
+        "model_override",
+        "temperature",
+        "thread_id",
+        "cwd",
+        "inference_url",
+        "api_key",
+        "agent_id",
+    ];
+    let unknown: Vec<&str> = schema
+        .inputs
+        .iter()
+        .map(|field| field.name)
+        .filter(|name| !KNOWN.contains(name))
+        .collect();
 
     assert!(
-        !carries_history,
-        "agent_chat gained a history-shaped input ({:?}); Turn::seed refuses the \
-         Runtime path on the assumption it has none",
-        schema.inputs.iter().map(|f| f.name).collect::<Vec<_>>()
+        unknown.is_empty(),
+        "agent_chat gained input(s) {unknown:?}; `Turn::seed` refuses the Runtime \
+         path on the assumption none of them can carry history. Decide, then \
+         add them here."
     );
 }
 

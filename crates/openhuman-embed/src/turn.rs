@@ -546,8 +546,22 @@ async fn dispatch(
             // contract and carry no history, so this path cannot seed -- and a
             // turn that asked for history and silently ran without it would be
             // the agent answering blind, which is worse than a clear error.
+            //
+            // `Domain`, not `Unavailable`: the latter means the method was
+            // compiled or configured out and tells hosts to degrade the
+            // surface. `AGENT_CHAT` is fully present here; it is this one
+            // request that cannot be served, which is a caller error and an
+            // expected user-visible state rather than a missing capability.
             if seed.is_some() {
-                return Err(CoreError::Unavailable { method: AGENT_CHAT });
+                return Err(CoreError::Domain {
+                    method: AGENT_CHAT,
+                    message: "seeded history is not supported on a caller-built runtime's \
+                              orchestrator; run the turn on a runtime-owned Agent"
+                        .to_owned(),
+                    kind: Some("seed_unsupported".to_owned()),
+                    data: None,
+                    expected_user_state: true,
+                });
             }
             call::<_, String>(&rt, AGENT_CHAT, &request).await
         }

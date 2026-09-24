@@ -213,9 +213,11 @@ impl AgentSpec {
     ///
     /// # A factory, not a belt
     ///
-    /// `f` runs once per turn. That is forced — [`Agent`](super::Agent) is
-    /// `Clone` and `Box<dyn Tool>` is not, so a stored belt could not survive
-    /// the rebuild — but it is also useful: a host whose tools are bound to
+    /// `f` runs once per session build, and this path builds a session for
+    /// every turn, so in practice it runs per turn. That is forced —
+    /// [`Agent`](super::Agent) is `Clone` and `Box<dyn Tool>` is not, so a
+    /// stored belt could not survive the rebuild — but it is also useful: a
+    /// host whose tools are bound to
     /// something shorter-lived than the agent (one episode, one room, one
     /// assignment) can return a different belt each turn rather than
     /// registering a second agent for it.
