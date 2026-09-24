@@ -509,26 +509,19 @@ impl Tool for ExaSearchTool {
         let body = self.build_body(&args, &query);
         let results = self.client.post_documents("search", body).await?;
         let mut result = self.client.to_result(&results, &query, limit, &options);
-        // Host-only structured payload (never model-facing); set here rather
-        // than in the shared `to_result` since find_similar/get_contents
-        // aren't a query-shaped search.
+        // Host-only structured payload (never model-facing).
         let excerpts: Vec<Option<String>> = results.iter().map(ExaResultItem::excerpt).collect();
-        let structured_results: Vec<super::WebSearchResultRef<'_>> = results
+        let structured: Vec<super::WebSearchResultRef<'_>> = results
             .iter()
-            .zip(excerpts.iter())
-            .map(|(r, excerpt)| super::WebSearchResultRef {
+            .zip(&excerpts)
+            .map(|(r, e)| super::WebSearchResultRef {
                 title: r.display_title(),
-                url: r.url.as_str(),
+                url: &r.url,
                 published: r.published_date.as_deref(),
-                excerpt: excerpt.as_deref(),
+                excerpt: e.as_deref(),
             })
             .collect();
-        result.metadata = Some(super::web_search_metadata(
-            &query,
-            "Exa",
-            &structured_results,
-            limit,
-        ));
+        result.metadata = Some(super::web_search_metadata(&query, "Exa", &structured, limit));
         Ok(result)
     }
 }
