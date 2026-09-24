@@ -239,9 +239,10 @@ fn attach_text_dialect_rounds(
             .map(|result| serde_json::Value::String(result.tool_call_id.clone()))
             .collect();
         if !failed.is_empty() {
-            match rows[index].extra_metadata.get_or_insert_with(|| {
-                serde_json::Value::Object(serde_json::Map::new())
-            }) {
+            match rows[index]
+                .extra_metadata
+                .get_or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()))
+            {
                 serde_json::Value::Object(map) => {
                     map.insert(
                         TOOL_RESULT_FAILURES_METADATA_KEY.to_string(),
@@ -258,8 +259,7 @@ fn attach_text_dialect_rounds(
         let Some(issuer) = index.checked_sub(1) else {
             continue;
         };
-        if !fresh[issuer] || rows[issuer].role != "assistant" || rows[issuer].turn_usage.is_some()
-        {
+        if !fresh[issuer] || rows[issuer].role != "assistant" || rows[issuer].turn_usage.is_some() {
             continue;
         }
         let calls: Vec<TranscriptToolCall> = results
@@ -288,7 +288,9 @@ fn attach_text_dialect_rounds(
             continue;
         }
         rows[issuer].turn_usage = Some(TurnUsage {
-            provider: route.map(|route| route.provider.clone()).unwrap_or_default(),
+            provider: route
+                .map(|route| route.provider.clone())
+                .unwrap_or_default(),
             model: route.map(|route| route.model.clone()).unwrap_or_default(),
             usage: MessageUsage {
                 input: 0,

@@ -628,7 +628,10 @@ fn project_text_tool_results(
 
 /// The already-settled orphan row for `call_id` in the current turn — a result
 /// that projected before any call named it.
-fn settled_orphan_mut<'a>(items: &'a mut [DisplayItem], call_id: &str) -> Option<&'a mut DisplayItem> {
+fn settled_orphan_mut<'a>(
+    items: &'a mut [DisplayItem],
+    call_id: &str,
+) -> Option<&'a mut DisplayItem> {
     let turn_start = items
         .iter()
         .rposition(|item| matches!(item, DisplayItem::TurnBoundary { .. }))

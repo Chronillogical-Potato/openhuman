@@ -898,7 +898,10 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
         .unwrap_or_default();
     assert_eq!(
         issued,
-        vec!["call_web_search_1".to_string(), "call_file_read_1".to_string()],
+        vec![
+            "call_web_search_1".to_string(),
+            "call_file_read_1".to_string()
+        ],
         "the issuing assistant row carries its calls"
     );
     assert!(
@@ -925,7 +928,11 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
             _ => None,
         })
         .collect();
-    assert_eq!(calls.len(), 2, "one item per call, no duplicates: {items:?}");
+    assert_eq!(
+        calls.len(),
+        2,
+        "one item per call, no duplicates: {items:?}"
+    );
     assert_eq!(calls[0].0, "call_web_search_1");
     assert_eq!(calls[0].1, "web_search_tool");
     assert_eq!(
@@ -954,5 +961,63 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
             matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "Here is what I found.")
         })
         .unwrap();
-    assert!(first_call < final_answer, "calls precede the answer they fed");
+    assert!(
+        first_call < final_answer,
+        "calls precede the answer they fed"
+    );
+}
+
+/// Transcripts already written while the codec filed a turn's calls on its
+/// final row (calls recorded *after* their own results) still project each call
+/// once, settled, with its real name.
+#[test]
+fn calls_recorded_after_their_results_project_as_settled() {
+    let dir = TempDir::new().unwrap();
+    let thread = "thr_late_calls";
+    write_raw(
+        dir.path(),
+        "late_orchestrator",
+        thread,
+        &[
+            r#"{"role":"user","content":"search and read","request_id":"R"}"#,
+            r#"{"role":"assistant","content":"","request_id":"R"}"#,
+            r#"{"role":"user","content":"[Tool results]\n<tool_result id=\"call_web_search_1\">\nhits\n</tool_result>\n<tool_result id=\"call_file_read_1\">\nunknown tool\n</tool_result>\n","request_id":"R"}"#,
+            r#"{"role":"assistant","content":"Here is what I found.","provider":"e2e","model":"m","usage":{"input":0,"output":0,"cached_input":0,"context_window":0,"cost_usd":0.0},"ts":"2026-09-24T00:49:35Z","iteration":2,"tool_calls":[{"id":"call_web_search_1","name":"web_search_tool","arguments":"{\"query\":\"q\"}"},{"id":"call_file_read_1","name":"file_read","arguments":"{\"path\":\"p\"}"}],"request_id":"R"}"#,
+        ],
+    );
+
+    let items = project_thread(dir.path(), thread)
+        .expect("transcript")
+        .items;
+    let calls: Vec<_> = items
+        .iter()
+        .filter_map(|item| match item {
+            DisplayItem::ToolCall {
+                call_id,
+                name,
+                args,
+                status,
+                ..
+            } => Some((call_id.clone(), name.clone(), args.is_some(), *status)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        calls,
+        vec![
+            (
+                "call_web_search_1".to_string(),
+                "web_search_tool".to_string(),
+                true,
+                ToolCallStatus::Success
+            ),
+            (
+                "call_file_read_1".to_string(),
+                "file_read".to_string(),
+                true,
+                ToolCallStatus::Success
+            ),
+        ],
+        "{items:?}"
+    );
 }

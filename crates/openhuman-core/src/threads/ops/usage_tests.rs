@@ -333,7 +333,10 @@ fn provenance_only_tool_round_records_are_not_counted_as_turns() {
     let rows = vec![
         TranscriptMessage::new("user", "q"),
         issuing,
-        TranscriptMessage::new("user", "[Tool results]\n<tool_result id=\"call-1\">\nok\n</tool_result>\n"),
+        TranscriptMessage::new(
+            "user",
+            "[Tool results]\n<tool_result id=\"call-1\">\nok\n</tool_result>\n",
+        ),
         TranscriptMessage::assistant("a"),
     ];
     append_transcript_turn(
