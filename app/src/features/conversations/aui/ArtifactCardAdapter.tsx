@@ -16,7 +16,7 @@
  * with the failure reason and an explicit Retry button underneath, wired to
  * the same `aiRegenerate` re-dispatch the legacy card used.
  */
-import { FileTextIcon, ImageIcon, PresentationIcon } from 'lucide-react';
+import { FileTextIcon, ImageIcon, PresentationIcon, VideoIcon } from 'lucide-react';
 import type { ElementType } from 'react';
 
 import { ArtifactCard } from '../../../components/assistant-ui/elements/artifact-card';
@@ -29,6 +29,7 @@ const KIND_ICONS: Record<ArtifactSnapshot['kind'], ElementType> = {
   presentation: PresentationIcon,
   document: FileTextIcon,
   image: ImageIcon,
+  video: VideoIcon,
   other: FileTextIcon,
 };
 
