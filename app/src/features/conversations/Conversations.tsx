@@ -2058,8 +2058,6 @@ const Conversations = ({
         backgroundProcesses={backgroundProcesses}
         showBackgroundProcesses={showBackgroundProcesses}
         onCloseBackgroundProcesses={() => setShowBackgroundProcesses(false)}
-        openSubagentTaskId={openSubagentTaskId}
-        onOpenSubagent={setOpenSubagentTaskId}
         showProcessSource={showProcessSource}
         onCloseProcessSource={() => setShowProcessSource(false)}
       />
