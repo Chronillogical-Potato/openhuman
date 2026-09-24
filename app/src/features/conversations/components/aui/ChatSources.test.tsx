@@ -69,12 +69,12 @@ function page(...newestFirst: DerivedDisplayItem[]) {
   };
 }
 
-function agentMessage(): ThreadMessage {
+function agentMessage(citations?: unknown[]): ThreadMessage {
   return {
     id: 'm-1',
     content: ANSWER,
     type: 'text',
-    extraMetadata: { requestId: REQUEST_ID },
+    extraMetadata: { requestId: REQUEST_ID, ...(citations ? { citations } : {}) },
     sender: 'agent',
     createdAt: '2026-01-01T00:00:00.000Z',
   };
