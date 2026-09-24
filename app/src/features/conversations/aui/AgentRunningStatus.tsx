@@ -39,10 +39,13 @@ function useAgentStatusStrings() {
 }
 
 export function AgentRunningStatus() {
+  const { t } = useT();
   const summary = useTaskSummary();
   const strings = useAgentStatusStrings();
   if (summary.total === 0) {
-    return <ThinkingIndicator data-testid="agent-running-status-thinking" />;
+    return (
+      <ThinkingIndicator data-testid="agent-running-status-thinking" label={t('chat.thinkingDots')} />
+    );
   }
   return <TaskTray data-testid="agent-running-status-tasks" strings={strings} />;
 }
