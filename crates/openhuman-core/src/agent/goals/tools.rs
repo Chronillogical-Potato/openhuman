@@ -190,7 +190,7 @@ impl Tool for GoalSetTool {
                         thread_id: goal.thread_id.clone(),
                         goal_id: goal.goal_id.clone(),
                         status: goal.status.as_str().to_string(),
-                        goal: None,
+                        goal: Some(super::goal_to_value(&goal)),
                     },
                 );
                 Ok(ToolResult::success(goal_payload(Some(&goal), "Goal set.")))
@@ -254,7 +254,7 @@ impl Tool for GoalCompleteTool {
                         thread_id: goal.thread_id.clone(),
                         goal_id: goal.goal_id.clone(),
                         status: goal.status.as_str().to_string(),
-                        goal: None,
+                        goal: Some(super::goal_to_value(&goal)),
                     },
                 );
                 Ok(ToolResult::success(goal_payload(
