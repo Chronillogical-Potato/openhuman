@@ -2046,18 +2046,11 @@ const Conversations = ({
         // same conversation partner, not a second one.
         onOpenHumanMode={() => navigate('/human')}
         onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-        // Lets a delegation card inside the transcript open the drawer below.
-        // `setOpenSubagentTaskId` is a stable setter, and `canOpenSubagent` is
-        // memoised on the timeline, so the context value only churns when the
-        // set of resolvable delegations actually changes.
-        onOpenSubagent={setOpenSubagentTaskId}
-        canOpenSubagent={canOpenSubagentDrawer}
         onModelChange={applyComposerModel}
       />
-      {/* The three transcript-local modals: background processes, the
-          sub-agent drawer and the Agent Process Source panel. Mounted beside
-          the Thread (not inside it) because each is its own overlay,
-          positioned against the viewport. */}
+      {/* The transcript-local overlays: background processes and the Agent
+          Process Source panel. Mounted beside the Thread (not inside it)
+          because each is its own overlay, positioned against the viewport. */}
       <TranscriptOverlays
         threadId={selectedThreadId ?? null}
         entries={selectedThreadProcessSourceEntries}
