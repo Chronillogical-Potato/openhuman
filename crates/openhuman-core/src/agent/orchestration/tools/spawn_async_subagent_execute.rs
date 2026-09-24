@@ -373,6 +373,7 @@ impl SpawnAsyncSubagentTool {
                     prompt: prompt.clone(),
                     worker_thread_id: worker_thread_id.clone(),
                     display_name: Some(definition.display_name().to_string()),
+                    parent_call_id: None,
                 })
                 .await;
         }
