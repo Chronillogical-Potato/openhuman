@@ -16,6 +16,7 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     // Reasoning (two same-iteration deltas, must coalesce), then a tool, then
     // visible narration — the order must be preserved in the transcript.
@@ -229,6 +230,7 @@ fn subagent_tool_call_persists_its_arguments() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     m.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
@@ -280,6 +282,7 @@ fn null_child_arguments_are_not_persisted_at_start() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     m.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
@@ -321,6 +324,7 @@ fn oversized_child_arguments_are_truncated() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Writer".into()),
+        parent_call_id: None,
     });
     let huge = "x".repeat(32 * 1024);
     let arguments = serde_json::json!({ "path": "notes.md", "content": huge });
@@ -400,6 +404,7 @@ fn tinyagents_path_backfills_arguments_from_the_completion_event() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     // Start carries no arguments — exactly what the tinyagents bridge sends.
     m.observe(&AgentProgress::SubagentToolCallStarted {
@@ -456,6 +461,7 @@ fn completion_arguments_do_not_overwrite_arguments_captured_at_start() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     m.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
