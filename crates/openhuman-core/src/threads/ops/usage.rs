@@ -95,7 +95,8 @@ pub(super) fn transcript_spend(transcript: &SessionTranscript) -> TranscriptSpen
         // A text-dialect tool round's issuing row carries a provenance-only
         // record (its calls, zero spend); the turn's spend is on its final row.
         // It is not a turn that spent, and must not become the "last" one.
-        if usage.usage.input == 0
+        if !usage.tool_calls.is_empty()
+            && usage.usage.input == 0
             && usage.usage.output == 0
             && usage.usage.cached_input == 0
             && usage.usage.cost_usd == 0.0
