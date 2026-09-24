@@ -14,6 +14,7 @@ import {
   type StreamingAssistantState,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
+import { extractAgentSources } from '../utils/toolTimelineFormatting';
 import {
   FEEDBACK_METADATA_KEY,
   FEEDBACK_ROW_IDS_METADATA_KEY,
