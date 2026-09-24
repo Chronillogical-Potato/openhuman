@@ -229,7 +229,7 @@ pub async fn apply_agent_settings(
         }
     }
 
-    if let Some(chat_agent_id) = update.chat_agent_id {
+    if let Some(chat_agent_id) = update.chat_agent_id.as_deref() {
         let trimmed = chat_agent_id.trim();
         if !trimmed.is_empty()
             && !crate::agent::OpenHumanSessionHost::is_runnable_agent_id(config, trimmed)
