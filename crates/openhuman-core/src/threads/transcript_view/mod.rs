@@ -6,13 +6,15 @@
 
 mod cache;
 mod project;
+mod resolve;
+mod subagents;
 pub mod types;
 
 use std::path::Path;
 
 use serde::Serialize;
 
-pub use types::{DisplayItem, ProjectedTranscript, ToolCallStatus};
+pub use types::{DisplayItem, ProjectedTranscript, SubagentStatus, ToolCallStatus};
 
 const LOG_PREFIX: &str = "[threads][transcript]";
 
@@ -103,3 +105,7 @@ fn parse_cursor(cursor: Option<&str>) -> usize {
 #[cfg(test)]
 #[path = "transcript_view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "transcript_ordering_tests.rs"]
+mod ordering_tests;

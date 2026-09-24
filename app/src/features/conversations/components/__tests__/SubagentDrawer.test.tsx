@@ -63,7 +63,7 @@ describe('SubagentDrawer', () => {
     // Rendered through the shared reasoning panel, inline (no disclosure).
     expect(thinking.getAttribute('data-variant')).toBe('static');
     expect(thinking.querySelector('button')).toBeNull();
-    expect(tool.textContent).toContain('Searched the web');
+    expect(tool.textContent).toContain('Searching the web');
     expect(tool.textContent).toContain('1.2s');
     expect(texts[1].textContent).toContain('The answer is');
   });
@@ -181,7 +181,7 @@ describe('SubagentDrawer', () => {
     await waitFor(() =>
       expect(screen.getByTestId('subagent-parent-prompt').textContent).toContain('Research Q3')
     );
-    expect(screen.getByTestId('assistant-ui-tool-call').textContent).toContain('Searched the web');
+    expect(screen.getByTestId('assistant-ui-tool-call').textContent).toContain('Searching the web');
     expect(screen.getByTestId('subagent-transcript-text').textContent).toContain(
       'Revenue grew 18%'
     );
@@ -348,11 +348,10 @@ describe('SubagentDrawer', () => {
     expect(screen.queryByTestId('assistant-ui-tool-output')).toBeNull();
   });
 
-  it('derives a search label from the arguments when the server label degraded to "tool"', () => {
-    // A provider that hands back a generic `tool` name leaves the row with
-    // nothing better than "Tool" unless the arguments are there to read. Those
-    // arguments only survive a reload because the snapshot now carries them
-    // (#5987) — without them this row reads "Tool" again after a refresh.
+  it('does not guess a web search when the server label degraded to "tool"', () => {
+    // A generic `tool` name says nothing about what ran. A `query` argument is
+    // not evidence of a web search either — `tool_search`, Composio actions and
+    // memory reads all take one — so the row stays neutral rather than lying.
     const transcript: SubagentTranscriptItem[] = [
       {
         kind: 'tool',
@@ -367,6 +366,6 @@ describe('SubagentDrawer', () => {
     render(
       <SubagentDrawer subagent={activity({ transcript })} status="success" onClose={() => {}} />
     );
-    expect(screen.getByTestId('assistant-ui-tool-call').textContent).toContain('Searched the web');
+    expect(screen.getByTestId('assistant-ui-tool-call').textContent).not.toMatch(/web/i);
   });
 });
