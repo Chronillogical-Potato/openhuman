@@ -325,6 +325,8 @@ pub async fn start_chat(
             crate::core::bus::BUS.publish(DomainEvent::RunQueueInterrupted {
                 thread_id: thread_id.clone(),
                 cancelled_request_id: cancelled_id.clone(),
+                item_id: None,
+                text_preview: None,
             });
             publish_web_channel_event(WebChannelEvent {
                 event: "chat_error".to_string(),
