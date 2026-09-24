@@ -76,7 +76,8 @@ export function InferenceStatusLine({
                 round: status.iteration,
                 seq: 0,
                 status: 'running',
-              }
+              },
+              t
             ).title
           }...`}
         {status.phase === 'subagent' &&
@@ -88,7 +89,8 @@ export function InferenceStatusLine({
                 round: status.iteration,
                 seq: 0,
                 status: 'running',
-              }
+              },
+              t
             ).title
           }...`}
       </span>
