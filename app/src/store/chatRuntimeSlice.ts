@@ -1919,6 +1919,28 @@ const chatRuntimeSlice = createSlice({
     clearPendingApprovalForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.pendingApprovalByThread[action.payload.threadId];
     },
+    /**
+     * Record a server-decided terminal resolution (`approval_decided` socket
+     * event carrying `resolution: 'expired' | 'cancelled'`) on the thread's
+     * still-parked entry, rather than deleting it outright. Only applies when
+     * the event names the SAME request the store is holding — a decided
+     * event for a request the client already cleared (the common,
+     * interactive-decision case) is a no-op here. A caller that wants the
+     * card gone immediately still dispatches `clearPendingApprovalForThread`
+     * itself once it has shown the resolution.
+     */
+    resolvePendingApprovalForThread: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        requestId: string;
+        resolution: 'expired' | 'cancelled';
+      }>
+    ) => {
+      const current = state.pendingApprovalByThread[action.payload.threadId];
+      if (!current || current.requestId !== action.payload.requestId) return;
+      current.resolution = action.payload.resolution;
+    },
     setPendingPlanReviewForThread: (
       state,
       action: PayloadAction<{ threadId: string; review: PendingPlanReview }>
@@ -2455,6 +2477,7 @@ export const {
   resolveSubagentTranscriptTool,
   setPendingApprovalForThread,
   clearPendingApprovalForThread,
+  resolvePendingApprovalForThread,
   setPendingPlanReviewForThread,
   clearPendingPlanReviewForThread,
   setWorkflowProposalForThread,

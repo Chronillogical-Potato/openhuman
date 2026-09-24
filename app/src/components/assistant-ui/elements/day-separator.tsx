@@ -5,6 +5,10 @@
  * (https://r.assistant-ui.com/styles/base-nova/elements-day-separator.json).
  * Changes from upstream:
  * - `cn` import path (`@/components/assistant-ui/lib/utils`).
+ * - The day-boundary check no longer reassigns a `let` across `.map()`
+ *   iterations (flagged by this repo's `react-hooks/immutability` lint); it
+ *   compares each message's day against the previous array entry instead,
+ *   with identical output.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import type { ComponentProps } from 'react';
@@ -24,16 +28,13 @@ export function DaySeparator({
   className,
   ...props
 }: Omit<ComponentProps<'div'>, 'children' | 'messages'> & { messages: readonly DatedMessage[] }) {
-  let lastDay = '';
-
   return (
     <div
       data-slot="day-separator"
       className={cn('flex w-full max-w-sm flex-col gap-2', className)}
       {...props}>
-      {messages.map(message => {
-        const newDay = message.day !== lastDay;
-        lastDay = message.day;
+      {messages.map((message, index) => {
+        const newDay = index === 0 || messages[index - 1].day !== message.day;
 
         return (
           <div key={message.id} className="flex flex-col gap-2">
