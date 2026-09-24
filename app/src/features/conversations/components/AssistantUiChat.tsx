@@ -37,6 +37,9 @@ function ComposerTextBridge({
   const previousHostValue = useRef(value);
 
   useEffect(() => {
+    (window as unknown as { __bridge?: unknown[] }).__bridge ??= [];
+    const log = (window as unknown as { __bridge: unknown[] }).__bridge;
+    if (log.length < 60) log.push({ composerText, value, prev: previousHostValue.current });
     // A host-side write (dictation, ESC restore, clear) wins for this pass.
     if (previousHostValue.current !== value) {
       previousHostValue.current = value;
