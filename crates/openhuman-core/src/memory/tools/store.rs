@@ -203,7 +203,20 @@ impl Tool for MemoryStoreTool {
             )
             .await
         {
-            Ok(()) => Ok(ToolResult::success(format!("Stored memory: {display_key}"))),
+            Ok(()) => {
+                // Fires once per tool call (not per driver read), so this
+                // does not carry the hot-path flooding risk the guard's own
+                // success path avoids (see `memory::guard::audit` docs) —
+                // and, unlike that layer, this is exactly the discrete,
+                // per-turn action the chat surface's `memory_activity`
+                // indicator wants to light up on. Never carries `content`.
+                crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemoryStored {
+                    key: key.clone(),
+                    category: category.to_string(),
+                    namespace: namespace.clone(),
+                });
+                Ok(ToolResult::success(format!("Stored memory: {display_key}")))
+            }
             Err(e) => Ok(ToolResult::error(format!("Failed to store memory: {e}"))),
         }
     }
