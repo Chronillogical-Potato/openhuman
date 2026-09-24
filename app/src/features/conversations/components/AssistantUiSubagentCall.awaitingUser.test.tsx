@@ -24,9 +24,8 @@ import chatRuntimeReducer, {
   subagentSpawned,
 } from '../../../store/chatRuntimeSlice';
 import threadReducer from '../../../store/threadSlice';
+import { SubagentTaskCard } from '../aui/SubagentTaskCard';
 import { AssistantUiSubagentCall } from './AssistantUiSubagentCall';
-import { SubagentDrawerHost } from './aui/subagentDrawerHost';
-import { SubagentCall } from './ChatToolParts';
 
 vi.mock('../../../services/api/threadApi', () => ({
   threadApi: {
