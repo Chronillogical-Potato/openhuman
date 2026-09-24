@@ -15,6 +15,7 @@ import {
   type ChatApprovalDecidedEvent,
   type ChatApprovalRequestEvent,
   type ChatDoneEvent,
+  type ChatErrorEvent,
   type ChatInferenceHeartbeatEvent,
   type ChatInferenceStartEvent,
   type ChatInterimEvent,
