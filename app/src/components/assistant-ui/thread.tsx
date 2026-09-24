@@ -1472,7 +1472,7 @@ const AssistantMessage: FC = () => {
             }
           }}
         </MessagePrimitive.GroupedParts>
-        {stopped && <StoppedRunSlot />}
+        {false && stopped && <StoppedRunSlot />}
         <MessageError />
         <ChatErrorNotice />
       </div>
