@@ -650,6 +650,28 @@ export function toThreadMessageLike(
   ];
   const effectiveTimeline = recoverTimelineToolNames(timeline, recoveredToolNames);
   const feedback = msg.sender === 'agent' ? persistedFeedback(msg) : undefined;
+  // `chat_done.timing` (wire-contract.md), stamped onto `extraMetadata` by
+  // `ChatRuntimeProvider`'s `chatDoneExtraMetadata`. `streamStartTime` is
+  // required by assistant-ui's `MessageTiming` type but not read by the
+  // vendored `MessageTiming` element (`message-timing.aui.tsx` reads only
+  // `firstTokenTime`/`totalStreamTime`/`tokensPerSecond`/`totalChunks`), so
+  // the message's own `createdAt` is a reasonable value for it. `totalChunks`
+  // has no wire counterpart yet, hence `0` rather than an invented count.
+  const timingWire =
+    msg.sender === 'agent'
+      ? (msg.extraMetadata?.[TIMING_METADATA_KEY] as
+          | { first_token_ms?: number; first_tool_ms?: number; total_ms?: number }
+          | undefined)
+      : undefined;
+  const timing = timingWire
+    ? {
+        streamStartTime: new Date(msg.createdAt).getTime(),
+        firstTokenTime: timingWire.first_token_ms,
+        totalStreamTime: timingWire.total_ms,
+        totalChunks: 0,
+        toolCallCount: effectiveTimeline.length,
+      }
+    : undefined;
 
   const converted: ThreadMessageLike = {
     id: msg.id,
@@ -672,6 +694,7 @@ export function toThreadMessageLike(
       // survive the next turn, a thread switch and a reload. Without this the
       // control silently un-presses, which is worse than having no control.
       ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
+      ...(timing ? { timing } : {}),
       custom: { extraMetadata: msg.extraMetadata ?? {}, sourceType: msg.type },
     },
   };
