@@ -343,6 +343,9 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   }),
   composio_execute: spec('runAppAction', PlugIcon, 'app', { chip: chip.text('tool') }),
   tool_search: spec('findTools', PackageSearchIcon, 'system', { chip: chip.query() }),
+  // The deferred-tool bridge is described as the tool it calls
+  // (`toolPresentation.ts`); this entry covers it before its args arrive.
+  tool_call: spec('useTools', WrenchIcon, 'system', { chip: chip.text('name') }),
   search_tool_catalog: spec('findTools', PackageSearchIcon, 'system', { chip: chip.query() }),
   gmail_unsubscribe: spec('unsubscribe', MailXIcon, 'app', { chip: chip.text('sender', 'email') }),
   google_places_search: spec('searchPlaces', MapPinIcon, 'app', { chip: chip.query() }),
