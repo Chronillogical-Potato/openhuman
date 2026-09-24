@@ -1620,7 +1620,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(store.getState().chatRuntime.streamingAssistantByThread['t-inv']).toBeUndefined();
     });
 
-    it('leaves a still-running tool row running on chat_done instead of inventing success', () => {
+    it('cancels an unresolved tool row when the completed snapshot cannot be loaded', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1650,11 +1650,14 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       });
 
       // The core drains every queued progress event before `chat_done`, so a
-      // row with no result by now has none; the settled snapshot/projection
-      // decides its real status. Forcing `success` here invented an outcome.
-      const timeline = store.getState().chatRuntime.toolTimelineByThread['t-inv'] ?? [];
-      expect(timeline).toHaveLength(1);
-      expect(timeline[0]?.status).toBe('running');
+      // row with no result by now has none. If the completed snapshot cannot
+      // be loaded, it has no remaining event driver and must not pulse as
+      // `running`; this still does not invent a successful tool outcome.
+      await waitFor(() => {
+        const timeline = store.getState().chatRuntime.toolTimelineByThread['t-inv'] ?? [];
+        expect(timeline).toHaveLength(1);
+        expect(timeline[0]?.status).toBe('cancelled');
+      });
     });
 
     it('keeps two id-less calls of one tool in a round apart by seq, still deduping a redelivery', () => {
