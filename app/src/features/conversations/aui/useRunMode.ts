@@ -33,6 +33,11 @@ export function useRunMode(threadId: string | null): UseRunModeResult {
   const mode = useAppSelector(state =>
     threadId ? state.runMode.byThread[threadId] ?? DEFAULT_MODE : DEFAULT_MODE
   );
+  // Presence (not the defaulted `mode` above) — needed so the load-on-open
+  // effect can tell "no entry yet" apart from "explicitly build".
+  const hasEntry = useAppSelector(state => (threadId ? threadId in state.runMode.byThread : false));
+  const hasEntryRef = useRef(hasEntry);
+  hasEntryRef.current = hasEntry;
   const loadedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -40,7 +45,7 @@ export function useRunMode(threadId: string | null): UseRunModeResult {
     loadedFor.current = threadId;
     // Only fetch when the slice has no live entry yet — a value already set
     // (e.g. by a `run_mode_changed` event that arrived first) wins.
-    if (store.getState().runMode.byThread[threadId] !== undefined) return;
+    if (hasEntryRef.current) return;
     let cancelled = false;
     void (async () => {
       try {

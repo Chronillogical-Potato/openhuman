@@ -397,3 +397,116 @@ async fn agent_surface_bridges_queue_item_delivered_with_lane() {
     assert_eq!(item.id, "item-2");
     assert_eq!(item.lane, Some("collect".to_string()));
 }
+
+/// `ThreadRunModeChanged` bridges to `run_mode_changed` with the mode label
+/// carried on `message` and an empty `client_id` (thread-scoped, not
+/// client-scoped, like the goal/todo/queue events above).
+#[tokio::test]
+async fn agent_surface_bridges_run_mode_changed() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-run-mode-changed";
+    crate::core::bus::BUS.publish(DomainEvent::ThreadRunModeChanged {
+        thread_id: thread_id.to_string(),
+        mode: "plan".to_string(),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "run_mode_changed", thread_id).await;
+    assert_eq!(ev.client_id, "");
+    assert_eq!(ev.message, Some("plan".to_string()));
+}
+
+/// `ApprovalDecided` with both `thread_id`/`client_id` set bridges to
+/// `approval_decided`, mirroring `tool_call_id` and carrying `resolution` on
+/// `cancel_reason`.
+#[tokio::test]
+async fn approval_surface_bridges_approval_decided_with_resolution() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(ApprovalSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    crate::core::bus::BUS.publish(DomainEvent::ApprovalDecided {
+        request_id: "req-decided-1".to_string(),
+        tool_name: "composio".to_string(),
+        decision: "deny".to_string(),
+        thread_id: Some("thread-decided-1".to_string()),
+        client_id: Some("client-decided-1".to_string()),
+        tool_call_id: Some("call-decided-1".to_string()),
+        resolution: Some("expired".to_string()),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "approval_decided", "thread-decided-1").await;
+    assert_eq!(ev.client_id, "client-decided-1");
+    assert_eq!(ev.request_id, "req-decided-1");
+    assert_eq!(ev.tool_call_id, Some("call-decided-1".to_string()));
+    assert_eq!(ev.cancel_reason, Some("expired".to_string()));
+    assert_eq!(ev.message, Some("deny".to_string()));
+}
+
+/// `ApprovalDecided` with no thread/client routing (a non-chat origin) is
+/// intentionally NOT surfaced — there is no room to deliver it to.
+#[tokio::test]
+async fn approval_surface_drops_approval_decided_without_chat_routing() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(ApprovalSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    crate::core::bus::BUS.publish(DomainEvent::ApprovalDecided {
+        request_id: "req-decided-no-route".to_string(),
+        tool_name: "composio".to_string(),
+        decision: "deny".to_string(),
+        thread_id: None,
+        client_id: None,
+        tool_call_id: None,
+        resolution: Some("expired".to_string()),
+    });
+    // A sibling event we know fires, so we don't just race an empty channel.
+    crate::core::bus::BUS.publish(DomainEvent::ThreadGoalCleared {
+        thread_id: "thread-decided-no-route-sentinel".to_string(),
+    });
+
+    // `ThreadGoalCleared` isn't in ApprovalSurfaceSubscriber's domain filter,
+    // so use a short bounded wait instead: if `approval_decided` were going
+    // to arrive, it would arrive well within this window.
+    let outcome = tokio::time::timeout(std::time::Duration::from_millis(200), async {
+        loop {
+            match web_rx.recv().await {
+                Ok(ev) if ev.event == "approval_decided" => return Some(ev),
+                Ok(_) => continue,
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Closed) => return None,
+            }
+        }
+    })
+    .await;
+    assert!(
+        outcome.is_err(),
+        "approval_decided must not surface without thread_id/client_id routing"
+    );
+}
+
+/// `PlanReviewDecided` bridges to `plan_review_decided`.
+#[tokio::test]
+async fn plan_review_surface_bridges_plan_review_decided() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(ApprovalSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    crate::core::bus::BUS.publish(DomainEvent::PlanReviewDecided {
+        request_id: "plan-decided-1".to_string(),
+        decision: "approve".to_string(),
+        thread_id: Some("thread-plan-decided-1".to_string()),
+        client_id: Some("client-plan-decided-1".to_string()),
+        tool_call_id: Some("call-plan-decided-1".to_string()),
+        resolution: None,
+    });
+
+    let ev =
+        find_agent_web_event(&mut web_rx, "plan_review_decided", "thread-plan-decided-1").await;
+    assert_eq!(ev.client_id, "client-plan-decided-1");
+    assert_eq!(ev.tool_call_id, Some("call-plan-decided-1".to_string()));
+    assert_eq!(ev.cancel_reason, None);
+    assert_eq!(ev.message, Some("approve".to_string()));
+}

@@ -1,11 +1,14 @@
-//! Behavior tests for `threads::ops::live_state` — direct store-level checks
-//! that don't need the process-wide `Config::load_or_init()` a `workspace_dir()`
-//! RPC call resolves against (full RPC-path coverage is in
-//! `tests/json_rpc_e2e.rs`).
+//! Behavior tests for `threads::ops::live_state`.
+//!
+//! `goal_get`/`todos_get` resolve their workspace through
+//! `Config::load_or_init()` (the same process-global config every RPC
+//! handler reads), so — like the other `OPENHUMAN_WORKSPACE`-dependent config
+//! tests — these serialize on `crate::config::TEST_ENV_LOCK` and point that
+//! env var at a fresh tempdir for the duration of the test.
 
 use super::*;
-use crate::agent::goals::goal_to_value;
 use crate::agent::todos::ops::{TodoItem, TodoStatus};
+use crate::config::TEST_ENV_LOCK;
 
 #[test]
 fn thread_live_state_request_parses_thread_id() {
@@ -14,35 +17,88 @@ fn thread_live_state_request_parses_thread_id() {
     assert_eq!(parsed.thread_id, "thread-1");
 }
 
-/// `goal_to_value` (the field `goal_get`'s response and `ThreadGoalUpdated`
-/// share) round-trips a goal's shape losslessly — a smoke check that the
-/// shared serializer doesn't silently drop fields the frontend goal chip
-/// reads.
-#[tokio::test]
-async fn goal_to_value_round_trips_the_stored_goal() {
-    let dir = std::env::temp_dir().join(format!(
-        "openhuman-goal-live-state-test-{}",
-        uuid::Uuid::new_v4()
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
-    let goal = crate::agent::goals::store::set(&dir, "thread-goal-live", "ship it", Some(1000))
-        .await
-        .unwrap();
-    let value = goal_to_value(&goal);
-    assert_eq!(value["objective"], "ship it");
-    assert_eq!(value["status"], "active");
-    assert_eq!(value["tokenBudget"], 1000);
+struct WorkspaceGuard {
+    _lock: std::sync::MutexGuard<'static, ()>,
+    _tmp: tempfile::TempDir,
 }
 
-/// `todos_get`'s store read returns the items a `TodoTool` call wrote under
-/// the same thread-id key.
+impl WorkspaceGuard {
+    fn new() -> Self {
+        let lock = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = tempfile::tempdir().expect("tempdir");
+        unsafe {
+            std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
+        }
+        Self {
+            _lock: lock,
+            _tmp: tmp,
+        }
+    }
+}
+
+impl Drop for WorkspaceGuard {
+    fn drop(&mut self) {
+        unsafe {
+            std::env::remove_var("OPENHUMAN_WORKSPACE");
+        }
+    }
+}
+
+/// `threads.goal_get` returns `{ goal: null }` for a thread with no goal, and
+/// the full goal payload — the same shape `ThreadGoalUpdated` carries — once
+/// one is set.
+#[tokio::test]
+async fn goal_get_reads_back_a_stored_goal() {
+    let _ws = WorkspaceGuard::new();
+
+    let empty = goal_get(ThreadLiveStateRequest {
+        thread_id: "thread-goal-live".to_string(),
+    })
+    .await
+    .unwrap();
+    let empty_json = empty.into_cli_compatible_json().unwrap();
+    assert!(empty_json["result"]["goal"].is_null(), "{empty_json}");
+
+    let dir = crate::config::Config::load_or_init()
+        .await
+        .unwrap()
+        .workspace_dir;
+    crate::agent::goals::store::set(&dir, "thread-goal-live", "ship it", Some(1000))
+        .await
+        .unwrap();
+
+    let filled = goal_get(ThreadLiveStateRequest {
+        thread_id: "thread-goal-live".to_string(),
+    })
+    .await
+    .unwrap();
+    let filled_json = filled.into_cli_compatible_json().unwrap();
+    let goal = &filled_json["result"]["goal"];
+    assert_eq!(goal["objective"], "ship it");
+    assert_eq!(goal["status"], "active");
+}
+
+/// `threads.todos_get` reads back what a `TodoTool` call (thread-id-keyed)
+/// wrote for the same thread.
 #[tokio::test]
 async fn todos_get_reads_back_what_the_todo_tool_wrote() {
-    let dir = std::env::temp_dir().join(format!(
-        "openhuman-todos-live-state-test-{}",
-        uuid::Uuid::new_v4()
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
+    let _ws = WorkspaceGuard::new();
+    let dir = crate::config::Config::load_or_init()
+        .await
+        .unwrap()
+        .workspace_dir;
+
+    let empty = todos_get(ThreadLiveStateRequest {
+        thread_id: "thread-todos-live".to_string(),
+    })
+    .await
+    .unwrap();
+    let empty_json = empty.into_cli_compatible_json().unwrap();
+    assert!(empty_json["result"]["todos"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+
     let scope = crate::agent::todos::ops::TodoScope::Session {
         id: "thread-todos-live".to_string(),
     };
@@ -54,13 +110,13 @@ async fn todos_get_reads_back_what_the_todo_tool_wrote() {
     .await
     .unwrap();
 
-    let response = todos_get(ThreadLiveStateRequest {
+    let filled = todos_get(ThreadLiveStateRequest {
         thread_id: "thread-todos-live".to_string(),
     })
     .await
     .unwrap();
-    let json = response.into_cli_compatible_json().unwrap();
-    let todos = json["result"]["todos"].as_array().unwrap();
+    let filled_json = filled.into_cli_compatible_json().unwrap();
+    let todos = filled_json["result"]["todos"].as_array().unwrap();
     assert_eq!(todos.len(), 1);
     assert_eq!(todos[0]["content"], "write tests");
 }
