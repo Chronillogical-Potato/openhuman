@@ -9,7 +9,7 @@
 //! to `MANAGED_DEFAULT_PROVIDER`, for UI display. `with_direct_search` can
 //! swap in a `SeltzSearchTool` that bypasses the proxy; only tests use it.
 
-use super::{SearchResponse, SearchResultItem, SeltzSearchTool};
+use super::{web_search_metadata, SearchResponse, SearchResultItem, SeltzSearchTool, WebSearchResultRef};
 use crate::config::Config;
 use crate::integrations::IntegrationClient;
 use async_trait::async_trait;
