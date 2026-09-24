@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import { threadApi } from '../../services/api/threadApi';
-import { chatCancel, chatClearQueue, chatSend } from '../../services/chatService';
+import { chatCancel, chatRemoveQueueItem, chatSend } from '../../services/chatService';
 import { CoreRpcError } from '../../services/coreRpcClient';
 import chatRuntimeReducer, {
   beginInferenceTurn,
@@ -28,6 +28,7 @@ import chatRuntimeReducer, {
   setWorkflowProposalForThread,
 } from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
+import queueReducer, { queueItemQueued } from '../../store/queueSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
 import threadReducer from '../../store/threadSlice';
@@ -62,6 +63,7 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
   chatClearQueue: vi.fn().mockResolvedValue(0),
+  chatRemoveQueueItem: vi.fn().mockResolvedValue(true),
   chatSend: vi.fn().mockResolvedValue(undefined),
   subscribeChatEvents: vi.fn(() => () => {}),
   useRustChat: vi.fn(() => true),
@@ -125,6 +127,7 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
+      queue: queueReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,
@@ -2111,7 +2114,7 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
     mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
     vi.mocked(chatSend).mockResolvedValue(undefined);
-    vi.mocked(chatClearQueue).mockResolvedValue(0);
+    vi.mocked(chatRemoveQueueItem).mockResolvedValue(true);
   });
 
   // A selected thread that is actively streaming (`activeThreadIds`) keeps the
@@ -2132,8 +2135,17 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
     return { store, textarea, thread };
   }
 
-  it('queues a plain-Enter submission as a follow-up and lists it in the strip', async () => {
-    const { textarea } = await renderStreamingConversation();
+  // What the core emits once it accepts a follow-up into the run queue.
+  function coreQueues(store: ReturnType<typeof buildStore> | undefined, id: string, text: string) {
+    act(() => {
+      store?.dispatch(
+        queueItemQueued({ threadId: 'fup-thread', item: { id, text_preview: text } })
+      );
+    });
+  }
+
+  it('queues a plain-Enter submission as a follow-up and keeps it for the transcript', async () => {
+    const { store, textarea } = await renderStreamingConversation();
 
     await act(async () => {
       setComposerText(textarea, 'and the pricing?');
@@ -2145,7 +2157,11 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
     await waitFor(() => {
       expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ queueMode: 'followup' }));
     });
-    expect(await screen.findByText('and the pricing?')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        store?.getState().queue.pendingFollowupsByThread['fup-thread']?.map(p => p.preview)
+      ).toEqual(['and the pricing?'])
+    );
   });
 
   it('queues via the Send button while a turn streams', async () => {
@@ -2164,50 +2180,47 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
     await waitFor(() => {
       expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ queueMode: 'followup' }));
     });
-    expect(await screen.findByText('one more thing')).toBeInTheDocument();
   });
 
-  it('clears the queued follow-ups and the backend queue on Clear', async () => {
-    const { textarea } = await renderStreamingConversation();
+  it("lists the core's queued items above the composer", async () => {
+    const { store } = await renderStreamingConversation();
+    expect(screen.queryByTestId('queued-followups')).not.toBeInTheDocument();
 
-    await act(async () => {
-      setComposerText(textarea, 'dismiss me');
-    });
-    await act(async () => {
-      fireEvent.keyDown(textarea, { key: 'Enter' });
-    });
+    coreQueues(store, 'q1', 'and the pricing?');
 
     const strip = await screen.findByTestId('queued-followups');
-    expect(within(strip).getByText('dismiss me')).toBeInTheDocument();
+    expect(within(strip).getByText('and the pricing?')).toBeInTheDocument();
+  });
 
+  it('removes a queued item through the core', async () => {
+    const { store } = await renderStreamingConversation();
+    coreQueues(store, 'q1', 'dismiss me');
+
+    const strip = await screen.findByTestId('queued-followups');
     await act(async () => {
-      fireEvent.click(within(strip).getByText('Clear'));
+      fireEvent.click(
+        within(strip).getByRole('button', { name: 'Remove "dismiss me" from the queue' })
+      );
     });
 
-    await waitFor(() => expect(chatClearQueue).toHaveBeenCalledWith('fup-thread'));
+    await waitFor(() => expect(chatRemoveQueueItem).toHaveBeenCalledWith('fup-thread', 'q1'));
     await waitFor(() => expect(screen.queryByTestId('queued-followups')).not.toBeInTheDocument());
   });
 
-  it('keeps the queued pills when the backend clear fails', async () => {
-    vi.mocked(chatClearQueue).mockResolvedValueOnce(null);
-    const { textarea } = await renderStreamingConversation();
-
-    await act(async () => {
-      setComposerText(textarea, 'still queued');
-    });
-    await act(async () => {
-      fireEvent.keyDown(textarea, { key: 'Enter' });
-    });
+  it('keeps the queued item when the core does not confirm the removal', async () => {
+    vi.mocked(chatRemoveQueueItem).mockResolvedValueOnce(false);
+    const { store } = await renderStreamingConversation();
+    coreQueues(store, 'q1', 'still queued');
 
     const strip = await screen.findByTestId('queued-followups');
     await act(async () => {
-      fireEvent.click(within(strip).getByText('Clear'));
+      fireEvent.click(
+        within(strip).getByRole('button', { name: 'Remove "still queued" from the queue' })
+      );
     });
 
-    await waitFor(() => expect(chatClearQueue).toHaveBeenCalledWith('fup-thread'));
-    // Clear failed (null) → the backend will still dispatch them, so the pills
-    // stay put instead of falsely showing the queue emptied.
-    expect(screen.getByTestId('queued-followups')).toBeInTheDocument();
+    await waitFor(() => expect(chatRemoveQueueItem).toHaveBeenCalledWith('fup-thread', 'q1'));
+    // The core still holds it and will send it, so it stays on screen.
     expect(
       within(screen.getByTestId('queued-followups')).getByText('still queued')
     ).toBeInTheDocument();
@@ -2215,7 +2228,7 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
 
   it('keeps the draft intact when the follow-up send fails', async () => {
     vi.mocked(chatSend).mockRejectedValueOnce(new Error('send boom'));
-    const { textarea } = await renderStreamingConversation();
+    const { store, textarea } = await renderStreamingConversation();
 
     await act(async () => {
       setComposerText(textarea, 'keep me on failure');
@@ -2224,10 +2237,10 @@ describe('Conversations — queued follow-ups while a turn streams', () => {
       fireEvent.keyDown(textarea, { key: 'Enter' });
     });
 
-    // Send rejected → no pill queued and the composer keeps the user's text so
-    // they can retry instead of silently losing it.
+    // Send rejected → nothing recorded for the transcript, and the composer
+    // keeps the user's text so they can retry instead of silently losing it.
     await waitFor(() => expect(chatSend).toHaveBeenCalled());
-    expect(screen.queryByTestId('queued-followups')).not.toBeInTheDocument();
+    expect(store?.getState().queue.pendingFollowupsByThread['fup-thread']).toBeUndefined();
     expect(textarea).toHaveTextContent('keep me on failure');
   });
 });

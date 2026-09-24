@@ -1491,6 +1491,12 @@ const AssistantActionBar: FC = () => {
           </ActionBarPrimitive.ExportMarkdown>
         </ActionBarMorePrimitive.Content>
       </ActionBarMorePrimitive.Root>
+      {/*
+       * Renders nothing until the stream completes and `chat_done.timing`
+       * lands on `message.metadata.timing` (`assistantUiMessages.ts`); see
+       * that element's own docstring for why it belongs inside this root.
+       */}
+      <MessageTiming />
     </ActionBarPrimitive.Root>
   );
 };
