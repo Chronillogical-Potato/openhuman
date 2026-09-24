@@ -168,6 +168,16 @@ Capability {
         privacy: None,
     },
 Capability {
+        id: "conversation.plan_mode",
+        name: "Plan Mode",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "Put a thread into Plan mode to have the orchestrator lay out and review a plan before touching anything: every side-effecting tool is hidden and denied for that thread until it exits plan mode, except the plan-review card, the session to-do list, and the thread's goal. Exit plan mode (via the plan hand-off or the mode toggle) to run the plan with the full tool set restored.",
+        how_to: "Conversations > toggle Plan mode on the composer, or start a message already in Plan mode",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+Capability {
         id: "conversation.subagent_mascots",
         name: "Subagent Mascots",
         domain: "conversation",

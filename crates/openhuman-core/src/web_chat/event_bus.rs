@@ -309,6 +309,7 @@ impl EventHandler<DomainEvent> for EgressSurfaceSubscriber {
             descriptor,
             thread_id,
             client_id,
+            request_id,
         } = event
         else {
             return;
