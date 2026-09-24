@@ -768,6 +768,17 @@ export interface ArtifactSnapshot {
   error?: string;
   /** When the snapshot was last updated, milliseconds since epoch. */
   updatedAt: number;
+  /**
+   * The `tool_call_id` of the producing tool call, when the core sends one on
+   * the `Artifact*` socket event (additive wire field). Present for an
+   * artifact produced by a toolkit-rendered call (e.g. `media_generate_image`,
+   * `generate_document`) — those render their own in-place state via
+   * `MediaAndDocumentCalls.tsx` instead of the header's live-artifact deck, so
+   * `Conversations.tsx` filters them out of that deck by this field. Absent
+   * on older cores / snapshots that predate the field, and on any artifact
+   * with no owning tool call — those keep rendering in the header deck.
+   */
+  toolCallId?: string;
 }
 
 /**
