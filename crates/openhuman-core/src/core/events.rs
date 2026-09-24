@@ -743,6 +743,11 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the disclosure to, when known.
         /// `None` for non-chat callers.
         client_id: Option<String>,
+        /// The turn this transfer was made under, from the ambient
+        /// `ApprovalChatContext::request_id`. `None` for non-chat callers, or
+        /// a chat caller that had no turn request_id in scope.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
 
     // ── Plan review (interactive plan-mode gate) ────────────────────────
