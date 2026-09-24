@@ -98,6 +98,8 @@ export type ThreadComponents = {
    * and the answer — as a single group. Defaults to `ActivityGroup`.
    */
   ActivityGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
+  /** Host-owned disclosure for the URL source parts emitted after an answer. */
+  SourceGroup?: ComponentType<{ sources: readonly SourceUrlPart[] }> | undefined;
   /**
    * Extra controls in the composer's action row, to the right of the model
    * selector. A seam rather than a fixed set because what belongs there is
@@ -1234,12 +1236,29 @@ const MessageError: FC = () => {
   );
 };
 
+/** A URL `source` part, the only kind this app emits. */
+export type SourceUrlPart = { id: string; url: string; title?: string };
+
+const selectMessageParts = (state: AssistantState) => state.message.parts;
+
+/** Gives the host all URL source parts represented by one grouped source node. */
+const SourceGroupSlot: FC<{ Component: ComponentType<{ sources: readonly SourceUrlPart[] }> }> = ({
+  Component,
+}) => {
+  const parts = useAuiState(selectMessageParts);
+  const sources = parts.flatMap(part =>
+    part.type === 'source' && part.sourceType === 'url'
+      ? [{ id: part.id, url: part.url, ...(part.title ? { title: part.title } : {}) }]
+      : []
+  );
+  return sources.length > 0 ? <Component sources={sources} /> : null;
+};
+
 const AssistantMessage: FC = () => {
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ActivityGroup = DefaultActivityGroup,
-    TurnFooter,
-    TurnSources,
+    SourceGroup,
   } = useContext(ThreadComponentsContext);
 
   const ACTION_BAR_PT = 'pt-1.5';
@@ -1291,11 +1310,14 @@ const AssistantMessage: FC = () => {
             reasoning: ['group-activity'],
             'tool-call': ['group-activity'],
             'standalone-tool-call': [],
+            source: ['group-source'],
           })}>
           {({ part, children }) => {
             switch (part.type) {
               case 'group-activity':
                 return <ActivityGroup group={part}>{children}</ActivityGroup>;
+              case 'group-source':
+                return SourceGroup ? <SourceGroupSlot Component={SourceGroup} /> : null;
               case 'text':
                 return <MarkdownText />;
               case 'reasoning':
@@ -1337,7 +1359,6 @@ const AssistantMessage: FC = () => {
             }
           }}
         </MessagePrimitive.GroupedParts>
-        {TurnSources ? <TurnSources /> : null}
         <MessageError />
       </div>
 
@@ -1352,7 +1373,6 @@ const AssistantMessage: FC = () => {
             Stopped
           </span>
         </AuiIf>
-        {TurnFooter ? <TurnFooter /> : null}
         <BranchPicker />
         <AssistantActionBar />
       </div>

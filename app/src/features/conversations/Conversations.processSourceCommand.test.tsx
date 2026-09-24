@@ -174,14 +174,14 @@ describe('the agent-process-source command follows the panel that hosts it', () 
     registry.reset();
   });
 
-  it('is enabled on the assistant-ui surface, which mounts TranscriptOverlays', async () => {
+  it('is disabled when the assistant-ui surface has no process data to show', async () => {
     await renderChat('text');
 
     const action = registry.getAction(ACTION_ID);
     expect(action, 'the command must be registered on the text composer').toBeDefined();
-    expect(action?.enabled?.()).toBe(true);
+    expect(action?.enabled?.()).toBe(false);
     // The palette runs it through `runAction`, which re-checks `enabled`.
-    expect(registry.runAction(ACTION_ID)).toBe(true);
+    expect(registry.runAction(ACTION_ID)).toBe(false);
   });
 
   it('is disabled in mic-cloud voice mode, where nothing renders the panel', async () => {
