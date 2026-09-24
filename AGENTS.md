@@ -78,6 +78,28 @@ pnpm debug rust [filter]
 pnpm debug logs last
 ```
 
+Debugging the web UI in a real browser (Chrome DevTools MCP): the desktop
+window is Wry (WKWebView / WebView2 / WebKitGTK), which does not support CDP, so no
+DevTools client can attach to it. Run the same SPA in Chrome instead:
+
+- `pnpm dev:app:web --no-browser` (`scripts/run-dev-web.sh`) builds and starts
+  `openhuman-core serve` with a generated bearer, starts Vite on `:1420`, and
+  prints `http://localhost:1420/__dev-connect`. Open that URL with the
+  chrome-devtools MCP (`new_page` / `navigate_page`). The dev-server-only route
+  seeds the core URL and bearer into `localStorage`, so you never paste
+  `OPENHUMAN_CORE_TOKEN` yourself.
+- Sign-in takes one click on a provider button. The browser build passes
+  `<origin>/__dev-auth` as the backend `redirectUri` (http loopback URIs are
+  accepted), and that route redirects the returned token to the `#/auth`
+  callback. The session lives in the core workspace, so later runs start
+  signed in. Both routes are in `devConnectPlugin` (`app/vite.config.ts`) and
+  answer only loopback callers.
+- Inspect with `take_snapshot`, `list_console_messages`,
+  `list_network_requests` (check the `/rpc` calls), `evaluate_script`, and
+  `take_screenshot`.
+- Env settings: `OPENHUMAN_DEV_PORT`, `OPENHUMAN_CORE_PORT`, `OPENHUMAN_CORE_TOKEN`,
+  `OPENHUMAN_WORKSPACE` (point it at a scratch dir for a clean profile).
+
 Long CI build or test commands must run through
 `scripts/ci-cancel-aware.sh`. Do not export `CARGO_TARGET_DIR`; the repository
 already configures shared build output where appropriate.
