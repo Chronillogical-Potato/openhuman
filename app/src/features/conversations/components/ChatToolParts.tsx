@@ -1,105 +1,14 @@
-import {
-  type ToolCallMessagePart,
-  type ToolCallMessagePartComponent,
-  useAui,
-} from '@assistant-ui/react';
-import { useCallback } from 'react';
+import { type ToolCallMessagePart, type ToolCallMessagePartComponent } from '@assistant-ui/react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import { decideApproval } from '../../../services/api/approvalApi';
-import {
-  clearPendingApprovalForThread,
-  type PendingApproval,
-  type SubagentActivity,
-} from '../../../store/chatRuntimeSlice';
+import { clearPendingApprovalForThread, type PendingApproval } from '../../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { ApprovalCardAdapter } from '../aui/ApprovalCardAdapter';
 import { ElicitationAdapter } from '../aui/ElicitationAdapter';
 import { PermissionGrantAdapter } from '../aui/PermissionGrantAdapter';
-import { AssistantUiSubagentCall, isActiveSubagentStatus } from './AssistantUiSubagentCall';
 import { isApprovalPending, OpenHumanToolCall } from './AssistantUiToolCall';
-import { useSubagentDrawerHost } from './aui/subagentDrawerHost';
-
-function asSubagentActivity(value: unknown): SubagentActivity | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const candidate = value as Partial<SubagentActivity>;
-  if (
-    typeof candidate.taskId !== 'string' ||
-    typeof candidate.agentId !== 'string' ||
-    !Array.isArray(candidate.toolCalls)
-  ) {
-    return undefined;
-  }
-  return candidate as SubagentActivity;
-}
-
-function readSubagentState(
-  args: unknown,
-  result: unknown
-): { activity: SubagentActivity | undefined; running: boolean } {
-  const completed = asSubagentActivity(result);
-  // A settled part carries the activity, but "settled" is not "succeeded":
-  // ask the activity's own status so a `failed` delegation is not rendered as
-  // a completed one.
-  if (completed) return { activity: completed, running: isActiveSubagentStatus(completed.status) };
-  const progress =
-    args && typeof args === 'object'
-      ? asSubagentActivity((args as { progress?: unknown }).progress)
-      : undefined;
-  return { activity: progress, running: result === undefined };
-}
-
-/** Adapt an assistant-ui `task` part onto the shared delegation card. */
-export const SubagentCall: ToolCallMessagePartComponent = ({ args, result }) => {
-  const aui = useAui();
-  const { activity, running } = readSubagentState(args, result);
-  const description = (args as { description?: string } | undefined)?.description;
-  const fallbackAgent = (args as { subagent_type?: string } | undefined)?.subagent_type;
-  const resolved = activity ?? {
-    taskId: 'pending-subagent',
-    agentId: fallbackAgent ?? 'subagent',
-    toolCalls: [],
-  };
-  // A delegation parked on `ask_user_clarification` is unblocked by an ordinary
-  // user turn: the orchestrator is holding the `[SUBAGENT_AWAITING_USER]`
-  // envelope and resumes the child with `continue_subagent` once the user
-  // answers. Appending through the runtime routes to the external store's
-  // `onNew` and out to the registered chat surface, i.e. the same entry point
-  // as the composer's Send, so queueing behind an in-flight turn is decided in
-  // one place rather than duplicated here.
-  const answer = useCallback(
-    (text: string) => {
-      void aui.thread.append({ role: 'user', content: [{ type: 'text', text }] });
-    },
-    [aui]
-  );
-  // "View full processing" opens the host's `SubagentDrawer`. This is the only
-  // renderer for a delegation on the assistant-ui surface, and it was the only
-  // one that offered no way in: the legacy `ToolTimelineBlock` passes `onView`
-  // per row, and the sole remaining launcher -- `BackgroundProcessesPanel` --
-  // lists async/typed spawns only, so every other delegation's persisted worker
-  // conversation was unreachable.
-  //
-  // Offered only when the host says the drawer can resolve the row -- it looks
-  // the delegation up by `taskId` in the thread's live timeline
-  // (`TranscriptOverlays`) and renders nothing for a `taskId` that is not
-  // there, so a part replayed from the settled core transcript would otherwise
-  // get a button that opens an empty sheet. Asked of the host rather than of
-  // Redux directly: this component renders on surfaces that have no store.
-  const drawerHost = useSubagentDrawerHost();
-  const taskId = resolved.taskId;
-  const view = useCallback(() => drawerHost?.open(taskId), [drawerHost, taskId]);
-  return (
-    <AssistantUiSubagentCall
-      activity={resolved}
-      running={running}
-      description={description}
-      onAnswer={answer}
-      onView={drawerHost?.canOpen(taskId) ? view : undefined}
-    />
-  );
-};
 
 /**
  * Resolve the store's parked request for this part, or `null` when the part is
