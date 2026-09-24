@@ -486,7 +486,9 @@ impl EventListener for OpenhumanEventBridge {
                     }
                 }
             }
-            AgentEvent::ToolStarted { call_id, tool_name } => {
+            AgentEvent::ToolStarted {
+                call_id, tool_name, ..
+            } => {
                 // Unknown/invisible tool calls no longer produce a sentinel-named
                 // Started event: the migration replaced `UNKNOWN_TOOL_SENTINEL` +
                 // `UnknownToolRewriteMiddleware` with the crate
