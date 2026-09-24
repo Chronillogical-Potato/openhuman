@@ -478,6 +478,8 @@ fn embedder_hook_mw(
     })])
 }
 
+#[path = "middleware_approval_guard_tests.rs"]
+mod approval_guard_tests;
 #[path = "middleware_loop_guard_tests.rs"]
 mod loop_guard_tests;
 #[path = "middleware_repeat_progress_tests.rs"]
