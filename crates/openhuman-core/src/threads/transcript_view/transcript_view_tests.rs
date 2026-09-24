@@ -67,6 +67,7 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             content,
             display_content,
             request_id,
+            ..
         } => {
             assert!(content.starts_with("Current Date & Time:"), "raw kept");
             assert_eq!(
