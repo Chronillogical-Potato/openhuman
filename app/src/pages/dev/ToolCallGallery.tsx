@@ -47,6 +47,7 @@ import { useT } from '../../lib/i18n/I18nContext';
 import type { PendingApproval } from '../../store/chatRuntimeSlice';
 import {
   MOCK_COMMANDS_LIST,
+  MOCK_CONNECTION_PHASES,
   MOCK_CONTEXT_BREAKDOWN,
   MOCK_CONTEXT_USAGE,
   MOCK_MEMORY_RECALL,

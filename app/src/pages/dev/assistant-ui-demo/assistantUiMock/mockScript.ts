@@ -455,3 +455,10 @@ export const MOCK_CONTEXT_BREAKDOWN: ContextBreakdown = {
   total_est_tokens: 61_500,
   context_window: 200_000,
 };
+
+/**
+ * Every phase of the thread's connection banner (`ConnectionStateBanner`), for
+ * the gallery's phase toggle (`/dev/tools`). In the app the phase follows the
+ * renderer's socket status; here it is picked by hand.
+ */
+export const MOCK_CONNECTION_PHASES = ['dropped', 'reconnecting', 'resumed', 'online'] as const;
