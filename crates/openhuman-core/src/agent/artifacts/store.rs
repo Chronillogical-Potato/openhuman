@@ -520,6 +520,7 @@ pub async fn create_artifact_for_call(
         created_at,
         error: None,
         thread_id,
+        tool_call_id: tool_call_id.map(str::to_string),
     };
     save_artifact_meta(workspace_dir, &meta).await?;
 
