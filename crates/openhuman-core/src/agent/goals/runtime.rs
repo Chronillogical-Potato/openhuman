@@ -56,7 +56,7 @@ pub async fn resume_for_thread(
                     thread_id: goal.thread_id.clone(),
                     goal_id: goal.goal_id.clone(),
                     status: goal.status.as_str().to_string(),
-                    goal: None,
+                    goal: Some(super::goal_to_value(&goal)),
                 });
             }
             Some(Some(goal))
