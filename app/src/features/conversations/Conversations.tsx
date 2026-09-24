@@ -1845,14 +1845,19 @@ const Conversations = ({
   // re-runs generation under the original artifact id, so the card swaps back
   // to a spinner in place and then to ready/failed via the socket events.
   const artifactDeckThreadId = selectedThreadId ?? firstActiveThreadId;
+  // Only artifacts with NO owning tool call belong in the header deck — one
+  // with a `toolCallId` renders inline through its own tool-call card
+  // (`MediaAndDocumentCalls.tsx`) instead, per the `ArtifactCardAdapter` doc.
   const liveArtifacts = artifactDeckThreadId
-    ? (artifactsByThread[artifactDeckThreadId] ?? []).filter(a => a.status !== 'ready')
+    ? (artifactsByThread[artifactDeckThreadId] ?? []).filter(
+        a => a.status !== 'ready' && !a.toolCallId
+      )
     : [];
   const liveArtifactDeck =
     liveArtifacts.length > 0 && artifactDeckThreadId ? (
       <div className="mb-2 flex flex-col gap-2">
         {liveArtifacts.map(artifact => (
-          <ArtifactCard
+          <ArtifactCardAdapter
             key={artifact.artifactId}
             artifact={artifact}
             onRetry={id => {
