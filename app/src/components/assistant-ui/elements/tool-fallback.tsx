@@ -15,12 +15,17 @@
  *   rendered — a cancelled call's stale result would otherwise read as a
  *   real one.
  * - Upstream's free-text answer path (`Textarea`, `toolApprovalAcceptsText`,
- *   the `isQuestion`/`dismiss`/`promptText` branches) and the voice-session
- *   lock (`useAuiState(s => s.thread.voice)`) are now ported — the
+ *   the `isQuestion`/`promptText` branches) and the voice-session lock
+ *   (`useAuiState(s => s.thread.voice)`) are now ported — the
  *   `@assistant-ui/react` / `@assistant-ui/core` pin WS-A landed
  *   (`^0.15.21` / `^0.3.20`) exports `toolApprovalAcceptsText` and carries
- *   `approval.display` / `approval.prompt` / `approval.dismissible` and a
+ *   `approval.display` / `approval.prompt` / `approval.allowFreeform` and a
  *   `text` member on `ToolApprovalResponse`.
+ *   **Still not ported:** upstream's `approval.dismissible` / "Dismiss"
+ *   affordance — that field is not on this pin's `approval` type (only
+ *   `id`/`prompt`/`display`/`allowFreeform`/the decision fields are), so a
+ *   further version bump is needed before a question-mode request can offer
+ *   one; `dismissButton` stays `null` until then.
  *
  *   `ChatToolFallback` (`features/conversations/components/ChatToolParts.tsx`)
  *   intercepts OpenHuman's own gated-approval path before it ever reaches
