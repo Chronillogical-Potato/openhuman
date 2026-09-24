@@ -6,6 +6,8 @@ import {
 import { useMemo } from 'react';
 
 import { SubagentCall } from '../components/ChatToolParts';
+import { MemoryHybridSearchCall, MemoryRecallCall, MemoryStoreCall } from './ChatMemoryChips';
+import { CronAddOrUpdateCall, CronListCall, CronRunsCall } from './ChatScheduleCard';
 import { DocumentArtifactCall, MediaGenerationCall } from './MediaAndDocumentCalls';
 
 /**
