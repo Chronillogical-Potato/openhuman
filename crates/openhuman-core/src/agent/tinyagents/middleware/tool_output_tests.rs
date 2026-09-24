@@ -65,7 +65,10 @@ async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
 fn only_a_raw_web_fetch_is_exempt_from_the_payload_summarizer() {
     use serde_json::json;
 
-    assert!(is_raw_fetch("web_fetch", &json!({"url": "https://x", "raw": true})));
+    assert!(is_raw_fetch(
+        "web_fetch",
+        &json!({"url": "https://x", "raw": true})
+    ));
 
     // A converted fetch is the normal path and stays summarizer-eligible: its
     // Markdown is prose the summarizer compresses well.

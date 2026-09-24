@@ -419,7 +419,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                  capping and spilling to an artifact instead"
             );
         }
-        if !raw_fetch && !compaction_exempt && wants_tinyjuice && (tool_cap.is_none() || focus.is_some()) {
+        if !raw_fetch
+            && !compaction_exempt
+            && wants_tinyjuice
+            && (tool_cap.is_none() || focus.is_some())
+        {
             // Bind a summary call to this turn only when the result is big
             // enough for TinyJuice to want one; building the child context for
             // every small result would be waste.

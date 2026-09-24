@@ -1088,6 +1088,7 @@ async function main() {
   // pre-written value is read by nothing, and the turn silently runs the
   // orchestrator at its own 15-iteration cap — which looks like the benchmark
   // agent failing when it never ran at all.
+  const chatAgentId = opts.agentId.trim() || null;
   await withRetries(
     async () => {
       await core.rpc("openhuman.config_update_agent_settings", {
@@ -1096,9 +1097,9 @@ async function main() {
       const snap = await core.rpc("openhuman.config_get", {});
       const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
       const got = cfg.agent?.chat_agent_id ?? null;
-      if (got !== opts.agentId)
+      if (got !== chatAgentId)
         throw new Error(
-          `chat_agent_id not in the active config yet (want ${opts.agentId}, got ${got ?? "unset"})`,
+          `chat_agent_id not in the active config yet (want ${chatAgentId ?? "unset"}, got ${got ?? "unset"})`,
         );
     },
     { attempts: 10, delayMs: 500, what: "chat_agent_id" },
