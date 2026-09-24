@@ -25,6 +25,55 @@ use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };
 
+/// `start_chat`'s error type.
+///
+/// `Guardrail` is a structured verdict from the prompt-injection/security
+/// guardrail (`security::prompt_injection::enforce_prompt_input`) — the
+/// frontend classifies on this variant (`chat_error.error_type == "guardrail"`
+/// + a `guardrail` payload) instead of pattern-matching the user-facing
+/// message string. Every other rejection (validation, a configured
+/// `beforeSubmitPrompt` hook block, an approval-routing failure) stays
+/// `Other`, which `Display`s exactly like the plain `String` errors this
+/// replaced — existing `.to_string()` / `{err}` call sites need no other
+/// change.
+#[derive(Debug, Clone)]
+pub enum StartChatError {
+    Guardrail {
+        verdict: String,
+        score: f64,
+        reasons: Vec<crate::core::socketio::GuardrailReason>,
+    },
+    Other(String),
+}
+
+impl std::fmt::Display for StartChatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StartChatError::Guardrail {
+                verdict, score, ..
+            } => write!(
+                f,
+                "blocked by guardrail (verdict={verdict} score={score:.2})"
+            ),
+            StartChatError::Other(message) => write!(f, "{message}"),
+        }
+    }
+}
+
+impl std::error::Error for StartChatError {}
+
+impl From<String> for StartChatError {
+    fn from(message: String) -> Self {
+        StartChatError::Other(message)
+    }
+}
+
+impl From<&str> for StartChatError {
+    fn from(message: &str) -> Self {
+        StartChatError::Other(message.to_string())
+    }
+}
+
 fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     match action {
         PromptEnforcementAction::Allow => "Message accepted.",
@@ -46,7 +95,7 @@ pub async fn start_chat(
     locale: Option<String>,
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
-) -> Result<String, String> {
+) -> Result<String, StartChatError> {
     let client_id = client_id.trim().to_string();
     let thread_id = thread_id.trim().to_string();
     let message = message.trim().to_string();

@@ -211,6 +211,37 @@ const GatedToolCall: ToolCallMessagePartComponent = props => {
   );
 };
 
+/** The top-level clarification tool: never approval-gated, just waits on the user. */
+const ASK_USER_CLARIFICATION_TOOL = 'ask_user_clarification';
+
+/**
+ * A top-level `ask_user_clarification` call — the agent itself (not a
+ * delegated sub-agent, which `SubagentCall`/`AssistantUiSubagentCall` already
+ * render their own question UI for) needs a structured answer before the turn
+ * can continue. Answered the same way a sub-agent's clarification is: append
+ * an ordinary user turn through the runtime (see `ElicitationAdapter`'s doc
+ * comment for why there is no separate RPC to call instead).
+ */
+const ElicitationCall: ToolCallMessagePartComponent = ({ args, result }) => {
+  const aui = useAui();
+  const question = (args as { question?: string } | undefined)?.question ?? '';
+  const answer = useCallback(
+    (text: string) => {
+      void aui.thread.append({ role: 'user', content: [{ type: 'text', text }] });
+    },
+    [aui]
+  );
+  return (
+    <ElicitationAdapter
+      server="OpenHuman"
+      message={question}
+      pending={result === undefined}
+      onAnswer={answer}
+      testId="assistant-ui-elicitation"
+    />
+  );
+};
+
 /**
  * Route every call the toolkit does not own through an assistant-ui-native
  * rich renderer.
@@ -220,9 +251,10 @@ const GatedToolCall: ToolCallMessagePartComponent = props => {
  * assistant-ui resolves it before this fallback ever mounts. Every other tool
  * name — the vast majority, since most are dynamic (shell, file ops, MCP,
  * Composio, web search, ...) and cannot be enumerated in a static registry —
- * still comes through here, which is also where the approval gate and
- * `composio_connect` routing live: both are keyed on the part's `approval`
- * field, not on the tool's name, so no per-name registry entry could own them
+ * still comes through here, which is also where the approval gate,
+ * `composio_connect` routing, and the top-level clarification question live:
+ * all three are keyed on the part's own fields (`approval`, `toolName`), not
+ * on a static registry entry, so no per-name registry entry could own them
  * without duplicating this same check in every entry.
  *
  * The gated branches are chosen on the part's own `approval` field, before any
@@ -231,7 +263,10 @@ const GatedToolCall: ToolCallMessagePartComponent = props => {
  * that has no store at all, which is how most of the tool-card tests mount it.
  */
 export const ChatToolFallback: ToolCallMessagePartComponent = props => {
-  if (!isApprovalPending(props.approval)) return <OpenHumanToolCall {...props} />;
+  if (!isApprovalPending(props.approval)) {
+    if (props.toolName === ASK_USER_CLARIFICATION_TOOL) return <ElicitationCall {...props} />;
+    return <OpenHumanToolCall {...props} />;
+  }
   if (props.toolName === COMPOSIO_CONNECT_TOOL) return <ComposioConnectCall {...props} />;
   return <GatedToolCall {...props} />;
 };
