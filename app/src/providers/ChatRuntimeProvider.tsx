@@ -33,6 +33,7 @@ import { store } from '../store';
 import {
   appendSubagentStreamDelta,
   bumpInferenceHeartbeatForThread,
+  cancelUnresolvedTurnTimeline,
   clearInferenceStatusForThread,
   clearParallelRequest,
   clearPendingApprovalForThread,
@@ -645,7 +646,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       // parent and sub-agent event from the whole turn. Doing this here (after
       // ending the live lifecycle) matters: `hydrateRuntimeFromSnapshot`
       // intentionally refuses to overwrite an actively streaming turn.
-      await dispatch(fetchAndHydrateCompletedTurnState(event.thread_id));
+      const completedSnapshot = await dispatch(
+        fetchAndHydrateCompletedTurnState(event.thread_id)
+      ).unwrap();
+      if (!completedSnapshot) {
+        dispatch(cancelUnresolvedTurnTimeline({ threadId: event.thread_id }));
+      }
     };
 
     rtLog('subscribe_chat_events', { socket: socketStatus });

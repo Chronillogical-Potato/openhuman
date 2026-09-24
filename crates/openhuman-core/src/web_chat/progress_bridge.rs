@@ -1435,6 +1435,10 @@ pub(crate) fn spawn_progress_bridge(
         // #3886: seal any spans still open after the stream closed and hand the
         // run's trace to the configured tracing sink. Best-effort and gated;
         // never affects the turn outcome.
+        // The response presenter waits only briefly for this signal before
+        // publishing an error. Trace export is best-effort I/O and must not
+        // hold up terminal delivery after the progress stream closed.
+        let _ = drained_tx.send(true);
         if let Some(mut collector) = span_collector.take() {
             collector.finish(unix_epoch_ms());
             let live_spans = collector.spans().to_vec();
@@ -1473,7 +1477,6 @@ pub(crate) fn spawn_progress_bridge(
             round,
             events_seen,
         );
-        let _ = drained_tx.send(true);
     });
     ProgressBridgeHandle {
         drained: drained_rx,

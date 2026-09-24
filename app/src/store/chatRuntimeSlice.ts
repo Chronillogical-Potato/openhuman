@@ -1784,6 +1784,20 @@ const chatRuntimeSlice = createSlice({
       if (entry.subagent) entry.subagent.status = 'cancelled';
     },
     /**
+     * Settle rows whose terminal turn snapshot could not be fetched.
+     *
+     * `chat_done` means their event driver has stopped. A non-async row still
+     * marked `running` therefore has no remaining source that can truthfully
+     * complete it, while detached sub-agents intentionally outlive the parent
+     * turn and must remain owned by their run ledger.
+     */
+    cancelUnresolvedTurnTimeline: (state, action: PayloadAction<{ threadId: string }>) => {
+      const { threadId } = action.payload;
+      const entries = state.toolTimelineByThread[threadId];
+      if (!entries) return;
+      state.toolTimelineByThread[threadId] = entries.map(settleOrphanedTimelineEntry);
+    },
+    /**
      * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`
      * chunk to the ordered transcript of the matching subagent row. The row
      * is located by its synthetic id (`<thread>:subagent:<taskId>:<agentId>`)
@@ -2479,6 +2493,7 @@ export const {
   clearProcessingForThread,
   appendProcessingProse,
   markSubagentCancelled,
+  cancelUnresolvedTurnTimeline,
   appendSubagentStreamDelta,
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,

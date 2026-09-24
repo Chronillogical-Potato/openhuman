@@ -96,13 +96,17 @@ pub fn project_from_files(
                 retained.len(),
                 kept.len()
             );
-            let request_id = kept.iter().find_map(|record| match record {
-                DisplayRecord::Message(msg) => msg.request_id.clone(),
+            let first_kept = kept.iter().find_map(|record| match record {
+                DisplayRecord::Message(msg) => Some(msg),
                 DisplayRecord::Compaction(_) => None,
             });
+            let request_id = first_kept.and_then(|message| message.request_id.clone());
             records.push(DisplayRecord::Compaction(CompactionMarker {
                 replacement: retained,
-                ts: Some(display.meta.created.clone()).filter(|ts| !ts.is_empty()),
+                ts: first_kept
+                    .and_then(|message| message.ts.clone())
+                    .or_else(|| Some(display.meta.created.clone()))
+                    .filter(|ts| !ts.is_empty()),
                 request_id,
             }));
             records.extend(kept);
