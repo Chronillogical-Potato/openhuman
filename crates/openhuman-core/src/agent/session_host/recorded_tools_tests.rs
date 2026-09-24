@@ -63,12 +63,8 @@ fn a_live_action_is_not_rebuilt_from_the_record() {
         integration("gmail", true, Vec::new()),
         integration("slack", true, Vec::new()),
     ];
-    let live: Vec<Box<dyn Tool>> = rehydrate_integration_actions(
-        &[spec("GMAIL_SEND_EMAIL")],
-        &[],
-        &integrations,
-        true,
-    );
+    let live: Vec<Box<dyn Tool>> =
+        rehydrate_integration_actions(&[spec("GMAIL_SEND_EMAIL")], &[], &integrations, true);
     let rebuilt = rehydrate_integration_actions(&recorded, &live, &integrations, true);
     let names: Vec<&str> = rebuilt.iter().map(|tool| tool.name()).collect();
     assert_eq!(names, vec!["SLACK_SEND_MESSAGE"]);

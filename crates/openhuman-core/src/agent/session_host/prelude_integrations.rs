@@ -104,7 +104,10 @@ impl OpenHumanTurnPrelude {
         let skills_changed = self.drain_host_events();
         let config = match self.runtime_config.clone() {
             Some(config) => Some(config),
-            None => crate::config::Config::load_or_init().await.ok().map(Arc::new),
+            None => crate::config::Config::load_or_init()
+                .await
+                .ok()
+                .map(Arc::new),
         };
         if let Some(config) = config.as_deref() {
             // An expired cache is refetched rather than skipped, so a
@@ -120,7 +123,9 @@ impl OpenHumanTurnPrelude {
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 let current_slugs: std::collections::HashSet<_> =
                     current.iter().map(|item| item.toolkit.clone()).collect();
-                mutable.announced_integrations.retain(|slug| current_slugs.contains(slug));
+                mutable
+                    .announced_integrations
+                    .retain(|slug| current_slugs.contains(slug));
                 mutable
                     .pending_integration_announcement
                     .retain(|slug| current_slugs.contains(slug));
