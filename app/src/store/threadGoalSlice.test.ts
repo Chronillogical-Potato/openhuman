@@ -9,6 +9,7 @@ const goal = {
   objective: 'Ship the feature',
   status: 'active' as const,
   tokens_used: 100,
+  time_used_seconds: 30,
   token_budget: 1000,
 };
 

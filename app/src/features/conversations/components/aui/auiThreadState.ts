@@ -88,27 +88,24 @@ export function useAuiReloadCapability(): boolean {
 /**
  * THE EDIT / BRANCH SEAM.
  *
- * When the core gains a branch model and `useOpenHumanExternalStore` grows
- * `onEdit` + `setMessages`, two affordances become renderable and both belong
- * in the assistant-ui message components (`components/assistant-ui/thread.tsx`),
- * NOT here:
+ * `useOpenHumanExternalStore` now supplies `onEdit` + `setMessages`, so both
+ * affordances render in the assistant-ui message components
+ * (`components/assistant-ui/thread.tsx`):
  *
- * - an edit composer, gated on `useAuiEditCapabilities().canEdit`, rendered
- *   from `ComposerPrimitive.Root` / `ComposerPrimitive.Input` inside a
- *   `MessagePrimitive.Root` for that turn;
+ * - the vendored `EditMessage` element, gated on
+ *   `useAuiEditCapabilities().canEdit`, replacing `UserMessage`'s plain
+ *   bubble with `ComposerPrimitive.Root` / `.Input` for that turn;
  * - `BranchPickerPrimitive.Root` / `.Previous` / `.Number` / `.Count` /
  *   `.Next`, gated on `canSwitchToBranch`, rendered alongside the turn's
  *   existing copy / react / share action row.
  *
- * They are deliberately absent rather than rendered-and-inert: an edit button
- * that looks supported and silently does nothing is worse than no button.
- *
- * That rule was stated here but not enforced anywhere until #5897 — this hook
- * had zero production consumers while `ActionBarPrimitive.Edit` shipped
- * unconditionally, so the button was rendered, clickable and inert. The gate is
- * wired now; keep it wired when the affordances land in `thread.tsx`.
+ * Both were deliberately absent rather than rendered-and-inert before #5897:
+ * an edit button that looks supported and silently does nothing is worse than
+ * no button. The gate stays wired now that the affordances are live, so a
+ * future regression in the adapter (losing `onEdit`/`setMessages`) turns the
+ * UI off again automatically instead of leaving a dead button.
  */
 export const EDIT_AND_BRANCH_SEAM = Object.freeze({
-  editComposer: 'thread.tsx UserMessage — gated on useAuiEditCapabilities().canEdit',
+  editComposer: 'thread.tsx UserMessage — vendored EditMessage, gated on useAuiEditCapabilities().canEdit',
   branchPicker: 'thread.tsx BranchPicker — gated on useAuiEditCapabilities().canSwitchToBranch',
 });
