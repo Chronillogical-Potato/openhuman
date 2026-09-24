@@ -52,7 +52,7 @@ function Harness({ handles }: { handles: Partial<Handles> }) {
         }
       },
     });
-  });
+  }, [aui, composerText, handles, value]);
   return <ComposerTextBridge value={value} onChange={setValue} />;
 }
 
