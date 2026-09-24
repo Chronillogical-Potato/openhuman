@@ -1449,9 +1449,21 @@ pub enum DomainEvent {
         thread_id: String,
         goal_id: String,
         status: String,
+        /// Full goal snapshot (owned by `tinyagents-graph`'s goal shape, so
+        /// kept as a raw `Value` rather than a typed field here). `None`
+        /// until the publish site is updated to pass it through.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        goal: Option<serde_json::Value>,
     },
     /// A thread's goal was cleared (deleted).
     ThreadGoalCleared { thread_id: String },
+    /// A thread's session todo list changed (item added, checked, removed,
+    /// or reordered). Drives the desktop todo drawer.
+    ThreadTodosChanged {
+        thread_id: String,
+        /// Full todo-list snapshot, owned by `tinyagents-graph`'s todo shape.
+        todos: serde_json::Value,
+    },
 }
 
 /// Truncate to `max` characters, appending `…` when anything was dropped.
