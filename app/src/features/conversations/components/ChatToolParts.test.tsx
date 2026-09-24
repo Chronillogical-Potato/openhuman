@@ -2,122 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { ChatToolFallback, SubagentCall } from './ChatToolParts';
+import { ChatToolFallback } from './ChatToolParts';
 
-const activity: SubagentActivity = {
-  taskId: 'sub-1',
-  agentId: 'researcher',
-  displayName: 'Researcher',
-  toolCalls: [],
-  transcript: [{ kind: 'thinking', text: 'Checking primary sources.' }],
-};
-
+// The `task` toolkit entry (`aui/toolkit.tsx`) now renders `SubagentTaskCard`,
+// not anything in this file — its own colocated test is
+// `aui/SubagentTaskCard.test.tsx`. `ChatToolFallback` never special-cased
+// `task` (the toolkit resolves it first regardless), so its tests below are
+// unaffected by that move.
 describe('ChatToolParts', () => {
-  // `task` is registered as a `defineToolkit` entry (`aui/toolkit.tsx`) that
-  // renders `SubagentCall` directly — assistant-ui resolves it ahead of
-  // `ChatToolFallback`, so these render `SubagentCall` the way the toolkit
-  // does rather than routing a `toolName="task"` part through the fallback,
-  // which no longer special-cases it.
-  it('renders a running delegation collapsed by default', async () => {
-    render(
-      <SubagentCall
-        type="tool-call"
-        toolName="task"
-        toolCallId="sub-1"
-        args={{ progress: activity } as never}
-        argsText="{}"
-        result={undefined}
-        status={{ type: 'running' }}
-        addResult={() => {}}
-        resume={() => {}}
-        respondToApproval={() => {}}
-      />
-    );
-
-    expect(screen.getByText('running')).toBeInTheDocument();
-    expect(screen.getByText('Researcher')).toBeInTheDocument();
-    expect(screen.queryByText('Checking primary sources.')).not.toBeInTheDocument();
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
-      'data-state',
-      'closed'
-    );
-    await userEvent.click(screen.getByRole('button', { name: /Delegated to Researcher/i }));
-    expect(screen.getByText('Checking primary sources.')).toBeInTheDocument();
-  });
-
-  it('renders a failed delegation as failed, not as a completed one', () => {
-    // `SubagentActivity.status` carries `failed`, but a settled part was read
-    // as `running: false` and rendered with a success check — the transcript
-    // reported a failure as a success.
-    render(
-      <SubagentCall
-        type="tool-call"
-        toolName="task"
-        toolCallId="sub-1"
-        args={{} as never}
-        argsText="{}"
-        result={{ ...activity, status: 'failed' } as never}
-        status={{ type: 'complete' }}
-        addResult={() => {}}
-        resume={() => {}}
-        respondToApproval={() => {}}
-      />
-    );
-
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
-      'data-status',
-      'failed'
-    );
-    expect(screen.getByText('failed')).toBeInTheDocument();
-    expect(screen.queryByText('running')).not.toBeInTheDocument();
-  });
-
-  it('keeps a completed delegation reading as completed', () => {
-    render(
-      <SubagentCall
-        type="tool-call"
-        toolName="task"
-        toolCallId="sub-1"
-        args={{} as never}
-        argsText="{}"
-        result={{ ...activity, status: 'completed' } as never}
-        status={{ type: 'complete' }}
-        addResult={() => {}}
-        resume={() => {}}
-        respondToApproval={() => {}}
-      />
-    );
-
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
-      'data-status',
-      'completed'
-    );
-    expect(screen.queryByText('failed')).not.toBeInTheDocument();
-  });
-
-  it('keeps a still-running delegation running when the part has already settled', () => {
-    // The tool-call status and the delegation status are separate fields, so a
-    // settled part can still carry an in-flight activity. Hard-coding
-    // `running: false` for any settled part froze that row into a success.
-    render(
-      <SubagentCall
-        type="tool-call"
-        toolName="task"
-        toolCallId="sub-1"
-        args={{} as never}
-        argsText="{}"
-        result={{ ...activity, status: 'running' } as never}
-        status={{ type: 'complete' }}
-        addResult={() => {}}
-        resume={() => {}}
-        respondToApproval={() => {}}
-      />
-    );
-
-    expect(screen.getByText('running')).toBeInTheDocument();
-  });
-
   it('does not show a success icon beside a cancelled tool', () => {
     // The adapter forwards `cancelled` now, and the card gated its non-success
     // icon on `error` alone — so the check icon sat next to the word
