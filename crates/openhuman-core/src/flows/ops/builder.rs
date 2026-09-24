@@ -43,6 +43,26 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
     req.validate()?;
 
     let prompt = render_prompt(&req);
+    if matches!(
+        req.mode,
+        crate::flows::agents::workflow_builder::builder_prompt::BuildMode::Repair
+    ) {
+        if let Some(assistant_text) = req.error.as_deref().and_then(backend_repair_message) {
+            if let Some(target) = &stream {
+                finalize_flow_stream(target, &Ok(assistant_text.clone()), &prompt).await;
+            }
+            return Ok(RpcOutcome::single_log(
+                json!({
+                    "proposal": Value::Null,
+                    "assistant_text": assistant_text,
+                    "error": Value::Null,
+                    "capped": false,
+                    "trail_off": false,
+                }),
+                "workflow repair skipped because the run failed in an external service",
+            ));
+        }
+    }
     tracing::info!(
         target: "flows",
         mode = ?req.mode,
@@ -472,4 +492,33 @@ pub(crate) fn start_builder_turn_clean(agent: &mut crate::agent::OpenHumanSessio
         suppress_transcript_autoload: true,
         ..Default::default()
     });
+}
+
+pub(super) fn is_backend_or_infrastructure_failure(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+    [
+        "backend returned",
+        "internal server error",
+        "service unavailable",
+        "bad gateway",
+        "gateway timeout",
+        "connection refused",
+        "connection reset",
+        "connection timed out",
+        "transport error while calling",
+        "bucket does not exist",
+        "http 5",
+        "status 5",
+        "5xx",
+    ]
+    .iter()
+    .any(|marker| error.contains(marker))
+}
+
+pub(super) fn backend_repair_message(error: &str) -> Option<String> {
+    is_backend_or_infrastructure_failure(error).then(|| {
+        format!(
+            "The workflow was not changed because this run failed in an external service.\n\n{error}"
+        )
+    })
 }

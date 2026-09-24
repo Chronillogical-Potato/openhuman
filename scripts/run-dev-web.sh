@@ -14,6 +14,11 @@
 # dev-server-only `/__dev-connect` route (see `devConnectPlugin` in
 # `app/vite.config.ts`), which is where the browser is pointed first.
 #
+# Sign-in is one click: the OAuth buttons pass `<vite origin>/__dev-auth` as the
+# backend redirectUri (loopback URIs are accepted), and that route bounces the
+# returned token onto the `#/auth` callback. The session is stored in the core's
+# workspace, so later runs against the same workspace start signed in.
+#
 # Usage:
 #   pnpm dev:app:web                # start core + vite, open the browser
 #   pnpm dev:app:web --no-browser   # start both, just print the URL (for agents)
@@ -99,14 +104,18 @@ core_bin="$REPO_ROOT/target/debug/openhuman-core"
 # core against a current frontend, which is misleading to debug against.
 echo "[dev:web] building openhuman-core…"
 # GGML_NATIVE=OFF is the documented Apple-Silicon workaround for llama.cpp.
-GGML_NATIVE=OFF cargo build --manifest-path "$REPO_ROOT/Cargo.toml" \
+GGML_NATIVE=OFF cargo build --manifest-path "$REPO_ROOT/Cargo.toml" -p openhuman-cli \
   --bin openhuman-core
 
 core_pid=""
 vite_pid=""
 cleanup() {
   trap - EXIT INT TERM
-  [[ -n "$vite_pid" ]] && kill "$vite_pid" 2>/dev/null || true
+  # Vite runs in its own process group (see below); signal the whole group so
+  # the `pnpm` -> `node vite` grandchildren go too, not just the subshell.
+  if [[ -n "$vite_pid" ]]; then
+    kill -- "-$vite_pid" 2>/dev/null || kill "$vite_pid" 2>/dev/null || true
+  fi
   [[ -n "$core_pid" ]] && kill "$core_pid" 2>/dev/null || true
   wait 2>/dev/null || true
 }
@@ -150,8 +159,12 @@ export VITE_OPENHUMAN_CORE_RPC_URL="http://127.0.0.1:$core_port/rpc"
 export OPENHUMAN_DEV_PORT="$dev_port"
 
 echo "[dev:web] starting vite on :$dev_port"
-(cd "$REPO_ROOT/app" && pnpm dev) &
+# Job control gives the background job its own process group (pgid == pid),
+# which is what lets cleanup reach the node process pnpm spawns.
+set -m
+(cd "$REPO_ROOT/app" && exec pnpm dev) &
 vite_pid=$!
+set +m
 
 connect_url="http://localhost:$dev_port/__dev-connect"
 for _ in $(seq 1 60); do
@@ -169,6 +182,7 @@ echo
 echo "[dev:web] ready"
 echo "[dev:web]   core : http://127.0.0.1:$core_port/rpc"
 echo "[dev:web]   open : $connect_url"
+echo "[dev:web]   sign in with one click on a provider; the session persists in the core workspace"
 echo
 
 if (( open_browser )); then
