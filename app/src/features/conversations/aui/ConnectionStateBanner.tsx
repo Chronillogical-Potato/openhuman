@@ -84,20 +84,31 @@ function reconnect() {
   socketService.connect(token);
 }
 
-function ConnectedConnectionStateBanner() {
+/** The element with translated captions, for a given phase (also the dev gallery's fixture). */
+export function ConnectionStateNotice({
+  phase,
+  onRetry,
+}: {
+  phase: ConnectionPhase;
+  onRetry?: () => void;
+}) {
   const { t } = useT();
-  const phase = useConnectionPhase(useAppSelector(selectSocketStatus));
   return (
     <ConnectionState
       data-testid="connection-state-banner"
       phase={phase}
-      onRetry={reconnect}
+      onRetry={onRetry}
       droppedLabel={t('chat.connectionState.dropped')}
       retryLabel={t('chat.connectionState.reconnect')}
       reconnectingLabel={t('chat.connectionState.reconnecting')}
       resumedLabel={t('chat.connectionState.resumed')}
     />
   );
+}
+
+function ConnectedConnectionStateBanner() {
+  const phase = useConnectionPhase(useAppSelector(selectSocketStatus));
+  return <ConnectionStateNotice phase={phase} onRetry={reconnect} />;
 }
 
 /**
