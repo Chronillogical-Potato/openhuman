@@ -14,10 +14,9 @@ describe('SubagentActivityCard', () => {
         activity={{ taskId: 't', agentId: 'researcher', status: 'running', toolCalls: [] }}
       />
     );
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
-      'data-status',
-      'working'
-    );
+    const card = screen.getByTestId('assistant-ui-subagent-call');
+    expect(card).toHaveAttribute('data-state', 'working');
+    expect(card).toHaveAttribute('data-status', 'running');
   });
 
   it('marks a failed delegation as failed rather than complete', () => {
@@ -26,10 +25,9 @@ describe('SubagentActivityCard', () => {
         activity={{ taskId: 't', agentId: 'researcher', status: 'failed', toolCalls: [] }}
       />
     );
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
-      'data-status',
-      'failed'
-    );
+    const card = screen.getByTestId('assistant-ui-subagent-call');
+    expect(card).toHaveAttribute('data-state', 'failed');
+    expect(card).toHaveAttribute('data-status', 'failed');
   });
 
   it('marks a cancelled delegation as cancelled', () => {
@@ -39,7 +37,7 @@ describe('SubagentActivityCard', () => {
       />
     );
     expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
-      'data-status',
+      'data-state',
       'cancelled'
     );
   });
