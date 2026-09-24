@@ -76,7 +76,7 @@ describe('subMascotModelsFromTimeline', () => {
       }),
     ]);
 
-    expect(running?.activity).toBe('Using read file');
+    expect(running?.activity).toBe('Reading file');
     expect(running?.face).toBe('thinking');
     // success and error are filtered out — only 1 model returned.
     expect(
