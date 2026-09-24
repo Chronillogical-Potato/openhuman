@@ -55,7 +55,7 @@ pub use event_bus::{
     approval_request_event, plan_review_request_event, publish_web_channel_event,
     register_agent_surface_subscriber, register_approval_surface_subscriber,
     register_artifact_surface_subscriber, register_egress_surface_subscriber,
-    subscribe_web_channel_events,
+    register_memory_activity_surface_subscriber, subscribe_web_channel_events,
 };
 
 // Test-only: OnceLock-bypassing approval bridge for per-runtime integration tests.
