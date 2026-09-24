@@ -239,6 +239,7 @@ pub(crate) async fn deliver_response(
             Some(serde_json::json!(citations))
         },
         usage: usage_payload,
+        timing: timing_payload,
         // Terminal delivery events are emitted outside the seq-stamping
         // progress bridge; leave `seq` unset (older clients ignore it).
         seq: None,
@@ -324,6 +325,7 @@ fn publish_chat_done(
             Some(serde_json::json!(citations))
         },
         usage: usage_payload,
+        timing: timing_payload,
         // Terminal delivery events are emitted outside the seq-stamping
         // progress bridge; leave `seq` unset (older clients ignore it).
         seq: None,
