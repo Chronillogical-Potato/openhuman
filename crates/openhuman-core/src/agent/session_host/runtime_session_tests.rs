@@ -14,7 +14,7 @@ async fn committed_turn_completion_waits_for_a_full_progress_channel() {
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     tx.send(AgentProgress::TurnStarted).await.unwrap();
-    let send = super::send_committed_turn_progress(&tx, "question", "answer", 2);
+    let send = super::progress::send_committed_turn_progress(&tx, "question", "answer", 2);
     tokio::pin!(send);
     assert!(matches!(
         futures::poll!(send.as_mut()),
@@ -40,7 +40,7 @@ async fn committed_turn_completion_is_bounded_when_progress_stalls() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     tx.send(AgentProgress::TurnStarted).await.unwrap();
 
-    assert!(!super::send_committed_turn_progress(&tx, "question", "answer", 2).await);
+    assert!(!super::progress::send_committed_turn_progress(&tx, "question", "answer", 2).await);
     assert!(matches!(rx.recv().await, Some(AgentProgress::TurnStarted)));
     assert!(rx.try_recv().is_err(), "timed-out send must be cancelled");
 }
