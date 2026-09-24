@@ -178,7 +178,10 @@ describe('SubagentDrawer', () => {
     await waitFor(() =>
       expect(screen.getByTestId('subagent-parent-prompt').textContent).toContain('Research Q3')
     );
-    expect(screen.getByTestId('assistant-ui-tool-call').textContent).toContain('Searched the web');
+    const row = screen.getByTestId('assistant-ui-tool-call');
+    expect(row.textContent).toContain('Used tool');
+    expect(row.textContent).toContain('openhuman turn state');
+    expect(row.textContent).not.toContain('Searched the web');
     expect(screen.getByTestId('subagent-transcript-text').textContent).toContain(
       'Revenue grew 18%'
     );
@@ -345,7 +348,7 @@ describe('SubagentDrawer', () => {
     expect(screen.queryByTestId('assistant-ui-tool-output')).toBeNull();
   });
 
-  it('derives a search label from the arguments when the server label degraded to "tool"', () => {
+  it('keeps a degraded "tool" row readable from its arguments, without guessing a web search', () => {
     // A provider that hands back a generic `tool` name leaves the row with
     // nothing better than "Tool" unless the arguments are there to read. Those
     // arguments only survive a reload because the snapshot now carries them
@@ -364,6 +367,9 @@ describe('SubagentDrawer', () => {
     render(
       <SubagentDrawer subagent={activity({ transcript })} status="success" onClose={() => {}} />
     );
-    expect(screen.getByTestId('assistant-ui-tool-call').textContent).toContain('Searched the web');
+    const row = screen.getByTestId('assistant-ui-tool-call');
+    expect(row.textContent).toContain('Used tool');
+    expect(row.textContent).toContain('openhuman turn state');
+    expect(row.textContent).not.toContain('Searched the web');
   });
 });
