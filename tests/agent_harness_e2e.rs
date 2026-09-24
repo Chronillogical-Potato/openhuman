@@ -644,14 +644,31 @@ async fn wait_for_terminal(
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
     timeout: Duration,
 ) -> Value {
+    wait_for_terminal_request(rx, timeout, None).await
+}
+
+async fn wait_for_terminal_request(
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
+    timeout: Duration,
+    request_id: Option<&str>,
+) -> Value {
+    // A client SSE stream can still receive a cancellation for the previous
+    // request after its chat_done. Only this turn's terminal event counts.
     let deadline = tokio::time::Instant::now() + timeout;
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         match tokio::time::timeout(remaining, rx.recv()).await {
-            Ok(Some(v)) => match v.get("event").and_then(Value::as_str) {
-                Some("chat_done") | Some("chat_error") => return v,
-                _ => {}
-            },
+            Ok(Some(v)) => {
+                if request_id
+                    .is_some_and(|id| v.get("request_id").and_then(Value::as_str) != Some(id))
+                {
+                    continue;
+                }
+                match v.get("event").and_then(Value::as_str) {
+                    Some("chat_done") | Some("chat_error") => return v,
+                    _ => {}
+                }
+            }
             Ok(None) => panic!("SSE channel closed waiting for terminal event"),
             Err(_) => panic!("timed out waiting for terminal web-chat event"),
         }
@@ -740,7 +757,13 @@ async fn boot_stack() -> Stack {
     }
 }
 
-async fn send_web_chat(rpc_base: &str, id: i64, client_id: &str, thread_id: &str, message: &str) {
+async fn send_web_chat(
+    rpc_base: &str,
+    id: i64,
+    client_id: &str,
+    thread_id: &str,
+    message: &str,
+) -> String {
     let resp = post_json_rpc(
         rpc_base,
         id,
@@ -759,6 +782,12 @@ async fn send_web_chat(rpc_base: &str, id: i64, client_id: &str, thread_id: &str
         Some(&json!(true)),
         "web chat not accepted: {result}"
     );
+    result
+        .get("result")
+        .and_then(|value| value.get("request_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("accepted web chat has no request_id: {result}"))
+        .to_owned()
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -855,7 +884,7 @@ async fn multi_turn_state_persistence_inner() {
     ))
     .await;
 
-    send_web_chat(
+    let first_request_id = send_web_chat(
         &stack.rpc_base,
         200,
         "harness-multiturn",
@@ -863,7 +892,12 @@ async fn multi_turn_state_persistence_inner() {
         "what is the project name?",
     )
     .await;
-    let first = wait_for_terminal(&mut events, Duration::from_secs(60)).await;
+    let first = wait_for_terminal_request(
+        &mut events,
+        Duration::from_secs(60),
+        Some(&first_request_id),
+    )
+    .await;
     assert_eq!(
         first.get("event").and_then(Value::as_str),
         Some("chat_done"),
@@ -879,7 +913,7 @@ async fn multi_turn_state_persistence_inner() {
         "turn-1 full_response must contain FOO_CANARY: {first}"
     );
 
-    send_web_chat(
+    let second_request_id = send_web_chat(
         &stack.rpc_base,
         201,
         "harness-multiturn",
@@ -887,7 +921,12 @@ async fn multi_turn_state_persistence_inner() {
         "are you sure?",
     )
     .await;
-    let second = wait_for_terminal(&mut events, Duration::from_secs(60)).await;
+    let second = wait_for_terminal_request(
+        &mut events,
+        Duration::from_secs(60),
+        Some(&second_request_id),
+    )
+    .await;
     assert_eq!(
         second.get("event").and_then(Value::as_str),
         Some("chat_done"),
@@ -4469,16 +4508,33 @@ async fn collect_turn_tool_results(
     rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
     timeout: Duration,
 ) -> (Value, Vec<Value>) {
+    collect_turn_tool_results_request(rx, timeout, None).await
+}
+
+async fn collect_turn_tool_results_request(
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
+    timeout: Duration,
+    request_id: Option<&str>,
+) -> (Value, Vec<Value>) {
+    // Multi-turn tests share one SSE subscription, so old request events must
+    // not be attributed to the turn whose tool timeline is under test.
     let deadline = tokio::time::Instant::now() + timeout;
     let mut results = Vec::new();
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         match tokio::time::timeout(remaining, rx.recv()).await {
-            Ok(Some(v)) => match v.get("event").and_then(Value::as_str) {
-                Some("tool_result") => results.push(v),
-                Some("chat_done") | Some("chat_error") => return (v, results),
-                _ => {}
-            },
+            Ok(Some(v)) => {
+                if request_id
+                    .is_some_and(|id| v.get("request_id").and_then(Value::as_str) != Some(id))
+                {
+                    continue;
+                }
+                match v.get("event").and_then(Value::as_str) {
+                    Some("tool_result") => results.push(v),
+                    Some("chat_done") | Some("chat_error") => return (v, results),
+                    _ => {}
+                }
+            }
             Ok(None) => panic!("SSE channel closed waiting for terminal event"),
             Err(_) => panic!(
                 "timed out waiting for terminal web-chat event; tool results so far: {results:?}"
@@ -4623,7 +4679,7 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
     .await;
 
     // Turn 1: the whole plan lands, first item in progress.
-    send_web_chat(
+    let first_request_id = send_web_chat(
         &stack.rpc_base,
         600,
         "harness-todo-five",
@@ -4631,7 +4687,12 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
         "Summarise the report in five steps and work through them.",
     )
     .await;
-    let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
+    let (terminal, results) = collect_turn_tool_results_request(
+        &mut events,
+        Duration::from_secs(60),
+        Some(&first_request_id),
+    )
+    .await;
     assert_eq!(
         terminal.get("event").and_then(Value::as_str),
         Some("chat_done"),
@@ -4666,7 +4727,7 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
 
     // Turns 2-6: one more item completed each turn.
     for completed in 1..=FIVE_STEPS.len() {
-        send_web_chat(
+        let request_id = send_web_chat(
             &stack.rpc_base,
             600 + completed as i64,
             "harness-todo-five",
@@ -4674,8 +4735,12 @@ async fn todo_list_ticks_off_five_items_across_turns_inner() {
             "continue",
         )
         .await;
-        let (terminal, results) =
-            collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
+        let (terminal, results) = collect_turn_tool_results_request(
+            &mut events,
+            Duration::from_secs(60),
+            Some(&request_id),
+        )
+        .await;
         assert_eq!(
             terminal.get("event").and_then(Value::as_str),
             Some("chat_done"),
