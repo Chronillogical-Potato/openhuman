@@ -610,7 +610,8 @@ async fn stop_for_thread_aborts_the_threads_running_children() {
         rx,
     );
     // Another thread's child must survive the stop.
-    let _other = register_test_with_thread("task-stop-other", "session-stop", Some("thread-keep"), rq);
+    let _other =
+        register_test_with_thread("task-stop-other", "session-stop", Some("thread-keep"), rq);
 
     let stopped = stop_for_thread("thread-stop");
     assert_eq!(stopped, vec!["task-stop-1".to_string()]);
@@ -627,9 +628,14 @@ async fn stop_for_thread_aborts_the_threads_running_children() {
         Err(SteerError::Unknown)
     );
     assert!(
-        steer("task-stop-other", "session-stop", "x".into(), QueueLane::Steer)
-            .await
-            .is_ok(),
+        steer(
+            "task-stop-other",
+            "session-stop",
+            "x".into(),
+            QueueLane::Steer
+        )
+        .await
+        .is_ok(),
         "a different thread's sub-agent is untouched"
     );
     assert!(stop_for_thread("thread-stop").is_empty(), "idempotent");

@@ -581,7 +581,10 @@ async fn unscoped_cancel_stops_the_threads_detached_subagents() {
         .expect("scoped cancel");
     assert_eq!(scoped.value["cancelled"], serde_json::json!(false));
     assert_eq!(scoped.value["subagents_cancelled"], serde_json::json!(0));
-    assert!(!child.is_finished(), "scoped cancel must not stop sub-agents");
+    assert!(
+        !child.is_finished(),
+        "scoped cancel must not stop sub-agents"
+    );
 
     // The Stop button: no turn in flight, but the detached child is stopped.
     let stop = channel_web_cancel("stop-client", thread_id, None)
