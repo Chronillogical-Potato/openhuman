@@ -463,7 +463,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                                         thread_id: goal.thread_id.clone(),
                                         goal_id: goal.goal_id.clone(),
                                         status: goal.status.as_str().to_string(),
-                                        goal: None,
+                                        goal: Some(crate::agent::goals::goal_to_value(&goal)),
                                     });
                                 }
                                 Ok(None) => {
