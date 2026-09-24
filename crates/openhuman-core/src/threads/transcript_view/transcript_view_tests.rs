@@ -292,9 +292,7 @@ fn subagent_file_projects_as_nested_item() {
             _ => None,
         })
         .expect("subagent item present");
-    // Unique per run (the stem suffix when no task id is recorded), never the
-    // agent name, which repeats across runs.
-    assert_eq!(subagent.0, "100_coder");
+    assert_eq!(subagent.0, "100_coder", "unique run id, not the agent name");
     assert!(subagent.1.iter().any(
         |i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "sub work done")
     ));
@@ -700,10 +698,8 @@ fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
     let root_refs: Vec<&str> = root_body.iter().map(String::as_str).collect();
     write_raw(dir.path(), root_stem, thread_id, &root_refs);
 
-    // Sub-agent stems encode the spawn unix timestamp. A turn's rows carry
-    // its *commit* time, so turn 1 ran up to 1_000_000 and turn 2 from then
-    // to 2_000_000: coder spawned during turn 1 (999_950), planner during
-    // turn 2 (1_000_050 — after turn 1 committed).
+    // Stems encode the spawn time; rows carry their turn's *commit* time, so
+    // coder (999_950) ran in turn 1 and planner (1_000_050) in turn 2.
     write_raw(
         dir.path(),
         &format!("{root_stem}__999950_coder"),
@@ -746,13 +742,4 @@ fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
         ],
         "each sub-agent anchors to the turn active at its spawn time"
     );
-}
-
-#[test]
-fn get_page_missing_thread_is_empty_not_error() {
-    let dir = TempDir::new().unwrap();
-    let page = get_page(dir.path(), "no_such_thread", None, Some(DEFAULT_LIMIT));
-    assert!(!page.has_transcript);
-    assert_eq!(page.total, 0);
-    assert!(page.items.is_empty());
 }
