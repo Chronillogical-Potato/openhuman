@@ -1614,8 +1614,17 @@ export interface ChatCancelOutcome {
 /**
  * Stop whatever is running on a thread via core RPC: the in-flight turn, its
  * parallel turns, and its detached background sub-agents.
+ *
+ * `requestId`, when supplied, scopes the cancel to that one turn (the id
+ * returned by {@link chatSend}) so a `parallel`-mode thread running more than
+ * one turn at once can stop just the one the caller means, rather than every
+ * turn on the thread. Optional and omittable for the existing single-turn
+ * callers.
  */
-export async function chatCancel(threadId: string): Promise<ChatCancelOutcome> {
+export async function chatCancel(
+  threadId: string,
+  requestId?: string
+): Promise<ChatCancelOutcome> {
   const socket = socketService.getSocket();
   const clientId = socket?.id;
   if (!clientId) {
@@ -1626,7 +1635,11 @@ export async function chatCancel(threadId: string): Promise<ChatCancelOutcome> {
   try {
     const result = await callCoreRpc<{ result?: { request_id?: unknown } }>({
       method: 'openhuman.channel_web_cancel',
-      params: { client_id: clientId, thread_id: threadId },
+      params: {
+        client_id: clientId,
+        thread_id: threadId,
+        request_id: requestId ?? undefined,
+      },
     });
     const turnCancelled = typeof result?.result?.request_id === 'string';
     chatLog('chat_cancel: thread=%s turnCancelled=%s', threadId, turnCancelled);
