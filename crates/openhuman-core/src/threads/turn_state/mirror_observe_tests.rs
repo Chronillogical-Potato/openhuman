@@ -657,7 +657,10 @@ fn subagent_spawned_derives_source_tool_name_from_the_parent_row() {
         .find(|e| e.id == "subagent:sub-1")
         .cloned()
         .expect("subagent row created");
-    assert_eq!(entry.source_tool_name.as_deref(), Some("spawn_parallel_agents"));
+    assert_eq!(
+        entry.source_tool_name.as_deref(),
+        Some("spawn_parallel_agents")
+    );
     let activity = entry.subagent.expect("subagent activity present");
     assert_eq!(activity.parent_call_id.as_deref(), Some("call-parallel"));
 }

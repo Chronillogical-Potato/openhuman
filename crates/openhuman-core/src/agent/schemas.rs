@@ -685,9 +685,8 @@ fn handle_registry_snapshot(_params: Map<String, Value>) -> ControllerFuture {
 
 fn handle_context_breakdown(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let p = deserialize_params::<crate::agent::context_breakdown::ContextBreakdownParams>(
-            params,
-        )?;
+        let p =
+            deserialize_params::<crate::agent::context_breakdown::ContextBreakdownParams>(params)?;
         to_json(crate::agent::context_breakdown::context_breakdown(p).await?)
     })
 }

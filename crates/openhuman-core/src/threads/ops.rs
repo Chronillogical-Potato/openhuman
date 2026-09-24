@@ -15,9 +15,8 @@ mod turn_state_ops;
 mod usage;
 
 pub use crud::{
-    delete_after, message_append, message_update, messages_list, thread_create_new,
-    thread_delete, thread_update_labels, thread_update_title, thread_upsert, threads_list,
-    transcript_search,
+    delete_after, message_append, message_update, messages_list, thread_create_new, thread_delete,
+    thread_update_labels, thread_update_title, thread_upsert, threads_list, transcript_search,
 };
 pub use edit::{
     edit_message, regenerate, EditMessageRequest, EditOrRegenerateResponse, RegenerateRequest,

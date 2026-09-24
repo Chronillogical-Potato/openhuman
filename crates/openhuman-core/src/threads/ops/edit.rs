@@ -101,7 +101,11 @@ pub async fn edit_message(request: EditMessageRequest) -> Result<RpcOutcome<Valu
         let thread_id_owned = thread_id.clone();
         let cut_request_id_owned = cut_request_id.clone();
         tokio::task::spawn_blocking(move || {
-            truncate_transcript_before_turn(&dir_for_blocking, &thread_id_owned, &cut_request_id_owned)
+            truncate_transcript_before_turn(
+                &dir_for_blocking,
+                &thread_id_owned,
+                &cut_request_id_owned,
+            )
         })
         .await
         .map_err(|e| ThreadsError::Message(format!("truncate transcript task: {e}")))?
@@ -150,15 +154,13 @@ pub async fn regenerate(request: RegenerateRequest) -> Result<RpcOutcome<Value>,
         .map_err(ThreadsError::Message)?;
 
     let target_request_id = match &request.message_id {
-        Some(message_id) => Some(
-            reply_run_id(message_id)
-                .map(str::to_string)
-                .ok_or_else(|| {
-                    ThreadsError::Message(format!(
-                        "message {message_id} is not a regenerable assistant reply"
-                    ))
-                })?,
-        ),
+        Some(message_id) => Some(reply_run_id(message_id).map(str::to_string).ok_or_else(
+            || {
+                ThreadsError::Message(format!(
+                    "message {message_id} is not a regenerable assistant reply"
+                ))
+            },
+        )?),
         None => None,
     };
 
@@ -175,7 +177,9 @@ pub async fn regenerate(request: RegenerateRequest) -> Result<RpcOutcome<Value>,
     .await
     .map_err(|e| ThreadsError::Message(format!("truncate transcript task: {e}")))?
     .map_err(ThreadsError::Message)?
-    .ok_or_else(|| ThreadsError::Message(format!("thread {thread_id} has no turn to regenerate")))?;
+    .ok_or_else(|| {
+        ThreadsError::Message(format!("thread {thread_id} has no turn to regenerate"))
+    })?;
 
     clear_dropped_turn_states(&dir, &thread_id, &cut_request_id).await;
     super::delete_after(&thread_id, &run_reply_message_id(&cut_request_id)).await?;
@@ -235,12 +239,17 @@ async fn next_reply_request_id_after(
 fn resolve_head_transcript(
     workspace_dir: &std::path::Path,
     thread_id: &str,
-) -> Result<(SessionRef, std::sync::Arc<dyn TranscriptLocator>, SessionTranscript), String> {
-    let root_path = tinyagents_session::transcript::find_root_transcript_for_thread(
-        workspace_dir,
-        thread_id,
-    )
-    .ok_or_else(|| format!("thread {thread_id} has no session transcript"))?;
+) -> Result<
+    (
+        SessionRef,
+        std::sync::Arc<dyn TranscriptLocator>,
+        SessionTranscript,
+    ),
+    String,
+> {
+    let root_path =
+        tinyagents_session::transcript::find_root_transcript_for_thread(workspace_dir, thread_id)
+            .ok_or_else(|| format!("thread {thread_id} has no session transcript"))?;
     let root_transcript = tinyagents_session::transcript::read_transcript(&root_path)
         .map_err(|e| format!("read root transcript for thread {thread_id}: {e}"))?;
     let agent_id = root_transcript.meta.agent_id.clone().unwrap_or_default();
@@ -288,9 +297,7 @@ fn truncate_transcript_before_turn(
         .messages
         .iter()
         .position(|m| m.request_id.as_deref() == Some(request_id))
-        .ok_or_else(|| {
-            format!("no transcript row for turn {request_id} in thread {thread_id}")
-        })?;
+        .ok_or_else(|| format!("no transcript row for turn {request_id} in thread {thread_id}"))?;
     let seed = truncation_seed(&head, &transcript.meta);
     locator
         .truncate_into_next_generation(&head, TruncateCut::BeforeIndex(cut_index), seed)

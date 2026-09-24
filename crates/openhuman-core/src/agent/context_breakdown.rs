@@ -192,7 +192,11 @@ pub async fn context_breakdown(
         report.sections.iter().map(section_from_prompt).collect();
     sections.push(tools_section(&report.tools));
 
-    if let Some(thread_id) = params.thread_id.as_deref().map(str::trim).filter(|s| !s.is_empty())
+    if let Some(thread_id) = params
+        .thread_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
     {
         if let Some(history) = history_section(thread_id).await {
             sections.push(history);

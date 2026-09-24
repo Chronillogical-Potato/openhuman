@@ -82,8 +82,8 @@ mod tokenize;
 mod types;
 
 pub use store::{
-    append_message, delete_messages_from, delete_thread, ensure_thread, get_messages,
-    list_threads, purge_threads, update_message, update_thread_labels, update_thread_title,
+    append_message, delete_messages_from, delete_thread, ensure_thread, get_messages, list_threads,
+    purge_threads, update_message, update_thread_labels, update_thread_title,
     ConversationPurgeStats, ConversationStore,
 };
 pub use types::{
