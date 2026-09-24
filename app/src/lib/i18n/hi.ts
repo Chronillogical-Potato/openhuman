@@ -286,6 +286,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'इस चैट में',
   'conversations.backgroundTasks.sectionScheduled': 'शेड्यूल किए गए कार्य',
   'conversations.backgroundTasks.sectionMemory': 'मेमोरी सिंक हो रही है',
+  'conversations.backgroundTasks.inboxReady': '{count} तैयार',n  'conversations.backgroundTasks.inboxInFlight': '{count} चल रहा है',n  'conversations.backgroundTasks.memoryJobTitle': 'मेमोरी सिंक',n  'conversations.backgroundTasks.cancelJob': 'रद्द करें',
   'conversations.backgroundTasks.cronEmpty': 'कोई शेड्यूल किए गए कार्य नहीं।',
   'conversations.backgroundTasks.cronUnnamed': 'शीर्षकहीन कार्य',
   'conversations.backgroundTasks.cronPaused': 'रुका हुआ',

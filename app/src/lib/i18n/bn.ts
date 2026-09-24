@@ -284,6 +284,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'এই চ্যাটে',
   'conversations.backgroundTasks.sectionScheduled': 'নির্ধারিত কাজ',
   'conversations.backgroundTasks.sectionMemory': 'মেমরি সিঙ্ক হচ্ছে',
+  'conversations.backgroundTasks.inboxReady': '{count} প্রস্তুত',n  'conversations.backgroundTasks.inboxInFlight': '{count} চলমান',n  'conversations.backgroundTasks.memoryJobTitle': 'মেমরি সিঙ্ক',n  'conversations.backgroundTasks.cancelJob': 'বাতিল করুন',
   'conversations.backgroundTasks.cronEmpty': 'কোনো নির্ধারিত কাজ নেই।',
   'conversations.backgroundTasks.cronUnnamed': 'শিরোনামহীন কাজ',
   'conversations.backgroundTasks.cronPaused': 'বিরতি দেওয়া',

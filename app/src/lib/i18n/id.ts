@@ -290,6 +290,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'Di obrolan ini',
   'conversations.backgroundTasks.sectionScheduled': 'Tugas terjadwal',
   'conversations.backgroundTasks.sectionMemory': 'Menyinkronkan memori',
+  'conversations.backgroundTasks.inboxReady': '{count} siap',n  'conversations.backgroundTasks.inboxInFlight': '{count} berjalan',n  'conversations.backgroundTasks.memoryJobTitle': 'Sinkronisasi memori',n  'conversations.backgroundTasks.cancelJob': 'Batalkan',
   'conversations.backgroundTasks.cronEmpty': 'Tidak ada tugas terjadwal.',
   'conversations.backgroundTasks.cronUnnamed': 'Tugas tanpa judul',
   'conversations.backgroundTasks.cronPaused': 'Dijeda',

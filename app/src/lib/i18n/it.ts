@@ -294,6 +294,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'In questa chat',
   'conversations.backgroundTasks.sectionScheduled': 'Attività pianificate',
   'conversations.backgroundTasks.sectionMemory': 'Sincronizzazione memoria',
+  'conversations.backgroundTasks.inboxReady': '{count} pronte',n  'conversations.backgroundTasks.inboxInFlight': '{count} in corso',n  'conversations.backgroundTasks.memoryJobTitle': 'Sincronizzazione memoria',n  'conversations.backgroundTasks.cancelJob': 'Annulla',
   'conversations.backgroundTasks.cronEmpty': 'Nessuna attività pianificata.',
   'conversations.backgroundTasks.cronUnnamed': 'Attività senza titolo',
   'conversations.backgroundTasks.cronPaused': 'In pausa',

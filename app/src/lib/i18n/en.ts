@@ -4211,6 +4211,7 @@ const en: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'In this chat',
   'conversations.backgroundTasks.sectionScheduled': 'Scheduled jobs',
   'conversations.backgroundTasks.sectionMemory': 'Memory syncing',
+  'conversations.backgroundTasks.inboxReady': '{count} ready',n  'conversations.backgroundTasks.inboxInFlight': '{count} in flight',n  'conversations.backgroundTasks.memoryJobTitle': 'Memory sync',n  'conversations.backgroundTasks.cancelJob': 'Cancel',
   // Scheduled (cron) jobs.
   'conversations.backgroundTasks.cronEmpty': 'No scheduled jobs.',
   'conversations.backgroundTasks.cronUnnamed': 'Untitled job',

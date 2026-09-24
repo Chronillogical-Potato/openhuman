@@ -290,6 +290,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'В этом чате',
   'conversations.backgroundTasks.sectionScheduled': 'Запланированные задачи',
   'conversations.backgroundTasks.sectionMemory': 'Синхронизация памяти',
+  'conversations.backgroundTasks.inboxReady': '{count} готово',n  'conversations.backgroundTasks.inboxInFlight': '{count} выполняется',n  'conversations.backgroundTasks.memoryJobTitle': 'Синхронизация памяти',n  'conversations.backgroundTasks.cancelJob': 'Отмена',
   'conversations.backgroundTasks.cronEmpty': 'Нет запланированных задач.',
   'conversations.backgroundTasks.cronUnnamed': 'Задача без названия',
   'conversations.backgroundTasks.cronPaused': 'Приостановлено',

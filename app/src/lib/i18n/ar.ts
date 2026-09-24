@@ -271,6 +271,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.sectionThisChat': 'في هذه المحادثة',
   'conversations.backgroundTasks.sectionScheduled': 'المهام المجدولة',
   'conversations.backgroundTasks.sectionMemory': 'مزامنة الذاكرة',
+  'conversations.backgroundTasks.inboxReady': '{count} جاهز',n  'conversations.backgroundTasks.inboxInFlight': '{count} قيد التنفيذ',n  'conversations.backgroundTasks.memoryJobTitle': 'مزامنة الذاكرة',n  'conversations.backgroundTasks.cancelJob': 'إلغاء',
   'conversations.backgroundTasks.cronEmpty': 'لا توجد مهام مجدولة.',
   'conversations.backgroundTasks.cronUnnamed': 'مهمة بدون عنوان',
   'conversations.backgroundTasks.cronPaused': 'متوقفة مؤقتًا',
