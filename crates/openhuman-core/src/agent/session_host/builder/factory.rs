@@ -138,45 +138,6 @@ impl OpenHumanSessionHost {
         Self::build_session_agent_inner(config, &definition.id, Some(definition), false, None, None)
     }
 
-    /// [`Self::from_config_with_definition`], plus a belt the host supplies
-    /// itself.
-    ///
-    /// The seam an embedder needs to put its **own** `dyn Tool` on an agent it
-    /// configures through data. Everything else on this path is reconstructed
-    /// from `Config` and the definition on every turn, so a host that owned a
-    /// tool object had nowhere to put it and reached its tools over MCP
-    /// instead — paying a discovery turn, an opaque `arguments` object the
-    /// provider cannot validate, and a prompt section explaining the envelope.
-    ///
-    /// `host` is a factory rather than a belt because this constructor runs
-    /// once per turn and `Box<dyn Tool>` is not `Clone`. A host may therefore
-    /// return a different belt each time; see [`HostTurnTools`] for what that
-    /// does and does not keep consistent with the prompt.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::from_config_with_definition`].
-    ///
-    /// `session_id` is the conversation the turn will run in, when the caller
-    /// named one. It reaches the factory as [`TurnContext::session_id`] and is
-    /// the only thing that lets a belt differ per conversation rather than per
-    /// agent; pass `None` where no session is named yet.
-    pub fn from_config_with_host_tools(
-        config: &Config,
-        definition: &crate::agent::harness::definition::AgentDefinition,
-        host: &super::HostTools,
-        session_id: Option<&str>,
-    ) -> Result<Self> {
-        Self::build_session_agent_inner(
-            config,
-            &definition.id,
-            Some(definition),
-            false,
-            Some(host),
-            session_id,
-        )
-    }
-
     /// Internal constructor that consumes the optionally-resolved agent
     /// definition. Split out from [`OpenHumanSessionHost::from_config_for_agent`] so
     /// the lookup + logging live in one place and the heavy-lifting
@@ -1035,36 +996,11 @@ impl OpenHumanSessionHost {
             );
             effective_agent_config.max_tool_iterations = def_cap;
         }
-        // The host's own belt goes FIRST, so a host tool wins a name collision
-        // with a config-derived one: the host named this object specifically,
-        // and a host that cannot override a tool it collides with has no way
-        // to correct one.
-        //
-        // First, not last, because `dedup_visible_tool_specs` keeps the first
-        // occurrence -- appending would advertise the config-derived spec
-        // while the host believed it had replaced it, which is the failure
-        // that is hardest to see: the model is told about one tool and a
-        // different one answers.
-        let host_policy = match host
+        // Host-first, so a host tool wins a name collision -- see
+        // `HostTurnTools::merge_into`, which owns that rule and why.
+        let host_policy = host
             .map(|build| build(super::host_tools::TurnContext::new(agent_id, session_id)))
-        {
-            Some(host_tools) if !host_tools.is_empty() => {
-                log::debug!(
-                    "[agent::builder] host supplied {} tool(s) for agent_id={agent_id}: {:?}",
-                    host_tools.tools.len(),
-                    host_tools
-                        .tools
-                        .iter()
-                        .map(|tool| tool.name())
-                        .collect::<Vec<_>>(),
-                );
-                let host_tools = host_tools;
-                tools.splice(0..0, host_tools.tools);
-                visible.extend(host_tools.visible);
-                host_tools.policy
-            }
-            _ => None,
-        };
+            .and_then(|host_tools| host_tools.merge_into(agent_id, &mut tools, &mut visible));
         let mut builder = OpenHumanSessionHost::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
             .tools(tools)
@@ -1100,15 +1036,9 @@ impl OpenHumanSessionHost {
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }
-        // The host's gate, when it sent one. This REPLACES the session's own
-        // policy rather than sitting in front of it -- `tool_policy` assigns.
-        //
-        // That is deliberate: a host supplying a gate is saying what may run
-        // on this session, not only on its own belt, and the episode case
-        // needs exactly that (admit my tools, ask me about everything else).
-        // But it means a host that gates only its own names denies every
-        // config-derived tool, so the host composes, not this builder. See
-        // `HostTurnTools::with_policy`, which says so.
+        // A host gate REPLACES the session's rather than fronting it --
+        // `tool_policy` assigns. `HostTurnTools::with_policy` says why, and
+        // what it costs a host that gates only its own names.
         if let Some(policy) = host_policy {
             builder = builder.tool_policy(policy);
         }

@@ -30,6 +30,9 @@ use std::sync::Arc;
 use tinytools::Tool;
 
 use crate::agent::tool_policy::ToolPolicy;
+use crate::agent::OpenHumanSessionHost;
+use crate::config::Config;
+use anyhow::Result;
 
 /// One turn's worth of host-supplied belt.
 ///
@@ -59,6 +62,48 @@ impl HostTurnTools {
             visible,
             policy: None,
         }
+    }
+
+    /// Fold this belt into the session's, and hand back the gate it carries.
+    ///
+    /// # Host-first, deliberately
+    ///
+    /// The host's tools are spliced in **ahead of** the config-derived ones so
+    /// a host tool wins a collision on its name: the host named this object
+    /// specifically, and a host that cannot override a tool it collides with
+    /// has no way to correct one.
+    ///
+    /// First and not last because [`dedup_visible_tool_specs`] keeps the first
+    /// occurrence. Appending would advertise the config-derived spec while the
+    /// host believed it had replaced it -- the model told about one tool and a
+    /// different one answering, which is the version of this bug that is
+    /// hardest to see from outside.
+    ///
+    /// Returns `None` for an empty belt, which is also a host that supplied no
+    /// gate: there is nothing to admit.
+    ///
+    /// [`dedup_visible_tool_specs`]: super::dedup_visible_tool_specs
+    #[must_use]
+    pub(super) fn merge_into(
+        self,
+        agent_id: &str,
+        tools: &mut Vec<Box<dyn Tool>>,
+        visible: &mut HashSet<String>,
+    ) -> Option<Arc<dyn ToolPolicy>> {
+        if self.is_empty() {
+            return None;
+        }
+        log::debug!(
+            "[agent::builder] host supplied {} tool(s) for agent_id={agent_id}: {:?}",
+            self.tools.len(),
+            self.tools
+                .iter()
+                .map(|tool| tool.name())
+                .collect::<Vec<_>>(),
+        );
+        tools.splice(0..0, self.tools);
+        visible.extend(self.visible);
+        self.policy
     }
 
     /// Sets the gate for the whole session.
@@ -161,3 +206,44 @@ impl<'a> TurnContext<'a> {
 ///
 /// See [`TurnContext`] for what the factory is told about the occasion.
 pub type HostTools = Arc<dyn for<'a> Fn(TurnContext<'a>) -> HostTurnTools + Send + Sync>;
+
+/// The constructor the host-tools seam exists for, kept beside the types it
+/// takes rather than with the config-derived constructors it sits among.
+impl OpenHumanSessionHost {
+    /// [`OpenHumanSessionHost::from_config_with_definition`], plus a belt the host supplies
+    /// itself.
+    ///
+    /// The seam an embedder needs to put its **own** `dyn Tool` on an agent it
+    /// configures through data. Everything else on this path is reconstructed
+    /// from `Config` and the definition on every turn, so a host that owned a
+    /// tool object had nowhere to put it and reached its tools over MCP
+    /// instead — paying a discovery turn, an opaque `arguments` object the
+    /// provider cannot validate, and a prompt section explaining the envelope.
+    ///
+    /// `host` is a factory rather than a belt because this constructor runs
+    /// once per turn and `Box<dyn Tool>` is not `Clone`. A host may therefore
+    /// return a different belt each time; see [`HostTurnTools`] for what that
+    /// does and does not keep consistent with the prompt.
+    ///
+    /// # Errors
+    ///
+    /// As [`OpenHumanSessionHost::from_config_with_definition`].
+    ///
+    /// `session_id` is the conversation this turn runs in, reaching the
+    /// factory as [`TurnContext::session_id`]; `None` when none is named yet.
+    pub fn from_config_with_host_tools(
+        config: &Config,
+        definition: &crate::agent::harness::definition::AgentDefinition,
+        host: &super::HostTools,
+        session_id: Option<&str>,
+    ) -> Result<Self> {
+        OpenHumanSessionHost::build_session_agent_inner(
+            config,
+            &definition.id,
+            Some(definition),
+            false,
+            Some(host),
+            session_id,
+        )
+    }
+}
