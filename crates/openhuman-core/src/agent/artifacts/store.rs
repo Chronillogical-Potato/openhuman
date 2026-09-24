@@ -615,6 +615,8 @@ pub async fn fail_artifact(
         error: reason.to_string(),
         thread_id,
         client_id,
+        tool_call_id: None,
+        request_id: None,
     });
     Ok(meta)
 }
