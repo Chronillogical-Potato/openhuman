@@ -1,5 +1,30 @@
 'use client';
 
+/**
+ * assistant-ui's tool-fallback element: the default renderer for any tool
+ * call the toolkit does not register its own element for, plus the shared
+ * approval bar every gated call renders while it waits on the user.
+ *
+ * Vendored from the assistant-ui `tool-fallback` registry item
+ * (https://r.assistant-ui.com/styles/base-nova/tool-fallback.json —
+ * `elements/tool-fallback.aui.tsx` upstream). Changes from upstream:
+ * - `cn` import path and Radix collapsible from `../ui/collapsible`.
+ * - `formatUnknownValue` handles `Error` values and an unserializable
+ *   fallback the same way upstream does, but the cancelled-call result stays
+ *   hidden (`!isCancelled && <ToolFallbackResult .../>`) rather than always
+ *   rendered — a cancelled call's stale result would otherwise read as a
+ *   real one.
+ * - **Not ported (blocked on a dependency bump, not a design choice):**
+ *   upstream's free-text answer path (`Textarea`, `toolApprovalAcceptsText`,
+ *   the `isQuestion`/`dismiss`/`promptText` branches) and the voice-session
+ *   lock (`useAuiState(s => s.thread.voice)`) all read fields — `approval.
+ *   display`, `approval.prompt`, `approval.dismissible`, a `text` member on
+ *   `ToolApprovalResponse`, `thread.voice` — that do not exist on the
+ *   `@assistant-ui/react` 0.15.16 / `@assistant-ui/core` 0.3.15 types pinned
+ *   here (`toolApprovalAcceptsText` is not exported at all). Adding them
+ *   needs the version bump the ground rules reserve for WS-A; until then the
+ *   options/confirm decision bar below is the full approval surface.
+ */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { Button } from '@/components/assistant-ui/ui/button';
 import {
@@ -217,6 +242,25 @@ function ToolFallbackArgs({
     </div>
   );
 }
+
+const formatUnknownValue = (value: unknown, space?: number): string => {
+  if (typeof value === 'string') return value;
+
+  try {
+    if (value instanceof Error) return String(value);
+
+    const json = JSON.stringify(value, null, space);
+    if (json !== undefined) return json;
+  } catch {
+    // fall through to the String() fallback below
+  }
+
+  try {
+    return String(value);
+  } catch {
+    return '[Unserializable value]';
+  }
+};
 
 function ToolFallbackResult({
   result,
