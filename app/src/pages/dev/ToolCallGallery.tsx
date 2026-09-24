@@ -63,6 +63,18 @@ const SEARCH_RESULT = [
   '   https://tokio.rs/tokio/tutorial',
 ].join('\n');
 
+/** Fixtures for WS-G's rich-content elements (sources/citations, memory, schedule, conversation map). */
+const MEMORY_SEARCH_HITS: SearchHit[] = [
+  { id: 'hit-1', before: 'The deploy runs ', match: 'nightly', after: ' at 2am UTC.', position: 12 },
+  { id: 'hit-2', before: 'Config lives in ', match: 'deploy/', after: 'config.yaml.', position: 68 },
+];
+
+const MEMORY_TIMELINE_EVENTS: TimelineEvent[] = [
+  { id: 'evt-1', when: 'past', time: '09:02', title: 'What is the deploy schedule?' },
+  { id: 'evt-2', when: 'past', time: '09:05', title: 'Where does the config live?' },
+  { id: 'evt-3', when: 'now', time: '09:11', title: 'Can you add a Friday run?' },
+];
+
 const SAMPLES = [
   {
     toolName: 'web_search_tool',

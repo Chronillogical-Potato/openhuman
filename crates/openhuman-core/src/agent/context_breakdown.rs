@@ -210,7 +210,7 @@ pub async fn context_breakdown(
         total_est_tokens,
         context_window,
     };
-    Ok(RpcOutcome::ok(response))
+    Ok(RpcOutcome::new(response, Vec::new()))
 }
 
 #[cfg(test)]
