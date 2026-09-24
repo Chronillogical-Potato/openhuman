@@ -3318,6 +3318,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'कोर इस थ्रेड का प्रॉम्प्ट नहीं माप सका।',
   'conversations.composer.context.section.preamble': 'सिस्टम प्रॉम्प्ट',
   'conversations.composer.context.section.tools': 'टूल',
+  'conversations.composer.context.section.toolSchemas': 'टूल स्कीमा',
+  'conversations.composer.context.section.yourInput': 'आपका इनपुट',
   'conversations.composer.context.section.history': 'बातचीत का इतिहास',
   'conversations.composer.context.turnCost': 'यह टर्न',
   'conversations.composer.context.subagentCost': '{agent}',

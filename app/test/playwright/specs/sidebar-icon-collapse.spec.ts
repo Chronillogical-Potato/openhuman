@@ -42,7 +42,7 @@ const REOPEN = '[data-testid="root-shell-reopen"]';
 const COLLAPSE_BUTTON = '[data-analytics-id="sidebar-header-collapse"]';
 
 /** Mirrors `SIDEBAR_ICON_WIDTH` in `app/src/components/ui/Sidebar.tsx`. */
-const ICON_WIDTH_PX = 56;
+const ICON_WIDTH_PX = 88;
 /** Mirrors `SIDEBAR_KEYBOARD_STEP` in `app/src/components/ui/Sidebar.tsx`. */
 const KEYBOARD_STEP_PX = 16;
 /** Mirrors `WINDOW_DRAG_BAR_HEIGHT` in `app/src/components/layout/shell/WindowDragBar.tsx`. */

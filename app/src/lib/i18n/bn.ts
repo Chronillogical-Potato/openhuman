@@ -3317,6 +3317,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'কোর এই থ্রেডের প্রম্পট মাপতে পারেনি।',
   'conversations.composer.context.section.preamble': 'সিস্টেম প্রম্পট',
   'conversations.composer.context.section.tools': 'টুল',
+  'conversations.composer.context.section.toolSchemas': 'টুল স্কিমা',
+  'conversations.composer.context.section.yourInput': 'আপনার ইনপুট',
   'conversations.composer.context.section.history': 'কথোপকথনের ইতিহাস',
   'conversations.composer.context.turnCost': 'এই টার্ন',
   'conversations.composer.context.subagentCost': '{agent}',

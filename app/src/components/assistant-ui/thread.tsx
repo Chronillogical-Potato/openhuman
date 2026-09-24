@@ -120,6 +120,10 @@ export type ThreadComponents = {
    * anything else.
    */
   ComposerExtras?: ComponentType | undefined;
+  /** Host-owned controls rendered in the right action cluster before voice. */
+  ComposerRightExtras?: ComponentType | undefined;
+  /** Host-owned navigation rail mounted inside the scrolling viewport. */
+  ConversationMap?: ComponentType | undefined;
   /** Full-width host content immediately above the composer shell. */
   ComposerHeader?: ComponentType | undefined;
   /**
@@ -383,7 +387,11 @@ const ThreadRoot: FC<{
   loadError: string | null;
   onEscape?: () => void;
 }> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
-  const { Welcome = ThreadWelcome, Composer: HostComposer } = useContext(ThreadComponentsContext);
+  const {
+    Welcome = ThreadWelcome,
+    Composer: HostComposer,
+    ConversationMap,
+  } = useContext(ThreadComponentsContext);
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
   // Everything the viewport scrolls over, which is MORE than the message group:
@@ -415,6 +423,7 @@ const ThreadRoot: FC<{
         scrollToBottomOnRunStart={false}
         data-slot="aui_thread-viewport"
         className="relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth">
+        {ConversationMap ? <ConversationMap /> : null}
         <div
           ref={scrollContentRef}
           className={cn(
@@ -711,7 +720,8 @@ function useFollowBottom(
         followRef.current = true;
       } else if (
         viewport.scrollTop < lastScrollTopRef.current &&
-        (scrollbarDragActive || window.performance.now() - userIntentAt <= USER_SCROLL_INTENT_WINDOW_MS)
+        (scrollbarDragActive ||
+          window.performance.now() - userIntentAt <= USER_SCROLL_INTENT_WINDOW_MS)
       ) {
         followRef.current = false;
       }
@@ -1158,6 +1168,7 @@ const ComposerAction: FC<{
     hasComposerAttachments,
     onComposerAttachmentSend,
     ComposerIdleAction,
+    ComposerRightExtras,
     onSwitchToMicCloud,
   } = useContext(ThreadComponentsContext);
   const isRunning = useAuiState(state => state.thread.isRunning);
@@ -1175,6 +1186,7 @@ const ComposerAction: FC<{
         <ComposerExtrasSlot />
       </div>
       <div className="flex items-center gap-1.5">
+        {ComposerRightExtras ? <ComposerRightExtras /> : null}
         {onSwitchToMicCloud && (
           <TooltipIconButton
             tooltip="Voice mode"
@@ -1522,14 +1534,10 @@ const AssistantMessage: FC = () => {
                   </div>
                 );
               case 'indicator':
-                return (
-                  <span
-                    data-slot="aui_assistant-message-indicator"
-                    className="animate-pulse font-sans"
-                    aria-label="Assistant is working">
-                    {'●'}
-                  </span>
-                );
+                // The host RunningStatus slot renders the single shared loading
+                // state below the message group. Rendering assistant-ui's raw
+                // indicator part as well produces a second, disconnected dot.
+                return null;
               default:
                 return null;
             }

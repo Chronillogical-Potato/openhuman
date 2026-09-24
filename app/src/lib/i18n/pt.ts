@@ -3374,6 +3374,8 @@ const messages: TranslationMap = {
     'O núcleo não conseguiu medir o prompt desta conversa.',
   'conversations.composer.context.section.preamble': 'Prompt do sistema',
   'conversations.composer.context.section.tools': 'Ferramentas',
+  'conversations.composer.context.section.toolSchemas': 'Esquemas de ferramentas',
+  'conversations.composer.context.section.yourInput': 'Sua entrada',
   'conversations.composer.context.section.history': 'Histórico da conversa',
   'conversations.composer.context.turnCost': 'Este turno',
   'conversations.composer.context.subagentCost': '{agent}',

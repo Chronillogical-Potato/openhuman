@@ -3239,6 +3239,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'تعذّر على النواة قياس الموجّه لهذه المحادثة.',
   'conversations.composer.context.section.preamble': 'موجّه النظام',
   'conversations.composer.context.section.tools': 'الأدوات',
+  'conversations.composer.context.section.toolSchemas': 'مخططات الأدوات',
+  'conversations.composer.context.section.yourInput': 'إدخالك',
   'conversations.composer.context.section.history': 'سجل المحادثة',
   'conversations.composer.context.turnCost': 'هذه الجولة',
   'conversations.composer.context.subagentCost': '{agent}',

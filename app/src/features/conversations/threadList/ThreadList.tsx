@@ -74,10 +74,10 @@ export function ThreadList({
           thread pills on both sides, the mirror image of the bug the gutter is
           here to prevent.
 
-          `pb-1` replaces the `mb-1` the button carried as a list child: same
-          gap, but owned by the band now that the button no longer sits on the
-          column's `gap-0.5` rhythm. */}
-      <div className="flex-none overflow-hidden px-2 pb-1 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
+          `pb-2` makes the 8px gap below the button match the chat separator's
+          8px lower margin above it, so the action is optically centred between
+          the primary navigation and the first conversation. */}
+      <div className="flex-none overflow-hidden px-2 pb-2 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
         {/* "New conversation" as a row, not a header icon. It is the same
           affordance as a thread row — pick a conversation to work in — so it
           takes the same shape: `h-8` pill, same radius, same hover fill, same
@@ -235,26 +235,14 @@ export function ThreadList({
                     autoFocus
                   />
                 ) : (
-                  <>
-                    <p
-                      className={`truncate flex-1 text-[14px] ${
-                        selectedThreadId === thread.id
-                          ? 'font-semibold text-content'
-                          : 'text-content-muted'
-                      }`}>
-                      {resolveTitle(thread.id)}
-                    </p>
-                    {/* Message count occupies the trailing slot at rest and
-                        yields to the row actions on hover, so the row never
-                        grows or reflows between the two states. */}
-                    {thread.messageCount > 0 && (
-                      <span
-                        data-testid={`thread-count-${thread.id}`}
-                        className="flex-none rounded-full bg-surface/60 px-1.5 text-[10px] leading-4 text-content-faint group-hover:hidden">
-                        {thread.messageCount > 99 ? '99+' : thread.messageCount}
-                      </span>
-                    )}
-                  </>
+                  <p
+                    className={`truncate flex-1 text-[14px] ${
+                      selectedThreadId === thread.id
+                        ? 'font-semibold text-content'
+                        : 'text-content-muted'
+                    }`}>
+                    {resolveTitle(thread.id)}
+                  </p>
                 )}
                 <button
                   type="button"
@@ -265,9 +253,8 @@ export function ThreadList({
                   }}
                   aria-label={t('chat.editThreadTitle')}
                   title={t('chat.editThreadTitle')}
-                  // `hidden`, not `opacity-0`: an invisible-but-laid-out button
-                  // would keep reserving the trailing slot the count badge now
-                  // occupies, squeezing the title on every row.
+                  // `hidden`, not `opacity-0`: the title gets the full row width
+                  // until hover reveals the trailing actions.
                   className="hidden h-5 w-5 flex-none items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-primary-500 group-hover:inline-flex">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path

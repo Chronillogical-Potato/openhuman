@@ -48,14 +48,42 @@ describe('RootShellLayout', () => {
     expect(surface.contains(screen.getByText('routed page'))).toBe(true);
   });
 
-  it('frames the content surface as a card by default', () => {
+  it('renders the content surface full-bleed by default', () => {
     renderShell();
-    expect(screen.getByTestId('app-content-surface').dataset.unframed).toBeUndefined();
+    const surface = screen.getByTestId('app-content-surface');
+    expect(surface.dataset.unframed).toBe('true');
+    expect(surface.className).not.toContain('m-2');
+    expect(surface.className).not.toContain('rounded-2xl');
   });
 
-  it('forwards unframed so a live CEF webview gets a square, edge-to-edge pane', () => {
-    renderShell({ unframed: true });
-    expect(screen.getByTestId('app-content-surface').dataset.unframed).toBe('true');
+  it('floats the sidebar above the full-window content surface', () => {
+    renderShell({}, withLayout(true, 300));
+
+    const sidebar = screen.getByTestId('root-shell-sidebar');
+    expect(sidebar.className).toContain('absolute');
+    expect(sidebar.className).toContain('inset-y-2');
+    expect(sidebar.className).toContain('left-2');
+    expect(sidebar.className).toContain('h-auto');
+    expect(sidebar.className).not.toContain('p-2');
+    expect(sidebar.className).toContain('animate-sidebar-shadow');
+    expect(sidebar.className).toContain('motion-reduce:animate-none');
+    expect(sidebar.className).toContain('sidebar-material');
+    expect(sidebar.className).toContain('rounded-2xl');
+
+    const content = screen.getByTestId('root-shell-content');
+    expect(content.className).toContain('w-full');
+  });
+
+  it('pads routed content past the overlaid sidebar', () => {
+    renderShell({}, withLayout(true, 300));
+    expect(screen.getByTestId('root-shell-routed-content').style.paddingInlineStart).toBe('324px');
+  });
+
+  it('can still render the optional framed content primitive', () => {
+    renderShell({ unframed: false });
+    const surface = screen.getByTestId('app-content-surface');
+    expect(surface.dataset.unframed).toBeUndefined();
+    expect(surface.className).toContain('m-2');
   });
 
   it('leaves the resize divider unfilled so the chrome reads as one surface', () => {
@@ -120,6 +148,7 @@ describe('RootShellLayout — redux-controlled geometry', () => {
 
     // Live geometry is on screen…
     expect(screen.getByTestId('root-shell-sidebar').style.width).toBe('340px');
+    expect(screen.getByTestId('root-shell-routed-content').style.paddingInlineStart).toBe('364px');
     // …but nothing has been persisted yet: a drag writes one value, not sixty.
     expect(panel(store).sidebarWidth).toBe(300);
 
@@ -150,6 +179,9 @@ describe('RootShellLayout — redux-controlled geometry', () => {
     const sidebar = screen.getByTestId('root-shell-sidebar');
     expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     expect(sidebar.style.width).toBe(`${SIDEBAR_ICON_WIDTH}px`);
+    expect(screen.getByTestId('root-shell-routed-content').style.paddingInlineStart).toBe(
+      `${SIDEBAR_ICON_WIDTH + 24}px`
+    );
     expect(screen.getByText('sidebar body')).toBeTruthy();
     // The resize rail is hidden while collapsed — a fixed icon width isn't
     // draggable.

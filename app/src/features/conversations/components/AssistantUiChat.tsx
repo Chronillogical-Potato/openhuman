@@ -1,16 +1,16 @@
+import { ConversationMapAui } from '@/components/assistant-ui/elements/conversation-map.aui';
 import { Thread, type ThreadComponents } from '@/components/assistant-ui/thread';
 import { type AssistantState, useAui, useAuiState } from '@assistant-ui/react';
 import { PlusIcon } from 'lucide-react';
 import { type ReactNode, startTransition, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { COMPOSER_HUMAN_MASCOT_DATA_URL } from '../../../assets/composerHumanMascot';
 import AttachmentPreview from '../../../components/chat/AttachmentPreview';
 import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { AssistantUiRuntimeProvider } from '../../../providers/AssistantUiRuntimeProvider';
 import { useAppSelector } from '../../../store/hooks';
-import { DEFAULT_MASCOT_COLOR } from '../../../store/mascotSlice';
-import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
 import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ComposerTriggers } from '../aui/ComposerTriggers';
@@ -19,6 +19,24 @@ import { ChatSources } from './aui/ChatSources';
 import { ChatToolFallback } from './ChatToolParts';
 
 const selectComposerText = (state: AssistantState) => state.composer.text;
+
+/** Keep the map on the former Timeline button's edge, with previews opening inward. */
+const ChatConversationMapRail = () => <ConversationMapAui side="right" />;
+
+/** Fixed Human-mode portrait supplied for the empty composer's primary action. */
+function ComposerHumanMascotIcon() {
+  return (
+    <img
+      data-testid="composer-human-mascot-icon"
+      width="24"
+      height="24"
+      src={COMPOSER_HUMAN_MASCOT_DATA_URL}
+      alt=""
+      className="rounded-full object-cover"
+      aria-hidden="true"
+    />
+  );
+}
 
 /**
  * Keep the host's draft (`inputValue`) and assistant-ui's composer text in step.
@@ -146,8 +164,6 @@ export function AssistantUiChat({
   // `selectCustomPrimaryColor`: this component is mounted by suites that build
   // a partial store, and those selectors dereference `state.mascot` unguarded,
   // so a store without the slice crashes the whole chat surface on render.
-  const mascotColor = useAppSelector(state => state.mascot?.color ?? DEFAULT_MASCOT_COLOR);
-  const mascotCustomPrimary = useAppSelector(state => state.mascot?.customPrimaryColor ?? null);
   const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
   const loadError = useAppSelector(state => state.thread.messagesError);
 
@@ -163,8 +179,6 @@ export function AssistantUiChat({
     attachments,
     attachmentInteractionBlocked,
     maxAttachments,
-    mascotColor,
-    mascotCustomPrimary,
     modelContextWindow,
     onAttachFiles,
     onOpenHumanMode,
@@ -175,8 +189,6 @@ export function AssistantUiChat({
     attachments,
     attachmentInteractionBlocked,
     maxAttachments,
-    mascotColor,
-    mascotCustomPrimary,
     modelContextWindow,
     onAttachFiles,
     onOpenHumanMode,
@@ -188,14 +200,10 @@ export function AssistantUiChat({
   // row on every host render.
   const composerFooterExtrasRef = useRef(composerFooterExtras);
   composerFooterExtrasRef.current = composerFooterExtras;
-  const ComposerExtras = useCallback(() => {
+  const ComposerExtras = useCallback(() => <>{composerFooterExtrasRef.current}</>, []);
+  const ComposerRightExtras = useCallback(() => {
     const { modelContextWindow, selectedThreadId } = slotPropsRef.current;
-    return (
-      <>
-        <ContextUsage threadId={selectedThreadId} modelContextWindow={modelContextWindow} />
-        {composerFooterExtrasRef.current}
-      </>
-    );
+    return <ContextUsage threadId={selectedThreadId} modelContextWindow={modelContextWindow} />;
   }, []);
   // Stable component identity, latest node read through a ref.
   //
@@ -267,7 +275,7 @@ export function AssistantUiChat({
    * rather than filling it edge to edge.
    */
   const ComposerIdleAction = useCallback(() => {
-    const { mascotColor, mascotCustomPrimary, onOpenHumanMode } = slotPropsRef.current;
+    const { onOpenHumanMode } = slotPropsRef.current;
     return onOpenHumanMode ? (
       <Button
         type="button"
@@ -280,7 +288,7 @@ export function AssistantUiChat({
         title={t('composer.humanMode')}
         className="size-7 shrink-0 rounded-full p-0"
         onClick={onOpenHumanMode}>
-        <MascotChipAvatar color={mascotColor} customPrimary={mascotCustomPrimary} size={18} />
+        <ComposerHumanMascotIcon />
       </Button>
     ) : null;
   }, [t]);
@@ -298,7 +306,9 @@ export function AssistantUiChat({
       // `/` commands (builtins + core `commands_list` + registry actions) and
       // `@` mentions (memory recall, thread files); see `aui/ComposerTriggers`.
       ComposerTriggers,
+      ConversationMap: ChatConversationMapRail,
       ComposerExtras,
+      ComposerRightExtras,
       ComposerHeader,
       ComposerIdleAction,
       // Phase / reasoning round / active tool for the turn in flight. Reads the
@@ -329,6 +339,7 @@ export function AssistantUiChat({
       ComposerAddAttachment,
       ComposerAttachments,
       ComposerExtras,
+      ComposerRightExtras,
       ComposerHeader,
       ComposerIdleAction,
       ComposerReplacement,

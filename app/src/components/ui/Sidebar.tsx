@@ -47,8 +47,13 @@ import { cn } from '../../lib/cn';
 export const SIDEBAR_DEFAULT_WIDTH = 224;
 export const SIDEBAR_MIN_WIDTH = 188;
 export const SIDEBAR_MAX_WIDTH = 420;
-/** Column width when collapsed with `collapsible="icon"` — fits a 32px rail button. */
-export const SIDEBAR_ICON_WIDTH = 56;
+/**
+ * Column width when collapsed with `collapsible="icon"`.
+ *
+ * Wide enough for the macOS traffic-light cluster plus its native breathing
+ * room; the 32px rail controls are centered on the same column axis below it.
+ */
+export const SIDEBAR_ICON_WIDTH = 88;
 /** Pixels per arrow-key press on {@link SidebarRail}. */
 export const SIDEBAR_KEYBOARD_STEP = 16;
 
@@ -455,8 +460,10 @@ export const SidebarTrigger = forwardRef<HTMLButtonElement, SidebarTriggerProps>
 SidebarTrigger.displayName = 'SidebarTrigger';
 
 /**
- * The routed content beside the column. `unframed` renders it edge-to-edge —
- * the framed default is an inset, rounded card on the chrome.
+ * The routed content layer beneath the column. `unframed` renders it
+ * edge-to-edge; the framed default is an evenly inset rounded card on the
+ * chrome. The root shell pads the card's children past its overlaid sidebar,
+ * while the card background continues beneath that material.
  *
  * The card's hairline is painted by an `::after` overlay rather than by the
  * element's own `box-shadow`. An inset shadow renders above the element's
@@ -479,13 +486,13 @@ export const SidebarInset = forwardRef<HTMLDivElement, SidebarInsetProps>(
       data-unframed={unframed ? 'true' : undefined}
       className={cn(
         'relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface',
-        // `my-3 mr-3`, with NO left margin: the card butts against the sidebar
-        // column so the two read as one continuous surface, and the gutter the
-        // shell shows is the three outer edges. A left margin here put a strip
-        // of chrome between the nav and the content that nothing else lined up
-        // with.
+        // The content sheet spans beneath the floating sidebar, Apple-style,
+        // so the outer card keeps one even gutter on all four window edges.
+        // Avoid putting sidebar compensation here: the primitive does not know
+        // whether a caller overlays a sidebar, and RootShellLayout owns that
+        // routed-content inset explicitly.
         !unframed &&
-          'my-3 mr-3 rounded-2xl after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-content-edge',
+          'm-2 rounded-2xl after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-content-edge',
         className
       )}
       {...rest}

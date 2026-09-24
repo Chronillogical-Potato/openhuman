@@ -3333,6 +3333,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'Core tidak dapat mengukur prompt untuk utas ini.',
   'conversations.composer.context.section.preamble': 'Prompt sistem',
   'conversations.composer.context.section.tools': 'Alat',
+  'conversations.composer.context.section.toolSchemas': 'Skema alat',
+  'conversations.composer.context.section.yourInput': 'Input Anda',
   'conversations.composer.context.section.history': 'Riwayat percakapan',
   'conversations.composer.context.turnCost': 'Giliran ini',
   'conversations.composer.context.subagentCost': '{agent}',

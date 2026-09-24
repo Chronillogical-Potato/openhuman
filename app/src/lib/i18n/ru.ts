@@ -3346,6 +3346,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'Ядру не удалось измерить промпт этого треда.',
   'conversations.composer.context.section.preamble': 'Системный промпт',
   'conversations.composer.context.section.tools': 'Инструменты',
+  'conversations.composer.context.section.toolSchemas': 'Схемы инструментов',
+  'conversations.composer.context.section.yourInput': 'Ваш ввод',
   'conversations.composer.context.section.history': 'История разговора',
   'conversations.composer.context.turnCost': 'Этот ход',
   'conversations.composer.context.subagentCost': '{agent}',

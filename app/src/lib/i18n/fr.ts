@@ -3399,6 +3399,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': "Le cœur n'a pas pu mesurer le prompt de ce fil.",
   'conversations.composer.context.section.preamble': 'Prompt système',
   'conversations.composer.context.section.tools': 'Outils',
+  'conversations.composer.context.section.toolSchemas': 'Schémas d’outils',
+  'conversations.composer.context.section.yourInput': 'Votre entrée',
   'conversations.composer.context.section.history': 'Historique de la conversation',
   'conversations.composer.context.turnCost': 'Ce tour',
   'conversations.composer.context.subagentCost': '{agent}',

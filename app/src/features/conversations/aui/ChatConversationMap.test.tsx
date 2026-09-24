@@ -1,6 +1,6 @@
 /**
- * The conversation map: `Cmd`/`Ctrl+F` find-in-conversation and a timeline
- * outline of the thread's user turns, both scoped to the live `/chat`
+ * The conversation map: `Cmd`/`Ctrl+F` find-in-conversation and assistant-ui's
+ * persistent turn rail, both scoped to the live `/chat`
  * surface (mounted through `AssistantUiChat`, the same way `ChatSources.test.tsx`
  * proves its own wiring) rather than fed a hand-built `messages` prop.
  */
@@ -103,19 +103,27 @@ describe('ChatConversationMap', () => {
     expect(screen.getByText('It runs nightly at 2am UTC.')).toBeTruthy();
   });
 
-  it("opens the timeline outline and lists the thread's user turns", async () => {
+  it("renders assistant-ui's conversation map instead of the Timeline button", async () => {
     renderChat([
       userMessage('u1', 'First question', '2026-01-01T00:00:00.000Z'),
       agentMessage('a1', 'First answer', '2026-01-01T00:00:05.000Z'),
+      agentMessage('a1b', 'More detail', '2026-01-01T00:00:06.000Z'),
       userMessage('u2', 'Second question', '2026-01-01T00:05:00.000Z'),
     ]);
 
     await waitFor(() => expect(screen.getByText('First answer')).toBeTruthy());
-    await userEvent.click(screen.getByTestId('chat-conversation-timeline-toggle'));
+    expect(screen.queryByTestId('chat-conversation-timeline-toggle')).toBeNull();
+    expect(document.querySelector('[data-slot="conversation-map"]')).toBeTruthy();
+    expect(document.querySelector('[data-slot="conversation-map-rail"] > div')).toHaveClass(
+      'right-0'
+    );
+    expect(screen.getByRole('button', { name: 'First question' })).toHaveClass('justify-end');
+    expect(screen.getByRole('button', { name: 'First question' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Second question' })).toBeTruthy();
 
-    const timeline = screen.getByTestId('chat-conversation-timeline');
-    expect(timeline.textContent).toContain('First question');
-    expect(timeline.textContent).toContain('Second question');
+    await userEvent.hover(screen.getByRole('button', { name: 'First question' }));
+    expect(await screen.findByText('First answer More detail')).toBeTruthy();
+    expect(document.querySelector('[data-side="left"]')).toBeTruthy();
   });
 
   it('opens the find bar on Ctrl+F and reports a match count', async () => {

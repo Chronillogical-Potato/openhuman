@@ -27,6 +27,11 @@ export interface ContextSegment {
   tint: string;
 }
 
+export interface ContextStat {
+  label: string;
+  value: string;
+}
+
 export function ContextBreakdown({
   segments,
   limit,
@@ -34,6 +39,7 @@ export function ContextBreakdown({
   headroomLabel = 'Headroom',
   meterLabel = label => `${label} context usage`,
   meterValueText = (used, max) => `${used} of ${max}`,
+  stats = [],
   className,
   ...props
 }: Omit<ComponentProps<'div'>, 'children' | 'segments' | 'limit' | 'title'> & {
@@ -43,6 +49,8 @@ export function ContextBreakdown({
   headroomLabel?: string;
   meterLabel?: (label: string) => string;
   meterValueText?: (used: string, limit: string) => string;
+  /** Informational rows that do not consume the parent model's context window. */
+  stats?: readonly ContextStat[];
 }) {
   const used = segments.reduce((sum, segment) => sum + segment.tokens, 0);
   const pressure = limit === 0 ? 0 : used / limit;
@@ -109,6 +117,15 @@ export function ContextBreakdown({
             {fmt(Math.max(0, limit - used))}
           </span>
         </div>
+        {stats.length > 0 && <div className="border-foreground/10 my-1 border-t" />}
+        {stats.map(stat => (
+          <div key={stat.label} className="flex items-center justify-between gap-4">
+            <span className="text-foreground/55 min-w-0 truncate text-[12px]">{stat.label}</span>
+            <span className={cn(mono, 'text-foreground/45 shrink-0 tabular-nums')}>
+              {stat.value}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

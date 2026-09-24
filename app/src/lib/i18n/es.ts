@@ -3377,6 +3377,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'El núcleo no pudo medir el prompt de este hilo.',
   'conversations.composer.context.section.preamble': 'Prompt del sistema',
   'conversations.composer.context.section.tools': 'Herramientas',
+  'conversations.composer.context.section.toolSchemas': 'Esquemas de herramientas',
+  'conversations.composer.context.section.yourInput': 'Tu entrada',
   'conversations.composer.context.section.history': 'Historial de la conversación',
   'conversations.composer.context.turnCost': 'Este turno',
   'conversations.composer.context.subagentCost': '{agent}',

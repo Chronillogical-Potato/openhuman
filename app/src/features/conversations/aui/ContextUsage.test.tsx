@@ -28,11 +28,18 @@ const BREAKDOWN = {
 
 function renderUsage(
   props: { threadId?: string | null; modelContextWindow?: number | null } = {},
-  usage: { lastTurnInputTokens: number; lastTurnOutputTokens: number; contextWindow: number } = {
-    lastTurnInputTokens: 40_000,
-    lastTurnOutputTokens: 10_000,
-    contextWindow: 200_000,
-  }
+  usage: {
+    lastTurnInputTokens: number;
+    lastTurnOutputTokens: number;
+    contextWindow: number;
+    subAgents?: Array<{
+      agentId: string;
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: number;
+      runs: number;
+    }>;
+  } = { lastTurnInputTokens: 40_000, lastTurnOutputTokens: 10_000, contextWindow: 200_000 }
 ) {
   const store = configureStore({ reducer: combineReducers({ chatRuntime: chatRuntimeReducer }) });
   store.dispatch(
@@ -92,17 +99,45 @@ describe('ContextUsage', () => {
       params: { thread_id: 't1' },
     });
     const popover = await screen.findByTestId('composer-token-breakdown');
-    await waitFor(() => expect(popover).toHaveTextContent('Tools'));
-    expect(popover).toHaveTextContent('Conversation history');
+    await waitFor(() => expect(popover).toHaveTextContent('Tool schemas'));
+    expect(popover).not.toHaveTextContent('Tool usage');
+    expect(popover).not.toHaveTextContent('Thinking tokens');
+    expect(popover).toHaveTextContent('Output');
+    expect(popover).toHaveTextContent('Your input');
     expect(popover).toHaveTextContent('System prompt');
-    // A prompt heading is shown without its markdown hashes.
-    expect(popover).toHaveTextContent('Identity');
+    // Individual system-prompt headings are folded into one stable bucket.
+    expect(popover).not.toHaveTextContent('Identity');
     expect(popover).not.toHaveTextContent('## Identity');
+    expect(popover).toHaveTextContent('Cache hit');
+    expect(popover).toHaveTextContent('33%');
+    expect(popover).toHaveTextContent('Estimated cost this session (USD)');
+    expect(popover).toHaveTextContent('$0.4200');
     expect(popover).toHaveTextContent('Headroom');
     expect(popover).toHaveTextContent('Context window');
     expect(popover).not.toHaveTextContent('conversations.composer');
-    // The core's window wins inside the breakdown.
-    expect(popover).toHaveTextContent('7,300 / 100,000');
+    // The core's window wins; the buckets use the latest turn's actual usage.
+    expect(popover).toHaveTextContent('50,000 / 100,000');
+  });
+
+  it('includes sub-agent token and cost totals inside the same breakdown card', async () => {
+    mockCall.mockResolvedValue(BREAKDOWN);
+    renderUsage(
+      {},
+      {
+        lastTurnInputTokens: 40_000,
+        lastTurnOutputTokens: 10_000,
+        contextWindow: 200_000,
+        subAgents: [
+          { agentId: 'researcher', inputTokens: 2_500, outputTokens: 500, costUsd: 0.05, runs: 1 },
+        ],
+      }
+    );
+
+    await userEvent.click(screen.getByTestId('composer-context-usage'));
+    const breakdown = await screen.findByTestId('composer-token-breakdown');
+    await waitFor(() => expect(breakdown).toHaveTextContent('researcher'));
+    expect(breakdown).toHaveTextContent('3,000 · $0.0500');
+    expect(breakdown.querySelectorAll('[data-slot="context-breakdown"]')).toHaveLength(1);
   });
 
   it('shows an error state instead of crashing when the method is missing, and retries', async () => {
@@ -118,7 +153,7 @@ describe('ContextUsage', () => {
     mockCall.mockResolvedValueOnce(BREAKDOWN);
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-    await waitFor(() => expect(popover).toHaveTextContent('Tools'));
+    await waitFor(() => expect(popover).toHaveTextContent('Tool schemas'));
     expect(mockCall).toHaveBeenCalledTimes(2);
   });
 
@@ -138,18 +173,26 @@ describe('ContextUsage', () => {
     await userEvent.click(trigger);
     await userEvent.click(trigger);
     const popover = await screen.findByTestId('composer-token-breakdown');
-    await waitFor(() => expect(popover).toHaveTextContent('Tools'));
+    await waitFor(() => expect(popover).toHaveTextContent('Tool schemas'));
 
     expect(mockCall).toHaveBeenCalledTimes(2);
     await act(async () => failFirst(new Error('late failure')));
 
-    expect(popover).toHaveTextContent('Tools');
+    expect(popover).toHaveTextContent('Tool schemas');
     expect(popover).not.toHaveTextContent('Context breakdown unavailable');
   });
 });
 
 describe('contextBreakdownSegments', () => {
-  const t = (key: string) => key.split('.').pop() ?? key;
+  const t = (key: string) =>
+    ({
+      'conversations.composer.context.section.preamble': 'System prompt',
+      'conversations.composer.context.section.tools': 'Tools',
+      'conversations.composer.context.section.history': 'Conversation history',
+      'conversations.composer.context.section.toolSchemas': 'Tool schemas',
+      'conversations.composer.context.section.yourInput': 'Your input',
+      'conversations.composer.context.output': 'Output',
+    })[key] ?? key;
 
   it('folds repeated headings into one row and drops empty sections', () => {
     const segments = contextBreakdownSegments(
@@ -167,8 +210,10 @@ describe('contextBreakdownSegments', () => {
     );
 
     expect(segments.map(s => [s.label, s.tokens])).toEqual([
-      ['Rules', 30],
-      ['tools', 100],
+      ['System prompt', 30],
+      ['Tool schemas', 100],
+      ['Output', 0],
+      ['Your input', 0],
     ]);
   });
 });

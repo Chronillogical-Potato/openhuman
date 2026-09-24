@@ -1,11 +1,8 @@
 /**
  * The conversation map for one thread: a `Cmd`/`Ctrl+F` find-in-conversation
- * bar (the vendored `conversation-search` element) and an outline popover of
- * the thread's user turns (the vendored `timeline` element), both scoped to
- * this thread's own messages — no upstream assistant-ui element covers
- * either, so both are driven entirely from `useAuiState(state =>
- * state.thread.messages)`, the same read-only projection every other adapter
- * in this app uses. Nothing here writes to Redux or the core.
+ * bar (the vendored `conversation-search` element), scoped to this thread's
+ * messages. The persistent turn rail is assistant-ui's upstream
+ * `ConversationMapAui`, mounted inside `thread.tsx`'s scrolling viewport.
  *
  * Wraps `<Thread />` rather than reaching into `thread.tsx`: the shortcut and
  * the popover are chrome around the transcript, not a slot the message tree
@@ -18,12 +15,10 @@ import {
   ConversationSearch,
   type SearchHit,
 } from '../../../components/assistant-ui/elements/conversation-search';
-import { Timeline, type TimelineEvent } from '../../../components/assistant-ui/elements/timeline';
 import { useT } from '../../../lib/i18n/I18nContext';
 
 const VIEWPORT_SELECTOR = '[data-slot="aui_thread-viewport"]';
 const CONTEXT_CHARS = 24;
-const MAX_TIMELINE_EVENTS = 50;
 
 function messageText(message: AssistantState['thread']['messages'][number]): string {
   return message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])).join('\n');
@@ -68,35 +63,6 @@ function scrollToMessage(messageId: string, viewport: HTMLElement | null) {
   element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
-
-function buildTimelineEvents(messages: readonly AssistantState['thread']['messages'][number][]): {
-  events: TimelineEvent[];
-  messageIdByEventId: Map<string, string>;
-} {
-  const userMessages = messages
-    .filter(message => message.role === 'user')
-    .slice(-MAX_TIMELINE_EVENTS);
-  const messageIdByEventId = new Map<string, string>();
-  const events = userMessages.map((message, index): TimelineEvent => {
-    const eventId = `turn:${message.id}`;
-    messageIdByEventId.set(eventId, message.id);
-    const text = messageText(message).trim();
-    const isLast = index === userMessages.length - 1;
-    return {
-      id: eventId,
-      when: isLast ? 'now' : 'past',
-      time: message.createdAt ? formatTime(new Date(message.createdAt).toISOString()) : '',
-      title: text.length > 0 ? text.slice(0, 80) : '',
-    };
-  });
-  return { events, messageIdByEventId };
-}
-
 /** `Cmd+F` on macOS, `Ctrl+F` elsewhere. Only while focus is inside `container`. */
 function useFindShortcut(container: HTMLDivElement | null, onTrigger: () => void) {
   useEffect(() => {
@@ -122,7 +88,6 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
-  const [timelineOpen, setTimelineOpen] = useState(false);
 
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
     containerRef.current = el;
@@ -132,7 +97,6 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
   const viewport = containerEl?.querySelector<HTMLElement>(VIEWPORT_SELECTOR) ?? null;
 
   const hits = useMemo(() => buildHits(messages, query, viewport), [messages, query, viewport]);
-  const { events, messageIdByEventId } = useMemo(() => buildTimelineEvents(messages), [messages]);
 
   useFindShortcut(containerEl, () => setSearchOpen(true));
 
@@ -159,15 +123,6 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
     [hits.length]
   );
 
-  const onTimelineClick = useCallback(
-    (eventId: string) => {
-      const messageId = messageIdByEventId.get(eventId);
-      if (messageId) scrollToMessage(messageId, viewport);
-      setTimelineOpen(false);
-    },
-    [messageIdByEventId, viewport]
-  );
-
   return (
     <div
       ref={setContainerRef}
@@ -178,7 +133,7 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
       tabIndex={-1}
       className="relative flex h-full min-h-0 w-full flex-col outline-none"
       data-testid="chat-conversation-map">
-      {(searchOpen || timelineOpen) && (
+      {searchOpen && (
         <div className="absolute inset-x-0 top-2 z-20 flex justify-center px-2">
           {searchOpen && (
             <ConversationSearch
@@ -193,38 +148,9 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
               nextMatchLabel={t('conversations.conversationSearch.nextMatch')}
             />
           )}
-          {timelineOpen && (
-            <div data-testid="chat-conversation-timeline" className="ms-2">
-              <Timeline
-                events={events}
-                visibleCount={events.length}
-                onClick={event => {
-                  // Each event renders as one direct child of the `Timeline`
-                  // root (`data-slot="timeline"`), in `events` order — there is
-                  // no per-row id in the vendored markup to select on, so the
-                  // clicked row's position among its siblings is the row's
-                  // index into `events`.
-                  const root = event.currentTarget;
-                  const index = Array.from(root.children).findIndex(child =>
-                    child.contains(event.target as Node)
-                  );
-                  const clicked = index >= 0 ? events[index] : undefined;
-                  if (clicked) onTimelineClick(clicked.id);
-                }}
-              />
-            </div>
-          )}
         </div>
       )}
       {children}
-      <button
-        type="button"
-        data-testid="chat-conversation-timeline-toggle"
-        aria-label={t('conversations.conversationSearch.timelineToggle')}
-        onClick={() => setTimelineOpen(open => !open)}
-        className="absolute end-2 top-2 z-20 rounded-full border border-border/60 bg-background px-2 py-1 text-xs text-content-muted hover:text-content-secondary">
-        {t('conversations.conversationSearch.timelineToggle')}
-      </button>
     </div>
   );
 }

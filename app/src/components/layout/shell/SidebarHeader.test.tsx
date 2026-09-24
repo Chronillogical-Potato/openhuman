@@ -86,6 +86,7 @@ describe('SidebarHeader', () => {
     const { container } = renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     const region = container.querySelector('[data-tauri-drag-region]') as HTMLElement;
     expect(region.getAttribute('data-tauri-drag-region')).toBe('deep');
+    expect(region).toHaveClass('pt-[7px]');
     // The icons sit inside the region and keep their clicks: `isDragRegion`
     // short-circuits on a clickable element before it reaches `deep`, and
     // resolving them by button role is what asserts they are still clickable.
