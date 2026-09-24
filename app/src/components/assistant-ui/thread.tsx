@@ -549,6 +549,17 @@ function useOpenThreadAtBottom(
 const FOLLOW_BOTTOM_THRESHOLD_PX = 80;
 
 /**
+ * How long after a scroll-capable input a falling `scrollTop` still counts as
+ * the reader moving. Generous enough for a wheel's momentum tail and a held
+ * key's repeat; far shorter than any gap between a gesture and an unrelated
+ * layout shift worth ignoring.
+ */
+const USER_SCROLL_INTENT_WINDOW_MS = 1000;
+
+/** Keys that scroll a focused scroller up (or anywhere — any of them is intent). */
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+
+/**
  * Keep the newest content in view while the assistant streams.
  *
  * `ThreadBottomFollower` below cannot do this. It keys on
@@ -648,15 +659,53 @@ function useFollowBottom(
     // bottom" contract. Keying on `scrollTop` alone holds in both cases.
     lastScrollTopRef.current = viewport.scrollTop;
 
+    // ...and the move up has to be the READER's. A falling `scrollTop` is not
+    // proof of that: a disclosure collapsing above the fold, content shrinking
+    // under a reply that swaps parts, and assistant-ui's `useScrollLock`
+    // (which writes the old `scrollTop` back on every scroll event while a
+    // disclosure animates) all lower it with nobody touching anything — and
+    // each used to switch following off mid-turn, leaving the reply streaming
+    // below the fold. So a decrease only counts within a short window after
+    // an input that can scroll: wheel, touch, a scroll key, or a press on the
+    // viewport itself (its scrollbar).
+    let userIntentAt = Number.NEGATIVE_INFINITY;
+    let scrollbarDragActive = false;
+    const markIntent = () => {
+      userIntentAt = window.performance.now();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (SCROLL_KEYS.has(event.key)) markIntent();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target === viewport) {
+        scrollbarDragActive = true;
+        markIntent();
+      }
+    };
+    const clearScrollbarDrag = () => {
+      scrollbarDragActive = false;
+    };
+
     const onScroll = () => {
       if (distanceFromBottom() <= FOLLOW_BOTTOM_THRESHOLD_PX) {
         followRef.current = true;
-      } else if (viewport.scrollTop < lastScrollTopRef.current) {
+      } else if (
+        viewport.scrollTop < lastScrollTopRef.current &&
+        (scrollbarDragActive || window.performance.now() - userIntentAt <= USER_SCROLL_INTENT_WINDOW_MS)
+      ) {
         followRef.current = false;
       }
       lastScrollTopRef.current = viewport.scrollTop;
     };
     viewport.addEventListener('scroll', onScroll, { passive: true });
+    viewport.addEventListener('wheel', markIntent, { passive: true });
+    viewport.addEventListener('touchmove', markIntent, { passive: true });
+    // Scroll keys are delivered to whatever has focus, not to the viewport.
+    const keyTarget = viewport.ownerDocument;
+    keyTarget.addEventListener('keydown', onKeyDown);
+    viewport.addEventListener('pointerdown', onPointerDown);
+    viewport.addEventListener('pointerup', clearScrollbarDrag);
+    viewport.addEventListener('pointercancel', clearScrollbarDrag);
 
     const observer = new ResizeObserver(() => {
       // Read the flag; do NOT recompute the distance here. By the time this
@@ -698,6 +747,12 @@ function useFollowBottom(
 
     return () => {
       viewport.removeEventListener('scroll', onScroll);
+      viewport.removeEventListener('wheel', markIntent);
+      viewport.removeEventListener('touchmove', markIntent);
+      keyTarget.removeEventListener('keydown', onKeyDown);
+      viewport.removeEventListener('pointerdown', onPointerDown);
+      viewport.removeEventListener('pointerup', clearScrollbarDrag);
+      viewport.removeEventListener('pointercancel', clearScrollbarDrag);
       observer.disconnect();
     };
   }, [contentRef, viewportRef]);

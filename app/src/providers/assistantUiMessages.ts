@@ -20,13 +20,6 @@ import {
   type MessageFeedback,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
-import { extractAgentSources, formatTimelineEntry } from '../utils/toolTimelineFormatting';
-
-/**
- * UI-only label for a tool part, carried on assistant-ui's `artifact` field
- * (see `toolLabelArtifact`). Read back by `OpenHumanToolCall`.
- */
-export type ToolLabelArtifact = { displayName?: string; detail?: string };
 
 /**
  * Redux -> assistant-ui message mapping.
@@ -39,8 +32,9 @@ export type ToolLabelArtifact = { displayName?: string; detail?: string };
  *
  * The one property that matters for performance is stated as a test, not a
  * comment: converting the transcript while a token streams must not re-convert
- * the settled messages above the live tail. `assistantUiMessages.test.ts` pins
- * it for this projection.
+ * the settled messages above the live tail. `ChatThreadView.renderPerf.test.tsx`
+ * pins the equivalent property for the render tree; `assistantUiMessages.test.ts`
+ * pins it for this projection.
  */
 
 type ConversionCacheEntry = {
@@ -80,11 +74,12 @@ export const STREAMING_TAIL_ID = '__openhuman_streaming_tail__';
 /**
  * Convert one persisted message.
  *
- * Agent content is passed through `unwrapToolCallEnvelope` so a
- * `{content, tool_calls}` provider envelope never reaches a rendered surface as
- * raw JSON. The turn's reasoning, tool calls and web sources are projected as
- * assistant-ui parts by `assistantParts`; there is no second copy of them
- * anywhere else on the message.
+ * Agent content is passed through `unwrapToolCallEnvelope` for the same reason
+ * the transcript renderer does it: a `{content, tool_calls}` provider envelope
+ * must never reach a rendered surface as raw JSON. Tool *activity* is not
+ * projected as assistant-ui tool-call parts — it lives in the far richer
+ * `toolTimelineByThread` projection that `ToolTimelineBlock` renders, and
+ * duplicating it here would paint every tool twice.
  */
 function jsonObject(value: unknown): Record<string, never> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -128,24 +123,6 @@ function toolResultPayload(entry: ToolTimelineEntry): unknown {
   };
 }
 
-/**
- * The row's human label and detail, carried on the part's UI-only `artifact`.
- *
- * assistant-ui's tool-call part has no label field, and without one the card
- * had only the raw tool name to go on, so it guessed — and labelled every tool
- * with "search" in its name or a `query` argument (`tool_search`, a Composio
- * action, a memory read) as a web search. The row already holds the right
- * label: the server's `display_label` for dynamic tools, the client formatter
- * for built-ins (`decorateEntry`, `mapDisplayItems`). A row that somehow has
- * neither falls back to that same formatter here, never to a guess.
- */
-function toolLabelArtifact(entry: ToolTimelineEntry): ToolLabelArtifact {
-  const formatted = entry.displayName ? undefined : formatTimelineEntry(entry);
-  const displayName = entry.displayName ?? formatted?.title;
-  const detail = entry.detail ?? formatted?.detail;
-  return { ...(displayName ? { displayName } : {}), ...(detail ? { detail } : {}) };
-}
-
 function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   const running = isActiveTimelineStatus(entry.status);
   const isSubagent = entry.name.startsWith('subagent:') || entry.subagent !== undefined;
@@ -163,7 +140,6 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
     toolName: isSubagent ? 'task' : entry.name,
     args,
     argsText: JSON.stringify(args, null, 2),
-    ...(isSubagent ? {} : { artifact: toolLabelArtifact(entry) }),
     ...(!running
       ? {
           result: isSubagent
@@ -268,20 +244,37 @@ export function reasoningPart(
 /**
  * Project one assistant message into assistant-ui parts.
  *
- * The surface carries the turn as it happened: the agent's reasoning as a
- * COLLAPSED disclosure, every tool row in issue order, then the answer.
+ * The surface carries the turn as it happened, in the order it happened:
+ * reasoning as a disclosure, what the agent said between tool rounds, every
+ * tool row where it was issued, then the answer.
  *
- * ## What is here, and what stays in the rail
+ * ## One shape, live and settled
  *
- * Reasoning (`kind: 'thinking'`) renders inline again, through the static
- * reasoning panel: collapsed by default to one "Thought for Ns" line, expanded
- * into titled steps while it streams, so a turn that thought for ten seconds
- * shows one quiet line rather than ten seconds of prose — which is what made it
- * clutter the first time round.
+ * The live tail and the settled message are the SAME projection of the same
+ * transcript, and that is the property everything else here serves. A live
+ * turn that projected differently from its settled self (text always last,
+ * narration shown then wiped, reasoning unshifted to the front) re-shaped on
+ * every event and again at completion — and assistant-ui keys text and
+ * reasoning parts by their INDEX, so each reshaping remounted the markdown,
+ * restarted its reveal from nothing, reset every disclosure and jumped the
+ * scroll. So:
  *
- * Narration is deliberately NOT restored. It is the turn's running commentary,
- * it duplicates the answer on the final round, and it is the bulk of what made
- * the old surface a firehose.
+ * - **Reasoning** (`kind: 'thinking'`) renders through the static reasoning
+ *   panel: one "Thought for Ns" line once settled, titled steps while it
+ *   streams.
+ *
+ * - **Narration renders inline** where it was said, live and on reload. It is
+ *   the agent explaining the call it is about to make; showing it and then
+ *   wiping it was the flicker, never showing it on reload was the mismatch.
+ * - **Parts are append-only while a turn streams.** New events add parts at
+ *   the end; nothing is inserted before an existing part.
+ * - **The answer takes the final narration's slot.** Live, the final round's
+ *   text IS a narration item (`streamDeltaReceived` coalesces every content
+ *   delta into one per round). Settled, the persisted `msg.content` is that
+ *   same text, so narration after the turn's last tool call is replaced by the
+ *   answer in place: same index, same key, no remount at completion. The core
+ *   projection (`mapDisplayItems`) only emits interim narration, so a reloaded
+ *   turn has no trailing narration and the answer lands in the same place.
  *
  * ## Ordering
  *
@@ -291,18 +284,10 @@ export function reasoningPart(
  * are merged in by their own `seq` rather than appended after everything else,
  * which is what previously let a row the agent issued FIRST render last.
  *
- * The two `seq` fields are NOT one ordering space, whatever
- * `PersistedToolTimelineEntry.seq`'s doc comment says: a transcript item's
- * `seq` is its index in the transcript array (`chatRuntimeSlice.ts`, the
- * `toolCall` push uses `seq: list.length`) while a timeline row's comes from
+ * The two `seq` fields are NOT one ordering space: a live transcript item's
+ * `seq` is its index in the transcript array while a timeline row's comes from
  * the per-thread `toolTimelineSeqByThread` counter. So the merge below compares
  * timeline `seq` to timeline `seq` only, never across the two.
- *
- * The answer text is appended last, and that is correct rather than merely
- * convenient: it is the persisted `msg.content`, i.e. what the agent said when
- * it had finished, so nothing it produced can belong after it. The web pages
- * the turn fetched follow it as `source` parts, which the thread groups into
- * one collapsed "Sources" disclosure under the answer.
  *
  * **Every tool part must have a distinct `toolCallId`.** assistant-ui keys them
  * as `toolCallId-${id}` and *throws* on a repeat ("Duplicate key … in
@@ -314,9 +299,10 @@ export function reasoningPart(
  * carry colliding ones.
  */
 function assistantParts(
-  text: string,
+  answer: string,
   timeline: readonly ToolTimelineEntry[],
-  transcript: readonly ProcessingTranscriptItem[]
+  transcript: readonly ProcessingTranscriptItem[],
+  mode: 'live' | 'settled'
 ): ThreadAssistantMessagePart[] {
   const parts: ThreadAssistantMessagePart[] = [];
   const timelineById = new Map(timeline.map(entry => [entry.id, entry]));
@@ -332,10 +318,14 @@ function assistantParts(
   // of them), which is why this is a set of resolved row ids rather than a
   // count of pointers.
   const referenced = new Set<string>();
-  for (const item of transcript) {
+  let lastToolPointer = -1;
+  for (const [index, item] of transcript.entries()) {
     if (item.kind !== 'toolCall') continue;
     const entry = timelineById.get(item.callId);
-    if (entry) referenced.add(entry.id);
+    if (entry) {
+      referenced.add(entry.id);
+      lastToolPointer = index;
+    }
   }
 
   // Rows with no pointer, oldest first. These are merged into the walk below
@@ -354,15 +344,37 @@ function assistantParts(
     }
   };
 
-  for (const item of transcript) {
+  // Settled: narration after the last tool call is the answer, spoken live;
+  // the persisted answer replaces it in its slot. With no answer to show
+  // (an empty or stopped reply) the narration stays — it is all there is.
+  const answerText = answer.trim().length > 0 ? answer : '';
+  const replaceTrailingNarration = mode === 'settled' && answerText.length > 0;
+  let answerEmitted = false;
+
+  for (const [index, item] of transcript.entries()) {
     if (item.kind === 'thinking') {
       if (item.text.trim().length > 0) {
         parts.push(reasoningPart(item.text, item.startedAt, item.endedAt));
       }
       continue;
     }
-    // Narration is the turn explaining itself; it stays in the rail.
-    if (item.kind !== 'toolCall') continue;
+    if (item.kind === 'narration') {
+      if (item.text.trim().length === 0) continue;
+      if (replaceTrailingNarration && index > lastToolPointer) {
+        if (!answerEmitted) parts.push({ type: 'text', text: answerText });
+        answerEmitted = true;
+        continue;
+      }
+      // The answer is never narration, wherever a transcript puts it. A core
+      // that predates the prompt-guided projection fix records a text-mode
+      // turn's answer as an interim step (with the turn's calls after it); as
+      // narration it would render the answer twice.
+      if (mode === 'settled' && answerText.length > 0 && item.text.trim() === answerText.trim()) {
+        continue;
+      }
+      parts.push({ type: 'text', text: item.text });
+      continue;
+    }
     const entry = timelineById.get(item.callId);
     if (!entry) continue;
     drainBefore(entry.seq);
@@ -370,19 +382,42 @@ function assistantParts(
   }
   drainBefore(null);
 
-  if (text.length > 0) parts.push({ type: 'text', text });
-  // `extractAgentSources` is the one place a model-supplied URL is admitted
-  // (http(s) only), so sources are derived through it rather than here.
-  for (const source of extractAgentSources([...timeline])) {
-    parts.push({
-      type: 'source',
-      sourceType: 'url',
-      id: source.id,
-      url: source.url,
-      title: source.title,
-    });
+  // Settled with no trailing narration to stand in for (a reloaded turn, or a
+  // legacy trail): the answer closes the turn. Live, the text is the
+  // transcript's narration; `streamingTailMessage` handles the rare turn whose
+  // transcript recorded none.
+  if (mode === 'settled' && !answerEmitted && answerText.length > 0) {
+    parts.push({ type: 'text', text: answerText });
   }
   return parts;
+}
+
+/**
+ * The one-line summary the settled turn footer renders, and the trail its click
+ * opens. Counted from what the store already holds — no new telemetry.
+ *
+ * `steps` is every process item the turn recorded (reasoning blocks, narration
+ * segments and tool pointers); `tools` is the tool rows. `null` when the turn
+ * recorded no process at all, which is the footer's signal to render nothing —
+ * a plain answer with no trail behind it gets no door.
+ */
+export type TurnProcessTrail = {
+  steps: number;
+  tools: number;
+  timeline: readonly ToolTimelineEntry[];
+  transcript: readonly ProcessingTranscriptItem[];
+};
+
+function processTrail(
+  timeline: readonly ToolTimelineEntry[],
+  transcript: readonly ProcessingTranscriptItem[]
+): TurnProcessTrail | null {
+  if (timeline.length === 0 && transcript.length === 0) return null;
+  // Prefer the transcript's own length when it has one: it is the ordered
+  // record of what happened. A legacy snapshot with tool rows but no transcript
+  // still has a step per row.
+  const steps = transcript.length > 0 ? transcript.length : timeline.length;
+  return { steps, tools: timeline.length, timeline, transcript };
 }
 
 function stringArray(value: unknown): string[] {
@@ -582,7 +617,9 @@ export function toThreadMessageLike(
     id: msg.id,
     role: msg.sender === 'agent' ? 'assistant' : 'user',
     content:
-      msg.sender === 'agent' ? assistantParts(text, effectiveTimeline, transcript) : userParts(msg),
+      msg.sender === 'agent'
+        ? assistantParts(text, effectiveTimeline, transcript, 'settled')
+        : userParts(msg),
     createdAt: new Date(msg.createdAt),
     ...(msg.sender === 'agent' && msg.extraMetadata?.stopped === true
       ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
@@ -597,7 +634,15 @@ export function toThreadMessageLike(
       // survive the next turn, a thread switch and a reload. Without this the
       // control silently un-presses, which is worse than having no control.
       ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
-      custom: { extraMetadata: msg.extraMetadata ?? {}, sourceType: msg.type },
+      custom: {
+        extraMetadata: msg.extraMetadata ?? {},
+        sourceType: msg.type,
+        // The settled turn's one-line footer + the trail its click opens.
+        // Only on the assistant side: a user message has no process behind it.
+        ...(msg.sender === 'agent'
+          ? { processTrail: processTrail(effectiveTimeline, transcript) }
+          : {}),
+      },
     },
   };
 
@@ -621,24 +666,25 @@ export function streamingTailMessage(
   approval: PendingApproval | null = null
 ): ThreadMessageLike | null {
   if (!approval && !streaming && timeline.length === 0 && transcript.length === 0) return null;
-  const text = streaming?.content ?? '';
-  let parts = assistantParts(text, timeline, transcript);
-  // The live reasoning block. Only when the transcript has not yet recorded a
-  // `thinking` item for this turn — once it has, `assistantParts` above is
-  // already emitting it in its proper place and this would double it.
+  let parts = assistantParts('', timeline, transcript, 'live');
+  // The streaming buffers, for a turn whose transcript has not recorded them
+  // (a snapshot-hydrated turn mid-answer): normally `streamDeltaReceived`
+  // writes every thinking and content delta into the transcript as well, and
+  // `assistantParts` above already emits them in place — these would double
+  // them. Reasoning before text: what the agent thought before it answered.
   //
-  // It goes FIRST because it is what the agent thought before it answered, and
-  // `Reasoning` renders it expanded while it streams, then collapses it. A turn
-  // that has so far produced only thinking now mints a tail rather than
-  // nothing, which is the point: the block is the in-flight signal, alongside
-  // `RunningStatus`.
-  if (streaming?.thinking.trim()) {
-    const hasTranscriptThinking = transcript.some(item => item.kind === 'thinking');
-    if (!hasTranscriptThinking) {
-      parts.unshift(
-        reasoningPart(streaming.thinking, streaming.thinkingStartedAt, streaming.thinkingEndedAt)
-      );
-    }
+  // Appended, never unshifted: the tail's parts are append-only (see
+  // `assistantParts`), and a part inserted at the front shifts the index — and
+  // so the key — of every part after it, remounting the answer mid-stream. A
+  // turn that has so far produced only thinking still mints a tail, which is
+  // the point: the block is the in-flight signal, alongside `RunningStatus`.
+  if (streaming?.thinking.trim() && !transcript.some(item => item.kind === 'thinking')) {
+    parts.push(
+      reasoningPart(streaming.thinking, streaming.thinkingStartedAt, streaming.thinkingEndedAt)
+    );
+  }
+  if (streaming?.content.trim() && !transcript.some(item => item.kind === 'narration')) {
+    parts.push({ type: 'text', text: streaming.content });
   }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
@@ -655,6 +701,49 @@ export function streamingTailMessage(
   };
 }
 
+const settledStatusCache = new WeakMap<
+  readonly ToolTimelineEntry[],
+  { settled: readonly ToolTimelineEntry[]; merged: readonly ToolTimelineEntry[] }
+>();
+
+/**
+ * A frozen live trail, with each still-running row settled from the core
+ * projection's row of the same id.
+ *
+ * `chat_done` does not invent a status for a row that has no result yet; the
+ * core projection settles it (to its real status, or `cancelled`). The frozen
+ * trail keeps the live row ids — which is what keeps every card mounted — so
+ * only status, result and failure are taken over, never the row. Sub-agent
+ * rows carry different ids on the two sides and are left to their own events.
+ * Returns the frozen array itself when nothing changes, so the conversion
+ * cache keeps hitting.
+ */
+function withSettledStatuses(
+  frozen: readonly ToolTimelineEntry[],
+  settled: readonly ToolTimelineEntry[] | undefined
+): readonly ToolTimelineEntry[] {
+  if (!settled || !frozen.some(entry => isActiveTimelineStatus(entry.status))) return frozen;
+  const cached = settledStatusCache.get(frozen);
+  if (cached?.settled === settled) return cached.merged;
+  const byId = new Map(settled.map(entry => [entry.id, entry]));
+  let changed = false;
+  const merged = frozen.map(entry => {
+    if (!isActiveTimelineStatus(entry.status)) return entry;
+    const final = byId.get(entry.id);
+    if (!final || isActiveTimelineStatus(final.status)) return entry;
+    changed = true;
+    return {
+      ...entry,
+      status: final.status,
+      result: final.result ?? entry.result,
+      failure: final.failure ?? entry.failure,
+    };
+  });
+  const result = changed ? merged : frozen;
+  settledStatusCache.set(frozen, { settled, merged: result });
+  return result;
+}
+
 export type AssistantUiProjection = {
   /** Whether the synthetic live tail has an active core turn driving it. */
   isRunning?: boolean;
@@ -668,6 +757,20 @@ export type AssistantUiProjection = {
   liveTranscript?: readonly ProcessingTranscriptItem[];
   turnTimelines?: Readonly<Record<string, readonly ToolTimelineEntry[]>>;
   turnTranscripts?: Readonly<Record<string, readonly ProcessingTranscriptItem[]>>;
+  /**
+   * Trails of turns that settled while this thread was open, frozen at
+   * settlement (`chatRuntime.settledTurnsByThread`). They win over the core
+   * projection for their request, so a turn keeps the exact parts it streamed
+   * with — see `ChatRuntimeState.settledTurnsByThread`.
+   */
+  settledTurns?: Readonly<
+    Record<
+      string,
+      { timeline: readonly ToolTimelineEntry[]; transcript: readonly ProcessingTranscriptItem[] }
+    >
+  >;
+  /** `request_id` of the turn the live tail stands for, when known. */
+  liveRequestId?: string;
 };
 
 /**
@@ -721,12 +824,41 @@ export function buildRuntimeMessages(
   const lastVisibleAgentId = [...coalescedMessages]
     .reverse()
     .find(message => message.sender === 'agent' && !message.extraMetadata?.hidden)?.id;
+  const tail =
+    projection.isRunning === false && !pendingApproval
+      ? null
+      : streamingTailMessage(
+          streaming,
+          projection.liveTimeline ?? EMPTY_TIMELINE,
+          projection.liveTranscript ?? EMPTY_TRANSCRIPT,
+          pendingApproval
+        );
+  // While the tail stands for the live turn, that turn's own persisted rows
+  // (the reply appended before `turnSettled`, or segments delivered mid-turn)
+  // are not rendered beside it. Rendering both put the reply at the tail's
+  // index and pushed the tail — with every tool card — one slot down, where
+  // assistant-ui (which keys messages by index) remounted it. `turnSettled`
+  // ends the tail and reveals the row in one store update, at the same index.
+  const hiddenLiveRequestId = tail ? projection.liveRequestId : undefined;
   for (const msg of coalescedMessages) {
     if (msg.extraMetadata?.hidden) continue;
     const requestId =
       msg.sender === 'agent' && typeof msg.extraMetadata?.requestId === 'string'
         ? msg.extraMetadata.requestId
         : undefined;
+    if (hiddenLiveRequestId !== undefined && requestId === hiddenLiveRequestId) continue;
+    const frozen = requestId ? projection.settledTurns?.[requestId] : undefined;
+    if (frozen) {
+      const settledRows = requestId ? projection.turnTimelines?.[requestId] : undefined;
+      out.push(
+        toThreadMessageLike(
+          msg,
+          withSettledStatuses(frozen.timeline, settledRows),
+          frozen.transcript
+        )
+      );
+      continue;
+    }
     const effectiveRequestId =
       requestId ??
       (msg.sender === 'agent' && pairOrphanTrails
@@ -763,15 +895,6 @@ export function buildRuntimeMessages(
       )
     );
   }
-  const tail =
-    projection.isRunning === false && !pendingApproval
-      ? null
-      : streamingTailMessage(
-          streaming,
-          projection.liveTimeline ?? EMPTY_TIMELINE,
-          projection.liveTranscript ?? EMPTY_TRANSCRIPT,
-          pendingApproval
-        );
   if (tail) out.push(tail);
   return out;
 }

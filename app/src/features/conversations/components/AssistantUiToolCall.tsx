@@ -2,6 +2,7 @@ import type { ToolCallMessagePart, ToolCallMessagePartProps } from '@assistant-u
 import { CheckIcon, ChevronDownIcon, CircleXIcon, Loader2Icon, WrenchIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
+import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import { cn } from '../../../components/assistant-ui/lib/utils';
 import {
   Collapsible,
@@ -118,6 +119,11 @@ export interface AssistantUiToolCallCardProps {
   awaitingUser?: boolean;
   /** Decision row / connect affordance, rendered under the call's header. */
   footer?: ReactNode;
+  /**
+   * Stable identity (the tool-call id) under which the user's open/closed
+   * choice is remembered across remounts. See `useDisclosure`.
+   */
+  disclosureKey?: string;
 }
 
 /** The single assistant-ui tool-call presentation used at every nesting level. */
@@ -133,7 +139,14 @@ export function AssistantUiToolCallCard({
   failure,
   awaitingUser = false,
   footer,
+  disclosureKey,
 }: AssistantUiToolCallCardProps) {
+  // Collapsed until the user opens it — running or settled, live or reloaded.
+  // It used to be `defaultOpen={running}`: a card mounted mid-stream opened
+  // and stayed open, the same card reloaded was closed, and any remount in
+  // between flipped it. The header already says what the call is and whether
+  // it is running; the body is detail on demand.
+  const [open, setOpen] = useDisclosure(disclosureKey ? `tool:${disclosureKey}` : undefined, false);
   const running =
     awaitingUser ||
     (status ? status === 'running' || status === 'awaiting_user' : result === undefined);
@@ -173,7 +186,8 @@ export function AssistantUiToolCallCard({
     <Collapsible
       data-slot="aui_openhuman-tool-call"
       data-testid="assistant-ui-tool-call"
-      defaultOpen={running}
+      open={open}
+      onOpenChange={setOpen}
       data-awaiting-user={awaitingUser ? 'true' : undefined}
       className={cn(
         'border-border/60 dark:border-muted-foreground/15 rounded-xl border',
@@ -302,6 +316,7 @@ export const OpenHumanToolCall: FC<
       failure={envelope?.failure}
       awaitingUser={isApprovalPending(props.approval)}
       footer={props.approvalCard}
+      disclosureKey={props.toolCallId}
     />
   );
 };

@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 
 use tinyagents_session::transcript::{self, CompactionMarker, DisplayMessage, DisplayRecord};
 
+use super::prompt_tools::{self, CallRegistry, PromptToolResult};
 use super::resolve;
 use super::subagents;
 use super::types::{DisplayItem, ProjectedTranscript, ToolCallFailure, ToolCallStatus};
@@ -143,14 +144,26 @@ pub fn project_from_files(
 ///   would otherwise duplicate every call of the turn.
 /// - Each call registers a pending [`DisplayItem::ToolCall`]; a later
 ///   `role:"tool"` line pairs to one by id, falling back to FIFO order.
+/// - A prompt-guided round (calls in the visible text, results folded into one
+///   `[Tool results]` user line) projects to the same shape: see
+///   [`prompt_tools`].
 /// - Interrupted partials and compaction markers pass through as their items.
 /// - A [`DisplayItem::TurnBoundary`] is emitted whenever `request_id` changes.
 pub fn project_records(records: &[DisplayRecord]) -> Vec<DisplayItem> {
-    let mut projector = Projector::default();
-    for record in records {
+    let mut projector = Projector {
+        calls: CallRegistry::from_records(records),
+        ..Projector::default()
+    };
+    for (index, record) in records.iter().enumerate() {
         match record {
             DisplayRecord::Message(msg) => {
                 projector.turn_boundary(msg);
+                // A prompt-guided round's results are on the NEXT line; they are
+                // the only record of which calls this assistant line issued.
+                projector.next_results = match records.get(index + 1) {
+                    Some(DisplayRecord::Message(next)) => prompt_tools::parse_tool_results(next),
+                    _ => None,
+                };
                 projector.message(msg);
             }
             DisplayRecord::Compaction(marker) => {
@@ -176,6 +189,11 @@ struct Projector {
     /// The model-call ordinal of the last assistant row in the current turn —
     /// the fallback `iteration` for rows written without one.
     step: u32,
+    /// Every call the file records, for resolving a prompt-guided round.
+    calls: CallRegistry,
+    /// Result blocks of the line after the one being projected, when that line
+    /// is a prompt-guided `[Tool results]` turn.
+    next_results: Option<Vec<PromptToolResult>>,
 }
 
 impl Projector {
@@ -209,6 +227,13 @@ impl Projector {
                 log::debug!("{LOG_PREFIX} sanitize: dropped system line from projection");
             }
             "user" => {
+                if let Some(blocks) = prompt_tools::parse_tool_results(msg) {
+                    // Tool plumbing, not something the user said.
+                    for block in blocks {
+                        self.pair_result(block.id, block.body, ToolCallStatus::Success, None);
+                    }
+                    return;
+                }
                 // A legacy turn without request ids still restarts the step
                 // count at its prompt.
                 self.step = 0;
@@ -287,6 +312,21 @@ impl Projector {
                 fresh
             }
         };
+        // A prompt-guided line records no calls of its own; the `[Tool results]`
+        // line after it names the calls it made.
+        let tool_calls = match self.next_results.take() {
+            Some(blocks) if tool_calls.is_empty() => {
+                let inferred = self
+                    .calls
+                    .calls_for(&msg.request_id, &blocks, &self.seen_call_ids);
+                log::debug!(
+                    "{LOG_PREFIX} prompt-guided round: {} call(s) inferred from the next [Tool results] line iteration={iteration}",
+                    inferred.len()
+                );
+                inferred
+            }
+            _ => tool_calls,
+        };
         let interim = !tool_calls.is_empty();
 
         // Native tool-call turns are persisted as their provider envelope so they
@@ -342,6 +382,18 @@ impl Projector {
             (ToolCallStatus::Success, None)
         };
         let call_id = msg.message.id.clone().or(wrapped_id);
+        self.pair_result(call_id, result, status, failure);
+    }
+
+    /// Settle the pending call a result belongs to — by id first, else FIFO — or
+    /// emit an orphan row so the output is not lost.
+    fn pair_result(
+        &mut self,
+        call_id: Option<String>,
+        result: String,
+        status: ToolCallStatus,
+        failure: Option<ToolCallFailure>,
+    ) {
         // Pair by explicit call id first, else FIFO.
         let idx = call_id
             .as_deref()

@@ -77,3 +77,47 @@ describe('useCoreTranscriptProjection paging', () => {
     expect(result.current.timelines).toEqual({});
   });
 });
+
+describe('useCoreTranscriptProjection identity', () => {
+  beforeEach(() => {
+    vi.mocked(threadApi.getDerivedTranscript).mockReset();
+  });
+
+  /**
+   * The projection refetches several times per turn (every change of the last
+   * message or the lifecycle). Minting fresh arrays for every turn each time
+   * missed the settled-message conversion cache for the whole thread and gave
+   * assistant-ui new part objects for turns nothing had happened to.
+   */
+  it('keeps the same arrays for turns a refetch did not change', async () => {
+    const both = [...turn('r-2', 'call-2'), ...turn('r-1', 'call-1')];
+    vi.mocked(threadApi.getDerivedTranscript).mockResolvedValue(
+      page({ items: both, total: both.length })
+    );
+
+    const { result, rerender } = renderHook(
+      ({ revision }) => useCoreTranscriptProjection(THREAD, revision, undefined),
+      { initialProps: { revision: 'rev-1' } }
+    );
+    await waitFor(() => expect(Object.keys(result.current.timelines)).toHaveLength(2));
+    const first = result.current;
+
+    // A refetch that returns the same turns hands back the same projection.
+    rerender({ revision: 'rev-2' });
+    await waitFor(() => expect(threadApi.getDerivedTranscript).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current).toBe(first));
+
+    // A refetch that changes ONE turn keeps the other turn's arrays.
+    const changed = [
+      { kind: 'toolCall', callId: 'call-3', name: 'shell', status: 'success' },
+      ...both,
+    ] satisfies DerivedDisplayItem[];
+    vi.mocked(threadApi.getDerivedTranscript).mockResolvedValue(
+      page({ items: changed, total: changed.length })
+    );
+    rerender({ revision: 'rev-3' });
+    await waitFor(() => expect(result.current.timelines['r-2']).toHaveLength(2));
+    expect(result.current.timelines['r-1']).toBe(first.timelines['r-1']);
+    expect(result.current.timelines['r-2']).not.toBe(first.timelines['r-2']);
+  });
+});

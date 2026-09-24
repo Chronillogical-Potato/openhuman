@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import { cn } from '../../../components/assistant-ui/lib/utils';
 import {
   Collapsible,
@@ -42,6 +43,7 @@ function ChildToolCallCard({ call }: { call: ChildToolCall }) {
       detail={call.detail}
       elapsedMs={call.elapsedMs}
       failure={call.failure}
+      disclosureKey={call.callId}
     />
   );
 }
@@ -298,6 +300,7 @@ export function AssistantUiSubagentCall({
   onView,
   onAnswer,
   defaultOpen = false,
+  disclosureKey,
 }: {
   activity: SubagentActivity;
   running?: boolean;
@@ -310,6 +313,8 @@ export function AssistantUiSubagentCall({
    */
   onAnswer?: (text: string) => void;
   defaultOpen?: boolean;
+  /** Stable identity (the part's tool-call id) that remembers the user's toggle. */
+  disclosureKey?: string;
 }) {
   const { t } = useT();
   const name = activity.displayName ?? activity.agentId ?? 'subagent';
@@ -323,7 +328,10 @@ export function AssistantUiSubagentCall({
   // delegation too, so a caller-supplied `running` cannot distinguish the two.
   const awaiting = isAwaitingUserSubagentStatus(activity.status);
   const failed = !active && isFailedSubagentStatus(activity.status);
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useDisclosure(
+    disclosureKey ? `subagent:${disclosureKey}` : undefined,
+    defaultOpen
+  );
   // A question the user cannot see is a question they cannot answer, and the
   // row is normally already mounted (and collapsed) as `running` by the time
   // the pause arrives, so `defaultOpen` is too late. Derived rather than an

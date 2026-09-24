@@ -44,7 +44,7 @@ function readSubagentState(
 }
 
 /** Adapt an assistant-ui `task` part onto the shared delegation card. */
-export const SubagentCall: ToolCallMessagePartComponent = ({ args, result }) => {
+export const SubagentCall: ToolCallMessagePartComponent = ({ args, result, toolCallId }) => {
   const aui = useAui();
   const { activity, running } = readSubagentState(args, result);
   const description = (args as { description?: string } | undefined)?.description;
@@ -90,6 +90,7 @@ export const SubagentCall: ToolCallMessagePartComponent = ({ args, result }) => 
       description={description}
       onAnswer={answer}
       onView={drawerHost?.canOpen(taskId) ? view : undefined}
+      disclosureKey={toolCallId}
     />
   );
 };

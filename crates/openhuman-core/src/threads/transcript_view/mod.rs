@@ -6,6 +6,7 @@
 
 mod cache;
 mod project;
+mod prompt_tools;
 mod resolve;
 mod subagents;
 pub mod types;
@@ -105,6 +106,10 @@ fn parse_cursor(cursor: Option<&str>) -> usize {
 #[cfg(test)]
 #[path = "transcript_view_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "prompt_tools_tests.rs"]
+mod prompt_tools_tests;
 
 #[cfg(test)]
 #[path = "transcript_ordering_tests.rs"]

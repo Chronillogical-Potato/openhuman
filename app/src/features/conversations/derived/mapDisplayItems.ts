@@ -345,16 +345,20 @@ export function mapDisplayItems(
         const turn = ensureTurn(turns, anchorRequestId);
         const activity = buildSubagentActivity(item);
         const agentId = activity.agentId;
-        turn.entries.push({
-          // `item.id` is unique per run (task id), so two runs of one agent
-          // in a turn no longer collide on `subagent:<agent>`.
-          id: `subagent:${item.id}`,
-          name: `subagent:${agentId}`,
-          round: turn.round,
-          seq: turn.seq++,
-          status: subagentEntryStatus(item.status),
-          subagent: activity,
-        });
+        placeSubagentRow(
+          turn,
+          {
+            // `item.id` is unique per run (task id) on a current core; an older
+            // core sends the agent name, so it is still disambiguated per turn.
+            id: uniqueSubagentRowId(turn, item.id),
+            name: `subagent:${agentId}`,
+            round: turn.round,
+            seq: 0,
+            status: subagentEntryStatus(item.status),
+            subagent: activity,
+          },
+          item.callId
+        );
         break;
       }
 
@@ -392,6 +396,71 @@ export function mapDisplayItems(
   );
 
   return { timelines, transcripts, interrupted };
+}
+
+/** Tool names that open a delegation — mirrors `findPendingDelegationContext`. */
+function isDelegationToolName(name: string): boolean {
+  return (
+    name === 'spawn_subagent' || name === 'spawn_async_subagent' || name.startsWith('delegate_')
+  );
+}
+
+/** `subagent:<id>`, disambiguated when one turn delegates to the same agent twice. */
+function uniqueSubagentRowId(turn: TurnAccumulator, agentId: string): string {
+  const base = `subagent:${agentId}`;
+  let id = base;
+  for (let n = 2; turn.callIds.has(id); n += 1) id = `${base}#${n}`;
+  turn.callIds.add(id);
+  return id;
+}
+
+/**
+ * Put a sub-agent row where the live stream puts it: in the slot of the call
+ * that spawned it.
+ *
+ * The projection nests sub-agents as sibling items after every root item (the
+ * transcript records no link from a delegation call to the child's file), so
+ * appending them gave every reopened turn a different shape from the one the
+ * user watched stream: the spawn call rendered as a plain tool card and the
+ * delegation card sat at the bottom of the turn. Children are ordered by spawn
+ * time, and so are the turn's delegation calls, so the Nth child takes the Nth
+ * not-yet-claimed delegation row — its `seq` and its transcript pointer —
+ * exactly as `subagentSpawned` does live. With no such row (an older
+ * transcript, or a spawn outside this turn's page) it is appended as before.
+ */
+function placeSubagentRow(
+  turn: TurnAccumulator,
+  row: ToolTimelineEntry,
+  spawnCallId: string | undefined
+): void {
+  // A current core names the spawning call and has already placed the child
+  // right after it in the stream. An older core names none and appends every
+  // child after all root items, so the Nth child pairs with the Nth unclaimed
+  // delegation row.
+  const spawnIdx = spawnCallId
+    ? turn.entries.findIndex(entry => entry.subagent === undefined && entry.id === spawnCallId)
+    : turn.entries.findIndex(
+        entry => entry.subagent === undefined && isDelegationToolName(entry.name)
+      );
+  const spawn = spawnIdx >= 0 ? turn.entries[spawnIdx] : undefined;
+  // Only a delegation-shaped call is folded into its card, exactly the calls
+  // `findPendingDelegationContext` folds live; any other spawning call (an
+  // agent exposed as a tool) stays a card of its own with the child after it.
+  if (!spawn || !isDelegationToolName(spawn.name)) {
+    turn.entries.push({ ...row, seq: turn.seq++ });
+    return;
+  }
+  turn.entries[spawnIdx] = {
+    ...row,
+    seq: spawn.seq,
+    detail: spawn.detail,
+    sourceToolName: spawn.name,
+    subagent: row.subagent ? { ...row.subagent, prompt: spawn.detail } : row.subagent,
+  };
+  const pointer = turn.transcript.find(
+    item => item.kind === 'toolCall' && item.callId === spawn.id
+  );
+  if (pointer && pointer.kind === 'toolCall') pointer.callId = row.id;
 }
 
 /**
