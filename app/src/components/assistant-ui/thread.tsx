@@ -271,9 +271,9 @@ function useThreadFileDrop() {
   const isFileDrag = (event: React.DragEvent) =>
     Array.from(event.dataTransfer?.types ?? []).includes('Files');
   const onDragOver = (event: React.DragEvent) => {
-    if (!onComposerFiles || !isFileDrag(event)) return;
+    if (!isFileDrag(event)) return;
     event.preventDefault();
-    if (!canAcceptComposerFiles) {
+    if (!onComposerFiles || !canAcceptComposerFiles) {
       event.dataTransfer.dropEffect = 'none';
       return;
     }
@@ -286,10 +286,10 @@ function useThreadFileDrop() {
     setIsDraggingFiles(false);
   };
   const onDrop = (event: React.DragEvent) => {
-    if (!onComposerFiles || !isFileDrag(event)) return;
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     setIsDraggingFiles(false);
-    if (!canAcceptComposerFiles) {
+    if (!onComposerFiles || !canAcceptComposerFiles) {
       debug('[assistant-composer] drop: refused, ingest not accepting');
       return;
     }

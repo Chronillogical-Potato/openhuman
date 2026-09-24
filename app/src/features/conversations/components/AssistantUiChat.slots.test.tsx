@@ -112,9 +112,14 @@ describe('assistant-ui composer slots', () => {
 
   it('refuses a file drag while the composer is locked', () => {
     const store = buildStore();
+    const onAttachFiles = vi.fn(() => Promise.resolve());
     render(
       <Provider store={store}>
-        {chat(undefined, { attachmentsEnabled: true, attachmentInteractionBlocked: true })}
+        {chat(undefined, {
+          attachmentsEnabled: true,
+          attachmentInteractionBlocked: true,
+          onAttachFiles,
+        })}
       </Provider>
     );
 
@@ -124,6 +129,14 @@ describe('assistant-ui composer slots', () => {
     // `preventDefault` still ran — otherwise the webview navigates away to the
     // dropped file — but the drop is refused and no affordance is shown.
     expect(dataTransfer.dropEffect).toBe('none');
+    expect(composerShell().getAttribute('data-dragging')).toBeNull();
+
+    const drop = fireEvent.drop(threadViewport(), {
+      dataTransfer: { types: ['Files'], files: [new File(['blocked'], 'blocked.txt')], items: [] },
+    });
+
+    expect(drop).toBe(false); // default navigation is still cancelled
+    expect(onAttachFiles).not.toHaveBeenCalled();
     expect(composerShell().getAttribute('data-dragging')).toBeNull();
   });
 
@@ -137,6 +150,7 @@ describe('assistant-ui composer slots', () => {
     // `attachmentsEnabled` is false here, so no host file sink is published and
     // the primitive's own (capability-gated) handling is what remains.
     expect(composerShell().getAttribute('data-dragging')).toBeNull();
+    expect(dataTransfer.dropEffect).toBe('none');
   });
 
   it('takes a file dropped anywhere over the open thread, not just the composer', () => {
