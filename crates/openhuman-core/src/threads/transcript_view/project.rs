@@ -350,6 +350,7 @@ impl Projector {
                 result: None,
                 status: ToolCallStatus::Running,
                 failure: None,
+                ts: msg.ts.clone(),
             });
             self.pending.push_back((call_id, self.items.len() - 1));
         }
@@ -403,6 +404,7 @@ impl Projector {
             result: Some(result),
             status,
             failure,
+            ts: msg.ts.clone(),
         });
     }
 }
@@ -528,6 +530,7 @@ fn project_text_tool_results(
             result: Some(result.content),
             status,
             failure,
+            ts: msg.ts.clone(),
         });
     }
 }
