@@ -100,4 +100,6 @@ pub use schemas::{
 mod tests;
 
 #[allow(unused_imports)]
-pub use session_host::{OpenHumanSessionHost, SessionHostBuilder, TurnOverrides};
+pub use session_host::{
+    HostTools, HostTurnTools, OpenHumanSessionHost, SessionHostBuilder, TurnOverrides,
+};

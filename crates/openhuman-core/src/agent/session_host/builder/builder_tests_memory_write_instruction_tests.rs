@@ -24,6 +24,7 @@ async fn memory_write_instruction_is_present_with_learning_disabled() {
         "orchestrator",
         Some(&orchestrator),
         false,
+        None,
     )
     .expect("build session");
 
@@ -49,6 +50,7 @@ async fn memory_write_instruction_names_only_the_write_tool_a_scoped_agent_holds
         "archivist",
         Some(&archivist),
         false,
+        None,
     )
     .expect("build archivist session");
 

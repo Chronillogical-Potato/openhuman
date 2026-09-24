@@ -46,6 +46,8 @@ fn builtin_def(id: &str) -> crate::agent::harness::definition::AgentDefinition {
 
 #[path = "builder_tests_explicit_definition_tests.rs"]
 mod explicit_definition_tests;
+#[path = "builder_tests_host_tools_tests.rs"]
+mod host_tools_tests;
 #[path = "builder_tests_memory_write_instruction_tests.rs"]
 mod memory_write_instruction_tests;
 #[path = "builder_tests_session_definition_tests.rs"]

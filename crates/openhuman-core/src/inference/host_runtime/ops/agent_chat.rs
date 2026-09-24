@@ -72,7 +72,7 @@ pub async fn agent_chat(
 }
 
 /// Which session [`agent_chat_for`] builds the turn on.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum AgentChatTarget<'a> {
     /// The orchestrator — [`OpenHumanSessionHost::from_config`], today's `agent_chat`.
     Orchestrator,
@@ -82,9 +82,32 @@ pub enum AgentChatTarget<'a> {
     /// A definition the caller already holds; nothing is resolved by id. The
     /// entry point for a library host running its own per-agent specs — see
     /// [`OpenHumanSessionHost::from_config_with_definition`].
+    ///
+    /// `host` carries the caller's own `dyn Tool` objects. It rides the target
+    /// rather than `agent_chat_for`'s argument list because only this target
+    /// can honour it: the other two resolve a definition the caller does not
+    /// hold, so there is no agent for a host belt to belong to.
     Definition {
         definition: &'a crate::agent::harness::definition::AgentDefinition,
+        host: Option<&'a crate::agent::HostTools>,
     },
+}
+
+// Hand-written because a host belt is a closure, and a closure is not `Debug`.
+// Reporting whether one is present is what a log line here is ever for; the
+// belt it would return is not known until the turn builds it.
+impl std::fmt::Debug for AgentChatTarget<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Orchestrator => f.write_str("Orchestrator"),
+            Self::AgentId(id) => f.debug_tuple("AgentId").field(id).finish(),
+            Self::Definition { definition, host } => f
+                .debug_struct("Definition")
+                .field("definition", &definition.id)
+                .field("host_tools", &host.is_some())
+                .finish(),
+        }
+    }
 }
 
 fn build_turn_agent(
@@ -97,9 +120,12 @@ fn build_turn_agent(
             log::debug!("[inference] agent_chat building agent_id={id}");
             OpenHumanSessionHost::from_config_for_agent(config, id)
         }
-        AgentChatTarget::Definition { definition } => {
-            OpenHumanSessionHost::from_config_with_definition(config, definition)
-        }
+        AgentChatTarget::Definition { definition, host } => match host {
+            Some(host) => {
+                OpenHumanSessionHost::from_config_with_host_tools(config, definition, host)
+            }
+            None => OpenHumanSessionHost::from_config_with_definition(config, definition),
+        },
     }
     .map_err(|e| e.to_string())
 }

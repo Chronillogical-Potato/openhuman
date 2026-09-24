@@ -113,7 +113,7 @@ impl OpenHumanSessionHost {
                 .unwrap_or(config.default_temperature)
         );
 
-        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false)
+        Self::build_session_agent_inner(config, agent_id, target_def.as_ref(), false, None)
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -135,7 +135,33 @@ impl OpenHumanSessionHost {
             definition.id,
             definition.sandbox_mode,
         );
-        Self::build_session_agent_inner(config, &definition.id, Some(definition), false)
+        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, None)
+    }
+
+    /// [`Self::from_config_with_definition`], plus a belt the host supplies
+    /// itself.
+    ///
+    /// The seam an embedder needs to put its **own** `dyn Tool` on an agent it
+    /// configures through data. Everything else on this path is reconstructed
+    /// from `Config` and the definition on every turn, so a host that owned a
+    /// tool object had nowhere to put it and reached its tools over MCP
+    /// instead — paying a discovery turn, an opaque `arguments` object the
+    /// provider cannot validate, and a prompt section explaining the envelope.
+    ///
+    /// `host` is a factory rather than a belt because this constructor runs
+    /// once per turn and `Box<dyn Tool>` is not `Clone`. A host may therefore
+    /// return a different belt each time; see [`HostTurnTools`] for what that
+    /// does and does not keep consistent with the prompt.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::from_config_with_definition`].
+    pub fn from_config_with_host_tools(
+        config: &Config,
+        definition: &crate::agent::harness::definition::AgentDefinition,
+        host: &super::HostTools,
+    ) -> Result<Self> {
+        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, Some(host))
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -153,6 +179,7 @@ impl OpenHumanSessionHost {
         agent_id: &str,
         target_def: Option<&crate::agent::harness::definition::AgentDefinition>,
         read_only_tools_only: bool,
+        host: Option<&super::HostTools>,
     ) -> Result<Self> {
         let workspace_descriptor = derive_turn_workspace_descriptor();
 
@@ -994,6 +1021,28 @@ impl OpenHumanSessionHost {
             );
             effective_agent_config.max_tool_iterations = def_cap;
         }
+        // The host's own belt, last, so a host tool wins a name collision with
+        // a config-derived one: the host asked for this object specifically,
+        // and `dedup_visible_tool_specs` keeps the first occurrence, so the
+        // advertised spec must be the one that will actually run.
+        let host_policy = match host.map(|build| build()) {
+            Some(host_tools) if !host_tools.is_empty() => {
+                log::debug!(
+                    "[agent::builder] host supplied {} tool(s) for agent_id={agent_id}: {:?}",
+                    host_tools.tools.len(),
+                    host_tools
+                        .tools
+                        .iter()
+                        .map(|tool| tool.name())
+                        .collect::<Vec<_>>(),
+                );
+                let mut host_tools = host_tools;
+                tools.append(&mut host_tools.tools);
+                visible.extend(host_tools.visible);
+                host_tools.policy
+            }
+            _ => None,
+        };
         let mut builder = OpenHumanSessionHost::builder()
             .crate_native_provider(provider_role, Arc::clone(&base_config))
             .tools(tools)
@@ -1028,6 +1077,13 @@ impl OpenHumanSessionHost {
             .tokenjuice_compression(effective_tokenjuice_compression);
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
+        }
+        // The host's gate, when it sent one. Ahead of the session's own by
+        // construction: a host that supplies both a belt and a gate is saying
+        // what may run on that belt, and a config-derived policy knows nothing
+        // about tools it did not produce.
+        if let Some(policy) = host_policy {
+            builder = builder.tool_policy(policy);
         }
         builder = builder.archivist_hook(archivist_hook_arc);
         let mut agent = builder.build()?;

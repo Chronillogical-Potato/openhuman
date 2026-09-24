@@ -439,6 +439,7 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
                 );
                 let target = AgentChatTarget::Definition {
                     definition: &inner.definition,
+                    host: inner.host_tools.as_ref(),
                 };
                 agent_chat_for(
                     &mut config,

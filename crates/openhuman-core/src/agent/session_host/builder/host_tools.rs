@@ -1,0 +1,95 @@
+//! Host-supplied tools a session is built with, beside the ones config names.
+//!
+//! A session host built through [`OpenHumanSessionHost::builder`] takes a tool
+//! belt directly — an embedder hands it `Box<dyn Tool>` objects and they are
+//! the belt. A session built *from config*
+//! ([`from_config_with_definition`](super::super::OpenHumanSessionHost::from_config_with_definition))
+//! cannot: it is reconstructed on every turn from `Config` and an
+//! `AgentDefinition`, both of which are data, so nothing carrying a `dyn Tool`
+//! survives between turns. That is why an `openhuman_embed::Agent` has only
+//! ever reached a host's own tools over MCP.
+//!
+//! [`HostTools`] is the seam that closes it, and it is a **factory rather than
+//! a belt** for exactly the reason above: `Box<dyn Tool>` is not `Clone` and
+//! `Agent` is, so a stored belt could not survive the per-turn rebuild. The
+//! closure is invoked once per turn, which also means the belt it returns may
+//! differ from turn to turn — a host whose tools are bound to something
+//! shorter-lived than the agent (one episode, one room, one assignment) can
+//! express that here instead of registering a second agent for it.
+//!
+//! The prompt's tool catalogue is rendered from the same belt in the same
+//! build, so a changing belt and its description stay consistent **on a turn
+//! that composes its prompt**. A resumed session reuses its persisted system
+//! messages, so a belt that moves under one is described by the prompt it had
+//! when the thread opened; a host that varies its belt should run such turns
+//! on a session of their own.
+
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use tinytools::Tool;
+
+use crate::agent::tool_policy::ToolPolicy;
+
+/// One turn's worth of host-supplied belt.
+///
+/// `visible` is the provider-visible allow-list to union into the session's
+/// own; leaving it empty makes the tools reachable but unadvertised, which is
+/// rarely what a host wants. `policy` is consulted for these tools before the
+/// session's own gate.
+#[derive(Default)]
+pub struct HostTurnTools {
+    /// The tools themselves, appended to the belt config produced.
+    pub tools: Vec<Box<dyn Tool>>,
+    /// Names to add to the provider-visible allow-list.
+    pub visible: HashSet<String>,
+    /// An admission gate consulted ahead of the session's own, if any.
+    pub policy: Option<Arc<dyn ToolPolicy>>,
+}
+
+impl HostTurnTools {
+    /// A belt with every tool advertised, which is the common case.
+    #[must_use]
+    pub fn advertised(tools: Vec<Box<dyn Tool>>) -> Self {
+        let visible = tools.iter().map(|tool| tool.name().to_string()).collect();
+        Self {
+            tools,
+            visible,
+            policy: None,
+        }
+    }
+
+    /// Sets the admission gate consulted ahead of the session's own.
+    #[must_use]
+    pub fn with_policy(mut self, policy: Arc<dyn ToolPolicy>) -> Self {
+        self.policy = Some(policy);
+        self
+    }
+
+    /// Whether this contributes nothing, so a caller can skip the union.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.tools.is_empty() && self.visible.is_empty() && self.policy.is_none()
+    }
+}
+
+impl std::fmt::Debug for HostTurnTools {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HostTurnTools")
+            .field(
+                "tools",
+                &self
+                    .tools
+                    .iter()
+                    .map(|tool| tool.name())
+                    .collect::<Vec<_>>(),
+            )
+            .field("visible", &self.visible)
+            .field("policy", &self.policy.is_some())
+            .finish()
+    }
+}
+
+/// Builds one turn's host belt. Invoked once per session build, so a host may
+/// return a different belt each time.
+pub type HostTools = Arc<dyn Fn() -> HostTurnTools + Send + Sync>;

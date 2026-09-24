@@ -48,6 +48,7 @@ pub struct AgentSpec {
     action_dir: Option<PathBuf>,
     trusted: Vec<(String, TrustedAccess)>,
     config_fn: Option<ConfigEdit>,
+    host_tools: Option<openhuman_core::agent::HostTools>,
 }
 
 impl AgentSpec {
@@ -76,6 +77,7 @@ impl AgentSpec {
             action_dir: None,
             trusted: Vec::new(),
             config_fn: None,
+            host_tools: None,
         }
     }
 
@@ -196,6 +198,50 @@ impl AgentSpec {
         self
     }
 
+    /// The agent's own in-process tools, built fresh for every turn.
+    ///
+    /// Until this existed, an embedder's tools could only reach an agent over
+    /// [`mcp`](Self::mcp): a spec is data, and the session behind it is rebuilt
+    /// from that data on every turn, so a `Box<dyn Tool>` had nowhere to live
+    /// in between. The cost was paid by the model — a discovery call to learn
+    /// what the server offers, an `mcp_call_tool` envelope whose inner
+    /// `arguments` object no provider can validate or constrain decoding
+    /// against, and a prompt section explaining the indirection.
+    ///
+    /// A tool named here is a real tool: its own schema on the wire, called by
+    /// its own name.
+    ///
+    /// # A factory, not a belt
+    ///
+    /// `f` runs once per turn. That is forced — [`Agent`](super::Agent) is
+    /// `Clone` and `Box<dyn Tool>` is not, so a stored belt could not survive
+    /// the rebuild — but it is also useful: a host whose tools are bound to
+    /// something shorter-lived than the agent (one episode, one room, one
+    /// assignment) can return a different belt each turn rather than
+    /// registering a second agent for it.
+    ///
+    /// The prompt's tool catalogue is rendered from the same belt in the same
+    /// build, so a belt that changes stays consistent with its description on
+    /// any turn that composes a prompt. A **resumed** session reuses its
+    /// persisted system messages, so a belt that moves under a long-lived
+    /// thread will be described by the prompt that thread opened with. Vary a
+    /// belt only on turns that run on a session of their own.
+    ///
+    /// ```no_run
+    /// # use openhuman_embed::AgentSpec;
+    /// # use openhuman_core::agent::HostTurnTools;
+    /// # fn belt() -> Vec<Box<dyn tinytools::Tool>> { Vec::new() }
+    /// let spec = AgentSpec::new("reviewer").tools(|| HostTurnTools::advertised(belt()));
+    /// ```
+    #[must_use]
+    pub fn tools(
+        mut self,
+        f: impl Fn() -> openhuman_core::agent::HostTurnTools + Send + Sync + 'static,
+    ) -> Self {
+        self.host_tools = Some(std::sync::Arc::new(f));
+        self
+    }
+
     // ── accessors for the build step ─────────────────────────────────────
 
     pub(crate) fn into_parts(self) -> AgentSpecParts {
@@ -216,6 +262,7 @@ impl AgentSpec {
             action_dir: self.action_dir,
             trusted: self.trusted,
             config_fn: self.config_fn,
+            host_tools: self.host_tools,
         }
     }
 }
@@ -238,6 +285,7 @@ pub(crate) struct AgentSpecParts {
     pub(crate) action_dir: Option<PathBuf>,
     pub(crate) trusted: Vec<(String, TrustedAccess)>,
     pub(crate) config_fn: Option<ConfigEdit>,
+    pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
 }
 
 impl std::fmt::Debug for AgentSpec {
