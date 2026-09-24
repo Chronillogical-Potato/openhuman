@@ -20,16 +20,22 @@ import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ThreadMessage } from '../../types/thread';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import threadReducer from '../../store/threadSlice';
+import type { ThreadMessage } from '../../types/thread';
 import { useOpenHumanExternalStore } from '../useOpenHumanExternalStore';
 
 vi.mock('../../services/api/threadApi', () => ({
   threadApi: {
     getDerivedTranscript: vi
       .fn()
-      .mockResolvedValue({ threadId: 't-delete', items: [], total: 0, hasMore: false, hasTranscript: false }),
+      .mockResolvedValue({
+        threadId: 't-delete',
+        items: [],
+        total: 0,
+        hasMore: false,
+        hasTranscript: false,
+      }),
   },
 }));
 

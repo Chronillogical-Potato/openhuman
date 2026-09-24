@@ -2385,7 +2385,11 @@ describe('ChatRuntimeProvider — chat_cancelled (wire-contract.md)', () => {
     const threadId = 't-chat-cancelled-empty';
 
     act(() => {
-      listeners.onCancelled?.({ thread_id: threadId, request_id: 'r-empty', cancel_reason: 'user_stop' });
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-empty',
+        cancel_reason: 'user_stop',
+      });
     });
 
     await new Promise(resolve => setTimeout(resolve, 50));
