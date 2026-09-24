@@ -362,13 +362,6 @@ pub struct WebChannelEvent {
     /// from arrival order. `None` on emit sites not yet updated to stamp it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ts: Option<u64>,
-    /// Milliseconds elapsed for the operation this event reports on (e.g. a
-    /// tool call or turn segment). Distinct from the existing `elapsed_ms`
-    /// field's tool-call-specific meaning only in that this one is meant to
-    /// generalize across non-tool events; both are populated where it makes
-    /// sense and consumers should prefer whichever is present.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub elapsed_ms_generic: Option<u64>,
     /// RFC3339 timestamp of when a pending approval / plan review expires,
     /// mirrored from `PendingApproval::expires_at` (`security::approval::types`).
     /// Present on `approval_request` / `plan_review_request` events.
