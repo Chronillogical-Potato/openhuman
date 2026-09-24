@@ -450,12 +450,6 @@ function ToolFallbackApproval({
     submit(() => respondToApproval?.({ text: answer }));
   };
 
-  // A dismissal is no answer at all, so a typed draft does not travel with it.
-  const dismiss = () => {
-    if (locked) return;
-    submit(() => respondToApproval?.({ approved: false }));
-  };
-
   const handleOption = (option: ToolApprovalOption) => {
     if (option.confirm) {
       setConfirmingId(option.id);
