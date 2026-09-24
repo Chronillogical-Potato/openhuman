@@ -87,7 +87,10 @@ async fn apply_agent_settings_blank_chat_agent_id_clears_and_persists_override()
     .expect("blank chat agent id clears the override");
 
     assert_eq!(cfg.agent.chat_agent_id, None);
-    assert_eq!(outcome.value["config"]["agent"]["chat_agent_id"], serde_json::Value::Null);
+    assert_eq!(
+        outcome.value["config"]["agent"]["chat_agent_id"],
+        serde_json::Value::Null
+    );
 
     let saved = tokio::fs::read_to_string(&cfg.config_path)
         .await
