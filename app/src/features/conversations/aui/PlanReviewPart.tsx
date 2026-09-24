@@ -138,18 +138,21 @@ export function PlanReviewCardCore({
               }
             }}
             rows={2}
-            disabled={deciding !== null}
+            disabled={revisingBusy}
             placeholder={t('conversations.planReview.feedbackPlaceholder')}
             className={`${field} w-full resize-y rounded-xl px-3 py-2 text-sm outline-none disabled:opacity-50`}
           />
+          {revisingError && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{revisingError}</p>
+          )}
           <div className="mt-1.5 flex justify-end">
             <button
               type="button"
               data-analytics-id="plan-review-send-feedback-submit"
               onClick={submitFeedback}
-              disabled={deciding !== null || feedback.trim().length === 0}
+              disabled={revisingBusy || feedback.trim().length === 0}
               className="text-foreground/70 hover:bg-foreground/[0.06] hover:text-foreground/95 h-7 rounded-full px-2.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30">
-              {deciding === 'revise'
+              {revisingBusy
                 ? t('chat.approval.deciding')
                 : t('conversations.planReview.sendFeedback')}
             </button>
