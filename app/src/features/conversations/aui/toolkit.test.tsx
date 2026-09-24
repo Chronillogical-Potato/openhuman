@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { SubagentCall } from '../components/ChatToolParts';
 import { buildOpenHumanToolkit, openHumanToolEntries } from './toolkit';
+import { SubagentTaskCard } from './SubagentTaskCard';
 
 describe('buildOpenHumanToolkit', () => {
   it('registers the task tool against the shared delegation card', () => {
     const toolkit = buildOpenHumanToolkit();
     expect(toolkit.task).toBeDefined();
     expect(toolkit.task.type).toBe('backend');
-    expect(toolkit.task.render).toBe(SubagentCall);
+    expect(toolkit.task.render).toBe(SubagentTaskCard);
   });
 
   it('never declares description/parameters on a backend entry', () => {

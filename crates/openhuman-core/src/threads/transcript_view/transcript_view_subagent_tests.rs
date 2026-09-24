@@ -95,7 +95,7 @@ fn subagent_correlates_by_ledger_parent_call_id_over_the_heuristic() {
     // `_meta` header carries `task_id`/`agent_id` — the ledger correlation
     // key `build_child` reads.
     let child_meta_line = format!(
-        r#"{{"_meta":{{"version":1,"agent":"researcher","agent_id":"researcher","agent_name":"researcher","agent_type":"subagent","dispatcher":"native","created":"2026-07-21T00:00:00Z","updated":"2026-07-21T00:00:10Z","turn_count":1,"input_tokens":1,"output_tokens":1,"cached_input_tokens":0,"charged_amount_usd":0.0,"thread_id":"{thread_id}","task_id":"sub-exact-1"}}}}"#
+        r#"{{"_meta":{{"version":1,"agent":"researcher","agent_id":"researcher","agent_type":"subagent","dispatcher":"native","created":"2026-07-21T00:00:00Z","updated":"2026-07-21T00:00:10Z","turn_count":1,"input_tokens":1,"output_tokens":1,"cached_input_tokens":0,"charged_amount_usd":0.0,"thread_id":"{thread_id}","task_id":"sub-exact-1"}}}}"#
     );
     std::fs::write(
         &child,
