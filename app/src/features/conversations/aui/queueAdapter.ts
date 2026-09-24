@@ -70,8 +70,12 @@ export function buildOpenHumanQueueAdapter({
       log('[aui-queue] %s send failed: %s', lane, error instanceof Error ? error.message : error);
     });
   };
-  // Idle thread: the runtime calls `enqueue` exactly where it used to call
-  // `onNew`, so deliver synchronously and keep that path unchanged.
+  // Idle thread: the runtime calls `enqueue` where it used to call `onNew`.
+  // Deliver in the same task, one microtask on — which is where `onNew` ran
+  // before (the runtime awaited its tool-invocation cleanup first). That gap
+  // lets the composer clear reach the host draft before a send can fail and
+  // write the draft back; a host follow-up (the Lexical input will not submit
+  // while the runtime is running) always takes this lane.
   const enqueue = (message: AppendMessage) => {
     log('[aui-queue] enqueue (idle) → host send');
     queueMicrotask(() => deliver('enqueue', message));

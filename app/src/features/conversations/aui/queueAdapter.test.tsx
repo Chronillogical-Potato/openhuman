@@ -57,13 +57,20 @@ describe('buildOpenHumanQueueAdapter', () => {
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   });
 
-  it('sends an idle-thread message straight through, synchronously (as onNew did)', () => {
-    const send = vi.fn().mockResolvedValue(undefined);
-    const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
+  it('sends an idle-thread message in the same task, like onNew (no timer)', async () => {
+    vi.useFakeTimers();
+    try {
+      const send = vi.fn().mockResolvedValue(undefined);
+      const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
 
-    adapter.enqueue(append('idle'));
+      adapter.enqueue(append('idle'));
+      await Promise.resolve();
 
-    expect(send).toHaveBeenCalledTimes(1);
+      // Delivered without any timer firing: the caller's `act()` sees it.
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('hands a mid-run message to the host after the current task, not synchronously', async () => {
