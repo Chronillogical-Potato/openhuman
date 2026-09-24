@@ -38,11 +38,6 @@ export function useRunMode(threadId: string | null): UseRunModeResult {
   useEffect(() => {
     if (!threadId || loadedFor.current === threadId) return;
     loadedFor.current = threadId;
-    // Only fetch when the slice has no live entry yet — a value already set
-    // (e.g. by a `run_mode_changed` event that arrived first) wins.
-    if (threadId in useAppSelector.__unused__ === undefined) {
-      /* no-op: placeholder removed below */
-    }
     let cancelled = false;
     void (async () => {
       try {
