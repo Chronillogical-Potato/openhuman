@@ -1639,27 +1639,44 @@ const UserActionBar: FC = () => {
   );
 };
 
+/**
+ * The composer's own text plus how many later turns editing this message
+ * would discard — `onEdit` (`useOpenHumanExternalStore.ts`) truncates the
+ * thread's single lineage from this message on, exactly like `onReload`, so
+ * every message after it (not just its direct reply) is what a Send here
+ * throws away. `s.message.index` is the position `MessageState` already
+ * tracks; `s.thread.messages.length - 1 - index` is everything after it.
+ */
+const selectEditComposerState = (s: AssistantState) => ({
+  value: s.composer.text,
+  discardedReplies: Math.max(0, s.thread.messages.length - 1 - s.message.index),
+});
+
 const EditComposer: FC = () => {
+  const aui = useAui();
+  const { t } = useT();
+  const { value, discardedReplies } = useAuiState(selectEditComposerState);
   return (
     <MessagePrimitive.Root data-slot="aui_edit-composer-wrapper" className="flex flex-col px-2">
-      <ComposerPrimitive.Root className="aui-edit-composer-root border-border/60 dark:border-muted-foreground/15 ms-auto flex w-full max-w-[85%] cursor-text flex-col rounded-(--composer-radius) border bg-(--composer-bg)">
-        <ComposerPrimitive.Input
-          className="aui-edit-composer-input text-foreground min-h-14 w-full resize-none bg-transparent px-4 pt-3 pb-1 text-base outline-hidden"
-          autoFocus
-        />
-        <div className="aui-edit-composer-footer mx-2.5 mb-2.5 flex items-center gap-1.5 self-end">
-          <ComposerPrimitive.Cancel asChild>
-            <Button variant="ghost" size="sm" className="h-8 rounded-full px-3.5">
-              Cancel
-            </Button>
-          </ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send asChild>
-            <Button size="sm" className="h-8 rounded-full px-3.5">
-              Update
-            </Button>
-          </ComposerPrimitive.Send>
-        </div>
-      </ComposerPrimitive.Root>
+      <EditMessage
+        className="ms-auto"
+        value={value}
+        discardedReplies={discardedReplies}
+        editing
+        onValueChange={text => aui.message.composer.setText(text)}
+        onSave={() => aui.message.composer.send()}
+        onCancel={() => aui.message.composer.cancel()}
+        cancelLabel={t('common.cancel')}
+        sendLabel={t('chat.elicitation.send')}
+        editAriaLabel={t('conversations.assistantUi.edit.ariaLabel')}
+        discardedRepliesText={count =>
+          t(
+            count === 1
+              ? 'conversations.assistantUi.edit.discardedRepliesOne'
+              : 'conversations.assistantUi.edit.discardedRepliesOther'
+          ).replace('{count}', String(count))
+        }
+      />
     </MessagePrimitive.Root>
   );
 };
