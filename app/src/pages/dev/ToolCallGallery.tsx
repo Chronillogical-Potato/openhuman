@@ -303,6 +303,78 @@ export default function ToolCallGallery() {
           />
         </section>
 
+        <section className="flex flex-col gap-3">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Rich content &amp; conversation map (WS-G)
+          </h2>
+
+          <p className="text-foreground/40 text-xs">Sources — url + document (memory citation)</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Source href="https://docs.rs/tokio/latest/tokio/">
+              <SourceIcon url="https://docs.rs/tokio/latest/tokio/" />
+              <SourceTitle>docs.rs</SourceTitle>
+            </Source>
+            <Source href="https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html">
+              <SourceIcon url="https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html" />
+              <SourceTitle>blog.rust-lang.org</SourceTitle>
+            </Source>
+          </div>
+
+          <p className="text-foreground/40 text-xs">Inline citation marker (hover for the source)</p>
+          <p className="text-foreground/80 text-sm">
+            The deploy runs nightly
+            <CitationMarker
+              index={0}
+              source={{
+                domain: 'docs.rs',
+                title: 'tokio scheduler docs',
+                snippet: 'The default runtime schedules a nightly compaction pass.',
+              }}
+              open={citationOpen === 0}
+              onOpenChange={open => setCitationOpen(open ? 0 : null)}
+            />
+            .
+          </p>
+
+          <p className="text-foreground/40 text-xs">Memory chips (stored this turn + existing)</p>
+          <MemoryChips
+            chips={[
+              { id: 'm1', text: 'preferred_meeting_time', change: 'added' },
+              { id: 'm2', text: 'timezone', change: 'existing' },
+            ]}
+            onForget={() => {}}
+          />
+
+          <p className="text-foreground/40 text-xs">Schedule card (cron_add / cron_update)</p>
+          <ScheduleCard
+            name="Daily digest"
+            cadence="0 9 * * *"
+            nextRun="2026-01-02T09:00:00.000Z"
+            enabled={scheduleEnabled}
+            history={[
+              { id: 'run-1', at: '2026-01-01T09:00:00.000Z', ok: true },
+              { id: 'run-2', at: '2025-12-31T09:00:00.000Z', ok: false },
+            ]}
+            onToggle={() => setScheduleEnabled(enabled => !enabled)}
+          />
+
+          <p className="text-foreground/40 text-xs">Conversation search (find-in-conversation)</p>
+          <ConversationSearch
+            query={searchQuery}
+            hits={MEMORY_SEARCH_HITS}
+            activeIndex={searchActive}
+            onQueryChange={setSearchQuery}
+            onStep={delta =>
+              setSearchActive(
+                index => (index + delta + MEMORY_SEARCH_HITS.length) % MEMORY_SEARCH_HITS.length
+              )
+            }
+          />
+
+          <p className="text-foreground/40 text-xs">Timeline (conversation map outline)</p>
+          <Timeline events={MEMORY_TIMELINE_EVENTS} visibleCount={MEMORY_TIMELINE_EVENTS.length} />
+        </section>
+
         <section>
           <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
             Core catalog ({(coreToolNames as string[]).length})
