@@ -877,7 +877,7 @@ const messages: TranslationMap = {
   'desktop.action.check': 'Aktiviere',
   'desktop.action.uncheck': 'Deaktiviere',
   'desktop.action.expand': 'Erweitere',
-  'desktop.action.collapse': 'Schließe',
+  'desktop.action.collapse': 'Einklappen von',
   'desktop.action.scroll': 'Scrolle',
   'desktop.title': 'Desktopsteuerung',
   'desktop.description': 'Lass deinen Agenten in Apps auf diesem Computer arbeiten.',
