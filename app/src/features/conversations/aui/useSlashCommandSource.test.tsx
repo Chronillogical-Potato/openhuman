@@ -1,17 +1,17 @@
-import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import {
   AssistantRuntimeProvider,
   type ThreadMessageLike,
   useAui,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MOCK_COMMANDS_LIST } from '../../../pages/dev/assistant-ui-demo/assistantUiMock/mockScript';
 import { registry } from '../../../lib/commands/registry';
+import { MOCK_COMMANDS_LIST } from '../../../pages/dev/assistant-ui-demo/assistantUiMock/mockScript';
 import { callCoreRpc } from '../../../services/coreRpcClient';
 import runModeReducer from '../../../store/runModeSlice';
 import {
@@ -62,10 +62,9 @@ function setup({ running = false }: { running?: boolean } = {}) {
       <Runtime>{children}</Runtime>
     </Provider>
   );
-  const hook = renderHook(
-    () => ({ source: useSlashCommandSource('t1'), aui: useAui() }),
-    { wrapper }
-  );
+  const hook = renderHook(() => ({ source: useSlashCommandSource('t1'), aui: useAui() }), {
+    wrapper,
+  });
   return { store, onCancel, ...hook };
 }
 

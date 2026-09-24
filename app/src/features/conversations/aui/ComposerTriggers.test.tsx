@@ -1,10 +1,10 @@
-import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import {
   AssistantRuntimeProvider,
   ComposerPrimitive,
   type ThreadMessageLike,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';

@@ -114,10 +114,7 @@ export function ComposerCommandItem({
   command,
   active,
   ...props
-}: Omit<ComponentProps<'button'>, 'children'> & {
-  command: ComposerCommand;
-  active: boolean;
-}) {
+}: Omit<ComponentProps<'button'>, 'children'> & { command: ComposerCommand; active: boolean }) {
   return (
     <ComposerMenuItem active={active} {...props}>
       <command.icon className="text-foreground/35 size-3.5 shrink-0" />
@@ -138,10 +135,7 @@ export function ComposerPersonItem({
   person,
   active,
   ...props
-}: Omit<ComponentProps<'button'>, 'children'> & {
-  person: ComposerPerson;
-  active: boolean;
-}) {
+}: Omit<ComponentProps<'button'>, 'children'> & { person: ComposerPerson; active: boolean }) {
   return (
     <ComposerMenuItem active={active} {...props}>
       <span className="bg-foreground/[0.06] text-foreground/45 flex size-5 shrink-0 items-center justify-center rounded-full text-[9px] font-medium">

@@ -1,4 +1,3 @@
-import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import {
   AssistantRuntimeProvider,
   type ThreadMessageLike,
@@ -6,6 +5,7 @@ import {
   useAui,
   useExternalStoreRuntime,
 } from '@assistant-ui/react';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
@@ -95,7 +95,12 @@ describe('memoryMentionsFromChunks', () => {
     const [mention] = memoryMentionsFromChunks([
       chunk('c1', 'Design [sync]\nnotes {v2} with a very long tail that keeps going on'),
     ]);
-    expect(mention).toMatchObject({ id: 'c1', type: 'memory', description: 'email', icon: 'memory' });
+    expect(mention).toMatchObject({
+      id: 'c1',
+      type: 'memory',
+      description: 'email',
+      icon: 'memory',
+    });
     expect(mention!.label).toBe('Design sync notes v2 with a very long tail that…');
 
     const text = unstable_defaultDirectiveFormatter.serialize(mention!);
@@ -111,7 +116,9 @@ describe('memoryMentionsFromChunks', () => {
   });
 
   it('falls back to the source id when a chunk has no preview', () => {
-    const [mention] = memoryMentionsFromChunks([{ ...chunk('c2', ''), content_preview: undefined }]);
+    const [mention] = memoryMentionsFromChunks([
+      { ...chunk('c2', ''), content_preview: undefined },
+    ]);
     expect(mention!.label).toBe('thread-9');
   });
 });

@@ -39,10 +39,7 @@ const RECALL_DEBOUNCE_MS = 200;
 const MIN_QUERY_LENGTH = 2;
 const MAX_LABEL_LENGTH = 48;
 
-const ICON_MAP: Record<string, Unstable_IconComponent> = {
-  memory: BrainIcon,
-  files: FileIcon,
-};
+const ICON_MAP: Record<string, Unstable_IconComponent> = { memory: BrainIcon, files: FileIcon };
 
 const NO_ARTIFACTS: readonly ArtifactSnapshot[] = [];
 

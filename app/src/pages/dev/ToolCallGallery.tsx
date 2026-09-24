@@ -6,6 +6,7 @@
  * each tool's icon and both tenses, so a label or icon regression is visible
  * at a glance. Registered only in dev builds (see `AppRoutes.tsx`).
  */
+import { BrainIcon, FileIcon, ListChecksIcon, SparklesIcon, WorkflowIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -32,7 +33,19 @@ import { ToolIcon } from '../../features/conversations/tools/ToolIcon';
 import { describeToolCall, toolLabel } from '../../features/conversations/tools/toolPresentation';
 import { useT } from '../../lib/i18n/I18nContext';
 import type { PendingApproval } from '../../store/chatRuntimeSlice';
-import { MOCK_MESSAGE_QUEUE } from './assistant-ui-demo/assistantUiMock/mockScript';
+import {
+  MOCK_COMMANDS_LIST,
+  MOCK_MEMORY_RECALL,
+  MOCK_MESSAGE_QUEUE,
+  MOCK_THREAD_FILES,
+} from './assistant-ui-demo/assistantUiMock/mockScript';
+
+/** Icon per `commands_list` kind for the composer menu fixture. */
+const COMMAND_KIND_ICONS = {
+  builtin: ListChecksIcon,
+  skill: SparklesIcon,
+  workflow: WorkflowIcon,
+} as const;
 
 /** Fixtures for every approval-card state (WS-B, assistant-ui-elements plan). */
 const APPROVAL_PENDING_APPROVAL: PendingApproval = {
@@ -394,6 +407,45 @@ export default function ToolCallGallery() {
 
           <p className="text-foreground/40 text-xs">Timeline (conversation map outline)</p>
           <Timeline events={MEMORY_TIMELINE_EVENTS} visibleCount={MEMORY_TIMELINE_EVENTS.length} />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Composer / and @ menus
+          </h2>
+          <ComposerMenu
+            open
+            data-testid="tool-gallery-slash-menu"
+            className="relative bottom-auto mb-0">
+            {MOCK_COMMANDS_LIST.map((command, index) => (
+              <ComposerCommandItem
+                key={command.id}
+                active={index === 0}
+                command={{
+                  name: command.id,
+                  description: command.description ?? command.label,
+                  icon: COMMAND_KIND_ICONS[command.kind],
+                }}
+              />
+            ))}
+          </ComposerMenu>
+          <ComposerMenu
+            open
+            data-testid="tool-gallery-mention-menu"
+            className="relative bottom-auto mb-0">
+            {MOCK_MEMORY_RECALL.chunks.map((chunk, index) => (
+              <ComposerMenuItem key={chunk.id} active={index === 0}>
+                <BrainIcon className="text-foreground/35 size-3.5 shrink-0" />
+                <span className="flex-1 truncate text-start">{chunk.content_preview}</span>
+              </ComposerMenuItem>
+            ))}
+            {MOCK_THREAD_FILES.map(file => (
+              <ComposerMenuItem key={file.id}>
+                <FileIcon className="text-foreground/35 size-3.5 shrink-0" />
+                <span className="flex-1 truncate text-start">{file.label}</span>
+              </ComposerMenuItem>
+            ))}
+          </ComposerMenu>
         </section>
 
         <section>

@@ -1,8 +1,8 @@
 import {
   AssistantRuntimeProvider,
   type ThreadMessageLike,
-  useExternalStoreRuntime,
   unstable_useTriggerPopoverRootContextOptional,
+  useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';

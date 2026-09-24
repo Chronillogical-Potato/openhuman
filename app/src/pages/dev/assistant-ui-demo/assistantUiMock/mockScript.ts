@@ -349,5 +349,9 @@ export const MOCK_MEMORY_RECALL: RecallResponse = {
 };
 
 export const MOCK_THREAD_FILES = [
-  { id: 'mock-artifact-1', label: 'Signed contract', description: 'artifacts/signed-contract.docx' },
+  {
+    id: 'mock-artifact-1',
+    label: 'Signed contract',
+    description: 'artifacts/signed-contract.docx',
+  },
 ] as const;
