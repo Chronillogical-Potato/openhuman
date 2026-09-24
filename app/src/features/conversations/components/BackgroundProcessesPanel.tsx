@@ -37,8 +37,8 @@ const subagentName = (s: SubagentActivity): string =>
 /**
  * Pure selector: the detached background sub-agents spawned in a thread,
  * newest-relevant first, deduped by spawn `taskId`. Driven off the same tool
- * timeline the inline rows and the {@link SubagentDrawer} use, so a process
- * opened here resolves to the exact same drawer entry.
+ * timeline the inline rows use, so a process opened here resolves to the
+ * exact same entry in the Agent Process Source panel.
  */
 export function selectBackgroundProcesses(timeline: ToolTimelineEntry[]): BackgroundProcess[] {
   const seen = new Set<string>();
