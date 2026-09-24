@@ -217,10 +217,10 @@ const WELCOME_SUGGESTION_KEYS = [
  * then *reappears as follow-up chips under every settled turn, forever*. Static
  * starter prompts hanging under turn 30 are worse than no chips at all.
  *
- * Gating here — at the only inlet — keeps the follow-up surface empty until a
- * real per-turn producer exists. There is none today; see openhuman#6465, which
- * also records this constraint. Do not lift the gate to the renderer: the
- * renderer cannot distinguish the two surfaces, because they read one field.
+ * Gating here — at the only inlet — keeps the follow-up surface for what only
+ * `useFollowupSuggestions` produces: the core's per-turn `chat_suggestions`
+ * (openhuman#6465 records this constraint). Do not lift the gate to the
+ * renderer: it cannot tell the two surfaces apart, because they read one field.
  *
  * `messageCount` is the *runtime's* message count (settled turns plus any live
  * tail), which is precisely what `isNewChatView` tests upstream — not the
