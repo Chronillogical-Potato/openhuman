@@ -28,6 +28,9 @@ use super::announcement_notes::{
 };
 use super::types::OpenHumanSessionHost;
 
+#[path = "runtime_session_progress.rs"]
+mod progress;
+
 /// Mutable product state observed by the runtime hooks.
 ///
 /// This type has no message accumulator, raw transcript rows, prefix matching,
@@ -1776,22 +1779,19 @@ impl OpenHumanSessionHost {
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .last_commit = Some(receipt);
-                        let mut state = state
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner());
-                        state.last_turn_hit_cap = interrupted;
-                        state.last_turn_usage = Some(usage);
-                        state.last_turn_citations = citations;
+                        {
+                            let mut state = state
+                                .lock()
+                                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                            state.last_turn_hit_cap = interrupted;
+                            state.last_turn_usage = Some(usage);
+                            state.last_turn_citations = citations;
+                        }
                         if let Some(progress) = &progress {
-                            let _ = progress.try_send(
-                                crate::agent::progress::AgentProgress::TurnContent {
-                                    input: Some(input.clone()),
-                                    output: Some(output.clone()),
-                                },
-                            );
-                            let _ = progress.try_send(
-                                crate::agent::progress::AgentProgress::TurnCompleted { iterations },
-                            );
+                            let _ = progress::send_committed_turn_progress(
+                                progress, &input, &output, iterations,
+                            )
+                            .await;
                         }
                         crate::agent::hooks::fire_hooks(
                             &post_turn_hooks,
