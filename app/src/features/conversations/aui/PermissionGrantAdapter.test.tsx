@@ -46,7 +46,10 @@ describe('PermissionGrantAdapter', () => {
   });
 
   it('authorizes and opens the OAuth URL when Connect is clicked', async () => {
-    vi.mocked(authorize).mockResolvedValue({ connectUrl: 'https://example.com/oauth' });
+    vi.mocked(authorize).mockResolvedValue({
+      connectUrl: 'https://example.com/oauth',
+      connectionId: 'conn-1',
+    });
     renderAdapter();
 
     await userEvent.click(screen.getByRole('button', { name: /connect/i }));
