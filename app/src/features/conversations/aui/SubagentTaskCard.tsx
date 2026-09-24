@@ -198,7 +198,11 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({ args, result, m
       elapsed={elapsed}
       actions={actions}
       result={resultNode}>
-      {nestedMessages.length > 0 ? <TaskTranscript messages={nestedMessages} /> : undefined}
+      {nestedMessages.length > 0 ? (
+        <div data-testid="subagent-activity">
+          <TaskTranscript messages={nestedMessages} />
+        </div>
+      ) : undefined}
     </TaskCard>
   );
 };
