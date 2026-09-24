@@ -306,7 +306,7 @@ pub fn list_pending(config: &Config) -> Result<Vec<PendingApproval>> {
         let mut stmt = conn
             .prepare(
                 "SELECT request_id, tool_name, action_summary, args_redacted,
-                        session_id, created_at, expires_at, source_context
+                        session_id, created_at, expires_at, source_context, tool_call_id
                  FROM pending_approvals
                  WHERE decided_at IS NULL
                  ORDER BY created_at ASC",
@@ -377,7 +377,7 @@ pub fn decide(
         let mut stmt = conn
             .prepare(
                 "SELECT request_id, tool_name, action_summary, args_redacted,
-                        session_id, created_at, expires_at, source_context
+                        session_id, created_at, expires_at, source_context, tool_call_id
                  FROM pending_approvals WHERE request_id = ?1",
             )
             .context("[approval::store] prepare select decided")?;
