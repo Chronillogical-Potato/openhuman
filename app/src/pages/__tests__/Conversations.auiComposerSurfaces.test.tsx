@@ -38,7 +38,9 @@ import layoutReducer from '../../store/layoutSlice';
 import runModeReducer from '../../store/runModeSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
+import threadGoalReducer from '../../store/threadGoalSlice';
 import threadReducer from '../../store/threadSlice';
+import threadTodosReducer from '../../store/threadTodosSlice';
 import type { Thread, ThreadMessage } from '../../types/thread';
 
 // ── Hoisted mock state ─────────────────────────────────────────────────────
@@ -168,6 +170,8 @@ function buildStore(preload: Record<string, unknown> = {}) {
       chatRuntime: chatRuntimeReducer,
       runMode: runModeReducer,
       theme: themeReducer,
+      threadGoal: threadGoalReducer,
+      threadTodos: threadTodosReducer,
     }),
     preloadedState: preload as never,
   });
