@@ -20,6 +20,8 @@ export interface BackgroundProcess {
   status: ToolTimelineEntryStatus;
   toolCount: number;
   iterations?: number;
+  /** Live/settled elapsed time, when the core reports one, for the inbox's elapsed column. */
+  elapsedMs?: number;
 }
 
 const subagentName = (s: SubagentActivity): string =>
