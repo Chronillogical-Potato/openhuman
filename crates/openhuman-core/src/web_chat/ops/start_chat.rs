@@ -195,7 +195,24 @@ pub async fn start_chat(
             prompt_decision.prompt_hash,
             prompt_decision.prompt_chars,
         );
-        return Err(prompt_guard_user_message(prompt_decision.action).to_string());
+        let verdict = match prompt_decision.action {
+            PromptEnforcementAction::Allow => "allow",
+            PromptEnforcementAction::Blocked => "block",
+            PromptEnforcementAction::ReviewBlocked => "review_blocked",
+        }
+        .to_string();
+        return Err(StartChatError::Guardrail {
+            verdict,
+            score: prompt_decision.score as f64,
+            reasons: prompt_decision
+                .reasons
+                .iter()
+                .map(|r| crate::core::socketio::GuardrailReason {
+                    code: r.code.clone(),
+                    message: r.message.clone(),
+                })
+                .collect(),
+        });
     }
 
     // Chat-native approval: if this thread has a parked approval and the message

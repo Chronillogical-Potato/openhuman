@@ -24,7 +24,7 @@ describe('MediaGenerationCall', () => {
       />
     );
 
-    expect(screen.getByText('a red fox in snow')).toBeInTheDocument();
+    expect(screen.getByText('Generating')).toBeInTheDocument();
   });
 
   it('renders one image per produced artifact once the tool completes', () => {

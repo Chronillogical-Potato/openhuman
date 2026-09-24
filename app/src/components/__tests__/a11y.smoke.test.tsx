@@ -55,19 +55,18 @@ describe('accessibility smoke', () => {
     await expectNoViolations(container);
   });
 
-  it('ApprovalRequestCard has no axe violations', async () => {
-    const approval: PendingApproval = {
-      requestId: 'req-1',
-      toolName: 'shell',
-      message: 'Run `shell` — shell (18 bytes of arguments)',
-      command: 'pip show yfinance',
-    };
-    const store = configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
-    store.dispatch(setPendingApprovalForThread({ threadId: 't1', approval }));
+  it('ApprovalCardAdapter has no axe violations', async () => {
     const { container } = render(
-      <Provider store={store}>
-        <ApprovalRequestCard threadId="t1" approval={approval} />
-      </Provider>
+      <ApprovalCardAdapter
+        ariaLabel="Approval needed"
+        title="Approval needed"
+        subtitle="Run `shell` — shell (18 bytes of arguments)"
+        command="pip show yfinance"
+        toolName="shell"
+        alwaysDecision="approve_always_for_tool"
+        analyticsPrefix="chat-approval"
+        onDecide={vi.fn()}
+      />
     );
     await expectNoViolations(container);
   });
