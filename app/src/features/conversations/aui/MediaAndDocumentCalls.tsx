@@ -36,19 +36,26 @@ function asMediaArtifacts(result: unknown): MediaArtifact[] | undefined {
 
 /**
  * `media_generate_image` / `media_generate_video`: the `elements-image-
- * generation` placeholder while the tool runs, then one `image` element per
- * produced artifact.
+ * generation` placeholder while the tool runs, then one element per produced
+ * artifact — the vendored `elements/image.tsx` `Image` for `type: "image"`,
+ * or a plain `<video>` (no vendored assistant-ui element covers video) for
+ * `type: "video"`.
  *
  * `path` (a local, core-served artifact) is resolved through
  * `artifact_id` via the existing artifact download/reveal path rather than
  * dereferenced directly — an artifact's on-disk location is not a stable
- * URL a plain `<img>` can load without the core's static file route, and
- * that route is what `services/artifactDownloadService.ts` already knows
- * how to reach. Until the wire contract confirms the served URL shape, the
- * local-path case falls back to `thumbnail_url` when present and otherwise
- * skips the artifact rather than guessing a path.
+ * URL a plain `<img>`/`<video>` can load without the core's static file
+ * route, and that route is what `services/artifactDownloadService.ts`
+ * already knows how to reach. Until the wire contract confirms the served
+ * URL shape, the local-path case falls back to `thumbnail_url`/`source_url`
+ * when present and otherwise skips the artifact rather than guessing a path.
  */
-export const MediaGenerationCall: ToolCallMessagePartComponent = ({ args, result, status }) => {
+export const MediaGenerationCall: ToolCallMessagePartComponent = ({
+  toolName,
+  args,
+  result,
+  status,
+}) => {
   const prompt =
     typeof (args as { prompt?: unknown })?.prompt === 'string'
       ? (args as { prompt: string }).prompt
@@ -63,16 +70,26 @@ export const MediaGenerationCall: ToolCallMessagePartComponent = ({ args, result
   return (
     <div className="flex flex-wrap gap-2" data-testid="assistant-ui-media-generation-result">
       {artifacts.map((artifact, index) => {
+        const key = artifact.artifact_id ?? `${artifact.path ?? 'artifact'}-${index}`;
+        const isVideo = artifact.type === 'video' || toolName === 'media_generate_video';
+        if (isVideo) {
+          const src = artifact.source_url;
+          if (!src) return null;
+          return (
+            // eslint-disable-next-line jsx-a11y/media-has-caption -- generated media has no track
+            <video
+              key={key}
+              data-testid="assistant-ui-media-generation-video"
+              src={src}
+              poster={artifact.thumbnail_url}
+              controls
+              className="max-h-72 max-w-full rounded-lg"
+            />
+          );
+        }
         const src = artifact.source_url ?? artifact.thumbnail_url;
         if (!src) return null;
-        return (
-          <Image
-            key={artifact.artifact_id ?? `${artifact.path ?? 'artifact'}-${index}`}
-            type="image"
-            image={src}
-            status={{ type: 'complete' }}
-          />
-        );
+        return <Image key={key} type="image" image={src} status={{ type: 'complete' }} />;
       })}
     </div>
   );
