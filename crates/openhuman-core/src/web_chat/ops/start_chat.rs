@@ -518,12 +518,17 @@ pub async fn start_chat(
                     followups.len(),
                     thread_id_task
                 );
+                // `followups` can carry more than one drained item; the event's
+                // `item_id`/`text_preview` describe the first one so the UI has
+                // something concrete to show even when several dispatch at once.
+                let first_followup = followups.first();
                 crate::core::bus::BUS.publish(
                     crate::core::events::DomainEvent::RunQueueFollowupDispatched {
                         thread_id: thread_id_task.clone(),
                         followup_count: followups.len(),
-                        item_id: None,
-                        text_preview: None,
+                        item_id: first_followup.map(|f| f.id.clone()),
+                        text_preview: first_followup
+                            .map(|f| crate::agent::queued_turn::text_preview(&f.text)),
                     },
                 );
                 dispatch_followups(followups);
