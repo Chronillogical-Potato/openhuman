@@ -241,6 +241,7 @@ pub(crate) async fn stage_spawn_parallel_workers_from_defs(
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .is_some(),
+            parent_call_id,
         )
         .await;
         let workspace_descriptor = match create_spawn_parallel_worktree(
