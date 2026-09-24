@@ -237,6 +237,73 @@ describe('ChatToolParts', () => {
     expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent('Searched the web');
   });
 
+  it('labels a Composio action with a query argument by its service, not the web', () => {
+    // `GMAIL_FETCH_EMAILS` carries a `query` argument, which used to be the
+    // web-search heuristic's whole trigger — any call with a `query` key read
+    // as "Searched the web" regardless of what it actually called.
+    render(
+      <ChatToolFallback
+        type="tool-call"
+        toolName="GMAIL_FETCH_EMAILS"
+        toolCallId="gmail-fetch"
+        args={{ query: 'from:broker' } as never}
+        argsText={'{"query":"from:broker"}'}
+        result="1 message"
+        status={{ type: 'complete' }}
+        addResult={() => {}}
+        resume={() => {}}
+        respondToApproval={() => {}}
+      />
+    );
+
+    const card = screen.getByTestId('assistant-ui-tool-call');
+    expect(card).toHaveTextContent('Used Gmail');
+    expect(card).not.toHaveTextContent('Searched the web');
+  });
+
+  it('labels a memory search as memory, not the web', () => {
+    render(
+      <ChatToolFallback
+        type="tool-call"
+        toolName="memory_hybrid_search"
+        toolCallId="memory-search"
+        args={{ query: 'apple stock' } as never}
+        argsText={'{"query":"apple stock"}'}
+        result="2 memories"
+        status={{ type: 'complete' }}
+        addResult={() => {}}
+        resume={() => {}}
+        respondToApproval={() => {}}
+      />
+    );
+
+    const card = screen.getByTestId('assistant-ui-tool-call');
+    expect(card).toHaveTextContent('Searched memory');
+    expect(card).not.toHaveTextContent('Searched the web');
+  });
+
+  it('prefers the label the row carries on the part artifact for a tool the registry cannot describe', () => {
+    render(
+      <ChatToolFallback
+        type="tool-call"
+        toolName="acme_widget_ping"
+        toolCallId="widget-ping"
+        args={{ symbol: 'AAPL' } as never}
+        argsText={'{"symbol":"AAPL"}'}
+        result="ok"
+        status={{ type: 'complete' }}
+        artifact={{ kind: 'openhuman-tool', displayName: 'Widget ping', detail: 'AAPL' }}
+        addResult={() => {}}
+        resume={() => {}}
+        respondToApproval={() => {}}
+      />
+    );
+
+    const card = screen.getByTestId('assistant-ui-tool-call');
+    expect(card).toHaveTextContent('Widget ping');
+    expect(card).toHaveTextContent('AAPL');
+  });
+
   it('labels the tool_call wrapper by the tool it actually invoked', () => {
     // `tool_call_schema()` declares `{name, arguments}`, both required, so the
     // wrapped tool is always in `name`. The row used to show only the wrapper,
