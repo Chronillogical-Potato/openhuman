@@ -178,13 +178,7 @@ pub async fn regenerate(request: RegenerateRequest) -> Result<RpcOutcome<Value>,
     .ok_or_else(|| ThreadsError::Message(format!("thread {thread_id} has no turn to regenerate")))?;
 
     clear_dropped_turn_states(&dir, &thread_id, &cut_request_id).await;
-    conversations::blocking::delete_messages_from(
-        dir.clone(),
-        thread_id.clone(),
-        run_reply_message_id(&cut_request_id),
-    )
-    .await
-    .map_err(|e| ThreadsError::from_thread_scoped_store_error(&thread_id, e))?;
+    super::delete_after(&thread_id, &run_reply_message_id(&cut_request_id)).await?;
 
     crate::web_chat::invalidate_thread_sessions(&thread_id).await;
 
