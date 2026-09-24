@@ -10,12 +10,37 @@ import { useState } from 'react';
 
 import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
 import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeline';
+import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
+import { ElicitationAdapter } from '../../features/conversations/aui/ElicitationAdapter';
+import { PermissionGrantAdapter } from '../../features/conversations/aui/PermissionGrantAdapter';
 import { AssistantUiToolCallCard } from '../../features/conversations/components/AssistantUiToolCall';
 import coreToolNames from '../../features/conversations/tools/__fixtures__/coreToolNames.json';
 import { ToolIcon } from '../../features/conversations/tools/ToolIcon';
 import { describeToolCall, toolLabel } from '../../features/conversations/tools/toolPresentation';
 import { useT } from '../../lib/i18n/I18nContext';
+import type { PendingApproval } from '../../store/chatRuntimeSlice';
 import { MOCK_MESSAGE_QUEUE } from './assistant-ui-demo/assistantUiMock/mockScript';
+
+/** Fixtures for every approval-card state (WS-B, assistant-ui-elements plan). */
+const APPROVAL_PENDING_APPROVAL: PendingApproval = {
+  requestId: 'dev-approval-pending',
+  toolName: 'shell',
+  message: 'Run `shell` — list the repository root',
+  command: 'ls -la /Users/dev/project',
+};
+
+const APPROVAL_EXPIRING: PendingApproval = {
+  ...APPROVAL_PENDING_APPROVAL,
+  requestId: 'dev-approval-expiring',
+  expiresAt: new Date(Date.now() + 65_000).toISOString(),
+};
+
+const COMPOSIO_CONNECT_APPROVAL: PendingApproval = {
+  requestId: 'dev-composio-connect',
+  toolName: 'composio_connect',
+  message: 'Connect Google Drive?',
+  toolkit: 'googledrive',
+};
 
 const SEARCH_RESULT = [
   'Search results for: rust async traits (via Exa)',
