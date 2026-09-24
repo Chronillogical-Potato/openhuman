@@ -9,11 +9,11 @@ import { socketService } from '../../services/socketService';
 import { store } from '../../store';
 import {
   clearAllChatRuntime,
-  enqueueFollowup,
   findPendingDelegationContext,
   resetSessionTokenUsage,
   setPendingPlanReviewForThread,
 } from '../../store/chatRuntimeSlice';
+import { pendingFollowupAdded } from '../../store/queueSlice';
 import { setStatusForUser } from '../../store/socketSlice';
 import {
   clearAllThreads,
@@ -685,7 +685,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
     it('flushes queued follow-ups into the transcript when a turn ends', async () => {
       const listeners = renderProvider();
       store.dispatch(
-        enqueueFollowup({
+        pendingFollowupAdded({
           threadId: 't-fup',
           message: {
             id: 'f1',
@@ -695,7 +695,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
             sender: 'user',
             createdAt: '2026-01-01T00:00:00.000Z',
           },
-          label: 'queued follow-up text',
+          text: 'queued follow-up text',
         })
       );
 
@@ -718,7 +718,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           expect.objectContaining({ content: 'queued follow-up text', sender: 'user' })
         )
       );
-      expect(store.getState().chatRuntime.queuedFollowupsByThread['t-fup']).toBeUndefined();
+      expect(store.getState().queue.pendingFollowupsByThread['t-fup']).toBeUndefined();
     });
 
     it('stamps the assistant answer with the producing turn requestId on chat_done', async () => {
