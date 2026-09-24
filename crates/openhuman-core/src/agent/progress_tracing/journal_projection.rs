@@ -249,7 +249,9 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             }
         }
 
-        AgentEvent::ToolStarted { call_id, tool_name } => match state.active_subagent() {
+        AgentEvent::ToolStarted {
+            call_id, tool_name, ..
+        } => match state.active_subagent() {
             Some(scope) => vec![AgentProgress::SubagentToolCallStarted {
                 agent_id: scope.agent_id.clone(),
                 task_id: scope.task_id.clone(),
