@@ -20,7 +20,6 @@ const SYSTEM_THEME_ID = 'system';
 /** Default theme family selected on first run. */
 const DEFAULT_FAMILY_ID = 'classic';
 export type TabBarLabels = 'hover' | 'always';
-export type AgentMessageViewMode = 'bubbles' | 'text';
 /**
  * Global app font size (issue #3120). Drives the root `<html>` font-size, which
  * scales every rem-based Tailwind text utility — including chat messages and the
@@ -71,7 +70,6 @@ interface ThemeState {
    * tile clears this back to `null`.
    */
   customFontSizePx: number | null;
-  agentMessageViewMode: AgentMessageViewMode;
   /**
    * Runtime Developer Mode (default OFF).
    * When true, all developer and diagnostic surfaces become visible.
@@ -80,15 +78,6 @@ interface ThemeState {
    * is authoritative and is never relaxed by this toggle.
    */
   developerMode: boolean;
-  /**
-   * Hide the live "Agentic task insights" step-by-step timeline in chat
-   * (default OFF). When true, the verbose per-agent step rows are collapsed
-   * away: the chat shows only the existing message-bubble loading plus a
-   * compact blinking "Processing" link while a turn is in flight. The full
-   * timeline is still one click away via that link / the "View full agent
-   * process Source" affordance, which open the existing side panel.
-   */
-  hideAgentInsights: boolean;
   /**
    * Active selection: a theme **family** id (`classic`, `ocean`, `matrix`,
    * `hal9000`, `sepia`) or a custom theme id. Combined with
@@ -112,9 +101,7 @@ const initialState: ThemeState = {
   tabBarLabels: 'hover',
   fontSize: 'medium',
   customFontSizePx: null,
-  agentMessageViewMode: 'text',
   developerMode: false,
-  hideAgentInsights: false,
   activeThemeId: DEFAULT_FAMILY_ID,
   themeVariant: 'system',
   customThemes: [],
@@ -206,14 +193,8 @@ const themeSlice = createSlice({
     setCustomFontSizePx(state, action: PayloadAction<number | null>) {
       state.customFontSizePx = action.payload === null ? null : clampFontSizePx(action.payload);
     },
-    setAgentMessageViewMode(state, action: PayloadAction<AgentMessageViewMode>) {
-      state.agentMessageViewMode = action.payload;
-    },
     setDeveloperMode(state, action: PayloadAction<boolean>) {
       state.developerMode = action.payload;
-    },
-    setHideAgentInsights(state, action: PayloadAction<boolean>) {
-      state.hideAgentInsights = action.payload;
     },
   },
   extraReducers: builder => {
@@ -244,9 +225,7 @@ export const {
   setTabBarLabels,
   setFontSize,
   setCustomFontSizePx,
-  setAgentMessageViewMode,
   setDeveloperMode,
-  setHideAgentInsights,
   setActiveTheme,
   upsertCustomTheme,
   deleteCustomTheme,
@@ -362,14 +341,6 @@ export function selectEffectiveTheme(state: { theme?: ThemeState }): Theme {
   if (!state.theme) return findFamily('classic')!.light!;
   return effectiveThemeFromState(state.theme);
 }
-
-/**
- * Selector for the persisted `hideAgentInsights` preference. Falls back to
- * `false` so existing persisted state (written before this field existed)
- * keeps the verbose timeline visible until the user opts out.
- */
-export const selectHideAgentInsights = (state: { theme: ThemeState }): boolean =>
-  state.theme.hideAgentInsights ?? false;
 
 /**
  * Selector for the persisted `developerMode` preference.

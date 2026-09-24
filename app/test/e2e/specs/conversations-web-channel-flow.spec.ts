@@ -134,13 +134,10 @@ suiteRunner('Conversations web channel flow', () => {
     // Count agent message rows by a stable test hook, never by Tailwind
     // classes: a restyle would either break this assertion or — worse — make
     // it pass vacuously (0 > 0 is false, but 0 === 0 silently hides a
-    // transcript that stopped rendering entirely). `data-testid`/`data-sender`
-    // live on the message row in ChatThreadView and survive any restyle.
+    // transcript that stopped rendering entirely). `agent-message` is the
+    // assistant-ui message root's testid and survives any restyle.
     const countAgentRows = () =>
-      browser.execute(
-        () =>
-          document.querySelectorAll('[data-testid="chat-message-row"][data-sender="agent"]').length
-      );
+      browser.execute(() => document.querySelectorAll('[data-testid="agent-message"]').length);
 
     const initialAgentCount = await countAgentRows();
     // Guard against the vacuous-pass shape above: the transcript must contain

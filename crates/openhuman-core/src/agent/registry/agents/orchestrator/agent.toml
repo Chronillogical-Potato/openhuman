@@ -121,8 +121,9 @@ allowlist = [
     # the memory tree only when a message needs it, not before every turn.
     "agent_memory",
     # Image-understanding specialist. Route anything that hinges on the content
-    # of an attached or on-disk user-provided image file here — it rides the
-    # multimodal `hint:vision` tier, so it can actually see the image.
+    # of an attached or on-disk user-provided image file here — it is pinned to
+    # a dedicated multimodal model (`MODEL_MEDIA_UNDERSTANDING`), so it can
+    # actually see the image.
     "vision_agent",
     # Image-generation specialist. Synthesised into a `delegate_create_image`
     # tool. Route make/generate/edit an image requests here — it owns prompt
@@ -335,6 +336,21 @@ named = [
     # spawn and the synchronous delegate paths instruct the model to call it.
     "continue_subagent",
     "composio_list_connections",
+    # "What can I connect?" — the backend allowlist as
+    # `{toolkits, catalog:[{slug, name, description, categories}]}`. Distinct
+    # from `composio_list_connections`, which returns only ACTIVE/CONNECTED
+    # entries: prompt.md is right that "the list shows what is connected, not
+    # what is connectable", and THIS is the connectable half.
+    #
+    # Unpacked in `toolpacks::registry` so it can be declared here at all —
+    # packed, `closed_by_direct_handoff` denied it to this agent and every
+    # route out was closed: `use_skill{composio}` answers "no tools available",
+    # and the `plan` hand-off it names describes itself as DAG decomposition,
+    # which gives a model no reason to try it for a catalogue lookup. Measured:
+    # asked to list Composio apps, this agent ran `use_skill`, six
+    # `tool_search` calls, a 404 and two doc fetches, then reported a marketing
+    # "1,552+ apps" instead of this install's real 119.
+    "composio_list_toolkits",
     # Inline OAuth connect card (#3993). Free-form `toolkit` slug — the
     # orchestrator calls this directly to connect a service the user names,
     # whether or not it is already connected. Validates against the backend

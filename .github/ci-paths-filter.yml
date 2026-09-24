@@ -133,6 +133,7 @@ scripts:
   - 'scripts/release/*.mjs'
   # Bash helpers with node --test coverage in scripts/__tests__/.
   - 'scripts/ci/assert-coverage-presence.sh'
+  - 'scripts/test-rust-e2e.sh'
   # Shared logic behind the gate CLIs, and the module-pin gate's own
   # files. Without these a change to the checking logic would skip
   # the lane that tests it — the gate would stop watching itself.
@@ -145,6 +146,11 @@ scripts:
   # pin its clauses, or the counter's anchoring and its
   # cfg_attr guard can be loosened with nothing watching.
   - 'scripts/ci/check-ignored-tests.mjs'
+  # The web E2E build/session contract has script-level regression
+  # tests; run them when either participant or Vite changes.
+  - 'app/scripts/e2e-web-build.sh'
+  - 'app/scripts/e2e-web-session.sh'
+  - 'app/vite.config.*'
 # Test-wiring surface: a change here can orphan a test or add an
 # untested controller domain → run the inventory guard.
 inventory:

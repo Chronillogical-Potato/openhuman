@@ -5,11 +5,12 @@
  * builder thread being a different thread from the home chat's selection:
  *
  * 1. READ — a component rendered where the transcript goes sees the copilot's
- *    messages, not the selected thread's. `ChatThreadView` is stubbed with a
- *    probe that uses assistant-ui's own hooks, which is precisely what the real
- *    transcript will do once it renders from `ThreadPrimitive`/`MessagePrimitive`.
- *    Against a runtime that reads `selectedThreadId` this probe shows the home
- *    chat's transcript inside the copilot — the regression this file exists for.
+ *    messages, not the selected thread's. The assistant-ui `Thread` is stubbed
+ *    with a probe that uses assistant-ui's own hooks, which is precisely what
+ *    the real `Thread` does (`ThreadPrimitive`/`MessagePrimitive`). Against a
+ *    runtime that reads `selectedThreadId` this probe shows the home chat's
+ *    transcript inside the copilot — the regression this file exists for. The
+ *    real `Thread` is exercised in `WorkflowCopilotPanel.thread.test.tsx`.
  *
  * 2. WRITE — appending through that runtime reaches the panel's REAL `submit`,
  *    which builds the structured `WorkflowBuilderSendParams` (build mode +
@@ -34,11 +35,11 @@ import WorkflowCopilotPanel from './WorkflowCopilotPanel';
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 vi.mock('../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
-// Stand-in for the transcript, deliberately written the way the migrated
-// transcript will be written: it reads the runtime from context rather than
-// taking a thread id. Whatever runtime the panel mounted is what it reports.
-vi.mock('../../features/conversations/components/ChatThreadView', () => ({
-  ChatThreadView: () => {
+// Stand-in for the transcript, written the way the real `Thread` reads: from
+// the runtime in context rather than from a thread id. Whatever runtime the
+// panel mounted is what it reports.
+vi.mock('@/components/assistant-ui/thread', () => ({
+  Thread: () => {
     const thread = useAuiState(({ thread: t }) => t);
     const aui = useAui();
     return (

@@ -80,8 +80,7 @@ impl TurnStateStore {
         tmp.as_file()
             .sync_all()
             .map_err(|e| format!("fsync turn-state tempfile: {e}"))?;
-        tmp.persist(&path)
-            .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))?;
+        persist_temp_file(tmp, &path)?;
         // Sync the directory entry created by the rename — without this a crash
         // or power loss between persist() and the next fs flush can drop the
         // snapshot, defeating the cold-boot recovery guarantee. Best-effort on
@@ -454,8 +453,7 @@ impl TurnStateStore {
         tmp.as_file()
             .sync_all()
             .map_err(|e| format!("fsync turn-state tempfile: {e}"))?;
-        tmp.persist(&path)
-            .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))?;
+        persist_temp_file(tmp, &path)?;
         if let Err(err) = sync_dir(&dir) {
             log::warn!("{LOG_PREFIX} failed to fsync {}: {err}", dir.display());
         }
@@ -494,6 +492,84 @@ impl TurnStateStore {
             }
         }
     }
+}
+
+#[cfg(windows)]
+fn persist_temp_file(tmp: NamedTempFile, path: &Path) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING};
+
+    let wide_path = |path: &Path| -> Result<Vec<u16>, String> {
+        let filename = path
+            .file_name()
+            .ok_or_else(|| format!("resolve turn-state filename {}", path.display()))?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| format!("resolve turn-state parent {}", path.display()))?
+            // Canonicalizing the existing parent gives Windows a verbatim
+            // long-path form before appending the not-yet-existing filename.
+            .canonicalize()
+            .map_err(|e| format!("resolve turn-state parent {}: {e}", path.display()))?;
+        let resolved = parent.join(filename);
+        let raw: Vec<u16> = resolved.as_os_str().encode_wide().collect();
+        let mut extended =
+            if raw.starts_with(&[b'\\' as u16, b'\\' as u16, b'?' as u16, b'\\' as u16]) {
+                raw
+            } else if raw.starts_with(&[b'\\' as u16, b'\\' as u16]) {
+                // Convert a UNC path from `\\server\share` to
+                // `\\?\UNC\server\share`.
+                let mut prefixed: Vec<u16> = r"\\?\UNC\".encode_utf16().collect();
+                prefixed.extend_from_slice(&raw[2..]);
+                prefixed
+            } else {
+                let mut prefixed: Vec<u16> = r"\\?\".encode_utf16().collect();
+                prefixed.extend_from_slice(&raw);
+                prefixed
+            };
+        extended.push(0);
+        Ok(extended)
+    };
+    // Compute both paths while `tmp` still owns its file, so any preparation
+    // error lets NamedTempFile clean the tempfile up automatically.
+    let source = wide_path(tmp.path())?;
+    let destination = wide_path(path)?;
+    let (file, temp_path) = tmp
+        .keep()
+        .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))?;
+    // `keep` transfers ownership to us, so close the handle before replacing
+    // the destination and explicitly clean it up if the replacement fails.
+    drop(file);
+    // SAFETY: both buffers are NUL-terminated and remain alive for the call.
+    // The paths share a directory, so this is an atomic replacement rather
+    // than a cross-volume copy-and-delete move.
+    let moved = unsafe {
+        MoveFileExW(
+            source.as_ptr(),
+            destination.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING,
+        )
+    };
+    if moved != 0 {
+        return Ok(());
+    }
+
+    let error = std::io::Error::last_os_error();
+    Err({
+        if let Err(cleanup_err) = fs::remove_file(&temp_path) {
+            warn!(
+                "{LOG_PREFIX} failed to remove turn-state tempfile {} after rename failure: {cleanup_err}",
+                temp_path.display()
+            );
+        }
+        format!("persist turn-state file {}: {error}", path.display())
+    })
+}
+
+#[cfg(not(windows))]
+fn persist_temp_file(tmp: NamedTempFile, path: &Path) -> Result<(), String> {
+    tmp.persist(path)
+        .map(|_| ())
+        .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))
 }
 
 /// Pick the latest turn (greatest `started_at`, ties broken by `updated_at`).

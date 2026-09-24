@@ -16,12 +16,13 @@
  * give false confidence about code no user reaches. Each was checked against
  * this product's real transcript surfaces and deleted rather than force-fitted:
  *
- * - `Reasoning` / `ChainOfThought` — this product renders the agent's thinking
- *   INLINE at the position it streamed (the assistant-ui delegation transcript,
- *   explicitly "no heading, no collapse"; `ProcessingTranscriptView`'s
- *   interleaved narration). Both upstream components are whole-panel
- *   collapsibles that hide that trail behind one "Thought for N seconds"
- *   summary — the opposite of the chosen design.
+ * - `Reasoning` / `ChainOfThought` — reasoning renders through assistant-ui's
+ *   own static reasoning element instead
+ *   (`components/assistant-ui/elements/reasoning-panel.tsx`, used via
+ *   `ReasoningTrace`): a collapsible "Thought for Ns" panel of titled steps in
+ *   the thread, and the same panel non-collapsible where the trail must stay
+ *   visible (the process rail, the sub-agent drawer). A second, ai-elements
+ *   port of the same idea would only diverge from it.
  * - `Plan` — `PlanReviewCard` is the real
  *   surfaces. The strip wants a plain `ui/Collapsible`, not `Task`'s
  *   search-icon trigger and bordered rail; the review card is a blocking
@@ -34,6 +35,11 @@
  * - `Suggestion` — there are no suggested-reply chips in this product.
  * - `Tool` — `ToolTimelineBlock` carries run-loop coalescing that upstream has
  *   no equivalent for and stays. Nothing else needs a tool-call renderer.
+ *
+ * `Conversation` and `Message` went the same way later: their only caller was
+ * the legacy `ChatThreadView` transcript, which was replaced end to end by the
+ * assistant-ui `Thread` (`components/assistant-ui/thread.tsx`), whose own
+ * viewport and message primitives cover both.
  *
  * If one of these is wanted later, it is a `git log` away — but it should come
  * back with a caller in the same change.
@@ -50,25 +56,6 @@ export {
   type SourcesProps,
   type SourcesTriggerProps,
 } from './Sources';
-
-// Transcript shell
-export {
-  Conversation,
-  ConversationContent,
-  type ConversationContentProps,
-  type ConversationProps,
-} from './Conversation';
-export {
-  Message,
-  MessageAction,
-  MessageActions,
-  MessageContent,
-  type MessageActionProps,
-  type MessageActionsProps,
-  type MessageContentProps,
-  type MessageProps,
-  type MessageRole,
-} from './Message';
 
 // Icons
 export { BookIcon, ChevronDownIcon } from './icons';

@@ -16,6 +16,7 @@
     "dev": "pnpm --filter openhuman-app dev",
     "dev:app": "pnpm --filter openhuman-app dev:app",
     "dev:app:web": "bash scripts/run-dev-web.sh",
+    "dev:app:web:attach": "bash scripts/run-dev-web.sh --attach",
     "dev:app:win": "pnpm --filter openhuman-app dev:app:win",
     "dev:staging": "bash scripts/dev-staging.sh",
     "dev:cef": "pnpm --filter openhuman-app dev:cef",

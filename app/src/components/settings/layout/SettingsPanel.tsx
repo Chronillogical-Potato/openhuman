@@ -10,6 +10,8 @@ import SettingsSubNav from './SettingsSubNav';
 import SettingsTabbedPage from './SettingsTabbedPage';
 
 interface SettingsPanelProps<T extends string = string> {
+  // Custom back handler. Defaults to router navigation.
+  onBack?: () => void;
   /**
    * Replaces the default `space-y-5` body wrapper. A panel whose main region is
    * meant to fill the height (a live log, a list) needs to be a flex column
@@ -89,6 +91,7 @@ export default function SettingsPanel<T extends string = string>({
   testId,
   bodyClassName,
   scrollable,
+  onBack,
 }: SettingsPanelProps<T>) {
   const { t } = useT();
   const { currentRoute, navigateBack } = useSettingsNavigation();
@@ -133,7 +136,7 @@ export default function SettingsPanel<T extends string = string>({
   const entry = findEntryById(currentRoute);
   const resolvedTitle = title ?? (entry ? t(entry.titleKey) : t('nav.settings'));
 
-  const leading = <SettingsBackButton onBack={navigateBack} />;
+  const leading = <SettingsBackButton onBack={onBack ?? navigateBack} />;
 
   // Family pill row (e.g. Account → Team / Privacy / …). Renders null when the
   // active route has no siblings, so it costs nothing on standalone panels.

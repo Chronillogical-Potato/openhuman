@@ -236,37 +236,3 @@ export function AgentMessageBubble({
     </>
   );
 }
-
-export function AgentMessageText({ content }: { content: string }) {
-  const segments = parseBubbleSegments(content);
-  const textContent = segments
-    .filter(s => s.kind === 'text')
-    .map(s => s.text)
-    .join('')
-    .trim();
-  const linkSegments = segments.filter(
-    (s): s is Extract<typeof s, { kind: 'link' }> => s.kind === 'link'
-  );
-  const table = parseMarkdownTable(textContent);
-
-  return (
-    <div className="w-full min-w-0 px-1 py-1 text-content" data-testid="agent-message-text">
-      {table ? (
-        <AgentMarkdownTable table={table} className="w-full max-w-full overflow-hidden" />
-      ) : (
-        textContent && <BubbleMarkdown content={textContent} />
-      )}
-      {linkSegments.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {linkSegments.map((segment, idx) => (
-            <OpenhumanLinkPill
-              key={`pill-${idx}-${segment.path}`}
-              path={segment.path}
-              label={segment.label}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

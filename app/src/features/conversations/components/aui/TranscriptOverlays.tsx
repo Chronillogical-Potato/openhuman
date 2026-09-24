@@ -31,9 +31,9 @@ export interface TranscriptOverlaysProps {
  * The three transcript-local modals: background sub-agents, the sub-agent
  * drawer, and the Agent Process Source panel.
  *
- * Split out of `ChatThreadView` because none of it is part of the transcript's
- * render path — it is driven entirely by the view's own disclosure state, and
- * keeping it inline made the hot path harder to read than it needs to be.
+ * Mounted beside the assistant-ui `Thread` by each host (the home chat and the
+ * workflow copilot) because none of it is part of the transcript's render path
+ * — it is driven entirely by the host's own disclosure state.
  */
 export function TranscriptOverlays({
   threadId,

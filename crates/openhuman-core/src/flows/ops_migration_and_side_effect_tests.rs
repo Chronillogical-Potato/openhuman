@@ -695,3 +695,6 @@ fn migrate_and_deserialize_graph_does_not_blame_a_node_for_a_top_level_fault() {
         "error should still name the offending field, got: {err}"
     );
 }
+
+#[path = "ops_migration_deserialize_tests.rs"]
+mod deserialize_tests;

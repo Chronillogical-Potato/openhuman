@@ -23,11 +23,10 @@
  *
  * Everything is measured from the live scroll container, not from mock calls.
  *
- * **The container has no testid on the shipped path.** `chat-messages-scroll`
- * belongs to `ChatThreadView` (the legacy composer's transcript);
- * `Conversations.tsx:2539` renders the assistant-ui panel by default, whose
- * viewport is `thread.tsx:226` — `relative flex flex-1 flex-col
- * overflow-x-auto overflow-y-scroll scroll-smooth`, with no testid. Rather
+ * **The container has no testid on the shipped path.** Every chat surface
+ * renders the assistant-ui `Thread`, whose viewport (`thread.tsx`) is
+ * `relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll
+ * scroll-smooth`, with no testid. Rather
  * than pin a Tailwind string, this walks up from the composer input and takes
  * the first ancestor that actually scrolls, and throws if there is none — so a
  * class rename fails loudly instead of silently measuring `document`.
@@ -143,6 +142,30 @@ async function scrollTo(page: Page, top: number): Promise<void> {
     .toBe(true);
 }
 
+/** The selected thread id, read from the live store. */
+async function selectedThreadId(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const store = (
+      window as unknown as {
+        __OPENHUMAN_STORE__?: {
+          getState?: () => { thread?: { selectedThreadId?: string | null } };
+        };
+      }
+    ).__OPENHUMAN_STORE__;
+    return store?.getState?.().thread?.selectedThreadId ?? null;
+  });
+}
+
+async function startNewThread(page: Page): Promise<void> {
+  await dismissWalkthroughIfPresent(page);
+  const sidebar = page.getByTestId('new-thread-sidebar-button');
+  if (await sidebar.isVisible().catch(() => false)) {
+    await sidebar.click({ force: true });
+  } else {
+    await page.getByTestId('new-thread-button').click({ force: true });
+  }
+}
+
 async function sendMessage(page: Page, prompt: string): Promise<void> {
   await dismissWalkthroughIfPresent(page);
   // The live input is a Lexical contenteditable, not a textarea — `fill()` and
@@ -247,8 +270,7 @@ test.describe('Chat transcript stick-to-bottom', () => {
     // bottom-follow behaviour, but disables its unconditional run-start scroll.
     // That lets a reader who has scrolled up keep their place while a reader at
     // the bottom follows the new turn. Do not assert an exact bottom distance
-    // here; `useStickToBottom`'s 80px threshold belongs to the legacy
-    // `ChatThreadView`, not this viewport.
+    // here; the follow threshold is an implementation detail of this viewport.
     //
     // What the user actually needs is that the new turn is brought into view,
     // and that is what this asserts.
@@ -275,10 +297,128 @@ test.describe('Chat transcript stick-to-bottom', () => {
     const SECOND_PROMPT = 'Second long answer please';
     await completeTurn(page, SECOND_PROMPT, 'SECOND-REPLY-END');
 
-    // The new turn's own prompt must be on screen, not scrolled past.
+    // The end of the streamed reply must be on screen.
+    //
+    // This is the half that was missing, and its absence is why this spec
+    // stayed green through the defect it was written to catch. The assertion
+    // above is satisfied by `ThreadBottomFollower`, which aligns the new USER
+    // message and does nothing else; the assistant tail could stream entirely
+    // below the fold and nothing here noticed.
+    //
+    // `toBeVisible()` in `completeTurn` does not cover this: in Playwright it
+    // means CSS-visible with a non-empty box, which an element scrolled far
+    // past the bottom of a scroll container satisfies. Only `toBeInViewport()`
+    // asserts it is actually on screen.
     await expect(
-      page.getByText(SECOND_PROMPT, { exact: false }).last(),
-      'a reader at the bottom must have the new turn brought into view'
+      page.getByText('SECOND-REPLY-END', { exact: false }).last(),
+      'the end of the streamed reply must be in view for a reader who stayed at the bottom'
+    ).toBeInViewport({ timeout: 15_000 });
+
+    // This test previously asserted that the new turn's own PROMPT was in
+    // viewport. That assertion was removed deliberately, not because it broke.
+    //
+    // The contract is pin-then-follow: `ThreadBottomFollower` aligns a new user
+    // message to the top of the viewport at turn start, and `useFollowBottom`
+    // keeps the newest content on screen thereafter. For a reply TALLER than
+    // the viewport the two are mutually exclusive — the question is pushed off
+    // the top by the answer it is waiting for. This fixture deliberately uses
+    // an overflowing reply (`test.skip` above requires the transcript to
+    // overflow), so the prompt is expected to leave the viewport here.
+    //
+    // Keeping the old assertion would have pinned the defect in place: it is
+    // satisfied by the pin alone, so it stayed green for a reader who could not
+    // see the answer streaming below the fold, which is the reported bug. For a
+    // reply shorter than the viewport the two never conflict and the prompt
+    // remains visible; that case is simply not what this fixture exercises.
+  });
+
+  /**
+   * Returning to an ALREADY-CACHED thread must land at the bottom.
+   *
+   * HONEST SCOPE: this is a regression guard for behaviour `main` ALREADY has
+   * (`useOpenThreadAtBottom`, #6475). It is **not** evidence for any change in
+   * this PR. Measured: it passes with `useFollowBottom` present, with it
+   * removed, and with the whole of this PR's `thread.tsx` reverted to `main`.
+   *
+   * It is kept because the scenario is expensive to reconstruct and the
+   * behaviour is worth pinning, not because it proves a fix. A reported
+   * "opening a thread does not land at the bottom" defect does NOT reproduce
+   * here — see the PR body for what a fixture that reproduces it would need
+   * (content whose height arrives asynchronously: images, or a transcript
+   * whose late layout differs from its first paint). This fixture's markdown
+   * has its full height in the first layout pass, so the one-shot scroll in
+   * `useOpenThreadAtBottom` lands correctly and there is nothing to catch.
+   *
+   * This must exercise the CACHED path, and the distinction is the whole test.
+   * `useOpenHumanExternalStore` reads `state.thread.messagesByThreadId`, a cache
+   * cleared only on delete or sign-out. A thread opened for the FIRST time
+   * briefly renders empty, which re-arms assistant-ui's own
+   * `scrollToBottomOnInitialize` latch, so it scrolls to the bottom correctly
+   * EVEN WITHOUT THE FIX. A thread visited earlier this session hands its
+   * messages over on the very render its id changes, never passes through the
+   * empty state, and keeps the previous thread's `scrollTop`.
+   *
+   * So the sequence matters: open A, open B, return to A. Checking a fresh
+   * thread would pass against the defect and prove nothing — the file comment
+   * on `useOpenThreadAtBottom` warns of exactly that.
+   */
+  test('returning to an already-cached thread lands at the bottom', async ({ page }) => {
+    await resetMock();
+    await setMockBehavior('llmStreamChunkDelayMs', '1');
+    await setMockBehavior(
+      'llmForcedResponses',
+      JSON.stringify([
+        { content: `${LONG_REPLY}\n\nTHREAD-A-END` },
+        { content: `${LONG_REPLY}\n\nTHREAD-B-END` },
+      ])
+    );
+    await openChat(page);
+
+    // Thread A, with enough content to overflow.
+    await completeTurn(page, 'First thread please', 'THREAD-A-END');
+    const threadA = await selectedThreadId(page);
+    expect(threadA, 'thread A must have an id').not.toBeNull();
+
+    const overflowing = await scrollState(page);
+    test.skip(
+      overflowing.scrollHeight <= overflowing.clientHeight + 200,
+      'transcript did not overflow enough to scroll — viewport too tall for this fixture'
+    );
+
+    // Thread B. Leaving A is what puts A's messages in the cache.
+    await startNewThread(page);
+    await completeTurn(page, 'Second thread please', 'THREAD-B-END');
+
+    // Scroll UP in B before leaving it. This is what makes the test
+    // discriminating rather than merely passing.
+    //
+    // The follower's `followRef` persists across a thread switch — the viewport
+    // is not remounted — so returning from a thread that was parked AT the
+    // bottom leaves the flag true, and the ResizeObserver would drag the
+    // reopened thread to the bottom on the next height change regardless of
+    // whether opening a thread does anything deliberate. Leaving B scrolled up
+    // sets the flag false, so the only thing that can land A at its newest
+    // message is `useOpenThreadAtBottom` explicitly re-arming it.
+    const inB = await scrollState(page);
+    await scrollTo(page, Math.max(0, inB.scrollHeight - inB.clientHeight - 600));
+    expect(
+      (await scrollState(page)).distanceFromBottom,
+      'thread B must be left scrolled away from the bottom for this test to discriminate'
+    ).toBeGreaterThan(80);
+
+    // Back to A — the cached path.
+    await page.getByTestId(`thread-row-${threadA}`).click({ force: true });
+    await expect(page.getByText('THREAD-A-END', { exact: false }).last()).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // `toBeVisible` above is NOT the assertion: in Playwright it means
+    // CSS-visible with a non-empty box, which an element scrolled far below the
+    // fold satisfies. Only being in the viewport says the thread opened at its
+    // newest message.
+    await expect(
+      page.getByText('THREAD-A-END', { exact: false }).last(),
+      'a cached thread must open at its newest message, not at the previous thread scroll offset'
     ).toBeInViewport({ timeout: 15_000 });
   });
 });

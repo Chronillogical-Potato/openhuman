@@ -48,6 +48,7 @@ Applies to every release, all platforms.
 
 - [ ] **SmartScreen does not block install** — Run the installer from a fresh download. Expected: SmartScreen passes (signed binary). If `Windows protected your PC` appears, the EV signature is missing or the reputation has not built up — escalate before shipping.
 - [ ] **Installer creates Start Menu + Desktop shortcuts** — Defaults preserved. Expected: both shortcuts launch the app.
+- [ ] **Chat links preserve the desktop UI** — Click an HTTPS PR link in an assistant reply. Expected: the default browser opens the PR and OpenHuman stays on the same conversation. If the OS opener fails, the app must remain visible instead of navigating to the remote page. Check internal chat/settings navigation still works.
 - [ ] **Logout retires external channel listeners** — With a channel configured for a local or Claude CLI model, log out while leaving the core process running, then send a channel message. Expected: the old listener no longer processes the message or returns prior-account memory. Start a fresh local workspace/runtime separately and verify local model use still works without backend login.
 - [ ] **App registers `openhuman://` URL scheme** — From a browser, click an `openhuman://oauth/success?...` link. Expected: OS prompts to open in OpenHuman; clicking through delivers the deep link.
 

@@ -39,6 +39,7 @@ mod factory;
 mod hooks;
 mod policy;
 mod prefix_snapshot;
+mod recorded_tools;
 mod runtime;
 mod runtime_session;
 mod session_api;

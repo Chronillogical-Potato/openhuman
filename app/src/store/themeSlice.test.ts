@@ -12,14 +12,11 @@ import themeReducer, {
   resetActiveTheme,
   selectEffectiveFontSizePx,
   selectEffectiveTheme,
-  selectHideAgentInsights,
   selectRootFontSizePx,
   setActiveTheme,
-  setAgentMessageViewMode,
   setCustomFontSizePx,
   setFontRole,
   setFontSize,
-  setHideAgentInsights,
   setTabBarLabels,
   setThemeMode,
   setThemeToken,
@@ -42,11 +39,6 @@ describe('themeSlice', () => {
     expect(state.fontSize).toBe('medium');
   });
 
-  it('defaults assistant message rendering to plain text', () => {
-    const state = themeReducer(undefined, { type: '@@INIT' });
-    expect(state.agentMessageViewMode).toBe('text');
-  });
-
   it('updates fontSize via setFontSize', () => {
     let state = themeReducer(undefined, { type: '@@INIT' });
     state = themeReducer(state, setFontSize('large'));
@@ -65,34 +57,12 @@ describe('themeSlice', () => {
       tabBarLabels: 'always',
       fontSize: 'xlarge',
       customFontSizePx: null,
-      agentMessageViewMode: 'text',
       developerMode: false,
-      hideAgentInsights: false,
       // setThemeMode('dark') syncs the variant; the active family is unchanged.
       activeThemeId: 'classic',
       themeVariant: 'dark',
       customThemes: [],
     });
-  });
-
-  it('updates assistant message view mode', () => {
-    let state = themeReducer(undefined, { type: '@@INIT' });
-    state = themeReducer(state, setAgentMessageViewMode('text'));
-    expect(state.agentMessageViewMode).toBe('text');
-  });
-
-  it('defaults hideAgentInsights to false and toggles it', () => {
-    let state = themeReducer(undefined, { type: '@@INIT' });
-    expect(state.hideAgentInsights).toBe(false);
-    expect(selectHideAgentInsights({ theme: state })).toBe(false);
-
-    state = themeReducer(state, setHideAgentInsights(true));
-    expect(state.hideAgentInsights).toBe(true);
-    expect(selectHideAgentInsights({ theme: state })).toBe(true);
-  });
-
-  it('falls back to false when hideAgentInsights is absent from persisted state', () => {
-    expect(selectHideAgentInsights({ theme: {} as never })).toBe(false);
   });
 
   it('maps every font size to a concrete px value', () => {

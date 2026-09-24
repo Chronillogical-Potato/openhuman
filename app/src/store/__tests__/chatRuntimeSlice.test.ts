@@ -4,10 +4,10 @@ import type { PersistedTurnState } from '../../types/turnState';
 import reducer, {
   beginInferenceTurn,
   bumpInferenceHeartbeatForThread,
+  cancelUnresolvedTurnTimeline,
   clearAllChatRuntime,
   clearArtifactsForThread,
   clearInferenceStatusForThread,
-  clearParallelRequest,
   clearPendingApprovalForThread,
   clearRuntimeForThread,
   clearStreamingAssistantForThread,
@@ -16,10 +16,8 @@ import reducer, {
   hydrateRuntimeFromRunLedger,
   hydrateRuntimeFromSnapshot,
   markInferenceTurnStreaming,
-  registerParallelRequest,
   removeArtifactForThread,
   setInferenceStatusForThread,
-  setParallelStream,
   setPendingApprovalForThread,
   setStreamingAssistantForThread,
   setToolTimelineForThread,
@@ -985,110 +983,66 @@ describe('chatRuntimeSlice', () => {
       expect(cleared.artifactsByThread).toEqual({});
     });
   });
-
-  describe('parallel (forked) turn lane', () => {
-    it('registers a parallel request and streams into its own lane keyed by requestId', () => {
-      let state = reducer(
-        undefined,
-        registerParallelRequest({ threadId: 't-1', requestId: 'req-a' })
-      );
-      expect(state.parallelRequestThreads['req-a']).toBe('t-1');
-
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'req-a', content: 'hi', thinking: '' },
-        })
-      );
-      expect(state.parallelStreamsByThread['t-1']['req-a'].content).toBe('hi');
-    });
-
-    it('keeps two concurrent same-thread branches separate', () => {
-      let state = reducer(undefined, registerParallelRequest({ threadId: 't-1', requestId: 'r1' }));
-      state = reducer(state, registerParallelRequest({ threadId: 't-1', requestId: 'r2' }));
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'r1', content: 'one', thinking: '' },
-        })
-      );
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'r2', content: 'two', thinking: '' },
-        })
-      );
-      expect(Object.keys(state.parallelStreamsByThread['t-1'])).toEqual(['r1', 'r2']);
-      expect(state.parallelStreamsByThread['t-1']['r1'].content).toBe('one');
-      expect(state.parallelStreamsByThread['t-1']['r2'].content).toBe('two');
-    });
-
-    it('clearParallelRequest removes one branch and drops the thread bucket when empty', () => {
-      let state = reducer(undefined, registerParallelRequest({ threadId: 't-1', requestId: 'r1' }));
-      state = reducer(state, registerParallelRequest({ threadId: 't-1', requestId: 'r2' }));
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'r1', content: 'one', thinking: '' },
-        })
-      );
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'r2', content: 'two', thinking: '' },
-        })
-      );
-
-      state = reducer(state, clearParallelRequest({ requestId: 'r1' }));
-      expect(state.parallelRequestThreads['r1']).toBeUndefined();
-      expect(state.parallelStreamsByThread['t-1']['r1']).toBeUndefined();
-      expect(state.parallelStreamsByThread['t-1']['r2'].content).toBe('two');
-
-      state = reducer(state, clearParallelRequest({ requestId: 'r2' }));
-      expect(state.parallelStreamsByThread['t-1']).toBeUndefined();
-      expect(state.parallelRequestThreads).toEqual({});
-    });
-
-    it('clearRuntimeForThread drops the thread parallel streams and their request mappings', () => {
-      let state = reducer(undefined, registerParallelRequest({ threadId: 't-1', requestId: 'r1' }));
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'r1', content: 'one', thinking: '' },
-        })
-      );
-      // An unrelated thread's parallel branch must survive.
-      state = reducer(state, registerParallelRequest({ threadId: 't-2', requestId: 'r9' }));
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-2',
-          streaming: { requestId: 'r9', content: 'keep', thinking: '' },
-        })
-      );
-
-      state = reducer(state, clearRuntimeForThread({ threadId: 't-1' }));
-      expect(state.parallelStreamsByThread['t-1']).toBeUndefined();
-      expect(state.parallelRequestThreads['r1']).toBeUndefined();
-      expect(state.parallelStreamsByThread['t-2']['r9'].content).toBe('keep');
-      expect(state.parallelRequestThreads['r9']).toBe('t-2');
-    });
-
-    it('clearParallelRequest is a no-op for an unknown requestId', () => {
-      const state = reducer(undefined, clearParallelRequest({ requestId: 'nope' }));
-      expect(state.parallelStreamsByThread).toEqual({});
-      expect(state.parallelRequestThreads).toEqual({});
-    });
-  });
 });
 
 describe('toolCallReceived (Phase 3 reducer-side merge)', () => {
+  it('does not reopen a settled row when a late tool_call for it arrives', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+    state = reducer(
+      state,
+      toolResultReceived({
+        threadId: 't1',
+        round: 1,
+        toolName: 'shell',
+        toolCallId: 'c1',
+        success: true,
+        output: 'ok',
+      })
+    );
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+
+    const rows = state.toolTimelineByThread['t1'];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 'c1', status: 'success', result: 'ok' });
+  });
+
+  it('does not reopen a cancelled row when a late tool_call for it arrives', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+    state = reducer(state, cancelUnresolvedTurnTimeline({ threadId: 't1', rowIds: ['c1'] }));
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+
+    expect(state.toolTimelineByThread['t1'][0]).toMatchObject({ id: 'c1', status: 'cancelled' });
+  });
+
+  it('only cancels the completed turn rows captured before snapshot recovery', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'completed', toolCallId: 'old' })
+    );
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'new-turn', toolCallId: 'new' })
+    );
+    state = reducer(state, cancelUnresolvedTurnTimeline({ threadId: 't1', rowIds: ['old'] }));
+
+    expect(state.toolTimelineByThread['t1']).toMatchObject([
+      { id: 'old', status: 'cancelled' },
+      { id: 'new', status: 'running' },
+    ]);
+  });
+
   it('appends a new running row with a generated id and records the processing pointer', () => {
     const state = reducer(
       undefined,
@@ -1365,30 +1319,6 @@ describe('streamDeltaReceived (Phase 3 reducer-side merge)', () => {
       content: '',
       thinking: 'new',
     });
-  });
-
-  it('routes a forked (parallel) turn into its own lane without touching the primary or processing', () => {
-    let state = reducer(
-      undefined,
-      registerParallelRequest({ threadId: 't1', requestId: 'branch' })
-    );
-    state = reducer(
-      state,
-      streamDeltaReceived({
-        threadId: 't1',
-        requestId: 'branch',
-        round: 0,
-        delta: 'B',
-        channel: 'content',
-      })
-    );
-    expect(state.parallelStreamsByThread['t1']['branch']).toEqual({
-      requestId: 'branch',
-      content: 'B',
-      thinking: '',
-    });
-    expect(state.streamingAssistantByThread['t1']).toBeUndefined();
-    expect(state.processingByThread['t1']).toBeUndefined();
   });
 });
 

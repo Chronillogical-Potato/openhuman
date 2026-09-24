@@ -11,27 +11,52 @@
 #
 # The renderer takes the browser path in `coreRpcClient` (`isTauri()` is false),
 # reading the endpoint and bearer from `localStorage`. Those are seeded by the
-# dev-server-only `/__dev-connect` route (see `devConnectPlugin` in
+# dev-server-only `/__dev-connect` page (see `devConnectPlugin` in
 # `app/vite.config.ts`), which is where the browser is pointed first.
 #
+# Two modes:
+#
+# - Standalone (default): build and start a fresh `openhuman-core serve` with a
+#   generated bearer. Sign-in is one click: the OAuth buttons pass
+#   `<vite origin>/__dev-auth` as the backend redirectUri, and the session is
+#   stored in that core's workspace.
+#
+# - Attach (`--attach`): reuse the core of the desktop app that is already
+#   running -- and so its signed-in session. Its bearer is minted per launch and
+#   held only in memory, so the browser is sent through the core's own dev-only
+#   `GET /dev/connect?app=<vite origin>` (crates/openhuman-core/src/core/
+#   dev_connect.rs), which redirects to `/__dev-connect` with the RPC URL and
+#   bearer in the URL fragment. No token is read, printed, or pasted.
+#
+# Busy ports are not fatal: Vite and the standalone core each move to the next
+# free port, and the URL that is printed/opened always reflects the real one.
+#
 # Usage:
-#   pnpm dev:app:web                # start core + vite, open the browser
-#   pnpm dev:app:web --no-browser   # start both, just print the URL (for agents)
+#   pnpm dev:app:web                   # fresh core + vite, open the browser
+#   pnpm dev:app:web --no-browser      # same, just print the URL (for agents)
+#   pnpm dev:app:web:attach            # vite on the running desktop core
+#   pnpm dev:app:web --attach --no-browser
+#   pnpm dev:app:web --onboarding      # keep onboarding + tour (skipped by default)
 #
 # Env:
-#   OPENHUMAN_DEV_PORT    Vite port (default 1420)
-#   OPENHUMAN_CORE_PORT   core port (default 7788; auto-advances if taken)
-#   OPENHUMAN_CORE_TOKEN  bearer to use (default: generated per run)
-#   OPENHUMAN_WORKSPACE   core workspace (default: the usual ~/.openhuman)
+#   OPENHUMAN_DEV_PORT    preferred Vite port (default 1420)
+#   OPENHUMAN_CORE_PORT   standalone: preferred core port (default 7788)
+#                         attach: the desktop core's port (default: scan 7788-7808)
+#   OPENHUMAN_CORE_TOKEN  standalone: bearer to use (default: generated per run)
+#   OPENHUMAN_WORKSPACE   standalone: core workspace (default: ~/.openhuman)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 open_browser=1
+attach=0
+skip_onboarding=1
 for arg in "$@"; do
   case "$arg" in
     --no-browser) open_browser=0 ;;
+    --attach) attach=1 ;;
+    --onboarding) skip_onboarding=0 ;;
     *) echo "[dev:web] unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -55,105 +80,159 @@ validate_port() {
   fi
 }
 
-dev_port="$(validate_port "${OPENHUMAN_DEV_PORT:-1420}" 1420 OPENHUMAN_DEV_PORT)"
-core_port="$(validate_port "${OPENHUMAN_CORE_PORT:-7788}" 7788 OPENHUMAN_CORE_PORT)"
-
-# Vite runs with strictPort, so a busy dev port is a hard stop rather than a
-# silent move to a URL the browser is never pointed at.
-if ! port_is_free "$dev_port"; then
-  echo "[dev:web] ERROR: port $dev_port is in use (another dev server?)." >&2
-  echo "[dev:web] Stop it, or set OPENHUMAN_DEV_PORT to a free port." >&2
-  exit 1
-fi
-
-# The core port may legitimately be taken by another checkout's core. Advance
-# rather than fail: this script always talks to the core it started itself, so
-# reusing a stranger's would mean debugging against someone else's workspace.
-original_core_port="$core_port"
-while ! port_is_free "$core_port"; do
-  core_port=$(( core_port + 1 ))
-  if (( core_port > original_core_port + 20 )); then
-    echo "[dev:web] ERROR: no free core port near $original_core_port." >&2
-    exit 1
+# First free port at or after $1 (within 20), else fail. Callers pass the
+# result on explicitly, so a moved port is never a URL nobody is pointed at.
+next_free_port() {
+  local start="$1" label="$2" port="$1"
+  while ! port_is_free "$port"; do
+    port=$(( port + 1 ))
+    if (( port > start + 20 )); then
+      echo "[dev:web] ERROR: no free $label port near $start." >&2
+      return 1
+    fi
+  done
+  if [[ "$port" != "$start" ]]; then
+    echo "[dev:web] port $start busy; $label will use $port" >&2
   fi
-done
-if [[ "$core_port" != "$original_core_port" ]]; then
-  echo "[dev:web] port $original_core_port busy; core will use $core_port"
-fi
+  echo "$port"
+}
 
-# A blank OPENHUMAN_CORE_TOKEN does NOT disable auth: `init_rpc_token`
-# (crates/openhuman-core/src/core/auth.rs) trims it, treats empty as unset, and falls through to
-# generating a token and writing it to {workspace}/core.token. So an explicit
-# value is the only way both sides agree on a bearer without reading that file.
-core_token="${OPENHUMAN_CORE_TOKEN:-}"
-core_token="${core_token//[[:space:]]/}"
-if [[ -z "$core_token" ]]; then
-  core_token="$(openssl rand -hex 32)"
-fi
-export OPENHUMAN_CORE_TOKEN="$core_token"
+# HTTP status of the core's /dev/connect for a throwaway app origin: 302 means
+# the route is live. The Location (which carries the bearer) is discarded.
+dev_connect_status() {
+  curl -s -o /dev/null -w '%{http_code}' -m 3 \
+    "http://127.0.0.1:$1/dev/connect?app=http://localhost:1" 2>/dev/null || true
+}
 
-core_bin="$REPO_ROOT/target/debug/openhuman-core"
-# Always run the (incremental) build rather than only when the binary is
-# missing — the normal `tauri dev` path does the same. Skipping this once a
-# binary exists means a later run silently executes an arbitrarily stale
-# core against a current frontend, which is misleading to debug against.
-echo "[dev:web] building openhuman-core…"
-# GGML_NATIVE=OFF is the documented Apple-Silicon workaround for llama.cpp.
-GGML_NATIVE=OFF cargo build --manifest-path "$REPO_ROOT/Cargo.toml" \
-  --bin openhuman-core
+preferred_dev_port="$(validate_port "${OPENHUMAN_DEV_PORT:-1420}" 1420 OPENHUMAN_DEV_PORT)"
+# Vite runs with strictPort, so pick the free port here and hand it over.
+dev_port="$(next_free_port "$preferred_dev_port" vite)"
 
 core_pid=""
 vite_pid=""
 cleanup() {
   trap - EXIT INT TERM
-  [[ -n "$vite_pid" ]] && kill "$vite_pid" 2>/dev/null || true
+  # Vite runs in its own process group (see below); signal the whole group so
+  # the `pnpm` -> `node vite` grandchildren go too, not just the subshell.
+  if [[ -n "$vite_pid" ]]; then
+    kill -- "-$vite_pid" 2>/dev/null || kill "$vite_pid" 2>/dev/null || true
+  fi
   [[ -n "$core_pid" ]] && kill "$core_pid" 2>/dev/null || true
   wait 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-echo "[dev:web] starting openhuman-core on :$core_port"
-OPENHUMAN_CORE_PORT="$core_port" "$core_bin" serve &
-core_pid=$!
-
-for _ in $(seq 1 60); do
-  if curl -sf -m 2 "http://127.0.0.1:$core_port/health" >/dev/null 2>&1; then
-    break
+if (( attach )); then
+  # Find the desktop core: the one whose dev-only /dev/connect answers 302.
+  # A standalone `openhuman-core serve` from this script also qualifies (it is
+  # a debug build), which is fine -- it is a core with a session too.
+  if [[ -n "${OPENHUMAN_CORE_PORT:-}" ]]; then
+    candidates="$(validate_port "$OPENHUMAN_CORE_PORT" 7788 OPENHUMAN_CORE_PORT)"
+  else
+    candidates="$(seq 7788 7808)"
   fi
-  if ! kill -0 "$core_pid" 2>/dev/null; then
-    echo "[dev:web] ERROR: core exited during startup." >&2
+  core_port=""
+  for port in $candidates; do
+    status="$(dev_connect_status "$port")"
+    if [[ "$status" == "302" ]]; then
+      core_port="$port"
+      break
+    elif [[ "$status" == "404" ]] && curl -sf -m 2 -o /dev/null "http://127.0.0.1:$port/health"; then
+      echo "[dev:web] core on :$port has no /dev/connect (release build, or older than this checkout); skipping" >&2
+    fi
+  done
+  if [[ -z "$core_port" ]]; then
+    echo "[dev:web] ERROR: no running core with /dev/connect found." >&2
+    echo "[dev:web] Start the desktop app (\`pnpm dev:app\`), or set OPENHUMAN_DEV_CONNECT=1 for a" >&2
+    echo "[dev:web] release build, or set OPENHUMAN_CORE_PORT to its port. Without --attach this" >&2
+    echo "[dev:web] script starts its own core instead." >&2
     exit 1
   fi
-  sleep 1
-done
+  echo "[dev:web] attaching to the running core on :$core_port"
+else
+  preferred_core_port="$(validate_port "${OPENHUMAN_CORE_PORT:-7788}" 7788 OPENHUMAN_CORE_PORT)"
+  # The core port may legitimately be taken by another checkout's (or the
+  # desktop app's) core. Advance rather than reuse: standalone mode always
+  # talks to the core it started itself -- use --attach to share one.
+  core_port="$(next_free_port "$preferred_core_port" core)"
 
-if ! curl -sf -m 2 "http://127.0.0.1:$core_port/health" >/dev/null 2>&1; then
-  echo "[dev:web] ERROR: core did not become healthy on :$core_port." >&2
-  exit 1
-fi
+  # A blank OPENHUMAN_CORE_TOKEN does NOT disable auth: `init_rpc_token`
+  # (crates/openhuman-core/src/core/auth.rs) trims it, treats empty as unset,
+  # and falls through to generating a token and writing it to
+  # {workspace}/core.token. So an explicit value is the only way both sides
+  # agree on a bearer without reading that file.
+  core_token="${OPENHUMAN_CORE_TOKEN:-}"
+  core_token="${core_token//[[:space:]]/}"
+  if [[ -z "$core_token" ]]; then
+    core_token="$(openssl rand -hex 32)"
+  fi
+  export OPENHUMAN_CORE_TOKEN="$core_token"
 
-# Fail loudly here rather than letting the browser hit an opaque 401 later.
-rpc_status=$(curl -s -o /dev/null -w '%{http_code}' -m 10 \
-  -X POST "http://127.0.0.1:$core_port/rpc" \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $core_token" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"openhuman.health_check","params":{}}')
-if [[ "$rpc_status" != "200" ]]; then
-  echo "[dev:web] ERROR: authenticated RPC probe returned HTTP $rpc_status." >&2
-  exit 1
+  core_bin="$REPO_ROOT/target/debug/openhuman-core"
+  # Always run the (incremental) build rather than only when the binary is
+  # missing — the normal `tauri dev` path does the same. Skipping this once a
+  # binary exists means a later run silently executes an arbitrarily stale
+  # core against a current frontend, which is misleading to debug against.
+  echo "[dev:web] building openhuman-core…"
+  # GGML_NATIVE=OFF is the documented Apple-Silicon workaround for llama.cpp.
+  GGML_NATIVE=OFF cargo build --manifest-path "$REPO_ROOT/Cargo.toml" -p openhuman-cli \
+    --bin openhuman-core
+
+  echo "[dev:web] starting openhuman-core on :$core_port"
+  OPENHUMAN_CORE_PORT="$core_port" "$core_bin" serve &
+  core_pid=$!
+
+  for _ in $(seq 1 60); do
+    if curl -sf -m 2 "http://127.0.0.1:$core_port/health" >/dev/null 2>&1; then
+      break
+    fi
+    if ! kill -0 "$core_pid" 2>/dev/null; then
+      echo "[dev:web] ERROR: core exited during startup." >&2
+      exit 1
+    fi
+    sleep 1
+  done
+
+  if ! curl -sf -m 2 "http://127.0.0.1:$core_port/health" >/dev/null 2>&1; then
+    echo "[dev:web] ERROR: core did not become healthy on :$core_port." >&2
+    exit 1
+  fi
+
+  # Fail loudly here rather than letting the browser hit an opaque 401 later.
+  rpc_status=$(curl -s -o /dev/null -w '%{http_code}' -m 10 \
+    -X POST "http://127.0.0.1:$core_port/rpc" \
+    -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer $core_token" \
+    -d '{"jsonrpc":"2.0","id":1,"method":"openhuman.auth_get_state","params":{}}')
+  if [[ "$rpc_status" != "200" ]]; then
+    echo "[dev:web] ERROR: authenticated RPC probe returned HTTP $rpc_status." >&2
+    exit 1
+  fi
+  echo "[dev:web] core healthy and accepting the dev bearer"
 fi
-echo "[dev:web] core healthy and accepting the dev bearer"
 
 # Read by `import.meta.env` (Vite merges prefixed vars from process.env) and by
-# the /__dev-connect route, which seeds it into localStorage for the browser.
+# the /__dev-connect page, which seeds it into localStorage for the browser.
+# In attach mode the page takes the URL + bearer from the core's redirect.
 export VITE_OPENHUMAN_CORE_RPC_URL="http://127.0.0.1:$core_port/rpc"
 export OPENHUMAN_DEV_PORT="$dev_port"
+# Land straight in the app: onboarding is marked complete in the core for a
+# signed-in user, and the walkthrough tour is suppressed (DEV_SKIP_ONBOARDING in
+# app/src/utils/config.ts). `--onboarding` keeps both, to debug them.
+if (( skip_onboarding )); then
+  export VITE_DEV_SKIP_ONBOARDING=true
+else
+  export VITE_DEV_SKIP_ONBOARDING=false
+fi
 
 echo "[dev:web] starting vite on :$dev_port"
-(cd "$REPO_ROOT/app" && pnpm dev) &
+# Job control gives the background job its own process group (pgid == pid),
+# which is what lets cleanup reach the node process pnpm spawns.
+set -m
+(cd "$REPO_ROOT/app" && exec pnpm dev) &
 vite_pid=$!
+set +m
 
-connect_url="http://localhost:$dev_port/__dev-connect"
 for _ in $(seq 1 60); do
   if curl -sf -m 2 -o /dev/null "http://localhost:$dev_port/"; then
     break
@@ -165,10 +244,22 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
+if (( attach )); then
+  connect_url="http://127.0.0.1:$core_port/dev/connect?app=http://localhost:$dev_port"
+else
+  connect_url="http://localhost:$dev_port/__dev-connect"
+fi
+
 echo
 echo "[dev:web] ready"
 echo "[dev:web]   core : http://127.0.0.1:$core_port/rpc"
+echo "[dev:web]   app  : http://localhost:$dev_port"
 echo "[dev:web]   open : $connect_url"
+if (( attach )); then
+  echo "[dev:web]   the browser shares the desktop app's core and signed-in session"
+else
+  echo "[dev:web]   sign in with one click on a provider; the session persists in the core workspace"
+fi
 echo
 
 if (( open_browser )); then

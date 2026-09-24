@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { AssistantUiRuntimeProvider } from '../../../../providers/AssistantUiRuntimeProvider';
 import chatRuntimeReducer from '../../../../store/chatRuntimeSlice';
 import threadReducer from '../../../../store/threadSlice';
-import { useAuiEditCapabilities, useAuiThreadRunning } from './auiThreadState';
+import { useAuiEditCapabilities } from './auiThreadState';
 
 function withRuntime(threadId: string | null) {
   const store = configureStore({
@@ -32,19 +32,9 @@ function withRuntime(threadId: string | null) {
 }
 
 describe('auiThreadState', () => {
-  it('reports undefined running state with no runtime mounted', () => {
-    const { result } = renderHook(() => useAuiThreadRunning());
-    expect(result.current).toBeUndefined();
-  });
-
   it('reports no edit or branch capability with no runtime mounted', () => {
     const { result } = renderHook(() => useAuiEditCapabilities());
     expect(result.current).toEqual({ canEdit: false, canSwitchToBranch: false });
-  });
-
-  it('reports a concrete running state once a runtime is mounted', () => {
-    const { result } = renderHook(() => useAuiThreadRunning(), { wrapper: withRuntime('t-caps') });
-    expect(result.current).toBe(false);
   });
 
   it('reports the external-store adapter as supporting neither edit nor branching', () => {

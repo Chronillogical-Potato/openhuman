@@ -40,7 +40,7 @@ vi.mock('../../services/chatService', async importOriginal => {
   const actual = await importOriginal<typeof import('../../services/chatService')>();
   return {
     ...actual,
-    chatCancel: vi.fn().mockResolvedValue(true),
+    chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
     chatClearQueue: vi.fn().mockResolvedValue(0),
     chatSend: vi.fn().mockResolvedValue(undefined),
   };
@@ -65,7 +65,6 @@ vi.mock('../../hooks/useUsageState', () => ({
   // Reads `useCoreState`, which needs a provider this test does not mount.
   useUsageState: () => ({ usage: null, loading: false, error: null, refresh: vi.fn() }),
 }));
-vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({ isBootstrapping: false, isReady: true })),
   subscribeCoreState: vi.fn(() => () => undefined),

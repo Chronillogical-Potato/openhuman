@@ -33,8 +33,8 @@ import { store } from '../store';
 import {
   appendSubagentStreamDelta,
   bumpInferenceHeartbeatForThread,
+  cancelUnresolvedTurnTimeline,
   clearInferenceStatusForThread,
-  clearParallelRequest,
   clearPendingApprovalForThread,
   clearPendingPlanReviewForThread,
   clearProcessingForThread,
@@ -132,6 +132,21 @@ function rtLog(message: string, fields?: Record<string, string | number | null |
     logChatRuntime('[chat-runtime] %s', message);
   }
 }
+
+/**
+ * Per-call identity for a tool event's dedupe key: the call id, or — for a
+ * provider that sends none — the core-stamped `seq`. Without it two id-less
+ * calls of the same tool in one round shared a key and the second was dropped
+ * as a "duplicate"; a genuine redelivery repeats the same `seq`, so it still
+ * dedupes.
+ */
+function toolEventIdentity(event: { tool_call_id?: string; seq?: number }): string {
+  if (event.tool_call_id) return event.tool_call_id;
+  return event.seq !== undefined ? `seq:${event.seq}` : '';
+}
+
+/** Bound on the per-request "last delta seq" map (see `isReplayedDelta`). */
+const MAX_DELTA_SEQ_ENTRIES = 200;
 
 function segmentDeliveryKey(threadId: string, requestId?: string | null): string {
   return `${threadId}:${requestId ?? 'none'}`;
@@ -350,6 +365,44 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     streamingAssistantRef.current = streamingAssistantByThread;
   }, [streamingAssistantByThread]);
+
+  // Highest `seq` seen on a text/thinking delta, per thread+request.
+  const lastDeltaSeqRef = useRef<Map<string, number>>(new Map());
+
+  /**
+   * Whether a streamed text/thinking delta is a redelivery. The core stamps a
+   * per-request monotonic `seq` on every event and the socket delivers in
+   * order, so a delta at or below the last seen `seq` for its request has
+   * already been appended — appending it again duplicates text in the live
+   * preview and the processing transcript. Deltas without a `seq` (older
+   * cores) are always accepted.
+   */
+  const isReplayedDelta = (event: {
+    thread_id: string;
+    request_id?: string;
+    seq?: number;
+  }): boolean => {
+    if (event.seq === undefined || !event.request_id) return false;
+    const key = `${event.thread_id}:${event.request_id}`;
+    const seen = lastDeltaSeqRef.current;
+    const last = seen.get(key);
+    if (last !== undefined && event.seq <= last) {
+      rtLog('delta_replay_drop', {
+        thread: event.thread_id,
+        request: event.request_id,
+        seq: event.seq,
+      });
+      return true;
+    }
+    seen.delete(key);
+    seen.set(key, event.seq);
+    while (seen.size > MAX_DELTA_SEQ_ENTRIES) {
+      const oldest = seen.keys().next().value;
+      if (oldest === undefined) break;
+      seen.delete(oldest);
+    }
+    return false;
+  };
 
   const markChatEventSeen = (
     key: string,
@@ -586,13 +639,28 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       await flushQueuedFollowups(event.thread_id);
       dispatch(endInferenceTurn({ threadId: event.thread_id }));
       dispatch(clearThreadInferenceActive(event.thread_id));
+      // Snapshot polling can outlive this completed turn. Capture the rows it
+      // owns before awaiting it so a newer turn on the same thread is never
+      // cancelled by this recovery path.
+      const unresolvedRowIds = (
+        store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? []
+      )
+        .filter(entry => entry.status === 'running' && entry.subagent?.mode !== 'async')
+        .map(entry => entry.id);
       // Socket reducers keep only the current iteration's prose in the live
       // buffer. Once the turn settles, replace that partial projection with
       // the core's completed snapshot, whose ordered transcript contains every
       // parent and sub-agent event from the whole turn. Doing this here (after
       // ending the live lifecycle) matters: `hydrateRuntimeFromSnapshot`
       // intentionally refuses to overwrite an actively streaming turn.
-      await dispatch(fetchAndHydrateCompletedTurnState(event.thread_id));
+      const completedSnapshot = await dispatch(
+        fetchAndHydrateCompletedTurnState(event.thread_id)
+      ).unwrap();
+      if (!completedSnapshot) {
+        dispatch(
+          cancelUnresolvedTurnTimeline({ threadId: event.thread_id, rowIds: unresolvedRowIds })
+        );
+      }
     };
 
     rtLog('subscribe_chat_events', { socket: socketStatus });
@@ -615,13 +683,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         // Conversations silence timer rearms even when the turn is in a long
         // prefill / buffered-reasoning phase that emits no other progress.
         rtLog('inference_heartbeat', { thread: event.thread_id, request: event.request_id });
-        // A parallel (forked) turn streams into its own lane and must NOT keep
-        // the thread's primary silence timer alive — otherwise a sibling branch
-        // would mask a stalled primary turn. Mirror the text/thinking-delta
-        // routing: ignore heartbeats owned by a parallel request.
-        if (store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined) {
-          return;
-        }
         dispatch(bumpInferenceHeartbeatForThread({ threadId: event.thread_id }));
       },
       onIterationStart: (event: ChatIterationStartEvent) => {
@@ -655,7 +716,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           })
         );
 
-        const eventKey = `tool_call:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.tool_call_id ?? ''}`;
+        const eventKey = `tool_call:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${toolEventIdentity(event)}`;
         if (
           !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
         )
@@ -680,7 +741,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onToolResult: (event: ChatToolResultEvent) => {
-        const eventKey = `tool_result:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.success}:${event.tool_call_id ?? ''}`;
+        const eventKey = `tool_result:${event.thread_id}:${event.request_id ?? 'none'}:${event.round}:${event.tool_name}:${event.success}:${toolEventIdentity(event)}`;
         if (
           !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
         )
@@ -1083,6 +1144,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         }
       },
       onTextDelta: event => {
+        if (isReplayedDelta(event)) return;
         // Parallel-vs-primary routing + processing transcript now live in the
         // reducer (Phase 3) — no getState() in the provider.
         dispatch(
@@ -1096,6 +1158,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         );
       },
       onThinkingDelta: event => {
+        if (isReplayedDelta(event)) return;
         dispatch(
           streamDeltaReceived({
             threadId: event.thread_id,
@@ -1103,6 +1166,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             round: event.round,
             delta: event.delta,
             channel: 'thinking',
+            at: Date.now(),
           })
         );
       },
@@ -1288,49 +1352,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
 
-        // Parallel (forked) turn: resolve only its own lane. The primary turn's
-        // stream / status / lifecycle / active marker may still be running, so
-        // we must NOT clear them here. Segmented parallel turns already
-        // persisted via `onSegment` (keyed by thread+request); a single-bubble
-        // parallel turn persists its full response now.
-        if (
-          event.request_id !== undefined &&
-          store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
-        ) {
-          const parallelRequestId = event.request_id;
-          dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
-          if (!event.segment_total && event.full_response.length > 0) {
-            void (async () => {
-              try {
-                await dispatch(
-                  addInferenceResponse({
-                    content: event.full_response,
-                    threadId: event.thread_id,
-                    messageId: deliveredReplyMessageId(event),
-                    extraMetadata: chatDoneExtraMetadata(event),
-                  })
-                ).unwrap();
-                void dispatch(
-                  generateThreadTitleIfNeeded({
-                    threadId: event.thread_id,
-                    assistantMessage: event.full_response,
-                  })
-                );
-              } catch (error) {
-                rtLog('parallel_chat_done_append_failed', {
-                  thread: event.thread_id,
-                  request: event.request_id,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-                await recoverDeliveredReply(event, error);
-              }
-            })();
-          }
-          dispatch(clearParallelRequest({ requestId: parallelRequestId }));
-          requestUsageRefresh();
-          return;
-        }
-
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
@@ -1341,13 +1362,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
         dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
-        const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-        if (existing.length > 0) {
-          const entries = existing.map(entry =>
-            entry.status === 'running' ? { ...entry, status: 'success' as const } : entry
-          );
-          dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
-        }
+        // Rows still `running` are NOT forced to `success` here. The core now
+        // forwards every queued progress event before `chat_done`, so a row
+        // still running at this point genuinely has no result — marking it
+        // successful invented an outcome. The settled turn_state snapshot /
+        // transcript projection settles it (to its real status, or
+        // `cancelled`).
         if (!event.segment_total) {
           void (async () => {
             try {
@@ -1490,28 +1510,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               })
             );
           }
-        }
-
-        // Parallel (forked) turn error: resolve only its lane, leaving the
-        // primary turn untouched. Surface a non-cancellation error as a message
-        // so the failed branch is visible.
-        if (
-          event.request_id !== undefined &&
-          store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
-        ) {
-          deleteSegmentDelivery(
-            segmentDeliveriesRef.current,
-            segmentDeliveryKey(event.thread_id, event.request_id)
-          );
-          if (event.error_type !== 'cancelled') {
-            const errorContent = event.message || USER_FACING_AGENT_ERROR_MESSAGE;
-            void dispatch(
-              addInferenceResponse({ content: errorContent, threadId: event.thread_id })
-            );
-            requestUsageRefresh();
-          }
-          dispatch(clearParallelRequest({ requestId: event.request_id }));
-          return;
         }
 
         deleteSegmentDelivery(

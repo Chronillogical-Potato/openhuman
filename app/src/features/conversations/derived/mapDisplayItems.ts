@@ -3,11 +3,10 @@
  * {@link DerivedDisplayItem}s onto the **existing** settled-turn renderer
  * models, keyed by producing `requestId` — the exact shapes
  * `fetchAndHydrateTurnHistory` produces from the legacy `turn_state_history`
- * snapshot ring, so `PastTurnInsights` / `ProcessingTranscriptView` /
- * assistant-ui tool and delegation cards are reused unchanged.
+ * snapshot ring, so `ProcessingTranscriptView` / assistant-ui tool and
+ * delegation cards are reused unchanged.
  *
- * Division of labour (matches how `turnTimelinesByThread` / `PastTurnInsights`
- * anchor today):
+ * Division of labour (matches how `turnTimelinesByThread` anchors today):
  * - **Final assistant text and user text are NOT emitted here** — they stay
  *   rendered from the thread message list (`threads_messages_list`). This
  *   mapper only produces the *process trail* (reasoning, interim narration,
@@ -32,6 +31,8 @@ import type {
 } from '../../../store/chatRuntimeSlice';
 import type {
   DerivedDisplayItem,
+  DerivedSubagent,
+  DerivedSubagentStatus,
   DerivedToolCall,
   DerivedToolCallStatus,
   DerivedToolFailure,
@@ -138,7 +139,8 @@ function stringifyArgs(args: unknown): string | undefined {
  * projects onto the sub-agent transcript (`thinking` / `text` / `tool`) plus a
  * flat `toolCalls` list — exactly what the assistant-ui delegation card reads.
  */
-function buildSubagentActivity(id: string, items: DerivedDisplayItem[]): SubagentActivity {
+function buildSubagentActivity(item: DerivedSubagent): SubagentActivity {
+  const { items } = item;
   const toolCalls: SubagentToolCallEntry[] = [];
   const transcript: SubagentTranscriptItem[] = [];
 
@@ -183,7 +185,43 @@ function buildSubagentActivity(id: string, items: DerivedDisplayItem[]): Subagen
     }
   }
 
-  return { taskId: id, agentId: id, status: 'completed', toolCalls, transcript };
+  return {
+    taskId: item.taskId ?? item.id,
+    agentId: item.agentId ?? item.id,
+    status: subagentActivityStatus(item.status),
+    toolCalls,
+    transcript,
+  };
+}
+
+/** The delegation card's activity status for a settled sub-agent run. An
+ *  older core sent no status; it only ever reported finished runs. */
+function subagentActivityStatus(status: DerivedSubagentStatus | undefined): string {
+  switch (status) {
+    case 'failed':
+      return 'failed';
+    case 'interrupted':
+    case 'running':
+      return status;
+    case 'completed':
+    default:
+      return 'completed';
+  }
+}
+
+/** The timeline row status for a settled sub-agent run — the same settling
+ *  rule as a tool row: a run with no terminal record is `cancelled`. */
+function subagentEntryStatus(status: DerivedSubagentStatus | undefined): ToolTimelineEntryStatus {
+  switch (status) {
+    case 'failed':
+      return 'error';
+    case 'interrupted':
+    case 'running':
+      return 'cancelled';
+    case 'completed':
+    default:
+      return 'success';
+  }
 }
 
 /** Mutable per-turn accumulator. */
@@ -268,6 +306,10 @@ export function mapDisplayItems(
         }
         if (!item.text.trim()) break;
         const turn = ensureTurn(turns, currentRequestId);
+        // Reasoning is projected *before* the message of its step, so the
+        // round must come from the reasoning itself — waiting for the
+        // following assistantMessage filed it under the previous step.
+        if (item.iteration !== undefined) turn.round = item.iteration;
         turn.transcript.push({
           kind: 'thinking',
           round: turn.round,
@@ -283,27 +325,34 @@ export function mapDisplayItems(
           break;
         }
         const turn = ensureTurn(turns, currentRequestId);
+        // A step with no visible narration emits no assistantMessage, so the
+        // call carries its own step number.
+        if (item.iteration !== undefined) turn.round = item.iteration;
         pushToolCall(turn, item);
         break;
       }
 
       case 'subagent': {
-        // Anchor to the turn the sub-agent was spawned in (core-derived
-        // `requestId`), not the current cursor — sub-agent items are appended
-        // after all root items, so the cursor is the last turn by then.
+        // The core places a sub-agent right after its spawning call (or at the
+        // end of its turn), so it arrives in order; its own `requestId` still
+        // wins over the cursor for payloads from an older core, which
+        // appended every sub-agent after all root items.
         const anchorRequestId = item.requestId ?? currentRequestId;
         if (!anchorRequestId || skip.has(anchorRequestId)) {
           if (anchorRequestId) skipped.add(anchorRequestId);
           break;
         }
         const turn = ensureTurn(turns, anchorRequestId);
-        const activity = buildSubagentActivity(item.id, item.items);
+        const activity = buildSubagentActivity(item);
+        const agentId = activity.agentId;
         turn.entries.push({
+          // `item.id` is unique per run (task id), so two runs of one agent
+          // in a turn no longer collide on `subagent:<agent>`.
           id: `subagent:${item.id}`,
-          name: `subagent:${item.id}`,
+          name: `subagent:${agentId}`,
           round: turn.round,
           seq: turn.seq++,
-          status: 'success',
+          status: subagentEntryStatus(item.status),
           subagent: activity,
         });
         break;

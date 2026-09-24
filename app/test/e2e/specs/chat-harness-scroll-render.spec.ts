@@ -4,16 +4,16 @@
  *
  * Two related properties on the same chat surface:
  *
- *   1. Scroll: the message column is anchored to the bottom by the
- *      `useStickToBottom` hook (`app/src/hooks/useStickToBottom.ts`).
+ *   1. Scroll: the assistant-ui thread viewport
+ *      (`[data-slot="aui_thread-viewport"]`, `components/assistant-ui/thread.tsx`)
+ *      follows the bottom while the reader is at it (`useFollowBottom`).
  *      After several messages, the container's `scrollTop` must sit
  *      within a small margin of `scrollHeight - clientHeight`.
  *      When the user manually scrolls UP, the auto-stick releases
  *      (so we don't yank them away from the message they're reading).
  *
- *   2. Markdown rendering: `BubbleMarkdown` (in
- *      `app/src/pages/conversations/components/AgentMessageBubble.tsx`)
- *      runs assistant content through `Markdown`. Bold, code blocks
+ *   2. Markdown rendering: the assistant-ui message renders assistant
+ *      content through its markdown renderer. Bold, code blocks
  *      and links must produce the right DOM tags (`<strong>`, `<pre>`,
  *      `<code>`, `<a>`).
  *
@@ -68,11 +68,11 @@ async function scrollMetrics(): Promise<{
 }> {
   return (await browser.execute(() => {
     const messageColumn = document.querySelector(
-      '[data-testid="chat-messages-scroll"]'
+      '[data-slot="aui_thread-viewport"]'
     ) as HTMLElement | null;
     // Wry can place the overflow owner on a layout ancestor (or the document)
-    // rather than directly on Conversation. Measure the element that is
-    // actually scrollable, while preferring Conversation when it owns scroll.
+    // rather than directly on the viewport. Measure the element that is
+    // actually scrollable, while preferring the viewport when it owns scroll.
     const candidates: HTMLElement[] = [];
     for (let el = messageColumn; el; el = el.parentElement) candidates.push(el);
     if (document.scrollingElement instanceof HTMLElement)
@@ -101,7 +101,7 @@ async function scrollMetrics(): Promise<{
 async function scrollMessageColumn(top: number): Promise<void> {
   await browser.execute((y: number) => {
     const messageColumn = document.querySelector(
-      '[data-testid="chat-messages-scroll"]'
+      '[data-slot="aui_thread-viewport"]'
     ) as HTMLElement | null;
     const candidates: HTMLElement[] = [];
     for (let node = messageColumn; node; node = node.parentElement) candidates.push(node);

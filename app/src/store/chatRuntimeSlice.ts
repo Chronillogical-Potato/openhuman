@@ -374,6 +374,10 @@ export interface StreamingAssistantState {
   requestId: string;
   content: string;
   thinking: string;
+  /** Epoch ms of the turn's first thinking delta (drives "Thinking… Ns"). */
+  thinkingStartedAt?: number;
+  /** Epoch ms of the turn's latest thinking delta (drives "Thought for Ns"). */
+  thinkingEndedAt?: number;
 }
 
 /**
@@ -680,21 +684,6 @@ interface ChatRuntimeState {
    * mid-send conversation apart from a genuinely-blank one.
    */
   pendingSendThreadIds: Record<string, true>;
-  /**
-   * Live streams for concurrent PARALLEL (forked) turns on a thread, nested
-   * `threadId -> requestId -> stream`. A separate lane from
-   * `streamingAssistantByThread` (the single primary stream) so two same-thread
-   * turns don't clobber each other — each renders as its own interleaved
-   * branch bubble. Populated only for turns sent with `queueMode: 'parallel'`.
-   */
-  parallelStreamsByThread: Record<string, Record<string, StreamingAssistantState>>;
-  /**
-   * Maps a parallel turn's `requestId -> threadId`. Lets socket event handlers
-   * recognise a forked turn's events (and find its thread) so they route to the
-   * parallel lane instead of the primary stream. Entries are added on send and
-   * removed on that turn's `chat_done` / `chat_error`.
-   */
-  parallelRequestThreads: Record<string, string>;
   toolTimelineByThread: Record<string, ToolTimelineEntry[]>;
   /**
    * Per-thread monotonic counter backing {@link ToolTimelineEntry.seq}. Bumped
@@ -725,20 +714,6 @@ interface ChatRuntimeState {
    * legacy snapshots written before the transcript field existed.
    */
   turnTranscriptsByThread: Record<string, Record<string, ProcessingTranscriptItem[]>>;
-  /**
-   * The partial assistant answer left behind by an INTERRUPTED turn (the core
-   * process that was streaming it is gone), keyed by thread. Surfaced on restore
-   * so a turn that crashed mid-answer keeps its visible partial reply + hidden
-   * reasoning instead of dropping them (restore-fidelity fix 2). Unlike
-   * {@link streamingAssistantByThread} this is a SETTLED, non-live buffer: it is
-   * rendered statically (no pulsing cursor) and marked interrupted. Populated
-   * only when an interrupted snapshot carries `streamingText`/`thinking`;
-   * cleared on any live turn, a completed snapshot, or a thread reset.
-   */
-  interruptedAssistantByThread: Record<
-    string,
-    { requestId: string; content: string; thinking: string }
-  >;
   /**
    * Ordered narration/thinking/tool transcript per thread for the
    * "View processing" panel — the interleaved Hermes-style record. Hydrated
@@ -819,13 +794,10 @@ const initialState: ChatRuntimeState = {
   streamingAssistantByThread: {},
   inferenceHeartbeatByThread: {},
   pendingSendThreadIds: {},
-  parallelStreamsByThread: {},
-  parallelRequestThreads: {},
   toolTimelineByThread: {},
   toolTimelineSeqByThread: {},
   turnTimelinesByThread: {},
   turnTranscriptsByThread: {},
-  interruptedAssistantByThread: {},
   processingByThread: {},
   inferenceTurnLifecycleByThread: {},
   pendingApprovalByThread: {},
@@ -1176,40 +1148,6 @@ const chatRuntimeSlice = createSlice({
     clearThreadSendPending: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.pendingSendThreadIds[action.payload.threadId];
     },
-    /**
-     * Register a parallel (forked) turn so its socket events route to the
-     * parallel lane. Called when a `queueMode: 'parallel'` send is accepted.
-     */
-    registerParallelRequest: (
-      state,
-      action: PayloadAction<{ threadId: string; requestId: string }>
-    ) => {
-      state.parallelRequestThreads[action.payload.requestId] = action.payload.threadId;
-    },
-    /** Upsert the live stream for a parallel (forked) turn, keyed by requestId. */
-    setParallelStream: (
-      state,
-      action: PayloadAction<{ threadId: string; streaming: StreamingAssistantState }>
-    ) => {
-      const { threadId, streaming } = action.payload;
-      (state.parallelStreamsByThread[threadId] ??= {})[streaming.requestId] = streaming;
-    },
-    /**
-     * Tear down a parallel turn's lane state on its terminal event
-     * (chat_done / chat_error). Removes the stream and the request→thread entry.
-     */
-    clearParallelRequest: (state, action: PayloadAction<{ requestId: string }>) => {
-      const { requestId } = action.payload;
-      const threadId = state.parallelRequestThreads[requestId];
-      delete state.parallelRequestThreads[requestId];
-      if (threadId === undefined) return;
-      const streams = state.parallelStreamsByThread[threadId];
-      if (!streams) return;
-      delete streams[requestId];
-      if (Object.keys(streams).length === 0) {
-        delete state.parallelStreamsByThread[threadId];
-      }
-    },
     setToolTimelineForThread: (
       state,
       action: PayloadAction<{ threadId: string; entries: ToolTimelineEntry[] }>
@@ -1311,11 +1249,16 @@ const chatRuntimeSlice = createSlice({
       const rowId = toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`;
       if (existingIdx >= 0) {
         const prev = entries[existingIdx];
+        // A settled row stays settled. A replayed/late `tool_call` for a call
+        // whose result already landed used to flip it back to `running`, and
+        // nothing would ever settle it again.
+        const settled =
+          prev.status === 'success' || prev.status === 'error' || prev.status === 'cancelled';
         entries[existingIdx] = decorateEntry({
           ...prev,
           name: toolName,
           round,
-          status: 'running',
+          status: settled ? prev.status : 'running',
           displayName: displayLabel ?? prev.displayName,
           detail: displayDetail ?? prev.detail,
         });
@@ -1400,10 +1343,9 @@ const chatRuntimeSlice = createSlice({
     },
     /**
      * Reducer-side merge for a `text_delta` / `thinking_delta` socket event
-     * (Phase 3 — replaces the provider's `getState()` + parallel-vs-primary
-     * routing). Forked (parallel) turns append into their own lane and skip the
-     * processing transcript; the primary turn appends to the streaming preview
-     * and coalesces a narration/thinking block into the live processing panel.
+     * (Phase 3 — replaces the provider's `getState()` routing). Appends to the
+     * streaming preview and coalesces a narration/thinking block into the live
+     * processing panel.
      * A `requestId` change starts a fresh preview (drops the prior turn's tail).
      */
     streamDeltaReceived: (
@@ -1414,31 +1356,32 @@ const chatRuntimeSlice = createSlice({
         round: number;
         delta: string;
         channel: 'content' | 'thinking';
+        /**
+         * Epoch ms the delta arrived, stamped by the dispatcher so the
+         * reducer stays pure. Timestamps the thinking block for the
+         * reasoning panel's "Thought for Ns"; omitted deltas carry no timing.
+         */
+        at?: number;
       }>
     ) => {
-      const { threadId, requestId, round, delta, channel } = action.payload;
-      // A parallel (forked) turn streams into its own lane so it doesn't clobber
-      // the primary turn's stream on the same thread.
-      if (state.parallelRequestThreads[requestId] !== undefined) {
-        const lane = (state.parallelStreamsByThread[threadId] ??= {});
-        const prev = lane[requestId];
-        lane[requestId] = {
-          requestId,
-          content: channel === 'content' ? `${prev?.content ?? ''}${delta}` : (prev?.content ?? ''),
-          thinking:
-            channel === 'thinking' ? `${prev?.thinking ?? ''}${delta}` : (prev?.thinking ?? ''),
-        };
-        return;
-      }
+      const { threadId, requestId, round, delta, channel, at } = action.payload;
       const existing = state.streamingAssistantByThread[threadId];
       const sameTurn = existing != null && existing.requestId === requestId;
       const carryContent = sameTurn ? existing.content : '';
       const carryThinking = sameTurn ? existing.thinking : '';
-      state.streamingAssistantByThread[threadId] = {
+      const next: StreamingAssistantState = {
         requestId,
         content: channel === 'content' ? `${carryContent}${delta}` : carryContent,
         thinking: channel === 'thinking' ? `${carryThinking}${delta}` : carryThinking,
       };
+      const carryStartedAt = sameTurn ? existing.thinkingStartedAt : undefined;
+      const carryEndedAt = sameTurn ? existing.thinkingEndedAt : undefined;
+      const stampThinking = channel === 'thinking' && delta.length > 0 && at !== undefined;
+      const startedAt = carryStartedAt ?? (stampThinking ? at : undefined);
+      const endedAt = stampThinking ? at : carryEndedAt;
+      if (startedAt !== undefined) next.thinkingStartedAt = startedAt;
+      if (endedAt !== undefined) next.thinkingEndedAt = endedAt;
+      state.streamingAssistantByThread[threadId] = next;
       // Live interleaved processing transcript so a mid-turn "View processing"
       // isn't empty — coalesce into the trailing same-kind, same-round block.
       if (!delta) return;
@@ -1447,6 +1390,12 @@ const chatRuntimeSlice = createSlice({
       const last = list[list.length - 1];
       if (last && last.kind === kind && last.round === round) {
         last.text += delta;
+        if (last.kind === 'thinking' && at !== undefined) {
+          last.startedAt ??= at;
+          last.endedAt = at;
+        }
+      } else if (kind === 'thinking' && at !== undefined) {
+        list.push({ kind, round, seq: list.length, text: delta, startedAt: at, endedAt: at });
       } else {
         list.push({ kind, round, seq: list.length, text: delta });
       }
@@ -1754,6 +1703,26 @@ const chatRuntimeSlice = createSlice({
       if (!entry) return;
       entry.status = 'cancelled';
       if (entry.subagent) entry.subagent.status = 'cancelled';
+    },
+    /**
+     * Settle rows whose terminal turn snapshot could not be fetched.
+     *
+     * `chat_done` means their event driver has stopped. A non-async row still
+     * marked `running` therefore has no remaining source that can truthfully
+     * complete it, while detached sub-agents intentionally outlive the parent
+     * turn and must remain owned by their run ledger.
+     */
+    cancelUnresolvedTurnTimeline: (
+      state,
+      action: PayloadAction<{ threadId: string; rowIds?: string[] }>
+    ) => {
+      const { threadId, rowIds } = action.payload;
+      const entries = state.toolTimelineByThread[threadId];
+      if (!entries) return;
+      const eligible = rowIds && new Set(rowIds);
+      state.toolTimelineByThread[threadId] = entries.map(entry =>
+        !eligible || eligible.has(entry.id) ? settleOrphanedTimelineEntry(entry) : entry
+      );
     },
     /**
      * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`
@@ -2088,17 +2057,7 @@ const chatRuntimeSlice = createSlice({
     clearRuntimeForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.inferenceStatusByThread[action.payload.threadId];
       delete state.streamingAssistantByThread[action.payload.threadId];
-      delete state.interruptedAssistantByThread[action.payload.threadId];
       delete state.inferenceHeartbeatByThread[action.payload.threadId];
-      // Drop any parallel (forked) streams for this thread and their
-      // request→thread mappings — a hard per-thread reset covers every branch.
-      const parallelStreams = state.parallelStreamsByThread[action.payload.threadId];
-      if (parallelStreams) {
-        for (const requestId of Object.keys(parallelStreams)) {
-          delete state.parallelRequestThreads[requestId];
-        }
-        delete state.parallelStreamsByThread[action.payload.threadId];
-      }
       delete state.toolTimelineByThread[action.payload.threadId];
       delete state.toolTimelineSeqByThread[action.payload.threadId];
       delete state.processingByThread[action.payload.threadId];
@@ -2119,13 +2078,10 @@ const chatRuntimeSlice = createSlice({
       state.inferenceStatusByThread = {};
       state.streamingAssistantByThread = {};
       state.inferenceHeartbeatByThread = {};
-      state.parallelStreamsByThread = {};
-      state.parallelRequestThreads = {};
       state.toolTimelineByThread = {};
       state.toolTimelineSeqByThread = {};
       state.turnTimelinesByThread = {};
       state.turnTranscriptsByThread = {};
-      state.interruptedAssistantByThread = {};
       state.processingByThread = {};
       state.inferenceTurnLifecycleByThread = {};
       state.pendingApprovalByThread = {};
@@ -2231,9 +2187,6 @@ const chatRuntimeSlice = createSlice({
       // interrupted turn), not an overwrite of one.
       const liveLifecycle = state.inferenceTurnLifecycleByThread[threadId];
       if (liveLifecycle === 'started' || liveLifecycle === 'streaming') {
-        // A live turn is driving the thread — any interrupted partial from a
-        // prior crashed turn is superseded and must not linger under it.
-        delete state.interruptedAssistantByThread[threadId];
         return;
       }
 
@@ -2299,31 +2252,6 @@ const chatRuntimeSlice = createSlice({
           // up rather than restarting at 0 and colliding with existing seqs.
           state.toolTimelineSeqByThread[threadId] = snapshot.toolTimeline.length;
         }
-        // An interrupted turn was killed mid-answer (its core process is gone,
-        // so no `chat_done` will ever complete it). The partial reply +
-        // reasoning it had already streamed are persisted — surface them as a
-        // SETTLED buffer (rendered static + marked interrupted, not as a live
-        // pulsing stream) instead of dropping them (restore-fidelity fix 2). A
-        // `completed` turn's answer is the durable message, so it has no partial
-        // to keep — clear any stale interrupted buffer for the thread instead.
-        if (
-          snapshot.lifecycle === 'interrupted' &&
-          (snapshot.streamingText.length > 0 || snapshot.thinking.length > 0)
-        ) {
-          state.interruptedAssistantByThread[threadId] = {
-            requestId: snapshot.requestId,
-            content: snapshot.streamingText,
-            thinking: snapshot.thinking,
-          };
-          turnStateLog(
-            'interrupted partial kept thread=%s chars=%d thinkingChars=%d',
-            threadId,
-            snapshot.streamingText.length,
-            snapshot.thinking.length
-          );
-        } else {
-          delete state.interruptedAssistantByThread[threadId];
-        }
         state.processingByThread[threadId] = orderTranscriptBySeq(snapshot.transcript ?? []);
         return;
       }
@@ -2349,9 +2277,6 @@ const chatRuntimeSlice = createSlice({
       } else {
         delete state.streamingAssistantByThread[threadId];
       }
-      // This snapshot is in-flight (a live driver may be resuming it), not a
-      // settled interruption — drop any stale interrupted partial for the thread.
-      delete state.interruptedAssistantByThread[threadId];
 
       state.toolTimelineByThread[threadId] = preserveLiveSubagentProse(
         state.toolTimelineByThread[threadId],
@@ -2432,9 +2357,6 @@ export const {
   clearStreamingAssistantForThread,
   markThreadSendPending,
   clearThreadSendPending,
-  registerParallelRequest,
-  setParallelStream,
-  clearParallelRequest,
   setToolTimelineForThread,
   clearToolTimelineForThread,
   setTurnTimelinesForThread,
@@ -2451,6 +2373,7 @@ export const {
   clearProcessingForThread,
   appendProcessingProse,
   markSubagentCancelled,
+  cancelUnresolvedTurnTimeline,
   appendSubagentStreamDelta,
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,
@@ -2647,9 +2570,6 @@ function liveRequestIdsToSkip(state: unknown, threadId: string): Set<string> {
   const runtime = readChatRuntimeState(state);
   const streamingRid = runtime?.streamingAssistantByThread[threadId]?.requestId;
   if (streamingRid) skip.add(streamingRid);
-  for (const [rid, mappedThread] of Object.entries(runtime?.parallelRequestThreads ?? {})) {
-    if (mappedThread === threadId) skip.add(rid);
-  }
   return skip;
 }
 

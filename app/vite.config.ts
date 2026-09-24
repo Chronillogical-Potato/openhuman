@@ -129,6 +129,28 @@ function devConnectPlugin(): PluginOption {
     name: "openhuman:dev-connect",
     apply: "serve",
     configureServer(server) {
+      // OAuth return leg for the browser build. `OAuthProviderButton` passes
+      // `<origin>/__dev-auth` as the backend `redirectUri` (the backend accepts
+      // any http loopback URI), and the backend appends `token=…&key=auth`.
+      // The app uses a HashRouter, so a real `/auth` path never reaches
+      // `WebCallbackPage`; bounce the query onto the `#/auth` route instead.
+      server.middlewares.use("/__dev-auth", (req, res) => {
+        if (!isLoopbackAddress(req.socket.remoteAddress)) {
+          res.statusCode = 403;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end("Forbidden: /__dev-auth is only reachable from loopback.");
+          return;
+        }
+        const url = req.url ?? "";
+        const queryIndex = url.indexOf("?");
+        const query = queryIndex === -1 ? "" : url.slice(queryIndex);
+        console.log("[dev-auth] redirecting OAuth callback to #/auth");
+        res.statusCode = 302;
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Location", `/#/auth${query}`);
+        res.end();
+      });
+
       server.middlewares.use("/__dev-connect", (req, res) => {
         if (!isLoopbackAddress(req.socket.remoteAddress)) {
           res.statusCode = 403;
@@ -162,12 +184,29 @@ function devConnectPlugin(): PluginOption {
       try {
         var url = ${json(rpcUrl)};
         var token = ${json(token)};
+        // A core's GET /dev/connect (crates/openhuman-core/src/core/dev_connect.rs)
+        // lands here with its URL + bearer in the fragment, which never reaches
+        // a server. That wins over the dev server's own env so a browser can
+        // attach to an already-running desktop core (and its session). Only a
+        // loopback http core is accepted: a crafted link must not be able to
+        // point this renderer at someone else's runtime.
+        var fragment = new URLSearchParams(location.hash.slice(1));
+        var fragmentUrl = fragment.get("rpcUrl");
+        var fragmentToken = fragment.get("token");
+        if (fragmentUrl && fragmentToken) {
+          var parsed = new URL(fragmentUrl);
+          var loopback = ["localhost", "127.0.0.1", "[::1]"];
+          if (parsed.protocol !== "http:" || loopback.indexOf(parsed.hostname) === -1) {
+            throw new Error("refusing non-loopback core " + parsed.origin);
+          }
+          url = fragmentUrl;
+          token = fragmentToken;
+        }
         if (url) localStorage.setItem("openhuman_core_rpc_url", url);
         if (token) localStorage.setItem("openhuman_core_rpc_token", token);
         if (url && token) localStorage.setItem("openhuman_core_mode", "cloud");
       } catch (err) {
-        document.body.textContent =
-          "localStorage unavailable: " + err + " — cannot seed core credentials.";
+        document.body.textContent = "Cannot seed core credentials: " + err;
         throw err;
       }
       location.replace("/");

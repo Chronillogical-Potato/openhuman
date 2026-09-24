@@ -4,9 +4,9 @@ import createDebug from 'debug';
  * toolCallEnvelope — defends any chat transcript against rendering the raw
  * provider wire-format envelope instead of clean assistant text (B25).
  *
- * Applied by the shared `ChatThreadView` transcript renderer, so it guards
- * BOTH the home chat and the workflow copilot (which now reuses that
- * renderer). Originally lived under `lib/flows` for the copilot alone.
+ * Applied by the assistant-ui message projection (`assistantUiMessages.ts`),
+ * so it guards BOTH the home chat and the workflow copilot (which renders the
+ * same `Thread`). Originally lived under `lib/flows` for the copilot alone.
  *
  * The Rust core's `NativeToolDispatcher::to_provider_messages`
  * (`crates/openhuman-core/src/agent/dispatcher.rs`) and the tinyagents bridge's
@@ -60,8 +60,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Memo cache for `unwrapToolCallEnvelope`, keyed on the raw message string.
  *
- * WHY: `ChatThreadView` calls this for every agent message inside a `.map()` in
- * its render body, and that component re-renders on every streamed token. The
+ * WHY: the transcript projection calls this for every agent message, and it
+ * can re-run on every streamed token. The
  * work is therefore O(transcript) per token. Worse, the common case is the
  * expensive one: ordinary prose is not JSON, so `JSON.parse` THROWS and is
  * caught, once per message per token.

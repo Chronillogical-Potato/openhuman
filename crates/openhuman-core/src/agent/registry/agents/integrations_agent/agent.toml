@@ -20,6 +20,13 @@ hint = "burst"
 # `workflow_phase` tools (removed with the `agent_workflows` domain) are gone.
 named = [
     "composio_list_tools",
+    # Declared explicitly because `composio_list_toolkits` is no longer a
+    # member of the `composio` pack (unpacked so the orchestrator can own the
+    # "what can I connect?" lookup — see the registry note). This agent OWNS
+    # that pack, so it previously reached the tool one `use_skill` away without
+    # naming it; unpacking closed that route. Naming it here keeps the
+    # capability exactly as it was rather than silently removing it.
+    "composio_list_toolkits",
     "file_read",
     "composio_execute",
     "storage_upload_file",

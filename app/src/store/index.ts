@@ -38,6 +38,7 @@ import themeReducer from './themeSlice';
 import threadReducer from './threadSlice';
 import userErrorsReducer from './userErrorsSlice';
 import { userScopedStorage } from './userScopedStorage';
+import walletPreferencesReducer from './walletPreferencesSlice';
 
 // Persisted slices write through `userScopedStorage` so each user's blob
 // lives at `${userId}:persist:<key>` instead of a single per-device blob
@@ -102,9 +103,7 @@ const themePersistConfig = {
     'tabBarLabels',
     'fontSize',
     'customFontSizePx',
-    'agentMessageViewMode',
     'developerMode',
-    'hideAgentInsights',
     'activeThemeId',
     'themeVariant',
     'customThemes',
@@ -241,6 +240,12 @@ const persistedAnnouncementReducer = persistReducer(announcementPersistConfig, a
 const githubStarPersistConfig = { key: 'githubStar', storage, whitelist: ['dismissed'] };
 const persistedGithubStarReducer = persistReducer(githubStarPersistConfig, githubStarReducer);
 
+const walletPreferencesPersistConfig = { key: 'walletPreferences', storage };
+const persistedWalletPreferencesReducer = persistReducer(
+  walletPreferencesPersistConfig,
+  walletPreferencesReducer
+);
+
 export const store = configureStore({
   reducer: {
     socket: socketReducer,
@@ -260,6 +265,7 @@ export const store = configureStore({
     ptt: persistedPttReducer,
     announcement: persistedAnnouncementReducer,
     githubStar: persistedGithubStarReducer,
+    walletPreferences: persistedWalletPreferencesReducer,
     // In-memory only (not persisted): survives route changes / background-job
     // completion, resets on restart + user switch. Durable storage is a #3931
     // follow-up.

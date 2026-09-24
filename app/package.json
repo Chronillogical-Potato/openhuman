@@ -10,6 +10,7 @@
     "dev:web": "vite",
     "dev:app": "bash ../scripts/run-dev-macos.sh",
     "dev:app:web": "bash ../scripts/run-dev-web.sh",
+    "dev:app:web:attach": "bash ../scripts/run-dev-web.sh --attach",
     "dev:app:win": "..\\scripts\\run-dev-win.cmd",
     "core:stage": "echo '[core:stage] no-op — core is linked in-process; sidecar removed (PR #1061)'",
     "tauri:ios:init": "bash ../scripts/ios-init.sh",
@@ -127,6 +128,7 @@
     "tauri-plugin-ptt-api": "workspace:*",
     "three": "^0.183.2",
     "tw-animate-css": "^1.4.0",
+    "tw-shimmer": "^0.4.13",
     "util": "^0.12.5",
     "zustand": "^5.0.15"
   },

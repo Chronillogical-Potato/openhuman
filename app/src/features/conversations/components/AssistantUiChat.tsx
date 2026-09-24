@@ -8,18 +8,15 @@ import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
 import { useSlashCommands } from '../../../lib/commands/useSlashCommands';
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { TurnProcessTrail } from '../../../providers/assistantUiMessages';
 import { AssistantUiRuntimeProvider } from '../../../providers/AssistantUiRuntimeProvider';
 import { emptySessionTokenUsage } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { DEFAULT_MASCOT_COLOR } from '../../../store/mascotSlice';
 import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
 import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
+import { ChatSources } from './aui/ChatSources';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
-import { TurnFooter } from './aui/TurnFooter';
-import { TurnFooterHost } from './aui/turnFooterHost';
-import { TurnSources } from './aui/TurnSources';
-import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
+import { ChatToolFallback } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
 
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
@@ -64,6 +61,7 @@ export function AssistantUiChat({
   onModelChange,
   composerHeader,
   composerFooterExtras,
+  composerReplacement,
   inputValue,
   onInputValueChange,
   onEscape,
@@ -78,7 +76,6 @@ export function AssistantUiChat({
   onSwitchToMicCloud,
   onOpenSubagent,
   canOpenSubagent,
-  onOpenTurnProcess,
 }: {
   model: string | null;
   modelContextWindow?: number | null;
@@ -90,6 +87,13 @@ export function AssistantUiChat({
    * background-processes button and the thread files chip).
    */
   composerFooterExtras?: ReactNode;
+  /**
+   * Replaces the built-in text composer entirely, keeping the assistant-ui
+   * transcript above it. The mic-first voice composer (`mic-cloud`) uses this:
+   * its input is a push-to-talk button, not a text box. `undefined` keeps the
+   * normal composer.
+   */
+  composerReplacement?: ReactNode;
   inputValue: string;
   onInputValueChange: (value: string) => void;
   onEscape?: () => void;
@@ -112,8 +116,6 @@ export function AssistantUiChat({
   onOpenSubagent?: (taskId: string) => void;
   /** Whether the host's drawer can resolve that delegation; see the same file. */
   canOpenSubagent?: (taskId: string) => boolean;
-  /** Opens the host's process rail on one settled turn's trail (`TurnFooter`). */
-  onOpenTurnProcess?: (trail: TurnProcessTrail) => void;
 }) {
   const { t } = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,7 +126,6 @@ export function AssistantUiChat({
   // `selectCustomPrimaryColor`: this component is mounted by suites that build
   // a partial store, and those selectors dereference `state.mascot` unguarded,
   // so a store without the slice crashes the whole chat surface on render.
-  // `ChatThreadView` reads `state.theme?.` the same way for the same reason.
   const mascotColor = useAppSelector(state => state.mascot?.color ?? DEFAULT_MASCOT_COLOR);
   const mascotCustomPrimary = useAppSelector(state => state.mascot?.customPrimaryColor ?? null);
   const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
@@ -198,6 +199,12 @@ export function AssistantUiChat({
   const composerHeaderRef = useRef(composerHeader);
   composerHeaderRef.current = composerHeader;
   const ComposerHeader = useCallback(() => <>{composerHeaderRef.current}</>, []);
+  // Same stable-type-through-a-ref pattern: the voice composer owns recording
+  // state (MicComposer) that a remount would drop mid-utterance.
+  const composerReplacementRef = useRef(composerReplacement);
+  composerReplacementRef.current = composerReplacement;
+  const hasComposerReplacement = composerReplacement !== undefined;
+  const ComposerReplacement = useCallback(() => <>{composerReplacementRef.current}</>, []);
   const ComposerAttachments = useCallback(() => {
     const { attachments, attachmentInteractionBlocked, onRemoveAttachment } = slotPropsRef.current;
     return (
@@ -270,28 +277,23 @@ export function AssistantUiChat({
   // the picker uses. Stable like the slots above, and for the same reason: it
   // is handed to `thread.tsx` through the components object.
   const handleComposerFiles = useCallback((files: FileList | File[] | null) => {
-    void slotPropsRef.current.onAttachFiles(files);
+    return slotPropsRef.current.onAttachFiles(files);
   }, []);
 
   const components: ThreadComponents = useMemo(
     () => ({
       ToolFallback: ChatToolFallback,
-      ToolGroup: ChatToolGroup,
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
       // Phase / reasoning round / active tool for the turn in flight. Reads the
       // runtime's `extras`, so it needs no props and no dependency here.
       RunningStatus: AssistantUiInferenceStatus,
-      // One-line process summary under a settled answer, and the door to the
-      // reasoning / narration / tool detail that does not render inline.
-      TurnFooter,
-      // The web sources that turn visited, inline under the answer. The rail
-      // still lists them too — it carries the scoped single-step view and the
-      // whole-run view this does not. Reads the turn's own metadata, so no
-      // props and no dependency here.
-      TurnSources,
+      // The web pages the turn fetched, grouped from its `source` parts into
+      // one collapsed disclosure under the answer.
+      SourceGroup: ChatSources,
       onSwitchToMicCloud,
+      ...(hasComposerReplacement ? { Composer: ComposerReplacement } : {}),
       ...(attachmentsEnabled
         ? {
             ComposerAttachments,
@@ -314,6 +316,8 @@ export function AssistantUiChat({
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
+      ComposerReplacement,
+      hasComposerReplacement,
       attachmentInteractionBlocked,
       handleComposerFiles,
       maxAttachments,
@@ -330,18 +334,16 @@ export function AssistantUiChat({
   return (
     <AssistantUiRuntimeProvider>
       <ComposerTextBridge value={inputValue} onChange={onInputValueChange} />
-      <TurnFooterHost onOpenTurnProcess={onOpenTurnProcess}>
-        <SubagentDrawerHost onOpenSubagent={onOpenSubagent} canOpenSubagent={canOpenSubagent}>
-          <Thread
-            components={components}
-            model={model}
-            onModelChange={onModelChange}
-            loadError={loadError}
-            onEscape={onEscape}
-            slashCommands={slashCommands}
-          />
-        </SubagentDrawerHost>
-      </TurnFooterHost>
+      <SubagentDrawerHost onOpenSubagent={onOpenSubagent} canOpenSubagent={canOpenSubagent}>
+        <Thread
+          components={components}
+          model={model}
+          onModelChange={onModelChange}
+          loadError={loadError}
+          onEscape={onEscape}
+          slashCommands={slashCommands}
+        />
+      </SubagentDrawerHost>
     </AssistantUiRuntimeProvider>
   );
 }
