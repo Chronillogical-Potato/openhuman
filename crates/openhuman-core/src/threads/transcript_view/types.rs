@@ -73,6 +73,11 @@ pub enum DisplayItem {
         display_content: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
+        /// RFC3339 timestamp of the underlying `DisplayMessage`, when the
+        /// transcript record carried one. `None` for older records written
+        /// before timestamps were persisted — never backfilled.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<String>,
     },
     /// An assistant answer. `interim: true` marks a non-terminal tool-calling
     /// step within a multi-iteration turn (not the final answer bubble).
@@ -86,6 +91,8 @@ pub enum DisplayItem {
         model: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         iteration: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<String>,
     },
     /// The model's reasoning/thinking that preceded an assistant message.
     /// `iteration` is the model call it belongs to — the same value as the
@@ -112,6 +119,8 @@ pub enum DisplayItem {
         /// frontend expands for the `ToolFailureLines` renderer.
         #[serde(skip_serializing_if = "Option::is_none")]
         failure: Option<ToolCallFailure>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<String>,
     },
     /// A delegated sub-agent run, with its own nested projected items.
     ///
@@ -141,6 +150,8 @@ pub enum DisplayItem {
         status: SubagentStatus,
         #[serde(skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<String>,
         items: Vec<DisplayItem>,
     },
     /// A turn boundary — emitted when the `request_id` changes between lines.

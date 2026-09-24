@@ -30,6 +30,8 @@ export function extensionFor(kind: ArtifactSnapshot['kind'], title: string): str
       return 'docx';
     case 'image':
       return 'png';
+    case 'video':
+      return 'mp4';
     default:
       return 'bin';
   }

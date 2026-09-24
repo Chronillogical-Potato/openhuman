@@ -213,7 +213,7 @@ pub fn all_tools_with_runtime(
         // The session todo list (Claude/Codex style): one whole-list write per
         // call, scoped to the conversation thread. `plan_exit` is the marker
         // that hands a plan-mode pass off to a build-mode pass.
-        Box::new(TodoTool::new()),
+        Box::new(TodoTool::new(root_config.workspace_dir.clone())),
         // Interactive plan-review gate: parks the live turn on a thread-scoped
         // plan the user must approve before execution (Codex/Claude plan mode).
         Box::new(crate::agent::plan_review::RequestPlanReviewTool::new()),

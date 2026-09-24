@@ -13,7 +13,7 @@ use serde_json::json;
 
 use crate::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::security::approval::APPROVAL_CHAT_CONTEXT;
-use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext, ToolTimeout};
 
 use super::gate;
 use super::types::PlanReviewResolution;
@@ -80,6 +80,26 @@ impl Tool for RequestPlanReviewTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, context).await
+    }
+}
+
+impl RequestPlanReviewTool {
+    async fn execute_in_context(
+        &self,
+        args: serde_json::Value,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let tool_call_id = crate::tools::host_extensions::tool_call_id(context);
         let summary = args
             .get("summary")
             .and_then(|v| v.as_str())
@@ -118,6 +138,31 @@ impl Tool for RequestPlanReviewTool {
         let thread_id = chat_ctx.as_ref().map(|c| c.thread_id.clone());
         let client_id = chat_ctx.as_ref().map(|c| c.client_id.clone());
 
+        // Inert outside Plan mode (issue: plan-mode approvals). The chat
+        // orchestrator carries this tool on its belt at all times so it is
+        // reachable the instant a thread enters Plan mode (`agent.toml`), but
+        // a research/lookup turn in ordinary Build mode must never park
+        // behind a review card — that is the whole reason the tool was kept
+        // off the orchestrator's belt before Plan mode existed. Deny the
+        // model's own attempt to call it outside Plan mode with a plain
+        // instruction rather than parking, so a mis-fire degrades to a no-op
+        // instead of freezing the turn on an approval nobody asked for.
+        let mode = thread_id
+            .as_deref()
+            .map(crate::agent::tinyagents::run_mode::get_mode)
+            .unwrap_or_default();
+        if mode != tinyagents_harness::middleware::RunMode::Plan {
+            tracing::debug!(
+                thread_id = ?thread_id,
+                "[tool][request_plan_review] thread is not in plan mode — not parking"
+            );
+            return Ok(ToolResult::success(
+                "not applicable: this thread is not in plan mode, so there is no plan to \
+                 review. Do not call `request_plan_review` again this turn."
+                    .to_string(),
+            ));
+        }
+
         tracing::info!(
             thread_id = ?thread_id,
             steps = steps.len(),
@@ -125,7 +170,7 @@ impl Tool for RequestPlanReviewTool {
         );
 
         let resolution = gate::global()
-            .request_review(thread_id, client_id, summary, steps)
+            .request_review(thread_id, client_id, summary, steps, tool_call_id)
             .await;
 
         let result = match resolution {

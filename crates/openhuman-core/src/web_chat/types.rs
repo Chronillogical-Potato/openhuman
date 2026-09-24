@@ -119,6 +119,12 @@ pub(super) struct WebChatTaskResult {
     /// re-resolved afterwards would be filed under whoever is signed in when
     /// the turn happens to finish.
     pub(super) workspace_dir: std::path::PathBuf,
+    /// The bridge's `TurnTiming` snapshot (first-token/first-tool/total ms),
+    /// read from `ProgressBridgeHandle::timing_snapshot()` after
+    /// `wait_drained` — i.e. after the bridge has seen `TurnCompleted`.
+    /// `None` for a synthetic result (budget-exhausted placeholder) that
+    /// never ran a bridge, or a turn that errored before completing a round.
+    pub(super) timing: Option<super::turn_timing::TurnTimingSnapshot>,
 }
 
 /// Per-request metadata carried alongside a chat send. Currently used by the
@@ -165,11 +171,24 @@ pub(crate) struct WebChatParams {
     /// `followup`, or `collect`.
     #[serde(default)]
     pub(super) queue_mode: Option<String>,
+    /// Optional `"plan"` | `"build"` — lets the caller start this turn with
+    /// the thread already in the requested run mode, mirroring the socket
+    /// `chat:start` payload's `run_mode` field. Unrecognized values are
+    /// ignored (logged), not rejected.
+    #[serde(default)]
+    pub(super) run_mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WebQueueParams {
     pub(super) thread_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct WebQueueRemoveParams {
+    pub(super) client_id: String,
+    pub(super) thread_id: String,
+    pub(super) item_id: String,
 }
 
 #[derive(Debug, Deserialize)]

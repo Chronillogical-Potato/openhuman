@@ -351,6 +351,7 @@ impl AgentOrchestrationSession {
                     prompt: prompt.clone(),
                     worker_thread_id: None,
                     display_name: resolved_display_name,
+                    parent_call_id: None,
                 })
                 .await;
         }

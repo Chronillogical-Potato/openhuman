@@ -370,6 +370,7 @@ fn subagent_of_a_session_root_is_discovered_and_placed_after_its_spawning_call()
             status,
             request_id,
             items,
+            ..
         } => {
             assert_eq!(id, "sub-abc-123");
             assert_eq!(agent_id.as_deref(), Some("researcher"));

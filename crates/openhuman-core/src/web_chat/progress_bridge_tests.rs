@@ -126,6 +126,9 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
         elapsed_ms: 42,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .expect("send progress");
@@ -367,6 +370,9 @@ async fn stamps_monotonic_seq_on_emitted_events() {
         elapsed_ms: 5,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .unwrap();
@@ -427,6 +433,9 @@ async fn wait_drained_returns_after_queued_events_are_forwarded() {
         elapsed_ms: 1,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .unwrap();
@@ -524,4 +533,140 @@ async fn short_narration_is_flushed_on_the_rounds_first_tool_call() {
     .expect("chat_interim within timeout");
     assert_eq!(interim.full_response.as_deref(), Some("Let me check."));
     assert_eq!(interim.round, Some(1));
+}
+
+// ── C1: parent_call_id / capped output forwarding ────────────────────────
+
+#[test]
+fn cap_wire_args_passes_through_small_payloads() {
+    let args = serde_json::json!({"query": "hello"});
+    assert_eq!(cap_wire_args(Some(args.clone())), Some(args));
+}
+
+#[test]
+fn cap_wire_args_drops_null() {
+    assert_eq!(cap_wire_args(Some(serde_json::Value::Null)), None);
+    assert_eq!(cap_wire_args(None), None);
+}
+
+#[test]
+fn cap_wire_args_truncates_oversized_payload_to_a_marker_string() {
+    let big = serde_json::json!({ "body": "x".repeat(MAX_WIRE_SUBAGENT_OUTPUT) });
+    let capped = cap_wire_args(Some(big)).expect("oversized args still forwarded");
+    let rendered = capped.as_str().expect("degrades to a string, not JSON");
+    assert!(rendered.len() <= MAX_WIRE_SUBAGENT_OUTPUT);
+    assert!(rendered.contains("truncated"));
+}
+
+/// `SubagentSpawned.parent_call_id` must reach the wire (`subagent.parent_call_id`
+/// on `subagent_spawned`) so the frontend can key the delegation row to the
+/// spawning tool call (#C1).
+#[tokio::test]
+async fn subagent_spawned_forwards_parent_call_id() {
+    let mut events = super::super::event_bus::subscribe_web_channel_events();
+    let thread_id = "thread-c1-spawned";
+    let tx = spawn_test_bridge(thread_id, "req-c1-spawned");
+
+    tx.send(AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-c1".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 4,
+        prompt: "help".into(),
+        worker_thread_id: None,
+        display_name: None,
+        parent_call_id: Some("call-parent-1".into()),
+    })
+    .await
+    .unwrap();
+
+    let ev = recv_for_thread(&mut events, thread_id).await;
+    assert_eq!(ev.event, "subagent_spawned");
+    let subagent = ev.subagent.expect("subagent detail present");
+    assert_eq!(subagent.parent_call_id.as_deref(), Some("call-parent-1"));
+}
+
+/// Terminal sub-agent events (`_completed`/`_failed`/`_awaiting_user`) must
+/// keep carrying the same `parent_call_id` the spawn recorded, even though
+/// those `AgentProgress` variants don't repeat it — the bridge remembers it
+/// per `task_id` (#C1).
+#[tokio::test]
+async fn subagent_completed_carries_parent_call_id_and_capped_output() {
+    let mut events = super::super::event_bus::subscribe_web_channel_events();
+    let thread_id = "thread-c1-completed";
+    let tx = spawn_test_bridge(thread_id, "req-c1-completed");
+
+    tx.send(AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-c1-done".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 4,
+        prompt: "help".into(),
+        worker_thread_id: None,
+        display_name: None,
+        parent_call_id: Some("call-parent-2".into()),
+    })
+    .await
+    .unwrap();
+    let spawned = recv_for_thread(&mut events, thread_id).await;
+    assert_eq!(spawned.event, "subagent_spawned");
+
+    tx.send(AgentProgress::SubagentCompleted {
+        agent_id: "researcher".into(),
+        task_id: "sub-c1-done".into(),
+        elapsed_ms: 10,
+        iterations: 1,
+        output_chars: 5,
+        usage: None,
+        output: "final answer".into(),
+        worktree_path: None,
+        changed_files: Vec::new(),
+        dirty_status: None,
+    })
+    .await
+    .unwrap();
+
+    let completed = recv_for_thread(&mut events, thread_id).await;
+    assert_eq!(completed.event, "subagent_completed");
+    let subagent = completed.subagent.expect("subagent detail present");
+    assert_eq!(subagent.parent_call_id.as_deref(), Some("call-parent-2"));
+    assert_eq!(subagent.output.as_deref(), Some("final answer"));
+}
+
+#[tokio::test]
+async fn subagent_failed_carries_parent_call_id() {
+    let mut events = super::super::event_bus::subscribe_web_channel_events();
+    let thread_id = "thread-c1-failed";
+    let tx = spawn_test_bridge(thread_id, "req-c1-failed");
+
+    tx.send(AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-c1-failed".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 4,
+        prompt: "help".into(),
+        worker_thread_id: None,
+        display_name: None,
+        parent_call_id: Some("call-parent-3".into()),
+    })
+    .await
+    .unwrap();
+    let spawned = recv_for_thread(&mut events, thread_id).await;
+    assert_eq!(spawned.event, "subagent_spawned");
+
+    tx.send(AgentProgress::SubagentFailed {
+        agent_id: "researcher".into(),
+        task_id: "sub-c1-failed".into(),
+        error: "boom".into(),
+    })
+    .await
+    .unwrap();
+
+    let failed = recv_for_thread(&mut events, thread_id).await;
+    assert_eq!(failed.event, "subagent_failed");
+    let subagent = failed.subagent.expect("subagent detail present");
+    assert_eq!(subagent.parent_call_id.as_deref(), Some("call-parent-3"));
 }

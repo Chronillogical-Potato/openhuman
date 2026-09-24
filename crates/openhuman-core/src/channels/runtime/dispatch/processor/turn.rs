@@ -447,6 +447,7 @@ pub(crate) async fn process_channel_runtime_message(
             let approval_ctx = crate::security::approval::ApprovalChatContext {
                 thread_id: history_key.clone(),
                 client_id: msg.channel.clone(),
+                request_id: Some(msg.id.clone()),
             };
             crate::security::approval::APPROVAL_CHAT_CONTEXT
                 .scope(approval_ctx, agent_call)

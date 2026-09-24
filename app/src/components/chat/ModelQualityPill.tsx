@@ -37,7 +37,7 @@ interface ModelQualityPillProps {
  * Stable empty list. An inline `[]` prop is a new identity on every render,
  * which re-triggered the picker's catalog effect each render.
  */
-const NO_LOCAL_MODELS: never[] = [];
+export const NO_LOCAL_MODELS: never[] = [];
 
 function isManagedPassthroughId(value: string): boolean {
   if (!value.startsWith('openrouter/')) return false;
@@ -45,7 +45,9 @@ function isManagedPassthroughId(value: string): boolean {
   return rest.split('/').filter(Boolean).length === 2;
 }
 
-function selectionFromValue(value: string | null | undefined): ProviderModelSelection | null {
+export function selectionFromValue(
+  value: string | null | undefined
+): ProviderModelSelection | null {
   if (!value || value.startsWith('hint:')) return null;
   if (isManagedPassthroughId(value)) {
     return { source: { kind: 'managed' }, model: value };
@@ -58,7 +60,7 @@ function selectionFromValue(value: string | null | undefined): ProviderModelSele
   };
 }
 
-function selectionValue(selection: ProviderModelSelection): string | null {
+export function selectionValue(selection: ProviderModelSelection): string | null {
   const { source, model } = selection;
   switch (source.kind) {
     // Managed with no model keeps the original contract: clearing the override
@@ -77,7 +79,7 @@ function selectionValue(selection: ProviderModelSelection): string | null {
   }
 }
 
-function displayValue(value: string | null | undefined): string {
+export function displayValue(value: string | null | undefined): string {
   if (!value || value.startsWith('hint:')) return 'OpenHuman';
   // Managed ids carry no `providerSlug:` prefix to strip, and slicing on `:`
   // would reduce `…/nex-n2.5-mini:free` to just `free`. Show the model name.
@@ -90,17 +92,15 @@ function displayValue(value: string | null | undefined): string {
 }
 
 /**
- * assistant-ui's compact model-selector trigger, backed by OpenHuman's shared
- * provider/model picker so configured providers and their model discovery stay
- * consistent with routing.
+ * The configured cloud providers the shared provider/model picker lists,
+ * loaded from the core's client config (`loadAISettings`) the first time
+ * `open` turns true. Shared by this pill and the assistant composer's
+ * `ChatSettingsPanel`, so both pickers offer the same sources.
  */
-export default function ModelQualityPill({
-  className,
-  value,
-  onValueChange,
-}: ModelQualityPillProps) {
-  const { t } = useT();
-  const [open, setOpen] = useState(false);
+export function useModelPickerProviders(open: boolean): {
+  providers: CloudProvider[];
+  loading: boolean;
+} {
   const [providers, setProviders] = useState<CloudProvider[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -129,6 +129,23 @@ export default function ModelQualityPill({
       active = false;
     };
   }, [open, providers.length]);
+
+  return { providers, loading };
+}
+
+/**
+ * assistant-ui's compact model-selector trigger, backed by OpenHuman's shared
+ * provider/model picker so configured providers and their model discovery stay
+ * consistent with routing.
+ */
+export default function ModelQualityPill({
+  className,
+  value,
+  onValueChange,
+}: ModelQualityPillProps) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  const { providers, loading } = useModelPickerProviders(open);
 
   const initial = useMemo(() => selectionFromValue(value), [value]);
 

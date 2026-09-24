@@ -1,0 +1,273 @@
+/**
+ * The composer's context-usage control: assistant-ui's context-display ring,
+ * with assistant-ui's context-breakdown element in a popover behind it.
+ *
+ * The ring reads the thread's usage bucket (`chatRuntime.usageByThread`),
+ * which `chat_done.usage` feeds — the last turn's orchestrator tokens against
+ * the model's window. The live per-round `turn_cost` socket event is not
+ * handled by the frontend yet, so the ring moves once per turn, not per round.
+ *
+ * The breakdown (`agent.context_breakdown`) is expensive on a cold core cache,
+ * so it is fetched only when the popover opens, and an older core without the
+ * method leaves the popover in an error state rather than breaking the
+ * composer.
+ *
+ * `CostFooter` restores the dollar cost / per-sub-agent spend the bespoke
+ * pre-vendoring widget used to show — `chatRuntime.usageByThread`'s
+ * `costUsd`/`subAgents`, accumulated from `chat_done.usage` (and
+ * `subagent_completed`'s late delta). The vendored `ContextBreakdown` element
+ * has no cost field, so this renders underneath it as its own small card
+ * rather than being folded into that element.
+ */
+import {
+  ContextBreakdown,
+  type ContextSegment,
+} from '@/components/assistant-ui/elements/context-breakdown';
+import {
+  type ContextDisplayLabels,
+  ContextDisplayRing,
+  type TokenUsage,
+} from '@/components/assistant-ui/elements/context-display';
+import { ErrorState } from '@/components/assistant-ui/elements/error-state';
+import { mono, paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { cn } from '@/components/assistant-ui/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/assistant-ui/ui/popover';
+import debug from 'debug';
+import { useCallback, useMemo, useRef, useState } from 'react';
+
+import { useT } from '../../../lib/i18n/I18nContext';
+import {
+  type ContextBreakdown as ContextBreakdownData,
+  getContextBreakdown,
+} from '../../../services/api/agentContextApi';
+import { emptySessionTokenUsage, type SessionTokenUsage } from '../../../store/chatRuntimeSlice';
+import { useAppSelector } from '../../../store/hooks';
+
+const log = debug('openhuman:context-usage');
+
+/** Window assumed when neither the model nor any turn has reported one. */
+const DEFAULT_CONTEXT_WINDOW = 200_000;
+
+const EMPTY_USAGE = emptySessionTokenUsage();
+
+const formatUsd = (usd: number): string => (usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`);
+
+/**
+ * Turn cost + per-sub-agent spend, appended under the vendored
+ * `ContextBreakdown` card rather than inside it (that element has no cost
+ * field of its own — see the fe-brief's WS-F note). Reuses its own `mono`
+ * token so the figures read as part of the same card rather than a
+ * bespoke widget; hidden entirely once there is no spend to show.
+ */
+function CostFooter({ usage, t }: { usage: SessionTokenUsage; t: (key: string) => string }) {
+  if (usage.costUsd <= 0) return null;
+  const subAgents = Object.values(usage.subAgents).filter(sub => sub.costUsd > 0);
+  return (
+    <div className={cn(paper, 'flex w-full max-w-sm flex-col gap-1.5 rounded-2xl p-4')}>
+      <div className="flex items-baseline justify-between">
+        <span className="text-foreground/70 text-[13px]">
+          {t('conversations.composer.context.turnCost')}
+        </span>
+        <span className={cn(mono, 'text-foreground/70 tabular-nums')}>
+          {formatUsd(usage.costUsd)}
+        </span>
+      </div>
+      {subAgents.map(sub => (
+        <div key={sub.agentId} className="flex items-baseline justify-between">
+          <span className="text-foreground/45 truncate text-[12px]">
+            {t('conversations.composer.context.subagentCost').replace('{agent}', sub.agentId)}
+          </span>
+          <span className={cn(mono, 'text-foreground/45 shrink-0 tabular-nums')}>
+            {formatUsd(sub.costUsd)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Section labels the core emits verbatim; everything else is a prompt heading. */
+const KNOWN_SECTIONS: Record<string, { key: string; tint: string }> = {
+  '(preamble)': { key: 'conversations.composer.context.section.preamble', tint: 'bg-blue-500' },
+  tools: { key: 'conversations.composer.context.section.tools', tint: 'bg-violet-500' },
+  history: { key: 'conversations.composer.context.section.history', tint: 'bg-amber-500' },
+};
+
+/** Prompt headings share the system prompt's hue, stepped so neighbours differ. */
+const PROMPT_TINTS = ['bg-blue-400', 'bg-blue-600', 'bg-blue-300', 'bg-blue-700'];
+
+type BreakdownState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; data: ContextBreakdownData }
+  | { status: 'error' };
+
+/**
+ * Map the core's sections onto the element's segments: translate the fixed
+ * labels, strip markdown hashes off prompt headings, fold duplicate headings
+ * into one row (the element keys rows by label) and drop empty ones.
+ */
+export function contextBreakdownSegments(
+  data: ContextBreakdownData,
+  t: (key: string) => string
+): readonly ContextSegment[] {
+  const byLabel = new Map<string, ContextSegment>();
+  let promptIndex = 0;
+  for (const section of data.sections) {
+    if (section.est_tokens <= 0) continue;
+    const known = KNOWN_SECTIONS[section.label];
+    const label = known
+      ? t(known.key)
+      : section.label.replace(/^#+\s*/, '').trim() || section.label;
+    const existing = byLabel.get(label);
+    if (existing) {
+      existing.tokens += section.est_tokens;
+      continue;
+    }
+    const tint = known?.tint ?? PROMPT_TINTS[promptIndex++ % PROMPT_TINTS.length];
+    byLabel.set(label, { label, tokens: section.est_tokens, tint });
+  }
+  return [...byLabel.values()];
+}
+
+export function ContextUsage({
+  threadId,
+  modelContextWindow,
+}: {
+  threadId: string | null;
+  /** The selected model's window; wins over the one the last turn reported. */
+  modelContextWindow?: number | null;
+}) {
+  const { t } = useT();
+  const usage = useAppSelector(state =>
+    threadId ? (state.chatRuntime.usageByThread[threadId] ?? EMPTY_USAGE) : EMPTY_USAGE
+  );
+  const [open, setOpen] = useState(false);
+  const [breakdown, setBreakdown] = useState<BreakdownState>({ status: 'idle' });
+  // Only the newest request may land: reopening, or retrying, supersedes it.
+  const requestSeq = useRef(0);
+
+  const contextWindow =
+    modelContextWindow && modelContextWindow > 0
+      ? modelContextWindow
+      : usage.contextWindow > 0
+        ? usage.contextWindow
+        : DEFAULT_CONTEXT_WINDOW;
+
+  const ringUsage = useMemo<TokenUsage>(
+    () => ({
+      totalTokens: usage.lastTurnContextUsed,
+      inputTokens: usage.lastTurnInputTokens,
+      outputTokens: usage.lastTurnOutputTokens,
+    }),
+    [usage.lastTurnContextUsed, usage.lastTurnInputTokens, usage.lastTurnOutputTokens]
+  );
+
+  const labels = useMemo<ContextDisplayLabels>(
+    () => ({
+      full: percent =>
+        t('conversations.composer.context.full').replace('{percent}', String(percent)),
+      input: t('conversations.composer.context.input'),
+      cachedInput: t('conversations.composer.context.cached'),
+      output: t('conversations.composer.context.output'),
+      reasoning: t('conversations.composer.context.reasoning'),
+    }),
+    [t]
+  );
+
+  const loadBreakdown = useCallback(() => {
+    const seq = ++requestSeq.current;
+    log('breakdown fetch start thread=%s seq=%d', threadId ?? '(none)', seq);
+    setBreakdown({ status: 'loading' });
+    getContextBreakdown(threadId).then(
+      data => {
+        if (seq !== requestSeq.current) return;
+        log('breakdown fetch ok seq=%d sections=%d', seq, data.sections.length);
+        setBreakdown({ status: 'ready', data });
+      },
+      (error: unknown) => {
+        if (seq !== requestSeq.current) return;
+        log('breakdown fetch failed seq=%d: %O', seq, error);
+        setBreakdown({ status: 'error' });
+      }
+    );
+  }, [threadId]);
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      if (next) loadBreakdown();
+    },
+    [loadBreakdown]
+  );
+
+  let body;
+  if (breakdown.status === 'ready') {
+    const limit = breakdown.data.context_window > 0 ? breakdown.data.context_window : contextWindow;
+    body = (
+      <div className="flex flex-col gap-2">
+        <ContextBreakdown
+          segments={contextBreakdownSegments(breakdown.data, t)}
+          limit={limit}
+          title={t('conversations.composer.context.title')}
+          headroomLabel={t('conversations.composer.context.headroom')}
+          meterLabel={label =>
+            t('conversations.composer.context.meterLabel').replace('{label}', label)
+          }
+          meterValueText={(used, max) =>
+            t('conversations.composer.context.meterValue')
+              .replace('{used}', used)
+              .replace('{limit}', max)
+          }
+        />
+        <CostFooter usage={usage} t={t} />
+      </div>
+    );
+  } else if (breakdown.status === 'error') {
+    body = (
+      <div className={cn(paper, 'w-72 rounded-2xl p-4')}>
+        <ErrorState
+          title={t('conversations.composer.context.errorTitle')}
+          detail={t('conversations.composer.context.errorDetail')}
+          retrying={false}
+          onRetry={loadBreakdown}
+          retryLabel={t('common.retry')}
+        />
+      </div>
+    );
+  } else {
+    body = (
+      <div className={cn(paper, 'w-72 rounded-2xl p-4')}>
+        <ShimmerLabel className="text-foreground/55 text-sm">
+          {t('conversations.composer.context.loading')}
+        </ShimmerLabel>
+      </div>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger
+        render={
+          <ContextDisplayRing
+            data-testid="composer-context-usage"
+            aria-label={t('conversations.composer.context.usage')}
+            modelContextWindow={contextWindow}
+            usage={ringUsage}
+            resetKey={threadId ?? undefined}
+            labels={labels}
+          />
+        }
+      />
+      <PopoverContent
+        data-testid="composer-token-breakdown"
+        side="top"
+        align="start"
+        className="w-auto bg-transparent p-0 shadow-none ring-0">
+        {body}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export default ContextUsage;

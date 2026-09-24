@@ -527,12 +527,12 @@ function pushToolCall(turn: TurnAccumulator, item: DerivedToolCall): void {
   // A failed tool renders its "why / next" explanation via `ToolFailureLines`.
   const failure = toFailureExplanation(item.failure, item.result);
   if (failure) entry.failure = failure;
-  // Derive the human label + detail from tool name + args (the same TS
-  // formatter the live path runs), so settled rows carry `displayName`/`detail`
-  // at parity with `turn_state` rows instead of being unlabelled.
+  // Derive the detail from tool name + args (the same registry the live path
+  // runs). The title is *not* baked into `displayName`: that field carries
+  // only a server label, and a baked title froze its tense at "Reading file"
+  // on a finished row. Surfaces resolve the title at render time.
   const formatted = formatTimelineEntry(entry);
-  entry.displayName = formatted.title;
-  if (formatted.detail !== undefined) entry.detail = formatted.detail;
+  if (entry.detail === undefined && formatted.detail !== undefined) entry.detail = formatted.detail;
   turn.entries.push(entry);
   turn.transcript.push({ kind: 'toolCall', round: turn.round, seq, callId });
 }

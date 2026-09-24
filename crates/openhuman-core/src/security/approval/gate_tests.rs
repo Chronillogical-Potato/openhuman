@@ -134,6 +134,7 @@ fn chat_ctx() -> ApprovalChatContext {
     ApprovalChatContext {
         thread_id: "t-test".into(),
         client_id: "c-test".into(),
+        request_id: None,
     }
 }
 
@@ -203,9 +204,29 @@ async fn find_flow_gate_notification(
     }
 }
 
+/// Drain `rx` until an `ApprovalDecided` for `expected_request_id` arrives.
+/// Mirrors [`find_flow_approval_requested`]'s filter-not-first-match
+/// discipline for the same process-wide-bus reason.
+async fn find_approval_decided(
+    rx: &mut tinybus::events::EventReceiver<crate::core::events::DomainEvent>,
+    expected_request_id: &str,
+) -> crate::core::events::DomainEvent {
+    loop {
+        match rx.recv().await {
+            Some(
+                ref ev @ crate::core::events::DomainEvent::ApprovalDecided { ref request_id, .. },
+            ) if request_id == expected_request_id => return ev.clone(),
+            Some(_) => continue,
+            None => panic!("the bus closed before the expected event arrived"),
+        }
+    }
+}
+
 #[path = "gate_core_flow_tests.rs"]
 mod core_flow_tests;
 #[path = "gate_origin_intercept_tests.rs"]
 mod origin_intercept_tests;
+#[path = "gate_triage_tests.rs"]
+mod triage_tests;
 #[path = "gate_ttl_and_triage_tests.rs"]
 mod ttl_and_triage_tests;

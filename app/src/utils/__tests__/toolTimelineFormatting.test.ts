@@ -19,10 +19,14 @@ function entry(overrides: Partial<ToolTimelineEntry>): ToolTimelineEntry {
 }
 
 describe('formatTimelineEntry', () => {
-  it('falls back to the bridge label for a malformed tool-call name', () => {
+  it('falls back to the exact tool_call spec for a malformed bridge name', () => {
+    // The bridge unwrap (rule 1) only fires for a string `args.name`; a
+    // malformed bridge call (name not a string) falls through to the exact
+    // `tool_call` spec (rule 4) instead of the bare "used a tool" fallback,
+    // and shows the malformed value verbatim rather than hiding it.
     expect(
       formatTimelineEntry(entry({ name: 'tool_call', argsBuffer: JSON.stringify({ name: 42 }) }))
-    ).toEqual({ title: 'Using a tool', detail: undefined });
+    ).toEqual({ title: 'Using tools', detail: '42' });
   });
   it('formats integration delegation tools with a user-facing provider label', () => {
     expect(
@@ -32,10 +36,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ prompt: 'Find the project brief in Notion.' }),
         })
       )
-    ).toEqual({
-      title: 'Working in your Notion workspace',
-      detail: 'Find the project brief in Notion.',
-    });
+    ).toEqual({ title: 'Using Notion', detail: 'Find the project brief in Notion.' });
   });
 
   it('formats spawn_subagent for integrations_agent from toolkit args', () => {
@@ -52,7 +53,7 @@ describe('formatTimelineEntry', () => {
         })
       )
     ).toEqual({
-      title: 'Making requests to your Gmail account',
+      title: 'Using Gmail',
       detail:
         'Get my 5 most recent emails. Show subject, sender, date, and a short preview for each.',
     });
@@ -67,10 +68,7 @@ describe('formatTimelineEntry', () => {
           detail: 'Search Notion for the latest roadmap.',
         })
       )
-    ).toEqual({
-      title: 'Working in your Notion workspace',
-      detail: 'Search Notion for the latest roadmap.',
-    });
+    ).toEqual({ title: 'Using Notion', detail: 'Search Notion for the latest roadmap.' });
   });
 
   it('labels a direct connected-service action by its provider', () => {
@@ -78,17 +76,21 @@ describe('formatTimelineEntry', () => {
       formatTimelineEntry(
         entry({ name: 'GMAIL_SEND_EMAIL', argsBuffer: JSON.stringify({ to: 'alex@example.com' }) })
       )
-    ).toEqual({ title: 'Making requests to your Gmail account', detail: 'Send email' });
+    ).toEqual({ title: 'Using Gmail', detail: 'Send email · alex@example.com' });
     expect(formatTimelineEntry(entry({ name: 'GOOGLE_CALENDAR_CREATE_EVENT' }))).toEqual({
-      title: 'Updating your Google Calendar',
+      title: 'Using Google Calendar',
       detail: 'Create event',
     });
   });
 
-  it('keeps the generic label for upper-case names on unknown toolkits', () => {
+  it('never shouts an upper-case action slug, known toolkit or not', () => {
     expect(formatTimelineEntry(entry({ name: 'STRIPE_LIST_CHARGES' }))).toEqual({
-      title: 'STRIPE LIST CHARGES',
-      detail: undefined,
+      title: 'Using Stripe',
+      detail: 'List charges',
+    });
+    expect(formatTimelineEntry(entry({ name: 'ACME_DO_THING' }))).toEqual({
+      title: 'Using Acme',
+      detail: 'Do thing',
     });
   });
 
@@ -103,10 +105,7 @@ describe('formatTimelineEntry', () => {
           }),
         })
       )
-    ).toEqual({
-      title: 'Making requests to your GitHub account',
-      detail: 'List my open pull requests in GitHub.',
-    });
+    ).toEqual({ title: 'Using GitHub', detail: 'List my open pull requests in GitHub.' });
   });
 
   it('falls back to humanized generic labels for non-integration subagents', () => {
@@ -118,7 +117,7 @@ describe('formatTimelineEntry', () => {
 
   it('formats composio_list_connections with user-facing copy', () => {
     expect(formatTimelineEntry(entry({ name: 'composio_list_connections' }))).toEqual({
-      title: 'Viewing your Connections',
+      title: 'Checking your connections',
       detail: undefined,
     });
   });
@@ -131,7 +130,7 @@ describe('formatTimelineEntry', () => {
     ).toEqual({ title: 'Running command', detail: 'cargo test --lib' });
   });
 
-  it('formats web_fetch with hostname in title', () => {
+  it('formats web_fetch with the page as detail', () => {
     expect(
       formatTimelineEntry(
         entry({
@@ -139,21 +138,18 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ url: 'https://docs.example.com/api/v2/users' }),
         })
       )
-    ).toEqual({
-      title: 'Fetching docs.example.com',
-      detail: 'https://docs.example.com/api/v2/users',
-    });
+    ).toEqual({ title: 'Reading webpage', detail: 'docs.example.com/api/v2/users' });
   });
 
-  it('formats web_search with query in title', () => {
+  it('formats web_search with the query as detail', () => {
     expect(
       formatTimelineEntry(
         entry({ name: 'web_search', argsBuffer: JSON.stringify({ query: 'rust async trait' }) })
       )
-    ).toEqual({ title: 'Searching: rust async trait' });
+    ).toEqual({ title: 'Searching the web', detail: 'rust async trait' });
   });
 
-  it('attributes a completed web_search to the resolved provider', () => {
+  it('settles a completed web_search into the past tense (provider shows in the search element)', () => {
     expect(
       formatTimelineEntry(
         entry({
@@ -163,10 +159,10 @@ describe('formatTimelineEntry', () => {
           result: 'Search results for: rust async trait (via Exa)\n1. Some title\n   https://x.dev',
         })
       )
-    ).toEqual({ title: 'Searched with Exa', detail: 'rust async trait' });
+    ).toEqual({ title: 'Searched the web', detail: 'rust async trait' });
   });
 
-  it('reflects a different provider from the result (attribution is dynamic)', () => {
+  it('settles whichever provider served the search', () => {
     expect(
       formatTimelineEntry(
         entry({
@@ -176,7 +172,7 @@ describe('formatTimelineEntry', () => {
           result: 'Search results for: weather (via Brave)\n1. Forecast',
         })
       )
-    ).toEqual({ title: 'Searched with Brave', detail: 'weather' });
+    ).toEqual({ title: 'Searched the web', detail: 'weather' });
   });
 
   it('keeps the running label when no result is present yet', () => {
@@ -188,7 +184,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ query: 'rust async trait' }),
         })
       )
-    ).toEqual({ title: 'Searching: rust async trait' });
+    ).toEqual({ title: 'Searching the web', detail: 'rust async trait' });
   });
 
   // `web_search_tool` is the name the core actually registers and streams for
@@ -203,7 +199,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ query: 'rust async trait' }),
         })
       )
-    ).toEqual({ title: 'Searching: rust async trait' });
+    ).toEqual({ title: 'Searching the web', detail: 'rust async trait' });
   });
 
   it('attributes a completed web_search_tool from the markdown result', () => {
@@ -218,7 +214,7 @@ describe('formatTimelineEntry', () => {
           result: '# Search results — `rust async trait` (via Exa)\n\n## [T](https://x.dev)',
         })
       )
-    ).toEqual({ title: 'Searched with Exa', detail: 'rust async trait' });
+    ).toEqual({ title: 'Searched the web', detail: 'rust async trait' });
   });
 
   it('attributes a completed web_search_tool that returned no results', () => {
@@ -231,7 +227,7 @@ describe('formatTimelineEntry', () => {
           result: '_No results for `zzzz`_ (via Exa)',
         })
       )
-    ).toEqual({ title: 'Searched with Exa', detail: 'zzzz' });
+    ).toEqual({ title: 'Searched the web', detail: 'zzzz' });
   });
 
   it('formats file_read with shortened path', () => {
@@ -261,7 +257,7 @@ describe('formatTimelineEntry', () => {
       formatTimelineEntry(
         entry({ name: 'grep', argsBuffer: JSON.stringify({ pattern: 'SubagentSpawned' }) })
       )
-    ).toEqual({ title: 'Searching: SubagentSpawned' });
+    ).toEqual({ title: 'Searching code', detail: 'SubagentSpawned' });
   });
 
   it('formats git_operations with subcommand', () => {
@@ -269,7 +265,7 @@ describe('formatTimelineEntry', () => {
       formatTimelineEntry(
         entry({ name: 'git_operations', argsBuffer: JSON.stringify({ command: 'diff --stat' }) })
       )
-    ).toEqual({ title: 'Git diff', detail: 'diff --stat' });
+    ).toEqual({ title: 'Running git', detail: 'diff --stat' });
   });
 
   it('formats glob with pattern detail', () => {
@@ -277,7 +273,7 @@ describe('formatTimelineEntry', () => {
       formatTimelineEntry(
         entry({ name: 'glob', argsBuffer: JSON.stringify({ pattern: '**/*.test.ts' }) })
       )
-    ).toEqual({ title: 'Finding: **/*.test.ts' });
+    ).toEqual({ title: 'Finding files', detail: '**/*.test.ts' });
   });
 
   it('formats list with directory path', () => {
@@ -288,10 +284,10 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ path: 'crates/openhuman-core/src/tools' }),
         })
       )
-    ).toEqual({ title: 'Listing directory', detail: '…/src/tools' });
+    ).toEqual({ title: 'Listing folder', detail: '…/src/tools' });
   });
 
-  it('formats browser_open with hostname', () => {
+  it('formats browser_open with the page as detail', () => {
     expect(
       formatTimelineEntry(
         entry({
@@ -299,7 +295,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ url: 'https://github.com/tinyhumansai/openhuman' }),
         })
       )
-    ).toEqual({ title: 'Browsing github.com' });
+    ).toEqual({ title: 'Opening page', detail: 'github.com/tinyhumansai/openhuman' });
   });
 });
 
@@ -347,16 +343,16 @@ describe('extractSearchProvider', () => {
 describe('formatToolName', () => {
   it('returns human-readable names for known tools', () => {
     expect(formatToolName('shell')).toBe('Running command');
-    expect(formatToolName('web_fetch')).toBe('Fetching');
+    expect(formatToolName('web_fetch')).toBe('Reading webpage');
     expect(formatToolName('file_read')).toBe('Reading file');
     expect(formatToolName('edit')).toBe('Editing file');
     expect(formatToolName('grep')).toBe('Searching code');
-    expect(formatToolName('git_operations')).toBe('Git operation');
-    expect(formatToolName('lsp')).toBe('Code intelligence');
+    expect(formatToolName('git_operations')).toBe('Running git');
+    expect(formatToolName('lsp')).toBe('Analyzing code');
   });
 
-  it('falls back to humanized identifier for unknown tools', () => {
-    expect(formatToolName('custom_fancy_tool')).toBe('Custom Fancy Tool');
+  it('falls back to a sentence-cased activity for unknown tools', () => {
+    expect(formatToolName('custom_fancy_tool')).toBe('Using custom fancy tool');
   });
 });
 
@@ -392,9 +388,10 @@ describe('isKnownClientTool', () => {
     expect(isKnownClientTool('web_search_tool')).toBe(true);
   });
 
-  it('does not recognize dynamic Composio/MCP actions (server labels them)', () => {
-    expect(isKnownClientTool('GMAIL_SEND_EMAIL')).toBe(false);
-    expect(isKnownClientTool('composio_notion_create_page')).toBe(false);
+  it('recognizes Composio actions by their toolkit, and nothing it cannot describe', () => {
+    // The registry names a Composio action by its app ("Used Gmail"), so the
+    // core's sentence-cased slug does not override it.
+    expect(isKnownClientTool('GMAIL_SEND_EMAIL')).toBe(true);
     expect(isKnownClientTool('some_random_mcp_tool')).toBe(false);
   });
 });
@@ -412,25 +409,25 @@ describe('summarizeToolGroup', () => {
         entry({ id: 'a', name: 'file_read' }),
         entry({ id: 'b', name: 'file_read' }),
       ])
-    ).toBe('Read 2 files');
+    ).toBe('2 steps · Read file ×2');
   });
 
-  it('joins distinct category phrases for a mixed group', () => {
+  it('lists the distinct steps of a mixed group, most frequent first', () => {
     expect(
       summarizeToolGroup([
         entry({ id: 'a', name: 'file_write' }),
         entry({ id: 'b', name: 'shell' }),
         entry({ id: 'c', name: 'shell' }),
       ])
-    ).toBe('Edited 1 file, ran 2 commands');
+    ).toBe('3 steps · Ran command ×2, Wrote file');
   });
 });
 
 describe('categorizeTool', () => {
   it('maps tools (incl. subagent-prefixed) to a category', () => {
-    expect(categorizeTool('grep')).toBe('search');
-    expect(categorizeTool('subagent:web_fetch')).toBe('fetch');
-    expect(categorizeTool('GMAIL_SEND_EMAIL')).toBe('other');
+    expect(categorizeTool('grep')).toBe('code');
+    expect(categorizeTool('subagent:web_fetch')).toBe('web');
+    expect(categorizeTool('GMAIL_SEND_EMAIL')).toBe('app');
   });
 
   it('categorizes the canonical web-search name, not only its settings id', () => {
@@ -441,9 +438,9 @@ describe('categorizeTool', () => {
     // was the one place that had not, so a real search row categorized as
     // `other` — wrong icon and wrong group summary in the rail, and (since
     // #6169) a row kept on the main transcript that belongs in the rail.
-    expect(categorizeTool('web_search_tool')).toBe('search');
-    expect(categorizeTool('web_search')).toBe('search');
-    expect(categorizeTool('subagent:web_search_tool')).toBe('search');
+    expect(categorizeTool('web_search_tool')).toBe('web');
+    expect(categorizeTool('web_search')).toBe('web');
+    expect(categorizeTool('subagent:web_search_tool')).toBe('web');
   });
 });
 
@@ -467,7 +464,7 @@ describe('buildProcessingBlocks', () => {
     expect(blocks.map(b => b.kind)).toEqual(['thinking', 'narration', 'toolGroup', 'narration']);
     const group = blocks[2];
     if (group.kind !== 'toolGroup') throw new Error('expected toolGroup');
-    expect(group.summary).toBe('Read 2 files');
+    expect(group.summary).toBe('2 steps · Read file ×2');
     expect(group.entries).toHaveLength(2);
   });
 

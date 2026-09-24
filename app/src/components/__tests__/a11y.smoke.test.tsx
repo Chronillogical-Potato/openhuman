@@ -8,24 +8,14 @@
  * Kept deliberately small and provider-light so it stays fast and stable; grow
  * it screen-by-screen rather than pulling in the full app shell.
  */
-import { configureStore } from '@reduxjs/toolkit';
 import { render } from '@testing-library/react';
 import { axe } from 'jest-axe';
-import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
-import chatRuntimeReducer, {
-  type ArtifactSnapshot,
-  type PendingApproval,
-  setPendingApprovalForThread,
-} from '../../store/chatRuntimeSlice';
-import ApprovalRequestCard from '../chat/ApprovalRequestCard';
-import ArtifactCard from '../chat/ArtifactCard';
+import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
+import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
+import type { ArtifactSnapshot } from '../../store/chatRuntimeSlice';
 
-vi.mock('../../services/artifactDownloadService', () => ({
-  saveArtifactViaDialog: vi.fn(),
-  revealArtifactInFileManager: vi.fn(),
-}));
 vi.mock('../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
 async function expectNoViolations(container: HTMLElement) {
@@ -34,7 +24,7 @@ async function expectNoViolations(container: HTMLElement) {
 }
 
 describe('accessibility smoke', () => {
-  it('ArtifactCard (ready) has no axe violations', async () => {
+  it('ArtifactCardAdapter (ready) has no axe violations', async () => {
     const artifact: ArtifactSnapshot = {
       artifactId: 'a-1',
       kind: 'presentation',
@@ -44,11 +34,11 @@ describe('accessibility smoke', () => {
       path: 'a-1/deck.pptx',
       updatedAt: 0,
     };
-    const { container } = render(<ArtifactCard artifact={artifact} />);
+    const { container } = render(<ArtifactCardAdapter artifact={artifact} />);
     await expectNoViolations(container);
   });
 
-  it('ArtifactCard (failed with error) has no axe violations', async () => {
+  it('ArtifactCardAdapter (failed with error) has no axe violations', async () => {
     const artifact: ArtifactSnapshot = {
       artifactId: 'a-2',
       kind: 'document',
@@ -57,23 +47,22 @@ describe('accessibility smoke', () => {
       error: 'producer crashed',
       updatedAt: 0,
     };
-    const { container } = render(<ArtifactCard artifact={artifact} onRetry={vi.fn()} />);
+    const { container } = render(<ArtifactCardAdapter artifact={artifact} onRetry={vi.fn()} />);
     await expectNoViolations(container);
   });
 
-  it('ApprovalRequestCard has no axe violations', async () => {
-    const approval: PendingApproval = {
-      requestId: 'req-1',
-      toolName: 'shell',
-      message: 'Run `shell` — shell (18 bytes of arguments)',
-      command: 'pip show yfinance',
-    };
-    const store = configureStore({ reducer: { chatRuntime: chatRuntimeReducer } });
-    store.dispatch(setPendingApprovalForThread({ threadId: 't1', approval }));
+  it('ApprovalCardAdapter has no axe violations', async () => {
     const { container } = render(
-      <Provider store={store}>
-        <ApprovalRequestCard threadId="t1" approval={approval} />
-      </Provider>
+      <ApprovalCardAdapter
+        ariaLabel="Approval needed"
+        title="Approval needed"
+        subtitle="Run `shell` — shell (18 bytes of arguments)"
+        command="pip show yfinance"
+        toolName="shell"
+        alwaysDecision="approve_always_for_tool"
+        analyticsPrefix="chat-approval"
+        onDecide={vi.fn()}
+      />
     );
     await expectNoViolations(container);
   });

@@ -35,21 +35,25 @@ const selectCanSwitchToBranch = (s: AssistantState) =>
 const selectCanReload = (s: AssistantState) => s.optional.thread?.capabilities.reload;
 
 /**
- * The two capabilities the external-store adapter does NOT implement.
+ * Whether the mounted runtime's adapter can honour message editing and the
+ * branch picker.
  *
- * `useOpenHumanExternalStore` supplies `onNew` / `onCancel` only;
- * it implements neither `onEdit` nor `setMessages`, which is what assistant-ui
- * requires for message editing and for the branch picker. The runtime reports
- * that faithfully, so this hook is the honest gate for those affordances rather
- * than a hard-coded `false` that would rot the day the adapter grows them.
+ * `useOpenHumanExternalStore` supplies `onEdit` (via the `threads.edit_message`
+ * RPC, core workstream C4) and `setMessages` (a no-op stub — the core has no
+ * per-branch message model yet, so `onEdit`/`onReload` both truncate the
+ * thread's single lineage rather than forking one). Supplying either key at
+ * all is what turns assistant-ui's `capabilities.edit` /
+ * `capabilities.switchToBranch` on, so this hook reports both true whenever a
+ * runtime is mounted and false only when none is (a test/preview host with no
+ * `AuiProvider` above it).
  *
  * Both affordances in `components/assistant-ui/thread.tsx` are gated on this
- * (#5897): `UserActionBar` renders `ActionBarPrimitive.Edit` only when
- * `canEdit`, and `BranchPicker` returns `null` unless `canSwitchToBranch`.
- * Neither is reachable today, which is the point — an edit button that looks
- * supported and silently does nothing is worse than no button. See
- * `EDIT_AND_BRANCH_SEAM` below for where the edit composer itself attaches when
- * the adapter grows `onEdit` / `setMessages`.
+ * (#5897): `UserMessage` renders the vendored `EditMessage` element only when
+ * `canEdit`, and `BranchPicker` returns `null` unless `canSwitchToBranch`. The
+ * gate stays in place rather than being deleted now that both are wired: an
+ * edit button that looks supported and silently does nothing is worse than no
+ * button, and the day the adapter regresses (loses `onEdit`/`setMessages`)
+ * this hook is what turns the affordance back off automatically.
  */
 export function useAuiEditCapabilities(): { canEdit: boolean; canSwitchToBranch: boolean } {
   const canEdit = useAuiState(selectCanEdit) ?? false;
@@ -84,27 +88,25 @@ export function useAuiReloadCapability(): boolean {
 /**
  * THE EDIT / BRANCH SEAM.
  *
- * When the core gains a branch model and `useOpenHumanExternalStore` grows
- * `onEdit` + `setMessages`, two affordances become renderable and both belong
- * in the assistant-ui message components (`components/assistant-ui/thread.tsx`),
- * NOT here:
+ * `useOpenHumanExternalStore` now supplies `onEdit` + `setMessages`, so both
+ * affordances render in the assistant-ui message components
+ * (`components/assistant-ui/thread.tsx`):
  *
- * - an edit composer, gated on `useAuiEditCapabilities().canEdit`, rendered
- *   from `ComposerPrimitive.Root` / `ComposerPrimitive.Input` inside a
- *   `MessagePrimitive.Root` for that turn;
+ * - the vendored `EditMessage` element, gated on
+ *   `useAuiEditCapabilities().canEdit`, replacing `UserMessage`'s plain
+ *   bubble with `ComposerPrimitive.Root` / `.Input` for that turn;
  * - `BranchPickerPrimitive.Root` / `.Previous` / `.Number` / `.Count` /
  *   `.Next`, gated on `canSwitchToBranch`, rendered alongside the turn's
  *   existing copy / react / share action row.
  *
- * They are deliberately absent rather than rendered-and-inert: an edit button
- * that looks supported and silently does nothing is worse than no button.
- *
- * That rule was stated here but not enforced anywhere until #5897 — this hook
- * had zero production consumers while `ActionBarPrimitive.Edit` shipped
- * unconditionally, so the button was rendered, clickable and inert. The gate is
- * wired now; keep it wired when the affordances land in `thread.tsx`.
+ * Both were deliberately absent rather than rendered-and-inert before #5897:
+ * an edit button that looks supported and silently does nothing is worse than
+ * no button. The gate stays wired now that the affordances are live, so a
+ * future regression in the adapter (losing `onEdit`/`setMessages`) turns the
+ * UI off again automatically instead of leaving a dead button.
  */
 export const EDIT_AND_BRANCH_SEAM = Object.freeze({
-  editComposer: 'thread.tsx UserMessage — gated on useAuiEditCapabilities().canEdit',
+  editComposer:
+    'thread.tsx UserMessage — vendored EditMessage, gated on useAuiEditCapabilities().canEdit',
   branchPicker: 'thread.tsx BranchPicker — gated on useAuiEditCapabilities().canSwitchToBranch',
 });

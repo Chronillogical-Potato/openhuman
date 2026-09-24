@@ -451,6 +451,15 @@ pub fn update_message(
     ConversationStore::new(workspace_dir).update_message(thread_id, message_id, patch)
 }
 
+/// Free-function shim around [`ConversationStore::delete_messages_from`].
+pub fn delete_messages_from(
+    workspace_dir: PathBuf,
+    thread_id: &str,
+    message_id: &str,
+) -> Result<Option<usize>, String> {
+    ConversationStore::new(workspace_dir).delete_messages_from(thread_id, message_id)
+}
+
 /// Free-function shim around [`ConversationStore::purge_threads`].
 pub fn purge_threads(workspace_dir: PathBuf) -> Result<ConversationPurgeStats, String> {
     ConversationStore::new(workspace_dir).purge_threads()

@@ -71,6 +71,8 @@ fn all_variants_have_correct_domain() {
                 thread_id: "t".into(),
                 mode: "steer".into(),
                 queue_depth: 1,
+                item_id: None,
+                text_preview: None,
             },
             "agent",
         ),
@@ -78,6 +80,8 @@ fn all_variants_have_correct_domain() {
             DomainEvent::RunQueueFollowupDispatched {
                 thread_id: "t".into(),
                 followup_count: 1,
+                item_id: None,
+                text_preview: None,
             },
             "agent",
         ),
@@ -85,6 +89,8 @@ fn all_variants_have_correct_domain() {
             DomainEvent::RunQueueInterrupted {
                 thread_id: "t".into(),
                 cancelled_request_id: "req-1".into(),
+                item_id: None,
+                text_preview: None,
             },
             "agent",
         ),
@@ -595,6 +601,8 @@ fn approval_requested_does_not_surface_session_id() {
         args_redacted: serde_json::json!({ "tool_slug": "SLACK_SEND" }),
         thread_id: Some("t-1".to_string()),
         client_id: Some("c-1".to_string()),
+        tool_call_id: None,
+        expires_at: None,
     };
     let dbg = format!("{event:?}");
     assert!(
@@ -906,6 +914,8 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
             size_bytes: 1,
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         },
         DomainEvent::ArtifactFailed {
             artifact_id: "a1".into(),
@@ -915,6 +925,8 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
             error: "boom".into(),
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         },
         DomainEvent::ArtifactPending {
             artifact_id: "a1".into(),
@@ -924,6 +936,8 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
             path: "a1/doc.docx".into(),
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         },
         DomainEvent::McpServerProbeTimedOut {
             server_id: "srv-1".into(),
@@ -1024,6 +1038,8 @@ fn an_empty_artifact_workspace_reads_as_unbound_not_as_a_workspace() {
             size_bytes: 1,
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         }
         .workspace_dir(),
         None

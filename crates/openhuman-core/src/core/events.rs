@@ -147,17 +147,34 @@ pub enum DomainEvent {
         thread_id: String,
         mode: String,
         queue_depth: usize,
+        /// Stable id of the queued item, when the run queue assigns one.
+        /// `None` until the queue implementation is updated to mint ids.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        /// Short, non-sensitive preview of the queued text (already
+        /// truncated by the publisher — never the raw message body at
+        /// full length). `None` until wired up.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// A queued followup message was dispatched as a fresh turn after the
     /// current turn completed.
     RunQueueFollowupDispatched {
         thread_id: String,
         followup_count: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// The active turn was interrupted by a new message (default behavior).
     RunQueueInterrupted {
         thread_id: String,
         cancelled_request_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// One or more queued steer/collect messages were delivered into a running
     /// turn's steering handle (the harness applies them at the next iteration
@@ -168,11 +185,22 @@ pub enum DomainEvent {
         thread_id: String,
         mode: String,
         delivered: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// Residual steer messages that the turn ended or was cancelled before
     /// applying were drained back into the session run queue so they become the
     /// next turn's input instead of silently vanishing (issue #4456).
-    RunQueueSteerRequeued { thread_id: String, requeued: usize },
+    RunQueueSteerRequeued {
+        thread_id: String,
+        requeued: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
+    },
 
     // ── Monitor ───────────────────────────────────────────────────────
     /// A background monitor changed lifecycle state.
@@ -619,6 +647,18 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the approval question to,
         /// when known. `None` for non-chat callers.
         client_id: Option<String>,
+        /// The gated tool call's provider-assigned call id, when the parked
+        /// call originated from a tracked tool-call turn. Lets a frontend
+        /// correlate the approval card back to the exact `tool_call` /
+        /// `tool_args_delta` timeline row instead of matching on tool name.
+        /// `None` until every publish site is updated to pass it through.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// RFC3339 expiry of this pending approval, mirrored from
+        /// `PendingApproval::expires_at`. `None` when the approval has no
+        /// expiry or the publish site hasn't been updated yet.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expires_at: Option<String>,
     },
     /// User decided a pending approval. Published by `approval_decide`
     /// RPC handler after the gate's parked future resolves.
@@ -628,6 +668,27 @@ pub enum DomainEvent {
         /// `"approve_once"`, `"approve_always_for_tool"`,
         /// `"approve_always_for_flow"`, or `"deny"`.
         decision: String,
+        /// Chat thread the decided approval belongs to, mirrored from the
+        /// original `ApprovalRequested` so a socket bridge can route the
+        /// decision without re-looking up the (possibly already-cleared)
+        /// pending-approval record. `None` for non-chat callers and until
+        /// every publish site is updated.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
+        /// Socket.IO client id (room), mirrored the same way.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        client_id: Option<String>,
+        /// The gated tool call's provider-assigned call id, mirrored from
+        /// `ApprovalRequested::tool_call_id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// Why the parked call resolved, when `decision` alone (`deny`)
+        /// can't say: `"expired"` (TTL/`expire_stale` sweep denied it with
+        /// nobody deciding) or `"cancelled"` (the decision channel dropped —
+        /// external turn teardown). `None` for an ordinary user-made
+        /// decision (approve or a deliberate deny).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resolution: Option<String>,
     },
     /// A `Workflow`-origin tool call parked in the `ApprovalGate` (issue
     /// flow-approval-surface, PR2/PR3). Unlike `ApprovalRequested`, this
@@ -682,6 +743,11 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the disclosure to, when known.
         /// `None` for non-chat callers.
         client_id: Option<String>,
+        /// The turn this transfer was made under, from the ambient
+        /// `ApprovalChatContext::request_id`. `None` for non-chat callers, or
+        /// a chat caller that had no turn request_id in scope.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
 
     // ── Plan review (interactive plan-mode gate) ────────────────────────
@@ -701,6 +767,15 @@ pub enum DomainEvent {
         summary: String,
         /// Ordered plan steps shown in the review card.
         steps: Vec<String>,
+        /// The gated tool call's provider-assigned call id, when the parked
+        /// turn originated from a tracked tool-call. `None` until every
+        /// publish site is updated to pass it through.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// RFC3339 expiry of this pending plan review, mirrored the same
+        /// way as `ApprovalRequested::expires_at`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expires_at: Option<String>,
     },
     /// User resolved a parked plan review. Published after the gate's parked
     /// future wakes. `decision` is `"approve"` / `"reject"` / `"revise"`
@@ -708,6 +783,23 @@ pub enum DomainEvent {
     PlanReviewDecided {
         request_id: String,
         decision: String,
+        /// Chat thread the decided review belongs to, mirrored from the
+        /// original `PlanReviewRequested`. `None` for non-chat callers and
+        /// until every publish site is updated.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
+        /// Socket.IO client id (room), mirrored the same way.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        client_id: Option<String>,
+        /// The gated tool call's provider-assigned call id, mirrored from
+        /// `PlanReviewRequested::tool_call_id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// Why the parked review resolved when `decision` alone (`reject`)
+        /// can't say: `"expired"` (TTL) or `"cancelled"` (sender dropped —
+        /// external teardown). `None` for a real user decision.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resolution: Option<String>,
     },
 
     // ── Artifacts ───────────────────────────────────────────────────────
@@ -748,6 +840,13 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the card to, when
         /// known. `None` for non-chat callers.
         client_id: Option<String>,
+        /// The tool call that produced this artifact, when known — lets the
+        /// UI attach the finished card to that exact timeline row.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// The turn/request id this artifact was produced under, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     /// An artifact transitioned to [`ArtifactStatus::Failed`] — the
     /// producer surfaced a reason and the UI should render a
@@ -765,6 +864,12 @@ pub enum DomainEvent {
         error: String,
         thread_id: Option<String>,
         client_id: Option<String>,
+        /// The tool call that produced this artifact, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// The turn/request id this artifact was produced under, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     /// An artifact record has been **created** (`ArtifactStatus::Pending`)
     /// but no bytes are on disk yet — the producing tool has only just
@@ -799,6 +904,12 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the card to, when known.
         /// `None` for non-chat callers.
         client_id: Option<String>,
+        /// The tool call that reserved this artifact, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// The turn/request id this artifact was reserved under, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
 
     // ── Webhooks ────────────────────────────────────────────────────────
@@ -1355,9 +1466,32 @@ pub enum DomainEvent {
         thread_id: String,
         goal_id: String,
         status: String,
+        /// Full goal snapshot (owned by `tinyagents-graph`'s goal shape, so
+        /// kept as a raw `Value` rather than a typed field here). `None`
+        /// until the publish site is updated to pass it through.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        goal: Option<serde_json::Value>,
     },
     /// A thread's goal was cleared (deleted).
     ThreadGoalCleared { thread_id: String },
+    /// A thread's session todo list changed (item added, checked, removed,
+    /// or reordered). Drives the desktop todo drawer.
+    ThreadTodosChanged {
+        thread_id: String,
+        /// Full todo-list snapshot, owned by `tinyagents-graph`'s todo shape.
+        todos: serde_json::Value,
+    },
+    // ── Plan mode ───────────────────────────────────────────────────────
+    /// A thread's [`tinyagents_harness::middleware::RunMode`] (Plan vs Build)
+    /// changed, via `agent.set_run_mode` or the `plan_exit` tool. Bridged to
+    /// the `run_mode_changed` web-channel socket event by
+    /// `crate::agent::tinyagents::run_mode::set_mode`'s caller.
+    ThreadRunModeChanged {
+        thread_id: String,
+        /// `"plan"` or `"build"` — see
+        /// `crate::agent::tinyagents::run_mode::mode_label`.
+        mode: String,
+    },
 }
 
 /// Truncate to `max` characters, appending `…` when anything was dropped.
@@ -1495,7 +1629,10 @@ impl DomainEvent {
             | Self::TaskSourceTaskIngested { .. }
             | Self::TaskSourceFetchFailed { .. } => "task_sources",
 
-            Self::ThreadGoalUpdated { .. } | Self::ThreadGoalCleared { .. } => "agent",
+            Self::ThreadGoalUpdated { .. }
+            | Self::ThreadGoalCleared { .. }
+            | Self::ThreadTodosChanged { .. }
+            | Self::ThreadRunModeChanged { .. } => "agent",
 
             Self::SubconsciousTriggerProcessed { .. } => "subconscious",
 
@@ -1656,6 +1793,8 @@ impl DomainEvent {
             Self::TaskSourceFetchFailed { .. } => "TaskSourceFetchFailed",
             Self::ThreadGoalUpdated { .. } => "ThreadGoalUpdated",
             Self::ThreadGoalCleared { .. } => "ThreadGoalCleared",
+            Self::ThreadTodosChanged { .. } => "ThreadTodosChanged",
+            Self::ThreadRunModeChanged { .. } => "ThreadRunModeChanged",
             Self::Voice(_) => "Voice",
         }
     }

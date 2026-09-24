@@ -21,6 +21,7 @@
 pub mod artifacts;
 pub mod bus;
 pub mod context;
+pub mod context_breakdown;
 pub(crate) mod cost;
 pub mod debug;
 pub mod error;

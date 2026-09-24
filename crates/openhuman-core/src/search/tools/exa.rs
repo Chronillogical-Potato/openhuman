@@ -1,10 +1,8 @@
 //! Exa neural search integration -- direct API (BYOK, not backend-proxied).
 //!
 //! **Scope**: Agent + CLI/RPC.
-//!
 //! **Endpoints**: `POST https://api.exa.ai/search`,
 //! `POST https://api.exa.ai/findSimilar`, `POST https://api.exa.ai/contents`.
-//!
 //! **Auth**: `x-api-key: <api key>`.
 //!
 //! When the user selects `exa` as their search engine and has saved their own
@@ -508,7 +506,25 @@ impl Tool for ExaSearchTool {
         let limit = self.client.requested_results(&args);
         let body = self.build_body(&args, &query);
         let results = self.client.post_documents("search", body).await?;
-        Ok(self.client.to_result(&results, &query, limit, &options))
+        let mut result = self.client.to_result(&results, &query, limit, &options);
+        let excerpts: Vec<Option<String>> = results.iter().map(ExaResultItem::excerpt).collect();
+        let structured: Vec<super::WebSearchResultRef<'_>> = results
+            .iter()
+            .zip(&excerpts)
+            .map(|(r, e)| super::WebSearchResultRef {
+                title: r.display_title(),
+                url: &r.url,
+                published: r.published_date.as_deref(),
+                excerpt: e.as_deref(),
+            })
+            .collect();
+        result.metadata = Some(super::web_search_metadata(
+            &query,
+            "Exa",
+            &structured,
+            limit,
+        ));
+        Ok(result)
     }
 }
 

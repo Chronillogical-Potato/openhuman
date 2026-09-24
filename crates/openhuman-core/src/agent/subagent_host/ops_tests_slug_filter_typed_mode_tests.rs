@@ -289,6 +289,7 @@ async fn run_queue_steer_lands_in_subagent_history() {
         .push(
             QueueLane::Steer,
             crate::agent::queued_turn::QueuedTurn {
+                id: "queued-test".into(),
                 text: "switch focus to memory safety".into(),
                 client_id: "steer_subagent".into(),
                 thread_id: "t-steer".into(),

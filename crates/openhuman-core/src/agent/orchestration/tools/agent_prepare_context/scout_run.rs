@@ -135,6 +135,7 @@ pub async fn run_context_scout_with_catalog(
         None,
         crate::agent::tinyagents::host::OpenHumanRunContext::new(),
         None,
+        None,
     )
     .await
 }
@@ -224,6 +225,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
             crate::agent::tinyagents::host::OpenHumanRunContext,
         >,
     >,
+    parent_call_id: Option<String>,
 ) -> anyhow::Result<ToolResult> {
     let question = question.trim().to_string();
     let focus = focus.map(|s| s.to_string());
@@ -305,6 +307,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                 prompt: scout_prompt.clone(),
                 worker_thread_id: None,
                 display_name: Some(definition.display_name().to_string()),
+                parent_call_id: parent_call_id.clone(),
             })
             .await;
     }
@@ -462,6 +465,7 @@ pub(super) async fn run_context_scout_with_catalog_and_workspace(
                                         thread_id: goal.thread_id.clone(),
                                         goal_id: goal.goal_id.clone(),
                                         status: goal.status.as_str().to_string(),
+                                        goal: Some(crate::agent::goals::goal_to_value(&goal)),
                                     });
                                 }
                                 Ok(None) => {

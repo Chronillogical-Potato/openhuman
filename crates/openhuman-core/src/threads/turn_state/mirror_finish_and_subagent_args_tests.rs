@@ -16,6 +16,7 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     // Reasoning (two same-iteration deltas, must coalesce), then a tool, then
     // visible narration — the order must be preserved in the transcript.
@@ -61,6 +62,9 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         elapsed_ms: 12,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]
@@ -226,6 +230,7 @@ fn subagent_tool_call_persists_its_arguments() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     m.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
@@ -277,6 +282,7 @@ fn null_child_arguments_are_not_persisted_at_start() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     m.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
@@ -318,6 +324,7 @@ fn oversized_child_arguments_are_truncated() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Writer".into()),
+        parent_call_id: None,
     });
     let huge = "x".repeat(32 * 1024);
     let arguments = serde_json::json!({ "path": "notes.md", "content": huge });
@@ -397,6 +404,7 @@ fn tinyagents_path_backfills_arguments_from_the_completion_event() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     // Start carries no arguments — exactly what the tinyagents bridge sends.
     m.observe(&AgentProgress::SubagentToolCallStarted {
@@ -421,6 +429,9 @@ fn tinyagents_path_backfills_arguments_from_the_completion_event() {
         elapsed_ms: 12,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]
@@ -450,6 +461,7 @@ fn completion_arguments_do_not_overwrite_arguments_captured_at_start() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     m.observe(&AgentProgress::SubagentToolCallStarted {
         agent_id: "researcher".into(),
@@ -473,6 +485,9 @@ fn completion_arguments_do_not_overwrite_arguments_captured_at_start() {
         elapsed_ms: 12,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]

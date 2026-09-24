@@ -9,9 +9,12 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
 
 use super::ops::{
-    channel_web_cancel, channel_web_chat, channel_web_queue_clear, channel_web_queue_status,
+    channel_web_cancel, channel_web_chat, channel_web_queue_clear, channel_web_queue_remove,
+    channel_web_queue_status,
 };
-use super::types::{ChatRequestMetadata, WebCancelParams, WebChatParams, WebQueueParams};
+use super::types::{
+    ChatRequestMetadata, WebCancelParams, WebChatParams, WebQueueParams, WebQueueRemoveParams,
+};
 
 pub fn all_web_channel_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -19,6 +22,7 @@ pub fn all_web_channel_controller_schemas() -> Vec<ControllerSchema> {
         schemas("cancel"),
         schemas("queue_status"),
         schemas("queue_clear"),
+        schemas("queue_remove"),
     ]
 }
 
@@ -39,6 +43,10 @@ pub fn all_web_channel_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("queue_clear"),
             handler: handle_queue_clear,
+        },
+        RegisteredController {
+            schema: schemas("queue_remove"),
+            handler: handle_queue_remove,
         },
     ]
 }
@@ -75,6 +83,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "queue_mode",
                     "Queue mode: 'interrupt' (default), 'steer', 'followup', 'collect', or 'parallel'.",
                 ),
+                optional_string(
+                    "run_mode",
+                    "Optional 'plan' | 'build' — start this turn with the thread already in the requested run mode, like the socket chat:start payload's run_mode. Unrecognized values are ignored.",
+                ),
             ],
             outputs: vec![json_output("ack", "Acceptance payload.")],
         },
@@ -109,6 +121,20 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![required_string("thread_id", "Thread identifier.")],
             outputs: vec![json_output("result", "Queue clear result.")],
         },
+        "queue_remove" => ControllerSchema {
+            namespace: "channel",
+            function: "web_queue_remove",
+            description: "Remove one specific queued item from a thread's run queue by id.",
+            inputs: vec![
+                required_string("client_id", "Client stream identifier."),
+                required_string("thread_id", "Thread identifier."),
+                required_string("item_id", "Id of the queued item to remove."),
+            ],
+            outputs: vec![json_output(
+                "result",
+                "{ thread_id, item_id, removed }.",
+            )],
+        },
         _ => ControllerSchema {
             namespace: "channel",
             function: "unknown",
@@ -136,6 +162,7 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 p.temperature,
                 p.locale,
                 p.queue_mode,
+                p.run_mode,
                 ChatRequestMetadata {
                     speak_reply: p.speak_reply,
                     source: p.source,
@@ -161,6 +188,13 @@ fn handle_queue_clear(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<WebQueueParams>(params)?;
         to_json(channel_web_queue_clear(&p.thread_id).await?)
+    })
+}
+
+fn handle_queue_remove(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = deserialize_params::<WebQueueRemoveParams>(params)?;
+        to_json(channel_web_queue_remove(&p.client_id, &p.thread_id, &p.item_id).await?)
     })
 }
 

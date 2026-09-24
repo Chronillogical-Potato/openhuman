@@ -35,6 +35,13 @@ pub struct PendingApproval {
     /// optional and additive so the chat path's wire shape never changes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_context: Option<ApprovalSourceContext>,
+    /// The gated tool call's provider-assigned call id, when the parked call
+    /// originated from a tracked tool-call turn. Lets a frontend correlate
+    /// the approval card back to the exact `tool_call` timeline row instead
+    /// of matching on tool name. `None` for non-tracked callers (CLI, cron,
+    /// workflows) and for rows persisted before this field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 impl PendingApproval {
@@ -55,7 +62,14 @@ impl PendingApproval {
             created_at: Utc::now(),
             expires_at,
             source_context: None,
+            tool_call_id: None,
         }
+    }
+
+    /// Attach the gated tool call's provider-assigned call id.
+    pub fn with_tool_call_id(mut self, tool_call_id: impl Into<String>) -> Self {
+        self.tool_call_id = Some(tool_call_id.into());
+        self
     }
 
     /// Attach an [`ApprovalSourceContext`] — used by

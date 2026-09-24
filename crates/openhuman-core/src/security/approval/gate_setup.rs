@@ -43,6 +43,7 @@ impl ApprovalGate {
             ttl,
             waiters: Mutex::new(HashMap::new()),
             thread_to_request: Mutex::new(HashMap::new()),
+            request_routes: Mutex::new(HashMap::new()),
         }
     }
 
@@ -156,6 +157,23 @@ impl ApprovalGate {
         action_summary: &str,
         args_redacted: serde_json::Value,
     ) -> (GateOutcome, Option<String>) {
+        self.intercept_audited_for_call(tool_name, action_summary, args_redacted, None)
+            .await
+    }
+
+    /// Like [`Self::intercept_audited`], but threads the gated tool call's
+    /// provider-assigned call id through so `ApprovalRequested`/`ApprovalDecided`
+    /// and the persisted `pending_approvals` row can correlate back to the
+    /// exact `tool_call` timeline row instead of matching on tool name alone.
+    /// `None` for callers with no tracked call id (a legacy path, or a call
+    /// not driven through the tinyagents harness).
+    pub async fn intercept_audited_for_call(
+        &self,
+        tool_name: &str,
+        action_summary: &str,
+        args_redacted: serde_json::Value,
+        tool_call_id: Option<&str>,
+    ) -> (GateOutcome, Option<String>) {
         // No caller-supplied park bound: identical behavior to before. With
         // `park_bound = None` the inner never takes the caller-bound abandon
         // path, so the out-flag stays `false` and is discarded here.
@@ -166,6 +184,7 @@ impl ApprovalGate {
             args_redacted,
             None,
             &mut _park_bound_elapsed,
+            tool_call_id,
         )
         .await
     }
@@ -202,6 +221,7 @@ impl ApprovalGate {
                 args_redacted,
                 park_bound,
                 &mut park_bound_elapsed,
+                None,
             )
             .await;
         if park_bound_elapsed {

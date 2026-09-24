@@ -366,6 +366,25 @@ export const FEEDBACK_METADATA_KEY = 'feedback';
 export const FEEDBACK_ROW_IDS_METADATA_KEY = 'feedbackRowIds';
 
 /**
+ * `extraMetadata` key holding the turn's latency snapshot
+ * (`ChatDoneEvent.timing` — wire-contract.md), stamped by
+ * `ChatRuntimeProvider`'s `chatDoneExtraMetadata` and read back by
+ * `assistantUiMessages.ts` to build `ThreadMessageLike.metadata.timing` for
+ * the vendored `MessageTiming` element.
+ */
+export const TIMING_METADATA_KEY = 'timing';
+
+/**
+ * `extraMetadata` key holding a `chat_error`'s `error_type` (and, for
+ * `"guardrail"`, its `GuardrailPayload`) — wire-contract.md. Stamped by
+ * `ChatRuntimeProvider`'s `onError` handler on the assistant message it
+ * appends for the failed turn; read back by `assistantUiMessages.ts` and
+ * `ChatErrorNotice` (`features/conversations/aui/`) to render the vendored
+ * `GuardrailNotice` element in place of the plain error text.
+ */
+export const CHAT_ERROR_METADATA_KEY = 'chatError';
+
+/**
  * Persist a thumbs rating on one assistant message: read the row from Redux,
  * patch its `extraMetadata`, and write back the persisted row.
  *
@@ -511,6 +530,35 @@ const threadSlice = createSlice({
     setWelcomeThreadId: () => {
       // intentional no-op
     },
+    /**
+     * Drop messages at or after `messageId` from `threadId`'s local cache.
+     *
+     * Backs assistant-ui's `onEdit`/`onReload` (`useOpenHumanExternalStore`):
+     * both RPCs (`threads.edit_message`, `threads.regenerate`) truncate the
+     * core's own transcript and re-run from that point, but neither returns a
+     * fresh message list — the socket events that follow only carry the NEW
+     * turn. Without this, the discarded replies would stay visible in the
+     * Redux cache until the next full `loadThreadMessages` refetch.
+     *
+     * `inclusive` distinguishes the two callers: an edit resends `messageId`
+     * itself (drop it too), a reload keeps the parent message and only drops
+     * what came after it.
+     */
+    truncateMessagesFrom: (
+      state,
+      action: PayloadAction<{ threadId: string; messageId: string; inclusive: boolean }>
+    ) => {
+      const { threadId, messageId, inclusive } = action.payload;
+      const existing = state.messagesByThreadId[threadId];
+      if (!existing) return;
+      const idx = existing.findIndex(m => m.id === messageId);
+      if (idx < 0) return;
+      const truncated = existing.slice(0, inclusive ? idx : idx + 1);
+      state.messagesByThreadId[threadId] = truncated;
+      if (state.selectedThreadId === threadId) {
+        state.messages = truncated;
+      }
+    },
   },
   extraReducers: builder => {
     builder
@@ -634,6 +682,7 @@ export const {
   clearAllThreads,
   resetThreadCachesPreservingSelection,
   setWelcomeThreadId,
+  truncateMessagesFrom,
 } = threadSlice.actions;
 
 export default threadSlice.reducer;

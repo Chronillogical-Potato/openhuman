@@ -5,7 +5,7 @@
  * groups them into its `SourceGroup` slot, which `/chat` fills with
  * `ChatSources`.
  *
- * Four things are under test, and the second is the one that matters:
+ * Five things are under test, and the second is the one that matters:
  *
  * 1. the list renders the turn's `http(s)` sources;
  * 2. it is actually **reached from the live `/chat` surface** — mounted through
@@ -23,20 +23,27 @@
  * 4. the turn is drawn once. A settled answer used to carry a second summary
  *    of its own reasoning and tools under it (a "N steps · M tools" footer and
  *    a sources list both read from a duplicate `processTrail`); only the inline
- *    parts remain.
+ *    parts remain;
+ * 5. a memory citation on the message's `extraMetadata.citations`
+ *    (`ChatDoneEvent.citations` / `ChatSegmentEvent.citations`) renders
+ *    alongside the `url` sources as a `document` source badge, with no href.
+ *
+ * Every row now renders through the vendored `sources.aui` element's
+ * primitives directly (no collapsible disclosure — see `ChatSources.tsx`),
+ * so there is no "expand" step left to drive.
  *
  * Only the RPC is stubbed — the boundary a unit test should stub. Everything
  * between it and the DOM is production code.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { threadApi } from '../../../../services/api/threadApi';
 import chatRuntimeReducer from '../../../../store/chatRuntimeSlice';
 import mascotReducer from '../../../../store/mascotSlice';
+import runModeReducer from '../../../../store/runModeSlice';
 import threadReducer from '../../../../store/threadSlice';
 import type { DerivedDisplayItem } from '../../../../types/derivedTranscript';
 import type { ThreadMessage } from '../../../../types/thread';
@@ -63,23 +70,24 @@ function page(...newestFirst: DerivedDisplayItem[]) {
   };
 }
 
-function agentMessage(): ThreadMessage {
+function agentMessage(citations?: unknown[]): ThreadMessage {
   return {
     id: 'm-1',
     content: ANSWER,
     type: 'text',
-    extraMetadata: { requestId: REQUEST_ID },
+    extraMetadata: { requestId: REQUEST_ID, ...(citations ? { citations } : {}) },
     sender: 'agent',
     createdAt: '2026-01-01T00:00:00.000Z',
   };
 }
 
-function buildStore() {
+function buildStore(message: ThreadMessage = agentMessage()) {
   return configureStore({
     reducer: combineReducers({
       thread: threadReducer,
       chatRuntime: chatRuntimeReducer,
       mascot: mascotReducer,
+      runMode: runModeReducer,
     }),
     preloadedState: {
       thread: {
@@ -98,8 +106,8 @@ function buildStore() {
         selectedThreadId: THREAD_ID,
         activeThreadIds: {},
         welcomeThreadId: null,
-        messagesByThreadId: { [THREAD_ID]: [agentMessage()] },
-        messages: [agentMessage()],
+        messagesByThreadId: { [THREAD_ID]: [message] },
+        messages: [message],
         isLoadingThreads: false,
         isLoadingMessages: false,
         messagesError: null,
@@ -109,9 +117,9 @@ function buildStore() {
 }
 
 /** Mounted exactly as `/chat` mounts it — never `<ChatSources />` directly. */
-function renderChat() {
+function renderChat(message?: ThreadMessage) {
   return render(
-    <Provider store={buildStore()}>
+    <Provider store={buildStore(message)}>
       <AssistantUiChat
         model={null}
         onModelChange={vi.fn()}
@@ -127,16 +135,6 @@ function renderChat() {
       />
     </Provider>
   );
-}
-
-/**
- * Open the disclosure. Collapsed is the shipped default — the answer stays the
- * top of the turn — so the rows are genuinely absent from the DOM until the
- * reader asks for them, and a test that asserted hrefs without this would be
- * asserting against the closed state.
- */
-async function expandSources(): Promise<void> {
-  await userEvent.click(document.querySelector('[data-slot="sources-trigger"]') as HTMLElement);
 }
 
 function sourceHrefs(): (string | null)[] {
@@ -161,12 +159,31 @@ describe('inline turn sources', () => {
     // so this proves the wiring and not merely the component.
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
 
-    // Collapsed by design: the count is visible, the rows are not yet.
-    expect(screen.getByText(/\(2\)$/)).toBeTruthy();
-    expect(sourceHrefs()).toEqual([]);
-
-    await expandSources();
+    // No disclosure to open: every source badge is in the DOM already.
     expect(sourceHrefs()).toEqual(['https://example.com/a', 'https://docs.rs/b']);
+  });
+
+  it('renders a memory citation alongside url sources, with no href', async () => {
+    vi.spyOn(threadApi, 'getDerivedTranscript').mockResolvedValue(
+      page(toolCall('c1', 'https://example.com/a')) as never
+    );
+
+    renderChat(
+      agentMessage([
+        {
+          id: 'cite-1',
+          key: 'user_timezone',
+          namespace: 'profile',
+          timestamp: '2026-01-01T00:00:00.000Z',
+          snippet: 'User is in UTC+2.',
+        },
+      ])
+    );
+
+    await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
+    expect(screen.getByTestId('agent-memory-source-row')).toBeTruthy();
+    expect(screen.getByText('user_timezone')).toBeTruthy();
+    expect(sourceHrefs()).toEqual(['https://example.com/a']);
   });
 
   it('draws the turn once, with no process footer under the answer', async () => {
@@ -209,7 +226,6 @@ describe('inline turn sources', () => {
     renderChat();
 
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
-    await expandSources();
 
     // One row, not two: the `javascript:` entry is dropped by
     // `extractAgentSources`, so it is never counted and never linked.

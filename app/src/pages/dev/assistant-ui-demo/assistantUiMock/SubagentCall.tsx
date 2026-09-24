@@ -15,14 +15,14 @@
  * Styling stays on the shadcn semantic tokens the rest of the vendored set
  * uses, so this follows the app theme in both modes.
  */
-import { cn } from '@/components/assistant-ui/lib/utils';
-import type { ThreadGroupPart } from '@/components/assistant-ui/thread';
-import { ToolFallback } from '@/components/assistant-ui/tool-fallback';
+import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
 import {
   ToolGroupContent,
   ToolGroupRoot,
   ToolGroupTrigger,
-} from '@/components/assistant-ui/tool-group';
+} from '@/components/assistant-ui/elements/tool-group';
+import { cn } from '@/components/assistant-ui/lib/utils';
+import type { ThreadGroupPart } from '@/components/assistant-ui/thread';
 import {
   Collapsible,
   CollapsibleContent,

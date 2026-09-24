@@ -52,6 +52,7 @@ pub(crate) async fn spawn_parallel_turn(
             let approval_ctx = crate::security::approval::ApprovalChatContext {
                 thread_id: thread_id_task.clone(),
                 client_id: client_id_task.clone(),
+                request_id: Some(request_id_task.clone()),
             };
             let origin = crate::agent::turn_origin::AgentTurnOrigin::WebChat {
                 thread_id: thread_id_task.clone(),
@@ -90,6 +91,10 @@ pub(crate) async fn spawn_parallel_turn(
                         // The workspace the turn ran in, so the reply is stored
                         // there before it is announced (#6034).
                         Some(chat_result.workspace_dir.as_path()),
+                        chat_result.timing,
+                        // Parallel-fork delivery has no single human waiting
+                        // on a next-message suggestion for this reply (C5).
+                        false,
                     )
                     .await;
                 }
@@ -170,6 +175,18 @@ pub(crate) async fn spawn_parallel_turn(
                         thread_id_task,
                         request_id_task
                     );
+                    // Cooperative cancel (deadline/cancel token) publishes no
+                    // `chat_error` on this path today — leaving a client
+                    // waiting on this request_id with no terminal event.
+                    // `chat_cancelled` closes it out.
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "chat_cancelled".to_string(),
+                        client_id: client_id_task.clone(),
+                        thread_id: thread_id_task.clone(),
+                        request_id: request_id_task.clone(),
+                        cancel_reason: Some("user_stop".to_string()),
+                        ..Default::default()
+                    });
                 }
             }
 

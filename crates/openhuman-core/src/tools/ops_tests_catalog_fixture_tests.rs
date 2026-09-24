@@ -1,0 +1,148 @@
+//! Drift guard between the core's registered tool catalog and the frontend's
+//! own copy of that name list (issue: tool-call presentation).
+//!
+//! `app/src/features/conversations/tools/` renders a fallback label/icon for
+//! any tool name it recognizes even before the server-computed
+//! `display_label`/`display_detail` arrive (e.g. on a cold reconnect that
+//! replays a persisted timeline). That fallback table is only ever as
+//! accurate as the day someone last updated it by hand, so this test builds
+//! the REAL registered catalog on every core test run and fails loudly the
+//! moment it disagrees with the frontend's copy, naming exactly what was
+//! added or removed and how to regenerate.
+use super::*;
+use std::path::PathBuf;
+
+/// Path to the frontend's copy of the tool-name list, relative to this
+/// crate's manifest directory (`crates/openhuman-core`).
+fn fixture_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../app/src/features/conversations/tools/__fixtures__/coreToolNames.json")
+}
+
+/// The full model-facing tool catalog this build can register, sorted and
+/// deduplicated.
+///
+/// Built from [`all_tools`] (which thinly wraps [`all_tools_with_runtime`]
+/// with the native runtime adapter) under a config that widens every toggle
+/// this test controls — the browser tool enabled, in addition to whatever
+/// `Config::default()` already turns on — so the registered set is as close
+/// to maximal as a config alone can make it. What this canNOT widen:
+///
+/// * **Composio per-connection action tools** (`ComposioActionTool`, dynamic
+///   slugs like `GMAIL_SEND_EMAIL`) are never part of this static list.
+///   `all_composio_agent_tools` only ever registers its five fixed dispatcher
+///   tools (`composio_list_toolkits`, `composio_list_connections`,
+///   `composio_authorize`, `composio_connect`, `composio_list_tools`,
+///   `composio_execute`) and gates even those on a signed-in session, which
+///   this test's config does not have — so this build contributes none of
+///   them, static or dynamic, and the fixture should never carry a
+///   `COMPOSIO_*`/upper-snake action slug.
+/// * **BYOK search engines** (Exa, Tavily, Querit, Brave, ...) and other
+///   API-key-gated tools that require a live key in config are absent here;
+///   only the managed `web_search_tool` (or whichever tool the enabled
+///   feature set + config resolves to) is registered.
+/// * **Cargo feature gates**: this test runs under this crate's default
+///   features (`cargo test -p openhuman`), matching the contributor build
+///   `AGENTS.md` documents as authoritative for the test lane. A tool
+///   compiled out under a non-default feature set (see
+///   `scripts/ci/product-features.txt` for the shipped product's gates)
+///   will not appear here even though it exists in the source tree; this is
+///   intentional; add a comment at the call site (not in the fixture) when
+///   a name conditionally disappears under a feature combination CI covers.
+///
+/// On top of the domain registry this adds the two harness-intrinsic bridge
+/// tool names, `tool_search` and `tool_call`
+/// (`tinyagents_harness::tool::discover::{TOOL_SEARCH_NAME, TOOL_CALL_NAME}`):
+/// neither is ever a registered [`tinytools::Tool`] — the agent loop answers
+/// both itself once a turn has deferred tools (see that module's doc comment)
+/// — but both are model-visible tool names the frontend's tool-call
+/// presentation must recognize exactly like any other.
+fn full_tool_catalog_names() -> Vec<String> {
+    let tmp = TempDir::new().unwrap();
+    let security = Arc::new(SecurityPolicy::default());
+    let mut cfg = test_config(&tmp);
+    cfg.browser.enabled = true;
+    let browser = cfg.browser.clone();
+    let http = cfg.http_request.clone();
+
+    let tools = all_tools(
+        Arc::new(cfg.clone()),
+        &security,
+        AuditLogger::disabled(),
+        &browser,
+        &http,
+        tmp.path(),
+        &HashMap::new(),
+        &cfg,
+    );
+
+    let mut names: Vec<String> = tools.iter().map(|t| t.name().to_string()).collect();
+    names.push(tinyagents_harness::tool::discover::TOOL_SEARCH_NAME.to_string());
+    names.push(tinyagents_harness::tool::discover::TOOL_CALL_NAME.to_string());
+    names.sort();
+    names.dedup();
+    // Defensive: a Composio per-connection action tool would be an
+    // upper-snake slug (e.g. `GMAIL_SEND_EMAIL`) and must never reach this
+    // static fixture — see the doc comment above for why none should be
+    // registered here in the first place.
+    for name in &names {
+        assert!(
+            !(name.chars().any(|c| c.is_ascii_uppercase()) && name.contains('_')),
+            "catalog contains what looks like a dynamic Composio action slug \
+             ({name}); those must be excluded from the static fixture"
+        );
+    }
+    names
+}
+
+const REGENERATE_COMMAND: &str = "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman --lib \
+     tools::ops::tests::catalog_fixture_tests::tool_catalog_matches_frontend_fixture";
+
+/// Regenerates the fixture when `UPDATE_TOOL_CATALOG=1`, otherwise fails with
+/// exactly what was added/removed relative to it.
+#[test]
+fn tool_catalog_matches_frontend_fixture() {
+    let names = full_tool_catalog_names();
+    let path = fixture_path();
+
+    if std::env::var("UPDATE_TOOL_CATALOG").as_deref() == Ok("1") {
+        let json = serde_json::to_string_pretty(&names).expect("serialize tool catalog");
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).expect("create fixture directory");
+        }
+        std::fs::write(&path, format!("{json}\n")).expect("write tool catalog fixture");
+        eprintln!(
+            "[tool-catalog] rewrote {} with {} names",
+            path.display(),
+            names.len()
+        );
+        return;
+    }
+
+    let existing = std::fs::read_to_string(&path).unwrap_or_else(|e| {
+        panic!(
+            "missing tool-catalog fixture at {}: {e}\nGenerate it with:\n  {REGENERATE_COMMAND}",
+            path.display()
+        )
+    });
+    let mut expected: Vec<String> = serde_json::from_str(&existing).unwrap_or_else(|e| {
+        panic!(
+            "fixture at {} is not a JSON array of strings: {e}",
+            path.display()
+        )
+    });
+    expected.sort();
+    expected.dedup();
+
+    if names != expected {
+        let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
+        let removed: Vec<&String> = expected.iter().filter(|n| !names.contains(n)).collect();
+        panic!(
+            "core tool catalog drifted from the frontend fixture at {}.\n\
+             added:   {added:?}\n\
+             removed: {removed:?}\n\n\
+             Regenerate with:\n  {REGENERATE_COMMAND}",
+            path.display()
+        );
+    }
+}

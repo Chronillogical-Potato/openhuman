@@ -10,6 +10,11 @@
 /// the host boundary when the item is pushed into TinyAgents' `RunQueue`.
 #[derive(Debug, Clone)]
 pub struct QueuedTurn {
+    /// Stable id for this queued item (minted once, at push time). Carried on
+    /// `RunQueue*` domain events (`item_id`) and the `queue_item_*` web-channel
+    /// events so the frontend can key a queued-message row and later target it
+    /// with `channel.web_queue_remove`.
+    pub id: String,
     pub text: String,
     pub client_id: String,
     pub thread_id: String,
@@ -17,4 +22,12 @@ pub struct QueuedTurn {
     pub model_override: Option<String>,
     pub temperature: Option<f64>,
     pub locale: Option<String>,
+}
+
+/// Clip a queued message's text to a short, non-sensitive preview for
+/// `RunQueue*` domain events and `queue_item_*` web-channel events — never
+/// the raw message body at full length.
+#[must_use]
+pub fn text_preview(text: &str) -> String {
+    crate::core::events::clip_to_chars(text, 80)
 }

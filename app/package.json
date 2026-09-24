@@ -68,13 +68,13 @@
     "lint": "eslint . --ext .ts,.tsx --cache",
     "lint:fix": "eslint . --ext .ts,.tsx --fix --cache",
     "lint:commands-tokens": "bash scripts/lint-token-scan.sh lint:commands-tokens -nU \"(bg|text|border|ring|shadow)-(neutral|primary|sage|amber|canvas|stone|slate)\" src/components/commands/",
-    "lint:ui-tokens": "bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*\\b(bg|text|border|ring|divide)-(neutral|stone|slate|canvas|white|black)\\b\" src/components/ui/ src/components/layout/ src/components/settings/ src/features/conversations/ src/components/intelligence/ src/components/feedback/ src/components/flows/ src/components/chat/ src/components/skills/ src/components/channels/ src/pages/ src/components/dashboard/ src/components/composio/ src/components/notifications/ src/components/accounts/ src/components/approvals/ src/features/human/ && bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*(color-mix\\(|oklch\\(|@layer )\" src/components/ui/ src/styles/fonts.css && node scripts/lint-undefined-scales.mjs",
+    "lint:ui-tokens": "bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*\\b(bg|text|border|ring|divide)-(neutral|stone|slate|canvas|white|black)\\b\" src/components/ui/ src/components/layout/ src/components/settings/ src/features/conversations/ src/components/intelligence/ src/components/feedback/ src/components/flows/ src/components/chat/ src/components/skills/ src/components/channels/ src/pages/ src/components/dashboard/ src/components/composio/ src/components/notifications/ src/components/accounts/ src/features/human/ && bash scripts/lint-token-scan.sh lint:ui-tokens -nP \"^(?!\\s*(//|\\*|/\\*)).*(color-mix\\(|oklch\\(|@layer )\" src/components/ui/ src/styles/fonts.css && node scripts/lint-undefined-scales.mjs",
     "knip": "knip --config knip.json",
     "knip:production": "knip --config knip.json --production"
   },
   "dependencies": {
-    "@assistant-ui/core": "^0.3.15",
-    "@assistant-ui/react": "^0.15.16",
+    "@assistant-ui/core": "^0.3.20",
+    "@assistant-ui/react": "^0.15.21",
     "@assistant-ui/react-lexical": "^0.2.10",
     "@assistant-ui/react-markdown": "^0.14.12",
     "@base-ui/react": "^1.7.0",

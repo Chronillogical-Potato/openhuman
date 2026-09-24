@@ -51,6 +51,7 @@ async fn list_without_thread_filter_returns_all_threads() {
                 created_at: chrono::Utc::now(),
                 error: None,
                 thread_id: tid,
+                tool_call_id: None,
             },
         )
         .await
@@ -90,6 +91,7 @@ async fn list_with_thread_filter_returns_only_matching_thread() {
                 created_at: chrono::Utc::now(),
                 error: None,
                 thread_id: tid,
+                tool_call_id: None,
             },
         )
         .await
@@ -140,6 +142,7 @@ async fn list_with_thread_filter_unknown_thread_returns_zero() {
             created_at: chrono::Utc::now(),
             error: None,
             thread_id: Some("thread-a".to_string()),
+            tool_call_id: None,
         },
     )
     .await
@@ -208,6 +211,7 @@ async fn regenerate_rejects_non_presentation_kind() {
             created_at: chrono::Utc::now(),
             error: Some("boom".to_string()),
             thread_id: Some("t".to_string()),
+            tool_call_id: None,
         },
     )
     .await

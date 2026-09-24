@@ -14,9 +14,11 @@
 //!   privacy and budget gates ([`provider`]), plus tool names, descriptions and
 //!   the local-reference policy ([`tools`]).
 
+mod artifact_tool;
 pub mod provider;
 pub mod tools;
 
+pub use artifact_tool::MediaArtifactTool;
 pub use provider::{managed_generators, MediaGenerators, OPENROUTER_PROXY_PATH};
 pub use tools::{
     build_media_tools, media_tools_from, MediaListModelsTool, IMAGE_TOOL_NAME,

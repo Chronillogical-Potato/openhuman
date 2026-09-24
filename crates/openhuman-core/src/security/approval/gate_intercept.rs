@@ -13,6 +13,7 @@ impl ApprovalGate {
         args_redacted: serde_json::Value,
         park_bound: Option<Duration>,
         park_bound_elapsed: &mut bool,
+        tool_call_id: Option<&str>,
     ) -> (GateOutcome, Option<String>) {
         // Origin tells us who scheduled this turn. Entry points (web channel,
         // channel runtime, subconscious, cron, CLI) scope a typed
@@ -425,6 +426,7 @@ impl ApprovalGate {
             created_at: now,
             expires_at,
             source_context: source_context.clone(),
+            tool_call_id: tool_call_id.map(str::to_string),
         };
 
         // Register the waiter BEFORE persisting the row so a fast
@@ -444,9 +446,23 @@ impl ApprovalGate {
                 .lock()
                 .insert(thread_id.clone(), request_id.clone());
         }
+        // Record the full routing correlation (thread/client/tool_call_id) so
+        // whichever path resolves this request's decision — `decide()`, the
+        // TTL timeout, or a dropped decision channel, all below — can mirror
+        // it onto `ApprovalDecided` without re-deriving it from ambient
+        // task-locals that may no longer be in scope by then.
+        self.insert_request_route(
+            &request_id,
+            RequestRoute {
+                thread_id: chat_thread_id.clone(),
+                client_id: chat_client_id.clone(),
+                tool_call_id: tool_call_id.map(str::to_string),
+            },
+        );
         if let Err(err) = store::insert_pending(&self.config, &pending, &self.session_id) {
             self.evict_waiter(&request_id);
             self.clear_thread(&chat_thread_id, &request_id);
+            self.take_request_route(&request_id);
             tracing::error!(
                 error = %err,
                 tool = tool_name,
@@ -477,6 +493,8 @@ impl ApprovalGate {
             args_redacted,
             thread_id: chat_thread_id.clone(),
             client_id: chat_client_id.clone(),
+            tool_call_id: tool_call_id.map(str::to_string),
+            expires_at: expires_at.map(|t| t.to_rfc3339()),
         });
 
         // Flow-origin surface bridge (flow-approval-surface, PR3): a flow run
@@ -580,131 +598,20 @@ impl ApprovalGate {
             armed: true,
         };
 
-        let outcome = match tokio::time::timeout(wait, rx).await {
-            Ok(Ok(decision)) => {
-                tracing::info!(
-                    request_id = %request_id,
-                    tool = tool_name,
-                    decision = decision.as_str(),
-                    "[approval::gate] decision received"
-                );
-                if decision.is_approve() {
-                    (GateOutcome::Allow, Some(request_id.clone()))
-                } else {
-                    (
-                        GateOutcome::Deny {
-                            reason: format!(
-                                "{POLICY_DENIED_MARKER} User denied '{tool_name}' execution. Do \
-                                 not re-request the same call this turn; take a different approach \
-                                 or stop."
-                            ),
-                        },
-                        None,
-                    )
-                }
-            }
-            Ok(Err(_canceled)) => {
-                // Sender dropped — treat as denial so the agent does
-                // not silently no-op.
-                tracing::warn!(
-                    request_id = %request_id,
-                    tool = tool_name,
-                    "[approval::gate] decision channel dropped — denying"
-                );
-                let _ = store::decide(&self.config, &request_id, ApprovalDecision::Deny);
-                (
-                    GateOutcome::Deny {
-                        reason: format!(
-                            "{POLICY_DENIED_MARKER} Approval channel for '{tool_name}' closed \
-                             before a decision was made."
-                        ),
-                    },
-                    None,
-                )
-            }
-            Err(_elapsed) if park_bound_active => {
-                // Caller park bound elapsed (#4756) — NOT the gate's own TTL.
-                // Abandon the park cancellation-safely: evict the in-memory
-                // waiter and (via `clear_thread` below, on every
-                // exit) drop the routing mappings so a later chat/voice reply is
-                // not mis-routed to this now-abandoned request. Deliberately do
-                // NOT `store::decide(Deny)` — the `pending_approvals` row stays
-                // open so a later human card-click still resolves it in the DB
-                // and a re-ask sees it already-connected. Signal the elapse so
-                // the bounded caller renders its own fast-path result rather than
-                // a `Deny`.
-                self.evict_waiter(&request_id);
-                *park_bound_elapsed = true;
-                tracing::info!(
-                    request_id = %request_id,
-                    tool = tool_name,
-                    bound_secs = wait.as_secs(),
-                    "[approval::gate] caller park bound elapsed — abandoning park (row left \
-                     pending for a later card-click; waiter + routing cleared) (#4756)"
-                );
-                // Placeholder outcome; the bounded caller discards it once
-                // `*park_bound_elapsed` is set (returns `None`).
-                (
-                    GateOutcome::Deny {
-                        reason: format!(
-                            "{POLICY_DENIED_MARKER} Approval for '{tool_name}' exceeded the caller \
-                             park bound ({}s).",
-                            wait.as_secs()
-                        ),
-                    },
-                    None,
-                )
-            }
-            Err(_elapsed) => {
-                self.evict_waiter(&request_id);
-                // Race: `decide()` may have committed an Approve in
-                // SQLite right as the TTL elapsed. `store::decide(Deny)`
-                // has `WHERE decided_at IS NULL` so it won't overwrite,
-                // but without a re-read we'd return Deny here while the
-                // durable audit row says Approved (CodeRabbit review on
-                // #2367). Try to deny; if the row was already decided,
-                // honor the persisted decision.
-                let denied = store::decide(&self.config, &request_id, ApprovalDecision::Deny);
-                let persisted = match &denied {
-                    Ok(Some(_)) => Some(ApprovalDecision::Deny),
-                    Ok(None) => store::get_decision(&self.config, &request_id)
-                        .ok()
-                        .flatten(),
-                    Err(_) => None,
-                };
-                if matches!(persisted, Some(d) if d.is_approve()) {
-                    tracing::info!(
-                        request_id = %request_id,
-                        tool = tool_name,
-                        ttl_secs = effective_ttl.as_secs(),
-                        "[approval::gate] timeout race: persisted decision was Approve, honoring approval"
-                    );
-                    // Fall through (no early return) so `clear_thread` below runs
-                    // on this path too — otherwise the stale thread→request
-                    // mapping survives and the next yes/no on the thread could be
-                    // routed to this already-finished request.
-                    (GateOutcome::Allow, Some(request_id.clone()))
-                } else {
-                    tracing::warn!(
-                        request_id = %request_id,
-                        tool = tool_name,
-                        ttl_secs = effective_ttl.as_secs(),
-                        "[approval::gate] approval timed out, denying"
-                    );
-                    (
-                        GateOutcome::Deny {
-                            reason: format!(
-                                "{POLICY_DENIED_MARKER} Approval for '{tool_name}' timed out after \
-                                 {}s. Do not re-request the same call this turn; take a different \
-                                 approach or stop.",
-                                effective_ttl.as_secs()
-                            ),
-                        },
-                        None,
-                    )
-                }
-            }
-        };
+        // The full timeout-vs-decide-vs-park-bound resolution lives in
+        // `resolve_park_timeout` (gate_intercept_decision.rs), split out
+        // purely to keep this file under the repo's per-file line budget.
+        let outcome = self
+            .resolve_park_timeout(
+                &request_id,
+                tool_name,
+                wait,
+                rx,
+                park_bound_active,
+                park_bound_elapsed,
+                effective_ttl,
+            )
+            .await;
         // Reached only on a normal park resolution: the match arm above already
         // ran the exact teardown for its outcome, so disarm the RAII guard (its
         // Drop is reserved for external cancellation — see `WaiterGuard`).

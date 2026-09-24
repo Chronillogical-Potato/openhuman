@@ -1,7 +1,13 @@
-import { AssistantRuntimeProvider, useExternalStoreRuntime } from '@assistant-ui/react';
+import {
+  AssistantRuntimeProvider,
+  AuiConfig,
+  Tools,
+  useExternalStoreRuntime,
+} from '@assistant-ui/react';
 import debugFactory from 'debug';
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
+import { useOpenHumanToolkit } from '../features/conversations/aui/toolkit';
 import { useAppSelector } from '../store/hooks';
 import { useOpenHumanExternalStore } from './useOpenHumanExternalStore';
 
@@ -77,8 +83,14 @@ export function AssistantUiRuntimeProvider({
   );
   const adapter = useOpenHumanExternalStore(effectiveThreadId, { welcomeSuggestions });
   const runtime = useExternalStoreRuntime(adapter);
+  // Registers every `aui/toolkit.tsx` entry (currently just `task`) so
+  // assistant-ui resolves them ahead of the surface's own `ToolFallback`.
+  // Every tool name not in the registry is unaffected: it still renders
+  // through `components.ToolFallback` (`ChatToolFallback`) exactly as today.
+  const toolkit = useOpenHumanToolkit();
+  const config = useMemo(() => AuiConfig({ tools: Tools({ toolkit }) }), [toolkit]);
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime} config={config}>
       <AuiThreadIdContext.Provider value={effectiveThreadId}>
         {children}
       </AuiThreadIdContext.Provider>

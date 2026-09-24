@@ -1,6 +1,47 @@
 use super::*;
 use tinyagents_harness::events::EventSink;
 
+/// A tool whose `display_label`/`display_detail` depend on the call
+/// arguments — the shape a dynamic Composio/MCP/integration tool takes (e.g.
+/// [`crate::integrations::composio::action_tool::ComposioActionTool`]'s
+/// "Gmail send email"). Used to prove the bridge calls the tool's OWN
+/// presentation methods instead of always deriving a label from the bare
+/// tool name.
+struct FakeLabeledTool;
+
+#[async_trait::async_trait]
+impl tinytools::Tool for FakeLabeledTool {
+    fn name(&self) -> &str {
+        "fake_send_email"
+    }
+
+    fn description(&self) -> &str {
+        "sends an email (test double)"
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+
+    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("sent"))
+    }
+
+    fn display_label(&self, _args: &serde_json::Value) -> Option<String> {
+        Some("Sending email".to_string())
+    }
+
+    fn display_detail(&self, args: &serde_json::Value) -> Option<String> {
+        args.get("to").and_then(|v| v.as_str()).map(str::to_string)
+    }
+}
+
+fn fake_tool_sets() -> Vec<Arc<Vec<Box<dyn tinytools::Tool>>>> {
+    vec![Arc::new(vec![
+        Box::new(FakeLabeledTool) as Box<dyn tinytools::Tool>
+    ])]
+}
+
 #[tokio::test]
 async fn bridge_forwards_tool_and_cost_progress() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(64);
@@ -15,6 +56,7 @@ async fn bridge_forwards_tool_and_cost_progress() {
     sink.emit(AgentEvent::ToolStarted {
         call_id: "c1".into(),
         tool_name: "echo".to_string(),
+        input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
         call_id: "c1".into(),
@@ -66,6 +108,7 @@ async fn model_completed_projects_generation_with_content_and_provider() {
         Arc::default(),
         Arc::default(),
         Arc::default(),
+        Vec::new(),
     );
     let sink = EventSink::new();
     sink.subscribe(bridge.clone());
@@ -138,6 +181,7 @@ async fn subagent_model_completed_carries_task_attribution() {
         Arc::default(),
         Arc::default(),
         Arc::default(),
+        Vec::new(),
     );
     let sink = EventSink::new();
     sink.subscribe(bridge.clone());
@@ -174,6 +218,7 @@ async fn tool_completed_projects_output_arguments_and_elapsed() {
     sink.emit(AgentEvent::ToolStarted {
         call_id: "t1".into(),
         tool_name: "echo".to_string(),
+        input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
         call_id: "t1".into(),
@@ -331,3 +376,84 @@ async fn duplicate_usage_for_same_model_call_is_recorded_once() {
 // `ToolStarted` arm above — it no longer special-cases a sentinel). The test
 // referenced the deleted constant (a stale reference reintroduced by a merge)
 // and asserted behaviour that no longer exists.
+
+/// #6XXX (tool-call presentation): `ToolCallStarted`/`ToolCallCompleted` must
+/// carry the tool's OWN `display_label`/`display_detail` when the bridge was
+/// built with the turn's tool sets, not a name-derived guess — proven with a
+/// fake tool whose label is a fixed phrase and whose detail comes from a
+/// `"to"` argument only known once the call completes.
+#[tokio::test]
+async fn tool_call_events_use_the_tool_s_own_display_label_and_detail() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+    let bridge = OpenhumanEventBridge::with_scope(
+        Some(tx),
+        "mock-model",
+        "managed",
+        10,
+        None,
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        fake_tool_sets(),
+    );
+    let sink = EventSink::new();
+    sink.subscribe(bridge.clone());
+
+    sink.emit(AgentEvent::ModelStarted {
+        call_id: "c1".into(),
+        model: "mock-model".to_string(),
+    });
+    sink.emit(AgentEvent::ToolStarted {
+        call_id: "c1".into(),
+        tool_name: "fake_send_email".to_string(),
+        input: None,
+    });
+    sink.emit(AgentEvent::ToolCompleted {
+        call_id: "c1".into(),
+        tool_name: "fake_send_email".to_string(),
+        started_at_ms: None,
+        input: Some(serde_json::json!({"to": "steven@example.com"})),
+        output: Some(serde_json::Value::String("sent".to_string())),
+        duration_ms: Some(5),
+        output_bytes: Some(4),
+        error: None,
+        metadata: None,
+    });
+
+    let mut started_label = None;
+    let mut completed = None;
+    while let Ok(p) = rx.try_recv() {
+        match p {
+            AgentProgress::ToolCallStarted {
+                display_label,
+                display_detail,
+                ..
+            } => started_label = Some((display_label, display_detail)),
+            AgentProgress::ToolCallCompleted {
+                display_label,
+                display_detail,
+                ..
+            } => completed = Some((display_label, display_detail)),
+            _ => {}
+        }
+    }
+
+    let (started_label, started_detail) = started_label.expect("ToolCallStarted projected");
+    assert_eq!(
+        started_label,
+        Some("Sending email".to_string()),
+        "the started label comes from the tool's own display_label, not a humanized name"
+    );
+    // No arguments exist yet at call-start, so the arg-derived detail is
+    // absent — this is recovered on the completed event below.
+    assert_eq!(started_detail, None);
+
+    let (completed_label, completed_detail) = completed.expect("ToolCallCompleted projected");
+    assert_eq!(completed_label, Some("Sending email".to_string()));
+    assert_eq!(
+        completed_detail,
+        Some("steven@example.com".to_string()),
+        "the completed detail is recomputed from the real call arguments"
+    );
+}

@@ -1,6 +1,8 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { useFollowupSuggestionEvents } from '../features/conversations/aui/useFollowupSuggestionEvents';
+import { useRunQueueEvents } from '../features/conversations/aui/useRunQueueEvents';
 import { requestUsageRefresh } from '../hooks/usageRefresh';
 import { useRefetchSnapshotOnTurnEnd } from '../hooks/useRefetchSnapshotOnTurnEnd';
 import {
@@ -12,19 +14,26 @@ import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
 import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposal';
 import { withCoalescedDeltas } from '../services/chatDeltaCoalescer';
 import {
+  type ChatApprovalDecidedEvent,
   type ChatApprovalRequestEvent,
+  type ChatCancelledEvent,
   type ChatDoneEvent,
+  type ChatErrorEvent,
   type ChatEventListeners,
   type ChatInferenceHeartbeatEvent,
   type ChatInferenceStartEvent,
   type ChatInterimEvent,
   type ChatIterationStartEvent,
   type ChatPlanReviewRequestEvent,
+  type ChatRunModeChangedEvent,
   type ChatSegmentEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
   type ChatTextDeltaEvent,
+  type ChatThreadGoalClearedEvent,
+  type ChatThreadGoalUpdatedEvent,
+  type ChatThreadTodosChangedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
   type ProactiveMessageEvent,
@@ -51,6 +60,7 @@ import {
   parseToolFailure,
   recordChatTurnUsage,
   recordSubagentTranscriptTool,
+  resolvePendingApprovalForThread,
   resolveSubagentTranscriptTool,
   setInferenceStatusForThread,
   setPendingApprovalForThread,
@@ -74,17 +84,22 @@ import {
   upsertArtifactReadyForThread,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setRunMode } from '../store/runModeSlice';
 import { selectSocketStatus } from '../store/socketSelectors';
+import { clearThreadGoal, setThreadGoal } from '../store/threadGoalSlice';
 import {
   addInferenceResponse,
   addMessageLocal,
+  CHAT_ERROR_METADATA_KEY,
   clearThreadInferenceActive,
   createNewThread,
   generateThreadTitleIfNeeded,
   loadThreadMessages,
   setActiveThread,
   setSelectedThread,
+  TIMING_METADATA_KEY,
 } from '../store/threadSlice';
+import { setThreadTodos } from '../store/threadTodosSlice';
 import { reportUserError } from '../store/userErrorsSlice';
 import { IS_PROD } from '../utils/config';
 import { AssistantUiRuntimeProvider } from './AssistantUiRuntimeProvider';
@@ -239,7 +254,44 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
   const meta: Record<string, unknown> = {};
   if (event.citations?.length) meta.citations = event.citations;
   if (event.request_id) meta.requestId = event.request_id;
+  // Carried through to `metadata.timing` on the converted `ThreadMessageLike`
+  // (`assistantUiMessages.ts`), which is what the vendored `MessageTiming`
+  // element (`useMessageTiming()`) reads to show TTFT/total/tok-s on a
+  // settled reply. `chat_done.timing` is the only place these numbers exist —
+  // there is no per-message timing RPC.
+  if (event.timing) meta[TIMING_METADATA_KEY] = event.timing;
   return Object.keys(meta).length > 0 ? meta : undefined;
+}
+
+/**
+ * `extraMetadata` for the assistant message a failed turn appends.
+ *
+ * Stamped for every `error_type` (not just `guardrail`) so `ChatErrorNotice`
+ * and any future per-type copy can key off it without a second message shape;
+ * only `guardrail` renders the vendored `GuardrailNotice` card today (the
+ * card needs a `GuardrailPayload` no other `error_type` carries).
+ */
+function chatErrorExtraMetadata(event: ChatErrorEvent): Record<string, unknown> {
+  return { [CHAT_ERROR_METADATA_KEY]: { errorType: event.error_type, guardrail: event.guardrail } };
+}
+
+/**
+ * `extraMetadata` for the partial reply a `chat_cancelled` turn persists.
+ *
+ * `stopped: true` is the flag `assistantUiMessages.ts` reads to give the
+ * message `status: { type: 'incomplete', reason: 'cancelled' }`, which is
+ * what makes `thread.tsx` render the vendored `StoppedRun` element instead of
+ * the plain text. `cancelReason`/`supersededBy` ride through unchanged on
+ * `metadata.custom.extraMetadata` (that converter's existing pass-through) so
+ * `StoppedRunSlot` can pick "Stopped" vs "Replaced by a newer message".
+ */
+function chatCancelledExtraMetadata(event: ChatCancelledEvent): Record<string, unknown> {
+  return {
+    stopped: true,
+    ...(event.cancel_reason ? { cancelReason: event.cancel_reason } : {}),
+    ...(event.superseded_by ? { supersededBy: event.superseded_by } : {}),
+    ...(event.request_id ? { requestId: event.request_id } : {}),
+  };
 }
 
 /**
@@ -337,6 +389,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
   const { refetch: refetchSnapshot } = useRefetchSnapshotOnTurnEnd();
   const socketStatus = useAppSelector(selectSocketStatus);
+  // The core's run queue (`queue_item_*`) → `queueSlice` → the composer queue.
+  useRunQueueEvents(socketStatus === 'connected');
+  // The core's `chat_suggestions` → `followupSuggestionsSlice` → follow-up chips.
+  useFollowupSuggestionEvents(socketStatus === 'connected');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
@@ -538,11 +594,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     // prompt — the web channel never writes user messages; the composer does
     // (`addMessageLocal` → `appendMessage`) — so append them to the transcript
     // now. Doing it here (after this turn's assistant reply was appended, before
-    // `endInferenceTurn` clears the pills) keeps the append-log order correct:
+    // `endInferenceTurn` clears `queueSlice`) keeps the append-log order correct:
     // user → assistant → queued follow-up. Without this the queued prompts are
     // lost on reload and the dispatched answer has no visible user message.
     const flushQueuedFollowups = async (threadId: string) => {
-      const queued = store.getState().chatRuntime.queuedFollowupsByThread[threadId] ?? [];
+      const queued = store.getState().queue.pendingFollowupsByThread[threadId] ?? [];
       // Persist sequentially so the queued prompts land in the append-log in the
       // order the user queued them (concurrent dispatches would race), and
       // surface failures instead of dropping them silently. The stored message
@@ -792,6 +848,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               success: event.success,
               output: event.output,
               failure: event.failure,
+              args: event.args,
+              elapsedMs: event.elapsed_ms,
+              structured: event.structured,
+              displayLabel: event.tool_display_label,
+              displayDetail: event.tool_display_detail,
             })
           );
 
@@ -871,6 +932,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               // Identity of THIS emission, carried into the reducer so it can
               // tell a resume from a replay without depending on the cache above.
               spawnEventId: `${event.request_id ?? 'none'}:${event.seq ?? 'noseq'}`,
+              // Real tool_call_id of the spawn/delegate call, when the core sent
+              // one — lets the reducer attach this activity to that exact row
+              // instead of guessing it heuristically.
+              parentCallId: event.subagent?.parent_call_id,
             })
           );
         },
@@ -906,6 +971,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               iterations: event.subagent?.iterations,
               elapsedMs: event.subagent?.elapsed_ms,
               outputChars: event.subagent?.output_chars,
+              output: event.subagent?.output,
               worktreePath: event.subagent?.worktree_path,
               changedFiles: event.subagent?.changed_files,
               isDirty: event.subagent?.dirty_status,
@@ -1266,6 +1332,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               artifactId: event.artifact_id,
               kind: event.kind,
               title: event.title,
+              toolCallId: event.tool_call_id,
             })
           );
         },
@@ -1284,6 +1351,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               title: event.title,
               path: event.path,
               sizeBytes: event.size_bytes,
+              toolCallId: event.tool_call_id,
             })
           );
         },
@@ -1335,7 +1403,39 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 message: event.message,
                 command,
                 toolkit,
+                toolCallId: event.tool_call_id,
+                expiresAt: event.expires_at,
               },
+            })
+          );
+        },
+        onApprovalDecided: (event: ChatApprovalDecidedEvent) => {
+          rtLog('approval_decided', {
+            thread: event.thread_id,
+            request: event.request_id,
+            resolution: event.resolution,
+          });
+          // Only a server-recorded TERMINAL non-decision (TTL expiry, an
+          // external cancel) needs handling here: an interactive decision made
+          // through THIS client already cleared the entry optimistically
+          // (`useOpenHumanExternalStore`'s `onRespondToToolApproval` /
+          // `ApprovalRequestCard`), and a decision made on another connected
+          // client is covered by the existing turn-end handlers once that
+          // client's turn settles. Clearing eagerly on every `approval_decided`
+          // would race the optimistic clear and, worse, drop a card whose
+          // decision the USER on this client is mid-click on when the event
+          // for a DIFFERENT thread's request arrives.
+          if (
+            !event.thread_id ||
+            (event.resolution !== 'expired' && event.resolution !== 'cancelled')
+          ) {
+            return;
+          }
+          dispatch(
+            resolvePendingApprovalForThread({
+              threadId: event.thread_id,
+              requestId: event.request_id,
+              resolution: event.resolution,
             })
           );
         },
@@ -1347,9 +1447,97 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           dispatch(
             setPendingPlanReviewForThread({
               threadId: event.thread_id,
-              review: { requestId: event.request_id, summary: event.message, steps },
+              review: {
+                requestId: event.request_id,
+                summary: event.message,
+                steps,
+                toolCallId: event.tool_call_id,
+                expiresAt: event.expires_at,
+              },
             })
           );
+        },
+        onThreadTodosChanged: (event: ChatThreadTodosChangedEvent) => {
+          rtLog('thread_todos_changed', {
+            thread: event.thread_id,
+            count: event.todos?.length ?? 0,
+          });
+          dispatch(setThreadTodos({ threadId: event.thread_id, todos: event.todos ?? [] }));
+        },
+        onThreadGoalUpdated: (event: ChatThreadGoalUpdatedEvent) => {
+          rtLog('thread_goal_updated', { thread: event.thread_id, status: event.goal?.status });
+          dispatch(setThreadGoal({ threadId: event.thread_id, goal: event.goal }));
+        },
+        onThreadGoalCleared: (event: ChatThreadGoalClearedEvent) => {
+          rtLog('thread_goal_cleared', { thread: event.thread_id });
+          dispatch(clearThreadGoal({ threadId: event.thread_id }));
+        },
+        onRunModeChanged: (event: ChatRunModeChangedEvent) => {
+          rtLog('run_mode_changed', { thread: event.thread_id, mode: event.mode });
+          dispatch(setRunMode({ threadId: event.thread_id, mode: event.mode }));
+        },
+        /**
+         * `chat_cancelled` (wire-contract.md) — the core-authoritative sibling
+         * of the local Stop path in `Conversations.tsx`'s `handleStopGeneration`
+         * (which persists a `cancelReason: 'user_stop'` partial optimistically,
+         * before the core confirms). This handler is what also covers a turn
+         * the core cancels on its OWN initiative — `cancel_reason: 'superseded'`
+         * when a newer send interrupts it — which has no local Stop click to
+         * persist from.
+         *
+         * The core keeps emitting `chat_error{error_type:"cancelled"}`
+         * alongside this for one release (that path appends no message — see
+         * its own comment below), so this dedupes on `request_id` against
+         * whatever `handleStopGeneration` already persisted rather than
+         * assuming it is the only writer.
+         */
+        onCancelled: (event: ChatCancelledEvent) => {
+          const eventKey = `cancelled:${event.thread_id}:${event.request_id ?? 'none'}`;
+          if (
+            !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
+          )
+            return;
+
+          rtLog('chat_cancelled', {
+            thread: event.thread_id,
+            request: event.request_id,
+            reason: event.cancel_reason,
+            superseded_by: event.superseded_by,
+          });
+
+          // Read the live partial and the existing transcript BEFORE clearing
+          // any runtime state below — those dispatches are what the partial and
+          // the "already persisted?" check would otherwise be racing against.
+          const stateBefore = store.getState();
+          const partial =
+            stateBefore.chatRuntime.streamingAssistantByThread[event.thread_id]?.content ?? '';
+          const threadMessages = stateBefore.thread.messagesByThreadId[event.thread_id] ?? [];
+          const alreadyStopped = event.request_id
+            ? threadMessages.some(message => {
+                const meta = message.extraMetadata as
+                  | { stopped?: boolean; requestId?: string }
+                  | undefined;
+                return meta?.stopped === true && meta.requestId === event.request_id;
+              })
+            : false;
+
+          dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
+          dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
+          dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+          dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
+
+          if (!alreadyStopped && partial.trim().length > 0) {
+            void dispatch(
+              addInferenceResponse({
+                content: partial,
+                threadId: event.thread_id,
+                extraMetadata: chatCancelledExtraMetadata(event),
+              })
+            );
+          }
+
+          dispatch(endInferenceTurn({ threadId: event.thread_id }));
+          dispatch(clearThreadInferenceActive(event.thread_id));
         },
         onDone: event => {
           const eventKey = `done:${event.thread_id}:${event.request_id ?? 'none'}`;
@@ -1665,6 +1853,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                   content: errorContent,
                   threadId: event.thread_id,
                   messageId: errorMessageId,
+                  extraMetadata: chatErrorExtraMetadata(event),
                 })
               );
             }

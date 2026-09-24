@@ -1,25 +1,34 @@
-import type {
-  ThreadAssistantMessagePart,
-  ThreadMessageLike,
-  ThreadUserMessagePart,
-  ToolApprovalOption,
+import {
+  type ThreadMessage as AuiThreadMessage,
+  fromThreadMessageLike,
+  type ThreadAssistantMessagePart,
+  type ThreadMessageLike,
+  type ThreadUserMessagePart,
+  type ToolApprovalOption,
+  type ToolCallMessagePart,
 } from '@assistant-ui/react';
 
 import { parseMessageImages } from '../lib/attachments';
 import { unwrapToolCallEnvelope } from '../lib/chat/toolCallEnvelope';
+import type { ChatCitation } from '../services/chatService';
 import {
   isActiveTimelineStatus,
   type PendingApproval,
   type ProcessingTranscriptItem,
   type StreamingAssistantState,
+  type SubagentActivity,
+  type SubagentTranscriptItem,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import {
+  CHAT_ERROR_METADATA_KEY,
   FEEDBACK_METADATA_KEY,
   FEEDBACK_ROW_IDS_METADATA_KEY,
   type MessageFeedback,
+  TIMING_METADATA_KEY,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
+import { extractAgentSources } from '../utils/toolTimelineFormatting';
 
 /**
  * Redux -> assistant-ui message mapping.
@@ -52,6 +61,7 @@ const conversionCache = new WeakMap<ThreadMessage, ConversionCacheEntry>();
 
 const EMPTY_TIMELINE: readonly ToolTimelineEntry[] = [];
 const EMPTY_TRANSCRIPT: readonly ProcessingTranscriptItem[] = [];
+const EMPTY_CITATIONS: readonly ChatCitation[] = [];
 
 const RECOVERED_TOOL_NAMES_KEY = 'assistantUiToolNames';
 
@@ -123,6 +133,165 @@ function toolResultPayload(entry: ToolTimelineEntry): unknown {
   };
 }
 
+/**
+ * Presentation data that rides a tool part's `artifact`.
+ *
+ * assistant-ui's tool-call part has no slot for a display label, a duration
+ * or a structured result, and this adapter used to drop all three, so the
+ * chat card fell back to guessing a label from the tool name and arguments.
+ * `artifact` is the part's UI-only field, which is exactly this.
+ */
+export interface OpenHumanToolArtifact {
+  kind: 'openhuman-tool';
+  /** Server label, for dynamic tools the client registry cannot describe. */
+  displayName?: string;
+  detail?: string;
+  elapsedMs?: number;
+  structured?: unknown;
+}
+
+export function readOpenHumanToolArtifact(value: unknown): OpenHumanToolArtifact | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  return (value as { kind?: unknown }).kind === 'openhuman-tool'
+    ? (value as OpenHumanToolArtifact)
+    : undefined;
+}
+
+function toolArtifact(entry: ToolTimelineEntry): OpenHumanToolArtifact | undefined {
+  const artifact: OpenHumanToolArtifact = {
+    kind: 'openhuman-tool',
+    ...(entry.displayName ? { displayName: entry.displayName } : {}),
+    ...(entry.detail ? { detail: entry.detail } : {}),
+    ...(entry.elapsedMs !== undefined ? { elapsedMs: entry.elapsedMs } : {}),
+    ...(entry.structured !== undefined ? { structured: entry.structured } : {}),
+  };
+  return Object.keys(artifact).length > 1 ? artifact : undefined;
+}
+
+/**
+ * Fold a live subagent activity's synthetic timeline row into the ORIGINAL
+ * spawn/delegate tool-call row it belongs to, when the core told us which one
+ * that is (`SubagentActivity.parentCallId`, from `subagent_spawned.subagent.
+ * parent_call_id`).
+ *
+ * Before `parent_call_id` existed, the reducer had to guess which running
+ * `spawn_subagent`/`delegate_*` row started a delegation and splice it out of
+ * the timeline (`findPendingDelegationContext`) so only the subagent's own
+ * synthetic row survived. With the real id, the two rows can both stay in
+ * `chatRuntimeSlice` (simpler, and the delegation's OWN args/timing are still
+ * on the spawn row) — the substitution happens here, once, at render time:
+ * the spawn row's SLOT (its `seq`/position in issue order) is kept, but its
+ * CONTENT is replaced by the subagent activity row, and the subagent row's own
+ * synthetic entry is dropped so it is never emitted twice. Threads with no
+ * `parentCallId` (older history) pass through unchanged — those still rely on
+ * the reducer-side heuristic collapse.
+ */
+function resolveSubagentTimeline(
+  timeline: readonly ToolTimelineEntry[]
+): readonly ToolTimelineEntry[] {
+  const byParentCallId = new Map<string, ToolTimelineEntry>();
+  for (const entry of timeline) {
+    if (entry.subagent?.parentCallId) byParentCallId.set(entry.subagent.parentCallId, entry);
+  }
+  if (byParentCallId.size === 0) return timeline;
+  const substituted = new Set(byParentCallId.values());
+  return timeline
+    .filter(entry => !substituted.has(entry))
+    .map(entry => {
+      const subagentEntry = byParentCallId.get(entry.id);
+      if (!subagentEntry) return entry;
+      // Keep the SPAWN row's `id`/`seq` (its slot in issue order — what the
+      // transcript's `toolCall` pointers and `unreferenced` sort key both key
+      // off) but the SUBAGENT row's content, so a `spawn_subagent`/
+      // `delegate_*` call and the delegation it started render as one part.
+      return { ...subagentEntry, id: entry.id, seq: entry.seq };
+    });
+}
+
+/** One item of a sub-agent's transcript, normalized to the `{kind:'tool', ...}` shape. */
+function subagentTranscriptItems(activity: SubagentActivity): readonly SubagentTranscriptItem[] {
+  if (activity.transcript && activity.transcript.length > 0) return activity.transcript;
+  return activity.toolCalls.map(call => ({ kind: 'tool' as const, ...call }));
+}
+
+/** A sub-agent's child tool call as a plain (non-nested) `tool-call` part. */
+function subagentChildToolPart(
+  item: Extract<SubagentTranscriptItem, { kind: 'tool' }>
+): ToolCallMessagePart {
+  const running = isActiveTimelineStatus(item.status);
+  const args = jsonObject(item.args);
+  return {
+    type: 'tool-call',
+    toolCallId: item.callId,
+    toolName: item.toolName,
+    args,
+    argsText: JSON.stringify(args, null, 2),
+    ...(!running
+      ? {
+          result:
+            item.status === 'error' || item.status === 'cancelled'
+              ? {
+                  status: item.status,
+                  failure: item.failure,
+                  ...(item.result !== undefined ? { value: item.result } : {}),
+                }
+              : (item.result ?? { status: item.status }),
+        }
+      : {}),
+  };
+}
+
+/**
+ * A sub-agent delegation's full run, as the nested `ThreadMessage[]` a
+ * `task` part's `messages` field carries (assistant-ui's `TaskCard`/
+ * `ReadonlyThreadProvider` convention — see `elements/task-card.aui.tsx`).
+ *
+ * One opening `user` message for the parent's delegation prompt (the
+ * "instruction" row), then one `assistant` message replaying the child's own
+ * thinking/text/tool-call sequence in the order it happened. Built with
+ * `fromThreadMessageLike` — the same `ThreadMessageLike` shape this module's
+ * own `toThreadMessageLike` produces for the top-level thread — rather than
+ * hand-assembling a full `ThreadMessage`, which carries several
+ * runtime-internal fields (branching, per-part provider metadata) that have
+ * no source of truth on `SubagentActivity` and are not this adapter's to
+ * invent.
+ */
+export function subagentMessages(activity: SubagentActivity): readonly AuiThreadMessage[] {
+  const likes: ThreadMessageLike[] = [];
+  if (activity.prompt?.trim()) {
+    likes.push({ role: 'user', content: [{ type: 'text', text: activity.prompt }] });
+  }
+  const parts: ThreadAssistantMessagePart[] = [];
+  for (const item of subagentTranscriptItems(activity)) {
+    if (item.kind === 'thinking') {
+      if (item.text.trim().length > 0) parts.push(reasoningPart(item.text, undefined, undefined));
+      continue;
+    }
+    if (item.kind === 'text') {
+      if (item.text.trim().length > 0) parts.push({ type: 'text', text: item.text });
+      continue;
+    }
+    parts.push(subagentChildToolPart(item));
+  }
+  if (parts.length > 0) {
+    const running = isActiveTimelineStatus(activity.status);
+    likes.push({
+      role: 'assistant',
+      content: parts,
+      status: running
+        ? { type: 'running' }
+        : activity.status === 'failed' || activity.status === 'error'
+          ? { type: 'incomplete', reason: 'error' }
+          : activity.status === 'cancelled'
+            ? { type: 'incomplete', reason: 'cancelled' }
+            : { type: 'complete', reason: 'stop' },
+    });
+  }
+  return likes.map((like, index) =>
+    fromThreadMessageLike(like, `${activity.taskId}:${index}`, { type: 'complete', reason: 'stop' })
+  );
+}
+
 function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   const running = isActiveTimelineStatus(entry.status);
   const isSubagent = entry.name.startsWith('subagent:') || entry.subagent !== undefined;
@@ -134,16 +303,26 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
       })
     : toolArgs(entry);
 
+  // The spawn/delegate call's own real `tool_call_id`, when the core told us
+  // which one started this delegation — see `resolveSubagentTimeline`. Using
+  // it here (rather than this row's synthetic id) is what lets the part
+  // render as ONE task card on the exact call the model made, instead of two
+  // separate rows.
+  const toolCallId = isSubagent ? (entry.subagent?.parentCallId ?? entry.id) : entry.id;
+  const nestedMessages = isSubagent && entry.subagent ? subagentMessages(entry.subagent) : [];
+
   return {
     type: 'tool-call',
-    toolCallId: entry.id,
+    toolCallId,
     toolName: isSubagent ? 'task' : entry.name,
     args,
     argsText: JSON.stringify(args, null, 2),
+    ...(!isSubagent && toolArtifact(entry) ? { artifact: toolArtifact(entry) } : {}),
+    ...(nestedMessages.length > 0 ? { messages: nestedMessages } : {}),
     ...(!running
       ? {
           result: isSubagent
-            ? (entry.subagent ?? { status: entry.status })
+            ? { status: entry.status, activity: entry.subagent }
             : toolResultPayload(entry),
         }
       : {}),
@@ -176,6 +355,24 @@ export const APPROVAL_DECISION_OPTIONS: readonly ToolApprovalOption[] = [
  */
 const APPROVAL_PART_ID_PREFIX = '__openhuman_approval__:';
 
+/**
+ * The part-level `approval` field, projected from our `PendingApproval`.
+ *
+ * Shape mirrors assistant-ui's own `ToolCallMessagePart['approval']`
+ * (`@assistant-ui/core`): `resolution` is the terminal non-decision state a
+ * server-recorded TTL expiry or cancel sets (`approval_decided` socket event,
+ * see `chatRuntimeSlice.ts`'s `resolvePendingApprovalForThread`); `approved`
+ * follows it (`false`) so a renderer that only checks the boolean still shows
+ * a resolved state rather than a live prompt.
+ */
+function approvalField(approval: PendingApproval): NonNullable<ToolCallMessagePart['approval']> {
+  return {
+    id: approval.requestId,
+    options: APPROVAL_DECISION_OPTIONS,
+    ...(approval.resolution ? { resolution: approval.resolution, approved: false as const } : {}),
+  };
+}
+
 /** The part the parked call is asking about, when no timeline row carries it. */
 function syntheticApprovalPart(approval: PendingApproval): ThreadAssistantMessagePart {
   // `command` is the redacted command/path/url the gate extracted for display;
@@ -183,42 +380,50 @@ function syntheticApprovalPart(approval: PendingApproval): ThreadAssistantMessag
   const args = approval.command ? { command: approval.command } : {};
   return {
     type: 'tool-call',
-    toolCallId: `${APPROVAL_PART_ID_PREFIX}${approval.requestId}`,
+    toolCallId: approval.toolCallId ?? `${APPROVAL_PART_ID_PREFIX}${approval.requestId}`,
     toolName: approval.toolName,
     args: args as Record<string, never>,
     argsText: JSON.stringify(args, null, 2),
-    approval: { id: approval.requestId, options: APPROVAL_DECISION_OPTIONS },
+    approval: approvalField(approval),
   };
 }
 
 /**
  * Hang a parked approval off the tool part it is gating.
  *
- * The `approval_request` socket event carries no `tool_call_id` (see
- * `ChatApprovalRequestEvent`), so the row is matched by name against the
- * newest still-unsettled call — a `result` means the call already ran and
- * cannot be the one parked. When nothing matches (the progress channel is
- * bounded and can drop the `tool_call` frame, and the gate can park before the
- * frame lands at all) a part is synthesised rather than dropped: a prompt in
- * the wrong visual slot is recoverable, a turn that parks with no prompt at all
- * is the bug this exists to close.
+ * `approval.toolCallId` (wire contract: `DomainEvent::ApprovalRequested.
+ * tool_call_id`, additive) is preferred when present: it names the EXACT
+ * part the gate is holding, so the match is an equality check rather than a
+ * guess. A core that has not landed the C2 approvals workstream yet sends no
+ * `tool_call_id`, and the older heuristic — the newest still-unsettled call
+ * with the same tool name (a `result` means the call already ran and cannot
+ * be the one parked) — remains the fallback for exactly that case, not a
+ * second attempt after a failed exact match: once the wire names the part,
+ * guessing at a different one would be worse than not finding it. When
+ * nothing matches (the progress channel is bounded and can drop the
+ * `tool_call` frame, and the gate can park before the frame lands at all) a
+ * part is synthesised rather than dropped: a prompt in the wrong visual slot
+ * is recoverable, a turn that parks with no prompt at all is the bug this
+ * exists to close.
  */
 function withApproval(
   parts: ThreadAssistantMessagePart[],
   approval: PendingApproval
 ): ThreadAssistantMessagePart[] {
-  const index = parts.reduce(
-    (best, part, at) =>
-      part.type === 'tool-call' && part.toolName === approval.toolName && part.result === undefined
-        ? at
-        : best,
-    -1
-  );
+  const index = approval.toolCallId
+    ? parts.findIndex(part => part.type === 'tool-call' && part.toolCallId === approval.toolCallId)
+    : parts.reduce(
+        (best, part, at) =>
+          part.type === 'tool-call' &&
+          part.toolName === approval.toolName &&
+          part.result === undefined
+            ? at
+            : best,
+        -1
+      );
   if (index < 0) return [...parts, syntheticApprovalPart(approval)];
   return parts.map((part, at) =>
-    at === index
-      ? { ...part, approval: { id: approval.requestId, options: APPROVAL_DECISION_OPTIONS } }
-      : part
+    at === index ? { ...part, approval: approvalField(approval) } : part
   );
 }
 
@@ -262,7 +467,6 @@ export function reasoningPart(
  * - **Reasoning** (`kind: 'thinking'`) renders through the static reasoning
  *   panel: one "Thought for Ns" line once settled, titled steps while it
  *   streams.
- *
  * - **Narration renders inline** where it was said, live and on reload. It is
  *   the agent explaining the call it is about to make; showing it and then
  *   wiping it was the flicker, never showing it on reload was the mismatch.
@@ -302,10 +506,12 @@ function assistantParts(
   answer: string,
   timeline: readonly ToolTimelineEntry[],
   transcript: readonly ProcessingTranscriptItem[],
-  mode: 'live' | 'settled'
+  mode: 'live' | 'settled',
+  citations: readonly ChatCitation[] = EMPTY_CITATIONS
 ): ThreadAssistantMessagePart[] {
+  const resolvedTimeline = resolveSubagentTimeline(timeline);
   const parts: ThreadAssistantMessagePart[] = [];
-  const timelineById = new Map(timeline.map(entry => [entry.id, entry]));
+  const timelineById = new Map(resolvedTimeline.map(entry => [entry.id, entry]));
   const emittedToolIds = new Set<string>();
   const claim = (entry: ToolTimelineEntry): boolean => {
     if (emittedToolIds.has(entry.id)) return false;
@@ -330,7 +536,7 @@ function assistantParts(
 
   // Rows with no pointer, oldest first. These are merged into the walk below
   // rather than appended after it.
-  const unreferenced = timeline
+  const unreferenced = resolvedTimeline
     .filter(entry => !referenced.has(entry.id))
     .sort((a, b) => a.seq - b.seq);
   let nextUnreferenced = 0;
@@ -375,6 +581,7 @@ function assistantParts(
       parts.push({ type: 'text', text: item.text });
       continue;
     }
+    if (item.kind !== 'toolCall') continue;
     const entry = timelineById.get(item.callId);
     if (!entry) continue;
     drainBefore(entry.seq);
@@ -389,35 +596,30 @@ function assistantParts(
   if (mode === 'settled' && !answerEmitted && answerText.length > 0) {
     parts.push({ type: 'text', text: answerText });
   }
+  // `extractAgentSources` is the one place a model-supplied URL is admitted
+  // (http(s) only), so sources are derived through it rather than here.
+  for (const source of extractAgentSources([...timeline])) {
+    parts.push({
+      type: 'source',
+      sourceType: 'url',
+      id: source.id,
+      url: source.url,
+      title: source.title,
+    });
+  }
+  // Memory citations captured during retrieval for this turn
+  // (`ChatDoneEvent.citations` / `ChatSegmentEvent.citations`), surfaced as
+  // `document` source parts alongside the turn's `url` sources.
+  for (const citation of citations) {
+    parts.push({
+      type: 'source',
+      sourceType: 'document',
+      id: `memory:${citation.id}`,
+      title: citation.key,
+      mediaType: 'application/vnd.openhuman.memory-citation',
+    });
+  }
   return parts;
-}
-
-/**
- * The one-line summary the settled turn footer renders, and the trail its click
- * opens. Counted from what the store already holds — no new telemetry.
- *
- * `steps` is every process item the turn recorded (reasoning blocks, narration
- * segments and tool pointers); `tools` is the tool rows. `null` when the turn
- * recorded no process at all, which is the footer's signal to render nothing —
- * a plain answer with no trail behind it gets no door.
- */
-export type TurnProcessTrail = {
-  steps: number;
-  tools: number;
-  timeline: readonly ToolTimelineEntry[];
-  transcript: readonly ProcessingTranscriptItem[];
-};
-
-function processTrail(
-  timeline: readonly ToolTimelineEntry[],
-  transcript: readonly ProcessingTranscriptItem[]
-): TurnProcessTrail | null {
-  if (timeline.length === 0 && transcript.length === 0) return null;
-  // Prefer the transcript's own length when it has one: it is the ordered
-  // record of what happened. A legacy snapshot with tool rows but no transcript
-  // still has a step per row.
-  const steps = transcript.length > 0 ? transcript.length : timeline.length;
-  return { steps, tools: timeline.length, timeline, transcript };
 }
 
 function stringArray(value: unknown): string[] {
@@ -429,6 +631,24 @@ function stringArray(value: unknown): string[] {
 function requestIdOf(message: ThreadMessage): string | undefined {
   const requestId = message.extraMetadata?.requestId;
   return typeof requestId === 'string' && requestId.length > 0 ? requestId : undefined;
+}
+
+/**
+ * Memory citations `ChatRuntimeProvider` merged onto this message's
+ * `extraMetadata.citations` (`chatDoneExtraMetadata` / the `onSegment`
+ * handler in `ChatRuntimeProvider.tsx`). Narrowed rather than cast:
+ * `extraMetadata` is untyped JSON from disk.
+ */
+function messageCitations(message: ThreadMessage): readonly ChatCitation[] {
+  const value = message.extraMetadata?.citations;
+  if (!Array.isArray(value)) return EMPTY_CITATIONS;
+  return value.filter(
+    (item): item is ChatCitation =>
+      !!item &&
+      typeof item === 'object' &&
+      typeof (item as ChatCitation).id === 'string' &&
+      typeof (item as ChatCitation).key === 'string'
+  );
 }
 
 function isGenericToolName(name: string): boolean {
@@ -612,13 +832,45 @@ export function toThreadMessageLike(
   ];
   const effectiveTimeline = recoverTimelineToolNames(timeline, recoveredToolNames);
   const feedback = msg.sender === 'agent' ? persistedFeedback(msg) : undefined;
+  // `chat_done.timing` (wire-contract.md), stamped onto `extraMetadata` by
+  // `ChatRuntimeProvider`'s `chatDoneExtraMetadata`. `streamStartTime` is
+  // required by assistant-ui's `MessageTiming` type but not read by the
+  // vendored `MessageTiming` element (`message-timing.aui.tsx` reads only
+  // `firstTokenTime`/`totalStreamTime`/`tokensPerSecond`/`totalChunks`), so
+  // the message's own `createdAt` is a reasonable value for it. `totalChunks`
+  // has no wire counterpart yet, hence `0` rather than an invented count.
+  const timingWire =
+    msg.sender === 'agent'
+      ? (msg.extraMetadata?.[TIMING_METADATA_KEY] as
+          | { first_token_ms?: number; first_tool_ms?: number; total_ms?: number }
+          | undefined)
+      : undefined;
+  const timing = timingWire
+    ? {
+        streamStartTime: new Date(msg.createdAt).getTime(),
+        firstTokenTime: timingWire.first_token_ms,
+        totalStreamTime: timingWire.total_ms,
+        totalChunks: 0,
+        toolCallCount: effectiveTimeline.length,
+      }
+    : undefined;
+  // A `chat_error{error_type:"guardrail"}` turn (wire-contract.md). Its plain
+  // text is suppressed here — `ChatErrorNotice` (`features/conversations/aui/`)
+  // renders the vendored `GuardrailNotice` card from this same
+  // `extraMetadata` (surfaced unchanged on `metadata.custom.extraMetadata`
+  // below) instead, so the turn is not shown twice.
+  const isGuardrailError =
+    msg.sender === 'agent' &&
+    (msg.extraMetadata?.[CHAT_ERROR_METADATA_KEY] as { errorType?: string } | undefined)
+      ?.errorType === 'guardrail';
 
   const converted: ThreadMessageLike = {
     id: msg.id,
     role: msg.sender === 'agent' ? 'assistant' : 'user',
-    content:
-      msg.sender === 'agent'
-        ? assistantParts(text, effectiveTimeline, transcript, 'settled')
+    content: isGuardrailError
+      ? []
+      : msg.sender === 'agent'
+        ? assistantParts(text, effectiveTimeline, transcript, 'settled', messageCitations(msg))
         : userParts(msg),
     createdAt: new Date(msg.createdAt),
     ...(msg.sender === 'agent' && msg.extraMetadata?.stopped === true
@@ -634,15 +886,8 @@ export function toThreadMessageLike(
       // survive the next turn, a thread switch and a reload. Without this the
       // control silently un-presses, which is worse than having no control.
       ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
-      custom: {
-        extraMetadata: msg.extraMetadata ?? {},
-        sourceType: msg.type,
-        // The settled turn's one-line footer + the trail its click opens.
-        // Only on the assistant side: a user message has no process behind it.
-        ...(msg.sender === 'agent'
-          ? { processTrail: processTrail(effectiveTimeline, transcript) }
-          : {}),
-      },
+      ...(timing ? { timing } : {}),
+      custom: { extraMetadata: msg.extraMetadata ?? {}, sourceType: msg.type },
     },
   };
 
@@ -688,15 +933,21 @@ export function streamingTailMessage(
   }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
+  // A sub-agent parked on `ask_user_clarification` is, like a parked
+  // ApprovalGate request, a turn stopped on the user rather than a running
+  // one. assistant-ui derives a tool-call part's own status from its
+  // ENCLOSING message when the part has no `result` (`toMessagePartStatus`),
+  // so this is the one place that can give the task card its `requires-action`
+  // state — the part itself has no status field of its own.
+  const hasAwaitingSubagent = timeline.some(entry => entry.subagent?.status === 'awaiting_user');
   return {
     id: STREAMING_TAIL_ID,
     role: 'assistant',
     content: parts,
-    // A parked gate is not a running turn: it is a turn stopped on the user.
-    // `requires-action` is what gives the gated tool part its own
-    // `requires-action` status (a tool part with no result inherits the
-    // message's), which is the state assistant-ui renders a decision on.
-    status: approval ? { type: 'requires-action', reason: 'interrupt' } : { type: 'running' },
+    status:
+      approval || hasAwaitingSubagent
+        ? { type: 'requires-action', reason: 'interrupt' }
+        : { type: 'running' },
     metadata: { custom: { requestId: streaming?.requestId, streaming: true } },
   };
 }
@@ -851,11 +1102,7 @@ export function buildRuntimeMessages(
     if (frozen) {
       const settledRows = requestId ? projection.turnTimelines?.[requestId] : undefined;
       out.push(
-        toThreadMessageLike(
-          msg,
-          withSettledStatuses(frozen.timeline, settledRows),
-          frozen.transcript
-        )
+        toThreadMessageLike(msg, withSettledStatuses(frozen.timeline, settledRows), frozen.transcript)
       );
       continue;
     }

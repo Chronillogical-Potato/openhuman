@@ -1,3 +1,5 @@
+import type { RunMode } from '../../store/runModeSlice';
+
 type ComposerSendBlockReason =
   | 'empty_input'
   | 'missing_thread'
@@ -5,7 +7,11 @@ type ComposerSendBlockReason =
   | 'usage_limit_reached'
   | 'socket_disconnected';
 
-type SlashCommandDecision = { kind: 'new_or_clear' } | { kind: 'not_handled' };
+export type SlashCommandDecision =
+  | { kind: 'new_or_clear' }
+  | { kind: 'run_mode'; mode: RunMode }
+  | { kind: 'stop' }
+  | { kind: 'not_handled' };
 
 interface ComposerSendDecisionArgs {
   rawText: string;
@@ -37,6 +43,12 @@ export const handleComposerSlashCommand = (command: string): SlashCommandDecisio
   const cmd = command.toLowerCase();
   if (cmd === '/new' || cmd === '/clear') {
     return { kind: 'new_or_clear' };
+  }
+  if (cmd === '/plan' || cmd === '/build') {
+    return { kind: 'run_mode', mode: cmd === '/plan' ? 'plan' : 'build' };
+  }
+  if (cmd === '/stop') {
+    return { kind: 'stop' };
   }
   return { kind: 'not_handled' };
 };

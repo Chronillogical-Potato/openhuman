@@ -82,11 +82,11 @@ mod tokenize;
 mod types;
 
 pub use store::{
-    append_message, delete_thread, ensure_thread, get_messages, list_threads, purge_threads,
-    update_message, update_thread_labels, update_thread_title, ConversationPurgeStats,
-    ConversationStore,
+    append_message, delete_messages_from, delete_thread, ensure_thread, get_messages, list_threads,
+    purge_threads, update_message, update_thread_labels, update_thread_title,
+    ConversationPurgeStats, ConversationStore,
 };
 pub use types::{
-    is_deterministic_message_id, run_reply_message_id, ConversationMessage,
+    is_deterministic_message_id, reply_run_id, run_reply_message_id, ConversationMessage,
     ConversationMessagePatch, ConversationThread, CreateConversationThread, CrossThreadHit,
 };

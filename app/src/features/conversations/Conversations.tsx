@@ -5,28 +5,36 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { type ChatSendError, chatSendError } from '../../chat/chatSendError';
 import { checkPromptInjection, promptGuardMessage } from '../../chat/promptInjectionGuard';
 import { trackAnalyticsEvent } from '../../components/analytics';
-import ArtifactCard from '../../components/chat/ArtifactCard';
+import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
+import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
-import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
-import { FlowApprovalRequestCard } from '../../components/chat/FlowApprovalRequestCard';
-import QueuedFollowups from '../../components/chat/QueuedFollowups';
-import { UnroutedApprovalCard } from '../../components/chat/UnroutedApprovalCard';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
+import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
+import { ContextUsage } from '../../features/conversations/aui/ContextUsage';
+import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
+import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
+import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
+import { useRunMode } from '../../features/conversations/aui/useRunMode';
+import {
+  formatTokens,
+  useLoadThreadGoal,
+  useThreadGoal,
+} from '../../features/conversations/aui/useThreadGoal';
+import {
+  useLoadThreadTodos,
+  useThreadTodos,
+} from '../../features/conversations/aui/useThreadTodos';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
-import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
-import { GoalBanner } from '../../features/conversations/components/GoalBanner';
-import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
-import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
-import { useThreadHarnessState } from '../../features/conversations/hooks/useThreadHarnessState';
+import { selectBackgroundProcesses } from '../../features/conversations/selectors/backgroundProcesses';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
@@ -51,30 +59,23 @@ import {
 } from '../../lib/attachments';
 import { useRegisterAction } from '../../lib/commands/useRegisterAction';
 import { useT } from '../../lib/i18n/I18nContext';
+import { decideApproval } from '../../services/api/approvalApi';
 import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
-import {
-  aiRegenerate,
-  chatCancel,
-  chatClearQueue,
-  chatSend,
-  useRustChat,
-} from '../../services/chatService';
+import { aiRegenerate, chatCancel, chatSend, useRustChat } from '../../services/chatService';
 import { callCoreRpc } from '../../services/coreRpcClient';
 import {
   beginInferenceTurn,
-  clearFollowupsForThread,
   clearRuntimeForThread,
   clearThreadSendPending,
-  enqueueFollowup,
   fetchAndHydrateTurnState,
   hydrateThreadUsage,
   markThreadSendPending,
   type ProcessingTranscriptItem,
-  type QueuedFollowup,
   setToolTimelineForThread,
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { pendingFollowupAdded } from '../../store/queueSlice';
 import { selectSocketStatus } from '../../store/socketSelectors';
 import {
   addInferenceResponse,
@@ -94,6 +95,8 @@ import type { ConfirmationModal as ConfirmationModalType } from '../../types/int
 import type { ThreadMessage } from '../../types/thread';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
+import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
+import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
 
@@ -144,10 +147,6 @@ interface ConversationsProps {
 // object identity when the slice field is absent (narrow test stores),
 // avoiding spurious re-renders.
 const EMPTY_ACTIVE_THREADS: Record<string, true> = {};
-
-// Stable empty reference for the queued-follow-ups map, so the selector keeps
-// the same identity when the slice field is absent (narrow test stores).
-const EMPTY_QUEUED_FOLLOWUPS: Record<string, QueuedFollowup[]> = {};
 
 // Stable empty live tool-timeline / processing-transcript for the selected
 // thread. A fresh `[]` here took a new identity every render, invalidating the
@@ -262,10 +261,9 @@ const Conversations = ({
   attachmentsRef.current = attachments;
   // Tail of the ingest queue; see `handleAttachFiles`.
   const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
-  // Disclosure state for the three transcript-local overlays (background
-  // processes, the sub-agent drawer, the Agent Process Source panel).
+  // Disclosure state for the transcript-local overlays (background
+  // processes, the Agent Process Source panel).
   const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
-  const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
   const [showProcessSource, setShowProcessSource] = useState(false);
   // The Agent Process Source panel (the whole-run view, and the visited-source
   // list, which exists nowhere else) is reached from the command palette:
@@ -404,9 +402,6 @@ const Conversations = ({
   const inferenceTurnLifecycleByThread = useAppSelector(
     state => state.chatRuntime.inferenceTurnLifecycleByThread
   );
-  const queuedFollowupsByThread = useAppSelector(
-    state => state.chatRuntime.queuedFollowupsByThread ?? EMPTY_QUEUED_FOLLOWUPS
-  );
   const rustChat = useRustChat();
   // Inline thread-title rename in the sidebar thread list — keyed by the
   // thread id being edited (null = none) so any row can rename in place.
@@ -538,6 +533,9 @@ const Conversations = ({
   // latest implementation out of these refs at call time.
   const handleComposerSendRef = useRef<((text?: string) => Promise<void>) | null>(null);
   const handleStopGenerationRef = useRef<(() => void) | null>(null);
+  // Typed `/plan` / `/build` (see `handleSlashCommand`) flip the same run mode
+  // the composer toggle and the `/` popover do.
+  const { setMode: setRunMode } = useRunMode(selectedThreadId);
   // Per-thread "turn signature": the last-seen tuple of progress-slice
   // references [inferenceStatus, streamingAssistant, toolTimeline]
   // for each thread that owns a live silence timer. Redux Toolkit (immer)
@@ -943,7 +941,16 @@ const Conversations = ({
     if (decision.kind === 'not_handled') return false;
 
     setInputValue('');
-    void handleCreateNewThread();
+    if (decision.kind === 'run_mode') {
+      debug('[chat] slash command: run mode -> %s', decision.mode);
+      void setRunMode(decision.mode).catch(error => {
+        debug('[chat] slash command: set run mode failed: %o', error);
+      });
+    } else if (decision.kind === 'stop') {
+      handleStopGenerationRef.current?.();
+    } else {
+      void handleCreateNewThread();
+    }
     return true;
   };
 
@@ -1208,9 +1215,10 @@ const Conversations = ({
   // current turn finishes. We do NOT insert it into the transcript now —
   // appending it mid-stream would persist it BEFORE the in-flight assistant
   // reply (the conversation store is an append log), so the prompt would show
-  // out of order on reload. Instead we record a queued-follow-up pill; the pill
-  // is flushed into the transcript (persisted, in order, after the assistant
-  // reply) when the turn ends — see `ChatRuntimeProvider`'s done/error paths.
+  // out of order on reload. Instead we keep it as a pending follow-up
+  // (`queueSlice`), flushed into the transcript (persisted, in order, after the
+  // assistant reply) when the turn ends — see `ChatRuntimeProvider`'s done/error
+  // paths. What the composer shows is the core's own queue, not this record.
   const handleSendFollowup = async (text?: string) => {
     if (!rustChat || !selectedThreadId) return;
     const threadId = selectedThreadId;
@@ -1253,10 +1261,6 @@ const Conversations = ({
       sender: 'user',
       createdAt: new Date().toISOString(),
     };
-    // Never render a blank pill for an attachments-only follow-up: fall back to
-    // the attachment file names as the label.
-    const label = normalized || pendingAttachments.map(a => a.file.name).join(', ');
-
     setSendError(null);
     setAttachError(null);
 
@@ -1272,7 +1276,7 @@ const Conversations = ({
       // failed send leaves the user's draft + attachments intact to retry.
       setInputValue('');
       setAttachments([]);
-      dispatch(enqueueFollowup({ threadId, message: followupMessage, label }));
+      dispatch(pendingFollowupAdded({ threadId, message: followupMessage, text: messageText }));
       trackAnalyticsEvent('chat_message_sent', {
         send_mode: 'followup',
         has_attachments: pendingAttachments.length > 0,
@@ -1285,21 +1289,6 @@ const Conversations = ({
       // explicitly instead of letting the user's draft disappear.
       setInputValue(normalized);
     }
-  };
-
-  // Dismiss every queued follow-up for the selected thread. Clear the backend
-  // run-queue FIRST and only drop the local pills if it succeeded — on failure
-  // the backend still holds (and will dispatch) the follow-ups, so keep the
-  // pills and surface the error rather than falsely showing them removed.
-  const handleClearQueuedFollowups = async () => {
-    if (!selectedThreadId) return;
-    const threadId = selectedThreadId;
-    const dropped = await chatClearQueue(threadId);
-    if (dropped === null) {
-      setSendError(chatSendError('cloud_send_failed', t('chat.queuedFollowups.clearFailed')));
-      return;
-    }
-    dispatch(clearFollowupsForThread({ threadId }));
   };
 
   // The composer's Send button (and plain Enter) route to a queued follow-up
@@ -1390,7 +1379,16 @@ const Conversations = ({
           addInferenceResponse({
             content: partial,
             threadId,
-            extraMetadata: { stopped: true, ...(requestId ? { requestId } : {}) },
+            // `cancelReason: 'user_stop'` is what the vendored `StoppedRun`
+            // element's reason chip reads (`thread.tsx`'s `StoppedRunSlot`);
+            // this is the user-initiated Stop path, as opposed to the core
+            // superseding the turn (`chat_cancelled{cancel_reason:
+            // "superseded"}`, handled in `ChatRuntimeProvider`).
+            extraMetadata: {
+              stopped: true,
+              cancelReason: 'user_stop',
+              ...(requestId ? { requestId } : {}),
+            },
           })
         ).then(() => debug('[chat] stop generation: persisted stopped reply thread=%s', threadId));
       }
@@ -1472,25 +1470,17 @@ const Conversations = ({
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
   );
-  // Harness work state the agent keeps for this thread — its todo list and
-  // the thread goal — read off the newest `todo` / `goal_*` tool results
-  // across this turn and the thread's settled turns
-  // (`hooks/useThreadHarnessState.ts`). Rendered above the composer next to
-  // the gate cards so a five-step task shows as a checklist ticking off while
-  // the agent works through it.
-  const { todoList, goal: threadGoal } = useThreadHarnessState(
-    selectedThreadId ?? null,
-    selectedThreadToolTimeline
-  );
+  // Harness work state the agent keeps for this thread — its live todo list
+  // and its goal — driven by the dedicated `thread_todos_changed` /
+  // `thread_goal_updated` core events (`aui/useThreadTodos.ts` /
+  // `aui/useThreadGoal.ts`), primed on thread open by the RPC pair below.
+  // Rendered above the composer next to the gate cards so a five-step task
+  // shows as a checklist ticking off while the agent works through it.
+  useLoadThreadTodos(selectedThreadId ?? null);
+  useLoadThreadGoal(selectedThreadId ?? null);
+  const liveTodos = useThreadTodos(selectedThreadId ?? null);
+  const threadGoal = useThreadGoal(selectedThreadId ?? null);
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
-  // `TranscriptOverlays` resolves the open delegation out of this same live
-  // timeline and renders nothing when the id is absent, so an inline card must
-  // not offer "View full processing" for a delegation that would open an empty
-  // sheet -- a delegation replayed from the settled core transcript, say.
-  const canOpenSubagentDrawer = useCallback(
-    (taskId: string) => selectedThreadToolTimeline.some(entry => entry.subagent?.taskId === taskId),
-    [selectedThreadToolTimeline]
-  );
   // Poll-free live signal: lights the badge when memories are syncing even if
   // no sub-agent is running and the panel is closed.
   const memorySyncActive = useMemorySyncActive();
@@ -1644,22 +1634,55 @@ const Conversations = ({
   // doubles up.
   const agentGateCards = (
     <>
-      {/* Harness work state: the thread goal and the agent's todo list. Both
-          are read-only progress the agent wrote via its tools; they sit above
-          the gate cards so a parked decision is always the closest thing to
-          the composer. */}
-      {selectedThreadId && threadGoal && <GoalBanner goal={threadGoal} />}
-      {selectedThreadId && todoList && <TodoChecklist list={todoList} />}
+      {/* Harness work state: the thread goal (as a compact `AgentStatus`
+          pill) and the agent's live todo list. Both are read-only progress
+          the agent wrote via its tools; they sit above the gate cards so a
+          parked decision is always the closest thing to the composer. */}
+      {selectedThreadId && threadGoal && (
+        <AgentStatus
+          data-testid="goal-banner"
+          data-goal-status={threadGoal.status}
+          state={
+            threadGoal.status === 'complete'
+              ? 'done'
+              : threadGoal.status === 'active'
+                ? 'working'
+                : 'waiting'
+          }
+          label={threadGoal.objective}
+          trailing={
+            <span data-testid="goal-objective" className="text-[10px] tabular-nums">
+              {threadGoal.token_budget !== undefined
+                ? `${formatTokens(threadGoal.tokens_used)} / ${formatTokens(threadGoal.token_budget)}`
+                : formatTokens(threadGoal.tokens_used)}
+            </span>
+          }
+          className="mb-2 self-start"
+        />
+      )}
+      {selectedThreadId && liveTodos && liveTodos.length > 0 && (
+        <TodoList
+          data-testid="todo-checklist"
+          items={toAuiTodoItems(liveTodos)}
+          title={t('conversations.todos.title')}
+          className="mb-2"
+        />
+      )}
 
       {/* Plan-mode review: the orchestrator parked the live turn on a
           thread-scoped plan (request_plan_review gate). Surface it for the
-          user to Approve / Reject / send feedback on before anything executes;
-          the card resolves the parked turn via plan_review_decide. */}
-      {selectedThreadId && pendingPlanReview && (
+          user to Approve / Reject / send feedback on before anything
+          executes. This composer-header render is the pre-C2 fallback: once
+          the core sends `tool_call_id` on `plan_review_request`, the SAME
+          review renders as part of the `request_plan_review` tool-call part
+          (`aui/PlanReviewPart.tsx`) instead, and this block renders nothing
+          for it (there is no tool-call part to attach a review WITHOUT a
+          tool_call_id, which is why this fallback stays). */}
+      {selectedThreadId && pendingPlanReview && !pendingPlanReview.toolCallId && (
         // Key by request id so a re-parked (revised) plan — or a thread switch —
         // remounts the card and resets its local decision/feedback state,
         // matching the ApprovalRequestCard pattern above.
-        <PlanReviewCard
+        <PlanReviewCardCore
           key={pendingPlanReview.requestId}
           threadId={selectedThreadId}
           review={pendingPlanReview}
@@ -1757,10 +1780,21 @@ const Conversations = ({
     flowApprovalRequests.length > 0 ? (
       <div className="mb-2 flex flex-col gap-2">
         {flowApprovalRequests.map(request => (
-          <FlowApprovalRequestCard
+          <ApprovalCardAdapter
             key={request.request_id}
-            request={request}
-            onResolved={dismissFlowApprovalRequest}
+            ariaLabel={t('chat.flowApproval.title')}
+            title={t('chat.flowApproval.title')}
+            subtitle={request.summary || t('chat.flowApproval.fallback')}
+            command={request.flow_id}
+            toolName={request.tool_name}
+            alwaysDecision="approve_always_for_flow"
+            alwaysHint={t('chat.flowApproval.approveAlwaysHint')}
+            analyticsPrefix="flow-approval-request"
+            testId="flow-approval-request-card"
+            onDecide={async decision => {
+              await decideApproval(request.request_id, decision);
+              dismissFlowApprovalRequest(request.request_id);
+            }}
           />
         ))}
       </div>
@@ -1769,7 +1803,11 @@ const Conversations = ({
   // Background-approval surface: parks raised with no chat thread and no flow
   // run. Sits beside the flow deck because it is the same affordance with a
   // different origin, and is likewise not thread-scoped — a pending row has no
-  // thread to be scoped to, which is exactly why it had no surface.
+  // thread to be scoped to, which is exactly why it had no surface. Only
+  // once/deny are offered here (no `alwaysDecision`) — the request arrived
+  // from attacker-influenceable content with no interactive session behind
+  // it, and a session-wide standing allowlist is the wrong thing to grant
+  // from a banner the user did not go looking for.
   const unroutedApprovalDeck =
     unroutedApprovals.length > 0 ? (
       <div className="mb-2 flex flex-col gap-2" data-testid="unrouted-approval-deck">
@@ -1779,11 +1817,18 @@ const Conversations = ({
           </p>
         )}
         {unroutedApprovals.map(approval => (
-          <UnroutedApprovalCard
+          <ApprovalCardAdapter
             key={approval.request_id}
-            approval={approval}
+            ariaLabel={`Background approval required: ${approval.tool_name}`}
+            title={t('chat.approval.title')}
+            subtitle={approval.action_summary || approval.tool_name}
+            command={approval.tool_name}
+            toolName={approval.tool_name}
+            expiresAt={approval.expires_at}
+            analyticsPrefix="unrouted-approval"
+            testId="unrouted-approval-card"
             busy={unroutedDecidingId !== null}
-            onDecide={decideUnroutedApproval}
+            onDecide={decision => decideUnroutedApproval(approval.request_id, decision)}
           />
         ))}
       </div>
@@ -1800,14 +1845,19 @@ const Conversations = ({
   // re-runs generation under the original artifact id, so the card swaps back
   // to a spinner in place and then to ready/failed via the socket events.
   const artifactDeckThreadId = selectedThreadId ?? firstActiveThreadId;
+  // Only artifacts with NO owning tool call belong in the header deck — one
+  // with a `toolCallId` renders inline through its own tool-call card
+  // (`MediaAndDocumentCalls.tsx`) instead, per the `ArtifactCardAdapter` doc.
   const liveArtifacts = artifactDeckThreadId
-    ? (artifactsByThread[artifactDeckThreadId] ?? []).filter(a => a.status !== 'ready')
+    ? (artifactsByThread[artifactDeckThreadId] ?? []).filter(
+        a => a.status !== 'ready' && !a.toolCallId
+      )
     : [];
   const liveArtifactDeck =
     liveArtifacts.length > 0 && artifactDeckThreadId ? (
       <div className="mb-2 flex flex-col gap-2">
         {liveArtifacts.map(artifact => (
-          <ArtifactCard
+          <ArtifactCardAdapter
             key={artifact.artifactId}
             artifact={artifact}
             onRetry={id => {
@@ -1894,12 +1944,8 @@ const Conversations = ({
       {sendErrorBanner}
       {sendAdvisoryBanner}
       {liveArtifactDeck}
-      {selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
-        <QueuedFollowups
-          items={queuedFollowupsByThread[selectedThreadId] ?? []}
-          onClear={() => void handleClearQueuedFollowups()}
-        />
-      ) : null}
+      {/* The core's run queue for this thread; renders nothing while empty. */}
+      <ComposerMessageQueue />
     </>
   );
 
@@ -1908,6 +1954,7 @@ const Conversations = ({
     <>
       {renderBackgroundProcessesButton(() => setShowBackgroundProcesses(true))}
       {chatFilesChip}
+      {selectedThreadId && <RunModeToggle threadId={selectedThreadId} />}
     </>
   );
 
@@ -1967,7 +2014,10 @@ const Conversations = ({
           </button>
         )}
         <div className="flex items-center justify-between gap-2">
-          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
+          <ContextUsage
+            threadId={selectedThreadId}
+            modelContextWindow={composerModelContextWindow}
+          />
           {!isSidebar && (
             <div className="flex shrink-0 items-center gap-2">{assistantComposerFooterExtras}</div>
           )}
@@ -2003,18 +2053,11 @@ const Conversations = ({
         // same conversation partner, not a second one.
         onOpenHumanMode={() => navigate('/human')}
         onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-        // Lets a delegation card inside the transcript open the drawer below.
-        // `setOpenSubagentTaskId` is a stable setter, and `canOpenSubagent` is
-        // memoised on the timeline, so the context value only churns when the
-        // set of resolvable delegations actually changes.
-        onOpenSubagent={setOpenSubagentTaskId}
-        canOpenSubagent={canOpenSubagentDrawer}
         onModelChange={applyComposerModel}
       />
-      {/* The three transcript-local modals: background processes, the
-          sub-agent drawer and the Agent Process Source panel. Mounted beside
-          the Thread (not inside it) because each is its own overlay,
-          positioned against the viewport. */}
+      {/* The transcript-local overlays: background processes and the Agent
+          Process Source panel. Mounted beside the Thread (not inside it)
+          because each is its own overlay, positioned against the viewport. */}
       <TranscriptOverlays
         threadId={selectedThreadId ?? null}
         entries={selectedThreadProcessSourceEntries}
@@ -2022,8 +2065,6 @@ const Conversations = ({
         backgroundProcesses={backgroundProcesses}
         showBackgroundProcesses={showBackgroundProcesses}
         onCloseBackgroundProcesses={() => setShowBackgroundProcesses(false)}
-        openSubagentTaskId={openSubagentTaskId}
-        onOpenSubagent={setOpenSubagentTaskId}
         showProcessSource={showProcessSource}
         onCloseProcessSource={() => setShowProcessSource(false)}
       />

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DerivedDisplayItem } from '../../../types/derivedTranscript';
+import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 import { mapDisplayItems } from './mapDisplayItems';
 
 /**
@@ -188,7 +189,7 @@ describe('mapDisplayItems', () => {
     expect(timelines['req-1'][0].failure?.causePlain).toBe('raw error text');
   });
 
-  it('derives displayName/detail for a tool row (parity with turn_state rows)', () => {
+  it('derives the detail for a tool row but leaves displayName to the server', () => {
     const chronological: DerivedDisplayItem[] = [
       { kind: 'turnBoundary', requestId: 'req-1' },
       {
@@ -204,8 +205,11 @@ describe('mapDisplayItems', () => {
     const { timelines } = mapDisplayItems(newestFirst(chronological));
     const row = timelines['req-1'][0];
 
-    expect(typeof row.displayName).toBe('string');
-    expect(row.displayName?.length ?? 0).toBeGreaterThan(0);
+    // A baked client title froze its tense ("Running command" on a finished
+    // row); surfaces resolve the title at render time instead.
+    expect(row.displayName).toBeUndefined();
+    expect(row.detail).toBe('ls -la');
+    expect(formatTimelineEntry(row).title).toBe('Ran command');
   });
 
   it('anchors a subagent to its own requestId, not the current turn cursor', () => {

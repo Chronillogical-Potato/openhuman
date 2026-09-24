@@ -396,6 +396,111 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "goal_get" => ControllerSchema {
+            namespace: "threads",
+            function: "goal_get",
+            description:
+                "Read a thread's current goal (Codex-style completion contract), or null when it has none.",
+            inputs: vec![FieldSchema {
+                name: "thread_id",
+                ty: TypeSchema::String,
+                comment: "Thread identifier.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope wrapping the goal (may be null).",
+                required: true,
+            }],
+        },
+        "todos_get" => ControllerSchema {
+            namespace: "threads",
+            function: "todos_get",
+            description: "Read a thread's current session todo list.",
+            inputs: vec![FieldSchema {
+                name: "thread_id",
+                ty: TypeSchema::String,
+                comment: "Thread identifier.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope wrapping the todo list (empty when never written).",
+                required: true,
+            }],
+        },
+        "edit_message" => ControllerSchema {
+            namespace: "threads",
+            function: "edit_message",
+            description:
+                "Edit a past user message: cancel the thread's in-flight turn, drop that message and everything after it, and restart the turn with the new content.",
+            inputs: vec![
+                FieldSchema {
+                    name: "thread_id",
+                    ty: TypeSchema::String,
+                    comment: "Thread identifier.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "message_id",
+                    ty: TypeSchema::String,
+                    comment: "Id of the user message to edit (from threads.messages_list).",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "content",
+                    ty: TypeSchema::String,
+                    comment: "Replacement message content.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "client_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Socket client id to attribute the restarted turn to.",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "request_id",
+                ty: TypeSchema::String,
+                comment: "Request id of the restarted turn.",
+                required: true,
+            }],
+        },
+        "regenerate" => ControllerSchema {
+            namespace: "threads",
+            function: "regenerate",
+            description:
+                "Regenerate a past assistant reply (or, with no message_id, the thread's last turn): cancel the in-flight turn, drop the answer and everything after it, and restart with the same prompt.",
+            inputs: vec![
+                FieldSchema {
+                    name: "thread_id",
+                    ty: TypeSchema::String,
+                    comment: "Thread identifier.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "message_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Id of the assistant reply to regenerate (from threads.messages_list); omit to regenerate the last turn.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "client_id",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Socket client id to attribute the restarted turn to.",
+                    required: false,
+                },
+            ],
+            outputs: vec![FieldSchema {
+                name: "request_id",
+                ty: TypeSchema::String,
+                comment: "Request id of the restarted turn.",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "threads",
             function: "unknown",

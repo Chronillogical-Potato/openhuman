@@ -432,6 +432,22 @@ pub async fn create_artifact(
     title: &str,
     extension: &str,
 ) -> Result<(ArtifactMeta, PathBuf), String> {
+    create_artifact_for_call(workspace_dir, kind, title, extension, None).await
+}
+
+/// As [`create_artifact`], but also records the provider-assigned
+/// `tool_call_id` of the producing invocation (typically
+/// `crate::tools::host_extensions::tool_call_id(ctx)`) on the artifact's
+/// metadata and on the `ArtifactPending` event this publishes, so the UI
+/// can correlate the card with the tool-call bubble. `None` behaves
+/// exactly like [`create_artifact`].
+pub async fn create_artifact_for_call(
+    workspace_dir: &Path,
+    kind: super::types::ArtifactKind,
+    title: &str,
+    extension: &str,
+    tool_call_id: Option<&str>,
+) -> Result<(ArtifactMeta, PathBuf), String> {
     let trimmed_title = title.trim();
     if trimmed_title.is_empty() {
         return Err("[artifacts] create_artifact: title must not be empty".to_string());
@@ -479,7 +495,7 @@ pub async fn create_artifact(
     // #3226. `finalize_artifact` / `fail_artifact` already read the same
     // task-local for event publication; persisting it here means the
     // routing target survives a process restart.
-    let (thread_id, _) = current_chat_context();
+    let (thread_id, _, _) = current_chat_context();
 
     // On a regenerate the id is reused in place, so preserve the original
     // `created_at` — bumping it to now would reorder the artifact to the
@@ -504,6 +520,7 @@ pub async fn create_artifact(
         created_at,
         error: None,
         thread_id,
+        tool_call_id: tool_call_id.map(str::to_string),
     };
     save_artifact_meta(workspace_dir, &meta).await?;
 
@@ -519,7 +536,7 @@ pub async fn create_artifact(
     // (#3162). When `finalize_artifact` / `fail_artifact` later fires the
     // matching Ready/Failed event with the same `artifact_id`, the
     // frontend can swap the card in place.
-    let (thread_id, client_id) = current_chat_context();
+    let (thread_id, client_id, request_id) = current_chat_context();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::ArtifactPending {
         artifact_id: meta.id.clone(),
         kind: meta.kind.as_str().to_string(),
@@ -528,6 +545,8 @@ pub async fn create_artifact(
         path: meta.path.clone(),
         thread_id,
         client_id,
+        tool_call_id: meta.tool_call_id.clone(),
+        request_id,
     });
 
     Ok((meta, absolute_path))
@@ -562,7 +581,7 @@ pub async fn finalize_artifact(
     save_artifact_meta(workspace_dir, &meta).await?;
     log::debug!("[artifacts] finalize_artifact: id={artifact_id} -> Ready size={size_bytes}");
 
-    let (thread_id, client_id) = current_chat_context();
+    let (thread_id, client_id, request_id) = current_chat_context();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::ArtifactReady {
         artifact_id: meta.id.clone(),
         kind: meta.kind.as_str().to_string(),
@@ -572,6 +591,8 @@ pub async fn finalize_artifact(
         size_bytes: meta.size_bytes,
         thread_id,
         client_id,
+        tool_call_id: meta.tool_call_id.clone(),
+        request_id,
     });
     Ok(meta)
 }
@@ -602,7 +623,7 @@ pub async fn fail_artifact(
         reason.len()
     );
 
-    let (thread_id, client_id) = current_chat_context();
+    let (thread_id, client_id, request_id) = current_chat_context();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::ArtifactFailed {
         artifact_id: meta.id.clone(),
         kind: meta.kind.as_str().to_string(),
@@ -611,20 +632,29 @@ pub async fn fail_artifact(
         error: reason.to_string(),
         thread_id,
         client_id,
+        tool_call_id: meta.tool_call_id.clone(),
+        request_id,
     });
     Ok(meta)
 }
 
 /// Read the active [`ApprovalChatContext`] task-local (set by
-/// `web_chat` around each chat turn) and return its
-/// thread + client ids. Returns `(None, None)` for non-chat callers
-/// (CLI, cron, sub-agent runners) so artifact emit hooks degrade
-/// gracefully — the event is still published but the web subscriber
-/// drops it for lack of a routing target.
-fn current_chat_context() -> (Option<String>, Option<String>) {
+/// `web_chat` around each chat turn) and return its thread id, client
+/// id, and the originating turn's `request_id`. Returns `(None, None,
+/// None)` for non-chat callers (CLI, cron, sub-agent runners) so
+/// artifact emit hooks degrade gracefully — the event is still
+/// published but the web subscriber drops it for lack of a routing
+/// target.
+fn current_chat_context() -> (Option<String>, Option<String>, Option<String>) {
     crate::security::approval::APPROVAL_CHAT_CONTEXT
-        .try_with(|ctx| (Some(ctx.thread_id.clone()), Some(ctx.client_id.clone())))
-        .unwrap_or((None, None))
+        .try_with(|ctx| {
+            (
+                Some(ctx.thread_id.clone()),
+                Some(ctx.client_id.clone()),
+                ctx.request_id.clone(),
+            )
+        })
+        .unwrap_or((None, None, None))
 }
 
 #[cfg(test)]
