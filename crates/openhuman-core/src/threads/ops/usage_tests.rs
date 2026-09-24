@@ -306,3 +306,49 @@ fn reports_no_usage_for_an_unknown_or_spendless_thread() {
     assert_eq!(spend.root.turns, 0, "but it recorded no spend");
     assert_eq!(spend.root.input_tokens, 0);
 }
+
+/// A text-dialect tool round's issuing row carries a provenance-only record —
+/// its calls, zero spend — beside the turn's real record on the final row.
+/// It is not a turn that spent and must not take over the last-turn view.
+#[test]
+fn provenance_only_tool_round_records_are_not_counted_as_turns() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let thread = "thread-text-dialect";
+    let path = tmp
+        .path()
+        .join("session_raw")
+        .join("1790000001_orchestrator_text.jsonl");
+    std::fs::create_dir_all(path.parent().unwrap()).expect("create session_raw");
+
+    let mut issuing = TranscriptMessage::assistant("");
+    issuing.turn_usage = Some(TurnUsage {
+        tool_calls: vec![tinyagents_session::transcript::TranscriptToolCall {
+            id: "call-1".into(),
+            name: "web_search_tool".into(),
+            arguments: "{}".into(),
+            extra_content: None,
+        }],
+        ..turn_usage(0, 0, 0)
+    });
+    let rows = vec![
+        TranscriptMessage::new("user", "q"),
+        issuing,
+        TranscriptMessage::new("user", "[Tool results]\n<tool_result id=\"call-1\">\nok\n</tool_result>\n"),
+        TranscriptMessage::assistant("a"),
+    ];
+    append_transcript_turn(
+        &path,
+        &[],
+        &rows,
+        &meta("orchestrator", "root", Some(thread)),
+        Some(&turn_usage(5_000, 50, 1_000)),
+        Some("req-0"),
+    )
+    .expect("append turn");
+
+    let spend = thread_spend(tmp.path(), thread);
+
+    assert_eq!(spend.root.turns, 1);
+    assert_eq!(spend.root.input_tokens, 5_000);
+    assert_eq!(spend.root.last_input_tokens, 5_000);
+}
