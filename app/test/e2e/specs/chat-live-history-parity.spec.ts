@@ -88,6 +88,9 @@ interface Block {
 async function replyBlocks(): Promise<Block[]> {
   return (await browser.execute(() => {
     const BLOCK = [
+      // An activity group (reasoning + tool calls of one run) is ONE block: it
+      // collapses once the answer leads, and its cards unmount with it.
+      '[data-slot="tool-group-root"]',
       '[data-slot="aui_openhuman-tool-call"]',
       '[data-slot="aui_subagent-call"]',
       '[data-slot="reasoning-root"]',
@@ -212,9 +215,9 @@ describe('Chat live/history parity', () => {
     settled = await replyBlocks();
     expect(settled.map(block => block.kind)).toEqual([
       'text',
-      'aui_openhuman-tool-call',
+      'tool-group-root',
       'text',
-      'aui_openhuman-tool-call',
+      'tool-group-root',
       'text',
     ]);
 
