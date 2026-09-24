@@ -709,3 +709,102 @@ async fn a_parked_approval_is_recoverable_from_its_thread_for_replay() {
         "a decided approval must not be replayed to the next socket that joins"
     );
 }
+
+#[tokio::test]
+async fn intercept_audited_for_call_threads_tool_call_id_onto_the_pending_row_and_request() {
+    let (gate, _dir) = test_gate();
+    let gate = Arc::new(gate);
+
+    let g = gate.clone();
+    let handle = tokio::spawn(async move {
+        turn_origin::with_origin(
+            web_origin(),
+            APPROVAL_CHAT_CONTEXT.scope(
+                chat_ctx(),
+                g.intercept_audited_for_call(
+                    "composio",
+                    "send slack",
+                    serde_json::json!({}),
+                    Some("call-abc"),
+                ),
+            ),
+        )
+        .await
+    });
+
+    let mut tries = 0;
+    let pending = loop {
+        if let Some(p) = gate.list_pending().unwrap().into_iter().next() {
+            break p;
+        }
+        tries += 1;
+        assert!(tries < 50, "pending row never appeared");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+    assert_eq!(pending.tool_call_id.as_deref(), Some("call-abc"));
+
+    decide_parked(&gate, &pending.request_id, ApprovalDecision::ApproveOnce);
+    let (outcome, _id) = handle.await.unwrap();
+    assert!(matches!(outcome, GateOutcome::Allow));
+}
+
+#[tokio::test]
+async fn timeout_publishes_approval_decided_with_expired_resolution() {
+    crate::core::bus::init().await.expect("bus init");
+    let mut event_rx = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized above")
+        .receiver();
+
+    let (gate, _dir, env) = expiry_gate();
+    let gate = Arc::new(gate);
+    let g = gate.clone();
+    let handle = tokio::spawn(async move {
+        turn_origin::with_origin(
+            web_origin(),
+            APPROVAL_CHAT_CONTEXT.scope(
+                chat_ctx(),
+                g.intercept_audited_for_call(
+                    "composio",
+                    "timed out",
+                    serde_json::json!({}),
+                    Some("call-expire"),
+                ),
+            ),
+        )
+        .await
+    });
+    let mut tries = 0;
+    let request_id = loop {
+        if let Some(p) = gate.list_pending().unwrap().into_iter().next() {
+            break p.request_id;
+        }
+        tries += 1;
+        assert!(tries < 50, "audit row never appeared for timeout test");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    };
+    drop(env);
+
+    let event = tokio::time::timeout(
+        Duration::from_secs(5),
+        find_approval_decided(&mut event_rx, &request_id),
+    )
+    .await
+    .expect("timed out waiting for ApprovalDecided");
+    match event {
+        crate::core::events::DomainEvent::ApprovalDecided {
+            decision,
+            resolution,
+            tool_call_id,
+            ..
+        } => {
+            assert_eq!(decision, "deny");
+            assert_eq!(resolution.as_deref(), Some("expired"));
+            assert_eq!(tool_call_id.as_deref(), Some("call-expire"));
+        }
+        other => panic!("expected ApprovalDecided, got {other:?}"),
+    }
+
+    let (outcome, _id) = handle.await.unwrap();
+    assert!(matches!(outcome, GateOutcome::Deny { .. }));
+}

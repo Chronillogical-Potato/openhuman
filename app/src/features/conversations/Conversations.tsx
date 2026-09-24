@@ -34,7 +34,6 @@ import {
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
-import { useThreadHarnessState } from '../../features/conversations/hooks/useThreadHarnessState';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,
