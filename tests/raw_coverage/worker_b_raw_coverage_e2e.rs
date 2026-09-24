@@ -97,6 +97,16 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn ensure_rpc_auth() {
+    // The core carries no backend client of its own. This suite boots the core
+    // in-process via `build_core_http_router`, so without the SDK-backed
+    // transport every backend-touching call answers `BACKEND_UNAVAILABLE:` —
+    // which is what quarantined the managed web-search case (#6387). The
+    // aggregate target only DECLARES the module (`raw_coverage_all.rs:40-41`);
+    // its doc at `:38` says each suite calls it from its own fixture, and the
+    // siblings that reach the backend do (e.g. `webhooks_ingress_e2e.rs:95`).
+    // Idempotent behind a `Once`, so the other suites in this binary calling it
+    // too costs nothing.
+    crate::tinyhumans_boot::boot();
     AUTH_INIT.get_or_init(|| {
         std::env::set_var(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN);
         let token_dir = std::env::temp_dir().join("openhuman-worker-b-raw-coverage-e2e-auth");
@@ -453,7 +463,6 @@ async fn inference_provider_success_paths_use_mock_models_and_chat() {
 }
 
 #[tokio::test]
-#[ignore = "TODO(#6387): managed backend search is unavailable in this build"]
 async fn tools_web_search_success_path_uses_backend_session_and_shapes_results() {
     let _lock = env_lock();
     let mock = serve_mock().await;
@@ -527,6 +536,9 @@ async fn approval_gate_rpc_decision_resumes_parked_tool_and_records_execution() 
                 ApprovalChatContext {
                     thread_id: "worker-b-thread".to_string(),
                     client_id: "worker-b-client".to_string(),
+                    // No turn in scope in this fixture; the field is documented as
+                    // carried only when the caller has one (`gate.rs:91-95`).
+                    request_id: None,
                 },
                 async move {
                     gate_for_task
