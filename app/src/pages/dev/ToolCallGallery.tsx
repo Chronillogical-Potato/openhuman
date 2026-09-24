@@ -38,7 +38,11 @@ const SAMPLES = [
     status: 'success' as const,
     elapsedMs: 1840,
   },
-  { toolName: 'web_search_tool', args: { query: 'tauri v2 deep links' }, status: 'running' as const },
+  {
+    toolName: 'web_search_tool',
+    args: { query: 'tauri v2 deep links' },
+    status: 'running' as const,
+  },
   {
     toolName: 'file_read',
     args: { path: 'crates/openhuman-core/src/agent/progress.rs' },
@@ -60,7 +64,8 @@ const SAMPLES = [
   {
     toolName: 'shell',
     args: { command: 'pnpm test --run tools' },
-    result: ' ✓ toolPresentation.test.ts (22)\n ✓ parseWebSearchResult.test.ts (8)\n\n Test Files  2 passed',
+    result:
+      ' ✓ toolPresentation.test.ts (22)\n ✓ parseWebSearchResult.test.ts (8)\n\n Test Files  2 passed',
     status: 'success' as const,
     elapsedMs: 5230,
   },
@@ -97,8 +102,8 @@ const SAMPLES = [
     status: 'error' as const,
     result: 'regex parse error',
     failure: {
-      class: 'invalid_input',
-      category: 'tool',
+      class: 'InvalidInput',
+      category: 'Recoverable',
       recoverable: true,
       causePlain: 'The search pattern was not a valid regular expression.',
       nextAction: 'The agent will retry with an escaped pattern.',
@@ -149,7 +154,10 @@ export default function ToolCallGallery() {
             className="max-w-none"
             defaultOpen
             streaming={streaming}
-            activeLabel={toolLabel(describeToolCall({ name: 'web_search_tool', status: 'running' }), t)}
+            activeLabel={toolLabel(
+              describeToolCall({ name: 'web_search_tool', status: 'running' }),
+              t
+            )}
             restingLabel="4 steps · Searched the web, Read file, Edited file, Ran command">
             {SAMPLES.slice(0, 5).map((sample, index) => (
               <AssistantUiToolCallCard key={index} {...sample} />
