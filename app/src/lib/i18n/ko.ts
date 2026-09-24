@@ -6523,6 +6523,10 @@ const messages: TranslationMap = {
   // Chat composer toolbar
   'composer.attachFile': '파일 첨부',
   'composer.modelSelector': '모델',
+  'composer.settings.model': '모델',
+  'composer.settings.temperature': '온도',
+  'composer.settings.chooseModel': '다른 모델 선택…',
+  'composer.settings.loadingModels': '모델 불러오는 중…',
   'composer.voiceMode': '음성 모드',
   'composer.humanMode': '휴먼 모드',
   'composer.qualityHigh': '높음',

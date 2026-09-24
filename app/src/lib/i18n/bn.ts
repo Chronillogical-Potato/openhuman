@@ -6596,6 +6596,10 @@ const messages: TranslationMap = {
   // Chat composer toolbar
   'composer.attachFile': 'ফাইল সংযুক্ত করুন',
   'composer.modelSelector': 'মডেল',
+  'composer.settings.model': 'মডেল',
+  'composer.settings.temperature': 'টেম্পারেচার',
+  'composer.settings.chooseModel': 'অন্য মডেল বেছে নিন…',
+  'composer.settings.loadingModels': 'মডেল লোড হচ্ছে…',
   'composer.voiceMode': 'ভয়েস মোড',
   'composer.humanMode': 'হিউম্যান মোড',
   'composer.qualityHigh': 'উচ্চ',

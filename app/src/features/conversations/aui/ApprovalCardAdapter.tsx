@@ -94,7 +94,7 @@ export function ApprovalCardAdapter<D = ApprovalDecision>({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const expirySeconds = useApprovalExpirySeconds(expiresAt);
 
-  const decide = async (decision: ApprovalDecision) => {
+  const decide = async (decision: D) => {
     if (deciding || busy) return;
     setDeciding(decision);
     setErrorMsg(null);

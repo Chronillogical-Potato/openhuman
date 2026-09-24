@@ -6449,6 +6449,10 @@ const messages: TranslationMap = {
   // Chat composer toolbar
   'composer.attachFile': 'إرفاق ملف',
   'composer.modelSelector': 'النموذج',
+  'composer.settings.model': 'النموذج',
+  'composer.settings.temperature': 'درجة الحرارة',
+  'composer.settings.chooseModel': 'اختر نموذجًا آخر…',
+  'composer.settings.loadingModels': 'جارٍ تحميل النماذج…',
   'composer.voiceMode': 'وضع الصوت',
   'composer.humanMode': 'وضع الإنسان',
   'composer.qualityHigh': 'عالٍ',
