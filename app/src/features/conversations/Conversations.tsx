@@ -22,7 +22,11 @@ import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
-import { useLoadThreadGoal, useThreadGoal } from '../../features/conversations/aui/useThreadGoal';
+import {
+  formatTokens,
+  useLoadThreadGoal,
+  useThreadGoal,
+} from '../../features/conversations/aui/useThreadGoal';
 import { useLoadThreadTodos, useThreadTodos } from '../../features/conversations/aui/useThreadTodos';
 import {
   evaluateComposerSend,
@@ -1648,22 +1652,55 @@ const Conversations = ({
   // doubles up.
   const agentGateCards = (
     <>
-      {/* Harness work state: the thread goal and the agent's todo list. Both
-          are read-only progress the agent wrote via its tools; they sit above
-          the gate cards so a parked decision is always the closest thing to
-          the composer. */}
-      {selectedThreadId && threadGoal && <GoalBanner goal={threadGoal} />}
-      {selectedThreadId && todoList && <TodoChecklist list={todoList} />}
+      {/* Harness work state: the thread goal (as a compact `AgentStatus`
+          pill) and the agent's live todo list. Both are read-only progress
+          the agent wrote via its tools; they sit above the gate cards so a
+          parked decision is always the closest thing to the composer. */}
+      {selectedThreadId && threadGoal && (
+        <AgentStatus
+          data-testid="goal-banner"
+          data-goal-status={threadGoal.status}
+          state={
+            threadGoal.status === 'complete'
+              ? 'done'
+              : threadGoal.status === 'active'
+                ? 'working'
+                : 'waiting'
+          }
+          label={threadGoal.objective}
+          trailing={
+            <span data-testid="goal-objective" className="text-[10px] tabular-nums">
+              {threadGoal.token_budget !== undefined
+                ? `${formatTokens(threadGoal.tokens_used)} / ${formatTokens(threadGoal.token_budget)}`
+                : formatTokens(threadGoal.tokens_used)}
+            </span>
+          }
+          className="mb-2 self-start"
+        />
+      )}
+      {selectedThreadId && liveTodos && liveTodos.length > 0 && (
+        <TodoList
+          data-testid="todo-checklist"
+          items={toAuiTodoItems(liveTodos)}
+          title={t('conversations.todos.title')}
+          className="mb-2"
+        />
+      )}
 
       {/* Plan-mode review: the orchestrator parked the live turn on a
           thread-scoped plan (request_plan_review gate). Surface it for the
-          user to Approve / Reject / send feedback on before anything executes;
-          the card resolves the parked turn via plan_review_decide. */}
-      {selectedThreadId && pendingPlanReview && (
+          user to Approve / Reject / send feedback on before anything
+          executes. This composer-header render is the pre-C2 fallback: once
+          the core sends `tool_call_id` on `plan_review_request`, the SAME
+          review renders as part of the `request_plan_review` tool-call part
+          (`aui/PlanReviewPart.tsx`) instead, and this block renders nothing
+          for it (there is no tool-call part to attach a review WITHOUT a
+          tool_call_id, which is why this fallback stays). */}
+      {selectedThreadId && pendingPlanReview && !pendingPlanReview.toolCallId && (
         // Key by request id so a re-parked (revised) plan — or a thread switch —
         // remounts the card and resets its local decision/feedback state,
         // matching the ApprovalRequestCard pattern above.
-        <PlanReviewCard
+        <PlanReviewCardCore
           key={pendingPlanReview.requestId}
           threadId={selectedThreadId}
           review={pendingPlanReview}
