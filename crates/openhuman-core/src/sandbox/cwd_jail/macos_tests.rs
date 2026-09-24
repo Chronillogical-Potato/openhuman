@@ -118,9 +118,9 @@ fn seatbelt_allows_redirecting_output_to_dev_null() {
     if !backend.is_available() {
         return;
     }
-    let root = std::env::temp_dir().join(format!("oh-null-{}", std::process::id()));
-    fs::create_dir_all(&root).unwrap();
-    let mut jail = Jail::new(&root, "null-redirection");
+    let root = tempfile::tempdir().unwrap();
+    let root_path = root.path();
+    let mut jail = Jail::new(root_path, "null-redirection");
     jail.canonicalize().unwrap();
 
     let mut cmd = Command::new("/bin/sh");
@@ -128,7 +128,7 @@ fn seatbelt_allows_redirecting_output_to_dev_null() {
         .arg(
             "set -e; echo ignored >/dev/null; echo hidden 2>/dev/null >&2; echo completed > output",
         )
-        .current_dir(&root)
+        .current_dir(root_path)
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     let mut child = backend.spawn(&jail, cmd).expect("spawn");
@@ -139,10 +139,9 @@ fn seatbelt_allows_redirecting_output_to_dev_null() {
         "shell redirection to /dev/null was denied"
     );
     assert_eq!(
-        fs::read_to_string(root.join("output")).unwrap(),
+        fs::read_to_string(root_path.join("output")).unwrap(),
         "completed\n"
     );
-    fs::remove_dir_all(&root).ok();
 }
 
 #[test]
