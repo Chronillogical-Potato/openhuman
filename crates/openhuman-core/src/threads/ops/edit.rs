@@ -345,25 +345,37 @@ fn truncate_transcript_for_regenerate(
 /// itself, plus every later turn on the thread (by `started_at`). Best
 /// effort — a store error here only means a stale "Agentic task insights"
 /// entry lingers for a turn that no longer exists, not a failed edit.
-async fn clear_dropped_turn_states(workspace_dir: &std::path::Path, thread_id: &str, cut_request_id: &str) {
+async fn clear_dropped_turn_states(
+    workspace_dir: &std::path::Path,
+    thread_id: &str,
+    cut_request_id: &str,
+) {
     let dir = workspace_dir.to_path_buf();
-    let thread_id = thread_id.to_string();
-    let cut_request_id = cut_request_id.to_string();
+    let thread_id_owned = thread_id.to_string();
+    let cut_request_id_owned = cut_request_id.to_string();
     let result = tokio::task::spawn_blocking(move || {
-        let turns = crate::threads::turn_state::store::list_thread(dir.clone(), &thread_id)?;
+        let turns = crate::threads::turn_state::store::list_thread(dir.clone(), &thread_id_owned)?;
         let Some(cut_started_at) = turns
             .iter()
-            .find(|t| t.request_id == cut_request_id)
+            .find(|t| t.request_id == cut_request_id_owned)
             .map(|t| t.started_at.clone())
         else {
             // Never got a snapshot (e.g. a turn that errored before its
             // first progress event) — nothing to drop but itself.
-            return crate::threads::turn_state::store::delete_turn(dir, &thread_id, &cut_request_id);
+            return crate::threads::turn_state::store::delete_turn(
+                dir,
+                &thread_id_owned,
+                &cut_request_id_owned,
+            );
         };
         let mut removed_any = false;
         for turn in turns.into_iter().filter(|t| t.started_at >= cut_started_at) {
-            if crate::threads::turn_state::store::delete_turn(dir.clone(), &thread_id, &turn.request_id)
-                .unwrap_or(false)
+            if crate::threads::turn_state::store::delete_turn(
+                dir.clone(),
+                &thread_id_owned,
+                &turn.request_id,
+            )
+            .unwrap_or(false)
             {
                 removed_any = true;
             }
