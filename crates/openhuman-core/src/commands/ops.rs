@@ -98,7 +98,7 @@ fn entries_from_array(value: &Value, array_field: &str, kind: CommandKind) -> Ve
 
 /// Builds the merged command list: built-ins first (stable order, cheapest),
 /// then skills, then workflows.
-pub async fn commands_list() -> Result<RpcOutcome<Vec<CommandEntry>>, String> {
+pub async fn commands_list() -> Result<RpcOutcome<CommandsListResponse>, String> {
     let mut entries = builtin_entries();
 
     let skills_controllers = crate::skills::all_skills_registered_controllers();
@@ -121,7 +121,10 @@ pub async fn commands_list() -> Result<RpcOutcome<Vec<CommandEntry>>, String> {
         BUILTINS.len(),
         entries.len()
     );
-    Ok(RpcOutcome::new(entries, Vec::new()))
+    Ok(RpcOutcome::new(
+        CommandsListResponse { commands: entries },
+        Vec::new(),
+    ))
 }
 
 #[cfg(test)]
