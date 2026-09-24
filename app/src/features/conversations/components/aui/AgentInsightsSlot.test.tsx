@@ -32,7 +32,7 @@ describe('AgentInsightsSlot before the first tool call', () => {
     renderSlot({ turnActive: true });
     expect(screen.getByTestId('agent-insights-live')).toBeTruthy();
     expect(screen.getByTestId('processing-thinking-live').textContent).toContain(
-      'Planning a Kashmir itinerary.'
+      'Planning a Kashmir itinerary'
     );
     // The whole-run opener stays reachable.
     expect(screen.getByTestId('view-process-source')).toBeTruthy();

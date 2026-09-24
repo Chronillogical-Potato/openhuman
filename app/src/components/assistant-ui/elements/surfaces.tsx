@@ -1,19 +1,15 @@
 'use client';
 
 /**
- * Shared design tokens for the assistant-ui elements in this folder.
- *
- * Vendored from assistant-ui `packages/ui/src/components/react/assistant-ui/elements/surfaces.tsx`
- * (commit 1abca347). Changes from upstream, kept minimal so a re-sync stays a
- * small diff:
- * - `cn` import path.
- * - `collapsePanel` drives the Radix collapsible this app uses (upstream
- *   targets Base UI's `--collapsible-panel-height`).
- * - `openRotate` added: the Radix trigger reports `data-state=open`, not Base
- *   UI's `data-open` / `data-panel-open`.
+ * Shared surface primitives for the assistant-ui elements, vendored verbatim
+ * from the `elements-surfaces` registry item
+ * (https://r.assistant-ui.com/elements-surfaces.json). Local changes, all for
+ * this app's Radix collapsible and jsdom: `collapsePanel` adapted from Base UI
+ * to Radix, an added `openRotate` chevron selector, and a `ResizeObserver`
+ * guard in `SwapLabel`.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
-import { type ComponentProps, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
 
 export const paper = 'bg-background border border-border/60 dark:bg-popover';
 
@@ -30,6 +26,16 @@ export const pressable =
 export const ghostButton =
   'flex items-center justify-center rounded-full text-foreground/45 outline-none transition-[background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground/90 active:scale-[0.96] focus-visible:ring-1 focus-visible:ring-foreground/20 motion-reduce:transition-none dark:hover:bg-foreground/[0.09]';
 
+export const inkButton =
+  'bg-foreground text-background transition-[opacity,scale] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:opacity-90 active:scale-[0.96] motion-reduce:transition-none';
+
+export const iconSwap =
+  '[grid-area:1/1] transition-[opacity,scale,filter] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none';
+
+export const iconSwapIn = 'scale-100 opacity-100 blur-none';
+
+export const iconSwapOut = 'scale-[0.25] opacity-0 blur-[4px]';
+
 export const labelSwap =
   'col-start-1 row-start-1 flex w-max items-center gap-1.5 leading-none transition-[opacity,filter] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none';
 
@@ -37,9 +43,14 @@ export const labelSwapIn = 'opacity-100 blur-none';
 
 export const labelSwapOut = 'pointer-events-none select-none opacity-0 blur-[2px]';
 
+// Local adaptation: upstream animates Base UI's `--collapsible-panel-height`;
+// this app's `ui/collapsible` is Radix, whose content exposes
+// `--radix-collapsible-content-height` to tw-animate-css's collapsible keyframes.
 export const collapsePanel =
-  'overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none';
+  'overflow-hidden ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none';
 
+// Local addition: the Radix trigger reports `data-state=open`, not Base UI's
+// `data-open` / `data-panel-open`, so the chevron rotation needs this selector.
 export const openRotate =
   'transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]/trigger:rotate-90 motion-reduce:transition-none';
 
@@ -77,19 +88,18 @@ export function SwapLabel({
   className,
 }: {
   active: 0 | 1;
-  children: [ReactNode, ReactNode];
+  children: [React.ReactNode, React.ReactNode];
   className?: string;
 }) {
-  const first = useRef<HTMLSpanElement>(null);
-  const second = useRef<HTMLSpanElement>(null);
-  const layers = [first, second];
+  const layers = [useRef<HTMLSpanElement>(null), useRef<HTMLSpanElement>(null)];
   const [width, setWidth] = useState<number | null>(null);
 
   useLayoutEffect(() => {
-    const target = (active === 0 ? first : second).current;
+    const target = layers[active]?.current;
     if (!target) return undefined;
     const measure = () => setWidth(Math.ceil(target.getBoundingClientRect().width));
     measure();
+    // Local guard: jsdom (unit tests) has no ResizeObserver.
     if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(measure);
     observer.observe(target);

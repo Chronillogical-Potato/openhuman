@@ -15,8 +15,10 @@
 /* Tailwind CSS imports */
 @import 'tailwindcss';
 @import 'tw-animate-css';
-/* assistant-ui's shimmer utility; the kit components (tool group, reasoning,
-   the elements under components/assistant-ui/elements) all use `shimmer`. */
+/* `shimmer` text effect the assistant-ui registry elements use (the reasoning
+   panel's live label, running tool groups). It is the registry's declared
+   dependency; without it the class matches nothing and a streaming trace looks
+   identical to a settled one. Guarded by `src/__tests__/shimmerUtility.test.ts`. */
 @import 'tw-shimmer';
 
 @plugin '@tailwindcss/forms';

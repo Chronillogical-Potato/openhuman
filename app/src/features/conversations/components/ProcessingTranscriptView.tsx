@@ -1,3 +1,6 @@
+import { ReasoningTraceText } from '@/components/assistant-ui/elements/reasoning-trace';
+import type { ReasoningTiming } from '@/components/assistant-ui/elements/reasoningSteps';
+
 import { useT } from '../../../lib/i18n/I18nContext';
 import type {
   ProcessingTranscriptItem,
@@ -73,10 +76,14 @@ export function ProcessingTranscriptView({
           );
         }
         if (block.kind === 'thinking') {
+          const timing =
+            block.startedAt !== undefined || block.endedAt !== undefined
+              ? { startedAt: block.startedAt, endedAt: block.endedAt }
+              : undefined;
           return live && index === blocks.length - 1 ? (
-            <LiveThinkingBlock key={block.key} text={block.text} />
+            <LiveThinkingBlock key={block.key} text={block.text} timing={timing} />
           ) : (
-            <ThinkingBlock key={block.key} text={block.text} />
+            <ThinkingBlock key={block.key} text={block.text} timing={timing} />
           );
         }
         return (
@@ -92,63 +99,43 @@ export function ProcessingTranscriptView({
   );
 }
 
-/** The agent's hidden reasoning, rendered as a quiet collapsible block. */
-function ThinkingBlock({ text }: { text: string }) {
-  const { t } = useT();
+/**
+ * The agent's reasoning, rendered through the shared static reasoning panel
+ * in its non-collapsible form: the rail is the place the trail stays visible,
+ * so a settled thought shows its "Thought for Ns" header and titled steps
+ * inline rather than behind a disclosure.
+ */
+function ThinkingBlock({ text, timing }: { text: string; timing?: ReasoningTiming }) {
   const clean = stripToolCallEnvelopes(text).trim();
   if (!clean) return null;
   return (
-    <details
+    <ReasoningTraceText
+      text={clean}
+      timing={timing}
+      streaming={false}
+      collapsible={false}
       data-testid="processing-thinking"
-      className="group/think rounded-lg bg-surface-muted px-3 py-2">
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 select-none marker:hidden">
-        <span aria-hidden className="text-[10px] leading-none">
-          💭
-        </span>
-        <span className="text-[11px] font-semibold tracking-wide text-content-muted uppercase">
-          {t('conversations.subagent.thinking')}
-        </span>
-        <span className="text-[9px] text-content-faint transition-transform group-open/think:rotate-90">
-          ▶
-        </span>
-      </summary>
-      <p className="mt-1 text-[12px] leading-relaxed wrap-break-word whitespace-pre-wrap text-content-secondary">
-        {clean}
-      </p>
-    </details>
+    />
   );
 }
 
-/** Trailing characters of an in-flight thought kept on screen. Reasoning
- *  models can emit thousands of characters before their first visible token;
- *  the live block is a ticker-tape affordance, not an archive — the full text
- *  is reachable through the settled {@link ThinkingBlock} once the turn ends. */
-export const LIVE_THINKING_TAIL_CHARS = 600;
-
-/** The agent's reasoning while it is still streaming: always expanded, with a
- *  pulsing marker so the user sees the turn progressing during the window
- *  before any narration or tool call exists to show. */
-function LiveThinkingBlock({ text }: { text: string }) {
-  const { t } = useT();
+/** The agent's reasoning while it is still streaming: the same static panel,
+ *  live — the newest heading shimmers beside a ticking elapsed badge, and a
+ *  long trace scrolls inside a bounded region pinned to its newest tokens,
+ *  so the user sees the turn progressing during the window before any
+ *  narration or tool call exists to show. */
+function LiveThinkingBlock({ text, timing }: { text: string; timing?: ReasoningTiming }) {
   const clean = stripToolCallEnvelopes(text).trim();
   if (!clean) return null;
-  const truncated = clean.length > LIVE_THINKING_TAIL_CHARS;
-  const tail = truncated ? clean.slice(-LIVE_THINKING_TAIL_CHARS) : clean;
   return (
-    <div
-      data-testid="processing-thinking-live"
-      aria-live="polite"
-      className="rounded-lg bg-surface-muted px-3 py-2">
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
-        <span className="text-[11px] font-semibold tracking-wide text-content-muted uppercase">
-          {t('conversations.subagent.thinking')}
-        </span>
-      </div>
-      <p className="mt-1 text-[12px] leading-relaxed wrap-break-word whitespace-pre-wrap text-content-secondary">
-        {truncated && <span className="text-content-faint">…</span>}
-        {tail}
-      </p>
+    <div aria-live="polite">
+      <ReasoningTraceText
+        text={clean}
+        timing={timing}
+        streaming
+        collapsible={false}
+        data-testid="processing-thinking-live"
+      />
     </div>
   );
 }

@@ -69,9 +69,6 @@ const Checkbox = ({
         'checked:bg-primary-500 indeterminate:bg-primary-500 dark:checked:bg-surface dark:indeterminate:bg-surface',
         'transition-colors duration-150',
         'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
-        // Offsets against the themed surface. The original used
-        // `ring-offset-white` plus a hardcoded dark companion, which stayed
-        // white under any custom theme.
         'focus-visible:ring-offset-surface',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className

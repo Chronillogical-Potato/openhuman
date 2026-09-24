@@ -1,3 +1,6 @@
+// Vendored verbatim from the assistant-ui `elements-range` registry item
+// (https://r.assistant-ui.com/elements-range.json).
+
 /**
  * Range normalization for the numeric props the elements take.
  *
@@ -6,9 +9,6 @@
  * percentage is an invalid CSS width that the browser drops, leaving a bar at
  * its natural full width, and a negative slice length counts from the end of
  * the array instead of returning nothing.
- *
- * Vendored verbatim from assistant-ui
- * `packages/ui/src/components/react/assistant-ui/utils/range.ts` (commit 1abca347).
  */
 
 /**

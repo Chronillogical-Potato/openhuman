@@ -497,7 +497,10 @@ fn every_pack_declares_the_tools_it_is_named_for() {
                 // card and stays unpacked (see the registry note).
                 "composio_execute",
                 "composio_list_connections",
-                "composio_list_toolkits",
+                // `composio_list_toolkits` is the orchestrator's catalogue
+                // lookup and stays unpacked (see the registry note): packed,
+                // `closed_by_direct_handoff` denied it to the orchestrator and
+                // the agent scraped the web for a list the app already had.
                 "composio_list_tools",
             ],
         ),
