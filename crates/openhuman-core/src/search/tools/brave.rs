@@ -233,6 +233,28 @@ impl Tool for BraveWebSearchTool {
         if options.prefer_markdown {
             out.markdown_formatted = Some(render_web_markdown(&results, &query, count));
         }
+        // Host-only structured payload for the chat UI's tool-call
+        // presentation — never rendered to the model, so `render_web_plain`'s
+        // text above (and the cache key that depends on it) is unaffected.
+        let structured_results: Vec<crate::search::tools::WebSearchResultRef<'_>> = results
+            .iter()
+            .map(|r| crate::search::tools::WebSearchResultRef {
+                title: if r.title.trim().is_empty() {
+                    "Untitled"
+                } else {
+                    r.title.trim()
+                },
+                url: r.url.as_str(),
+                published: r.age.as_deref(),
+                excerpt: Some(r.description.as_str()).filter(|d| !d.trim().is_empty()),
+            })
+            .collect();
+        out.metadata = Some(crate::search::tools::web_search_metadata(
+            &query,
+            "Brave",
+            &structured_results,
+            count,
+        ));
         Ok(out)
     }
 }
