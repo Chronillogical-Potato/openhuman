@@ -428,7 +428,31 @@ impl Tool for BraveNewsSearchTool {
                 ));
             }
         }
-        Ok(ToolResult::success(lines.join("\n")))
+        let mut out = ToolResult::success(lines.join("\n"));
+        // Host-only structured payload — never rendered to the model, so the
+        // plain text above (and the cache key that depends on it) is
+        // unaffected.
+        let structured_results: Vec<crate::search::tools::WebSearchResultRef<'_>> = parsed
+            .results
+            .iter()
+            .map(|r| crate::search::tools::WebSearchResultRef {
+                title: if r.title.trim().is_empty() {
+                    "Untitled"
+                } else {
+                    r.title.trim()
+                },
+                url: r.url.as_str(),
+                published: r.age.as_deref(),
+                excerpt: Some(r.description.as_str()).filter(|d| !d.trim().is_empty()),
+            })
+            .collect();
+        out.metadata = Some(crate::search::tools::web_search_metadata(
+            &query,
+            "Brave",
+            &structured_results,
+            count,
+        ));
+        Ok(out)
     }
 }
 
