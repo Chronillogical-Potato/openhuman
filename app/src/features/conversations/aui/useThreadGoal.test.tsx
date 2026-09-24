@@ -47,6 +47,7 @@ describe('useLoadThreadGoal', () => {
       objective: 'Ship it',
       status: 'active' as const,
       tokens_used: 10,
+      time_used_seconds: 5,
     };
     vi.mocked(threadApi.getGoal).mockResolvedValue(goal);
     const { store, wrapper } = setup();
