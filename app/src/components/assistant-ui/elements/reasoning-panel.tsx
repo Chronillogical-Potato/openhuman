@@ -18,13 +18,13 @@
  * - A streaming list stays pinned to its newest step inside a bounded
  *   scroll region (the runtime element's `ReasoningText` behaviour).
  */
+import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
-import { cn } from '@/components/assistant-ui/lib/utils';
 import { TextMessagePartProvider } from '@assistant-ui/react';
 import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -550,7 +550,6 @@
 
 /* Utility layer - Custom utilities */
 
-
 @utility scrollbar-hide {
   /* NOTE: a `.scrollbar-thin` utility used to live here. It had zero call
      sites, and being in `@layer utilities` it outranked the base-layer

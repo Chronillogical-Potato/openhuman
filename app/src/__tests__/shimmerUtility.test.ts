@@ -21,9 +21,7 @@ describe('tw-shimmer', () => {
   });
 
   it('is a declared dependency that provides the `shimmer` utility', () => {
-    const pkg = JSON.parse(read('package.json')) as {
-      dependencies?: Record<string, string>;
-    };
+    const pkg = JSON.parse(read('package.json')) as { dependencies?: Record<string, string> };
     expect(pkg.dependencies?.['tw-shimmer']).toBeTruthy();
     expect(read('node_modules/tw-shimmer/src/index.css')).toMatch(/@utility shimmer \{/);
   });

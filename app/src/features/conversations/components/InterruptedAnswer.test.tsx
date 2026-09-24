@@ -22,7 +22,9 @@ describe('InterruptedAnswer', () => {
     const thinking = screen.getByTestId('interrupted-answer-thinking');
     const trigger = thinking.querySelector('button')!;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    expect(thinking.querySelector('[data-slot="reasoning-panel-resting-label"]')?.textContent).toBe('Thought');
+    expect(thinking.querySelector('[data-slot="reasoning-panel-resting-label"]')?.textContent).toBe(
+      'Thought'
+    );
     fireEvent.click(trigger);
     expect(block.textContent).toContain('was reasoning about it');
     // Marked interrupted rather than presented as a finished answer.

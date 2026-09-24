@@ -59,7 +59,9 @@ describe('thread reasoning panel', () => {
     expect(panels).toHaveLength(1);
     const panel = panels[0]!;
     expect(panel.getAttribute('data-variant')).toBe('collapsible');
-    expect(panel.querySelector('[data-slot="reasoning-panel-resting-label"]')?.textContent).toBe('Thought for 12s');
+    expect(panel.querySelector('[data-slot="reasoning-panel-resting-label"]')?.textContent).toBe(
+      'Thought for 12s'
+    );
     const trigger = panel.querySelector('button')!;
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
 
@@ -103,8 +105,9 @@ describe('thread reasoning panel', () => {
     };
     render(<Harness messages={[user, legacy]} running={false} />);
     expect(
-      screen.getByTestId('reasoning-panel').querySelector('[data-slot="reasoning-panel-resting-label"]')
-        ?.textContent
+      screen
+        .getByTestId('reasoning-panel')
+        .querySelector('[data-slot="reasoning-panel-resting-label"]')?.textContent
     ).toBe('Thought');
   });
 });
