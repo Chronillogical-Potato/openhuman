@@ -147,6 +147,20 @@ pub(super) fn handle_todos_get(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+pub(super) fn handle_edit_message(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::EditMessageRequest>(params)?;
+        to_json(ops::edit_message(p).await.map_err(|e| e.to_string())?)
+    })
+}
+
+pub(super) fn handle_regenerate(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::RegenerateRequest>(params)?;
+        to_json(ops::regenerate(p).await.map_err(|e| e.to_string())?)
+    })
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 pub(super) fn parse<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
