@@ -23,14 +23,12 @@ function normalizeScopedBody(value: string | undefined | null): string | undefin
  * design — slid in from the right (~600px) when the user clicks
  * "View full agent process Source →" beneath a settled answer.
  *
- * Unlike {@link SubagentDrawer} (which drills into one sub-agent's live
- * transcript), this panel shows the *whole* run: the full agent-insights
- * timeline plus the distinct web sources the agents visited. It reuses
- * {@link ToolTimelineBlock} as a single source of truth.
- *
- * Note: this panel IS the full-processing view, so it does NOT forward an
- * `onViewSubagent` handler — the rows render without the redundant
- * "view full processing →" affordance.
+ * This panel shows the *whole* run: the full agent-insights timeline plus
+ * the distinct web sources the agents visited. It reuses
+ * {@link ToolTimelineAdapter} as a single source of truth; a sub-agent
+ * delegation's nested activity always renders inline through its own
+ * `TaskCard` disclosure (`SubagentActivityCard`) — there is no separate
+ * "view full processing" drawer to link out to.
  */
 export function AgentProcessSourcePanel({
   open,
