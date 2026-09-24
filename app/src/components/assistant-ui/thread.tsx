@@ -10,7 +10,7 @@ import { ComposerTriggerPopover } from '@/components/assistant-ui/composer-trigg
 import { DirectiveText } from '@/components/assistant-ui/directive-text';
 import { File } from '@/components/assistant-ui/file';
 import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-suggestions';
-import { Image } from '@/components/assistant-ui/image';
+import { Image } from '@/components/assistant-ui/elements/image';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';

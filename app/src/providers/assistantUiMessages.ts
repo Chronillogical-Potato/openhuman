@@ -213,6 +213,26 @@ export const APPROVAL_DECISION_OPTIONS: readonly ToolApprovalOption[] = [
  */
 const APPROVAL_PART_ID_PREFIX = '__openhuman_approval__:';
 
+/**
+ * The part-level `approval` field, projected from our `PendingApproval`.
+ *
+ * Shape mirrors assistant-ui's own `ToolCallMessagePart['approval']`
+ * (`@assistant-ui/core`): `resolution` is the terminal non-decision state a
+ * server-recorded TTL expiry or cancel sets (`approval_decided` socket event,
+ * see `chatRuntimeSlice.ts`'s `resolvePendingApprovalForThread`); `approved`
+ * follows it (`false`) so a renderer that only checks the boolean still shows
+ * a resolved state rather than a live prompt.
+ */
+function approvalField(approval: PendingApproval): NonNullable<ThreadAssistantMessagePart['approval']> {
+  return {
+    id: approval.requestId,
+    options: APPROVAL_DECISION_OPTIONS,
+    ...(approval.resolution
+      ? { resolution: approval.resolution, approved: false as const }
+      : {}),
+  };
+}
+
 /** The part the parked call is asking about, when no timeline row carries it. */
 function syntheticApprovalPart(approval: PendingApproval): ThreadAssistantMessagePart {
   // `command` is the redacted command/path/url the gate extracted for display;
@@ -220,43 +240,49 @@ function syntheticApprovalPart(approval: PendingApproval): ThreadAssistantMessag
   const args = approval.command ? { command: approval.command } : {};
   return {
     type: 'tool-call',
-    toolCallId: `${APPROVAL_PART_ID_PREFIX}${approval.requestId}`,
+    toolCallId: approval.toolCallId ?? `${APPROVAL_PART_ID_PREFIX}${approval.requestId}`,
     toolName: approval.toolName,
     args: args as Record<string, never>,
     argsText: JSON.stringify(args, null, 2),
-    approval: { id: approval.requestId, options: APPROVAL_DECISION_OPTIONS },
+    approval: approvalField(approval),
   };
 }
 
 /**
  * Hang a parked approval off the tool part it is gating.
  *
- * The `approval_request` socket event carries no `tool_call_id` (see
- * `ChatApprovalRequestEvent`), so the row is matched by name against the
- * newest still-unsettled call — a `result` means the call already ran and
- * cannot be the one parked. When nothing matches (the progress channel is
- * bounded and can drop the `tool_call` frame, and the gate can park before the
- * frame lands at all) a part is synthesised rather than dropped: a prompt in
- * the wrong visual slot is recoverable, a turn that parks with no prompt at all
- * is the bug this exists to close.
+ * `approval.toolCallId` (wire contract: `DomainEvent::ApprovalRequested.
+ * tool_call_id`, additive) is preferred when present: it names the EXACT
+ * part the gate is holding, so the match is an equality check rather than a
+ * guess. A core that has not landed the C2 approvals workstream yet sends no
+ * `tool_call_id`, and the older heuristic — the newest still-unsettled call
+ * with the same tool name (a `result` means the call already ran and cannot
+ * be the one parked) — remains the fallback for exactly that case, not a
+ * second attempt after a failed exact match: once the wire names the part,
+ * guessing at a different one would be worse than not finding it. When
+ * nothing matches (the progress channel is bounded and can drop the
+ * `tool_call` frame, and the gate can park before the frame lands at all) a
+ * part is synthesised rather than dropped: a prompt in the wrong visual slot
+ * is recoverable, a turn that parks with no prompt at all is the bug this
+ * exists to close.
  */
 function withApproval(
   parts: ThreadAssistantMessagePart[],
   approval: PendingApproval
 ): ThreadAssistantMessagePart[] {
-  const index = parts.reduce(
-    (best, part, at) =>
-      part.type === 'tool-call' && part.toolName === approval.toolName && part.result === undefined
-        ? at
-        : best,
-    -1
-  );
+  const index = approval.toolCallId
+    ? parts.findIndex(part => part.type === 'tool-call' && part.toolCallId === approval.toolCallId)
+    : parts.reduce(
+        (best, part, at) =>
+          part.type === 'tool-call' &&
+          part.toolName === approval.toolName &&
+          part.result === undefined
+            ? at
+            : best,
+        -1
+      );
   if (index < 0) return [...parts, syntheticApprovalPart(approval)];
-  return parts.map((part, at) =>
-    at === index
-      ? { ...part, approval: { id: approval.requestId, options: APPROVAL_DECISION_OPTIONS } }
-      : part
-  );
+  return parts.map((part, at) => (at === index ? { ...part, approval: approvalField(approval) } : part));
 }
 
 /**
