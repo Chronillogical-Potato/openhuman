@@ -160,7 +160,15 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div ref={setContainerRef} className="relative flex h-full min-h-0 w-full flex-col" data-testid="chat-conversation-map">
+    <div
+      ref={setContainerRef}
+      // Programmatically focusable (not tab-reachable, `-1`) so the
+      // `Cmd`/`Ctrl+F` scope check below (`container.contains(document.activeElement)`)
+      // has a container-level focus target even when the click/focus that
+      // opened this thread landed on a descendant that later unmounts.
+      tabIndex={-1}
+      className="relative flex h-full min-h-0 w-full flex-col outline-none"
+      data-testid="chat-conversation-map">
       {(searchOpen || timelineOpen) && (
         <div className="absolute inset-x-0 top-2 z-20 flex justify-center px-2">
           {searchOpen && (
