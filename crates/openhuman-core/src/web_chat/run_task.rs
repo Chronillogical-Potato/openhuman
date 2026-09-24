@@ -133,8 +133,7 @@ pub(crate) async fn run_chat_task(
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
     bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
-    let (parent_turn_processed_tx, parent_turn_processed_rx) = tokio::sync::oneshot::channel();
-    spawn_progress_bridge(
+    let bridge = spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
         thread_id.to_string(),
@@ -142,7 +141,6 @@ pub(crate) async fn run_chat_task(
         turn_state_store,
         bridge_metadata,
         config.clone(),
-        Some(parent_turn_processed_tx),
     );
 
     // `run_single`'s future is very large; box it so the two ambient-scope
@@ -260,30 +258,24 @@ pub(crate) async fn run_chat_task(
         }
     }
 
-    // `run_single` can finish while the bridge still has its final
-    // ToolCallCompleted event buffered. Wait until it has processed the
-    // parent's TurnCompleted marker before the caller emits `chat_done`;
-    // detached subagents retain their own progress senders, so waiting for the
-    // entire bridge to close would incorrectly hold the parent chat open.
     agent.set_on_progress(None);
-    if result.is_ok() {
-        match tokio::time::timeout(std::time::Duration::from_secs(5), parent_turn_processed_rx)
-            .await
-        {
-            Ok(Ok(())) => {}
-            Ok(Err(_)) => log::warn!(
-                "[web-channel] progress bridge closed before parent completion client={} thread={} request_id={}",
-                client_id,
-                thread_id,
-                request_id
-            ),
-            Err(_) => log::warn!(
-                "[web-channel] timed out waiting for parent progress client={} thread={} request_id={}",
-                client_id,
-                thread_id,
-                request_id
-            ),
-        }
+
+    // The caller publishes the terminal `chat_done`/`chat_error` as soon as
+    // this returns. Let the bridge forward everything the turn queued first,
+    // so the terminal event cannot overtake the turn's own last tool results
+    // and narration on the socket. Bounded (see `BRIDGE_DRAIN_TIMEOUT`).
+    if !bridge
+        .wait_drained(super::progress_bridge::BRIDGE_DRAIN_TIMEOUT)
+        .await
+    {
+        log::warn!(
+            "[web-channel] progress bridge did not drain within {:?}; delivering anyway \
+             client={} thread={} request_id={}",
+            super::progress_bridge::BRIDGE_DRAIN_TIMEOUT,
+            client_id,
+            thread_id,
+            request_id
+        );
     }
 
     // Only the primary (non-fork) turn writes its agent back to the shared
