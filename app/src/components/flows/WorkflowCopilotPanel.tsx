@@ -510,12 +510,6 @@ export default function WorkflowCopilotPanel({
       ? (state.chatRuntime.processingByThread?.[threadId] ?? EMPTY_TRANSCRIPT)
       : EMPTY_TRANSCRIPT
   );
-  const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
-  const canOpenSubagent = useCallback(
-    (taskId: string) => toolTimeline.some(entry => entry.subagent?.taskId === taskId),
-    [toolTimeline]
-  );
-
   // The copilot's authoring footer: error line, proposal preview, capped card
   // and the builder composer. Parked approvals are NOT repeated here — the
   // assistant-ui transcript renders them inline on the gated tool call (see
