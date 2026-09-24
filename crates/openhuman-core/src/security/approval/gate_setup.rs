@@ -43,6 +43,7 @@ impl ApprovalGate {
             ttl,
             waiters: Mutex::new(HashMap::new()),
             thread_to_request: Mutex::new(HashMap::new()),
+            request_routes: Mutex::new(HashMap::new()),
         }
     }
 
