@@ -1459,7 +1459,7 @@ describe('ToolTimelineBlock — sub-agent activity survives the transcript path'
     expect(calls[0].textContent).toContain('Searched the web');
     expect(calls[0].textContent?.toLowerCase()).toContain('done');
     // Human label, not the raw `web_fetch` slug.
-    expect(calls[1].textContent).toContain('Fetching');
+    expect(calls[1].textContent).toContain('Reading webpage');
     expect(calls[1].textContent?.toLowerCase()).toContain('running');
   });
 

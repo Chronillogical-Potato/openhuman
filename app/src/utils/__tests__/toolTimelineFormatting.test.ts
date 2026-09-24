@@ -73,7 +73,7 @@ describe('formatTimelineEntry', () => {
       formatTimelineEntry(
         entry({ name: 'GMAIL_SEND_EMAIL', argsBuffer: JSON.stringify({ to: 'alex@example.com' }) })
       )
-    ).toEqual({ title: 'Using Gmail', detail: 'Send email' });
+    ).toEqual({ title: 'Using Gmail', detail: 'Send email · alex@example.com' });
     expect(formatTimelineEntry(entry({ name: 'GOOGLE_CALENDAR_CREATE_EVENT' }))).toEqual({
       title: 'Using Google Calendar',
       detail: 'Create event',

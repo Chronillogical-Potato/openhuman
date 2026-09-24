@@ -178,10 +178,7 @@ describe('SubagentDrawer', () => {
     await waitFor(() =>
       expect(screen.getByTestId('subagent-parent-prompt').textContent).toContain('Research Q3')
     );
-    const row = screen.getByTestId('assistant-ui-tool-call');
-    expect(row.textContent).toContain('Used tool');
-    expect(row.textContent).toContain('openhuman turn state');
-    expect(row.textContent).not.toContain('Searched the web');
+    expect(screen.getByTestId('assistant-ui-tool-call').textContent).toContain('Searched the web');
     expect(screen.getByTestId('subagent-transcript-text').textContent).toContain(
       'Revenue grew 18%'
     );

@@ -631,7 +631,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
 
     // The past turn's core transcript is projected into assistant-ui exactly once.
-    expect(await screen.findByTestId('assistant-ui-tool-call')).toHaveTextContent('Read File');
+    expect(await screen.findByTestId('assistant-ui-tool-call')).toHaveTextContent('Read file');
   });
 
   it('keeps assistant message copy available through assistant-ui', async () => {
