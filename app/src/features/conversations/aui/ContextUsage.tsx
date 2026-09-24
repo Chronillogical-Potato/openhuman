@@ -43,6 +43,49 @@ const DEFAULT_CONTEXT_WINDOW = 200_000;
 
 const EMPTY_USAGE = emptySessionTokenUsage();
 
+const formatUsd = (usd: number): string =>
+  usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`;
+
+/**
+ * Turn cost + per-sub-agent spend, appended under the vendored
+ * `ContextBreakdown` card rather than inside it (that element has no cost
+ * field of its own — see the fe-brief's WS-F note). Reuses its own `mono`
+ * token so the figures read as part of the same card rather than a
+ * bespoke widget; hidden entirely once there is no spend to show.
+ */
+function CostFooter({
+  usage,
+  t,
+}: {
+  usage: SessionTokenUsage;
+  t: (key: string) => string;
+}) {
+  if (usage.costUsd <= 0) return null;
+  const subAgents = Object.values(usage.subAgents).filter(sub => sub.costUsd > 0);
+  return (
+    <div className={cn(paper, 'flex w-full max-w-sm flex-col gap-1.5 rounded-2xl p-4')}>
+      <div className="flex items-baseline justify-between">
+        <span className="text-foreground/70 text-[13px]">
+          {t('conversations.composer.context.turnCost')}
+        </span>
+        <span className={cn(mono, 'text-foreground/70 tabular-nums')}>
+          {formatUsd(usage.costUsd)}
+        </span>
+      </div>
+      {subAgents.map(sub => (
+        <div key={sub.agentId} className="flex items-baseline justify-between">
+          <span className="text-foreground/45 truncate text-[12px]">
+            {t('conversations.composer.context.subagentCost').replace('{agent}', sub.agentId)}
+          </span>
+          <span className={cn(mono, 'text-foreground/45 shrink-0 tabular-nums')}>
+            {formatUsd(sub.costUsd)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Section labels the core emits verbatim; everything else is a prompt heading. */
 const KNOWN_SECTIONS: Record<string, { key: string; tint: string }> = {
   '(preamble)': { key: 'conversations.composer.context.section.preamble', tint: 'bg-blue-500' },
