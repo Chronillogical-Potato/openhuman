@@ -68,6 +68,7 @@ pub fn project_from_files(
     thread_id: &str,
     root_paths: &[PathBuf],
     sub_paths: &[PathBuf],
+    workspace_dir: Option<&Path>,
 ) -> ProjectedTranscript {
     log::debug!(
         "{LOG_PREFIX} projecting thread={thread_id} roots={} subagent_files={}",
@@ -126,7 +127,12 @@ pub fn project_from_files(
 
     let mut items = project_records(&records);
     let top_level = items.len();
-    subagents::attach(&mut items, sub_paths, &subagents::turn_segments(&records));
+    subagents::attach(
+        &mut items,
+        sub_paths,
+        &subagents::turn_segments(&records),
+        workspace_dir,
+    );
     log::debug!(
         "{LOG_PREFIX} projected thread={thread_id} top_level_items={top_level} subagents={}",
         items.len() - top_level

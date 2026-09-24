@@ -360,7 +360,8 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                 size_bytes,
                 thread_id,
                 client_id,
-                ..
+                tool_call_id,
+                request_id,
             } => {
                 let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
                     log::debug!(
@@ -369,12 +370,14 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                     return;
                 };
                 log::info!(
-                    "[web-channel] artifact-surface emitting artifact_ready id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id}"
+                    "[web-channel] artifact-surface emitting artifact_ready id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id} tool_call_id={tool_call_id:?}"
                 );
                 publish_web_channel_event(WebChannelEvent {
                     event: "artifact_ready".to_string(),
                     client_id: client_id.clone(),
                     thread_id: thread_id.clone(),
+                    tool_call_id: tool_call_id.clone(),
+                    turn_request_id: request_id.clone(),
                     args: Some(serde_json::json!({
                         "artifact_id": artifact_id,
                         "kind": kind,
@@ -394,7 +397,8 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                 error,
                 thread_id,
                 client_id,
-                ..
+                tool_call_id,
+                request_id,
             } => {
                 let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
                     log::debug!(
@@ -403,13 +407,15 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                     return;
                 };
                 log::warn!(
-                    "[web-channel] artifact-surface emitting artifact_failed id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id} error_len={}",
+                    "[web-channel] artifact-surface emitting artifact_failed id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id} tool_call_id={tool_call_id:?} error_len={}",
                     error.len()
                 );
                 publish_web_channel_event(WebChannelEvent {
                     event: "artifact_failed".to_string(),
                     client_id: client_id.clone(),
                     thread_id: thread_id.clone(),
+                    tool_call_id: tool_call_id.clone(),
+                    turn_request_id: request_id.clone(),
                     args: Some(serde_json::json!({
                         "artifact_id": artifact_id,
                         "kind": kind,
@@ -428,7 +434,8 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                 path,
                 thread_id,
                 client_id,
-                ..
+                tool_call_id,
+                request_id,
             } => {
                 let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
                     log::debug!(
@@ -437,12 +444,14 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                     return;
                 };
                 log::info!(
-                    "[web-channel] artifact-surface emitting artifact_pending id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id}"
+                    "[web-channel] artifact-surface emitting artifact_pending id={artifact_id} kind={kind} thread_id={thread_id} client_id={client_id} tool_call_id={tool_call_id:?}"
                 );
                 publish_web_channel_event(WebChannelEvent {
                     event: "artifact_pending".to_string(),
                     client_id: client_id.clone(),
                     thread_id: thread_id.clone(),
+                    tool_call_id: tool_call_id.clone(),
+                    turn_request_id: request_id.clone(),
                     args: Some(serde_json::json!({
                         "artifact_id": artifact_id,
                         "kind": kind,

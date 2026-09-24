@@ -1476,6 +1476,17 @@ pub enum DomainEvent {
         /// Full todo-list snapshot, owned by `tinyagents-graph`'s todo shape.
         todos: serde_json::Value,
     },
+    // ── Plan mode ───────────────────────────────────────────────────────
+    /// A thread's [`tinyagents_harness::middleware::RunMode`] (Plan vs Build)
+    /// changed, via `agent.set_run_mode` or the `plan_exit` tool. Bridged to
+    /// the `run_mode_changed` web-channel socket event by
+    /// `crate::agent::tinyagents::run_mode::set_mode`'s caller.
+    ThreadRunModeChanged {
+        thread_id: String,
+        /// `"plan"` or `"build"` — see
+        /// `crate::agent::tinyagents::run_mode::mode_label`.
+        mode: String,
+    },
 }
 
 /// Truncate to `max` characters, appending `…` when anything was dropped.
@@ -1615,7 +1626,8 @@ impl DomainEvent {
 
             Self::ThreadGoalUpdated { .. }
             | Self::ThreadGoalCleared { .. }
-            | Self::ThreadTodosChanged { .. } => "agent",
+            | Self::ThreadTodosChanged { .. }
+            | Self::ThreadRunModeChanged { .. } => "agent",
 
             Self::SubconsciousTriggerProcessed { .. } => "subconscious",
 
