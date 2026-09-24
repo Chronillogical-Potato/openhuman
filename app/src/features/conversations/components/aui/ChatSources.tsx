@@ -14,10 +14,24 @@
  * `components/ai-elements/Sources.tsx` disclosure — every source shows as a
  * badge/link inline, nothing hidden behind a click.
  */
-import { Sources } from '../../../../components/assistant-ui/elements/sources.aui';
+import { Badge } from '../../../../components/assistant-ui/badge';
+import {
+  DocumentSourceIcon,
+  Source,
+  SourceIcon,
+  SourceTitle,
+} from '../../../../components/assistant-ui/elements/sources.aui';
 import type { SourceItemPart } from '../../../../components/assistant-ui/thread';
 import { useT } from '../../../../lib/i18n/I18nContext';
 
+/**
+ * Composes the vendored `sources.aui` primitives (`Source`/`SourceIcon`/
+ * `SourceTitle`/`DocumentSourceIcon`/`Badge`) directly rather than calling its
+ * `Sources` message-part component: that component's prop type is the full
+ * assistant-ui `SourceMessagePartProps` (part `status`, `mediaType`, ...),
+ * which this app's `SourceItemPart` (derived from `extractAgentSources` /
+ * memory citations, not a live message-part subscription) does not carry.
+ */
 export function ChatSources({ sources }: { sources: readonly SourceItemPart[] }) {
   const { t } = useT();
   if (sources.length === 0) return null;
@@ -29,13 +43,19 @@ export function ChatSources({ sources }: { sources: readonly SourceItemPart[] })
       className="mt-1 flex flex-wrap items-center gap-1.5">
       {sources.map(source =>
         source.sourceType === 'url' ? (
-          <Sources key={source.id} sourceType="url" url={source.url} title={source.title} />
+          <Source key={source.id} href={source.url} data-testid="agent-source-row">
+            <SourceIcon url={source.url} />
+            <SourceTitle>{source.title || source.url}</SourceTitle>
+          </Source>
         ) : (
-          <Sources
-            key={source.id}
-            sourceType="document"
-            title={source.title ?? t('conversations.agentTaskInsights.memoryCitationFallbackTitle')}
-          />
+          <Badge key={source.id} variant="secondary" data-testid="agent-memory-source-row">
+            <span className="inline-flex items-center gap-1.5">
+              <DocumentSourceIcon />
+              <SourceTitle>
+                {source.title ?? t('conversations.agentTaskInsights.memoryCitationFallbackTitle')}
+              </SourceTitle>
+            </span>
+          </Badge>
         )
       )}
     </section>
