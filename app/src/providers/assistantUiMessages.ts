@@ -292,6 +292,7 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
   // render as ONE task card on the exact call the model made, instead of two
   // separate rows.
   const toolCallId = isSubagent ? entry.subagent?.parentCallId ?? entry.id : entry.id;
+  const nestedMessages = isSubagent && entry.subagent ? subagentMessages(entry.subagent) : [];
 
   return {
     type: 'tool-call',
@@ -300,9 +301,7 @@ function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
     args,
     argsText: JSON.stringify(args, null, 2),
     ...(!isSubagent && toolArtifact(entry) ? { artifact: toolArtifact(entry) } : {}),
-    ...(isSubagent && entry.subagent && subagentMessages(entry.subagent).length > 0
-      ? { messages: subagentMessages(entry.subagent) }
-      : {}),
+    ...(nestedMessages.length > 0 ? { messages: nestedMessages } : {}),
     ...(!running
       ? {
           result: isSubagent

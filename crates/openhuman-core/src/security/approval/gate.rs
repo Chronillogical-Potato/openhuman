@@ -88,6 +88,12 @@ const COPILOT_APPROVAL_TTL: Duration = Duration::from_secs(180);
 pub struct ApprovalChatContext {
     pub thread_id: String,
     pub client_id: String,
+    /// The turn currently running on this thread, when the caller has one in
+    /// scope. Carried through to `external_transfer_pending` (and any other
+    /// event this context backs) so the frontend can correlate a disclosure
+    /// to the turn that triggered it instead of only the thread.
+    #[serde(default)]
+    pub request_id: Option<String>,
 }
 
 tokio::task_local! {
