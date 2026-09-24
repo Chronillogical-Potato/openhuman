@@ -644,6 +644,7 @@ export function useOpenHumanExternalStore(
       onEdit,
       onReload,
       setMessages,
+      onDelete,
       onRespondToToolApproval,
       onAddToolResult,
       onResumeToolCall,
