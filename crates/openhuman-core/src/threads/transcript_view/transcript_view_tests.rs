@@ -18,7 +18,7 @@ fn meta_line(thread_id: &str) -> String {
 
 /// Write a raw JSONL transcript (meta header + given body lines) into
 /// `session_raw/{stem}.jsonl` and return the path.
-fn write_raw(workspace: &Path, stem: &str, thread_id: &str, body: &[&str]) -> PathBuf {
+pub(super) fn write_raw(workspace: &Path, stem: &str, thread_id: &str, body: &[&str]) -> PathBuf {
     let path = transcript::resolve_keyed_transcript_path(workspace, stem).expect("resolve");
     write_raw_at(&path, thread_id, body);
     path
