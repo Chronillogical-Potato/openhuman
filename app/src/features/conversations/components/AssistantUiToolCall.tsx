@@ -192,7 +192,7 @@ export function AssistantUiToolCallCard({
         <>
           {failed && failure ? (
             <div className="ps-5.5 pt-1 pb-2">
-              <ToolFailureLines failure={failure} />
+              <ToolFailureCard toolName={toolName} target={detail ?? displayName} failure={failure} />
             </div>
           ) : null}
           {footer ? <div className="ps-5.5">{footer}</div> : null}
