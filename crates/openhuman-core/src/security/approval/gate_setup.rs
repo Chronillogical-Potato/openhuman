@@ -221,6 +221,7 @@ impl ApprovalGate {
                 args_redacted,
                 park_bound,
                 &mut park_bound_elapsed,
+                None,
             )
             .await;
         if park_bound_elapsed {
