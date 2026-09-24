@@ -83,6 +83,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "queue_mode",
                     "Queue mode: 'interrupt' (default), 'steer', 'followup', 'collect', or 'parallel'.",
                 ),
+                optional_string(
+                    "run_mode",
+                    "Optional 'plan' | 'build' — start this turn with the thread already in the requested run mode, like the socket chat:start payload's run_mode. Unrecognized values are ignored.",
+                ),
             ],
             outputs: vec![json_output("ack", "Acceptance payload.")],
         },
@@ -158,6 +162,7 @@ fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
                 p.temperature,
                 p.locale,
                 p.queue_mode,
+                p.run_mode,
                 ChatRequestMetadata {
                     speak_reply: p.speak_reply,
                     source: p.source,
