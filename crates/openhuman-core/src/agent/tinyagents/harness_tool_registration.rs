@@ -162,10 +162,9 @@ pub(super) fn register_turn_tools_and_agents(
                         })
                         .cloned();
                     match handle {
-                        Some(handle) => harness
-                            .register_tool_dispatch(Arc::new(UseSkillDispatch::new(
-                                adapter, handle,
-                            ))),
+                        Some(handle) => harness.register_tool_dispatch(Arc::new(
+                            UseSkillDispatch::new(adapter, handle),
+                        )),
                         None => harness.register_tool(adapter),
                     };
                 } else if let Some(dispatch) = typed_dispatch_for(name, adapter.clone()) {

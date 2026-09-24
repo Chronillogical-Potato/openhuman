@@ -85,7 +85,10 @@ impl ToolDispatch<(), OpenHumanRunContext> for UseSkillDispatch {
             });
 
         let Some((name, tools)) = resolved else {
-            return self.tool.execute_with_context(arguments, options, None).await;
+            return self
+                .tool
+                .execute_with_context(arguments, options, None)
+                .await;
         };
 
         let inner_args = arguments
@@ -104,11 +107,16 @@ impl ToolDispatch<(), OpenHumanRunContext> for UseSkillDispatch {
             super::tools::CanonicalSharedToolAdapter::for_name(vec![tools], &name)
                 .map(|adapter| Arc::new(adapter) as Arc<dyn Tool>)
         else {
-            return self.tool.execute_with_context(arguments, options, None).await;
+            return self
+                .tool
+                .execute_with_context(arguments, options, None)
+                .await;
         };
 
         if let Some(dispatch) = typed_dispatch_for(&name, inner_adapter.clone()) {
-            return dispatch.execute(&(), call_id, inner_args, options, parent).await;
+            return dispatch
+                .execute(&(), call_id, inner_args, options, parent)
+                .await;
         }
 
         // Not a typed-dispatch tool: run it the way `use_skill` always has,

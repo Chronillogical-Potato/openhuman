@@ -15,9 +15,9 @@
 
 use super::*;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::tinyagents::tools::CanonicalSharedToolAdapter;
 use crate::agent::harness::ParentExecutionContext;
 use crate::agent::prompts::ToolCallFormat;
+use crate::agent::tinyagents::tools::CanonicalSharedToolAdapter;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use crate::tools::toolpacks::tools::{PackRegistryHandle, UseSkillTool};
 use async_trait::async_trait;
@@ -183,8 +183,9 @@ fn build_use_skill_dispatch() -> UseSkillDispatch {
     let durable: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![use_skill_tool, create_image_tool]);
     handle.bind(Arc::downgrade(&durable));
 
-    let adapter = CanonicalSharedToolAdapter::for_name(vec![durable], crate::tools::toolpacks::USE_SKILL)
-        .expect("use_skill resolves in the durable registry it was just placed in");
+    let adapter =
+        CanonicalSharedToolAdapter::for_name(vec![durable], crate::tools::toolpacks::USE_SKILL)
+            .expect("use_skill resolves in the durable registry it was just placed in");
     UseSkillDispatch::new(Arc::new(adapter), handle)
 }
 
