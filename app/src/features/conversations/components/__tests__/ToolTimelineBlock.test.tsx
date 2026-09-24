@@ -28,7 +28,7 @@ function renderInStore(ui: React.ReactNode) {
 
 describe('SubagentActivityBlock', () => {
   it('derives its lifecycle from the activity when no running prop is passed', () => {
-    // Most call sites (AgentProcessSourcePanel, this block)
+    // Most call sites (AgentProcessSourcePanel, PastTurnInsights, this block)
     // pass no `running` prop at all. The old `running = false` default reported
     // an in-flight delegation as finished, with a success check.
     renderInStore(
@@ -121,13 +121,13 @@ describe('SubagentActivityBlock', () => {
     expect(calls).toHaveLength(3);
     // Human labels + timing, with status as a tinted "Done" / "Failed" /
     // "Running" tag instead of a bare ✓/✕ glyph or the raw lowercase word.
-    expect(calls[0].textContent).toContain('Searching the web');
+    expect(calls[0].textContent).toContain('Searched the web');
     expect(calls[0].textContent?.toLowerCase()).toContain('done');
     expect(calls[0].textContent).toContain('312ms');
-    expect(calls[1].textContent).toContain('Composio Execute');
+    expect(calls[1].textContent).toContain('Running app action');
     expect(calls[1].textContent?.toLowerCase()).toContain('running');
     expect(calls[1].textContent).not.toContain('·t2');
-    expect(calls[2].textContent).toContain('Reading file');
+    expect(calls[2].textContent).toContain('Read file');
     expect(calls[2].textContent?.toLowerCase()).toContain('failed');
     expect(calls[2].textContent).toContain('50ms');
   });
@@ -152,7 +152,7 @@ describe('SubagentActivityBlock', () => {
       />
     );
 
-    expect(screen.getByText('Searching the web')).toBeInTheDocument();
+    expect(screen.getByText('Searched the web')).toBeInTheDocument();
     const call = screen.getByTestId('assistant-ui-tool-call');
     await userEvent.click(within(call).getByRole('button'));
     expect(screen.getByTestId('assistant-ui-tool-output')).toHaveTextContent('Formal Conjectures');
@@ -160,7 +160,9 @@ describe('SubagentActivityBlock', () => {
     expect(screen.queryByText(/"content"/)).not.toBeInTheDocument();
   });
 
-  it('does not guess a web search for a degraded subagent tool name', () => {
+  // A query argument alone no longer makes a call "Searched the web"; that
+  // heuristic mislabelled memory, tool and email searches.
+  it('labels a degraded subagent tool name honestly, keeping its query visible', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -179,7 +181,10 @@ describe('SubagentActivityBlock', () => {
       />
     );
 
-    expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent(/web/i);
+    const call = screen.getByTestId('assistant-ui-tool-call');
+    expect(call).toHaveTextContent('Used tool');
+    expect(call).toHaveTextContent('world news');
+    expect(call).not.toHaveTextContent('Searched the web');
   });
 
   it('labels cancelled / awaiting-user calls distinctly (not the green "Done" pill)', () => {
@@ -204,7 +209,7 @@ describe('SubagentActivityBlock', () => {
     expect(calls[1].textContent?.toLowerCase()).not.toContain('done');
   });
 
-  it('prefers the server-supplied label + contextual detail for a child tool call', () => {
+  it('names a connected-app action by its app, with the server detail beside the action', () => {
     renderInStore(
       <SubagentActivityBlock
         subagent={{
@@ -223,8 +228,8 @@ describe('SubagentActivityBlock', () => {
       />
     );
     const row = screen.getByTestId('assistant-ui-tool-call');
-    expect(row.textContent).toContain('Reading messages');
-    expect(row.textContent).toContain('steven@gmail.com');
+    expect(row.textContent).toContain('Used Gmail');
+    expect(row.textContent).toContain('Read messages · steven@gmail.com');
     // Never the raw snake_case slug.
     expect(row.textContent).not.toContain('GMAIL_READ_MESSAGES');
   });
@@ -272,7 +277,7 @@ describe('SubagentActivityBlock', () => {
     expect(rows[0]).toHaveAttribute('data-testid', 'subagent-thought');
     expect(rows[0].textContent).toContain('I should search the web first');
     expect(rows[1]).toHaveAttribute('data-testid', 'assistant-ui-tool-call');
-    expect(rows[1].textContent).toContain('Searching the web');
+    expect(rows[1].textContent).toContain('Searched the web');
     expect(rows[2]).toHaveAttribute('data-testid', 'subagent-thought');
     expect(rows[2].textContent).toContain('Found three relevant results');
   });
@@ -420,8 +425,8 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     // Two rows on the timeline rail.
     expect(screen.getAllByTestId('agent-timeline-row')).toHaveLength(2);
     // Running row name pulses; done row name is solid.
-    const running = screen.getByText('Searching: f1');
-    const done = screen.getByText('Reading file');
+    const running = screen.getByText('Searching the web');
+    const done = screen.getByText('Read file');
     expect(running.className).toContain('animate-pulse');
     expect(done.className).not.toContain('animate-pulse');
   });
@@ -440,9 +445,9 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     renderInStore(<ToolTimelineBlock entries={entries} />);
     const rows = screen.getAllByTestId('agent-timeline-row');
     expect(rows).toHaveLength(3);
-    expect(rows[0].textContent).toContain('Searching the web');
-    expect(rows[1].textContent).toContain('Reading file');
-    expect(rows[2].textContent).toContain('Run Code');
+    expect(rows[0].textContent).toContain('Searched the web');
+    expect(rows[1].textContent).toContain('Read file');
+    expect(rows[2].textContent).toContain('Ran code');
   });
 
   it('renders nothing for an empty timeline', () => {
@@ -1451,10 +1456,10 @@ describe('ToolTimelineBlock — sub-agent activity survives the transcript path'
     fireEvent.click(within(subagent).getByRole('button'));
     const calls = screen.getAllByTestId('assistant-ui-tool-call');
     expect(calls).toHaveLength(2);
-    expect(calls[0].textContent).toContain('Searching the web');
+    expect(calls[0].textContent).toContain('Searched the web');
     expect(calls[0].textContent?.toLowerCase()).toContain('done');
     // Human label, not the raw `web_fetch` slug.
-    expect(calls[1].textContent).toContain('Fetching');
+    expect(calls[1].textContent).toContain('Reading webpage');
     expect(calls[1].textContent?.toLowerCase()).toContain('running');
   });
 

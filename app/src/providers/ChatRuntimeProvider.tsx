@@ -758,6 +758,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             success: event.success,
             output: event.output,
             failure: event.failure,
+            args: event.args,
+            elapsedMs: event.elapsed_ms,
+            structured: event.structured,
+            displayLabel: event.tool_display_label,
+            displayDetail: event.tool_display_detail,
           })
         );
 

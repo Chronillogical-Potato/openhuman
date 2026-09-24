@@ -14,6 +14,12 @@ const REPLAYED_METADATA_KEY: &str = "openhuman_replayed";
 const WRAPPED_VALUE_KEY: &str = "openhuman_wrapped_value";
 const WRAPPED_FLAG: &str = "wrapped";
 
+/// Durable `extra_metadata` key on a text-dialect `[Tool results]` user row:
+/// the call ids whose results in that row failed. The per-result analogue of
+/// the `tool_failure` a native `tool` row carries; written by the session codec
+/// and read by the thread transcript projection.
+pub(crate) const TOOL_RESULT_FAILURES_METADATA_KEY: &str = "openhuman_tool_failures";
+
 fn would_wrap(message: &ChatMessage) -> bool {
     matches!(&message.extra_metadata, Some(value) if !value.is_object())
 }

@@ -183,6 +183,8 @@ pub(crate) async fn deliver_response(
             subagent: None,
             tool_display_label: None,
             tool_display_detail: None,
+            elapsed_ms: None,
+            structured: None,
             citations: if i == 0 && !citations.is_empty() {
                 Some(serde_json::json!(citations))
             } else {
@@ -224,6 +226,8 @@ pub(crate) async fn deliver_response(
         subagent: None,
         tool_display_label: None,
         tool_display_detail: None,
+        elapsed_ms: None,
+        structured: None,
         citations: if citations.is_empty() {
             None
         } else {
@@ -302,6 +306,8 @@ fn publish_chat_done(
         subagent: None,
         tool_display_label: None,
         tool_display_detail: None,
+        elapsed_ms: None,
+        structured: None,
         citations: if citations.is_empty() {
             None
         } else {

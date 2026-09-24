@@ -9,11 +9,11 @@ import type {
 } from '../../../store/chatRuntimeSlice';
 import {
   buildProcessingBlocks,
-  categorizeTool,
   formatTimelineEntry,
+  presentTimelineEntry,
   stripToolCallEnvelopes,
-  type ToolCategory,
 } from '../../../utils/toolTimelineFormatting';
+import { ToolIcon } from '../tools/ToolIcon';
 import { ToolFailureLines } from './ToolFailureLines';
 
 /**
@@ -58,7 +58,8 @@ export function ProcessingTranscriptView({
    */
   renderSubagent?: (subagent: NonNullable<ToolTimelineEntry['subagent']>) => React.ReactNode;
 }) {
-  const blocks = buildProcessingBlocks(transcript, entries);
+  const { t } = useT();
+  const blocks = buildProcessingBlocks(transcript, entries, t);
   if (blocks.length === 0) return null;
 
   return (
@@ -185,12 +186,13 @@ function ToolRow({
   entry: ToolTimelineEntry;
   renderSubagent?: (subagent: NonNullable<ToolTimelineEntry['subagent']>) => React.ReactNode;
 }) {
-  const { title, detail } = formatTimelineEntry(entry);
+  const { t } = useT();
+  const { title, detail } = formatTimelineEntry(entry, t);
   return (
     <li className="flex flex-col gap-1" data-testid="processing-tool-row">
       <div className="flex items-start gap-1.5">
         <span className="mt-0.5 shrink-0 text-content-faint">
-          <CategoryIcon category={categorizeTool(entry.name)} />
+          <ToolIcon presentation={presentTimelineEntry(entry)} className="size-3" />
         </span>
         <span className="min-w-0 text-[12px] text-content-secondary">
           {title}
@@ -224,48 +226,4 @@ function StatusGlyph({ status }: { status: ToolTimelineEntryStatus }) {
     return <span className="text-[11px] text-coral-600 dark:text-coral-300">✕</span>;
   }
   return <span className="text-[11px] text-sage-600 dark:text-sage-300">✓</span>;
-}
-
-/** Minimal monochrome glyph per tool category (inherits `currentColor`). */
-function CategoryIcon({ category }: { category: ToolCategory }) {
-  const common = { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': true } as const;
-  switch (category) {
-    case 'search':
-      return (
-        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.2}>
-          <circle cx="5" cy="5" r="3.2" />
-          <path d="M7.4 7.4 10.5 10.5" strokeLinecap="round" />
-        </svg>
-      );
-    case 'run':
-      return (
-        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.2}>
-          <rect x="1" y="1.5" width="10" height="9" rx="1.5" />
-          <path d="M3 4.5 4.8 6 3 7.5M6 7.5h3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    case 'fetch':
-    case 'browse':
-      return (
-        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1}>
-          <circle cx="6" cy="6" r="5" />
-          <path d="M1 6h10M6 1c1.8 1.4 1.8 8.6 0 10M6 1c-1.8 1.4-1.8 8.6 0 10" />
-        </svg>
-      );
-    case 'write':
-      return (
-        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.1}>
-          <path d="M2.5 1.5h4L9.5 4.5V10.5H2.5z" strokeLinejoin="round" />
-          <path d="M6.2 1.5V4.5H9.3M4.2 6.6 7.4 6.6M4.2 8.2 7.4 8.2" strokeLinecap="round" />
-        </svg>
-      );
-    case 'read':
-    default:
-      return (
-        <svg {...common} fill="none" stroke="currentColor" strokeWidth={1.1}>
-          <path d="M2.5 1.5h4L9.5 4.5V10.5H2.5z" strokeLinejoin="round" />
-          <path d="M6.2 1.5V4.5H9.3" strokeLinecap="round" />
-        </svg>
-      );
-  }
 }

@@ -10,6 +10,9 @@ use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use tinyagents_session::transcript::{self, CompactionMarker, DisplayMessage, DisplayRecord};
+use tinytools_agent::dialect::{parse_replayed_results, ToolResultEntry};
+
+use crate::agent::messages::TOOL_RESULT_FAILURES_METADATA_KEY;
 
 use super::resolve;
 use super::subagents;
@@ -209,6 +212,12 @@ impl Projector {
                 log::debug!("{LOG_PREFIX} sanitize: dropped system line from projection");
             }
             "user" => {
+                // A text dialect folds a round's results into one user turn; it
+                // is tool output, never the user's words.
+                if let Some(results) = parse_replayed_results(&msg.message.content) {
+                    self.text_tool_results(msg, results);
+                    return;
+                }
                 // A legacy turn without request ids still restarts the step
                 // count at its prompt.
                 self.step = 0;
@@ -312,6 +321,23 @@ impl Projector {
             let args = parse_tool_args(&arguments);
             if !call_id.is_empty() {
                 self.seen_call_ids.insert(call_id.clone());
+            }
+            // Transcripts written while the codec filed a turn's calls on its
+            // final row record a text-dialect call *after* its own result,
+            // which already projected as an orphan. Name that settled row
+            // rather than adding a second one that never settles.
+            if let Some(DisplayItem::ToolCall {
+                name: settled_name,
+                args: settled_args,
+                iteration: settled_iteration,
+                ..
+            }) = settled_orphan_mut(&mut self.items, &call_id)
+            {
+                log::debug!("{LOG_PREFIX} call {call_id} recorded after its result — merged");
+                *settled_name = name;
+                *settled_args = args;
+                *settled_iteration = Some(iteration);
+                continue;
             }
             self.items.push(DisplayItem::ToolCall {
                 call_id: call_id.clone(),
@@ -436,6 +462,90 @@ fn unwrap_tool_result(raw: &str) -> (String, Option<String>) {
         content.to_string(),
         Some(call_id.to_string()).filter(|id| !id.is_empty()),
     )
+}
+
+/// Pair each result of a text-dialect `[Tool results]` row with its pending
+/// call. Failure status comes from the ids the session codec recorded on the
+/// row ([`TOOL_RESULT_FAILURES_METADATA_KEY`]); a result with no pending call
+/// surfaces as an orphan row, as for a native `tool` line.
+impl Projector {
+    fn text_tool_results(&mut self, msg: &DisplayMessage, results: Vec<ToolResultEntry>) {
+        project_text_tool_results(msg, results, &mut self.items, &mut self.pending);
+    }
+}
+
+fn project_text_tool_results(
+    msg: &DisplayMessage,
+    results: Vec<ToolResultEntry>,
+    items: &mut Vec<DisplayItem>,
+    pending: &mut VecDeque<(String, usize)>,
+) {
+    let failed: Vec<&str> = msg
+        .message
+        .extra_metadata
+        .as_ref()
+        .and_then(|meta| meta.get(TOOL_RESULT_FAILURES_METADATA_KEY))
+        .and_then(serde_json::Value::as_array)
+        .map(|ids| ids.iter().filter_map(serde_json::Value::as_str).collect())
+        .unwrap_or_default();
+    log::debug!(
+        "{LOG_PREFIX} text-dialect results row results={} failed={} pending={}",
+        results.len(),
+        failed.len(),
+        pending.len()
+    );
+    for result in results {
+        let (status, failure) = if failed.contains(&result.tool_call_id.as_str()) {
+            (
+                ToolCallStatus::Error,
+                Some(ToolCallFailure { detail: None }),
+            )
+        } else {
+            (ToolCallStatus::Success, None)
+        };
+        if let Some(idx) = take_pending_by_id(pending, &result.tool_call_id) {
+            if let Some(DisplayItem::ToolCall {
+                result: slot,
+                status: status_slot,
+                failure: failure_slot,
+                ..
+            }) = items.get_mut(idx)
+            {
+                *slot = Some(result.content);
+                *status_slot = status;
+                *failure_slot = failure;
+                continue;
+            }
+        }
+        items.push(DisplayItem::ToolCall {
+            call_id: result.tool_call_id,
+            name: "tool".to_string(),
+            iteration: None,
+            args: None,
+            result: Some(result.content),
+            status,
+            failure,
+        });
+    }
+}
+
+/// The already-settled orphan row for `call_id` in the current turn — a result
+/// that projected before any call named it.
+fn settled_orphan_mut<'a>(
+    items: &'a mut [DisplayItem],
+    call_id: &str,
+) -> Option<&'a mut DisplayItem> {
+    let turn_start = items
+        .iter()
+        .rposition(|item| matches!(item, DisplayItem::TurnBoundary { .. }))
+        .map_or(0, |idx| idx + 1);
+    items[turn_start..].iter_mut().find(|item| {
+        matches!(
+            item,
+            DisplayItem::ToolCall { call_id: id, name, result: Some(_), .. }
+                if id == call_id && name == "tool"
+        )
+    })
 }
 
 /// Remove and return the pending entry whose call id matches `id`, if any.

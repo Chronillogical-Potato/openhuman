@@ -121,6 +121,9 @@ fn tool_call_start_and_complete_track_timeline() {
         elapsed_ms: 50,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
@@ -150,6 +153,9 @@ fn tool_call_completed_persists_capped_output() {
         elapsed_ms: 50,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].output.as_deref(), Some("hello world"));
@@ -175,6 +181,9 @@ fn tool_call_completed_persists_capped_output() {
         elapsed_ms: 50,
         iteration: 2,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     let s = m.snapshot();
     let persisted = s.tool_timeline[1].output.as_deref().unwrap();
@@ -406,6 +415,9 @@ fn tool_call_started_reuses_args_delta_placeholder_for_same_call_id() {
         elapsed_ms: 5,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     assert_eq!(m.snapshot().tool_timeline.len(), 1);
     assert_eq!(

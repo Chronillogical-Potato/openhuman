@@ -3,8 +3,10 @@
 /**
  * Shared surface primitives for the assistant-ui elements, vendored verbatim
  * from the `elements-surfaces` registry item
- * (https://r.assistant-ui.com/elements-surfaces.json). The one local change is
- * `collapsePanel`, adapted from Base UI to Radix (see below).
+ * (https://r.assistant-ui.com/elements-surfaces.json). Local changes, all for
+ * this app's Radix collapsible and jsdom: `collapsePanel` adapted from Base UI
+ * to Radix, an added `openRotate` chevron selector, and a `ResizeObserver`
+ * guard in `SwapLabel`.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { type ComponentProps, useLayoutEffect, useRef, useState } from 'react';
@@ -46,6 +48,11 @@ export const labelSwapOut = 'pointer-events-none select-none opacity-0 blur-[2px
 // `--radix-collapsible-content-height` to tw-animate-css's collapsible keyframes.
 export const collapsePanel =
   'overflow-hidden ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down motion-reduce:animate-none';
+
+// Local addition: the Radix trigger reports `data-state=open`, not Base UI's
+// `data-open` / `data-panel-open`, so the chevron rotation needs this selector.
+export const openRotate =
+  'transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]/trigger:rotate-90 motion-reduce:transition-none';
 
 export const live = 'text-blue-500 dark:text-blue-400';
 
@@ -92,6 +99,8 @@ export function SwapLabel({
     if (!target) return undefined;
     const measure = () => setWidth(Math.ceil(target.getBoundingClientRect().width));
     measure();
+    // Local guard: jsdom (unit tests) has no ResizeObserver.
+    if (typeof ResizeObserver === 'undefined') return undefined;
     const observer = new ResizeObserver(measure);
     observer.observe(target);
     return () => observer.disconnect();

@@ -61,6 +61,9 @@ fn subagent_transcript_persists_interleaved_prose_and_tools() {
         elapsed_ms: 12,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]
@@ -421,6 +424,9 @@ fn tinyagents_path_backfills_arguments_from_the_completion_event() {
         elapsed_ms: 12,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]
@@ -473,6 +479,9 @@ fn completion_arguments_do_not_overwrite_arguments_captured_at_start() {
         elapsed_ms: 12,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
 
     let activity = m.snapshot().tool_timeline[0]

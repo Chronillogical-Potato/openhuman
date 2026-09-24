@@ -126,6 +126,9 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
         elapsed_ms: 42,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .expect("send progress");
@@ -367,6 +370,9 @@ async fn stamps_monotonic_seq_on_emitted_events() {
         elapsed_ms: 5,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .unwrap();
@@ -427,6 +433,9 @@ async fn wait_drained_returns_after_queued_events_are_forwarded() {
         elapsed_ms: 1,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     })
     .await
     .unwrap();

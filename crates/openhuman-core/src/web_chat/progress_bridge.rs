@@ -650,10 +650,13 @@ pub(crate) fn spawn_progress_bridge(
                     success,
                     output_chars,
                     output,
+                    arguments,
                     elapsed_ms,
                     iteration,
                     failure,
-                    ..
+                    display_label,
+                    display_detail,
+                    structured,
                 } => {
                     // Serialize the classified failure (if any) for the UI + ledger.
                     let failure_json = failure.as_ref().and_then(|f| serde_json::to_value(f).ok());
@@ -673,6 +676,17 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
+                    log::debug!(
+                        "[web_channel][bridge] tool_result round={} tool={} call_id={} \
+                         success={} elapsed_ms={} has_structured={} request_id={}",
+                        iteration,
+                        tool_name,
+                        call_id,
+                        success,
+                        elapsed_ms,
+                        structured.is_some(),
+                        request_id
+                    );
                     publish_seq_stamped(
                         &mut emit_seq,
                         WebChannelEvent {
@@ -687,10 +701,23 @@ pub(crate) fn spawn_progress_bridge(
                             // `subagent_tool_result` path. Frontends that only
                             // need size/timing read the ledger telemetry instead.
                             output: Some(cap_wire_output(output)),
+                            // The call arguments the harness captured at
+                            // completion (`ToolCallStarted.arguments` is
+                            // always `Null` on this path). Omitted when the
+                            // harness ran with payload capture off.
+                            args: arguments.filter(|v| !v.is_null()),
                             success: Some(success),
                             round: Some(iteration),
                             tool_call_id: Some(call_id),
                             failure: failure_json,
+                            elapsed_ms: Some(elapsed_ms),
+                            structured,
+                            // Recomputed from the real arguments (unlike the
+                            // started event's args-free computation), so a
+                            // completed row can pick up a detail that only
+                            // became knowable once the arguments existed.
+                            tool_display_label: display_label,
+                            tool_display_detail: display_detail,
                             ..Default::default()
                         },
                     );
@@ -1130,10 +1157,13 @@ pub(crate) fn spawn_progress_bridge(
                     success,
                     output_chars,
                     output,
+                    arguments,
                     elapsed_ms,
                     iteration,
                     failure,
-                    ..
+                    display_label,
+                    display_detail,
+                    structured,
                 } => {
                     // Serialize the classified failure (if any) so a failed
                     // sub-agent tool row carries its "why + next" copy on the
@@ -1173,6 +1203,11 @@ pub(crate) fn spawn_progress_bridge(
                             // bounded size for the wire (#4007); `output_chars` +
                             // `elapsed_ms` still ride along in `subagent` below.
                             output: Some(cap_wire_output(output)),
+                            args: arguments.filter(|v| !v.is_null()),
+                            elapsed_ms: Some(elapsed_ms),
+                            structured,
+                            tool_display_label: display_label,
+                            tool_display_detail: display_detail,
                             failure: failure_json,
                             subagent: Some(SubagentProgressDetail {
                                 child_iteration: Some(iteration),

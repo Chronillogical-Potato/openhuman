@@ -433,7 +433,7 @@ export function ToolTimelineBlock({
         ) : (
           <div className="text-sm text-content-faint">
             {rows.map(({ entry, count }, index) => {
-              const formatted = formatTimelineEntry(entry);
+              const formatted = formatTimelineEntry(entry, t);
               const detailContent =
                 normalizeToolBody(formatted.detail) ?? normalizeToolBody(entry.argsBuffer);
               const workerRef = parseWorkerThreadRef(formatted.detail ?? entry.detail);

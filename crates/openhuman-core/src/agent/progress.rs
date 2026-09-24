@@ -74,6 +74,21 @@ pub enum AgentProgress {
         /// the chat "View processing" timeline renders. `None` on success and
         /// on legacy snapshots. See `crate::tools::status`.
         failure: Option<crate::tools::status::ClassifiedFailure>,
+        /// Server-computed human label recomputed from the tool's OWN
+        /// [`tinytools::Tool::display_label`] using the real call arguments
+        /// (the matching `ToolCallStarted.display_label` was computed with no
+        /// arguments, since the harness start event carries none). Forwarded
+        /// on the wire as `tool_display_label` so a completed row can pick up
+        /// a label that only became knowable once the arguments existed.
+        display_label: Option<String>,
+        /// Server-computed contextual detail (e.g. "steven@gmail.com"),
+        /// recomputed the same way from `Tool::display_detail`.
+        display_detail: Option<String>,
+        /// Structured, tool-specific result payload copied from
+        /// [`tinytools::ToolResult::metadata`] when it is a JSON object
+        /// carrying a `"kind"` discriminator (e.g. `{"kind":"web_search",...}`).
+        /// `None` for tools that don't populate metadata of that shape.
+        structured: Option<serde_json::Value>,
     },
 
     /// A sub-agent was spawned during tool execution.
@@ -249,6 +264,14 @@ pub enum AgentProgress {
         /// a failed sub-agent row carries the same "why + what to do next" copy
         /// instead of discarding the already-computed classification (#4459).
         failure: Option<crate::tools::status::ClassifiedFailure>,
+        /// Mirrors [`Self::ToolCallCompleted::display_label`], recomputed from
+        /// the child tool's own `Tool::display_label` using the real call
+        /// arguments.
+        display_label: Option<String>,
+        /// Mirrors [`Self::ToolCallCompleted::display_detail`].
+        display_detail: Option<String>,
+        /// Mirrors [`Self::ToolCallCompleted::structured`].
+        structured: Option<serde_json::Value>,
     },
 
     /// A chunk of a sub-agent's visible assistant text arrived from the

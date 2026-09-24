@@ -131,6 +131,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             let timed_out = combined.contains("timed out");
             Some(crate::tools::status::classify(&combined, timed_out))
         };
+        // Host-only structured payload (e.g. `{"kind":"web_search", ...}`) a
+        // tool attached via `ToolResult::metadata` for a richer UI
+        // presentation than plain text allows. Only forwarded when it is a
+        // JSON object carrying a `"kind"` discriminator, so an arbitrary
+        // metadata shape a tool sets for its own bookkeeping doesn't leak onto
+        // the wire as if it were a presentation contract.
+        let structured = result
+            .metadata
+            .clone()
+            .filter(|v| v.is_object() && v.get("kind").is_some());
         if let Ok(mut map) = self.failure_map.lock() {
             // Keep duration + rendered output size as a compatibility fallback
             // for old/deserialized completion events; TinyAgents 1.6 supplies
@@ -144,6 +154,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     crate::agent::tinyagents::middleware::tool_result_text(result)
                         .chars()
                         .count(),
+                    structured,
                 ),
             );
         }

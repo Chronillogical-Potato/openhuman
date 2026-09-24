@@ -398,6 +398,42 @@ export const KNOWN_COMPOSIO_TOOLKITS = Object.freeze(
   MANAGED_COMPOSIO_TOOLKITS.map(entry => entry.slug)
 );
 
+/**
+ * Resolve a Composio action slug (`GMAIL_SEND_EMAIL`,
+ * `GOOGLECALENDAR_CREATE_EVENT`) to the toolkit it belongs to and a readable
+ * action ("Send email").
+ *
+ * The core registers these actions under their raw upper-snake slug, and the
+ * chat timeline used to humanize that to "GMAIL SEND EMAIL". The longest known
+ * toolkit prefix wins (`GOOGLE_CALENDAR_…` before `GOOGLE_…`). A slug on a
+ * toolkit this catalog has not heard of still gets a readable name from its
+ * first segment, so a new toolkit never renders shouting.
+ *
+ * Returns `undefined` for anything that is not an upper-snake name with at
+ * least two segments.
+ */
+export function matchComposioActionSlug(
+  toolName: string
+): { slug: string; name: string; action: string; known: boolean } | undefined {
+  if (!/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(toolName)) return undefined;
+  const parts = toolName.toLowerCase().split('_');
+  const action = (rest: string[]) => {
+    const text = rest.join(' ');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  };
+  for (let i = Math.min(parts.length - 1, 3); i >= 1; i -= 1) {
+    const candidate = canonicalizeComposioToolkitSlug(parts.slice(0, i).join('_'));
+    const name = MANAGED_TOOLKIT_NAME_BY_SLUG.get(candidate);
+    if (name) return { slug: candidate, name, action: action(parts.slice(i)), known: true };
+  }
+  return {
+    slug: parts[0],
+    name: prettifyUnknownSlug(parts[0]),
+    action: action(parts.slice(1)),
+    known: false,
+  };
+}
+
 function descriptionForToolkit(key: string, name: string, category: SkillCategory): string {
   if (key === 'instagram') {
     return (

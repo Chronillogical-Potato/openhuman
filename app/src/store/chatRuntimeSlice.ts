@@ -286,6 +286,37 @@ export function parseToolFailure(raw: unknown): ToolFailureExplanation | undefin
 }
 
 /**
+ * Fold the optional completion fields of a `tool_result` into its row.
+ *
+ * The core's start event may carry no arguments (the harness reports them at
+ * completion), so `args` backfills an empty `argsBuffer`; without it a row
+ * could never show its target. A recomputed server label replaces the one
+ * sent at start, which was derived without arguments.
+ */
+function applyResultExtras(
+  entry: ToolTimelineEntry,
+  extras: {
+    args?: unknown;
+    elapsedMs?: number;
+    structured?: unknown;
+    displayLabel?: string;
+    displayDetail?: string;
+  }
+): void {
+  if (!entry.argsBuffer && extras.args && typeof extras.args === 'object') {
+    entry.argsBuffer = JSON.stringify(extras.args);
+  }
+  if (typeof extras.elapsedMs === 'number' && Number.isFinite(extras.elapsedMs)) {
+    entry.elapsedMs = extras.elapsedMs;
+  }
+  if (extras.structured && typeof extras.structured === 'object') {
+    entry.structured = extras.structured;
+  }
+  if (extras.displayLabel?.trim()) entry.displayName = extras.displayLabel.trim();
+  if (extras.displayDetail?.trim()) entry.detail = extras.displayDetail.trim();
+}
+
+/**
  * Attach a human label/detail to a tool-timeline row. The server supplies a
  * label/detail for dynamic Composio/MCP/integration tools the client can't know
  * — trust it for those; for the fixed set of built-ins the client formatter
@@ -293,11 +324,15 @@ export function parseToolFailure(raw: unknown): ToolFailureExplanation | undefin
  * caller that materialises a row.
  */
 function decorateEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
+  // `displayName` holds only what the server said. Baking the client title in
+  // here froze its tense at call time, so a finished row kept reading
+  // "Reading file"; every surface now resolves the title at render time.
   const formatted = formatTimelineEntry(entry);
   if (entry.displayName && !isKnownClientTool(entry.name)) {
-    return { ...entry, displayName: entry.displayName, detail: entry.detail ?? formatted.detail };
+    return { ...entry, detail: entry.detail ?? formatted.detail };
   }
-  return { ...entry, displayName: formatted.title, detail: formatted.detail ?? entry.detail };
+  const { displayName: _serverLabel, ...rest } = entry;
+  return { ...rest, detail: entry.detail ?? formatted.detail };
 }
 
 /**
@@ -368,6 +403,15 @@ export interface ToolTimelineEntry {
    * and on rows from cores that predate output forwarding.
    */
   result?: string;
+  /**
+   * Machine-readable result the core attached to `tool_result` as
+   * `structured` (today `{ kind: "web_search", query, provider, results }`).
+   * Lets a rich renderer skip re-parsing `result` text. Absent on rows from
+   * older cores, which fall back to parsing.
+   */
+  structured?: unknown;
+  /** Wall time the call took, from `tool_result.elapsed_ms`. */
+  elapsedMs?: number;
 }
 
 export interface StreamingAssistantState {
@@ -1299,6 +1343,11 @@ const chatRuntimeSlice = createSlice({
         success: boolean;
         output?: string;
         failure?: unknown;
+        args?: unknown;
+        elapsedMs?: number;
+        structured?: unknown;
+        displayLabel?: string;
+        displayDetail?: string;
       }>
     ) => {
       const { threadId, round, toolName, success, output, failure } = action.payload;
@@ -1315,12 +1364,16 @@ const chatRuntimeSlice = createSlice({
       // The core forwards the (size-capped) tool result text on `output`; accept
       // only non-empty payloads so a stub-less row stays `undefined`.
       const result = output && output.length > 0 ? output : undefined;
+      const settle = (entry: ToolTimelineEntry) => {
+        entry.status = status;
+        entry.failure = parsedFailure;
+        entry.result = result;
+        applyResultExtras(entry, action.payload);
+      };
       if (toolCallId) {
         const entry = entries.find(e => e.id === toolCallId);
         if (entry) {
-          entry.status = status;
-          entry.failure = parsedFailure;
-          entry.result = result;
+          settle(entry);
           return;
         }
       }
@@ -1334,9 +1387,7 @@ const chatRuntimeSlice = createSlice({
       for (let i = 0; i < entries.length; i += 1) {
         const entry = entries[i];
         if (entry.status === 'running' && entry.name === toolName && entry.round === round) {
-          entry.status = status;
-          entry.failure = parsedFailure;
-          entry.result = result;
+          settle(entry);
           return;
         }
       }

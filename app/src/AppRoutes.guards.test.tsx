@@ -65,6 +65,9 @@ vi.mock('./pages/Accounts', () => ({ default: () => <div /> }));
 vi.mock('./pages/Brain', () => ({ default: () => <div /> }));
 vi.mock('./pages/dev/AgentInsightsPreview', () => ({ default: () => <div /> }));
 vi.mock('./pages/dev/UiGallery', () => ({ default: () => <div data-testid="page-ui-gallery" /> }));
+vi.mock('./pages/dev/ToolCallGallery', () => ({
+  default: () => <div data-testid="page-tool-call-gallery" />,
+}));
 vi.mock('./pages/Invites', () => ({ default: () => <div data-testid="page-invites" /> }));
 vi.mock('./pages/Notifications', () => ({
   default: () => <div data-testid="page-notifications" />,
@@ -102,6 +105,7 @@ const OWNED: Array<{ path: string; page: string; guard: Guard }> = [
   { path: '/notifications', page: 'page-notifications', guard: 'protected' },
   { path: '/ptt-overlay', page: 'page-ptt-overlay', guard: 'none' },
   { path: '/dev/ui', page: 'page-ui-gallery', guard: 'none' },
+  { path: '/dev/tools', page: 'page-tool-call-gallery', guard: 'none' },
 ];
 
 describe('AppRoutes — each route renders its page behind the right guard', () => {
@@ -200,6 +204,7 @@ describe('AppRoutes — the whole route table stays classified', () => {
     '/ptt-overlay': 'none',
     '/dev/agent-insights': 'none',
     '/dev/ui': 'none',
+    '/dev/tools': 'none',
     '/dev/assistant-ui': 'none',
     '*': 'none',
   };

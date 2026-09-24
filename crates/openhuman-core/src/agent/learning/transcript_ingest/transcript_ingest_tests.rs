@@ -203,6 +203,7 @@ async fn ingest_extracts_high_importance_preference_with_provenance() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_alpha")),
+        tools: None,
         messages: durable_messages([
             ChatMessage::user("hi"),
             ChatMessage::assistant("hello"),
@@ -237,6 +238,7 @@ async fn re_ingest_is_idempotent() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_beta")),
+        tools: None,
         messages: durable_messages([ChatMessage::user(
             "I prefer Postgres for everything new — please default to it.",
         )]),
@@ -261,6 +263,7 @@ async fn ingest_captures_user_reflection_and_recurring_pattern() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_gamma")),
+        tools: None,
         messages: durable_messages([
             ChatMessage::user("I prefer terse responses with no preamble."),
             ChatMessage::user("Going forward I want code-first answers."),
@@ -297,6 +300,7 @@ async fn ingest_filters_low_signal_chatter() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
         meta: fake_meta(None),
+        tools: None,
         messages: durable_messages([
             ChatMessage::user("ok"),
             ChatMessage::user("thanks!"),
@@ -324,6 +328,7 @@ async fn ingest_persists_candidates_with_bounded_concurrency() {
     // stores in flight at once — the bound assertion below would then fail.
     let transcript = SessionTranscript {
         meta: fake_meta(Some("thr_bound")),
+        tools: None,
         messages: durable_messages([
             ChatMessage::user("I prefer Postgres over MySQL for new metadata services."),
             ChatMessage::user("I prefer tabs over spaces in our Go codebase."),

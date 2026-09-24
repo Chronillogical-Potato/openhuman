@@ -1,92 +1,30 @@
 import type { ToolCallMessagePart, ToolCallMessagePartProps } from '@assistant-ui/react';
-import { CheckIcon, ChevronDownIcon, CircleXIcon, Loader2Icon, WrenchIcon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
-import { cn } from '../../../components/assistant-ui/lib/utils';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../../../components/assistant-ui/ui/collapsible';
-import type { ToolLabelArtifact } from '../../../providers/assistantUiMessages';
+  ToolCall,
+  type ToolCallOutcome,
+} from '../../../components/assistant-ui/elements/tool-call';
+import { useT } from '../../../lib/i18n/I18nContext';
+import { readOpenHumanToolArtifact } from '../../../providers/assistantUiMessages';
 import type {
   ToolFailureExplanation,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
-import { toolCallLabel } from '../../../utils/toolTimelineFormatting';
-import { BubbleMarkdown } from './AgentMessageBubble';
+import { openUrl } from '../../../utils/openUrl';
+import { FetchBody, FileBody, ShellBody, WebSearchBody } from '../tools/ToolBodies';
+import { hasDisplayValue, parsedValue, ToolDataView } from '../tools/ToolDataView';
+import { ToolIcon } from '../tools/ToolIcon';
+import { describeToolCall, parseToolArgs, toolLabel } from '../tools/toolPresentation';
 import { ToolFailureLines } from './ToolFailureLines';
 
-function friendlyLabel(key: string): string {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .replace(/^./, char => char.toUpperCase());
-}
-
-function parsedValue(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return value;
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return value;
-  }
-}
-
-function hasDisplayValue(value: unknown): boolean {
-  if (value === undefined || value === null || value === '') return false;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === 'object') return Object.keys(value as object).length > 0;
-  return true;
-}
-
-function ToolDataView({ value }: { value: unknown }) {
-  const parsed = parsedValue(value);
-  if (Array.isArray(parsed)) {
-    return (
-      <ul className="space-y-1 text-xs">
-        {parsed.map((item, index) => (
-          <li key={index} className="bg-muted/50 rounded-md px-2 py-1.5">
-            <ToolDataView value={item} />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  if (parsed && typeof parsed === 'object') {
-    const entries = Object.entries(parsed);
-    for (const key of ['content', 'output', 'result', 'message', 'query', 'q']) {
-      const semantic = entries.find(([candidate]) => candidate === key)?.[1];
-      if (hasDisplayValue(semantic)) return <ToolDataView value={semantic} />;
-    }
-    return (
-      <dl className="divide-border bg-muted/40 divide-y rounded-md px-2 text-xs">
-        {entries.map(([key, item]) => (
-          <div key={key} className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-3 py-1.5">
-            <dt className="text-muted-foreground font-medium">{friendlyLabel(key)}</dt>
-            <dd className="min-w-0 wrap-break-word">
-              <ToolDataView value={item} />
-            </dd>
-          </div>
-        ))}
-      </dl>
-    );
-  }
-  if (typeof parsed === 'boolean') return <span>{parsed ? 'Yes' : 'No'}</span>;
-  if (typeof parsed === 'string') return <BubbleMarkdown content={parsed} />;
-  return <span className="whitespace-pre-wrap">{String(parsed ?? '')}</span>;
-}
-
-function jsonText(result: unknown): string | undefined {
-  if (result === undefined) return undefined;
-  if (typeof result === 'string') return result;
-  try {
-    return JSON.stringify(result);
-  } catch {
-    return undefined;
-  }
+/** `1234` → "1.2s", `850` → "850ms", `75000` → "1m 15s". */
+export function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${Math.max(0, Math.round(ms))}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const minutes = Math.floor(ms / 60_000);
+  const seconds = Math.round((ms % 60_000) / 1000);
+  return `${minutes}m ${seconds}s`;
 }
 
 /**
@@ -106,9 +44,12 @@ export interface AssistantUiToolCallCardProps {
   argsText?: string;
   result?: unknown;
   status?: ToolTimelineEntryStatus;
+  /** Server label; used only for tools the presentation registry cannot describe. */
   displayName?: string;
   detail?: string;
   elapsedMs?: number;
+  /** Machine-readable result from the core (e.g. structured web-search hits). */
+  structured?: unknown;
   failure?: ToolFailureExplanation;
   /**
    * The call is parked on the user — an ApprovalGate request, or a sub-agent
@@ -120,7 +61,15 @@ export interface AssistantUiToolCallCardProps {
   footer?: ReactNode;
 }
 
-/** The single assistant-ui tool-call presentation used at every nesting level. */
+/**
+ * One tool call, rendered with assistant-ui's tool-call element.
+ *
+ * The icon, the label (in both tenses, which the element swaps between as
+ * the call settles) and the target chip all come from the presentation
+ * registry, so every surface names a call the same way. The panel expands
+ * into the tool's own assistant-ui element (search results, terminal, diff,
+ * page preview) or the generic Request / Result view.
+ */
 export function AssistantUiToolCallCard({
   toolName,
   args,
@@ -130,109 +79,135 @@ export function AssistantUiToolCallCard({
   displayName,
   detail,
   elapsedMs,
+  structured,
   failure,
   awaitingUser = false,
   footer,
 }: AssistantUiToolCallCardProps) {
+  const { t } = useT();
   const running =
     awaitingUser ||
     (status ? status === 'running' || status === 'awaiting_user' : result === undefined);
+  const effectiveStatus: ToolTimelineEntryStatus =
+    status ?? (awaitingUser ? 'awaiting_user' : running ? 'running' : 'success');
   const input = hasDisplayValue(args) ? args : parsedValue(argsText ?? '');
-  const output = result === '' && status && !running ? 'No output' : parsedValue(result);
-  // The row's own label when it has one; otherwise the shared formatter keyed
-  // on the tool's identity. Never a guess from the name's substrings or the
-  // argument keys — see `toolCallLabel`.
-  const suppliedLabel = displayName?.trim();
-  const formatted =
-    suppliedLabel && suppliedLabel.toLowerCase() !== 'tool'
-      ? undefined
-      : toolCallLabel(toolName, argsText || jsonText(args), jsonText(result));
-  const label = suppliedLabel && !formatted ? suppliedLabel : (formatted?.title ?? toolName);
-  const shownDetail = detail ?? formatted?.detail;
-  // `awaiting input` was previously reachable only via `status`, which the
-  // adapter forwards for `error` / `cancelled` alone — so the label could never
-  // render for the case it was written for. A parked call now says so.
-  const statusLabel =
-    status === 'error'
-      ? 'failed'
-      : status === 'cancelled'
-        ? 'cancelled'
-        : awaitingUser || status === 'awaiting_user'
-          ? 'awaiting input'
-          : running
-            ? 'running'
-            : 'done';
+  const parsedArgs = parseToolArgs(input);
+  const output = result === '' && status && !running ? t('conversations.tools.noOutput') : result;
+  const presentation = describeToolCall({
+    name: toolName,
+    args: parsedArgs,
+    status: effectiveStatus,
+    serverLabel: displayName,
+    serverDetail: detail,
+  });
+  const activeLabel = toolLabel({ ...presentation, tense: 'active' }, t);
+  const doneLabel = toolLabel({ ...presentation, tense: 'done' }, t);
   const failed = status === 'error';
-  // `failed` gates the failure-explanation block, which only an `error` carries.
-  // The icon is a wider question: a cancelled call did not succeed either, and
-  // before the adapter forwarded a status this branch was unreachable, so the
-  // check icon sat next to the word "cancelled".
-  const terminalNonSuccess = failed || status === 'cancelled';
+  const awaiting = awaitingUser || status === 'awaiting_user';
+  const outcome: ToolCallOutcome = failed
+    ? 'error'
+    : status === 'cancelled'
+      ? 'cancelled'
+      : awaiting
+        ? 'awaiting'
+        : 'success';
+  const statusText =
+    outcome === 'error'
+      ? t('conversations.tools.status.failed')
+      : outcome === 'cancelled'
+        ? t('conversations.tools.status.cancelled')
+        : outcome === 'awaiting'
+          ? t('conversations.tools.status.awaiting')
+          : running
+            ? t('conversations.tools.status.running')
+            : t('conversations.tools.status.done');
+  // Running and done are carried by the spinner / check; they stay readable
+  // to a screen reader. The states that need attention are spelled out.
+  const statusVisible = outcome !== 'success';
+
+  const searchBody =
+    presentation.body === 'webSearch'
+      ? WebSearchBody({ args: parsedArgs, result: output, structured, searching: running, t })
+      : null;
+  const richBody = running
+    ? null
+    : presentation.body === 'shell'
+      ? ShellBody({ args: parsedArgs, result: output, failed, t })
+      : presentation.body === 'webFetch'
+        ? FetchBody({ args: parsedArgs, result: output, t, onOpenExternal: openExternal })
+        : presentation.body === 'file'
+          ? FileBody({ args: parsedArgs, result: output })
+          : null;
+  const showOutput = !searchBody && hasDisplayValue(parsedValue(output));
 
   return (
-    <Collapsible
-      data-slot="aui_openhuman-tool-call"
+    <ToolCall
       data-testid="assistant-ui-tool-call"
-      defaultOpen={running}
-      data-awaiting-user={awaitingUser ? 'true' : undefined}
-      className={cn(
-        'border-border/60 dark:border-muted-foreground/15 rounded-xl border',
-        running && 'border-dashed'
-      )}>
-      <CollapsibleTrigger className="group/tool text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors">
-        <WrenchIcon className="size-4 shrink-0" />
-        <span className="text-foreground text-start font-medium">{label}</span>
-        {shownDetail ? (
-          <span className="bg-muted min-w-0 truncate rounded px-1.5 py-0.5 font-mono text-[11px]">
-            {shownDetail}
+      className="max-w-none"
+      label={doneLabel}
+      activeLabel={activeLabel}
+      // The web-search element shows the query as its own pill.
+      query={searchBody ? undefined : presentation.chip}
+      running={running}
+      outcome={outcome}
+      defaultOpen={awaitingUser}
+      icon={<ToolIcon presentation={presentation} className="text-foreground/45 size-3.5" />}
+      requestLabel={t('conversations.subagent.input')}
+      resultLabel={t('conversations.subagent.output')}
+      request={
+        !richBody && hasDisplayValue(input) ? (
+          <div data-testid="assistant-ui-tool-input">
+            <ToolDataView value={input} />
+          </div>
+        ) : undefined
+      }
+      result={
+        !richBody && showOutput ? (
+          <div data-testid="assistant-ui-tool-output">
+            <ToolDataView value={output} />
+          </div>
+        ) : undefined
+      }
+      meta={
+        <>
+          <span
+            data-testid="tool-call-status"
+            className={
+              !statusVisible || (running && outcome !== 'awaiting')
+                ? 'sr-only'
+                : outcome === 'awaiting'
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : undefined
+            }>
+            {statusText}
           </span>
-        ) : null}
-        <span className="flex shrink-0 items-center gap-1 text-[11px]">
-          {running ? (
-            <Loader2Icon className="size-3 animate-spin [animation-duration:0.6s]" />
-          ) : terminalNonSuccess ? (
-            <CircleXIcon className="size-3.5" />
-          ) : (
-            <CheckIcon className="size-3.5" />
-          )}
-          {statusLabel}
           {elapsedMs != null && !running ? (
-            <span className="tabular-nums">
-              {elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`}
+            <span data-testid="tool-call-elapsed" className="tabular-nums">
+              {formatElapsed(elapsedMs)}
             </span>
           ) : null}
-        </span>
-        <ChevronDownIcon className="ml-auto size-4 shrink-0 -rotate-90 transition-transform group-data-[state=open]/tool:rotate-0" />
-      </CollapsibleTrigger>
-      {failed && failure ? (
-        <div className="px-3 pb-2">
-          <ToolFailureLines failure={failure} />
-        </div>
-      ) : null}
-      {/* Outside `CollapsibleContent` on purpose: a decision the turn is
-          blocked on must not be hidden behind a disclosure the user has to
-          find and open. */}
-      {footer}
-      <CollapsibleContent className="space-y-2 px-3 pb-3">
-        {hasDisplayValue(input) ? (
-          <div data-testid="assistant-ui-tool-input">
-            <p className="text-muted-foreground mb-1 text-[11px] font-medium uppercase">Input</p>
-            <div className="max-h-48 overflow-auto">
-              <ToolDataView value={input} />
+        </>
+      }
+      aside={
+        <>
+          {failed && failure ? (
+            <div className="ps-5.5 pt-1 pb-2">
+              <ToolFailureLines failure={failure} />
             </div>
-          </div>
-        ) : null}
-        {hasDisplayValue(output) ? (
-          <div data-testid="assistant-ui-tool-output">
-            <p className="text-muted-foreground mb-1 text-[11px] font-medium uppercase">Output</p>
-            <div className="max-h-64 overflow-auto">
-              <ToolDataView value={output} />
-            </div>
-          </div>
-        ) : null}
-      </CollapsibleContent>
-    </Collapsible>
+          ) : null}
+          {footer ? <div className="ps-5.5">{footer}</div> : null}
+          {/* Search results are the call's whole point: visible without
+              opening the disclosure, as in assistant-ui's own web-search. */}
+          {searchBody ? <div className="ps-5.5 pt-1 pb-2">{searchBody}</div> : null}
+        </>
+      }>
+      {richBody ? <div className="mt-2 ps-5.5">{richBody}</div> : undefined}
+    </ToolCall>
   );
+}
+
+function openExternal(url: string): void {
+  void openUrl(url).catch(() => undefined);
 }
 
 /**
@@ -260,22 +235,16 @@ function toolStatusEnvelope(
     : undefined;
 }
 
-/** The label `toolPart` put on the part's UI-only `artifact`, if any. */
-function toolLabelArtifact(artifact: unknown): ToolLabelArtifact {
-  if (!artifact || typeof artifact !== 'object' || Array.isArray(artifact)) return {};
-  const { displayName, detail } = artifact as Record<string, unknown>;
-  return {
-    ...(typeof displayName === 'string' && displayName.trim() ? { displayName } : {}),
-    ...(typeof detail === 'string' && detail.trim() ? { detail } : {}),
-  };
-}
-
 /**
  * One tool call in the assistant-ui transcript.
  *
  * `approval` is supplied by assistant-ui on every tool part; this component used
  * to destructure four fields and drop the rest, which is why a parked call
  * rendered as an ordinary running one with no way to answer it.
+ *
+ * The part's `artifact` carries what the core said about the call (its label
+ * for a dynamic tool, the duration, a structured result). The adapter used to
+ * drop all of it, so the card guessed a label from the tool name.
  *
  * The decision surface itself is passed in rather than built here. It is
  * `ApprovalRequestCard`, which needs the thread id and the store's
@@ -289,17 +258,19 @@ export const OpenHumanToolCall: FC<
   }
 > = props => {
   const envelope = toolStatusEnvelope(props.result);
-  const label = toolLabelArtifact(props.artifact);
+  const artifact = readOpenHumanToolArtifact(props.artifact);
   return (
     <AssistantUiToolCallCard
       toolName={props.toolName}
-      displayName={label.displayName}
-      detail={label.detail}
       args={props.args}
       argsText={props.argsText}
       result={envelope ? envelope.value : props.result}
       status={envelope?.status}
       failure={envelope?.failure}
+      displayName={artifact?.displayName}
+      detail={artifact?.detail}
+      elapsedMs={artifact?.elapsedMs}
+      structured={artifact?.structured}
       awaitingUser={isApprovalPending(props.approval)}
       footer={props.approvalCard}
     />

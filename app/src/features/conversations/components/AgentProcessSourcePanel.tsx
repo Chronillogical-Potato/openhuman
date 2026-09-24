@@ -63,7 +63,7 @@ export function AgentProcessSourcePanel({
   // For a scoped *non*-sub-agent step, the detail (args / output) to show.
   const scopedDetail = scopedEntry
     ? (normalizeScopedBody(scopedEntry.result) ??
-      normalizeScopedBody(formatTimelineEntry(scopedEntry).detail) ??
+      normalizeScopedBody(formatTimelineEntry(scopedEntry, t).detail) ??
       normalizeScopedBody(scopedEntry.argsBuffer))
     : undefined;
 
@@ -102,7 +102,7 @@ export function AgentProcessSourcePanel({
           <SheetTitle asChild>
             <span className="min-w-0 flex-1 truncate font-semibold text-content">
               {scopedEntry
-                ? formatTimelineEntry(scopedEntry).title
+                ? formatTimelineEntry(scopedEntry, t).title
                 : t('conversations.agentTaskInsights.processSourceTitle')}
             </span>
           </SheetTitle>
@@ -171,7 +171,7 @@ export function AgentProcessSourcePanel({
                 {subagentEntries.map(entry => (
                   <div key={entry.id} data-testid="agent-source-subagent">
                     <p className="text-[12px] font-medium text-content-secondary">
-                      {formatTimelineEntry(entry).title}
+                      {formatTimelineEntry(entry, t).title}
                     </p>
                     <AssistantUiSubagentCall activity={entry.subagent!} />
                   </div>
