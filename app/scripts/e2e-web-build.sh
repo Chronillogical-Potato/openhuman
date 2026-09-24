@@ -15,45 +15,50 @@ fi
 RUST_HOST_TRIPLE="${RUST_HOST_TRIPLE:-$("$RUSTC_BIN" -vV | awk '/^host: / { print $2 }')}"
 E2E_WEB_CORE_TARGET_DIR="${E2E_WEB_CORE_TARGET_DIR:-$REPO_ROOT/target/e2e-web-${RUST_HOST_TRIPLE}}"
 
-export VITE_BACKEND_URL="http://127.0.0.1:${E2E_MOCK_PORT:-18473}"
-export VITE_OPENHUMAN_TARGET="web"
-export VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE="cloud"
-export VITE_OPENHUMAN_E2E_RESTART_APP_AS_RELOAD="true"
-export VITE_OPENHUMAN_CORE_RPC_URL="http://127.0.0.1:${OPENHUMAN_CORE_PORT:-17788}/rpc"
-export VITE_CHAT_ATTACHMENTS="true"
+# Preserve explicit harness ports before loading a developer .env. That file
+# may configure normal development, but must not change an E2E bundle's baked
+# endpoint or its E2E-only affordances.
+SELECTED_E2E_MOCK_PORT="${E2E_MOCK_PORT:-18473}"
+SELECTED_OPENHUMAN_CORE_PORT="${OPENHUMAN_CORE_PORT:-17788}"
 
 if [ -f "$REPO_ROOT/.env" ]; then
   # shellcheck source=/dev/null
   source "$REPO_ROOT/scripts/load-dotenv.sh"
 fi
 
-echo "Building web E2E bundle with backend ${VITE_BACKEND_URL}"
-# Drop the previous marker first. `build:web` runs `tsc`, so a failed build
-# leaves the OLD `dist-web` in place; without this the old marker would survive
-# beside it and the session would happily serve a stale bundle that merely
-# happens to agree about ports. No marker means the session refuses.
-rm -f "$APP_DIR/dist-web/.e2e-build-ports.json"
-pnpm run build:web
+E2E_MOCK_PORT="$SELECTED_E2E_MOCK_PORT"
+OPENHUMAN_CORE_PORT="$SELECTED_OPENHUMAN_CORE_PORT"
 
-# Record what got baked, so the session can refuse a bundle built for other
-# ports (#6478).
-#
-# `VITE_BACKEND_URL` above is substituted into the bundle by Vite at BUILD time
-# and has no runtime override in web mode: `utils/config.ts` reads
-# `import.meta.env.VITE_BACKEND_URL || DEFAULT_BACKEND_URL`, and
-# `services/backendUrl.ts`'s web path falls back to `window.location.origin` —
-# which is the web HOST port, not the mock's, so it cannot reconcile a
-# mismatch. Set the ports for the session but not the build (the natural thing
-# to do, since ports are a session concern) and the frontend's own API calls go
-# to a mock that is not listening, while the core — which reads `api_url` from
-# the `config.toml` the session generates at runtime — talks to the right one.
-# Some specs then fail and others pass, for a reason nothing reports.
-#
-# `VITE_OPENHUMAN_CORE_RPC_URL` is baked too but is NOT part of this problem: a
-# stored URL wins over it (`coreRpcClient.ts`, `storedUrl ?? CORE_RPC_URL`) and
-# the Playwright helper seeds that from the runtime port on every boot. It is
-# recorded here anyway so a future divergence is visible rather than inferred.
-cat > "$APP_DIR/dist-web/.e2e-build-ports.json" <<JSON
+# Apply E2E settings after .env so it cannot produce a non-E2E bundle with a
+# valid marker. Keep this immediately before the build that consumes them.
+export VITE_BACKEND_URL="http://127.0.0.1:${E2E_MOCK_PORT}"
+export VITE_OPENHUMAN_TARGET="web"
+export VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE="cloud"
+export VITE_OPENHUMAN_E2E_RESTART_APP_AS_RELOAD="true"
+export VITE_OPENHUMAN_CORE_RPC_URL="http://127.0.0.1:${OPENHUMAN_CORE_PORT}/rpc"
+export VITE_CHAT_ATTACHMENTS="true"
+
+echo "Building web E2E bundle with backend ${VITE_BACKEND_URL}"
+# Drop all build markers before compiling. A failed `build:web` leaves the
+# preceding dist-web intact, and the session must not accept that stale bundle.
+rm -f "$APP_DIR/dist-web/openhuman-e2e-bundle.marker" "$APP_DIR/dist-web/.e2e-build-ports.json"
+pnpm run build:web
+# Mark dist-web as an E2E bundle for e2e-web-session.sh. `pnpm build:web` on its
+# own compiles in the wrong backend and none of the E2E affordances, and Vite
+# empties dist-web on every build, so any later non-E2E build removes this
+# marker and the session refuses that bundle instead of serving it (#5920).
+# The recorded values are for diagnosing a bundle, not read back.
+cat >"$APP_DIR/dist-web/openhuman-e2e-bundle.marker" <<MARKER
+VITE_BACKEND_URL=${VITE_BACKEND_URL}
+VITE_OPENHUMAN_TARGET=${VITE_OPENHUMAN_TARGET}
+VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE=${VITE_OPENHUMAN_E2E_DEFAULT_CORE_MODE}
+VITE_OPENHUMAN_E2E_RESTART_APP_AS_RELOAD=${VITE_OPENHUMAN_E2E_RESTART_APP_AS_RELOAD}
+VITE_OPENHUMAN_CORE_RPC_URL=${VITE_OPENHUMAN_CORE_RPC_URL}
+VITE_CHAT_ATTACHMENTS=${VITE_CHAT_ATTACHMENTS}
+MARKER
+# Also retain the ports baked into the bundle. The session validates this
+# contract before serving: a web bundle cannot change its backend at runtime.
+cat >"$APP_DIR/dist-web/.e2e-build-ports.json" <<JSON
 {
   "e2e_mock_port": "${E2E_MOCK_PORT:-18473}",
   "openhuman_core_port": "${OPENHUMAN_CORE_PORT:-17788}",
