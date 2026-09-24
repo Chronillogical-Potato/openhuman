@@ -1,9 +1,11 @@
-import type {
-  ThreadAssistantMessagePart,
-  ThreadMessageLike,
-  ThreadUserMessagePart,
-  ToolApprovalOption,
-  ToolCallMessagePart,
+import {
+  fromThreadMessageLike,
+  type ThreadAssistantMessagePart,
+  type ThreadMessage as AuiThreadMessage,
+  type ThreadMessageLike,
+  type ThreadUserMessagePart,
+  type ToolApprovalOption,
+  type ToolCallMessagePart,
 } from '@assistant-ui/react';
 
 import { parseMessageImages } from '../lib/attachments';
@@ -14,6 +16,8 @@ import {
   type PendingApproval,
   type ProcessingTranscriptItem,
   type StreamingAssistantState,
+  type SubagentActivity,
+  type SubagentTranscriptItem,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import {
