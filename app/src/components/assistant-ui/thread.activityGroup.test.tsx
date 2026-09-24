@@ -17,7 +17,7 @@ import { Thread } from './thread';
  */
 type Part = Exclude<ThreadMessageLike['content'], string>[number];
 
-const tool = (id: string, name: string): Part =>
+const tool = (id: string, name: string, over: Record<string, unknown> = {}): Part =>
   ({
     type: 'tool-call',
     toolCallId: id,
@@ -25,6 +25,7 @@ const tool = (id: string, name: string): Part =>
     args: {},
     argsText: '{}',
     result: 'ok',
+    ...over,
   }) as never;
 
 const interleaved = (status: ThreadMessageLike['status']): ThreadMessageLike[] => [
@@ -94,6 +95,32 @@ describe('activity group', () => {
     );
 
     expect(screen.getByText('live thought')).toBeVisible();
+  });
+
+  it('is open when a parked approval precedes a completed tool', () => {
+    render(
+      <Harness
+        messages={[
+          { role: 'user', content: [{ type: 'text', text: 'do it' }] },
+          {
+            role: 'assistant',
+            status: { type: 'complete', reason: 'stop' },
+            content: [
+              tool('t1', 'shell', {
+                status: { type: 'requires-action', reason: 'interrupt' },
+              }),
+              tool('t2', 'search_two'),
+            ],
+          },
+        ]}
+        isRunning={false}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '2 tool calls' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
   });
 });
 

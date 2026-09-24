@@ -57,10 +57,15 @@ export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> 
   const isTail = useAuiState(
     s => s.message.status?.type === 'running' && indices.at(-1) === s.message.parts.length - 1
   );
+  // `GroupedParts` takes its status from the final part. A completed call after
+  // a parked approval would otherwise collapse the approval card out of sight.
+  const requiresAction = useAuiState(
+    s => indices.some(i => s.message.parts[i]?.status?.type === 'requires-action')
+  );
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
 
   const running = group.status.type === 'running' || isTail;
-  const live = running || group.status.type === 'requires-action';
+  const live = running || group.status.type === 'requires-action' || requiresAction;
 
   return (
     <ToolGroupRoot variant="ghost" open={userOpen ?? live} onOpenChange={setUserOpen}>
