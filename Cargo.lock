@@ -6531,6 +6531,7 @@ version = "2.1.2"
 dependencies = [
  "async-trait",
  "chrono",
+ "serde_json",
  "thiserror 2.0.20",
  "tinyagents-harness",
  "tinyagents-session",

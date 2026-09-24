@@ -389,6 +389,13 @@ seed history by hand, or pick a transcript by recency.
   messages verbatim, which is what keeps the provider's prefix cache warm
   across a restart. The accepted consequence is that prompt edits, new skills
   and newly connected integrations do not reach an existing thread.
+- **So is the tool list it was sent.** Every turn records its tool
+  declarations in the transcript (a `{"kind":"tools"}` record, written only
+  when they change); resume restores them, the prefix, and the committed-turn
+  count. The host never shrinks a thread's tools because a cache went cold:
+  `session_host/recorded_tools.rs` rebuilds recorded Composio actions as
+  deferred executors, and the prelude fetches integrations on the first turn
+  of every session instance, not only on a brand-new thread.
 - **Pre-identity conversations are adopted once**, on first resume, from the
   timestamped stems they were written to (`adopt_legacy_session_transcripts`).
   No legacy file is modified.
