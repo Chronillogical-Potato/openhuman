@@ -14,7 +14,7 @@
  * silently undo itself the next render — see `onDelete`'s own docstring in
  * `useOpenHumanExternalStore.ts`.
  */
-import { configureStore } from '@reduxjs/toolkit';
+import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
