@@ -71,6 +71,10 @@ export interface ApprovalCardAdapterProps<D = ApprovalDecision> {
   denyDecision?: D;
   /** Decision to send for "Allow once". Defaults to the approval-gate `'approve_once'`. */
   allowOnceDecision?: D;
+  /** Button label overrides, for a call site whose vocabulary differs from the approval-gate's ("Reject" vs. "Deny", "Approve & run" vs. "Approve"). Default to the approval-gate copy. */
+  denyLabel?: string;
+  alwaysAllowLabel?: string;
+  allowOnceLabel?: string;
   onDecide: (decision: D) => Promise<void>;
   /** Prefix for each button's `data-analytics-id` / e2e `data-testid`. */
   analyticsPrefix: string;
@@ -92,6 +96,9 @@ export function ApprovalCardAdapter<D = ApprovalDecision>({
   onAlwaysAllowClick,
   denyDecision = 'deny' as D,
   allowOnceDecision = 'approve_once' as D,
+  denyLabel,
+  alwaysAllowLabel,
+  allowOnceLabel,
   onDecide,
   analyticsPrefix,
   testId,
