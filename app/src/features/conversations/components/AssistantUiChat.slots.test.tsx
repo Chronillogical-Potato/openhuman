@@ -60,7 +60,11 @@ function buildStore() {
 
 function chat(
   onOpenHumanMode?: () => void,
-  overrides: { attachmentsEnabled?: boolean; attachmentInteractionBlocked?: boolean } = {}
+  overrides: {
+    attachmentsEnabled?: boolean;
+    attachmentInteractionBlocked?: boolean;
+    onAttachFiles?: (files: FileList | File[] | null) => Promise<void>;
+  } = {}
 ) {
   return (
     <AssistantUiChat
@@ -69,7 +73,7 @@ function chat(
       inputValue=""
       onInputValueChange={vi.fn()}
       attachments={[]}
-      onAttachFiles={vi.fn()}
+      onAttachFiles={overrides.onAttachFiles ?? vi.fn()}
       onRemoveAttachment={vi.fn()}
       maxAttachments={5}
       attachmentsEnabled={overrides.attachmentsEnabled ?? false}
@@ -78,6 +82,10 @@ function chat(
       onOpenHumanMode={onOpenHumanMode}
     />
   );
+}
+
+function threadViewport(): HTMLElement {
+  return document.querySelector('[data-slot="aui_thread-viewport"]') as HTMLElement;
 }
 
 function composerShell(): HTMLElement {
@@ -128,6 +136,31 @@ describe('assistant-ui composer slots', () => {
 
     // `attachmentsEnabled` is false here, so no host file sink is published and
     // the primitive's own (capability-gated) handling is what remains.
+    expect(composerShell().getAttribute('data-dragging')).toBeNull();
+  });
+
+  it('takes a file dropped anywhere over the open thread, not just the composer', () => {
+    const store = buildStore();
+    const onAttachFiles = vi.fn(() => Promise.resolve());
+    render(
+      <Provider store={store}>{chat(undefined, { attachmentsEnabled: true, onAttachFiles })}</Provider>
+    );
+
+    const file = new File(['png'], 'shot.png', { type: 'image/png' });
+    const dragOver = { types: ['Files'], dropEffect: 'none' };
+    fireEvent.dragOver(threadViewport(), { dataTransfer: dragOver });
+
+    // The drag is claimed over the transcript and the composer lights up as
+    // the place the file will land.
+    expect(dragOver.dropEffect).toBe('copy');
+    expect(composerShell().getAttribute('data-dragging')).toBe('true');
+
+    const drop = fireEvent.drop(threadViewport(), {
+      dataTransfer: { types: ['Files'], files: [file], items: [] },
+    });
+
+    expect(drop).toBe(false); // default (navigate to the file) cancelled
+    expect(onAttachFiles).toHaveBeenCalledWith([file]);
     expect(composerShell().getAttribute('data-dragging')).toBeNull();
   });
 });
