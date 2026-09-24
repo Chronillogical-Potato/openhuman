@@ -102,20 +102,19 @@ export function PlanReviewCardCore({
 
       {errorMsg && <p className="text-xs text-red-600 dark:text-red-400">{errorMsg}</p>}
 
-      <ApprovalCard
-        state="request"
-        command={review.summary || t('conversations.planReview.subtitle')}
+      <ApprovalCardAdapter<Decision>
+        ariaLabel={t('conversations.planReview.title')}
         title={t('conversations.planReview.title')}
         subtitle={t('conversations.planReview.subtitle')}
-        denyLabel={t('conversations.planReview.reject')}
-        alwaysAllowLabel={t('conversations.planReview.revise')}
-        allowOnceLabel={t('conversations.planReview.approve')}
-        onDeny={deciding ? undefined : () => void decide('reject')}
-        onAlwaysAllow={deciding ? undefined : () => setRevising(prev => !prev)}
-        onAllowOnce={deciding ? undefined : () => void decide('approve')}
-        denyProps={{ 'data-analytics-id': 'plan-review-reject' }}
-        alwaysAllowProps={{ 'data-analytics-id': 'plan-review-send-feedback' }}
-        allowOnceProps={{ 'data-analytics-id': 'plan-review-approve' }}
+        command={review.summary || t('conversations.planReview.subtitle')}
+        toolName="request_plan_review"
+        denyDecision="reject"
+        allowOnceDecision="approve"
+        onAlwaysAllowClick={() => setRevising(prev => !prev)}
+        alwaysHint={t('conversations.planReview.revise')}
+        onDecide={decision => decide(decision)}
+        analyticsPrefix="plan-review"
+        testId="plan-review-approval-card"
       />
 
       {revising && (
