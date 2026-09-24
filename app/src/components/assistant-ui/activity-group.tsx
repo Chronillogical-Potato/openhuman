@@ -1,5 +1,15 @@
 'use client';
 
+/**
+ * Not a vendored element. A local composition of two vendored primitives —
+ * `ToolGroupRoot` / `ToolGroupTrigger` / `ToolGroupContent`
+ * (`elements/tool-group.tsx`, from the assistant-ui `tool-group` registry
+ * item) and `OpenHumanReasoningGroup` (`reasoning-group.tsx`, over the
+ * `reasoning-trace` element) — that upstream has no equivalent for: one
+ * disclosure per `MessagePrimitive.GroupedParts` run of reasoning-and-tool
+ * activity, rather than a separate collapsible per part type. See the
+ * `ActivityGroup` doc comment below for why.
+ */
 import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import {
   ToolGroupContent,

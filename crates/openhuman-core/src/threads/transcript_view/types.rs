@@ -119,6 +119,8 @@ pub enum DisplayItem {
         /// frontend expands for the `ToolFailureLines` renderer.
         #[serde(skip_serializing_if = "Option::is_none")]
         failure: Option<ToolCallFailure>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<String>,
     },
     /// A delegated sub-agent run, with its own nested projected items.
     ///
@@ -148,6 +150,8 @@ pub enum DisplayItem {
         status: SubagentStatus,
         #[serde(skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ts: Option<String>,
         items: Vec<DisplayItem>,
     },
     /// A turn boundary — emitted when the `request_id` changes between lines.
