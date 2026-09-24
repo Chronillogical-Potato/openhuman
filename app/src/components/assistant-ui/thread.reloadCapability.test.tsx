@@ -29,9 +29,39 @@ const messages: ThreadMessageLike[] = [
   { role: 'assistant', content: [{ type: 'text', text: 'a reply' }] },
 ];
 
-function Harness({ withReload }: { withReload: boolean }) {
+function Harness({
+  withReload,
+  failed = false,
+  guardrail = false,
+}: {
+  withReload: boolean;
+  failed?: boolean;
+  guardrail?: boolean;
+}) {
   const runtime = useExternalStoreRuntime({
-    messages,
+    messages: guardrail
+      ? [
+          messages[0],
+          {
+            role: 'assistant',
+            content: [],
+            metadata: { custom: { extraMetadata: { chatError: { errorType: 'guardrail' } } } },
+          } satisfies ThreadMessageLike,
+        ]
+      : failed
+        ? [
+            messages[0],
+            {
+              role: 'assistant',
+              content: [],
+              status: {
+                type: 'incomplete',
+                reason: 'error',
+                error: 'The turn failed before a reply was saved',
+              },
+            } satisfies ThreadMessageLike,
+          ]
+        : messages,
     isRunning: false,
     convertMessage: (m: ThreadMessageLike) => m,
     onNew: async () => {},
@@ -54,5 +84,17 @@ describe('assistant action bar reload gate', () => {
   it('renders the Refresh button when the runtime can reload', () => {
     render(<Harness withReload />);
     expect(screen.getAllByRole('button', { name: 'Refresh' }).length).toBeGreaterThan(0);
+  });
+
+  it('shows a failed turn without retry or Refresh controls', () => {
+    render(<Harness withReload failed />);
+    expect(screen.getByText('The turn failed before a reply was saved')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
+  });
+
+  it('hides Refresh on a guardrail failed turn', () => {
+    render(<Harness withReload guardrail />);
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
   });
 });

@@ -32,6 +32,7 @@ import {
 } from '@/features/conversations/components/aui/auiThreadState';
 import { useT } from '@/lib/i18n/I18nContext';
 import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
+import { CHAT_ERROR_METADATA_KEY } from '@/store/threadSlice';
 import { useActionBarReload, useMessageError } from '@assistant-ui/core/react';
 import {
   ActionBarMorePrimitive,
@@ -1313,15 +1314,12 @@ const ComposerAction: FC<{
  * projection marks persisted `chat_error` rows as incomplete/error, so they
  * use this same card as errors raised directly by assistant-ui.
  *
- * `useMessageError`/`useActionBarReload` come straight from
- * `@assistant-ui/core/react` rather than through a primitive: there is no
- * primitive that hands back the raw error VALUE (only
- * `ErrorPrimitive.Message`, which renders it directly), and Retry needs the
- * same reload callback `ActionBarPrimitive.Reload` uses internally.
+ * `useMessageError` gives us the raw error value for the card. Failed turns
+ * have no committed assistant reply id for `threads.regenerate`, so this card
+ * must not offer Reload even when the runtime supports it for settled replies.
  */
 const MessageError: FC = () => {
   const error = useMessageError();
-  const { disabled: reloadDisabled, reload } = useActionBarReload();
   if (error === undefined) return null;
   const detail = typeof error === 'string' ? error : JSON.stringify(error);
   return (
@@ -1331,9 +1329,6 @@ const MessageError: FC = () => {
         title="Something went wrong"
         detail={detail}
         retrying={false}
-        onRetry={() => {
-          if (!reloadDisabled) reload();
-        }}
       />
     </MessagePrimitive.Error>
   );
@@ -1567,13 +1562,21 @@ const AssistantActionBar: FC = () => {
   // Hoisted to a `const` rather than written inline for the same coverage
   // reason as `editAction` in `UserActionBar`.
   const canReload = useAuiReloadCapability();
-  const reloadAction = canReload ? (
-    <ActionBarPrimitive.Reload asChild>
-      <TooltipIconButton tooltip="Refresh">
-        <RefreshCwIcon />
-      </TooltipIconButton>
-    </ActionBarPrimitive.Reload>
-  ) : null;
+  const isFailedTurn = useAuiState(s => {
+    if (s.message.status?.type === 'incomplete' && s.message.status.reason === 'error') return true;
+    const custom = s.message.metadata?.custom as
+      | { extraMetadata?: Record<string, unknown> }
+      | undefined;
+    return custom?.extraMetadata?.[CHAT_ERROR_METADATA_KEY] !== undefined;
+  });
+  const reloadAction =
+    canReload && !isFailedTurn ? (
+      <ActionBarPrimitive.Reload asChild>
+        <TooltipIconButton tooltip="Refresh">
+          <RefreshCwIcon />
+        </TooltipIconButton>
+      </ActionBarPrimitive.Reload>
+    ) : null;
 
   return (
     <ActionBarPrimitive.Root

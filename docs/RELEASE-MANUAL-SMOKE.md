@@ -23,6 +23,7 @@ Applies to every release, all platforms.
 ### Conversation resume
 
 - [ ] **An existing chat accepts another turn after restart** — Send a message and wait for its reply, fully quit OpenHuman, then reopen that conversation and send a second message. Expected: the second reply streams normally, retains the earlier context, and does not show a generic error. Repeat after the conversation has compacted if a long-running test profile is available (#6608).
+- [ ] **A failed chat turn does not offer an invalid regenerate action** — Trigger a provider failure in a test profile and inspect its error card. Expected: the diagnostic text remains visible, with no Retry or Refresh button on that failed message. A completed assistant reply still offers Refresh (#6613).
 
 ### Checkbox appearance
 
