@@ -422,7 +422,7 @@ impl ContinueSubagentTool {
                     prompt: message.to_string(),
                     worker_thread_id: checkpoint.worker_thread_id.clone(),
                     display_name: definition.display_name.clone(),
-                    parent_call_id: None,
+                    parent_call_id: crate::tools::host_extensions::tool_call_id(tool_context),
                 })
                 .await;
         }

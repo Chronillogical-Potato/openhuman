@@ -202,6 +202,7 @@ fn fake_meta(thread_id: Option<&str>) -> TranscriptMeta {
 async fn ingest_extracts_high_importance_preference_with_provenance() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
+        tools: None,
         meta: fake_meta(Some("thr_alpha")),
         tools: None,
         messages: durable_messages([
@@ -237,6 +238,7 @@ async fn ingest_extracts_high_importance_preference_with_provenance() {
 async fn re_ingest_is_idempotent() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
+        tools: None,
         meta: fake_meta(Some("thr_beta")),
         tools: None,
         messages: durable_messages([ChatMessage::user(
@@ -262,6 +264,7 @@ async fn re_ingest_is_idempotent() {
 async fn ingest_captures_user_reflection_and_recurring_pattern() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
+        tools: None,
         meta: fake_meta(Some("thr_gamma")),
         tools: None,
         messages: durable_messages([
@@ -299,6 +302,7 @@ async fn ingest_captures_user_reflection_and_recurring_pattern() {
 async fn ingest_filters_low_signal_chatter() {
     let mem = InMemory::new();
     let transcript = SessionTranscript {
+        tools: None,
         meta: fake_meta(None),
         tools: None,
         messages: durable_messages([
@@ -327,6 +331,7 @@ async fn ingest_persists_candidates_with_bounded_concurrency() {
     // PERSIST_CONCURRENCY (8), so an unbounded fan-out would push more than 8
     // stores in flight at once — the bound assertion below would then fail.
     let transcript = SessionTranscript {
+        tools: None,
         meta: fake_meta(Some("thr_bound")),
         tools: None,
         messages: durable_messages([

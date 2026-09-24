@@ -2,9 +2,10 @@
 //!
 //! The prompt is rendered once per session as cache tiers (see
 //! `agent::prompts::TieredPrompt::system_messages`) and sent as one leading
-//! system message per tier. These two helpers turn a rendered prompt into
-//! that prefix and recover it from a resumed transcript, so `runtime_session`
-//! never has to know how many messages a prefix is.
+//! system message per tier. This helper turns a rendered prompt into that
+//! prefix, so `runtime_session` never has to know how many messages a prefix
+//! is. A resumed thread's prefix is restored by the tinyagents session from
+//! the transcript's leading system rows; nothing here re-derives it.
 
 use tinyagents_runtime::PrefixSnapshot;
 use tinyinference_llm::message::Message;
@@ -23,15 +24,4 @@ pub(super) fn tiered_prefix_snapshot(tiered: &TieredPrompt) -> PrefixSnapshot {
         "[session] frozen system prompt as tiered segments"
     );
     PrefixSnapshot::new(messages.into_iter().map(Message::system).collect())
-}
-
-/// The frozen prefix of a resumed transcript: every leading system message,
-/// not only the first, because the prompt is sent as one message per tier.
-pub(super) fn leading_system_prefix(history: &[Message]) -> Option<PrefixSnapshot> {
-    let leading: Vec<Message> = history
-        .iter()
-        .take_while(|message| matches!(message, Message::System(_)))
-        .cloned()
-        .collect();
-    (!leading.is_empty()).then(|| PrefixSnapshot::new(leading))
 }

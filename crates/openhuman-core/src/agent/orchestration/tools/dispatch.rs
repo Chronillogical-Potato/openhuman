@@ -376,7 +376,7 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
                 prompt: prompt.to_string(),
                 worker_thread_id: None,
                 display_name: Some(definition.display_name().to_string()),
-                parent_call_id: None,
+                parent_call_id: crate::tools::host_extensions::tool_call_id(tool_context),
             })
             .await;
     }

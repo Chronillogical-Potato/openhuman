@@ -146,6 +146,12 @@ struct OpenHumanTurnPreludeMutable {
     pending_skill_retraction: Vec<String>,
     connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     connected_integrations_initialized: bool,
+    connected_integrations_authoritative: bool,
+    /// Integration action declarations this thread was already sent,
+    /// restored by the tinyagents session on resume. Rebuilt into deferred
+    /// executors whenever the live integrations list does not supply them
+    /// (see `recorded_tools`).
+    recorded_integration_actions: Vec<tinytools::ToolSpec>,
     workflows: Vec<crate::skills::Workflow>,
     composio_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     skill_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
@@ -221,19 +227,6 @@ impl OpenHumanTurnPrelude {
             tools: Some(tools),
         })
     }
-
-    async fn refresh_turn_boundary(&self, cold: bool) {
-        if cold {
-            self.refresh_cold_integrations().await;
-        } else {
-            self.refresh_dynamic_announcements().await;
-        }
-        // Integration changes are authority changes, not only display
-        // announcements. Refresh the delegation executable set and rebuild
-        // its schema/policy in the same hook pass before the driver sees it.
-        self.refresh_delegation_tool_surface();
-    }
-
     fn begin_user_effects(&self, state: &mut OpenHumanSessionState, request: &SessionTurnRequest) {
         let user_text = request.input.text();
         if self.auto_save && crate::agent::turn_origin::current_is_user_authored() {
@@ -400,114 +393,13 @@ impl OpenHumanTurnPrelude {
             .build_system_prompt_tiered(&context)
     }
 
-    async fn refresh_cold_integrations(&self) {
-        let should_fetch = !self
-            .mutable
+    #[cfg(test)]
+    fn synthesized_tool_names_for_test(&self) -> std::collections::HashSet<String> {
+        self.tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .connected_integrations_initialized;
-        if !should_fetch {
-            return;
-        }
-        let config = match self.runtime_config.clone() {
-            Some(config) => Some(config),
-            None => crate::config::Config::load_or_init()
-                .await
-                .ok()
-                .map(Arc::new),
-        };
-        let Some(config) = config else {
-            return;
-        };
-        let connected = crate::integrations::composio::fetch_connected_integrations(&config).await;
-        let mcp_servers = crate::mcp::registry::connections::connected_overview()
-            .await
-            .into_iter()
-            .map(|server| server.qualified_name)
-            .collect::<std::collections::HashSet<_>>();
-        let mut mutable = self
-            .mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        mutable.connected_integrations = connected;
-        mutable.connected_integrations_initialized = true;
-        mutable.announced_integrations = mutable
-            .connected_integrations
-            .iter()
-            .map(|item| item.toolkit.clone())
-            .collect();
-        mutable.announced_mcp_servers = mcp_servers;
-    }
-
-    async fn refresh_dynamic_announcements(&self) {
-        let skills_changed = self.drain_host_events();
-        if let Some(config) = self.runtime_config.as_deref() {
-            if let Some(current) = crate::integrations::composio::cached_active_integrations(config)
-            {
-                let mut mutable = self
-                    .mutable
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                let current_slugs: std::collections::HashSet<_> =
-                    current.iter().map(|item| item.toolkit.clone()).collect();
-                for slug in &current_slugs {
-                    if mutable.announced_integrations.insert(slug.clone())
-                        && !mutable.pending_integration_announcement.contains(slug)
-                    {
-                        mutable.pending_integration_announcement.push(slug.clone());
-                    }
-                }
-                mutable.connected_integrations = current;
-            }
-        }
-        let connected_mcp = crate::mcp::registry::connections::connected_overview()
-            .await
-            .into_iter()
-            .map(|server| server.qualified_name)
-            .collect::<Vec<_>>();
-        let mut mutable = self
-            .mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        for server in connected_mcp {
-            if mutable.announced_mcp_servers.insert(server.clone())
-                && !mutable.pending_mcp_announcement.contains(&server)
-            {
-                mutable.pending_mcp_announcement.push(server);
-            }
-        }
-        if !skills_changed {
-            return;
-        }
-        // Event-driven metadata refresh keeps the steady-state hot path free
-        // of the old per-turn filesystem scan.
-        let latest = crate::skills::load_workflow_metadata(&self.workspace_dir);
-        let id = |workflow: &crate::skills::Workflow| {
-            if workflow.dir_name.is_empty() {
-                workflow.name.clone()
-            } else {
-                workflow.dir_name.clone()
-            }
-        };
-        let previous: std::collections::HashSet<_> = mutable.workflows.iter().map(&id).collect();
-        let current: std::collections::HashSet<_> = latest.iter().map(&id).collect();
-        for id in current.difference(&previous) {
-            if mutable.announced_skills.insert((*id).clone())
-                && !mutable.pending_skill_announcement.contains(id)
-            {
-                mutable.pending_skill_announcement.push((*id).clone());
-            }
-        }
-        for id in previous.difference(&current) {
-            mutable.announced_skills.remove(id);
-            mutable
-                .pending_skill_announcement
-                .retain(|pending| pending != id);
-            if !mutable.pending_skill_retraction.contains(id) {
-                mutable.pending_skill_retraction.push((*id).clone());
-            }
-        }
-        mutable.workflows = latest;
+            .synthesized_tool_names
+            .clone()
     }
 
     /// Rebuild every delegation-dependent tool view from the current cached
@@ -529,20 +421,54 @@ impl OpenHumanTurnPrelude {
         if definition.subagents.is_empty() {
             return;
         }
-        let integrations = self
-            .mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .connected_integrations
-            .clone();
+        let (integrations, integrations_are_authoritative) = {
+            let mutable = self
+                .mutable
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (
+                mutable.connected_integrations.clone(),
+                mutable.connected_integrations_authoritative,
+            )
+        };
         let mut surface = self
             .tool_surface
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let synthesized = super::builder::drop_synthesized_name_collisions(
-            &surface.tools,
-            collect_orchestrator_tools(&definition, registry, &integrations),
-        );
+        let mut collected = collect_orchestrator_tools(&definition, registry, &integrations);
+        // Integration actions the thread already declared stay executable
+        // even when this process has not (re)fetched their integration yet.
+        // Only an agent that carries integration actions at all gets them.
+        if definition.subagents.iter().any(|entry| {
+            matches!(
+                entry,
+                crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
+                    if wildcard.matches_all()
+            )
+        }) {
+            let recorded = self
+                .mutable
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .recorded_integration_actions
+                .clone();
+            let rebuilt = super::recorded_tools::rehydrate_integration_actions(
+                &recorded,
+                &collected,
+                &integrations,
+                integrations_are_authoritative,
+            );
+            if !rebuilt.is_empty() {
+                log::info!(
+                    "[session] rebuilt {} recorded integration action(s) the live integrations did not supply agent={}",
+                    rebuilt.len(),
+                    self.agent_definition_id
+                );
+                collected.extend(rebuilt);
+            }
+        }
+        let synthesized =
+            super::builder::drop_synthesized_name_collisions(&surface.tools, collected);
         let synthesized_names = synthesized
             .iter()
             .map(|tool| tool.name().to_string())
@@ -1400,6 +1326,37 @@ impl OpenHumanSessionHost {
             cancellation,
             run_context: context.into_tinyagents(root_config),
         };
+        // `tinyagents_runtime::Session` owns the restored declaration
+        // snapshot. Load a bound, otherwise empty session before its normal
+        // lifecycle runs so the host prelude can rebuild only its permitted
+        // recorded integration executors for this turn.
+        if matches!(options.resume, ResumeMode::Session)
+            && self
+                .runtime_session
+                .as_ref()
+                .is_some_and(|session| session.history().is_empty())
+        {
+            let runtime = self
+                .runtime_session
+                .as_mut()
+                .expect("runtime session initialized");
+            let resumed = runtime
+                .resume(&options)
+                .await
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+            if resumed.loaded {
+                let recorded_tools = runtime.recorded_tools().cloned();
+                if let Some(prelude) = self
+                    .runtime_state
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .prelude
+                    .clone()
+                {
+                    prelude.adopt_recorded_tools(recorded_tools.as_ref());
+                }
+            }
+        }
         let outcome = self
             .runtime_session
             .as_mut()
@@ -1565,6 +1522,10 @@ impl OpenHumanSessionHost {
                     pending_skill_retraction: self.pending_skill_retraction.clone(),
                     connected_integrations: self.connected_integrations.clone(),
                     connected_integrations_initialized: self.connected_integrations_initialized,
+                    // Builder-provided integrations have not been verified by
+                    // this session's current authorization refresh.
+                    connected_integrations_authoritative: false,
+                    recorded_integration_actions: Vec::new(),
                     workflows: self.workflows.clone(),
                     composio_events: None,
                     skill_events: None,
@@ -1597,9 +1558,6 @@ impl OpenHumanSessionHost {
                     let state = state.clone();
                     let request_base_len = view.history.len()
                         + usize::from(view.history.last() != Some(&request.input));
-                    let resumed_prefix = view
-                        .resumed
-                        .then(|| super::prefix_snapshot::leading_system_prefix(view.history));
                     Box::pin(async move {
                         let transcript_snapshot =
                             crate::agent::tinyagents::TranscriptSnapshotSink::default();
@@ -1660,7 +1618,9 @@ impl OpenHumanSessionHost {
                                 tinyagents_runtime::RuntimeError::Driver(error.to_string())
                             })?;
                         if overrides.suppress_tools {
-                            preparation.tools = Some(ToolSnapshot::default());
+                            // One-off tool-less turn: must not become the
+                            // thread's recorded tool list.
+                            preparation.tools = Some(ToolSnapshot::default().exact());
                         }
                         let (
                             mut current_tools,
@@ -1701,9 +1661,6 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .required_output
                             .clone();
-                        if let Some(prefix) = resumed_prefix {
-                            preparation.prefix = prefix;
-                        }
                         Ok(preparation)
                     })
                 }
@@ -1871,7 +1828,8 @@ impl OpenHumanSessionHost {
         // driving a provider first.
         let mut builder = SessionBuilder::new(driver)
             .codec(Arc::new(OpenHumanTranscriptCodec))
-            .hooks(hooks);
+            .hooks(hooks)
+            .retain_recorded_tools(true);
         if let Some(session) = self.session.clone() {
             builder = builder.session(
                 self.session_locator(),
@@ -1985,3 +1943,10 @@ impl OpenHumanSessionHost {
         }
     }
 }
+
+#[path = "prelude_integrations.rs"]
+mod prelude_integrations;
+
+#[cfg(test)]
+#[path = "runtime_session_tests.rs"]
+mod tests;
