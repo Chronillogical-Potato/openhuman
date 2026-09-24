@@ -641,6 +641,103 @@ fn validate_params_option_accepts_null_and_inner_type() {
     assert!(validate_params(&s, &bad_p).is_err());
 }
 
+// --- validate_params bounded integers (#6137) ----------------------------
+
+fn bounded_schema(ty: TypeSchema) -> ControllerSchema {
+    schema(
+        "test",
+        "fn",
+        vec![FieldSchema {
+            name: "order",
+            ty,
+            comment: "",
+            required: false,
+        }],
+    )
+}
+
+fn order_params(value: Value) -> Map<String, Value> {
+    let mut p = Map::new();
+    p.insert("order".into(), value);
+    p
+}
+
+const U32_RANGE: TypeSchema = TypeSchema::BoundedU64 {
+    min: 0,
+    max: u32::MAX as u64,
+};
+
+#[test]
+fn validate_params_bounded_accepts_both_inclusive_ends() {
+    let s = bounded_schema(TypeSchema::BoundedU64 { min: 1, max: 10 });
+    assert!(validate_params(&s, &order_params(Value::from(1u64))).is_ok());
+    assert!(validate_params(&s, &order_params(Value::from(10u64))).is_ok());
+    assert!(validate_params(&s, &order_params(Value::Null)).is_ok());
+}
+
+#[test]
+fn validate_params_bounded_rejects_above_max_naming_the_bound() {
+    // The value `is_u64()`, so a plain `U64` declaration would have let it
+    // through to the handler's `u32` deserialization.
+    let s = bounded_schema(U32_RANGE);
+    let err = validate_params(&s, &order_params(Value::from(4_294_967_296u64))).unwrap_err();
+    assert_eq!(
+        err,
+        "invalid type for param 'order' in test.fn: expected unsigned integer <= 4294967295, got 4294967296"
+    );
+}
+
+#[test]
+fn validate_params_bounded_rejects_below_min_naming_the_bound() {
+    let s = bounded_schema(TypeSchema::BoundedU64 {
+        min: 1,
+        max: u32::MAX as u64,
+    });
+    let err = validate_params(&s, &order_params(Value::from(0u64))).unwrap_err();
+    assert_eq!(
+        err,
+        "invalid type for param 'order' in test.fn: expected unsigned integer >= 1, got 0"
+    );
+}
+
+#[test]
+fn validate_params_bounded_rejects_non_unsigned_values_by_kind() {
+    let s = bounded_schema(U32_RANGE);
+    for (value, got) in [
+        (Value::from(-1i64), "number"),
+        (Value::from(1.5f64), "number"),
+        (Value::from("7"), "string"),
+    ] {
+        let err = validate_params(&s, &order_params(value)).unwrap_err();
+        assert_eq!(
+            err,
+            format!(
+                "invalid type for param 'order' in test.fn: expected unsigned integer, got {got}"
+            )
+        );
+    }
+}
+
+#[test]
+fn validate_params_bounded_applies_inside_option_and_array() {
+    let opt = bounded_schema(TypeSchema::Option(Box::new(U32_RANGE)));
+    assert!(validate_params(&opt, &order_params(Value::from(5u64))).is_ok());
+    let err = validate_params(&opt, &order_params(Value::from(u64::MAX))).unwrap_err();
+    assert!(err.ends_with(&format!("got {}", u64::MAX)), "got: {err}");
+
+    let arr = bounded_schema(TypeSchema::Array(Box::new(TypeSchema::BoundedU64 {
+        min: 0,
+        max: u8::MAX as u64,
+    })));
+    assert!(validate_params(&arr, &order_params(serde_json::json!([0, 255]))).is_ok());
+    // The offending element is named, not the whole array.
+    let err = validate_params(&arr, &order_params(serde_json::json!([1, 256]))).unwrap_err();
+    assert!(
+        err.ends_with("expected unsigned integer <= 255, got 256"),
+        "got: {err}"
+    );
+}
+
 #[test]
 fn validate_params_json_type_accepts_anything() {
     let s = schema(

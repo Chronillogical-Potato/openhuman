@@ -99,6 +99,19 @@ pub enum TypeSchema {
     I64,
     /// A 64-bit unsigned integer.
     U64,
+    /// An unsigned integer confined to `min..=max` (both inclusive).
+    ///
+    /// Declares the real range of a field backed by a type narrower than
+    /// `u64` (`u32`, `u16`, `u8`, `NonZero*`), so `validate_params` refuses an
+    /// out-of-range value before dispatch instead of the handler's typed
+    /// deserialization failing after it (#6137). A plain `u32` field is
+    /// `BoundedU64 { min: 0, max: u32::MAX as u64 }`.
+    BoundedU64 {
+        /// Smallest accepted value.
+        min: u64,
+        /// Largest accepted value.
+        max: u64,
+    },
     /// A 64-bit floating point number.
     F64,
     /// A UTF-8 encoded string.

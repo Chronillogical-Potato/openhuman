@@ -677,6 +677,19 @@ fn parse_input_value(ty: &TypeSchema, raw: &str) -> Result<Value, String> {
             .parse::<u64>()
             .map(|n| Value::Number(n.into()))
             .map_err(|e| format!("expected u64, got '{raw}': {e}")),
+        TypeSchema::BoundedU64 { min, max } => {
+            let n = raw
+                .parse::<u64>()
+                .map_err(|e| format!("expected unsigned integer, got '{raw}': {e}"))?;
+            // Name the crossed limit, matching `validate_params`.
+            if n > *max {
+                Err(format!("expected unsigned integer <= {max}, got '{raw}'"))
+            } else if n < *min {
+                Err(format!("expected unsigned integer >= {min}, got '{raw}'"))
+            } else {
+                Ok(Value::Number(n.into()))
+            }
+        }
         TypeSchema::F64 => {
             let n = raw
                 .parse::<f64>()

@@ -9440,7 +9440,7 @@ async fn json_rpc_config_autonomy_settings_roundtrip() {
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("error object missing message: {bad_err}"));
     assert!(
-        err_message.contains("at least 1"),
+        err_message.contains("unsigned integer >= 1"),
         "expected validation error in: {err_message}"
     );
 

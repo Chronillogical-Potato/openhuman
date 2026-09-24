@@ -113,3 +113,21 @@ fn controller_schema_serializes_to_json() {
     assert_eq!(json["inputs"][0]["name"], "limit");
     assert_eq!(json["outputs"][0]["required"], true);
 }
+
+#[test]
+fn bounded_u64_serializes_additively() {
+    // `/schema` is a public contract: the bound rides in a new variant, so
+    // existing `"U64"` fields keep their exact wire shape (#6137).
+    let bounded = TypeSchema::BoundedU64 {
+        min: 1,
+        max: u32::MAX as u64,
+    };
+    assert_eq!(
+        serde_json::to_value(&bounded).unwrap(),
+        serde_json::json!({ "BoundedU64": { "min": 1, "max": 4_294_967_295u64 } })
+    );
+    assert_eq!(
+        serde_json::to_value(TypeSchema::U64).unwrap(),
+        serde_json::json!("U64")
+    );
+}

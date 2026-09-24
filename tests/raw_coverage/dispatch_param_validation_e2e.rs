@@ -144,3 +144,36 @@ async fn explicit_null_passes_the_gate_and_the_handler_refuses_instead() {
         "the gate must NOT have refused this: {err}"
     );
 }
+
+/// A field backed by a `u32` declares its real range, so a value that is a
+/// valid `u64` but not a valid `u32` is refused at the gate with the bound
+/// named — rather than passing validation and failing (or, before #6137, being
+/// silently clamped to "unlimited") inside the handler.
+#[tokio::test]
+async fn out_of_range_integer_is_refused_with_the_bound_named() {
+    let err = dispatch(
+        state(),
+        "openhuman.config_update_autonomy_settings",
+        json!({ "max_actions_per_hour": 4_294_967_296u64 }),
+    )
+    .await
+    .expect_err("4294967296 does not fit the u32 field");
+    assert_eq!(
+        err,
+        "invalid type for param 'max_actions_per_hour' in config.update_autonomy_settings: \
+         expected unsigned integer <= 4294967295, got 4294967296"
+    );
+
+    let err = dispatch(
+        state(),
+        "openhuman.config_update_autonomy_settings",
+        json!({ "max_actions_per_hour": 0 }),
+    )
+    .await
+    .expect_err("0 is below the declared minimum");
+    assert_eq!(
+        err,
+        "invalid type for param 'max_actions_per_hour' in config.update_autonomy_settings: \
+         expected unsigned integer >= 1, got 0"
+    );
+}
