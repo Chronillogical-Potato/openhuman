@@ -59,6 +59,14 @@ export interface ApprovalCardAdapterProps<D = ApprovalDecision> {
    */
   alwaysDecision?: D;
   alwaysHint?: string;
+  /**
+   * Local UI action for "Always allow" instead of an `onDecide` dispatch —
+   * e.g. `PlanReviewPart`'s "Revise" button, which opens a feedback textarea
+   * rather than sending a decision immediately. Takes precedence over
+   * `alwaysDecision` when both are given; does not enter the `deciding`
+   * state (there is nothing pending to show "deciding" for).
+   */
+  onAlwaysAllowClick?: () => void;
   /** Decision to send for "Deny". Defaults to the approval-gate `'deny'`. */
   denyDecision?: D;
   /** Decision to send for "Allow once". Defaults to the approval-gate `'approve_once'`. */
