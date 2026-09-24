@@ -21,7 +21,14 @@ pub fn subscribe_web_channel_events() -> broadcast::Receiver<WebChannelEvent> {
     EVENT_BUS.subscribe()
 }
 
-pub fn publish_web_channel_event(event: WebChannelEvent) {
+/// Publish `event` to every subscribed socket bridge and the JSON-RPC
+/// `/events` stream, stamping `ts` (epoch ms) when the caller left it unset
+/// so every emitted event carries a wall-clock time the frontend can use for
+/// ordering/latency display without guessing at receive time.
+pub fn publish_web_channel_event(mut event: WebChannelEvent) {
+    if event.ts.is_none() {
+        event.ts = Some(crate::web_chat::progress_bridge::unix_epoch_ms());
+    }
     let _ = EVENT_BUS.send(event);
 }
 
