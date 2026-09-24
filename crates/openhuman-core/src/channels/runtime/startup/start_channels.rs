@@ -85,6 +85,11 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     // `queue_item_queued`/`queue_item_delivered` web-channel events so the
     // desktop goal chip, todo drawer, and message-queue UI stay live (C3).
     crate::web_chat::register_agent_surface_subscriber();
+    // Surface memory store/recall activity (MemoryStored/MemoryRecalled) as
+    // `memory_activity` web-channel events, routed to the turn's own
+    // thread/client only (C5) — never carries memory content or the raw
+    // recall query, only a short clipped preview.
+    crate::web_chat::register_memory_activity_surface_subscriber();
     // Spawn the per-toolkit provider periodic sync scheduler. This is
     // a thin tokio task that ticks every minute and dispatches into
     // any provider whose `sync_interval_secs` has elapsed for an
