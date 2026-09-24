@@ -45,7 +45,7 @@ pub fn register_egress_surface_subscriber() {
 /// that carry chat routing — background/CLI/cron egress has no chat client to
 /// fan out to and is dropped here (still observable on the domain bus for
 /// non-chat consumers such as an audit log).
-struct EgressSurfaceSubscriber;
+pub(crate) struct EgressSurfaceSubscriber;
 
 #[async_trait]
 impl EventHandler<DomainEvent> for EgressSurfaceSubscriber {
