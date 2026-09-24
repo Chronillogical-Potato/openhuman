@@ -35,6 +35,7 @@ import { getCoreStateSnapshot } from '../../../lib/coreState/store';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { socketService } from '../../../services/socketService';
 import { useAppSelector } from '../../../store/hooks';
+import type { RootState } from '../../../store/index';
 import { selectSocketStatus } from '../../../store/socketSelectors';
 
 const log = debugFactory('openhuman:aui:connection-state');
