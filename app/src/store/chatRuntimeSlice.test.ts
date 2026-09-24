@@ -890,7 +890,7 @@ describe('hydrateRuntimeFromSnapshot — persisted tool result output', () => {
   });
 });
 
-describe('hydrateRuntimeFromSnapshot — interrupted partial answer (fix 2)', () => {
+describe('hydrateRuntimeFromSnapshot — interrupted snapshot', () => {
   function makeInterruptedPartialSnapshot(
     threadId: string,
     over: Partial<PersistedTurnState> = {}
@@ -910,62 +910,17 @@ describe('hydrateRuntimeFromSnapshot — interrupted partial answer (fix 2)', ()
     };
   }
 
-  it('surfaces the persisted partial reply + thinking as a settled buffer', () => {
+  it('settles an interrupted snapshot without resurrecting its partial as a live stream', () => {
     const store = makeStore();
     store.dispatch(
       hydrateRuntimeFromSnapshot({ snapshot: makeInterruptedPartialSnapshot('t-int') })
     );
 
     const state = store.getState().chatRuntime;
-    expect(state.interruptedAssistantByThread['t-int']).toEqual({
-      requestId: 'req-int',
-      content: 'Here is the partial ans',
-      thinking: 'was still reasoning',
-    });
     // It is NOT resurrected as a live streaming buffer (would pulse).
     expect(state.streamingAssistantByThread['t-int']).toBeUndefined();
     // The lifecycle is recorded as interrupted, not a fake in-flight status.
     expect(state.inferenceTurnLifecycleByThread['t-int']).toBe('interrupted');
-  });
-
-  it('keeps an interrupted turn that only produced thinking', () => {
-    const store = makeStore();
-    store.dispatch(
-      hydrateRuntimeFromSnapshot({
-        snapshot: makeInterruptedPartialSnapshot('t-think', { streamingText: '' }),
-      })
-    );
-    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-think']).toMatchObject({
-      content: '',
-      thinking: 'was still reasoning',
-    });
-  });
-
-  it('does not surface a partial for an interrupted turn with no persisted text', () => {
-    const store = makeStore();
-    store.dispatch(
-      hydrateRuntimeFromSnapshot({
-        snapshot: makeInterruptedPartialSnapshot('t-empty', { streamingText: '', thinking: '' }),
-      })
-    );
-    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-empty']).toBeUndefined();
-  });
-
-  it('clears a stale interrupted partial when a completed snapshot lands', () => {
-    const store = makeStore();
-    store.dispatch(hydrateRuntimeFromSnapshot({ snapshot: makeInterruptedPartialSnapshot('t-c') }));
-    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-c']).toBeDefined();
-
-    store.dispatch(
-      hydrateRuntimeFromSnapshot({
-        snapshot: makeInterruptedPartialSnapshot('t-c', {
-          lifecycle: 'completed',
-          streamingText: '',
-          thinking: '',
-        }),
-      })
-    );
-    expect(store.getState().chatRuntime.interruptedAssistantByThread['t-c']).toBeUndefined();
   });
 });
 

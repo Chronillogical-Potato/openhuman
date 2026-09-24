@@ -1,21 +1,29 @@
 /**
  * Inline source list under a settled answer.
  *
- * Three things are under test, and the second is the one that matters:
+ * Sources travel as assistant-ui `source` parts (`assistantParts`) and `Thread`
+ * groups them into its `SourceGroup` slot, which `/chat` fills with
+ * `ChatSources`.
+ *
+ * Four things are under test, and the second is the one that matters:
  *
  * 1. the list renders the turn's `http(s)` sources;
  * 2. it is actually **reached from the live `/chat` surface** — mounted through
  *    `AssistantUiChat`, with the trail arriving by the real route (the derived
  *    transcript RPC → `mapDisplayItems` → the adapter → message metadata), not
- *    by rendering `TurnSources` directly with a hand-made prop. A component that
+ *    by rendering `ChatSources` directly with a hand-made prop. A component that
  *    renders correctly in isolation while nothing mounts it is the defect shape
- *    this codebase keeps producing (`legacyMainPanel`, the assistant-ui
- *    reasoning part, the suggestion chips), so proving the wiring is the point;
+ *    this codebase keeps producing (the old voice-only transcript panel, the
+ *    assistant-ui reasoning part, the suggestion chips), so proving the wiring is the point;
  * 3. a non-`http(s)` URL never becomes a link. Sources are derived from the
  *    `url` argument of a fetch tool call, which is raw model output, so a
  *    `javascript:` value must not reach an `<a href>`. `extractAgentSources`
  *    enforces that; this pins that the enforcement survives the trip through
- *    the inline surface.
+ *    the inline surface;
+ * 4. the turn is drawn once. A settled answer used to carry a second summary
+ *    of its own reasoning and tools under it (a "N steps · M tools" footer and
+ *    a sources list both read from a duplicate `processTrail`); only the inline
+ *    parts remain.
  *
  * Only the RPC is stubbed — the boundary a unit test should stub. Everything
  * between it and the DOM is production code.
@@ -33,7 +41,6 @@ import threadReducer from '../../../../store/threadSlice';
 import type { DerivedDisplayItem } from '../../../../types/derivedTranscript';
 import type { ThreadMessage } from '../../../../types/thread';
 import { AssistantUiChat } from '../AssistantUiChat';
-import { readProcessTrail } from './turnProcessTrail';
 
 const THREAD_ID = 't-sources';
 const REQUEST_ID = 'req-sources';
@@ -101,7 +108,7 @@ function buildStore() {
   });
 }
 
-/** Mounted exactly as `/chat` mounts it — never `<TurnSources />` directly. */
+/** Mounted exactly as `/chat` mounts it — never `<ChatSources />` directly. */
 function renderChat() {
   return render(
     <Provider store={buildStore()}>
@@ -150,7 +157,7 @@ describe('inline turn sources', () => {
 
     renderChat();
 
-    // Reached through `AssistantUiChat` -> `Thread` -> the `TurnSources` slot,
+    // Reached through `AssistantUiChat` -> `Thread` -> the `SourceGroup` slot,
     // so this proves the wiring and not merely the component.
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
 
@@ -160,6 +167,24 @@ describe('inline turn sources', () => {
 
     await expandSources();
     expect(sourceHrefs()).toEqual(['https://example.com/a', 'https://docs.rs/b']);
+  });
+
+  it('draws the turn once, with no process footer under the answer', async () => {
+    vi.spyOn(threadApi, 'getDerivedTranscript').mockResolvedValue(
+      page(toolCall('c1', 'https://example.com/a'), {
+        kind: 'reasoning',
+        text: 'Looking it up.',
+      } as DerivedDisplayItem) as never
+    );
+
+    renderChat();
+
+    await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
+    // One activity disclosure (reasoning + tools, collapsed once settled) and
+    // nothing summarising it a second time under the answer.
+    expect(document.querySelectorAll('[data-slot="tool-group-root"]')).toHaveLength(1);
+    expect(document.querySelector('[data-testid="turn-process-footer"]')).toBeNull();
+    expect(screen.queryByText(/\d+ steps? ·/)).toBeNull();
   });
 
   it('renders nothing when the turn visited no sources', async () => {
@@ -189,40 +214,8 @@ describe('inline turn sources', () => {
     // One row, not two: the `javascript:` entry is dropped by
     // `extractAgentSources`, so it is never counted and never linked.
     expect(sourceHrefs()).toEqual(['https://example.com/safe']);
-    expect(document.body.innerHTML).not.toContain('javascript:');
-  });
-});
-
-/**
- * The validator both trail consumers share.
- *
- * It used to check `steps` and `tools` and then cast to `TurnProcessTrail`,
- * which claimed more than it had proven — `timeline` was never inspected, and
- * `TurnSources` reads exactly that field. These pin the tightened version.
- */
-describe('readProcessTrail', () => {
-  const trail = (over: Record<string, unknown>) => ({
-    custom: { processTrail: { steps: 2, tools: 1, timeline: [], transcript: [], ...over } },
-  });
-
-  it('accepts a complete trail', () => {
-    expect(readProcessTrail(trail({}))).not.toBeNull();
-  });
-
-  it('rejects a trail whose timeline is not an array', () => {
-    // The field `TurnSources` spreads. Before the validator checked it, this
-    // shape type-checked as a `TurnProcessTrail` and threw at the spread.
-    expect(readProcessTrail(trail({ timeline: undefined }))).toBeNull();
-    expect(readProcessTrail(trail({ timeline: 'not-an-array' }))).toBeNull();
-  });
-
-  it('rejects a trail whose transcript is not an array', () => {
-    expect(readProcessTrail(trail({ transcript: undefined }))).toBeNull();
-  });
-
-  it('rejects metadata that carries no trail at all', () => {
-    expect(readProcessTrail(undefined)).toBeNull();
-    expect(readProcessTrail({})).toBeNull();
-    expect(readProcessTrail({ custom: {} })).toBeNull();
+    // The fetch card may show the raw argument as text; it must never be a link.
+    const hrefs = Array.from(document.querySelectorAll('a[href]')).map(a => a.getAttribute('href'));
+    expect(hrefs.some(href => href?.startsWith('javascript:'))).toBe(false);
   });
 });

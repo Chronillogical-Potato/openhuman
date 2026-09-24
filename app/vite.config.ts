@@ -184,12 +184,29 @@ function devConnectPlugin(): PluginOption {
       try {
         var url = ${json(rpcUrl)};
         var token = ${json(token)};
+        // A core's GET /dev/connect (crates/openhuman-core/src/core/dev_connect.rs)
+        // lands here with its URL + bearer in the fragment, which never reaches
+        // a server. That wins over the dev server's own env so a browser can
+        // attach to an already-running desktop core (and its session). Only a
+        // loopback http core is accepted: a crafted link must not be able to
+        // point this renderer at someone else's runtime.
+        var fragment = new URLSearchParams(location.hash.slice(1));
+        var fragmentUrl = fragment.get("rpcUrl");
+        var fragmentToken = fragment.get("token");
+        if (fragmentUrl && fragmentToken) {
+          var parsed = new URL(fragmentUrl);
+          var loopback = ["localhost", "127.0.0.1", "[::1]"];
+          if (parsed.protocol !== "http:" || loopback.indexOf(parsed.hostname) === -1) {
+            throw new Error("refusing non-loopback core " + parsed.origin);
+          }
+          url = fragmentUrl;
+          token = fragmentToken;
+        }
         if (url) localStorage.setItem("openhuman_core_rpc_url", url);
         if (token) localStorage.setItem("openhuman_core_rpc_token", token);
         if (url && token) localStorage.setItem("openhuman_core_mode", "cloud");
       } catch (err) {
-        document.body.textContent =
-          "localStorage unavailable: " + err + " — cannot seed core credentials.";
+        document.body.textContent = "Cannot seed core credentials: " + err;
         throw err;
       }
       location.replace("/");

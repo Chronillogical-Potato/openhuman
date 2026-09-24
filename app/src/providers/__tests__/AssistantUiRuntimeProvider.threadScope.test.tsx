@@ -2,11 +2,10 @@
  * The runtime must represent the thread it is GIVEN.
  *
  * `AssistantUiRuntimeProvider` used to read `state.thread.selectedThreadId`
- * itself, which is only correct for the home chat. `ChatThreadView` is also
- * rendered by the Workflow Copilot against its own dedicated builder thread,
- * which is never the selected one — so a runtime that follows the selection
- * would, once the transcript renders from assistant-ui primitives, paint the
- * home chat's messages inside the copilot.
+ * itself, which is only correct for the home chat. The assistant-ui `Thread` is
+ * also rendered by the Workflow Copilot against its own dedicated builder
+ * thread, which is never the selected one — so a runtime that follows the
+ * selection would paint the home chat's messages inside the copilot.
  *
  * These tests state that as behaviour rather than as structure: what a probe
  * under the runtime sees, and what two simultaneously-mounted runtimes see.

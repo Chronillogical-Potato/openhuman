@@ -1,18 +1,12 @@
 /**
- * `InferenceStatusLine` is shared by two surfaces, and they need different things
- * from it.
+ * `InferenceStatusLine` renders every phase, including `thinking`.
  *
- * `/chat` renders `AssistantUiChat`, where assistant-ui paints its own pulsing
- * `●` during the pre-first-token gap, so a `Thinking... (N)` caption there is a
- * second indicator stacked under the library's. Voice mode renders
- * `ChatThreadView`, which has no assistant-ui markdown and therefore no dot —
- * and which mounts this line *specifically* for the `thinking` phase.
- *
- * So the duplicate is suppressed at the assistant-ui caller
- * (`AssistantUiInferenceStatus` returns null for `thinking`), NOT by deleting
- * the branch from this shared component. These tests pin that split: removing
- * the branch here to "fix" the duplicate silently blanks the legacy surface,
- * which is what #6572 originally did and what tinysweeper caught.
+ * On `/chat` (`AssistantUiChat`) assistant-ui paints its own pulsing `●` during
+ * the pre-first-token gap, so a `Thinking... (N)` caption there would be a
+ * second indicator stacked under the library's. That duplicate is suppressed at
+ * the assistant-ui caller (`AssistantUiInferenceStatus` returns null for
+ * `thinking`), not by deleting the branch from this component, which stays a
+ * complete renderer for any caller that has no indicator of its own.
  */
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';

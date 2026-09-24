@@ -304,11 +304,6 @@ describe('buildRuntimeMessages', () => {
       }),
       { type: 'text', text: finalText },
     ]);
-    // The trail still belongs to the coalesced bubble.
-    expect(
-      (projected[1]?.metadata as { custom?: { processTrail?: unknown } } | undefined)?.custom
-        ?.processTrail
-    ).toMatchObject({ steps: 1, tools: 1 });
   });
 
   it('does not coalesce adjacent assistant turns with different request ids', () => {
@@ -459,8 +454,7 @@ describe('buildRuntimeMessages', () => {
   });
 
   it('re-converts only the tail as tokens land, never the settled transcript', () => {
-    // The projection-level statement of the property `ChatThreadView.renderPerf`
-    // pins for the render tree: streaming must not sweep the transcript.
+    // Streaming must not sweep the transcript: only the live tail re-converts.
     const settled = Array.from({ length: 40 }, (_, i) =>
       msg({ id: `m-${i}`, sender: i % 2 ? 'agent' : 'user', content: `prose ${i}` })
     );
@@ -671,39 +665,85 @@ describe('part ordering', () => {
   });
 });
 
-describe('turn process footer metadata', () => {
-  const trailOf = (message: { metadata?: unknown }) =>
-    (message.metadata as { custom?: { processTrail?: unknown } } | undefined)?.custom?.processTrail;
+describe('one copy of the turn', () => {
+  const custom = (message: { metadata?: unknown }) =>
+    (message.metadata as { custom?: Record<string, unknown> } | undefined)?.custom ?? {};
 
-  it('counts every process step and the tool rows behind them', () => {
+  it('carries reasoning and tools only as parts, with no second trail in metadata', () => {
+    // A settled answer used to carry its reasoning and tools twice: inline as
+    // parts, and again as `metadata.custom.processTrail`, which a footer under
+    // the answer summarised as "N steps · M tools".
     const converted = toThreadMessageLike(
       msg({ id: 'a', sender: 'agent', content: 'done' }),
       [tool({ id: 'c1', name: 'file_read', status: 'success' })],
       [
         { kind: 'thinking', round: 1, seq: 0, text: 'think' },
-        { kind: 'narration', round: 1, seq: 1, text: 'narrate' },
-        { kind: 'toolCall', round: 1, seq: 2, callId: 'c1' },
+        { kind: 'toolCall', round: 1, seq: 1, callId: 'c1' },
       ]
     );
-    expect(trailOf(converted)).toMatchObject({ steps: 3, tools: 1 });
-  });
-
-  it('falls back to the tool rows for a legacy snapshot with no transcript', () => {
-    const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
-      tool({ id: 'c1', status: 'success' }),
-      tool({ id: 'c2', seq: 1, status: 'success' }),
+    expect(converted.content).toEqual([
+      { type: 'reasoning', text: 'think' },
+      expect.objectContaining({ type: 'tool-call', toolCallId: 'c1' }),
+      { type: 'text', text: 'done' },
     ]);
-    expect(trailOf(converted)).toMatchObject({ steps: 2, tools: 2 });
+    expect(custom(converted)).not.toHaveProperty('processTrail');
   });
 
-  it('is null for a plain answer, so the footer renders no door', () => {
-    expect(trailOf(toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'hi' })))).toBe(
-      null
-    );
+  it('emits the pages the turn fetched as url source parts after the answer', () => {
+    const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
+      tool({
+        id: 'f1',
+        name: 'web_fetch',
+        status: 'success',
+        argsBuffer: '{"url":"https://example.com/a"}',
+      }),
+      tool({
+        id: 'f2',
+        seq: 1,
+        name: 'web_fetch',
+        status: 'success',
+        argsBuffer: '{"url":"javascript:alert(1)"}',
+      }),
+    ]);
+    const parts = converted.content as unknown as { type: string }[];
+    expect(parts.at(-1)).toEqual({
+      type: 'source',
+      sourceType: 'url',
+      id: 'f1',
+      url: 'https://example.com/a',
+      title: 'example.com',
+    });
+    expect(parts.filter(part => part.type === 'source')).toHaveLength(1);
+  });
+});
+
+describe('tool label on the part', () => {
+  const artifactOf = (converted: { content: unknown }) =>
+    (converted.content as { type: string; artifact?: unknown }[]).find(
+      part => part.type === 'tool-call'
+    )?.artifact;
+
+  it('carries the row label and detail the store resolved', () => {
+    const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
+      tool({
+        id: 'c1',
+        name: 'GMAIL_SEND_EMAIL',
+        status: 'success',
+        displayName: 'Gmail send email',
+        detail: 'me@example.com',
+      }),
+    ]);
+    expect(artifactOf(converted)).toEqual({
+      displayName: 'Gmail send email',
+      detail: 'me@example.com',
+    });
   });
 
-  it('is absent on a user message', () => {
-    expect(trailOf(toThreadMessageLike(msg({ id: 'u' })))).toBeUndefined();
+  it('formats a row that arrived with no label from the tool identity', () => {
+    const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
+      tool({ id: 'c1', name: 'tool_search', status: 'success', argsBuffer: '{"query":"gmail"}' }),
+    ]);
+    expect(artifactOf(converted)).toEqual({ displayName: 'Finding the right tool' });
   });
 });
 

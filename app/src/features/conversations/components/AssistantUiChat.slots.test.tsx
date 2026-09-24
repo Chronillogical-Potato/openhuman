@@ -63,6 +63,7 @@ function chat(
   overrides: {
     attachmentsEnabled?: boolean;
     attachmentInteractionBlocked?: boolean;
+    composerReplacement?: React.ReactNode;
     onAttachFiles?: (files: FileList | File[] | null) => Promise<void>;
   } = {}
 ) {
@@ -80,6 +81,7 @@ function chat(
       attachmentInteractionBlocked={overrides.attachmentInteractionBlocked ?? false}
       onAttachmentOnlySend={vi.fn()}
       onOpenHumanMode={onOpenHumanMode}
+      composerReplacement={overrides.composerReplacement}
     />
   );
 }
@@ -207,5 +209,36 @@ describe('assistant-ui composer slots', () => {
     finishFirst();
     await firstFinished;
     await vi.waitFor(() => expect(onAttachFiles).toHaveBeenCalledTimes(2));
+  });
+
+  it('swaps only the composer when the host supplies a replacement (mic-cloud)', () => {
+    const store = buildStore();
+    const { rerender } = render(
+      <Provider store={store}>
+        {chat(undefined, { composerReplacement: <div data-testid="voice-probe">one</div> })}
+      </Provider>
+    );
+
+    // The assistant-ui transcript is still the one mounted...
+    expect(document.querySelector('[data-slot="aui_thread-viewport"]')).not.toBeNull();
+    // ...but the text composer is gone, replaced by the host's.
+    expect(composerShell()).toBeNull();
+    const probe = screen.getByTestId('voice-probe');
+
+    // Stable slot identity: a host re-render updates the replacement in place
+    // rather than remounting it (MicComposer holds recording state).
+    rerender(
+      <Provider store={store}>
+        {chat(undefined, { composerReplacement: <div data-testid="voice-probe">two</div> })}
+      </Provider>
+    );
+    expect(screen.getByTestId('voice-probe')).toBe(probe);
+    expect(probe).toHaveTextContent('two');
+  });
+
+  it('keeps the built-in composer when no replacement is supplied', () => {
+    const store = buildStore();
+    render(<Provider store={store}>{chat()}</Provider>);
+    expect(composerShell()).not.toBeNull();
   });
 });
