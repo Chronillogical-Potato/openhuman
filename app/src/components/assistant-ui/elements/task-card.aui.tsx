@@ -67,7 +67,18 @@ export const isTaskPart = (part: { readonly type: string; readonly messages?: un
 
 const KEY_SEPARATOR = String.fromCharCode(31);
 
-const ROLE_LABELS = { user: 'instruction', assistant: 'agent', system: 'system' } as const;
+/** English defaults for a nested transcript message's role tag; override via `TaskTranscript`'s `roleLabels` prop. */
+export interface TaskTranscriptRoleLabels {
+  user: string;
+  assistant: string;
+  system: string;
+}
+
+const DEFAULT_ROLE_LABELS: TaskTranscriptRoleLabels = {
+  user: 'instruction',
+  assistant: 'agent',
+  system: 'system',
+};
 
 // A transcript is a readonly snapshot, so a call waiting inside it is answered where its run is live, and renders here as paused on something else.
 const NestedToolCall: ToolCallMessagePartComponent = ({ approval, interrupt, ...rest }) => {
@@ -78,7 +89,7 @@ const NestedToolCall: ToolCallMessagePartComponent = ({ approval, interrupt, ...
   return isTaskPart(part) ? <TaskCard part={part} /> : <ToolFallback {...part} />;
 };
 
-const NestedMessage: FC = () => {
+const NestedMessage: FC<{ roleLabels: TaskTranscriptRoleLabels }> = ({ roleLabels }) => {
   const role = useAuiState(s => s.message.role);
 
   return (
@@ -86,7 +97,7 @@ const NestedMessage: FC = () => {
       data-slot="aui_task-transcript-message"
       data-role={role}
       className="flex flex-col gap-1 text-xs leading-relaxed">
-      <span className={cn(mono, 'text-foreground/35')}>{ROLE_LABELS[role]}</span>
+      <span className={cn(mono, 'text-foreground/35')}>{roleLabels[role]}</span>
       <MessagePrimitive.Parts
         components={{ Text: MarkdownText, tools: { Fallback: NestedToolCall } }}
       />
@@ -94,9 +105,12 @@ const NestedMessage: FC = () => {
   );
 };
 
-export const TaskTranscript: FC<{ messages: readonly ThreadMessage[] }> = ({ messages }) => (
+export const TaskTranscript: FC<{
+  messages: readonly ThreadMessage[];
+  roleLabels?: TaskTranscriptRoleLabels;
+}> = ({ messages, roleLabels = DEFAULT_ROLE_LABELS }) => (
   <ReadonlyThreadProvider messages={messages}>
-    <ThreadPrimitive.Messages>{() => <NestedMessage />}</ThreadPrimitive.Messages>
+    <ThreadPrimitive.Messages>{() => <NestedMessage roleLabels={roleLabels} />}</ThreadPrimitive.Messages>
   </ReadonlyThreadProvider>
 );
 
@@ -172,10 +186,28 @@ const TaskLane: FC<{ index: number }> = ({ index }) => {
   );
 };
 
+/** English defaults for `TaskGroup`'s summary line; override via its `strings` prop. */
+export interface TaskGroupStrings {
+  tasks: (count: number) => string;
+  running: (count: number) => string;
+  waiting: (count: number) => string;
+  failed: (count: number) => string;
+  showMore: (count: number) => string;
+}
+
+const DEFAULT_TASK_GROUP_STRINGS: TaskGroupStrings = {
+  tasks: count => `${count} tasks`,
+  running: count => `${count} running`,
+  waiting: count => `${count} waiting`,
+  failed: count => `${count} failed`,
+  showMore: count => `Show ${count} more`,
+};
+
 export const TaskGroup: FC<{
   group: MessagePrimitive.GroupedParts.GroupPart;
   className?: string;
-}> = ({ group, className }) => {
+  strings?: TaskGroupStrings;
+}> = ({ group, className, strings = DEFAULT_TASK_GROUP_STRINGS }) => {
   const [visible, setVisible] = useState(TASK_PAGE_SIZE);
   const { indices, counts } = group;
   // A selector has to return a stable value, so the lane keys travel as one string and are split afterwards.
