@@ -501,6 +501,196 @@ export default function WorkflowCopilotPanel({
 
   const diff = proposal ? diffGraphs(graph, proposal.graph as WorkflowGraph) : null;
 
+  // The sub-agent drawer for delegation cards in the transcript. Resolved from
+  // this thread's live timeline, exactly as the home chat resolves it.
+  const toolTimeline = useAppSelector(state =>
+    threadId
+      ? (state.chatRuntime.toolTimelineByThread?.[threadId] ?? EMPTY_TIMELINE)
+      : EMPTY_TIMELINE
+  );
+  const processing = useAppSelector(state =>
+    threadId
+      ? (state.chatRuntime.processingByThread?.[threadId] ?? EMPTY_TRANSCRIPT)
+      : EMPTY_TRANSCRIPT
+  );
+  const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
+  const canOpenSubagent = useCallback(
+    (taskId: string) => toolTimeline.some(entry => entry.subagent?.taskId === taskId),
+    [toolTimeline]
+  );
+
+  // The copilot's authoring footer: error line, proposal preview, capped card
+  // and the builder composer. Parked approvals are NOT repeated here — the
+  // assistant-ui transcript renders them inline on the gated tool call (see
+  // `ChatToolParts`), the same place the home chat answers them.
+  const footer = (
+    <div className="space-y-3 border-t border-line pt-2.5">
+      {error && (
+        <p
+          className="text-xs text-coral-600 dark:text-coral-400"
+          data-testid="workflow-copilot-error">
+          {error === 'offline' ? t('flows.copilot.offline') : t('flows.copilot.error')}
+        </p>
+      )}
+
+      {proposal && diff && (
+        <div
+          data-testid="workflow-copilot-proposal"
+          className="rounded-xl border border-primary-300 bg-surface p-3 dark:border-primary-700">
+          <p className="text-xs font-semibold text-primary-900 dark:text-primary-100">
+            {proposal.name || t('flows.copilot.proposalTitle')}
+          </p>
+          <p className="mt-1 text-[11px] text-content-muted">{t('flows.copilot.previewHint')}</p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+            {diff.addedNodeIds.size > 0 && (
+              <span
+                data-testid="workflow-copilot-added"
+                className="rounded-full bg-sage-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
+                {t('flows.copilot.added').replace('{count}', String(diff.addedNodeIds.size))}
+              </span>
+            )}
+            {diff.removedNodeIds.size > 0 && (
+              <span
+                data-testid="workflow-copilot-removed"
+                className="rounded-full bg-coral-100 px-2 py-0.5 font-medium text-coral-700 dark:bg-coral-500/15 dark:text-coral-300">
+                {t('flows.copilot.removed').replace('{count}', String(diff.removedNodeIds.size))}
+              </span>
+            )}
+            {!diff.hasChanges && (
+              <span className="text-content-faint">{t('flows.copilot.noChanges')}</span>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              analyticsId="workflow-copilot-accept"
+              disabled={acceptBusy}
+              data-testid="workflow-copilot-accept"
+              onClick={() => void accept()}>
+              {acceptState === 'saving'
+                ? t('flows.copilot.saving')
+                : t('flows.copilot.acceptAndSave')}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              analyticsId="workflow-copilot-accept-and-enable"
+              disabled={acceptBusy}
+              data-testid="workflow-copilot-accept-and-enable"
+              onClick={() => void acceptAndEnable()}>
+              {acceptState === 'enabling'
+                ? t('flows.copilot.enabling')
+                : t('flows.copilot.saveAndEnable')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={acceptBusy}
+              data-testid="workflow-copilot-reject"
+              onClick={reject}>
+              {t('flows.copilot.reject')}
+            </Button>
+          </div>
+          {acceptState === 'idle' && enableError && (
+            <p
+              className="mt-2 text-xs text-coral-600 dark:text-coral-400"
+              data-testid="workflow-copilot-enable-error">
+              {t('flows.copilot.enableError')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* (B34) The turn hit the agent's iteration limit with no proposal
+          yet — distinguish this from a voluntary clarifying question (which
+          renders as a plain agent bubble in the transcript, no card) with an
+          explicit "reached its iteration limit" signal and a one-click resume
+          that continues building from the current draft (see `continueBuilding`
+          above for why this is accurate rather than a seamless resume).
+          Never shown alongside `sending` (a fresh turn already cleared
+          `capped`) or a proposal (mutually exclusive server-side — see
+          `ops.rs`). */}
+      {capped && !sending && !proposal && (
+        <div
+          data-testid="workflow-copilot-capped"
+          className="rounded-xl border border-amber-300 bg-surface p-3 dark:border-amber-700">
+          <p className="text-xs text-content-secondary">{t('flows.copilot.cappedNotice')}</p>
+          <div className="mt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              data-testid="workflow-copilot-continue"
+              onClick={continueBuilding}>
+              {t('flows.copilot.continueBuilding')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <ChatComposer
+        inputValue={text}
+        setInputValue={setText}
+        onSend={submit}
+        textInputRef={textInputRef}
+        fileInputRef={fileInputRef}
+        composerInteractionBlocked={sending}
+        isSending={sending}
+        onStopGeneration={stop}
+        attachments={[]}
+        onAttachFiles={noopAttach}
+        onRemoveAttachment={noop}
+        attachError={null}
+        onSwitchToMicCloud={noop}
+        handleInputKeyDown={handleInputKeyDown}
+        inlineCompletionSuffix=""
+        isComposingTextRef={isComposingTextRef}
+        maxAttachments={0}
+        allowedMimeTypes={[]}
+        attachmentsEnabled={false}
+        micEnabled={false}
+        placeholder={t('flows.copilot.placeholder')}
+      />
+    </div>
+  );
+
+  // Rendered by type from inside `Thread`, so the slot must keep one identity
+  // across renders (a new type would remount the composer and drop focus and
+  // the draft). It reads the latest footer through a ref instead; `thread.tsx`
+  // memoizes nothing, so the slot re-renders with this panel.
+  const footerRef = useRef(footer);
+  footerRef.current = footer;
+  const CopilotComposer = useCallback(() => <>{footerRef.current}</>, []);
+  const emptyHintRef = useRef(t('flows.copilot.emptyState'));
+  emptyHintRef.current = t('flows.copilot.emptyState');
+  const CopilotWelcome = useCallback(
+    () => (
+      <div className="flex flex-1 items-center justify-center px-3 py-6">
+        <p className="text-xs text-content-muted" data-testid="workflow-copilot-empty">
+          {emptyHintRef.current}
+        </p>
+      </div>
+    ),
+    []
+  );
+  const components = useMemo<ThreadComponents>(
+    () => ({
+      ToolFallback: ChatToolFallback,
+      ToolGroup: ChatToolGroup,
+      RunningStatus: AssistantUiInferenceStatus,
+      SourceGroup: ChatSources,
+      Welcome: CopilotWelcome,
+      Composer: CopilotComposer,
+    }),
+    [CopilotComposer, CopilotWelcome]
+  );
+
   return (
     <aside
       data-testid="workflow-copilot-panel"
@@ -515,212 +705,35 @@ export default function WorkflowCopilotPanel({
           title restated the control the user just pressed and the ✕ duplicated
           it. `onClose` went with the button; nothing else called it. */}
 
-      {/* Full builder transcript — the SAME rich renderer the home composer
-          chat uses (message bubbles, past-turn insights, the shared tool
-          timeline + sub-agent drawer, streaming/interrupted/parallel previews),
-          driven by this copilot's DEDICATED thread. `flows_build` streams the
-          `workflow_builder` turn onto `threadId` via the global
-          `ChatRuntimeProvider`, exactly as a normal chat turn streams, so the
-          copilot now reads like the real chat instead of a bespoke transcript.
-          The empty hint, proposal preview, and capped card are the copilot's
-          own authoring affordances, kept in the footer below. */}
       {/* A SECOND assistant-ui runtime, scoped to this copilot's dedicated
           builder thread. The app-wide instance in `ChatRuntimeProvider`
           follows `selectedThreadId`, which is the home chat's thread and never
-          this one; leaving the transcript under it would make every
-          assistant-ui primitive inside `ChatThreadView` render the home chat's
-          messages here. Nesting overrides the context for this subtree only. */}
-      <AssistantUiRuntimeProvider threadId={threadId}>
-        <ChatThreadView
-          threadId={threadId}
-          variant="sidebar"
-          scrollResetKey="workflow-copilot"
-          shareAgentName={t('flows.copilot.title')}
-          emptyContent={
-            <div className="flex h-full items-center justify-center px-3">
-              <p className="text-xs text-content-muted" data-testid="workflow-copilot-empty">
-                {t('flows.copilot.emptyState')}
-              </p>
-            </div>
-          }
-        />
+          this one; leaving the transcript under it would render the home
+          chat's messages here. Nesting overrides the context for this subtree
+          only. The composer in the `Composer` slot resolves this same runtime.
+          The home chat's starter prompts are off: a click sends the prompt,
+          and they are not builder requests. */}
+      <AssistantUiRuntimeProvider threadId={threadId} welcomeSuggestions={false}>
+        <SubagentDrawerHost
+          onOpenSubagent={setOpenSubagentTaskId}
+          canOpenSubagent={canOpenSubagent}>
+          <div className="min-h-0 flex-1" data-testid="workflow-copilot-transcript">
+            <Thread components={components} />
+          </div>
+        </SubagentDrawerHost>
       </AssistantUiRuntimeProvider>
-
-      <div className="space-y-3 border-t border-line px-3 py-2.5">
-        {error && (
-          <p
-            className="text-xs text-coral-600 dark:text-coral-400"
-            data-testid="workflow-copilot-error">
-            {error === 'offline' ? t('flows.copilot.offline') : t('flows.copilot.error')}
-          </p>
-        )}
-
-        {proposal && diff && (
-          <div
-            data-testid="workflow-copilot-proposal"
-            className="rounded-xl border border-primary-300 bg-surface p-3 dark:border-primary-700">
-            <p className="text-xs font-semibold text-primary-900 dark:text-primary-100">
-              {proposal.name || t('flows.copilot.proposalTitle')}
-            </p>
-            <p className="mt-1 text-[11px] text-content-muted">{t('flows.copilot.previewHint')}</p>
-
-            <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-              {diff.addedNodeIds.size > 0 && (
-                <span
-                  data-testid="workflow-copilot-added"
-                  className="rounded-full bg-sage-100 px-2 py-0.5 font-medium text-sage-700 dark:bg-sage-500/15 dark:text-sage-300">
-                  {t('flows.copilot.added').replace('{count}', String(diff.addedNodeIds.size))}
-                </span>
-              )}
-              {diff.removedNodeIds.size > 0 && (
-                <span
-                  data-testid="workflow-copilot-removed"
-                  className="rounded-full bg-coral-100 px-2 py-0.5 font-medium text-coral-700 dark:bg-coral-500/15 dark:text-coral-300">
-                  {t('flows.copilot.removed').replace('{count}', String(diff.removedNodeIds.size))}
-                </span>
-              )}
-              {!diff.hasChanges && (
-                <span className="text-content-faint">{t('flows.copilot.noChanges')}</span>
-              )}
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                analyticsId="workflow-copilot-accept"
-                disabled={acceptBusy}
-                data-testid="workflow-copilot-accept"
-                onClick={() => void accept()}>
-                {acceptState === 'saving'
-                  ? t('flows.copilot.saving')
-                  : t('flows.copilot.acceptAndSave')}
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                analyticsId="workflow-copilot-accept-and-enable"
-                disabled={acceptBusy}
-                data-testid="workflow-copilot-accept-and-enable"
-                onClick={() => void acceptAndEnable()}>
-                {acceptState === 'enabling'
-                  ? t('flows.copilot.enabling')
-                  : t('flows.copilot.saveAndEnable')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={acceptBusy}
-                data-testid="workflow-copilot-reject"
-                onClick={reject}>
-                {t('flows.copilot.reject')}
-              </Button>
-            </div>
-            {acceptState === 'idle' && enableError && (
-              <p
-                className="mt-2 text-xs text-coral-600 dark:text-coral-400"
-                data-testid="workflow-copilot-enable-error">
-                {t('flows.copilot.enableError')}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* (B34) The turn hit the agent's iteration limit with no proposal
-            yet — distinguish this from a voluntary clarifying question (which
-            renders as a plain agent bubble in the transcript, no card) with an
-            explicit "reached its iteration limit" signal and a one-click resume
-            that continues building from the current draft (see `continueBuilding`
-            above for why this is accurate rather than a seamless resume).
-            Never shown alongside `sending` (a fresh turn already cleared
-            `capped`) or a proposal (mutually exclusive server-side — see
-            `ops.rs`). */}
-        {capped && !sending && !proposal && (
-          <div
-            data-testid="workflow-copilot-capped"
-            className="rounded-xl border border-amber-300 bg-surface p-3 dark:border-amber-700">
-            <p className="text-xs text-content-secondary">{t('flows.copilot.cappedNotice')}</p>
-            <div className="mt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                data-testid="workflow-copilot-continue"
-                onClick={continueBuilding}>
-                {t('flows.copilot.continueBuilding')}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Parked ApprovalGate request for the copilot's dedicated thread (PR3:
-            flows-copilot-live-run-approval). `flows_build` now runs under
-            `AgentTurnOrigin::WebChat` + `APPROVAL_CHAT_CONTEXT` when streaming,
-            so a `run_flow` / `resume_flow_run` call parks here instead of
-            auto-allowing or being hidden — surfaced via the SAME
-            `pendingApprovalByThread` slice / `approval_request` socket event
-            `Conversations.tsx` reads for the main chat, reusing the identical
-            cards (no new component, no new i18n keys). `composio_connect` parks
-            on the same gate but needs a Connect button + OAuth poll rather than
-            approve/deny, mirroring `Conversations.tsx`'s branch. Rendered above
-            the composer, outside the scrollable transcript, so it stays visible
-            regardless of scroll position. */}
-        {pendingApproval && threadId && (
-          <div data-testid="workflow-copilot-approval">
-            {pendingApproval.toolName === 'composio_connect' ? (
-              <IntegrationConnectCard
-                key={pendingApproval.requestId}
-                threadId={threadId}
-                approval={pendingApproval}
-              />
-            ) : (
-              <ApprovalRequestCard
-                key={pendingApproval.requestId}
-                threadId={threadId}
-                approval={pendingApproval}
-              />
-            )}
-          </div>
-        )}
-
-        {/* A runtime scoped to THIS copilot's builder thread. `ChatComposer` is
-            built on `ComposerPrimitive`, which resolves its runtime from React
-            context — and the panel's own provider above closes around the
-            transcript only, so without this the composer would resolve the
-            app-wide runtime in `ChatRuntimeProvider`, which is bound to
-            `selectedThreadId` (the HOME chat's thread, never this one). Nothing
-            here routes a send through the runtime, so the practical effect
-            today is the composer text store; scoping it correctly anyway is
-            what keeps that true as primitives are adopted. */}
-        <AssistantUiRuntimeProvider threadId={threadId}>
-          <ChatComposer
-            inputValue={text}
-            setInputValue={setText}
-            onSend={submit}
-            textInputRef={textInputRef}
-            fileInputRef={fileInputRef}
-            composerInteractionBlocked={sending}
-            isSending={sending}
-            onStopGeneration={stop}
-            attachments={[]}
-            onAttachFiles={noopAttach}
-            onRemoveAttachment={noop}
-            attachError={null}
-            onSwitchToMicCloud={noop}
-            handleInputKeyDown={handleInputKeyDown}
-            inlineCompletionSuffix=""
-            isComposingTextRef={isComposingTextRef}
-            maxAttachments={0}
-            allowedMimeTypes={[]}
-            attachmentsEnabled={false}
-            micEnabled={false}
-            placeholder={t('flows.copilot.placeholder')}
-          />
-        </AssistantUiRuntimeProvider>
-      </div>
+      <TranscriptOverlays
+        threadId={threadId}
+        entries={toolTimeline}
+        transcript={processing}
+        backgroundProcesses={NO_BACKGROUND_PROCESSES}
+        showBackgroundProcesses={false}
+        onCloseBackgroundProcesses={noop}
+        openSubagentTaskId={openSubagentTaskId}
+        onOpenSubagent={setOpenSubagentTaskId}
+        showProcessSource={false}
+        onCloseProcessSource={noop}
+      />
     </aside>
   );
 }
