@@ -6,6 +6,7 @@ use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 use super::*;
 use crate::inference::provider::factory::test_provider_override;
+use crate::web_chat::subscribe_web_channel_events;
 
 // ── parse_suggestions / strip_markdown_fence: pure unit tests ──────────────
 
@@ -114,7 +115,7 @@ async fn emits_chat_suggestions_for_a_well_formed_reply() {
         text: r#"[{"prompt": "What's next?", "label": "Next steps"}]"#.to_string(),
         calls: Arc::new(AtomicUsize::new(0)),
     }));
-    let mut rx = super::super::subscribe_web_channel_events();
+    let mut rx = subscribe_web_channel_events();
 
     let thread_id = "sugg-thread-ok";
     generate_and_emit(
