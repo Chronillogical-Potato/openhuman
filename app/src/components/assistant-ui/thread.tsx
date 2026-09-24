@@ -23,8 +23,8 @@ import { Reasoning } from '@/components/assistant-ui/reasoning';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
-import ModelQualityPill from '@/components/chat/ModelQualityPill';
 import { ChatErrorNotice } from '@/features/conversations/aui/ChatErrorNotice';
+import { ChatSettingsPanel } from '@/features/conversations/aui/ChatSettingsPanel';
 import { ConnectionStateBanner } from '@/features/conversations/aui/ConnectionStateBanner';
 import {
   useAuiEditCapabilities,
@@ -1116,7 +1116,7 @@ const ComposerAction: FC<{
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <div className="flex min-w-0 items-center gap-1">
         {HostComposerAddAttachment ? <HostComposerAddAttachment /> : <ComposerAddAttachment />}
-        <ModelQualityPill value={model} onValueChange={onModelChange} />
+        <ChatSettingsPanel model={model} onModelChange={onModelChange} />
         <ComposerExtrasSlot />
       </div>
       <div className="flex items-center gap-1.5">
