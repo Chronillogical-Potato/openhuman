@@ -193,6 +193,7 @@ pub(crate) async fn deliver_response(
             // Usage is attached only to the terminal `chat_done`, never segments.
             usage: None,
             seq: None,
+            ..Default::default(),
         });
     }
 
@@ -237,6 +238,7 @@ pub(crate) async fn deliver_response(
         // Terminal delivery events are emitted outside the seq-stamping
         // progress bridge; leave `seq` unset (older clients ignore it).
         seq: None,
+        ..Default::default(),
     });
 }
 
@@ -317,6 +319,7 @@ fn publish_chat_done(
         // Terminal delivery events are emitted outside the seq-stamping
         // progress bridge; leave `seq` unset (older clients ignore it).
         seq: None,
+        ..Default::default(),
     });
 }
 
