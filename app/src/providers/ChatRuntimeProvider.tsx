@@ -254,6 +254,20 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
 }
 
 /**
+ * `extraMetadata` for the assistant message a failed turn appends.
+ *
+ * Stamped for every `error_type` (not just `guardrail`) so `ChatErrorNotice`
+ * and any future per-type copy can key off it without a second message shape;
+ * only `guardrail` renders the vendored `GuardrailNotice` card today (the
+ * card needs a `GuardrailPayload` no other `error_type` carries).
+ */
+function chatErrorExtraMetadata(event: ChatErrorEvent): Record<string, unknown> {
+  return {
+    [CHAT_ERROR_METADATA_KEY]: { errorType: event.error_type, guardrail: event.guardrail },
+  };
+}
+
+/**
  * Message id for a reply the CORE already persisted before announcing it.
  *
  * Core-initiated turns (`client_id === 'system'`: background sub-agent result
