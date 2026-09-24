@@ -13,7 +13,7 @@ use serde_json::json;
 
 use crate::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::security::approval::APPROVAL_CHAT_CONTEXT;
-use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext, ToolTimeout};
 
 use super::gate;
 use super::types::PlanReviewResolution;
@@ -80,6 +80,26 @@ impl Tool for RequestPlanReviewTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        self.execute_in_context(args, context).await
+    }
+}
+
+impl RequestPlanReviewTool {
+    async fn execute_in_context(
+        &self,
+        args: serde_json::Value,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let tool_call_id = crate::tools::host_extensions::tool_call_id(context);
         let summary = args
             .get("summary")
             .and_then(|v| v.as_str())
