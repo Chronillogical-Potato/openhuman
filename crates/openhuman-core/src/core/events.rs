@@ -682,6 +682,13 @@ pub enum DomainEvent {
         /// `ApprovalRequested::tool_call_id`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tool_call_id: Option<String>,
+        /// Why the parked call resolved, when `decision` alone (`deny`)
+        /// can't say: `"expired"` (TTL/`expire_stale` sweep denied it with
+        /// nobody deciding) or `"cancelled"` (the decision channel dropped —
+        /// external turn teardown). `None` for an ordinary user-made
+        /// decision (approve or a deliberate deny).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resolution: Option<String>,
     },
     /// A `Workflow`-origin tool call parked in the `ApprovalGate` (issue
     /// flow-approval-surface, PR2/PR3). Unlike `ApprovalRequested`, this
@@ -783,6 +790,11 @@ pub enum DomainEvent {
         /// `PlanReviewRequested::tool_call_id`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tool_call_id: Option<String>,
+        /// Why the parked review resolved when `decision` alone (`reject`)
+        /// can't say: `"expired"` (TTL) or `"cancelled"` (sender dropped —
+        /// external teardown). `None` for a real user decision.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        resolution: Option<String>,
     },
 
     // ── Artifacts ───────────────────────────────────────────────────────
