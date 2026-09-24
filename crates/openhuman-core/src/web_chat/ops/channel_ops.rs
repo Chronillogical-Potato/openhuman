@@ -179,8 +179,26 @@ pub async fn channel_web_chat(
     temperature: Option<f64>,
     locale: Option<String>,
     queue_mode: Option<String>,
+    run_mode: Option<String>,
     metadata: ChatRequestMetadata,
 ) -> Result<RpcOutcome<Value>, String> {
+    // Mirrors the socket `chat:start` payload's `run_mode` handling
+    // (`core::socketio`): apply it before starting the turn so
+    // `plan_mode_middleware` sees the requested mode from the first tool
+    // check of this turn, rather than racing a separate
+    // `agent.set_run_mode` RPC. Unrecognized values are logged and ignored
+    // — a stale/typo'd client build must not fail the whole turn.
+    if let Some(run_mode) = run_mode.as_deref() {
+        match crate::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
+            Some(mode) => {
+                crate::agent::tinyagents::run_mode::set_mode(thread_id, mode);
+            }
+            None => log::warn!(
+                "[web_chat] channel_web_chat thread_id={thread_id} ignoring unrecognized run_mode={run_mode}"
+            ),
+        }
+    }
+
     let result = start_chat(
         client_id,
         thread_id,
