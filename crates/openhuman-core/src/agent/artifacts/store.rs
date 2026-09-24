@@ -432,6 +432,22 @@ pub async fn create_artifact(
     title: &str,
     extension: &str,
 ) -> Result<(ArtifactMeta, PathBuf), String> {
+    create_artifact_for_call(workspace_dir, kind, title, extension, None).await
+}
+
+/// As [`create_artifact`], but also records the provider-assigned
+/// `tool_call_id` of the producing invocation (typically
+/// `crate::tools::host_extensions::tool_call_id(ctx)`) on the artifact's
+/// metadata and on the `ArtifactPending` event this publishes, so the UI
+/// can correlate the card with the tool-call bubble. `None` behaves
+/// exactly like [`create_artifact`].
+pub async fn create_artifact_for_call(
+    workspace_dir: &Path,
+    kind: super::types::ArtifactKind,
+    title: &str,
+    extension: &str,
+    tool_call_id: Option<&str>,
+) -> Result<(ArtifactMeta, PathBuf), String> {
     let trimmed_title = title.trim();
     if trimmed_title.is_empty() {
         return Err("[artifacts] create_artifact: title must not be empty".to_string());
