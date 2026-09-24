@@ -11,14 +11,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const lockScroll = vi.fn();
+import { ReasoningRoot, ReasoningTrigger } from '../reasoning';
+
+const lockScroll = vi.hoisted(() => vi.fn());
 
 vi.mock('@assistant-ui/react', async () => {
   const actual = await vi.importActual<typeof import('@assistant-ui/react')>('@assistant-ui/react');
   return { ...actual, useScrollLock: () => lockScroll };
 });
-
-const { ReasoningRoot, ReasoningTrigger } = await import('../reasoning');
 
 function reasoning(streaming: boolean) {
   return (
