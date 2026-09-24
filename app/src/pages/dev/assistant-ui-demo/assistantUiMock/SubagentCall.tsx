@@ -17,12 +17,12 @@
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import type { ThreadGroupPart } from '@/components/assistant-ui/thread';
-import { ToolFallback } from '@/components/assistant-ui/tool-fallback';
+import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
 import {
   ToolGroupContent,
   ToolGroupRoot,
   ToolGroupTrigger,
-} from '@/components/assistant-ui/tool-group';
+} from '@/components/assistant-ui/elements/tool-group';
 import {
   Collapsible,
   CollapsibleContent,

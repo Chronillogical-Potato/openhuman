@@ -5,7 +5,7 @@ import {
   ToolGroupContent,
   ToolGroupRoot,
   ToolGroupTrigger,
-} from '@/components/assistant-ui/tool-group';
+} from '@/components/assistant-ui/elements/tool-group';
 import { type MessagePrimitive, useAuiState } from '@assistant-ui/react';
 import { type FC, type PropsWithChildren, useState } from 'react';
 
