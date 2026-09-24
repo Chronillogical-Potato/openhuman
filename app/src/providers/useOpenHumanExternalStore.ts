@@ -522,6 +522,45 @@ export function useOpenHumanExternalStore(
     [dispatch, threadId]
   );
 
+  /**
+   * Answer a structured human-input request the run is parked on
+   * (`ask_user_clarification`, and any WS-D sub-agent clarification that
+   * reuses `ElicitationAdapter`).
+   *
+   * Every OpenHuman tool is a `type: 'backend'` toolkit entry (`aui/
+   * toolkit.tsx`) — the core executes it, never the browser — so there is no
+   * "resolve this call with a client-computed result" RPC for
+   * `onAddToolResult` to call. What unblocks the parked call is the SAME
+   * mechanism `ChatToolParts.tsx`'s `SubagentCall.onAnswer` already uses for
+   * the sub-agent case: an ordinary next turn through the registered chat
+   * surface, which the core's orchestrator treats as the clarification
+   * reply. Supplying this key is what turns `onAddToolResult` into a real
+   * capability rather than a throw the moment `ElicitationAdapter`'s Send
+   * button is wired to it.
+   */
+  const onAddToolResult = useCallback(
+    async ({ result }: AddToolResultOptions) => {
+      const surface = getChatSurface(threadId);
+      if (!surface) return;
+      const text = typeof result === 'string' ? result : JSON.stringify(result);
+      if (text.trim().length === 0) return;
+      await surface.send(text);
+    },
+    [threadId]
+  );
+
+  /** Same rationale as `onAddToolResult` above, for a resumed (paused) call. */
+  const onResumeToolCall = useCallback(
+    async ({ payload }: { toolCallId: string; payload: unknown }) => {
+      const surface = getChatSurface(threadId);
+      if (!surface) return;
+      const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      if (text.trim().length === 0) return;
+      await surface.send(text);
+    },
+    [threadId]
+  );
+
   // DO NOT add `dictation: new WebSpeechDictationAdapter()` to the `adapters`
   // key below.
   //
@@ -576,6 +615,8 @@ export function useOpenHumanExternalStore(
       onReload,
       setMessages,
       onRespondToToolApproval,
+      onAddToolResult,
+      onResumeToolCall,
       // Read-aloud for a single message. Supplying this is what makes
       // `capabilities.speech` true and the Speak / StopSpeaking controls
       // usable — and it must ship WITH the buttons, never before or after

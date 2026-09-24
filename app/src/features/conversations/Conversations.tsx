@@ -1476,16 +1476,16 @@ const Conversations = ({
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
   );
-  // Harness work state the agent keeps for this thread — its todo list and
-  // the thread goal — read off the newest `todo` / `goal_*` tool results
-  // across this turn and the thread's settled turns
-  // (`hooks/useThreadHarnessState.ts`). Rendered above the composer next to
-  // the gate cards so a five-step task shows as a checklist ticking off while
-  // the agent works through it.
-  const { todoList, goal: threadGoal } = useThreadHarnessState(
-    selectedThreadId ?? null,
-    selectedThreadToolTimeline
-  );
+  // Harness work state the agent keeps for this thread — its live todo list
+  // and its goal — driven by the dedicated `thread_todos_changed` /
+  // `thread_goal_updated` core events (`aui/useThreadTodos.ts` /
+  // `aui/useThreadGoal.ts`), primed on thread open by the RPC pair below.
+  // Rendered above the composer next to the gate cards so a five-step task
+  // shows as a checklist ticking off while the agent works through it.
+  useLoadThreadTodos(selectedThreadId ?? null);
+  useLoadThreadGoal(selectedThreadId ?? null);
+  const liveTodos = useThreadTodos(selectedThreadId ?? null);
+  const threadGoal = useThreadGoal(selectedThreadId ?? null);
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
   // `TranscriptOverlays` resolves the open delegation out of this same live
   // timeline and renders nothing when the id is absent, so an inline card must
