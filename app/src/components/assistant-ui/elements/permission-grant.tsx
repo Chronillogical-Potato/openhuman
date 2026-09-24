@@ -23,10 +23,9 @@
  *   (poll for connection) has an in-flight phase with no decision buttons yet
  *   resolved, which upstream's `pending`/`GrantScope` union does not model.
  */
-import type { ComponentProps } from 'react';
-import { KeyRoundIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { KeyRoundIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { field, inkButton, mono, paper } from './surfaces';
 
@@ -38,7 +37,6 @@ import { field, inkButton, mono, paper } from './surfaces';
  * attribute; a plain object literal does not inherit that allowance).
  */
 type ButtonSlotProps = ComponentProps<'button'> & Record<`data-${string}`, string>;
-
 
 export type GrantScope = 'session' | 'always' | 'denied';
 
@@ -86,8 +84,7 @@ export function PermissionGrant({
     <div
       data-slot="permission-grant"
       className={cn(paper, 'flex w-full max-w-sm flex-col gap-3.5 rounded-[20px] p-4', className)}
-      {...props}
-    >
+      {...props}>
       <div className="flex items-center gap-2.5">
         <span className="bg-foreground/[0.05] text-foreground/45 flex size-7 shrink-0 items-center justify-center rounded-lg">
           <KeyRoundIcon className="size-3.5" />
@@ -121,8 +118,7 @@ export function PermissionGrant({
                 className={cn(
                   'text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/90 h-8 rounded-full px-3 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96]',
                   denyProps?.className
-                )}
-              >
+                )}>
                 {denyLabel}
               </button>
               <button
@@ -132,8 +128,7 @@ export function PermissionGrant({
                 className={cn(
                   'text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/90 h-8 rounded-full px-3 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96]',
                   sessionProps?.className
-                )}
-              >
+                )}>
                 {sessionLabel}
               </button>
               <button
@@ -144,8 +139,7 @@ export function PermissionGrant({
                   inkButton,
                   'flex h-8 items-center rounded-full px-3 text-xs font-medium',
                   alwaysProps?.className
-                )}
-              >
+                )}>
                 {alwaysLabel}
               </button>
             </>
@@ -156,8 +150,7 @@ export function PermissionGrant({
                 field,
                 mono,
                 'fade-in animate-in text-foreground/55 rounded-full px-2.5 py-1.5 duration-300'
-              )}
-            >
+              )}>
               {pendingLabel}
             </span>
           )
@@ -168,8 +161,7 @@ export function PermissionGrant({
               field,
               mono,
               'fade-in animate-in text-foreground/55 rounded-full px-2.5 py-1.5 duration-300'
-            )}
-          >
+            )}>
             {scope === 'denied' ? deniedLabel : grantedLabel(scope)}
           </span>
         )}

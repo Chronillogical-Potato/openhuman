@@ -22,8 +22,8 @@
  * and the vendored element's props, never the RPC itself; callers pass
  * `onDecide`.
  */
-import { useState } from 'react';
 import debug from 'debug';
+import { useState } from 'react';
 
 import { ApprovalCard } from '../../../components/assistant-ui/elements/approval-card';
 import { useT } from '../../../lib/i18n/I18nContext';

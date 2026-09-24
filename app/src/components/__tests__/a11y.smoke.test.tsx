@@ -12,8 +12,8 @@ import { render } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ArtifactSnapshot } from '../../store/chatRuntimeSlice';
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
+import type { ArtifactSnapshot } from '../../store/chatRuntimeSlice';
 import ArtifactCard from '../chat/ArtifactCard';
 
 vi.mock('../../services/artifactDownloadService', () => ({

@@ -21,8 +21,8 @@
 import { useState } from 'react';
 
 import {
-  ElicitationForm,
   type ElicitationField,
+  ElicitationForm,
 } from '../../../components/assistant-ui/elements/elicitation-form';
 import { useT } from '../../../lib/i18n/I18nContext';
 
@@ -48,7 +48,10 @@ export interface ElicitationAdapterProps {
 }
 
 /** Rendering-only state: `ElicitationForm`'s `state` union, from `pending`. */
-function elicitationState(pending: boolean, declined: boolean): 'request' | 'accepted' | 'declined' {
+function elicitationState(
+  pending: boolean,
+  declined: boolean
+): 'request' | 'accepted' | 'declined' {
   if (declined) return 'declined';
   return pending ? 'request' : 'accepted';
 }

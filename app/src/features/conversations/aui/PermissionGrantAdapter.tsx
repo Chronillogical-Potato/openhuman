@@ -32,17 +32,20 @@ import debug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PermissionGrant } from '../../../components/assistant-ui/elements/permission-grant';
+import {
+  getRequiredFieldsForToolkit,
+  validateRequiredFieldValues,
+} from '../../../components/composio/toolkitRequiredFields';
+import { TextField } from '../../../components/ui';
 import { authorize, listConnections } from '../../../lib/composio/composioApi';
 import { canonicalizeComposioToolkitSlug } from '../../../lib/composio/toolkitSlug';
 import { deriveComposioState } from '../../../lib/composio/types';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { callCoreRpc } from '../../../services/coreRpcClient';
 import {
-  getRequiredFieldsForToolkit,
-  validateRequiredFieldValues,
-} from '../../../components/composio/toolkitRequiredFields';
-import { TextField } from '../../../components/ui';
-import { clearPendingApprovalForThread, type PendingApproval } from '../../../store/chatRuntimeSlice';
+  clearPendingApprovalForThread,
+  type PendingApproval,
+} from '../../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../../store/hooks';
 import { openUrl } from '../../../utils/openUrl';
 
@@ -229,8 +232,7 @@ export function PermissionGrantAdapter({ threadId, approval }: Props) {
     <div
       role="group"
       aria-label={approval.message || t('composio.connect.connect')}
-      data-testid="assistant-ui-integration-connect"
-    >
+      data-testid="assistant-ui-integration-connect">
       {showFields && (
         <div className="mb-2.5 flex flex-col gap-2.5">
           {requiredFields.map(f => (
@@ -287,9 +289,7 @@ export function PermissionGrantAdapter({ threadId, approval }: Props) {
         alwaysProps={{ 'data-analytics-id': 'chat-integration-connect', disabled: !toolkit }}
       />
 
-      {errorMsg && (
-        <p className="mt-2 text-xs text-coral-600 dark:text-coral-400">⚠ {errorMsg}</p>
-      )}
+      {errorMsg && <p className="mt-2 text-xs text-coral-600 dark:text-coral-400">⚠ {errorMsg}</p>}
     </div>
   );
 }

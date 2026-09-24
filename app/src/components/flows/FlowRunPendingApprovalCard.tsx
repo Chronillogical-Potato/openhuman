@@ -8,9 +8,9 @@
  * every decision through `openhuman.approval_decide` (same RPC and decision
  * vocabulary as every other approval surface).
  */
+import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
 import { useT } from '../../lib/i18n/I18nContext';
 import { type ApprovalDecision, type PendingApproval } from '../../services/api/approvalApi';
-import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
 
 interface Props {
   approval: PendingApproval;

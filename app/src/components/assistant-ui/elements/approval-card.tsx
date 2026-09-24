@@ -23,10 +23,9 @@
  *   countdown (`ApprovalRequestCard`'s parked-request TTL has no upstream
  *   equivalent).
  */
-import type { ComponentProps, ReactNode } from 'react';
-import { CheckIcon, Loader2Icon, TerminalIcon, XIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { CheckIcon, Loader2Icon, TerminalIcon, XIcon } from 'lucide-react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { field, inkButton, paper } from './surfaces';
 
@@ -38,7 +37,6 @@ import { field, inkButton, paper } from './surfaces';
  * attribute; a plain object literal does not inherit that allowance).
  */
 type ButtonSlotProps = ComponentProps<'button'> & Record<`data-${string}`, string>;
-
 
 export type ApprovalState = 'request' | 'running' | 'done' | 'denied';
 
@@ -96,8 +94,7 @@ export function ApprovalCard({
     <div
       data-slot="approval-card"
       className={cn(paper, 'flex w-full max-w-sm flex-col gap-3.5 rounded-[20px] p-4', className)}
-      {...props}
-    >
+      {...props}>
       <div className="flex items-center gap-3">
         <span className="bg-foreground/[0.05] text-foreground/45 flex size-9 shrink-0 items-center justify-center rounded-xl">
           <TerminalIcon className="size-4" />
@@ -124,8 +121,7 @@ export function ApprovalCard({
                 className={cn(
                   'text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/90 h-8 rounded-full px-3.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96]',
                   denyProps?.className
-                )}
-              >
+                )}>
                 {denyLabel}
               </button>
             )}
@@ -137,8 +133,7 @@ export function ApprovalCard({
                 className={cn(
                   'text-foreground/55 hover:bg-foreground/[0.06] hover:text-foreground/90 h-8 rounded-full px-3.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96]',
                   alwaysAllowProps?.className
-                )}
-              >
+                )}>
                 {alwaysAllowLabel}
               </button>
             )}
@@ -151,8 +146,7 @@ export function ApprovalCard({
                   inkButton,
                   'flex h-8 items-center rounded-full px-3.5 text-xs font-medium',
                   allowOnceProps?.className
-                )}
-              >
+                )}>
                 {allowOnceLabel}
               </button>
             )}
@@ -160,8 +154,7 @@ export function ApprovalCard({
         ) : (
           <div
             key={state}
-            className="fade-in animate-in text-foreground/55 flex items-center gap-2 text-xs duration-300"
-          >
+            className="fade-in animate-in text-foreground/55 flex items-center gap-2 text-xs duration-300">
             {state === 'running' ? (
               <>
                 <Loader2Icon className="text-foreground/45 size-3.5 animate-spin" />
