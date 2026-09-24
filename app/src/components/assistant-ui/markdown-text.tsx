@@ -18,6 +18,7 @@ import {
   isValidElement,
   memo,
   useContext,
+  useMemo,
   useState,
 } from 'react';
 import rehypeHighlight from 'rehype-highlight';
