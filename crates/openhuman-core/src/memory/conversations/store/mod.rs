@@ -87,6 +87,6 @@ pub use store::{
     ConversationPurgeStats, ConversationStore,
 };
 pub use types::{
-    is_deterministic_message_id, run_reply_message_id, ConversationMessage,
+    is_deterministic_message_id, reply_run_id, run_reply_message_id, ConversationMessage,
     ConversationMessagePatch, ConversationThread, CreateConversationThread, CrossThreadHit,
 };
