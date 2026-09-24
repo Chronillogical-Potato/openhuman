@@ -199,15 +199,6 @@ impl ApprovalGate {
         self.request_routes.lock().remove(request_id)
     }
 
-    /// Drop the routing correlation for `request_id` without reading it —
-    /// used on the caller-bound-abandon path, which leaves the row pending
-    /// and must not consume the route a later real decision still needs...
-    /// except the abandon path removes the routing precisely because no
-    /// later decision from THIS process will use it (see `WaiterGuard`).
-    pub(super) fn clear_request_route(&self, request_id: &str) {
-        self.request_routes.lock().remove(request_id);
-    }
-
     fn evict_waiter(&self, request_id: &str) {
         let mut waiters = self.waiters.lock();
         waiters.remove(request_id);
