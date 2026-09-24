@@ -9,15 +9,15 @@
  * up to the host, which applies it to the local draft overlay.
  *
  * Chat UI parity: the copilot renders its transcript through the SAME
- * {@link ChatThreadView} the home composer chat uses — message bubbles,
- * past-turn insights, the shared tool timeline + sub-agent drawer, and the
- * streaming / interrupted / parallel previews — driven by this copilot's
- * DEDICATED thread. `flows_build` streams the `workflow_builder` turn onto
- * that thread via the global `ChatRuntimeProvider` (Phase B), exactly as a
- * normal chat turn streams, so the copilot reads like the real chat rather
- * than a bespoke transcript. This panel keeps only the authoring concerns:
- * the {@link ChatComposer} footer (mic/attachments off), the seed auto-sends,
- * and the proposal-preview + capped cards pinned above the composer.
+ * assistant-ui {@link Thread} the home chat uses — messages, tool and
+ * sub-agent cards, inline approvals, the running status line — driven by an
+ * {@link AssistantUiRuntimeProvider} scoped to this copilot's DEDICATED thread.
+ * `flows_build` streams the `workflow_builder` turn onto that thread via the
+ * global `ChatRuntimeProvider` (Phase B), exactly as a normal chat turn
+ * streams, so the copilot reads like the real chat rather than a bespoke
+ * transcript. This panel keeps only the authoring concerns, rendered in the
+ * Thread's `Composer` slot: the {@link ChatComposer} (mic/attachments off),
+ * the seed auto-sends, and the proposal-preview + capped cards above it.
  *
  * Invariant: the copilot only PROPOSES — the agent turn itself never
  * persists. Accept applies the proposal to the local draft AND immediately
@@ -27,23 +27,41 @@
  * rather than silently discarding it. Reject remains local-only (revert the
  * overlay, no persistence call).
  */
+import { Thread, type ThreadComponents } from '@/components/assistant-ui/thread';
 import createDebug from 'debug';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ChatThreadView } from '../../features/conversations/components/ChatThreadView';
+import { AssistantUiInferenceStatus } from '../../features/conversations/components/AssistantUiInferenceStatus';
+import { ChatSources } from '../../features/conversations/components/aui/ChatSources';
+import { SubagentDrawerHost } from '../../features/conversations/components/aui/subagentDrawerHost';
+import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
+import {
+  ChatToolFallback,
+  ChatToolGroup,
+} from '../../features/conversations/components/ChatToolParts';
 import { useChatSurfaceRegistration } from '../../features/conversations/hooks/useChatSurfaceRegistration';
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
 import { diffGraphs } from '../../lib/flows/graphDiff';
 import type { WorkflowGraph } from '../../lib/flows/types';
 import { useT } from '../../lib/i18n/I18nContext';
 import { AssistantUiRuntimeProvider } from '../../providers/AssistantUiRuntimeProvider';
-import type { WorkflowProposal } from '../../store/chatRuntimeSlice';
-import ApprovalRequestCard from '../chat/ApprovalRequestCard';
+import type {
+  ProcessingTranscriptItem,
+  ToolTimelineEntry,
+  WorkflowProposal,
+} from '../../store/chatRuntimeSlice';
+import { useAppSelector } from '../../store/hooks';
 import ChatComposer from '../chat/ChatComposer';
-import IntegrationConnectCard from '../chat/IntegrationConnectCard';
 import { Button } from '../ui';
 
 const log = createDebug('app:flows:copilot-panel');
+
+// Stable empties so the per-thread selectors below keep one identity while the
+// thread has no timeline yet (and on the narrow stores unit tests build).
+const EMPTY_TIMELINE: ToolTimelineEntry[] = [];
+const EMPTY_TRANSCRIPT: ProcessingTranscriptItem[] = [];
+const NO_BACKGROUND_PROCESSES: never[] = [];
+const noop = () => {};
 
 /**
  * Context for a repair turn opened from a failed run's inspector ("Fix with
@@ -161,7 +179,7 @@ export default function WorkflowCopilotPanel({
   fullWidth = false,
 }: Props) {
   const { t } = useT();
-  const { threadId, sending, proposal, pendingApproval, capped, error, send, stop, clearProposal } =
+  const { threadId, sending, proposal, capped, error, send, stop, clearProposal } =
     useWorkflowBuilderChat(seedThreadId);
   const [text, setText] = useState('');
 
@@ -323,9 +341,8 @@ export default function WorkflowCopilotPanel({
     onPrefillSeedConsumed?.();
   }, [prefillSeed, onPrefillSeedConsumed]);
 
-  // Transcript rendering + scroll pinning (stick-to-bottom) are owned by the
-  // shared `ChatThreadView` below — the copilot no longer hand-rolls the
-  // transcript. This component keeps only the authoring concerns: the
+  // Transcript rendering + scroll pinning are owned by the shared assistant-ui
+  // `Thread` below — the copilot no longer hand-rolls the transcript. This component keeps only the authoring concerns: the
   // structured `flows_build` send path, the seed auto-sends, and the
   // proposal / capped cards surfaced in the footer.
   const submit = useCallback(
@@ -423,7 +440,6 @@ export default function WorkflowCopilotPanel({
   );
 
   const noopAttach = useCallback(async () => {}, []);
-  const noop = useCallback(() => {}, []);
 
   // Accept now review-and-saves: `onAccept` (the host's `handleAcceptProposal`)
   // applies the proposal to the draft AND persists it. Track a local
