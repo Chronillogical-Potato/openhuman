@@ -92,7 +92,6 @@ pub struct ApprovalChatContext {
     /// scope. Carried through to `external_transfer_pending` (and any other
     /// event this context backs) so the frontend can correlate a disclosure
     /// to the turn that triggered it instead of only the thread.
-    #[serde(default)]
     pub request_id: Option<String>,
 }
 
