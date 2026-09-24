@@ -14,6 +14,7 @@
  */
 import {
   AssistantRuntimeProvider,
+  type ThreadMessageLike,
   useAui,
   useAuiState,
   useExternalStoreRuntime,
@@ -25,6 +26,8 @@ import { describe, expect, it } from 'vitest';
 
 import { ComposerTextBridge } from './AssistantUiChat';
 
+const NO_MESSAGES: ThreadMessageLike[] = [];
+
 type Handles = {
   type: (text: string) => void;
   hostSet: (value: string) => void;
@@ -33,7 +36,11 @@ type Handles = {
 };
 
 function Runtime({ children }: { children: ReactNode }) {
-  const runtime = useExternalStoreRuntime({ messages: [], onNew: async () => {} });
+  const runtime = useExternalStoreRuntime<ThreadMessageLike>({
+    messages: NO_MESSAGES,
+    convertMessage: message => message,
+    onNew: async () => {},
+  });
   return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
 }
 
