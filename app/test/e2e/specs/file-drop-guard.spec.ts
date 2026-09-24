@@ -2,7 +2,12 @@ import { expect } from '@wdio/globals';
 
 import { waitForApp } from '../helpers/app-helpers';
 import { clickByTitle } from '../helpers/chat-harness';
-import { dispatchFileDrop, waitForDataSlot, waitForTestId } from '../helpers/element-helpers';
+import {
+  dispatchFileDrop,
+  waitForDataSlot,
+  waitForTestId,
+  waitForText,
+} from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -31,17 +36,18 @@ describe('File drop guard', () => {
     expect(result).toEqual({ dragOverPrevented: true, dropPrevented: true, fileCount: 1 });
   });
 
-  it('claims a real file drop over the open chat thread', async () => {
+  it('claims a file drop on the composer and adds it as an attachment', async () => {
     await navigateViaHash('/chat');
     expect(await clickByTitle('New thread', 8_000)).toBe(true);
 
-    const thread = await waitForDataSlot('aui_thread-viewport');
-    const result = await dispatchFileDrop(thread, {
+    const composer = await waitForDataSlot('aui_composer-shell');
+    const result = await dispatchFileDrop(composer, {
       name: 'thread-drop.txt',
       type: 'text/plain',
-      contents: 'dropped onto the transcript',
+      contents: 'dropped onto the composer',
     });
 
     expect(result).toEqual({ dragOverPrevented: true, dropPrevented: true, fileCount: 1 });
+    await waitForText('thread-drop.txt');
   });
 });
