@@ -246,6 +246,7 @@ impl Projector {
                     request_id: msg.request_id.clone(),
                     model: msg.turn_usage.as_ref().map(|tu| tu.model.clone()),
                     iteration: msg.iteration,
+                    ts: msg.ts.clone(),
                 });
             }
         }
@@ -315,6 +316,7 @@ impl Projector {
                 request_id: msg.request_id.clone(),
                 model: msg.turn_usage.as_ref().map(|tu| tu.model.clone()),
                 iteration: Some(iteration),
+                ts: msg.ts.clone(),
             });
         }
 
