@@ -52,11 +52,24 @@ fn est_tokens_divides_by_the_shared_bytes_per_token_constant() {
 
 #[test]
 fn config_fingerprint_changes_when_config_content_changes() {
+    // `workspace_dir` is `#[serde(skip)]` on `Config` (a runtime path, not
+    // serialized content), so the fingerprint — deliberately built from the
+    // serialized form — must not react to it. Mutate an actually-serialized
+    // field instead.
+    let mut a = Config::default();
+    a.default_temperature = 0.2;
+    let mut b = Config::default();
+    b.default_temperature = 0.9;
+    assert_ne!(config_fingerprint(&a), config_fingerprint(&b));
+}
+
+#[test]
+fn config_fingerprint_ignores_workspace_dir() {
     let mut a = Config::default();
     a.workspace_dir = std::path::PathBuf::from("/tmp/a");
     let mut b = Config::default();
     b.workspace_dir = std::path::PathBuf::from("/tmp/b");
-    assert_ne!(config_fingerprint(&a), config_fingerprint(&b));
+    assert_eq!(config_fingerprint(&a), config_fingerprint(&b));
 }
 
 #[test]
