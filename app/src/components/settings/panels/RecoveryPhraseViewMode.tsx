@@ -1,103 +1,207 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LuCheck, LuChevronDown, LuCopy } from 'react-icons/lu';
+
+import btcIcon from '../../../assets/icons/chains/bitcoin.svg';
+import evmIcon from '../../../assets/icons/chains/evm.svg';
+import solanaIcon from '../../../assets/icons/chains/solana.svg';
+import tronIcon from '../../../assets/icons/chains/trx.svg';
 import { useT } from '../../../lib/i18n/I18nContext';
-import type { WalletStatus } from '../../../services/walletApi';
+import { revealRecoveryPhrase, type WalletStatus } from '../../../services/walletApi';
 import { Alert } from '../../ui/Alert';
 import Button from '../../ui/Button';
+import {
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
 import { CheckIcon, Spinner } from '../../ui/icons';
+import RevealRecoveryModal from './wallet/RevealRecoveryModal';
+
+const CHAIN_ICONS: Record<string, string> = {
+  evm: evmIcon,
+  btc: btcIcon,
+  solana: solanaIcon,
+  tron: tronIcon,
+};
 
 export interface RecoveryPhraseViewModeProps {
   statusError: string | null;
   walletStatus: WalletStatus | null;
-  viewMnemonic: string | null;
-  viewRevealed: boolean;
-  onRevealBlur: () => void;
-  onHide: () => void;
-  viewRevealLoading: boolean;
-  viewRevealError: string | null;
-  onReveal: () => void;
-  viewCopied: boolean;
-  onCopy: () => void;
-  onReplaceClick: () => void;
+  onGenerateClick: () => void;
+  onImportClick: () => void;
 }
 
-/**
- * View mode: the existing-wallet summary, its metadata (source, word count,
- * last updated, chain addresses), and the reveal/hide-existing-phrase flow.
- * Falls back to a single error alert when the initial status check failed.
- */
+// view mode: the existing-wallet summary. falls back to an error alert when the initial status check failed.
 const RecoveryPhraseViewMode = ({
   statusError,
   walletStatus,
-  viewMnemonic,
-  viewRevealed,
-  onRevealBlur,
-  onHide,
-  viewRevealLoading,
-  viewRevealError,
-  onReveal,
-  viewCopied,
-  onCopy,
-  onReplaceClick,
+  onGenerateClick,
+  onImportClick,
 }: RecoveryPhraseViewModeProps) => {
   const { t } = useT();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [mnemonic, setMnemonic] = useState<string | null>(null);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [copiedChain, setCopiedChain] = useState<string | null>(null);
+
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      setMnemonic(null);
+    };
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (isModalOpen && mnemonic) {
+      inactivityTimerRef.current = setTimeout(() => {
+        setIsModalOpen(false);
+        setMnemonic(null);
+      }, 60000);
+    }
+  }, [isModalOpen, mnemonic]);
+
+  useEffect(() => {
+    if (isModalOpen && mnemonic) {
+      resetInactivityTimer();
+      const events = ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+      events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+      return () => {
+        events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+        if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      };
+    }
+  }, [isModalOpen, mnemonic, resetInactivityTimer]);
+
+  const handleCopy = async (chain: string, address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedChain(chain);
+      setTimeout(() => setCopiedChain(null), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Fetch seed phrase on reveal
+  const handleRevealClick = async () => {
+    if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+    setIsRevealing(true);
+    setRevealError(null);
+    try {
+      const result = await revealRecoveryPhrase();
+      setMnemonic(result.phrase);
+      setIsModalOpen(true);
+    } catch (e) {
+      setRevealError(e instanceof Error ? e.message : 'Failed to retrieve phrase');
+    } finally {
+      setIsRevealing(false);
+    }
+  };
 
   if (statusError) {
     return (
       <div className="space-y-5">
-        <Alert variant="destructive">
-          <p className="text-xs leading-relaxed">{statusError}</p>
+        <Alert variant="destructive" className="border-0 bg-destructive/10 p-4">
+          <p className="text-sm leading-relaxed text-destructive">{statusError}</p>
         </Alert>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <Alert variant="success">
-        <p className="text-xs leading-relaxed font-medium">
+    <div className="space-y-6">
+      <div className="inline-flex items-center gap-2 bg-emerald-500/10 rounded-xl px-3.5 py-1.5 w-fit">
+        <CheckIcon className="w-4 h-4 text-emerald-500" />
+        <p className="text-sm font-medium text-emerald-500">
           {t('mnemonic.walletAlreadyConfigured')}
         </p>
-      </Alert>
+      </div>
 
       {walletStatus && (
-        <div className="bg-surface-muted rounded-2xl p-4 border border-line space-y-3">
-          {walletStatus.source && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-content-muted">{t('mnemonic.walletSource')}</span>
-              <span className="text-xs font-medium text-content-secondary capitalize">
-                {walletStatus.source}
-              </span>
-            </div>
-          )}
-          {walletStatus.mnemonicWordCount && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-content-muted">{t('mnemonic.walletWordCount')}</span>
-              <span className="text-xs font-medium text-content-secondary">
-                {walletStatus.mnemonicWordCount} words
-              </span>
-            </div>
-          )}
-          {walletStatus.updatedAtMs && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-content-muted">{t('mnemonic.walletLastUpdated')}</span>
-              <span className="text-xs font-medium text-content-secondary">
-                {new Date(walletStatus.updatedAtMs).toLocaleDateString()}
-              </span>
-            </div>
-          )}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {walletStatus.source && (
+              <div className="bg-surface-muted/30 rounded-[14px] p-4 border border-line flex flex-col justify-center">
+                <span className="text-xs text-content-muted mb-1">
+                  {t('mnemonic.walletSource')}
+                </span>
+                <span className="text-sm font-medium text-content capitalize">
+                  {walletStatus.source}
+                </span>
+              </div>
+            )}
+            {walletStatus.mnemonicWordCount && (
+              <div className="bg-surface-muted/30 rounded-[14px] p-4 border border-line flex flex-col justify-center">
+                <span className="text-xs text-content-muted mb-1">
+                  {t('mnemonic.walletWordCount')}
+                </span>
+                <span className="text-sm font-medium text-content">
+                  {walletStatus.mnemonicWordCount} {t('mnemonic.words')}
+                </span>
+              </div>
+            )}
+            {walletStatus.updatedAtMs && (
+              <div className="bg-surface-muted/30 rounded-[14px] p-4 border border-line flex flex-col justify-center">
+                <span className="text-xs text-content-muted mb-1">
+                  {t('mnemonic.walletLastUpdated')}
+                </span>
+                <span className="text-sm font-medium text-content">
+                  {new Date(walletStatus.updatedAtMs).toLocaleDateString()}
+                </span>
+              </div>
+            )}
+          </div>
+
           {walletStatus.accounts.length > 0 && (
-            <div>
-              <span className="text-xs text-content-muted block mb-2">
+            <div className="space-y-3">
+              <span className="text-xs font-semibold text-content block px-1">
                 {t('mnemonic.viewAccounts')}
               </span>
-              <div className="space-y-1.5">
-                {walletStatus.accounts.map(account => (
-                  <div key={account.chain} className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono font-medium uppercase text-content-muted w-14 shrink-0">
-                      {account.chain}
-                    </span>
-                    <span className="text-xs font-mono text-content-secondary truncate">
-                      {account.address}
-                    </span>
+              <div className="rounded-[14px] border border-line bg-surface overflow-hidden">
+                {walletStatus.accounts.map((account, idx) => (
+                  <div
+                    key={account.chain}
+                    className={`flex items-center justify-between gap-3 py-3 px-3.5 hover:bg-surface-hover/50 transition-colors group ${idx !== walletStatus.accounts.length - 1 ? 'border-b border-line/50' : ''}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 flex items-center justify-center shrink-0">
+                        {CHAIN_ICONS[account.chain] && (
+                          <img
+                            src={CHAIN_ICONS[account.chain]}
+                            alt={account.chain}
+                            className={
+                              account.chain === 'evm'
+                                ? 'w-9 h-9 shrink-0 object-contain'
+                                : 'w-7 h-7 shrink-0 object-contain'
+                            }
+                          />
+                        )}
+                      </div>
+                      <span className="text-sm font-bold text-content font-mono uppercase">
+                        {account.chain}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-mono text-content-muted break-all">
+                        {account.address}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(account.chain, account.address)}
+                        className="p-1.5 rounded-md hover:bg-surface-muted text-content-muted transition-colors"
+                        title={t('walletBalances.copyAddress')}>
+                        {copiedChain === account.chain ? (
+                          <LuCheck className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <LuCopy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -106,122 +210,65 @@ const RecoveryPhraseViewMode = ({
         </div>
       )}
 
-      {viewMnemonic ? (
-        <div className="space-y-3">
-          <Alert variant="warning">
-            <p className="text-xs leading-relaxed">{t('mnemonic.cannotRecover')}</p>
-          </Alert>
-          <div className="bg-surface-muted rounded-2xl p-4 border border-line relative">
-            <div
-              className="grid grid-cols-3 gap-2 transition-all duration-300"
-              style={{
-                filter: viewRevealed ? 'none' : 'blur(8px)',
-                userSelect: viewRevealed ? 'auto' : 'none',
-                pointerEvents: viewRevealed ? 'auto' : 'none',
-              }}>
-              {viewMnemonic.split(' ').map((word, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2 text-sm border border-line">
-                  <span className="text-content-muted font-mono text-xs w-5 text-right">
-                    {index + 1}.
-                  </span>
-                  <span className="font-mono font-medium">{word}</span>
-                </div>
-              ))}
-            </div>
-            {!viewRevealed && (
-              <Button
-                type="button"
-                variant="tertiary"
-                iconOnly
-                onClick={onRevealBlur}
-                aria-label={t('mnemonic.revealPhrase')}
-                className="absolute inset-0 h-auto w-auto rounded-none bg-transparent hover:bg-transparent focus-visible:ring-offset-0">
-                <svg
-                  className="w-7 h-7 text-content transition-opacity duration-200 hover:opacity-70"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"
-                  />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              </Button>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={onCopy}
-            disabled={!viewRevealed}
-            className="w-full">
-            {viewCopied ? (
-              <>
-                <CheckIcon className="w-4 h-4 text-sage-400" />
-                <span className="text-sage-400">{t('common.copied')}</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}>
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-                <span>{t('mnemonic.copyToClipboard')}</span>
-              </>
-            )}
-          </Button>
-          <Button type="button" variant="tertiary" onClick={onHide} className="w-full">
-            {t('mnemonic.hidePhrase')}
-          </Button>
-        </div>
-      ) : (
-        <>
-          {viewRevealError && (
-            <Alert variant="destructive">
-              <p className="text-xs leading-relaxed">{viewRevealError}</p>
-            </Alert>
-          )}
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={onReveal}
-            disabled={viewRevealLoading}
-            className="w-full">
-            {viewRevealLoading ? (
-              <>
-                <Spinner className="w-4 h-4" />
-                <span>{t('mnemonic.loadingWalletStatus')}</span>
-              </>
-            ) : (
-              t('mnemonic.revealRecoveryPhrase')
-            )}
-          </Button>
-        </>
+      {revealError && (
+        <Alert variant="destructive" className="border-0 bg-destructive/10 p-4">
+          <p className="text-sm leading-relaxed text-destructive">{revealError}</p>
+        </Alert>
       )}
 
-      <Button
-        type="button"
-        variant="secondary"
-        size="md"
-        onClick={onReplaceClick}
-        className="w-full">
-        {t('mnemonic.replaceWallet')}
-      </Button>
+      <div className="space-y-3">
+        <Button
+          type="button"
+          variant="primary"
+          size="md"
+          onClick={handleRevealClick}
+          disabled={isRevealing}
+          className="w-full font-semibold">
+          {isRevealing ? (
+            <>
+              <Spinner className="w-4 h-4" />
+              <span>{t('common.loading')}</span>
+            </>
+          ) : (
+            t('mnemonic.revealRecoveryPhrase')
+          )}
+        </Button>
+
+        <DropdownMenuRoot>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="tertiary"
+              size="md"
+              className="w-full bg-surface dark:bg-white/5 border border-line hover:bg-surface-hover dark:hover:bg-white/10 group transition-all duration-200">
+              <span className="text-content-secondary group-hover:text-content font-semibold transition-colors flex items-center justify-center gap-2">
+                {t('mnemonic.replaceWallet')}
+                <LuChevronDown className="w-4 h-4" />
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-64" align="center">
+            <DropdownMenuItem onClick={onGenerateClick}>
+              {t('mnemonic.createANewWallet')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onImportClick}>
+              {t('mnemonic.importAnExistingWallet')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenuRoot>
+      </div>
+
+      {isModalOpen && mnemonic && (
+        <RevealRecoveryModal
+          open={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+            cleanupTimerRef.current = setTimeout(() => setMnemonic(null), 300);
+          }}
+          mnemonic={mnemonic}
+        />
+      )}
     </div>
   );
 };
