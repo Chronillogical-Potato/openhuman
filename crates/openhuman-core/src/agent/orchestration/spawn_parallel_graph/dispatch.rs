@@ -306,6 +306,7 @@ async fn project_spawn_parallel_spawned(
     task_id: &str,
     prompt: &str,
     has_ownership: bool,
+    parent_call_id: Option<&str>,
 ) {
     let prompt_chars = prompt.chars().count();
     tracing::debug!(
