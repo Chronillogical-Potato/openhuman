@@ -40,6 +40,18 @@ const OAUTH_PREFLIGHT_TIMEOUT_MS = 4_000;
 const BACKEND_UNAVAILABLE_MESSAGE =
   'OpenHuman cloud sign-in is temporarily unavailable. Please try again in a few minutes.';
 
+/**
+ * The `/__dev-auth` return URL for the browser dev build, or `null` when the
+ * page is not served from an http loopback origin (the only redirect targets
+ * the backend accepts besides provisioned tenant consoles).
+ */
+const getWebDevRedirectUri = (): string | null => {
+  const { protocol, hostname, origin } = window.location;
+  if (protocol !== 'http:') return null;
+  if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(hostname)) return null;
+  return `${origin}/__dev-auth`;
+};
+
 const log = debug('oauth:button');
 const warnLog = debug('oauth:button:warn');
 const errorLog = debug('oauth:button:error');
@@ -242,11 +254,22 @@ const OAuthProviderButton = ({
       const loopback = isTauri() ? await startLoopbackOauthListener() : null;
       const loginUrlBase = `${backendUrl}/auth/${provider.id}/login`;
       const params = new URLSearchParams();
+      // Browser dev build on a loopback origin (`pnpm dev:app:web`; never the
+      // Tauri webview, whose `tauri dev` origin is also localhost): the backend
+      // accepts any http loopback redirectUri, so send it back to the Vite dev
+      // server's `/__dev-auth` bounce (see `devConnectPlugin` in
+      // `app/vite.config.ts`), which lands on the `#/auth` callback route.
+      const webDevRedirectUri = !isTauri() && IS_DEV ? getWebDevRedirectUri() : null;
       // `responseType=json` makes the backend return JSON in the browser tab
       // instead of redirecting — useful as a pre-loopback dev workaround, but
       // it shortcircuits the redirect so the loopback listener never fires.
-      // Only set it when we have no loopback handle (web build, or bind failed).
-      if (IS_DEV && !loopback) params.set('responseType', 'json');
+      // Only set it when we have no redirect target at all.
+      const jsonDevFallback = IS_DEV && !loopback && !webDevRedirectUri;
+      if (jsonDevFallback) params.set('responseType', 'json');
+      if (webDevRedirectUri) {
+        log('[%s] web dev loopback redirect via /__dev-auth', provider.id);
+        params.set('redirectUri', webDevRedirectUri);
+      }
       if (loopback) {
         params.set('redirectUri', loopback.redirectUri);
         // Bind the inbound `openhuman://auth` deep link to a per-attempt state
@@ -301,7 +324,7 @@ const OAuthProviderButton = ({
           });
       }
 
-      if (IS_DEV) {
+      if (jsonDevFallback) {
         console.log(`[dev] OAuth debug mode enabled. OAuth URL: ${loginUrl}`);
         console.log('[dev] In debug mode, OAuth will return JSON response instead of redirect.');
         console.log(

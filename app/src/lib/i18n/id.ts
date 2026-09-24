@@ -743,6 +743,13 @@ const messages: TranslationMap = {
   'chat.createThreadFailed': 'Gagal membuat thread baru: coba lagi.',
   'chat.parallelBranchLabel': 'Cabang paralel',
   'chat.thinking': 'Berpikir...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': 'Berpikir',
+  'chat.reasoning.thoughtFor': 'Berpikir selama {n}',
+  'chat.reasoning.thoughtBriefly': 'Berpikir sejenak',
+  'chat.reasoning.thought': 'Selesai berpikir',
+  'chat.reasoning.elapsedSeconds': '{n} dtk',
+  'chat.reasoning.elapsedMinutes': '{m} mnt {s} dtk',
   'chat.noMessages': 'Belum ada pesan',
   'chat.startConversation': 'Mulai percakapan',
   'chat.regenerate': 'Buat ulang',
