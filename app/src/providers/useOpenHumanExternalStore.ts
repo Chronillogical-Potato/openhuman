@@ -10,6 +10,7 @@ import { mapDisplayItems } from '../features/conversations/derived/mapDisplayIte
 import { useT } from '../lib/i18n/I18nContext';
 import { type ApprovalDecision, decideApproval } from '../services/api/approvalApi';
 import { threadApi } from '../services/api/threadApi';
+import { editMessage, regenerateMessage } from '../services/chatService';
 import {
   clearPendingApprovalForThread,
   type InferenceStatus,
@@ -22,7 +23,6 @@ import {
   persistMessageFeedback,
   truncateMessagesFrom,
 } from '../store/threadSlice';
-import { editMessage, regenerateMessage } from '../services/chatService';
 import type { DerivedDisplayItem } from '../types/derivedTranscript';
 import type { ThreadMessage } from '../types/thread';
 import { buildRuntimeMessages, STREAMING_TAIL_ID } from './assistantUiMessages';
