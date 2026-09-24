@@ -1318,7 +1318,8 @@ const chatRuntimeSlice = createSlice({
         // A settled row stays settled. A replayed/late `tool_call` for a call
         // whose result already landed used to flip it back to `running`, and
         // nothing would ever settle it again.
-        const settled = prev.status === 'success' || prev.status === 'error';
+        const settled =
+          prev.status === 'success' || prev.status === 'error' || prev.status === 'cancelled';
         entries[existingIdx] = decorateEntry({
           ...prev,
           name: toolName,
@@ -1791,11 +1792,17 @@ const chatRuntimeSlice = createSlice({
      * complete it, while detached sub-agents intentionally outlive the parent
      * turn and must remain owned by their run ledger.
      */
-    cancelUnresolvedTurnTimeline: (state, action: PayloadAction<{ threadId: string }>) => {
-      const { threadId } = action.payload;
+    cancelUnresolvedTurnTimeline: (
+      state,
+      action: PayloadAction<{ threadId: string; rowIds?: string[] }>
+    ) => {
+      const { threadId, rowIds } = action.payload;
       const entries = state.toolTimelineByThread[threadId];
       if (!entries) return;
-      state.toolTimelineByThread[threadId] = entries.map(settleOrphanedTimelineEntry);
+      const eligible = rowIds && new Set(rowIds);
+      state.toolTimelineByThread[threadId] = entries.map(entry =>
+        !eligible || eligible.has(entry.id) ? settleOrphanedTimelineEntry(entry) : entry
+      );
     },
     /**
      * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`

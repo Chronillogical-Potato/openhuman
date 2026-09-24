@@ -640,6 +640,12 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       await flushQueuedFollowups(event.thread_id);
       dispatch(endInferenceTurn({ threadId: event.thread_id }));
       dispatch(clearThreadInferenceActive(event.thread_id));
+      // Snapshot polling can outlive this completed turn. Capture the rows it
+      // owns before awaiting it so a newer turn on the same thread is never
+      // cancelled by this recovery path.
+      const unresolvedRowIds = (store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [])
+        .filter(entry => entry.status === 'running' && entry.subagent?.mode !== 'async')
+        .map(entry => entry.id);
       // Socket reducers keep only the current iteration's prose in the live
       // buffer. Once the turn settles, replace that partial projection with
       // the core's completed snapshot, whose ordered transcript contains every
@@ -650,7 +656,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         fetchAndHydrateCompletedTurnState(event.thread_id)
       ).unwrap();
       if (!completedSnapshot) {
-        dispatch(cancelUnresolvedTurnTimeline({ threadId: event.thread_id }));
+        dispatch(cancelUnresolvedTurnTimeline({ threadId: event.thread_id, rowIds: unresolvedRowIds }));
       }
     };
 

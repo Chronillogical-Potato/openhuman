@@ -189,6 +189,7 @@ impl Projector {
             });
             self.last_request_id = Some(rid.to_string());
             self.step = 0;
+            self.seen_call_ids.clear();
         }
     }
 
@@ -211,6 +212,7 @@ impl Projector {
                 // A legacy turn without request ids still restarts the step
                 // count at its prompt.
                 self.step = 0;
+                self.seen_call_ids.clear();
                 let raw = msg.message.content.clone();
                 let sanitized = sanitize_user_content(&raw);
                 if sanitized.is_some() {
