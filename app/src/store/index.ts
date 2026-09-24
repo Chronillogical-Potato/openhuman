@@ -25,6 +25,7 @@ import channelConnectionsReducer from './channelConnectionsSlice';
 import chatRuntimeReducer from './chatRuntimeSlice';
 import connectivityReducer from './connectivitySlice';
 import coreModeReducer from './coreModeSlice';
+import followupSuggestionsReducer from './followupSuggestionsSlice';
 import githubStarReducer from './githubStarSlice';
 import layoutReducer from './layoutSlice';
 import localeReducer from './localeSlice';
@@ -259,6 +260,8 @@ export const store = configureStore({
     chatRuntime: persistedChatRuntimeReducer,
     // In-memory only: the core's run queue for running turns.
     queue: queueReducer,
+    // In-memory only: follow-up chips for each thread's latest settled turn.
+    followupSuggestions: followupSuggestionsReducer,
     channelConnections: persistedChannelConnectionsReducer,
     accounts: persistedAccountsReducer,
     notifications: persistedNotificationReducer,
