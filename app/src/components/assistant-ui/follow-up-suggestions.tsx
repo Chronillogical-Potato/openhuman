@@ -71,7 +71,7 @@ const FollowupSuggestionsRow: FC = () => {
             key={idx}
             className="aui-thread-followup-suggestion border-foreground/10 hover:bg-foreground/[0.03] hover:border-foreground/25 rounded-md border px-2.5 py-1 text-sm whitespace-nowrap transition-colors ease-in motion-reduce:transition-none"
             prompt={suggestion.prompt}
-            send>
+            send={false}>
             {suggestion.title ?? suggestion.prompt}
             {suggestion.label && (
               <span className="aui-thread-followup-suggestion-label text-muted-foreground ms-1">
