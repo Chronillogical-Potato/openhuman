@@ -88,6 +88,7 @@ pub(crate) async fn run_spawn_parallel_tasks_with_cancellation_and_workspace(
         &parent,
         action_root.as_deref(),
         parent_workspace_descriptor.as_ref(),
+        parent_call_id.as_deref(),
     )
     .await;
     if cancel.is_cancelled() {
