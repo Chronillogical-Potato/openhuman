@@ -1492,7 +1492,9 @@ impl OpenHumanSessionHost {
                     pending_skill_retraction: self.pending_skill_retraction.clone(),
                     connected_integrations: self.connected_integrations.clone(),
                     connected_integrations_initialized: self.connected_integrations_initialized,
-                    connected_integrations_authoritative: self.connected_integrations_initialized,
+                    // Builder-provided integrations have not been verified by
+                    // this session's current authorization refresh.
+                    connected_integrations_authoritative: false,
                     recorded_integration_actions: Vec::new(),
                     workflows: self.workflows.clone(),
                     composio_events: None,

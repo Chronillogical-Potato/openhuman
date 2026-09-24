@@ -18,9 +18,6 @@ impl OpenHumanTurnPrelude {
             return;
         };
         let actions = super::super::recorded_tools::recorded_integration_actions(recorded.specs());
-        if actions.is_empty() {
-            return;
-        }
         log::debug!(
             "[session] adopting {} recorded integration action declaration(s) agent={}",
             actions.len(),
@@ -105,7 +102,11 @@ impl OpenHumanTurnPrelude {
 
     pub(super) async fn refresh_dynamic_announcements(&self) {
         let skills_changed = self.drain_host_events();
-        if let Some(config) = self.runtime_config.as_deref() {
+        let config = match self.runtime_config.clone() {
+            Some(config) => Some(config),
+            None => crate::config::Config::load_or_init().await.ok().map(Arc::new),
+        };
+        if let Some(config) = config.as_deref() {
             // An expired cache is refetched rather than skipped, so a
             // long-lived session keeps tracking connects/revokes.
             let current = match crate::integrations::composio::cached_active_integrations(config) {
@@ -119,6 +120,10 @@ impl OpenHumanTurnPrelude {
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
                 let current_slugs: std::collections::HashSet<_> =
                     current.iter().map(|item| item.toolkit.clone()).collect();
+                mutable.announced_integrations.retain(|slug| current_slugs.contains(slug));
+                mutable
+                    .pending_integration_announcement
+                    .retain(|slug| current_slugs.contains(slug));
                 for slug in &current_slugs {
                     if mutable.announced_integrations.insert(slug.clone())
                         && !mutable.pending_integration_announcement.contains(slug)
@@ -139,6 +144,13 @@ impl OpenHumanTurnPrelude {
             .mutable
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let connected_mcp: std::collections::HashSet<_> = connected_mcp.into_iter().collect();
+        mutable
+            .announced_mcp_servers
+            .retain(|server| connected_mcp.contains(server));
+        mutable
+            .pending_mcp_announcement
+            .retain(|server| connected_mcp.contains(server));
         for server in connected_mcp {
             if mutable.announced_mcp_servers.insert(server.clone())
                 && !mutable.pending_mcp_announcement.contains(&server)

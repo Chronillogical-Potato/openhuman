@@ -50,29 +50,26 @@ fn recorded_actions_are_filtered_from_a_mixed_declaration_set() {
 }
 
 #[test]
-fn a_restart_with_no_integrations_rebuilds_the_recorded_actions_as_deferred() {
+fn unavailable_authorization_does_not_rebuild_recorded_actions() {
     let recorded = vec![spec("GMAIL_SEND_EMAIL"), spec("GMAIL_FETCH_EMAILS")];
     let rebuilt = rehydrate_integration_actions(&recorded, &[], &[], false);
-
-    let names: Vec<&str> = rebuilt.iter().map(|tool| tool.name()).collect();
-    assert_eq!(names, vec!["GMAIL_SEND_EMAIL", "GMAIL_FETCH_EMAILS"]);
-    for tool in &rebuilt {
-        assert_eq!(tool.exposure(), tinytools::ToolExposure::Deferred);
-        assert_eq!(tool.family(), Some("gmail"));
-    }
-    // The declaration round-trips: same description, and the schema keeps the
-    // recorded properties (the tool only adds `connection_id` when absent).
-    let schema = rebuilt[0].parameters_schema();
-    assert_eq!(rebuilt[0].description(), "GMAIL_SEND_EMAIL description");
-    assert!(schema["properties"]["to"].is_object());
+    assert!(rebuilt.is_empty());
 }
 
 #[test]
 fn a_live_action_is_not_rebuilt_from_the_record() {
     let recorded = vec![spec("GMAIL_SEND_EMAIL"), spec("SLACK_SEND_MESSAGE")];
-    let live: Vec<Box<dyn Tool>> =
-        rehydrate_integration_actions(&[spec("GMAIL_SEND_EMAIL")], &[], &[], false);
-    let rebuilt = rehydrate_integration_actions(&recorded, &live, &[], false);
+    let integrations = vec![
+        integration("gmail", true, Vec::new()),
+        integration("slack", true, Vec::new()),
+    ];
+    let live: Vec<Box<dyn Tool>> = rehydrate_integration_actions(
+        &[spec("GMAIL_SEND_EMAIL")],
+        &[],
+        &integrations,
+        true,
+    );
+    let rebuilt = rehydrate_integration_actions(&recorded, &live, &integrations, true);
     let names: Vec<&str> = rebuilt.iter().map(|tool| tool.name()).collect();
     assert_eq!(names, vec!["SLACK_SEND_MESSAGE"]);
 }
@@ -80,8 +77,9 @@ fn a_live_action_is_not_rebuilt_from_the_record() {
 #[test]
 fn a_rebuilt_declaration_is_byte_identical_to_the_recorded_one() {
     let recorded = vec![spec("GMAIL_SEND_EMAIL")];
-    let first = rehydrate_integration_actions(&recorded, &[], &[], false);
-    let second = rehydrate_integration_actions(&recorded, &[], &[], false);
+    let integrations = vec![integration("gmail", true, Vec::new())];
+    let first = rehydrate_integration_actions(&recorded, &[], &integrations, true);
+    let second = rehydrate_integration_actions(&recorded, &[], &integrations, true);
     let mut rebuilt = first[0].spec();
     rebuilt
         .parameters

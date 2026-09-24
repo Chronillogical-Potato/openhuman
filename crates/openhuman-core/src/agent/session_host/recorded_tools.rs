@@ -68,13 +68,12 @@ pub(super) fn rehydrate_integration_actions(
     let mut seen = HashSet::new();
     recorded
         .iter()
-        // A missing snapshot is not evidence that a connection was revoked,
-        // so preserve the resume fallback until integrations can be fetched.
-        // Once the snapshot is authoritative, however, never reintroduce an
-        // action which its current connection or scope policy removed.
+        // Transcript declarations are historical state, never authorization.
+        // Do not make a deferred executor available until a current
+        // authoritative integration snapshot permits its toolkit and action.
         .filter(|spec| {
-            !integrations_are_authoritative
-                || integrations.iter().any(|integration| {
+            integrations_are_authoritative
+                && integrations.iter().any(|integration| {
                     integration.connected
                         && integration
                             .toolkit
