@@ -382,6 +382,41 @@ export async function waitForTestId(
 }
 
 /**
+ * Dispatch a browser file drag sequence against an element.
+ *
+ * WebDriver cannot hand the desktop webview an operating-system drag source,
+ * but constructing a `DataTransfer` in the renderer gives the application the
+ * same `FileList` and `DataTransferItemList` shape its HTML drag handlers
+ * consume. Keep this here so specs do not reach around the cross-platform
+ * element helper boundary with raw DOM queries.
+ */
+export async function dispatchFileDrop(
+  target: ChainablePromiseElement,
+  file: { name: string; type: string; contents: string }
+): Promise<{ dragOverPrevented: boolean; dropPrevented: boolean; fileCount: number }> {
+  return browser.execute(
+    (element: HTMLElement, droppedFile: { name: string; type: string; contents: string }) => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(new File([droppedFile.contents], droppedFile.name, { type: droppedFile.type }));
+
+      const dispatch = (type: 'dragover' | 'drop') => {
+        const event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer });
+        element.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+
+      return {
+        dragOverPrevented: dispatch('dragover'),
+        dropPrevented: dispatch('drop'),
+        fileCount: dataTransfer.files.length,
+      };
+    },
+    target as unknown as HTMLElement,
+    file
+  );
+}
+
+/**
  * Wait for an element by stable `data-testid`, then click it.
  */
 export async function clickTestId(

@@ -1,7 +1,7 @@
-// @ts-nocheck
 import { browser, expect } from '@wdio/globals';
 
 import { waitForApp } from '../helpers/app-helpers';
+import { dispatchFileDrop, waitForTestId } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { startMockServer, stopMockServer } from '../mock-server';
 
@@ -20,26 +20,14 @@ describe('File drop guard', () => {
 
   it('refuses an unclaimed file drop on the sidebar without navigating the app', async () => {
     const urlBeforeDrop = await browser.getUrl();
-    const result = await browser.execute(() => {
-      const target = document.querySelector('[data-testid="root-shell-sidebar"]');
-      if (!target) return null;
-
-      const dispatchFileEvent = (type: 'dragover' | 'drop') => {
-        const event = new Event(type, { bubbles: true, cancelable: true }) as DragEvent;
-        Object.defineProperty(event, 'dataTransfer', {
-          value: { types: ['Files'], dropEffect: 'copy' },
-        });
-        target.dispatchEvent(event);
-        return event.defaultPrevented;
-      };
-
-      return {
-        dragOverPrevented: dispatchFileEvent('dragover'),
-        dropPrevented: dispatchFileEvent('drop'),
-      };
+    const sidebar = await waitForTestId('root-shell-sidebar');
+    const result = await dispatchFileDrop(sidebar, {
+      name: 'unclaimed.txt',
+      type: 'text/plain',
+      contents: 'dropped from e2e',
     });
 
-    expect(result).toEqual({ dragOverPrevented: true, dropPrevented: true });
+    expect(result).toEqual({ dragOverPrevented: true, dropPrevented: true, fileCount: 1 });
     expect(await browser.getUrl()).toBe(urlBeforeDrop);
   });
 });
