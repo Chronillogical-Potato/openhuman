@@ -19,11 +19,11 @@ import { TranscriptOverlays } from '../../features/conversations/components/aui/
 import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
 import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
 import { TodoList } from '../../components/assistant-ui/elements/todo-list';
-import { toAuiTodoItems } from '../../features/conversations/aui/PlanReviewPart';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
-import { useThreadGoal, useLoadThreadGoal } from '../../features/conversations/aui/useThreadGoal';
-import { useThreadTodos, useLoadThreadTodos } from '../../features/conversations/aui/useThreadTodos';
+import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
+import { useLoadThreadGoal, useThreadGoal } from '../../features/conversations/aui/useThreadGoal';
+import { useLoadThreadTodos, useThreadTodos } from '../../features/conversations/aui/useThreadTodos';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
