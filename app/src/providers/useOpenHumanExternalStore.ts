@@ -1,4 +1,5 @@
 import type {
+  AddToolResultOptions,
   AppendMessage,
   ThreadMessage as AuiThreadMessage,
   RespondToToolApprovalOptions,
