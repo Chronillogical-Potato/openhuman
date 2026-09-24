@@ -114,6 +114,7 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
         store,
         ChatRequestMetadata::default(),
         config,
+        None,
     );
 
     tx.send(crate::agent::progress::AgentProgress::ToolCallCompleted {
@@ -222,6 +223,7 @@ fn spawn_test_bridge(
         store,
         ChatRequestMetadata::default(),
         Config::default(),
+        None,
     );
     tx
 }
