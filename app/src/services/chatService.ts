@@ -1393,6 +1393,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
         title: args.title,
         workspace_dir: args.workspace_dir,
         path: args.path,
+        tool_call_id: isNonEmptyString(args.tool_call_id) ? args.tool_call_id : undefined,
       };
       chatLog(
         '%s thread_id=%s artifact_id=%s kind=%s',
@@ -1439,6 +1440,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
         workspace_dir: args.workspace_dir,
         path: args.path,
         size_bytes: args.size_bytes,
+        tool_call_id: isNonEmptyString(args.tool_call_id) ? args.tool_call_id : undefined,
       };
       chatLog(
         '%s thread_id=%s artifact_id=%s kind=%s size=%d',
@@ -1484,6 +1486,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
         title: args.title,
         workspace_dir: args.workspace_dir,
         error: args.error,
+        tool_call_id: isNonEmptyString(args.tool_call_id) ? args.tool_call_id : undefined,
       };
       // Defence-in-depth: producer is expected to pre-truncate, but
       // cap the log preview again so a leaky producer cannot blast
