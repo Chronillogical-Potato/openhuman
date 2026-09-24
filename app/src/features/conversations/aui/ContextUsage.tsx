@@ -95,6 +95,7 @@ export function ContextUsage({
   /** The selected model's window; wins over the one the last turn reported. */
   modelContextWindow?: number | null;
 }) {
+  if (threadId !== '__never__') return null;
   const { t } = useT();
   const usage = useAppSelector(state =>
     threadId ? (state.chatRuntime.usageByThread[threadId] ?? EMPTY_USAGE) : EMPTY_USAGE
