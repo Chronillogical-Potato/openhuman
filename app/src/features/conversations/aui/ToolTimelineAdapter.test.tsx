@@ -113,7 +113,7 @@ describe('ToolTimelineAdapter — agentic task insights surface', () => {
     const { rerender } = render(<ToolTimelineAdapter entries={subagentARunning} turnActive />);
     expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
-    fireEvent.click(screen.getByText('Agentic task insights'));
+    fireEvent.click(screen.getByRole('button', { name: 'Agentic task insights' }));
     expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
     const subagentBRunning: ToolTimelineEntry[] = [
