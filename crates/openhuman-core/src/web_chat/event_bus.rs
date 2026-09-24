@@ -74,6 +74,116 @@ pub fn register_artifact_surface_subscriber() {
     }
 }
 
+static MEMORY_ACTIVITY_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
+
+/// Registers the memory-activity surface bridge
+/// (`DomainEvent::MemoryStored`/`MemoryRecalled` → `memory_activity`
+/// web-channel events). Idempotent (OnceLock-guarded).
+pub fn register_memory_activity_surface_subscriber() {
+    if MEMORY_ACTIVITY_SURFACE_HANDLE.get().is_some() {
+        return;
+    }
+    match crate::core::bus::BUS.subscribe(Arc::new(MemoryActivitySurfaceSubscriber)) {
+        Some(handle) => {
+            let _ = MEMORY_ACTIVITY_SURFACE_HANDLE.set(handle);
+            log::info!(
+                "[web-channel] memory-activity-surface subscriber registered (domain=memory) — will bridge MemoryStored/MemoryRecalled → memory_activity socket events"
+            );
+        }
+        None => {
+            log::warn!(
+                "[web-channel] failed to register memory-activity-surface subscriber — bus not initialized"
+            );
+        }
+    }
+}
+
+/// Longest clipped preview of a recall query carried on a `memory_activity`
+/// event. Deliberately short and deliberately not the whole query — see
+/// module docs on why memory content/queries never reach the web channel
+/// verbatim.
+const MEMORY_ACTIVITY_QUERY_PREVIEW_CHARS: usize = 40;
+
+/// Bridges `DomainEvent::MemoryStored`/`MemoryRecalled` — published once per
+/// `memory_store`/`memory_recall` **tool call** (`memory::tools::store`/
+/// `recall`), not per driver read — onto a `memory_activity` web-channel
+/// event so the chat surface can show a brief "remembered"/"recalled N"
+/// indicator.
+///
+/// Routing: these domain events carry no `thread_id`/`client_id` of their
+/// own (unlike the artifact events), so this subscriber reads the current
+/// turn's chat context off the same
+/// [`crate::security::approval::APPROVAL_CHAT_CONTEXT`] task-local the
+/// artifact producers use, and drops the event when it is absent (CLI /
+/// cron / sub-agent paths — no client to fan out to). Only ever carries
+/// `key`/`category`/`namespace` (never stored content) and a short, clipped
+/// preview of the recall query (never the full query text).
+struct MemoryActivitySurfaceSubscriber;
+
+fn current_chat_context() -> Option<(String, String)> {
+    crate::security::approval::APPROVAL_CHAT_CONTEXT
+        .try_with(|ctx| (ctx.thread_id.clone(), ctx.client_id.clone()))
+        .ok()
+}
+
+#[async_trait]
+impl EventHandler<DomainEvent> for MemoryActivitySurfaceSubscriber {
+    fn name(&self) -> &str {
+        "web_chat::memory_activity_surface"
+    }
+
+    fn domains(&self) -> Option<&[&str]> {
+        Some(&["memory"])
+    }
+
+    async fn handle(&self, event: &DomainEvent) {
+        let (event_name, args) = match event {
+            DomainEvent::MemoryStored {
+                key,
+                category,
+                namespace,
+            } => (
+                "stored",
+                serde_json::json!({
+                    "kind": "stored",
+                    "key": key,
+                    "category": category,
+                    "namespace": namespace,
+                }),
+            ),
+            DomainEvent::MemoryRecalled { query, hit_count } => {
+                let preview: String = query.chars().take(MEMORY_ACTIVITY_QUERY_PREVIEW_CHARS).collect();
+                let truncated = query.chars().count() > MEMORY_ACTIVITY_QUERY_PREVIEW_CHARS;
+                (
+                    "recalled",
+                    serde_json::json!({
+                        "kind": "recalled",
+                        "query_preview": if truncated { format!("{preview}…") } else { preview },
+                        "hit_count": hit_count,
+                    }),
+                )
+            }
+            _ => return,
+        };
+        let Some((thread_id, client_id)) = current_chat_context() else {
+            log::debug!(
+                "[web-channel] memory-activity-surface skip {event_name}: no chat context"
+            );
+            return;
+        };
+        log::debug!(
+            "[web-channel] memory-activity-surface emitting memory_activity kind={event_name} thread_id={thread_id} client_id={client_id}"
+        );
+        publish_web_channel_event(WebChannelEvent {
+            event: "memory_activity".to_string(),
+            client_id,
+            thread_id,
+            args: Some(args),
+            ..Default::default()
+        });
+    }
+}
+
 static AGENT_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
 /// Register the agent-surface bridge that turns thread-goal, thread-todo, and
