@@ -328,6 +328,60 @@ export default function ToolCallGallery() {
           />
         </section>
 
+        <section className="flex flex-col gap-3">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Goals, todos, plan review
+          </h2>
+
+          <p className="text-foreground/40 text-xs">
+            Goal — pinned `AgentStatus` pill (mapped from `thread_goal_updated`)
+          </p>
+          <AgentStatus
+            state="working"
+            label="Cover every element the demo transcript can render"
+            trailing={<span className="tabular-nums">1.2k / 20k</span>}
+          />
+
+          <p className="text-foreground/40 text-xs">
+            Todos — pinned `TodoList` (mapped from `thread_todos_changed`)
+          </p>
+          <TodoList
+            title="Todos"
+            items={[
+              { id: '0', text: 'Stream reasoning and prose', status: 'done' },
+              { id: '1', text: 'Run a tool call and a delegation', status: 'done' },
+              { id: '2', text: 'Render the goal and plan-review elements', status: 'active' },
+              { id: '3', text: 'Wrap up with the closing summary', status: 'pending' },
+            ]}
+          />
+
+          <p className="text-foreground/40 text-xs">
+            Plan review — pending decision (`request_plan_review`, `AgentPlan` + approve / reject /
+            revise)
+          </p>
+          <PlanReviewCardCore
+            threadId="dev-thread"
+            review={{
+              requestId: 'dev-plan-review',
+              summary: 'Render the goal, todo and plan-review elements for this gallery',
+              steps: [
+                'Render the goal and todo elements inline',
+                'Show the plan under review',
+                'Resolve the review and continue',
+              ],
+            }}
+          />
+
+          <p className="text-foreground/40 text-xs">
+            Plan review — already decided / replayed history (`activeIndex: steps.length`)
+          </p>
+          <AgentPlan
+            title="Review plan"
+            steps={['Render the goal and todo elements inline', 'Show the plan under review']}
+            activeIndex={2}
+          />
+        </section>
+
         <section className="flex flex-col gap-1">
           <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">Message queue</h2>
           <MessageQueue
