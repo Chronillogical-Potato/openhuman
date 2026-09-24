@@ -521,7 +521,12 @@ impl Tool for ExaSearchTool {
                 excerpt: e.as_deref(),
             })
             .collect();
-        result.metadata = Some(super::web_search_metadata(&query, "Exa", &structured, limit));
+        result.metadata = Some(super::web_search_metadata(
+            &query,
+            "Exa",
+            &structured,
+            limit,
+        ));
         Ok(result)
     }
 }
