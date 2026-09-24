@@ -10,6 +10,7 @@ import { ComposerTriggerPopover } from '@/components/assistant-ui/composer-trigg
 import { DirectiveText } from '@/components/assistant-ui/directive-text';
 import { File } from '@/components/assistant-ui/file';
 import { ThreadFollowupSuggestions } from '@/components/assistant-ui/follow-up-suggestions';
+import { ErrorState } from '@/components/assistant-ui/elements/error-state';
 import { Image } from '@/components/assistant-ui/elements/image';
 import { MessageTiming } from '@/components/assistant-ui/elements/message-timing.aui';
 import { cn } from '@/components/assistant-ui/lib/utils';
@@ -33,7 +34,6 @@ import {
   AuiIf,
   BranchPickerPrimitive,
   ComposerPrimitive,
-  ErrorPrimitive,
   type FileMessagePartComponent,
   groupPartByType,
   type ImageMessagePartComponent,

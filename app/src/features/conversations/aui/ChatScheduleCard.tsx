@@ -13,6 +13,7 @@
  * plus a best-effort toggle on top of it, not a substitute for the Settings
  * panel's list.
  */
+import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { useCallback, useState } from 'react';
 
 import { ScheduleCard, type ScheduleRun } from '../../../components/assistant-ui/elements/schedule-card';
