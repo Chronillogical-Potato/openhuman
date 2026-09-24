@@ -8,8 +8,8 @@ use super::types::{DisplayItem, SubagentStatus, ToolCallStatus};
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use tinyagents_session::transcript::{
-    self, read_transcript, read_transcript_display, SessionRef, TranscriptMessage,
-    TranscriptMeta, TranscriptToolCall, TurnUsage,
+    self, read_transcript, read_transcript_display, SessionRef, TranscriptMessage, TranscriptMeta,
+    TranscriptToolCall, TurnUsage,
 };
 
 fn meta(thread_id: &str, session_id: Option<String>, parent: Option<String>) -> TranscriptMeta {
@@ -357,7 +357,9 @@ fn subagent_of_a_session_root_is_discovered_and_placed_after_its_spawning_call()
     let items = &projected.items;
     let research_call = items
         .iter()
-        .position(|item| matches!(item, DisplayItem::ToolCall { call_id, .. } if call_id == "c-research"))
+        .position(
+            |item| matches!(item, DisplayItem::ToolCall { call_id, .. } if call_id == "c-research"),
+        )
         .expect("research call projected");
     match &items[research_call + 1] {
         DisplayItem::Subagent {
@@ -467,8 +469,8 @@ fn generation_chain_projects_in_order_without_duplicating_retained_rows() {
     .unwrap();
 
     // A pre-identity root of the same thread, already adopted into g0.
-    let legacy = transcript::resolve_keyed_transcript_path(dir.path(), "1600000000_orchestrator")
-        .unwrap();
+    let legacy =
+        transcript::resolve_keyed_transcript_path(dir.path(), "1600000000_orchestrator").unwrap();
     transcript::append_transcript_turn(
         &legacy,
         &[],
@@ -516,13 +518,18 @@ fn generation_chain_projects_in_order_without_duplicating_retained_rows() {
         Some(successor.session_id()),
         Some(session.session_id()),
     );
-    transcript::append_transcript_turn(&g1, &[], &retained, &g1_meta, None, Some("req-3"))
-        .unwrap();
+    transcript::append_transcript_turn(&g1, &[], &retained, &g1_meta, None, Some("req-3")).unwrap();
 
     let (roots, _) = resolve_files(dir.path(), thread_id).expect("thread resolves");
-    assert_eq!(roots, vec![g0.clone(), g1.clone()], "chain order, legacy dropped");
+    assert_eq!(
+        roots,
+        vec![g0.clone(), g1.clone()],
+        "chain order, legacy dropped"
+    );
 
-    let items = project_thread(dir.path(), thread_id).expect("project").items;
+    let items = project_thread(dir.path(), thread_id)
+        .expect("project")
+        .items;
     let users: Vec<&str> = items
         .iter()
         .filter_map(|item| match item {

@@ -414,7 +414,9 @@ fn unwrap_tool_result(raw: &str) -> (String, Option<String>) {
     };
     let (Some(content), Some(call_id)) = (
         object.get("content").and_then(serde_json::Value::as_str),
-        object.get("tool_call_id").and_then(serde_json::Value::as_str),
+        object
+            .get("tool_call_id")
+            .and_then(serde_json::Value::as_str),
     ) else {
         return (raw.to_string(), None);
     };

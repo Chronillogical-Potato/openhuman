@@ -81,7 +81,11 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
     match &items[2] {
         DisplayItem::Reasoning { text, iteration } => {
             assert_eq!(text, "I should call the weather tool.");
-            assert_eq!(*iteration, Some(1), "reasoning carries its step's iteration");
+            assert_eq!(
+                *iteration,
+                Some(1),
+                "reasoning carries its step's iteration"
+            );
         }
         other => panic!("expected reasoning, got {other:?}"),
     }

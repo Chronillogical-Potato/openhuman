@@ -58,7 +58,11 @@ enum OwnState {
 
 /// Place every direct child of the root (`__`-once stems) into `items`.
 /// `segments` are the root turns' `(request_id, commit unix)` pairs.
-pub(super) fn attach(items: &mut Vec<DisplayItem>, sub_paths: &[PathBuf], segments: &[(String, i64)]) {
+pub(super) fn attach(
+    items: &mut Vec<DisplayItem>,
+    sub_paths: &[PathBuf],
+    segments: &[(String, i64)],
+) {
     let children = build_children(sub_paths, None, 0);
     place(items, children, segments);
 }
@@ -245,9 +249,9 @@ fn turn_range(items: &[DisplayItem], request_id: Option<&str>) -> (usize, usize)
     let Some(request_id) = request_id else {
         return (0, items.len());
     };
-    let Some(boundary) = items.iter().position(|item| {
-        matches!(item, DisplayItem::TurnBoundary { request_id: rid } if rid == request_id)
-    }) else {
+    let Some(boundary) = items.iter().position(
+        |item| matches!(item, DisplayItem::TurnBoundary { request_id: rid } if rid == request_id),
+    ) else {
         return (0, items.len());
     };
     let end = items[boundary + 1..]
@@ -291,13 +295,15 @@ fn call_targets_agent(name: &str, args: Option<&serde_json::Value>, agent_id: &s
     if name == format!("delegate_{agent}") || name == format!("delegate_to_{agent}") {
         return true;
     }
-    let named_in_args = args.and_then(serde_json::Value::as_object).is_some_and(|args| {
-        TARGET_ARG_KEYS.iter().any(|key| {
-            args.get(*key)
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|value| value.eq_ignore_ascii_case(&agent))
-        })
-    });
+    let named_in_args = args
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(|args| {
+            TARGET_ARG_KEYS.iter().any(|key| {
+                args.get(*key)
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|value| value.eq_ignore_ascii_case(&agent))
+            })
+        });
     if named_in_args {
         return true;
     }
