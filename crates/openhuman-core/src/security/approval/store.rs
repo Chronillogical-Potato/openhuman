@@ -692,6 +692,9 @@ fn row_to_pending(row: &rusqlite::Row<'_>) -> rusqlite::Result<PendingApproval> 
             })
             .ok()
     });
+    // Column 8 (`tool_call_id`) is likewise absent on rows written before
+    // this field existed — tolerate a missing-column read error as `None`.
+    let tool_call_id: Option<String> = row.get(8).unwrap_or(None);
 
     // Note: column index 4 (`session_id`) is read on the SELECT but
     // intentionally not surfaced — see `PendingApproval` doc-comment.
@@ -703,6 +706,7 @@ fn row_to_pending(row: &rusqlite::Row<'_>) -> rusqlite::Result<PendingApproval> 
         created_at: parse_rfc3339(&created_str),
         expires_at: expires_opt.as_deref().map(parse_rfc3339),
         source_context,
+        tool_call_id,
     })
 }
 
