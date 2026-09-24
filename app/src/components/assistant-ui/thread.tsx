@@ -1319,8 +1319,7 @@ const isStoppedRun = (s: AssistantState): boolean =>
  */
 const selectStoppedRunState = (s: AssistantState) => {
   const text = s.message.parts
-    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
-    .map(part => part.text)
+    .flatMap(part => (part.type === 'text' ? [part.text] : []))
     .join(' ');
   const custom = s.message.metadata?.custom as
     | { extraMetadata?: { cancelReason?: string; supersededBy?: string } }
