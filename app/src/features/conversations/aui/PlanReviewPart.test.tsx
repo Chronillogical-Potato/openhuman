@@ -5,7 +5,10 @@ import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import chatRuntimeReducer, { type PendingPlanReview } from '../../../store/chatRuntimeSlice';
+import chatRuntimeReducer, {
+  type PendingPlanReview,
+  setPendingPlanReviewForThread,
+} from '../../../store/chatRuntimeSlice';
 import threadTodosReducer from '../../../store/threadTodosSlice';
 import { PlanReviewCardCore } from './PlanReviewPart';
 
@@ -21,6 +24,9 @@ function renderCard(review: PendingPlanReview = REVIEW) {
   const store = configureStore({
     reducer: combineReducers({ chatRuntime: chatRuntimeReducer, threadTodos: threadTodosReducer }),
   });
+  // Seed the store the way `ChatRuntimeProvider` would on `plan_review_request`
+  // — `decide()`'s optimistic clear needs something to clear.
+  store.dispatch(setPendingPlanReviewForThread({ threadId: 't1', review }));
   render(
     <Provider store={store}>
       <PlanReviewCardCore threadId="t1" review={review} />
