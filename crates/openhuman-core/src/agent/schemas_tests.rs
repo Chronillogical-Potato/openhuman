@@ -18,6 +18,7 @@ fn controller_schema_inventory_is_stable() {
             "triage_evaluate",
             "graph_topologies",
             "registry_snapshot",
+            "context_breakdown",
         ]
     );
     assert_eq!(schemas.len(), all_registered_controllers().len());
