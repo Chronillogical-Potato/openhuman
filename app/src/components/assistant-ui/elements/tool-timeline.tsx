@@ -13,15 +13,14 @@
  *   element (it expands, carries approvals), not only a verb and a chip.
  * - Step keys are positional; two steps may share a chip.
  */
-import { ChevronRightIcon, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
+import { ChevronRightIcon, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { take } from '../utils/range';
 import { collapsePanel, openRotate, ShimmerLabel, SwapLabel } from './surfaces';

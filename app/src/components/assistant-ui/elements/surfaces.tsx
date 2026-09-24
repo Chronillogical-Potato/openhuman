@@ -12,10 +12,9 @@
  * - `openRotate` added: the Radix trigger reports `data-state=open`, not Base
  *   UI's `data-open` / `data-panel-open`.
  */
+import { cn } from '@/components/assistant-ui/lib/utils';
 import type { ComponentProps, ReactNode } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
-
-import { cn } from '@/components/assistant-ui/lib/utils';
 
 export const paper = 'bg-background border border-border/60 dark:bg-popover';
 

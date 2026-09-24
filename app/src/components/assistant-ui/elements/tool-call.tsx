@@ -18,15 +18,14 @@
  *   decision the turn is blocked on must not sit behind a disclosure.
  * - The panel headings are props, for translation.
  */
-import { CheckIcon, ChevronRightIcon, CircleXIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
+import { CheckIcon, ChevronRightIcon, CircleXIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { collapsePanel, field, mono, openRotate, ShimmerLabel, SwapLabel } from './surfaces';
 
@@ -87,11 +86,7 @@ export function ToolCall({
         disabled={!hasPanel}
         className="group/trigger text-foreground/55 hover:text-foreground/90 flex w-full min-w-0 items-center gap-2 rounded-md py-1 text-[13.5px] transition-colors outline-none">
         <ChevronRightIcon
-          className={cn(
-            'size-3.5 shrink-0 opacity-60',
-            openRotate,
-            !hasPanel && 'invisible'
-          )}
+          className={cn('size-3.5 shrink-0 opacity-60', openRotate, !hasPanel && 'invisible')}
         />
         {icon}
         <SwapLabel active={running ? 0 : 1} className="shrink-0 text-start">

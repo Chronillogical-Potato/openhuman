@@ -14,10 +14,9 @@
  * - Result keys include the URL: two hits often share a domain.
  * - The empty-results floor (`min-h`) applies only while hits are expected.
  */
+import { cn } from '@/components/assistant-ui/lib/utils';
 import { SearchIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
-
-import { cn } from '@/components/assistant-ui/lib/utils';
 
 import { take } from '../utils/range';
 import { field, mono, ShimmerLabel } from './surfaces';
