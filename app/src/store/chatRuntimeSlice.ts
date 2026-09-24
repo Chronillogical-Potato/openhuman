@@ -24,6 +24,16 @@ import { resetUserScopedState } from './resetActions';
 
 const turnStateLog = debug('chatRuntime.turnState');
 
+/** A tool call's event args as a row `argsBuffer`; `undefined` when there are none. */
+function argsBufferOf(args: Record<string, unknown> | undefined): string | undefined {
+  if (!args || typeof args !== 'object' || Object.keys(args).length === 0) return undefined;
+  try {
+    return JSON.stringify(args);
+  } catch {
+    return undefined;
+  }
+}
+
 /** How many turns settled this session keep a frozen trail per thread. */
 const SETTLED_TURNS_KEPT = 20;
 
@@ -1324,9 +1334,18 @@ const chatRuntimeSlice = createSlice({
         toolCallId?: string;
         displayLabel?: string;
         displayDetail?: string;
+        /**
+         * The call's arguments as the `tool_call` event carries them. Kept as
+         * the row's `argsBuffer` unless `tool_args_delta` already streamed
+         * them, so a call whose args were not streamed still shows its input —
+         * as the same call does on reload, where the core transcript always
+         * has them.
+         */
+        args?: Record<string, unknown>;
       }>
     ) => {
       const { threadId, round, toolName, displayLabel, displayDetail } = action.payload;
+      const argsBuffer = argsBufferOf(action.payload.args);
       // Normalise an absent id to `undefined` *before* anything reads it. A
       // provider that sends `tool_call_id: ""` is saying "no id", but `??` only
       // falls back on null/undefined — so the empty string used to survive as
@@ -1369,6 +1388,7 @@ const chatRuntimeSlice = createSlice({
           name: toolName,
           round,
           status: 'running',
+          argsBuffer: prev.argsBuffer ?? argsBuffer,
           displayName: displayLabel ?? prev.displayName,
           detail: displayDetail ?? prev.detail,
         });
@@ -1382,6 +1402,7 @@ const chatRuntimeSlice = createSlice({
             round,
             seq,
             status: 'running',
+            argsBuffer,
             displayName: displayLabel,
             detail: displayDetail,
           })
