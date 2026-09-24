@@ -18,7 +18,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { Provider } from 'react-redux';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ThreadMessage } from '../../types/thread';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
