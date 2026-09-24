@@ -26,6 +26,7 @@ import { CitationMarker } from '../../components/assistant-ui/elements/inline-ci
 import { MemoryChips } from '../../components/assistant-ui/elements/memory-chips';
 import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
 import { ScheduleCard } from '../../components/assistant-ui/elements/schedule-card';
+import { SettingsPanel } from '../../components/assistant-ui/elements/settings-panel';
 import {
   Source,
   SourceIcon,
@@ -456,6 +457,23 @@ export default function ToolCallGallery() {
             limit={MOCK_CONTEXT_BREAKDOWN.context_window}
             title={t('conversations.composer.context.title')}
             headroomLabel={t('conversations.composer.context.headroom')}
+          />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Chat settings (settings-panel, read-only)
+          </h2>
+          {/* What ChatSettingsPanel renders: model + temperature only — no core
+              config RPC stores a chat system prompt, so that field is omitted. */}
+          <SettingsPanel
+            data-testid="tool-gallery-settings-panel"
+            model="gpt-4o-mini"
+            models={['OpenHuman', 'gpt-4o-mini']}
+            temperature={0.7}
+            modelLabel={t('composer.settings.model')}
+            temperatureLabel={t('composer.settings.temperature')}
+            temperatureAriaLabel={t('composer.settings.temperature')}
           />
         </section>
 
