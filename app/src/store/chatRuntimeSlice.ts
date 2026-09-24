@@ -1576,6 +1576,8 @@ const chatRuntimeSlice = createSlice({
         dedicatedThread?: boolean;
         /** `<request_id>:<seq>` of the emitting event; see {@link SubagentActivity.spawnEventId}. */
         spawnEventId?: string;
+        /** `SubagentProgressDetail.parent_call_id`; see {@link SubagentActivity.parentCallId}. */
+        parentCallId?: string;
       }>
     ) => {
       const {
@@ -1589,6 +1591,7 @@ const chatRuntimeSlice = createSlice({
         mode,
         dedicatedThread,
         spawnEventId,
+        parentCallId,
       } = action.payload;
       const entries = (state.toolTimelineByThread[threadId] ??= []);
       // Idempotent: a socket redelivery must not append a second row with the

@@ -23,7 +23,9 @@ pub use channel_ops::{
     channel_web_queue_remove, channel_web_queue_status,
 };
 
-pub use start_chat::{start_chat, StartChatError};
+pub use start_chat::{
+    is_guardrail_error_message, start_chat, StartChatError, GUARDRAIL_ERROR_PREFIX,
+};
 pub use system_turn::{run_system_turn_on_thread, SESSION_CHECKOUT_FAILURE, SYSTEM_CLIENT_ID};
 
 #[cfg(test)]
