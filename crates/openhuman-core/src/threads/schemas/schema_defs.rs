@@ -396,6 +396,41 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "goal_get" => ControllerSchema {
+            namespace: "threads",
+            function: "goal_get",
+            description:
+                "Read a thread's current goal (Codex-style completion contract), or null when it has none.",
+            inputs: vec![FieldSchema {
+                name: "thread_id",
+                ty: TypeSchema::String,
+                comment: "Thread identifier.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope wrapping the goal (may be null).",
+                required: true,
+            }],
+        },
+        "todos_get" => ControllerSchema {
+            namespace: "threads",
+            function: "todos_get",
+            description: "Read a thread's current session todo list.",
+            inputs: vec![FieldSchema {
+                name: "thread_id",
+                ty: TypeSchema::String,
+                comment: "Thread identifier.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope wrapping the todo list (empty when never written).",
+                required: true,
+            }],
+        },
         _other => ControllerSchema {
             namespace: "threads",
             function: "unknown",

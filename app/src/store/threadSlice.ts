@@ -511,6 +511,35 @@ const threadSlice = createSlice({
     setWelcomeThreadId: () => {
       // intentional no-op
     },
+    /**
+     * Drop messages at or after `messageId` from `threadId`'s local cache.
+     *
+     * Backs assistant-ui's `onEdit`/`onReload` (`useOpenHumanExternalStore`):
+     * both RPCs (`threads.edit_message`, `threads.regenerate`) truncate the
+     * core's own transcript and re-run from that point, but neither returns a
+     * fresh message list — the socket events that follow only carry the NEW
+     * turn. Without this, the discarded replies would stay visible in the
+     * Redux cache until the next full `loadThreadMessages` refetch.
+     *
+     * `inclusive` distinguishes the two callers: an edit resends `messageId`
+     * itself (drop it too), a reload keeps the parent message and only drops
+     * what came after it.
+     */
+    truncateMessagesFrom: (
+      state,
+      action: PayloadAction<{ threadId: string; messageId: string; inclusive: boolean }>
+    ) => {
+      const { threadId, messageId, inclusive } = action.payload;
+      const existing = state.messagesByThreadId[threadId];
+      if (!existing) return;
+      const idx = existing.findIndex(m => m.id === messageId);
+      if (idx < 0) return;
+      const truncated = existing.slice(0, inclusive ? idx : idx + 1);
+      state.messagesByThreadId[threadId] = truncated;
+      if (state.selectedThreadId === threadId) {
+        state.messages = truncated;
+      }
+    },
   },
   extraReducers: builder => {
     builder
@@ -634,6 +663,7 @@ export const {
   clearAllThreads,
   resetThreadCachesPreservingSelection,
   setWelcomeThreadId,
+  truncateMessagesFrom,
 } = threadSlice.actions;
 
 export default threadSlice.reducer;
