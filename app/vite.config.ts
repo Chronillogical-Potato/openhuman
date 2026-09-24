@@ -129,6 +129,28 @@ function devConnectPlugin(): PluginOption {
     name: "openhuman:dev-connect",
     apply: "serve",
     configureServer(server) {
+      // OAuth return leg for the browser build. `OAuthProviderButton` passes
+      // `<origin>/__dev-auth` as the backend `redirectUri` (the backend accepts
+      // any http loopback URI), and the backend appends `token=…&key=auth`.
+      // The app uses a HashRouter, so a real `/auth` path never reaches
+      // `WebCallbackPage`; bounce the query onto the `#/auth` route instead.
+      server.middlewares.use("/__dev-auth", (req, res) => {
+        if (!isLoopbackAddress(req.socket.remoteAddress)) {
+          res.statusCode = 403;
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end("Forbidden: /__dev-auth is only reachable from loopback.");
+          return;
+        }
+        const url = req.url ?? "";
+        const queryIndex = url.indexOf("?");
+        const query = queryIndex === -1 ? "" : url.slice(queryIndex);
+        console.log("[dev-auth] redirecting OAuth callback to #/auth");
+        res.statusCode = 302;
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Location", `/#/auth${query}`);
+        res.end();
+      });
+
       server.middlewares.use("/__dev-connect", (req, res) => {
         if (!isLoopbackAddress(req.socket.remoteAddress)) {
           res.statusCode = 403;
