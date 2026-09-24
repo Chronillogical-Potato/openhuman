@@ -66,6 +66,9 @@ export function hasDisplayValue(value: unknown): boolean {
 export function ToolDataView({ value }: { value: unknown }) {
   const parsed = parsedValue(value);
   if (Array.isArray(parsed)) {
+    if (isFlatObjectArray(parsed)) {
+      return <DataTable rows={parsed} columns={flatRowColumns(parsed)} />;
+    }
     return (
       <ul className="space-y-1 text-xs">
         {parsed.map((item, index) => (

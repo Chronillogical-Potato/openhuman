@@ -1,15 +1,20 @@
 'use client';
 
 /**
- * Vendored verbatim from the assistant-ui `task-card` registry item
- * (https://r.assistant-ui.com/styles/base-nova/task-card.json). No local
- * changes — pure presentational primitive, no hard-coded user-facing copy
- * (every string is a caller-supplied prop).
+ * Vendored from the assistant-ui `task-card` registry item
+ * (https://r.assistant-ui.com/styles/base-nova/task-card.json). Changes from
+ * upstream:
+ * - `cn` import path (`@/components/assistant-ui/lib/utils`), matching every
+ *   other vendored element in this directory.
+ * No hard-coded user-facing copy — every string (`label`, `meta`, `elapsed`,
+ * `result`) is a caller-supplied prop, so there is nothing to route through
+ * `useT()` here.
  */
 import { Children, type ComponentProps, type ReactNode, useState } from 'react';
 import { Ban, CheckIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react';
 
-import { cn } from '../lib/utils';
+import { cn } from '@/components/assistant-ui/lib/utils';
+
 import { mono, paper } from './surfaces';
 
 export type TaskCardState = 'working' | 'waiting' | 'done' | 'failed' | 'cancelled';

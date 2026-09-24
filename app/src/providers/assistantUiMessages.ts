@@ -19,6 +19,7 @@ import {
   FEEDBACK_METADATA_KEY,
   FEEDBACK_ROW_IDS_METADATA_KEY,
   type MessageFeedback,
+  TIMING_METADATA_KEY,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
 import { extractAgentSources } from '../utils/toolTimelineFormatting';
