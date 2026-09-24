@@ -11,6 +11,10 @@ use crate::threads::turn_state::{TurnStateMirror, TurnStateStore};
 use super::event_bus::publish_web_channel_event;
 use super::types::ChatRequestMetadata;
 
+#[path = "progress_bridge_subagent_events.rs"]
+mod subagent_events;
+use subagent_events::BridgeCtx;
+
 /// Cadence of the `inference_heartbeat` liveness beat the bridge emits while a
 /// turn is in flight (issue #4270). The frontend silence timer in
 /// `Conversations.tsx` only fires after ~120s with NO progress signal of any
