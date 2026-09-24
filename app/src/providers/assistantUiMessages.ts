@@ -613,11 +613,6 @@ export function toThreadMessageLike(
       custom: {
         extraMetadata: msg.extraMetadata ?? {},
         sourceType: msg.type,
-        // The settled turn's one-line footer + the trail its click opens.
-        // Only on the assistant side: a user message has no process behind it.
-        ...(msg.sender === 'agent'
-          ? { processTrail: processTrail(effectiveTimeline, transcript) }
-          : {}),
       },
     },
   };
