@@ -634,6 +634,22 @@ export interface SubagentProgressDetail {
   output_tokens?: number;
   cached_input_tokens?: number;
   cost_usd?: number;
+  /**
+   * Provider-assigned id of the `spawn_subagent`/`spawn_async_subagent`/
+   * `delegate_*` tool call that started this delegation
+   * (`AgentProgress::SubagentSpawned::parent_call_id`, threaded onto every
+   * event in the `subagent_*` family — see `crates/openhuman-core/src/core/socketio.rs`).
+   * Lets the frontend attach the delegation's live activity to the EXACT
+   * spawn tool-call part instead of guessing which running row started it.
+   * Absent on cores that predate this field.
+   */
+  parent_call_id?: string;
+  /**
+   * The sub-agent's final assistant text (on `subagent_completed`), capped by
+   * the core (`cap_wire_output`). Rendered as the delegation's nested
+   * transcript result.
+   */
+  output?: string;
 }
 
 /** Extended payload for `subagent_spawned`. */
