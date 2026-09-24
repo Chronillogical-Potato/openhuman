@@ -425,8 +425,8 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     // Two rows on the timeline rail.
     expect(screen.getAllByTestId('agent-timeline-row')).toHaveLength(2);
     // Running row name pulses; done row name is solid.
-    const running = screen.getByText('Searching: f1');
-    const done = screen.getByText('Reading file');
+    const running = screen.getByText('Searching the web');
+    const done = screen.getByText('Read file');
     expect(running.className).toContain('animate-pulse');
     expect(done.className).not.toContain('animate-pulse');
   });
@@ -445,9 +445,9 @@ describe('ToolTimelineBlock — agentic task insights surface', () => {
     renderInStore(<ToolTimelineBlock entries={entries} />);
     const rows = screen.getAllByTestId('agent-timeline-row');
     expect(rows).toHaveLength(3);
-    expect(rows[0].textContent).toContain('Searching the web');
-    expect(rows[1].textContent).toContain('Reading file');
-    expect(rows[2].textContent).toContain('Run Code');
+    expect(rows[0].textContent).toContain('Searched the web');
+    expect(rows[1].textContent).toContain('Read file');
+    expect(rows[2].textContent).toContain('Ran code');
   });
 
   it('renders nothing for an empty timeline', () => {
