@@ -46,6 +46,7 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
+import { useActionBarReload, useMessageError } from '@assistant-ui/core/react';
 import { LexicalComposerInput } from '@assistant-ui/react-lexical';
 import debugFactory from 'debug';
 import {
