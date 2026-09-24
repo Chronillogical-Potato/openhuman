@@ -102,12 +102,8 @@ dev_connect_status() {
 }
 
 preferred_dev_port="$(validate_port "${OPENHUMAN_DEV_PORT:-1420}" 1420 OPENHUMAN_DEV_PORT)"
-# Vite runs with strictPort and its HMR companion is dev port + 1, so both must
-# be free; step past busy pairs.
+# Vite runs with strictPort, so pick the free port here and hand it over.
 dev_port="$(next_free_port "$preferred_dev_port" vite)"
-while ! port_is_free $(( dev_port + 1 )); do
-  dev_port="$(next_free_port $(( dev_port + 1 )) vite)"
-done
 
 core_pid=""
 vite_pid=""
