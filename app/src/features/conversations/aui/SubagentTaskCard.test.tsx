@@ -50,7 +50,7 @@ describe('SubagentTaskCard', () => {
         args={{} as never}
         argsText="{}"
         result={{ status: 'error', activity: { ...activity, status: 'failed' } } as never}
-        status={{ type: 'complete', reason: 'stop' }}
+        status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
         respondToApproval={async () => {}}
