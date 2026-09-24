@@ -356,6 +356,10 @@ function testIdSelector(testId: string): string {
   return `[data-testid="${testId}"]`;
 }
 
+function dataSlotSelector(slot: string): string {
+  return `[data-slot="${slot}"]`;
+}
+
 /**
  * Wait for an element by stable `data-testid`.
  *
@@ -377,6 +381,28 @@ export async function waitForTestId(
   await el.waitForExist({
     timeout,
     timeoutMsg: `data-testid="${testId}" not found within ${timeout}ms`,
+  });
+  return el;
+}
+
+/**
+ * Wait for an element by its stable assistant-ui data slot.
+ *
+ * Like test IDs, data slots are exposed by the DOM-backed tauri driver only.
+ */
+export async function waitForDataSlot(
+  slot: string,
+  timeout: number = 15_000
+): Promise<ChainablePromiseElement> {
+  if (!isTauriDriver()) {
+    throw new Error(`waitForDataSlot is only supported on tauri-driver: ${slot}`);
+  }
+
+  const selector = dataSlotSelector(slot);
+  const el = await browser.$(selector);
+  await el.waitForExist({
+    timeout,
+    timeoutMsg: `data-slot="${slot}" not found within ${timeout}ms`,
   });
   return el;
 }
