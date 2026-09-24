@@ -32,7 +32,18 @@ import { formatCountdown, useApprovalExpirySeconds } from './approvalCountdown';
 
 const log = debug('openhuman:aui:approval-card-adapter');
 
-export interface ApprovalCardAdapterProps {
+/**
+ * `D` is the decision vocabulary sent to `onDecide` — the real
+ * `openhuman.approval_decide` RPC's {@link ApprovalDecision} for every
+ * approval-gate call site (the default), or a different RPC's own decision
+ * union for a call site whose "deny / always-allow / allow-once" SHAPE fits
+ * this card even though its wire vocabulary doesn't (e.g. `PlanReviewPart`'s
+ * `openhuman.plan_review_decide`, which sends `'approve' | 'reject' |
+ * 'revise'`). The adapter never interprets `D` itself — it only forwards
+ * whatever the caller passes as `alwaysDecision`/the fixed once/deny calls
+ * below to `onDecide` — so a second vocabulary costs the caller nothing.
+ */
+export interface ApprovalCardAdapterProps<D = ApprovalDecision> {
   ariaLabel: string;
   title: string;
   subtitle: string;
@@ -46,9 +57,13 @@ export interface ApprovalCardAdapterProps {
    * (e.g. the unrouted-approval surface, which deliberately offers only
    * once/deny — see the deleted `UnroutedApprovalCard`'s doc comment).
    */
-  alwaysDecision?: ApprovalDecision;
+  alwaysDecision?: D;
   alwaysHint?: string;
-  onDecide: (decision: ApprovalDecision) => Promise<void>;
+  /** Decision to send for "Deny". Defaults to the approval-gate `'deny'`. */
+  denyDecision?: D;
+  /** Decision to send for "Allow once". Defaults to the approval-gate `'approve_once'`. */
+  allowOnceDecision?: D;
+  onDecide: (decision: D) => Promise<void>;
   /** Prefix for each button's `data-analytics-id` / e2e `data-testid`. */
   analyticsPrefix: string;
   testId?: string;
@@ -57,7 +72,7 @@ export interface ApprovalCardAdapterProps {
   busy?: boolean;
 }
 
-export function ApprovalCardAdapter({
+export function ApprovalCardAdapter<D = ApprovalDecision>({
   ariaLabel,
   title,
   subtitle,
@@ -66,14 +81,16 @@ export function ApprovalCardAdapter({
   expiresAt,
   alwaysDecision,
   alwaysHint,
+  denyDecision = 'deny' as D,
+  allowOnceDecision = 'approve_once' as D,
   onDecide,
   analyticsPrefix,
   testId,
   className,
   busy = false,
-}: ApprovalCardAdapterProps) {
+}: ApprovalCardAdapterProps<D>) {
   const { t } = useT();
-  const [deciding, setDeciding] = useState<ApprovalDecision | null>(null);
+  const [deciding, setDeciding] = useState<D | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const expirySeconds = useApprovalExpirySeconds(expiresAt);
 
