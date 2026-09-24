@@ -2068,6 +2068,7 @@ const chatRuntimeSlice = createSlice({
         title,
         status: 'in_progress',
         updatedAt: Date.now(),
+        toolCallId: toolCallId ?? existing?.toolCallId,
       };
       state.artifactsByThread[threadId] = upsertArtifact(
         state.artifactsByThread[threadId],
@@ -2088,9 +2089,13 @@ const chatRuntimeSlice = createSlice({
         title: string;
         path: string;
         sizeBytes: number;
+        toolCallId?: string;
       }>
     ) => {
-      const { threadId, artifactId, kind, title, path, sizeBytes } = action.payload;
+      const { threadId, artifactId, kind, title, path, sizeBytes, toolCallId } = action.payload;
+      const existing = (state.artifactsByThread[threadId] ?? []).find(
+        entry => entry.artifactId === artifactId
+      );
       const snapshot: ArtifactSnapshot = {
         artifactId,
         kind,
@@ -2099,6 +2104,7 @@ const chatRuntimeSlice = createSlice({
         path,
         sizeBytes,
         updatedAt: Date.now(),
+        toolCallId: toolCallId ?? existing?.toolCallId,
       };
       state.artifactsByThread[threadId] = upsertArtifact(
         state.artifactsByThread[threadId],
@@ -2118,9 +2124,13 @@ const chatRuntimeSlice = createSlice({
         kind: ArtifactSnapshot['kind'];
         title: string;
         error: string;
+        toolCallId?: string;
       }>
     ) => {
-      const { threadId, artifactId, kind, title, error } = action.payload;
+      const { threadId, artifactId, kind, title, error, toolCallId } = action.payload;
+      const existing = (state.artifactsByThread[threadId] ?? []).find(
+        entry => entry.artifactId === artifactId
+      );
       const snapshot: ArtifactSnapshot = {
         artifactId,
         kind,
@@ -2128,6 +2138,7 @@ const chatRuntimeSlice = createSlice({
         status: 'failed',
         error,
         updatedAt: Date.now(),
+        toolCallId: toolCallId ?? existing?.toolCallId,
       };
       state.artifactsByThread[threadId] = upsertArtifact(
         state.artifactsByThread[threadId],
