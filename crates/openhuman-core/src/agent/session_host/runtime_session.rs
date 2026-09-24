@@ -1432,14 +1432,19 @@ impl OpenHumanSessionHost {
         // than minting a new stem and resuming whichever one happens to be
         // newest. Everything else — sub-agents, unthreaded CLI turns — keeps
         // the stem path, where a fresh transcript per run is correct.
+        // The builder's initial binding and the per-turn resume hook must
+        // share one locator allocation. The runtime compares locator identity
+        // once a durable transcript is bound; separately constructed locators
+        // for the same workspace reject the first turn after a cold resume.
+        let session_locator = self.session_locator();
         let resume_target = match self.session.clone() {
             Some(session) => TranscriptTarget::for_session(
-                self.session_locator(),
+                session_locator.clone(),
                 session,
                 self.runtime_transcript_meta(),
             ),
             None => TranscriptTarget::new(
-                self.session_locator(),
+                session_locator.clone(),
                 self.runtime_transcript_stem(),
                 self.runtime_transcript_meta(),
             )
@@ -1831,11 +1836,7 @@ impl OpenHumanSessionHost {
             .hooks(hooks)
             .retain_recorded_tools(true);
         if let Some(session) = self.session.clone() {
-            builder = builder.session(
-                self.session_locator(),
-                session,
-                self.runtime_transcript_meta(),
-            );
+            builder = builder.session(session_locator, session, self.runtime_transcript_meta());
         }
         self.runtime_session = Some(
             builder

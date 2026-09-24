@@ -486,6 +486,53 @@ fn a_subagent_thread_binding_claims_no_session_identity() {
     assert_eq!(child.session_id(), None);
 }
 
+/// The resume hook and builder must name the same transcript locator instance.
+/// A distinct locator for the same directory lets a new thread commit, then
+/// rejects a cold resumed thread before inference with InvalidSessionState (#6608).
+#[test]
+fn a_cold_resumed_thread_can_send_again() {
+    std::thread::Builder::new()
+        .stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(cold_resumed_thread_can_send_again());
+        })
+        .expect("test thread")
+        .join()
+        .expect("test thread panicked");
+}
+
+async fn cold_resumed_thread_can_send_again() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
+        Arc::new(tinyagents_harness::testkit::ScriptedModel::new(vec![
+            tinyinference_llm::model::ModelResponse::assistant("first reply"),
+            tinyinference_llm::model::ModelResponse::assistant("second reply"),
+        ]));
+    let new_host = || {
+        crate::agent::SessionHostBuilder::new()
+            .chat_model(model.clone())
+            .tools(Vec::new())
+            .workspace_dir(root.path().join("workspace"))
+            .action_dir(root.path().to_path_buf())
+            .memory(crate::memory::test_support::noop_memory())
+            .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
+            .build()
+            .expect("session build")
+    };
+    let mut host = new_host();
+    host.set_thread_id(Some("thread-resume-regression"));
+
+    assert_eq!(host.turn("first message").await.unwrap(), "first reply");
+    drop(host);
+    let mut host = new_host();
+    host.set_thread_id(Some("thread-resume-regression"));
+    assert_eq!(host.turn("second message").await.unwrap(), "second reply");
+}
+
 /// The PRODUCTION turn path must wire an artifact store, rooted where the READ
 /// path will look for it (#6408).
 ///
