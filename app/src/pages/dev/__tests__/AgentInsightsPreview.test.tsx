@@ -5,9 +5,10 @@
  * `ToolTimelineEntry` changes shape — which is the regression worth catching,
  * because the next person to touch that type will not open this page.
  *
- * `ToolTimelineBlock` and `AgentProcessSourcePanel` are mocked so this asserts
- * the harness's own two jobs: the settled-entry derivation it computes, and the
- * panel open/close wiring. Their rendering is their own tests' business.
+ * `ToolTimelineAdapter` and `AgentProcessSourcePanel` are mocked so this
+ * asserts the harness's own two jobs: the settled-entry derivation it
+ * computes, and the panel open/close wiring. Their rendering is their own
+ * tests' business.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,14 +16,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import AgentInsightsPreview from '../AgentInsightsPreview';
 
-const timelineProps: { entries: ToolTimelineEntry[]; onViewSubagent: () => void }[] = [];
+const timelineProps: { entries: ToolTimelineEntry[]; onViewWholeRun: () => void }[] = [];
 const panelProps: { open: boolean; entries: ToolTimelineEntry[]; onClose: () => void }[] = [];
 
-vi.mock('../../../features/conversations/components/ToolTimelineBlock', () => ({
-  ToolTimelineBlock: (props: { entries: ToolTimelineEntry[]; onViewSubagent: () => void }) => {
+vi.mock('../../../features/conversations/aui/ToolTimelineAdapter', () => ({
+  ToolTimelineAdapter: (props: { entries: ToolTimelineEntry[]; onViewWholeRun: () => void }) => {
     timelineProps.push(props);
     return (
-      <button data-testid="timeline" onClick={props.onViewSubagent}>
+      <button data-testid="timeline" onClick={props.onViewWholeRun}>
         timeline({props.entries.length})
       </button>
     );
