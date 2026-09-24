@@ -7,7 +7,7 @@ import { checkPromptInjection, promptGuardMessage } from '../../chat/promptInjec
 import { trackAnalyticsEvent } from '../../components/analytics';
 import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
 import { TodoList } from '../../components/assistant-ui/elements/todo-list';
-import ArtifactCard from '../../components/chat/ArtifactCard';
+import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
