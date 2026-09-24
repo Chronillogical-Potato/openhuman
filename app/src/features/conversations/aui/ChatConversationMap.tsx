@@ -100,7 +100,9 @@ function useFindShortcut(container: HTMLDivElement | null, onTrigger: () => void
     if (!container) return;
     const handler = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return;
-      if (!container.contains(document.activeElement) && document.activeElement !== container) return;
+      // `Node.contains` is reflexive, so this also covers focus landing on
+      // `container` itself (its own `tabIndex={-1}`).
+      if (!container.contains(document.activeElement)) return;
       event.preventDefault();
       onTrigger();
     };
