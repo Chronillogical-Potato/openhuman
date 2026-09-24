@@ -51,19 +51,19 @@ describe('memoryToolChips', () => {
 
 describe('memory tool call renders', () => {
   it('MemoryStoreCall renders the vendored memory-chips element', () => {
-    withI18n(<MemoryStoreCall {...toolCallProps('memory_store', { key: 'favorite_color' }, undefined)} />);
+    render(<MemoryStoreCall {...toolCallProps('memory_store', { key: 'favorite_color' }, undefined)} />);
     expect(screen.getByText('favorite_color')).toBeTruthy();
   });
 
   it('MemoryRecallCall renders nothing for an empty result', () => {
-    const { container } = withI18n(
+    const { container } = render(
       <MemoryRecallCall {...toolCallProps('memory_recall', undefined, [])} />
     );
     expect(container.querySelector('[data-slot="memory-chips"]')).toBeNull();
   });
 
   it('MemoryHybridSearchCall renders one chip per hit', () => {
-    withI18n(
+    render(
       <MemoryHybridSearchCall
         {...toolCallProps('memory_hybrid_search', undefined, { results: [{ key: 'k1' }, { key: 'k2' }] })}
       />

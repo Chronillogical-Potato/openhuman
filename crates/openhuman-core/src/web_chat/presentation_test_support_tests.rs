@@ -53,6 +53,9 @@ pub async fn deliver_response_in_workspace_for_test(
         None,
         workspace_dir,
         None,
+        // Test helper: suggestions are exercised directly against
+        // `web_chat::suggestions`, not through this shared delivery path.
+        false,
     )
     .await;
 }
