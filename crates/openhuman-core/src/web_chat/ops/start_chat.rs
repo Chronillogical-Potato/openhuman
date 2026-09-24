@@ -715,3 +715,7 @@ fn dispatch_followups(followups: Vec<crate::agent::queued_turn::QueuedTurn>) {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "start_chat_tests.rs"]
+mod tests;
