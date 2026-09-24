@@ -43,6 +43,34 @@ fn approval_bypass_decision(config: &Config, tool: &dyn tinytools::Tool) -> bool
 static STATE_LOCK: Mutex<()> = Mutex::new(());
 static LOOPBACK_LISTENER: AtomicBool = AtomicBool::new(false);
 
+#[cfg(test)]
+static TEST_LOOPBACK_LOCK: Mutex<()> = Mutex::new(());
+
+/// Serializes tests that temporarily make the process-wide listener local.
+#[cfg(test)]
+pub(super) struct TestLoopbackGuard {
+    previous: bool,
+    _lock: std::sync::MutexGuard<'static, ()>,
+}
+
+#[cfg(test)]
+pub(super) fn test_loopback_guard() -> TestLoopbackGuard {
+    let lock = TEST_LOOPBACK_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    TestLoopbackGuard {
+        previous: LOOPBACK_LISTENER.swap(true, Ordering::AcqRel),
+        _lock: lock,
+    }
+}
+
+#[cfg(test)]
+impl Drop for TestLoopbackGuard {
+    fn drop(&mut self) {
+        set_listener_is_loopback(self.previous);
+    }
+}
+
 /// The HTTP host reports its actual bound address before serving requests.
 pub(crate) fn set_listener_is_loopback(value: bool) {
     LOOPBACK_LISTENER.store(value, Ordering::Release);
