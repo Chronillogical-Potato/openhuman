@@ -74,7 +74,12 @@ pub(super) fn attach(
 
 /// Project the direct children of `parent_stem` (or of the roots, when
 /// `None`), recursing into their own children.
-fn build_children(sub_paths: &[PathBuf], parent_stem: Option<&str>, depth: usize) -> Vec<ChildRun> {
+fn build_children(
+    sub_paths: &[PathBuf],
+    parent_stem: Option<&str>,
+    depth: usize,
+    workspace_dir: Option<&Path>,
+) -> Vec<ChildRun> {
     if depth >= MAX_SUBAGENT_DEPTH {
         return Vec::new();
     }
@@ -94,7 +99,7 @@ fn build_children(sub_paths: &[PathBuf], parent_stem: Option<&str>, depth: usize
                 _ => continue,
             },
         };
-        if let Some(child) = build_child(path, stem, suffix, sub_paths, depth) {
+        if let Some(child) = build_child(path, stem, suffix, sub_paths, depth, workspace_dir) {
             children.push(child);
         }
     }
@@ -108,6 +113,7 @@ fn build_child(
     suffix: &str,
     sub_paths: &[PathBuf],
     depth: usize,
+    workspace_dir: Option<&Path>,
 ) -> Option<ChildRun> {
     let display = match transcript::read_transcript_display(path) {
         Ok(display) => display,
@@ -121,8 +127,13 @@ fn build_child(
     };
     let own_state = own_state(&display.records);
     let mut items = project_records(&display.records);
-    let grandchildren = build_children(sub_paths, Some(stem), depth + 1);
-    place(&mut items, grandchildren, &turn_segments(&display.records));
+    let grandchildren = build_children(sub_paths, Some(stem), depth + 1, workspace_dir);
+    place(
+        &mut items,
+        grandchildren,
+        &turn_segments(&display.records),
+        workspace_dir,
+    );
 
     let task_id = display.meta.task_id.clone().filter(|id| !id.is_empty());
     let agent_id = display
@@ -135,6 +146,7 @@ fn build_child(
     Some(ChildRun {
         spawn_unix: child_spawn_unix(suffix),
         agent_id: agent_id.clone(),
+        task_id: task_id.clone(),
         item: DisplayItem::Subagent {
             id,
             agent_id,
@@ -145,6 +157,37 @@ fn build_child(
             items,
         },
         own_state,
+    })
+}
+
+/// Exact correlation: the run ledger's `AgentRunUpsert.metadata.parentCallId`
+/// for this task (stamped by `progress_bridge`'s `SubagentSpawned` handling),
+/// resolved to the unclaimed [`DisplayItem::ToolCall`] with that `call_id`.
+///
+/// Preferred over [`find_spawning_call`]'s timestamp/target-argument
+/// heuristic whenever it resolves — the ledger has the actual call id, no
+/// guessing required. `None` on any miss (no workspace, no task id, no
+/// ledger row, no matching/unclaimed call), so callers fall back to the
+/// heuristic unconditionally.
+fn find_exact_spawning_call(
+    items: &[DisplayItem],
+    claimed: &[bool],
+    task_id: Option<&str>,
+    workspace_dir: Option<&Path>,
+) -> Option<usize> {
+    let workspace_dir = workspace_dir?;
+    let task_id = task_id?;
+    let run = tinyagents_session::run_ledger::get_agent_run(workspace_dir, task_id)
+        .ok()
+        .flatten()?;
+    let parent_call_id = run.metadata.get("parentCallId")?.as_str()?;
+    items.iter().enumerate().find_map(|(index, item)| match item {
+        DisplayItem::ToolCall { call_id, .. }
+            if !claimed[index] && call_id == parent_call_id =>
+        {
+            Some(index)
+        }
+        _ => None,
     })
 }
 
@@ -169,7 +212,12 @@ fn own_state(records: &[DisplayRecord]) -> OwnState {
 
 /// Insert `children` into `items`, each after its correlated spawning call
 /// (claimed at most once), else at the end of its anchored turn.
-fn place(items: &mut Vec<DisplayItem>, children: Vec<ChildRun>, segments: &[(String, i64)]) {
+fn place(
+    items: &mut Vec<DisplayItem>,
+    children: Vec<ChildRun>,
+    segments: &[(String, i64)],
+    workspace_dir: Option<&Path>,
+) {
     if children.is_empty() {
         return;
     }
@@ -179,7 +227,10 @@ fn place(items: &mut Vec<DisplayItem>, children: Vec<ChildRun>, segments: &[(Str
     for (order, mut child) in children.into_iter().enumerate() {
         let request_id = anchor_request_id(child.spawn_unix, segments);
         let (start, end) = turn_range(items, request_id.as_deref());
-        let pick = find_spawning_call(items, &claimed, start, end, child.agent_id.as_deref());
+        let pick = find_exact_spawning_call(items, &claimed, child.task_id.as_deref(), workspace_dir)
+            .or_else(|| {
+                find_spawning_call(items, &claimed, start, end, child.agent_id.as_deref())
+            });
         let (position, call) = match pick {
             Some(index) => {
                 claimed[index] = true;
