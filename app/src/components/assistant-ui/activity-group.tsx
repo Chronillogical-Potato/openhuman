@@ -59,8 +59,8 @@ export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> 
   );
   // `GroupedParts` takes its status from the final part. A completed call after
   // a parked approval would otherwise collapse the approval card out of sight.
-  const requiresAction = useAuiState(
-    s => indices.some(i => s.message.parts[i]?.status?.type === 'requires-action')
+  const requiresAction = useAuiState(s =>
+    indices.some(i => s.message.parts[i]?.status?.type === 'requires-action')
   );
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
 
