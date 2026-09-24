@@ -19,6 +19,11 @@ function entry(overrides: Partial<ToolTimelineEntry>): ToolTimelineEntry {
 }
 
 describe('formatTimelineEntry', () => {
+  it('falls back to the bridge label for a malformed tool-call name', () => {
+    expect(
+      formatTimelineEntry(entry({ name: 'tool_call', argsBuffer: JSON.stringify({ name: 42 }) }))
+    ).toEqual({ title: 'Using a tool', detail: undefined });
+  });
   it('formats integration delegation tools with a user-facing provider label', () => {
     expect(
       formatTimelineEntry(
