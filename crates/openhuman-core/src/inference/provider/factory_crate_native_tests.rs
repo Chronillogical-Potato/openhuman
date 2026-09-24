@@ -423,7 +423,9 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
     let sentinel = "egress-jwt-pinned-sentinel-end";
     crate::core::bus::BUS.publish(DomainEvent::ExternalTransferPending {
         descriptor: EgressDescriptor::network_fetch(sentinel),
-        thread_id: None, client_id: None, request_id: None,
+        thread_id: None,
+        client_id: None,
+        request_id: None,
     });
 
     let mut count = 0usize;
@@ -479,7 +481,9 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
     let sentinel = "egress-native-claude-sentinel-end";
     BUS.publish(DomainEvent::ExternalTransferPending {
         descriptor: EgressDescriptor::network_fetch(sentinel),
-        thread_id: None, client_id: None, request_id: None,
+        thread_id: None,
+        client_id: None,
+        request_id: None,
     });
 
     let mut sdk_count = 0usize;
