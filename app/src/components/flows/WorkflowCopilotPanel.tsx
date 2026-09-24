@@ -33,7 +33,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AgentRunningStatus } from '../../features/conversations/aui/AgentRunningStatus';
 import { ChatSources } from '../../features/conversations/components/aui/ChatSources';
-import { SubagentDrawerHost } from '../../features/conversations/components/aui/subagentDrawerHost';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
 import { ChatToolFallback } from '../../features/conversations/components/ChatToolParts';
 import { useChatSurfaceRegistration } from '../../features/conversations/hooks/useChatSurfaceRegistration';
