@@ -134,6 +134,41 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
 }
 
 #[test]
+fn reuses_synthetic_tool_call_ids_in_a_later_turn() {
+    let dir = TempDir::new().unwrap();
+    let path = write_raw(
+        dir.path(),
+        "synthetic_ids",
+        "thr_synthetic",
+        &[
+            r#"{"role":"user","content":"one","request_id":"req-1"}"#,
+            r#"{"role":"assistant","content":"","tool_calls":[{"id":"call_0","name":"first","arguments":"{}"}],"request_id":"req-1"}"#,
+            r#"{"role":"tool","content":"first result","id":"call_0","request_id":"req-1"}"#,
+            r#"{"role":"user","content":"two","request_id":"req-2"}"#,
+            r#"{"role":"assistant","content":"","tool_calls":[{"id":"call_0","name":"second","arguments":"{}"}],"request_id":"req-2"}"#,
+            r#"{"role":"tool","content":"second result","id":"call_0","request_id":"req-2"}"#,
+        ],
+    );
+    let display = read_transcript_display(&path).unwrap();
+    let items = project_records(&display.records);
+
+    let calls: Vec<_> = items
+        .iter()
+        .filter_map(|item| match item {
+            DisplayItem::ToolCall { name, result, .. } => Some((name.as_str(), result.as_deref())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        calls,
+        vec![
+            ("first", Some("first result")),
+            ("second", Some("second result"))
+        ]
+    );
+}
+
+#[test]
 fn recovers_tool_name_from_native_envelope_without_turn_usage() {
     let dir = TempDir::new().unwrap();
     let envelope = serde_json::json!({
