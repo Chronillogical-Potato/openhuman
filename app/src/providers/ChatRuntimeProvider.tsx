@@ -1293,6 +1293,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             artifactId: event.artifact_id,
             kind: event.kind,
             title: event.title,
+            toolCallId: event.tool_call_id,
           })
         );
       },
