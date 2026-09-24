@@ -191,7 +191,18 @@ const GatedToolCall: ToolCallMessagePartComponent = props => {
 };
 
 /**
- * Route every call through an assistant-ui-native rich renderer.
+ * Route every call the toolkit does not own through an assistant-ui-native
+ * rich renderer.
+ *
+ * `task` used to be special-cased here; it is now a `defineToolkit` entry
+ * (`aui/toolkit.tsx`) registered on the runtime provider's `config`, so
+ * assistant-ui resolves it before this fallback ever mounts. Every other tool
+ * name — the vast majority, since most are dynamic (shell, file ops, MCP,
+ * Composio, web search, ...) and cannot be enumerated in a static registry —
+ * still comes through here, which is also where the approval gate and
+ * `composio_connect` routing live: both are keyed on the part's `approval`
+ * field, not on the tool's name, so no per-name registry entry could own them
+ * without duplicating this same check in every entry.
  *
  * The gated branches are chosen on the part's own `approval` field, before any
  * component that reads Redux is mounted. An ordinary tool call therefore never
@@ -199,7 +210,6 @@ const GatedToolCall: ToolCallMessagePartComponent = props => {
  * that has no store at all, which is how most of the tool-card tests mount it.
  */
 export const ChatToolFallback: ToolCallMessagePartComponent = props => {
-  if (props.toolName === 'task') return <SubagentCall {...props} />;
   if (!isApprovalPending(props.approval)) return <OpenHumanToolCall {...props} />;
   if (props.toolName === COMPOSIO_CONNECT_TOOL) return <ComposioConnectCall {...props} />;
   return <GatedToolCall {...props} />;
