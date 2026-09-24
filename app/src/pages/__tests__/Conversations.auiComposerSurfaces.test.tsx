@@ -1,10 +1,11 @@
 /**
  * The composer-adjacent surfaces on the ASSISTANT-UI chat panel.
  *
- * `Conversations` picks exactly one main panel — `legacyMainPanel` for the
+ * `Conversations` used to pick one of two main panels — a legacy panel for the
  * mic-cloud voice embed, `assistantUiMainPanel` for everything else — so every
  * card that was written inline inside the legacy panel stopped rendering on
- * `/chat` when the text chat moved to the assistant-ui `Thread`. These are the
+ * `/chat` when the text chat moved to the assistant-ui `Thread`. (Voice mode
+ * now renders the assistant-ui panel too, with only the composer swapped.) These are the
  * collateral losses from that switch, each asserted on the surface a real user
  * looks at (the default `composer="text"` render, i.e. the assistant-ui panel):
  *
@@ -366,7 +367,7 @@ describe('assistant-ui chat surface — composer-adjacent cards', () => {
 
   it('shows the prompt-injection advisory when the send is risky', async () => {
     // The advisory is the composer's only warning that a message will likely
-    // be refused server-side. It shared `legacyMainPanel`'s fate with the send
+    // be refused server-side. It shared the legacy panel's fate with the send
     // error, and unlike the error nothing else on the page hints at it.
     await renderChat();
 

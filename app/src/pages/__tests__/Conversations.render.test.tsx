@@ -2236,9 +2236,8 @@ describe('Conversations — external-transfer disclosure card removed', () => {
 });
 
 /**
- * The two turn gates the agent parks on. Both used to render only inside
- * `legacyMainPanel`, which `/chat` never mounts — the text surface is
- * assistant-ui and the two panels are an either/or — so a parked plan review
+ * The two turn gates the agent parks on. Both used to render only inside the
+ * legacy voice-mode panel, which `/chat` never mounted, so a parked plan review
  * hung the turn with nothing to decide, and a `propose_workflow` draft lost its
  * only route to `flows_create`. They are now rendered from the shared
  * `agentGateCards` fragment, which the assistant-ui composer header carries.
