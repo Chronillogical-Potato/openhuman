@@ -22,11 +22,7 @@ import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/Contex
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
 const selectComposerText = (state: AssistantState) => state.composer.text;
 
-/**
- * Keeps a host-owned draft string and assistant-ui's composer text in step.
- * Exported for surfaces that mount `Thread` directly (the workflow copilot).
- */
-export function ComposerTextBridge({
+function ComposerTextBridge({
   value,
   onChange,
 }: {
