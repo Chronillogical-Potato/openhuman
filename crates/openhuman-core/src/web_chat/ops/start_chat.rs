@@ -74,6 +74,43 @@ impl From<&str> for StartChatError {
     }
 }
 
+/// Sentinel prefix a JSON-RPC/string-error caller can match on to recover the
+/// structured guardrail verdict, the same pattern as
+/// `core::observability::BACKEND_UNAVAILABLE_PREFIX`: the RPC surface only
+/// carries `Result<_, String>`, so the socket path's `chat_error.guardrail`
+/// payload gets a string-shaped equivalent here rather than a second, looser
+/// error shape.
+pub const GUARDRAIL_ERROR_PREFIX: &str = "GUARDRAIL:";
+
+impl From<StartChatError> for String {
+    fn from(error: StartChatError) -> Self {
+        match error {
+            StartChatError::Guardrail {
+                verdict,
+                score,
+                reasons,
+            } => {
+                let payload = crate::core::socketio::GuardrailPayload {
+                    verdict,
+                    score,
+                    reasons,
+                };
+                format!(
+                    "{GUARDRAIL_ERROR_PREFIX}{}",
+                    serde_json::to_string(&payload).unwrap_or_default()
+                )
+            }
+            StartChatError::Other(message) => message,
+        }
+    }
+}
+
+/// Whether `msg` is the [`GUARDRAIL_ERROR_PREFIX`] sentinel — mirrors
+/// [`crate::core::observability::is_backend_unavailable_message`].
+pub fn is_guardrail_error_message(msg: &str) -> bool {
+    msg.starts_with(GUARDRAIL_ERROR_PREFIX)
+}
+
 fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     match action {
         PromptEnforcementAction::Allow => "Message accepted.",
