@@ -56,6 +56,7 @@ async fn bridge_forwards_tool_and_cost_progress() {
     sink.emit(AgentEvent::ToolStarted {
         call_id: "c1".into(),
         tool_name: "echo".to_string(),
+        input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
         call_id: "c1".into(),
@@ -217,6 +218,7 @@ async fn tool_completed_projects_output_arguments_and_elapsed() {
     sink.emit(AgentEvent::ToolStarted {
         call_id: "t1".into(),
         tool_name: "echo".to_string(),
+        input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
         call_id: "t1".into(),
@@ -405,6 +407,7 @@ async fn tool_call_events_use_the_tool_s_own_display_label_and_detail() {
     sink.emit(AgentEvent::ToolStarted {
         call_id: "c1".into(),
         tool_name: "fake_send_email".to_string(),
+        input: None,
     });
     sink.emit(AgentEvent::ToolCompleted {
         call_id: "c1".into(),
