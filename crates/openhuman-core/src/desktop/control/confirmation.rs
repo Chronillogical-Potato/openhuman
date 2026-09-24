@@ -1,12 +1,13 @@
 //! One-use user decisions for Jev goal stops, separate from autonomy auto-approval.
 
 use std::collections::HashMap;
+use std::future::Future;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::{json, Value};
-use tinydesktop_bus::names;
+use tinydesktop_bus::{names, DesktopResponse};
 
 use crate::config::Config;
 
@@ -26,6 +27,7 @@ struct Pending {
     expires_at: String,
     created: Instant,
     approved: bool,
+    cancellation_in_flight: bool,
 }
 
 #[derive(Serialize)]
@@ -114,6 +116,7 @@ pub(super) fn record(app: &str, goal: &str, thread_id: &str, data: &Value) {
                 expires_at,
                 created: Instant::now(),
                 approved: false,
+                cancellation_in_flight: false,
             },
         );
 }
@@ -145,10 +148,27 @@ pub fn pending() -> Vec<PendingDesktopConfirmation> {
 
 /// Called only by a trusted RPC client carrying the core launch bearer.
 pub async fn confirm(config: &Config, id: &str, approve: bool) -> Result<Value, String> {
+    confirm_with(id, approve, |app, goal, confirmation_id| async move {
+        crate::modules::desktop::call(
+            config,
+            names::methods::RUN_GOAL,
+            json!({"app":app,"goal":goal,
+                "continuation":{"id":confirmation_id,"approve":false}}),
+        )
+        .await
+    })
+    .await
+}
+
+async fn confirm_with<F, Fut>(id: &str, approve: bool, cancel: F) -> Result<Value, String>
+where
+    F: FnOnce(String, String, String) -> Fut,
+    Fut: Future<Output = Result<DesktopResponse, String>>,
+{
     if !super::ops::listener_is_loopback() {
         return Err("desktop confirmation requires a loopback core listener".to_owned());
     }
-    let entry = {
+    let (app, goal, created) = {
         let mut guard = table()
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -156,24 +176,48 @@ pub async fn confirm(config: &Config, id: &str, approve: bool) -> Result<Value, 
         let item = guard
             .get_mut(id)
             .ok_or("desktop confirmation is missing or expired")?;
+        if item.cancellation_in_flight {
+            return Err("desktop cancellation is already in progress".to_owned());
+        }
         if approve {
             item.approved = true;
             return Ok(json!({"confirmation_id":id,"approve":true}));
         }
-        guard.remove(id).expect("checked above")
+        item.approved = false;
+        item.cancellation_in_flight = true;
+        (item.app.clone(), item.goal.clone(), item.created)
     };
-    let reply = crate::modules::desktop::call(
-        config,
-        names::methods::RUN_GOAL,
-        json!({"app":entry.app,"goal":entry.goal,
-            "continuation":{"id":id,"approve":false}}),
-    )
-    .await?;
+    let result = cancel(app, goal, id.to_owned()).await;
+    let succeeded = result.as_ref().is_ok_and(|reply| {
+        reply.ok
+            && reply
+                .data
+                .as_ref()
+                .and_then(|data| data.get("stop"))
+                .and_then(Value::as_str)
+                == Some("cancelled")
+    });
+    {
+        let mut guard = table()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if guard.get(id).is_some_and(|item| item.created == created) {
+            if succeeded {
+                guard.remove(id);
+            } else if let Some(item) = guard.get_mut(id) {
+                item.cancellation_in_flight = false;
+            }
+        }
+    }
+    let reply = result?;
     if !reply.ok {
         return Err(reply.error.map_or_else(
             || "desktop cancellation failed".to_owned(),
             |error| error.message,
         ));
+    }
+    if !succeeded {
+        return Err("desktop cancellation was not confirmed".to_owned());
     }
     Ok(json!({"confirmation_id":id,"approve":false}))
 }
@@ -192,6 +236,9 @@ pub(super) fn take_approved(id: &str, thread_id: Option<&str>) -> Result<(String
     if item.created.elapsed() >= TTL {
         guard.remove(id);
         return Err("desktop confirmation expired".to_owned());
+    }
+    if item.cancellation_in_flight {
+        return Err("desktop cancellation is already in progress".to_owned());
     }
     if !item.approved {
         return Err("desktop action needs the user's explicit confirmation".to_owned());
