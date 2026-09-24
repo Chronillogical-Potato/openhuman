@@ -1684,7 +1684,7 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
         return;
     };
     let client_id = socket.id.to_string();
-    let event = crate::web_chat::approval_request_event(
+    let mut event = crate::web_chat::approval_request_event(
         &row.request_id,
         &row.tool_name,
         &row.action_summary,
@@ -1692,6 +1692,10 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
         thread_id,
         &client_id,
     );
+    // Replay is a fresh emit to a newly-joined socket, not a resend of the
+    // original event, so stamp `ts` with "now" (same clock as
+    // `publish_web_channel_event`) rather than leaving it unset.
+    event.ts = Some(crate::web_chat::progress_bridge::unix_epoch_ms());
     let Ok(payload) = serde_json::to_value(&event) else {
         return;
     };
