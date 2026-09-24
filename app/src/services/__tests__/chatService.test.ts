@@ -466,7 +466,7 @@ describe('chatService.chatCancel', () => {
   });
 
   it('reports a torn-down turn when the core returns its request id', async () => {
-    mockCallCoreRpc.mockResolvedValue({ cancelled: true, request_id: 'req-1' });
+    mockCallCoreRpc.mockResolvedValue({ result: { cancelled: true, request_id: 'req-1' } });
 
     expect(await chatCancel('thread-9')).toEqual({ accepted: true, turnCancelled: true });
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
@@ -477,9 +477,7 @@ describe('chatService.chatCancel', () => {
 
   it('reports no turn when the core had nothing in flight', async () => {
     mockCallCoreRpc.mockResolvedValue({
-      cancelled: true,
-      request_id: null,
-      subagents_cancelled: 2,
+      result: { cancelled: true, request_id: null, subagents_cancelled: 2 },
     });
     expect(await chatCancel('thread-9')).toEqual({ accepted: true, turnCancelled: false });
   });

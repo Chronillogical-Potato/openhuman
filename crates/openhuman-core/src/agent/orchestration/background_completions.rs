@@ -331,13 +331,15 @@ pub(crate) fn discard_for_thread(thread_id: &str) -> usize {
     removed
 }
 
-/// Drop every queued completion for `thread_id` **without** tombstoning it.
+/// Drop every queued completion for `thread_id` and gate late results from the
+/// stopped generation.
 ///
 /// The Stop-button counterpart of [`discard_for_thread`]: the user halted the
 /// thread's work, so results that finished but were not yet delivered must not
 /// start a fresh delivery turn behind their back. The thread itself stays
-/// alive, so sub-agents spawned by later turns on it deliver normally. Returns
-/// the number of queued completions removed.
+/// alive; [`resume_for_thread`] reopens it when a later user turn begins, so
+/// sub-agents spawned by that turn deliver normally. Returns the number of
+/// queued completions removed.
 pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
     let mut state = queue()
         .lock()
