@@ -277,6 +277,7 @@ fn assert_bound_sink_is_this_runs_channel(
         worker_thread_id: None,
         display_name: None,
         prompt: "probe".to_string(),
+        parent_call_id: None,
     })
     .unwrap_or_else(|err| panic!("{case}: the bound sink refused the event: {err}"));
 
