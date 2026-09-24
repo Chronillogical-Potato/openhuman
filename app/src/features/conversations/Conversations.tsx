@@ -269,20 +269,12 @@ const Conversations = ({
   const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
   const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
   const [showProcessSource, setShowProcessSource] = useState(false);
-  // The Agent Process Source panel's only trigger is the "View full agent
-  // process source →" link at the foot of `ToolTimelineBlock` — a legacy-panel
-  // component. assistant-ui renders its tool calls as inline cards and has no
-  // equivalent block, so the whole-run view (and the visited-source list, which
-  // exists nowhere else) is reached from the command palette instead.
-  //
-  // The composer check is not cosmetic: `showProcessSource` only drives
-  // `TranscriptOverlays`, which mounts inside `assistantUiMainPanel` alone, and
-  // the panel choice below is an either/or (`composer === 'mic-cloud' ?
-  // legacyMainPanel : assistantUiMainPanel`). In mic-cloud voice mode the state
-  // this sets has no host, so without the guard the palette would offer a
-  // command that silently does nothing. `enabled` is re-read through a ref on
-  // every render (see `useRegisterAction`), so switching modes updates it
-  // without re-registering.
+  // The Agent Process Source panel (the whole-run view, and the visited-source
+  // list, which exists nowhere else) is reached from the command palette:
+  // assistant-ui renders tool calls as inline cards with no run-level footer to
+  // hang a link on. Both composers (text and `mic-cloud`) share the one
+  // assistant-ui panel that hosts `TranscriptOverlays`, so it is always
+  // reachable while a thread is selected.
   useRegisterAction({
     id: 'chat.agentProcessSource',
     label: 'Open agent process source',
