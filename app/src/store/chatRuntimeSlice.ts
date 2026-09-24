@@ -1711,6 +1711,8 @@ const chatRuntimeSlice = createSlice({
         iterations?: number;
         elapsedMs?: number;
         outputChars?: number;
+        /** The sub-agent's final assistant text; see {@link SubagentActivity.output}. */
+        output?: string;
         worktreePath?: string;
         changedFiles?: string[];
         isDirty?: boolean;
@@ -1723,6 +1725,7 @@ const chatRuntimeSlice = createSlice({
         iterations,
         elapsedMs,
         outputChars,
+        output,
         worktreePath,
         changedFiles,
         isDirty,
