@@ -1,3 +1,5 @@
+import { ReasoningTraceText } from '@/components/assistant-ui/elements/reasoning-trace';
+
 import { useT } from '../../../lib/i18n/I18nContext';
 import { BubbleMarkdown } from './AgentMessageBubble';
 
@@ -9,7 +11,7 @@ import { BubbleMarkdown } from './AgentMessageBubble';
  * Unlike the live streaming preview, this is a SETTLED buffer: it renders as a
  * static agent bubble (no pulsing cursor, full Markdown like a finished answer)
  * carrying an "Interrupted" marker, plus the hidden reasoning it had streamed in
- * a collapsed block. It is deliberately NOT written into the durable message
+ * the collapsed reasoning panel. It is deliberately NOT written into the durable message
  * list — it is a restore-time surfacing of what the agent had produced, so the
  * user sees the partial work instead of a blank turn.
  */
@@ -24,17 +26,12 @@ export function InterruptedAnswer({ content, thinking }: { content: string; thin
     <div className="flex justify-start" data-testid="interrupted-answer">
       <div className="relative w-fit max-w-[75%] space-y-1">
         {trimmedThinking ? (
-          <details className="mb-0.5 rounded-lg bg-surface-subtle px-3 py-1.5 text-xs text-content-secondary dark:bg-surface-muted">
-            <summary className="flex cursor-pointer items-center gap-1.5 select-none">
-              <span aria-hidden className="text-[10px] leading-none">
-                💭
-              </span>
-              <span>{t('chat.thinking')}</span>
-            </summary>
-            <pre className="mt-1.5 font-sans text-[11px] wrap-break-word whitespace-pre-wrap text-content-muted">
-              {trimmedThinking}
-            </pre>
-          </details>
+          <ReasoningTraceText
+            text={trimmedThinking}
+            streaming={false}
+            className="mb-0.5"
+            data-testid="interrupted-answer-thinking"
+          />
         ) : null}
         <div className="rounded-2xl rounded-bl-md border-l-2 border-amber-400/70 bg-surface-strong/80 px-3 py-2 text-content dark:bg-surface-muted">
           <div

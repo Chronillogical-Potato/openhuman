@@ -156,6 +156,9 @@ export function buildThreadTimeline(input: BuildThreadTimelineInput): TimelineIt
       threadId,
       text: streaming.content,
       thinking: streaming.thinking.length > 0 ? streaming.thinking : undefined,
+      ...(streaming.thinkingStartedAt !== undefined
+        ? { thinkingStartedAt: streaming.thinkingStartedAt }
+        : {}),
       streamId: streaming.requestId,
       branch: false,
     });

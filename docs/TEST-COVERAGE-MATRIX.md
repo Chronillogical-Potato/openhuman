@@ -396,6 +396,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | ----- | -------------------------- | ----- | ------------------------ | ------ | ----- |
 | 9.2.1 | Cron Expression Validation | RU    | `crates/openhuman-core/src/cron/`    | ✅     | Incl. the 5-minute agent-job floor (`validate_agent_schedule`, #6158) |
 | 9.2.2 | Recurring Execution        | WD+RI | `cron-jobs-flow.spec.ts` | ✅     |       |
+| 9.2.3 | Agent Job Transcript Isolation | RU | `crates/openhuman-core/src/cron/scheduler_transcript_isolation_tests.rs`, `agent/session_host/runtime_adapter_tests.rs` | ✅ | Cron orchestration suppresses transcript autoload; the session host consumes that override as `ResumeMode::Never` before dispatch. |
 
 ### 9.3 Remote Execution
 

@@ -1,3 +1,4 @@
+import { ReasoningTraceText } from '@/components/assistant-ui/elements/reasoning-trace';
 import createDebug from 'debug';
 import { type ReactNode, useEffect, useState } from 'react';
 
@@ -344,22 +345,15 @@ export function SubagentDrawer({
                 ) : null;
 
                 if (item.kind === 'thinking') {
+                  const thought = stripToolCallEnvelopes(item.text).trim();
                   return (
                     <ItemWrapper key={`th-${idx}`} divider={turnDivider}>
-                      <div
-                        className="rounded-lg bg-surface-muted px-3 py-2"
-                        data-testid="subagent-transcript-thinking">
-                        <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-content-muted">
-                          <span
-                            aria-hidden
-                            className="inline-block h-1.5 w-1.5 rounded-full bg-primary-400"
-                          />
-                          {t('conversations.subagent.thinking')}
-                        </div>
-                        <pre className="whitespace-pre-wrap wrap-break-word font-sans text-[12px] leading-relaxed text-content-secondary">
-                          {stripToolCallEnvelopes(item.text).trim()}
-                        </pre>
-                      </div>
+                      <ReasoningTraceText
+                        text={thought}
+                        streaming={isRunning && idx === transcript.length - 1}
+                        collapsible={false}
+                        data-testid="subagent-transcript-thinking"
+                      />
                     </ItemWrapper>
                   );
                 }

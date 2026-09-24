@@ -724,6 +724,13 @@ const messages: TranslationMap = {
   'chat.createThreadFailed': '새 대화를 만들지 못했습니다: 다시 시도하세요.',
   'chat.parallelBranchLabel': '병렬 분기',
   'chat.thinking': '생각 중...',
+  // Reasoning panel (assistant-ui static reasoning element)
+  'chat.reasoning.thinking': '생각 중',
+  'chat.reasoning.thoughtFor': '{n} 동안 생각함',
+  'chat.reasoning.thoughtBriefly': '잠시 생각함',
+  'chat.reasoning.thought': '생각함',
+  'chat.reasoning.elapsedSeconds': '{n}초',
+  'chat.reasoning.elapsedMinutes': '{m}분 {s}초',
   'chat.noMessages': '아직 메시지가 없습니다',
   'chat.startConversation': '대화 시작',
   'chat.regenerate': '다시 생성',
