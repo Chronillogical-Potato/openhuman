@@ -7,6 +7,7 @@ import type {
 
 import { parseMessageImages } from '../lib/attachments';
 import { unwrapToolCallEnvelope } from '../lib/chat/toolCallEnvelope';
+import type { ChatCitation } from '../services/chatService';
 import {
   isActiveTimelineStatus,
   type PendingApproval,
@@ -422,8 +423,22 @@ function assistantParts(
       title: source.title,
     });
   }
+  // Memory citations captured during retrieval for this turn
+  // (`ChatDoneEvent.citations` / `ChatSegmentEvent.citations`), surfaced as
+  // `document` source parts alongside the turn's `url` sources.
+  for (const citation of citations) {
+    parts.push({
+      type: 'source',
+      sourceType: 'document',
+      id: `memory:${citation.id}`,
+      title: citation.key,
+      mediaType: 'application/vnd.openhuman.memory-citation',
+    });
+  }
   return parts;
 }
+
+const EMPTY_CITATIONS: readonly ChatCitation[] = [];
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)

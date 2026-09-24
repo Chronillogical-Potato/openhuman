@@ -62,6 +62,26 @@ export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
      * before this registry replaced the manual switch.
      */
     task: { type: 'backend', display: 'inline', render: SubagentCall },
+
+    /**
+     * Image / video generation: the `elements-image-generation` placeholder
+     * while it runs, then the `image` element per produced artifact. Pulled
+     * out for its own spot in the transcript rather than folded into the
+     * activity trace, same as a produced document below.
+     */
+    media_generate_image: { type: 'backend', display: 'standalone', render: MediaGenerationCall },
+    media_generate_video: { type: 'backend', display: 'standalone', render: MediaGenerationCall },
+
+    /**
+     * `generate_document` / `generate_presentation`: the `elements-artifact-
+     * card` element.
+     */
+    generate_document: { type: 'backend', display: 'standalone', render: DocumentArtifactCall },
+    generate_presentation: {
+      type: 'backend',
+      display: 'standalone',
+      render: DocumentArtifactCall,
+    },
   };
 }
 
