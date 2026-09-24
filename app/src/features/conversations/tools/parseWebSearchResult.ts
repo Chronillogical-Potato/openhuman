@@ -174,27 +174,30 @@ function fromText(text: string): ParsedWebSearch | undefined {
   // Plain-text rendering.
   const textHeading = heading.match(/^(?:Search|\w+) results for:\s*(.+)$/i);
   if (!textHeading) return undefined;
+  // An item is a numbered title line followed by its indented URL line. An
+  // excerpt's continuation lines are not indented, so that shape is what
+  // separates the next item from a wrapped excerpt.
+  const isItemStart = (index: number) =>
+    /^\s*\d+\.\s+\S/.test(lines[index] ?? '') && /^\s{2,}\S/.test(lines[index + 1] ?? '');
   const results: WebSearchHit[] = [];
   let i = 1;
   while (i < lines.length) {
-    const item = lines[i].match(/^\s*\d+\.\s+(.+)$/);
-    const urlLine = lines[i + 1]?.trim();
-    if (!item || !urlLine || !safeHttpUrl(urlLine)) {
+    if (!isItemStart(i)) {
       i += 1;
       continue;
     }
+    const title = lines[i].replace(/^\s*\d+\.\s+/, '');
+    const urlLine = lines[i + 1].trim();
     let published: string | undefined;
     const excerpt: string[] = [];
     let j = i + 2;
-    for (; j < lines.length; j += 1) {
-      const next = lines[j];
-      if (/^\s*\d+\.\s+/.test(next) && lines[j + 1] && safeHttpUrl(lines[j + 1].trim())) break;
-      const trimmed = next.trim();
+    for (; j < lines.length && !isItemStart(j); j += 1) {
+      const trimmed = lines[j].trim();
       const date = trimmed.match(/^Published:\s*(.+)$/);
       if (date) published = date[1];
       else if (!/^Author:/.test(trimmed) && trimmed) excerpt.push(trimmed);
     }
-    const row = hit(item[1], urlLine, published, excerpt.join(' '));
+    const row = hit(title, urlLine, published, excerpt.join(' '));
     if (row) results.push(row);
     i = j;
   }
