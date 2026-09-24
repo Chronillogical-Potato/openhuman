@@ -22,6 +22,7 @@ import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
 import ModelQualityPill from '@/components/chat/ModelQualityPill';
+import { ChatErrorNotice } from '@/features/conversations/aui/ChatErrorNotice';
 import {
   useAuiEditCapabilities,
   useAuiReloadCapability,

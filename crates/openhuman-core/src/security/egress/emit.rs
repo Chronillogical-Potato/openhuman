@@ -109,21 +109,23 @@ pub fn emit_external_transfer(descriptor: EgressDescriptor) {
         return;
     }
 
-    let (thread_id, client_id) = current_chat_context();
+    let (thread_id, client_id, request_id) = current_chat_context();
     log::debug!(
-        "[privacy][egress] ExternalTransferPending provider={} service={} reason={:?} data_kinds={:?} risk={:?} chat_routed={}",
+        "[privacy][egress] ExternalTransferPending provider={} service={} reason={:?} data_kinds={:?} risk={:?} chat_routed={} request_id={:?}",
         descriptor.provider_slug,
         descriptor.service,
         descriptor.reason,
         descriptor.data_kinds,
         descriptor.risk_level,
         thread_id.is_some() && client_id.is_some(),
+        request_id,
     );
 
     BUS.publish(DomainEvent::ExternalTransferPending {
         descriptor,
         thread_id,
         client_id,
+        request_id,
     });
 }
 

@@ -278,11 +278,11 @@ export function subagentMessages(activity: SubagentActivity): readonly AuiThread
           ? { type: 'incomplete', reason: 'error' }
           : activity.status === 'cancelled'
             ? { type: 'incomplete', reason: 'cancelled' }
-            : { type: 'complete' },
+            : { type: 'complete', reason: 'stop' },
     });
   }
   return likes.map((like, index) =>
-    fromThreadMessageLike(like, `${activity.taskId}:${index}`, { type: 'complete' })
+    fromThreadMessageLike(like, `${activity.taskId}:${index}`, { type: 'complete', reason: 'stop' })
   );
 }
 
