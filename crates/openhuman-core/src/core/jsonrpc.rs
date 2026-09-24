@@ -2294,6 +2294,10 @@ pub async fn bootstrap_core_runtime(
     // sets OPENHUMAN_APPROVAL_GATE=0 (CR #3328947323 on PR #3026). Idempotent
     // (OnceLock-guarded inside register_artifact_surface_subscriber).
     crate::web_chat::register_artifact_surface_subscriber();
+    // Memory-activity surface bridges DomainEvent::MemoryStored/Recalled onto
+    // the web channel's `memory_activity` event (C5) — same unconditional
+    // placement rationale as the bridges above. Idempotent (OnceLock-guarded).
+    crate::web_chat::register_memory_activity_surface_subscriber();
 
     // --- Workspace migrations --------------------------------------------
     crate::platform::startup::run_workspace_migrations(&workspace_dir);
