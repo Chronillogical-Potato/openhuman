@@ -1399,12 +1399,9 @@ const Conversations = ({
     }
   }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
 
-  // NOTE: the transcript-local derivations that used to live here (copy,
-  // sub-agent drawer, past-turn timelines, agent insights, streaming preview,
-  // etc.) moved into `ChatThreadView` (`./components/ChatThreadView.tsx`),
-  // which now owns the message-list rendering keyed by `threadId` instead of
-  // the global `selectedThreadId`. What remains here is what the header badge
-  // and the composer footer still need directly.
+  // The transcript itself renders from the assistant-ui runtime
+  // (`AssistantUiChat`). What remains here is what the composer footer and the
+  // transcript overlays still need directly.
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? EMPTY_TOOL_TIMELINE)
     : EMPTY_TOOL_TIMELINE;
@@ -1412,9 +1409,8 @@ const Conversations = ({
     ? (processingByThread[selectedThreadId] ?? EMPTY_PROCESSING)
     : EMPTY_PROCESSING;
   // Detached background sub-agents (mode === 'async') spawned in this thread.
-  // Kept here (in addition to ChatThreadView's own copy) because the header's
-  // background-processes badge needs the count/status without reaching into
-  // the transcript component.
+  // The composer's background-processes badge needs the count/status, and
+  // `TranscriptOverlays` lists them.
   const backgroundProcesses = useMemo(
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
@@ -1582,16 +1578,10 @@ const Conversations = ({
     />
   );
 
-  // The two turn-gate cards that must render on BOTH main panels.
-  //
-  // They used to live inline in `legacyMainPanel`, which `/chat` never mounts:
-  // `mainPanel` below is an either/or — assistant-ui for text, legacy for
-  // mic-cloud voice — so a parked plan review and a drafted workflow were
-  // invisible on the surface every user actually sees. The plan gate hung the
-  // turn with nothing to decide, and `propose_workflow`'s only route to
-  // `flows_create` was unreachable. Hoisted to a shared fragment so the
-  // assistant-ui composer header can render the same cards without voice mode
-  // losing them; the two panels are mutually exclusive, so nothing doubles up.
+  // The two turn-gate cards (a parked plan review and a drafted workflow).
+  // Rendered in the composer header of BOTH composers — the text composer and
+  // the `mic-cloud` voice composer — which are mutually exclusive, so nothing
+  // doubles up.
   const agentGateCards = (
     <>
       {/* Harness work state: the thread goal and the agent's todo list. Both
@@ -1636,17 +1626,11 @@ const Conversations = ({
 
   // ── Composer-adjacent surfaces shared by BOTH chat panels ─────────────────
   //
-  // Every one of these used to be written inline inside `legacyMainPanel`.
-  // The panel choice at the bottom of this component is an *either/or*
-  // (`composer === 'mic-cloud' ? legacyMainPanel : assistantUiMainPanel`), so
-  // when the text chat moved to the assistant-ui `Thread` they stopped
-  // rendering on `/chat` altogether — the send-error banner most damagingly,
-  // since a user whose send is rejected got no feedback of any kind.
-  //
-  // They are defined once here and rendered by both panels: the legacy voice
-  // footer below, and the assistant-ui `ComposerHeader` / `ComposerExtras`
-  // slots (`assistantComposerHeader` / `assistantComposerFooterExtras`). One
-  // definition is the point — a second copy is how they drifted apart before.
+  // Defined once here and rendered by both composers through
+  // `assistantComposerHeader` / `assistantComposerFooterExtras`: the text
+  // composer's `ComposerHeader` / `ComposerExtras` slots, and the `mic-cloud`
+  // voice composer. One definition is the point — a second copy is how they
+  // drifted apart before (a rejected send once showed no feedback at all).
 
   const sendAdvisoryBanner = sendAdvisory ? (
     <div className="flex items-center justify-between mb-2">
@@ -1782,9 +1766,7 @@ const Conversations = ({
     ) : null;
 
   // The control that opens the background-processes panel, plus its
-  // running-count / memory-sync badge. Takes its opener because each surface
-  // hosts its own panel: the legacy footer reaches into `ChatThreadView`'s
-  // imperative handle, the assistant-ui footer drives the overlay state above.
+  // running-count / memory-sync badge. Opens `TranscriptOverlays`' panel.
   const renderBackgroundProcessesButton = (onOpen: () => void) =>
     selectedThreadId ? (
       <button
@@ -1829,8 +1811,7 @@ const Conversations = ({
           block progress until the user decides, so they sit above the transient
           attach error and the queued-followup strip. `ComposerHeader` is the
           only host slot assistant-ui threads arbitrary React through
-          (`thread.tsx:385`), and it renders directly above the input — the same
-          place `legacyMainPanel` put these cards. */}
+          (`thread.tsx`), and it renders directly above the input. */}
       {agentGateCards}
       {/* Paused tinyflows runs block the same way a plan gate does — the
           banner carries the only Approve/Reject affordance — so they belong
