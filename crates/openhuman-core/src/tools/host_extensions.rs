@@ -7,9 +7,9 @@
 use crate::agent::orchestration::tools::DelegationTarget;
 use crate::agent::tool_policy::GeneratedToolRuntimeContext;
 use crate::tools::toolpacks::PackRegistryHandle;
-use tinytools::{Tool, ToolRunContext};
 #[cfg(test)]
 use tinytools::{PermissionLevel, ToolCategory, ToolResult, ToolScope};
+use tinytools::{Tool, ToolRunContext};
 
 /// Reads a tool's pack-registry handle from its erased host extension.
 pub fn pack_registry_handle(tool: &dyn Tool) -> Option<&PackRegistryHandle> {

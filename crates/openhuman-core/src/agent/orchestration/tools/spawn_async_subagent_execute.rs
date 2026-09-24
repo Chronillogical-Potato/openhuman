@@ -363,7 +363,8 @@ impl SpawnAsyncSubagentTool {
             prompt.chars().count(),
         );
         if let Some(ref tx) = progress_sink {
-            let _ = tx.send(AgentProgress::SubagentSpawned {
+            let _ = tx
+                .send(AgentProgress::SubagentSpawned {
                     agent_id: definition.id.clone(),
                     task_id: task_id.clone(),
                     mode: "async".to_string(),
