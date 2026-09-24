@@ -184,7 +184,7 @@ function devConnectPlugin(): PluginOption {
       try {
         var url = ${json(rpcUrl)};
         var token = ${json(token)};
-        // A core's \`GET /dev/connect\` (crates/openhuman-core/src/core/dev_connect.rs)
+        // A core's GET /dev/connect (crates/openhuman-core/src/core/dev_connect.rs)
         // lands here with its URL + bearer in the fragment, which never reaches
         // a server. That wins over the dev server's own env so a browser can
         // attach to an already-running desktop core (and its session). Only a
