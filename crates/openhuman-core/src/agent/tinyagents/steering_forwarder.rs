@@ -281,6 +281,16 @@ impl Drop for SteeringForwarderGuard {
         }
         let requeued = requeue_texts.len();
         let thread_label = self.thread_label.clone();
+        let (first_item_id, first_text_preview) = requeue_texts
+            .first()
+            .map(|(text, _lane)| {
+                (
+                    uuid::Uuid::new_v4().to_string(),
+                    crate::agent::queued_turn::text_preview(text),
+                )
+            })
+            .map(|(id, preview)| (Some(id), Some(preview)))
+            .unwrap_or((None, None));
 
         // `RunQueue::push` is async (tokio `Mutex`); `Drop` is synchronous. Push
         // the recovered steers back on a detached task so they land in the

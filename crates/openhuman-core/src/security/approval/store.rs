@@ -28,6 +28,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, types::Type, Connection};
 
 use crate::config::Config;
+use crate::core::bus::BUS;
+use crate::core::events::DomainEvent;
 use crate::memory::safety::sanitize_text;
 
 use super::types::{
