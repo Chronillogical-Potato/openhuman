@@ -227,7 +227,7 @@ describe('sub-agent awaiting user', () => {
     });
   });
 
-  describe('answering', () => {
+  describe('answering, via SubagentTaskCard (the toolkit-registered `task` renderer)', () => {
     it('sends the answer through the thread the composer sends through', async () => {
       const send = vi.fn(async () => {});
       registerChatSurface(THREAD_ID, { send });
@@ -236,7 +236,7 @@ describe('sub-agent awaiting user', () => {
       render(
         <Provider store={store}>
           <AssistantUiRuntimeProvider>
-            <SubagentCall
+            <SubagentTaskCard
               type="tool-call"
               toolName="task"
               toolCallId={ROW_ID}
@@ -261,8 +261,6 @@ describe('sub-agent awaiting user', () => {
         </Provider>
       );
 
-      expect(screen.getByTestId('subagent-awaiting-chip')).toBeInTheDocument();
-
       await act(async () => {
         await userEvent.type(screen.getByTestId('subagent-answer-input'), 'the second one');
       });
@@ -272,96 +270,10 @@ describe('sub-agent awaiting user', () => {
 
       // The orchestrator is holding the [SUBAGENT_AWAITING_USER] envelope and
       // resumes the child with continue_subagent once the user answers, so the
-      // answer is an ordinary user turn on the registered chat surface.
+      // answer is an ordinary user turn (`aui.thread.append`) on the
+      // registered chat surface.
       await waitFor(() => expect(send).toHaveBeenCalledWith('the second one'));
       expect(screen.getByTestId('subagent-answer-sent')).toBeInTheDocument();
-    });
-  });
-
-  describe('opening the drawer', () => {
-    /** Render the inline delegation card the way the /chat transcript does. */
-    function renderInlineCall(
-      store: ReturnType<typeof buildStore>,
-      onOpenSubagent?: (taskId: string) => void,
-      canOpenSubagent?: (taskId: string) => boolean
-    ) {
-      return render(
-        <Provider store={store}>
-          <AssistantUiRuntimeProvider>
-            <SubagentDrawerHost onOpenSubagent={onOpenSubagent} canOpenSubagent={canOpenSubagent}>
-              <SubagentCall
-                type="tool-call"
-                toolName="task"
-                toolCallId={ROW_ID}
-                args={{ subagent_type: 'researcher', progress: activity } as never}
-                argsText="{}"
-                result={undefined}
-                status={{ type: 'running' }}
-                addResult={() => {}}
-                resume={() => {}}
-                respondToApproval={() => {}}
-              />
-            </SubagentDrawerHost>
-          </AssistantUiRuntimeProvider>
-        </Provider>
-      );
-    }
-
-    /**
-     * The card is collapsed by default and the "View full processing" button
-     * lives in its content, so every assertion here has to open it first --
-     * otherwise the two negative cases pass for the wrong reason.
-     */
-    async function expandCard() {
-      await act(async () => {
-        await userEvent.click(screen.getByRole('button', { name: /Delegated to Researcher/i }));
-      });
-    }
-
-    it('opens the sub-agent drawer on the delegation the card is showing', async () => {
-      // This is the ONLY renderer for a delegation on the assistant-ui surface,
-      // and it offered no way into `SubagentDrawer`: the legacy
-      // `ToolTimelineBlock` passes `onView` per row, and the one remaining
-      // launcher (`BackgroundProcessesPanel`) lists async/typed spawns only, so
-      // every other delegation's persisted worker conversation was unreachable.
-      const store = buildStore();
-      spawn(store, 'req-1:3');
-      const onOpenSubagent = vi.fn();
-
-      renderInlineCall(store, onOpenSubagent, () => true);
-      await expandCard();
-
-      await act(async () => {
-        await userEvent.click(screen.getByTestId('subagent-view-processing'));
-      });
-      expect(onOpenSubagent).toHaveBeenCalledWith('sub-1');
-    });
-
-    it('offers nothing when no host is mounted', async () => {
-      // The read-only mounts of this card (the drawer itself, past-turn
-      // insights) render outside the host and must not grow a dead button.
-      const store = buildStore();
-      spawn(store, 'req-1:3');
-
-      renderInlineCall(store, undefined, () => true);
-      await expandCard();
-
-      expect(screen.getByTestId('subagent-activity')).toBeInTheDocument();
-      expect(screen.queryByTestId('subagent-view-processing')).not.toBeInTheDocument();
-    });
-
-    it('offers nothing for a delegation the drawer cannot resolve', async () => {
-      // `TranscriptOverlays` looks the row up by `taskId` in the thread's live
-      // timeline and renders nothing when it is absent, so a part replayed from
-      // the settled core transcript would get a button opening an empty sheet.
-      const store = buildStore();
-      spawn(store, 'req-1:3');
-
-      renderInlineCall(store, vi.fn(), () => false);
-      await expandCard();
-
-      expect(screen.getByTestId('subagent-activity')).toBeInTheDocument();
-      expect(screen.queryByTestId('subagent-view-processing')).not.toBeInTheDocument();
     });
   });
 });
