@@ -1756,10 +1756,21 @@ const Conversations = ({
     flowApprovalRequests.length > 0 ? (
       <div className="mb-2 flex flex-col gap-2">
         {flowApprovalRequests.map(request => (
-          <FlowApprovalRequestCard
+          <ApprovalCardAdapter
             key={request.request_id}
-            request={request}
-            onResolved={dismissFlowApprovalRequest}
+            ariaLabel={t('chat.flowApproval.title')}
+            title={t('chat.flowApproval.title')}
+            subtitle={request.summary || t('chat.flowApproval.fallback')}
+            command={request.flow_id}
+            toolName={request.tool_name}
+            alwaysDecision="approve_always_for_flow"
+            alwaysHint={t('chat.flowApproval.approveAlwaysHint')}
+            analyticsPrefix="flow-approval-request"
+            testId="flow-approval-request-card"
+            onDecide={async decision => {
+              await decideApproval(request.request_id, decision);
+              dismissFlowApprovalRequest(request.request_id);
+            }}
           />
         ))}
       </div>
@@ -1768,7 +1779,11 @@ const Conversations = ({
   // Background-approval surface: parks raised with no chat thread and no flow
   // run. Sits beside the flow deck because it is the same affordance with a
   // different origin, and is likewise not thread-scoped — a pending row has no
-  // thread to be scoped to, which is exactly why it had no surface.
+  // thread to be scoped to, which is exactly why it had no surface. Only
+  // once/deny are offered here (no `alwaysDecision`) — the request arrived
+  // from attacker-influenceable content with no interactive session behind
+  // it, and a session-wide standing allowlist is the wrong thing to grant
+  // from a banner the user did not go looking for.
   const unroutedApprovalDeck =
     unroutedApprovals.length > 0 ? (
       <div className="mb-2 flex flex-col gap-2" data-testid="unrouted-approval-deck">
@@ -1778,11 +1793,18 @@ const Conversations = ({
           </p>
         )}
         {unroutedApprovals.map(approval => (
-          <UnroutedApprovalCard
+          <ApprovalCardAdapter
             key={approval.request_id}
-            approval={approval}
+            ariaLabel={`Background approval required: ${approval.tool_name}`}
+            title={t('chat.approval.title')}
+            subtitle={approval.action_summary || approval.tool_name}
+            command={approval.tool_name}
+            toolName={approval.tool_name}
+            expiresAt={approval.expires_at}
+            analyticsPrefix="unrouted-approval"
+            testId="unrouted-approval-card"
             busy={unroutedDecidingId !== null}
-            onDecide={decideUnroutedApproval}
+            onDecide={decision => decideUnroutedApproval(approval.request_id, decision)}
           />
         ))}
       </div>
