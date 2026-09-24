@@ -1306,7 +1306,36 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               message: event.message,
               command,
               toolkit,
+              toolCallId: event.tool_call_id,
+              expiresAt: event.expires_at,
             },
+          })
+        );
+      },
+      onApprovalDecided: (event: ChatApprovalDecidedEvent) => {
+        rtLog('approval_decided', {
+          thread: event.thread_id,
+          request: event.request_id,
+          resolution: event.resolution,
+        });
+        // Only a server-recorded TERMINAL non-decision (TTL expiry, an
+        // external cancel) needs handling here: an interactive decision made
+        // through THIS client already cleared the entry optimistically
+        // (`useOpenHumanExternalStore`'s `onRespondToToolApproval` /
+        // `ApprovalRequestCard`), and a decision made on another connected
+        // client is covered by the existing turn-end handlers once that
+        // client's turn settles. Clearing eagerly on every `approval_decided`
+        // would race the optimistic clear and, worse, drop a card whose
+        // decision the USER on this client is mid-click on when the event
+        // for a DIFFERENT thread's request arrives.
+        if (!event.thread_id || (event.resolution !== 'expired' && event.resolution !== 'cancelled')) {
+          return;
+        }
+        dispatch(
+          resolvePendingApprovalForThread({
+            threadId: event.thread_id,
+            requestId: event.request_id,
+            resolution: event.resolution,
           })
         );
       },
