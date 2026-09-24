@@ -740,14 +740,14 @@ describe('tool label on the part', () => {
     });
   });
 
-  it('formats a row that arrived with no label from the tool identity', () => {
+  it('carries no artifact when the row has no server label — the renderer derives the label from tool identity', () => {
+    // `tool_search` is a client-known tool (an exact `toolSpecs.ts` entry), so
+    // `AssistantUiToolCall` resolves its own label through `describeToolCall`
+    // and never needs the artifact. Emitting one here would be pure noise.
     const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
       tool({ id: 'c1', name: 'tool_search', status: 'success', argsBuffer: '{"query":"gmail"}' }),
     ]);
-    expect(artifactOf(converted)).toEqual({
-      kind: 'openhuman-tool',
-      displayName: 'Finding the right tool',
-    });
+    expect(artifactOf(converted)).toBeUndefined();
   });
 });
 
