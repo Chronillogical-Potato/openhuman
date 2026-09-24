@@ -106,9 +106,7 @@ describe('activity group', () => {
             role: 'assistant',
             status: { type: 'complete', reason: 'stop' },
             content: [
-              tool('t1', 'shell', {
-                status: { type: 'requires-action', reason: 'interrupt' },
-              }),
+              tool('t1', 'shell', { status: { type: 'requires-action', reason: 'interrupt' } }),
               tool('t2', 'search_two'),
             ],
           },
