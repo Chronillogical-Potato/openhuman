@@ -9,11 +9,11 @@ import { AgentStatus } from '../../components/assistant-ui/elements/agent-status
 import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import ArtifactCard from '../../components/chat/ArtifactCard';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
-import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
+import { ContextUsage } from '../../features/conversations/aui/ContextUsage';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
 import { useRunMode } from '../../features/conversations/aui/useRunMode';
@@ -2009,7 +2009,10 @@ const Conversations = ({
           </button>
         )}
         <div className="flex items-center justify-between gap-2">
-          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
+          <ContextUsage
+            threadId={selectedThreadId}
+            modelContextWindow={composerModelContextWindow}
+          />
           {!isSidebar && (
             <div className="flex shrink-0 items-center gap-2">{assistantComposerFooterExtras}</div>
           )}
