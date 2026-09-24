@@ -4203,6 +4203,7 @@ const en: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'Agent Process Source',
   'conversations.agentTaskInsights.stepsHeading': 'Steps',
   'conversations.agentTaskInsights.sourcesHeading': 'Sources',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'Memory',
   'conversations.agentTaskInsights.noSteps': 'No steps recorded',
   'conversations.agentTaskInsights.viewProcessSource': 'View full agent process Source',
   'conversations.agentTaskInsights.processing': 'Processing',

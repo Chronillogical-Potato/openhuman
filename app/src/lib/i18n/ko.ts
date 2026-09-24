@@ -3654,6 +3654,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': '에이전트 프로세스 소스',
   'conversations.agentTaskInsights.stepsHeading': '단계',
   'conversations.agentTaskInsights.sourcesHeading': '소스',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': '메모리',
   'conversations.agentTaskInsights.noSteps': '기록된 단계 없음',
   'conversations.agentTaskInsights.viewProcessSource': '전체 에이전트 프로세스 소스 보기',
   'conversations.agentTaskInsights.processing': '처리 중',

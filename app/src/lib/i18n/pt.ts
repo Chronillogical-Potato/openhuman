@@ -3742,6 +3742,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'Fonte do processo do agente',
   'conversations.agentTaskInsights.stepsHeading': 'Etapas',
   'conversations.agentTaskInsights.sourcesHeading': 'Fontes',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'Memória',
   'conversations.agentTaskInsights.noSteps': 'Nenhuma etapa registrada',
   'conversations.agentTaskInsights.viewProcessSource': 'Ver a fonte completa do processo do agente',
   'conversations.agentTaskInsights.processing': 'Processando',

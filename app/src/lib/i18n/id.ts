@@ -3704,6 +3704,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'Sumber proses agen',
   'conversations.agentTaskInsights.stepsHeading': 'Langkah',
   'conversations.agentTaskInsights.sourcesHeading': 'Sumber',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'Memori',
   'conversations.agentTaskInsights.noSteps': 'Tidak ada langkah yang tercatat',
   'conversations.agentTaskInsights.viewProcessSource': 'Lihat sumber proses agen lengkap',
   'conversations.agentTaskInsights.processing': 'Memproses',

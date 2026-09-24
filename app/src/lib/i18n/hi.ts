@@ -3689,6 +3689,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'एजेंट प्रक्रिया स्रोत',
   'conversations.agentTaskInsights.stepsHeading': 'चरण',
   'conversations.agentTaskInsights.sourcesHeading': 'स्रोत',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'स्मृति',
   'conversations.agentTaskInsights.noSteps': 'कोई चरण दर्ज नहीं किया गया',
   'conversations.agentTaskInsights.viewProcessSource': 'पूर्ण एजेंट प्रक्रिया स्रोत देखें',
   'conversations.agentTaskInsights.processing': 'प्रोसेसिंग',

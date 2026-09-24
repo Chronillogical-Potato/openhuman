@@ -3717,6 +3717,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'Источник процесса агента',
   'conversations.agentTaskInsights.stepsHeading': 'Шаги',
   'conversations.agentTaskInsights.sourcesHeading': 'Источники',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'Память',
   'conversations.agentTaskInsights.noSteps': 'Шаги не записаны',
   'conversations.agentTaskInsights.viewProcessSource': 'Показать полный источник процесса агента',
   'conversations.agentTaskInsights.processing': 'Обработка',

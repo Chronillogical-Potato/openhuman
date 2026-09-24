@@ -3688,6 +3688,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'এজেন্ট প্রক্রিয়া উৎস',
   'conversations.agentTaskInsights.stepsHeading': 'ধাপসমূহ',
   'conversations.agentTaskInsights.sourcesHeading': 'উৎসসমূহ',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'স্মৃতি',
   'conversations.agentTaskInsights.noSteps': 'কোনো ধাপ রেকর্ড করা হয়নি',
   'conversations.agentTaskInsights.viewProcessSource': 'সম্পূর্ণ এজেন্ট প্রক্রিয়ার উৎস দেখুন',
   'conversations.agentTaskInsights.processing': 'প্রসেসিং',

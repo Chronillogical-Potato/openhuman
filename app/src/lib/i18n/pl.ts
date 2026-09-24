@@ -3728,6 +3728,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'Źródło procesu agenta',
   'conversations.agentTaskInsights.stepsHeading': 'Kroki',
   'conversations.agentTaskInsights.sourcesHeading': 'Źródła',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'Pamięć',
   'conversations.agentTaskInsights.noSteps': 'Brak zarejestrowanych kroków',
   'conversations.agentTaskInsights.viewProcessSource': 'Zobacz pełne źródło procesu agenta',
   'conversations.agentTaskInsights.processing': 'Przetwarzanie',

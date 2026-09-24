@@ -3494,6 +3494,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': '智能体处理来源',
   'conversations.agentTaskInsights.stepsHeading': '步骤',
   'conversations.agentTaskInsights.sourcesHeading': '来源',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': '记忆',
   'conversations.agentTaskInsights.noSteps': '未记录任何步骤',
   'conversations.agentTaskInsights.viewProcessSource': '查看完整的智能体处理来源',
   'conversations.agentTaskInsights.processing': '处理中',

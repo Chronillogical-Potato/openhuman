@@ -3611,6 +3611,7 @@ const messages: TranslationMap = {
   'conversations.agentTaskInsights.processSourceTitle': 'مصدر عملية الوكيل',
   'conversations.agentTaskInsights.stepsHeading': 'الخطوات',
   'conversations.agentTaskInsights.sourcesHeading': 'المصادر',
+  'conversations.agentTaskInsights.memoryCitationFallbackTitle': 'الذاكرة',
   'conversations.agentTaskInsights.noSteps': 'لم يتم تسجيل أي خطوات',
   'conversations.agentTaskInsights.viewProcessSource': 'عرض مصدر عملية الوكيل الكامل',
   'conversations.agentTaskInsights.processing': 'قيد المعالجة',

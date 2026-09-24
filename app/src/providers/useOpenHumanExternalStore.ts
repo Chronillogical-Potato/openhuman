@@ -564,6 +564,9 @@ export function useOpenHumanExternalStore(
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
       onNew,
       onCancel,
+      onEdit,
+      onReload,
+      setMessages,
       onRespondToToolApproval,
       // Read-aloud for a single message. Supplying this is what makes
       // `capabilities.speech` true and the Speak / StopSpeaking controls
@@ -585,6 +588,9 @@ export function useOpenHumanExternalStore(
       feedbackAdapter,
       onNew,
       onCancel,
+      onEdit,
+      onReload,
+      setMessages,
       onRespondToToolApproval,
     ]
   );
