@@ -73,6 +73,7 @@ async fn egress_surface_bridges_pending_with_chat_context() {
         descriptor: crate::security::egress::EgressDescriptor::composio(marker),
         thread_id: Some("thread-1".to_string()),
         client_id: Some("client-1".to_string()),
+        request_id: Some("request-1".to_string()),
     });
 
     let ev = find_egress_web_event(&mut web_rx, marker).await;
@@ -100,11 +101,13 @@ async fn egress_surface_drops_pending_without_chat_context() {
         descriptor: crate::security::egress::EgressDescriptor::composio(dropped_marker),
         thread_id: None,
         client_id: None,
+        request_id: None,
     });
     crate::core::bus::BUS.publish(DomainEvent::ExternalTransferPending {
         descriptor: crate::security::egress::EgressDescriptor::composio(sentinel_marker),
         thread_id: Some("thread-2".to_string()),
         client_id: Some("client-2".to_string()),
+        request_id: None,
     });
 
     loop {
