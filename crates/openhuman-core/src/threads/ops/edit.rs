@@ -97,11 +97,11 @@ pub async fn edit_message(request: EditMessageRequest) -> Result<RpcOutcome<Valu
         .map_err(ThreadsError::Message)?;
 
     if let Some(cut_request_id) = &cut_request_id {
-        let dir = dir.clone();
+        let dir_for_blocking = dir.clone();
         let thread_id_owned = thread_id.clone();
         let cut_request_id_owned = cut_request_id.clone();
         tokio::task::spawn_blocking(move || {
-            truncate_transcript_before_turn(&dir, &thread_id_owned, &cut_request_id_owned)
+            truncate_transcript_before_turn(&dir_for_blocking, &thread_id_owned, &cut_request_id_owned)
         })
         .await
         .map_err(|e| ThreadsError::Message(format!("truncate transcript task: {e}")))?
