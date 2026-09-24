@@ -97,6 +97,8 @@ impl PlanReviewGate {
             client_id,
             summary,
             steps,
+            tool_call_id: None,
+            expires_at: None,
         });
 
         let resolution = match tokio::time::timeout(self.ttl, rx).await {
