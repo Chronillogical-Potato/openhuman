@@ -136,8 +136,7 @@ describe('ChatToolGroup', () => {
 
   it('wraps several calls in the assistant-ui tool timeline', () => {
     render(
-      <ChatToolGroup
-        group={{ type: 'group-tool', status: { type: 'running' }, indices: [0, 1] }}>
+      <ChatToolGroup group={{ type: 'group-tool', status: { type: 'running' }, indices: [0, 1] }}>
         <span>step one</span>
         <span>step two</span>
       </ChatToolGroup>
