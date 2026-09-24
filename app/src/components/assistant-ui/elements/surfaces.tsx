@@ -6,8 +6,7 @@
  * (https://r.assistant-ui.com/elements-surfaces.json). The one local change is
  * `collapsePanel`, adapted from Base UI to Radix (see below).
  */
-import type { ComponentProps } from "react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { type ComponentProps, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/components/assistant-ui/lib/utils";
 
 export const paper = "bg-background border border-border/60 dark:bg-popover";

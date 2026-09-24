@@ -2,34 +2,32 @@
 
 /**
  * The static reasoning element, vendored from assistant-ui's
- * `elements-reasoning-panel` registry item and extended for this app.
+ * `elements-reasoning-panel` registry item
+ * (https://r.assistant-ui.com/elements-reasoning-panel.json). The markup and
+ * classes are upstream's; the local additions are all behavioural:
  *
- * It is prop-driven (no runtime): an ordered list of titled steps along a
- * timeline, with a trigger that shimmers the live label and an elapsed badge
- * while the trace streams, then settles into a resting label such as
- * "Thought for 12s".
- *
- * Additions over upstream:
- * - `collapsible={false}` renders the same header and steps with no
+ * - `collapsible={false}` renders the same header and step list with no
  *   disclosure, for surfaces where reasoning stays inline and visible.
- * - Uncontrolled open state with the runtime element's rule: open while
- *   streaming, back to `defaultOpen` once settled, and a manual toggle wins
- *   from then on.
- * - `liveLabel` (Codex-style): the newest step title replaces the bare
- *   "Thinking" while streaming.
- * - Step bodies render markdown, and a long live trace stays pinned to its
- *   newest tokens inside a bounded scroll region.
+ * - `open` is optional. Uncontrolled, it follows the runtime reasoning
+ *   element's rule: open while streaming, back to `defaultOpen` once settled,
+ *   and a manual toggle wins from then on.
+ * - `liveLabel` replaces the hard-coded "Thinking" (the newest step title
+ *   reads best, Codex style) and localizes it.
+ * - Step bodies render through the registry's own `MarkdownText` (via
+ *   assistant-ui's `TextMessagePartProvider`) instead of a plain `<p>`.
+ * - A streaming list stays pinned to its newest step inside a bounded
+ *   scroll region (the runtime element's `ReasoningText` behaviour).
  */
-import { cn } from '@/components/assistant-ui/lib/utils';
+import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
+import { cn } from '@/lib/cn';
+import { TextMessagePartProvider } from '@assistant-ui/react';
 import { ChevronDownIcon } from 'lucide-react';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { take } from '../utils/range';
 import type { ReasoningStep } from './reasoningSteps';
@@ -42,13 +40,13 @@ export interface ReasoningPanelProps {
   /** How many steps to reveal; defaults to all of them. */
   visibleSteps?: number;
   streaming: boolean;
-  /** Label shown once streaming ends, e.g. "Thought for 12s". */
+  /** Label once streaming ends, e.g. "Thought for 12s". */
   restingLabel: string;
-  /** Label shown while streaming; the latest step title reads best. */
+  /** Label while streaming (upstream hard-codes "Thinking"). */
   liveLabel: string;
-  /** Elapsed badge shown next to the live label, e.g. "4s". */
+  /** Elapsed badge beside the live label, e.g. "4s". */
   elapsed?: string;
-  /** Render as a disclosure (default) or as an always-visible trace. */
+  /** Disclosure (default) or an always-visible trace. */
   collapsible?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -59,29 +57,10 @@ export interface ReasoningPanelProps {
   'data-testid'?: string;
 }
 
-const REMARK_PLUGINS = [remarkGfm];
-
-const StepBody = memo(({ body }: { body: string }) => {
-  return (
-    <div
-      data-slot="reasoning-step-body"
-      className={cn(
-        'text-foreground/55 mt-0.5 text-[13px] leading-relaxed break-words',
-        '[&_p]:my-1 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
-        '[&_ul]:my-1 [&_ul]:list-disc [&_ul]:ps-4 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:ps-4',
-        '[&_code]:bg-foreground/[0.06] [&_code]:rounded [&_code]:px-1 [&_code]:font-mono [&_code]:text-[12px]',
-        '[&_pre]:bg-foreground/[0.04] [&_pre]:my-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:p-2',
-        '[&_strong]:text-foreground/75 [&_a]:underline'
-      )}>
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>{body}</ReactMarkdown>
-    </div>
-  );
-});
-StepBody.displayName = 'ReasoningStepBody';
-
 /**
- * Keeps a bounded scroll region pinned to its newest content while `active`,
- * and stops following once the reader scrolls up (resumes at the bottom).
+ * Keeps a bounded scroll region pinned to its newest content while `active`;
+ * following pauses while the reader is scrolled up. Ported from the runtime
+ * reasoning element's `ReasoningText`.
  */
 function usePinnedScroll(active: boolean) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -134,25 +113,23 @@ function PanelLabel({
   elapsed,
 }: Pick<ReasoningPanelProps, 'streaming' | 'liveLabel' | 'restingLabel' | 'elapsed'>) {
   return (
-    <SwapLabel active={streaming ? 0 : 1} className="min-w-0 text-start">
+    <SwapLabel active={streaming ? 0 : 1} className="text-start">
       <>
         <ShimmerLabel
           active={streaming}
           data-slot="reasoning-panel-live-label"
-          className="relative inline-block max-w-[22rem] truncate py-0.5 leading-none">
+          className="relative inline-block leading-none">
           {liveLabel}
         </ShimmerLabel>
         {elapsed !== undefined && (
           <span
             data-slot="reasoning-panel-elapsed"
-            className={cn(mono, 'text-foreground/35 tabular-nums')}>
+            className={cn(mono, 'text-foreground/30 tabular-nums')}>
             {elapsed}
           </span>
         )}
       </>
-      <span data-slot="reasoning-panel-resting-label" className="py-0.5">
-        {restingLabel}
-      </span>
+      <span data-slot="reasoning-panel-resting-label">{restingLabel}</span>
     </SwapLabel>
   );
 }
@@ -171,39 +148,40 @@ function StepList({
     <div
       ref={scrollRef}
       data-slot="reasoning-panel-scroll"
-      className={cn(bounded && 'max-h-80 overflow-y-auto overscroll-contain')}>
-      <ol ref={contentRef} data-slot="reasoning-panel-steps" className="flex flex-col pt-2.5 pb-1">
+      className={cn(bounded && 'max-h-80 overflow-y-auto')}>
+      <ol ref={contentRef} className="flex flex-col gap-4 pt-3 pb-1">
         {steps.map((step, i) => {
-          const last = i === steps.length - 1;
-          const active = streaming && last;
+          const active = streaming && i === steps.length - 1;
           return (
             <li
+              // Titles can repeat across rounds, so the index is the key.
               key={i}
               data-slot="reasoning-panel-step"
               data-active={active ? '' : undefined}
-              className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both relative flex gap-3 pb-3.5 duration-300 last:pb-0">
-              {/* The timeline: a dot per step joined by a hairline rail. */}
-              {!last && (
-                <span
-                  aria-hidden
-                  className="bg-foreground/10 absolute top-[15px] bottom-0 start-[2px] w-px"
-                />
-              )}
+              className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex gap-3 duration-300">
               <span
                 aria-hidden
                 className={cn(
-                  'relative mt-[7px] size-[5px] shrink-0 rounded-full transition-colors duration-300',
-                  active ? 'bg-primary-500 motion-safe:animate-pulse' : 'bg-foreground/25'
+                  'mt-[7px] size-[5px] shrink-0 rounded-full transition-colors duration-300',
+                  active ? 'animate-pulse bg-blue-500 dark:bg-blue-400' : 'bg-foreground/20'
                 )}
               />
-              <div className="flex min-w-0 flex-1 flex-col">
+              <span className="flex min-w-0 flex-1 flex-col">
                 <p
                   data-slot="reasoning-step-title"
-                  className="text-foreground/85 text-[13.5px] leading-snug font-medium">
+                  className="text-foreground/90 text-[13.5px] font-medium">
                   {step.title}
                 </p>
-                {step.body ? <StepBody body={step.body} /> : null}
-              </div>
+                {step.body ? (
+                  <div
+                    data-slot="reasoning-step-body"
+                    className="text-foreground/50 mt-0.5 text-[13px] leading-relaxed break-words">
+                    <TextMessagePartProvider text={step.body} isRunning={active}>
+                      <MarkdownText />
+                    </TextMessagePartProvider>
+                  </div>
+                ) : null}
+              </span>
             </li>
           );
         })}
@@ -232,8 +210,8 @@ export function ReasoningPanel({
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : (userOpen ?? (streaming || defaultOpen));
 
-  // A streaming → settled transition collapses the panel (when the reader has
-  // not taken over), which is an animation the host may need to scroll-lock.
+  // Streaming → settled collapses the panel (unless the reader took over),
+  // an animation the host may need to scroll-lock.
   const prevStreaming = useRef(streaming);
   useEffect(() => {
     if (prevStreaming.current === streaming) return;
@@ -262,15 +240,12 @@ export function ReasoningPanel({
   if (!collapsible) {
     return (
       <div
-        data-slot="reasoning-root"
+        data-slot="reasoning-panel"
         data-variant="static"
-        data-streaming={streaming ? '' : undefined}
         data-testid={testId}
         aria-busy={streaming || undefined}
         className={cn('w-full', className)}>
-        <div
-          data-slot="reasoning-panel-header"
-          className="text-foreground/55 flex items-center gap-1.5 py-1 text-[13.5px]">
+        <div className="text-foreground/55 flex items-center gap-1.5 py-1 text-[13.5px]">
           {label}
         </div>
         {shown.length > 0 && <StepList steps={shown} streaming={streaming} bounded={streaming} />}
@@ -280,27 +255,21 @@ export function ReasoningPanel({
 
   return (
     <Collapsible
-      data-slot="reasoning-root"
+      data-slot="reasoning-panel"
       data-variant="collapsible"
-      data-streaming={streaming ? '' : undefined}
       data-testid={testId}
       open={isOpen}
       onOpenChange={handleOpenChange}
       className={cn('w-full', className)}>
       <CollapsibleTrigger
-        data-slot="reasoning-panel-trigger"
         disabled={shown.length === 0}
-        className="group/trigger text-foreground/55 hover:text-foreground/90 flex max-w-full items-center gap-1.5 rounded-sm py-1 text-[13.5px] transition-[color,scale] outline-none focus-visible:ring-1 focus-visible:ring-foreground/20 active:scale-[0.98] disabled:pointer-events-none">
+        className="group/trigger text-foreground/55 hover:text-foreground/90 flex items-center gap-1.5 py-1 text-[13.5px] transition-[color,scale] outline-none active:scale-[0.98] disabled:pointer-events-none">
         {label}
         {shown.length > 0 && (
-          <ChevronDownIcon
-            aria-hidden
-            className="size-3.5 shrink-0 opacity-60 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]/trigger:rotate-180 motion-reduce:transition-none"
-          />
+          <ChevronDownIcon className="size-3.5 shrink-0 opacity-60 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-data-[state=open]/trigger:rotate-180 motion-reduce:transition-none" />
         )}
       </CollapsibleTrigger>
       <CollapsibleContent
-        data-slot="reasoning-panel-content"
         aria-busy={streaming || undefined}
         className={cn(collapsePanel, 'outline-none')}>
         <StepList steps={shown} streaming={streaming} bounded />
