@@ -810,6 +810,8 @@ export interface ChatEventListeners {
   onArtifactPending?: (event: ArtifactPendingEvent) => void;
   onArtifactReady?: (event: ArtifactReadyEvent) => void;
   onArtifactFailed?: (event: ArtifactFailedEvent) => void;
+  onExternalTransferPending?: (event: ExternalTransferPendingEvent) => void;
+  onCancelled?: (event: ChatCancelledEvent) => void;
   onDone?: (event: ChatDoneEvent) => void;
   onError?: (event: ChatErrorEvent) => void;
 }

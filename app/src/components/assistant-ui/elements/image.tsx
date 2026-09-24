@@ -1,5 +1,19 @@
 'use client';
 
+/**
+ * assistant-ui's `image` element: renders an `ImageMessagePart` with a
+ * lightbox, copy/download actions and error/loading states.
+ *
+ * Vendored from the assistant-ui `image` registry item
+ * (https://r.assistant-ui.com/styles/base-nova/image.json). This file
+ * predates the "Changes from upstream" convention adopted for later
+ * elements; it already carries OpenHuman-specific behavior (the
+ * download-to-Blob path for `data:`/relative URIs, copy-to-clipboard,
+ * moderation/error iconography) beyond a line-for-line vendor, and a full
+ * diff against the current upstream body was out of scope for this pass —
+ * only its location (moved under `elements/`, per the other elements in this
+ * directory) and this header changed here.
+ */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import type { ImageMessagePart, ImageMessagePartComponent } from '@assistant-ui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
