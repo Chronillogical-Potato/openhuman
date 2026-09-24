@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
@@ -147,11 +147,13 @@ describe('ProcessingTranscriptView live thinking', () => {
     expect(screen.getByTestId('processing-thinking-live').textContent).toContain('Second pass');
   });
 
-  it('keeps a long live thought whole inside a bounded, bottom-pinned scroll region', () => {
-    const long = 'x'.repeat(2000) + 'TAIL';
+  it('keeps a long live thought whole inside a bounded, bottom-pinned scroll region', async () => {
+    const long = 'x'.repeat(2000) + ' TAIL';
     render(<ProcessingTranscriptView transcript={[thought(0, long)]} entries={[]} live />);
     const live = screen.getByTestId('processing-thinking-live');
-    expect(live.textContent).toContain('TAIL');
+    // The live step body streams in through assistant-ui's smoothed
+    // MarkdownText, so the tail appears once the reveal catches up.
+    await waitFor(() => expect(live.textContent).toContain('TAIL'));
     const scroll = live.querySelector('[data-slot="reasoning-panel-scroll"]');
     expect(scroll?.className).toContain('max-h-80');
     expect(scroll?.className).toContain('overflow-y-auto');
