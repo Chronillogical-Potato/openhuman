@@ -1,5 +1,6 @@
 import debug from 'debug';
 
+import type { ChatThreadTodoItem, ThreadGoal } from '../chatService';
 import type {
   DerivedTranscriptGetOptions,
   DerivedTranscriptPage,
@@ -164,6 +165,34 @@ export const threadApi = {
     });
     const data = unwrapEnvelope(response);
     return data?.turnStates ?? [];
+  },
+
+  /**
+   * The thread's current live todo list, for thread open / reconnect (the
+   * `thread_todos_changed` socket event covers every update after that).
+   * Wire method `openhuman.threads_todos_get`.
+   */
+  getTodos: async (threadId: string): Promise<ChatThreadTodoItem[]> => {
+    const response = await callCoreRpc<{ data?: { todos?: ChatThreadTodoItem[] } }>({
+      method: 'openhuman.threads_todos_get',
+      params: { thread_id: threadId },
+    });
+    const data = unwrapEnvelope(response);
+    return data?.todos ?? [];
+  },
+
+  /**
+   * The thread's current goal (or `null`), for thread open / reconnect (the
+   * `thread_goal_updated` / `thread_goal_cleared` socket events cover every
+   * update after that). Wire method `openhuman.threads_goal_get`.
+   */
+  getGoal: async (threadId: string): Promise<ThreadGoal | null> => {
+    const response = await callCoreRpc<{ data?: { goal?: ThreadGoal | null } }>({
+      method: 'openhuman.threads_goal_get',
+      params: { thread_id: threadId },
+    });
+    const data = unwrapEnvelope(response);
+    return data?.goal ?? null;
   },
 
   /** One specific past turn of a thread, by its producing request id (Phase 4). */
