@@ -722,6 +722,26 @@ impl ApprovalGate {
                         ttl_secs = effective_ttl.as_secs(),
                         "[approval::gate] approval timed out, denying"
                     );
+                    // Only publish when THIS call is the one that actually
+                    // committed the terminal `Deny` (`denied == Ok(Some(_))`).
+                    // When `denied` is `Ok(None)` a concurrent `decide()` (or
+                    // an `expire_stale` sweep) already resolved and published
+                    // this request — publishing again here would double-fire
+                    // the socket bridge for a request that already reported
+                    // its outcome once, and `take_request_route` would have
+                    // nothing left to hand back anyway.
+                    if let Ok(Some(row)) = &denied {
+                        let route = self.take_request_route(&request_id);
+                        BUS.publish(DomainEvent::ApprovalDecided {
+                            request_id: row.request_id.clone(),
+                            tool_name: row.tool_name.clone(),
+                            decision: ApprovalDecision::Deny.as_str().to_string(),
+                            thread_id: route.as_ref().and_then(|r| r.thread_id.clone()),
+                            client_id: route.as_ref().and_then(|r| r.client_id.clone()),
+                            tool_call_id: route.and_then(|r| r.tool_call_id),
+                            resolution: Some("expired".to_string()),
+                        });
+                    }
                     (
                         GateOutcome::Deny {
                             reason: format!(
