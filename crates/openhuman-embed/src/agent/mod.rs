@@ -90,6 +90,9 @@ pub(crate) struct AgentInner {
     pub(crate) provider: Provider,
     pub(crate) access: Access,
     pub(crate) layout: AgentLayout,
+    /// The agent's own in-process tools, rebuilt per turn. See
+    /// [`AgentSpec::tools`](super::AgentSpec::tools) for why it is a factory.
+    pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
 }
 
 /// A handle to one agent on a runtime.

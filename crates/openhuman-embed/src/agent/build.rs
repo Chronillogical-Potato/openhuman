@@ -154,6 +154,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         provider,
         access,
         layout,
+        host_tools: parts.host_tools,
     })
 }
 

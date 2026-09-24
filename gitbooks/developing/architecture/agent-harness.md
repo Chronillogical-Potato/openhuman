@@ -14,10 +14,37 @@ in-process core per process — background services, registered domain
 families, backend URL and the TinyHumans API key — and `Runtime::agent(spec)`
 instantiates any number of agents on it. Each `AgentSpec` fully describes
 one agent: provider endpoint and model, access tier, `action_dir`, MCP
-servers, skill bundles, system prompt, tool scope, sandbox mode, allowlists,
-and a narrowed `DomainSet` / `ToolGroups`. A runtime identifies as
+servers, its own in-process tools, skill bundles, system prompt, tool scope,
+sandbox mode, allowlists, and a narrowed `DomainSet` / `ToolGroups`. A runtime identifies as
 `HostKind::Library`: inference does not depend on OpenHuman app login,
 including inference-readiness checks for workflow agent nodes.
+
+### An embedder's own tools
+
+`AgentSpec::tools` takes the host's own `Box<dyn Tool>` objects, which reach
+the model as real tools — their own schema on the wire, called by their own
+name. Before it existed the only road was `AgentSpec::mcp`, and the model paid
+for the indirection: a discovery call to learn what a server offers, and an
+`mcp_call_tool` envelope whose inner `arguments` object no provider can
+validate or constrain decoding against.
+
+It takes a **factory**, not a belt. `Agent` is `Clone` and `Box<dyn Tool>` is
+not, and the session behind a spec is rebuilt from `Config` on every turn, so
+nothing holding a `dyn Tool` could survive in between. The closure therefore
+runs once per turn — which also means a host whose tools belong to something
+shorter-lived than the agent (one episode, one room, one assignment) can
+return a different belt each time instead of registering a second agent.
+
+Implement `Tool` through `openhuman_embed::Tool`, not by depending on
+`tinytools` directly: a second path to that crate produces incompatible Rust
+types, and a tool built against it cannot be handed to a session at all.
+
+One caveat on a varying belt. The prompt's tool catalogue is rendered from the
+same belt in the same build, so the two stay consistent on any turn that
+composes a prompt — but a **resumed** session reuses its persisted system
+messages, so a belt that moves under a long-lived thread is described by the
+prompt that thread opened with. Vary a belt only on turns that run on a
+session of their own.
 
 Per-agent isolation is a context, not a second core. `Runtime::agent` clones
 the runtime's base `Config`, applies the spec, and derives a child

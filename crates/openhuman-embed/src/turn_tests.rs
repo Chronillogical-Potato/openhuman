@@ -183,3 +183,81 @@ fn sanitize_redacts_unparseable_urls() {
     assert!(!normalized.contains("sk-secret"));
     assert!(!normalized.contains("leaky"));
 }
+
+/// `agent_chat` declares no input a seeded history could travel in.
+///
+/// This is why [`Turn::seed`] rides the target rather than [`TurnRequest`],
+/// and why the `TurnTarget::Runtime` arm refuses a seed instead of dropping
+/// it: that path speaks to the controller over these fields and there is
+/// nowhere in them to put history. If a future controller gains such an input,
+/// this test fails and the refusal can be reconsidered on purpose rather than
+/// discovered by an agent answering with no memory of the conversation.
+#[test]
+fn the_controller_declares_nowhere_for_a_seed_to_travel() {
+    let schema = openhuman_core::inference::host_runtime::all_local_inference_controller_schemas()
+        .into_iter()
+        .find(|s| s.namespace == "inference" && s.function == "agent_chat")
+        .expect("inference.agent_chat is a registered controller");
+
+    // An allowlist, not a denylist of suspicious names: a future input called
+    // `context` or `transcript` could carry history just as well, and a
+    // heuristic that guesses at names would pass it silently. Anything new
+    // fails here until someone decides whether a seed could ride it.
+    const KNOWN: [&str; 8] = [
+        "message",
+        "model_override",
+        "temperature",
+        "thread_id",
+        "cwd",
+        "inference_url",
+        "api_key",
+        "agent_id",
+    ];
+    let unknown: Vec<&str> = schema
+        .inputs
+        .iter()
+        .map(|field| field.name)
+        .filter(|name| !KNOWN.contains(name))
+        .collect();
+
+    assert!(
+        unknown.is_empty(),
+        "agent_chat gained input(s) {unknown:?}; `Turn::seed` refuses the Runtime \
+         path on the assumption none of them can carry history. Decide, then \
+         add them here."
+    );
+}
+
+/// A turn outcome reports what it spent, and is not `Eq`.
+///
+/// The type-level half of the metering contract. `LastTurnUsage` carries a
+/// cost in dollars, so [`TurnOutcome`] cannot derive `Eq` -- this asserts the
+/// field is reachable and comparable the way a host meters it, and fails to
+/// compile if `usage` is dropped or retyped.
+#[test]
+fn a_turn_outcome_carries_what_the_turn_spent() {
+    let spent = openhuman_core::agent::tinyagents::host::LastTurnUsage {
+        input_tokens: 1_200,
+        output_tokens: 340,
+        cost_usd: 0.0042,
+        ..Default::default()
+    };
+    let outcome = TurnOutcome {
+        reply: "done".into(),
+        session_id: "s".into(),
+        usage: Some(spent.clone()),
+    };
+
+    let metered = outcome.usage.as_ref().expect("a metered turn");
+    assert_eq!(metered.input_tokens, 1_200);
+    assert_eq!(metered.output_tokens, 340);
+    assert!((metered.cost_usd - 0.0042).abs() < f64::EPSILON);
+
+    // Unmetered is representable and distinct, which is what the RPC path and
+    // a session that reported nothing both produce.
+    let unmetered = TurnOutcome {
+        usage: None,
+        ..outcome.clone()
+    };
+    assert_ne!(unmetered, outcome);
+}

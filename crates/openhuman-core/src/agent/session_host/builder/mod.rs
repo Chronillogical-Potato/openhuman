@@ -12,7 +12,10 @@ mod builder_build;
 mod dispatcher;
 mod factory;
 mod helpers;
+mod host_tools;
 mod setters;
+
+pub use host_tools::{HostTools, HostTurnTools, TurnContext};
 
 #[cfg(test)]
 mod builder_tests;
