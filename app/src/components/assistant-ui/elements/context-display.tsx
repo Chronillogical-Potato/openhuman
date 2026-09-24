@@ -280,7 +280,7 @@ function ContextDisplayContent({
       <div className="text-xs">
         <div className="flex items-baseline justify-between gap-6 whitespace-nowrap">
           <span className={getPercentColor(percent)}>
-            {Math.round(percent)}% full
+            {labels.full(Math.round(percent))}
           </span>
           <span className="font-mono tabular-nums">
             {formatTokenCount(Math.min(totalTokens, modelContextWindow))} /{" "}
