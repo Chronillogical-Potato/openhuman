@@ -1153,7 +1153,7 @@ async fn scheduling_clarification_flow_inner() {
     .await;
 
     // ── turn 1: clarification question must reach the user ──
-    send_web_chat(
+    let request_id = send_web_chat(
         &stack.rpc_base,
         400,
         "harness-clarify",
@@ -1161,7 +1161,8 @@ async fn scheduling_clarification_flow_inner() {
         "schedule a weekly reminder",
     )
     .await;
-    let first = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    let first =
+        wait_for_terminal_request(&mut events, Duration::from_secs(120), Some(&request_id)).await;
     assert_eq!(
         first.get("event").and_then(Value::as_str),
         Some("chat_done"),
@@ -1177,7 +1178,7 @@ async fn scheduling_clarification_flow_inner() {
     );
 
     // ── turn 2: resume with answer → final response must reach the user ──
-    send_web_chat(
+    let request_id = send_web_chat(
         &stack.rpc_base,
         401,
         "harness-clarify",
@@ -1185,7 +1186,8 @@ async fn scheduling_clarification_flow_inner() {
         "version 2",
     )
     .await;
-    let second = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
+    let second =
+        wait_for_terminal_request(&mut events, Duration::from_secs(120), Some(&request_id)).await;
     assert_eq!(
         second.get("event").and_then(Value::as_str),
         Some("chat_done"),
@@ -4932,7 +4934,7 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
         spawn_sse_collector(format!("{}/events?client_id=harness-goal", stack.rpc_base)).await;
 
     // Turn 1: goal_set.
-    send_web_chat(
+    let request_id = send_web_chat(
         &stack.rpc_base,
         800,
         "harness-goal",
@@ -4940,7 +4942,9 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
         "Ship the v2 release notes.",
     )
     .await;
-    let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
+    let (terminal, results) =
+        collect_turn_tool_results_request(&mut events, Duration::from_secs(60), Some(&request_id))
+            .await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let set = tool_result_payload(&results, "goal_set");
     assert_eq!(
@@ -4968,7 +4972,7 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     // scripted upstream returns no `usage`, so a turn charges nothing against
     // the budget. `agent::goals::runtime`'s unit tests cover the accounting
     // and the budget-limit transition directly.)
-    send_web_chat(
+    let request_id = send_web_chat(
         &stack.rpc_base,
         801,
         "harness-goal",
@@ -4976,7 +4980,9 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
         "status?",
     )
     .await;
-    let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
+    let (terminal, results) =
+        collect_turn_tool_results_request(&mut events, Duration::from_secs(60), Some(&request_id))
+            .await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let got = tool_result_payload(&results, "goal_get");
     assert_eq!(
@@ -4994,8 +5000,11 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
     );
 
     // Turn 3: goal_complete.
-    send_web_chat(&stack.rpc_base, 802, "harness-goal", "thread-goal", "done?").await;
-    let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
+    let request_id =
+        send_web_chat(&stack.rpc_base, 802, "harness-goal", "thread-goal", "done?").await;
+    let (terminal, results) =
+        collect_turn_tool_results_request(&mut events, Duration::from_secs(60), Some(&request_id))
+            .await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let done = tool_result_payload(&results, "goal_complete");
     assert_eq!(done["goal"]["goalId"], goal_id, "{done}");
@@ -5034,7 +5043,7 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
         tool_call_completion("goal_get", json!({})),
         text_completion("No goal here."),
     ]);
-    send_web_chat(
+    let request_id = send_web_chat(
         &stack.rpc_base,
         803,
         "harness-goal",
@@ -5042,7 +5051,9 @@ async fn thread_goal_is_set_read_back_and_completed_across_turns_inner() {
         "any goal?",
     )
     .await;
-    let (terminal, results) = collect_turn_tool_results(&mut events, Duration::from_secs(60)).await;
+    let (terminal, results) =
+        collect_turn_tool_results_request(&mut events, Duration::from_secs(60), Some(&request_id))
+            .await;
     assert_eq!(terminal["event"].as_str(), Some("chat_done"), "{terminal}");
     let none = tool_result_payload(&results, "goal_get");
     assert!(none["goal"].is_null(), "{none}");
