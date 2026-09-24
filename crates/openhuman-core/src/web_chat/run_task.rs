@@ -133,7 +133,7 @@ pub(crate) async fn run_chat_task(
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
     bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
-    spawn_progress_bridge(
+    let progress_bridge = spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
         thread_id.to_string(),
@@ -258,7 +258,20 @@ pub(crate) async fn run_chat_task(
         }
     }
 
+    // `run_single` can finish while the bridge still has its final
+    // ToolCallCompleted event buffered. Close the sender and drain the bridge
+    // before the caller emits `chat_done`; otherwise an SSE client can observe
+    // the terminal event first and miss the tool result it is meant to settle.
     agent.set_on_progress(None);
+    if let Err(error) = progress_bridge.await {
+        log::warn!(
+            "[web-channel] progress bridge ended unexpectedly client={} thread={} request_id={} error={}",
+            client_id,
+            thread_id,
+            request_id,
+            error
+        );
+    }
 
     // Only the primary (non-fork) turn writes its agent back to the shared
     // cache; a fork is fully isolated and lets its agent drop here.

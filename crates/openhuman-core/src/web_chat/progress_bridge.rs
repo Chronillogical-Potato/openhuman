@@ -246,7 +246,7 @@ pub(crate) fn spawn_progress_bridge(
     turn_state_store: TurnStateStore,
     metadata: ChatRequestMetadata,
     config: crate::config::Config,
-) {
+) -> tokio::task::JoinHandle<()> {
     use crate::agent::progress::AgentProgress;
     use std::collections::HashMap;
     use tinyagents_session::run_ledger::{
