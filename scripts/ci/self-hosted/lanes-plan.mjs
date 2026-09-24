@@ -365,7 +365,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run:
             "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --lib --" +
             " core::all:: core::cli:: core::jsonrpc:: core::legacy_aliases:: core::runtime::" +
-            " agent::registry::agents::loader:: memory::people::contacts_gate_tests::" +
+            " agent::registry::agents::loader:: commands::ops::tests:: memory::people::contacts_gate_tests::" +
             " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::",
         },
         {

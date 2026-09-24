@@ -65,7 +65,7 @@ export function ErrorState({
       <CircleAlertIcon className="mt-0.5 size-4 shrink-0 text-red-500/80" />
       <div>
         <p className="font-medium text-red-600 dark:text-red-400">{title}</p>
-        <p className="mt-0.5 text-[13px] leading-snug text-red-600/60 dark:text-red-400/60">
+        <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-snug text-red-600/60 dark:text-red-400/60">
           {detail}
         </p>
       </div>

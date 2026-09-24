@@ -8,6 +8,7 @@ import {
   type ToolCallMessagePart,
 } from '@assistant-ui/react';
 
+import { parseBubbleSegments } from '../features/conversations/utils/format';
 import { parseMessageImages } from '../lib/attachments';
 import { unwrapToolCallEnvelope } from '../lib/chat/toolCallEnvelope';
 import type { ChatCitation } from '../services/chatService';
@@ -854,28 +855,47 @@ export function toThreadMessageLike(
         toolCallCount: effectiveTimeline.length,
       }
     : undefined;
-  // A `chat_error{error_type:"guardrail"}` turn (wire-contract.md). Its plain
-  // text is suppressed here — `ChatErrorNotice` (`features/conversations/aui/`)
-  // renders the vendored `GuardrailNotice` card from this same
-  // `extraMetadata` (surfaced unchanged on `metadata.custom.extraMetadata`
-  // below) instead, so the turn is not shown twice.
-  const isGuardrailError =
-    msg.sender === 'agent' &&
-    (msg.extraMetadata?.[CHAT_ERROR_METADATA_KEY] as { errorType?: string } | undefined)
-      ?.errorType === 'guardrail';
+  // Socket errors are persisted as assistant rows, but assistant-ui's error
+  // status should render them through MessageError's ErrorState card rather
+  // than Markdown. The guardrail has its own structured notice card.
+  const chatError =
+    msg.sender === 'agent'
+      ? (msg.extraMetadata?.[CHAT_ERROR_METADATA_KEY] as { errorType?: string } | undefined)
+      : undefined;
+  const isGuardrailError = chatError?.errorType === 'guardrail';
+  const isChatError = chatError !== undefined && !isGuardrailError;
+  // Older persisted errors may contain the retired custom navigation tag.
+  // Keep the diagnostic text and provider detail, without exposing raw markup
+  // inside the plain-text error card.
+  const errorDetail = isChatError
+    ? parseBubbleSegments(text)
+        .filter(segment => segment.kind === 'text')
+        .map(segment => segment.text)
+        .join('')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    : '';
 
   const converted: ThreadMessageLike = {
     id: msg.id,
     role: msg.sender === 'agent' ? 'assistant' : 'user',
-    content: isGuardrailError
+    content: chatError
       ? []
       : msg.sender === 'agent'
         ? assistantParts(text, effectiveTimeline, transcript, 'settled', messageCitations(msg))
         : userParts(msg),
     createdAt: new Date(msg.createdAt),
-    ...(msg.sender === 'agent' && msg.extraMetadata?.stopped === true
-      ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
-      : {}),
+    ...(isChatError
+      ? {
+          status: {
+            type: 'incomplete' as const,
+            reason: 'error' as const,
+            ...(errorDetail ? { error: errorDetail } : {}),
+          },
+        }
+      : msg.sender === 'agent' && msg.extraMetadata?.stopped === true
+        ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
+        : {}),
     metadata: {
       // Defect A (#6459-adjacent, but its own bug): the runtime writes
       // `submittedFeedback` onto its OWN repository copy when a thumb is
@@ -1102,7 +1122,11 @@ export function buildRuntimeMessages(
     if (frozen) {
       const settledRows = requestId ? projection.turnTimelines?.[requestId] : undefined;
       out.push(
-        toThreadMessageLike(msg, withSettledStatuses(frozen.timeline, settledRows), frozen.transcript)
+        toThreadMessageLike(
+          msg,
+          withSettledStatuses(frozen.timeline, settledRows),
+          frozen.transcript
+        )
       );
       continue;
     }

@@ -1150,8 +1150,8 @@
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/tools/mod.rs",
-    "line": 70,
-    "text": "pub use tinytools::{PermissionLevel, ToolCategory, ToolResult, ToolScope, ToolSpec};",
+    "line": 73,
+    "text": "pub use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope, ToolSpec};",
     "occurrence": 1
   },
   {

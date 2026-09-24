@@ -55,7 +55,8 @@ export function useDisclosure(
   const [local, setLocal] = useState<{ key: string | undefined; choice: boolean | undefined }>(
     () => ({ key, choice: key === undefined ? undefined : choices.get(key) })
   );
-  const choice = local.key === key ? local.choice : key === undefined ? undefined : choices.get(key);
+  const choice =
+    local.key === key ? local.choice : key === undefined ? undefined : choices.get(key);
   const setOpen = useCallback(
     (open: boolean) => {
       if (key !== undefined) remember(key, open);

@@ -577,13 +577,9 @@ fn classify_inference_error_retryable_429_message_keeps_retry_hint() {
 }
 
 #[test]
-fn generic_error_copy_is_sanitized_and_has_discord_report_action() {
+fn generic_error_copy_is_plain_text_for_the_error_card() {
     let message = generic_inference_error_user_message();
-    assert!(message.contains("Something went wrong. Please try again."));
-    assert!(message.contains("This error has been reported."));
-    assert!(message.contains(
-        "<openhuman-link path=\"community/discord-report\">Report on Discord</openhuman-link>"
-    ));
+    assert_eq!(message, "Something went wrong. Please try again.");
 }
 
 #[test]
