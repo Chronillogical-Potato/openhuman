@@ -27,10 +27,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ prompt: 'Find the project brief in Notion.' }),
         })
       )
-    ).toEqual({
-      title: 'Using Notion',
-      detail: 'Find the project brief in Notion.',
-    });
+    ).toEqual({ title: 'Using Notion', detail: 'Find the project brief in Notion.' });
   });
 
   it('formats spawn_subagent for integrations_agent from toolkit args', () => {
@@ -62,10 +59,7 @@ describe('formatTimelineEntry', () => {
           detail: 'Search Notion for the latest roadmap.',
         })
       )
-    ).toEqual({
-      title: 'Using Notion',
-      detail: 'Search Notion for the latest roadmap.',
-    });
+    ).toEqual({ title: 'Using Notion', detail: 'Search Notion for the latest roadmap.' });
   });
 
   it('labels a direct connected-service action by its provider', () => {
@@ -102,10 +96,7 @@ describe('formatTimelineEntry', () => {
           }),
         })
       )
-    ).toEqual({
-      title: 'Using GitHub',
-      detail: 'List my open pull requests in GitHub.',
-    });
+    ).toEqual({ title: 'Using GitHub', detail: 'List my open pull requests in GitHub.' });
   });
 
   it('falls back to humanized generic labels for non-integration subagents', () => {
@@ -138,10 +129,7 @@ describe('formatTimelineEntry', () => {
           argsBuffer: JSON.stringify({ url: 'https://docs.example.com/api/v2/users' }),
         })
       )
-    ).toEqual({
-      title: 'Reading webpage',
-      detail: 'docs.example.com/api/v2/users',
-    });
+    ).toEqual({ title: 'Reading webpage', detail: 'docs.example.com/api/v2/users' });
   });
 
   it('formats web_search with the query as detail', () => {

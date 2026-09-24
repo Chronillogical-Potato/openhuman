@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import coreToolNames from './__fixtures__/coreToolNames.json';
-import { describeToolCall, toolLabel, type ToolCallStatus } from './toolPresentation';
+import { describeToolCall, type ToolCallStatus, toolLabel } from './toolPresentation';
 
 const NAMES = [...(coreToolNames as string[])].sort();
 const STATUSES: ToolCallStatus[] = ['running', 'success', 'error'];

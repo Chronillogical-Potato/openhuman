@@ -55,9 +55,7 @@ describe('tool labels: regressions', () => {
     expect(describeToolCall({ name: 'GOOGLECALENDAR_CREATE_EVENT' }).chip).toBe('Create event');
     // An unknown toolkit still reads as words, not a slug.
     expect(done('ACMECORP_SYNC_ALL_RECORDS')).toBe('Used Acmecorp');
-    expect(describeToolCall({ name: 'ACMECORP_SYNC_ALL_RECORDS' }).chip).toBe(
-      'Sync all records'
-    );
+    expect(describeToolCall({ name: 'ACMECORP_SYNC_ALL_RECORDS' }).chip).toBe('Sync all records');
   });
 
   it('names the MCP tool and server instead of "Calling MCP tool"', () => {
@@ -105,9 +103,9 @@ describe('tool labels: regressions', () => {
 
   it('describes the deferred-tool bridge as the tool it calls', () => {
     expect(done('tool_call', { name: 'SLACK_SEND_MESSAGE', arguments: {} })).toBe('Used Slack');
-    expect(
-      done('tool_call', { name: 'file_read', arguments: { path: '/a/b/c/d.ts' } })
-    ).toBe('Read file');
+    expect(done('tool_call', { name: 'file_read', arguments: { path: '/a/b/c/d.ts' } })).toBe(
+      'Read file'
+    );
   });
 
   it('switches collapsed tools on their action argument', () => {
