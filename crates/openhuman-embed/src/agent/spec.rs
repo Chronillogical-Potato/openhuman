@@ -228,9 +228,9 @@ impl AgentSpec {
     /// belt only on turns that run on a session of their own.
     ///
     /// ```no_run
-    /// # use openhuman_embed::AgentSpec;
-    /// # use openhuman_core::agent::HostTurnTools;
-    /// # fn belt() -> Vec<Box<dyn tinytools::Tool>> { Vec::new() }
+    /// use openhuman_embed::{AgentSpec, HostTurnTools, Tool};
+    ///
+    /// # fn belt() -> Vec<Box<dyn Tool>> { Vec::new() }
     /// let spec = AgentSpec::new("reviewer").tools(|| HostTurnTools::advertised(belt()));
     /// ```
     #[must_use]
@@ -239,6 +239,16 @@ impl AgentSpec {
         f: impl Fn() -> openhuman_core::agent::HostTurnTools + Send + Sync + 'static,
     ) -> Self {
         self.host_tools = Some(std::sync::Arc::new(f));
+        self
+    }
+
+    /// [`Self::tools`] for a caller that already holds the factory.
+    ///
+    /// `HarnessBuilder` forwards its own `tools` through here rather than
+    /// wrapping the factory in a second closure.
+    #[must_use]
+    pub(crate) fn host_tools(mut self, factory: openhuman_core::agent::HostTools) -> Self {
+        self.host_tools = Some(factory);
         self
     }
 
