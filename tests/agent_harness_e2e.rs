@@ -318,6 +318,15 @@ async fn scripted_chat_completions(
     use axum::response::IntoResponse;
 
     let streaming = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    // Web chat also asks for follow-up suggestions in a separate model call.
+    // Answer it without consuming the turn's scripted agent completions.
+    if body
+        .pointer("/messages/0/content")
+        .and_then(Value::as_str)
+        .is_some_and(|prompt| prompt.starts_with("You suggest short follow-up questions"))
+    {
+        return completion_response(streaming, json!({ "role": "assistant", "content": "[]" }));
+    }
     with_captured(|reqs| {
         reqs.push(json!({
             "path": uri.path(),
@@ -3580,8 +3589,8 @@ async fn agent_installs_a_registry_skill_then_runs_it_inner() {
 
 /// Tool names a captured model request advertised to the provider.
 ///
-/// TinyAgents renders the function catalogue into system-prompt `def` lines
-/// for text-dialect providers, rather than sending an OpenAI `tools` array.
+/// Text-dialect providers receive the catalogue in the system prompt, while
+/// native providers receive an OpenAI `tools` array.
 fn advertised_tool_names(request: &Value) -> Vec<String> {
     let schema_names = request
         .pointer("/body/tools")
@@ -3603,9 +3612,15 @@ fn advertised_tool_names(request: &Value) -> Vec<String> {
         .filter_map(|message| message.get("content").and_then(Value::as_str))
         .flat_map(|content| content.lines())
         .filter_map(|line| {
-            line.strip_prefix("def ")
-                .and_then(|signature| signature.split_once('('))
+            line.trim_start()
+                .strip_prefix("- **")
+                .and_then(|entry| entry.split_once("**:"))
                 .map(|(name, _)| name.to_string())
+                .or_else(|| {
+                    line.strip_prefix("def ")
+                        .and_then(|signature| signature.split_once('('))
+                        .map(|(name, _)| name.to_string())
+                })
         });
     schema_names.chain(prompt_names).collect()
 }

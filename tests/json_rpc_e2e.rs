@@ -5,6 +5,8 @@
 
 #[path = "support/memory_module.rs"]
 mod memory_module;
+#[path = "support/tinyhumans_boot.rs"]
+mod tinyhumans_boot;
 
 use std::collections::VecDeque;
 use std::net::SocketAddr;
@@ -949,6 +951,13 @@ async fn read_sse_event_by_type(events_url: &str, target_event: &str) -> Value {
 /// This prevents tests from timing out blindly when the turn actually
 /// completed with `chat_error` rather than `chat_done`.
 async fn read_terminal_web_chat_event(events_url: &str) -> Value {
+    read_terminal_web_chat_event_with_ready(events_url, None).await
+}
+
+async fn read_terminal_web_chat_event_with_ready(
+    events_url: &str,
+    ready: Option<tokio::sync::oneshot::Sender<()>>,
+) -> Value {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(120))
         .build()
@@ -965,6 +974,9 @@ async fn read_terminal_web_chat_event(events_url: &str) -> Value {
         resp.status(),
         events_url
     );
+    if let Some(ready) = ready {
+        let _ = ready.send(());
+    }
 
     let mut stream = resp.bytes_stream();
     let mut buffer = String::new();
@@ -993,6 +1005,19 @@ async fn read_terminal_web_chat_event(events_url: &str) -> Value {
         }
     }
     panic!("SSE stream ended before receiving terminal web-chat event");
+}
+
+async fn spawn_ready_terminal_web_chat_event(events_url: &str) -> tokio::task::JoinHandle<Value> {
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+    let events_url = events_url.to_owned();
+    let task = tokio::spawn(async move {
+        read_terminal_web_chat_event_with_ready(&events_url, Some(ready_tx)).await
+    });
+    tokio::time::timeout(Duration::from_secs(5), ready_rx)
+        .await
+        .expect("SSE subscription should become ready")
+        .expect("SSE reader should signal readiness");
+    task
 }
 
 async fn wait_for_chat_completion_requests_len(expected_len: usize) -> Vec<Value> {
@@ -2286,8 +2311,15 @@ async fn json_rpc_protocol_auth_and_agent_hello_inner() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_prompt_injection_is_rejected_before_model_call() {
+#[test]
+fn json_rpc_prompt_injection_is_rejected_before_model_call() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_prompt_injection_is_rejected_before_model_call",
+        json_rpc_prompt_injection_is_rejected_before_model_call_inner,
+    );
+}
+
+async fn json_rpc_prompt_injection_is_rejected_before_model_call_inner() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path();
@@ -2339,12 +2371,19 @@ async fn json_rpc_prompt_injection_is_rejected_before_model_call() {
     let web_msg = web_err
         .get("message")
         .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_ascii_lowercase();
+        .unwrap_or_default();
+    let web_verdict: Value = serde_json::from_str(
+        web_msg
+            .strip_prefix("GUARDRAIL:")
+            .unwrap_or_else(|| panic!("missing structured web guardrail: {web_err}")),
+    )
+    .expect("web guardrail verdict JSON");
+    assert_eq!(web_verdict["verdict"], "block", "{web_err}");
     assert!(
-        web_msg.contains("blocked by a security policy")
-            || web_msg.contains("flagged for security review"),
-        "unexpected web-block message: {web_err}"
+        web_verdict["reasons"]
+            .as_array()
+            .is_some_and(|v| !v.is_empty()),
+        "blocked verdict should name its reasons: {web_err}"
     );
 
     let blocked_agent = post_json_rpc(
@@ -14407,8 +14446,16 @@ async fn json_rpc_commands_list_merges_builtins() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
+#[test]
+fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_threads_edit_message_truncates_and_restarts_turn",
+        json_rpc_threads_edit_message_truncates_and_restarts_turn_inner,
+    );
+}
+
+async fn json_rpc_threads_edit_message_truncates_and_restarts_turn_inner() {
+    tinyhumans_boot::boot();
     // `threads.edit_message` (wire method `openhuman.threads_edit_message`)
     // cancels any in-flight turn, forks the session transcript + message log
     // to drop the edited message and everything after it, then restarts the
@@ -14431,12 +14478,27 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
     let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let api_origin = format!("http://{api_addr}");
     write_min_config(openhuman_home.as_path(), &api_origin);
+    write_min_config(&openhuman_home.join("users").join("e2e-user"), &api_origin);
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
+    let store = post_json_rpc(
+        &rpc_base,
+        9599,
+        "openhuman.auth_store_session",
+        json!({ "token": "e2e-test-jwt", "user_id": "e2e-user" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session before edit");
 
     let client_id = "e2e-edit-client";
-    let thread_id = "thread-edit-e2e";
+    let create = post_json_rpc(&rpc_base, 9600, "openhuman.threads_create_new", json!({})).await;
+    let thread_id = assert_no_jsonrpc_error(&create, "threads_create_new before edit")
+        .get("data")
+        .and_then(|data| data.get("id"))
+        .and_then(Value::as_str)
+        .expect("created thread id")
+        .to_owned();
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
 
     // The frontend — not the core — is the one that appends the user's own
@@ -14468,10 +14530,7 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
 
     // --- Turn 1: a normal web-channel turn against the mock upstream, for
     // the same content just appended above. ---
-    let sse_task_1 = {
-        let events_url = events_url.clone();
-        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
-    };
+    let sse_task_1 = spawn_ready_terminal_web_chat_event(&events_url).await;
     let turn1 = post_json_rpc(
         &rpc_base,
         9601,
@@ -14518,10 +14577,7 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
     // --- Edit the user message: cancels (no-op, turn1 already finished),
     // forks the transcript before turn1's user prompt, truncates the message
     // log from `user_message_id` onward, and restarts with new content. ---
-    let sse_task_2 = {
-        let events_url = events_url.clone();
-        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
-    };
+    let sse_task_2 = spawn_ready_terminal_web_chat_event(&events_url).await;
     let edit = post_json_rpc(
         &rpc_base,
         9604,
@@ -14595,8 +14651,16 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
     rpc_join.abort();
 }
 
-#[tokio::test]
-async fn json_rpc_threads_regenerate_truncates_and_restarts_turn() {
+#[test]
+fn json_rpc_threads_regenerate_truncates_and_restarts_turn() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_threads_regenerate_truncates_and_restarts_turn",
+        json_rpc_threads_regenerate_truncates_and_restarts_turn_inner,
+    );
+}
+
+async fn json_rpc_threads_regenerate_truncates_and_restarts_turn_inner() {
+    tinyhumans_boot::boot();
     // `threads.regenerate` (wire method `openhuman.threads_regenerate`) with
     // no `message_id` redoes the thread's last turn: cancels any in-flight
     // turn, forks the transcript at `TruncateCut::LastAssistantTurn`, drops
@@ -14617,19 +14681,32 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn() {
     let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
     let api_origin = format!("http://{api_addr}");
     write_min_config(openhuman_home.as_path(), &api_origin);
+    write_min_config(&openhuman_home.join("users").join("e2e-user"), &api_origin);
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
 
+    let store = post_json_rpc(
+        &rpc_base,
+        9700,
+        "openhuman.auth_store_session",
+        json!({ "token": "e2e-test-jwt", "user_id": "e2e-user" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session before regenerate");
+
     let client_id = "e2e-regen-client";
-    let thread_id = "thread-regen-e2e";
+    let create = post_json_rpc(&rpc_base, 9699, "openhuman.threads_create_new", json!({})).await;
+    let thread_id = assert_no_jsonrpc_error(&create, "threads_create_new before regenerate")
+        .get("data")
+        .and_then(|data| data.get("id"))
+        .and_then(Value::as_str)
+        .expect("created thread id")
+        .to_owned();
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
 
     // --- Turn 1: a normal web-channel turn against the mock upstream. ---
-    let sse_task_1 = {
-        let events_url = events_url.clone();
-        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
-    };
+    let sse_task_1 = spawn_ready_terminal_web_chat_event(&events_url).await;
     let turn1 = post_json_rpc(
         &rpc_base,
         9701,
@@ -14684,10 +14761,7 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn() {
     let before_count = before_messages.len();
 
     // --- Regenerate the last turn: no message_id, so it redoes turn1. ---
-    let sse_task_2 = {
-        let events_url = events_url.clone();
-        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
-    };
+    let sse_task_2 = spawn_ready_terminal_web_chat_event(&events_url).await;
     let regen = post_json_rpc(
         &rpc_base,
         9703,
