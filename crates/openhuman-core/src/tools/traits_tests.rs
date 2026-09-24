@@ -60,3 +60,21 @@ fn spec_uses_tool_metadata_and_schema() {
     assert_eq!(spec.description, "A deterministic test tool");
     assert_eq!(spec.parameters["type"], "object");
 }
+
+#[test]
+fn tool_call_id_reads_the_harness_execution_context() {
+    use tinyagents_harness::context::{RunConfig, RunContext};
+    use tinyagents_harness::ids::CallId;
+    use tinyagents_harness::tool::ToolExecutionContext;
+
+    let run_ctx: RunContext = RunContext::new(RunConfig::new("test-run"), ());
+    let exec_ctx = ToolExecutionContext::from_run_context(&run_ctx, CallId::new("call-42"));
+
+    let erased: &dyn tinytools::ToolRunContext = &exec_ctx;
+    assert_eq!(tool_call_id(Some(erased)), Some("call-42".to_string()));
+}
+
+#[test]
+fn tool_call_id_is_none_without_a_context() {
+    assert_eq!(tool_call_id(None), None);
+}
