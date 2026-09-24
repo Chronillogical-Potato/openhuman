@@ -58,13 +58,12 @@ describe('useLoadThreadGoal', () => {
   });
 
   it('leaves the slice untouched when the RPC fails', async () => {
-    const rejection = Promise.reject(new Error('no such method'));
-    rejection.catch(() => {}); // pre-handle so vitest doesn't flag it unhandled
-    vi.mocked(threadApi.getGoal).mockReturnValue(rejection);
+    vi.mocked(threadApi.getGoal).mockImplementation(() => Promise.reject(new Error('no such method')));
     const { store, wrapper } = setup();
     renderHook(() => useLoadThreadGoal('t1'), { wrapper });
 
     await waitFor(() => expect(threadApi.getGoal).toHaveBeenCalled());
+    await new Promise(resolve => setTimeout(resolve, 10));
     expect(store.getState().threadGoal.byThread.t1).toBeUndefined();
   });
 });
