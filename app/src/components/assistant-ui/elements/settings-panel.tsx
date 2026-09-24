@@ -188,7 +188,10 @@ export function SettingsPanel({
                     toggle.on ? 'bg-foreground/80' : 'bg-foreground/15'
                   )}>
                   <span
-                    className={cn('bg-background size-4 rounded-full', toggle.on && 'translate-x-4')}
+                    className={cn(
+                      'bg-background size-4 rounded-full',
+                      toggle.on && 'translate-x-4'
+                    )}
                   />
                 </span>
               )}

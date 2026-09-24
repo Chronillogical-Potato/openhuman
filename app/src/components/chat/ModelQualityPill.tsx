@@ -45,7 +45,9 @@ function isManagedPassthroughId(value: string): boolean {
   return rest.split('/').filter(Boolean).length === 2;
 }
 
-export function selectionFromValue(value: string | null | undefined): ProviderModelSelection | null {
+export function selectionFromValue(
+  value: string | null | undefined
+): ProviderModelSelection | null {
   if (!value || value.startsWith('hint:')) return null;
   if (isManagedPassthroughId(value)) {
     return { source: { kind: 'managed' }, model: value };
