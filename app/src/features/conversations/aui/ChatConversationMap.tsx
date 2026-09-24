@@ -133,9 +133,13 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
 
   useFindShortcut(containerEl, () => setSearchOpen(true));
 
-  useEffect(() => {
+  // Reset on the state change that invalidates the previous index, in the
+  // event handler that causes it — not in an effect keyed on `query`, which
+  // would run a second, avoidable render after the query's own.
+  const onQueryChange = useCallback((next: string) => {
+    setQuery(next);
     setActiveIndex(0);
-  }, [query]);
+  }, []);
 
   useEffect(() => {
     const hit = hits[activeIndex];
