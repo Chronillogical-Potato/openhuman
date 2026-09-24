@@ -365,6 +365,13 @@ function assistantParts(
         answerEmitted = true;
         continue;
       }
+      // The answer is never narration, wherever a transcript puts it. A core
+      // that predates the prompt-guided projection fix records a text-mode
+      // turn's answer as an interim step (with the turn's calls after it); as
+      // narration it would render the answer twice.
+      if (mode === 'settled' && answerText.length > 0 && item.text.trim() === answerText.trim()) {
+        continue;
+      }
       parts.push({ type: 'text', text: item.text });
       continue;
     }

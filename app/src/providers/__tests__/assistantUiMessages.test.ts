@@ -220,6 +220,30 @@ describe('buildRuntimeMessages', () => {
     ]);
   });
 
+  it('never renders the answer twice when a transcript records it as narration', () => {
+    // An older core projects a prompt-guided turn's answer as an interim step
+    // with every call after it. The answer must still render once, last.
+    const answer = msg({
+      id: 'answer',
+      sender: 'agent',
+      content: 'The setting is on.',
+      extraMetadata: { requestId: 'req-p' },
+    });
+    const content = buildRuntimeMessages([answer], null, {
+      turnTimelines: { 'req-p': [tool({ id: 'call-1', status: 'success', result: 'ok' })] },
+      turnTranscripts: {
+        'req-p': [
+          { kind: 'narration', round: 3, seq: 0, text: 'The setting is on.' },
+          { kind: 'toolCall', round: 3, seq: 1, callId: 'call-1' },
+        ],
+      },
+    })[0]?.content;
+    expect(Array.isArray(content) ? content.map(part => part.type) : content).toEqual([
+      'tool-call',
+      'text',
+    ]);
+  });
+
   it('chronologically anchors persisted trails to async agent messages without request ids', () => {
     const acknowledgement = msg({
       id: 'ack',
