@@ -184,6 +184,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Zasada zablokowała tę odpowiedź przed jej wysłaniem.',
   'conversations.chatError.guardrail.tryInstead': 'wypróbuj zamiast tego',
+  'conversations.assistantUi.edit.ariaLabel': 'Edytuj swoją wiadomość',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'Wysłanie usunie {count} odpowiedź',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'Wysłanie usunie {count} odpowiedzi',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Zatrzymano',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Zastąpione nowszą wiadomością',
   'conversations.toolFailure.whyLabel': 'Dlaczego',
   'conversations.toolFailure.nextLabel': 'Co dalej',
   'conversations.toolFailure.missingPermission.cause':

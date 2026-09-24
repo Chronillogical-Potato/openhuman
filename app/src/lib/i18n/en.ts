@@ -4129,6 +4129,11 @@ const en: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'A policy blocked this response before it was sent.',
   'conversations.chatError.guardrail.tryInstead': 'try instead',
+  'conversations.assistantUi.edit.ariaLabel': 'Edit your message',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'Sending discards {count} reply',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'Sending discards {count} replies',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Stopped',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Replaced by a newer message',
   // Tool-failure explanation surfaced under a failed step in "View processing" (#4254).
   'conversations.toolFailure.whyLabel': 'Why',
   'conversations.toolFailure.nextLabel': 'What to do next',

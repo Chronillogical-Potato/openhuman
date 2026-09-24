@@ -179,6 +179,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'यह प्रतिक्रिया भेजे जाने से पहले एक नीति द्वारा रोक दी गई।',
   'conversations.chatError.guardrail.tryInstead': 'इसके बजाय आज़माएं',
+  'conversations.assistantUi.edit.ariaLabel': 'अपना संदेश संपादित करें',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'भेजने से {count} जवाब हटा दिया जाएगा',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'भेजने से {count} जवाब हटा दिए जाएंगे',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'रोका गया',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'नए संदेश से बदला गया',
   'conversations.toolFailure.whyLabel': 'क्यों',
   'conversations.toolFailure.nextLabel': 'आगे क्या करें',
   'conversations.toolFailure.missingPermission.cause':

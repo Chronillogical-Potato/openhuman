@@ -185,6 +185,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Una norma ha bloccato questa risposta prima che venisse inviata.',
   'conversations.chatError.guardrail.tryInstead': 'prova invece',
+  'conversations.assistantUi.edit.ariaLabel': 'Modifica il tuo messaggio',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'L\'invio eliminerà {count} risposta',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'L\'invio eliminerà {count} risposte',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Interrotto',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Sostituito da un messaggio più recente',
   'conversations.toolFailure.whyLabel': 'Perché',
   'conversations.toolFailure.nextLabel': 'Cosa fare ora',
   'conversations.toolFailure.missingPermission.cause':

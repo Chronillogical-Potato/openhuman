@@ -191,6 +191,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Une politique a bloqué cette réponse avant son envoi.',
   'conversations.chatError.guardrail.tryInstead': 'essayer plutôt',
+  'conversations.assistantUi.edit.ariaLabel': 'Modifier votre message',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'L\'envoi supprimera {count} réponse',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'L\'envoi supprimera {count} réponses',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Arrêté',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Remplacé par un message plus récent',
   'conversations.toolFailure.whyLabel': 'Pourquoi',
   'conversations.toolFailure.nextLabel': 'Que faire ensuite',
   'conversations.toolFailure.missingPermission.cause':

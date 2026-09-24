@@ -177,6 +177,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'প্রতিক্রিয়াটি পাঠানোর আগে একটি নীতি এটি ব্লক করেছে।',
   'conversations.chatError.guardrail.tryInstead': 'পরিবর্তে চেষ্টা করুন',
+  'conversations.assistantUi.edit.ariaLabel': 'আপনার বার্তা সম্পাদনা করুন',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'পাঠালে {count}টি উত্তর বাতিল হয়ে যাবে',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'পাঠালে {count}টি উত্তর বাতিল হয়ে যাবে',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'বন্ধ করা হয়েছে',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'নতুন বার্তা দ্বারা প্রতিস্থাপিত',
   'conversations.toolFailure.whyLabel': 'কেন',
   'conversations.toolFailure.nextLabel': 'এরপর কী করবেন',
   'conversations.toolFailure.missingPermission.cause': 'OpenHuman-এর এখনও এটি করার অনুমতি নেই।',

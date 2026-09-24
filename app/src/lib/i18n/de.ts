@@ -192,6 +192,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Eine Richtlinie hat diese Antwort blockiert, bevor sie gesendet wurde.',
   'conversations.chatError.guardrail.tryInstead': 'stattdessen versuchen',
+  'conversations.assistantUi.edit.ariaLabel': 'Nachricht bearbeiten',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'Senden verwirft {count} Antwort',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'Senden verwirft {count} Antworten',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Gestoppt',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Durch eine neuere Nachricht ersetzt',
   'conversations.toolFailure.whyLabel': 'Warum',
   'conversations.toolFailure.nextLabel': 'Nächste Schritte',
   'conversations.toolFailure.missingPermission.cause':

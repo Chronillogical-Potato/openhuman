@@ -180,6 +180,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Uma política bloqueou esta resposta antes que fosse enviada.',
   'conversations.chatError.guardrail.tryInstead': 'tentar em vez disso',
+  'conversations.assistantUi.edit.ariaLabel': 'Editar sua mensagem',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'Enviar descartará {count} resposta',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'Enviar descartará {count} respostas',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Interrompido',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Substituído por uma mensagem mais recente',
   'conversations.toolFailure.whyLabel': 'Por quê',
   'conversations.toolFailure.nextLabel': 'O que fazer a seguir',
   'conversations.toolFailure.missingPermission.cause':

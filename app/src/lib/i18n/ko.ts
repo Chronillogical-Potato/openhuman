@@ -174,6 +174,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     '정책에 따라 이 응답이 전송되기 전에 차단되었습니다.',
   'conversations.chatError.guardrail.tryInstead': '대신 시도',
+  'conversations.assistantUi.edit.ariaLabel': '메시지 수정',
+  'conversations.assistantUi.edit.discardedRepliesOne': '전송하면 답장 {count}개가 삭제됩니다',
+  'conversations.assistantUi.edit.discardedRepliesOther': '전송하면 답장 {count}개가 삭제됩니다',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': '중지됨',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': '새 메시지로 대체됨',
   'conversations.toolFailure.whyLabel': '이유',
   'conversations.toolFailure.nextLabel': '다음 할 일',
   'conversations.toolFailure.missingPermission.cause':

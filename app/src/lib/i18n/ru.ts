@@ -179,6 +179,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Правило блокировало этот ответ до того, как он был отправлен.',
   'conversations.chatError.guardrail.tryInstead': 'попробовать вместо этого',
+  'conversations.assistantUi.edit.ariaLabel': 'Изменить сообщение',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'Отправка удалит {count} ответ',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'Отправка удалит {count} ответов',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Остановлено',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Заменено новым сообщением',
   'conversations.toolFailure.whyLabel': 'Почему',
   'conversations.toolFailure.nextLabel': 'Что делать дальше',
   'conversations.toolFailure.missingPermission.cause':

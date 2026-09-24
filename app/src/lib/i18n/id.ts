@@ -183,6 +183,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.explanationFallback':
     'Kebijakan memblokir respons ini sebelum dikirim.',
   'conversations.chatError.guardrail.tryInstead': 'coba sebagai gantinya',
+  'conversations.assistantUi.edit.ariaLabel': 'Edit pesan Anda',
+  'conversations.assistantUi.edit.discardedRepliesOne': 'Mengirim akan membuang {count} balasan',
+  'conversations.assistantUi.edit.discardedRepliesOther': 'Mengirim akan membuang {count} balasan',
+  'conversations.assistantUi.stoppedRun.reasonUserStop': 'Dihentikan',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Diganti oleh pesan baru',
   'conversations.toolFailure.whyLabel': 'Mengapa',
   'conversations.toolFailure.nextLabel': 'Yang harus dilakukan',
   'conversations.toolFailure.missingPermission.cause':
