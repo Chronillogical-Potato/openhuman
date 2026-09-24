@@ -278,7 +278,7 @@ function ToolFallbackResult({
         Result:
       </p>
       <pre className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 rounded-md p-2.5 text-xs whitespace-pre-wrap">
-        {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+        {formatUnknownValue(result, 2)}
       </pre>
     </div>
   );

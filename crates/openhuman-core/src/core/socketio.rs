@@ -927,6 +927,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     // already holds the card.
                     if joined {
                         replay_parked_approval(&socket, thread_id);
+                        replay_parked_plan_review(&socket, thread_id);
                     }
                     ack.send(&ThreadSubscribeAck { joined }).ok();
                 },
@@ -1692,6 +1693,7 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
         return;
     };
     let client_id = socket.id.to_string();
+    let expires_at = row.expires_at.map(|t| t.to_rfc3339());
     let mut event = crate::web_chat::approval_request_event(
         &row.request_id,
         &row.tool_name,
@@ -1699,6 +1701,8 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
         &row.args_redacted,
         thread_id,
         &client_id,
+        row.tool_call_id.as_deref(),
+        expires_at.as_deref(),
     );
     // Replay is a fresh emit to a newly-joined socket, not a resend of the
     // original event, so stamp `ts` with "now" (same clock as
@@ -1713,6 +1717,37 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
         row.tool_name
     );
     emit_with_aliases(socket, "approval_request", &payload);
+}
+
+/// Re-send the plan review parked on `thread_id`, if any, to the socket that
+/// just joined that thread's room. Mirrors [`replay_parked_approval`] — a
+/// plan review is a live, in-memory park (no SQLite row), but it reaches the
+/// UI the same fire-and-forget way, so the same reconciliation applies.
+#[cfg(feature = "http-server")]
+fn replay_parked_plan_review(socket: &SocketRef, thread_id: &str) {
+    let Some(row) = crate::agent::plan_review::gate::global().parked_review_for_thread(thread_id)
+    else {
+        return;
+    };
+    let client_id = socket.id.to_string();
+    let mut event = crate::web_chat::plan_review_request_event(
+        &row.request_id,
+        &row.summary,
+        &row.steps,
+        thread_id,
+        &client_id,
+        row.tool_call_id.as_deref(),
+        row.expires_at.as_deref(),
+    );
+    event.ts = Some(crate::web_chat::progress_bridge::unix_epoch_ms());
+    let Ok(payload) = serde_json::to_value(&event) else {
+        return;
+    };
+    log::info!(
+        "[socketio] replaying parked plan_review_request to joining socket client_id={client_id} thread_id={thread_id} request_id={}",
+        row.request_id
+    );
+    emit_with_aliases(socket, "plan_review_request", &payload);
 }
 
 #[cfg(feature = "http-server")]
