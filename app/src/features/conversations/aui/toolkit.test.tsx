@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildOpenHumanToolkit, openHumanToolEntries } from './toolkit';
 import { SubagentTaskCard } from './SubagentTaskCard';
+import { buildOpenHumanToolkit, openHumanToolEntries } from './toolkit';
 
 describe('buildOpenHumanToolkit', () => {
   it('registers the task tool against the shared delegation card', () => {

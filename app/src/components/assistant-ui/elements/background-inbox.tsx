@@ -9,10 +9,9 @@
  *   is now a `strings` prop (English defaults matching upstream) so the host
  *   can supply `useT()`-sourced copy — see `aui/BackgroundInboxCard.tsx`.
  */
-import type { ComponentProps } from 'react';
-import { CheckIcon, Loader2Icon, XIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { CheckIcon, Loader2Icon, XIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { mono, paper } from './surfaces';
 
@@ -73,7 +72,11 @@ export function BackgroundInbox({
       {runs.map(run => {
         const rowClassName = cn(
           'flex items-center gap-2.5 rounded-xl px-1.5 py-2 text-start transition-colors',
-          run.state === 'running' ? 'cursor-default' : onCollect ? 'hover:bg-foreground/[0.04]' : undefined
+          run.state === 'running'
+            ? 'cursor-default'
+            : onCollect
+              ? 'hover:bg-foreground/[0.04]'
+              : undefined
         );
         const content = (
           <>
@@ -100,7 +103,9 @@ export function BackgroundInbox({
               )}
             </span>
 
-            <span className={cn(mono, 'text-foreground/25 shrink-0 tabular-nums')}>{run.elapsed}</span>
+            <span className={cn(mono, 'text-foreground/25 shrink-0 tabular-nums')}>
+              {run.elapsed}
+            </span>
           </>
         );
 

@@ -5,8 +5,8 @@
  * util (https://r.assistant-ui.com/styles/base-nova/task-card.json,
  * `utils/task.ts` upstream). No local changes.
  */
-import { useEffect, useState } from 'react';
 import type { ToolCallMessagePart, ToolCallMessagePartStatus } from '@assistant-ui/react';
+import { useEffect, useState } from 'react';
 
 export type TaskViewState = 'working' | 'waiting' | 'done' | 'failed' | 'cancelled';
 

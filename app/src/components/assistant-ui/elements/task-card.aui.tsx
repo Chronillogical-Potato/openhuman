@@ -21,32 +21,22 @@
  *   `tool-fallback` registry item's `.aui` content directly under that
  *   filename, without a plain/`.aui` split).
  */
+import { cn } from '@/components/assistant-ui/lib/utils';
+import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import {
   MessagePrimitive,
   ReadonlyThreadProvider,
-  ThreadPrimitive,
-  useAui,
-  useAuiState,
   type ThreadMessage,
+  ThreadPrimitive,
   type ToolCallMessagePart,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
   type ToolCallMessagePartStatus,
+  useAui,
+  useAuiState,
 } from '@assistant-ui/react';
 import { type FC, useState } from 'react';
 
-import { cn } from '@/components/assistant-ui/lib/utils';
-import { MarkdownText } from '@/components/assistant-ui/markdown-text';
-import {
-  formatUnknownValue,
-  offersInterruptAction,
-  ToolFallback,
-  ToolFallbackApproval,
-  ToolFallbackError,
-} from './tool-fallback';
-
-import { mono } from './surfaces';
-import { TaskCard as TaskCardBase } from './task-card';
 import {
   formatElapsed,
   TASK_PAGE_SIZE,
@@ -55,6 +45,15 @@ import {
   taskStateOf,
   useTaskElapsed,
 } from '../utils/task';
+import { mono } from './surfaces';
+import { TaskCard as TaskCardBase } from './task-card';
+import {
+  formatUnknownValue,
+  offersInterruptAction,
+  ToolFallback,
+  ToolFallbackApproval,
+  ToolFallbackError,
+} from './tool-fallback';
 
 export type { TaskCardState } from './task-card';
 export { TASK_PAGE_SIZE } from '../utils/task';
@@ -68,11 +67,7 @@ export const isTaskPart = (part: { readonly type: string; readonly messages?: un
 
 const KEY_SEPARATOR = String.fromCharCode(31);
 
-const ROLE_LABELS = {
-  user: 'instruction',
-  assistant: 'agent',
-  system: 'system',
-} as const;
+const ROLE_LABELS = { user: 'instruction', assistant: 'agent', system: 'system' } as const;
 
 // A transcript is a readonly snapshot, so a call waiting inside it is answered where its run is live, and renders here as paused on something else.
 const NestedToolCall: ToolCallMessagePartComponent = ({ approval, interrupt, ...rest }) => {
@@ -92,7 +87,9 @@ const NestedMessage: FC = () => {
       data-role={role}
       className="flex flex-col gap-1 text-xs leading-relaxed">
       <span className={cn(mono, 'text-foreground/35')}>{ROLE_LABELS[role]}</span>
-      <MessagePrimitive.Parts components={{ Text: MarkdownText, tools: { Fallback: NestedToolCall } }} />
+      <MessagePrimitive.Parts
+        components={{ Text: MarkdownText, tools: { Fallback: NestedToolCall } }}
+      />
     </MessagePrimitive.Root>
   );
 };
@@ -117,7 +114,9 @@ export const TaskCard: FC<{ part: TaskPart; className?: string }> = ({ part, cla
   );
   const messages = part.messages ?? [];
   const showError =
-    part.status.type === 'incomplete' && part.status.error !== undefined && part.status.error !== null;
+    part.status.type === 'incomplete' &&
+    part.status.error !== undefined &&
+    part.status.error !== null;
   const result =
     showError || part.result !== undefined ? (
       <>
@@ -208,7 +207,9 @@ export const TaskGroup: FC<{
   ].filter((entry): entry is string => typeof entry === 'string');
 
   return (
-    <div data-slot="aui_task-group" className={cn('flex w-full max-w-sm flex-col gap-2', className)}>
+    <div
+      data-slot="aui_task-group"
+      className={cn('flex w-full max-w-sm flex-col gap-2', className)}>
       <div data-slot="aui_task-group-summary" className="text-muted-foreground px-1 text-xs">
         {summary.join(' · ')}
       </div>

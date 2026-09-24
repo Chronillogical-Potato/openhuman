@@ -19,19 +19,19 @@
  * (`elements/task-card.tsx`) + `utils/task.ts` pieces instead, with those
  * actions supplied explicitly.
  */
-import { useAui, type ToolCallMessagePartComponent } from '@assistant-ui/react';
+import { type ToolCallMessagePartComponent, useAui } from '@assistant-ui/react';
 import { useCallback, useState } from 'react';
 
 import { TaskCard, type TaskCardState } from '../../../components/assistant-ui/elements/task-card';
 import { TaskTranscript } from '../../../components/assistant-ui/elements/task-card.aui';
 import { formatElapsed } from '../../../components/assistant-ui/utils/task';
-import { useT } from '../../../lib/i18n/I18nContext';
-import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { subagentMessages } from '../../../providers/assistantUiMessages';
-import { basename } from '../../../utils/pathUtils';
-import WorktreeActions from '../../../components/worktree/WorktreeActions';
-import Badge from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui';
+import Badge from '../../../components/ui/Badge';
+import WorktreeActions from '../../../components/worktree/WorktreeActions';
+import { useT } from '../../../lib/i18n/I18nContext';
+import { subagentMessages } from '../../../providers/assistantUiMessages';
+import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
+import { basename } from '../../../utils/pathUtils';
 
 function asSubagentActivity(value: unknown): SubagentActivity | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -68,8 +68,13 @@ function readSubagentCall(
     return { activity, state };
   }
   const progress =
-    args && typeof args === 'object' ? asSubagentActivity((args as { progress?: unknown }).progress) : undefined;
-  return { activity: progress, state: progress?.status === 'awaiting_user' ? 'waiting' : 'working' };
+    args && typeof args === 'object'
+      ? asSubagentActivity((args as { progress?: unknown }).progress)
+      : undefined;
+  return {
+    activity: progress,
+    state: progress?.status === 'awaiting_user' ? 'waiting' : 'working',
+  };
 }
 
 /** The child's question plus a reply box, sent via `aui.thread.append` — an ordinary new user turn. */
@@ -143,7 +148,9 @@ function WorktreeRow({ activity }: { activity: SubagentActivity }) {
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-medium text-content-secondary">{t('worktree.label')}</span>
-        <span className="truncate font-mono text-[12px] text-content-muted" title={activity.worktreePath}>
+        <span
+          className="truncate font-mono text-[12px] text-content-muted"
+          title={activity.worktreePath}>
           {basename(activity.worktreePath)}
         </span>
         <Badge variant={activity.isDirty ? 'warning' : 'success'} className="rounded-full">

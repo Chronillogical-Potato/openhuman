@@ -13,16 +13,12 @@
  *   handed `useT()`-sourced copy from the host; every call site that omits
  *   it keeps upstream's exact English text.
  */
-import { useAuiState, type TaskState } from '@assistant-ui/react';
+import { cn } from '@/components/assistant-ui/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/assistant-ui/ui/popover';
+import { type TaskState, useAuiState } from '@assistant-ui/react';
 import { ChevronDownIcon } from 'lucide-react';
 import { type FC, useMemo, useState } from 'react';
 
-import { cn } from '@/components/assistant-ui/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/assistant-ui/ui/popover';
-
-import { AgentStatus as AgentStatusBase, type AgentState } from './agent-status';
-import { mono } from './surfaces';
-import { TaskStateIcon } from './task-card';
 import {
   formatElapsed,
   TASK_PAGE_SIZE,
@@ -31,6 +27,9 @@ import {
   taskStateOf,
   useTaskElapsed,
 } from '../utils/task';
+import { type AgentState, AgentStatus as AgentStatusBase } from './agent-status';
+import { mono } from './surfaces';
+import { TaskStateIcon } from './task-card';
 
 export type TaskSummary = {
   readonly total: number;
@@ -100,7 +99,10 @@ export const summaryState = (summary: TaskSummary): AgentState => {
   return summary.failed > 0 ? 'failed' : 'done';
 };
 
-export const summaryLabel = (summary: TaskSummary, strings: AgentStatusStrings = DEFAULT_STRINGS) => {
+export const summaryLabel = (
+  summary: TaskSummary,
+  strings: AgentStatusStrings = DEFAULT_STRINGS
+) => {
   if (summary.running === 1 && summary.runningLabel !== undefined) {
     return summary.runningLabel;
   }
@@ -216,7 +218,10 @@ export const TaskTray: FC<{ className?: string; strings?: AgentStatusStrings }> 
         />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-1">
-        <ul data-slot="aui_task-tray" aria-label="Tasks" className="flex max-h-80 flex-col overflow-y-auto">
+        <ul
+          data-slot="aui_task-tray"
+          aria-label="Tasks"
+          className="flex max-h-80 flex-col overflow-y-auto">
           {tasks.slice(0, visible).map((task, index) => (
             <TaskTrayItem key={`${index}:${task.id}`} task={task} />
           ))}

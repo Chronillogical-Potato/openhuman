@@ -19,7 +19,10 @@
  * (WS-E) rather than rendering nothing, so a turn that has not yet spawned any
  * sub-agent still shows a running signal beneath the composer.
  */
-import { TaskTray, useTaskSummary } from '../../../components/assistant-ui/elements/agent-status.aui';
+import {
+  TaskTray,
+  useTaskSummary,
+} from '../../../components/assistant-ui/elements/agent-status.aui';
 import { ThinkingIndicator } from '../../../components/assistant-ui/elements/thinking-indicator';
 import { useT } from '../../../lib/i18n/I18nContext';
 
@@ -43,7 +46,10 @@ export function AgentRunningStatus() {
   const strings = useAgentStatusStrings();
   if (summary.total === 0) {
     return (
-      <ThinkingIndicator data-testid="agent-running-status-thinking" label={t('chat.thinkingDots')} />
+      <ThinkingIndicator
+        data-testid="agent-running-status-thinking"
+        label={t('chat.thinkingDots')}
+      />
     );
   }
   return <TaskTray data-testid="agent-running-status-tasks" strings={strings} />;

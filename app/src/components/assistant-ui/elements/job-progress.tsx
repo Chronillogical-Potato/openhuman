@@ -11,11 +11,10 @@
  * `title`/`stages[].name`/`eta` are caller-supplied props; nothing else here
  * is hard-coded user-facing copy.
  */
-import type { ComponentProps } from 'react';
-import { CheckIcon, Loader2Icon, XIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { announced, clamp, pct, progressOf, take } from '@/components/assistant-ui/utils/range';
+import { CheckIcon, Loader2Icon, XIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { ghostButton, mono, paper } from './surfaces';
 
@@ -102,7 +101,11 @@ export function JobProgress({
             key={item.name}
             className={cn(
               mono,
-              i < stage ? 'text-foreground/35' : i === stage ? 'text-foreground/90' : 'text-foreground/20'
+              i < stage
+                ? 'text-foreground/35'
+                : i === stage
+                  ? 'text-foreground/90'
+                  : 'text-foreground/20'
             )}>
             {item.name}
           </span>

@@ -10,10 +10,9 @@
  * `result`) is a caller-supplied prop, so there is nothing to route through
  * `useT()` here.
  */
-import { Children, type ComponentProps, type ReactNode, useState } from 'react';
-import { Ban, CheckIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { Ban, CheckIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { Children, type ComponentProps, type ReactNode, useState } from 'react';
 
 import { mono, paper } from './surfaces';
 
@@ -24,7 +23,9 @@ const isRenderable = (node: ReactNode) =>
 
 export function TaskStateIcon({ state, className }: { state: TaskCardState; className?: string }) {
   if (state === 'done') {
-    return <CheckIcon aria-hidden className={cn('size-3.5 shrink-0 text-emerald-500', className)} />;
+    return (
+      <CheckIcon aria-hidden className={cn('size-3.5 shrink-0 text-emerald-500', className)} />
+    );
   }
   if (state === 'failed') {
     return <XIcon aria-hidden className={cn('text-destructive size-3.5 shrink-0', className)} />;

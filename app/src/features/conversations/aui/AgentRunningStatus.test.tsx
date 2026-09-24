@@ -12,7 +12,13 @@ vi.mock('../../../services/api/threadApi', () => ({
   threadApi: {
     getDerivedTranscript: vi
       .fn()
-      .mockResolvedValue({ threadId: 't-status', items: [], total: 0, hasMore: false, hasTranscript: false }),
+      .mockResolvedValue({
+        threadId: 't-status',
+        items: [],
+        total: 0,
+        hasMore: false,
+        hasTranscript: false,
+      }),
   },
 }));
 

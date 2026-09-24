@@ -9,11 +9,10 @@
  * No hard-coded user-facing copy — `agent.name`/`agent.model` are
  * caller-supplied props, so there is nothing to route through `useT()` here.
  */
-import type { ComponentProps } from 'react';
-import { CheckIcon, Loader2Icon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { pct } from '@/components/assistant-ui/utils/range';
+import { CheckIcon, Loader2Icon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { mono, paper } from './surfaces';
 
@@ -51,7 +50,9 @@ export function SubagentList({
         const percentage = pct(width, 100);
 
         return (
-          <div key={agent.name} className={cn(paper, 'flex flex-col gap-2 rounded-2xl px-3.5 py-2.5')}>
+          <div
+            key={agent.name}
+            className={cn(paper, 'flex flex-col gap-2 rounded-2xl px-3.5 py-2.5')}>
             <div className="flex items-center gap-2">
               {done ? (
                 <CheckIcon className="fade-in zoom-in-90 animate-in size-3.5 shrink-0 text-emerald-500 duration-200" />

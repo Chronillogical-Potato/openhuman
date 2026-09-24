@@ -29,7 +29,10 @@ describe('SubagentTaskCard', () => {
       />
     );
 
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute('data-state', 'working');
+    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
+      'data-state',
+      'working'
+    );
     expect(screen.getByText('Delegated to Researcher')).toBeInTheDocument();
     // The transcript is collapsed by default, but the card knows it has one
     // (the vendored `TaskCard`'s disclosure chevron only renders when
@@ -57,7 +60,10 @@ describe('SubagentTaskCard', () => {
       />
     );
 
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute('data-status', 'failed');
+    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
+      'data-status',
+      'failed'
+    );
   });
 
   it('renders the awaiting-user reply box and lets the answer through the composer path', async () => {
