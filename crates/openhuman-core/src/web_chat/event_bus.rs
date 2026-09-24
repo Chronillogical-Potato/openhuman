@@ -560,17 +560,17 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
     }
 
     async fn handle(&self, event: &DomainEvent) {
-        if let DomainEvent::ApprovalRequested {
-            request_id,
-            tool_name,
-            action_summary,
-            args_redacted,
-            thread_id,
-            client_id,
-            ..
-        } = event
-        {
-            match (thread_id, client_id) {
+        match event {
+            DomainEvent::ApprovalRequested {
+                request_id,
+                tool_name,
+                action_summary,
+                args_redacted,
+                thread_id,
+                client_id,
+                tool_call_id,
+                expires_at,
+            } => match (thread_id, client_id) {
                 (Some(thread_id), Some(client_id)) => {
                     log::info!(
                         "[web-channel] approval-surface emitting approval_request request_id={request_id} thread_id={thread_id} client_id={client_id} tool={tool_name}"
@@ -582,6 +582,8 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
                         args_redacted,
                         thread_id,
                         client_id,
+                        tool_call_id.as_deref(),
+                        expires_at.as_deref(),
                     ));
                 }
                 _ => {
@@ -591,32 +593,61 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
                         client_id.is_some()
                     );
                 }
-            }
-        } else if let DomainEvent::PlanReviewRequested {
-            request_id,
-            thread_id,
-            client_id,
-            summary,
-            steps,
-            ..
-        } = event
-        {
-            match (thread_id, client_id) {
+            },
+            DomainEvent::ApprovalDecided {
+                request_id,
+                tool_name,
+                decision,
+                thread_id,
+                client_id,
+                tool_call_id,
+                resolution,
+            } => match (thread_id, client_id) {
+                (Some(thread_id), Some(client_id)) => {
+                    log::info!(
+                        "[web-channel] approval-surface emitting approval_decided request_id={request_id} thread_id={thread_id} client_id={client_id} tool={tool_name} decision={decision}"
+                    );
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "approval_decided".to_string(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                        request_id: request_id.clone(),
+                        tool_name: Some(tool_name.clone()),
+                        message: Some(decision.clone()),
+                        tool_call_id: tool_call_id.clone(),
+                        cancel_reason: resolution.clone(),
+                        ..Default::default()
+                    });
+                }
+                _ => {
+                    log::debug!(
+                        "[web-channel] approval-surface received ApprovalDecided request_id={request_id} tool={tool_name} decision={decision} but thread_id/client_id absent — NOT surfacing (non-chat origin)"
+                    );
+                }
+            },
+            DomainEvent::PlanReviewRequested {
+                request_id,
+                thread_id,
+                client_id,
+                summary,
+                steps,
+                tool_call_id,
+                expires_at,
+            } => match (thread_id, client_id) {
                 (Some(thread_id), Some(client_id)) => {
                     log::info!(
                         "[web-channel] plan-review-surface emitting plan_review_request request_id={request_id} thread_id={thread_id} client_id={client_id} steps={}",
                         steps.len()
                     );
-                    publish_web_channel_event(WebChannelEvent {
-                        event: "plan_review_request".to_string(),
-                        client_id: client_id.clone(),
-                        thread_id: thread_id.clone(),
-                        request_id: request_id.clone(),
-                        tool_name: Some("request_plan_review".to_string()),
-                        message: Some(summary.clone()),
-                        args: Some(serde_json::json!({ "steps": steps })),
-                        ..Default::default()
-                    });
+                    publish_web_channel_event(plan_review_request_event(
+                        request_id,
+                        summary,
+                        steps,
+                        thread_id,
+                        client_id,
+                        tool_call_id.as_deref(),
+                        expires_at.as_deref(),
+                    ));
                 }
                 _ => {
                     log::warn!(
@@ -625,7 +656,38 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
                         client_id.is_some()
                     );
                 }
-            }
+            },
+            DomainEvent::PlanReviewDecided {
+                request_id,
+                decision,
+                thread_id,
+                client_id,
+                tool_call_id,
+                resolution,
+            } => match (thread_id, client_id) {
+                (Some(thread_id), Some(client_id)) => {
+                    log::info!(
+                        "[web-channel] plan-review-surface emitting plan_review_decided request_id={request_id} thread_id={thread_id} client_id={client_id} decision={decision}"
+                    );
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "plan_review_decided".to_string(),
+                        client_id: client_id.clone(),
+                        thread_id: thread_id.clone(),
+                        request_id: request_id.clone(),
+                        tool_name: Some("request_plan_review".to_string()),
+                        message: Some(decision.clone()),
+                        tool_call_id: tool_call_id.clone(),
+                        cancel_reason: resolution.clone(),
+                        ..Default::default()
+                    });
+                }
+                _ => {
+                    log::debug!(
+                        "[web-channel] plan-review-surface received PlanReviewDecided request_id={request_id} decision={decision} but thread_id/client_id absent — NOT surfacing (non-chat origin)"
+                    );
+                }
+            },
+            _ => {}
         }
     }
 }
