@@ -46,8 +46,10 @@ export default function SidebarHeader() {
     // beside the row it has to agree with.
     //
     // The target is fixed and computable: this row's centre is pt-3 (12px) plus
-    // half of ICON_BTN's h-7 (14px) = 26px from the window top, and the sidebar
-    // starts flush at that top — `SidebarProvider`/`Sidebar` add no inset.
+    // half of ICON_BTN's h-7 (14px) = 26px from the sidebar top. The floating
+    // sidebar starts 12px from the window edges, so both traffic-light
+    // coordinates preserve their old position relative to the sidebar by
+    // adding that inset: x 20 -> 32 and y 28 -> 40.
     //
     // `y` is NOT that centre, and is not a simple gap either. tao positions the
     // lights by resizing the title-bar container: `inset_traffic_lights`
@@ -57,9 +59,10 @@ export default function SidebarHeader() {
     // works out as `y − b`, where `b` is whatever offset the button already had
     // inside that container. `b` is AppKit's and is not knowable from here,
     // which is why `y` is tuned by looking at the window rather than solved:
-    // 20 sat visibly high, 28 is the correction.
+    // 20 sat visibly high, 28 was the correction before the 12px shell inset.
     //
-    // `x: 20` is the conventional macOS left inset. Supplying it is unavoidable
+    // `x: 32` is the conventional 20px macOS left inset plus the sidebar's 12px
+    // shell inset. Supplying it is unavoidable
     // — the config takes a position, so `y` cannot be set alone without moving
     // this into Rust and reading the existing frame.
     //

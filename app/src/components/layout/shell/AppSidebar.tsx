@@ -63,7 +63,8 @@ function hidesSidebarSeparator(pathname: string): boolean {
  *   └──────────────┘
  *
  * Pages project content into the slot region with {@link SidebarContent}.
- * Background matches the previous in-page sidebar pane (white / neutral-900).
+ * Its material, border, blur, radius, and shadow are owned by the root
+ * `Sidebar` layer so the same floating treatment also wraps collapsed mode.
  *
  * **Collapsed**: a draggable strip (clears the macOS traffic lights), a
  * reopen trigger, and {@link CollapsedNavRail}'s icon-only nav — formerly a
@@ -137,14 +138,9 @@ export default function AppSidebar() {
   }
 
   return (
-    // Sits directly on the window chrome with no fill of its own, so the
-    // sidebar and the frame around the content card are one continuous surface.
-    // The legibility scrim lives on the shell root ({@link RootShellLayout}) and
-    // deliberately NOT here — scrimming only this column would tint it
-    // differently from the chrome beside the card, which is the seam the
-    // two-layer look exists to remove. Regions below are separated by spacing
-    // alone; the hairline seams the old opaque panel needed would draw lines
-    // across the chrome.
+    // The floating material belongs to the outer Sidebar primitive so it wraps
+    // both expanded and collapsed modes consistently. This component owns only
+    // the sidebar's internal bands and navigation.
     <div className="flex h-full min-h-0 flex-col">
       <SidebarHeader />
       <SidebarNav />

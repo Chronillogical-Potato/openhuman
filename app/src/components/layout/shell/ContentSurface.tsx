@@ -33,10 +33,9 @@ interface ContentSurfaceProps {
  * theme's hue; this surface stays neutral so page content reads against a
  * consistent background across every theme.
  *
- * The geometry is the `SidebarInset` primitive: the framed default is the same
- * even 12px inset, 2xl radius and `content-edge` inset-shadow-sm this file used to
- * spell out, and `unframed` maps onto the primitive's own flag. The primitive
- * reads no sidebar context, so this stays renderable outside a
+ * The geometry is the `SidebarInset` primitive: the framed default is an even
+ * 12px inset on every window edge, a 2xl radius, and a `content-edge` hairline.
+ * The primitive reads no sidebar context, so this stays renderable outside a
  * `SidebarProvider` — several page-level tests mount it on its own.
  */
 export default function ContentSurface({ children, unframed = false }: ContentSurfaceProps) {

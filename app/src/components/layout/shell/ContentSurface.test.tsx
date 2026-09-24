@@ -20,11 +20,9 @@ describe('ContentSurface', () => {
     const surface = screen.getByTestId('app-content-surface');
     expect(surface.className).toContain('rounded-2xl');
     expect(surface.className).toContain('shadow-content-edge');
-    // Inset on three sides. The left edge is deliberately flush: the card butts
-    // against the sidebar column, so the shell's gutter is top/right/bottom.
-    expect(surface.className).toContain('my-3');
-    expect(surface.className).toContain('mr-3');
-    expect(surface.className).not.toContain('ml-3');
+    // The content is now the full-window layer beneath the floating sidebar,
+    // so its card has the same inset on all four edges.
+    expect(surface.className).toContain('m-3');
     expect(surface.dataset.unframed).toBeUndefined();
   });
 
