@@ -274,21 +274,21 @@ describe('ToolTimelineAdapter — worker thread ref status propagation', () => {
   }
 
   it('passes `running` to the card when the parent entry is in flight', () => {
-    render(<ToolTimelineAdapter entries={[entryWithStatus('running')]} />);
+    renderInStore(<ToolTimelineAdapter entries={[entryWithStatus('running')]} />);
     expect(screen.getByTestId('worker-thread-status-badge').getAttribute('data-status')).toBe(
       'running'
     );
   });
 
   it('passes `completed` to the card when the parent entry succeeds', () => {
-    render(<ToolTimelineAdapter entries={[entryWithStatus('success')]} />);
+    renderInStore(<ToolTimelineAdapter entries={[entryWithStatus('success')]} />);
     expect(screen.getByTestId('worker-thread-status-badge').getAttribute('data-status')).toBe(
       'completed'
     );
   });
 
   it('passes `failed` to the card when the parent entry errors', () => {
-    render(<ToolTimelineAdapter entries={[entryWithStatus('error')]} />);
+    renderInStore(<ToolTimelineAdapter entries={[entryWithStatus('error')]} />);
     expect(screen.getByTestId('worker-thread-status-badge').getAttribute('data-status')).toBe(
       'failed'
     );
