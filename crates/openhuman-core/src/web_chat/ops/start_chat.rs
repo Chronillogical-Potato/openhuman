@@ -431,6 +431,7 @@ pub async fn start_chat(
                         // The workspace the turn ran in, so the reply is stored
                         // there before it is announced (#6034).
                         Some(chat_result.workspace_dir.as_path()),
+                        chat_result.timing,
                     )
                     .await;
                     None
