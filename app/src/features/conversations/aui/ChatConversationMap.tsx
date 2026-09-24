@@ -183,7 +183,7 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
               query={query}
               hits={hits}
               activeIndex={activeIndex}
-              onQueryChange={setQuery}
+              onQueryChange={onQueryChange}
               onStep={onStep}
               placeholder={t('conversations.conversationSearch.placeholder')}
               previousMatchLabel={t('conversations.conversationSearch.previousMatch')}
