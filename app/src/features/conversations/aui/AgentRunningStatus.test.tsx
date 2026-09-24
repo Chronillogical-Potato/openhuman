@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
-import { threadApi } from '../../../services/api/threadApi';
 import { AssistantUiRuntimeProvider } from '../../../providers/AssistantUiRuntimeProvider';
 import chatRuntimeReducer from '../../../store/chatRuntimeSlice';
 import threadReducer from '../../../store/threadSlice';
@@ -16,7 +15,6 @@ vi.mock('../../../services/api/threadApi', () => ({
       .mockResolvedValue({ threadId: 't-status', items: [], total: 0, hasMore: false, hasTranscript: false }),
   },
 }));
-void threadApi;
 
 const THREAD_ID = 't-status';
 
