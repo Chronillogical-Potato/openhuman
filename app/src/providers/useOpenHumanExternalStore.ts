@@ -611,6 +611,7 @@ export function useOpenHumanExternalStore(
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
       onNew,
       onCancel,
+      queue,
       onEdit,
       onReload,
       setMessages,
