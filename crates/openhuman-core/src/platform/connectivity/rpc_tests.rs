@@ -64,6 +64,7 @@ async fn pick_listen_port_preferred_free() {
             attempts: 0,
             backoff: Duration::from_millis(1),
         },
+        OccupiedByCore::Takeover,
     )
     .await
     .expect("preferred bind should succeed");
@@ -88,6 +89,7 @@ async fn pick_listen_port_openhuman_listener_requests_takeover() {
             attempts: 1,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await;
 
@@ -128,6 +130,7 @@ async fn pick_listen_port_other_listener_falls_back() {
             attempts: 1,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await
     .expect("fallback bind should succeed");
@@ -162,6 +165,7 @@ async fn pick_listen_port_all_candidates_busy_errors() {
             attempts: 1,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await;
 
@@ -192,6 +196,7 @@ async fn pick_listen_port_retries_transient_addr_in_use() {
             attempts: 6,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await
     .expect("transient in-use should recover to preferred port");
