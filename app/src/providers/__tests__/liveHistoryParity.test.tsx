@@ -123,8 +123,8 @@ function project(): ThreadMessageLike[] {
     liveTimeline: runtime.toolTimelineByThread[TURN_THREAD] ?? [],
     liveTranscript: runtime.processingByThread[TURN_THREAD] ?? [],
     pendingApproval: runtime.pendingApprovalByThread[TURN_THREAD] ?? null,
-    settledTurns: runtime.settledTurnsByThread[TURN_THREAD] ?? {},
-    liveRequestId: runtime.liveRequestIdByThread[TURN_THREAD] ?? streaming?.requestId,
+    settledTurns: runtime.settledTurnsByThread?.[TURN_THREAD] ?? {},
+    liveRequestId: runtime.liveRequestIdByThread?.[TURN_THREAD] ?? streaming?.requestId,
   });
 }
 
