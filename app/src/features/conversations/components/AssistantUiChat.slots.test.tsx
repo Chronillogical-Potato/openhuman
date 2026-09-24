@@ -179,4 +179,35 @@ describe('assistant-ui composer slots', () => {
     expect(onAttachFiles).toHaveBeenCalledWith([file]);
     expect(composerShell().getAttribute('data-dragging')).toBeNull();
   });
+
+  it('serializes rapid thread drops while attachment ingestion is pending', async () => {
+    const store = buildStore();
+    let finishFirst!: () => void;
+    const firstFinished = new Promise<void>(resolve => {
+      finishFirst = resolve;
+    });
+    const onAttachFiles = vi.fn(() => firstFinished);
+    render(
+      <Provider store={store}>
+        {chat(undefined, { attachmentsEnabled: true, onAttachFiles })}
+      </Provider>
+    );
+
+    const drop = (name: string) =>
+      fireEvent.drop(threadViewport(), {
+        dataTransfer: { types: ['Files'], files: [new File(['file'], name)], items: [] },
+      });
+
+    drop('first.txt');
+    await Promise.resolve();
+    expect(onAttachFiles).toHaveBeenCalledTimes(1);
+    drop('second.txt');
+    await Promise.resolve();
+    expect(onAttachFiles).toHaveBeenCalledTimes(1);
+
+    finishFirst();
+    await firstFinished;
+    await Promise.resolve();
+    expect(onAttachFiles).toHaveBeenCalledTimes(2);
+  });
 });

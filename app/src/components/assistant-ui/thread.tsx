@@ -179,7 +179,7 @@ export type ThreadComponents = {
    * attachment capability — which is every runtime that keeps attachments on
    * the host side, as this app does.
    */
-  onComposerFiles?: ((files: FileList | File[] | null) => void) | undefined;
+  onComposerFiles?: ((files: FileList | File[] | null) => void | Promise<void>) | undefined;
   /**
    * Whether the host can take files right now (feature enabled, composer
    * unlocked, budget left). Drives the drag affordance only; the host still
@@ -267,6 +267,10 @@ function filesFromDrop(dataTransfer: DataTransfer | null): File[] {
 function useThreadFileDrop() {
   const { onComposerFiles, canAcceptComposerFiles } = useContext(ThreadComponentsContext);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  // Attachment validation updates host state asynchronously. Keep drops in
+  // arrival order so a second batch cannot validate against stale attachments
+  // or overwrite the first batch while it is still being processed.
+  const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const isFileDrag = (event: React.DragEvent) =>
     Array.from(event.dataTransfer?.types ?? []).includes('Files');
@@ -298,8 +302,13 @@ function useThreadFileDrop() {
       debug('[assistant-composer] drop: file drag carried no readable files');
       return;
     }
-    debug('[assistant-composer] drop: ingesting %d file(s)', files.length);
-    onComposerFiles(files);
+    debug('[assistant-composer] drop: queueing %d file(s) for ingest', files.length);
+    ingestQueueRef.current = ingestQueueRef.current
+      .catch(() => undefined)
+      .then(() => onComposerFiles(files))
+      .catch(error => {
+        debug('[assistant-composer] drop: file ingest failed: %o', error);
+      });
   };
 
   return { isDraggingFiles, dropHandlers: { onDragOver, onDragLeave, onDrop } };

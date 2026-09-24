@@ -36,15 +36,15 @@ describe('File drop guard', () => {
     expect(result).toEqual({ dragOverPrevented: true, dropPrevented: true, fileCount: 1 });
   });
 
-  it('claims a file drop on the composer and adds it as an attachment', async () => {
+  it('claims a file drop on the thread viewport and adds it as an attachment', async () => {
     await navigateViaHash('/chat');
     expect(await clickByTitle('New thread', 8_000)).toBe(true);
 
-    const composer = await waitForDataSlot('aui_composer-shell');
-    const result = await dispatchFileDrop(composer, {
+    const viewport = await waitForDataSlot('aui_thread-viewport');
+    const result = await dispatchFileDrop(viewport, {
       name: 'thread-drop.txt',
       type: 'text/plain',
-      contents: 'dropped onto the composer',
+      contents: 'dropped onto the transcript',
     });
 
     expect(result).toEqual({ dragOverPrevented: true, dropPrevented: true, fileCount: 1 });
