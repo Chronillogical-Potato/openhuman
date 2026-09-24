@@ -1,15 +1,26 @@
 //! Agent-facing browser backed by the TinyBrowser module.
+#[path = "browser_session_pool.rs"]
+mod session_pool;
+
 use crate::modules::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use session_pool::{
+    browser_session_fingerprint, evict_thread_sessions, requires_rebind, thread_sessions,
+    ThreadSession,
+};
+#[cfg(test)]
+use session_pool::{MAX_THREAD_SESSIONS, SESSION_IDLE_TTL};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, HashMap},
-    sync::{Arc, Mutex as StdMutex, OnceLock},
-    time::{Duration, Instant},
+    collections::BTreeMap,
+    sync::{Arc, Mutex as StdMutex},
+    time::Instant,
 };
+#[cfg(test)]
+use std::{collections::HashMap, time::Duration};
 use tinybrowser_bus::{
     Action, DownloadState, DownloadWaitRequest, LocateBy, Locator, NavigateRequest, ReadRequest,
     ScrollDirection, SessionId, SessionOptions, Snapshot, SnapshotRequest, Target, WaitState,
@@ -23,77 +34,6 @@ struct Pending {
     action: Action,
     url: String,
     token: String,
-}
-
-const MAX_THREAD_SESSIONS: usize = 6;
-const SESSION_IDLE_TTL: Duration = Duration::from_secs(30 * 60);
-
-struct ThreadSession {
-    id: SessionId,
-    client: Arc<BrowserClient>,
-    last_used: Instant,
-    config_fingerprint: String,
-    bound_origin: Option<String>,
-}
-
-static THREAD_SESSIONS: OnceLock<Mutex<HashMap<String, ThreadSession>>> = OnceLock::new();
-
-fn thread_sessions() -> &'static Mutex<HashMap<String, ThreadSession>> {
-    THREAD_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn browser_session_fingerprint(client: &BrowserClient) -> String {
-    let config = client.config();
-    // Include the complete browser settings so a newly assembled tool never
-    // inherits a Chrome session opened with older profile, viewport, timeout,
-    // download, or module settings. The shared web allowlist and override also
-    // determine the module's allowed_origins at OPEN_SESSION time.
-    let allow_all = matches!(
-        std::env::var("OPENHUMAN_BROWSER_ALLOW_ALL").ok().as_deref(),
-        Some("1" | "true" | "TRUE" | "yes" | "YES")
-    );
-    let bytes = serde_json::to_vec(&json!({
-        "browser": &config.browser,
-        "allowed_domains": &config.http_request.allowed_domains,
-        "allow_all": allow_all,
-    }))
-    .expect("browser configuration is JSON serializable");
-    format!("{:x}", Sha256::digest(bytes))
-}
-
-fn requires_rebind(bound: Option<&str>, requested: Option<&str>) -> bool {
-    requested.is_some_and(|origin| bound != Some(origin))
-}
-
-fn evict_thread_sessions(
-    sessions: &mut HashMap<String, ThreadSession>,
-    now: Instant,
-    reserve_slot: bool,
-) -> Vec<ThreadSession> {
-    let mut removed = Vec::new();
-    let expired = sessions
-        .iter()
-        .filter(|(_, value)| now.duration_since(value.last_used) >= SESSION_IDLE_TTL)
-        .map(|(key, _)| key.clone())
-        .collect::<Vec<_>>();
-    for key in expired {
-        if let Some(value) = sessions.remove(&key) {
-            removed.push(value);
-        }
-    }
-    while reserve_slot && sessions.len() >= MAX_THREAD_SESSIONS {
-        let Some(oldest) = sessions
-            .iter()
-            .min_by_key(|(_, value)| value.last_used)
-            .map(|(key, _)| key.clone())
-        else {
-            break;
-        };
-        if let Some(value) = sessions.remove(&oldest) {
-            removed.push(value);
-        }
-    }
-    removed
 }
 
 impl Pending {
