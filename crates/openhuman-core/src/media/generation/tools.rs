@@ -48,15 +48,22 @@ pub fn build_media_tools(root_config: &Config, action_dir: &Path) -> Vec<Box<dyn
     let Some(generators) = managed_generators(root_config) else {
         return Vec::new();
     };
-    media_tools_from(generators, action_dir, &root_config.workspace_dir)
+    media_tools_from(
+        generators,
+        action_dir,
+        &root_config.workspace_dir,
+        WaitPolicy::new(VIDEO_POLL_INTERVAL, VIDEO_WAIT_BUDGET),
+    )
 }
 
 /// Builds the tool set over any generators (the managed ones in production,
-/// mocks in tests), writing under `action_dir`.
+/// mocks in tests), writing under `action_dir`; `video_wait` bounds each
+/// video job.
 pub fn media_tools_from(
     generators: MediaGenerators,
     action_dir: &Path,
     workspace_dir: &Path,
+    video_wait: WaitPolicy,
 ) -> Vec<Box<dyn Tool>> {
     let MediaGenerators { image, video } = generators;
     let output = MediaOutput::new(action_dir)
@@ -75,7 +82,7 @@ pub fn media_tools_from(
                 .with_description(VIDEO_DESCRIPTION)
                 .with_permission_level(PermissionLevel::Execute)
                 .with_category(ToolCategory::Workflow)
-                .with_wait_policy(WaitPolicy::new(VIDEO_POLL_INTERVAL, VIDEO_WAIT_BUDGET)),
+                .with_wait_policy(video_wait),
         ),
         Box::new(MediaListModelsTool { image, video }),
     ];

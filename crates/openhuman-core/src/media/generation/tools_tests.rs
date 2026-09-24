@@ -17,6 +17,10 @@ fn tools(action_dir: &Path) -> Vec<Box<dyn Tool>> {
         },
         action_dir,
         &action_dir.join("workspace"),
+        tinyagents_harness::tinyinference_video::WaitPolicy::new(
+            std::time::Duration::from_millis(1),
+            std::time::Duration::from_secs(5),
+        ),
     )
 }
 
