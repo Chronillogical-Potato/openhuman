@@ -1,4 +1,9 @@
-import { AssistantRuntimeProvider, AuiConfig, Tools, useExternalStoreRuntime } from '@assistant-ui/react';
+import {
+  AssistantRuntimeProvider,
+  AuiConfig,
+  Tools,
+  useExternalStoreRuntime,
+} from '@assistant-ui/react';
 import debugFactory from 'debug';
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
 

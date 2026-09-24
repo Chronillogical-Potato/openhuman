@@ -12,11 +12,11 @@ import type {
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
 import { openUrl } from '../../../utils/openUrl';
+import { ToolFailureCard } from '../aui/ToolFailureCard';
 import { FetchBody, FileBody, ShellBody, WebSearchBody } from '../tools/ToolBodies';
 import { hasDisplayValue, parsedValue, ToolDataView } from '../tools/ToolDataView';
 import { ToolIcon } from '../tools/ToolIcon';
 import { describeToolCall, parseToolArgs, toolLabel } from '../tools/toolPresentation';
-import { ToolFailureCard } from '../aui/ToolFailureCard';
 
 /** `1234` → "1.2s", `850` → "850ms", `75000` → "1m 15s". */
 export function formatElapsed(ms: number): string {
@@ -192,7 +192,11 @@ export function AssistantUiToolCallCard({
         <>
           {failed && failure ? (
             <div className="ps-5.5 pt-1 pb-2">
-              <ToolFailureCard toolName={toolName} target={detail ?? displayName} failure={failure} />
+              <ToolFailureCard
+                toolName={toolName}
+                target={detail ?? displayName}
+                failure={failure}
+              />
             </div>
           ) : null}
           {footer ? <div className="ps-5.5">{footer}</div> : null}

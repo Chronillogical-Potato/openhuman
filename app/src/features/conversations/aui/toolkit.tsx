@@ -1,4 +1,8 @@
-import { defineToolkit, type Toolkit, type ToolCallMessagePartComponent } from '@assistant-ui/react';
+import {
+  defineToolkit,
+  type ToolCallMessagePartComponent,
+  type Toolkit,
+} from '@assistant-ui/react';
 import { useMemo } from 'react';
 
 import { SubagentCall } from '../components/ChatToolParts';
@@ -46,11 +50,7 @@ export const openHumanToolEntries: Record<string, OpenHumanToolEntry> = {
    * old `ChatToolFallback`'s `toolName === 'task'` branch did before this
    * registry replaced the manual switch.
    */
-  task: {
-    type: 'backend',
-    display: 'inline',
-    render: SubagentCall,
-  },
+  task: { type: 'backend', display: 'inline', render: SubagentCall },
 };
 
 /**
