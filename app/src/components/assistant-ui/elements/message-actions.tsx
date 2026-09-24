@@ -60,7 +60,10 @@ export function MessageActions({
   const buttonClassName = cn(ghostButton, 'size-7');
 
   return (
-    <div data-slot="message-actions" className={cn('flex items-center gap-1', className)} {...props}>
+    <div
+      data-slot="message-actions"
+      className={cn('flex items-center gap-1', className)}
+      {...props}>
       <button
         type="button"
         aria-label={copied ? copiedLabel : copyLabel}
@@ -91,8 +94,14 @@ export function MessageActions({
         )}>
         <ThumbsDownIcon className="size-3.5" />
       </button>
-      <button type="button" aria-label={regenerateLabel} onClick={onRegenerate} className={buttonClassName}>
-        <RefreshCwIcon className={cn('size-3.5', regenerating && 'animate-spin motion-reduce:animate-none')} />
+      <button
+        type="button"
+        aria-label={regenerateLabel}
+        onClick={onRegenerate}
+        className={buttonClassName}>
+        <RefreshCwIcon
+          className={cn('size-3.5', regenerating && 'animate-spin motion-reduce:animate-none')}
+        />
       </button>
       <button type="button" aria-label={moreLabel} onClick={onMore} className={buttonClassName}>
         <EllipsisIcon className="size-3.5" />

@@ -23,7 +23,7 @@ export function TypingIndicator({
   variant?: 'bubble' | 'bare';
   label?: string;
 }) {
-  const dots = DOT_DELAYS.map((delay) => (
+  const dots = DOT_DELAYS.map(delay => (
     <span
       key={delay}
       aria-hidden

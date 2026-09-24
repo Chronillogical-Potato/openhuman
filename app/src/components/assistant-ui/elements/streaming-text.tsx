@@ -29,8 +29,8 @@ export function StreamingText({
 }) {
   const words = useMemo(
     () =>
-      segments.flatMap((segment) =>
-        segment.text.split(' ').map((word) => ({ word, mono: segment.mono ?? false }))
+      segments.flatMap(segment =>
+        segment.text.split(' ').map(word => ({ word, mono: segment.mono ?? false }))
       ),
     [segments]
   );
@@ -44,7 +44,9 @@ export function StreamingText({
       {shown.map(({ word, mono: isMono }, i) => {
         const fresh = streaming && shown.length - 1 - i < 2;
         return (
-          <span key={i} className="fade-in animate-in fill-mode-both duration-500 motion-reduce:animate-none">
+          <span
+            key={i}
+            className="fade-in animate-in fill-mode-both duration-500 motion-reduce:animate-none">
             <span
               className={cn(
                 'transition-colors duration-700 motion-reduce:transition-none',

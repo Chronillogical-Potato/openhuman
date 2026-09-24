@@ -52,7 +52,7 @@ export function GuardrailNotice({
       {alternatives.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <span className={cn(mono, 'text-foreground/30')}>{alternativesLabel}</span>
-          {alternatives.map((alternative) =>
+          {alternatives.map(alternative =>
             onPick ? (
               <button
                 key={alternative}

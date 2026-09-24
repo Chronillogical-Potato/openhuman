@@ -33,7 +33,14 @@ export function FeedbackDialog({
   ...props
 }: Omit<
   ComponentProps<'div'>,
-  'children' | 'reasons' | 'selected' | 'note' | 'sent' | 'onToggleReason' | 'onNoteChange' | 'onSubmit'
+  | 'children'
+  | 'reasons'
+  | 'selected'
+  | 'note'
+  | 'sent'
+  | 'onToggleReason'
+  | 'onNoteChange'
+  | 'onSubmit'
 > & {
   reasons: readonly string[];
   selected: readonly string[];
@@ -85,7 +92,7 @@ export function FeedbackDialog({
           </div>
 
           <div className="flex flex-wrap gap-1.5">
-            {reasons.map((reason) => {
+            {reasons.map(reason => {
               const active = selected.includes(reason);
               const buttonClassName = cn(
                 'rounded-full px-2.5 py-1 text-xs transition-[background-color,color,scale] duration-150',
@@ -104,7 +111,12 @@ export function FeedbackDialog({
                   {reason}
                 </button>
               ) : (
-                <span key={reason} role="button" aria-disabled="true" aria-pressed={active} className={buttonClassName}>
+                <span
+                  key={reason}
+                  role="button"
+                  aria-disabled="true"
+                  aria-pressed={active}
+                  className={buttonClassName}>
                   {reason}
                 </span>
               );
@@ -113,7 +125,7 @@ export function FeedbackDialog({
 
           <textarea
             value={note}
-            onChange={(event) => onNoteChange?.(event.target.value)}
+            onChange={event => onNoteChange?.(event.target.value)}
             rows={2}
             placeholder={notePlaceholder}
             aria-label={notePlaceholder}

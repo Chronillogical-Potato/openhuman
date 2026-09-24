@@ -60,7 +60,10 @@ export function EditMessage({
 }) {
   if (!editing) {
     return (
-      <div data-slot="edit-message" className={cn('flex w-full max-w-sm justify-end', className)} {...props}>
+      <div
+        data-slot="edit-message"
+        className={cn('flex w-full max-w-sm justify-end', className)}
+        {...props}>
         <button
           type="button"
           onClick={onStartEdit}
@@ -81,7 +84,7 @@ export function EditMessage({
       {...props}>
       <textarea
         value={value}
-        onChange={(event) => onValueChange?.(event.target.value)}
+        onChange={event => onValueChange?.(event.target.value)}
         rows={2}
         aria-label={editAriaLabel}
         className={cn(
@@ -107,7 +110,10 @@ export function EditMessage({
         <button
           type="button"
           onClick={onSave}
-          className={cn(inkButton, 'flex h-8 items-center rounded-full px-3.5 text-xs font-medium')}>
+          className={cn(
+            inkButton,
+            'flex h-8 items-center rounded-full px-3.5 text-xs font-medium'
+          )}>
           {sendLabel}
         </button>
       </div>

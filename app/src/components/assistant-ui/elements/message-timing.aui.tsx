@@ -12,7 +12,6 @@
  *   `tokensPerSecondSuffix` props; the "Message timing" aria-label is
  *   `ariaLabel`; all with English defaults, for `useT()`.
  */
-import { useMessageTiming } from '@assistant-ui/react';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
   Tooltip,
@@ -20,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/assistant-ui/ui/tooltip';
+import { useMessageTiming } from '@assistant-ui/react';
 import type { FC } from 'react';
 
 const formatTimingMs = (ms: number | undefined): string => {
@@ -98,7 +98,9 @@ export const MessageTiming: FC<{
             {timing.firstTokenTime !== undefined && (
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">{firstTokenLabel}</span>
-                <span className="font-mono tabular-nums">{formatTiming(timing.firstTokenTime)}</span>
+                <span className="font-mono tabular-nums">
+                  {formatTiming(timing.firstTokenTime)}
+                </span>
               </div>
             )}
             <div className="flex items-center justify-between gap-4">

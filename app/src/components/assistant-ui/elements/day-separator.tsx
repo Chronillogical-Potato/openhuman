@@ -23,14 +23,15 @@ export function DaySeparator({
   messages,
   className,
   ...props
-}: Omit<ComponentProps<'div'>, 'children' | 'messages'> & {
-  messages: readonly DatedMessage[];
-}) {
+}: Omit<ComponentProps<'div'>, 'children' | 'messages'> & { messages: readonly DatedMessage[] }) {
   let lastDay = '';
 
   return (
-    <div data-slot="day-separator" className={cn('flex w-full max-w-sm flex-col gap-2', className)} {...props}>
-      {messages.map((message) => {
+    <div
+      data-slot="day-separator"
+      className={cn('flex w-full max-w-sm flex-col gap-2', className)}
+      {...props}>
+      {messages.map(message => {
         const newDay = message.day !== lastDay;
         lastDay = message.day;
 
