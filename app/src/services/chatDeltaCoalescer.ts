@@ -46,11 +46,15 @@ export const frameScheduler: FlushScheduler = flush => {
     done = true;
     flush();
   };
-  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(run) : undefined;
+  const frames = typeof window === 'undefined' ? undefined : window;
+  const raf =
+    typeof frames?.requestAnimationFrame === 'function'
+      ? frames.requestAnimationFrame(run)
+      : undefined;
   const timer = setTimeout(run, 50);
   return () => {
     done = true;
-    if (raf !== undefined && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
+    if (raf !== undefined) frames?.cancelAnimationFrame(raf);
     clearTimeout(timer);
   };
 };
