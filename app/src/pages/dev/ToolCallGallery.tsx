@@ -410,6 +410,29 @@ export default function ToolCallGallery() {
 
         <section className="flex flex-col gap-2">
           <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
+            Connection state
+          </h2>
+          <div className="text-foreground/60 flex gap-3 text-xs">
+            {MOCK_CONNECTION_PHASES.map(phase => (
+              <label key={phase} className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="connection-phase"
+                  checked={connectionPhase === phase}
+                  onChange={() => setConnectionPhase(phase)}
+                />
+                {phase}
+              </label>
+            ))}
+          </div>
+          <ConnectionStateNotice
+            phase={connectionPhase}
+            onRetry={() => setConnectionPhase('reconnecting')}
+          />
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">
             Context usage (ring + breakdown popover body)
           </h2>
           <ContextDisplayRing

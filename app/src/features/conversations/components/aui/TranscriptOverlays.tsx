@@ -4,8 +4,9 @@ import type {
   ProcessingTranscriptItem,
   ToolTimelineEntry,
 } from '../../../../store/chatRuntimeSlice';
+import { BackgroundInboxCard } from '../../aui/BackgroundInboxCard';
+import type { BackgroundProcess } from '../../selectors/backgroundProcesses';
 import { AgentProcessSourcePanel } from '../AgentProcessSourcePanel';
-import { type BackgroundProcess, BackgroundProcessesPanel } from '../BackgroundProcessesPanel';
 
 export interface TranscriptOverlaysProps {
   threadId: string | null;
@@ -68,7 +69,7 @@ export function TranscriptOverlays({
 
   return (
     <>
-      <BackgroundProcessesPanel
+      <BackgroundInboxCard
         open={showBackgroundProcesses}
         processes={backgroundProcesses}
         onClose={onCloseBackgroundProcesses}
