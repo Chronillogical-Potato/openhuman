@@ -14088,3 +14088,85 @@ driver = "null"
     mock_join.abort();
     rpc_join.abort();
 }
+
+#[tokio::test]
+async fn json_rpc_agent_run_mode_set_and_get_round_trip() {
+    // `agent.set_run_mode` / `agent.get_run_mode` flip and read back a
+    // thread's Plan/Build mode through the per-thread `RunModeHandle`
+    // registry (`agent::tinyagents::run_mode`) — no thread/session bootstrap
+    // needed since the registry is a bare thread_id-keyed map.
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let thread_id = "thread-run-mode-e2e";
+
+    // Defaults to build.
+    let initial = post_json_rpc(
+        &rpc_base,
+        9401,
+        "openhuman.agent_get_run_mode",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let initial_result = assert_no_jsonrpc_error(&initial, "agent_get_run_mode initial");
+    assert_eq!(
+        initial_result.get("mode").and_then(Value::as_str),
+        Some("build")
+    );
+
+    // Flip to plan.
+    let set_plan = post_json_rpc(
+        &rpc_base,
+        9402,
+        "openhuman.agent_set_run_mode",
+        json!({ "thread_id": thread_id, "mode": "plan" }),
+    )
+    .await;
+    let set_plan_result = assert_no_jsonrpc_error(&set_plan, "agent_set_run_mode plan");
+    assert_eq!(
+        set_plan_result.get("mode").and_then(Value::as_str),
+        Some("plan")
+    );
+
+    // Read it back.
+    let after_plan = post_json_rpc(
+        &rpc_base,
+        9403,
+        "openhuman.agent_get_run_mode",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let after_plan_result = assert_no_jsonrpc_error(&after_plan, "agent_get_run_mode after plan");
+    assert_eq!(
+        after_plan_result.get("mode").and_then(Value::as_str),
+        Some("plan")
+    );
+
+    // Invalid mode label → error.
+    let bad_mode = post_json_rpc(
+        &rpc_base,
+        9404,
+        "openhuman.agent_set_run_mode",
+        json!({ "thread_id": thread_id, "mode": "sightsee" }),
+    )
+    .await;
+    assert_jsonrpc_error(&bad_mode, "agent_set_run_mode invalid mode");
+
+    api_join.abort();
+    rpc_join.abort();
+}
