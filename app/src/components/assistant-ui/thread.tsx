@@ -467,7 +467,7 @@ const ThreadRoot: FC<{
        * message by the `data-message-id` that `MessagePrimitive.Root` already
        * emits, so neither message component needed changing.
        */}
-      <SelectionToolbar />
+      {!HostComposer && <SelectionToolbar />}
     </ThreadPrimitive.Root>
   );
 };

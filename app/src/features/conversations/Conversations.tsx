@@ -732,6 +732,9 @@ const Conversations = ({
         return;
       }
 
+      // A dictated draft needs a text surface where the user can inspect and
+      // send it. The mic-first composer has neither, so hand it back first.
+      setComposerOverride('text');
       setInputValue(prev => {
         const base = prev.trim();
         if (!base) return text;
