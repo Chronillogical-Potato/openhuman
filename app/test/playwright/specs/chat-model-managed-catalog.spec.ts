@@ -109,8 +109,22 @@ async function openChat(page: Page): Promise<void> {
   await emulateTauriRuntime(page);
 }
 
-const modelChip = (page: Page): Locator =>
-  page.locator('[data-analytics-id="chat-model-selector"]');
+/**
+ * The composer's model chip.
+ *
+ * `composer-chat-settings` is `ChatSettingsPanel` (`features/conversations/aui/`),
+ * which `assistant-ui/thread.tsx:1185` renders in the chat composer. It is NOT
+ * `[data-analytics-id="chat-model-selector"]`, which this spec used to target:
+ * that id belongs to `components/chat/ModelQualityPill`, now rendered only by
+ * `ChatComposer` — and `ChatComposer` is used only by `WorkflowCopilotPanel`,
+ * not by the chat surface. So the old selector matched nothing here and every
+ * case timed out on the opening click, before reaching any of the assertions
+ * this suite exists for.
+ *
+ * Both chips open the same `ProviderModelPickerDialog`, so everything below the
+ * click is unchanged.
+ */
+const modelChip = (page: Page): Locator => page.getByTestId('composer-chat-settings');
 const pickerTitle = (page: Page): Locator => page.getByText('Choose provider and model');
 const managedOption = (page: Page, id: string): Locator =>
   page.getByTestId(`model-picker-managed-option-${id}`);
@@ -138,8 +152,7 @@ async function openManagedPane(page: Page): Promise<void> {
 /** Cold start budget, as measured and explained in `chat-model-override.spec.ts`. */
 test.describe.configure({ timeout: 120_000 });
 
-// TODO(#6395): rebuild these assertions around the picker’s native model select.
-test.describe.skip('Managed OpenRouter catalog in the model picker', () => {
+test.describe('Managed OpenRouter catalog in the model picker', () => {
   test.beforeEach(async () => {
     await resetMock();
   });
@@ -205,7 +218,19 @@ test.describe.skip('Managed OpenRouter catalog in the model picker', () => {
     ).toHaveAttribute('aria-selected', 'true', { timeout: 20_000 });
   });
 
-  test('a composer pick is the global default and survives a fresh page', async ({ page }) => {
+  // TODO(#6395): a managed pick does not survive a page reload. Measured, not
+  // assumed: after picking `nex-n2.5-mini` and reopening the chat, the chip
+  // reads `e2e-mock-model` again. The write half is still implemented —
+  // `applyComposerModel` (`features/conversations/Conversations.tsx:441-457`)
+  // calls `openhuman.inference_update_model_settings` with `default_model` — so
+  // this is a read-back gap, not a missing write: on a fresh page
+  // `composerModelOverride` is null and the chip falls back to
+  // `composerModelOverride ?? CHAT_MODEL_HINT` (`:1099`), which is the config's
+  // seeded default rather than the persisted one. Left failing-and-skipped
+  // rather than weakened: the assertion states the contract the issue title
+  // names ("selection and persistence"), and relaxing it would hide exactly the
+  // regression it exists to catch.
+  test.skip('a composer pick is the global default and survives a fresh page', async ({ page }) => {
     // The picker writes `default_model` through the core, so a brand-new page
     // (new composer state, same core) still resolves and shows the pinned
     // model — the pick is not a per-session override.
@@ -249,7 +274,15 @@ test.describe.skip('Managed OpenRouter catalog in the model picker', () => {
     });
   });
 
-  test('an empty catalog renders no model rows and cannot be submitted', async ({ page }) => {
+  // TODO(#6395): with `managedCatalogEmpty`, `model-picker-managed-pane` never
+  // becomes visible, so this case fails at its first assertion rather than at
+  // the row-count or disabled-submit claims it exists for. The spec asserts the
+  // pane degrades to an empty list ("its pre-#6201 appearance"); the product
+  // appears not to render the pane at all when the catalog is empty. That is a
+  // contract question — empty pane vs no pane — and answering it is a product
+  // decision, not a test edit, so the case is left skipped rather than
+  // rewritten to match whichever behaviour happens to ship today.
+  test.skip('an empty catalog renders no model rows and cannot be submitted', async ({ page }) => {
     // Models the real backend with OPENROUTER_PASSTHROUGH_ENABLED off: it
     // returns an empty set with HTTP 200, not an error. The managed pane must
     // degrade to its pre-#6201 appearance rather than surfacing a failure.
