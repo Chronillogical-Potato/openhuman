@@ -115,6 +115,16 @@ describe('ConnectionStateBanner', () => {
     expect(connect).not.toHaveBeenCalled();
   });
 
+  it('renders nothing under a host store that has no socket slice', () => {
+    const store = configureStore({ reducer: { other: (state: number = 0) => state } });
+    const { container } = render(
+      <Provider store={store}>
+        <ConnectionStateBanner />
+      </Provider>
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('renders nothing outside a Redux store (standalone thread renders)', () => {
     const { container } = render(<ConnectionStateBanner />);
     expect(container).toBeEmptyDOMElement();
