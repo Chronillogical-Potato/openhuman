@@ -65,7 +65,7 @@ async fn commands_list_always_includes_every_builtin_even_if_catalogs_fail() {
     // they do, every builtin is still present and the call itself never
     // errors.
     let outcome = commands_list().await.expect("commands_list must not fail");
-    let ids: Vec<&str> = outcome.value.iter().map(|e| e.id.as_str()).collect();
+    let ids: Vec<&str> = outcome.value.commands.iter().map(|e| e.id.as_str()).collect();
     for expected in ["new", "clear", "plan", "build", "goal", "todo", "stop"] {
         assert!(
             ids.contains(&expected),
@@ -74,6 +74,7 @@ async fn commands_list_always_includes_every_builtin_even_if_catalogs_fail() {
     }
     let builtin_count = outcome
         .value
+        .commands
         .iter()
         .filter(|e| e.kind == CommandKind::Builtin)
         .count();
