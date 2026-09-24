@@ -26,7 +26,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -49,7 +49,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -72,7 +72,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -97,7 +97,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -124,7 +124,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -149,7 +149,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -170,7 +170,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -192,7 +192,7 @@ describe('ChatToolParts', () => {
         artifact={{ kind: 'openhuman-tool', displayName: 'Widget ping', detail: 'AAPL' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 
@@ -216,7 +216,7 @@ describe('ChatToolParts', () => {
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
-        respondToApproval={() => {}}
+        respondToApproval={async () => {}}
       />
     );
 

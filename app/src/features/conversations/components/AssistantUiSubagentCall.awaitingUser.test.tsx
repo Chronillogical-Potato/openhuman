@@ -255,7 +255,7 @@ describe('sub-agent awaiting user', () => {
               status={{ type: 'running' }}
               addResult={() => {}}
               resume={() => {}}
-              respondToApproval={() => {}}
+              respondToApproval={async () => {}}
             />
           </AssistantUiRuntimeProvider>
         </Provider>

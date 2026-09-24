@@ -35,6 +35,7 @@ import chatRuntimeReducer, {
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
+import runModeReducer from '../../store/runModeSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
 import threadReducer from '../../store/threadSlice';
@@ -165,6 +166,7 @@ function buildStore(preload: Record<string, unknown> = {}) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
+      runMode: runModeReducer,
       theme: themeReducer,
     }),
     preloadedState: preload as never,
