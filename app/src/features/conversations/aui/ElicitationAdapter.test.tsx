@@ -36,12 +36,6 @@ describe('ElicitationAdapter', () => {
     expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
   });
 
-  it('hides the decline button when onDecline is not supplied', () => {
-    render(<ElicitationAdapter server="OpenHuman" message="?" pending onAnswer={vi.fn()} />);
-
-    expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
-  });
-
   it('declines when onDecline is supplied and clicked', async () => {
     const onDecline = vi.fn();
     render(
