@@ -298,6 +298,83 @@ export interface ChatPlanReviewRequestEvent {
   message: string;
   /** `{ steps: string[] }` — the ordered plan items shown in the review card. */
   args?: { steps?: string[] };
+  /**
+   * The `request_plan_review` tool call this parked review binds to (wire
+   * contract: `DomainEvent::PlanReviewRequested.tool_call_id`, additive —
+   * lands with core workstream C2). Lets the toolkit's `request_plan_review`
+   * entry attach the review to the EXACT tool-call part it gates, matching
+   * {@link ChatApprovalRequestEvent.tool_call_id}. Absent on a core that has
+   * not landed C2 yet; every reader must treat it as optional and fall back
+   * to "any pending review for this thread".
+   */
+  tool_call_id?: string;
+  /**
+   * RFC3339 timestamp the parked review expires at (wire contract:
+   * `DomainEvent::PlanReviewRequested.expires_at`, additive, lands with C2).
+   * Absent on an older core.
+   */
+  expires_at?: string;
+}
+
+/**
+ * One item of a thread's live todo list, as the core writes it via the
+ * `todo` tool. Bridged from `DomainEvent::ThreadTodosChanged` by the web
+ * channel (socket event `thread_todos_changed`).
+ */
+export interface ChatThreadTodoItem {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
+/**
+ * Emitted whenever the agent (re)writes the thread's todo list. Bridged from
+ * the Rust `DomainEvent::ThreadTodosChanged { thread_id, todos }`.
+ */
+export interface ChatThreadTodosChangedEvent {
+  thread_id: string;
+  todos: ChatThreadTodoItem[];
+}
+
+/**
+ * The durable objective the agent set for a thread via `goal_set`, kept
+ * across turns. Wire shape of `ThreadGoal` on the `thread_goal_updated`
+ * socket event.
+ */
+export interface ThreadGoal {
+  goal_id: string;
+  objective: string;
+  status: 'active' | 'paused' | 'budget_limited' | 'complete';
+  token_budget?: number;
+  tokens_used: number;
+  time_used_seconds: number;
+}
+
+/**
+ * Emitted when the thread's goal is set or updated. Bridged from the Rust
+ * `DomainEvent::ThreadGoalUpdated { thread_id, goal }`.
+ */
+export interface ChatThreadGoalUpdatedEvent {
+  thread_id: string;
+  goal: ThreadGoal;
+}
+
+/**
+ * Emitted when the thread's goal is cleared (`goal_complete`, or the
+ * orchestrator dropping it). Bridged from the `thread_goal_cleared` socket
+ * event.
+ */
+export interface ChatThreadGoalClearedEvent {
+  thread_id: string;
+}
+
+/**
+ * Emitted when a thread's plan/build run mode changes — via the
+ * `openhuman.agent_set_run_mode` RPC from this client or another, or a
+ * server-side transition. Bridged from the `run_mode_changed` socket event.
+ */
+export interface ChatRunModeChangedEvent {
+  thread_id: string;
+  mode: 'plan' | 'build';
 }
 
 /**
