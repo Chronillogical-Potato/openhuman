@@ -143,8 +143,17 @@ fn build_child(
         .or_else(|| Some(display.meta.agent_name.clone()))
         .filter(|id| !id.is_empty());
     let id = task_id.clone().unwrap_or_else(|| suffix.to_string());
+    let spawn_unix = child_spawn_unix(suffix);
+    // The spawn timestamp encoded in the sub-agent's own file stem (used
+    // above to anchor it to a parent turn) doubles as this item's `ts` —
+    // sub-agent transcripts carry no back-link to a delegating request, so
+    // there is no per-message `ts` to inherit the way the root projector
+    // pulls one from `DisplayMessage.ts`.
+    let ts = spawn_unix.and_then(|unix| {
+        chrono::DateTime::from_timestamp(unix, 0).map(|dt| dt.to_rfc3339())
+    });
     Some(ChildRun {
-        spawn_unix: child_spawn_unix(suffix),
+        spawn_unix,
         agent_id: agent_id.clone(),
         task_id: task_id.clone(),
         item: DisplayItem::Subagent {
@@ -154,6 +163,7 @@ fn build_child(
             call_id: None,
             status: SubagentStatus::Running,
             request_id: None,
+            ts,
             items,
         },
         own_state,

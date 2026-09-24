@@ -19,10 +19,14 @@ import {
   type ChatInterimEvent,
   type ChatIterationStartEvent,
   type ChatPlanReviewRequestEvent,
+  type ChatRunModeChangedEvent,
   type ChatSegmentEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
+  type ChatThreadGoalClearedEvent,
+  type ChatThreadGoalUpdatedEvent,
+  type ChatThreadTodosChangedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
   type ProactiveMessageEvent,
@@ -70,7 +74,10 @@ import {
   upsertArtifactReadyForThread,
 } from '../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setRunMode } from '../store/runModeSlice';
 import { selectSocketStatus } from '../store/socketSelectors';
+import { clearThreadGoal, setThreadGoal } from '../store/threadGoalSlice';
+import { setThreadTodos } from '../store/threadTodosSlice';
 import {
   addInferenceResponse,
   addMessageLocal,
