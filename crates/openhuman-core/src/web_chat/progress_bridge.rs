@@ -246,6 +246,7 @@ pub(crate) fn spawn_progress_bridge(
     turn_state_store: TurnStateStore,
     metadata: ChatRequestMetadata,
     config: crate::config::Config,
+    mut parent_turn_processed: Option<tokio::sync::oneshot::Sender<()>>,
 ) {
     use crate::agent::progress::AgentProgress;
     use std::collections::HashMap;
@@ -1306,6 +1307,9 @@ pub(crate) fn spawn_progress_bridge(
                         metadata.source,
                         metadata.session_id,
                     );
+                    if let Some(sender) = parent_turn_processed.take() {
+                        let _ = sender.send(());
+                    }
                 }
                 AgentProgress::TurnCostUpdated {
                     model,

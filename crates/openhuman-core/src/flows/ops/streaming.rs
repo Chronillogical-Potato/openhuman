@@ -80,6 +80,7 @@ pub(super) fn attach_flow_progress_bridge(
             ..Default::default()
         },
         config.clone(),
+        None,
     );
 }
 
