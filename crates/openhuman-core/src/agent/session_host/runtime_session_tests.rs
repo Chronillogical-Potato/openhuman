@@ -16,8 +16,8 @@ fn spec(name: &str) -> ToolSpec {
 /// The incident this guards: a thread resumed in a fresh process (empty
 /// integrations cache) lost every Composio action, so the orchestrator's
 /// `tool_search` had nothing to find although its restored prompt told it to
-/// search for the Gmail action. The session now restores the declarations the
-/// thread was sent, and the prelude rebuilds them as executors.
+/// search for the Gmail action. Rehydration is permitted only after the
+/// current integration authorization snapshot confirms Gmail is connected.
 #[tokio::test]
 async fn a_resumed_orchestrator_keeps_the_integration_actions_it_was_sent() {
     let _ = crate::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
@@ -55,6 +55,19 @@ async fn a_resumed_orchestrator_keeps_the_integration_actions_it_was_sent() {
     ])
     .expect("snapshot");
     prelude.adopt_recorded_tools(Some(&recorded));
+    {
+        let mut mutable = prelude.mutable.lock().expect("prelude state");
+        mutable.connected_integrations = vec![crate::agent::prompts::ConnectedIntegration {
+            toolkit: "gmail".into(),
+            description: String::new(),
+            tools: Vec::new(),
+            gated_tools: Vec::new(),
+            connected: true,
+            connections: Vec::new(),
+            non_active_status: None,
+        }];
+        mutable.connected_integrations_authoritative = true;
+    }
     prelude.refresh_delegation_tool_surface();
 
     let names = prelude.synthesized_tool_names_for_test();
