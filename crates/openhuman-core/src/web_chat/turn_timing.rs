@@ -108,3 +108,35 @@ impl TurnTimingSnapshot {
         }
     }
 }
+
+/// Rate-limits the live `turn_cost` socket event the bridge emits on every
+/// `AgentProgress::TurnCostUpdated`: a multi-round turn can report one per
+/// model call, and a fast-tool-calling round can do that several times a
+/// second — far more often than a cost readout needs to repaint.
+pub(super) struct TurnCostThrottle {
+    last_emit: Option<std::time::Instant>,
+}
+
+/// Minimum spacing between live `turn_cost` emissions for one turn.
+const TURN_COST_EMIT_MIN_INTERVAL: std::time::Duration = std::time::Duration::from_millis(750);
+
+impl TurnCostThrottle {
+    pub(super) fn new() -> Self {
+        Self { last_emit: None }
+    }
+
+    /// Whether the caller should emit now. Unconditionally `true` on the
+    /// first call for a turn (`last_emit` still `None`) so the *first* cost
+    /// update always reaches the client immediately rather than waiting out
+    /// the interval. Advances `last_emit` on every `true` return.
+    pub(super) fn should_emit(&mut self) -> bool {
+        let should = self
+            .last_emit
+            .map(|at| at.elapsed() >= TURN_COST_EMIT_MIN_INTERVAL)
+            .unwrap_or(true);
+        if should {
+            self.last_emit = Some(std::time::Instant::now());
+        }
+        should
+    }
+}
