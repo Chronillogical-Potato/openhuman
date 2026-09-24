@@ -119,6 +119,31 @@ describe('ContextUsage', () => {
     await waitFor(() => expect(popover).toHaveTextContent('Tools'));
     expect(mockCall).toHaveBeenCalledTimes(2);
   });
+
+  it('ignores a response for a request that a reopen superseded', async () => {
+    let failFirst: (error: Error) => void = () => {};
+    mockCall
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          failFirst = reject;
+        })
+      )
+      .mockResolvedValueOnce(BREAKDOWN);
+    renderUsage();
+    const trigger = screen.getByTestId('composer-context-usage');
+
+    await userEvent.click(trigger);
+    await userEvent.click(trigger);
+    await userEvent.click(trigger);
+    const popover = await screen.findByTestId('composer-token-breakdown');
+    await waitFor(() => expect(popover).toHaveTextContent('Tools'));
+
+    failFirst(new Error('late failure'));
+    await Promise.resolve();
+
+    expect(popover).toHaveTextContent('Tools');
+    expect(popover).not.toHaveTextContent('Context breakdown unavailable');
+  });
 });
 
 describe('contextBreakdownSegments', () => {

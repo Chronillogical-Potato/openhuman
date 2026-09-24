@@ -143,7 +143,6 @@ export function ContextUsage({
         setBreakdown({ status: 'ready', data });
       },
       (error: unknown) => {
-        if (seq !== requestSeq.current) return;
         log('breakdown fetch failed seq=%d: %O', seq, error);
         setBreakdown({ status: 'error' });
       }
