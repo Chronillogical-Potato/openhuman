@@ -140,3 +140,7 @@ impl TurnCostThrottle {
         should
     }
 }
+
+#[cfg(test)]
+#[path = "turn_timing_tests.rs"]
+mod tests;
