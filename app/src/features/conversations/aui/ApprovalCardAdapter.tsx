@@ -139,9 +139,9 @@ export function ApprovalCardAdapter<D = ApprovalDecision>({
             </span>
           ) : undefined
         }
-        denyLabel={t('chat.approval.deny')}
-        alwaysAllowLabel={t('chat.approval.alwaysAllow')}
-        allowOnceLabel={t('chat.approval.approve')}
+        denyLabel={denyLabel ?? t('chat.approval.deny')}
+        alwaysAllowLabel={alwaysAllowLabel ?? t('chat.approval.alwaysAllow')}
+        allowOnceLabel={allowOnceLabel ?? t('chat.approval.approve')}
         runningLabel={t('chat.approval.deciding')}
         onDeny={() => void decide(denyDecision)}
         onAlwaysAllow={
