@@ -384,35 +384,18 @@ function assistantParts(
   drainBefore(null);
 
   if (text.length > 0) parts.push({ type: 'text', text });
+  // `extractAgentSources` is the one place a model-supplied URL is admitted
+  // (http(s) only), so sources are derived through it rather than here.
+  for (const source of extractAgentSources([...timeline])) {
+    parts.push({
+      type: 'source',
+      sourceType: 'url',
+      id: source.id,
+      url: source.url,
+      title: source.title,
+    });
+  }
   return parts;
-}
-
-/**
- * The one-line summary the settled turn footer renders, and the trail its click
- * opens. Counted from what the store already holds — no new telemetry.
- *
- * `steps` is every process item the turn recorded (reasoning blocks, narration
- * segments and tool pointers); `tools` is the tool rows. `null` when the turn
- * recorded no process at all, which is the footer's signal to render nothing —
- * a plain answer with no trail behind it gets no door.
- */
-export type TurnProcessTrail = {
-  steps: number;
-  tools: number;
-  timeline: readonly ToolTimelineEntry[];
-  transcript: readonly ProcessingTranscriptItem[];
-};
-
-function processTrail(
-  timeline: readonly ToolTimelineEntry[],
-  transcript: readonly ProcessingTranscriptItem[]
-): TurnProcessTrail | null {
-  if (timeline.length === 0 && transcript.length === 0) return null;
-  // Prefer the transcript's own length when it has one: it is the ordered
-  // record of what happened. A legacy snapshot with tool rows but no transcript
-  // still has a step per row.
-  const steps = transcript.length > 0 ? transcript.length : timeline.length;
-  return { steps, tools: timeline.length, timeline, transcript };
 }
 
 function stringArray(value: unknown): string[] {
