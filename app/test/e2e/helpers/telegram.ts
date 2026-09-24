@@ -217,10 +217,17 @@ export async function getTelegramChannelStatus(): Promise<TelegramStatusEntry | 
         ? ((result as Record<string, unknown>).result as TelegramStatusEntry[])
         : [];
 
+  // The core serialises these in snake_case, so each entry carries keys the
+  // camelCase interface does not declare. `as unknown as` rather than a direct
+  // assertion: the two types genuinely do not overlap, and TS is right to say
+  // so — going through `unknown` states that we know we are reading past the
+  // declared shape instead of pretending the shapes match.
+  const asLoose = (entry: TelegramStatusEntry): Record<string, unknown> =>
+    entry as unknown as Record<string, unknown>;
   const raw = entries.find(
     (e: TelegramStatusEntry) =>
-      (e.channelId === 'telegram' || (e as Record<string, unknown>).channel_id === 'telegram') &&
-      (e.authMode === 'bot_token' || (e as Record<string, unknown>).auth_mode === 'bot_token')
+      (e.channelId === 'telegram' || asLoose(e).channel_id === 'telegram') &&
+      (e.authMode === 'bot_token' || asLoose(e).auth_mode === 'bot_token')
   ) as (TelegramStatusEntry & Record<string, unknown>) | undefined;
 
   // Normalise snake_case fields that the Rust core serialises.

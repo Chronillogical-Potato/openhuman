@@ -130,8 +130,13 @@ describe('Gmail (Composio) connector flow', () => {
     });
     const execReq = getRequestLog().find(r => r.url.includes('/composio/execute'));
     if (execReq) {
-      // The mock returns 400 — the RPC layer should surface a safe error, not crash
-      console.log(`${LOG} execute returned status: ${execReq.statusCode}`);
+      // The mock returns 400 — the RPC layer should surface a safe error, not
+      // crash, which the `assertSessionNotNuked` below is what actually checks.
+      // This used to log `execReq.statusCode`, which the request log has never
+      // recorded (`scripts/mock-api/server.mjs:72-78` stores method/url/body/
+      // headers/timestamp), so every run printed `undefined`. Found by typing
+      // `getRequestLog()`; log what the log actually holds.
+      console.log(`${LOG} execute request reached the mock: ${execReq.method} ${execReq.url}`);
     }
 
     // Critical: app must remain responsive — session not nuked

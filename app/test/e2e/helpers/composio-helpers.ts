@@ -113,7 +113,6 @@ export async function openConnectorModal(
       const statusDeadline = Date.now() + timeout;
       while (Date.now() < statusDeadline) {
         if (await textExists(waitForTileStatus)) break;
-        // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
         await browser.pause(300);
       }
     } catch {
@@ -138,7 +137,6 @@ export async function openConnectorModal(
       await ensureModalOpen();
       lastReopenAt = Date.now();
     }
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     await browser.pause(250);
   }
 
@@ -179,7 +177,6 @@ export async function assertModalPhase(
         return;
       }
     }
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     await browser.pause(400);
   }
 

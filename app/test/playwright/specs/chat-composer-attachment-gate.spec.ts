@@ -18,14 +18,25 @@
  * `AttachmentDropzone` — attached nothing, while `setInputFiles` in the same
  * run attached fine.
  *
- * **So there is no drop/paste spec here, on purpose.** "Dropping a file while
- * streaming does not attach" would pass because dropping never attaches in any
- * state; it cannot distinguish a working gate from a dead gesture, and writing
- * it would put a green test over a probable regression. The finding is in
- * `~/tinyhuman/bugs/W2-ui-bugs.md` as BUG-W2-UI-1 for a human to confirm with a
- * real drag.
+ * **That paragraph is now out of date, and the paste cases at the bottom of this
+ * file are why.** `thread.tsx` has since grown a real host file path: drop
+ * handlers at `:279-316` and an `onPasteCapture` at `:1085`, both gated on
+ * `canAcceptComposerFiles`, which `AssistantUiChat.tsx:333-334` defines as
+ * `!attachmentInteractionBlocked && attachments.length < maxAttachments` — the
+ * same predicate as the `[+]` button. So the bypass question this file was
+ * chartered to answer IS answerable now, at least for paste.
  *
- * What IS real and falsifiable is the gate on the control that does ingest:
+ * It is answerable *without being vacuous* because the two paste cases come as
+ * a pair: the first proves a pasted image DOES attach, which is what makes the
+ * second ("...and does not, while a turn streams") a statement about the gate
+ * rather than about a dead gesture. Neither alone would be worth writing.
+ *
+ * Drop is still not covered here. `handlePasteCapture` filters to
+ * `image/`- and `video/`-typed clipboard items (`thread.tsx:970`), which a
+ * spec can synthesise exactly; a trustworthy drop case needs a real drag, and
+ * BUG-W2-UI-1 in `~/tinyhuman/bugs/W2-ui-bugs.md` is still open for a human.
+ *
+ * What was already real and falsifiable is the gate on the control that ingests:
  * `disabled={attachmentInteractionBlocked || attachments.length >= maxAttachments}`
  * (`AssistantUiChat.tsx:178`), where `attachmentInteractionBlocked` is
  * `composerInteractionBlocked || isSending` (`Conversations.tsx:2522`). This
@@ -223,5 +234,83 @@ test.describe('Chat composer attachment gate', () => {
 
     await expect(sendButton(page)).toBeVisible();
     await expect(page.getByTestId('composer-human-mode')).toHaveCount(0);
+  });
+
+  /**
+   * Paste ingest — `handlePasteCapture` (`thread.tsx:963-980`).
+   *
+   * The handler runs in the capture phase so the media is pulled out before
+   * Lexical turns it into editor content, keeps only clipboard items whose
+   * `kind` is `file` and whose type matches `/^(image|video)\//`, and hands
+   * them to the host's `onComposerFiles` sink — the same validator the picker
+   * uses. A text paste is left alone, which is why these cases paste a PNG.
+   *
+   * Synthesising the event rather than using the OS clipboard: Playwright
+   * cannot put an image on the real clipboard portably, and the handler reads
+   * `event.clipboardData.items`, so a constructed `ClipboardEvent` with a
+   * populated `DataTransfer` exercises exactly the code under test. What it
+   * does NOT cover is the browser's own clipboard-to-event step; that is the
+   * same boundary `setInputFiles` leaves uncovered for the picker.
+   */
+  async function pasteImage(page: Page, name: string): Promise<void> {
+    await composer(page).click();
+    await page.evaluate(
+      ({ selector, fileName }) => {
+        const target = document.querySelector(selector);
+        if (!target) throw new Error('composer not found for paste');
+        // A 1x1 PNG. Small, but a genuine image/png payload rather than a
+        // text blob wearing an image MIME type.
+        const bytes = Uint8Array.from(
+          atob(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+          ),
+          c => c.charCodeAt(0)
+        );
+        const file = new File([bytes], fileName, { type: 'image/png' });
+        const data = new DataTransfer();
+        data.items.add(file);
+        target.dispatchEvent(
+          new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+        );
+      },
+      { selector: '[data-testid="chat-message-input"]', fileName: name }
+    );
+  }
+
+  test('pasting an image attaches it', async ({ page }) => {
+    // The control for the case below: without this, "paste did not attach
+    // while streaming" would be true of an idle composer too, and would be
+    // testing nothing.
+    await openChat(page);
+    await expect(attachButton(page)).toBeEnabled();
+
+    await pasteImage(page, 'pasted-shot.png');
+
+    await expect(
+      page.getByText('pasted-shot.png'),
+      'a pasted image must reach the same ingest the picker uses'
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('pasting an image while a turn streams does not attach it', async ({ page }) => {
+    // The bypass this file was chartered to check. `canAcceptComposerFiles`
+    // folds in `attachmentInteractionBlocked`, so the paste path has to refuse
+    // for the same reason the `[+]` button is disabled — a gate enforced on one
+    // ingest and not the other is not a gate.
+    await openChat(page);
+    await beginStreamingTurn(page, 'stream while I paste');
+    await expect(attachButton(page)).toBeDisabled();
+
+    await pasteImage(page, 'blocked-shot.png');
+
+    // Give the ingest the same grace a successful one gets, so this is a
+    // refusal rather than a race we won.
+    await page.waitForTimeout(2_000);
+    await expect(
+      page.getByText('blocked-shot.png'),
+      'paste must honour the gate the [+] button enforces'
+    ).toHaveCount(0);
+    // And the turn is genuinely still streaming, so the gate was actually shut.
+    await expect(stopButton(page)).toBeVisible();
   });
 });

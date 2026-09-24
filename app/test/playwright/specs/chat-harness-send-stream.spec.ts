@@ -122,9 +122,15 @@ async function sendMessage(page: Page, prompt: string): Promise<void> {
 test.describe('Chat Harness - Send Stream', () => {
   test('streams a reply, logs a streaming request, and persists the thread', async ({ page }) => {
     await resetMock();
-    const streamScript = REPLY_PIECES.map(text => ({ text, delayMs: 60 })).concat([
+    // The mock's script entries are a union of shapes
+    // (`scripts/mock-api/routes/llm.mjs:128-145`), so the array needs the union
+    // as its element type. Without it `.map(...)` narrowed to the text-delta
+    // shape and the terminal `{ finish }` entry had nowhere to go.
+    type StreamScriptEntry = { text: string; delayMs: number } | { finish: 'stop' | 'tool_calls' };
+    const streamScript: StreamScriptEntry[] = [
+      ...REPLY_PIECES.map(text => ({ text, delayMs: 60 })),
       { finish: 'stop' },
-    ]);
+    ];
 
     await setMockBehavior('llmStreamScript', JSON.stringify(streamScript));
     await openChat(page);
