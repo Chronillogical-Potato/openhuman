@@ -37,8 +37,8 @@
  * eliminated. The suspects genuinely were — `useComposerTextBridge` never
  * fires, and `ChatComposer.tsx`'s `onChange` is not on this path — but both
  * belong to `ChatComposer`, which `/chat` does not mount at all: `Conversations
- * .tsx` renders `assistantUiMainPanel`, and the textarea composer lives in
- * `legacyMainPanel`, reached only in mic-cloud voice mode. The real writer was
+ * .tsx` renders `assistantUiMainPanel`, and the textarea composer was then
+ * reached only in mic-cloud voice mode. The real writer was
  * never among the suspects being tested.
  *
  * # The fix
