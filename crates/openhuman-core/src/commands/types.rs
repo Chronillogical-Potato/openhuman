@@ -32,6 +32,14 @@ pub struct CommandEntry {
     pub insert: Option<String>,
 }
 
+/// Wire shape for `commands.list`'s result: `{"commands": [...]}`, matching
+/// `skills.list`'s `{"skills": [...]}` / `flows.list`'s `{"flows": [...]}`
+/// convention rather than a bare array.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandsListResponse {
+    pub commands: Vec<CommandEntry>,
+}
+
 #[cfg(test)]
 #[path = "types_tests.rs"]
 mod tests;
