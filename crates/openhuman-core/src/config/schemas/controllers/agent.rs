@@ -19,6 +19,7 @@ pub(crate) fn handle_update_autonomy_settings(params: Map<String, Value>) -> Con
     Box::pin(async move {
         let update = deserialize_params::<AutonomySettingsUpdate>(params)?;
         let patch = config_rpc::AutonomySettingsPatch {
+            enabled: update.enabled,
             level: update.level,
             workspace_only: update.workspace_only,
             allowed_commands: update.allowed_commands,
@@ -75,6 +76,7 @@ pub(super) fn handle_update_agent_settings(params: Map<String, Value>) -> Contro
         };
         let patch = config_rpc::AgentSettingsPatch {
             agent_timeout_secs: update.agent_timeout_secs,
+            chat_agent_id: update.chat_agent_id,
         };
         match config_rpc::load_and_apply_agent_settings(patch).await {
             Ok(outcome) => {

@@ -222,6 +222,11 @@ pub async fn start_chat(
         }
     }
 
+    // A fresh accepted user request is the explicit boundary after Stop. Keep
+    // the gate installed through validation and registry cancellation so a
+    // child registering late cannot deliver into the stopped generation.
+    crate::agent::orchestration::background_completions::resume_stopped_thread(&thread_id);
+
     let map_key = key_for(&thread_id);
 
     let parsed_mode = match queue_mode.as_deref() {
@@ -401,7 +406,12 @@ pub async fn start_chat(
                 }
             };
 
-            match result {
+            // A terminal socket event is also the UI's permission to submit a
+            // replacement turn.  Defer `chat_error` until after the in-flight
+            // slot below has been removed: publishing it while the failed slot
+            // is still present lets an immediate retry interrupt the dead run
+            // and inherit its failed model state.
+            let deferred_error = match result {
                 Ok(chat_result) => {
                     crate::web_chat::presentation::deliver_response(
                         &client_id_task,
@@ -416,6 +426,7 @@ pub async fn start_chat(
                         Some(chat_result.workspace_dir.as_path()),
                     )
                     .await;
+                    None
                 }
                 Err(err) => {
                     log::warn!(
@@ -461,7 +472,7 @@ pub async fn start_chat(
                             ],
                         );
                     }
-                    publish_web_channel_event(WebChannelEvent {
+                    Some(WebChannelEvent {
                         event: "chat_error".to_string(),
                         client_id: client_id_task.clone(),
                         thread_id: thread_id_task.clone(),
@@ -474,9 +485,9 @@ pub async fn start_chat(
                         error_provider: classified.provider,
                         error_fallback_available: classified.fallback_available,
                         ..Default::default()
-                    });
+                    })
                 }
-            }
+            };
 
             // Drain followup messages queued during this turn.
             let followups = {
@@ -507,6 +518,9 @@ pub async fn start_chat(
                     },
                 );
                 dispatch_followups(followups);
+            }
+            if let Some(event) = deferred_error {
+                publish_web_channel_event(event);
             }
         },
     ));

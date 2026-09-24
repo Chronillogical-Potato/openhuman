@@ -16,9 +16,10 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
 "update_autonomy_settings" => Some( ControllerSchema {
             namespace: "config",
             function: "update_autonomy_settings",
-            description: "Update the agent access mode: autonomy level, workspace confinement, trusted-roots allow-list, command allow-list, forbidden paths, and OS-install permission. Applies live to active sessions.",
+            description: "Update the agent access mode: whether the policy is enabled at all, autonomy level, workspace confinement, trusted-roots allow-list, command allow-list, forbidden paths, and OS-install permission. Applies live to active sessions.",
             inputs: vec![
-                optional_string("level", "Autonomy level: readonly | supervised | full."),
+                optional_bool("enabled", "Master switch for the autonomy policy. Defaults to false: with it off, command classification, the approval gate, the command allow-list, the action budget and workspace containment are all inert, and every other field here has no effect. Credential stores and system roots stay blocked either way."),
+                optional_string("level", "Autonomy level: readonly | supervised | full. Only binds when enabled is true."),
                 optional_bool("workspace_only", "Confine file/path access to the workspace directory."),
                 FieldSchema {
                     name: "allowed_commands",
@@ -84,11 +85,17 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
 "update_agent_settings" => Some( ControllerSchema {
             namespace: "config",
             function: "update_agent_settings",
-            description: "Update agent execution settings. Currently the action/tool wall-clock timeout (seconds). Applies to the next tool call without a restart; the OPENHUMAN_TOOL_TIMEOUT_SECS env var still overrides it when set.",
+            description: "Update agent execution settings: the action/tool wall-clock timeout (seconds) and the web-chat target agent. Applies to the next tool call without a restart; the OPENHUMAN_TOOL_TIMEOUT_SECS env var still overrides it when set.",
             inputs: vec![FieldSchema {
                 name: "agent_timeout_secs",
                 ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
                 comment: "Wall-clock timeout for a single tool/action execution, in seconds (1–3600). Extend this when large local models are interrupted before finishing.",
+                required: false,
+            },
+            FieldSchema {
+                name: "chat_agent_id",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Agent definition id the web-chat path routes turns to. Empty string reverts to the orchestrator. A named definition's own max_iterations governs the turn, so this is how a longer-running agent is selected.",
                 required: false,
             }],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],

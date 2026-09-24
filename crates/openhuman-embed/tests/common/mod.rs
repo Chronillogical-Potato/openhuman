@@ -101,10 +101,14 @@ pub fn tool_call_completion(tool: &str, arguments: &str) -> serde_json::Value {
     })
 }
 
-/// The concatenated tool-result contents of a recorded request.
-///
-/// OpenAI-compatible transports may preserve native `tool` messages or fold
-/// them into the provider-neutral `[Tool results]` user-message form.
+/// Prefix of the user message that carries tool results in the prompt-guided
+/// (text) tool-call dialect, which the harness uses for models it does not
+/// know to support native tool calling.
+const PROMPT_TOOL_RESULTS_PREFIX: &str = "[Tool results]";
+
+/// The concatenated tool results of a recorded request, in either dialect:
+/// `tool`-role messages (native tool calling) or the `[Tool results]` user
+/// message (prompt-guided tool calling).
 pub fn tool_results(request: &wiremock::Request) -> String {
     let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap_or_default();
     body.get("messages")
@@ -112,18 +116,18 @@ pub fn tool_results(request: &wiremock::Request) -> String {
         .map(|messages| {
             messages
                 .iter()
-                .filter(|m| {
-                    let role = m.get("role").and_then(|r| r.as_str());
-                    let folded = m
-                        .get("content")
-                        .and_then(|content| content.as_str())
-                        .is_some_and(|content| content.starts_with("[Tool results]\n"));
-                    role == Some("tool") || (role == Some("user") && folded)
-                })
-                .filter_map(|m| m.get("content"))
-                .map(|c| match c {
-                    serde_json::Value::String(s) => s.clone(),
-                    other => other.to_string(),
+                .filter_map(|m| {
+                    let content = match m.get("content")? {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    match m.get("role").and_then(|r| r.as_str()) {
+                        Some("tool") => Some(content),
+                        Some("user") if content.starts_with(PROMPT_TOOL_RESULTS_PREFIX) => {
+                            Some(content)
+                        }
+                        _ => None,
+                    }
                 })
                 .collect::<Vec<_>>()
                 .join("\n")

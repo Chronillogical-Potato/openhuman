@@ -78,6 +78,28 @@ pnpm debug rust [filter]
 pnpm debug logs last
 ```
 
+Debugging the web UI in a real browser (Chrome DevTools MCP): the desktop
+window is Wry (WKWebView / WebView2 / WebKitGTK), which does not support CDP, so no
+DevTools client can attach to it. Run the same SPA in Chrome instead:
+
+- `pnpm dev:app:web --no-browser` (`scripts/run-dev-web.sh`) builds and starts
+  `openhuman-core serve` with a generated bearer, starts Vite on `:1420`, and
+  prints `http://localhost:1420/__dev-connect`. Open that URL with the
+  chrome-devtools MCP (`new_page` / `navigate_page`). The dev-server-only route
+  seeds the core URL and bearer into `localStorage`, so you never paste
+  `OPENHUMAN_CORE_TOKEN` yourself.
+- Sign-in takes one click on a provider button. The browser build passes
+  `<origin>/__dev-auth` as the backend `redirectUri` (http loopback URIs are
+  accepted), and that route redirects the returned token to the `#/auth`
+  callback. The session lives in the core workspace, so later runs start
+  signed in. Both routes are in `devConnectPlugin` (`app/vite.config.ts`) and
+  answer only loopback callers.
+- Inspect with `take_snapshot`, `list_console_messages`,
+  `list_network_requests` (check the `/rpc` calls), `evaluate_script`, and
+  `take_screenshot`.
+- Env settings: `OPENHUMAN_DEV_PORT`, `OPENHUMAN_CORE_PORT`, `OPENHUMAN_CORE_TOKEN`,
+  `OPENHUMAN_WORKSPACE` (point it at a scratch dir for a clean profile).
+
 Long CI build or test commands must run through
 `scripts/ci-cancel-aware.sh`. Do not export `CARGO_TARGET_DIR`; the repository
 already configures shared build output where appropriate.
@@ -163,19 +185,39 @@ guessing from logs.
 - Rust configuration is defined under
   `crates/openhuman-core/src/config/schema/` and loaded through its config operations.
 
-The autonomy policy is security-sensitive:
+The autonomy policy is **off by default** (`[autonomy] enabled = false`,
+`config/schema/autonomy.rs`). Agents here run inside containers, platform jails
+and Docker sandboxes that already provide the isolation this in-process policy
+was approximating, and a shell tool that refuses ordinary shell syntax is not a
+usable shell. `SecurityPolicy::from_config` carries the flag; every enforcement
+entry point short-circuits on it.
 
-- `action_dir` is the agent's permitted read and write root.
+With the policy **disabled** (the default):
+
+- Command classification, the approval gate, the command allowlist and the
+  hourly action budget are all inert.
+- `workspace_only`, `forbidden_paths` and the workspace-internal boundary are
+  not enforced.
+- `is_always_forbidden` still is: credential stores (`~/.ssh`, `~/.gnupg`,
+  `~/.aws`) and system roots stay unreachable. So do `..` traversal and null
+  bytes in a path. Keep that floor.
+
+With `[autonomy] enabled = true`:
+
+- `action_dir` is the agent's permitted read and write root — and is granted as
+  a `ReadWrite` trusted root by `from_config`, so changing the working folder
+  does not cost the agent write access to it.
 - `workspace_dir` stores internal state and is never an acting-tool target.
 - Unknown commands classify as writes.
-- System and credential paths are always forbidden.
-- The approval gate is on by default. Interactive requests expire as denied
-  after ten minutes.
-- Sandboxed agents use the platform jail or Docker backend. Rust path checks
-  still apply if the sandbox falls back.
+- The approval gate prompts on non-read classes. Interactive requests expire as
+  denied after ten minutes.
 
-Do not weaken `is_workspace_internal_path`, `is_always_forbidden`,
-`classify_command`, or approval behavior to make a feature work.
+Either way, sandboxed agents use the platform jail or Docker backend, and the
+Rust path checks still apply if the sandbox falls back.
+
+A quoted heredoc body (`<< 'EOF' … EOF`) is **data**, not shell:
+`strip_quoted_heredoc_bodies` blanks it before any structural scan. An unquoted
+delimiter (`<< EOF`) is still expanded and still scanned.
 
 ## Frontend
 

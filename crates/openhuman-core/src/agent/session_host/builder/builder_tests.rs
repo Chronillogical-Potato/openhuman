@@ -48,6 +48,8 @@ fn builtin_def(id: &str) -> crate::agent::harness::definition::AgentDefinition {
 mod explicit_definition_tests;
 #[path = "builder_tests_memory_write_instruction_tests.rs"]
 mod memory_write_instruction_tests;
+#[path = "builder_tests_session_definition_tests.rs"]
+mod session_definition_tests;
 #[path = "builder_tests_tool_exposure_tests.rs"]
 mod tool_exposure_tests;
 #[path = "builder_tests_tool_spec_views_tests.rs"]
@@ -390,4 +392,47 @@ fn is_empty_tool_scope_distinguishes_the_three_states() {
         .into_iter()
         .collect();
     assert!(!is_empty_tool_scope(&mixed));
+}
+
+#[tokio::test]
+async fn a_summarized_agent_sees_the_recovery_tool_with_compaction_off() {
+    // A summary's footer names `tinyjuice_retrieve`, and summaries run with
+    // the compaction router off (the default). The orchestrator is the agent
+    // that gets them, so it must see the tool whatever the router says.
+    use crate::agent::session_host::types::OpenHumanSessionHost;
+    use crate::inference::tokenjuice::RETRIEVE_TOOL_NAME;
+
+    let _ = crate::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.context.compaction_enabled = false;
+    assert!(super::summarizes_tool_output("orchestrator", &config));
+    let agent = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+        .expect("orchestrator is a shipped agent definition");
+    let visible = agent.visible_tool_names_for_test();
+    assert!(
+        visible.is_empty() || visible.contains(RETRIEVE_TOOL_NAME),
+        "the orchestrator's summaries point at a tool it must be able to call"
+    );
+}
+
+#[test]
+fn the_recovery_tool_joins_a_belt_only_when_something_can_point_at_it() {
+    use crate::inference::tokenjuice::RETRIEVE_TOOL_NAME;
+    let belt = || std::collections::HashSet::from(["web_fetch".to_string()]);
+
+    let mut unused = belt();
+    super::ensure_recovery_tool_visible(&mut unused, false);
+    assert!(!unused.contains(RETRIEVE_TOOL_NAME));
+
+    let mut needed = belt();
+    super::ensure_recovery_tool_visible(&mut needed, true);
+    assert!(needed.contains(RETRIEVE_TOOL_NAME));
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    assert!(!super::summarizes_tool_output("researcher", &config));
+    config.context.summarizer_payload_threshold_tokens = 0;
+    assert!(!super::summarizes_tool_output("orchestrator", &config));
 }

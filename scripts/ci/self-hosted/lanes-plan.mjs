@@ -82,10 +82,17 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     );
   }
   const rust = areas.rustCore || areas.rustTauri;
+  // ex63: the slot's persistent /cache disk keeps the frontend tools' caches
+  // (tsc build info, eslint and prettier caches) from job to job. All three
+  // key on file content, so a stale entry can only cost a re-check.
+  const nodeCache = ex63 ? "${CI_CACHE_DIR:-/cache}/node-tools" : null;
   const core = areas.rustCore;
 
   // ex63: one throwaway target dir per lane so lanes never queue on cargo's
-  // build-dir lock; sccache (on the capped /cache disk) warms the deps.
+  // build-dir lock; sccache warms the build from the host's shared, capped
+  // store (or the slot's /cache disk when the store is down). sccache keys
+  // include the target dir, so a lane shares with the same lane of every
+  // earlier job on any VM, not with the other lanes.
   // hosted: cargo's default target dirs, which Swatinem/rust-cache restores.
   const targetDir = (lane) => (ex63 ? `${scratch}/target/${lane}` : null);
   const sccache = ex63 ? { RUSTC_WRAPPER: "sccache" } : {};
@@ -93,14 +100,17 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     CARGO_INCREMENTAL: "0",
     RUSTFLAGS: "-C link-arg=-fuse-ld=mold",
   };
-  // Instrumented builds: no sccache (cargo-llvm-cov owns the wrapper and
-  // RUSTFLAGS, exactly as in ci-lite), no DWARF, a large test stack, and on
-  // hosted the serialized build ci-lite needs to fit the runner's disk.
+  // Instrumented builds: no DWARF, a large test stack, and on hosted the
+  // serialized build ci-lite needs to fit the runner's disk. On ex63 they go
+  // through sccache too: cargo-llvm-cov chains an existing RUSTC_WRAPPER in
+  // both its wrapper and RUSTFLAGS modes, and cache hits give byte-identical
+  // lcov (checked with cargo-llvm-cov 0.8 and sccache 0.10). Hosted keeps
+  // ci-lite's wrapper-free setup.
   const covEnv = {
     ...rustEnv,
     CARGO_PROFILE_DEV_DEBUG: "0",
     RUST_MIN_STACK: "67108864",
-    ...(ex63 ? {} : { CARGO_BUILD_JOBS: "1" }),
+    ...(ex63 ? sccache : { CARGO_BUILD_JOBS: "1" }),
   };
   const modulesDir = ex63
     ? `${scratch}/test-modules`
@@ -109,19 +119,19 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
   const withModules = (cmd) =>
     `set -a && . ${modulesEnvFile} && set +a && ${cmd}`;
 
-  // Non-instrumented, but needs the downloaded modules. On ex63 it rides the
-  // lint lane's graph instead of lengthening the coverage critical path; on
-  // hosted it stays in the coverage job beside the modules, as in ci-lite.
-  const juiceRegression = {
-    name: "tinyjuice-host-regression",
-    when: core,
-    needs: [ex63 ? "rust-cov:test-modules" : "test-modules"],
-    run: withModules(
-      "cargo test --lib --features modules" +
-        " openhuman::agent::tinyagents::middleware::tests::tool_output_tabulates_a_large_graph_for_a_non_exempt_tool" +
-        " -- --ignored --exact",
-    ),
-  };
+  // Not run on pull requests: the core doctests (an uninstrumented core build
+  // of their own), openhuman-tui's coverage (a core build with default
+  // features, just for it) and the TinyJuice host-module regression (one test
+  // against the downloaded module). CI Lite runs all three on every push to
+  // `main` that touches the Rust core (rust-coverage.sh and its
+  // rust-core-coverage job).
+  //
+  // Also left to those pushes, as duplicates of what runs here:
+  //  - `cargo test -p openhuman-embed` / `-p openhuman-tinyhumans` (default
+  //    features): rust-core-coverage already runs both crates' tests, with the
+  //    product features;
+  //  - `cargo check -p openhuman --no-default-features`: embed-check-no-default
+  //    builds the core with exactly that feature set (none) as its dependency.
 
   /** @type {Lane[]} */
   const lanes = [
@@ -200,19 +210,31 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "tsc",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app compile",
+          run: ex63
+            ? `mkdir -p ${nodeCache}/tsc && pnpm --filter openhuman-app compile --tsBuildInfoFile ${nodeCache}/tsc/app.tsbuildinfo`
+            : "pnpm --filter openhuman-app compile",
         },
         {
           name: "prettier",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app format:check",
+          // ex63: ci-lite's `format:check` is prettier plus rust:format:check;
+          // the static lane's rust-fmt already checks the root workspace, so
+          // only the (non-member) Tauri crate's rustfmt check stays here.
+          run: ex63
+            ? `pnpm --filter openhuman-app format:check:prettier --cache --cache-strategy content --cache-location ${nodeCache}/prettier-cache` +
+              " && cargo fmt --manifest-path crates/openhuman-app/Cargo.toml --all --check"
+            : "pnpm --filter openhuman-app format:check",
         },
         {
           name: "eslint",
           when: areas.frontend,
           needs: ["pnpm-install"],
-          run: "pnpm --filter openhuman-app lint",
+          // `lint` already passes --cache; these point it at the persistent
+          // disk and key it on content (a fresh checkout resets every mtime).
+          run: ex63
+            ? `mkdir -p ${nodeCache}/eslint && pnpm --filter openhuman-app lint --cache-strategy content --cache-location ${nodeCache}/eslint/`
+            : "pnpm --filter openhuman-app lint",
         },
         {
           name: "i18n",
@@ -237,7 +259,11 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     {
       // Split from `frontend` so the long vitest run overlaps the lint checks.
       name: "frontend-tests",
-      env: { NODE_ENV: "test", VITEST_MAX_WORKERS: ex63 ? "8" : "3" },
+      env: {
+        NODE_ENV: "test",
+        VITEST_MAX_WORKERS: ex63 ? "8" : "3",
+        ...(ex63 ? { VITEST_POOL: "threads" } : {}),
+      },
       checks: [
         {
           name: "vitest-coverage",
@@ -255,6 +281,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       // First among the Rust lanes: it is the long pole, and rust-lint waits
       // on its test-modules check.
       name: "rust-cov",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 0,
       targetDir: targetDir("cov"),
       env: covEnv,
       checks: [
@@ -274,14 +303,24 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "rust-core-coverage",
           when: core,
           needs: ["test-modules"],
-          env: { OUT: "ci-out/lcov/lcov-core.info" },
+          // Doctests and tui coverage run on pushes to main instead (see above).
+          // ex63: the core's unit tests run under cargo-nextest, one process
+          // per test and in parallel (the guest image ships cargo-nextest).
+          env: {
+            OUT: "ci-out/lcov/lcov-core.info",
+            OH_COV_DOCTESTS: "0",
+            OH_COV_TUI: "0",
+            ...(ex63 ? { OH_COV_RUNNER: "nextest" } : {}),
+          },
           run: withModules("bash scripts/ci/rust-coverage.sh"),
         },
-        ...(ex63 ? [] : [juiceRegression]),
       ],
     },
     {
       name: "rust-lint",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("lint"),
       env: { ...rustEnv, ...sccache },
       checks: [
@@ -291,11 +330,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           when: core,
           run: `cargo clippy -p openhuman --features ${PRODUCT} -- -D warnings`,
         },
-        {
-          name: "clippy-default",
-          when: core,
-          run: "cargo clippy -p openhuman -- -D warnings",
-        },
+        // No separate `cargo clippy -p openhuman` (contributor set): clippy
+        // lints every workspace crate in the graph, and openhuman-embed's
+        // default features are exactly the core's, so embed-clippy already
+        // lints the core's library with them under -D warnings.
         {
           name: "embed-clippy",
           when: core,
@@ -307,50 +345,20 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "cargo check -p openhuman-embed --no-default-features",
         },
         {
-          name: "embed-test",
-          when: core,
-          run: "cargo test -p openhuman-embed",
-        },
-        {
           name: "tinyhumans-clippy",
           when: core,
           run: "cargo clippy -p openhuman-tinyhumans --all-targets -- -D warnings",
-        },
-        {
-          name: "tinyhumans-test",
-          when: core,
-          run: "cargo test -p openhuman-tinyhumans",
-        },
-        {
-          name: "prompt-budget",
-          when: core,
-          run: "bash scripts/check-prompt-budget.sh --verbose",
-        },
-        ...(ex63 ? [juiceRegression] : []),
-        // Report-only in ci-lite (never in the gate), so report-only here.
-        {
-          name: "rss-bench-fixture-tests",
-          when: core,
-          reportOnly: true,
-          run: "cargo test --features rss-bench --bin rss-bench",
         },
       ],
     },
     {
       name: "rust-gates-off",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 1,
       targetDir: targetDir("gatesoff"),
       env: { ...rustEnv, ...sccache, RUST_MIN_STACK: "67108864" },
       checks: [
-        {
-          name: "check-gates-off",
-          when: rust,
-          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
-        },
-        {
-          name: "check-e2e-test-support",
-          when: rust,
-          run: "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support",
-        },
         {
           name: "gate-contract-tests",
           when: rust,
@@ -361,17 +369,20 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::",
         },
         {
-          name: "gate-contract-tests-mcp",
-          when: rust,
-          run: "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features mcp --lib -- mcp::server::resources::",
-        },
-        {
-          // Scoped to `introspect::` on purpose; see ci-lite.yml for the hole.
-          name: "gate-contract-tests-e2e-support",
+          // One core build for both feature-gated suites: `mcp` and
+          // `e2e-test-support` gate disjoint code (mcp::server::resources
+          // does not touch test_support, and vice versa), so each suite sees
+          // the same code it would under its feature alone. Separately they
+          // were two full core test builds. The introspect filter is scoped
+          // on purpose; see ci-lite.yml for the hole. The `cargo check` of
+          // the e2e-test-support set runs on pushes to main (CI Lite): this
+          // build already compiles that set, under cfg(test).
+          name: "gate-contract-tests-features",
           when: rust,
           run:
-            "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --features e2e-test-support --lib --" +
-            " test_support::introspect::",
+            "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features" +
+            " --features mcp,e2e-test-support --lib --" +
+            " mcp::server::resources:: test_support::introspect::",
         },
         {
           name: "kernel-floor",
@@ -387,6 +398,9 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     },
     {
       name: "tauri",
+      // Compiles the core crate: holds one of the VM's heavy-compile slots
+      // (lanes.mjs). Lower number = served first.
+      heavy: 2,
       targetDir: targetDir("tauri"),
       env: { ...rustEnv },
       checks: [
@@ -397,13 +411,14 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           run: "cargo clippy --manifest-path crates/openhuman-app/Cargo.toml -- -D warnings",
         },
         {
-          // llvm-cov's RUSTFLAGS mode, with the linker flag cleared, exactly as
-          // ci-lite: a rustc wrapper would silently drop .profraw output.
+          // llvm-cov's RUSTFLAGS mode with the linker flag cleared, as in
+          // ci-lite. ci-lite also clears RUSTC_WRAPPER because its container
+          // config installs sccache; on ex63 covEnv sets sccache on purpose.
           name: "tauri-coverage",
           when: areas.rustTauri,
           env: { ...covEnv },
           run:
-            "unset RUSTFLAGS RUSTC_WRAPPER" +
+            (ex63 ? "unset RUSTFLAGS" : "unset RUSTFLAGS RUSTC_WRAPPER") +
             " && cargo llvm-cov clean --manifest-path crates/openhuman-app/Cargo.toml" +
             " && cargo llvm-cov --no-rustc-wrapper --manifest-path crates/openhuman-app/Cargo.toml" +
             " --lcov --output-path ci-out/lcov/lcov-tauri.info",
@@ -421,27 +436,6 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       ],
     },
   ];
-
-  if (ex63) {
-    // Report-only: ci-lite never gates on it. The release build is the most
-    // expensive compile here, so it yields the CPU to the gating lanes.
-    lanes.push({
-      name: "bench",
-      targetDir: targetDir("bench"),
-      env: { ...rustEnv, ...sccache },
-      nice: 10,
-      checks: [
-        {
-          name: "rss-bench",
-          when: core,
-          reportOnly: true,
-          run:
-            "cargo build --release --features rss-bench --bin rss-bench" +
-            ` && "${targetDir("bench")}/release/rss-bench" --out ci-out/bench-rss.json`,
-        },
-      ],
-    });
-  }
 
   for (const lane of lanes) {
     lane.checks = lane.checks.map((c) => ({
@@ -517,5 +511,7 @@ export function validatePlan(plan) {
  * @property {string|null} [targetDir]  CARGO_TARGET_DIR for this lane
  * @property {object} [env]
  * @property {number} [nice]
+ * @property {number} [heavy]  compiles the core crate; priority for a
+ *   heavy-compile slot (lower first). Absent for light lanes.
  * @property {boolean} active
  */

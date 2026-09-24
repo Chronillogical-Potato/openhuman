@@ -7,6 +7,9 @@ use crate::threads::turn_state::types::{
 };
 use tempfile::tempdir;
 
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
+
 fn sample_state(thread_id: &str) -> TurnState {
     TurnState::started(thread_id.to_string(), "req-1", 25, "2026-05-04T10:00:00Z")
 }
@@ -51,6 +54,38 @@ fn put_then_get_roundtrips_state() {
     store.put(&state).expect("put");
     let loaded = store.get("thread-abc").expect("get").expect("present");
     assert_eq!(loaded, state);
+}
+
+#[cfg(windows)]
+#[test]
+fn put_roundtrips_snapshot_with_a_path_longer_than_max_path() {
+    let dir = tempdir().expect("tempdir");
+    let mut workspace = dir.path().to_path_buf();
+    let thread_id = "t".repeat(43);
+    let request_id = "r".repeat(36);
+    while workspace
+        .join("memory")
+        .join("conversations")
+        .join("turn_states")
+        .join(hex::encode(&thread_id))
+        .join(format!("{}.json", hex::encode(&request_id)))
+        .as_os_str()
+        .encode_wide()
+        .count()
+        <= 260
+    {
+        workspace.push("long_workspace_segment");
+    }
+    let mut state = turn(&thread_id, &request_id, "2026-05-04T10:00:00Z");
+    let store = TurnStateStore::new(workspace);
+
+    store.put(&state).expect("persist a snapshot past MAX_PATH");
+    assert_eq!(store.get(&thread_id).expect("get"), Some(state));
+
+    // A regular progress flush replaces the same snapshot repeatedly.
+    state.iteration = 2;
+    store.put(&state).expect("replace snapshot past MAX_PATH");
+    assert_eq!(store.get(&thread_id).expect("get replacement"), Some(state));
 }
 
 #[test]

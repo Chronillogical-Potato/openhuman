@@ -97,7 +97,9 @@ impl Tool for WebFetchTool {
                 "raw": {
                     "type": "boolean",
                     "description": "Return the body as sent."
-                }
+                },
+                // Opts into a caller-steered summary; see `tokenjuice::focus`.
+                "summary_focus": crate::inference::tokenjuice::focus::summary_focus_property()
             },
             "required": ["url"]
         })

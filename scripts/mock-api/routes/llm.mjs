@@ -405,7 +405,15 @@ async function streamScriptToResponse({ res, model, script, defaultDelayMs }) {
     if (delay > 0) await sleepDelay(delay);
 
     if (entry.error) {
-      writeSseEvent(res, { error: { message: String(entry.error) } });
+      // Keep string shorthand for existing scripts, while allowing tests to
+      // model a provider's structured error code. The latter is important for
+      // a non-retryable fault: a bare unknown message is intentionally
+      // classified as retryable by the inference client.
+      const error =
+        entry.error && typeof entry.error === "object"
+          ? entry.error
+          : { message: String(entry.error) };
+      writeSseEvent(res, { error });
       res.end();
       return;
     }

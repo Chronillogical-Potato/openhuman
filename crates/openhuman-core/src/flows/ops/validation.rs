@@ -101,8 +101,87 @@ pub(super) fn ensure_config_aware_engine_compatible(
 /// validation can surface many at once.
 pub(crate) fn migrate_and_deserialize_graph(graph_json: Value) -> Result<WorkflowGraph, String> {
     let migrated = tinyflows::migrate::migrate(graph_json).map_err(|e| e.to_string())?;
-    let graph: WorkflowGraph = serde_json::from_value(migrated).map_err(|e| e.to_string())?;
-    Ok(graph)
+    // `serde_json` errors carry no path, and `missing field `name`` on its own
+    // is unactionable here: every field of `WorkflowGraph` is
+    // `#[serde(default)]`, so the fault is always in a nested object -- and an
+    // agent that reads it as the top-level `name` it already set will retry
+    // unchanged until it exhausts its iteration cap.
+    serde_json::from_value::<WorkflowGraph>(migrated.clone())
+        .map_err(|e| locate_graph_error(&migrated, &e))
+}
+
+/// The `WorkflowGraph` fields whose elements carry their own required fields.
+const ELEMENT_ARRAYS: &[&str] = &["nodes", "inputs", "agents", "edges"];
+
+/// Names the element a graph-level deserialization error came from.
+///
+/// Re-deserializes each member of the arrays that carry required fields and
+/// reports the first that fails on its own, as `nodes[1]: <serde error>`. None
+/// of these types use `deny_unknown_fields`, so an element that parses in
+/// isolation is one the graph-level parse accepted too, and a failure found
+/// here is the real fault rather than an artefact of checking it alone.
+///
+/// Runs only on the error path, and falls back to the bare message when the
+/// fault is not in a single element -- a wrong type for `nodes` itself, say.
+fn locate_graph_error(migrated: &Value, err: &serde_json::Error) -> String {
+    // Re-parse with the element arrays emptied. If that still fails, the fault
+    // is in the graph's own fields -- a non-string `name`, say -- and scanning
+    // members would pin it on the first member that happens to be invalid too,
+    // which is a confident wrong answer rather than a vague right one.
+    let mut skeleton = migrated.clone();
+    if let Some(fields) = skeleton.as_object_mut() {
+        for field in ELEMENT_ARRAYS {
+            if let Some(slot) = fields.get_mut(*field) {
+                *slot = Value::Array(Vec::new());
+            }
+        }
+    }
+    if serde_json::from_value::<WorkflowGraph>(skeleton).is_err() {
+        return locate_top_level_error(migrated, err);
+    }
+
+    macro_rules! locate {
+        ($field:literal, $ty:ty) => {
+            if let Some(items) = migrated.get($field).and_then(Value::as_array) {
+                for (index, item) in items.iter().enumerate() {
+                    if let Err(inner) = serde_json::from_value::<$ty>(item.clone()) {
+                        return format!("{}[{}]: {}", $field, index, inner);
+                    }
+                }
+            }
+        };
+    }
+
+    locate!("nodes", tinyflows::model::Node);
+    locate!("inputs", tinyflows::model::WorkflowInput);
+    locate!("agents", tinyflows::model::AgentDefinition);
+    locate!("edges", tinyflows::model::Edge);
+
+    err.to_string()
+}
+
+/// Names the graph's own field when the fault is at the top level.
+///
+/// `serde_json` reports a type mismatch as `invalid type: integer \`123\`,
+/// expected a string` with **no field name** -- the same unactionable shape as
+/// the missing-field case this helper exists to fix, so it gets the same
+/// treatment.
+///
+/// Every `WorkflowGraph` field is `#[serde(default)]`, so an object carrying a
+/// single field parses if and only if that field is valid. Probing one key at a
+/// time therefore names the offender without a hardcoded field list. Unknown
+/// keys parse (no `deny_unknown_fields`) and are skipped.
+fn locate_top_level_error(migrated: &Value, err: &serde_json::Error) -> String {
+    if let Some(fields) = migrated.as_object() {
+        for (key, value) in fields {
+            let probe = Value::Object([(key.clone(), value.clone())].into_iter().collect());
+            if let Err(inner) = serde_json::from_value::<WorkflowGraph>(probe) {
+                return format!("{key}: {inner}");
+            }
+        }
+    }
+
+    err.to_string()
 }
 
 /// Maps a portable `tinyflows` [`ValidationError`](tinyflows::error::ValidationError)

@@ -44,10 +44,12 @@ import { fileURLToPath } from "node:url";
 
 import { SCENARIOS, scenarioById } from "./scenarios.mjs";
 import { startMockComposio } from "./mock-composio.mjs";
+import { startMockSearch, DEFAULT_INDEX_PATH } from "./mock-search.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
 const FIXTURES = path.join(HERE, "fixtures");
+const SUPPORTED_AGENT_IDS = new Set(["life_scenarios", "orchestrator"]);
 
 // ---------------------------------------------------------------------------
 // args
@@ -59,9 +61,15 @@ function parseArgs(argv) {
     // `desktop` = channel_web_chat + SSE, exactly what the composer does.
     // `rpc`     = inference_agent_chat, the only path with `cwd`/`agent_id`.
     driver: "desktop",
-    // Empty = the orchestrator, which is what the app uses. A named agent only
-    // takes effect on the `rpc` driver.
-    agentId: "",
+    // The suite's benchmark agent (scripts/life-scenarios/agent-life-scenarios.toml):
+    // 40 iterations and the named tool belt these multi-step scenarios need.
+    // `--agent orchestrator` runs the unmodified shipping agent for comparison,
+    // capped at the 15 iterations its own definition declares.
+    //
+    // This now takes effect on BOTH drivers: the rpc path passes it per call,
+    // the desktop path gets it through `[agent] chat_agent_id` in the generated
+    // config.
+    agentId: "life_scenarios",
     model: process.env.LIFE_SCENARIO_MODEL || "deepseek/deepseek-v4.1-flash",
     inferenceUrl:
       process.env.LIFE_SCENARIO_INFERENCE_URL || "https://openrouter.ai/api/v1",
@@ -69,6 +77,8 @@ function parseArgs(argv) {
     managed: false,
     mockComposio: true,
     composioPort: 0,
+    mockSearch: true,
+    searchPort: 0,
     repeat: 1,
     turnTimeoutMs: 900_000,
     coreBin:
@@ -93,12 +103,26 @@ function parseArgs(argv) {
     if (a === "--only")
       o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
     else if (a === "--driver") o.driver = next();
-    else if (a === "--agent") o.agentId = next();
+    else if (a === "--agent") {
+      const agentId = next();
+      if (!/^[A-Za-z0-9_-]+$/.test(agentId)) {
+        throw new Error(
+          "--agent must contain only ASCII letters, digits, '_' or '-'",
+        );
+      }
+      if (!SUPPORTED_AGENT_IDS.has(agentId)) {
+        throw new Error(
+          `--agent must be one of: ${[...SUPPORTED_AGENT_IDS].join(", ")}`,
+        );
+      }
+      o.agentId = agentId;
+    }
     else if (a === "--model") o.model = next();
     else if (a === "--inference-url") o.inferenceUrl = next();
     else if (a === "--api-key") o.apiKey = next();
     else if (a === "--managed") o.managed = true;
     else if (a === "--no-mock-composio") o.mockComposio = false;
+    else if (a === "--no-mock-search") o.mockSearch = false;
     else if (a === "--no-approvals") o.approvals = false;
     else if (a === "--repeat") o.repeat = Number(next());
     else if (a === "--turn-timeout-ms") o.turnTimeoutMs = Number(next());
@@ -211,7 +235,7 @@ function mintLocalSessionToken(userId) {
  * to have, and a benchmark that silently inherits those measures the machine
  * rather than the harness.
  */
-async function prepareHome(runDir) {
+async function prepareHome(runDir, opts, { searchBase } = {}) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
@@ -219,17 +243,41 @@ async function prepareHome(runDir) {
 
   const config = [
     "schema_version = 13",
-    'api_url = "https://api.tinyhumans.ai"',
+    // The backend base every non-inference call resolves through
+    // (`api::config::effective_backend_api_url`). Pointed at the local mock so
+    // `web_search_tool` has something to talk to: it posts to
+    // `/agent-integrations/parallel/search` on this base, and against the
+    // hosted backend this run's offline token is rejected 401 every time.
+    // See also BACKEND_URL in `Core.start` — this file alone is not enough.
+    searchBase
+      ? `api_url = "${searchBase}"`
+      : 'api_url = "https://api.tinyhumans.ai"',
     "default_temperature = 0.7",
     "onboarding_completed = true",
     "chat_onboarding_completed = true",
     "",
     "[autonomy]",
-    // The shipped desktop default. The gate stays installed and an approval
-    // responder answers it, rather than the usual headless shortcut of
-    // turning it off — a disabled gate measures a product nobody runs.
+    // The shipped desktop default is `enabled = false`: the policy is opt-in,
+    // because the product's agents run in containers and jails that already
+    // bound them. Written explicitly rather than left to the default so a
+    // reader of this file can see which product is being measured, and so
+    // flipping it to `true` is a one-line comparison arm.
+    //
+    // With it off, `gate_decision` answers Allow for every class, so nothing
+    // parks and the ApprovalResponder below has little to answer. That is the
+    // measurement, not a shortcut: see README.md.
+    "enabled = false",
     'level = "supervised"',
     "workspace_only = false",
+    "",
+    // The web-chat path (`channel_web_chat`, the desktop driver below) has no
+    // per-call `agent_id` the way `inference_agent_chat` does, so this is how
+    // it is pointed at the suite's benchmark agent. Without it that path runs
+    // `orchestrator`, whose definition caps the turn at 15 iterations — and a
+    // definition cap OVERWRITES `[agent] max_tool_iterations` rather than being
+    // bounded by it, so no cap setting can substitute for choosing the agent.
+    "[agent]",
+    `chat_agent_id = "${opts.agentId}"`,
     "",
     "[observability]",
     "analytics_enabled = false",
@@ -250,14 +298,30 @@ async function prepareHome(runDir) {
   // root one, so the composio block has to exist in both.
   await fsp.writeFile(path.join(oh, "users", "local", "config.toml"), config);
 
-  // Only read by `--driver rpc --agent life_scenarios`; the desktop driver
-  // always runs the orchestrator, as the app does.
+  // Read by both drivers now: the rpc path names it per call, the desktop path
+  // selects it with `[agent] chat_agent_id` above. `--agent orchestrator` opts
+  // back into the unmodified shipping agent.
   await fsp.copyFile(
     path.join(HERE, "agent-life-scenarios.toml"),
     path.join(oh, "agents", "life_scenarios.toml"),
   );
 
   return home;
+}
+
+/** Retry `fn` until it stops throwing, then give up with the last error. */
+async function withRetries(fn, { attempts, delayMs, what }) {
+  let last;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await fn();
+      return;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw new Error(`${what} never settled after ${attempts} attempts: ${last?.message ?? last}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -277,7 +341,7 @@ class Core {
     return `http://127.0.0.1:${this.port}`;
   }
 
-  async start({ actionDir, logPath, home, composioBase, approvals }) {
+  async start({ actionDir, logPath, home, composioBase, searchBase, approvals }) {
     this.port = await freePort();
     const log = fs.createWriteStream(logPath, { flags: "a" });
 
@@ -291,19 +355,30 @@ class Core {
       OPENHUMAN_CORE_TOKEN: this.token,
       OPENHUMAN_CORE_PORT: String(this.port),
       OPENHUMAN_CORE_HOST: "127.0.0.1",
+      // Just this one now. It used to need OPENHUMAN_PROJECTS_DIR beside it:
+      // `action_dir` was only the base that relative tool paths are joined
+      // onto, and the *permission* to write came from a trusted root that
+      // `security/policy/enforcement.rs` granted for `default_projects_dir()`
+      // alone — so setting ACTION_DIR by itself got every file-tool write
+      // refused "Resolved path escapes workspace" (FINDINGS.md #1).
+      // `from_config` now grants the configured action dir itself, which is
+      // what this single variable proves end to end.
       OPENHUMAN_ACTION_DIR: actionDir,
-      // Both, and the second one is not redundant. `action_dir` is only the
-      // base that relative tool paths are joined onto; the *permission* to
-      // write comes from a trusted root, and `security/policy/enforcement.rs`
-      // grants one for `default_projects_dir()` — which reads
-      // OPENHUMAN_PROJECTS_DIR and knows nothing about OPENHUMAN_ACTION_DIR.
-      // Set ACTION_DIR alone and every file-tool write into it is refused with
-      // "Resolved path escapes workspace". See FINDINGS.md #1.
-      OPENHUMAN_PROJECTS_DIR: actionDir,
       RUST_LOG: process.env.RUST_LOG || "info",
     };
     if (!approvals) env.OPENHUMAN_APPROVAL_GATE = "0";
     if (process.env.BACKEND_URL) env.BACKEND_URL = process.env.BACKEND_URL;
+    // The same backend base as `api_url` above, set again as an env var
+    // because the config file loses a race that is easy to miss:
+    // `auth.set_credential` activates a per-user config dir
+    // (`users/<id>/config.toml`) whose id the core derives at runtime, and a
+    // config there takes precedence over the root one. `prepareHome` cannot
+    // know that id, so it writes `users/local/`; the core activates
+    // `users/local-dragonfly/`, finds no `api_url` and falls back to the
+    // hosted backend. `api_base_from_env` reads BACKEND_URL ahead of the
+    // compile-time default whichever config wins, so this is the override
+    // that actually holds.
+    if (searchBase) env.BACKEND_URL = searchBase;
     if (composioBase) {
       // Both are read by `integrations/composio/client/factory.rs`; the match
       // arm is `(Some, Some)`, so setting only one silently falls through to
@@ -922,7 +997,21 @@ async function main() {
   console.log(`run dir : ${runDir}`);
   console.log(`driver  : ${opts.driver}${opts.agentId ? ` agent=${opts.agentId}` : " agent=orchestrator"}`);
 
-  const home = await prepareHome(runDir);
+  let search = null;
+  if (opts.mockSearch) {
+    search = await startMockSearch({
+      indexPath: DEFAULT_INDEX_PATH,
+      requestsPath: path.join(runDir, "search-requests.json"),
+      port: opts.searchPort,
+    });
+    console.log(
+      `search  : mock at ${search.url} (${search.ctx.documents.length} documents)`,
+    );
+  }
+
+  const home = await prepareHome(runDir, opts, {
+    searchBase: search ? search.url : "",
+  });
 
   let composio = null;
   if (opts.mockComposio) {
@@ -942,6 +1031,7 @@ async function main() {
     logPath: path.join(runDir, "core.log"),
     home,
     composioBase: composio ? composio.url : "",
+    searchBase: search ? search.url : "",
     approvals: opts.approvals,
   });
   console.log(`core    : ${core.url} (pid ${health.pid}, healthy=${health.healthy})`);
@@ -970,12 +1060,65 @@ async function main() {
     // endpoint there; the caller had to hand-build a provider entry and pin
     // four roles. That this short form now routes is the end-to-end check on
     // that fix.
-    await core.rpc("openhuman.config_update_model_settings", {
-      inference_url: opts.inferenceUrl,
-      api_key: opts.apiKey,
-      default_model: opts.model,
-    });
+    //
+    // Written in a loop, and read back, because of a startup race: the write
+    // lands in whichever config is active *now*, and `auth_set_credential`
+    // above activates a per-user dir (`users/<id>/config.toml`) a moment
+    // later, whose config then takes precedence and carries no BYOK route.
+    // Lose that race and every scenario dies in under a second with
+    // `provider=openhuman ... 401 Invalid token` — which reads like a broken
+    // harness and is really a config that arrived too early. Observed doing
+    // exactly that: one run green, the next 0/9 on the same binary.
+    await withRetries(
+      async () => {
+        await core.rpc("openhuman.config_update_model_settings", {
+          inference_url: opts.inferenceUrl,
+          api_key: opts.apiKey,
+          default_model: opts.model,
+        });
+        // `config.get` wraps the config under `config` (see
+        // `snapshot_config_json`), and the RPC envelope may wrap that again.
+        const snap = await core.rpc("openhuman.config_get", {});
+        const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
+        const providers = cfg.cloud_providers ?? [];
+        const routed =
+          cfg.inference_url === opts.inferenceUrl &&
+          providers.some((p) => p?.endpoint === opts.inferenceUrl);
+        if (!routed)
+          throw new Error(
+            `BYOK route not in the active config yet (inference_url=${cfg.inference_url ?? "unset"}, ` +
+              `${providers.length} cloud_providers)`,
+          );
+      },
+      { attempts: 10, delayMs: 500, what: "BYOK route" },
+    );
   }
+
+  // The web-chat driver has no per-call `agent_id`, so the agent is chosen by
+  // `[agent] chat_agent_id`. Set it through the running core rather than by
+  // pre-writing the file, for exactly the reason the BYOK block above gives:
+  // `prepareHome` writes `users/local/config.toml`, but the active user dir is
+  // minted at boot (`users/local-dragonfly/...`) and its config wins. The
+  // pre-written value is read by nothing, and the turn silently runs the
+  // orchestrator at its own 15-iteration cap — which looks like the benchmark
+  // agent failing when it never ran at all.
+  const chatAgentId = opts.agentId.trim() || null;
+  await withRetries(
+    async () => {
+      await core.rpc("openhuman.config_update_agent_settings", {
+        chat_agent_id: opts.agentId,
+      });
+      const snap = await core.rpc("openhuman.config_get", {});
+      const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
+      const got = cfg.agent?.chat_agent_id ?? null;
+      if (got !== chatAgentId)
+        throw new Error(
+          `chat_agent_id not in the active config yet (want ${chatAgentId ?? "unset"}, got ${got ?? "unset"})`,
+        );
+    },
+    { attempts: 10, delayMs: 500, what: "chat_agent_id" },
+  );
+
   console.log(
     `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
   );
@@ -1038,6 +1181,10 @@ async function main() {
       );
       await composio.close();
     }
+    // `close` flushes the search log itself, so the record survives a run that
+    // failed partway: it is the only evidence of what discovery returned, and
+    // a post-mortem needs it most on the runs that went wrong.
+    if (search) await search.close();
   }
 
   printReport(results);

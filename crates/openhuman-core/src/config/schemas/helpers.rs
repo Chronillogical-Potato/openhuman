@@ -189,6 +189,12 @@ pub(super) struct ComposioTriggerSettingsUpdate {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct AutonomySettingsUpdate {
+    /// Master switch for the whole autonomy policy. Defaults to `false`
+    /// (`AutonomyConfig::enabled`): with it off, classification, the approval
+    /// gate, the allowlist, the action budget and containment are all inert,
+    /// and every other field in this patch has no effect until it is `true`.
+    /// `is_always_forbidden` applies either way.
+    pub(super) enabled: Option<bool>,
     /// `"readonly" | "supervised" | "full"` (case-insensitive).
     pub(super) level: Option<String>,
     pub(super) workspace_only: Option<bool>,
@@ -222,6 +228,10 @@ pub(super) struct PrivacyModeUpdate {
 pub(super) struct AgentSettingsUpdate {
     /// Tool/action wall-clock timeout in seconds (1–3600). Validated server-side.
     pub(super) agent_timeout_secs: Option<u64>,
+    /// Agent id the web-chat path routes turns to. Empty string clears the
+    /// override (back to the orchestrator); omitted leaves it unchanged.
+    #[serde(default)]
+    pub(super) chat_agent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

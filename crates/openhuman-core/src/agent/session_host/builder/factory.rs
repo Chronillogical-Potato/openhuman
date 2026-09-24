@@ -23,6 +23,14 @@ use tinytools_agent::dialect::{
 };
 
 impl OpenHumanSessionHost {
+    /// Returns whether `agent_id` resolves to a runnable definition for this
+    /// configuration. This is deliberately the same resolution path used by
+    /// [`Self::from_config_for_agent`], so configuration writers cannot save
+    /// a web-chat route that the session factory would later reject.
+    pub(crate) fn is_runnable_agent_id(config: &Config, agent_id: &str) -> bool {
+        resolve_target_definition(config, agent_id).is_ok()
+    }
+
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
     ///
     /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] that always
@@ -759,7 +767,12 @@ impl OpenHumanSessionHost {
         // (e.g. the orchestrator's curated list). An empty set already means
         // "no filter", so it needs nothing. Added BEFORE the disallow filter
         // below so an agent that explicitly disallows it still has it removed.
-        super::ensure_recovery_tool_visible(&mut visible, config.context.compaction_enabled);
+        // A summary names the tool in its footer too, and summaries run with
+        // the router off, so either one makes the tool necessary.
+        super::ensure_recovery_tool_visible(
+            &mut visible,
+            config.context.compaction_enabled || super::summarizes_tool_output(agent_id, config),
+        );
 
         if let Some(def) = target_def {
             if !def.disallowed_tools.is_empty() {
@@ -906,17 +919,16 @@ impl OpenHumanSessionHost {
         //
         // Issue #574 — when a tool returns a huge payload (Composio
         // dump, long file read, web scrape), it should be compressed
-        // by a dedicated `summarizer` sub-agent before entering the
-        // orchestrator's history. We resolve the summarizer agent
-        // definition from the global registry and construct a
-        // `SubagentPayloadSummarizer` parameterized from the
-        // [`ContextConfig`] thresholds. Every other agent id gets
+        // by TinyJuice's summary stage before entering the orchestrator's
+        // history. TinyJuice owns the prompt and the thresholds (installed
+        // from [`ContextConfig`]); the host supplies only the model call,
+        // through a `SubagentPayloadSummarizer` built from the `summarizer`
+        // agent definition. Every other agent id gets
         // `None` and their tool results stay untouched (the summarizer
         // itself MUST be `None` to avoid recursive self-summarization).
         let payload_summarizer: Option<
             std::sync::Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,
-        > = if agent_id == "orchestrator" && config.context.summarizer_payload_threshold_tokens > 0
-        {
+        > = if super::summarizes_tool_output(agent_id, config) {
             match crate::agent::harness::definition::AgentDefinitionRegistry::global() {
                 Some(reg) => match reg.get("summarizer") {
                     Some(summarizer_def) => {
@@ -929,8 +941,6 @@ impl OpenHumanSessionHost {
                         Some(std::sync::Arc::new(
                             crate::agent::tinyagents::payload_summarizer::SubagentPayloadSummarizer::new(
                                 summarizer_def.clone(),
-                                config.context.summarizer_payload_threshold_tokens,
-                                config.context.summarizer_max_payload_tokens,
                             ),
                         ))
                     }
