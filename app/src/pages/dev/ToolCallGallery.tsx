@@ -9,11 +9,14 @@
 import { BrainIcon, FileIcon, ListChecksIcon, SparklesIcon, WorkflowIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { AgentPlan } from '../../components/assistant-ui/elements/agent-plan';
+import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
 import {
   ComposerCommandItem,
   ComposerMenu,
   ComposerMenuItem,
 } from '../../components/assistant-ui/elements/composer';
+import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import {
   ConversationSearch,
   type SearchHit,

@@ -16,13 +16,13 @@
  * directive formatter — the syntax `DirectiveText` renders as a chip in the
  * sent message.
  */
+import type { Unstable_TriggerAdapter } from '@assistant-ui/core';
 import {
   type Unstable_IconComponent,
   type Unstable_Mention,
   unstable_useMentionAdapter,
   useAuiState,
 } from '@assistant-ui/react';
-import type { Unstable_TriggerAdapter } from '@assistant-ui/core';
 import debug from 'debug';
 import { AtSignIcon, BrainIcon, FileIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
