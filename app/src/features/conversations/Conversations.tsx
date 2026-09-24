@@ -2338,306 +2338,6 @@ const Conversations = ({
       </button>
     ) : null;
 
-  // Main chat area (right pane): header, message list, composer.
-  const legacyMainPanel = (
-    <div
-      className={
-        isSidebar
-          ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
-            'flex-1 flex flex-col min-w-0 bg-surface border-l border-line overflow-hidden'
-          : // Page variant: flush over the shell background. `relative` anchors
-            // the absolutely-positioned floating composer.
-            'relative flex-1 flex flex-col min-w-0'
-      }>
-      <ChatThreadView
-        ref={threadViewRef}
-        threadId={selectedThreadId ?? null}
-        variant={variant}
-        bottomPadding={!isSidebar ? composerFooterHeight + 16 : undefined}
-        isLoading={isLoadingMessages}
-        loadError={messagesError}
-        emptyContent={
-          isNewWindow ? (
-            <ChatNewWindowHero />
-          ) : (
-            <div className="flex-1 flex items-center justify-center h-full">
-              <p className="text-sm text-content-secondary">{t('chat.noMessages')}</p>
-            </div>
-          )
-        }
-        shareAgentName={shareAgentName}
-        scrollResetKey={location.pathname}
-        pendingSendActive={selectedThreadId ? pendingSendingThreadIds.has(selectedThreadId) : false}
-      />
-
-      {/* Full-width fade so messages dissolve into the page behind the floating
-          composer. Page variant only.
-
-          Fades to `surface` — the token the content card actually paints — not
-          a hardcoded white/black pair. Those matched only while the page was a
-          transparent window onto the app canvas (`--surface-canvas`, pure black
-          in dark); on the inset card (`--surface`, neutral-900) they fade to a
-          colour the card never reaches and leave a visible band. The token also
-          keeps this correct for custom themes, which the literals never were. */}
-      {!isSidebar && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-linear-to-t from-surface via-surface/90 to-transparent"
-        />
-      )}
-
-      <div
-        ref={composerFooterRef}
-        data-walkthrough="home-cta"
-        // Page variant: float at the bottom (absolute) over the fade; centered +
-        // width-capped to match the messages. `z-20` keeps it above messages
-        // that would otherwise paint over it while scrolling.
-        //
-        // Sidebar embed keeps the in-flow composer pinned at the bottom, but it
-        // must stay reachable when the panel is too short to hold the whole
-        // footer — it stacks the upsell/error banners + actionable error CTAs
-        // (e.g. the voice "Setup" link) + the composer (#3785). Rather than a
-        // percentage `max-height` (which does not reliably resolve inside a
-        // stretched flex item in Chromium), let the footer SHRINK: dropping
-        // `shrink-0` and adding `min-h-0 overflow-y-auto` makes the flex
-        // algorithm cap it to the available height (the basis-0 message list
-        // gives up its space first) and scroll internally instead of being
-        // clipped by the `overflow-hidden` mainPanel. On a tall window there is
-        // free space, so the footer keeps its natural height (composer pinned).
-        className={
-          isSidebar
-            ? 'mx-auto w-full max-w-195 min-h-0 overflow-y-auto px-4 py-3'
-            : 'absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-195 px-4 pb-4 pt-6'
-        }>
-        <>{/* Cycle usage pill moved into ChatComposer toolbar */}</>
-
-        {sendAdvisoryBanner}
-
-        {attachError && (
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
-              {attachError.message}
-            </p>
-            <button
-              type="button"
-              data-analytics-id="chat-attach-error-dismiss"
-              onClick={() => setAttachError(null)}
-              className="text-xs text-content-muted hover:text-content-secondary transition-colors ml-2">
-              {t('common.dismiss')}
-            </button>
-          </div>
-        )}
-
-        {sendErrorBanner}
-
-        {(() => {
-          // Surface a parked ApprovalGate request for the shown thread just
-          // above the composer, so it stays visible regardless of scroll.
-          const approvalThreadId = selectedThreadId ?? firstActiveThreadId;
-          const pendingApproval = approvalThreadId
-            ? pendingApprovalByThread[approvalThreadId]
-            : undefined;
-          if (!pendingApproval || !approvalThreadId) return null;
-          // `composio_connect` parks on the same gate but needs a Connect
-          // button + OAuth poll rather than approve/deny (#3993).
-          const isConnect = pendingApproval.toolName === 'composio_connect';
-          return (
-            <div className="mb-2">
-              {isConnect ? (
-                // Key by requestId so switching from one parked approval to
-                // another remounts the card with fresh local state (phase,
-                // field values, cancellation refs, poll timers) instead of
-                // bleeding the previous request's state in (#4062, coderabbit).
-                <IntegrationConnectCard
-                  key={pendingApproval.requestId}
-                  threadId={approvalThreadId}
-                  approval={pendingApproval}
-                />
-              ) : (
-                <ApprovalRequestCard
-                  key={pendingApproval.requestId}
-                  threadId={approvalThreadId}
-                  approval={pendingApproval}
-                />
-              )}
-            </div>
-          );
-        })()}
-
-        {flowApprovalDeck}
-
-        {unroutedApprovalDeck}
-
-        {liveArtifactDeck}
-
-        {agentGateCards}
-
-        {/* Cancel the in-flight turn for composer modes that don't render the
-            text ChatComposer (mic-cloud + voice). The text composer carries its
-            own in-box Stop button, so the footer control only appears for the
-            non-text branches — otherwise voice/mic flows would have no way to
-            stop a long-running generation. */}
-        {isSending && rustChat && (composer === 'mic-cloud' || inputMode !== 'text') && (
-          <div className="mb-2 flex justify-start px-1">
-            <button
-              type="button"
-              data-analytics-id="chat-cancel-generation"
-              onClick={handleStopGeneration}
-              className="text-xs text-content-muted transition-colors hover:text-content-secondary">
-              {t('common.cancel')}
-            </button>
-          </div>
-        )}
-
-        {composer === 'mic-cloud' ? (
-          // `relative` so the mascot dock (absolute, `bottom-full`) anchors here
-          // — this branch renders no ChatComposer to hang it off.
-          <div className="relative flex flex-col items-center gap-3 py-1">
-            {mascotDock}
-            {voiceChatControl}
-            {showMicComposer && (
-              <MicComposer
-                // Without `!selectedThreadId`, a mic submit before a thread is
-                // ready hits `handleSendMessage`'s early return and the
-                // transcript is silently dropped — the user spoke into the void.
-                disabled={composerInteractionBlocked || isSending || !selectedThreadId}
-                onSubmit={text => handleSendMessage(text)}
-                onError={message => setSendError(chatSendError('voice_transcription', message))}
-                showDeviceSelector
-                onSwitchToText={() => setComposerOverride('text')}
-              />
-            )}
-          </div>
-        ) : inputMode === 'text' ? (
-          <>
-            <ChatComposer
-              inputValue={inputValue}
-              setInputValue={setInputValue}
-              onSend={handleComposerSend}
-              onStopGeneration={rustChat ? handleStopGeneration : undefined}
-              // Idle-composer shortcut to the full-bleed mascot stage. Chat and
-              // Human share one mascot (mascotSlice), so this is a change of
-              // venue for the same conversation partner, not a second one.
-              onOpenHumanMode={() => navigate('/human')}
-              textInputRef={textInputRef}
-              fileInputRef={fileInputRef}
-              composerInteractionBlocked={composerInteractionBlocked}
-              isSending={isSending}
-              allowParallelSend={selectedThreadActive}
-              attachments={attachments}
-              onAttachFiles={handleAttachFiles}
-              onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
-              attachError={attachError}
-              onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-              handleInputKeyDown={handleInputKeyDown}
-              inlineCompletionSuffix=""
-              isComposingTextRef={isComposingTextRef}
-              maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
-              // Empty → no native `accept` filter (it greys valid files on
-              // macOS/CEF). Type enforcement happens in handleAttachFiles via
-              // validateAndReadFile, which honors modelSupportsVision.
-              allowedMimeTypes={[]}
-              attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-              // Header stack above the input box (outside its blue focus ring).
-              headerSlots={[
-                selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
-                  <QueuedFollowups
-                    key="queued-followups"
-                    items={queuedFollowupsByThread[selectedThreadId] ?? []}
-                    onClear={() => void handleClearQueuedFollowups()}
-                  />
-                ) : null,
-              ]}
-              mascotDock={mascotDock}
-              modelOverride={composerModelOverride ?? resolvedModel}
-              onModelOverrideChange={applyComposerModel}
-            />
-          </>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-analytics-id="chat-voice-switch-to-text"
-              onClick={() => setInputMode('text')}
-              disabled={isRecording || isTranscribing}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary hover:border-line-strong transition-colors disabled:opacity-40"
-              title={t('chat.switchToText')}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M4 6h16M4 12h10m-10 6h16"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              data-analytics-id="chat-voice-record-toggle"
-              onClick={() => {
-                void handleVoiceRecordToggle();
-              }}
-              disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                isRecording
-                  ? 'bg-coral-500 hover:bg-coral-400 text-content-inverted'
-                  : 'bg-primary-600 hover:bg-primary-500 text-content-inverted'
-              } disabled:opacity-40 disabled:cursor-not-allowed`}>
-              {isTranscribing
-                ? t('chat.transcribing')
-                : isRecording
-                  ? t('chat.stopAndSend')
-                  : t('chat.startTalking')}
-            </button>
-            <p className="text-xs text-content-faint truncate">
-              {voiceStatus ??
-                (isPlayingReply && replyMode === 'voice'
-                  ? t('chat.playingVoiceReply')
-                  : canUseMicrophoneApi
-                    ? t('chat.voiceHint')
-                    : t('chat.micUnavailable'))}
-            </p>
-          </div>
-        )}
-        {/* Worker-thread back-to-parent breadcrumb (page variant) — its own line. */}
-        {!isSidebar && selectedThreadParent && (
-          <button
-            type="button"
-            data-analytics-id="chat-header-back-to-parent-thread"
-            onClick={() => {
-              dispatch(setSelectedThread(selectedThreadParent.id));
-              void dispatch(loadThreadMessages(selectedThreadParent.id));
-              navigate(chatThreadPath(selectedThreadParent.id));
-            }}
-            className="mt-2 flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-300"
-            data-testid="worker-thread-back-to-parent">
-            <span aria-hidden="true">←</span>
-            <span className="max-w-[16rem] truncate">
-              {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
-            </span>
-          </button>
-        )}
-
-        {/* Thread title + inline rename moved to the sidebar thread list rows. */}
-
-        {/* Model/token stats and the supporting controls share one line. */}
-        <div
-          className="mt-2 flex items-center justify-between gap-2"
-          data-walkthrough="chat-agent-panel">
-          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
-          {!isSidebar && (
-            <div className="flex shrink-0 items-center gap-2">
-              {renderBackgroundProcessesButton(() =>
-                threadViewRef.current?.openBackgroundProcesses()
-              )}
-              {chatFilesChip}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
   const assistantComposerHeader = (
     <>
       {/* Turn gates first: a parked plan review and a drafted workflow both
@@ -2685,6 +2385,70 @@ const Conversations = ({
     </>
   );
 
+  // The mic-first (`mic-cloud`) composer. It replaces only the text composer:
+  // the transcript above it is the same assistant-ui `Thread` as text mode, so
+  // voice and text are one surface with two inputs. It carries the same header
+  // cards as the text composer, plus the voice-only controls: a footer Cancel
+  // (there is no in-box Stop button without a text composer), the mascot dock,
+  // the host's voice-chat control and the push-to-talk mic.
+  const voiceComposer =
+    composer === 'mic-cloud' ? (
+      <div className="flex flex-col gap-2" data-testid="voice-composer">
+        {assistantComposerHeader}
+        {isSending && rustChat && (
+          <div className="flex justify-start px-1">
+            <button
+              type="button"
+              data-analytics-id="chat-cancel-generation"
+              onClick={handleStopGeneration}
+              className="text-xs text-content-muted transition-colors hover:text-content-secondary">
+              {t('common.cancel')}
+            </button>
+          </div>
+        )}
+        {/* `relative` so the mascot dock (absolute, `bottom-full`) anchors here. */}
+        <div className="relative flex flex-col items-center gap-3 py-1">
+          {mascotDock}
+          {voiceChatControl}
+          {showMicComposer && (
+            <MicComposer
+              // Without `!selectedThreadId`, a mic submit before a thread is
+              // ready hits `handleSendMessage`'s early return and the
+              // transcript is silently dropped — the user spoke into the void.
+              disabled={composerInteractionBlocked || isSending || !selectedThreadId}
+              onSubmit={text => handleSendMessage(text)}
+              onError={message => setSendError(chatSendError('voice_transcription', message))}
+              showDeviceSelector
+              onSwitchToText={() => setComposerOverride('text')}
+            />
+          )}
+        </div>
+        {!isSidebar && selectedThreadParent && (
+          <button
+            type="button"
+            data-analytics-id="chat-header-back-to-parent-thread"
+            onClick={() => {
+              dispatch(setSelectedThread(selectedThreadParent.id));
+              void dispatch(loadThreadMessages(selectedThreadParent.id));
+              navigate(chatThreadPath(selectedThreadParent.id));
+            }}
+            className="flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-300"
+            data-testid="worker-thread-back-to-parent">
+            <span aria-hidden="true">←</span>
+            <span className="max-w-[16rem] truncate">
+              {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
+            </span>
+          </button>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
+          {!isSidebar && (
+            <div className="flex shrink-0 items-center gap-2">{assistantComposerFooterExtras}</div>
+          )}
+        </div>
+      </div>
+    ) : undefined;
+
   const assistantUiMainPanel = (
     <div
       className={
@@ -2697,6 +2461,7 @@ const Conversations = ({
         modelContextWindow={composerModelContextWindow}
         composerHeader={assistantComposerHeader}
         composerFooterExtras={assistantComposerFooterExtras}
+        composerReplacement={voiceComposer}
         inputValue={inputValue}
         onInputValueChange={setInputValue}
         onEscape={handleComposerEscape}
@@ -2720,12 +2485,10 @@ const Conversations = ({
         canOpenSubagent={canOpenSubagentDrawer}
         onModelChange={applyComposerModel}
       />
-      {/* The three transcript-local modals. `ChatThreadView` hosts an identical
-          trio, but it is the legacy panel's transcript and is not mounted here,
-          so on `/chat` the background-processes button had nothing to open and
-          the sub-agent drawer / process-source panel could not be reached at
-          all. Mounted beside the Thread (not inside it) because each is its own
-          overlay, positioned against the viewport. */}
+      {/* The three transcript-local modals: background processes, the
+          sub-agent drawer and the Agent Process Source panel. Mounted beside
+          the Thread (not inside it) because each is its own overlay,
+          positioned against the viewport. */}
       <TranscriptOverlays
         threadId={selectedThreadId ?? null}
         entries={selectedThreadToolTimeline}
@@ -2740,10 +2503,9 @@ const Conversations = ({
       />
     </div>
   );
-  // The realtime/mic-only embed still owns a voice-specific footer. The normal
-  // text chat is fully assistant-ui; voice keeps its established surface until
-  // assistant-ui exposes the equivalent recording controls.
-  const mainPanel = composer === 'mic-cloud' ? legacyMainPanel : assistantUiMainPanel;
+  // One transcript for both composers: `mic-cloud` only swaps the input (see
+  // `voiceComposer`), so the voice surface is assistant-ui end to end too.
+  const mainPanel = assistantUiMainPanel;
 
   return (
     <div
