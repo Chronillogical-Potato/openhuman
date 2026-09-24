@@ -38,6 +38,7 @@ use super::types::{
 
 // Flow pre-authorization + per-flow tool trust persistence, split out to keep
 // this file under the repo's per-file line budget — see that module's doc.
+#[path = "store_flow_trust.rs"]
 mod store_flow_trust;
 pub use store_flow_trust::{
     delete_flow_trust, insert_flow_trust, is_flow_tool_trusted, list_flow_trust,
