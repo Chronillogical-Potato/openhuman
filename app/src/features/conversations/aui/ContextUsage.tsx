@@ -22,7 +22,7 @@ import {
   type TokenUsage,
 } from '@/components/assistant-ui/elements/context-display';
 import { ErrorState } from '@/components/assistant-ui/elements/error-state';
-import { paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { mono, paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/assistant-ui/ui/popover';
 import debug from 'debug';
