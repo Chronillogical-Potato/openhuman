@@ -13,8 +13,7 @@ import { ShimmerLabel } from './surfaces';
 
 export type GenerationLoaderVariant = 'dots' | 'squares' | 'rounded';
 
-export interface GenerationLoaderProps
-  extends Omit<ComponentProps<'div'>, 'children'> {
+export interface GenerationLoaderProps extends Omit<ComponentProps<'div'>, 'children'> {
   label: string;
   tick: number;
   variant?: GenerationLoaderVariant;
