@@ -900,6 +900,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             iterations: event.subagent?.iterations,
             elapsedMs: event.subagent?.elapsed_ms,
             outputChars: event.subagent?.output_chars,
+            output: event.subagent?.output,
             worktreePath: event.subagent?.worktree_path,
             changedFiles: event.subagent?.changed_files,
             isDirty: event.subagent?.dirty_status,
