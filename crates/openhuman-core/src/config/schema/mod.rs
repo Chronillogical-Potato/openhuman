@@ -127,6 +127,7 @@ pub use tools::{
     SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY,
 };
 pub use update::{UpdateConfig, UpdateRestartStrategy};
+pub use web_chat_config::WebChatConfig;
 mod voice_server;
 pub use voice_server::{SttEngine, VoiceActivationMode, VoiceServerConfig};
 pub mod voice_providers;

@@ -227,7 +227,7 @@ const APPROVAL_PART_ID_PREFIX = '__openhuman_approval__:';
  * follows it (`false`) so a renderer that only checks the boolean still shows
  * a resolved state rather than a live prompt.
  */
-function approvalField(approval: PendingApproval): NonNullable<ThreadAssistantMessagePart['approval']> {
+function approvalField(approval: PendingApproval): NonNullable<ToolCallMessagePart['approval']> {
   return {
     id: approval.requestId,
     options: APPROVAL_DECISION_OPTIONS,
