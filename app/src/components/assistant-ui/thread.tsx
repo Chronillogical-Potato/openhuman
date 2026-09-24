@@ -1221,12 +1221,32 @@ const ComposerAction: FC<{
   );
 };
 
+/**
+ * The runtime's own error boundary for a message (`message.status.type ===
+ * 'error'` — a throw from `onNew`/`onEdit`/`onReload`, not a `chat_error`
+ * socket event, which instead lands as its own assistant reply — see
+ * `ChatRuntimeProvider`'s `onError` handler).
+ *
+ * `useMessageError`/`useActionBarReload` come straight from
+ * `@assistant-ui/core/react` rather than through a primitive: there is no
+ * primitive that hands back the raw error VALUE (only
+ * `ErrorPrimitive.Message`, which renders it directly), and Retry needs the
+ * same reload callback `ActionBarPrimitive.Reload` uses internally.
+ */
 const MessageError: FC = () => {
+  const error = useMessageError();
+  const reload = useActionBarReload();
+  if (error === undefined) return null;
+  const detail = typeof error === 'string' ? error : JSON.stringify(error);
   return (
     <MessagePrimitive.Error>
-      <ErrorPrimitive.Root className="aui-message-error-root border-destructive bg-destructive/10 text-destructive dark:bg-destructive/5 mt-2 rounded-md border p-3 text-sm dark:text-red-200">
-        <ErrorPrimitive.Message className="aui-message-error-message line-clamp-2" />
-      </ErrorPrimitive.Root>
+      <ErrorState
+        className="aui-message-error-root mt-2"
+        title="Something went wrong"
+        detail={detail}
+        retrying={false}
+        onRetry={() => reload?.()}
+      />
     </MessagePrimitive.Error>
   );
 };

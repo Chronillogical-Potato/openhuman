@@ -3,6 +3,7 @@ import type {
   ThreadMessageLike,
   ThreadUserMessagePart,
   ToolApprovalOption,
+  ToolCallMessagePart,
 } from '@assistant-ui/react';
 
 import { parseMessageImages } from '../lib/attachments';
