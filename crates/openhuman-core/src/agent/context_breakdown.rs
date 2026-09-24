@@ -79,10 +79,7 @@ fn config_fingerprint(config: &Config) -> u64 {
         // Unserializable config (should not happen) still needs a stable
         // fingerprint so the cache degrades to "always recompute" rather
         // than panicking.
-        Err(err) => {
-            eprintln!("DEBUG config_fingerprint serialize error: {err}");
-            0u8.hash(&mut hasher)
-        }
+        Err(_) => 0u8.hash(&mut hasher),
     }
     hasher.finish()
 }
