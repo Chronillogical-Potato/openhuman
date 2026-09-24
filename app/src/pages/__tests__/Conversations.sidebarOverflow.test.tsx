@@ -84,12 +84,10 @@ vi.mock('../../services/api/openrouterFreeModels', () => ({ applyOpenRouterFreeM
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-
 vi.mock('../../store/socketSelectors', () => ({
   selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
     state.socket?.byUser?.__pending__?.status ?? 'disconnected',
 }));
-
 
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
 

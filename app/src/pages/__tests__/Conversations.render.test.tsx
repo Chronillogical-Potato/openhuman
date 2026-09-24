@@ -96,7 +96,6 @@ vi.mock('../../services/api/threadApi', () => ({
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
@@ -543,11 +542,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           messages,
         },
         socket: socketState('connected'),
-        theme: {
-          mode: 'system',
-          tabBarLabels: 'hover',
-          fontSize: 'medium',
-        },
+        theme: { mode: 'system', tabBarLabels: 'hover', fontSize: 'medium' },
       });
     });
 
@@ -675,11 +670,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           messages,
         },
         socket: socketState('connected'),
-        theme: {
-          mode: 'system',
-          tabBarLabels: 'hover',
-          fontSize: 'medium',
-        },
+        theme: { mode: 'system', tabBarLabels: 'hover', fontSize: 'medium' },
       });
     });
 

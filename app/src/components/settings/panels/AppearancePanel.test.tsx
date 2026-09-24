@@ -17,12 +17,7 @@ function renderPanel(
 ) {
   return renderWithProviders(<AppearancePanel />, {
     preloadedState: {
-      theme: {
-        mode: 'system',
-        tabBarLabels: 'hover',
-        fontSize,
-        customFontSizePx,
-      },
+      theme: { mode: 'system', tabBarLabels: 'hover', fontSize, customFontSizePx },
     },
   });
 }

@@ -80,7 +80,6 @@ vi.mock('../../services/api/threadApi', () => ({
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({
     isBootstrapping: false,
