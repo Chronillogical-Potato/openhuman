@@ -99,6 +99,33 @@ export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
     cron_update: { type: 'backend', display: 'inline', render: CronAddOrUpdateCall },
     cron_list: { type: 'backend', display: 'inline', render: CronListCall },
     cron_runs: { type: 'backend', display: 'inline', render: CronRunsCall },
+
+    /**
+     * The agent's whole-list todo write (Claude Code / Codex style), rendered
+     * as the vendored `TodoList` element per call (`TodoListPart.tsx`). The
+     * always-current, pinned todo list above the composer is a SEPARATE
+     * render driven by the live `thread_todos_changed` socket event
+     * (`useThreadTodos`), not this per-call snapshot.
+     */
+    todo: { type: 'backend', display: 'standalone', render: TodoListPart },
+
+    /**
+     * The durable per-thread goal tools, rendered as a compact one-line
+     * summary in the activity trace (`GoalToolLine.tsx`). The pinned goal
+     * pill above the composer is a separate render driven by
+     * `thread_goal_updated` / `thread_goal_cleared` (`useThreadGoal`).
+     */
+    goal_set: { type: 'backend', display: 'inline', render: GoalToolLine },
+    goal_get: { type: 'backend', display: 'inline', render: GoalToolLine },
+    goal_complete: { type: 'backend', display: 'inline', render: GoalToolLine },
+
+    /**
+     * Plan-mode review gate: the orchestrator parked the live turn on a
+     * thread-scoped plan (`request_plan_review`). Rendered as the vendored
+     * `AgentPlan` element plus an approve/reject/revise decision row while
+     * the review is still pending (`PlanReviewPart.tsx`).
+     */
+    request_plan_review: { type: 'backend', display: 'standalone', render: PlanReviewPart },
   };
 }
 

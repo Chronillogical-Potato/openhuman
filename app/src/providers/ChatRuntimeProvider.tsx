@@ -861,6 +861,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             // Identity of THIS emission, carried into the reducer so it can
             // tell a resume from a replay without depending on the cache above.
             spawnEventId: `${event.request_id ?? 'none'}:${event.seq ?? 'noseq'}`,
+            // Real tool_call_id of the spawn/delegate call, when the core sent
+            // one — lets the reducer attach this activity to that exact row
+            // instead of guessing it heuristically.
+            parentCallId: event.subagent?.parent_call_id,
           })
         );
       },
