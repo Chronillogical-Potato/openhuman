@@ -860,7 +860,7 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
         .unwrap();
     let usage = OpenHumanTranscriptCodec.turn_usage(&options).unwrap();
 
-    let mut meta = transcript::TranscriptMeta {
+    let meta = transcript::TranscriptMeta {
         session_id: None,
         parent_session_id: None,
         agent_name: "orchestrator".into(),
@@ -879,7 +879,6 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
         thread_id: Some("thr_xml".into()),
         task_id: None,
     };
-    meta.turn_count = 1;
     let path = transcript::resolve_keyed_transcript_path(dir.path(), "xml_orchestrator").unwrap();
     transcript::append_transcript_turn(&path, &[], &rows, &meta, usage.as_ref(), Some("req-xml"))
         .unwrap();
