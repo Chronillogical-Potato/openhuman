@@ -165,7 +165,7 @@ export function ContextUsage({
       <ContextBreakdown
         segments={contextBreakdownSegments(breakdown.data, t)}
         limit={limit}
-        title={t('conversations.composer.context.breakdownTitle')}
+        title={t('conversations.composer.context.title')}
         headroomLabel={t('conversations.composer.context.headroom')}
         meterLabel={label =>
           t('conversations.composer.context.meterLabel').replace('{label}', label)
