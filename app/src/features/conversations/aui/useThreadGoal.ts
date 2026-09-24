@@ -10,6 +10,13 @@ import { threadApi } from '../../../services/api/threadApi';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { setThreadGoal, type ThreadGoalView } from '../../../store/threadGoalSlice';
 
+/** `1234` → `1.2k`, `2500000` → `2.5M`; small counts stay exact. */
+export function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(count);
+}
+
 /** `null` when the thread has no goal (or none loaded yet). */
 export function useThreadGoal(threadId: string | null): ThreadGoalView | null {
   return useAppSelector(state =>
