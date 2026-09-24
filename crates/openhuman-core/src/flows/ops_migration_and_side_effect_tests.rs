@@ -695,5 +695,3 @@ fn migrate_and_deserialize_graph_does_not_blame_a_node_for_a_top_level_fault() {
         "error should still name the offending field, got: {err}"
     );
 }
-
-// The member scan covers four arrays, and until now only `nodes` was ever
