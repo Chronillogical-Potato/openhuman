@@ -17,6 +17,6 @@ describe('probe', () => {
       status: 'success',
     });
     console.log('memory_hybrid_search ->', JSON.stringify(b), toolLabel(b));
-    expect(true).toBe(true);
+    expect({ a: JSON.stringify(a), aLabel: toolLabel(a), b: JSON.stringify(b), bLabel: toolLabel(b) }).toBe(false);
   });
 });
