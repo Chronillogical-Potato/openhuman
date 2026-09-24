@@ -35,7 +35,12 @@ export interface ElicitationAdapterProps {
   pending: boolean;
   /** Called with the free-text answer when the user submits it. */
   onAnswer: (answer: string) => void;
-  /** Called when the user declines to answer. Omit to hide the button. */
+  /**
+   * Called when the user declines to answer. The vendored element always
+   * renders the Decline button while `state === 'request'` (upstream has no
+   * per-button visibility slot); omitting this leaves the click a no-op
+   * rather than removing the button.
+   */
   onDecline?: () => void;
   testId?: string;
   analyticsPrefix?: string;
