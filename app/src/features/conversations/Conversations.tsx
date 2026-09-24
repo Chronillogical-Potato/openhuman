@@ -15,6 +15,7 @@ import { ConfirmationModal } from '../../components/intelligence/ConfirmationMod
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
+import { useRunMode } from '../../features/conversations/aui/useRunMode';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
 import {
   formatTokens,
@@ -533,6 +534,9 @@ const Conversations = ({
   // latest implementation out of these refs at call time.
   const handleComposerSendRef = useRef<((text?: string) => Promise<void>) | null>(null);
   const handleStopGenerationRef = useRef<(() => void) | null>(null);
+  // Typed `/plan` / `/build` (see `handleSlashCommand`) flip the same run mode
+  // the composer toggle and the `/` popover do.
+  const { setMode: setRunMode } = useRunMode(selectedThreadId);
   // Per-thread "turn signature": the last-seen tuple of progress-slice
   // references [inferenceStatus, streamingAssistant, toolTimeline]
   // for each thread that owns a live silence timer. Redux Toolkit (immer)
@@ -938,7 +942,16 @@ const Conversations = ({
     if (decision.kind === 'not_handled') return false;
 
     setInputValue('');
-    void handleCreateNewThread();
+    if (decision.kind === 'run_mode') {
+      debug('[chat] slash command: run mode -> %s', decision.mode);
+      void setRunMode(decision.mode).catch(error => {
+        debug('[chat] slash command: set run mode failed: %o', error);
+      });
+    } else if (decision.kind === 'stop') {
+      handleStopGenerationRef.current?.();
+    } else {
+      void handleCreateNewThread();
+    }
     return true;
   };
 
