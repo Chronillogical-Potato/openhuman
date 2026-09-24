@@ -502,6 +502,8 @@ pub fn approval_request_event(
     args_redacted: &serde_json::Value,
     thread_id: &str,
     client_id: &str,
+    tool_call_id: Option<&str>,
+    expires_at: Option<&str>,
 ) -> WebChannelEvent {
     WebChannelEvent {
         event: "approval_request".to_string(),
@@ -511,6 +513,36 @@ pub fn approval_request_event(
         tool_name: Some(tool_name.to_string()),
         message: Some(format!("Run `{tool_name}` — {action_summary}")),
         args: Some(args_redacted.clone()),
+        tool_call_id: tool_call_id.map(str::to_string),
+        expires_at: expires_at.map(str::to_string),
+        ..Default::default()
+    }
+}
+
+/// Build the `plan_review_request` web-channel event for a parked plan
+/// review. Shared by the live surface below (on `PlanReviewRequested`) and by
+/// the replay path in `core::socketio` (a socket joining a thread room that
+/// already has a review parked on it) — one constructor so a client that
+/// missed the live emit is handed a byte-identical payload.
+pub fn plan_review_request_event(
+    request_id: &str,
+    summary: &str,
+    steps: &[String],
+    thread_id: &str,
+    client_id: &str,
+    tool_call_id: Option<&str>,
+    expires_at: Option<&str>,
+) -> WebChannelEvent {
+    WebChannelEvent {
+        event: "plan_review_request".to_string(),
+        client_id: client_id.to_string(),
+        thread_id: thread_id.to_string(),
+        request_id: request_id.to_string(),
+        tool_name: Some("request_plan_review".to_string()),
+        message: Some(summary.to_string()),
+        args: Some(serde_json::json!({ "steps": steps })),
+        tool_call_id: tool_call_id.map(str::to_string),
+        expires_at: expires_at.map(str::to_string),
         ..Default::default()
     }
 }
