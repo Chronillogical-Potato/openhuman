@@ -335,15 +335,17 @@ impl EventHandler<DomainEvent> for EgressSurfaceSubscriber {
             }
         };
         log::info!(
-            "[web-channel] egress-surface emitting external_transfer_pending provider={} service={} reason={:?} thread_id={thread_id} client_id={client_id}",
+            "[web-channel] egress-surface emitting external_transfer_pending provider={} service={} reason={:?} thread_id={thread_id} client_id={client_id} request_id={:?}",
             descriptor.provider_slug,
             descriptor.service,
             descriptor.reason,
+            request_id,
         );
         publish_web_channel_event(WebChannelEvent {
             event: "external_transfer_pending".to_string(),
             client_id: client_id.clone(),
             thread_id: thread_id.clone(),
+            request_id: request_id.clone().unwrap_or_default(),
             args: Some(args),
             ..Default::default()
         });
