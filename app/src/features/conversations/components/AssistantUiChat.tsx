@@ -14,6 +14,7 @@ import { useAppSelector } from '../../../store/hooks';
 import { DEFAULT_MASCOT_COLOR } from '../../../store/mascotSlice';
 import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
 import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
+import { ChatConversationMap } from './aui/ChatConversationMap';
 import { ChatSources } from './aui/ChatSources';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { ChatToolFallback } from './ChatToolParts';
