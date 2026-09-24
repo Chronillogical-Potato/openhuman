@@ -281,6 +281,16 @@ pub(crate) async fn run_chat_task(
         );
     }
 
+    // The bridge only stamps its `TurnTimingSnapshot` once it has seen the
+    // parent's `TurnCompleted`, which `wait_drained` above waits for — read
+    // it now so `chat_done.timing` reports the same first-token/first-tool/
+    // total numbers as the bridge's own `time-to-first-visible` log line.
+    // `None` on a synthetic (budget-exhausted) result, an `Err`, or a bridge
+    // that never drained in time.
+    if let Ok(ref mut task_result) = result {
+        task_result.timing = bridge.timing_snapshot();
+    }
+
     // Only the primary (non-fork) turn writes its agent back to the shared
     // cache; a fork is fully isolated and lets its agent drop here.
     if !fork {
