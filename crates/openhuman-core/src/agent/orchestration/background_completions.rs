@@ -126,8 +126,7 @@ impl QueueState {
         }
     }
 
-    fn finish_stop(&mut self, thread_id: &str, task_ids: &[String]) {
-        self.stopped_threads.remove(thread_id);
+    fn finish_stop(&mut self, task_ids: &[String]) {
         for task_id in task_ids {
             if self.stopped_tasks.insert(task_id.clone()) {
                 self.stopped_task_order.push_back(task_id.clone());
@@ -138,6 +137,10 @@ impl QueueState {
                 }
             }
         }
+    }
+
+    fn resume_thread(&mut self, thread_id: &str) {
+        self.stopped_threads.remove(thread_id);
     }
 
     /// Tombstone `task_id` so a completion that records after the parent
@@ -380,15 +383,28 @@ pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
 
 /// Complete a Stop operation after its registered children have been aborted.
 ///
-/// `discard_pending_for_thread` installs the thread gate first. This function
-/// replaces it with task-specific tombstones, allowing later turns on the
-/// thread while still rejecting any old child that reaches completion after
-/// Tokio observes its cooperative cancellation.
+/// The thread gate stays in place until [`resume_stopped_thread`] starts a new
+/// user turn. That closes the spawn/register race: a child that was spawned
+/// before Stop but registered after the registry sweep still cannot enqueue a
+/// completion. Task tombstones additionally protect that stopped generation
+/// after the next turn reopens the thread.
 pub(crate) fn finish_stop_for_thread(thread_id: &str, task_ids: &[String]) {
     let mut state = queue()
         .lock()
         .expect("background_completions queue poisoned");
-    state.finish_stop(thread_id, task_ids);
+    state.finish_stop(task_ids);
+}
+
+/// Reopen a thread's completion gate for a newly accepted user turn.
+///
+/// A Stop gate deliberately outlives registry cancellation, because a detached
+/// child may be between `tokio::spawn` and `running_subagents::register` when
+/// Stop is pressed. New task ids remain distinct from the stopped generation.
+pub(crate) fn resume_stopped_thread(thread_id: &str) {
+    queue()
+        .lock()
+        .expect("background_completions queue poisoned")
+        .resume_thread(thread_id);
 }
 
 fn remove_pending_for_thread(state: &mut QueueState, thread_id: &str) -> usize {

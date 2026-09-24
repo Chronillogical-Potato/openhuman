@@ -402,8 +402,8 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     );
     assert_eq!(pending_count("sess-stop"), 0);
 
-    // Completing Stop replaces the thread gate with task-specific tombstones,
-    // so later turns can run while this stopped child remains rejected.
+    // Completing Stop keeps the thread gate until a new user turn begins, so a
+    // child that registers after the cancellation sweep is still rejected.
     finish_stop_for_thread("thread-stop-live", &["sub-stop-later".into()]);
     record_completion(
         "sess-stop",
@@ -413,6 +413,8 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
         Some("thread-stop-live".into()),
     );
     assert_eq!(pending_count("sess-stop"), 0);
+
+    resume_stopped_thread("thread-stop-live");
     record_completion(
         "sess-stop",
         "sub-stop-new-turn",

@@ -61,6 +61,11 @@ pub async fn start_chat(
         return Err("message is required".to_string());
     }
 
+    // A fresh user request is the explicit boundary after Stop. Keep the gate
+    // installed through registry cancellation so a child registering late
+    // cannot deliver a result into the stopped generation.
+    crate::agent::orchestration::background_completions::resume_stopped_thread(&thread_id);
+
     // [pdf/image-attach fix] Process attachments at ingress, BEFORE the message is
     // injection-scanned, persisted to history/JSONL, or auto-saved to the memory
     // store. Otherwise a multi-MB base64 data URI floods every upstream stage

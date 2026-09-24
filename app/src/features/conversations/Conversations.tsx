@@ -884,6 +884,7 @@ const Conversations = ({
   // clear the timer every time the user switched threads, which is exactly the
   // watchdog this PR exists to arm.
   useEffect(() => {
+    isMountedRef.current = true;
     const timers = sendingTimeoutsRef.current;
     return () => {
       isMountedRef.current = false;
