@@ -82,6 +82,17 @@ fn a_rebuilt_declaration_is_byte_identical_to_the_recorded_one() {
     let recorded = vec![spec("GMAIL_SEND_EMAIL")];
     let first = rehydrate_integration_actions(&recorded, &[], &[], false);
     let second = rehydrate_integration_actions(&recorded, &[], &[], false);
+    let mut rebuilt = first[0].spec();
+    rebuilt
+        .parameters
+        .get_mut("properties")
+        .and_then(serde_json::Value::as_object_mut)
+        .expect("rebuilt properties")
+        .remove("connection_id");
+    assert_eq!(
+        serde_json::to_string(&rebuilt).unwrap(),
+        serde_json::to_string(&recorded[0]).unwrap()
+    );
     assert_eq!(
         serde_json::to_string(&first[0].spec()).unwrap(),
         serde_json::to_string(&second[0].spec()).unwrap()
