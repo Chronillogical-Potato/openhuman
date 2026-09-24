@@ -113,6 +113,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
         workspace_descriptor,
         run_context,
         live_parent,
+        parent_call_id,
     )
     .await
     .map_err(|e| anyhow::anyhow!(e))?;
