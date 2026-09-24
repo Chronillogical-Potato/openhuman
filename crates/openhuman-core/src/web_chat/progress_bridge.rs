@@ -750,6 +750,7 @@ pub(crate) fn spawn_progress_bridge(
                     prompt_chars,
                     worker_thread_id,
                     display_name,
+                    parent_call_id,
                     ..
                 } => {
                     let label = display_name.as_deref().unwrap_or(&agent_id);
