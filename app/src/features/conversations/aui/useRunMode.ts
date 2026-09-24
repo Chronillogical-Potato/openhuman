@@ -16,6 +16,7 @@ import debug from 'debug';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { callCoreRpc } from '../../../services/coreRpcClient';
+import { store } from '../../../store';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { type RunMode, setRunMode } from '../../../store/runModeSlice';
 
@@ -38,6 +39,9 @@ export function useRunMode(threadId: string | null): UseRunModeResult {
   useEffect(() => {
     if (!threadId || loadedFor.current === threadId) return;
     loadedFor.current = threadId;
+    // Only fetch when the slice has no live entry yet — a value already set
+    // (e.g. by a `run_mode_changed` event that arrived first) wins.
+    if (store.getState().runMode.byThread[threadId] !== undefined) return;
     let cancelled = false;
     void (async () => {
       try {

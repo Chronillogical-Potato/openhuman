@@ -133,6 +133,20 @@ pub(super) fn handle_transcript_get(params: Map<String, Value>) -> ControllerFut
     })
 }
 
+pub(super) fn handle_goal_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::ThreadLiveStateRequest>(params)?;
+        to_json(ops::goal_get(p).await?)
+    })
+}
+
+pub(super) fn handle_todos_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<ops::ThreadLiveStateRequest>(params)?;
+        to_json(ops::todos_get(p).await?)
+    })
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 pub(super) fn parse<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
