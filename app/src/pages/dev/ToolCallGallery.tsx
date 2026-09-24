@@ -16,7 +16,6 @@ import {
   ComposerMenu,
   ComposerMenuItem,
 } from '../../components/assistant-ui/elements/composer';
-import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import {
   ConversationSearch,
   type SearchHit,
@@ -31,6 +30,7 @@ import {
   SourceTitle,
 } from '../../components/assistant-ui/elements/sources.aui';
 import { Timeline, type TimelineEvent } from '../../components/assistant-ui/elements/timeline';
+import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeline';
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
 import { ElicitationAdapter } from '../../features/conversations/aui/ElicitationAdapter';
