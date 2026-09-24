@@ -16,7 +16,9 @@ function createRes() {
       this.headers[name] = value;
     },
     end(chunk = "") {
-      this.body += Buffer.isBuffer(chunk) ? chunk.toString("latin1") : String(chunk);
+      this.body += Buffer.isBuffer(chunk)
+        ? chunk.toString("latin1")
+        : String(chunk);
     },
   };
 }
@@ -24,13 +26,24 @@ function createRes() {
 function call(method, url, parsedBody) {
   const res = createRes();
   const handled = handleMedia({ method, url, parsedBody, res });
-  return { handled, res, body: res.headers["Content-Type"] === "video/mp4" ? null : JSON.parse(res.body || "null") };
+  return {
+    handled,
+    res,
+    body:
+      res.headers["Content-Type"] === "video/mp4"
+        ? null
+        : JSON.parse(res.body || "null"),
+  };
 }
 
 test.beforeEach(() => resetMediaMock());
 
 test("images return an enveloped OpenRouter body with base64 images", () => {
-  const { handled, res, body } = call("POST", "/agent-integrations/openrouter/images", { prompt: "x", n: 2 });
+  const { handled, res, body } = call(
+    "POST",
+    "/agent-integrations/openrouter/images",
+    { prompt: "x", n: 2 },
+  );
   assert.equal(handled, true);
   assert.equal(res.statusCode, 200);
   assert.equal(body.success, true);
@@ -45,22 +58,35 @@ test("images reject a missing prompt", () => {
 });
 
 test("video jobs report completed-without-outputs before delivering", () => {
-  const submit = call("POST", "/agent-integrations/openrouter/videos", { prompt: "x" });
+  const submit = call("POST", "/agent-integrations/openrouter/videos", {
+    prompt: "x",
+  });
   const id = submit.body.data.id;
-  const poll = () => call("GET", `/agent-integrations/openrouter/videos/${id}`).body.data;
+  const poll = () =>
+    call("GET", `/agent-integrations/openrouter/videos/${id}`).body.data;
 
   assert.equal(poll().status, "in_progress");
   const early = poll();
   assert.equal(early.status, "completed");
-  assert.deepEqual(early.unsigned_urls, [], "completed before the output exists");
+  assert.deepEqual(
+    early.unsigned_urls,
+    [],
+    "completed before the output exists",
+  );
   const done = poll();
   assert.equal(done.status, "completed");
   assert.equal(done.unsigned_urls.length, 1);
 
-  const content = call("GET", `/agent-integrations/openrouter/videos/${id}/content?index=0`);
+  const content = call(
+    "GET",
+    `/agent-integrations/openrouter/videos/${id}/content?index=0`,
+  );
   assert.equal(content.res.headers["Content-Type"], "video/mp4");
 });
 
 test("unrelated routes fall through", () => {
-  assert.equal(call("GET", "/agent-integrations/composio/tools").handled, false);
+  assert.equal(
+    call("GET", "/agent-integrations/composio/tools").handled,
+    false,
+  );
 });

@@ -53,7 +53,10 @@ export function handleMedia(ctx) {
             id: "bytedance-seed/seedream-5-0-lite",
             display_name: "Seedream 5.0 Lite",
             supported_parameters: {
-              aspect_ratio: { type: "enum", values: ["1:1", "16:9", "9:16", "4:3", "3:4", "auto"] },
+              aspect_ratio: {
+                type: "enum",
+                values: ["1:1", "16:9", "9:16", "4:3", "3:4", "auto"],
+              },
               n: { type: "range", min: 1, max: 4 },
               input_references: { type: "range", min: 0, max: 14 },
               seed: { type: "boolean" },
@@ -75,7 +78,10 @@ export function handleMedia(ctx) {
       success: true,
       data: {
         created: Math.floor(Date.now() / 1000),
-        data: Array.from({ length: n }, () => ({ b64_json: PNG_BASE64, media_type: "image/png" })),
+        data: Array.from({ length: n }, () => ({
+          b64_json: PNG_BASE64,
+          media_type: "image/png",
+        })),
         usage: { cost: 0.035 * n },
       },
     });
@@ -114,14 +120,20 @@ export function handleMedia(ctx) {
 
   const content = path.match(/^\/videos\/([^/]+)\/content$/);
   if (method === "GET" && content) {
-    res.writeHead(200, { "Content-Type": "video/mp4", "Content-Length": MP4_BYTES.length });
+    res.writeHead(200, {
+      "Content-Type": "video/mp4",
+      "Content-Length": MP4_BYTES.length,
+    });
     res.end(MP4_BYTES);
     return true;
   }
 
   const job = path.match(/^\/videos\/([^/]+)$/);
   if (method === "GET" && job) {
-    json(res, 200, { success: true, data: { id: job[1], ...jobStatus(job[1]) } });
+    json(res, 200, {
+      success: true,
+      data: { id: job[1], ...jobStatus(job[1]) },
+    });
     return true;
   }
 
