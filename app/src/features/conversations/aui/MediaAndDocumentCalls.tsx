@@ -4,7 +4,11 @@ import { FileTextIcon, PresentationIcon } from 'lucide-react';
 import { ArtifactCard } from '../../../components/assistant-ui/elements/artifact-card';
 import { Image } from '../../../components/assistant-ui/elements/image';
 import { ImageGeneration } from '../../../components/assistant-ui/elements/image-generation';
+import { Button } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
+import { aiRegenerate } from '../../../services/chatService';
+import { useAppSelector } from '../../../store/hooks';
 
 /**
  * Result shape for `media_generate_image` / `media_generate_video`
