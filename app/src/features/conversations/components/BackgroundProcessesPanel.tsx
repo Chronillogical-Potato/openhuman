@@ -124,8 +124,9 @@ interface BackgroundProcessesPanelProps {
 
 /**
  * Right side-drawer listing the thread's detached background sub-agents. Each
- * row opens the existing {@link SubagentDrawer} (via `onOpenProcess`) for the
- * full live transcript — this panel is purely the launcher/overview.
+ * row opens the Agent Process Source panel (via `onOpenProcess`), scoped to
+ * that task's step, for the full activity — this panel is purely the
+ * launcher/overview.
  */
 export function BackgroundProcessesPanel({
   open,
