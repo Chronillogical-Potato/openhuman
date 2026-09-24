@@ -75,9 +75,7 @@ describe('ChatErrorNotice', () => {
             role: 'assistant',
             content: [{ type: 'text', text: 'Something went wrong.' }],
             metadata: {
-              custom: {
-                extraMetadata: { [CHAT_ERROR_METADATA_KEY]: { errorType: 'timeout' } },
-              },
+              custom: { extraMetadata: { [CHAT_ERROR_METADATA_KEY]: { errorType: 'timeout' } } },
             },
           },
         ]}
