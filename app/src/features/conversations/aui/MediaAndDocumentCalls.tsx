@@ -76,7 +76,6 @@ export const MediaGenerationCall: ToolCallMessagePartComponent = ({
           const src = artifact.source_url;
           if (!src) return null;
           return (
-            // eslint-disable-next-line jsx-a11y/media-has-caption -- generated media has no track
             <video
               key={key}
               data-testid="assistant-ui-media-generation-video"
