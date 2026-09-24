@@ -130,3 +130,7 @@ fn confirm(params: Map<String, Value>) -> ControllerFuture {
         super::confirmation::confirm(&config, id, approve).await
     })
 }
+
+#[cfg(test)]
+#[path = "schemas_tests.rs"]
+mod tests;

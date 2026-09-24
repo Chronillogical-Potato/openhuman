@@ -158,6 +158,14 @@ fn permission(data: &serde_json::Value, field: &str) -> String {
 }
 
 pub async fn status(config: &Config) -> DesktopStatus {
+    status_with(config, || crate::modules::desktop::permissions(config)).await
+}
+
+async fn status_with<F, Fut>(config: &Config, permissions: F) -> DesktopStatus
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<tinydesktop_bus::DesktopResponse, String>>,
+{
     let local_enabled = enabled(config);
     let (module_state, mut reason) = crate::modules::desktop::state(config);
     let mut result = DesktopStatus {
@@ -176,7 +184,7 @@ pub async fn status(config: &Config) -> DesktopStatus {
             "desktop control requires macOS or Windows and a loopback core listener".to_owned(),
         );
     } else if local_enabled {
-        match crate::modules::desktop::permissions(config).await {
+        match permissions().await {
             Ok(response) if response.ok => {
                 if let Some(data) = response.data.as_ref() {
                     result.accessibility = permission(data, "accessibility");
@@ -194,6 +202,34 @@ pub async fn status(config: &Config) -> DesktopStatus {
 }
 
 pub async fn probe(config: &Config) -> DesktopProbe {
+    probe_with(config, |member| async move {
+        match member {
+            names::methods::PERMISSIONS => crate::modules::desktop::permissions(config).await,
+            names::methods::SNAPSHOT => {
+                crate::modules::desktop::call(
+                    config,
+                    member,
+                    SnapshotRequest {
+                        skeleton: true,
+                        ..SnapshotRequest::default()
+                    },
+                )
+                .await
+            }
+            names::methods::LIST_APPS => {
+                crate::modules::desktop::call(config, member, ListAppsRequest::default()).await
+            }
+            _ => unreachable!("probe calls only its three fixed module members"),
+        }
+    })
+    .await
+}
+
+async fn probe_with<F, Fut>(config: &Config, mut call: F) -> DesktopProbe
+where
+    F: FnMut(&'static str) -> Fut,
+    Fut: std::future::Future<Output = Result<tinydesktop_bus::DesktopResponse, String>>,
+{
     if !supported() || !enabled(config) {
         return DesktopProbe {
             ok: false,
@@ -201,7 +237,7 @@ pub async fn probe(config: &Config) -> DesktopProbe {
             reason: Some("desktop control is unavailable or disabled".to_owned()),
         };
     }
-    let permissions = match crate::modules::desktop::permissions(config).await {
+    let permissions = match call(names::methods::PERMISSIONS).await {
         Ok(reply) if reply.ok => reply,
         Ok(reply) => {
             return DesktopProbe {
@@ -231,23 +267,10 @@ pub async fn probe(config: &Config) -> DesktopProbe {
             reason: Some("Accessibility permission is not granted to the core process".to_owned()),
         };
     }
-    let snapshot = crate::modules::desktop::call(
-        config,
-        names::methods::SNAPSHOT,
-        SnapshotRequest {
-            skeleton: true,
-            ..SnapshotRequest::default()
-        },
-    )
-    .await;
+    let snapshot = call(names::methods::SNAPSHOT).await;
     match snapshot {
         Ok(response) if response.ok => {
-            let apps = crate::modules::desktop::call(
-                config,
-                names::methods::LIST_APPS,
-                ListAppsRequest::default(),
-            )
-            .await;
+            let apps = call(names::methods::LIST_APPS).await;
             DesktopProbe {
                 ok: true,
                 app_count: apps.ok().and_then(|reply| reply.data).and_then(|data| {
