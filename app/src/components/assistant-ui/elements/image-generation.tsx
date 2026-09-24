@@ -17,15 +17,22 @@
  * - `dimensions` prop (default `"1024 × 1024"`) replaces the hardcoded size
  *   label, since OpenHuman's image tool can return other sizes.
  */
-import type { ComponentProps } from 'react';
-import { RefreshCwIcon } from 'lucide-react';
+import {
+  ghostButton,
+  mono,
+  paper,
+  ShimmerLabel,
+} from '@/components/assistant-ui/elements/surfaces';
 import { cn } from '@/components/assistant-ui/lib/utils';
-import { ghostButton, mono, paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { RefreshCwIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 const DOTS = Array.from({ length: 64 }, (_, i) => i);
 
-export interface ImageGenerationProps
-  extends Omit<ComponentProps<'div'>, 'children' | 'prompt' | 'generating'> {
+export interface ImageGenerationProps extends Omit<
+  ComponentProps<'div'>,
+  'children' | 'prompt' | 'generating'
+> {
   prompt: string;
   generating: boolean;
   dimensions?: string;
@@ -45,7 +52,10 @@ export function ImageGeneration({
   ...props
 }: ImageGenerationProps) {
   return (
-    <div data-slot="image-generation" className={cn('flex w-52 flex-col gap-2.5', className)} {...props}>
+    <div
+      data-slot="image-generation"
+      className={cn('flex w-52 flex-col gap-2.5', className)}
+      {...props}>
       <div className={cn(paper, 'relative aspect-square w-full overflow-hidden rounded-2xl')}>
         <div className="absolute inset-0 grid grid-cols-8 place-items-center p-6" aria-hidden>
           {DOTS.map(dot => {
@@ -96,7 +106,11 @@ export function ImageGeneration({
           aria-label={regenerateLabel}
           disabled={!onRegenerate}
           onClick={onRegenerate}
-          className={cn(ghostButton, 'size-6 shrink-0', generating && 'pointer-events-none opacity-0')}>
+          className={cn(
+            ghostButton,
+            'size-6 shrink-0',
+            generating && 'pointer-events-none opacity-0'
+          )}>
           <RefreshCwIcon className="size-3" />
         </button>
       </div>

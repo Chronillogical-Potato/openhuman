@@ -1,4 +1,7 @@
-import { DataTable, type DataTableColumn } from '../../../components/assistant-ui/elements/data-table';
+import {
+  DataTable,
+  type DataTableColumn,
+} from '../../../components/assistant-ui/elements/data-table';
 import { BubbleMarkdown } from '../components/AgentMessageBubble';
 
 /**
@@ -26,7 +29,9 @@ function isFlatObjectArray(value: unknown[]): value is FlatRow[] {
       v => v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'
     );
   if (!value.every(isFlatRow)) return false;
-  const keys = Object.keys(value[0] as FlatRow).sort().join('\u0000');
+  const keys = Object.keys(value[0] as FlatRow)
+    .sort()
+    .join('\u0000');
   return value.every(row => Object.keys(row).sort().join('\u0000') === keys);
 }
 

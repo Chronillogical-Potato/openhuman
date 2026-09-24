@@ -105,6 +105,18 @@ export interface SubagentActivity {
    * still blocked on the user.
    */
   spawnEventId?: string;
+  /**
+   * Provider-assigned id of the `spawn_subagent`/`spawn_async_subagent`/
+   * `delegate_*` tool call that started this delegation
+   * (`SubagentProgressDetail.parent_call_id` on the `subagent_spawned`
+   * event). When present, `assistantUiMessages.ts` renders this activity's
+   * `messages`/nested transcript directly on the ORIGINAL spawn tool-call
+   * part (`toolCallId === parentCallId`) instead of a synthetic row, and the
+   * spawn row's own part is suppressed so the two never collide. Absent on
+   * cores that predate this field — those threads keep rendering via the
+   * `findPendingDelegationContext` heuristic below.
+   */
+  parentCallId?: string;
   /** Human-readable display name from the agent registry (e.g. "Researcher"). */
   displayName?: string;
   /**
@@ -135,6 +147,12 @@ export interface SubagentActivity {
   elapsedMs?: number;
   /** Character length of the final assistant text. */
   outputChars?: number;
+  /**
+   * The sub-agent's final assistant text (`subagent_completed.subagent.output`,
+   * capped by the core). Rendered as the delegation's task-card result once
+   * it settles.
+   */
+  output?: string;
   /** Child tool calls executed inside the sub-agent, in arrival order. */
   toolCalls: SubagentToolCallEntry[];
   /**

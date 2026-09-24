@@ -79,11 +79,7 @@ export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
      * card` element.
      */
     generate_document: { type: 'backend', display: 'standalone', render: DocumentArtifactCall },
-    generate_presentation: {
-      type: 'backend',
-      display: 'standalone',
-      render: DocumentArtifactCall,
-    },
+    generate_presentation: { type: 'backend', display: 'standalone', render: DocumentArtifactCall },
 
     /**
      * Memory writes/reads, rendered as `memory-chips` instead of the raw

@@ -61,7 +61,7 @@ export function PlanReviewCardCore({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const matched = activeIndexFromTodos(review.steps, todos);
-  const activeIndex = matched && matched > 0 ? matched : matched === 0 ? 0 : 0;
+  const activeIndex = matched === null ? 0 : matched;
 
   const decide = useCallback(
     async (decision: Decision, feedbackText?: string) => {

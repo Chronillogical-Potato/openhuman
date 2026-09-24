@@ -17,8 +17,8 @@
  * - `avatarKey` picks which column seeds the leading letter avatar (defaults
  *   to the first column) instead of assuming a `name` field.
  */
-import { cn } from '@/components/assistant-ui/lib/utils';
 import { mono, paper } from '@/components/assistant-ui/elements/surfaces';
+import { cn } from '@/components/assistant-ui/lib/utils';
 import type { ComponentProps, ReactNode } from 'react';
 
 export interface DataTableColumn<TRow> {
@@ -94,7 +94,9 @@ export function DataTable<TRow>({
                 <span
                   key={column.key}
                   className={cn(
-                    column === avatarColumn ? 'text-foreground/90 truncate' : cn(mono, 'text-foreground/55 tabular-nums'),
+                    column === avatarColumn
+                      ? 'text-foreground/90 truncate'
+                      : cn(mono, 'text-foreground/55 tabular-nums'),
                     column.align === 'end' ? 'w-16 text-end' : 'flex-1'
                   )}>
                   {column.cell(row, index)}

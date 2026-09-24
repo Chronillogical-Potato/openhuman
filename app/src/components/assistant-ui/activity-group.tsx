@@ -10,12 +10,12 @@
  * activity, rather than a separate collapsible per part type. See the
  * `ActivityGroup` doc comment below for why.
  */
-import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import {
   ToolGroupContent,
   ToolGroupRoot,
   ToolGroupTrigger,
 } from '@/components/assistant-ui/elements/tool-group';
+import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import { type MessagePrimitive, useAuiState } from '@assistant-ui/react';
 import { type FC, type PropsWithChildren, useState } from 'react';
 

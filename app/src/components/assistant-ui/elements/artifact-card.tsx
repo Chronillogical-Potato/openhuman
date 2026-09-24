@@ -17,13 +17,15 @@
  * - `onOpen` replaces upstream's implicit "the whole card is a link" with an
  *   explicit handler; the card renders as a `<button>` when present.
  */
-import type { ComponentProps, ElementType } from 'react';
-import { ArrowUpRightIcon, FileTextIcon } from 'lucide-react';
-import { cn } from '@/components/assistant-ui/lib/utils';
 import { mono, paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { cn } from '@/components/assistant-ui/lib/utils';
+import { ArrowUpRightIcon, FileTextIcon } from 'lucide-react';
+import type { ComponentProps, ElementType } from 'react';
 
-export interface ArtifactCardProps
-  extends Omit<ComponentProps<'div'>, 'children' | 'title' | 'meta' | 'generating' | 'words'> {
+export interface ArtifactCardProps extends Omit<
+  ComponentProps<'div'>,
+  'children' | 'title' | 'meta' | 'generating' | 'words'
+> {
   title: string;
   meta: string;
   generating?: boolean;
@@ -108,7 +110,9 @@ function ArtifactCardBody({
         <p className="truncate text-[13.5px] font-medium">{title}</p>
         {generating ? (
           <p className={cn(mono, 'text-foreground/40 flex items-center gap-1')}>
-            <ShimmerLabel className="relative inline-block leading-none">{writingLabel}</ShimmerLabel>
+            <ShimmerLabel className="relative inline-block leading-none">
+              {writingLabel}
+            </ShimmerLabel>
             <span>·</span>
             <span className="tabular-nums">{words} words</span>
           </p>

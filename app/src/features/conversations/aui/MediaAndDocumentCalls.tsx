@@ -2,8 +2,8 @@ import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { FileTextIcon, PresentationIcon } from 'lucide-react';
 
 import { ArtifactCard } from '../../../components/assistant-ui/elements/artifact-card';
-import { ImageGeneration } from '../../../components/assistant-ui/elements/image-generation';
 import { Image } from '../../../components/assistant-ui/elements/image';
+import { ImageGeneration } from '../../../components/assistant-ui/elements/image-generation';
 import { useT } from '../../../lib/i18n/I18nContext';
 
 /**
@@ -27,9 +27,7 @@ function asMediaArtifacts(result: unknown): MediaArtifact[] | undefined {
   if (!result || typeof result !== 'object') return undefined;
   const artifacts = (result as { artifacts?: unknown }).artifacts;
   if (!Array.isArray(artifacts)) return undefined;
-  return artifacts.filter(
-    (a): a is MediaArtifact => typeof a === 'object' && a !== null
-  );
+  return artifacts.filter((a): a is MediaArtifact => typeof a === 'object' && a !== null);
 }
 
 /**
@@ -47,7 +45,10 @@ function asMediaArtifacts(result: unknown): MediaArtifact[] | undefined {
  * skips the artifact rather than guessing a path.
  */
 export const MediaGenerationCall: ToolCallMessagePartComponent = ({ args, result, status }) => {
-  const prompt = typeof (args as { prompt?: unknown })?.prompt === 'string' ? (args as { prompt: string }).prompt : '';
+  const prompt =
+    typeof (args as { prompt?: unknown })?.prompt === 'string'
+      ? (args as { prompt: string }).prompt
+      : '';
   const running = status?.type === 'running';
   const artifacts = asMediaArtifacts(result) ?? [];
 
@@ -111,7 +112,11 @@ export const DocumentArtifactCall: ToolCallMessagePartComponent = ({
   // No live token count from the core mid-generation; approximate from the
   // args payload so the shimmering "N words" line has something to show
   // rather than staying frozen at zero.
-  const words = running ? JSON.stringify(args ?? '').split(/\s+/).filter(Boolean).length : 0;
+  const words = running
+    ? JSON.stringify(args ?? '')
+        .split(/\s+/)
+        .filter(Boolean).length
+    : 0;
 
   const meta =
     typeof (result as { path?: unknown })?.path === 'string'
