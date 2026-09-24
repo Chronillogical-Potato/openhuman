@@ -56,6 +56,7 @@ pub async fn resume_for_thread(
                     thread_id: goal.thread_id.clone(),
                     goal_id: goal.goal_id.clone(),
                     status: goal.status.as_str().to_string(),
+                    goal: None,
                 });
             }
             Some(Some(goal))
@@ -80,6 +81,7 @@ pub async fn pause_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
                     thread_id: goal.thread_id.clone(),
                     goal_id: goal.goal_id.clone(),
                     status: goal.status.as_str().to_string(),
+                    goal: None,
                 });
             }
         }
@@ -109,6 +111,7 @@ pub async fn complete_for_thread(workspace_dir: &Path, thread_id: Option<&str>) 
                     thread_id: goal.thread_id.clone(),
                     goal_id: goal.goal_id.clone(),
                     status: goal.status.as_str().to_string(),
+                    goal: None,
                 });
             }
         }
@@ -208,6 +211,7 @@ pub async fn account_turn_against_goal(
                     thread_id: updated.thread_id.clone(),
                     goal_id: updated.goal_id.clone(),
                     status: updated.status.as_str().to_string(),
+                    goal: None,
                 });
             }
         }
