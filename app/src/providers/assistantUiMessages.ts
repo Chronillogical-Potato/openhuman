@@ -192,7 +192,17 @@ function resolveSubagentTimeline(timeline: readonly ToolTimelineEntry[]): readon
   }
   if (byParentCallId.size === 0) return timeline;
   const substituted = new Set(byParentCallId.values());
-  return timeline.filter(entry => !substituted.has(entry)).map(entry => byParentCallId.get(entry.id) ?? entry);
+  return timeline
+    .filter(entry => !substituted.has(entry))
+    .map(entry => {
+      const subagentEntry = byParentCallId.get(entry.id);
+      if (!subagentEntry) return entry;
+      // Keep the SPAWN row's `id`/`seq` (its slot in issue order — what the
+      // transcript's `toolCall` pointers and `unreferenced` sort key both key
+      // off) but the SUBAGENT row's content, so a `spawn_subagent`/
+      // `delegate_*` call and the delegation it started render as one part.
+      return { ...subagentEntry, id: entry.id, seq: entry.seq };
+    });
 }
 
 /** One item of a sub-agent's transcript, normalized to the `{kind:'tool', ...}` shape. */
