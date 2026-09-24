@@ -85,11 +85,22 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         //    `runtime_session::prepare`), so a rewritten volatile tier shows up
         //    as a change to `system.1` while `system` keeps its id and the
         //    layout guard can say which tier moved.
-        let leading_system = request
+        let observed_leading_system = request
             .messages
             .iter()
             .take_while(|m| matches!(m, TaMessage::System(_)))
             .count();
+        let leading_system = match ctx.data.cacheable_system_prefix_len {
+            Some(frozen) => frozen.min(observed_leading_system),
+            None => {
+                // A new session renders its prefix during the first turn's
+                // prepare hook, after the run context was constructed. Learn
+                // that initial tier count once; later System summaries do not
+                // become new cacheable tiers within the run.
+                ctx.data.cacheable_system_prefix_len = Some(observed_leading_system);
+                observed_leading_system
+            }
+        };
         for index in 0..leading_system {
             segments.push(PromptSegment {
                 id: tinyagents_harness::prompt::system_segment_id(index),

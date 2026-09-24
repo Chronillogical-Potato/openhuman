@@ -1307,7 +1307,7 @@ impl OpenHumanSessionHost {
         context.workspace = self.workspace_descriptor.clone();
         let cancellation = context.cancellation.clone();
         let root_config = context.root_run_config("openhuman-session");
-        let options = TurnOptions {
+        let mut options = TurnOptions {
             request_id: crate::agent::turn_origin::current_request_id(),
             thread_id: self.thread_id.clone(),
             stream: self.on_progress.is_some(),
@@ -1359,6 +1359,19 @@ impl OpenHumanSessionHost {
                     prelude.adopt_recorded_tools(recorded_tools.as_ref());
                 }
             }
+        }
+        // Resume restores the exact leading prompt messages from the durable
+        // transcript. Carry their count to the cache stamper: a later System
+        // compaction summary may be adjacent, but is not a frozen prompt tier.
+        let frozen_prefix_len = self
+            .runtime_session
+            .as_ref()
+            .expect("runtime session initialized")
+            .prefix_snapshot()
+            .messages()
+            .len();
+        if frozen_prefix_len > 0 {
+            options.run_context.data.cacheable_system_prefix_len = Some(frozen_prefix_len);
         }
         let outcome = self
             .runtime_session

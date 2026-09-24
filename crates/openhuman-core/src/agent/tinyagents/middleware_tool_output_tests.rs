@@ -292,6 +292,30 @@ async fn prompt_cache_segments_ignore_system_nudges_after_the_user_turn() {
 }
 
 #[tokio::test]
+async fn prompt_cache_segments_do_not_promote_a_compaction_summary() {
+    let mw = PromptCacheSegmentMiddleware;
+    let mut run = ctx();
+    run.data.cacheable_system_prefix_len = Some(2);
+    let mut before = ModelRequest::new(vec![
+        TaMessage::system("stable"),
+        TaMessage::system("context"),
+        TaMessage::user("first"),
+    ]);
+    let mut after = ModelRequest::new(vec![
+        TaMessage::system("stable"),
+        TaMessage::system("context"),
+        TaMessage::system("changing history summary"),
+        TaMessage::user("later"),
+    ]);
+
+    mw.before_model(&mut run, &(), &mut before).await.unwrap();
+    mw.before_model(&mut run, &(), &mut after).await.unwrap();
+
+    assert_eq!(before.cache_segments, after.cache_segments);
+    assert_eq!(before.prompt_fingerprint, after.prompt_fingerprint);
+}
+
+#[tokio::test]
 async fn prompt_cache_segments_name_each_system_tier_and_skip_tools_under_a_text_dialect() {
     // Two leading system messages (stable+context, then volatile) are two
     // segments named the way the harness's `refresh_prompt_cache_fingerprint`
