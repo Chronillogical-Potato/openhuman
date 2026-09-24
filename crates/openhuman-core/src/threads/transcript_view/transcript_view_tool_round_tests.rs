@@ -8,6 +8,20 @@ use crate::agent::messages::ChatMessage;
 use tempfile::TempDir;
 use tinyagents_session::transcript::{self, read_transcript_display};
 
+/// Write a raw JSONL transcript (meta header + `body` lines) for `thread_id`.
+fn write_raw(workspace: &std::path::Path, stem: &str, thread_id: &str, body: &[&str]) {
+    let path = transcript::resolve_keyed_transcript_path(workspace, stem).expect("resolve");
+    let mut buf = format!(
+        r#"{{"_meta":{{"version":1,"agent":"orchestrator","dispatcher":"xml","created":"2026-09-24T00:00:00Z","updated":"2026-09-24T00:00:10Z","turn_count":1,"input_tokens":0,"output_tokens":0,"cached_input_tokens":0,"charged_amount_usd":0.0,"thread_id":"{thread_id}"}}}}"#
+    );
+    buf.push('\n');
+    for line in body {
+        buf.push_str(line);
+        buf.push('\n');
+    }
+    std::fs::write(&path, buf).expect("write raw transcript");
+}
+
 /// A text-dialect (`xml`/`python`/`pformat`) tool turn, persisted through the
 /// real runtime codec and writer, must attach each call to the assistant row
 /// that issued it and pair it with its `[Tool results]` entry — so the derived
