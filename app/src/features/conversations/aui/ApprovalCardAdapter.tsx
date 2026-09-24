@@ -57,7 +57,12 @@ export interface ApprovalCardAdapterProps<D = ApprovalDecision> {
    * (e.g. the unrouted-approval surface, which deliberately offers only
    * once/deny — see the deleted `UnroutedApprovalCard`'s doc comment).
    */
-  alwaysDecision?: D;
+  // `NoInfer` keeps a plain string-literal decision (e.g.
+  // `alwaysDecision="approve_always_for_tool"`) from narrowing `D` away from
+  // its `ApprovalDecision` default at an ordinary approval-gate call site
+  // that passes no explicit `<D>` — only an explicit type argument (like
+  // `PlanReviewPart`'s `<ApprovalCardAdapter<Decision>>`) should do that.
+  alwaysDecision?: NoInfer<D>;
   alwaysHint?: string;
   /**
    * Local UI action for "Always allow" instead of an `onDecide` dispatch —
