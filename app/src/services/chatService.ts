@@ -1670,6 +1670,83 @@ export async function chatClearQueue(threadId: string): Promise<number | null> {
   }
 }
 
+/** One run-queue item (`QueueItemPayload` in `core/socketio.rs`). */
+export interface QueueItemPayload {
+  id: string;
+  /** `steer` / `followup` / `collect`; absent when the core does not say. */
+  lane?: string | null;
+  /** The message text, clipped by the core to 80 characters plus `…`. */
+  text_preview?: string | null;
+}
+
+/** `queue_item_queued` / `queue_item_delivered` / `queue_item_removed`. */
+export interface QueueItemEvent {
+  thread_id: string;
+  client_id?: string;
+  queue_item?: QueueItemPayload;
+}
+
+export interface QueueEventListeners {
+  /** A message joined a running turn's queue. */
+  onQueued?: (event: QueueItemEvent & { queue_item: QueueItemPayload }) => void;
+  /** The core handed a queued message to a turn (steered in, or dispatched). */
+  onDelivered?: (event: QueueItemEvent & { queue_item: QueueItemPayload }) => void;
+  /** A queued message was dropped and will not be sent. */
+  onRemoved?: (event: QueueItemEvent & { queue_item: QueueItemPayload }) => void;
+}
+
+/** Subscribe to the core's run-queue item events; returns the unsubscribe. */
+export function subscribeQueueEvents(listeners: QueueEventListeners): () => void {
+  const routes: Array<[string, QueueEventListeners[keyof QueueEventListeners]]> = [
+    ['queue_item_queued', listeners.onQueued],
+    ['queue_item_delivered', listeners.onDelivered],
+    ['queue_item_removed', listeners.onRemoved],
+  ];
+  const handlers: Array<[string, (payload: unknown) => void]> = [];
+  for (const [eventName, listener] of routes) {
+    if (!listener) continue;
+    const cb = (payload: unknown) => {
+      const e = payload as QueueItemEvent;
+      if (!e?.queue_item?.id) {
+        chatLog('%s thread_id=%s dropped: no queue_item', eventName, e?.thread_id);
+        return;
+      }
+      chatLog('%s thread_id=%s item_id=%s', eventName, e.thread_id, e.queue_item.id);
+      listener(e as QueueItemEvent & { queue_item: QueueItemPayload });
+    };
+    socketService.on(eventName, cb);
+    handlers.push([eventName, cb]);
+  }
+  return () => {
+    for (const [eventName, cb] of handlers) socketService.off(eventName, cb);
+  };
+}
+
+/**
+ * Take one message out of a running turn's queue so it is never sent.
+ * `true` only when the core confirmed it; on `false` the item is still queued
+ * and will be dispatched, so the caller must keep showing it.
+ */
+export async function chatRemoveQueueItem(threadId: string, itemId: string): Promise<boolean> {
+  const clientId = socketService.getSocket()?.id;
+  if (!clientId) {
+    chatLog('queue_remove: no socket id thread=%s — not sent', threadId);
+    return false;
+  }
+  try {
+    const res = await callCoreRpc<{ removed?: boolean }>({
+      method: 'openhuman.channel_web_queue_remove',
+      params: { client_id: clientId, thread_id: threadId, item_id: itemId },
+    });
+    const removed = res?.removed !== false;
+    chatLog('queue_remove: thread=%s item=%s removed=%s', threadId, itemId, removed);
+    return removed;
+  } catch (error) {
+    chatLog('queue_remove: rpc failed thread=%s item=%s error=%O', threadId, itemId, error);
+    return false;
+  }
+}
+
 /**
  * Re-dispatch the producing tool for a failed artifact, reusing the same
  * artifact id so the card swaps in place (#3162). Drives the failed-card
@@ -1689,6 +1766,59 @@ export async function aiRegenerate(artifactId: string, threadId: string): Promis
     params: { artifact_id: artifactId, thread_id: threadId, client_id: clientId },
   });
   return true;
+}
+
+/**
+ * Rewrite a settled message's content and truncate everything after it, via
+ * the `threads.edit_message` RPC (wire-contract.md; core workstream C4).
+ *
+ * The caller is responsible for truncating its own local cache to match —
+ * see `truncateMessagesFrom` in `store/threadSlice.ts` — because the RPC
+ * response carries no message list to replace it with; the socket events
+ * that follow (`inference_start`, ... `chat_done`) drive the new turn like
+ * any other send.
+ */
+export async function editMessage(params: {
+  threadId: string;
+  messageId: string;
+  content: string;
+}): Promise<void> {
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  await callCoreRpc({
+    method: 'openhuman.threads_edit_message',
+    params: {
+      thread_id: params.threadId,
+      message_id: params.messageId,
+      content: params.content,
+      client_id: clientId ?? undefined,
+    },
+  });
+}
+
+/**
+ * Re-run the turn after `messageId` (or the whole thread when omitted), via
+ * the `threads.regenerate` RPC (wire-contract.md; core workstream C4). Backs
+ * both the message action bar's Regenerate button and assistant-ui's
+ * `onReload`.
+ *
+ * Same truncation contract as {@link editMessage}: the caller drops the
+ * discarded replies from its own cache before calling this.
+ */
+export async function regenerateMessage(params: {
+  threadId: string;
+  messageId?: string | null;
+}): Promise<void> {
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  await callCoreRpc({
+    method: 'openhuman.threads_regenerate',
+    params: {
+      thread_id: params.threadId,
+      message_id: params.messageId ?? undefined,
+      client_id: clientId ?? undefined,
+    },
+  });
 }
 
 export function useRustChat(): boolean {
