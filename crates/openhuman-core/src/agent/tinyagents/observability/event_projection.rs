@@ -506,22 +506,23 @@ impl EventListener for OpenhumanEventBridge {
                     .lock()
                     .unwrap_or_else(|p| p.into_inner())
                     .insert(call_id.as_str().to_string(), std::time::Instant::now());
-                // The harness start event carries no call input (`ToolStarted`
-                // has only `call_id`/`tool_name`), so the label/detail are
-                // computed against empty args here — a tool whose label
-                // doesn't depend on its arguments (the common case: a policy
-                // label, or a name-derived default) already reads correctly;
-                // one whose detail DOES depend on args (e.g. a search query)
-                // is recomputed with the real arguments on `ToolCallCompleted`
-                // below and forwarded on the wire as
+                // The harness start event now carries the captured call
+                // input when payload capture is on (tinyagents#211); fall
+                // back to `Value::Null` when it's off, same as before. A
+                // tool whose label doesn't depend on its arguments (the
+                // common case: a policy label, or a name-derived default)
+                // already reads correctly with real input; one whose detail
+                // DOES depend on args (e.g. a search query) is recomputed
+                // with the real arguments on `ToolCallCompleted` below and
+                // forwarded on the wire as
                 // `tool_display_label`/`tool_display_detail` there too.
-                let (display_label, display_detail) =
-                    self.resolve_display(tool_name, &serde_json::Value::Null);
+                let arguments = input.clone().unwrap_or(serde_json::Value::Null);
+                let (display_label, display_detail) = self.resolve_display(tool_name, &arguments);
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallStarted {
                         call_id: call_id.as_str().to_string(),
                         tool_name: tool_name.clone(),
-                        arguments: serde_json::Value::Null,
+                        arguments,
                         iteration,
                         display_label,
                         display_detail,
@@ -531,7 +532,7 @@ impl EventListener for OpenhumanEventBridge {
                         task_id: s.task_id.clone(),
                         call_id: call_id.as_str().to_string(),
                         tool_name: tool_name.clone(),
-                        arguments: serde_json::Value::Null,
+                        arguments,
                         iteration,
                         display_label,
                         display_detail,

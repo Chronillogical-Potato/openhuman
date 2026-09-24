@@ -193,8 +193,27 @@ impl EventHandler<DomainEvent> for AgentSurfaceSubscriber {
                 item_id,
                 text_preview,
                 ..
+            } => {
+                let Some(item_id) = item_id.clone() else {
+                    return;
+                };
+                let lane = Some(mode.clone());
+                log::debug!(
+                    "[web-channel] agent-surface emitting queue_item_delivered thread_id={thread_id} item_id={item_id}"
+                );
+                publish_web_channel_event(WebChannelEvent {
+                    event: "queue_item_delivered".to_string(),
+                    client_id: String::new(),
+                    thread_id: thread_id.clone(),
+                    queue_item: Some(crate::core::socketio::QueueItemPayload {
+                        id: item_id,
+                        lane,
+                        text_preview: text_preview.clone(),
+                    }),
+                    ..Default::default()
+                });
             }
-            | DomainEvent::RunQueueFollowupDispatched {
+            DomainEvent::RunQueueFollowupDispatched {
                 thread_id,
                 item_id,
                 text_preview,
@@ -209,10 +228,7 @@ impl EventHandler<DomainEvent> for AgentSurfaceSubscriber {
                 let Some(item_id) = item_id.clone() else {
                     return;
                 };
-                let lane = match event {
-                    DomainEvent::RunQueueMessageDelivered { .. } => Some(mode.clone()),
-                    _ => None,
-                };
+                let lane = None;
                 log::debug!(
                     "[web-channel] agent-surface emitting queue_item_delivered thread_id={thread_id} item_id={item_id}"
                 );

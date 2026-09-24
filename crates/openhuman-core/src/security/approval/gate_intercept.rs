@@ -426,6 +426,7 @@ impl ApprovalGate {
             created_at: now,
             expires_at,
             source_context: source_context.clone(),
+            tool_call_id: tool_call_id.map(str::to_string),
         };
 
         // Register the waiter BEFORE persisting the row so a fast
@@ -445,9 +446,23 @@ impl ApprovalGate {
                 .lock()
                 .insert(thread_id.clone(), request_id.clone());
         }
+        // Record the full routing correlation (thread/client/tool_call_id) so
+        // whichever path resolves this request's decision — `decide()`, the
+        // TTL timeout, or a dropped decision channel, all below — can mirror
+        // it onto `ApprovalDecided` without re-deriving it from ambient
+        // task-locals that may no longer be in scope by then.
+        self.insert_request_route(
+            &request_id,
+            RequestRoute {
+                thread_id: chat_thread_id.clone(),
+                client_id: chat_client_id.clone(),
+                tool_call_id: tool_call_id.map(str::to_string),
+            },
+        );
         if let Err(err) = store::insert_pending(&self.config, &pending, &self.session_id) {
             self.evict_waiter(&request_id);
             self.clear_thread(&chat_thread_id, &request_id);
+            self.take_request_route(&request_id);
             tracing::error!(
                 error = %err,
                 tool = tool_name,
