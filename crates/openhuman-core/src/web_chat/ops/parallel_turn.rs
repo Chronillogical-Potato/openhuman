@@ -92,6 +92,9 @@ pub(crate) async fn spawn_parallel_turn(
                         // there before it is announced (#6034).
                         Some(chat_result.workspace_dir.as_path()),
                         chat_result.timing,
+                        // Parallel-fork delivery has no single human waiting
+                        // on a next-message suggestion for this reply (C5).
+                        false,
                     )
                     .await;
                 }
