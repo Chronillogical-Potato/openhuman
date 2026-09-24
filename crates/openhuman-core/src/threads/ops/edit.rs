@@ -111,13 +111,7 @@ pub async fn edit_message(request: EditMessageRequest) -> Result<RpcOutcome<Valu
 
     // Truncate the message log at the edited message itself (inclusive) —
     // it and everything after it is replaced by the fresh turn below.
-    conversations::blocking::delete_messages_from(
-        dir.clone(),
-        thread_id.clone(),
-        request.message_id.clone(),
-    )
-    .await
-    .map_err(|e| ThreadsError::from_thread_scoped_store_error(&thread_id, e))?;
+    super::delete_after(&thread_id, &request.message_id).await?;
 
     crate::web_chat::invalidate_thread_sessions(&thread_id).await;
 
