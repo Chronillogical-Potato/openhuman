@@ -3728,6 +3728,8 @@ const en: TranslationMap = {
   'conversations.composer.context.section.preamble': 'System prompt',
   'conversations.composer.context.section.tools': 'Tools',
   'conversations.composer.context.section.history': 'Conversation history',
+  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'Clear the conversation',
   'conversations.composer.command.new': 'Start a new conversation',
   'conversations.composer.command.stop': 'Stop the running reply',
