@@ -127,9 +127,9 @@ export function ApprovalCardAdapter<D = ApprovalDecision>({
         alwaysAllowLabel={t('chat.approval.alwaysAllow')}
         allowOnceLabel={t('chat.approval.approve')}
         runningLabel={t('chat.approval.deciding')}
-        onDeny={() => void decide('deny')}
+        onDeny={() => void decide(denyDecision)}
         onAlwaysAllow={alwaysDecision ? () => void decide(alwaysDecision) : undefined}
-        onAllowOnce={() => void decide('approve_once')}
+        onAllowOnce={() => void decide(allowOnceDecision)}
         denyProps={{ 'data-analytics-id': `${analyticsPrefix}-deny`, disabled }}
         alwaysAllowProps={
           alwaysDecision
