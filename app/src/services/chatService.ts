@@ -240,6 +240,48 @@ export interface ChatApprovalRequestEvent {
    * exact command/target from this so the user sees precisely what will run.
    */
   args?: Record<string, unknown>;
+  /**
+   * The parked call's own tool-call id (wire contract: `DomainEvent::
+   * ApprovalRequested.tool_call_id`, additive). Lets the approval attach to
+   * the EXACT tool-call part it gates rather than the newest-unresolved-by-
+   * name heuristic (`assistantUiMessages.ts`'s `withApproval`). May be absent
+   * on a core that has not landed the C2 approvals workstream yet — every
+   * reader must treat it as optional.
+   */
+  tool_call_id?: string;
+  /**
+   * RFC3339 timestamp the gate's TTL expires at (wire contract:
+   * `DomainEvent::ApprovalRequested.expires_at`, additive). Drives the
+   * expiry countdown on the approval card. Absent on an older core.
+   */
+  expires_at?: string;
+}
+
+/**
+ * Emitted when a parked approval is resolved by any path — an interactive
+ * decision routed through the RPC, the gate's TTL expiring with nobody
+ * answering, or an external cancel (thread deleted, turn superseded). Bridged
+ * from the Rust `DomainEvent::ApprovalDecided` (wire contract: additive
+ * `thread_id`/`client_id`/`tool_call_id`). Distinct from the client's own
+ * optimistic clear on a successful `openhuman.approval_decide` call: this is
+ * the SERVER's record of the outcome, and is the only signal for a TTL
+ * expiry or an approval decided by another connected client.
+ */
+export interface ChatApprovalDecidedEvent {
+  thread_id?: string;
+  client_id?: string;
+  request_id: string;
+  /** The gated call's tool-call id, when the core attached one (see above). */
+  tool_call_id?: string;
+  /** Human-readable summary of how the request was resolved. */
+  message?: string;
+  /**
+   * The terminal outcome. `'expired'` / `'cancelled'` map onto assistant-ui's
+   * own `ToolCallMessagePart.approval.resolution` union; any other value
+   * (e.g. a plain decision echo) is treated as an ordinary resolved decision
+   * with no special terminal state.
+   */
+  resolution?: 'expired' | 'cancelled' | string;
 }
 
 /**
@@ -618,6 +660,7 @@ export interface ChatEventListeners {
   onToolArgsDelta?: (event: ChatToolArgsDeltaEvent) => void;
   onProactiveMessage?: (event: ProactiveMessageEvent) => void;
   onApprovalRequest?: (event: ChatApprovalRequestEvent) => void;
+  onApprovalDecided?: (event: ChatApprovalDecidedEvent) => void;
   onPlanReviewRequest?: (event: ChatPlanReviewRequestEvent) => void;
   onArtifactPending?: (event: ArtifactPendingEvent) => void;
   onArtifactReady?: (event: ArtifactReadyEvent) => void;

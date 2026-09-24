@@ -37,7 +37,12 @@ type NativeToolEnvelope = (String, Vec<NativeToolCall>);
 /// no root transcript yet (brand-new thread / first turn not persisted).
 pub fn project_thread(workspace_dir: &Path, thread_id: &str) -> Option<ProjectedTranscript> {
     let (root_paths, sub_paths) = resolve_files(workspace_dir, thread_id)?;
-    Some(project_from_files(thread_id, &root_paths, &sub_paths))
+    Some(project_from_files(
+        thread_id,
+        &root_paths,
+        &sub_paths,
+        Some(workspace_dir),
+    ))
 }
 
 /// Resolve the on-disk file set backing a thread's transcript view: the root
