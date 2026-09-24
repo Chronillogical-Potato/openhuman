@@ -1,11 +1,38 @@
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { I18nProvider } from '../../../lib/i18n/I18nContext';
-import { MemoryHybridSearchCall, MemoryRecallCall, MemoryStoreCall, memoryToolChips } from './ChatMemoryChips';
+import {
+  MemoryHybridSearchCall,
+  MemoryRecallCall,
+  MemoryStoreCall,
+  memoryToolChips,
+} from './ChatMemoryChips';
 
-function withI18n(node: React.ReactElement) {
+function withI18n(node: ReactElement) {
   return render(<I18nProvider>{node}</I18nProvider>);
+}
+
+/** The prop fields every `ToolCallMessagePartComponent` requires, beyond `args`/`result`. */
+function toolCallProps(
+  toolName: string,
+  args: unknown,
+  result: unknown
+): ToolCallMessagePartProps {
+  return {
+    type: 'tool-call',
+    toolName,
+    toolCallId: `${toolName}-1`,
+    args: args as never,
+    argsText: '{}',
+    result,
+    status: { type: 'complete' },
+    addResult: () => {},
+    resume: () => {},
+    respondToApproval: () => Promise.resolve(),
+  };
 }
 
 describe('memoryToolChips', () => {
@@ -30,17 +57,23 @@ describe('memoryToolChips', () => {
 
 describe('memory tool call renders', () => {
   it('MemoryStoreCall renders the vendored memory-chips element', () => {
-    withI18n(<MemoryStoreCall args={{ key: 'favorite_color' }} result={undefined} />);
+    withI18n(<MemoryStoreCall {...toolCallProps('memory_store', { key: 'favorite_color' }, undefined)} />);
     expect(screen.getByText('favorite_color')).toBeTruthy();
   });
 
   it('MemoryRecallCall renders nothing for an empty result', () => {
-    const { container } = withI18n(<MemoryRecallCall args={undefined} result={[]} />);
+    const { container } = withI18n(
+      <MemoryRecallCall {...toolCallProps('memory_recall', undefined, [])} />
+    );
     expect(container.querySelector('[data-slot="memory-chips"]')).toBeNull();
   });
 
   it('MemoryHybridSearchCall renders one chip per hit', () => {
-    withI18n(<MemoryHybridSearchCall args={undefined} result={{ results: [{ key: 'k1' }, { key: 'k2' }] }} />);
+    withI18n(
+      <MemoryHybridSearchCall
+        {...toolCallProps('memory_hybrid_search', undefined, { results: [{ key: 'k1' }, { key: 'k2' }] })}
+      />
+    );
     expect(screen.getByText('k1')).toBeTruthy();
     expect(screen.getByText('k2')).toBeTruthy();
   });
