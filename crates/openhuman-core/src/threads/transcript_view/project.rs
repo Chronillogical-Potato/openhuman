@@ -233,6 +233,7 @@ impl Projector {
                     content: raw,
                     display_content: sanitized,
                     request_id: msg.request_id.clone(),
+                    ts: msg.ts.clone(),
                 });
             }
             "assistant" => self.assistant(msg),
