@@ -677,6 +677,12 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Agent,
         crate::agent::plan_review::all_plan_review_registered_controllers(),
     );
+    // Per-thread Plan/Build run mode (agent.set_run_mode / agent.get_run_mode)
+    push(
+        &mut controllers,
+        DomainGroup::Agent,
+        crate::agent::tinyagents::run_mode::all_registered_controllers(),
+    );
     // Agent-generated artifact storage, retrieval, and lifecycle management
     push(
         &mut controllers,

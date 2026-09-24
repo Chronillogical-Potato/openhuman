@@ -187,4 +187,4 @@ Sources.Root = Source;
 Sources.Icon = SourceIcon;
 Sources.Title = SourceTitle;
 
-export { Sources, Source, SourceIcon, SourceTitle, sourceVariants };
+export { Sources, Source, SourceIcon, SourceTitle, DocumentSourceIcon, sourceVariants };
