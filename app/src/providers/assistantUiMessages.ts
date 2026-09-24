@@ -21,6 +21,7 @@ import {
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
 import {
+  CHAT_ERROR_METADATA_KEY,
   FEEDBACK_METADATA_KEY,
   FEEDBACK_ROW_IDS_METADATA_KEY,
   type MessageFeedback,
