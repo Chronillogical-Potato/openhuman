@@ -293,7 +293,9 @@ pub fn record_flow_preauthorization(
 /// (`decided_at` + `decision`) without leaving expired rows pending
 /// forever.
 pub fn expire_stale(config: &Config) -> Result<usize> {
-    with_connection(config, |conn| expire_stale_with_now(conn, Utc::now()))
+    with_connection(config, |conn| {
+        Ok(expire_stale_with_now(conn, Utc::now())?.len())
+    })
 }
 
 /// List all rows that are still awaiting user input, regardless of
