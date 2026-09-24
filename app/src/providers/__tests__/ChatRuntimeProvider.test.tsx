@@ -2280,6 +2280,113 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
   });
 });
 
+describe('ChatRuntimeProvider — chat_cancelled (wire-contract.md)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetRuntimeState();
+  });
+
+  afterEach(() => {
+    resetRuntimeState();
+  });
+
+  // `chat_cancelled` is the core-authoritative sibling of the local Stop path
+  // in `Conversations.tsx`; the core keeps emitting `chat_error{error_type:
+  // "cancelled"}` alongside it for one release (asserted above to append no
+  // message), so this dedupes on `request_id` against whatever the local
+  // path already persisted.
+  it('persists the live partial as a stopped reply, tagged with cancel_reason', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-chat-cancelled';
+
+    act(() => {
+      store.dispatch(
+        setStreamingAssistantForThread({
+          threadId,
+          streaming: { content: 'partial before supersede', thinking: '', requestId: 'r-sup' },
+        })
+      );
+    });
+
+    act(() => {
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-sup',
+        cancel_reason: 'superseded',
+        superseded_by: 'r-next',
+      });
+    });
+
+    await waitFor(() =>
+      expect(threadApi.appendMessage).toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({
+          sender: 'agent',
+          content: 'partial before supersede',
+          extraMetadata: expect.objectContaining({
+            stopped: true,
+            cancelReason: 'superseded',
+            supersededBy: 'r-next',
+            requestId: 'r-sup',
+          }),
+        })
+      )
+    );
+  });
+
+  it('does not double-persist a partial the local Stop path already saved for the same request', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-chat-cancelled-dedupe';
+
+    act(() => {
+      store.dispatch(
+        loadThreads.fulfilled(
+          { threads: [], count: 0 },
+          '',
+          undefined as never
+        )
+      );
+    });
+    // Seed the local cache exactly as `Conversations.tsx`'s
+    // `handleStopGeneration` does, keyed by the same `requestId`.
+    store.getState(); // no-op read to keep lint happy about unused import removal
+    act(() => {
+      store.dispatch(
+        setStreamingAssistantForThread({
+          threadId,
+          streaming: { content: 'already saved locally', thinking: '', requestId: 'r-dup' },
+        })
+      );
+    });
+
+    act(() => {
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-dup',
+        cancel_reason: 'user_stop',
+      });
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(threadApi.appendMessage).toHaveBeenCalledTimes(0);
+  });
+
+  it('produces no message when nothing streamed (no partial to save)', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-chat-cancelled-empty';
+
+    act(() => {
+      listeners.onCancelled?.({ thread_id: threadId, request_id: 'r-empty', cancel_reason: 'user_stop' });
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(threadApi.appendMessage).not.toHaveBeenCalledWith(
+      threadId,
+      expect.objectContaining({ sender: 'agent' })
+    );
+  });
+});
+
 describe('ChatRuntimeProvider — skill tool-chain latency (#4273 AC3)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
