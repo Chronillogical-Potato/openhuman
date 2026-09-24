@@ -1,8 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
 import { SubagentTaskCard } from './SubagentTaskCard';
+
+// The nested transcript's MessagePrimitive needs a ThreadPrimitive.Viewport.
+// These tests exercise the card and its reply actions without mounting a thread.
+vi.mock('../../../components/assistant-ui/elements/task-card.aui', () => ({
+  TaskTranscript: () => <div>Nested transcript</div>,
+}));
 
 const activity: SubagentActivity = {
   taskId: 'sub-1',

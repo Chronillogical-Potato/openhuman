@@ -12,7 +12,7 @@
  * `hooks/__tests__/useFlowRunPoller.test.ts` and
  * `hooks/__tests__/useFlowPendingApprovals.test.ts`.
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -273,7 +273,11 @@ describe('FlowRunInspectorDrawer', () => {
     expect(screen.queryByTestId('flow-run-pending-approvals')).not.toBeInTheDocument();
   });
 
-  it("routes Approve once / Approve always / Deny to the hook's decide() with the request id", () => {
+  it.each([
+    ['Approve', 'approve_once'],
+    ['Always allow', 'approve_always_for_flow'],
+    ['Deny', 'deny'],
+  ] as const)('routes %s to the hook with the request id', (label, decision) => {
     const decide = vi.fn().mockResolvedValue(undefined);
     useFlowRunPoller.mockReturnValue({
       run: makeRun({ status: 'pending_approval' }),
@@ -287,15 +291,10 @@ describe('FlowRunInspectorDrawer', () => {
       decide,
     });
     renderDrawer('thread-1', vi.fn());
+    const card = within(screen.getByTestId('flow-run-pending-approval-req-a'));
 
-    fireEvent.click(screen.getByTestId('flow-run-pending-approval-approve-req-a'));
-    expect(decide).toHaveBeenCalledWith('req-a', 'approve_once');
-
-    fireEvent.click(screen.getByTestId('flow-run-pending-approval-always-req-a'));
-    expect(decide).toHaveBeenCalledWith('req-a', 'approve_always_for_flow');
-
-    fireEvent.click(screen.getByTestId('flow-run-pending-approval-deny-req-a'));
-    expect(decide).toHaveBeenCalledWith('req-a', 'deny');
+    fireEvent.click(card.getByRole('button', { name: label }));
+    expect(decide).toHaveBeenCalledWith('req-a', decision);
   });
 
   it('shows the polling error message when useFlowPendingApprovals reports one', () => {
