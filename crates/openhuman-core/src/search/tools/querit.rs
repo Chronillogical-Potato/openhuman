@@ -515,6 +515,37 @@ impl Tool for QueritSearchTool {
             result.markdown_formatted =
                 Some(self.render_results_markdown(&search_resp.results.result, query));
         }
+        // Host-only structured payload for the chat UI's tool-call
+        // presentation — never rendered to the model, so `render_results_plain`'s
+        // text above (and the cache key that depends on it) is unaffected.
+        let snippets: Vec<Option<String>> = search_resp
+            .results
+            .result
+            .iter()
+            .map(super::querit::QueritResultItem::snippet_text)
+            .collect();
+        let structured_results: Vec<crate::search::tools::WebSearchResultRef<'_>> = search_resp
+            .results
+            .result
+            .iter()
+            .zip(snippets.iter())
+            .map(|(item, snippet)| crate::search::tools::WebSearchResultRef {
+                title: item
+                    .title
+                    .as_deref()
+                    .filter(|t| !t.trim().is_empty())
+                    .unwrap_or("Untitled"),
+                url: item.url.as_str(),
+                published: item.page_age.as_deref(),
+                excerpt: snippet.as_deref(),
+            })
+            .collect();
+        result.metadata = Some(crate::search::tools::web_search_metadata(
+            query,
+            "Querit",
+            &structured_results,
+            self.max_results,
+        ));
         Ok(result)
     }
 }
