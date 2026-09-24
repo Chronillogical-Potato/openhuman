@@ -1,6 +1,7 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { useRunQueueEvents } from '../features/conversations/aui/useRunQueueEvents';
 import { requestUsageRefresh } from '../hooks/usageRefresh';
 import { useRefetchSnapshotOnTurnEnd } from '../hooks/useRefetchSnapshotOnTurnEnd';
 import {
@@ -347,6 +348,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
   const { refetch: refetchSnapshot } = useRefetchSnapshotOnTurnEnd();
   const socketStatus = useAppSelector(selectSocketStatus);
+  // The core's run queue (`queue_item_*`) → `queueSlice` → the composer queue.
+  useRunQueueEvents(socketStatus === 'connected');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
@@ -552,7 +555,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
     // user → assistant → queued follow-up. Without this the queued prompts are
     // lost on reload and the dispatched answer has no visible user message.
     const flushQueuedFollowups = async (threadId: string) => {
-      const queued = store.getState().chatRuntime.queuedFollowupsByThread[threadId] ?? [];
+      const queued = store.getState().queue.pendingFollowupsByThread[threadId] ?? [];
       // Persist sequentially so the queued prompts land in the append-log in the
       // order the user queued them (concurrent dispatches would race), and
       // surface failures instead of dropping them silently. The stored message
