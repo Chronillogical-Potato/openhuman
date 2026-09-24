@@ -157,12 +157,31 @@ describe('inline turn sources', () => {
     // so this proves the wiring and not merely the component.
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
 
-    // Collapsed by design: the count is visible, the rows are not yet.
-    expect(screen.getByText(/\(2\)$/)).toBeTruthy();
-    expect(sourceHrefs()).toEqual([]);
-
-    await expandSources();
+    // No disclosure to open: every source badge is in the DOM already.
     expect(sourceHrefs()).toEqual(['https://example.com/a', 'https://docs.rs/b']);
+  });
+
+  it('renders a memory citation alongside url sources, with no href', async () => {
+    vi.spyOn(threadApi, 'getDerivedTranscript').mockResolvedValue(
+      page(toolCall('c1', 'https://example.com/a')) as never
+    );
+
+    renderChat(
+      agentMessage([
+        {
+          id: 'cite-1',
+          key: 'user_timezone',
+          namespace: 'profile',
+          timestamp: '2026-01-01T00:00:00.000Z',
+          snippet: 'User is in UTC+2.',
+        },
+      ])
+    );
+
+    await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
+    expect(screen.getByTestId('agent-memory-source-row')).toBeTruthy();
+    expect(screen.getByText('user_timezone')).toBeTruthy();
+    expect(sourceHrefs()).toEqual(['https://example.com/a']);
   });
 
   it('draws the turn once, with no process footer under the answer', async () => {
