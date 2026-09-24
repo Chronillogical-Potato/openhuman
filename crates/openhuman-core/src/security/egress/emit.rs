@@ -67,12 +67,20 @@ fn already_disclosed_this_turn(descriptor: &EgressDescriptor) -> bool {
 }
 
 /// Best-effort ambient chat routing for the current turn, mirroring
-/// `artifacts::store::current_chat_context`. Returns `(thread_id, client_id)`,
-/// each `None` outside a chat-scoped task (CLI / cron / background sync).
-fn current_chat_context() -> (Option<String>, Option<String>) {
+/// `artifacts::store::current_chat_context`. Returns
+/// `(thread_id, client_id, request_id)`, each `None` outside a chat-scoped
+/// task (CLI / cron / background sync); `request_id` is additionally `None`
+/// for a chat-scoped caller that had no turn id in scope.
+fn current_chat_context() -> (Option<String>, Option<String>, Option<String>) {
     crate::security::approval::APPROVAL_CHAT_CONTEXT
-        .try_with(|ctx| (Some(ctx.thread_id.clone()), Some(ctx.client_id.clone())))
-        .unwrap_or((None, None))
+        .try_with(|ctx| {
+            (
+                Some(ctx.thread_id.clone()),
+                Some(ctx.client_id.clone()),
+                ctx.request_id.clone(),
+            )
+        })
+        .unwrap_or((None, None, None))
 }
 
 /// Publish an [`DomainEvent::ExternalTransferPending`] for `descriptor` when the

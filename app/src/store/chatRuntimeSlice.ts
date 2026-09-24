@@ -4,7 +4,6 @@ import debug from 'debug';
 import { mapDisplayItems } from '../features/conversations/derived/mapDisplayItems';
 import { threadApi } from '../services/api/threadApi';
 import type { DerivedTranscriptPage } from '../types/derivedTranscript';
-import type { ThreadMessage } from '../types/thread';
 import type {
   AgentRun,
   PersistedSubagentActivity,

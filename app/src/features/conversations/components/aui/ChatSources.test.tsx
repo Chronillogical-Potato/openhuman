@@ -224,7 +224,6 @@ describe('inline turn sources', () => {
     renderChat();
 
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
-    await expandSources();
 
     // One row, not two: the `javascript:` entry is dropped by
     // `extractAgentSources`, so it is never counted and never linked.
