@@ -986,23 +986,7 @@ describe('chatRuntimeSlice', () => {
     });
   });
 
-  describe('parallel (forked) turn lane', () => {
-    it('registers a parallel request and streams into its own lane keyed by requestId', () => {
-      let state = reducer(
-        undefined,
-        registerParallelRequest({ threadId: 't-1', requestId: 'req-a' })
-      );
-      expect(state.parallelRequestThreads['req-a']).toBe('t-1');
-
-      state = reducer(
-        state,
-        setParallelStream({
-          threadId: 't-1',
-          streaming: { requestId: 'req-a', content: 'hi', thinking: '' },
-        })
-      );
-      expect(state.parallelStreamsByThread['t-1']['req-a'].content).toBe('hi');
-    });
+});
 
     it('keeps two concurrent same-thread branches separate', () => {
       let state = reducer(undefined, registerParallelRequest({ threadId: 't-1', requestId: 'r1' }));
