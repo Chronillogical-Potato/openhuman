@@ -26,6 +26,7 @@ import chatRuntimeReducer, {
   subagentAwaitingUser,
 } from '../../../store/chatRuntimeSlice';
 import mascotReducer from '../../../store/mascotSlice';
+import runModeReducer from '../../../store/runModeSlice';
 import threadReducer from '../../../store/threadSlice';
 import { AssistantUiChat } from './AssistantUiChat';
 
@@ -37,6 +38,8 @@ function buildStore() {
       thread: threadReducer,
       chatRuntime: chatRuntimeReducer,
       mascot: mascotReducer,
+      // The composer's `/plan` / `/build` commands read it (`useRunMode`).
+      runMode: runModeReducer,
     }),
     preloadedState: {
       thread: {
