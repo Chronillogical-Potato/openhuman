@@ -7,7 +7,7 @@
 use crate::agent::orchestration::tools::DelegationTarget;
 use crate::agent::tool_policy::GeneratedToolRuntimeContext;
 use crate::tools::toolpacks::PackRegistryHandle;
-use tinytools::Tool;
+use tinytools::{Tool, ToolRunContext};
 #[cfg(test)]
 use tinytools::{PermissionLevel, ToolCategory, ToolResult, ToolScope};
 
