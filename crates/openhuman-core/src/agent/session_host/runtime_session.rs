@@ -146,6 +146,7 @@ struct OpenHumanTurnPreludeMutable {
     pending_skill_retraction: Vec<String>,
     connected_integrations: Vec<crate::agent::prompts::ConnectedIntegration>,
     connected_integrations_initialized: bool,
+    connected_integrations_authoritative: bool,
     /// Integration action declarations this thread was already sent,
     /// restored by the tinyagents session on resume. Rebuilt into deferred
     /// executors whenever the live integrations list does not supply them
@@ -428,7 +429,7 @@ impl OpenHumanTurnPrelude {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             (
                 mutable.connected_integrations.clone(),
-                mutable.connected_integrations_initialized,
+                mutable.connected_integrations_authoritative,
             )
         };
         let mut surface = self
@@ -1491,6 +1492,7 @@ impl OpenHumanSessionHost {
                     pending_skill_retraction: self.pending_skill_retraction.clone(),
                     connected_integrations: self.connected_integrations.clone(),
                     connected_integrations_initialized: self.connected_integrations_initialized,
+                    connected_integrations_authoritative: self.connected_integrations_initialized,
                     recorded_integration_actions: Vec::new(),
                     workflows: self.workflows.clone(),
                     composio_events: None,

@@ -69,7 +69,7 @@ impl OpenHumanTurnPrelude {
         let Some(config) = config else {
             return;
         };
-        let Some(connected) = load_connected_integrations(&config).await else {
+        let Some((connected, authoritative)) = load_connected_integrations(&config).await else {
             // Backend unreachable and nothing cached: stay un-hydrated so the
             // next turn retries rather than pinning an empty surface.
             log::warn!(
@@ -94,6 +94,7 @@ impl OpenHumanTurnPrelude {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         mutable.connected_integrations = connected;
         mutable.connected_integrations_initialized = true;
+        mutable.connected_integrations_authoritative = authoritative;
         mutable.announced_integrations = mutable
             .connected_integrations
             .iter()
@@ -108,10 +109,10 @@ impl OpenHumanTurnPrelude {
             // An expired cache is refetched rather than skipped, so a
             // long-lived session keeps tracking connects/revokes.
             let current = match crate::integrations::composio::cached_active_integrations(config) {
-                Some(current) => Some(current),
+                Some(current) => Some((current, true)),
                 None => load_connected_integrations(config).await,
             };
-            if let Some(current) = current {
+            if let Some((current, authoritative)) = current {
                 let mut mutable = self
                     .mutable
                     .lock()
@@ -126,6 +127,7 @@ impl OpenHumanTurnPrelude {
                     }
                 }
                 mutable.connected_integrations = current;
+                mutable.connected_integrations_authoritative = authoritative;
             }
         }
         let connected_mcp = crate::mcp::registry::connections::connected_overview()
@@ -184,10 +186,10 @@ impl OpenHumanTurnPrelude {
 /// there is neither a live answer nor any snapshot to fall back to.
 async fn load_connected_integrations(
     config: &crate::config::Config,
-) -> Option<Vec<crate::agent::prompts::ConnectedIntegration>> {
+) -> Option<(Vec<crate::agent::prompts::ConnectedIntegration>, bool)> {
     use crate::integrations::composio::FetchConnectedIntegrationsStatus;
     match crate::integrations::composio::fetch_connected_integrations_status(config).await {
-        FetchConnectedIntegrationsStatus::Authoritative(connected) => Some(connected),
+        FetchConnectedIntegrationsStatus::Authoritative(connected) => Some((connected, true)),
         FetchConnectedIntegrationsStatus::Unavailable => {
             let stale =
                 crate::integrations::composio::cached_active_integrations_including_expired(config);
@@ -195,7 +197,7 @@ async fn load_connected_integrations(
                 "[session] integrations fetch unavailable; using stale snapshot={}",
                 stale.as_ref().map_or(0, Vec::len)
             );
-            stale
+            stale.map(|connected| (connected, false))
         }
     }
 }
