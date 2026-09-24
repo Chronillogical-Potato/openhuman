@@ -1387,6 +1387,7 @@ const AssistantMessage: FC = () => {
           }}
         </MessagePrimitive.GroupedParts>
         <MessageError />
+        <ChatErrorNotice />
       </div>
 
       <div
