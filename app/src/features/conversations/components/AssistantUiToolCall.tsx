@@ -16,7 +16,7 @@ import { FetchBody, FileBody, ShellBody, WebSearchBody } from '../tools/ToolBodi
 import { hasDisplayValue, parsedValue, ToolDataView } from '../tools/ToolDataView';
 import { ToolIcon } from '../tools/ToolIcon';
 import { describeToolCall, parseToolArgs, toolLabel } from '../tools/toolPresentation';
-import { ToolFailureLines } from './ToolFailureLines';
+import { ToolFailureCard } from '../aui/ToolFailureCard';
 
 /** `1234` → "1.2s", `850` → "850ms", `75000` → "1m 15s". */
 export function formatElapsed(ms: number): string {
