@@ -35,6 +35,11 @@
  * - `Tool` — `ToolTimelineBlock` carries run-loop coalescing that upstream has
  *   no equivalent for and stays. Nothing else needs a tool-call renderer.
  *
+ * `Conversation` and `Message` went the same way later: their only caller was
+ * the legacy `ChatThreadView` transcript, which was replaced end to end by the
+ * assistant-ui `Thread` (`components/assistant-ui/thread.tsx`), whose own
+ * viewport and message primitives cover both.
+ *
  * If one of these is wanted later, it is a `git log` away — but it should come
  * back with a caller in the same change.
  */
@@ -50,25 +55,6 @@ export {
   type SourcesProps,
   type SourcesTriggerProps,
 } from './Sources';
-
-// Transcript shell
-export {
-  Conversation,
-  ConversationContent,
-  type ConversationContentProps,
-  type ConversationProps,
-} from './Conversation';
-export {
-  Message,
-  MessageAction,
-  MessageActions,
-  MessageContent,
-  type MessageActionProps,
-  type MessageActionsProps,
-  type MessageContentProps,
-  type MessageProps,
-  type MessageRole,
-} from './Message';
 
 // Icons
 export { BookIcon, ChevronDownIcon } from './icons';
