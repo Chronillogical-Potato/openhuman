@@ -629,7 +629,20 @@ impl ApprovalGate {
                     tool = tool_name,
                     "[approval::gate] decision channel dropped — denying"
                 );
-                let _ = store::decide(&self.config, &request_id, ApprovalDecision::Deny);
+                if let Ok(Some(row)) =
+                    store::decide(&self.config, &request_id, ApprovalDecision::Deny)
+                {
+                    let route = self.take_request_route(&request_id);
+                    BUS.publish(DomainEvent::ApprovalDecided {
+                        request_id: row.request_id,
+                        tool_name: row.tool_name,
+                        decision: ApprovalDecision::Deny.as_str().to_string(),
+                        thread_id: route.as_ref().and_then(|r| r.thread_id.clone()),
+                        client_id: route.as_ref().and_then(|r| r.client_id.clone()),
+                        tool_call_id: route.and_then(|r| r.tool_call_id),
+                        resolution: Some("cancelled".to_string()),
+                    });
+                }
                 (
                     GateOutcome::Deny {
                         reason: format!(
