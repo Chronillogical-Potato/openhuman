@@ -44,19 +44,34 @@ export function ArtifactCard({
   className,
   ...props
 }: ArtifactCardProps) {
-  const Container = onOpen ? 'button' : 'div';
+  const cardClassName = cn(
+    paper,
+    'group flex w-full max-w-xs cursor-pointer items-center gap-3 rounded-[20px] p-3.5 text-start transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]',
+    className
+  );
+
+  if (onOpen) {
+    return (
+      <button
+        data-slot="artifact-card"
+        type="button"
+        onClick={onOpen}
+        className={cardClassName}
+        {...(props as ComponentProps<'button'>)}>
+        <ArtifactCardBody
+          title={title}
+          meta={meta}
+          generating={generating}
+          words={words}
+          writingLabel={writingLabel}
+          Icon={Icon}
+        />
+      </button>
+    );
+  }
 
   return (
-    <Container
-      data-slot="artifact-card"
-      type={onOpen ? 'button' : undefined}
-      onClick={onOpen}
-      className={cn(
-        paper,
-        'group flex w-full max-w-xs cursor-pointer items-center gap-3 rounded-[20px] p-3.5 text-start transition-transform duration-150 hover:-translate-y-px active:scale-[0.98]',
-        className
-      )}
-      {...props}>
+    <div data-slot="artifact-card" className={cardClassName} {...props}>
       <span className="bg-foreground/[0.05] text-foreground/45 flex size-9 shrink-0 items-center justify-center rounded-xl">
         <Icon className={cn('size-4', generating && 'animate-pulse motion-reduce:animate-none')} />
       </span>
