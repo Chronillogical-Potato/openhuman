@@ -13,7 +13,7 @@ import { emptySessionTokenUsage } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { DEFAULT_MASCOT_COLOR } from '../../../store/mascotSlice';
 import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
-import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
+import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ChatSources } from './aui/ChatSources';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
