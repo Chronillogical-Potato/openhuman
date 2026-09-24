@@ -1273,7 +1273,12 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
   if (listeners.onThreadTodosChanged) {
     const cb = (payload: unknown) => {
       const e = payload as ChatThreadTodosChangedEvent;
-      chatLog('%s thread_id=%s count=%d', EVENTS.threadTodosChanged, e.thread_id, e.todos?.length ?? 0);
+      chatLog(
+        '%s thread_id=%s count=%d',
+        EVENTS.threadTodosChanged,
+        e.thread_id,
+        e.todos?.length ?? 0
+      );
       listeners.onThreadTodosChanged?.(e);
     };
     socket.on(EVENTS.threadTodosChanged, cb);
@@ -1650,10 +1655,7 @@ export interface ChatCancelOutcome {
  * turn on the thread. Optional and omittable for the existing single-turn
  * callers.
  */
-export async function chatCancel(
-  threadId: string,
-  requestId?: string
-): Promise<ChatCancelOutcome> {
+export async function chatCancel(threadId: string, requestId?: string): Promise<ChatCancelOutcome> {
   const socket = socketService.getSocket();
   const clientId = socket?.id;
   if (!clientId) {
@@ -1664,11 +1666,7 @@ export async function chatCancel(
   try {
     const result = await callCoreRpc<{ result?: { request_id?: unknown } }>({
       method: 'openhuman.channel_web_cancel',
-      params: {
-        client_id: clientId,
-        thread_id: threadId,
-        request_id: requestId ?? undefined,
-      },
+      params: { client_id: clientId, thread_id: threadId, request_id: requestId ?? undefined },
     });
     const turnCancelled = typeof result?.result?.request_id === 'string';
     chatLog('chat_cancel: thread=%s turnCancelled=%s', threadId, turnCancelled);

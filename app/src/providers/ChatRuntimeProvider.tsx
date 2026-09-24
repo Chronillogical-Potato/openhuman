@@ -43,7 +43,6 @@ import {
   clearInferenceStatusForThread,
   clearPendingApprovalForThread,
   clearPendingPlanReviewForThread,
-  resolvePendingApprovalForThread,
   clearProcessingForThread,
   clearStreamingAssistantForThread,
   endInferenceTurn,
@@ -53,6 +52,7 @@ import {
   parseToolFailure,
   recordChatTurnUsage,
   recordSubagentTranscriptTool,
+  resolvePendingApprovalForThread,
   resolveSubagentTranscriptTool,
   setInferenceStatusForThread,
   setPendingApprovalForThread,
@@ -78,7 +78,6 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setRunMode } from '../store/runModeSlice';
 import { selectSocketStatus } from '../store/socketSelectors';
 import { clearThreadGoal, setThreadGoal } from '../store/threadGoalSlice';
-import { setThreadTodos } from '../store/threadTodosSlice';
 import {
   addInferenceResponse,
   addMessageLocal,
@@ -91,6 +90,7 @@ import {
   setSelectedThread,
   TIMING_METADATA_KEY,
 } from '../store/threadSlice';
+import { setThreadTodos } from '../store/threadTodosSlice';
 import { reportUserError } from '../store/userErrorsSlice';
 import { IS_PROD } from '../utils/config';
 import { AssistantUiRuntimeProvider } from './AssistantUiRuntimeProvider';
@@ -263,9 +263,7 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
  * card needs a `GuardrailPayload` no other `error_type` carries).
  */
 function chatErrorExtraMetadata(event: ChatErrorEvent): Record<string, unknown> {
-  return {
-    [CHAT_ERROR_METADATA_KEY]: { errorType: event.error_type, guardrail: event.guardrail },
-  };
+  return { [CHAT_ERROR_METADATA_KEY]: { errorType: event.error_type, guardrail: event.guardrail } };
 }
 
 /**
@@ -1365,7 +1363,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         // would race the optimistic clear and, worse, drop a card whose
         // decision the USER on this client is mid-click on when the event
         // for a DIFFERENT thread's request arrives.
-        if (!event.thread_id || (event.resolution !== 'expired' && event.resolution !== 'cancelled')) {
+        if (
+          !event.thread_id ||
+          (event.resolution !== 'expired' && event.resolution !== 'cancelled')
+        ) {
           return;
         }
         dispatch(

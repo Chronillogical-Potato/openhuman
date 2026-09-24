@@ -30,11 +30,7 @@ describe('buildOpenHumanQueueAdapter', () => {
     });
 
     expect(adapter.items).toEqual([
-      {
-        id: 'q1',
-        prompt: 'and the pricing?',
-        parts: [{ type: 'text', text: 'and the pricing?' }],
-      },
+      { id: 'q1', prompt: 'and the pricing?', parts: [{ type: 'text', text: 'and the pricing?' }] },
     ]);
     expect(adapter.steerItems).toEqual([]);
   });
@@ -130,7 +126,9 @@ describe('useOpenHumanQueueAdapter', () => {
         },
       })
     );
-    store.dispatch(queueItemQueued({ threadId: 't1', item: { id: 'q1', text_preview: 'drop me' } }));
+    store.dispatch(
+      queueItemQueued({ threadId: 't1', item: { id: 'q1', text_preview: 'drop me' } })
+    );
     const { result } = renderHook(() => useOpenHumanQueueAdapter('t1', vi.fn()), {
       wrapper: wrapperFor(store),
     });

@@ -17,7 +17,11 @@
  *   failed removal leaves the item showing, because the core will still send it.
  * - `move` and `edit` are no-ops: the core queue cannot reorder or rewrite.
  */
-import type { AppendMessage, ExternalThreadQueueAdapter, QueueItemState } from '@assistant-ui/react';
+import type {
+  AppendMessage,
+  ExternalThreadQueueAdapter,
+  QueueItemState,
+} from '@assistant-ui/react';
 import debug from 'debug';
 import { useCallback, useMemo } from 'react';
 
@@ -106,8 +110,5 @@ export function useOpenHumanQueueAdapter(
     [dispatch, threadId]
   );
 
-  return useMemo(
-    () => buildOpenHumanQueueAdapter({ items, send, remove }),
-    [items, send, remove]
-  );
+  return useMemo(() => buildOpenHumanQueueAdapter({ items, send, remove }), [items, send, remove]);
 }

@@ -5,20 +5,14 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { type ChatSendError, chatSendError } from '../../chat/chatSendError';
 import { checkPromptInjection, promptGuardMessage } from '../../chat/promptInjectionGuard';
 import { trackAnalyticsEvent } from '../../components/analytics';
+import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
+import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import ArtifactCard from '../../components/chat/ArtifactCard';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
 import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
-import { decideApproval } from '../../services/api/approvalApi';
-import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
-import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
-import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
-import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
-import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
-import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
-import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
@@ -27,7 +21,13 @@ import {
   useLoadThreadGoal,
   useThreadGoal,
 } from '../../features/conversations/aui/useThreadGoal';
-import { useLoadThreadTodos, useThreadTodos } from '../../features/conversations/aui/useThreadTodos';
+import {
+  useLoadThreadTodos,
+  useThreadTodos,
+} from '../../features/conversations/aui/useThreadTodos';
+import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
+import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
+import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
@@ -58,13 +58,9 @@ import {
 } from '../../lib/attachments';
 import { useRegisterAction } from '../../lib/commands/useRegisterAction';
 import { useT } from '../../lib/i18n/I18nContext';
+import { decideApproval } from '../../services/api/approvalApi';
 import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
-import {
-  aiRegenerate,
-  chatCancel,
-  chatSend,
-  useRustChat,
-} from '../../services/chatService';
+import { aiRegenerate, chatCancel, chatSend, useRustChat } from '../../services/chatService';
 import { callCoreRpc } from '../../services/coreRpcClient';
 import {
   beginInferenceTurn,
@@ -98,6 +94,8 @@ import type { ConfirmationModal as ConfirmationModalType } from '../../types/int
 import type { ThreadMessage } from '../../types/thread';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
+import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
+import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
 

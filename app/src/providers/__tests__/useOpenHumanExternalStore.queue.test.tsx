@@ -19,13 +19,15 @@ import { useOpenHumanExternalStore } from '../useOpenHumanExternalStore';
 
 vi.mock('../../services/api/threadApi', () => ({
   threadApi: {
-    getDerivedTranscript: vi.fn().mockResolvedValue({
-      threadId: 't-queue',
-      items: [],
-      total: 0,
-      hasMore: false,
-      hasTranscript: false,
-    }),
+    getDerivedTranscript: vi
+      .fn()
+      .mockResolvedValue({
+        threadId: 't-queue',
+        items: [],
+        total: 0,
+        hasMore: false,
+        hasTranscript: false,
+      }),
   },
 }));
 

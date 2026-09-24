@@ -77,7 +77,10 @@ const queueSlice = createSlice({
   name: 'queue',
   initialState,
   reducers: {
-    queueItemQueued: (state, action: PayloadAction<{ threadId: string; item: QueueItemPayload }>) => {
+    queueItemQueued: (
+      state,
+      action: PayloadAction<{ threadId: string; item: QueueItemPayload }>
+    ) => {
       const { threadId, item } = action.payload;
       const bucket = state.itemsByThread[threadId] ?? [];
       if (bucket.some(existing => existing.id === item.id)) return;
@@ -113,7 +116,9 @@ const queueSlice = createSlice({
   extraReducers: builder => {
     // The turn ended, so the core is dispatching whatever it still queued, and
     // `ChatRuntimeProvider` has already persisted the pending follow-ups.
-    builder.addCase(endInferenceTurn, (state, action) => clearThread(state, action.payload.threadId));
+    builder.addCase(endInferenceTurn, (state, action) =>
+      clearThread(state, action.payload.threadId)
+    );
     builder.addCase(clearRuntimeForThread, (state, action) =>
       clearThread(state, action.payload.threadId)
     );

@@ -68,7 +68,10 @@ describe('queueSlice — core run-queue items', () => {
   });
 
   it('keeps pending follow-ups when an item is delivered (they persist on turn end)', () => {
-    let state = reducer(undefined, pendingFollowupAdded({ threadId: 't1', message: message('m1', 'hi'), text: 'hi' }));
+    let state = reducer(
+      undefined,
+      pendingFollowupAdded({ threadId: 't1', message: message('m1', 'hi'), text: 'hi' })
+    );
     state = reducer(state, queued('t1', 'q1', 'hi'));
     state = reducer(state, queueItemDelivered({ threadId: 't1', itemId: 'q1' }));
 
