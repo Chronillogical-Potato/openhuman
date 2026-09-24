@@ -1458,6 +1458,39 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     handlers.push([EVENTS.artifactFailed, cb]);
   }
 
+  if (listeners.onExternalTransferPending) {
+    const cb = (payload: unknown) => {
+      const e = payload as ExternalTransferPendingEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s provider=%s',
+        EVENTS.externalTransferPending,
+        e.thread_id,
+        e.request_id,
+        e.provider
+      );
+      listeners.onExternalTransferPending?.(e);
+    };
+    socket.on(EVENTS.externalTransferPending, cb);
+    handlers.push([EVENTS.externalTransferPending, cb]);
+  }
+
+  if (listeners.onCancelled) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatCancelledEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s cancel_reason=%s superseded_by=%s',
+        EVENTS.cancelled,
+        e.thread_id,
+        e.request_id,
+        e.cancel_reason,
+        e.superseded_by
+      );
+      listeners.onCancelled?.(e);
+    };
+    socket.on(EVENTS.cancelled, cb);
+    handlers.push([EVENTS.cancelled, cb]);
+  }
+
   if (listeners.onDone) {
     const cb = (payload: unknown) => {
       const e = payload as ChatDoneEvent;
