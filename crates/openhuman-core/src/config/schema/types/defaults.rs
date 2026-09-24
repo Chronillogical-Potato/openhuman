@@ -48,6 +48,7 @@ impl Default for Config {
             sandbox: SandboxConfig::default(),
             runtime: RuntimeConfig::default(),
             shell: ShellConfig::default(),
+            web_chat: WebChatConfig::default(),
             reliability: ReliabilityConfig::default(),
             scheduler: SchedulerConfig::default(),
             scheduler_gate: SchedulerGateConfig::default(),
