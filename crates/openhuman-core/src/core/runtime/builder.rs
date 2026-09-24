@@ -905,6 +905,9 @@ impl CoreRuntime {
         let listen_port = pick.port;
         let bind_addr = format!("{host}:{listen_port}");
         let listener = pick.listener;
+        crate::desktop::control::set_listener_is_loopback(
+            listener.local_addr().is_ok_and(|address| address.ip().is_loopback()),
+        );
 
         // Synchronize OPENHUMAN_CORE_RPC_URL with the actual bound port so
         // connectivity::rpc::resolve_listen_port() reports the live listener

@@ -24,6 +24,7 @@ pub use crate::config::tools::*;
 pub use crate::config::workspace::tools::*;
 pub use crate::cron::tools::*;
 pub use crate::desktop::dashboard::tools::*;
+pub use crate::desktop::control::tools::*;
 #[cfg(feature = "flows")]
 pub use crate::flows::builder_tools::*;
 #[cfg(feature = "flows")]

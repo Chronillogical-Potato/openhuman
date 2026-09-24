@@ -40,6 +40,7 @@
 
 pub mod boot;
 pub mod connectors;
+pub mod desktop;
 #[cfg(feature = "documents")]
 pub mod documents;
 pub mod host;

@@ -244,6 +244,26 @@ fn an_undenied_wildcard_scope_projects_registered_tools() {
     );
 }
 
+#[test]
+fn named_tool_search_grants_deferred_tools_to_hosted_run() {
+    let mut with_search = synthetic("searcher", AgentTier::Chat, &[]);
+    with_search.tools = ToolScope::Named(vec!["tool_search".to_owned()]);
+    let registry =
+        registry_of(vec![with_search.clone()]).with_session_deferred_tools(Arc::new(vec![
+            "desktop_list_apps".to_owned(),
+            "desktop_goal".to_owned(),
+        ]));
+    let tools = registry.project(&with_search).tools;
+    assert!(tools.iter().any(|name| name == "tool_search"));
+    assert!(tools.iter().any(|name| name == "desktop_list_apps"));
+    assert!(tools.iter().any(|name| name == "desktop_goal"));
+
+    let mut without_search = synthetic("no-search", AgentTier::Chat, &[]);
+    without_search.tools = ToolScope::Named(vec!["file_read".to_owned()]);
+    let tools = registry.project(&without_search).tools;
+    assert!(!tools.iter().any(|name| name.starts_with("desktop_")));
+}
+
 /// A wildcard scope carrying a denylist must be materialised against the
 /// registered tool list, not projected as the unrestricted marker — which
 /// would hand every denied tool straight back.

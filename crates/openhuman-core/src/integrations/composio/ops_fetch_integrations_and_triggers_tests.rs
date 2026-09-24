@@ -1,6 +1,31 @@
 use super::*;
 
 #[tokio::test]
+async fn offline_local_session_never_fetches_hosted_integrations() {
+    let _guard = cache_guard();
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = tmp.path().join("workspace");
+    config.config_path = tmp.path().join("config.toml");
+    config.api_url = Some("http://127.0.0.1:1".to_owned());
+    crate::security::credentials::AuthService::from_config(&config)
+        .store_provider_token(
+            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    match fetch_connected_integrations_status(&config).await {
+        FetchConnectedIntegrationsStatus::Authoritative(items) => assert!(items.is_empty()),
+        FetchConnectedIntegrationsStatus::Unavailable => {
+            panic!("offline local mode must not fetch backend")
+        }
+    }
+}
+
+#[tokio::test]
 async fn fetch_connected_integrations_via_mock_aggregates_tools() {
     let _guard = cache_guard();
     // Connections: gmail + notion. Tools: filtered to those toolkits

@@ -332,6 +332,7 @@ tinychannels = { version = "0.1", features = ["relay-websocket"], optional = tru
 # --features flows` would carry `ureq` and the archive stack for a host that
 # never loads a module. The kernel-floor ratchet catches exactly that, and did.
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
+tinydesktop-bus = { path = "../../vendor/tinydesktop/crates/tinydesktop-bus" }
 # Portable skill metadata, parsing, discovery, and filesystem hardening.
 tinyskills = { path = "../../vendor/tinyskills/crates/tinyskills" }
 serde = { version = "1", features = ["derive"] }

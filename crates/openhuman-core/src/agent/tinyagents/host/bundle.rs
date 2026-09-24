@@ -150,10 +150,21 @@ impl OpenHumanHostBundleFactory {
                 .map(|tool| tool.name().to_string())
                 .collect(),
         );
+        let session_deferred_tools = Arc::new(
+            inputs
+                .tool_sets
+                .iter()
+                .flat_map(|set| set.iter())
+                .filter(|tool| tool.exposure() == tinytools::ToolExposure::Deferred)
+                .map(|tool| tool.name().to_owned())
+                .collect(),
+        );
         let mut definitions_adapter = OpenHumanDefinitionRegistry::new(inputs.definitions)
             .with_config(Arc::clone(&inputs.config))
             .with_registered_tools(registered_tools)
             .with_session_delegation_tools(session_delegation_tools);
+        definitions_adapter =
+            definitions_adapter.with_session_deferred_tools(session_deferred_tools);
         if let Some(definition) = inputs.session_definition {
             definitions_adapter = definitions_adapter.with_session_definition(definition);
         }

@@ -143,6 +143,9 @@ pub struct OpenHumanDefinitionRegistry {
     /// tool registry. They must augment a named root scope so the hosted loop
     /// authorizes the same hand-off routes it advertises.
     session_delegation_tools: Option<Arc<Vec<String>>>,
+    /// Deferred tools admitted through a named `tool_search` belt. The hosted
+    /// invocation's own allowlist must retain them for the intrinsic bridge.
+    session_deferred_tools: Option<Arc<Vec<String>>>,
     /// The session's own caller-supplied definition, when it has one.
     ///
     /// A library host builds its agent from a definition it owns and passes by
@@ -184,6 +187,7 @@ impl OpenHumanDefinitionRegistry {
             config: None,
             registered_tools: None,
             session_delegation_tools: None,
+            session_deferred_tools: None,
             session_definition: None,
         }
     }
@@ -200,6 +204,7 @@ impl OpenHumanDefinitionRegistry {
             config: None,
             registered_tools: None,
             session_delegation_tools: None,
+            session_deferred_tools: None,
             session_definition: None,
         })
     }
@@ -230,6 +235,11 @@ impl OpenHumanDefinitionRegistry {
     /// Attaches the root invocation's synthesized direct-delegation names.
     pub fn with_session_delegation_tools(mut self, tools: Arc<Vec<String>>) -> Self {
         self.session_delegation_tools = Some(tools);
+        self
+    }
+
+    pub fn with_session_deferred_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.session_deferred_tools = Some(tools);
         self
     }
 
@@ -325,6 +335,11 @@ impl OpenHumanDefinitionRegistry {
         match &def.tools {
             ToolScope::Named(named) => {
                 let mut names = named.clone();
+                if named.iter().any(|name| name == "tool_search") {
+                    if let Some(deferred) = self.session_deferred_tools.as_deref() {
+                        names.extend(deferred.iter().cloned());
+                    }
+                }
                 if let Some(delegation_tools) = self.session_delegation_tools.as_deref() {
                     names.extend(delegation_tools.iter().cloned());
                 }

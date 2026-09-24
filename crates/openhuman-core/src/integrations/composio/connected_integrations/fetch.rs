@@ -68,6 +68,19 @@ pub enum FetchConnectedIntegrationsStatus {
 pub async fn fetch_connected_integrations_status(
     config: &Config,
 ) -> FetchConnectedIntegrationsStatus {
+    // The offline local token is a core identity, never a TinyHumans backend
+    // credential. Asking the hosted integrations endpoint with it yields 401,
+    // can race the scheduler gate into signed-out state, and cannot discover a
+    // real connection. An authoritative empty set keeps this session local.
+    if crate::security::credentials::session_support::get_session_token(config)
+        .ok()
+        .flatten()
+        .is_some_and(|token| {
+            crate::security::credentials::session_support::is_local_session_token(&token)
+        })
+    {
+        return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
+    }
     let key = cache_key(config);
 
     // Fast path: return cached result if fresh. Stale entries fall

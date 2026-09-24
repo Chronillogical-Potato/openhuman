@@ -352,6 +352,9 @@ pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, 
     }
     let profile = load_app_session_profile(config)?;
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
+        SessionTokenCheck::Live(token) if is_local_session_token(&token) => {
+            Err("backend unavailable for offline local session".to_owned())
+        }
         SessionTokenCheck::Live(token) => Ok(BackendCredential::Session(token)),
         SessionTokenCheck::Absent => {
             Err("no backend session token; run auth_store_session first".to_string())

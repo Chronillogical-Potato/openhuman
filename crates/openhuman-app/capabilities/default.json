@@ -25,7 +25,10 @@
       "identifier": "opener:allow-open-url",
       "allow": [
         { "url": "obsidian://open*" },
-        { "url": "https://ollama.com/*" }
+        { "url": "https://ollama.com/*" },
+        { "url": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility" },
+        { "url": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture" },
+        { "url": "ms-settings:privacy" }
       ]
     },
     "updater:default",

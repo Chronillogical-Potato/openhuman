@@ -486,6 +486,26 @@ describe('coreRpcClient', () => {
     expect(headers.Authorization).toBe('Bearer test-local-token');
   });
 
+  test('desktop setup follows the resolved shell endpoint, not the loopback build default', async () => {
+    vi.resetModules();
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.stubGlobal('__TAURI_INTERNALS__', { invoke: vi.fn() });
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === 'core_rpc_endpoint') {
+        return { url: 'https://remote.example/rpc', token: 'test-remote-token' };
+      }
+      throw new Error(`unexpected command: ${cmd}`);
+    });
+    const { isLocalDesktopHost: checkLocalHost } = await import('../coreRpcClient');
+    try {
+      expect(await checkLocalHost()).toBe(false);
+      expect(invoke).toHaveBeenCalledWith('core_rpc_endpoint');
+    } finally {
+      vi.mocked(isTauri).mockReturnValue(false);
+      vi.unstubAllGlobals();
+    }
+  });
+
   test('fails closed in Tauri mode when core rpc token is unavailable', async () => {
     vi.resetModules();
     vi.mocked(isTauri).mockReturnValue(true);

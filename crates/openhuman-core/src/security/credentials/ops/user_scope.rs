@@ -23,8 +23,27 @@ const LOG_PREFIX: &str = "[credentials][user-scope]";
 /// and must never change which user the operator's real install believes is
 /// active purely by virtue of running a library call.
 pub(super) fn operator_user_activation_allowed() -> bool {
-    !is_embedder_host()
+    if is_embedder_host() {
+        return false;
+    }
+    let Some(workspace) = std::env::var_os("OPENHUMAN_WORKSPACE").filter(|value| !value.is_empty())
+    else {
+        return true;
+    };
+    let Ok(root) = default_root_openhuman_dir() else {
+        return false;
+    };
+    let workspace = std::path::PathBuf::from(workspace);
+    let workspace = workspace.canonicalize().unwrap_or(workspace);
+    let root = root.canonicalize().unwrap_or(root);
+    // An explicit scratch workspace must never switch the operator's real
+    // ~/.openhuman active user. Its credential still lives at its own config_path.
+    workspace.starts_with(root)
 }
+
+#[cfg(test)]
+#[path = "user_scope_tests.rs"]
+mod tests;
 
 /// Activate `~/.openhuman/users/<user_id>/` as the current user directory.
 ///

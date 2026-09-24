@@ -1,0 +1,267 @@
+//! Local desktop enablement and permission-aware status.
+
+use std::fs;
+use std::io::Write;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
+
+use serde::{Deserialize, Serialize};
+use tinydesktop_bus::{names, ListAppsRequest, SnapshotRequest};
+
+use crate::config::Config;
+
+static STATE_LOCK: Mutex<()> = Mutex::new(());
+static LOOPBACK_LISTENER: AtomicBool = AtomicBool::new(false);
+
+/// The HTTP host reports its actual bound address before serving requests.
+pub(crate) fn set_listener_is_loopback(value: bool) {
+    LOOPBACK_LISTENER.store(value, Ordering::Release);
+}
+
+pub fn listener_is_loopback() -> bool {
+    LOOPBACK_LISTENER.load(Ordering::Acquire)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DesktopStatus {
+    pub supported: bool,
+    pub enabled: bool,
+    pub platform: &'static str,
+    pub module_state: String,
+    pub accessibility: String,
+    pub screen_recording: String,
+    pub jev_ready: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DesktopProbe {
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct LocalState {
+    enabled: bool,
+}
+
+fn state_path(config: &Config) -> std::path::PathBuf {
+    config
+        .workspace_dir
+        .join("state")
+        .join("desktop-control.json")
+}
+
+/// Corrupt or unreadable local state fails closed, never enabling desktop access.
+pub fn enabled(config: &Config) -> bool {
+    let _lock = STATE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    fs::read_to_string(state_path(config))
+        .ok()
+        .and_then(|raw| serde_json::from_str::<LocalState>(&raw).ok())
+        .is_some_and(|state| state.enabled)
+}
+
+fn save(config: &Config, value: bool) -> Result<(), String> {
+    let _lock = STATE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let path = state_path(config);
+    let parent = path.parent().ok_or("desktop state path has no parent")?;
+    fs::create_dir_all(parent).map_err(|error| format!("desktop state directory: {error}"))?;
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)
+        .map_err(|error| format!("desktop state temporary file: {error}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        temporary
+            .as_file()
+            .set_permissions(fs::Permissions::from_mode(0o600))
+            .map_err(|error| format!("desktop state permissions: {error}"))?;
+    }
+    serde_json::to_writer(&mut temporary, &LocalState { enabled: value })
+        .map_err(|error| format!("desktop state serialization: {error}"))?;
+    temporary
+        .flush()
+        .map_err(|error| format!("desktop state flush: {error}"))?;
+    temporary
+        .as_file()
+        .sync_all()
+        .map_err(|error| format!("desktop state sync: {error}"))?;
+    temporary
+        .persist(path)
+        .map_err(|error| format!("desktop state persist: {error}"))?;
+    Ok(())
+}
+
+pub async fn set_enabled(config: &Config, value: bool) -> Result<DesktopStatus, String> {
+    if value && !supported() {
+        return Err(
+            "desktop control requires macOS or Windows and a loopback core listener".to_owned(),
+        );
+    }
+    save(config, value)?;
+    tracing::info!(enabled = value, "[desktop] local enablement changed");
+    Ok(status(config).await)
+}
+
+fn supported() -> bool {
+    cfg!(any(target_os = "macos", target_os = "windows")) && listener_is_loopback()
+}
+
+fn permission(data: &serde_json::Value, field: &str) -> String {
+    let raw = data
+        .get(field)
+        .and_then(|value| value.get("state"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("unknown");
+    match raw {
+        "granted" | "denied" | "not_required" => raw.to_owned(),
+        _ => "unknown".to_owned(),
+    }
+}
+
+pub async fn status(config: &Config) -> DesktopStatus {
+    let local_enabled = enabled(config);
+    let (module_state, mut reason) = crate::modules::desktop::state(config);
+    let mut result = DesktopStatus {
+        supported: supported(),
+        enabled: local_enabled,
+        platform: std::env::consts::OS,
+        module_state,
+        accessibility: "unknown".to_owned(),
+        screen_recording: "unknown".to_owned(),
+        jev_ready: crate::modules::desktop::jev_ready(config),
+        reason: None,
+    };
+    if !result.supported {
+        reason = Some(
+            "desktop control requires macOS or Windows and a loopback core listener".to_owned(),
+        );
+    } else if local_enabled {
+        match crate::modules::desktop::permissions(config).await {
+            Ok(response) if response.ok => {
+                if let Some(data) = response.data.as_ref() {
+                    result.accessibility = permission(data, "accessibility");
+                    result.screen_recording = permission(data, "screen_recording");
+                }
+                result.module_state = "ready".to_owned();
+            }
+            Ok(response) => reason = response.error.map(|error| error.message),
+            Err(error) => reason = Some(error),
+        }
+        result.module_state = crate::modules::desktop::state(config).0;
+    }
+    result.reason = reason;
+    result
+}
+
+pub async fn probe(config: &Config) -> DesktopProbe {
+    if !supported() || !enabled(config) {
+        return DesktopProbe {
+            ok: false,
+            app_count: None,
+            reason: Some("desktop control is unavailable or disabled".to_owned()),
+        };
+    }
+    let permissions = match crate::modules::desktop::permissions(config).await {
+        Ok(reply) if reply.ok => reply,
+        Ok(reply) => {
+            return DesktopProbe {
+                ok: false,
+                app_count: None,
+                reason: reply.error.map(|error| error.message),
+            }
+        }
+        Err(error) => {
+            return DesktopProbe {
+                ok: false,
+                app_count: None,
+                reason: Some(error),
+            }
+        }
+    };
+    if permissions
+        .data
+        .as_ref()
+        .map(|data| permission(data, "accessibility"))
+        .as_deref()
+        != Some("granted")
+    {
+        return DesktopProbe {
+            ok: false,
+            app_count: None,
+            reason: Some("Accessibility permission is not granted to the core process".to_owned()),
+        };
+    }
+    let snapshot = crate::modules::desktop::call(
+        config,
+        names::methods::SNAPSHOT,
+        SnapshotRequest {
+            skeleton: true,
+            ..SnapshotRequest::default()
+        },
+    )
+    .await;
+    match snapshot {
+        Ok(response) if response.ok => {
+            let apps = crate::modules::desktop::call(
+                config,
+                names::methods::LIST_APPS,
+                ListAppsRequest::default(),
+            )
+            .await;
+            DesktopProbe {
+                ok: true,
+                app_count: apps.ok().and_then(|reply| reply.data).and_then(|data| {
+                    data.get("apps")
+                        .and_then(serde_json::Value::as_array)
+                        .map(Vec::len)
+                }),
+                reason: None,
+            }
+        }
+        Ok(response) => DesktopProbe {
+            ok: false,
+            app_count: None,
+            reason: response.error.map(|error| error.message),
+        },
+        Err(error) => DesktopProbe {
+            ok: false,
+            app_count: None,
+            reason: Some(error),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disabled_by_default_and_persists() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        assert!(!enabled(&config));
+        save(&config, true).unwrap();
+        assert!(enabled(&config));
+        save(&config, false).unwrap();
+        assert!(!enabled(&config));
+    }
+
+    #[test]
+    fn permission_states_are_normalized() {
+        let data = serde_json::json!({"accessibility":{"state":"granted"},
+            "screen_recording":{"state":"weird"}});
+        assert_eq!(permission(&data, "accessibility"), "granted");
+        assert_eq!(permission(&data, "screen_recording"), "unknown");
+    }
+}

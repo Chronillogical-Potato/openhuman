@@ -9,6 +9,7 @@ import {
   type ComposioToolkitMeta,
   KNOWN_COMPOSIO_TOOLKITS,
 } from '../components/composio/toolkitMeta';
+import DesktopConnectionPage from '../components/desktop/DesktopConnectionPage';
 import EmptyStateCard from '../components/EmptyStateCard';
 import { ToastContainer } from '../components/intelligence/Toast';
 import PageSectionHeader from '../components/layout/PageSectionHeader';
@@ -451,7 +452,8 @@ type ConnectionsTab =
   | 'search'
   | 'usage'
   | 'composio-key'
-  | 'wallet';
+  | 'wallet'
+  | 'desktop';
 
 /**
  * Tabs that render a relocated settings panel inside the shared card surface.
@@ -492,6 +494,7 @@ const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'composio-key',
   'usage',
   'wallet',
+  'desktop',
 ]);
 
 const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
@@ -502,6 +505,7 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'usage',
   'composio-key',
   'wallet',
+  'desktop',
 ]);
 
 export default function Skills() {
@@ -529,7 +533,8 @@ export default function Skills() {
       raw === 'search' ||
       raw === 'usage' ||
       raw === 'composio-key' ||
-      raw === 'wallet'
+      raw === 'wallet' ||
+      raw === 'desktop'
     )
       return raw;
     // Legacy back-compat aliases
@@ -1022,6 +1027,16 @@ export default function Skills() {
                   },
                 ],
               },
+              {
+                label: t('connections.groups.desktop'),
+                items: [
+                  {
+                    value: 'desktop',
+                    label: t('desktop.title'),
+                    icon: navIcon('M4 5h16v11H4zM8 20h8m-4-4v4'),
+                  },
+                ],
+              },
             ]}
           />
         </div>
@@ -1130,6 +1145,7 @@ export default function Skills() {
                   </SettingsTabbedPage>
                 )}
                 {activeTab === 'wallet' && <WalletPanel />}
+                {activeTab === 'desktop' && <DesktopConnectionPage />}
               </SettingsLayoutProvider>
             ) : (
               <>

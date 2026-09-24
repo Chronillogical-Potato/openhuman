@@ -19,6 +19,7 @@
 pub mod accessibility;
 pub mod app_state;
 pub mod dashboard;
+pub mod control;
 pub mod notifications;
 pub mod overlay;
 pub mod provider_surfaces;

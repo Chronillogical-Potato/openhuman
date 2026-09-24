@@ -458,6 +458,9 @@ pub(super) fn load_local(
 /// Credentials are intentionally absent. TinyMemory calls back into the host
 /// for embedding and chat compute; the other modules need no host config.
 fn module_config(config: &Config, id: &str) -> serde_json::Value {
+    if id == super::desktop::MODULE_ID {
+        return super::desktop::module_config(config);
+    }
     if id == super::connectors::MODULE_ID {
         // The connector module takes its route and credential from here and
         // reads one from nowhere else. A configuration that cannot be built —
