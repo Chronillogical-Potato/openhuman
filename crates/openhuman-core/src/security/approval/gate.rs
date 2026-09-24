@@ -186,6 +186,20 @@ pub fn try_boot_state() -> Option<ApprovalGateBootState> {
     BOOT_STATE.get().copied()
 }
 
+/// Routing correlation captured at park time for one `request_id`: the chat
+/// thread/client to surface a decision to, plus the gated tool call's
+/// provider-assigned call id. Looked up by [`ApprovalGate::take_request_route`]
+/// when a decision resolves so `DomainEvent::ApprovalDecided` can carry the
+/// same routing the original `ApprovalRequested` did, without re-deriving it
+/// from ambient task-locals that may no longer be in scope (a decision can
+/// resolve from an RPC call with no chat context of its own).
+#[derive(Clone, Debug, Default)]
+pub(crate) struct RequestRoute {
+    pub(crate) thread_id: Option<String>,
+    pub(crate) client_id: Option<String>,
+    pub(crate) tool_call_id: Option<String>,
+}
+
 /// Coordinator for pending approvals.
 pub struct ApprovalGate {
     config: Config,
@@ -197,6 +211,12 @@ pub struct ApprovalGate {
     /// In-memory only (session-scoped — a parked approval doesn't survive a
     /// restart, and the oneshot waiter is in-memory anyway).
     thread_to_request: Mutex<HashMap<String, String>>,
+    /// request_id → [`RequestRoute`] for every currently-parked call. Populated
+    /// at park time (`intercept_audited_inner`), consulted when a decision
+    /// resolves (`decide`, and the TTL/channel-drop paths in
+    /// `gate_intercept.rs`) so `ApprovalDecided` can mirror the same
+    /// thread/client/tool_call_id the original `ApprovalRequested` carried.
+    request_routes: Mutex<HashMap<String, RequestRoute>>,
 }
 
 /// RAII guard that tears the parked waiter down even when the surrounding turn
