@@ -39,6 +39,7 @@ fn sample_with_expiry(
         created_at: Utc::now(),
         expires_at,
         source_context: None,
+        tool_call_id: None,
     }
 }
 

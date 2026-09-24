@@ -84,6 +84,22 @@ export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
       display: 'standalone',
       render: DocumentArtifactCall,
     },
+
+    /**
+     * Memory writes/reads, rendered as `memory-chips` instead of the raw
+     * JSON `ToolDataView` fallback (`ChatMemoryChips.tsx`).
+     */
+    memory_store: { type: 'backend', display: 'inline', render: MemoryStoreCall },
+    memory_recall: { type: 'backend', display: 'inline', render: MemoryRecallCall },
+    memory_hybrid_search: { type: 'backend', display: 'inline', render: MemoryHybridSearchCall },
+
+    /**
+     * Cron reads/writes, rendered as `schedule-card` (`ChatScheduleCard.tsx`).
+     */
+    cron_add: { type: 'backend', display: 'inline', render: CronAddOrUpdateCall },
+    cron_update: { type: 'backend', display: 'inline', render: CronAddOrUpdateCall },
+    cron_list: { type: 'backend', display: 'inline', render: CronListCall },
+    cron_runs: { type: 'backend', display: 'inline', render: CronRunsCall },
   };
 }
 

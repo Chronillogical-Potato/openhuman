@@ -26,7 +26,7 @@ import { clearAllProactiveThreadPins } from '../proactiveThreadPins';
 
 vi.mock('../../services/chatService', async () => {
   const actual = await vi.importActual<typeof chatService>('../../services/chatService');
-  return { ...actual, subscribeChatEvents: vi.fn() };
+  return { ...actual, subscribeChatEvents: vi.fn(), subscribeQueueEvents: vi.fn(() => () => {}) };
 });
 
 vi.mock('../../services/api/threadApi', () => ({
