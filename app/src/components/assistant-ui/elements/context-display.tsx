@@ -121,12 +121,16 @@ function useContextDisplay(): ContextDisplayContextValue {
   }
   return ctx;
 }
-export type PresetProps = {
+export type PresetProps = Omit<
+  ComponentProps<"button">,
+  "children" | "className"
+> & {
   modelContextWindow: number;
   className?: string;
   side?: "top" | "bottom" | "left" | "right";
   usage?: TokenUsage | undefined;
   resetKey?: string | undefined;
+  labels?: ContextDisplayLabels | undefined;
 };
 
 export type ContextDisplayRootProps = {
@@ -134,6 +138,7 @@ export type ContextDisplayRootProps = {
   children: ReactNode;
   usage?: TokenUsage | undefined;
   resetKey?: string | undefined;
+  labels?: ContextDisplayLabels | undefined;
 };
 
 function ContextDisplayRoot({
@@ -141,6 +146,7 @@ function ContextDisplayRoot({
   children,
   usage,
   resetKey,
+  labels = DEFAULT_LABELS,
 }: ContextDisplayRootProps) {
   const rawTokens = usage?.totalTokens ?? 0;
   const [tokenState, setTokenState] = useState({
@@ -186,8 +192,9 @@ function ContextDisplayRoot({
       totalTokens,
       percent,
       modelContextWindow,
+      labels,
     }),
-    [current.usage, totalTokens, percent, modelContextWindow],
+    [current.usage, totalTokens, percent, modelContextWindow, labels],
   );
 
   if (!hasUsage) return null;
