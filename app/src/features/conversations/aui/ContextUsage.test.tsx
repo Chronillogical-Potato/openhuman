@@ -99,6 +99,8 @@ describe('ContextUsage', () => {
     expect(popover).toHaveTextContent('Identity');
     expect(popover).not.toHaveTextContent('## Identity');
     expect(popover).toHaveTextContent('Headroom');
+    expect(popover).toHaveTextContent('Context window');
+    expect(popover).not.toHaveTextContent('conversations.composer');
     // The core's window wins inside the breakdown.
     expect(popover).toHaveTextContent('7,300 / 100,000');
   });
