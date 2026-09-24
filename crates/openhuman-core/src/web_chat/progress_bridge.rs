@@ -1427,7 +1427,7 @@ pub(crate) fn spawn_progress_bridge(
             round,
             events_seen,
         );
-    });
+    })
 }
 
 #[cfg(test)]
