@@ -186,6 +186,23 @@ fn cap_wire_output(output: String) -> String {
     )
 }
 
+/// Cap a tool call's forwarded `args`/input payload the same way
+/// [`cap_wire_output`] caps tool output: a captured argument (e.g. a large
+/// inline file body) must never ship megabytes over the socket. Truncation
+/// only ever produces a marker string; it never re-nests as JSON, since the
+/// wire consumer only needs to know the payload was too big to show in full.
+fn cap_wire_args(args: Option<serde_json::Value>) -> Option<serde_json::Value> {
+    let value = args?;
+    if value.is_null() {
+        return None;
+    }
+    let rendered = value.to_string();
+    if rendered.len() <= MAX_WIRE_SUBAGENT_OUTPUT {
+        return Some(value);
+    }
+    Some(serde_json::Value::String(cap_wire_output(rendered)))
+}
+
 pub(super) fn ledger_upsert_agent_run(
     config: &crate::config::Config,
     upsert: tinyagents_session::run_ledger::AgentRunUpsert,
