@@ -1,11 +1,25 @@
-"use client";
+'use client';
 
-import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
-import { mono, paper } from "./surfaces";
-import { announced, pct } from "../utils/range";
+/**
+ * Where the context window goes: a stacked bar of labelled segments against
+ * the limit, one row per segment and a headroom row.
+ *
+ * Vendored from the assistant-ui `elements-context-breakdown` registry item
+ * (https://r.assistant-ui.com/styles/base-nova/elements-context-breakdown.json).
+ * Changes from upstream:
+ * - `cn` import path (`@/components/assistant-ui/lib/utils`).
+ * - The "Context" title, the "Headroom" row, and each meter's accessible name
+ *   and value text are props with English defaults, for `useT()` — see
+ *   `ContextUsage` in `features/conversations/aui/ContextUsage.tsx`, the only
+ *   caller.
+ */
+import { cn } from '@/components/assistant-ui/lib/utils';
+import type { ComponentProps } from 'react';
 
-const fmt = (n: number) => n.toLocaleString("en-US");
+import { announced, pct } from '../utils/range';
+import { mono, paper } from './surfaces';
+
+const fmt = (n: number) => n.toLocaleString('en-US');
 
 export interface ContextSegment {
   label: string;
@@ -16,11 +30,19 @@ export interface ContextSegment {
 export function ContextBreakdown({
   segments,
   limit,
+  title = 'Context',
+  headroomLabel = 'Headroom',
+  meterLabel = label => `${label} context usage`,
+  meterValueText = (used, max) => `${used} of ${max}`,
   className,
   ...props
-}: Omit<ComponentProps<"div">, "children" | "segments" | "limit"> & {
+}: Omit<ComponentProps<'div'>, 'children' | 'segments' | 'limit' | 'title'> & {
   segments: readonly ContextSegment[];
   limit: number;
+  title?: string;
+  headroomLabel?: string;
+  meterLabel?: (label: string) => string;
+  meterValueText?: (used: string, limit: string) => string;
 }) {
   const used = segments.reduce((sum, segment) => sum + segment.tokens, 0);
   const pressure = limit === 0 ? 0 : used / limit;
@@ -29,45 +51,36 @@ export function ContextBreakdown({
   return (
     <div
       data-slot="context-breakdown"
-      className={cn(
-        paper,
-        "flex w-full max-w-sm flex-col gap-3 rounded-2xl p-4",
-        className,
-      )}
-
-      {...props}
-    >
+      className={cn(paper, 'flex w-full max-w-sm flex-col gap-3 rounded-2xl p-4', className)}
+      {...props}>
       <div className="flex items-baseline justify-between">
-        <span className="text-[13.5px] font-medium">Context</span>
+        <span className="text-[13.5px] font-medium">{title}</span>
         <span
           className={cn(
             mono,
-            "tabular-nums",
-            pressure > 0.85
-              ? "text-amber-600 dark:text-amber-400"
-              : "text-foreground/35",
-          )}
-        >
+            'tabular-nums',
+            pressure > 0.85 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground/35'
+          )}>
           {fmt(used)} / {fmt(limit)}
         </span>
       </div>
 
       <div className="bg-foreground/[0.06] flex h-2 w-full overflow-hidden rounded-full">
-        {segments.map((segment) => {
+        {segments.map(segment => {
           const width = share(segment.tokens);
           if (announced(width) === 0) return null;
           return (
             <span
               key={segment.label}
               role="meter"
-              aria-label={`${segment.label} context usage`}
+              aria-label={meterLabel(segment.label)}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={announced(width)}
-              aria-valuetext={`${fmt(segment.tokens)} of ${fmt(limit)}`}
+              aria-valuetext={meterValueText(fmt(segment.tokens), fmt(limit))}
               className={cn(
-                "h-full transition-[width] duration-500 ease-out motion-reduce:transition-none",
-                segment.tint,
+                'h-full transition-[width] duration-500 ease-out motion-reduce:transition-none',
+                segment.tint
               )}
               style={{ width: `${width}%` }}
             />
@@ -76,33 +89,23 @@ export function ContextBreakdown({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        {segments.map((segment) => (
+        {segments.map(segment => (
           <div key={segment.label} className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className={cn("size-2 shrink-0 rounded-full", segment.tint)}
-            />
+            <span aria-hidden className={cn('size-2 shrink-0 rounded-full', segment.tint)} />
             <span className="text-foreground/70 min-w-0 flex-1 truncate text-[13px]">
               {segment.label}
             </span>
-            <span
-              className={cn(mono, "text-foreground/35 shrink-0 tabular-nums")}
-            >
+            <span className={cn(mono, 'text-foreground/35 shrink-0 tabular-nums')}>
               {fmt(segment.tokens)}
             </span>
           </div>
         ))}
         <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="bg-foreground/[0.08] size-2 shrink-0 rounded-full"
-          />
+          <span aria-hidden className="bg-foreground/[0.08] size-2 shrink-0 rounded-full" />
           <span className="text-foreground/35 min-w-0 flex-1 truncate text-[13px]">
-            Headroom
+            {headroomLabel}
           </span>
-          <span
-            className={cn(mono, "text-foreground/25 shrink-0 tabular-nums")}
-          >
+          <span className={cn(mono, 'text-foreground/25 shrink-0 tabular-nums')}>
             {fmt(Math.max(0, limit - used))}
           </span>
         </div>

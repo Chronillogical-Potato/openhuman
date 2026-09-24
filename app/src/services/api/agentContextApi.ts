@@ -66,11 +66,13 @@ export async function getContextBreakdown(threadId: string | null): Promise<Cont
     throw new Error(`${METHOD} returned no sections`);
   }
   return {
-    sections: value.sections.filter(isSection).map(section => ({
-      label: section.label,
-      bytes: count(section.bytes),
-      est_tokens: count(section.est_tokens),
-    })),
+    sections: value.sections
+      .filter(isSection)
+      .map(section => ({
+        label: section.label,
+        bytes: count(section.bytes),
+        est_tokens: count(section.est_tokens),
+      })),
     total_est_tokens: count(value.total_est_tokens),
     context_window: count(value.context_window),
   };

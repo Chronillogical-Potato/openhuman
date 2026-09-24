@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * How full the model's context window is, as a ring / bar / text trigger with
@@ -17,22 +17,22 @@
  * See `ContextUsage` in `features/conversations/aui/ContextUsage.tsx`, the
  * only caller.
  */
-import { cn } from "@/components/assistant-ui/lib/utils";
+import { cn } from '@/components/assistant-ui/lib/utils';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/assistant-ui/ui/tooltip";
+} from '@/components/assistant-ui/ui/tooltip';
 import {
+  type ComponentProps,
   createContext,
+  type FC,
+  type ReactNode,
   useContext,
   useMemo,
   useState,
-  type ComponentProps,
-  type FC,
-  type ReactNode,
-} from "react";
+} from 'react';
 
 export type TokenUsage = {
   totalTokens?: number | undefined;
@@ -43,48 +43,43 @@ export type TokenUsage = {
 };
 
 const formatTokenCount = (tokens: number): string => {
-  if (tokens >= 1_000_000)
-    return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  if (tokens >= 1_000)
-    return `${(tokens / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
+  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
   return `${tokens}`;
 };
 
-const getUsagePercent = (
-  totalTokens: number | undefined,
-  modelContextWindow: number,
-): number => {
+const getUsagePercent = (totalTokens: number | undefined, modelContextWindow: number): number => {
   if (!totalTokens) return 0;
   return Math.min((totalTokens / modelContextWindow) * 100, 100);
 };
 
-type UsageSeverity = "normal" | "warning" | "critical";
+type UsageSeverity = 'normal' | 'warning' | 'critical';
 
 const getUsageSeverity = (percent: number): UsageSeverity => {
-  if (percent > 85) return "critical";
-  if (percent >= 65) return "warning";
-  return "normal";
+  if (percent > 85) return 'critical';
+  if (percent >= 65) return 'warning';
+  return 'normal';
 };
 
 const getStrokeColor = (percent: number): string => {
   const severity = getUsageSeverity(percent);
-  if (severity === "critical") return "stroke-red-500";
-  if (severity === "warning") return "stroke-amber-500";
-  return "stroke-foreground";
+  if (severity === 'critical') return 'stroke-red-500';
+  if (severity === 'warning') return 'stroke-amber-500';
+  return 'stroke-foreground';
 };
 
 const getBarColor = (percent: number): string => {
   const severity = getUsageSeverity(percent);
-  if (severity === "critical") return "bg-red-500";
-  if (severity === "warning") return "bg-amber-500";
-  return "bg-foreground";
+  if (severity === 'critical') return 'bg-red-500';
+  if (severity === 'warning') return 'bg-amber-500';
+  return 'bg-foreground';
 };
 
 const getPercentColor = (percent: number): string => {
   const severity = getUsageSeverity(percent);
-  if (severity === "critical") return "text-red-500";
-  if (severity === "warning") return "text-amber-500";
-  return "text-muted-foreground";
+  if (severity === 'critical') return 'text-red-500';
+  if (severity === 'warning') return 'text-amber-500';
+  return 'text-muted-foreground';
 };
 export type ContextDisplayLabels = {
   full: (percent: number) => string;
@@ -95,11 +90,11 @@ export type ContextDisplayLabels = {
 };
 
 const DEFAULT_LABELS: ContextDisplayLabels = {
-  full: (percent) => `${percent}% full`,
-  input: "Input",
-  cachedInput: "Cached input",
-  output: "Output",
-  reasoning: "Reasoning",
+  full: percent => `${percent}% full`,
+  input: 'Input',
+  cachedInput: 'Cached input',
+  output: 'Output',
+  reasoning: 'Reasoning',
 };
 
 type ContextDisplayContextValue = {
@@ -110,24 +105,19 @@ type ContextDisplayContextValue = {
   labels: ContextDisplayLabels;
 };
 
-const ContextDisplayContext = createContext<ContextDisplayContextValue | null>(
-  null,
-);
+const ContextDisplayContext = createContext<ContextDisplayContextValue | null>(null);
 
 function useContextDisplay(): ContextDisplayContextValue {
   const ctx = useContext(ContextDisplayContext);
   if (!ctx) {
-    throw new Error("ContextDisplay.* must be used within ContextDisplay.Root");
+    throw new Error('ContextDisplay.* must be used within ContextDisplay.Root');
   }
   return ctx;
 }
-export type PresetProps = Omit<
-  ComponentProps<"button">,
-  "children" | "className"
-> & {
+export type PresetProps = Omit<ComponentProps<'button'>, 'children' | 'className'> & {
   modelContextWindow: number;
   className?: string;
-  side?: "top" | "bottom" | "left" | "right";
+  side?: 'top' | 'bottom' | 'left' | 'right';
   usage?: TokenUsage | undefined;
   resetKey?: string | undefined;
   labels?: ContextDisplayLabels | undefined;
@@ -160,13 +150,9 @@ function ContextDisplayRoot({
     (rawTokens > 0 && rawTokens !== tokenState.totalTokens) ||
     usage !== tokenState.usage
   ) {
-    setTokenState((prev) => {
+    setTokenState(prev => {
       if (prev.resetKey !== resetKey) {
-        return {
-          resetKey,
-          totalTokens: rawTokens > 0 ? rawTokens : 0,
-          usage,
-        };
+        return { resetKey, totalTokens: rawTokens > 0 ? rawTokens : 0, usage };
       }
       if (rawTokens > 0 && rawTokens !== prev.totalTokens) {
         return { ...prev, totalTokens: rawTokens, usage };
@@ -187,14 +173,8 @@ function ContextDisplayRoot({
   const hasUsage = current.usage !== undefined || totalTokens > 0;
 
   const contextValue = useMemo(
-    () => ({
-      usage: current.usage,
-      totalTokens,
-      percent,
-      modelContextWindow,
-      labels,
-    }),
-    [current.usage, totalTokens, percent, modelContextWindow, labels],
+    () => ({ usage: current.usage, totalTokens, percent, modelContextWindow, labels }),
+    [current.usage, totalTokens, percent, modelContextWindow, labels]
   );
 
   if (!hasUsage) return null;
@@ -207,34 +187,23 @@ function ContextDisplayRoot({
     </ContextDisplayContext.Provider>
   );
 }
-function ContextDisplayTrigger({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<"button">) {
+function ContextDisplayTrigger({ className, children, ...props }: React.ComponentProps<'button'>) {
   return (
     <TooltipTrigger
       render={
         <button
           type="button"
           data-slot="context-display-trigger"
-          className={cn(
-            "inline-flex items-center rounded-md transition-colors",
-            className,
-          )}
+          className={cn('inline-flex items-center rounded-md transition-colors', className)}
           {...props}
         />
-      }
-    >
+      }>
       {children}
     </TooltipTrigger>
   );
 }
 
-type ContextSegment = {
-  label: string;
-  tokens: number;
-};
+type ContextSegment = { label: string; tokens: number };
 
 // Whether a provider counts cached tokens inside inputTokens, or reasoning
 // inside outputTokens, differs by provider: OpenAI reports cached_tokens as a
@@ -245,7 +214,7 @@ type ContextSegment = {
 // provider's own total against the window.
 const getContextSegments = (
   usage: TokenUsage | undefined,
-  labels: ContextDisplayLabels,
+  labels: ContextDisplayLabels
 ): ContextSegment[] => {
   if (!usage) return [];
   return [
@@ -253,18 +222,17 @@ const getContextSegments = (
     { label: labels.cachedInput, tokens: usage.cachedInputTokens ?? 0 },
     { label: labels.output, tokens: usage.outputTokens ?? 0 },
     { label: labels.reasoning, tokens: usage.reasoningTokens ?? 0 },
-  ].filter((segment) => segment.tokens > 0);
+  ].filter(segment => segment.tokens > 0);
 };
 
 function ContextDisplayContent({
-  side = "top",
+  side = 'top',
   className,
 }: {
-  side?: "top" | "bottom" | "left" | "right" | undefined;
+  side?: 'top' | 'bottom' | 'left' | 'right' | undefined;
   className?: string;
 }) {
-  const { usage, totalTokens, percent, modelContextWindow, labels } =
-    useContextDisplay();
+  const { usage, totalTokens, percent, modelContextWindow, labels } = useContextDisplay();
   const segments = getContextSegments(usage, labels);
 
   return (
@@ -273,41 +241,33 @@ function ContextDisplayContent({
       sideOffset={8}
       data-slot="context-display-popover"
       className={cn(
-        "bg-popover text-popover-foreground block w-56 border p-3 text-left [&_[data-slot=tooltip-arrow]]:hidden",
-        className,
-      )}
-    >
+        'bg-popover text-popover-foreground block w-56 border p-3 text-left [&_[data-slot=tooltip-arrow]]:hidden',
+        className
+      )}>
       <div className="text-xs">
         <div className="flex items-baseline justify-between gap-6 whitespace-nowrap">
-          <span className={getPercentColor(percent)}>
-            {labels.full(Math.round(percent))}
-          </span>
+          <span className={getPercentColor(percent)}>{labels.full(Math.round(percent))}</span>
           <span className="font-mono tabular-nums">
-            {formatTokenCount(Math.min(totalTokens, modelContextWindow))} /{" "}
+            {formatTokenCount(Math.min(totalTokens, modelContextWindow))} /{' '}
             {formatTokenCount(modelContextWindow)}
           </span>
         </div>
         <div className="bg-muted mt-2.5 h-1 overflow-hidden rounded-full">
           <div
             className={cn(
-              "h-full w-(--usage-width) rounded-full transition-[width] duration-300",
-              totalTokens > 0 && "min-w-1",
-              getBarColor(percent),
+              'h-full w-(--usage-width) rounded-full transition-[width] duration-300',
+              totalTokens > 0 && 'min-w-1',
+              getBarColor(percent)
             )}
-            style={{ "--usage-width": `${percent}%` } as React.CSSProperties}
+            style={{ '--usage-width': `${percent}%` } as React.CSSProperties}
           />
         </div>
         {segments.length > 0 && (
           <div className="mt-3 grid gap-1.5">
-            {segments.map((segment) => (
-              <div
-                key={segment.label}
-                className="flex items-baseline justify-between gap-6"
-              >
+            {segments.map(segment => (
+              <div key={segment.label} className="flex items-baseline justify-between gap-6">
                 <span className="text-muted-foreground">{segment.label}</span>
-                <span className="font-mono tabular-nums">
-                  {formatTokenCount(segment.tokens)}
-                </span>
+                <span className="font-mono tabular-nums">{formatTokenCount(segment.tokens)}</span>
               </div>
             ))}
           </div>
@@ -331,8 +291,7 @@ function RingVisual() {
       width={RING_SIZE}
       height={RING_SIZE}
       viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-      className="-rotate-90"
-    >
+      className="-rotate-90">
       <circle
         cx={RING_SIZE / 2}
         cy={RING_SIZE / 2}
@@ -349,12 +308,10 @@ function RingVisual() {
         strokeWidth={RING_STROKE}
         strokeLinecap="round"
         strokeDasharray={RING_CIRCUMFERENCE}
-        strokeDashoffset={
-          RING_CIRCUMFERENCE - (percent / 100) * RING_CIRCUMFERENCE
-        }
+        strokeDashoffset={RING_CIRCUMFERENCE - (percent / 100) * RING_CIRCUMFERENCE}
         className={cn(
-          "transition-[stroke-dashoffset,stroke] duration-300",
-          getStrokeColor(percent),
+          'transition-[stroke-dashoffset,stroke] duration-300',
+          getStrokeColor(percent)
         )}
       />
     </svg>
@@ -378,16 +335,14 @@ const ContextDisplayRing: FC<PresetProps> = ({
     modelContextWindow={modelContextWindow}
     usage={usage}
     resetKey={resetKey}
-    labels={labels}
-  >
+    labels={labels}>
     <ContextDisplayTrigger
       className={cn(
-        "text-muted-foreground hover:text-foreground gap-1.5 px-1.5 py-1 text-xs",
-        className,
+        'text-muted-foreground hover:text-foreground gap-1.5 px-1.5 py-1 text-xs',
+        className
       )}
       aria-label="Context usage"
-      {...triggerProps}
-    >
+      {...triggerProps}>
       <RingVisual />
       <RingPercentLabel />
     </ContextDisplayTrigger>
@@ -402,10 +357,7 @@ function BarVisual() {
     <div className="flex items-center gap-2">
       <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
         <div
-          className={cn(
-            "h-full rounded-full transition-all duration-300",
-            getBarColor(percent),
-          )}
+          className={cn('h-full rounded-full transition-all duration-300', getBarColor(percent))}
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -429,13 +381,11 @@ const ContextDisplayBar: FC<PresetProps> = ({
     modelContextWindow={modelContextWindow}
     usage={usage}
     resetKey={resetKey}
-    labels={labels}
-  >
+    labels={labels}>
     <ContextDisplayTrigger
-      className={cn("px-2 py-1", className)}
+      className={cn('px-2 py-1', className)}
       aria-label="Context usage"
-      {...triggerProps}
-    >
+      {...triggerProps}>
       <BarVisual />
     </ContextDisplayTrigger>
     <ContextDisplayContent side={side} />
@@ -465,16 +415,14 @@ const ContextDisplayText: FC<PresetProps> = ({
     modelContextWindow={modelContextWindow}
     usage={usage}
     resetKey={resetKey}
-    labels={labels}
-  >
+    labels={labels}>
     <ContextDisplayTrigger
       aria-label="Context usage"
       className={cn(
-        "text-muted-foreground hover:bg-accent hover:text-accent-foreground px-2 py-1 font-mono text-xs tabular-nums",
-        className,
+        'text-muted-foreground hover:bg-accent hover:text-accent-foreground px-2 py-1 font-mono text-xs tabular-nums',
+        className
       )}
-      {...triggerProps}
-    >
+      {...triggerProps}>
       <TextVisual />
     </ContextDisplayTrigger>
     <ContextDisplayContent side={side} />
