@@ -1432,6 +1432,68 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         rtLog('run_mode_changed', { thread: event.thread_id, mode: event.mode });
         dispatch(setRunMode({ threadId: event.thread_id, mode: event.mode }));
       },
+      /**
+       * `chat_cancelled` (wire-contract.md) — the core-authoritative sibling
+       * of the local Stop path in `Conversations.tsx`'s `handleStopGeneration`
+       * (which persists a `cancelReason: 'user_stop'` partial optimistically,
+       * before the core confirms). This handler is what also covers a turn
+       * the core cancels on its OWN initiative — `cancel_reason: 'superseded'`
+       * when a newer send interrupts it — which has no local Stop click to
+       * persist from.
+       *
+       * The core keeps emitting `chat_error{error_type:"cancelled"}`
+       * alongside this for one release (that path appends no message — see
+       * its own comment below), so this dedupes on `request_id` against
+       * whatever `handleStopGeneration` already persisted rather than
+       * assuming it is the only writer.
+       */
+      onCancelled: (event: ChatCancelledEvent) => {
+        const eventKey = `cancelled:${event.thread_id}:${event.request_id ?? 'none'}`;
+        if (
+          !markChatEventSeen(eventKey, { threadId: event.thread_id, requestId: event.request_id })
+        )
+          return;
+
+        rtLog('chat_cancelled', {
+          thread: event.thread_id,
+          request: event.request_id,
+          reason: event.cancel_reason,
+          superseded_by: event.superseded_by,
+        });
+
+        // Read the live partial and the existing transcript BEFORE clearing
+        // any runtime state below — those dispatches are what the partial and
+        // the "already persisted?" check would otherwise be racing against.
+        const stateBefore = store.getState();
+        const partial = stateBefore.chatRuntime.streamingAssistantByThread[event.thread_id]?.content ?? '';
+        const threadMessages = stateBefore.thread.messagesByThreadId[event.thread_id] ?? [];
+        const alreadyStopped = event.request_id
+          ? threadMessages.some(message => {
+              const meta = message.extraMetadata as
+                | { stopped?: boolean; requestId?: string }
+                | undefined;
+              return meta?.stopped === true && meta.requestId === event.request_id;
+            })
+          : false;
+
+        dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
+        dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+        dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
+
+        if (!alreadyStopped && partial.trim().length > 0) {
+          void dispatch(
+            addInferenceResponse({
+              content: partial,
+              threadId: event.thread_id,
+              extraMetadata: chatCancelledExtraMetadata(event),
+            })
+          );
+        }
+
+        dispatch(endInferenceTurn({ threadId: event.thread_id }));
+        dispatch(clearThreadInferenceActive(event.thread_id));
+      },
       onDone: event => {
         const eventKey = `done:${event.thread_id}:${event.request_id ?? 'none'}`;
         if (
