@@ -13,8 +13,7 @@ use super::*;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use tinyagents_session::transcript::{
-    append_transcript_turn, read_transcript, resolve_keyed_transcript_path, session_stem,
-    MessageUsage, TurnUsage,
+    append_transcript_turn, resolve_keyed_transcript_path, session_stem, MessageUsage, TurnUsage,
 };
 
 const AGENT_ID: &str = "test-agent";
