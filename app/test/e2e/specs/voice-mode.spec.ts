@@ -678,17 +678,18 @@ describe.skip('Voice mode — Human tab capture & error mapping (#1610)', () => 
 
       // Now assert that no user message bubble in the thread says "beep".
       //
-      // This assertion used to query `[data-sender="user"], [data-message-sender="user"]`,
-      // and NEITHER attribute existed anywhere in `app/src` — the NodeList was
-      // always empty, `.some()` was always false, and the guard could never
-      // fail no matter what the thread contained. `data-sender` is now a real
-      // attribute on the message row in ChatThreadView, so the query matches;
-      // the `listMounted` check below is what keeps the assertion from
-      // regressing back into a vacuous pass if that hook is ever renamed.
+      // Rows are the assistant-ui transcript's message roots, which carry
+      // `data-role` ("user" / "assistant"). The `listMounted` check below is
+      // what keeps the assertion from regressing into a vacuous pass (an empty
+      // NodeList) if those hooks are ever renamed.
       const probe = await browser.execute(() => {
-        const listMounted = !!document.querySelector('[data-testid="chat-message-list"]');
-        const rows = Array.from(document.querySelectorAll('[data-testid="chat-message-row"]'));
-        const userRows = rows.filter(el => el.getAttribute('data-sender') === 'user');
+        const listMounted = !!document.querySelector('[data-slot="aui_thread-viewport"]');
+        const rows = Array.from(
+          document.querySelectorAll(
+            '[data-slot="aui_user-message-root"], [data-slot="aui_assistant-message-root"]'
+          )
+        );
+        const userRows = rows.filter(el => el.getAttribute('data-role') === 'user');
         const hasBeep = (el: Element) =>
           (el as HTMLElement).textContent?.toLowerCase().includes('beep') ?? false;
         return {

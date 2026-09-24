@@ -4,9 +4,9 @@
  *
  * # Which composer this is, and why that needed establishing
  *
- * `Conversations.tsx:2539` picks `composer === 'mic-cloud' ? legacyMainPanel :
- * assistantUiMainPanel`, and `composer` defaults to `'text'`
- * (`:255`), so `/chat` renders the **assistant-ui** composer. `ChatComposer.tsx`
+ * `Conversations.tsx` renders the assistant-ui panel for every composer, and
+ * `composer` defaults to `'text'` (the `mic-cloud` voice composer replaces only
+ * the input), so `/chat` renders the **assistant-ui** composer. `ChatComposer.tsx`
  * is the legacy one. A DOM probe against the running app confirms it: the page
  * contains `composer-human-mode` (`AssistantUiChat.tsx:204`) and **not**
  * `human-mode-button` (`ChatComposer.tsx:494`), and `chat-message-input` is a

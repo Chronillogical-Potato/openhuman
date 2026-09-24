@@ -121,30 +121,6 @@ export type ThreadComponents = {
    * component returns `null` when it has nothing to say.
    */
   RunningStatus?: ComponentType | undefined;
-  /**
-   * Host-owned one-line footer for a **settled** assistant message — the
-   * turn's process summary and the single door to its detail.
-   *
-   * A seam for the same reason `RunningStatus` is one: this file knows the
-   * message, not what the host recorded while producing it. The host component
-   * reads the message's own metadata and returns `null` when the turn has no
-   * process behind it, so a plain answer gets no footer.
-   */
-  TurnFooter?: ComponentType | undefined;
-  /**
-   * Host-owned list of the web sources this turn visited, rendered at the end
-   * of the message *content* rather than in the footer row.
-   *
-   * Deliberately not part of the footer: that row is a single-line
-   * `flex items-center` whose height is reserved by `ACTION_BAR_HEIGHT` and
-   * asserted in `thread.actionBarSpacing.test.tsx`, so a block that can grow
-   * to several lines does not belong in it. Placed inside the content div it
-   * inherits the `[&>*+*]:mt-3` rhythm the other blocks use.
-   *
-   * Like `TurnFooter`, the component reads the message's own metadata and
-   * returns `null` when the turn visited none, so a plain answer gets nothing.
-   */
-  TurnSources?: ComponentType | undefined;
   /** Host-owned attachment previews rendered above the editor. */
   ComposerAttachments?: ComponentType | undefined;
   /** Host-owned attachment picker rendered in the action row. */
@@ -181,6 +157,14 @@ export type ThreadComponents = {
    * validates whatever arrives.
    */
   canAcceptComposerFiles?: boolean | undefined;
+  /**
+   * Host composer that REPLACES the built-in one (and the welcome suggestions
+   * that belong to it) in the viewport footer, while the transcript above it
+   * stays assistant-ui: the mic-first voice composer, whose input is a
+   * push-to-talk button, and the workflow copilot, whose sends are structured
+   * builder turns rather than chat turns.
+   */
+  Composer?: ComponentType | undefined;
 };
 
 export type ThreadProps = {
@@ -380,7 +364,7 @@ const ThreadRoot: FC<{
   loadError: string | null;
   onEscape?: () => void;
 }> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
-  const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+  const { Welcome = ThreadWelcome, Composer: HostComposer } = useContext(ThreadComponentsContext);
   const viewportRef = useRef<HTMLDivElement>(null);
   const messageGroupRef = useRef<HTMLDivElement>(null);
   // Everything the viewport scrolls over, which is MORE than the message group:
@@ -454,15 +438,21 @@ const ThreadRoot: FC<{
             )}>
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
-            <Composer
-              model={model}
-              onModelChange={onModelChange}
-              onEscape={onEscape}
-              isDraggingFiles={isDraggingFiles}
-            />
-            <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
-              <ThreadSuggestions />
-            </AuiIf>
+            {HostComposer ? (
+              <HostComposer />
+            ) : (
+              <>
+                <Composer
+                  model={model}
+                  onModelChange={onModelChange}
+                  onEscape={onEscape}
+                  isDraggingFiles={isDraggingFiles}
+                />
+                <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
+                  <ThreadSuggestions />
+                </AuiIf>
+              </>
+            )}
           </ThreadPrimitive.ViewportFooter>
         </div>
       </ThreadPrimitive.Viewport>
@@ -477,7 +467,7 @@ const ThreadRoot: FC<{
        * message by the `data-message-id` that `MessagePrimitive.Root` already
        * emits, so neither message component needed changing.
        */}
-      <SelectionToolbar />
+      {!HostComposer && <SelectionToolbar />}
     </ThreadPrimitive.Root>
   );
 };

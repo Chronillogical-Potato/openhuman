@@ -1,4 +1,3 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
 import debugFactory from 'debug';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -6,14 +5,10 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { type ChatSendError, chatSendError } from '../../chat/chatSendError';
 import { checkPromptInjection, promptGuardMessage } from '../../chat/promptInjectionGuard';
 import { trackAnalyticsEvent } from '../../components/analytics';
-import ApprovalRequestCard from '../../components/chat/ApprovalRequestCard';
 import ArtifactCard from '../../components/chat/ArtifactCard';
-import ChatComposer from '../../components/chat/ChatComposer';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
-import ChatNewWindowHero from '../../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import { FlowApprovalRequestCard } from '../../components/chat/FlowApprovalRequestCard';
-import IntegrationConnectCard from '../../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../../components/chat/QueuedFollowups';
 import { UnroutedApprovalCard } from '../../components/chat/UnroutedApprovalCard';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
@@ -22,10 +17,6 @@ import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
 import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
-import {
-  ChatThreadView,
-  type ChatThreadViewHandle,
-} from '../../features/conversations/components/ChatThreadView';
 import { GoalBanner } from '../../features/conversations/components/GoalBanner';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
 import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
@@ -80,7 +71,6 @@ import {
   markThreadSendPending,
   type ProcessingTranscriptItem,
   type QueuedFollowup,
-  registerParallelRequest,
   setToolTimelineForThread,
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
@@ -104,18 +94,10 @@ import type { ConfirmationModal as ConfirmationModalType } from '../../types/int
 import type { ThreadMessage } from '../../types/thread';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
-import {
-  notifyOverlaySttState,
-  openhumanVoiceStatus,
-  openhumanVoiceTranscribeBytes,
-  openhumanVoiceTts,
-} from '../../utils/tauriCommands';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
 
 const CHAT_MODEL_HINT = 'hint:chat';
-type InputMode = 'text' | 'voice';
-type ReplyMode = 'text' | 'voice';
 const debug = debugFactory('conversations');
 
 interface ConversationsProps {
@@ -257,9 +239,7 @@ const Conversations = ({
   const location = useLocation();
   const { threadId: routeThreadId } = useParams<{ threadId?: string }>();
   const shouldSyncChatRoute = variant === 'page' && location.pathname.startsWith('/chat');
-  const { threads, selectedThreadId, messages, isLoadingMessages, messagesError } = useAppSelector(
-    state => state.thread
-  );
+  const { threads, selectedThreadId, messages } = useAppSelector(state => state.thread);
   // Optional-chain + default: narrow test stores may omit `activeThreadIds`.
   const activeThreadIds = useAppSelector(
     state => state.thread.activeThreadIds ?? EMPTY_ACTIVE_THREADS
@@ -282,33 +262,17 @@ const Conversations = ({
   attachmentsRef.current = attachments;
   // Tail of the ingest queue; see `handleAttachFiles`.
   const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Imperative handle onto the transcript's own background-processes panel
-  // (its state now lives inside `ChatThreadView`) so the header badge below
-  // can still open it without lifting that state back up.
-  const threadViewRef = useRef<ChatThreadViewHandle>(null);
-  // Disclosure state for the three transcript-local overlays on the
-  // assistant-ui surface. `ChatThreadView` owns an identical trio for the
-  // legacy voice panel, but it is not mounted on `/chat` any more, so the
-  // panels it hosts (background processes, the sub-agent drawer, the Agent
-  // Process Source panel) had no host at all there.
+  // Disclosure state for the three transcript-local overlays (background
+  // processes, the sub-agent drawer, the Agent Process Source panel).
   const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
   const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
   const [showProcessSource, setShowProcessSource] = useState(false);
-  // The Agent Process Source panel's only trigger is the "View full agent
-  // process source →" link at the foot of `ToolTimelineBlock` — a legacy-panel
-  // component. assistant-ui renders its tool calls as inline cards and has no
-  // equivalent block, so the whole-run view (and the visited-source list, which
-  // exists nowhere else) is reached from the command palette instead.
-  //
-  // The composer check is not cosmetic: `showProcessSource` only drives
-  // `TranscriptOverlays`, which mounts inside `assistantUiMainPanel` alone, and
-  // the panel choice below is an either/or (`composer === 'mic-cloud' ?
-  // legacyMainPanel : assistantUiMainPanel`). In mic-cloud voice mode the state
-  // this sets has no host, so without the guard the palette would offer a
-  // command that silently does nothing. `enabled` is re-read through a ref on
-  // every render (see `useRegisterAction`), so switching modes updates it
-  // without re-registering.
+  // The Agent Process Source panel (the whole-run view, and the visited-source
+  // list, which exists nowhere else) is reached from the command palette:
+  // assistant-ui renders tool calls as inline cards with no run-level footer to
+  // hang a link on. Both composers (text and `mic-cloud`) share the one
+  // assistant-ui panel that hosts `TranscriptOverlays`, so it is always
+  // reachable while a thread is selected.
   useRegisterAction({
     id: 'chat.agentProcessSource',
     label: 'Open agent process source',
@@ -316,11 +280,13 @@ const Conversations = ({
     group: 'Chat',
     handler: () => setShowProcessSource(true),
     enabled: () => {
-      if (selectedThreadId === null || composer === 'mic-cloud') return false;
+      if (selectedThreadId === null) return false;
       return (
         (toolTimelineByThread[selectedThreadId]?.length ?? 0) > 0 ||
         (processingByThread[selectedThreadId]?.length ?? 0) > 0 ||
-        Object.values(turnTimelinesByThread[selectedThreadId] ?? {}).some(entries => entries.length > 0) ||
+        Object.values(turnTimelinesByThread[selectedThreadId] ?? {}).some(
+          entries => entries.length > 0
+        ) ||
         Object.values(turnTranscriptsByThread[selectedThreadId] ?? {}).some(
           transcript => transcript.length > 0
         )
@@ -328,19 +294,6 @@ const Conversations = ({
     },
     keywords: ['agent', 'process', 'source', 'timeline', 'run'],
   });
-  const [inputMode, setInputMode] = useState<InputMode>('text');
-  const [replyMode, setReplyMode] = useState<ReplyMode>('text');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
-  const [isPlayingReply, setIsPlayingReply] = useState(false);
-  // Measured height of the floating composer footer (page variant only). The
-  // footer is `absolute`ly positioned over the scroll area, so the message list
-  // needs matching bottom padding to keep its tail visible. Defaults to 128px
-  // (the old static `pb-32`) so layout is unchanged until the ResizeObserver
-  // reports a real height — and grows automatically when the queued-followups
-  // panel, approval cards, or error banners expand the footer (#4268).
-  const [composerFooterHeight, setComposerFooterHeight] = useState(128);
   // Thread-list filtering is fixed to the General bucket — the in-sidebar
   // General/Subconscious/Tasks chips were removed. Subconscious reflections and
   // task/worker threads have dedicated surfaces (Intelligence, Tasks board).
@@ -408,18 +361,14 @@ const Conversations = ({
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
   const turnTimelinesByThread = useAppSelector(state => state.chatRuntime.turnTimelinesByThread);
-  const interruptedAssistantByThread = useAppSelector(
-    state => state.chatRuntime.interruptedAssistantByThread
-  );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
-  const turnTranscriptsByThread = useAppSelector(state => state.chatRuntime.turnTranscriptsByThread);
+  const turnTranscriptsByThread = useAppSelector(
+    state => state.chatRuntime.turnTranscriptsByThread
+  );
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
   );
   const artifactsByThread = useAppSelector(state => state.chatRuntime.artifactsByThread);
-  const pendingApprovalByThread = useAppSelector(
-    state => state.chatRuntime.pendingApprovalByThread
-  );
   // Flow-approval surface (chat): a paused tinyflows run's gate, pushed via
   // the `flow_approval_request` socket event. Not thread-scoped — the
   // payload carries no `thread_id` — so it's tracked independently of the
@@ -564,11 +513,6 @@ const Conversations = ({
     };
   }, [composerModelOverride]);
 
-  const shareAgentName = 'OpenHuman';
-
-  const textInputRef = useRef<HTMLTextAreaElement>(null);
-  const composerFooterRef = useRef<HTMLDivElement>(null);
-  const isComposingTextRef = useRef(false);
   // One-shot guard for the Stop/ESC partial-preservation path (#4862): request
   // ids whose partial reply has already been persisted, so a repeated Stop/ESC
   // fired before the `cancelled` event clears the live stream can't append the
@@ -578,11 +522,6 @@ const Conversations = ({
   // thread. Per-thread (a Set) so a send to thread B isn't blocked by an
   // in-flight send to thread A.
   const pendingSendsRef = useRef<Set<string>>(new Set());
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const replyAudioRef = useRef<HTMLAudioElement | null>(null);
-  const lastSpokenMessageIdRef = useRef<string | null>(null);
   // Per-thread silence timers. Each in-flight turn gets its own 120s safety
   // timer keyed by thread id, so concurrent turns on different threads don't
   // share (and clobber) a single timeout.
@@ -608,19 +547,6 @@ const Conversations = ({
   // thread's own state changed — unrelated threads' activity must not keep a
   // foreground turn's timer alive.
   const turnSignatureByThreadRef = useRef<Map<string, readonly unknown[]>>(new Map());
-
-  const getAudioExtension = (mimeType: string): string => {
-    const lower = mimeType.toLowerCase();
-    if (lower.includes('webm')) return 'webm';
-    if (lower.includes('ogg')) return 'ogg';
-    if (lower.includes('wav')) return 'wav';
-    if (lower.includes('mp4') || lower.includes('mpeg') || lower.includes('aac')) return 'm4a';
-    return 'webm';
-  };
-  const canUseMicrophoneApi =
-    typeof navigator !== 'undefined' &&
-    typeof navigator.mediaDevices !== 'undefined' &&
-    typeof navigator.mediaDevices.getUserMedia === 'function';
 
   const handleCreateNewThread = async () => {
     try {
@@ -806,15 +732,13 @@ const Conversations = ({
         return;
       }
 
-      setInputMode('text');
+      // A dictated draft needs a text surface where the user can inspect and
+      // send it. The mic-first composer has neither, so hand it back first.
+      setComposerOverride('text');
       setInputValue(prev => {
         const base = prev.trim();
         if (!base) return text;
         return `${base}${base.endsWith(' ') ? '' : ' '}${text}`;
-      });
-
-      window.requestAnimationFrame(() => {
-        textInputRef.current?.focus();
       });
     };
 
@@ -1013,56 +937,6 @@ const Conversations = ({
     toolTimelineByThread,
     inferenceHeartbeatByThread,
   ]);
-
-  useEffect(() => {
-    return () => {
-      mediaRecorderRef.current?.stop();
-      mediaStreamRef.current?.getTracks().forEach(track => track.stop());
-      replyAudioRef.current?.pause();
-      replyAudioRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (inputMode === 'text' && isRecording) {
-      mediaRecorderRef.current?.stop();
-    }
-  }, [inputMode, isRecording]);
-
-  useEffect(() => {
-    if (inputMode === 'voice') {
-      setReplyMode('voice');
-    } else if (replyMode === 'voice') {
-      setReplyMode('text');
-    }
-  }, [inputMode, replyMode]);
-
-  // Proactively check voice binary availability when switching to voice mode
-  useEffect(() => {
-    if (inputMode !== 'voice' || !rustChat) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const status = await openhumanVoiceStatus();
-        if (cancelled) return;
-        if (!status.stt_available) {
-          setVoiceStatus(
-            status.stt_error ??
-              'Voice input needs a working speech-to-text engine. Pick one in Settings > Voice.'
-          );
-        } else {
-          setVoiceStatus('Ready — tap "Start Talking" to record.');
-        }
-      } catch {
-        if (!cancelled) {
-          setVoiceStatus('Could not check voice availability.');
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [inputMode, rustChat]);
 
   const handleSlashCommand = (command: string): boolean => {
     const decision = handleComposerSlashCommand(command);
@@ -1329,82 +1203,6 @@ const Conversations = ({
 
   handleSendMessageRef.current = handleSendMessage;
 
-  // Send a PARALLEL (forked) turn on the selected thread — runs concurrently
-  // with the in-flight turn instead of interrupting it (queue_mode 'parallel').
-  // Kept separate from `handleSendMessage` so it never touches the primary
-  // turn's lifecycle (silence timer, active marker, pending guard); the forked
-  // turn streams into its own lane (registered via `registerParallelRequest`)
-  // and renders as an interleaved branch bubble.
-  const handleSendParallel = async (text?: string) => {
-    if (!rustChat || !selectedThreadId) return;
-    const threadId = selectedThreadId;
-    const normalized = (text ?? inputValue).trim();
-    if (!normalized && attachments.length === 0) return;
-
-    const pendingAttachments = attachments.slice();
-    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
-    const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
-    const userMessage: ThreadMessage = {
-      id: `msg_${globalThis.crypto.randomUUID()}`,
-      content: normalized,
-      type: 'text',
-      extraMetadata:
-        pendingAttachments.length > 0
-          ? {
-              attachmentCount: pendingAttachments.length,
-              attachmentNames: pendingAttachments.map(a => a.file.name),
-              attachmentKinds: pendingAttachments.map(a => a.kind),
-              attachmentDataUris: pendingAttachments
-                .filter(a => a.kind === 'image')
-                .map(a => a.previewUri ?? a.dataUri),
-              // Poster (first frame) per attachment, index-aligned with
-              // attachmentKinds — only video entries carry one; others null.
-              attachmentPosters: pendingAttachments.map(a =>
-                a.kind === 'video' ? (a.previewUri ?? a.dataUri) : null
-              ),
-              attachmentCompressed: pendingAttachments.map(a => a.compressed),
-              parallelBranch: true,
-            }
-          : { parallelBranch: true },
-      sender: 'user',
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      await dispatch(addMessageLocal({ threadId, message: userMessage })).unwrap();
-    } catch (error) {
-      if (error === THREAD_NOT_FOUND_MESSAGE) return;
-      const msg = error instanceof Error ? error.message : String(error);
-      setSendError(chatSendError('cloud_send_failed', msg));
-      return;
-    }
-
-    setInputValue('');
-    setAttachments([]);
-    setSendError(null);
-
-    try {
-      const requestId = await chatSend({
-        threadId,
-        message: messageText,
-        model: modelOverride,
-        locale: uiLocale,
-        queueMode: 'parallel',
-      });
-      if (requestId) {
-        dispatch(registerParallelRequest({ threadId, requestId }));
-      }
-      trackAnalyticsEvent('chat_message_sent', {
-        send_mode: 'parallel',
-        has_attachments: pendingAttachments.length > 0,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setSendError(chatSendError('cloud_send_failed', msg));
-      setInputValue(normalized);
-    }
-  };
-
   // Queue a FOLLOW-UP on the selected thread while a turn is streaming
   // (queue_mode 'followup'): the backend sends it as a fresh turn once the
   // current turn finishes. We do NOT insert it into the transcript now —
@@ -1617,176 +1415,6 @@ const Conversations = ({
     true
   );
 
-  const transcribeAndSendAudio = async (mimeType: string) => {
-    setIsRecording(false);
-    mediaRecorderRef.current = null;
-    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
-    mediaStreamRef.current = null;
-
-    const chunks = audioChunksRef.current;
-    audioChunksRef.current = [];
-    if (chunks.length === 0) {
-      notifyOverlaySttState('cancelled');
-      setVoiceStatus('No audio captured. Try again.');
-      return;
-    }
-
-    setIsTranscribing(true);
-    setVoiceStatus('Transcribing…');
-    try {
-      const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-      const audioBytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-      const extension = getAudioExtension(mimeType || blob.type);
-
-      // Build conversation context from recent messages for LLM cleanup.
-      const recentMessages = messages.slice(-10);
-      const context =
-        recentMessages.length > 0
-          ? recentMessages.map(m => `${m.sender}: ${m.content}`).join('\n')
-          : undefined;
-
-      const result = await openhumanVoiceTranscribeBytes(audioBytes, extension, context);
-      const transcript = result.text.trim();
-
-      if (!transcript) {
-        notifyOverlaySttState('cancelled');
-        setVoiceStatus('No speech detected. Try again.');
-        return;
-      }
-
-      notifyOverlaySttState('transcription_done', transcript);
-      setVoiceStatus(`Heard: ${transcript}`);
-      await handleSendMessage(transcript);
-    } catch (err) {
-      notifyOverlaySttState('error');
-      const message = err instanceof Error ? err.message : String(err);
-      const isSetupIssue =
-        message.includes('no voice provider') ||
-        message.includes('binary not found') ||
-        message.includes('sign in first');
-      setSendError(
-        chatSendError(
-          isSetupIssue ? 'stt_not_ready' : 'voice_transcription',
-          isSetupIssue
-            ? 'Voice input needs a working speech-to-text engine. Set one up in Settings > Voice.'
-            : `Voice transcription failed: ${message}`
-        )
-      );
-      setVoiceStatus(null);
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
-
-  const handleVoiceRecordToggle = async () => {
-    if (!rustChat || selectedThreadActive || isTranscribing) return;
-    if (!canUseMicrophoneApi) {
-      setSendError(
-        chatSendError(
-          'microphone_unavailable',
-          'Microphone capture is unavailable in this runtime. Use Text mode, or run the desktop app bundle with microphone permissions enabled.'
-        )
-      );
-      return;
-    }
-
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-
-      const preferredTypes = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/ogg;codecs=opus',
-        'audio/ogg',
-        'audio/mp4',
-      ];
-      const supportedType = preferredTypes.find(type => MediaRecorder.isTypeSupported(type));
-      const recorder = supportedType
-        ? new MediaRecorder(stream, { mimeType: supportedType })
-        : new MediaRecorder(stream);
-
-      audioChunksRef.current = [];
-      recorder.ondataavailable = event => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-      recorder.onerror = () => {
-        notifyOverlaySttState('error');
-        setIsRecording(false);
-        mediaStreamRef.current?.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
-        setSendError(chatSendError('microphone_recording', 'Microphone recording failed.'));
-      };
-      recorder.onstop = () => {
-        void transcribeAndSendAudio(recorder.mimeType);
-      };
-
-      mediaRecorderRef.current = recorder;
-      setVoiceStatus('Listening… click Stop to send.');
-      setSendError(null);
-      setIsRecording(true);
-      recorder.start();
-      notifyOverlaySttState('recording_started');
-    } catch (err) {
-      notifyOverlaySttState('error');
-      const message = err instanceof Error ? err.message : String(err);
-      setSendError(chatSendError('microphone_access', `Microphone access failed: ${message}`));
-      setVoiceStatus(null);
-    }
-  };
-
-  useEffect(() => {
-    const latestAgentMessage = [...messages].reverse().find(m => m.sender === 'agent');
-    if (!latestAgentMessage) return;
-
-    if (replyMode === 'text') {
-      lastSpokenMessageIdRef.current = latestAgentMessage.id;
-      replyAudioRef.current?.pause();
-      replyAudioRef.current = null;
-      setIsPlayingReply(false);
-      return;
-    }
-
-    if (!rustChat || latestAgentMessage.id === lastSpokenMessageIdRef.current) return;
-
-    lastSpokenMessageIdRef.current = latestAgentMessage.id;
-    let cancelled = false;
-    setIsPlayingReply(true);
-
-    void (async () => {
-      try {
-        const ttsResult = await openhumanVoiceTts(latestAgentMessage.content);
-        if (cancelled) return;
-
-        const audioSrc = convertFileSrc(ttsResult.output_path);
-        const audio = new window.Audio(audioSrc);
-        replyAudioRef.current?.pause();
-        replyAudioRef.current = audio;
-
-        await audio.play();
-      } catch {
-        if (!cancelled) {
-          setSendError(chatSendError('voice_playback', 'Failed to play voice reply.'));
-        }
-      } finally {
-        if (!cancelled) {
-          setIsPlayingReply(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [messages, replyMode, rustChat]);
-
   const handleComposerEscape = useCallback(() => {
     if (!selectedThreadActive) return;
     const composerEmpty = inputValue.trim().length === 0;
@@ -1808,61 +1436,13 @@ const Conversations = ({
       if (restored.length > 0) {
         debug('[chat] esc interrupt: restored prompt len=%d', restored.length);
         setInputValue(restored);
-        window.requestAnimationFrame(() => {
-          const ta = textInputRef.current;
-          if (!ta) return;
-          ta.focus();
-          ta.setSelectionRange(restored.length, restored.length);
-        });
       }
     }
   }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
 
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (isComposingTextRef.current || isImeCompositionKeyEvent(e)) return;
-
-    // ESC while the selected thread is streaming interrupts the turn AND
-    // restores the user's last prompt into the composer for re-editing in
-    // place (#4862). Interrupt always fires; the prompt is only re-hydrated
-    // when the composer is empty so a follow-up the user already started
-    // typing is never clobbered. When nothing is streaming, ESC is left to its
-    // default behaviour (blur / no-op).
-    if (e.key === 'Escape' && selectedThreadActive) {
-      e.preventDefault();
-      handleComposerEscape();
-      return;
-    }
-
-    // Cmd/Ctrl+Enter sends a PARALLEL branch when the selected thread already
-    // has a turn in flight (otherwise it behaves like a normal send).
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      if (selectedThreadActive) {
-        void handleSendParallel();
-      } else {
-        void handleSendMessage();
-      }
-      return;
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      // While the selected thread is streaming, a plain Enter queues a
-      // follow-up (sent after the current turn) instead of being blocked.
-      if (selectedThreadActive) {
-        void handleSendFollowup();
-      } else {
-        void handleSendMessage();
-      }
-    }
-  };
-
-  // NOTE: the transcript-local derivations that used to live here (copy,
-  // sub-agent drawer, past-turn timelines, agent insights, streaming preview,
-  // etc.) moved into `ChatThreadView` (`./components/ChatThreadView.tsx`),
-  // which now owns the message-list rendering keyed by `threadId` instead of
-  // the global `selectedThreadId`. What remains here is what the header badge
-  // and the composer footer still need directly.
+  // The transcript itself renders from the assistant-ui runtime
+  // (`AssistantUiChat`). What remains here is what the composer footer and the
+  // transcript overlays still need directly.
   const selectedThreadToolTimeline = selectedThreadId
     ? (toolTimelineByThread[selectedThreadId] ?? EMPTY_TOOL_TIMELINE)
     : EMPTY_TOOL_TIMELINE;
@@ -1886,9 +1466,8 @@ const Conversations = ({
       ]
     : EMPTY_PROCESSING;
   // Detached background sub-agents (mode === 'async') spawned in this thread.
-  // Kept here (in addition to ChatThreadView's own copy) because the header's
-  // background-processes badge needs the count/status without reaching into
-  // the transcript component.
+  // The composer's background-processes badge needs the count/status, and
+  // `TranscriptOverlays` lists them.
   const backgroundProcesses = useMemo(
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
@@ -1928,58 +1507,12 @@ const Conversations = ({
   const pendingWorkflowProposal = selectedThreadId
     ? (pendingWorkflowProposalsByThread[selectedThreadId] ?? null)
     : null;
-  const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
-  const hasVisibleMessages = visibleMessages.length > 0;
-  const selectedStreamingAssistant = selectedThreadId
-    ? (streamingAssistantByThread[selectedThreadId] ?? null)
-    : null;
-  // The partial reply an interrupted turn left behind (restore-fidelity fix 2):
-  // surfaced as a settled, marked-interrupted bubble on restore so a turn that
-  // crashed mid-answer keeps its visible work instead of rendering blank.
-  const selectedInterruptedAssistant = selectedThreadId
-    ? (interruptedAssistantByThread[selectedThreadId] ?? null)
-    : null;
   // Blocks all composer interaction while a turn is in-flight or Rust chat is unavailable.
   // isSending: the *selected* thread is in-flight (drives selected-thread UI only).
   const composerInteractionBlocked = isComposerInteractionBlocked({
     selectedThreadActive,
     rustChat,
   });
-  // Auto-focus the composer when a thread becomes selected and the composer
-  // isn't blocked. Without this, navigating into a thread from elsewhere in
-  // the app (e.g. acting on a subconscious reflection in the Intelligence
-  // tab — `IntelligenceSubconsciousTab.handleNavigateToReflectionThread`
-  // dispatches `setSelectedThread` then routes to `/chat`) leaves focus on
-  // the unmounted source button, falling back to `document.body`. The
-  // textarea is rendered and enabled but ignores keystrokes until the user
-  // clicks into it. Skip when there is no thread, when the composer is
-  // disabled, when in voice mode, and when the user has focus on another
-  // input/textarea/contenteditable (don't steal focus from a settings pane
-  // the user just clicked into).
-  useEffect(() => {
-    if (!selectedThreadId) return;
-    if (composerInteractionBlocked) return;
-    if (inputMode !== 'text') return;
-    const ta = textInputRef.current;
-    if (!ta) return;
-    const active = document.activeElement;
-    if (
-      active &&
-      active !== document.body &&
-      active !== ta &&
-      (active.tagName === 'INPUT' ||
-        active.tagName === 'TEXTAREA' ||
-        active.getAttribute('contenteditable') === 'true')
-    ) {
-      return;
-    }
-    // rAF — wait for the textarea to be in the layout tree (selectedThread
-    // changes can arrive a tick before the panel mounts on first navigation).
-    const id = window.requestAnimationFrame(() => {
-      textInputRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [selectedThreadId, composerInteractionBlocked, inputMode]);
 
   const isSending = Boolean(
     selectedThreadId &&
@@ -1997,9 +1530,12 @@ const Conversations = ({
   // would wake the stage on every keystroke. The ref is already maintained for
   // the dictation handler and always holds the latest send fn.
   const mascotSubmit = useCallback((text: string) => handleSendMessageRef.current?.(text), []);
-  const mascotError = useCallback((message: string) => {
-    setSendError(chatSendError('voice_transcription', message));
-  }, []);
+  const mascotError = useCallback(
+    (message: string) => {
+      setSendError(chatSendError('voice_transcription', message));
+    },
+    [setSendError]
+  );
   useChatMascotSendBinding(chatMascot, {
     submit: mascotSubmit,
     onError: mascotError,
@@ -2009,21 +1545,6 @@ const Conversations = ({
     disabled: composerInteractionBlocked || isSending || !selectedThreadId,
   });
   const mascotDock = chatMascot ? <ChatMascotDock /> : undefined;
-
-  // Live agent activity that must stay visible even before the thread's
-  // message history has loaded: an in-flight turn, recorded tool steps, a
-  // processing transcript, or streamed prose. Without this, switching to a
-  // thread mid-turn rendered a blank pane (the message list is gated on
-  // `hasVisibleMessages`) until `loadThreadMessages` resolved — tool calls and
-  // streaming output silently invisible despite landing in Redux.
-  const hasLiveAgentActivity =
-    isSending ||
-    selectedThreadToolTimeline.length > 0 ||
-    selectedThreadProcessing.length > 0 ||
-    Boolean(selectedStreamingAssistant) ||
-    // An interrupted turn's restored partial answer must surface too, even
-    // before the durable message history loads (restore-fidelity fix 2).
-    Boolean(selectedInterruptedAssistant);
 
   const filteredThreads = useMemo(() => {
     return threads.filter(t => isThreadVisibleInTab(t, selectedLabel));
@@ -2036,44 +1557,6 @@ const Conversations = ({
   }, [filteredThreads]);
 
   const isSidebar = variant === 'sidebar';
-  // "New window" = the merged Home surface: a page-variant chat whose selected
-  // thread has no messages yet. We show the greeting + banners hero above a
-  // centered composer; the moment the first message lands, hasVisibleMessages
-  // flips true and this collapses back to the normal conversation layout.
-  const isNewWindow =
-    !isSidebar &&
-    !isLoadingMessages &&
-    !messagesError &&
-    !hasVisibleMessages &&
-    !hasLiveAgentActivity;
-
-  // Track the floating composer footer's height so the message list can reserve
-  // matching bottom padding. In the page variant the footer is absolutely
-  // positioned over the scroll area, so a static padding (the old `pb-32`) gets
-  // overrun whenever the footer grows — most visibly when the "Queued
-  // follow-ups" panel appears mid-reply, hiding the tail of the response
-  // (#4268). The sidebar variant lays the composer out in normal flow and never
-  // overlaps, so we skip the observer there and keep its `pb-4`.
-  useEffect(() => {
-    if (isSidebar) return;
-    const el = composerFooterRef.current;
-    if (!el) return;
-    const measure = () => {
-      const next = Math.round(el.getBoundingClientRect().height);
-      if (next <= 0) return;
-      // Skip no-op updates. This observer watches the footer that *contains* the
-      // composer, while `composerFooterHeight` feeds the message list's bottom
-      // padding — so re-rendering on an unchanged measurement lets a sub-pixel
-      // rounding oscillation cascade into React's nested-update limit
-      // ("Maximum update depth exceeded", #5162 / TAURI-REACT-2G).
-      setComposerFooterHeight(prev => (prev === next ? prev : next));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isSidebar, selectedThreadId]);
-
   // Stable title resolver used by both the sidebar thread list and the header.
   const resolveThreadDisplayTitle = (threadId: string | null): string => {
     if (!threadId) return t('chat.selectThread');
@@ -2155,16 +1638,10 @@ const Conversations = ({
     />
   );
 
-  // The two turn-gate cards that must render on BOTH main panels.
-  //
-  // They used to live inline in `legacyMainPanel`, which `/chat` never mounts:
-  // `mainPanel` below is an either/or — assistant-ui for text, legacy for
-  // mic-cloud voice — so a parked plan review and a drafted workflow were
-  // invisible on the surface every user actually sees. The plan gate hung the
-  // turn with nothing to decide, and `propose_workflow`'s only route to
-  // `flows_create` was unreachable. Hoisted to a shared fragment so the
-  // assistant-ui composer header can render the same cards without voice mode
-  // losing them; the two panels are mutually exclusive, so nothing doubles up.
+  // The two turn-gate cards (a parked plan review and a drafted workflow).
+  // Rendered in the composer header of BOTH composers — the text composer and
+  // the `mic-cloud` voice composer — which are mutually exclusive, so nothing
+  // doubles up.
   const agentGateCards = (
     <>
       {/* Harness work state: the thread goal and the agent's todo list. Both
@@ -2209,17 +1686,11 @@ const Conversations = ({
 
   // ── Composer-adjacent surfaces shared by BOTH chat panels ─────────────────
   //
-  // Every one of these used to be written inline inside `legacyMainPanel`.
-  // The panel choice at the bottom of this component is an *either/or*
-  // (`composer === 'mic-cloud' ? legacyMainPanel : assistantUiMainPanel`), so
-  // when the text chat moved to the assistant-ui `Thread` they stopped
-  // rendering on `/chat` altogether — the send-error banner most damagingly,
-  // since a user whose send is rejected got no feedback of any kind.
-  //
-  // They are defined once here and rendered by both panels: the legacy voice
-  // footer below, and the assistant-ui `ComposerHeader` / `ComposerExtras`
-  // slots (`assistantComposerHeader` / `assistantComposerFooterExtras`). One
-  // definition is the point — a second copy is how they drifted apart before.
+  // Defined once here and rendered by both composers through
+  // `assistantComposerHeader` / `assistantComposerFooterExtras`: the text
+  // composer's `ComposerHeader` / `ComposerExtras` slots, and the `mic-cloud`
+  // voice composer. One definition is the point — a second copy is how they
+  // drifted apart before (a rejected send once showed no feedback at all).
 
   const sendAdvisoryBanner = sendAdvisory ? (
     <div className="flex items-center justify-between mb-2">
@@ -2355,9 +1826,7 @@ const Conversations = ({
     ) : null;
 
   // The control that opens the background-processes panel, plus its
-  // running-count / memory-sync badge. Takes its opener because each surface
-  // hosts its own panel: the legacy footer reaches into `ChatThreadView`'s
-  // imperative handle, the assistant-ui footer drives the overlay state above.
+  // running-count / memory-sync badge. Opens `TranscriptOverlays`' panel.
   const renderBackgroundProcessesButton = (onOpen: () => void) =>
     selectedThreadId ? (
       <button
@@ -2396,314 +1865,13 @@ const Conversations = ({
       </button>
     ) : null;
 
-  // Main chat area (right pane): header, message list, composer.
-  const legacyMainPanel = (
-    <div
-      className={
-        isSidebar
-          ? // Embedded variant keeps its own flush styling (no TwoPanelLayout).
-            'flex-1 flex flex-col min-w-0 bg-surface border-l border-line overflow-hidden'
-          : // Page variant: flush over the shell background. `relative` anchors
-            // the absolutely-positioned floating composer.
-            'relative flex-1 flex flex-col min-w-0'
-      }>
-      <ChatThreadView
-        ref={threadViewRef}
-        threadId={selectedThreadId ?? null}
-        variant={variant}
-        bottomPadding={!isSidebar ? composerFooterHeight + 16 : undefined}
-        isLoading={isLoadingMessages}
-        loadError={messagesError}
-        emptyContent={
-          isNewWindow ? (
-            <ChatNewWindowHero />
-          ) : (
-            <div className="flex-1 flex items-center justify-center h-full">
-              <p className="text-sm text-content-secondary">{t('chat.noMessages')}</p>
-            </div>
-          )
-        }
-        shareAgentName={shareAgentName}
-        scrollResetKey={location.pathname}
-        pendingSendActive={selectedThreadId ? pendingSendingThreadIds.has(selectedThreadId) : false}
-      />
-
-      {/* Full-width fade so messages dissolve into the page behind the floating
-          composer. Page variant only.
-
-          Fades to `surface` — the token the content card actually paints — not
-          a hardcoded white/black pair. Those matched only while the page was a
-          transparent window onto the app canvas (`--surface-canvas`, pure black
-          in dark); on the inset card (`--surface`, neutral-900) they fade to a
-          colour the card never reaches and leave a visible band. The token also
-          keeps this correct for custom themes, which the literals never were. */}
-      {!isSidebar && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-linear-to-t from-surface via-surface/90 to-transparent"
-        />
-      )}
-
-      <div
-        ref={composerFooterRef}
-        data-walkthrough="home-cta"
-        // Page variant: float at the bottom (absolute) over the fade; centered +
-        // width-capped to match the messages. `z-20` keeps it above messages
-        // that would otherwise paint over it while scrolling.
-        //
-        // Sidebar embed keeps the in-flow composer pinned at the bottom, but it
-        // must stay reachable when the panel is too short to hold the whole
-        // footer — it stacks the upsell/error banners + actionable error CTAs
-        // (e.g. the voice "Setup" link) + the composer (#3785). Rather than a
-        // percentage `max-height` (which does not reliably resolve inside a
-        // stretched flex item in Chromium), let the footer SHRINK: dropping
-        // `shrink-0` and adding `min-h-0 overflow-y-auto` makes the flex
-        // algorithm cap it to the available height (the basis-0 message list
-        // gives up its space first) and scroll internally instead of being
-        // clipped by the `overflow-hidden` mainPanel. On a tall window there is
-        // free space, so the footer keeps its natural height (composer pinned).
-        className={
-          isSidebar
-            ? 'mx-auto w-full max-w-195 min-h-0 overflow-y-auto px-4 py-3'
-            : 'absolute inset-x-0 bottom-0 z-20 mx-auto w-full max-w-195 px-4 pb-4 pt-6'
-        }>
-        <>{/* Cycle usage pill moved into ChatComposer toolbar */}</>
-
-        {sendAdvisoryBanner}
-
-        {attachError && (
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-coral-500" data-chat-send-error-code={attachError.code}>
-              {attachError.message}
-            </p>
-            <button
-              type="button"
-              data-analytics-id="chat-attach-error-dismiss"
-              onClick={() => setAttachError(null)}
-              className="text-xs text-content-muted hover:text-content-secondary transition-colors ml-2">
-              {t('common.dismiss')}
-            </button>
-          </div>
-        )}
-
-        {sendErrorBanner}
-
-        {(() => {
-          // Surface a parked ApprovalGate request for the shown thread just
-          // above the composer, so it stays visible regardless of scroll.
-          const approvalThreadId = selectedThreadId ?? firstActiveThreadId;
-          const pendingApproval = approvalThreadId
-            ? pendingApprovalByThread[approvalThreadId]
-            : undefined;
-          if (!pendingApproval || !approvalThreadId) return null;
-          // `composio_connect` parks on the same gate but needs a Connect
-          // button + OAuth poll rather than approve/deny (#3993).
-          const isConnect = pendingApproval.toolName === 'composio_connect';
-          return (
-            <div className="mb-2">
-              {isConnect ? (
-                // Key by requestId so switching from one parked approval to
-                // another remounts the card with fresh local state (phase,
-                // field values, cancellation refs, poll timers) instead of
-                // bleeding the previous request's state in (#4062, coderabbit).
-                <IntegrationConnectCard
-                  key={pendingApproval.requestId}
-                  threadId={approvalThreadId}
-                  approval={pendingApproval}
-                />
-              ) : (
-                <ApprovalRequestCard
-                  key={pendingApproval.requestId}
-                  threadId={approvalThreadId}
-                  approval={pendingApproval}
-                />
-              )}
-            </div>
-          );
-        })()}
-
-        {flowApprovalDeck}
-
-        {unroutedApprovalDeck}
-
-        {liveArtifactDeck}
-
-        {agentGateCards}
-
-        {/* Cancel the in-flight turn for composer modes that don't render the
-            text ChatComposer (mic-cloud + voice). The text composer carries its
-            own in-box Stop button, so the footer control only appears for the
-            non-text branches — otherwise voice/mic flows would have no way to
-            stop a long-running generation. */}
-        {isSending && rustChat && (composer === 'mic-cloud' || inputMode !== 'text') && (
-          <div className="mb-2 flex justify-start px-1">
-            <button
-              type="button"
-              data-analytics-id="chat-cancel-generation"
-              onClick={handleStopGeneration}
-              className="text-xs text-content-muted transition-colors hover:text-content-secondary">
-              {t('common.cancel')}
-            </button>
-          </div>
-        )}
-
-        {composer === 'mic-cloud' ? (
-          // `relative` so the mascot dock (absolute, `bottom-full`) anchors here
-          // — this branch renders no ChatComposer to hang it off.
-          <div className="relative flex flex-col items-center gap-3 py-1">
-            {mascotDock}
-            {voiceChatControl}
-            {showMicComposer && (
-              <MicComposer
-                // Without `!selectedThreadId`, a mic submit before a thread is
-                // ready hits `handleSendMessage`'s early return and the
-                // transcript is silently dropped — the user spoke into the void.
-                disabled={composerInteractionBlocked || isSending || !selectedThreadId}
-                onSubmit={text => handleSendMessage(text)}
-                onError={message => setSendError(chatSendError('voice_transcription', message))}
-                showDeviceSelector
-                onSwitchToText={() => setComposerOverride('text')}
-              />
-            )}
-          </div>
-        ) : inputMode === 'text' ? (
-          <>
-            <ChatComposer
-              inputValue={inputValue}
-              setInputValue={setInputValue}
-              onSend={handleComposerSend}
-              onStopGeneration={rustChat ? handleStopGeneration : undefined}
-              // Idle-composer shortcut to the full-bleed mascot stage. Chat and
-              // Human share one mascot (mascotSlice), so this is a change of
-              // venue for the same conversation partner, not a second one.
-              onOpenHumanMode={() => navigate('/human')}
-              textInputRef={textInputRef}
-              fileInputRef={fileInputRef}
-              composerInteractionBlocked={composerInteractionBlocked}
-              isSending={isSending}
-              allowParallelSend={selectedThreadActive}
-              attachments={attachments}
-              onAttachFiles={handleAttachFiles}
-              onRemoveAttachment={id => setAttachments(prev => prev.filter(a => a.id !== id))}
-              attachError={attachError}
-              onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
-              handleInputKeyDown={handleInputKeyDown}
-              inlineCompletionSuffix=""
-              isComposingTextRef={isComposingTextRef}
-              maxAttachments={ATTACHMENT_MAX_IMAGES + ATTACHMENT_MAX_FILES}
-              // Empty → no native `accept` filter (it greys valid files on
-              // macOS/CEF). Type enforcement happens in handleAttachFiles via
-              // validateAndReadFile, which honors modelSupportsVision.
-              allowedMimeTypes={[]}
-              attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
-              // Header stack above the input box (outside its blue focus ring).
-              headerSlots={[
-                selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
-                  <QueuedFollowups
-                    key="queued-followups"
-                    items={queuedFollowupsByThread[selectedThreadId] ?? []}
-                    onClear={() => void handleClearQueuedFollowups()}
-                  />
-                ) : null,
-              ]}
-              mascotDock={mascotDock}
-              modelOverride={composerModelOverride ?? resolvedModel}
-              onModelOverrideChange={applyComposerModel}
-            />
-          </>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-analytics-id="chat-voice-switch-to-text"
-              onClick={() => setInputMode('text')}
-              disabled={isRecording || isTranscribing}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-line bg-surface text-content-muted hover:text-content-secondary hover:border-line-strong transition-colors disabled:opacity-40"
-              title={t('chat.switchToText')}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M4 6h16M4 12h10m-10 6h16"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              data-analytics-id="chat-voice-record-toggle"
-              onClick={() => {
-                void handleVoiceRecordToggle();
-              }}
-              disabled={!rustChat || isSending || isTranscribing || !canUseMicrophoneApi}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                isRecording
-                  ? 'bg-coral-500 hover:bg-coral-400 text-content-inverted'
-                  : 'bg-primary-600 hover:bg-primary-500 text-content-inverted'
-              } disabled:opacity-40 disabled:cursor-not-allowed`}>
-              {isTranscribing
-                ? t('chat.transcribing')
-                : isRecording
-                  ? t('chat.stopAndSend')
-                  : t('chat.startTalking')}
-            </button>
-            <p className="text-xs text-content-faint truncate">
-              {voiceStatus ??
-                (isPlayingReply && replyMode === 'voice'
-                  ? t('chat.playingVoiceReply')
-                  : canUseMicrophoneApi
-                    ? t('chat.voiceHint')
-                    : t('chat.micUnavailable'))}
-            </p>
-          </div>
-        )}
-        {/* Worker-thread back-to-parent breadcrumb (page variant) — its own line. */}
-        {!isSidebar && selectedThreadParent && (
-          <button
-            type="button"
-            data-analytics-id="chat-header-back-to-parent-thread"
-            onClick={() => {
-              dispatch(setSelectedThread(selectedThreadParent.id));
-              void dispatch(loadThreadMessages(selectedThreadParent.id));
-              navigate(chatThreadPath(selectedThreadParent.id));
-            }}
-            className="mt-2 flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-300"
-            data-testid="worker-thread-back-to-parent">
-            <span aria-hidden="true">←</span>
-            <span className="max-w-[16rem] truncate">
-              {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
-            </span>
-          </button>
-        )}
-
-        {/* Thread title + inline rename moved to the sidebar thread list rows. */}
-
-        {/* Model/token stats and the supporting controls share one line. */}
-        <div
-          className="mt-2 flex items-center justify-between gap-2"
-          data-walkthrough="chat-agent-panel">
-          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
-          {!isSidebar && (
-            <div className="flex shrink-0 items-center gap-2">
-              {renderBackgroundProcessesButton(() =>
-                threadViewRef.current?.openBackgroundProcesses()
-              )}
-              {chatFilesChip}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
   const assistantComposerHeader = (
     <>
       {/* Turn gates first: a parked plan review and a drafted workflow both
           block progress until the user decides, so they sit above the transient
           attach error and the queued-followup strip. `ComposerHeader` is the
           only host slot assistant-ui threads arbitrary React through
-          (`thread.tsx:385`), and it renders directly above the input — the same
-          place `legacyMainPanel` put these cards. */}
+          (`thread.tsx`), and it renders directly above the input. */}
       {agentGateCards}
       {/* Paused tinyflows runs block the same way a plan gate does — the
           banner carries the only Approve/Reject affordance — so they belong
@@ -2743,6 +1911,70 @@ const Conversations = ({
     </>
   );
 
+  // The mic-first (`mic-cloud`) composer. It replaces only the text composer:
+  // the transcript above it is the same assistant-ui `Thread` as text mode, so
+  // voice and text are one surface with two inputs. It carries the same header
+  // cards as the text composer, plus the voice-only controls: a footer Cancel
+  // (there is no in-box Stop button without a text composer), the mascot dock,
+  // the host's voice-chat control and the push-to-talk mic.
+  const voiceComposer =
+    composer === 'mic-cloud' ? (
+      <div className="flex flex-col gap-2" data-testid="voice-composer">
+        {assistantComposerHeader}
+        {isSending && rustChat && (
+          <div className="flex justify-start px-1">
+            <button
+              type="button"
+              data-analytics-id="chat-cancel-generation"
+              onClick={handleStopGeneration}
+              className="text-xs text-content-muted transition-colors hover:text-content-secondary">
+              {t('common.cancel')}
+            </button>
+          </div>
+        )}
+        {/* `relative` so the mascot dock (absolute, `bottom-full`) anchors here. */}
+        <div className="relative flex flex-col items-center gap-3 py-1">
+          {mascotDock}
+          {voiceChatControl}
+          {showMicComposer && (
+            <MicComposer
+              // Without `!selectedThreadId`, a mic submit before a thread is
+              // ready hits `handleSendMessage`'s early return and the
+              // transcript is silently dropped — the user spoke into the void.
+              disabled={composerInteractionBlocked || isSending || !selectedThreadId}
+              onSubmit={text => handleSendMessage(text)}
+              onError={message => setSendError(chatSendError('voice_transcription', message))}
+              showDeviceSelector
+              onSwitchToText={() => setComposerOverride('text')}
+            />
+          )}
+        </div>
+        {!isSidebar && selectedThreadParent && (
+          <button
+            type="button"
+            data-analytics-id="chat-header-back-to-parent-thread"
+            onClick={() => {
+              dispatch(setSelectedThread(selectedThreadParent.id));
+              void dispatch(loadThreadMessages(selectedThreadParent.id));
+              navigate(chatThreadPath(selectedThreadParent.id));
+            }}
+            className="flex items-center gap-1 rounded px-1 text-[11px] font-medium text-primary-600 hover:text-primary-700 hover:underline focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary-300"
+            data-testid="worker-thread-back-to-parent">
+            <span aria-hidden="true">←</span>
+            <span className="max-w-[16rem] truncate">
+              {t('chat.backToThread').replace('{title}', selectedThreadParent.title)}
+            </span>
+          </button>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <ComposerTokenStats model={resolvedModel} threadId={selectedThreadId} />
+          {!isSidebar && (
+            <div className="flex shrink-0 items-center gap-2">{assistantComposerFooterExtras}</div>
+          )}
+        </div>
+      </div>
+    ) : undefined;
+
   const assistantUiMainPanel = (
     <div
       className={
@@ -2755,6 +1987,7 @@ const Conversations = ({
         modelContextWindow={composerModelContextWindow}
         composerHeader={assistantComposerHeader}
         composerFooterExtras={assistantComposerFooterExtras}
+        composerReplacement={voiceComposer}
         inputValue={inputValue}
         onInputValueChange={setInputValue}
         onEscape={handleComposerEscape}
@@ -2778,12 +2011,10 @@ const Conversations = ({
         canOpenSubagent={canOpenSubagentDrawer}
         onModelChange={applyComposerModel}
       />
-      {/* The three transcript-local modals. `ChatThreadView` hosts an identical
-          trio, but it is the legacy panel's transcript and is not mounted here,
-          so on `/chat` the background-processes button had nothing to open and
-          the sub-agent drawer / process-source panel could not be reached at
-          all. Mounted beside the Thread (not inside it) because each is its own
-          overlay, positioned against the viewport. */}
+      {/* The three transcript-local modals: background processes, the
+          sub-agent drawer and the Agent Process Source panel. Mounted beside
+          the Thread (not inside it) because each is its own overlay,
+          positioned against the viewport. */}
       <TranscriptOverlays
         threadId={selectedThreadId ?? null}
         entries={selectedThreadProcessSourceEntries}
@@ -2798,10 +2029,9 @@ const Conversations = ({
       />
     </div>
   );
-  // The realtime/mic-only embed still owns a voice-specific footer. The normal
-  // text chat is fully assistant-ui; voice keeps its established surface until
-  // assistant-ui exposes the equivalent recording controls.
-  const mainPanel = composer === 'mic-cloud' ? legacyMainPanel : assistantUiMainPanel;
+  // One transcript for both composers: `mic-cloud` only swaps the input (see
+  // `voiceComposer`), so the voice surface is assistant-ui end to end too.
+  const mainPanel = assistantUiMainPanel;
 
   return (
     <div

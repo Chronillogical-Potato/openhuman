@@ -28,7 +28,7 @@ function renderInStore(ui: React.ReactNode) {
 
 describe('SubagentActivityBlock', () => {
   it('derives its lifecycle from the activity when no running prop is passed', () => {
-    // Most call sites (AgentProcessSourcePanel, PastTurnInsights, this block)
+    // Most call sites (AgentProcessSourcePanel, this block)
     // pass no `running` prop at all. The old `running = false` default reported
     // an in-flight delegation as finished, with a success check.
     renderInStore(

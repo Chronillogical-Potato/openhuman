@@ -35,7 +35,6 @@ import {
   bumpInferenceHeartbeatForThread,
   cancelUnresolvedTurnTimeline,
   clearInferenceStatusForThread,
-  clearParallelRequest,
   clearPendingApprovalForThread,
   clearPendingPlanReviewForThread,
   clearProcessingForThread,
@@ -643,7 +642,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       // Snapshot polling can outlive this completed turn. Capture the rows it
       // owns before awaiting it so a newer turn on the same thread is never
       // cancelled by this recovery path.
-      const unresolvedRowIds = (store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [])
+      const unresolvedRowIds = (
+        store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? []
+      )
         .filter(entry => entry.status === 'running' && entry.subagent?.mode !== 'async')
         .map(entry => entry.id);
       // Socket reducers keep only the current iteration's prose in the live
@@ -656,7 +657,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         fetchAndHydrateCompletedTurnState(event.thread_id)
       ).unwrap();
       if (!completedSnapshot) {
-        dispatch(cancelUnresolvedTurnTimeline({ threadId: event.thread_id, rowIds: unresolvedRowIds }));
+        dispatch(
+          cancelUnresolvedTurnTimeline({ threadId: event.thread_id, rowIds: unresolvedRowIds })
+        );
       }
     };
 
@@ -680,13 +683,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         // Conversations silence timer rearms even when the turn is in a long
         // prefill / buffered-reasoning phase that emits no other progress.
         rtLog('inference_heartbeat', { thread: event.thread_id, request: event.request_id });
-        // A parallel (forked) turn streams into its own lane and must NOT keep
-        // the thread's primary silence timer alive — otherwise a sibling branch
-        // would mask a stalled primary turn. Mirror the text/thinking-delta
-        // routing: ignore heartbeats owned by a parallel request.
-        if (store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined) {
-          return;
-        }
         dispatch(bumpInferenceHeartbeatForThread({ threadId: event.thread_id }));
       },
       onIterationStart: (event: ChatIterationStartEvent) => {
@@ -1356,49 +1352,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
 
-        // Parallel (forked) turn: resolve only its own lane. The primary turn's
-        // stream / status / lifecycle / active marker may still be running, so
-        // we must NOT clear them here. Segmented parallel turns already
-        // persisted via `onSegment` (keyed by thread+request); a single-bubble
-        // parallel turn persists its full response now.
-        if (
-          event.request_id !== undefined &&
-          store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
-        ) {
-          const parallelRequestId = event.request_id;
-          dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
-          if (!event.segment_total && event.full_response.length > 0) {
-            void (async () => {
-              try {
-                await dispatch(
-                  addInferenceResponse({
-                    content: event.full_response,
-                    threadId: event.thread_id,
-                    messageId: deliveredReplyMessageId(event),
-                    extraMetadata: chatDoneExtraMetadata(event),
-                  })
-                ).unwrap();
-                void dispatch(
-                  generateThreadTitleIfNeeded({
-                    threadId: event.thread_id,
-                    assistantMessage: event.full_response,
-                  })
-                );
-              } catch (error) {
-                rtLog('parallel_chat_done_append_failed', {
-                  thread: event.thread_id,
-                  request: event.request_id,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-                await recoverDeliveredReply(event, error);
-              }
-            })();
-          }
-          dispatch(clearParallelRequest({ requestId: parallelRequestId }));
-          requestUsageRefresh();
-          return;
-        }
-
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
@@ -1557,28 +1510,6 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               })
             );
           }
-        }
-
-        // Parallel (forked) turn error: resolve only its lane, leaving the
-        // primary turn untouched. Surface a non-cancellation error as a message
-        // so the failed branch is visible.
-        if (
-          event.request_id !== undefined &&
-          store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined
-        ) {
-          deleteSegmentDelivery(
-            segmentDeliveriesRef.current,
-            segmentDeliveryKey(event.thread_id, event.request_id)
-          );
-          if (event.error_type !== 'cancelled') {
-            const errorContent = event.message || USER_FACING_AGENT_ERROR_MESSAGE;
-            void dispatch(
-              addInferenceResponse({ content: errorContent, threadId: event.thread_id })
-            );
-            requestUsageRefresh();
-          }
-          dispatch(clearParallelRequest({ requestId: event.request_id }));
-          return;
         }
 
         deleteSegmentDelivery(

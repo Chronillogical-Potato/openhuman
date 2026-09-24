@@ -454,8 +454,7 @@ describe('buildRuntimeMessages', () => {
   });
 
   it('re-converts only the tail as tokens land, never the settled transcript', () => {
-    // The projection-level statement of the property `ChatThreadView.renderPerf`
-    // pins for the render tree: streaming must not sweep the transcript.
+    // Streaming must not sweep the transcript: only the live tail re-converts.
     const settled = Array.from({ length: 40 }, (_, i) =>
       msg({ id: `m-${i}`, sender: i % 2 ? 'agent' : 'user', content: `prose ${i}` })
     );

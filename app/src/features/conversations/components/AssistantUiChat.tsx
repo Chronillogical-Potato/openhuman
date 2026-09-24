@@ -61,6 +61,7 @@ export function AssistantUiChat({
   onModelChange,
   composerHeader,
   composerFooterExtras,
+  composerReplacement,
   inputValue,
   onInputValueChange,
   onEscape,
@@ -86,6 +87,13 @@ export function AssistantUiChat({
    * background-processes button and the thread files chip).
    */
   composerFooterExtras?: ReactNode;
+  /**
+   * Replaces the built-in text composer entirely, keeping the assistant-ui
+   * transcript above it. The mic-first voice composer (`mic-cloud`) uses this:
+   * its input is a push-to-talk button, not a text box. `undefined` keeps the
+   * normal composer.
+   */
+  composerReplacement?: ReactNode;
   inputValue: string;
   onInputValueChange: (value: string) => void;
   onEscape?: () => void;
@@ -118,7 +126,6 @@ export function AssistantUiChat({
   // `selectCustomPrimaryColor`: this component is mounted by suites that build
   // a partial store, and those selectors dereference `state.mascot` unguarded,
   // so a store without the slice crashes the whole chat surface on render.
-  // `ChatThreadView` reads `state.theme?.` the same way for the same reason.
   const mascotColor = useAppSelector(state => state.mascot?.color ?? DEFAULT_MASCOT_COLOR);
   const mascotCustomPrimary = useAppSelector(state => state.mascot?.customPrimaryColor ?? null);
   const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
@@ -192,6 +199,12 @@ export function AssistantUiChat({
   const composerHeaderRef = useRef(composerHeader);
   composerHeaderRef.current = composerHeader;
   const ComposerHeader = useCallback(() => <>{composerHeaderRef.current}</>, []);
+  // Same stable-type-through-a-ref pattern: the voice composer owns recording
+  // state (MicComposer) that a remount would drop mid-utterance.
+  const composerReplacementRef = useRef(composerReplacement);
+  composerReplacementRef.current = composerReplacement;
+  const hasComposerReplacement = composerReplacement !== undefined;
+  const ComposerReplacement = useCallback(() => <>{composerReplacementRef.current}</>, []);
   const ComposerAttachments = useCallback(() => {
     const { attachments, attachmentInteractionBlocked, onRemoveAttachment } = slotPropsRef.current;
     return (
@@ -280,6 +293,7 @@ export function AssistantUiChat({
       // one collapsed disclosure under the answer.
       SourceGroup: ChatSources,
       onSwitchToMicCloud,
+      ...(hasComposerReplacement ? { Composer: ComposerReplacement } : {}),
       ...(attachmentsEnabled
         ? {
             ComposerAttachments,
@@ -302,6 +316,8 @@ export function AssistantUiChat({
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
+      ComposerReplacement,
+      hasComposerReplacement,
       attachmentInteractionBlocked,
       handleComposerFiles,
       maxAttachments,
