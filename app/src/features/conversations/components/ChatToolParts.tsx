@@ -10,8 +10,11 @@ import { ElicitationAdapter } from '../aui/ElicitationAdapter';
 import { PermissionGrantAdapter } from '../aui/PermissionGrantAdapter';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import { decideApproval } from '../../../services/api/approvalApi';
-import { clearPendingApprovalForThread } from '../../../store/chatRuntimeSlice';
-import type { PendingApproval, SubagentActivity } from '../../../store/chatRuntimeSlice';
+import {
+  clearPendingApprovalForThread,
+  type PendingApproval,
+  type SubagentActivity,
+} from '../../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { AssistantUiSubagentCall, isActiveSubagentStatus } from './AssistantUiSubagentCall';
