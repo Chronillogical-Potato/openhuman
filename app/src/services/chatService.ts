@@ -863,6 +863,8 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     artifactPending: 'artifact_pending',
     artifactReady: 'artifact_ready',
     artifactFailed: 'artifact_failed',
+    externalTransferPending: 'external_transfer_pending',
+    cancelled: 'chat_cancelled',
     done: 'chat_done',
     error: 'chat_error',
   } as const;
