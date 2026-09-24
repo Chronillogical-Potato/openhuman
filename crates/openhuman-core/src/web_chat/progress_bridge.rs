@@ -758,6 +758,7 @@ pub(crate) fn spawn_progress_bridge(
                     parent_call_id,
                     ..
                 } => {
+                    subagent_parent_call_ids.insert(task_id.clone(), parent_call_id.clone());
                     let label = display_name.as_deref().unwrap_or(&agent_id);
                     let kind = if worker_thread_id.is_some() {
                         AgentRunKind::WorkerThread

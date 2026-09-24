@@ -148,7 +148,7 @@ pub(crate) async fn run_chat_task(
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
     let turn = Box::pin(agent.run_single(message));
-    let result = match turn.await {
+    let mut result = match turn.await {
         Ok(response) => {
             // A successful turn proves the thread's balance is usable, so drop
             // any stale budget-exhausted signal before it could mislabel a
