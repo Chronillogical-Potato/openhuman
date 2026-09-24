@@ -5,6 +5,7 @@ import {
   ToolGroupRoot,
   ToolGroupTrigger,
 } from '@/components/assistant-ui/tool-group';
+import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import { type MessagePrimitive, useAuiState } from '@assistant-ui/react';
 import { type FC, type PropsWithChildren, useState } from 'react';
 
@@ -66,6 +67,12 @@ export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> 
 
   const running = group.status.type === 'running' || isTail;
   const live = running || group.status.type === 'requires-action' || requiresAction;
+
+  // Preserve the dedicated reasoning trace for runs that contain no tools. The
+  // combined disclosure is needed only when tools and reasoning interleave.
+  if (toolCount === 0 && reasoningCount > 0) {
+    return <OpenHumanReasoningGroup indices={indices} running={running} />;
+  }
 
   return (
     <ToolGroupRoot variant="ghost" open={userOpen ?? live} onOpenChange={setUserOpen}>
