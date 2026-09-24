@@ -213,7 +213,7 @@ async fn find_approval_decided(
 ) -> crate::core::events::DomainEvent {
     loop {
         match rx.recv().await {
-            Some(ev @ crate::core::events::DomainEvent::ApprovalDecided { ref request_id, .. })
+            Some(ref ev @ crate::core::events::DomainEvent::ApprovalDecided { ref request_id, .. })
                 if request_id == expected_request_id =>
             {
                 return ev
