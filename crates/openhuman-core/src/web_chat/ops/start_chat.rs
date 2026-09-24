@@ -492,6 +492,7 @@ pub async fn start_chat(
             let approval_ctx = crate::security::approval::ApprovalChatContext {
                 thread_id: thread_id_task.clone(),
                 client_id: client_id_task.clone(),
+                request_id: Some(request_id_task.clone()),
             };
             let origin = crate::agent::turn_origin::AgentTurnOrigin::WebChat {
                 thread_id: thread_id_task.clone(),
