@@ -691,9 +691,9 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     );
     // Read-only command palette listing: built-ins merged with skills.list /
     // flows.list (C5). Tagged `Agent` rather than a new `DomainGroup` variant
-    // — it is chat-harness surface, always on, and adding a variant would
-    // touch every exhaustive `DomainGroup` match in this file for one
-    // three-RPC-sized domain.
+    // — it is chat-harness surface, always on, and adding a variant for this
+    // single-RPC domain would touch every exhaustive `DomainGroup` match in
+    // this file.
     push(
         &mut controllers,
         DomainGroup::Agent,
