@@ -104,19 +104,17 @@ impl SpawnAsyncSubagentTool {
             .or(run_context.thread_id.as_deref())
             .map(str::to_owned);
 
-        // Async delivery is thread-addressed: the finished result is inserted
-        // back into the parent chat thread as a follow-up turn
-        // (`background_delivery`). Outside a chat turn (flow `agent` nodes,
-        // CLI and cron runs intentionally have no parent thread to deliver into, so
-        // `background_delivery::deliver_batch` logs "dropping headless batch"
-        // and the (possibly real, completed) work is silently discarded — the
-        // caller sees "Accepted" and never learns the result never arrived.
-        // Fail loudly instead: the caller has a synchronous alternative
-        // (`spawn_subagent` with `blocking: true`, or a `delegate_*` tool).
-        // Both of those self-heal to blocking dispatch in this situation
-        // rather than reaching this guard — see the `has_delivery_thread`
-        // checks in `spawn_subagent.rs` and `dispatch.rs::dispatch_subagent`.
-        // Only a *direct* `spawn_async_subagent` call lands here.
+        // Async delivery is thread-addressed: the finished result is inserted back into the
+        // parent chat thread as a follow-up turn (`background_delivery`). Outside a chat turn
+        // (flow `agent` nodes, CLI and cron runs intentionally have no parent thread to deliver
+        // into, so `background_delivery::deliver_batch` logs "dropping headless batch" and the
+        // (possibly real, completed) work is silently discarded — the caller sees "Accepted" and
+        // never learns the result never arrived. Fail loudly instead: the caller has a
+        // synchronous alternative (`spawn_subagent` with `blocking: true`, or a `delegate_*`
+        // tool). Both of those self-heal to blocking dispatch in this situation rather than
+        // reaching this guard — see the `has_delivery_thread` checks in `spawn_subagent.rs` and
+        // `dispatch.rs::dispatch_subagent`. Only a *direct* `spawn_async_subagent` call lands
+        // here.
         if parent_thread_id.is_none() {
             log::warn!(
                 "[spawn_async_subagent] refusing fire-and-forget spawn with no delivery thread \
