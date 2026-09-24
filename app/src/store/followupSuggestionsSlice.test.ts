@@ -68,7 +68,11 @@ describe('followupSuggestionsSlice', () => {
 
     state = followupSuggestionsReducer(
       state,
-      followupSuggestionsReceived({ threadId: 't1', requestId: null, suggestions: [{ prompt: '' }] })
+      followupSuggestionsReceived({
+        threadId: 't1',
+        requestId: null,
+        suggestions: [{ prompt: '' }],
+      })
     );
     expect(state.byThread.t1).toBeUndefined();
   });

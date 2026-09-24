@@ -155,7 +155,9 @@ describe('useOpenHumanExternalStore — suggestions', () => {
   });
 
   it('offers nothing when the settled thread ends on a user message', () => {
-    const { result } = mountAdapter(buildStore({ messages: [agentMessage, userMessage], stored: true }));
+    const { result } = mountAdapter(
+      buildStore({ messages: [agentMessage, userMessage], stored: true })
+    );
 
     expect(result.current.suggestions).toEqual([]);
   });

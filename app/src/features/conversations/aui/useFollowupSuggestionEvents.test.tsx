@@ -5,8 +5,8 @@ import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  type SuggestionEventListeners,
   subscribeSuggestionEvents,
+  type SuggestionEventListeners,
 } from '../../../services/chatService';
 import followupSuggestionsReducer from '../../../store/followupSuggestionsSlice';
 import { useFollowupSuggestionEvents } from './useFollowupSuggestionEvents';
@@ -59,7 +59,11 @@ describe('useFollowupSuggestionEvents', () => {
     const { store, listeners } = setup();
 
     act(() =>
-      listeners().onSuggestions?.({ thread_id: 't1', request_id: 'r9', suggestions: [{ prompt: 'a' }] })
+      listeners().onSuggestions?.({
+        thread_id: 't1',
+        request_id: 'r9',
+        suggestions: [{ prompt: 'a' }],
+      })
     );
     act(() => listeners().onSuggestions?.({ thread_id: 't2', suggestions: [{ prompt: 'b' }] }));
 

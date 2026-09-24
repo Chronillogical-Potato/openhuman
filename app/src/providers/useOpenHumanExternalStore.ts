@@ -19,8 +19,8 @@ import {
   isActiveTimelineStatus,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { toThreadSuggestions } from '../store/followupSuggestionsSlice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   FEEDBACK_ROW_IDS_METADATA_KEY,
   persistMessageFeedback,
