@@ -201,6 +201,7 @@ async fn carries_risk_fields_when_present() {
             .with_risk(IdentificationRisk::High, vec!["email".to_string()]),
         thread_id: None,
         client_id: None,
+        request_id: None,
     });
 
     let (descriptor, _, _) = find_pending(&mut rx, marker).await;
