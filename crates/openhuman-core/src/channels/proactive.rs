@@ -225,6 +225,7 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
             // Proactive delivery is emitted outside the seq-stamping progress
             // bridge; leave `seq` unset (older clients ignore it).
             seq: None,
+            ..Default::default()
         });
 
         // 2. If an active external channel is configured, deliver there too.
