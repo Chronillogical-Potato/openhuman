@@ -90,7 +90,10 @@ impl OpenHumanTurnPrelude {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         mutable.connected_integrations = connected;
-        mutable.connected_integrations_initialized = true;
+        // A stale fallback is useful for announcements but cannot authorize
+        // restored executors. Leave hydration pending so a later turn retries
+        // the live lookup rather than pinning this session to the snapshot.
+        mutable.connected_integrations_initialized = authoritative;
         mutable.connected_integrations_authoritative = authoritative;
         mutable.announced_integrations = mutable
             .connected_integrations

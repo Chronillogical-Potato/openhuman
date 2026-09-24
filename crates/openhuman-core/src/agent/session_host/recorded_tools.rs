@@ -68,6 +68,10 @@ pub(super) fn rehydrate_integration_actions(
     let mut seen = HashSet::new();
     recorded
         .iter()
+        // Only Composio's upper-case `TOOLKIT_ACTION` declarations may be
+        // reconstructed. A recorded OpenHuman tool such as `web_fetch` is
+        // historical prompt state, not an integration action.
+        .filter(|spec| is_integration_action_name(&spec.name))
         // Transcript declarations are historical state, never authorization.
         // Do not make a deferred executor available until a current
         // authoritative integration snapshot permits its toolkit and action.
