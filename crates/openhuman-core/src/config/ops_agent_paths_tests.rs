@@ -70,6 +70,35 @@ async fn apply_agent_settings_rejects_unknown_chat_agent_id() {
 }
 
 #[tokio::test]
+async fn apply_agent_settings_blank_chat_agent_id_clears_and_persists_override() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.agent.chat_agent_id = Some("researcher".into());
+
+    let outcome = apply_agent_settings(
+        &mut cfg,
+        AgentSettingsPatch {
+            chat_agent_id: Some("   ".into()),
+            ..AgentSettingsPatch::default()
+        },
+    )
+    .await
+    .expect("blank chat agent id clears the override");
+
+    assert_eq!(cfg.agent.chat_agent_id, None);
+    assert_eq!(outcome.value["config"]["agent"]["chat_agent_id"], serde_json::Value::Null);
+
+    let saved = tokio::fs::read_to_string(&cfg.config_path)
+        .await
+        .expect("saved config");
+    assert!(
+        !saved.contains("chat_agent_id"),
+        "cleared override must not remain in the persisted config: {saved}"
+    );
+}
+
+#[tokio::test]
 async fn apply_agent_settings_rejects_a_mixed_patch_without_mutating_config() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = tempdir().unwrap();
