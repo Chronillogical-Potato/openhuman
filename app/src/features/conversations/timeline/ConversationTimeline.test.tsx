@@ -103,6 +103,13 @@ describe('ConversationTimeline', () => {
     // Truncation ellipsis is present and the thinking summary renders.
     expect(primary.textContent).toContain('…');
     expect(primary.textContent).toContain('deliberating');
+    // The thinking renders through the live reasoning panel, not a raw
+    // hard-coded "Thinking…" <details>.
+    const thinking = screen.getByTestId('stream-primary-thinking');
+    expect(
+      thinking.getAttribute('aria-busy') ?? thinking.querySelector('[aria-busy]')
+    ).toBeTruthy();
+    expect(primary.querySelector('details')).toBeNull();
     // Only the last 120 chars of the 200-char body render in the content bubble.
     const contentBubble = primary.querySelector('.font-mono.text-sm');
     expect(contentBubble?.textContent).toBe(`…${'x'.repeat(120)}`);
