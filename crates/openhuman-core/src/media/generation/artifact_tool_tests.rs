@@ -128,7 +128,11 @@ async fn files_every_artifact_when_n_greater_than_one() {
     for entry in artifacts {
         let id = entry["artifact_id"].as_str().expect("artifact_id set");
         assert!(ids.insert(id.to_string()), "artifact ids must be unique");
-        assert!(workspace.join("artifacts").join(id).join("meta.json").exists());
+        assert!(workspace
+            .join("artifacts")
+            .join(id)
+            .join("meta.json")
+            .exists());
     }
 }
 

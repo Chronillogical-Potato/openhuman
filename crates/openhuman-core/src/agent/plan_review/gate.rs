@@ -100,8 +100,9 @@ impl PlanReviewGate {
                 .lock()
                 .insert(tid, request_id.clone());
         }
-        let expires_at = (chrono::Utc::now() + chrono::Duration::from_std(self.ttl).unwrap_or_default())
-            .to_rfc3339();
+        let expires_at = (chrono::Utc::now()
+            + chrono::Duration::from_std(self.ttl).unwrap_or_default())
+        .to_rfc3339();
         self.parked.lock().insert(
             request_id.clone(),
             ParkedReview {

@@ -94,10 +94,7 @@ async fn todos_get_reads_back_what_the_todo_tool_wrote() {
     .await
     .unwrap();
     let empty_json = empty.into_cli_compatible_json().unwrap();
-    assert!(empty_json["result"]["todos"]
-        .as_array()
-        .unwrap()
-        .is_empty());
+    assert!(empty_json["result"]["todos"].as_array().unwrap().is_empty());
 
     let scope = crate::agent::todos::ops::TodoScope::Session {
         id: "thread-todos-live".to_string(),

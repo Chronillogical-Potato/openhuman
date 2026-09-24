@@ -89,7 +89,7 @@ async fn attaches_ambient_chat_context() {
             ApprovalChatContext {
                 thread_id: "thread-xyz".to_string(),
                 client_id: "client-abc".to_string(),
-            request_id: None,
+                request_id: None,
             },
             async {
                 emit_external_transfer(EgressDescriptor::composio(marker));

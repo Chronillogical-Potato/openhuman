@@ -205,6 +205,66 @@ export default function ToolCallGallery() {
           />
         </section>
 
+        <section className="flex flex-col gap-3">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">Approvals</h2>
+
+          <p className="text-foreground/40 text-xs">Pending, in-thread (chat-approval-*)</p>
+          <ApprovalCardAdapter
+            ariaLabel="Approval needed"
+            title="Approval needed"
+            subtitle={APPROVAL_PENDING_APPROVAL.message}
+            command={APPROVAL_PENDING_APPROVAL.command ?? ''}
+            toolName={APPROVAL_PENDING_APPROVAL.toolName}
+            alwaysDecision="approve_always_for_tool"
+            analyticsPrefix="chat-approval"
+            onDecide={async () => {}}
+          />
+
+          <p className="text-foreground/40 text-xs">Pending with a live expiry countdown</p>
+          <ApprovalCardAdapter
+            ariaLabel="Approval needed"
+            title="Approval needed"
+            subtitle={APPROVAL_EXPIRING.message}
+            command={APPROVAL_EXPIRING.command ?? ''}
+            toolName={APPROVAL_EXPIRING.toolName}
+            expiresAt={APPROVAL_EXPIRING.expiresAt}
+            alwaysDecision="approve_always_for_tool"
+            analyticsPrefix="chat-approval"
+            onDecide={async () => {}}
+          />
+
+          <p className="text-foreground/40 text-xs">Denied (no always-allow, unrouted surface)</p>
+          <ApprovalCardAdapter
+            ariaLabel="Approval needed"
+            title="Approval needed"
+            subtitle="Background task needs approval"
+            command="triage.escalate"
+            toolName="triage.escalate"
+            analyticsPrefix="unrouted-approval"
+            onDecide={() => Promise.reject(new Error('rejected for the gallery'))}
+          />
+
+          <p className="text-foreground/40 text-xs">
+            composio_connect (permission-grant, one Connect action)
+          </p>
+          <PermissionGrantAdapter threadId="dev-thread" approval={COMPOSIO_CONNECT_APPROVAL} />
+
+          <p className="text-foreground/40 text-xs">Elicitation — ask_user_clarification</p>
+          <ElicitationAdapter
+            server="OpenHuman"
+            message="Which repository should I open a PR against?"
+            pending
+            onAnswer={() => {}}
+            testId="tool-gallery-elicitation"
+          />
+          <ElicitationAdapter
+            server="OpenHuman"
+            message="Which repository should I open a PR against?"
+            pending={false}
+            onAnswer={() => {}}
+          />
+        </section>
+
         <section className="flex flex-col gap-1">
           <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">Message queue</h2>
           <MessageQueue

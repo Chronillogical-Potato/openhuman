@@ -102,9 +102,7 @@ impl PlanExitTool {
                 tinyagents_harness::middleware::RunMode::Build,
             );
         } else {
-            tracing::debug!(
-                "[tool][plan_exit] no thread id on this run context — nothing to flip"
-            );
+            tracing::debug!("[tool][plan_exit] no thread id on this run context — nothing to flip");
         }
         Ok(ToolResult::success(format!(
             "{PLAN_EXIT_MARKER}\n{trimmed}"

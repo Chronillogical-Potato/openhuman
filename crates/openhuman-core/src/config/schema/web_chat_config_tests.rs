@@ -14,7 +14,6 @@ fn deserializes_missing_field_as_enabled() {
 
 #[test]
 fn deserializes_explicit_false() {
-    let config: WebChatConfig =
-        serde_json::from_str(r#"{"suggestions_enabled": false}"#).unwrap();
+    let config: WebChatConfig = serde_json::from_str(r#"{"suggestions_enabled": false}"#).unwrap();
     assert!(!config.suggestions_enabled);
 }

@@ -165,7 +165,8 @@ impl TodoTool {
         // thread id. If the new key has no list yet and the legacy key does,
         // migrate it forward so an in-flight list isn't dropped by the rekey.
         if let Some(legacy_key) = legacy_session_key(parent.as_ref(), &scope) {
-            self.migrate_legacy_list_if_absent(&scope, &legacy_key).await;
+            self.migrate_legacy_list_if_absent(&scope, &legacy_key)
+                .await;
         }
         tracing::debug!(session_id = ?scope.session_id(), "[tool][todo] dispatch");
         let key = ScopedKey(scope.key());

@@ -186,7 +186,7 @@ async fn connect_tool_validates_before_gating_in_chat_context() {
     let ctx = ApprovalChatContext {
         thread_id: "t-test".into(),
         client_id: "c-test".into(),
-    request_id: None,
+        request_id: None,
     };
     let result = APPROVAL_CHAT_CONTEXT
         .scope(

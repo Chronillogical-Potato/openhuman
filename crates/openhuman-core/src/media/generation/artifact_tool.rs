@@ -107,10 +107,7 @@ impl<T: Tool> MediaArtifactTool<T> {
         };
         let total = artifacts.len();
         for (index, entry) in artifacts.iter_mut().enumerate() {
-            let Some(src_path) = entry
-                .get("path")
-                .and_then(Value::as_str)
-                .map(PathBuf::from)
+            let Some(src_path) = entry.get("path").and_then(Value::as_str).map(PathBuf::from)
             else {
                 continue;
             };
@@ -156,18 +153,19 @@ impl<T: Tool> MediaArtifactTool<T> {
             }
         };
         match move_or_copy(src, &dest).await {
-            Ok(size_bytes) => match finalize_artifact(&self.workspace_dir, &meta.id, size_bytes).await
-            {
-                Ok(updated) => {
-                    if let Some(obj) = entry.as_object_mut() {
-                        obj.insert("artifact_id".into(), json!(updated.id));
+            Ok(size_bytes) => {
+                match finalize_artifact(&self.workspace_dir, &meta.id, size_bytes).await {
+                    Ok(updated) => {
+                        if let Some(obj) = entry.as_object_mut() {
+                            obj.insert("artifact_id".into(), json!(updated.id));
+                        }
+                    }
+                    Err(err) => {
+                        let _ = fail_artifact(&self.workspace_dir, &meta.id, &err).await;
+                        set_artifact_error(entry, &err);
                     }
                 }
-                Err(err) => {
-                    let _ = fail_artifact(&self.workspace_dir, &meta.id, &err).await;
-                    set_artifact_error(entry, &err);
-                }
-            },
+            }
             Err(err) => {
                 let _ = fail_artifact(&self.workspace_dir, &meta.id, &err).await;
                 tracing::warn!(

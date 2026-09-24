@@ -134,7 +134,7 @@ fn chat_ctx() -> ApprovalChatContext {
     ApprovalChatContext {
         thread_id: "t-test".into(),
         client_id: "c-test".into(),
-    request_id: None,
+        request_id: None,
     }
 }
 
@@ -213,9 +213,11 @@ async fn find_approval_decided(
 ) -> crate::core::events::DomainEvent {
     loop {
         match rx.recv().await {
-            Some(
-                ev @ crate::core::events::DomainEvent::ApprovalDecided { ref request_id, .. },
-            ) if request_id == expected_request_id => return ev,
+            Some(ev @ crate::core::events::DomainEvent::ApprovalDecided { ref request_id, .. })
+                if request_id == expected_request_id =>
+            {
+                return ev
+            }
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
         }
