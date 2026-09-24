@@ -92,10 +92,18 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
     }
     match &items[3] {
         DisplayItem::AssistantMessage {
-            content, interim, ..
+            content,
+            interim,
+            ts,
+            ..
         } => {
             assert_eq!(content, "Let me check.");
             assert!(*interim, "tool-calling assistant step is interim");
+            assert_eq!(
+                ts.as_deref(),
+                Some("2026-07-21T09:00:01Z"),
+                "assistantMessage carries the underlying record's ts"
+            );
         }
         other => panic!("expected interim assistantMessage, got {other:?}"),
     }
