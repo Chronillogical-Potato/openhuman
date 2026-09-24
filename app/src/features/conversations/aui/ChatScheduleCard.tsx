@@ -76,13 +76,13 @@ function isCoreCronJob(value: unknown): value is CoreCronJob {
 }
 
 /** `cron_add` / `cron_update`: the single job the call returned. */
-export function CronAddOrUpdateCall({ result }: { result: unknown }) {
+export const CronAddOrUpdateCall: ToolCallMessagePartComponent = ({ result }) => {
   if (!isCoreCronJob(result)) return null;
   return <OneScheduleCard job={result} history={historyFromJob(result)} />;
-}
+};
 
 /** `cron_list`: every job the call returned, most-imminent first. */
-export function CronListCall({ result }: { result: unknown }) {
+export const CronListCall: ToolCallMessagePartComponent = ({ result }) => {
   const jobs = Array.isArray(result) ? result.filter(isCoreCronJob) : [];
   if (jobs.length === 0) return null;
   return (
@@ -92,10 +92,10 @@ export function CronListCall({ result }: { result: unknown }) {
       ))}
     </div>
   );
-}
+};
 
 /** `cron_runs`: one job's run history, read from `args.job_id` + the result list. */
-export function CronRunsCall({ args, result }: { args: unknown; result: unknown }) {
+export const CronRunsCall: ToolCallMessagePartComponent = ({ args, result }) => {
   const jobId = args && typeof args === 'object' ? (args as { job_id?: unknown }).job_id : undefined;
   const runs = Array.isArray(result) ? result.filter((r): r is CoreCronRun => !!r && typeof r === 'object') : [];
   if (typeof jobId !== 'string' || runs.length === 0) return null;
