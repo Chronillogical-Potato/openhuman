@@ -45,7 +45,7 @@ const BACKEND_UNAVAILABLE_MESSAGE =
  * page is not served from an http loopback origin (the only redirect targets
  * the backend accepts besides provisioned tenant consoles).
  */
-export const getWebDevRedirectUri = (): string | null => {
+const getWebDevRedirectUri = (): string | null => {
   const { protocol, hostname, origin } = window.location;
   if (protocol !== 'http:') return null;
   if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(hostname)) return null;
@@ -254,11 +254,12 @@ const OAuthProviderButton = ({
       const loopback = isTauri() ? await startLoopbackOauthListener() : null;
       const loginUrlBase = `${backendUrl}/auth/${provider.id}/login`;
       const params = new URLSearchParams();
-      // Browser dev build on a loopback origin (`pnpm dev:app:web`): the backend
+      // Browser dev build on a loopback origin (`pnpm dev:app:web`; never the
+      // Tauri webview, whose `tauri dev` origin is also localhost): the backend
       // accepts any http loopback redirectUri, so send it back to the Vite dev
       // server's `/__dev-auth` bounce (see `devConnectPlugin` in
       // `app/vite.config.ts`), which lands on the `#/auth` callback route.
-      const webDevRedirectUri = !loopback && IS_DEV ? getWebDevRedirectUri() : null;
+      const webDevRedirectUri = !isTauri() && IS_DEV ? getWebDevRedirectUri() : null;
       // `responseType=json` makes the backend return JSON in the browser tab
       // instead of redirecting — useful as a pre-loopback dev workaround, but
       // it shortcircuits the redirect so the loopback listener never fires.
