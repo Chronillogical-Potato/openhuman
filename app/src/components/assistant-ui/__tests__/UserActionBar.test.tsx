@@ -76,17 +76,17 @@ describe('User-message action bar — capability-gated Edit (#5897)', () => {
     expect(container.querySelector('.aui-user-action-bar-root')).not.toBeNull();
   });
 
-  it('does not offer an Edit control while the runtime cannot edit', async () => {
+  it('offers an Edit control now that the runtime can edit', async () => {
     const { container } = renderThreadWithOneUserMessage();
 
     await waitFor(() => {
       expect(screen.getByText('hover me')).toBeInTheDocument();
     });
 
-    // `useOpenHumanExternalStore` implements neither `onEdit` nor
-    // `setMessages`, so assistant-ui reports `edit: false` and the gate must
-    // withhold the button. Asserted by the class the product CSS and the
-    // browser spec both key on.
-    expect(container.querySelectorAll('.aui-user-action-edit')).toHaveLength(0);
+    // `useOpenHumanExternalStore` now implements `onEdit` (`threads.edit_message`)
+    // and `setMessages` (a no-op that only exists to un-gate `BranchPicker`),
+    // so assistant-ui reports `edit: true` and the gate renders the button.
+    // Asserted by the class the product CSS and the browser spec both key on.
+    expect(container.querySelectorAll('.aui-user-action-edit')).toHaveLength(1);
   });
 });
