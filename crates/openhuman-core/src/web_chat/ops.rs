@@ -23,13 +23,11 @@ pub use channel_ops::{
     channel_web_queue_remove, channel_web_queue_status,
 };
 
-pub use start_chat::{start_chat, StartChatError};
-// `is_guardrail_error_message` / `GUARDRAIL_ERROR_PREFIX` are exported
-// straight from `start_chat` (not re-exported here) for a future RPC-layer
-// classifier — nothing in-crate consumes them yet, which would otherwise
-// trip `unused_imports` on this re-export.
+// `is_guardrail_error_message` / `GUARDRAIL_ERROR_PREFIX` are for a future
+// RPC-layer classifier (mirrors `is_backend_unavailable_message`) — nothing
+// in-crate consumes them yet, hence the allow.
 #[allow(unused_imports)]
-pub use start_chat::{is_guardrail_error_message, GUARDRAIL_ERROR_PREFIX};
+pub use start_chat::{is_guardrail_error_message, start_chat, StartChatError, GUARDRAIL_ERROR_PREFIX};
 pub use system_turn::{run_system_turn_on_thread, SESSION_CHECKOUT_FAILURE, SYSTEM_CLIENT_ID};
 
 #[cfg(test)]
