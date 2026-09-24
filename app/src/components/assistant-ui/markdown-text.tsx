@@ -2,7 +2,7 @@
 
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
-import { useMessagePartText } from '@assistant-ui/react';
+import { type AssistantState, useAuiState, useMessagePartText } from '@assistant-ui/react';
 import {
   type CodeHeaderProps,
   MarkdownTextPrimitive,
@@ -11,14 +11,64 @@ import {
 } from '@assistant-ui/react-markdown';
 import '@assistant-ui/react-markdown/styles/dot.css';
 import { CheckIcon, CopyIcon } from 'lucide-react';
-import { type ComponentPropsWithoutRef, type FC, isValidElement, memo, useState } from 'react';
+import {
+  type ComponentPropsWithoutRef,
+  createContext,
+  type FC,
+  isValidElement,
+  memo,
+  useContext,
+  useState,
+} from 'react';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
+import { CitationMarker, type CitationSource } from './elements/inline-citation';
 import { hasLatexContent, normalizeLatexDelimiters } from '../../utils/latex';
 import { extractLanguage, extractTextContent } from '../markdown/CodeBlock';
+
+/**
+ * This message's `source` parts (`SourceGroupSlot` in `thread.tsx` reads the
+ * same parts for the disclosure under the answer), reduced to the vendored
+ * `inline-citation` element's `CitationSource` shape and made available to
+ * the `a` node override below — `defaultComponents` is a module-level,
+ * memoized map (`memoizeMarkdownComponents`), so a per-message value has to
+ * reach its components through context rather than a closure.
+ */
+const CitationSourcesContext = createContext<readonly CitationSource[]>([]);
+
+function sourcePartsToCitations(parts: AssistantState['message']['parts']): CitationSource[] {
+  return parts.flatMap((part): CitationSource[] => {
+    if (part.type !== 'source') return [];
+    if (part.sourceType === 'url') {
+      let domain = part.url;
+      try {
+        domain = new URL(part.url).hostname.replace(/^www\./, '');
+      } catch {
+        // Keep the raw value; a malformed URL still names its own citation.
+      }
+      return [{ domain, title: part.title ?? domain, snippet: part.url }];
+    }
+    return [{ domain: 'memory', title: part.title ?? 'memory', snippet: part.title ?? '' }];
+  });
+}
+
+/**
+ * `[n]` / `[^n]` in the model's own text, for `n` within the message's
+ * source count, become a real markdown link to a `citation:` pseudo-URL —
+ * the `a` node override below recognizes that scheme and swaps in
+ * `CitationMarker` instead of an anchor. Everything else (an ordinary
+ * bracketed aside, a footnote number past the source list) is left alone.
+ */
+function linkifyCitationMarkers(text: string, sourceCount: number): string {
+  if (sourceCount === 0) return text;
+  return text.replace(/\[\^?(\d+)\]/g, (match, digits: string) => {
+    const n = Number.parseInt(digits, 10);
+    return n >= 1 && n <= sourceCount ? `[${digits}](citation:${digits})` : match;
+  });
+}
 
 /**
  * Plugin sets, matched to `AgentMessageBubble`'s so the two markdown surfaces
