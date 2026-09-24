@@ -1473,6 +1473,7 @@ const AssistantMessage: FC = () => {
             }
           }}
         </MessagePrimitive.GroupedParts>
+        {stopped && <StoppedRunSlot />}
         <MessageError />
         <ChatErrorNotice />
       </div>
@@ -1480,14 +1481,6 @@ const AssistantMessage: FC = () => {
       <div
         data-slot="aui_assistant-message-footer"
         className={cn('ms-2 flex items-center', ACTION_BAR_HEIGHT)}>
-        <AuiIf
-          condition={s =>
-            s.message.status?.type === 'incomplete' && s.message.status.reason === 'cancelled'
-          }>
-          <span data-testid="stopped-marker" className="text-muted-foreground text-xs">
-            Stopped
-          </span>
-        </AuiIf>
         <BranchPicker />
         <AssistantActionBar />
       </div>
