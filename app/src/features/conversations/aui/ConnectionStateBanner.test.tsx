@@ -1,4 +1,6 @@
+import { configureStore } from '@reduxjs/toolkit';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getCoreStateSnapshot, setCoreStateSnapshot } from '../../../lib/coreState/store';
