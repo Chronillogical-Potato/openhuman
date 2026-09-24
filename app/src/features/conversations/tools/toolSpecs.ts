@@ -154,6 +154,10 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   edit: spec('editFile', FilePenIcon, 'file', { chip: chip.path(), body: 'file' }),
   apply_patch: spec('applyEdits', FilePenIcon, 'file', { chip: chip.editsPath(), body: 'file' }),
   vault_write_markdown: spec('writeFile', FilePlusIcon, 'file', { chip: chip.path() }),
+  // Older and foreign spellings of the file tools, seen in persisted
+  // transcripts and other harnesses' tool names.
+  read_file: spec('readFile', FileTextIcon, 'file', { chip: chip.path(), body: 'file' }),
+  write_file: spec('writeFile', FilePlusIcon, 'file', { chip: chip.path(), body: 'file' }),
   grep: spec('searchCode', TextSearchIcon, 'code', { chip: chip.text('pattern') }),
   glob: spec('findFiles', FolderSearchIcon, 'file', { chip: chip.text('pattern') }),
   list: spec('listFolder', FolderOpenIcon, 'file', { chip: chip.path() }),
