@@ -244,6 +244,29 @@ pub async fn message_update(
     ))
 }
 
+/// Truncates a thread's message log at `message_id`: removes that message and
+/// everything appended after it, keeping everything before it. Backs
+/// `threads.edit_message` / `threads.regenerate` (`web_chat::ops::edit`),
+/// which cut the message log's tail before restarting the turn from an
+/// earlier point.
+///
+/// `Ok(None)` means `message_id` was not found in the thread — the caller
+/// should treat that as "nothing to truncate" (e.g. a stale/already-edited
+/// message id), not as an empty thread.
+pub async fn delete_after(
+    thread_id: &str,
+    message_id: &str,
+) -> Result<Option<usize>, ThreadsError> {
+    let dir = workspace_dir().await?;
+    conversations::blocking::delete_messages_from(
+        dir,
+        thread_id.to_string(),
+        message_id.to_string(),
+    )
+    .await
+    .map_err(|err| ThreadsError::from_thread_scoped_store_error(thread_id, err))
+}
+
 /// Deletes a conversation thread and its message log.
 ///
 /// The store mutation and every cleanup step it implies run inside one
