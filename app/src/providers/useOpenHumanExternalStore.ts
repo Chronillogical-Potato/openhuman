@@ -675,7 +675,8 @@ export function useOpenHumanExternalStore(
       isRunning,
       isLoading,
       extras,
-      // Empty on any thread that has content — see `useWelcomeSuggestions`.
+      // Welcome chips on an empty thread, the core's follow-ups after a settled
+      // reply, otherwise empty — see `useWelcomeSuggestions`.
       suggestions,
       // Already `ThreadMessageLike`; the runtime's converter is the identity.
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
