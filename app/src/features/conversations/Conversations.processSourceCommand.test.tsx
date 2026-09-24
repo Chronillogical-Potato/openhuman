@@ -125,6 +125,9 @@ function buildStore(preload: Record<string, unknown>) {
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
       theme: themeReducer,
+      threadTodos: threadTodosReducer,
+      threadGoal: threadGoalReducer,
+      runMode: runModeReducer,
     }),
     preloadedState: preload as never,
   });
