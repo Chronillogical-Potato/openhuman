@@ -574,6 +574,8 @@ pub async fn finalize_artifact(
         size_bytes: meta.size_bytes,
         thread_id,
         client_id,
+        tool_call_id: None,
+        request_id: None,
     });
     Ok(meta)
 }
