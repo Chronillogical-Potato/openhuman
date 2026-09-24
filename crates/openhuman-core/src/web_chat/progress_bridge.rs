@@ -843,12 +843,15 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iterations,
                     output_chars,
+                    output,
                     usage,
                     worktree_path,
                     changed_files,
                     dirty_status,
                     ..
                 } => {
+                    let parent_call_id = subagent_parent_call_ids.remove(&task_id).flatten();
+                    let capped_output = cap_wire_output(output);
                     let completed_at = chrono::Utc::now();
                     ledger_upsert_agent_run(
                         &config,
