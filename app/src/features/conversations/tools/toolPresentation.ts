@@ -73,6 +73,12 @@ export interface DescribeToolCallInput {
   serverLabel?: string;
   /** `tool_display_detail` from the core. */
   serverDetail?: string;
+  /**
+   * Connected-app slug known from context rather than args: a spawned
+   * `integrations_agent` row carries the `delegate_<toolkit>` tool that
+   * spawned it.
+   */
+  toolkitHint?: string;
 }
 
 export interface ToolCallPresentation {
@@ -171,10 +177,11 @@ function agentPresentation(
   baseName: string,
   args: ToolArgs,
   tense: ToolPhraseTense,
-  serverDetail: string | undefined
+  serverDetail: string | undefined,
+  toolkitHint?: string
 ): ToolCallPresentation | undefined {
   if (agentId === INTEGRATIONS_AGENT_ID) {
-    const toolkit = typeof args.toolkit === 'string' ? args.toolkit : undefined;
+    const toolkit = typeof args.toolkit === 'string' ? args.toolkit : toolkitHint;
     const app = toolkit ? integrationFromToolkit(toolkit) : undefined;
     const prompt = typeof args.prompt === 'string' ? args.prompt : serverDetail;
     return {
@@ -228,7 +235,8 @@ export function describeToolCall(input: DescribeToolCallInput): ToolCallPresenta
 
   // 2. Named agents.
   if (rawName.startsWith('subagent:') || baseName === INTEGRATIONS_AGENT_ID) {
-    const agent = agentPresentation(baseName, baseName, args, tense, serverDetail);
+    const hint = input.toolkitHint?.replace(/^delegate_/, '');
+    const agent = agentPresentation(baseName, baseName, args, tense, serverDetail, hint);
     if (agent) return agent;
   }
   if (
@@ -240,8 +248,14 @@ export function describeToolCall(input: DescribeToolCallInput): ToolCallPresenta
   }
   if (baseName.startsWith('delegate_') && !EXACT_TOOL_SPECS[baseName]) {
     const id = baseName.slice('delegate_'.length);
-    const app = integrationFromToolkit(typeof args.toolkit === 'string' ? args.toolkit : id);
-    const agent = agentPresentation(id, baseName, args, tense, serverDetail);
+    // An app named in the args (`delegate_tools_agent { toolkit: "github" }`)
+    // says more than the generic agent does, so it wins over the agent spec.
+    const argApp =
+      typeof args.toolkit === 'string' ? integrationFromToolkit(args.toolkit) : undefined;
+    const app = argApp?.known ? argApp : integrationFromToolkit(id);
+    const agent = argApp?.known
+      ? undefined
+      : agentPresentation(id, baseName, args, tense, serverDetail);
     if (agent) return agent;
     if (app?.known) {
       return {

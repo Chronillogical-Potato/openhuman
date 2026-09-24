@@ -32,6 +32,7 @@ export function presentTimelineEntry(entry: ToolTimelineEntry): ToolCallPresenta
     status: entry.status,
     serverLabel: entry.displayName,
     serverDetail: entry.detail,
+    toolkitHint: entry.sourceToolName,
   });
 }
 
@@ -133,8 +134,13 @@ export function formatTimelineEntry(
 ): { title: string; detail?: string } {
   const presentation = presentTimelineEntry(entry);
   const title = toolLabel(presentation, t);
-  if (presentation.category === 'agent') {
-    return { title, detail: entry.detail ?? presentation.chip };
+  if (presentation.category === 'agent' || presentation.source === 'agent') {
+    // A delegation's detail is the whole brief the agent was given, not a
+    // capped chip: the rail shows it under the row.
+    return {
+      title,
+      detail: entry.detail ?? promptFromArgsBuffer(entry.argsBuffer) ?? presentation.chip,
+    };
   }
   return { title, detail: presentation.chip ?? entry.detail };
 }
