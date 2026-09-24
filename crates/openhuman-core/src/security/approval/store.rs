@@ -36,6 +36,14 @@ use super::types::{
     ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, ExecutionOutcome, PendingApproval,
 };
 
+// Flow pre-authorization + per-flow tool trust persistence, split out to keep
+// this file under the repo's per-file line budget — see that module's doc.
+mod store_flow_trust;
+pub use store_flow_trust::{
+    delete_flow_trust, insert_flow_trust, is_flow_tool_trusted, list_flow_trust,
+    record_flow_preauthorization,
+};
+
 /// SQL schema applied on every `with_connection` call.
 ///
 /// `executed_at`, `execution_outcome`, and `execution_error` capture
