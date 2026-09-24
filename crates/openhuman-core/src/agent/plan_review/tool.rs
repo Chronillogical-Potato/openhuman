@@ -145,7 +145,7 @@ impl RequestPlanReviewTool {
         );
 
         let resolution = gate::global()
-            .request_review(thread_id, client_id, summary, steps)
+            .request_review(thread_id, client_id, summary, steps, tool_call_id)
             .await;
 
         let result = match resolution {
