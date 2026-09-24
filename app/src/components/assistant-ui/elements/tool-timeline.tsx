@@ -92,7 +92,7 @@ export function ToolTimeline({
           <>{restingLabel}</>
         </SwapLabel>
       </CollapsibleTrigger>
-      <CollapsibleContent className={cn(collapsePanel, 'outline-none')}>
+      <CollapsibleContent forceMount className={cn(collapsePanel, 'outline-none')}>
         <div className="flex flex-col gap-2.5 ps-4 pt-2.5">
           {children ??
             take(steps, visibleSteps).map((step, index, shown) => {
