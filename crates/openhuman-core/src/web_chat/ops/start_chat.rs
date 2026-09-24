@@ -562,6 +562,9 @@ pub async fn start_chat(
                         // there before it is announced (#6034).
                         Some(chat_result.workspace_dir.as_path()),
                         chat_result.timing,
+                        // The main single-user turn is the only surface with
+                        // a human waiting on a next-message suggestion (C5).
+                        true,
                     )
                     .await;
                     None
