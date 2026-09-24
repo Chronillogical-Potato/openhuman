@@ -13,8 +13,7 @@
  *   UI's `data-open` / `data-panel-open`.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
-import type { ComponentProps, ReactNode } from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { type ComponentProps, type ReactNode, useLayoutEffect, useRef, useState } from 'react';
 
 export const paper = 'bg-background border border-border/60 dark:bg-popover';
 
