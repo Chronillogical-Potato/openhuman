@@ -1,6 +1,6 @@
-import debug from 'debug';
+import debugFactory from 'debug';
 
-const log = debug('file-drop-guard');
+const log = debugFactory('openhuman:file-drop-guard');
 
 /** True when the drag carries OS files, as opposed to text or an in-app payload. */
 export function isFileDrag(event: DragEvent): boolean {
@@ -43,7 +43,7 @@ export function installFileDropGuard(doc: Document = document): () => void {
   const onDrop = (event: DragEvent) => {
     if (event.defaultPrevented || !isFileDrag(event) || isNativeFileInput(event.target)) return;
     event.preventDefault();
-    log('refused file drop outside a drop target');
+    log('[file-drop-guard] refused file drop outside a drop target');
   };
 
   doc.addEventListener('dragover', onDragOver);
