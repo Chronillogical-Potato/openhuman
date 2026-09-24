@@ -180,7 +180,9 @@ describe('inline turn sources', () => {
     renderChat();
 
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
-    expect(document.querySelectorAll('[data-testid="assistant-ui-tool-call"]')).toHaveLength(1);
+    // One activity disclosure (reasoning + tools, collapsed once settled) and
+    // nothing summarising it a second time under the answer.
+    expect(document.querySelectorAll('[data-slot="tool-group-root"]')).toHaveLength(1);
     expect(document.querySelector('[data-testid="turn-process-footer"]')).toBeNull();
     expect(screen.queryByText(/\d+ steps? ·/)).toBeNull();
   });
