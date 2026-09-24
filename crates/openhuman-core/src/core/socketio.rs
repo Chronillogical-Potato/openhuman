@@ -415,6 +415,14 @@ pub struct TurnTimingPayload {
     pub first_tool_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_ms: Option<u64>,
+    /// `usage.output_tokens / (total_ms / 1000)`, computed at delivery time
+    /// when both a timing snapshot and the turn's output-token count are
+    /// available. `None` when either input is missing (e.g. a budget-
+    /// exhausted synthetic result, or a turn that produced no completion
+    /// tokens). Added by C4 — not in the original wire-contract prep pass;
+    /// see wire-contract.md "Added by C4".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens_per_second: Option<f64>,
 }
 
 /// One follow-up prompt suggestion offered after a turn.
