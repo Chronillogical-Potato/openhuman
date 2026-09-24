@@ -16,7 +16,6 @@ import debug from 'debug';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import { store } from '../../../store';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { type RunMode, setRunMode } from '../../../store/runModeSlice';
 
