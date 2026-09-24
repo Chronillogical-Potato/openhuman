@@ -805,12 +805,22 @@ export function toThreadMessageLike(
         toolCallCount: effectiveTimeline.length,
       }
     : undefined;
+  // A `chat_error{error_type:"guardrail"}` turn (wire-contract.md). Its plain
+  // text is suppressed here — `ChatErrorNotice` (`features/conversations/aui/`)
+  // renders the vendored `GuardrailNotice` card from this same
+  // `extraMetadata` (surfaced unchanged on `metadata.custom.extraMetadata`
+  // below) instead, so the turn is not shown twice.
+  const isGuardrailError =
+    msg.sender === 'agent' &&
+    (msg.extraMetadata?.[CHAT_ERROR_METADATA_KEY] as { errorType?: string } | undefined)
+      ?.errorType === 'guardrail';
 
   const converted: ThreadMessageLike = {
     id: msg.id,
     role: msg.sender === 'agent' ? 'assistant' : 'user',
-    content:
-      msg.sender === 'agent'
+    content: isGuardrailError
+      ? []
+      : msg.sender === 'agent'
         ? assistantParts(text, effectiveTimeline, transcript, messageCitations(msg))
         : userParts(msg),
     createdAt: new Date(msg.createdAt),
