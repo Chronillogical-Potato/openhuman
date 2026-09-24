@@ -264,7 +264,10 @@ pub async fn start_chat(
     if !matches!(parsed_mode, QueueMode::Interrupt) {
         let in_flight = IN_FLIGHT.lock().await;
         if let Some(existing) = in_flight.get(&map_key) {
+            let item_id = uuid::Uuid::new_v4().to_string();
+            let text_preview = crate::agent::queued_turn::text_preview(&message);
             let queued_msg = crate::agent::queued_turn::QueuedTurn {
+                id: item_id.clone(),
                 text: message.clone(),
                 client_id: client_id.clone(),
                 thread_id: thread_id.clone(),
@@ -282,7 +285,7 @@ pub async fn start_chat(
             existing.run_queue.push(lane, queued_msg).await;
             let status = existing.run_queue.status().await;
             log::info!(
-                "[web-channel] queued {} message thread_id={} request_id={} queue_depth={}",
+                "[web-channel] queued {} message thread_id={} request_id={} queue_depth={} item_id={item_id}",
                 parsed_mode,
                 thread_id,
                 request_id,
@@ -292,8 +295,8 @@ pub async fn start_chat(
                 thread_id: thread_id.clone(),
                 mode: parsed_mode.to_string(),
                 queue_depth: status.total,
-                item_id: None,
-                text_preview: None,
+                item_id: Some(item_id),
+                text_preview: Some(text_preview),
             });
             return Ok(json!({
                 "queued": true,
