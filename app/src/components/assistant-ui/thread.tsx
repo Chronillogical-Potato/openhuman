@@ -1700,22 +1700,26 @@ const UserActionBar: FC = () => {
 };
 
 /**
- * The composer's own text plus how many later turns editing this message
- * would discard — `onEdit` (`useOpenHumanExternalStore.ts`) truncates the
- * thread's single lineage from this message on, exactly like `onReload`, so
- * every message after it (not just its direct reply) is what a Send here
- * throws away. `s.message.index` is the position `MessageState` already
- * tracks; `s.thread.messages.length - 1 - index` is everything after it.
+ * How many later turns editing this message would discard — `onEdit`
+ * (`useOpenHumanExternalStore.ts`) truncates the thread's single lineage from
+ * this message on, exactly like `onReload`, so every message after it (not
+ * just its direct reply) is what a Send here throws away. `s.message.index`
+ * is the position `MessageState` already tracks;
+ * `s.thread.messages.length - 1 - index` is everything after it. Kept as its
+ * own primitive-returning selector (a plain number), never combined with
+ * `value` below into one object literal — `useAuiState`'s selector is
+ * compared by `Object.is`, so an object literal differs from itself on every
+ * store tick and free-runs the subscription (the "Maximum update depth
+ * exceeded" loop this file hit once already).
  */
-const selectEditComposerState = (s: AssistantState) => ({
-  value: s.composer.text,
-  discardedReplies: Math.max(0, s.thread.messages.length - 1 - s.message.index),
-});
+const selectDiscardedReplies = (s: AssistantState): number =>
+  Math.max(0, s.thread.messages.length - 1 - s.message.index);
 
 const EditComposer: FC = () => {
   const aui = useAui();
   const { t } = useT();
-  const { value, discardedReplies } = useAuiState(selectEditComposerState);
+  const value = useAuiState(s => s.composer.text);
+  const discardedReplies = useAuiState(selectDiscardedReplies);
   return (
     <MessagePrimitive.Root data-slot="aui_edit-composer-wrapper" className="flex flex-col px-2">
       <EditMessage
