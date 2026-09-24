@@ -581,6 +581,18 @@ pub struct SubagentProgressDetail {
     /// the UI requires an explicit user decision. `None` for non-isolated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dirty_status: Option<bool>,
+    /// The parent turn's tool-call id that this sub-agent spawn is
+    /// attributed to (on `subagent_spawned`), mirroring
+    /// `AgentProgress::SubagentSpawned::parent_call_id`. Lets the UI
+    /// attach a spawn to the exact `spawn_subagent`/dispatch tool call
+    /// that created it instead of inferring it from arrival order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_call_id: Option<String>,
+    /// The sub-agent's final output text (on `subagent_completed`),
+    /// mirrored alongside the top-level `output` field so a consumer that
+    /// only reads `subagent.*` still gets the result text.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 #[cfg(feature = "http-server")]
