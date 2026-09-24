@@ -20,7 +20,7 @@ omit_memory_md = true
 # `bytedance-seed/seedream-5-0-lite` on OpenRouter — a separate model from
 # the one this agent's own turns run on.
 [model]
-exact = "openrouter/qwen/qwen3.7-flash"
+exact = "openrouter/qwen/qwen3.5-flash-02-23"
 
 [tools]
 # media_generate_image submits the generation and returns a saved local path;

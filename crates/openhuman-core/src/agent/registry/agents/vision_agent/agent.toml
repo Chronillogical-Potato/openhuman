@@ -17,7 +17,7 @@ omit_safety_preamble = true
 # reports it as image-enabled and the turn engine never strips the attached
 # image at the vision gate.
 [model]
-exact = "openrouter/qwen/qwen3.7-flash"
+exact = "openrouter/qwen/qwen3.5-flash-02-23"
 
 [tools]
 # Attached images arrive inline in the sub-agent's context via the multimodal

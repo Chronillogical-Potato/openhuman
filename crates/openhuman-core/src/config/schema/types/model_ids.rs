@@ -71,22 +71,23 @@ pub const WORKLOAD_ROLES: [&str; 8] = [
 /// capabilities that a single `vision` hint cannot distinguish, so each media
 /// agent is pinned to its own exact OpenRouter passthrough model instead.
 ///
-/// Qwen3.7 Flash: cheap, native tool calling, text+image+video input, 1M
-/// context, $0.03 / $0.13 per 1M input/output tokens.
+/// Qwen3.5 Flash: native tool calling and text+image+video input. Unlike
+/// Qwen3.7 Flash, its OpenRouter pricing has no cache-write component, so it
+/// passes the backend passthrough catalog's billability filter.
 ///
 /// Used by `vision_agent` (image/video understanding: describe, OCR, chart
 /// and UI-element reading).
-pub const MODEL_MEDIA_UNDERSTANDING: &str = "openrouter/qwen/qwen3.7-flash";
+pub const MODEL_MEDIA_UNDERSTANDING: &str = "openrouter/qwen/qwen3.5-flash-02-23";
 
 /// Same model as [`MODEL_MEDIA_UNDERSTANDING`], pinned separately for
 /// `image_agent` (image GENERATION delegate) so the two roles can be retuned
 /// independently without one edit silently moving the other.
-pub const MODEL_IMAGE_GENERATION_AGENT: &str = "openrouter/qwen/qwen3.7-flash";
+pub const MODEL_IMAGE_GENERATION_AGENT: &str = "openrouter/qwen/qwen3.5-flash-02-23";
 
 /// Same model as [`MODEL_MEDIA_UNDERSTANDING`], pinned separately for
 /// `video_agent` (video GENERATION delegate) so the two roles can be retuned
 /// independently without one edit silently moving the other.
-pub const MODEL_VIDEO_GENERATION_AGENT: &str = "openrouter/qwen/qwen3.7-flash";
+pub const MODEL_VIDEO_GENERATION_AGENT: &str = "openrouter/qwen/qwen3.5-flash-02-23";
 
 /// Every managed model id that carries multimodal (image/video) input
 /// capability, whether or not it is also the workload's `vision` hint

@@ -178,7 +178,7 @@ fn oh_tier_vision_map_is_exhaustively_pinned() {
 }
 
 /// R4 regression: the media agents' new `exact` model pin
-/// (`openrouter/qwen/qwen3.7-flash`, replacing the deprecated `hint:vision`)
+/// (`openrouter/qwen/qwen3.5-flash-02-23`, replacing the deprecated `hint:vision`)
 /// must be reported vision-capable through both the tier-map gate and the
 /// combined `model_supports_vision` facade — the two call sites
 /// `dispatch.rs:256` and `runner.rs:1536` actually gate image/video
