@@ -704,13 +704,9 @@ export default function WorkflowCopilotPanel({
           The home chat's starter prompts are off: a click sends the prompt,
           and they are not builder requests. */}
       <AssistantUiRuntimeProvider threadId={threadId} welcomeSuggestions={false}>
-        <SubagentDrawerHost
-          onOpenSubagent={setOpenSubagentTaskId}
-          canOpenSubagent={canOpenSubagent}>
-          <div className="min-h-0 flex-1" data-testid="workflow-copilot-transcript">
-            <Thread components={components} />
-          </div>
-        </SubagentDrawerHost>
+        <div className="min-h-0 flex-1" data-testid="workflow-copilot-transcript">
+          <Thread components={components} />
+        </div>
       </AssistantUiRuntimeProvider>
       <TranscriptOverlays
         threadId={threadId}
@@ -719,8 +715,6 @@ export default function WorkflowCopilotPanel({
         backgroundProcesses={NO_BACKGROUND_PROCESSES}
         showBackgroundProcesses={false}
         onCloseBackgroundProcesses={noop}
-        openSubagentTaskId={openSubagentTaskId}
-        onOpenSubagent={setOpenSubagentTaskId}
         showProcessSource={false}
         onCloseProcessSource={noop}
       />
