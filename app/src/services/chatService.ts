@@ -486,6 +486,13 @@ export interface ArtifactReadyEvent {
   path: string;
   /** Final on-disk size in bytes. */
   size_bytes: number;
+  /**
+   * The producing tool call's id, when the core sends one (additive wire
+   * field). Lets the frontend route an artifact with an owning tool call to
+   * that call's own inline rendering instead of the header's live-artifact
+   * deck — see `ArtifactSnapshot.toolCallId`.
+   */
+  tool_call_id?: string;
 }
 
 /**
