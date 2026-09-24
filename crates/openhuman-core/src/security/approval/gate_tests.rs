@@ -216,7 +216,7 @@ async fn find_approval_decided(
             Some(ref ev @ crate::core::events::DomainEvent::ApprovalDecided { ref request_id, .. })
                 if request_id == expected_request_id =>
             {
-                return ev
+                return ev.clone()
             }
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
