@@ -1,3 +1,4 @@
+import { useT } from '../../../lib/i18n/I18nContext';
 import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { formatTimelineEntry } from '../../../utils/toolTimelineFormatting';
 import { AssistantUiSubagentCall } from './AssistantUiSubagentCall';
@@ -27,6 +28,7 @@ export function PastTurnInsights({
   entries: ToolTimelineEntry[];
   transcript: ProcessingTranscriptItem[];
 }) {
+  const { t } = useT();
   // No reasoning/narration trail persisted (legacy snapshot): render the
   // tool-only timeline, which already nests each sub-agent's activity inline.
   if (transcript.length === 0) {
@@ -49,7 +51,7 @@ export function PastTurnInsights({
           {subagentEntries.map(entry => (
             <div key={entry.id}>
               <p className="text-[12px] font-medium text-content-secondary">
-                {formatTimelineEntry(entry).title}
+                {formatTimelineEntry(entry, t).title}
               </p>
               <AssistantUiSubagentCall activity={entry.subagent!} />
             </div>

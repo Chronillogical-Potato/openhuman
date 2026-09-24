@@ -522,7 +522,7 @@ impl Tool for QueritSearchTool {
             .results
             .result
             .iter()
-            .map(super::querit::QueritResultItem::snippet_text)
+            .map(QueritResultItem::snippet_text)
             .collect();
         let structured_results: Vec<crate::search::tools::WebSearchResultRef<'_>> = search_resp
             .results

@@ -55,7 +55,8 @@ export function ProcessingTranscriptView({
    */
   renderSubagent?: (subagent: NonNullable<ToolTimelineEntry['subagent']>) => React.ReactNode;
 }) {
-  const blocks = buildProcessingBlocks(transcript, entries);
+  const { t } = useT();
+  const blocks = buildProcessingBlocks(transcript, entries, t);
   if (blocks.length === 0) return null;
 
   return (
