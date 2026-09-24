@@ -24,8 +24,9 @@
  * Everything is measured from the live scroll container, not from mock calls.
  *
  * **The container has no testid on the shipped path.** Every chat surface
- * renders the assistant-ui `Thread`, whose viewport (`thread.tsx`) is — `relative flex flex-1 flex-col
- * overflow-x-auto overflow-y-scroll scroll-smooth`, with no testid. Rather
+ * renders the assistant-ui `Thread`, whose viewport (`thread.tsx`) is
+ * `relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll
+ * scroll-smooth`, with no testid. Rather
  * than pin a Tailwind string, this walks up from the composer input and takes
  * the first ancestor that actually scrolls, and throws if there is none — so a
  * class rename fails loudly instead of silently measuring `document`.
