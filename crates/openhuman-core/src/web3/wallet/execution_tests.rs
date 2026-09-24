@@ -450,7 +450,7 @@ fn chat_ctx_from(owner: &QuoteOwner) -> crate::security::approval::ApprovalChatC
     crate::security::approval::ApprovalChatContext {
         thread_id: owner.thread_id.clone(),
         client_id: owner.client_id.clone(),
-    request_id: None,
+        request_id: None,
     }
 }
 

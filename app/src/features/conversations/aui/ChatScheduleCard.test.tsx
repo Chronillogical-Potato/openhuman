@@ -79,6 +79,6 @@ describe('cron tool call renders', () => {
     toggle.click();
 
     expect(spy).toHaveBeenCalledWith('job-1', { enabled: false });
-    await vi.waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'));
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'));
   });
 });

@@ -27,7 +27,9 @@ pub use channel_ops::{
 // RPC-layer classifier (mirrors `is_backend_unavailable_message`) — nothing
 // in-crate consumes them yet, hence the allow.
 #[allow(unused_imports)]
-pub use start_chat::{is_guardrail_error_message, start_chat, StartChatError, GUARDRAIL_ERROR_PREFIX};
+pub use start_chat::{
+    is_guardrail_error_message, start_chat, StartChatError, GUARDRAIL_ERROR_PREFIX,
+};
 pub use system_turn::{run_system_turn_on_thread, SESSION_CHECKOUT_FAILURE, SYSTEM_CLIENT_ID};
 
 #[cfg(test)]

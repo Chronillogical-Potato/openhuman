@@ -210,7 +210,10 @@ pub async fn channel_web_chat(
 
 /// Render one snapshotted queue item as the wire shape `web_queue_status` and
 /// `queue_item_*` socket events share: `{ id, lane, text_preview }`.
-fn queue_item_json(lane: tinyagents_harness::run_queue::QueueLane, item: &crate::agent::queued_turn::QueuedTurn) -> Value {
+fn queue_item_json(
+    lane: tinyagents_harness::run_queue::QueueLane,
+    item: &crate::agent::queued_turn::QueuedTurn,
+) -> Value {
     json!({
         "id": item.id,
         "lane": lane.as_str(),
@@ -287,12 +290,13 @@ pub async fn channel_web_queue_remove(
             "no active turn for thread",
         ));
     };
-    let removed = entry.run_queue.remove_where(|item| item.id == item_id).await;
+    let removed = entry
+        .run_queue
+        .remove_where(|item| item.id == item_id)
+        .await;
     drop(in_flight);
     if removed > 0 {
-        log::info!(
-            "[web-channel] removed queued item thread_id={thread_id} item_id={item_id}"
-        );
+        log::info!("[web-channel] removed queued item thread_id={thread_id} item_id={item_id}");
         publish_web_channel_event(WebChannelEvent {
             event: "queue_item_removed".to_string(),
             client_id: client_id.to_string(),

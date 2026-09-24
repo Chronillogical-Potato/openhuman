@@ -198,9 +198,8 @@ async fn generate_and_emit(
 }
 
 fn build_suggestions_request(user_message: &str, assistant_message: &str) -> ModelRequest {
-    let user_prompt = format!(
-        "User's last message:\n{user_message}\n\nAssistant's reply:\n{assistant_message}"
-    );
+    let user_prompt =
+        format!("User's last message:\n{user_message}\n\nAssistant's reply:\n{assistant_message}");
     ModelRequest::new(vec![
         Message::system(SUGGESTIONS_SYSTEM_PROMPT),
         Message::user(user_prompt),

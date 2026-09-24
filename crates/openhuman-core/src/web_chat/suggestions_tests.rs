@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
@@ -87,7 +87,11 @@ struct ScriptedTextModel {
 
 #[async_trait]
 impl ChatModel<()> for ScriptedTextModel {
-    async fn invoke(&self, _state: &(), _request: ModelRequest) -> tinyinference_llm::Result<ModelResponse> {
+    async fn invoke(
+        &self,
+        _state: &(),
+        _request: ModelRequest,
+    ) -> tinyinference_llm::Result<ModelResponse> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         Ok(ModelResponse::assistant(self.text.clone()))
     }
@@ -168,7 +172,14 @@ async fn skips_when_the_user_message_is_too_short() {
         calls: calls.clone(),
     }));
 
-    generate_and_emit("client-1", "sugg-thread-short", "req-3", "ok", "Sure thing!").await;
+    generate_and_emit(
+        "client-1",
+        "sugg-thread-short",
+        "req-3",
+        "ok",
+        "Sure thing!",
+    )
+    .await;
 
     assert_eq!(
         calls.load(Ordering::SeqCst),

@@ -276,7 +276,10 @@ async fn web_queue_status_wire_shape_and_clear_cleanup_remain_stable() {
     assert_eq!(lanes, ["collect", "followup", "steer"]);
     for item in items {
         assert!(!item["id"].as_str().expect("id").is_empty());
-        assert!(item["text_preview"].as_str().expect("text_preview").ends_with("payload"));
+        assert!(item["text_preview"]
+            .as_str()
+            .expect("text_preview")
+            .ends_with("payload"));
     }
 
     let cleared = channel_web_queue_clear(thread_id)
