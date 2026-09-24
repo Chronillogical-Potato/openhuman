@@ -727,6 +727,15 @@ pub enum DomainEvent {
         summary: String,
         /// Ordered plan steps shown in the review card.
         steps: Vec<String>,
+        /// The gated tool call's provider-assigned call id, when the parked
+        /// turn originated from a tracked tool-call. `None` until every
+        /// publish site is updated to pass it through.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// RFC3339 expiry of this pending plan review, mirrored the same
+        /// way as `ApprovalRequested::expires_at`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        expires_at: Option<String>,
     },
     /// User resolved a parked plan review. Published after the gate's parked
     /// future wakes. `decision` is `"approve"` / `"reject"` / `"revise"`
@@ -734,6 +743,18 @@ pub enum DomainEvent {
     PlanReviewDecided {
         request_id: String,
         decision: String,
+        /// Chat thread the decided review belongs to, mirrored from the
+        /// original `PlanReviewRequested`. `None` for non-chat callers and
+        /// until every publish site is updated.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thread_id: Option<String>,
+        /// Socket.IO client id (room), mirrored the same way.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        client_id: Option<String>,
+        /// The gated tool call's provider-assigned call id, mirrored from
+        /// `PlanReviewRequested::tool_call_id`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
     },
 
     // ── Artifacts ───────────────────────────────────────────────────────
