@@ -357,6 +357,111 @@ pub struct WebChannelEvent {
     /// simply ignore it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
+    /// Epoch milliseconds this event was emitted at. Additive wall-clock
+    /// stamp so a frontend can order/annotate events without deriving time
+    /// from arrival order. `None` on emit sites not yet updated to stamp it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ts: Option<u64>,
+    /// Milliseconds elapsed for the operation this event reports on (e.g. a
+    /// tool call or turn segment). Distinct from the existing `elapsed_ms`
+    /// field's tool-call-specific meaning only in that this one is meant to
+    /// generalize across non-tool events; both are populated where it makes
+    /// sense and consumers should prefer whichever is present.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elapsed_ms_generic: Option<u64>,
+    /// RFC3339 timestamp of when a pending approval / plan review expires,
+    /// mirrored from `PendingApproval::expires_at` (`security::approval::types`).
+    /// Present on `approval_request` / `plan_review_request` events.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    /// The turn/request id a lifecycle event (approval, plan review, queue
+    /// item, cancellation) correlates back to, when distinct from the
+    /// top-level `request_id` (e.g. a decision event fired outside the
+    /// original turn's request context).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_request_id: Option<String>,
+    /// Time-to-first-visible timing summary, carried on `chat_done`. See
+    /// `web_chat::turn_timing`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timing: Option<TurnTimingPayload>,
+    /// Follow-up prompt suggestions offered to the user after a turn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggestions: Option<Vec<ChatSuggestion>>,
+    /// Guardrail verdict attached to a blocked/flagged turn.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub guardrail: Option<GuardrailPayload>,
+    /// Run-queue item this event reports on (queued/delivered/removed).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub queue_item: Option<QueueItemPayload>,
+    /// Session goal snapshot, carried on goal-lifecycle events. Left as a
+    /// raw `Value` because the goal shape is owned by `tinyagents-graph`,
+    /// not this crate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal: Option<serde_json::Value>,
+    /// Session todo-list snapshot, carried on todo-lifecycle events. Raw
+    /// `Value` for the same reason as `goal`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub todos: Option<serde_json::Value>,
+    /// Human-readable reason a turn/queue item was cancelled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cancel_reason: Option<String>,
+    /// Id of the turn/request that superseded this one (e.g. a steer
+    /// requeue), when applicable.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub superseded_by: Option<String>,
+}
+
+/// Time-to-first-visible timing summary for a completed turn. See
+/// `web_chat::turn_timing::TurnTiming`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct TurnTimingPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_token_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_tool_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_ms: Option<u64>,
+}
+
+/// One follow-up prompt suggestion offered after a turn.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct ChatSuggestion {
+    pub prompt: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+/// One guardrail rejection reason code + message.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct GuardrailReason {
+    pub code: String,
+    pub message: String,
+}
+
+/// Guardrail verdict attached to a blocked/flagged turn (`chat_error` with
+/// `error_type = "guardrail"`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct GuardrailPayload {
+    pub verdict: String,
+    pub score: f64,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reasons: Vec<GuardrailReason>,
+}
+
+/// A run-queue item summary (`queue_item_queued` / `queue_item_delivered` /
+/// `queue_item_removed`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct QueueItemPayload {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lane: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_preview: Option<String>,
 }
 
 /// Token/cost/context totals for one completed turn, attached to `chat_done`.
