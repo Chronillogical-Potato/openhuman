@@ -6,9 +6,8 @@
 import { useEffect, useRef } from 'react';
 
 import { threadApi } from '../../../services/api/threadApi';
-import { setThreadTodos } from '../../../store/threadTodosSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
-import type { ThreadTodoItemView } from '../../../store/threadTodosSlice';
+import { setThreadTodos, type ThreadTodoItemView } from '../../../store/threadTodosSlice';
 
 /** `null` when the thread has no live entry yet (not "empty list"). */
 export function useThreadTodos(threadId: string | null): ThreadTodoItemView[] | null {
