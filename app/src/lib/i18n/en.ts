@@ -4113,6 +4113,11 @@ const en: TranslationMap = {
   'conversations.subagent.cancel': 'Cancel task',
   'conversations.subagent.cancelling': 'Cancelling…',
   'conversations.subagent.cancelFailed': "Couldn't cancel the task. Try again.",
+  // Guardrail notice for a `chat_error{error_type:"guardrail"}` turn (wire-contract.md).
+  'conversations.chatError.guardrail.title': "This request didn't pass a safety check",
+  'conversations.chatError.guardrail.explanationFallback':
+    'A policy blocked this response before it was sent.',
+  'conversations.chatError.guardrail.tryInstead': 'try instead',
   // Tool-failure explanation surfaced under a failed step in "View processing" (#4254).
   'conversations.toolFailure.whyLabel': 'Why',
   'conversations.toolFailure.nextLabel': 'What to do next',
