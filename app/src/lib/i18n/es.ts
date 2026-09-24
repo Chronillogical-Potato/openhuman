@@ -3770,6 +3770,10 @@ const messages: TranslationMap = {
   'conversations.scheduleCard.recentRuns': 'ejecuciones recientes',
   'conversations.scheduleCard.ok': 'correcto',
   'conversations.scheduleCard.failed': 'fallido',
+  'conversations.conversationSearch.placeholder': 'Buscar en la conversación',
+  'conversations.conversationSearch.previousMatch': 'Coincidencia anterior',
+  'conversations.conversationSearch.nextMatch': 'Siguiente coincidencia',
+  'conversations.conversationSearch.timelineToggle': 'Cronología',
   'conversations.agentTaskInsights.noSteps': 'No hay pasos registrados',
   'conversations.agentTaskInsights.viewProcessSource':
     'Ver la fuente completa del proceso del agente',
