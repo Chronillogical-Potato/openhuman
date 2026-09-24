@@ -19,6 +19,9 @@ pub use crud::{
     thread_delete, thread_update_labels, thread_update_title, thread_upsert, threads_list,
     transcript_search,
 };
+pub use edit::{
+    edit_message, regenerate, EditMessageRequest, EditOrRegenerateResponse, RegenerateRequest,
+};
 pub use live_state::{
     goal_get, todos_get, ThreadGoalGetResponse, ThreadLiveStateRequest, ThreadTodosGetResponse,
 };
