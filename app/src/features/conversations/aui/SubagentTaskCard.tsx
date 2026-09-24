@@ -207,7 +207,14 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({ args, result, m
       result={resultNode}>
       {nestedMessages.length > 0 ? (
         <div data-testid="subagent-activity">
-          <TaskTranscript messages={nestedMessages} />
+          <TaskTranscript
+            messages={nestedMessages}
+            roleLabels={{
+              user: t('conversations.subagent.transcript.instruction'),
+              assistant: t('conversations.subagent.transcript.agent'),
+              system: t('conversations.subagent.transcript.system'),
+            }}
+          />
         </div>
       ) : undefined}
     </TaskCard>
