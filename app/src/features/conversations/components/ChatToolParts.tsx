@@ -178,7 +178,10 @@ function commandFromApproval(approval: PendingApproval): string {
  */
 const GatedToolCall: ToolCallMessagePartComponent = props => {
   const gate = useGatedApproval(props.approval);
+  const { t } = useT();
+  const dispatch = useAppDispatch();
   if (!gate) return <OpenHumanToolCall {...props} />;
+  const { threadId, request } = gate;
   return (
     <OpenHumanToolCall
       {...props}
@@ -186,10 +189,21 @@ const GatedToolCall: ToolCallMessagePartComponent = props => {
         <div className="px-3 pb-3">
           {/* Keyed by request id so a second parked request remounts the card
               with fresh decision/error state, matching the legacy placement. */}
-          <ApprovalRequestCard
-            key={gate.request.requestId}
-            threadId={gate.threadId}
-            approval={gate.request}
+          <ApprovalCardAdapter
+            key={request.requestId}
+            ariaLabel={t('chat.approval.title')}
+            title={t('chat.approval.title')}
+            subtitle={request.message || t('chat.approval.fallback')}
+            command={commandFromApproval(request)}
+            toolName={request.toolName}
+            expiresAt={request.expiresAt}
+            alwaysDecision="approve_always_for_tool"
+            alwaysHint={t('chat.approval.alwaysAllowHint')}
+            analyticsPrefix="chat-approval"
+            onDecide={async decision => {
+              await decideApproval(request.requestId, decision);
+              dispatch(clearPendingApprovalForThread({ threadId }));
+            }}
           />
         </div>
       }
