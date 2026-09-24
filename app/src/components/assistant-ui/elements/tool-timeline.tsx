@@ -12,6 +12,15 @@
  * - `children` may replace `steps`: a live chat step is a full tool-call
  *   element (it expands, carries approvals), not only a verb and a chip.
  * - Step keys are positional; two steps may share a chip.
+ * - `forceMount` on the content: Radix's default unmounts children entirely
+ *   while closed, which both skips the CSS collapse animation
+ *   (`animate-collapsible-up`/`-down` need the node present to measure) and,
+ *   for a caller passing `children` that carry their own uncontrolled
+ *   disclosure state (e.g. `ToolTimelineAdapter`'s per-row expand/collapse),
+ *   would reset that state every time the outer group re-collapses. Staying
+ *   mounted and letting `hidden`/the animation classes handle visibility
+ *   matches the "hidden, never wiped" contract every other collapsible
+ *   surface in this app already follows.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
