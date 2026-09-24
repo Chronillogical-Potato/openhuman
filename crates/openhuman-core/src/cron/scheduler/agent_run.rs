@@ -244,10 +244,15 @@ pub(super) const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
 /// the agent name, whatever conversation that was.
 pub(super) fn start_cron_turn_clean(agent: &mut OpenHumanSessionHost) {
     tracing::debug!("[cron] suppressing transcript autoload for scheduled turn");
-    agent.set_next_turn_overrides(crate::agent::session_host::TurnOverrides {
+    agent.set_next_turn_overrides(cron_turn_overrides());
+}
+
+/// Overrides applied to each scheduled agent turn before its first dispatch.
+pub(super) fn cron_turn_overrides() -> crate::agent::session_host::TurnOverrides {
+    crate::agent::session_host::TurnOverrides {
         suppress_transcript_autoload: true,
         ..Default::default()
-    });
+    }
 }
 
 pub(super) struct BuiltCronAgent {
