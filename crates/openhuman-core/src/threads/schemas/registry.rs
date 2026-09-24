@@ -36,6 +36,8 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("transcript_get"),
         schemas("goal_get"),
         schemas("todos_get"),
+        schemas("edit_message"),
+        schemas("regenerate"),
     ]
 }
 
@@ -120,6 +122,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("todos_get"),
             handler: handle_todos_get,
+        },
+        RegisteredController {
+            schema: schemas("edit_message"),
+            handler: handle_edit_message,
+        },
+        RegisteredController {
+            schema: schemas("regenerate"),
+            handler: handle_regenerate,
         },
     ]
 }
