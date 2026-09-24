@@ -1789,6 +1789,7 @@ impl DomainEvent {
             Self::ThreadGoalUpdated { .. } => "ThreadGoalUpdated",
             Self::ThreadGoalCleared { .. } => "ThreadGoalCleared",
             Self::ThreadTodosChanged { .. } => "ThreadTodosChanged",
+            Self::ThreadRunModeChanged { .. } => "ThreadRunModeChanged",
             Self::Voice(_) => "Voice",
         }
     }
