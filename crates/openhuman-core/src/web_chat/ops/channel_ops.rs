@@ -115,12 +115,15 @@ async fn cancel_chat_inner(
     // first, then drop anything already queued for delivery, so no result lands
     // in the gap. A scoped cancel names one turn and leaves the rest alone.
     let subagents_cancelled = if request_id.is_none() {
-        let stopped =
-            crate::agent::orchestration::running_subagents::stop_for_thread(thread_id).len();
+        // Gate completion recording before aborting: Tokio abort is
+        // cooperative, so a child already finishing can otherwise enqueue in
+        // the gap between abort and the queue sweep.
         let discarded =
             crate::agent::orchestration::background_completions::discard_pending_for_thread(
                 thread_id,
             );
+        let stopped =
+            crate::agent::orchestration::running_subagents::stop_for_thread(thread_id).len();
         log::info!(
             "[web-channel] stop thread_id={} turn={:?} parallel={} subagents_cancelled={} completions_discarded={}",
             thread_id,
@@ -164,6 +167,9 @@ pub async fn channel_web_chat(
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
 ) -> Result<RpcOutcome<Value>, String> {
+    // A Stop gate only suppresses completions from the halted generation. A
+    // later user request deliberately starts a new generation on this thread.
+    crate::agent::orchestration::background_completions::resume_for_thread(thread_id);
     let result = start_chat(
         client_id,
         thread_id,

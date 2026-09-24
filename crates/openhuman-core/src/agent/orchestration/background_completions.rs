@@ -79,6 +79,12 @@ struct QueueState {
     cancelled_threads: HashSet<String>,
     /// Insertion order for `cancelled_threads`, used to bound the set.
     cancelled_order: VecDeque<String>,
+    /// Threads stopped by the user. Unlike deleted threads, these are reopened
+    /// by the next user chat request, but until then late completions from a
+    /// cooperatively-aborted child must not start a delivery turn.
+    stopped_threads: HashSet<String>,
+    /// Insertion order for `stopped_threads`, used to bound the set.
+    stopped_order: VecDeque<String>,
     /// Task ids the parent already collected inline via `wait_subagent` and will
     /// present in its own turn. A completion for a collected task is dropped by
     /// [`record_completion`] (closing the wait/record ordering race) and any
@@ -101,6 +107,21 @@ impl QueueState {
                 }
             }
         }
+    }
+
+    fn stop(&mut self, thread_id: &str) {
+        if self.stopped_threads.insert(thread_id.to_string()) {
+            self.stopped_order.push_back(thread_id.to_string());
+            while self.stopped_order.len() > CANCELLED_TOMBSTONE_CAP {
+                if let Some(evicted) = self.stopped_order.pop_front() {
+                    self.stopped_threads.remove(&evicted);
+                }
+            }
+        }
+    }
+
+    fn resume(&mut self, thread_id: &str) {
+        self.stopped_threads.remove(thread_id);
     }
 
     /// Tombstone `task_id` so a completion that records after the parent
@@ -172,9 +193,9 @@ pub(crate) fn record_outcome(
         .lock()
         .expect("background_completions queue poisoned");
     if let Some(thread_id) = entry.parent_thread_id.as_deref() {
-        if state.cancelled_threads.contains(thread_id) {
+        if state.cancelled_threads.contains(thread_id) || state.stopped_threads.contains(thread_id) {
             log::debug!(
-                "[background_completions] dropping completion task_id={} for cancelled thread_id={}",
+                "[background_completions] dropping completion task_id={} for stopped/cancelled thread_id={}",
                 entry.task_id,
                 thread_id
             );
@@ -320,6 +341,7 @@ pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
     let mut state = queue()
         .lock()
         .expect("background_completions queue poisoned");
+    state.stop(thread_id);
     let removed = remove_pending_for_thread(&mut state, thread_id);
     log::debug!(
         "[background_completions] discard_pending_for_thread thread_id={} removed={} sessions_left={}",
@@ -328,6 +350,15 @@ pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
         state.pending.len()
     );
     removed
+}
+
+/// Reopen a thread that was stopped by the user for work started by a later
+/// user request. Deleted-thread tombstones are deliberately not cleared.
+pub(crate) fn resume_for_thread(thread_id: &str) {
+    let mut state = queue()
+        .lock()
+        .expect("background_completions queue poisoned");
+    state.resume(thread_id);
 }
 
 fn remove_pending_for_thread(state: &mut QueueState, thread_id: &str) -> usize {

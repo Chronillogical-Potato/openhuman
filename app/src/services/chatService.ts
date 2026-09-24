@@ -1326,11 +1326,11 @@ export async function chatCancel(threadId: string): Promise<ChatCancelOutcome> {
   }
 
   try {
-    const result = await callCoreRpc<{ request_id?: unknown }>({
+    const result = await callCoreRpc<{ result?: { request_id?: unknown } }>({
       method: 'openhuman.channel_web_cancel',
       params: { client_id: clientId, thread_id: threadId },
     });
-    const turnCancelled = typeof result?.request_id === 'string';
+    const turnCancelled = typeof result?.result?.request_id === 'string';
     chatLog('chat_cancel: thread=%s turnCancelled=%s', threadId, turnCancelled);
     return { accepted: true, turnCancelled };
   } catch (error) {

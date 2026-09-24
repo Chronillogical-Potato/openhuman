@@ -369,7 +369,7 @@ fn record_outcome_preserves_the_outcome_through_a_drain() {
 }
 
 #[test]
-fn discard_pending_for_thread_drops_queued_results_but_keeps_the_thread_live() {
+fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     let _guard = test_guard();
     record_completion(
         "sess-stop",
@@ -391,11 +391,22 @@ fn discard_pending_for_thread_drops_queued_results_but_keeps_the_thread_live() {
     assert_eq!(pending_count("sess-stop"), 1);
     assert_eq!(take_pending("sess-stop")[0].task_id, "sub-stop-keep");
 
-    // ...but, unlike thread deletion, does not tombstone the thread: work
-    // started by a later turn on it still delivers.
+    // A late completion from the stopped generation loses the cooperative
+    // abort race and is rejected.
     record_completion(
         "sess-stop",
         "sub-stop-later",
+        "researcher",
+        "late stopped result",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 0);
+
+    // A later user turn deliberately reopens the thread for new work.
+    resume_for_thread("thread-stop-live");
+    record_completion(
+        "sess-stop",
+        "sub-stop-new-turn",
         "researcher",
         "next turn's result",
         Some("thread-stop-live".into()),

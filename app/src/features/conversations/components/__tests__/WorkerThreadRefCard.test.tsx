@@ -1,10 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { threadApi } from '../../../../services/api/threadApi';
 import { store } from '../../../../store';
 import { clearThreadInferenceActive } from '../../../../store/threadSlice';
 import { WorkerThreadRefCard } from '../WorkerThreadRefCard';
+
+vi.mock('../../../../services/api/threadApi', () => ({
+  threadApi: { getThreadMessages: vi.fn() },
+}));
 
 // Issue #1624: the worker-thread surface card must render a live
 // running/completed/failed badge derived from the parent timeline
@@ -71,6 +76,10 @@ describe('WorkerThreadRefCard — status badge', () => {
 });
 
 describe('WorkerThreadRefCard — navigation', () => {
+  beforeEach(() => {
+    vi.mocked(threadApi.getThreadMessages).mockResolvedValue({ messages: [], count: 0 });
+  });
+
   it('selects the worker thread without marking it as in-flight', () => {
     store.dispatch(clearThreadInferenceActive(REF.threadId));
     renderInStore(<WorkerThreadRefCard ref={REF} status="running" />);
