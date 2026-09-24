@@ -29,6 +29,7 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 // Type-only: erased at runtime, so it does not defeat `vi.hoisted`.
 import type { FlowApprovalRequest } from '../../hooks/useFlowApprovalRequests';
 import { chatSend } from '../../services/chatService';
+import { callCoreRpc } from '../../services/coreRpcClient';
 import chatRuntimeReducer, {
   type ArtifactSnapshot,
   setToolTimelineForThread,
@@ -396,6 +397,31 @@ describe('assistant-ui chat surface — composer-adjacent cards', () => {
     expect(document.querySelector('[data-chat-send-advisory]')?.textContent).toMatch(
       /prompt-injection|security checks/i
     );
+  });
+
+  it('switches the run mode for a typed /plan instead of sending it to the model', async () => {
+    const store = await renderChat();
+
+    const input = await screen.findByRole('textbox', { name: 'Message input' });
+    await act(async () => {
+      input.textContent = '/plan';
+      fireEvent.input(input, { data: '/plan', inputType: 'insertText' });
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled()
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    });
+
+    await waitFor(() =>
+      expect(callCoreRpc).toHaveBeenCalledWith({
+        method: 'openhuman.agent_set_run_mode',
+        params: { thread_id: THREAD_ID, mode: 'plan' },
+      })
+    );
+    expect(store.getState().runMode.byThread[THREAD_ID]).toBe('plan');
+    expect(chatSend).not.toHaveBeenCalled();
   });
 
   it('lists the thread files chip beside the model pill', async () => {
