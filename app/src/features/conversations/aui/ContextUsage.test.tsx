@@ -114,7 +114,7 @@ describe('ContextUsage', () => {
     expect(popover).not.toHaveTextContent('Method not found');
 
     mockCall.mockResolvedValueOnce(BREAKDOWN);
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     await waitFor(() => expect(popover).toHaveTextContent('Tools'));
     expect(mockCall).toHaveBeenCalledTimes(2);

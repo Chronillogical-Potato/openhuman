@@ -12,14 +12,18 @@
  * method leaves the popover in an error state rather than breaking the
  * composer.
  */
-import { ContextBreakdown, type ContextSegment } from '@/components/assistant-ui/elements/context-breakdown';
+import {
+  ContextBreakdown,
+  type ContextSegment,
+} from '@/components/assistant-ui/elements/context-breakdown';
 import {
   type ContextDisplayLabels,
   ContextDisplayRing,
   type TokenUsage,
 } from '@/components/assistant-ui/elements/context-display';
 import { ErrorState } from '@/components/assistant-ui/elements/error-state';
-import { ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { cn } from '@/components/assistant-ui/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/assistant-ui/ui/popover';
 import debug from 'debug';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -100,7 +104,7 @@ export function ContextUsage({
   // Only the newest request may land: reopening, or retrying, supersedes it.
   const requestSeq = useRef(0);
 
-  const window =
+  const contextWindow =
     modelContextWindow && modelContextWindow > 0
       ? modelContextWindow
       : usage.contextWindow > 0
@@ -156,7 +160,7 @@ export function ContextUsage({
 
   let body;
   if (breakdown.status === 'ready') {
-    const limit = breakdown.data.context_window > 0 ? breakdown.data.context_window : window;
+    const limit = breakdown.data.context_window > 0 ? breakdown.data.context_window : contextWindow;
     body = (
       <ContextBreakdown
         segments={toSegments(breakdown.data, t)}
@@ -175,19 +179,23 @@ export function ContextUsage({
     );
   } else if (breakdown.status === 'error') {
     body = (
-      <ErrorState
-        title={t('conversations.composer.context.errorTitle')}
-        detail={t('conversations.composer.context.errorDetail')}
-        retrying={false}
-        onRetry={loadBreakdown}
-        retryLabel={t('common.retry')}
-      />
+      <div className={cn(paper, 'w-72 rounded-2xl p-4')}>
+        <ErrorState
+          title={t('conversations.composer.context.errorTitle')}
+          detail={t('conversations.composer.context.errorDetail')}
+          retrying={false}
+          onRetry={loadBreakdown}
+          retryLabel={t('common.retry')}
+        />
+      </div>
     );
   } else {
     body = (
-      <ShimmerLabel className="text-foreground/55 text-sm">
-        {t('conversations.composer.context.loading')}
-      </ShimmerLabel>
+      <div className={cn(paper, 'w-72 rounded-2xl p-4')}>
+        <ShimmerLabel className="text-foreground/55 text-sm">
+          {t('conversations.composer.context.loading')}
+        </ShimmerLabel>
+      </div>
     );
   }
 
@@ -198,7 +206,7 @@ export function ContextUsage({
           <ContextDisplayRing
             data-testid="composer-context-usage"
             aria-label={t('conversations.composer.context.usage')}
-            modelContextWindow={window}
+            modelContextWindow={contextWindow}
             usage={ringUsage}
             resetKey={threadId ?? undefined}
             labels={labels}
