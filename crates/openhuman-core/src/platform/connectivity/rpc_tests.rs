@@ -104,6 +104,39 @@ async fn pick_listen_port_openhuman_listener_requests_takeover() {
 }
 
 #[tokio::test]
+async fn pick_listen_port_openhuman_listener_falls_back_when_asked() {
+    let holder = reserve_port();
+    let preferred = holder.local_addr().expect("preferred local addr").port();
+    drop(holder);
+    let fallback_holder = reserve_port();
+    let fallback = fallback_holder
+        .local_addr()
+        .expect("fallback local addr")
+        .port();
+    drop(fallback_holder);
+
+    let (server_task, shutdown_tx) = spawn_openhuman_probe_listener(preferred).await;
+
+    let picked = pick_listen_port_with_policy(
+        "127.0.0.1",
+        preferred,
+        &[fallback],
+        RetryPolicy {
+            attempts: 1,
+            backoff: Duration::from_millis(10),
+        },
+        OccupiedByCore::Fallback,
+    )
+    .await
+    .expect("a live neighbouring core should not block a headless core");
+    assert_eq!(picked.port, fallback);
+    assert_eq!(picked.fallback_from, Some(preferred));
+
+    let _ = shutdown_tx.send(());
+    let _ = server_task.await;
+}
+
+#[tokio::test]
 async fn pick_listen_port_other_listener_falls_back() {
     let preferred_listener = reserve_port();
     let preferred = preferred_listener
