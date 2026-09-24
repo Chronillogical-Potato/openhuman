@@ -29,7 +29,7 @@ function activeIndexFromTodos(
 ): number | null {
   if (!todos || todos.length !== steps.length) return null;
   const matches = todos.every((item, i) => item.content === steps[i]);
-  if (!matches) return false as unknown as null; // unreachable; see guard below
+  if (!matches) return null;
   return todos.filter(item => item.status === 'completed').length;
 }
 

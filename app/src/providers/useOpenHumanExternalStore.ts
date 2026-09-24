@@ -6,6 +6,7 @@ import type {
 } from '@assistant-ui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useOpenHumanQueueAdapter } from '../features/conversations/aui/queueAdapter';
 import { mapDisplayItems } from '../features/conversations/derived/mapDisplayItems';
 import { useT } from '../lib/i18n/I18nContext';
 import { type ApprovalDecision, decideApproval } from '../services/api/approvalApi';
@@ -428,6 +429,12 @@ export function useOpenHumanExternalStore(
     await getChatSurface(threadId)?.cancel?.();
   }, [threadId]);
 
+  // The core's run queue, as assistant-ui's message queue. Supplying it makes
+  // the runtime send through `queue.enqueue` / `queue.steer` instead of
+  // `onNew`; both forward to `onNew`, so the surface still picks the
+  // `queue_mode` (see `features/conversations/aui/queueAdapter.ts`).
+  const queue = useOpenHumanQueueAdapter(threadId, onNew);
+
   /**
    * Rewrite a settled message and resend it, via the `threads.edit_message`
    * RPC (wire-contract.md; core workstream C4). `message.sourceId` is
@@ -564,6 +571,7 @@ export function useOpenHumanExternalStore(
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
       onNew,
       onCancel,
+      queue,
       onEdit,
       onReload,
       setMessages,
@@ -588,6 +596,7 @@ export function useOpenHumanExternalStore(
       feedbackAdapter,
       onNew,
       onCancel,
+      queue,
       onEdit,
       onReload,
       setMessages,

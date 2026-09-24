@@ -10,6 +10,7 @@ import ChatFilesChip from '../../components/chat/ChatFilesChip';
 import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import QueuedFollowups from '../../components/chat/QueuedFollowups';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
+import { decideApproval } from '../../services/api/approvalApi';
 import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
