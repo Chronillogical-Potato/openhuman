@@ -113,12 +113,8 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
         "orchestrator prompt must carry the workflow routing rule"
     );
     assert!(
-        ARCHETYPE.contains("`build_workflow` specialist"),
+        ARCHETYPE.contains("spawn the `workflow_builder` agent with `spawn_async_subagent`"),
         "the rule must name the delegate to call"
-    );
-    assert!(
-        ARCHETYPE.contains("It owns the saved-flow lookup tools"),
-        "saved-flow lookup must route to the specialist that can return its result"
     );
 
     // The rule is only true because these are the real names. Asserting the
