@@ -137,5 +137,26 @@ export const DocumentArtifactCall: ToolCallMessagePartComponent = ({
       ? (result as { path: string }).path
       : kindTitle;
 
+  if (failedArtifact) {
+    return (
+      <div className="flex flex-col items-start gap-1.5">
+        <ArtifactCard title={title} meta={t('chat.artifact.failed')} generating={false} icon={Icon} />
+        {threadId ? (
+          <Button
+            variant="secondary"
+            size="xs"
+            analyticsId="chat-artifact-retry-inline"
+            onClick={() => {
+              void aiRegenerate(failedArtifact.artifactId, threadId).catch(err => {
+                console.warn('[artifact] regenerate failed:', err);
+              });
+            }}>
+            {t('chat.artifact.retry')}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
   return <ArtifactCard title={title} meta={meta} generating={running} words={words} icon={Icon} />;
 };
