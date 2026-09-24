@@ -27,7 +27,7 @@ describe('FlowRunPendingApprovalCard', () => {
     );
     expect(screen.getByText('Run the release command')).toBeInTheDocument();
     expect(screen.getByText('shell')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Allow once' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Approve' })).toHaveAttribute(
       'data-analytics-id',
       `${TEST_ID_PREFIX}-approve-once`
     );
@@ -42,7 +42,7 @@ describe('FlowRunPendingApprovalCard', () => {
   });
 
   it.each([
-    ['Allow once', 'approve_once'],
+    ['Approve', 'approve_once'],
     ['Always allow', 'approve_always_for_flow'],
     ['Deny', 'deny'],
   ] as const)('maps %s to %s', (label, decision) => {
@@ -64,7 +64,7 @@ describe('FlowRunPendingApprovalCard', () => {
   it('disables every action when already deciding on first render (external busy flag)', () => {
     render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding onDecide={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: 'Allow once' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Always allow' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Deny' })).toBeDisabled();
   });
