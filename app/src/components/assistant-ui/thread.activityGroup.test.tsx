@@ -104,11 +104,8 @@ describe('activity group', () => {
           { role: 'user', content: [{ type: 'text', text: 'do it' }] },
           {
             role: 'assistant',
-            status: { type: 'complete', reason: 'stop' },
-            content: [
-              tool('t1', 'shell', { status: { type: 'requires-action', reason: 'interrupt' } }),
-              tool('t2', 'search_two'),
-            ],
+            status: { type: 'requires-action', reason: 'interrupt' },
+            content: [tool('t1', 'shell', { result: undefined }), tool('t2', 'search_two')],
           },
         ]}
         isRunning={false}
