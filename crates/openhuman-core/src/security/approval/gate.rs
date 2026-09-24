@@ -271,7 +271,19 @@ impl Drop for WaiterGuard<'_> {
             self.gate
                 .clear_thread_route_if_owned(thread_id, &self.request_id);
         }
-        let _ = store::decide(&self.gate.config, &self.request_id, ApprovalDecision::Deny);
+        let decided = store::decide(&self.gate.config, &self.request_id, ApprovalDecision::Deny);
+        if let Ok(Some(row)) = decided {
+            let route = self.gate.take_request_route(&self.request_id);
+            BUS.publish(DomainEvent::ApprovalDecided {
+                request_id: row.request_id,
+                tool_name: row.tool_name,
+                decision: ApprovalDecision::Deny.as_str().to_string(),
+                thread_id: route.as_ref().and_then(|r| r.thread_id.clone()),
+                client_id: route.as_ref().and_then(|r| r.client_id.clone()),
+                tool_call_id: route.and_then(|r| r.tool_call_id),
+                resolution: Some("cancelled".to_string()),
+            });
+        }
         tracing::warn!(
             request_id = %self.request_id,
             "[approval::gate] parked approval future dropped mid-park (external turn teardown) — \
