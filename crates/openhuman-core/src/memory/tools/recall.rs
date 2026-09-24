@@ -123,6 +123,20 @@ impl Tool for MemoryRecallTool {
     }
 }
 
+/// Publishes `DomainEvent::MemoryRecalled` once per tool call — a discrete,
+/// per-turn action, not the hot-path per-driver-read the guard's own success
+/// path deliberately does not publish (see `memory::guard::audit` docs). The
+/// domain event itself still carries the raw `query` (existing shape,
+/// consumed only in-process); the web-channel bridge
+/// (`web_chat::event_bus::MemoryActivitySubscriber`) is what clips it to a
+/// short preview before it ever reaches a socket.
+fn publish_memory_recalled(query: &str, hit_count: usize) {
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemoryRecalled {
+        query: query.to_string(),
+        hit_count,
+    });
+}
+
 /// The namespace a call searches: the one it names, or the default scope when
 /// it names none. An explicit empty string is a caller mistake, not a request
 /// for the default — the model had a namespace in mind and lost it.

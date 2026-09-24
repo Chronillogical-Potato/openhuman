@@ -71,7 +71,9 @@ describe('cron tool call renders', () => {
   });
 
   it('toggling the switch calls the cron update RPC and flips only after it resolves', async () => {
-    const spy = vi.spyOn(cron, 'openhumanCronUpdate').mockResolvedValue({ result: job({ enabled: false }) });
+    const spy = vi
+      .spyOn(cron, 'openhumanCronUpdate')
+      .mockResolvedValue({ result: job({ enabled: false }), logs: [] });
     render(<CronAddOrUpdateCall {...toolCallProps('cron_add', {}, job())} />);
 
     const toggle = screen.getByRole('switch');
