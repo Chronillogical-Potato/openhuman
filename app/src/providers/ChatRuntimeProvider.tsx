@@ -235,9 +235,6 @@ function hasCompleteSegmentDelivery(
   return true;
 }
 
-/** `extraMetadata` key under which `chatDoneExtraMetadata` stamps the turn's timing. */
-export const CHAT_TIMING_METADATA_KEY = 'timing';
-
 function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | undefined {
   // Stamp the producing turn's request id so the final answer can be grouped
   // with its per-turn process trail (Phase 4 anchoring, Option B — see the
@@ -250,7 +247,7 @@ function chatDoneExtraMetadata(event: ChatDoneEvent): Record<string, unknown> | 
   // element (`useMessageTiming()`) reads to show TTFT/total/tok-s on a
   // settled reply. `chat_done.timing` is the only place these numbers exist —
   // there is no per-message timing RPC.
-  if (event.timing) meta[CHAT_TIMING_METADATA_KEY] = event.timing;
+  if (event.timing) meta[TIMING_METADATA_KEY] = event.timing;
   return Object.keys(meta).length > 0 ? meta : undefined;
 }
 
