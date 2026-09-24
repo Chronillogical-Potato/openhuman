@@ -56,7 +56,7 @@ const messages: ThreadMessage[] = [
 
 function buildStore() {
   return configureStore({
-    reducer: { thread: threadReducer, chatRuntime: chatRuntimeReducer },
+    reducer: combineReducers({ thread: threadReducer, chatRuntime: chatRuntimeReducer }),
     preloadedState: {
       thread: {
         ...threadReducer(undefined, { type: '@@INIT' }),
