@@ -36,6 +36,7 @@
 #   pnpm dev:app:web --no-browser      # same, just print the URL (for agents)
 #   pnpm dev:app:web:attach            # vite on the running desktop core
 #   pnpm dev:app:web --attach --no-browser
+#   pnpm dev:app:web --onboarding      # keep onboarding + tour (skipped by default)
 #
 # Env:
 #   OPENHUMAN_DEV_PORT    preferred Vite port (default 1420)
@@ -50,10 +51,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 open_browser=1
 attach=0
+skip_onboarding=1
 for arg in "$@"; do
   case "$arg" in
     --no-browser) open_browser=0 ;;
     --attach) attach=1 ;;
+    --onboarding) skip_onboarding=0 ;;
     *) echo "[dev:web] unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -213,6 +216,14 @@ fi
 # In attach mode the page takes the URL + bearer from the core's redirect.
 export VITE_OPENHUMAN_CORE_RPC_URL="http://127.0.0.1:$core_port/rpc"
 export OPENHUMAN_DEV_PORT="$dev_port"
+# Land straight in the app: onboarding is marked complete in the core for a
+# signed-in user, and the walkthrough tour is suppressed (DEV_SKIP_ONBOARDING in
+# app/src/utils/config.ts). `--onboarding` keeps both, to debug them.
+if (( skip_onboarding )); then
+  export VITE_DEV_SKIP_ONBOARDING=true
+else
+  export VITE_DEV_SKIP_ONBOARDING=false
+fi
 
 echo "[dev:web] starting vite on :$dev_port"
 # Job control gives the background job its own process group (pgid == pid),
