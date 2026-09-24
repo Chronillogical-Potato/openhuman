@@ -55,6 +55,23 @@ export function isActiveTimelineStatus(status: string | undefined): boolean {
   return status === 'running' || status === 'awaiting_user';
 }
 
+/**
+ * Every `subagent:*` timeline row spawned by one `spawn_parallel_agents` tool
+ * call — the workers sharing `subagent.parentCallId === parentCallId` (see
+ * {@link SubagentActivity.parentCallId}) — in the order they were issued
+ * (`seq`). Used by `ParallelAgentsCard` (`features/conversations/aui/
+ * ParallelAgentsCard.tsx`) to render the vendored `SubagentList` above the
+ * per-child `TaskCard` rows for a `spawn_parallel_agents` call.
+ */
+export function selectSubagentChildrenByParentCallId(
+  timeline: ToolTimelineEntry[],
+  parentCallId: string
+): ToolTimelineEntry[] {
+  return timeline
+    .filter(entry => entry.subagent?.parentCallId === parentCallId)
+    .sort((a, b) => a.seq - b.seq);
+}
+
 /** Live progress of the running turn, as the socket handlers maintain it. */
 export interface InferenceStatus {
   phase: 'thinking' | 'tool_use' | 'subagent';
