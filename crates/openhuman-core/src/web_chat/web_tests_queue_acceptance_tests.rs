@@ -239,10 +239,20 @@ async fn web_queue_status_wire_shape_and_clear_cleanup_remain_stable() {
     let active = channel_web_queue_status(thread_id)
         .await
         .expect("active queue status should be available");
+    let active_json = active
+        .into_cli_compatible_json()
+        .expect("queue status should serialize");
+    // `items` carries a per-item minted uuid, so it can't be pinned by exact
+    // whole-payload equality the way the scalar counts below are — check the
+    // scalar shape exactly, then the items separately.
+    let mut active_result = active_json["result"].clone();
+    let items = active_result
+        .as_object_mut()
+        .expect("result object")
+        .remove("items")
+        .expect("items field present");
     assert_eq!(
-        active
-            .into_cli_compatible_json()
-            .expect("queue status should serialize"),
+        json!({ "result": active_result, "logs": active_json["logs"].clone() }),
         json!({
             "result": {
                 "thread_id": thread_id,
@@ -256,6 +266,18 @@ async fn web_queue_status_wire_shape_and_clear_cleanup_remain_stable() {
             "logs": ["queue status retrieved"],
         })
     );
+    let items = items.as_array().expect("items array");
+    assert_eq!(items.len(), 3, "{items:?}");
+    let mut lanes: Vec<&str> = items
+        .iter()
+        .map(|item| item["lane"].as_str().expect("lane"))
+        .collect();
+    lanes.sort_unstable();
+    assert_eq!(lanes, ["collect", "followup", "steer"]);
+    for item in items {
+        assert!(!item["id"].as_str().expect("id").is_empty());
+        assert!(item["text_preview"].as_str().expect("text_preview").ends_with("payload"));
+    }
 
     let cleared = channel_web_queue_clear(thread_id)
         .await
