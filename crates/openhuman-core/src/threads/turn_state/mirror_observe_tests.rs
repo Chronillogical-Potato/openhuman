@@ -227,6 +227,7 @@ fn tool_timeline_entries_carry_monotonic_seq() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: None,
+        parent_call_id: None,
     });
 
     let seqs: Vec<u64> = m
@@ -292,6 +293,7 @@ fn subagent_prose_item_is_size_capped() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: None,
+        parent_call_id: None,
     });
     // 40 KiB of reasoning in same-iteration chunks — must coalesce and cap.
     for _ in 0..40 {
@@ -493,6 +495,7 @@ fn subagent_lifecycle_records_and_clears_active() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     let s = m.snapshot();
     assert_eq!(s.active_subagent.as_deref(), Some("researcher"));
