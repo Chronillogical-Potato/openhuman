@@ -213,6 +213,7 @@ pub(crate) async fn run_chat_task(
                         citations: Vec::new(),
                         usage: None,
                         workspace_dir: config.workspace_dir.clone(),
+                        timing: None,
                     })
                 }
                 BudgetCorrelation::PassThrough => Err(err_message),
