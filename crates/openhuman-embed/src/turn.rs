@@ -226,6 +226,7 @@ pub struct Turn {
     session_id: Option<String>,
     origin: Option<AgentTurnOrigin>,
     progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
+    seed: Option<Vec<(String, String)>>,
 }
 
 impl Turn {
@@ -236,6 +237,7 @@ impl Turn {
             session_id: None,
             origin: None,
             progress: None,
+            seed: None,
         }
     }
 
@@ -248,6 +250,48 @@ impl Turn {
     /// minted and returned in [`TurnOutcome::session_id`].
     pub fn session(mut self, session_id: impl Into<String>) -> Self {
         self.session_id = Some(session_id.into());
+        self
+    }
+
+    /// Run this turn against `history` instead of whatever the session holds.
+    ///
+    /// Rows are `(role, content)` -- `"system"`, `"user"`, `"assistant"` --
+    /// and they replace resume rather than adding to it: the session's own
+    /// history is dropped, these are put in its place, and the durable
+    /// transcript is not reloaded for this turn.
+    ///
+    /// # When a host wants this
+    ///
+    /// A host whose conversations live in its own log -- a journal, a board,
+    /// an episode -- is the only thing that can say what a turn should have
+    /// seen. That view is rarely the session's: it may be scoped to one
+    /// conversation, filtered to what this agent is allowed to read, windowed,
+    /// or cut at a watermark. Seeding is how it reaches the model with roles
+    /// intact. Passing the same thing as prose in the message would flatten
+    /// the agent's own prior turns into quoted text, which is not the same
+    /// input.
+    ///
+    /// Pair it with a [`session`](Self::session) id of its own. Seeding is
+    /// refused on a session that already holds history, and a turn that varies
+    /// its belt or its prompt wants a session it is not sharing.
+    ///
+    /// Only a runtime-owned [`Agent`](crate::Agent) can honour this; a turn on
+    /// a caller-built runtime's orchestrator is refused rather than run
+    /// unseeded, since silently dropping the history would run the agent
+    /// blind.
+    ///
+    /// ```no_run
+    /// # use openhuman_embed::Agent;
+    /// # async fn go(agent: &Agent, rows: Vec<(String, String)>) -> anyhow::Result<()> {
+    /// agent.turn("what did we decide?")
+    ///     .session(format!("turn-{}", uuid::Uuid::new_v4()))
+    ///     .seed(rows)
+    ///     .send()
+    ///     .await?;
+    /// # Ok(()) }
+    /// ```
+    pub fn seed(mut self, history: Vec<(String, String)>) -> Self {
+        self.seed = Some(history);
         self
     }
 
@@ -358,7 +402,7 @@ impl Turn {
             }
         }
 
-        let dispatch = dispatch(self.target, self.request);
+        let dispatch = dispatch(self.target, self.request, self.seed.take());
 
         let reply = match (self.origin, self.progress) {
             (Some(origin), Some(sink)) => {
@@ -412,9 +456,22 @@ impl Turn {
 /// target reaches `agent_chat_for` natively under the agent's own context —
 /// the definition it carries cannot travel as JSON — so it applies the
 /// DomainSet gate itself before touching the core.
-async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, CoreError> {
+async fn dispatch(
+    target: TurnTarget,
+    request: TurnRequest,
+    seed: Option<Vec<(String, String)>>,
+) -> Result<String, CoreError> {
     match target {
-        TurnTarget::Runtime(rt) => call::<_, String>(&rt, AGENT_CHAT, &request).await,
+        TurnTarget::Runtime(rt) => {
+            // Refused rather than dropped. `AGENT_CHAT`'s params are a wire
+            // contract and carry no history, so this path cannot seed -- and a
+            // turn that asked for history and silently ran without it would be
+            // the agent answering blind, which is worse than a clear error.
+            if seed.is_some() {
+                return Err(CoreError::Unavailable { method: AGENT_CHAT });
+            }
+            call::<_, String>(&rt, AGENT_CHAT, &request).await
+        }
         TurnTarget::Agent(agent) => {
             if !agent.ctx.domains().inference {
                 return Err(CoreError::Unavailable { method: AGENT_CHAT });
@@ -440,6 +497,7 @@ async fn dispatch(target: TurnTarget, request: TurnRequest) -> Result<String, Co
                 let target = AgentChatTarget::Definition {
                     definition: &inner.definition,
                     host: inner.host_tools.as_ref(),
+                    seed: seed.as_deref(),
                 };
                 agent_chat_for(
                     &mut config,

@@ -183,3 +183,31 @@ fn sanitize_redacts_unparseable_urls() {
     assert!(!normalized.contains("sk-secret"));
     assert!(!normalized.contains("leaky"));
 }
+
+/// `agent_chat` declares no input a seeded history could travel in.
+///
+/// This is why [`Turn::seed`] rides the target rather than [`TurnRequest`],
+/// and why the `TurnTarget::Runtime` arm refuses a seed instead of dropping
+/// it: that path speaks to the controller over these fields and there is
+/// nowhere in them to put history. If a future controller gains such an input,
+/// this test fails and the refusal can be reconsidered on purpose rather than
+/// discovered by an agent answering with no memory of the conversation.
+#[test]
+fn the_controller_declares_nowhere_for_a_seed_to_travel() {
+    let schema = openhuman_core::inference::host_runtime::all_local_inference_controller_schemas()
+        .into_iter()
+        .find(|s| s.namespace == "inference" && s.function == "agent_chat")
+        .expect("inference.agent_chat is a registered controller");
+
+    let carries_history = schema.inputs.iter().any(|field| {
+        let name = field.name.to_ascii_lowercase();
+        name.contains("history") || name.contains("messages") || name.contains("seed")
+    });
+
+    assert!(
+        !carries_history,
+        "agent_chat gained a history-shaped input ({:?}); Turn::seed refuses the \
+         Runtime path on the assumption it has none",
+        schema.inputs.iter().map(|f| f.name).collect::<Vec<_>>()
+    );
+}

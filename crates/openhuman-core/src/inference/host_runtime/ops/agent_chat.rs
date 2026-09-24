@@ -90,6 +90,18 @@ pub enum AgentChatTarget<'a> {
     Definition {
         definition: &'a crate::agent::harness::definition::AgentDefinition,
         host: Option<&'a crate::agent::HostTools>,
+        /// History to seed this turn with, as `(role, content)` rows, instead
+        /// of whatever the session would otherwise resume.
+        ///
+        /// Rides the target for the same reason `host` does, and it is the
+        /// per-turn half of the same idea: a host whose history lives in its
+        /// own log -- a journal, a board, an episode -- is the only thing that
+        /// can say what this turn should have seen. Seeding is how that view
+        /// reaches the session with roles intact; passing it as prose in the
+        /// message would flatten the host's own prior turns into quoted text.
+        ///
+        /// `None` leaves resume untouched, which is every existing caller.
+        seed: Option<&'a [(String, String)]>,
     },
 }
 
@@ -101,10 +113,15 @@ impl std::fmt::Debug for AgentChatTarget<'_> {
         match self {
             Self::Orchestrator => f.write_str("Orchestrator"),
             Self::AgentId(id) => f.debug_tuple("AgentId").field(id).finish(),
-            Self::Definition { definition, host } => f
+            Self::Definition {
+                definition,
+                host,
+                seed,
+            } => f
                 .debug_struct("Definition")
                 .field("definition", &definition.id)
                 .field("host_tools", &host.is_some())
+                .field("seed_rows", &seed.map_or(0, <[(String, String)]>::len))
                 .finish(),
         }
     }
@@ -120,7 +137,9 @@ fn build_turn_agent(
             log::debug!("[inference] agent_chat building agent_id={id}");
             OpenHumanSessionHost::from_config_for_agent(config, id)
         }
-        AgentChatTarget::Definition { definition, host } => match host {
+        AgentChatTarget::Definition {
+            definition, host, ..
+        } => match host {
             Some(host) => {
                 OpenHumanSessionHost::from_config_with_host_tools(config, definition, host)
             }
@@ -220,6 +239,32 @@ pub async fn agent_chat_for(
     // set one explicitly (web chat, platform socket, flows, skills) hold their
     // own `Agent` and never reach this path — where both could apply, the
     // explicitly-set sink wins because it is applied to the agent it owns.
+    // A seeded turn replaces resume rather than adding to it.
+    //
+    // The three calls are one operation and the order is load-bearing:
+    // `clear_history` drops the composed session so `seed_resume_from_messages`
+    // -- which returns early on a live one -- can take effect, and the override
+    // stops the runtime reloading from its own durable transcript the history
+    // that was just replaced. A caller seeding from its own log means that log
+    // to be the whole of what this turn has seen; leaving either of the other
+    // two off would quietly reunite it with a second source.
+    if let AgentChatTarget::Definition {
+        seed: Some(seed), ..
+    } = target
+    {
+        agent.clear_history();
+        agent
+            .seed_resume_from_messages(seed.to_vec(), message)
+            .map_err(|e| e.to_string())?;
+        agent.set_next_turn_overrides(crate::agent::session_host::TurnOverrides {
+            suppress_transcript_autoload: true,
+            ..Default::default()
+        });
+        log::debug!(
+            "[inference] agent_chat seeded {} row(s); transcript autoload suppressed",
+            seed.len()
+        );
+    }
     if let Some(tx) = crate::agent::progress_sink::current_progress_sink() {
         agent.set_on_progress(Some(tx));
     }
