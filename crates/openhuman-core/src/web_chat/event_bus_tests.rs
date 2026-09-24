@@ -248,3 +248,152 @@ async fn artifact_surface_leaves_tool_call_id_none_when_absent() {
     assert_eq!(ev.tool_call_id, None);
     assert_eq!(ev.turn_request_id, None);
 }
+
+/// Drain the web-channel receiver until an event with the given `event` name
+/// and `thread_id` arrives (the bus is process-wide, so unrelated events from
+/// other tests may interleave).
+async fn find_agent_web_event(
+    rx: &mut broadcast::Receiver<WebChannelEvent>,
+    event: &str,
+    thread_id: &str,
+) -> WebChannelEvent {
+    loop {
+        match rx.recv().await {
+            Ok(ev) if ev.event == event && ev.thread_id == thread_id => return ev,
+            Ok(_) => continue,
+            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(broadcast::error::RecvError::Closed) => {
+                panic!("web-channel bus closed before {event} arrived")
+            }
+        }
+    }
+}
+
+/// `ThreadGoalUpdated` bridges to `thread_goal_updated` carrying the full
+/// goal payload, with an empty `client_id` (goal, todo, and queue events are
+/// thread-scoped, not client-scoped — see `AgentSurfaceSubscriber`'s docs).
+#[tokio::test]
+async fn agent_surface_bridges_thread_goal_updated() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-goal-updated";
+    let goal = serde_json::json!({ "objective": "ship it", "status": "active" });
+    crate::core::bus::BUS.publish(DomainEvent::ThreadGoalUpdated {
+        thread_id: thread_id.to_string(),
+        goal_id: "goal-1".to_string(),
+        status: "active".to_string(),
+        goal: Some(goal.clone()),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "thread_goal_updated", thread_id).await;
+    assert_eq!(ev.client_id, "");
+    assert_eq!(ev.goal, Some(goal));
+}
+
+/// `ThreadGoalCleared` bridges to `thread_goal_cleared`.
+#[tokio::test]
+async fn agent_surface_bridges_thread_goal_cleared() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-goal-cleared";
+    crate::core::bus::BUS.publish(DomainEvent::ThreadGoalCleared {
+        thread_id: thread_id.to_string(),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "thread_goal_cleared", thread_id).await;
+    assert_eq!(ev.client_id, "");
+}
+
+/// `ThreadTodosChanged` bridges to `thread_todos_changed` carrying the todos
+/// snapshot.
+#[tokio::test]
+async fn agent_surface_bridges_thread_todos_changed() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-todos-changed";
+    let todos = serde_json::json!([{ "content": "write tests", "status": "in_progress" }]);
+    crate::core::bus::BUS.publish(DomainEvent::ThreadTodosChanged {
+        thread_id: thread_id.to_string(),
+        todos: todos.clone(),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "thread_todos_changed", thread_id).await;
+    assert_eq!(ev.todos, Some(todos));
+}
+
+/// `RunQueueMessageQueued` bridges to `queue_item_queued` with the item's id
+/// and preview, when present.
+#[tokio::test]
+async fn agent_surface_bridges_queue_item_queued() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-queue-queued";
+    crate::core::bus::BUS.publish(DomainEvent::RunQueueMessageQueued {
+        thread_id: thread_id.to_string(),
+        mode: "steer".to_string(),
+        queue_depth: 1,
+        item_id: Some("item-1".to_string()),
+        text_preview: Some("hello".to_string()),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "queue_item_queued", thread_id).await;
+    let item = ev.queue_item.expect("queue_item");
+    assert_eq!(item.id, "item-1");
+    assert_eq!(item.text_preview, Some("hello".to_string()));
+}
+
+/// A `RunQueueMessageQueued` with no `item_id` (not yet minted at the
+/// publish site) is not surfaced — the frontend has nothing stable to key on.
+#[tokio::test]
+async fn agent_surface_skips_queue_item_queued_without_item_id() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-queue-queued-no-id";
+    crate::core::bus::BUS.publish(DomainEvent::RunQueueMessageQueued {
+        thread_id: thread_id.to_string(),
+        mode: "steer".to_string(),
+        queue_depth: 1,
+        item_id: None,
+        text_preview: None,
+    });
+    // Follow with a distinct, surfaced event on the same thread so we can
+    // prove the loop reached past the skipped one instead of just timing out.
+    crate::core::bus::BUS.publish(DomainEvent::ThreadGoalCleared {
+        thread_id: thread_id.to_string(),
+    });
+    let ev = find_agent_web_event(&mut web_rx, "thread_goal_cleared", thread_id).await;
+    assert_eq!(ev.thread_id, thread_id);
+}
+
+/// `RunQueueMessageDelivered` bridges to `queue_item_delivered` carrying the
+/// lane in `queue_item.lane`.
+#[tokio::test]
+async fn agent_surface_bridges_queue_item_delivered_with_lane() {
+    crate::core::bus::init().await.expect("bus init");
+    let _handle = crate::core::bus::BUS.subscribe(Arc::new(AgentSurfaceSubscriber));
+    let mut web_rx = subscribe_web_channel_events();
+
+    let thread_id = "thread-queue-delivered";
+    crate::core::bus::BUS.publish(DomainEvent::RunQueueMessageDelivered {
+        thread_id: thread_id.to_string(),
+        mode: "collect".to_string(),
+        delivered: 1,
+        item_id: Some("item-2".to_string()),
+        text_preview: Some("context line".to_string()),
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "queue_item_delivered", thread_id).await;
+    let item = ev.queue_item.expect("queue_item");
+    assert_eq!(item.id, "item-2");
+    assert_eq!(item.lane, Some("collect".to_string()));
+}
