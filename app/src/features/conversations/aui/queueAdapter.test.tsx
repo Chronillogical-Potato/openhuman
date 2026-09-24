@@ -39,13 +39,14 @@ describe('buildOpenHumanQueueAdapter', () => {
     expect(adapter.steerItems).toEqual([]);
   });
 
-  it('sends both lanes through the host send path, which owns queue_mode', () => {
+  it('sends both lanes through the host send path, which owns queue_mode', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
 
     adapter.enqueue(append('idle send'));
     adapter.steer(append('send while running'));
 
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
     expect(send.mock.calls.map(([m]) => (m as AppendMessage).content)).toEqual([
       [{ type: 'text', text: 'idle send' }],
       [{ type: 'text', text: 'send while running' }],
@@ -57,8 +58,18 @@ describe('buildOpenHumanQueueAdapter', () => {
     const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
 
     expect(() => adapter.enqueue(append('x'))).not.toThrow();
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  });
+
+  it('hands the message to the host after the current task, not synchronously', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const adapter = buildOpenHumanQueueAdapter({ items: [], send, remove: vi.fn() });
+
+    adapter.steer(append('x'));
     await Promise.resolve();
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   });
 
   it('forwards removal and ignores move/edit, which the core queue cannot do', () => {

@@ -61,11 +61,17 @@ export function buildOpenHumanQueueAdapter({
 }): ExternalThreadQueueAdapter {
   const forward = (lane: 'enqueue' | 'steer') => (message: AppendMessage) => {
     log('[aui-queue] %s → host send', lane);
-    // The host send path reports its own failures (send-error banner); this
-    // only keeps a rejection from going unhandled.
-    send(message).catch((error: unknown) => {
-      log('[aui-queue] %s send failed: %s', lane, error instanceof Error ? error.message : error);
-    });
+    // One macrotask later, so the composer clear the runtime made just before
+    // calling us has reached the host draft first. The host restores a failed
+    // send by writing its draft back; a failure that landed before the clear
+    // (a disconnected socket fails at once) would be wiped out by it.
+    setTimeout(() => {
+      // The host reports its own failures (send-error banner); this only keeps
+      // a rejection from going unhandled.
+      send(message).catch((error: unknown) => {
+        log('[aui-queue] %s send failed: %s', lane, error instanceof Error ? error.message : error);
+      });
+    }, 0);
   };
   return {
     items: toQueueItemStates(items),

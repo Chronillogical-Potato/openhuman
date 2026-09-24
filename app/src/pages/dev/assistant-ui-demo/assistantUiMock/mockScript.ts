@@ -171,6 +171,33 @@ Both delegations are still working. Nothing about them blocks this turn, so I ca
       excerpt: '<MessagePrimitive.GroupedParts groupBy={groupPartByType({ … })}>',
     },
   },
+  // Exercises the `media_generate_image` toolkit entry
+  // (`elements-image-generation` while running, then the `image` element).
+  {
+    kind: 'tool',
+    toolName: 'media_generate_image',
+    args: { prompt: 'a minimalist line-art fox reading a book' },
+    runMs: 1600,
+    result: {
+      artifacts: [
+        {
+          type: 'image',
+          source_url: 'https://picsum.photos/seed/openhuman-demo/512',
+          artifact_id: 'demo-image-1',
+        },
+      ],
+    },
+  },
+
+  // Exercises the `generate_document` toolkit entry (`elements-artifact-card`).
+  {
+    kind: 'tool',
+    toolName: 'generate_document',
+    args: { title: 'Demo transcript summary', sections: ['Overview', 'Findings'] },
+    runMs: 1200,
+    result: { title: 'Demo transcript summary', path: 'artifacts/demo-transcript-summary.docx' },
+  },
+
   { kind: 'text', text: ANSWER },
 ];
 
