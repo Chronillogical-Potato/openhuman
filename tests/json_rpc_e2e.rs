@@ -2485,6 +2485,105 @@ async fn json_rpc_thread_labels_create_and_update() {
     rpc_join.abort();
 }
 
+/// `threads.goal_get` / `threads.todos_get` are the one-shot reads a client
+/// makes to hydrate the goal chip / todo drawer for a thread that has neither
+/// yet (both surfaces otherwise only stream live via `thread_goal_updated` /
+/// `thread_todos_changed`). `channel.web_queue_remove` on an id that isn't
+/// queued (no active turn at all, here) is a no-op, not an error — see C3.
+#[tokio::test]
+async fn json_rpc_thread_goal_and_todos_get_and_queue_remove_are_wired() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let create = post_json_rpc(
+        &rpc_base,
+        9101,
+        "openhuman.threads_create_new",
+        json!({}),
+    )
+    .await;
+    let create_outer = assert_no_jsonrpc_error(&create, "threads_create_new");
+    let thread_id = create_outer
+        .get("data")
+        .and_then(|d| d.get("id"))
+        .and_then(Value::as_str)
+        .expect("id in created thread")
+        .to_string();
+
+    // No goal / todos exist yet for a freshly created thread.
+    let goal = post_json_rpc(
+        &rpc_base,
+        9102,
+        "openhuman.threads_goal_get",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let goal_data = assert_no_jsonrpc_error(&goal, "threads_goal_get")
+        .get("data")
+        .expect("data envelope in goal_get response")
+        .clone();
+    assert!(
+        goal_data.get("goal").is_none_or(Value::is_null),
+        "a fresh thread has no goal: {goal_data}"
+    );
+
+    let todos = post_json_rpc(
+        &rpc_base,
+        9103,
+        "openhuman.threads_todos_get",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let todos_data = assert_no_jsonrpc_error(&todos, "threads_todos_get")
+        .get("data")
+        .expect("data envelope in todos_get response")
+        .clone();
+    assert_eq!(
+        todos_data
+            .get("todos")
+            .and_then(Value::as_array)
+            .expect("todos array"),
+        &Vec::<Value>::new(),
+        "a fresh thread has no todos: {todos_data}"
+    );
+
+    // No active turn on the thread, so removing any item id is a no-op.
+    let remove = post_json_rpc(
+        &rpc_base,
+        9104,
+        "openhuman.channel_web_queue_remove",
+        json!({
+            "client_id": "e2e-client",
+            "thread_id": thread_id,
+            "item_id": "no-such-item",
+        }),
+    )
+    .await;
+    let remove_data = assert_no_jsonrpc_error(&remove, "channel_web_queue_remove")
+        .get("data")
+        .expect("data envelope in queue_remove response")
+        .clone();
+    assert_eq!(remove_data.get("removed"), Some(&Value::Bool(false)));
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
 #[tokio::test]
 async fn json_rpc_plan_review_decide_unknown_and_invalid() {
     // The plan-review gate is in-memory and parks a live turn; over RPC we can
