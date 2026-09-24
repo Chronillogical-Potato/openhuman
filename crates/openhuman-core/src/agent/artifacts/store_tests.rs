@@ -313,6 +313,7 @@ async fn create_artifact_publishes_artifact_pending_event() {
         path,
         thread_id,
         client_id,
+        ..
     } = &mine[0]
     else {
         unreachable!("filter pinned us to ArtifactPending");
