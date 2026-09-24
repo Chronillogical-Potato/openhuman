@@ -143,6 +143,7 @@ pub(crate) async fn stage_spawn_parallel_workers_from_defs(
     parent: &ParentExecutionContext,
     action_root: Option<&Path>,
     parent_workspace_descriptor: Option<&WorkspaceDescriptor>,
+    parent_call_id: Option<&str>,
 ) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
     let mut immediate_results = Vec::new();
     let mut prepared = Vec::new();
