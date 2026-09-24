@@ -10,6 +10,11 @@ import { BrainIcon, FileIcon, ListChecksIcon, SparklesIcon, WorkflowIcon } from 
 import { useState } from 'react';
 
 import {
+  ComposerCommandItem,
+  ComposerMenu,
+  ComposerMenuItem,
+} from '../../components/assistant-ui/elements/composer';
+import {
   ConversationSearch,
   type SearchHit,
 } from '../../components/assistant-ui/elements/conversation-search';
