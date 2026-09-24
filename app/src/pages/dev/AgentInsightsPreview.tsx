@@ -122,11 +122,11 @@ export default function AgentInsightsPreview() {
         </header>
 
         <Section title="Running — names pulse while in progress, solid when done, coral on error">
-          <ToolTimelineBlock entries={RUNNING_ENTRIES} onViewSubagent={() => setPanelOpen(true)} />
+          <ToolTimelineAdapter entries={RUNNING_ENTRIES} onViewWholeRun={() => setPanelOpen(true)} />
         </Section>
 
         <Section title="Settled — all done (solid names)">
-          <ToolTimelineBlock entries={SETTLED_ENTRIES} onViewSubagent={() => setPanelOpen(true)} />
+          <ToolTimelineAdapter entries={SETTLED_ENTRIES} onViewWholeRun={() => setPanelOpen(true)} />
         </Section>
 
         <Section title="Agent Process Source panel">
