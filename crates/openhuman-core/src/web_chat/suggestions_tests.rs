@@ -142,7 +142,7 @@ async fn drops_silently_when_the_model_returns_garbage() {
         text: "I cannot comply with strict JSON today.".to_string(),
         calls: Arc::new(AtomicUsize::new(0)),
     }));
-    let mut rx = super::super::subscribe_web_channel_events();
+    let mut rx = subscribe_web_channel_events();
 
     let thread_id = "sugg-thread-garbage";
     generate_and_emit(
