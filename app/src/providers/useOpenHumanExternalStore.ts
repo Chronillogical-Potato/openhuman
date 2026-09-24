@@ -498,6 +498,35 @@ export function useOpenHumanExternalStore(
   const setMessages = useCallback(() => {}, []);
 
   /**
+   * Drop a message from the local cache only — there is no backend RPC to
+   * delete a persisted turn.
+   *
+   * Backs the vendored `StoppedRun` element's Discard action
+   * (`components/assistant-ui/thread.tsx`): the partial reply a stopped turn
+   * persists (`extraMetadata.stopped`, `Conversations.tsx`) is real content
+   * server-side, so this hides it from THIS client rather than erasing it —
+   * the same "never erases, only trims what the client reads" posture the
+   * transcript takes on compaction.
+   *
+   * Supplying `onDelete` at all is what the runtime checks FIRST
+   * (`ExternalStoreThreadRuntimeCore.deleteMessage`), ahead of the
+   * `setMessages`-based fallback that already made `capabilities.delete`
+   * true. That fallback filters its own internal repository and hands the
+   * result to `setMessages`, which above is a no-op — so without this, a
+   * `message.delete()` call would flash the message away and then restore it
+   * on the next render, since `messages` here is still bound to the
+   * unmodified Redux array. Reusing `truncateMessagesFrom` (the same local
+   * cache trim `onEdit`/`onReload` use) is what actually removes it.
+   */
+  const onDelete = useCallback(
+    (messageId: string) => {
+      if (!threadId) return;
+      dispatch(truncateMessagesFrom({ threadId, messageId, inclusive: true }));
+    },
+    [dispatch, threadId]
+  );
+
+  /**
    * Record the user's decision on the parked tool call.
    *
    * `optionId` is the core's own `decision` literal (see
