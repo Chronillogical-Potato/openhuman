@@ -76,7 +76,7 @@ describe('subMascotModelsFromTimeline', () => {
       }),
     ]);
 
-    expect(running?.activity).toBe('Using Read File');
+    expect(running?.activity).toBe('Using read file');
     expect(running?.face).toBe('thinking');
     // success and error are filtered out — only 1 model returned.
     expect(
@@ -133,7 +133,9 @@ describe('subMascotModelsFromTimeline', () => {
       }),
     ]);
 
-    expect(models[0].activity).toBe('Using Fetching');
+    // The label is already an activity; the old "Using " prefix made this
+    // "Using Fetching".
+    expect(models[0].activity).toBe('Reading webpage');
   });
 });
 

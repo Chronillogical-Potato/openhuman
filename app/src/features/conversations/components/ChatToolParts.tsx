@@ -213,7 +213,10 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
   return <GatedToolCall {...props} />;
 };
 
-const selectMessageParts = (state: AssistantState) => state.message.parts;
+const NO_PARTS: readonly never[] = [];
+// `optional`: a group rendered outside a message (tests, previews) has no
+// message scope, and reading `state.message` there throws.
+const selectMessageParts = (state: AssistantState) => state.optional.message?.parts ?? NO_PARTS;
 
 /**
  * The chat's tool timeline: a run of adjacent tool calls under assistant-ui's

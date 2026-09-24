@@ -168,7 +168,7 @@ describe('ChatToolParts', () => {
 
     expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent('Searched the web');
     await userEvent.click(screen.getByRole('button', { name: /Searched the web/ }));
-    expect(screen.getByText(/Lean open conjectures/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Lean open conjectures/).length).toBeGreaterThan(0);
     expect(screen.queryByText('Query', { exact: true })).not.toBeInTheDocument();
     expect(screen.getByText('Found 12 candidate problems')).toBeInTheDocument();
   });
@@ -189,12 +189,16 @@ describe('ChatToolParts', () => {
       />
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /Fetched from the web/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Read webpage/ }));
     expect(screen.getByRole('strong')).toHaveTextContent('Example Domain');
     expect(screen.queryByText('Content', { exact: true })).not.toBeInTheDocument();
   });
 
-  it('infers web search labels when a persisted tool name degraded to tool', () => {
+  // The old card called any call with a `query` argument "Searched the web",
+  // which mislabelled memory, tool and email searches. A call whose name
+  // degraded to `tool` is now labelled as what is known about it: an
+  // unnamed tool, with its query as the chip.
+  it('does not guess a web search from a query argument alone', () => {
     render(
       <ChatToolFallback
         type="tool-call"
@@ -210,7 +214,9 @@ describe('ChatToolParts', () => {
       />
     );
 
-    expect(screen.getByTestId('assistant-ui-tool-call')).toHaveTextContent('Searched the web');
-    expect(screen.getByTestId('assistant-ui-tool-call')).not.toHaveTextContent(/^Tool done$/);
+    const card = screen.getByTestId('assistant-ui-tool-call');
+    expect(card).not.toHaveTextContent('Searched the web');
+    expect(card).toHaveTextContent('Used tool');
+    expect(card).toHaveTextContent('latest world news');
   });
 });
