@@ -1,6 +1,7 @@
 import debug from 'debug';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { useFollowupSuggestionEvents } from '../features/conversations/aui/useFollowupSuggestionEvents';
 import { useRunQueueEvents } from '../features/conversations/aui/useRunQueueEvents';
 import { requestUsageRefresh } from '../hooks/usageRefresh';
 import { useRefetchSnapshotOnTurnEnd } from '../hooks/useRefetchSnapshotOnTurnEnd';
@@ -384,6 +385,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   const socketStatus = useAppSelector(selectSocketStatus);
   // The core's run queue (`queue_item_*`) → `queueSlice` → the composer queue.
   useRunQueueEvents(socketStatus === 'connected');
+  // The core's `chat_suggestions` → `followupSuggestionsSlice` → follow-up chips.
+  useFollowupSuggestionEvents(socketStatus === 'connected');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
