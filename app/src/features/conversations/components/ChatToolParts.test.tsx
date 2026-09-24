@@ -51,7 +51,7 @@ describe('ChatToolParts', () => {
     // as `running: false` and rendered with a success check — the transcript
     // reported a failure as a success.
     render(
-      <ChatToolFallback
+      <SubagentCall
         type="tool-call"
         toolName="task"
         toolCallId="sub-1"
@@ -75,7 +75,7 @@ describe('ChatToolParts', () => {
 
   it('keeps a completed delegation reading as completed', () => {
     render(
-      <ChatToolFallback
+      <SubagentCall
         type="tool-call"
         toolName="task"
         toolCallId="sub-1"
@@ -101,7 +101,7 @@ describe('ChatToolParts', () => {
     // settled part can still carry an in-flight activity. Hard-coding
     // `running: false` for any settled part froze that row into a success.
     render(
-      <ChatToolFallback
+      <SubagentCall
         type="tool-call"
         toolName="task"
         toolCallId="sub-1"
