@@ -8,7 +8,10 @@ import { useCallback } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import { decideApproval } from '../../../services/api/approvalApi';
-import { clearPendingApprovalForThread, type PendingApproval } from '../../../store/chatRuntimeSlice';
+import {
+  clearPendingApprovalForThread,
+  type PendingApproval,
+} from '../../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { ApprovalCardAdapter } from '../aui/ApprovalCardAdapter';
 import { ElicitationAdapter } from '../aui/ElicitationAdapter';
