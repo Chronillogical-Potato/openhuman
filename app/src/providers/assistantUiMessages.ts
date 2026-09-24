@@ -637,7 +637,9 @@ export function toThreadMessageLike(
     id: msg.id,
     role: msg.sender === 'agent' ? 'assistant' : 'user',
     content:
-      msg.sender === 'agent' ? assistantParts(text, effectiveTimeline, transcript) : userParts(msg),
+      msg.sender === 'agent'
+        ? assistantParts(text, effectiveTimeline, transcript, messageCitations(msg))
+        : userParts(msg),
     createdAt: new Date(msg.createdAt),
     ...(msg.sender === 'agent' && msg.extraMetadata?.stopped === true
       ? { status: { type: 'incomplete' as const, reason: 'cancelled' as const } }
