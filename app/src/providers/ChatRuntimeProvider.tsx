@@ -11,6 +11,7 @@ import { classifyReplyDeliveryFailure } from '../lib/userErrors/classify';
 import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
 import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposal';
 import {
+  type ChatApprovalDecidedEvent,
   type ChatApprovalRequestEvent,
   type ChatDoneEvent,
   type ChatInferenceHeartbeatEvent,
@@ -1316,9 +1317,31 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(
           setPendingPlanReviewForThread({
             threadId: event.thread_id,
-            review: { requestId: event.request_id, summary: event.message, steps },
+            review: {
+              requestId: event.request_id,
+              summary: event.message,
+              steps,
+              toolCallId: event.tool_call_id,
+              expiresAt: event.expires_at,
+            },
           })
         );
+      },
+      onThreadTodosChanged: (event: ChatThreadTodosChangedEvent) => {
+        rtLog('thread_todos_changed', { thread: event.thread_id, count: event.todos?.length ?? 0 });
+        dispatch(setThreadTodos({ threadId: event.thread_id, todos: event.todos ?? [] }));
+      },
+      onThreadGoalUpdated: (event: ChatThreadGoalUpdatedEvent) => {
+        rtLog('thread_goal_updated', { thread: event.thread_id, status: event.goal?.status });
+        dispatch(setThreadGoal({ threadId: event.thread_id, goal: event.goal }));
+      },
+      onThreadGoalCleared: (event: ChatThreadGoalClearedEvent) => {
+        rtLog('thread_goal_cleared', { thread: event.thread_id });
+        dispatch(clearThreadGoal({ threadId: event.thread_id }));
+      },
+      onRunModeChanged: (event: ChatRunModeChangedEvent) => {
+        rtLog('run_mode_changed', { thread: event.thread_id, mode: event.mode });
+        dispatch(setRunMode({ threadId: event.thread_id, mode: event.mode }));
       },
       onDone: event => {
         const eventKey = `done:${event.thread_id}:${event.request_id ?? 'none'}`;
