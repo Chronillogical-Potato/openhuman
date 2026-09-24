@@ -299,6 +299,7 @@ impl Drop for WaiterGuard<'_> {
 
 include!("gate_setup.rs");
 include!("gate_intercept.rs");
+include!("gate_intercept_decision.rs");
 include!("gate_state.rs");
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
