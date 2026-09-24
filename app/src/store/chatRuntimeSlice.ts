@@ -599,6 +599,31 @@ export interface PendingApproval {
    * identifier (not PII), so it survives arg redaction unchanged.
    */
   toolkit?: string;
+  /**
+   * The parked call's own tool-call id, when the core attached one
+   * (`ChatApprovalRequestEvent.tool_call_id`, additive wire field). Lets
+   * `assistantUiMessages.ts`'s `withApproval` attach the approval to the
+   * exact tool-call part it gates instead of the newest-unresolved-by-name
+   * heuristic. Absent on a core that has not landed the C2 approvals
+   * workstream.
+   */
+  toolCallId?: string;
+  /**
+   * RFC3339 timestamp the gate's TTL expires at
+   * (`ChatApprovalRequestEvent.expires_at`, additive wire field). Drives the
+   * expiry countdown on the approval card. Absent on an older core.
+   */
+  expiresAt?: string;
+  /**
+   * Terminal non-decision outcome recorded by the server
+   * (`approval_decided` socket event) — the gate's TTL expired, or the
+   * request was cancelled, with nobody answering interactively. Distinct
+   * from simply clearing the entry: keeping it around with a resolution
+   * lets the card show *why* it is gone for one more render before the
+   * turn-end handlers remove it. Mirrors assistant-ui's own
+   * `ToolCallMessagePart.approval.resolution` union.
+   */
+  resolution?: 'expired' | 'cancelled';
 }
 
 /**
