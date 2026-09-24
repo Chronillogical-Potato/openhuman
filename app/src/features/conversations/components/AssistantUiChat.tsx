@@ -74,8 +74,6 @@ export function AssistantUiChat({
   onAttachmentOnlySend,
   onOpenHumanMode,
   onSwitchToMicCloud,
-  onOpenSubagent,
-  canOpenSubagent,
 }: {
   model: string | null;
   modelContextWindow?: number | null;
