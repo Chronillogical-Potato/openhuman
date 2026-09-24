@@ -18,6 +18,15 @@
  *   is handled. A `tool_call` therefore always lands after the text that
  *   preceded it, which is the order the transcript records (and the order the
  *   parts render in).
+ *
+ * ## Redelivery is filtered before merging, not after
+ *
+ * The socket redelivers frames, and the provider drops a delta whose `seq` it
+ * has already applied. That check has to see every frame on its own: once two
+ * deltas are merged, a redelivered one inside the same frame is already part
+ * of the text. So the filter ({@link CoalesceOptions.accept}) runs at push
+ * time, and a merged delta carries its LAST frame's fields (its `seq`), which
+ * is the one a later redelivery must compare against.
  */
 
 export type DeltaChannel = 'content' | 'thinking';
@@ -93,7 +102,7 @@ export function createChatDeltaCoalescer<E extends CoalescibleDelta>(
       last.event.request_id === event.request_id &&
       last.event.round === event.round
     ) {
-      last.event = { ...last.event, delta: `${last.event.delta}${event.delta}` };
+      last.event = { ...event, delta: `${last.event.delta}${event.delta}` };
     } else {
       queue.push({ channel, event });
     }
@@ -108,6 +117,13 @@ type DeltaListeners<E extends CoalescibleDelta> = {
   onThinkingDelta?: (event: E) => void;
 };
 
+export interface CoalesceOptions<E extends CoalescibleDelta> {
+  /** When to flush; one animation frame by default. */
+  schedule?: FlushScheduler;
+  /** Drop a delta before it is merged (e.g. a redelivered `seq`). */
+  accept?: (event: E) => boolean;
+}
+
 /**
  * Wrap a chat listener set so text/thinking deltas are coalesced per frame and
  * every other listener flushes them first (see the ordering note above).
@@ -115,7 +131,7 @@ type DeltaListeners<E extends CoalescibleDelta> = {
  */
 export function withCoalescedDeltas<E extends CoalescibleDelta, L extends DeltaListeners<E>>(
   listeners: L,
-  schedule: FlushScheduler = frameScheduler
+  { schedule = frameScheduler, accept }: CoalesceOptions<E> = {}
 ): { listeners: L; dispose: () => void } {
   const coalescer = createChatDeltaCoalescer<E>((channel, event) => {
     if (channel === 'content') listeners.onTextDelta?.(event);
@@ -128,9 +144,13 @@ export function withCoalescedDeltas<E extends CoalescibleDelta, L extends DeltaL
       continue;
     }
     if (name === 'onTextDelta') {
-      wrapped[name] = (event: E) => coalescer.push('content', event);
+      wrapped[name] = (event: E) => {
+        if (!accept || accept(event)) coalescer.push('content', event);
+      };
     } else if (name === 'onThinkingDelta') {
-      wrapped[name] = (event: E) => coalescer.push('thinking', event);
+      wrapped[name] = (event: E) => {
+        if (!accept || accept(event)) coalescer.push('thinking', event);
+      };
     } else {
       wrapped[name] = (...args: unknown[]) => {
         coalescer.flush();

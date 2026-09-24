@@ -701,6 +701,49 @@ export function streamingTailMessage(
   };
 }
 
+const settledStatusCache = new WeakMap<
+  readonly ToolTimelineEntry[],
+  { settled: readonly ToolTimelineEntry[]; merged: readonly ToolTimelineEntry[] }
+>();
+
+/**
+ * A frozen live trail, with each still-running row settled from the core
+ * projection's row of the same id.
+ *
+ * `chat_done` does not invent a status for a row that has no result yet; the
+ * core projection settles it (to its real status, or `cancelled`). The frozen
+ * trail keeps the live row ids — which is what keeps every card mounted — so
+ * only status, result and failure are taken over, never the row. Sub-agent
+ * rows carry different ids on the two sides and are left to their own events.
+ * Returns the frozen array itself when nothing changes, so the conversion
+ * cache keeps hitting.
+ */
+function withSettledStatuses(
+  frozen: readonly ToolTimelineEntry[],
+  settled: readonly ToolTimelineEntry[] | undefined
+): readonly ToolTimelineEntry[] {
+  if (!settled || !frozen.some(entry => isActiveTimelineStatus(entry.status))) return frozen;
+  const cached = settledStatusCache.get(frozen);
+  if (cached?.settled === settled) return cached.merged;
+  const byId = new Map(settled.map(entry => [entry.id, entry]));
+  let changed = false;
+  const merged = frozen.map(entry => {
+    if (!isActiveTimelineStatus(entry.status)) return entry;
+    const final = byId.get(entry.id);
+    if (!final || isActiveTimelineStatus(final.status)) return entry;
+    changed = true;
+    return {
+      ...entry,
+      status: final.status,
+      result: final.result ?? entry.result,
+      failure: final.failure ?? entry.failure,
+    };
+  });
+  const result = changed ? merged : frozen;
+  settledStatusCache.set(frozen, { settled, merged: result });
+  return result;
+}
+
 export type AssistantUiProjection = {
   /** Whether the synthetic live tail has an active core turn driving it. */
   isRunning?: boolean;
@@ -806,7 +849,14 @@ export function buildRuntimeMessages(
     if (hiddenLiveRequestId !== undefined && requestId === hiddenLiveRequestId) continue;
     const frozen = requestId ? projection.settledTurns?.[requestId] : undefined;
     if (frozen) {
-      out.push(toThreadMessageLike(msg, frozen.timeline, frozen.transcript));
+      const settledRows = requestId ? projection.turnTimelines?.[requestId] : undefined;
+      out.push(
+        toThreadMessageLike(
+          msg,
+          withSettledStatuses(frozen.timeline, settledRows),
+          frozen.transcript
+        )
+      );
       continue;
     }
     const effectiveRequestId =

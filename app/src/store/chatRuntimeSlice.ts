@@ -1387,11 +1387,16 @@ const chatRuntimeSlice = createSlice({
           : (toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`);
       if (existingIdx >= 0) {
         const prev = entries[existingIdx];
+        // A settled row stays settled. A replayed/late `tool_call` for a call
+        // whose result already landed used to flip it back to `running`, and
+        // nothing would ever settle it again.
+        const settled =
+          prev.status === 'success' || prev.status === 'error' || prev.status === 'cancelled';
         entries[existingIdx] = decorateEntry({
           ...prev,
           name: toolName,
           round,
-          status: 'running',
+          status: settled ? prev.status : 'running',
           argsBuffer: prev.argsBuffer ?? argsBuffer,
           displayName: displayLabel ?? prev.displayName,
           detail: displayDetail ?? prev.detail,
@@ -1869,6 +1874,26 @@ const chatRuntimeSlice = createSlice({
       if (entry.subagent) entry.subagent.status = 'cancelled';
     },
     /**
+     * Settle rows whose terminal turn snapshot could not be fetched.
+     *
+     * `chat_done` means their event driver has stopped. A non-async row still
+     * marked `running` therefore has no remaining source that can truthfully
+     * complete it, while detached sub-agents intentionally outlive the parent
+     * turn and must remain owned by their run ledger.
+     */
+    cancelUnresolvedTurnTimeline: (
+      state,
+      action: PayloadAction<{ threadId: string; rowIds?: string[] }>
+    ) => {
+      const { threadId, rowIds } = action.payload;
+      const entries = state.toolTimelineByThread[threadId];
+      if (!entries) return;
+      const eligible = rowIds && new Set(rowIds);
+      state.toolTimelineByThread[threadId] = entries.map(entry =>
+        !eligible || eligible.has(entry.id) ? settleOrphanedTimelineEntry(entry) : entry
+      );
+    },
+    /**
      * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`
      * chunk to the ordered transcript of the matching subagent row. The row
      * is located by its synthetic id (`<thread>:subagent:<taskId>:<agentId>`)
@@ -2219,9 +2244,8 @@ const chatRuntimeSlice = createSlice({
      * rows while its tail is minted), so ending the tail and revealing the row
      * happen in the same render, at the same index, with the same parts:
      *
-     * - the live rows and transcript are frozen under the turn's request id
-     *   (running rows settled to `success`: `chat_done` means the turn
-     *   finished), which is what the settled message renders from;
+     * - the live rows and transcript are frozen under the turn's request id,
+     *   which is what the settled message renders from;
      * - the streaming buffer, status line, parked gates and live-turn id are
      *   cleared;
      * - the lifecycle ends, so the tail is no longer minted.
@@ -2248,9 +2272,11 @@ const chatRuntimeSlice = createSlice({
       }
       const requestId = action.payload.requestId ?? live;
       if (requestId) {
-        const timeline = (state.toolTimelineByThread[threadId] ?? []).map(entry =>
-          entry.status === 'running' ? { ...entry, status: 'success' as const } : entry
-        );
+        // Rows are frozen as they are: one still running at `chat_done` has no
+        // result, and inventing `success` for it is the wrong answer. The core
+        // projection's terminal status for the same row id is overlaid at
+        // render (`buildRuntimeMessages`), which keeps the row's identity.
+        const timeline = [...(state.toolTimelineByThread[threadId] ?? [])];
         const transcript = state.processingByThread[threadId] ?? [];
         if (timeline.length > 0 || transcript.length > 0) {
           const turns = (state.settledTurnsByThread[threadId] ??= {});
@@ -2652,6 +2678,7 @@ export const {
   clearProcessingForThread,
   appendProcessingProse,
   markSubagentCancelled,
+  cancelUnresolvedTurnTimeline,
   appendSubagentStreamDelta,
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,

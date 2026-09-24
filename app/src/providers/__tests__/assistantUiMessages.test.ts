@@ -220,6 +220,35 @@ describe('buildRuntimeMessages', () => {
     ]);
   });
 
+  it('settles a frozen trail’s running row from the core projection, keeping its id', () => {
+    const answer = msg({
+      id: 'answer',
+      sender: 'agent',
+      content: 'Done.',
+      extraMetadata: { requestId: 'req-f' },
+    });
+    const frozenTimeline = [tool({ id: 'call-1', status: 'running' })];
+    const frozenTranscript = [{ kind: 'toolCall' as const, round: 1, seq: 0, callId: 'call-1' }];
+    const build = (settledRows?: ReturnType<typeof tool>[]) =>
+      buildRuntimeMessages([answer], null, {
+        isRunning: false,
+        settledTurns: { 'req-f': { timeline: frozenTimeline, transcript: frozenTranscript } },
+        ...(settledRows ? { turnTimelines: { 'req-f': settledRows } } : {}),
+      })[0]?.content;
+
+    const before = build();
+    const toolBefore = Array.isArray(before) ? before[0] : undefined;
+    expect(toolBefore).toMatchObject({ toolCallId: 'call-1' });
+    expect(toolBefore && 'result' in toolBefore ? toolBefore.result : undefined).toBeUndefined();
+
+    const after = build([tool({ id: 'call-1', status: 'cancelled' })]);
+    const toolAfter = Array.isArray(after) ? after[0] : undefined;
+    expect(toolAfter).toMatchObject({
+      toolCallId: 'call-1',
+      result: expect.objectContaining({ status: 'cancelled' }),
+    });
+  });
+
   it('never renders the answer twice when a transcript records it as narration', () => {
     // An older core projects a prompt-guided turn's answer as an interim step
     // with every call after it. The answer must still render once, last.

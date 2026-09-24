@@ -100,7 +100,7 @@ describe('withCoalescedDeltas', () => {
         onTextDelta: (event: CoalescibleDelta) => order.push(`text:${event.delta}`),
         onToolCall: () => order.push('tool_call'),
       },
-      frames.schedule
+      { schedule: frames.schedule }
     );
 
     listeners.onTextDelta?.(delta({ delta: 'Let me ' }));
@@ -113,10 +113,41 @@ describe('withCoalescedDeltas', () => {
   it('dispose delivers whatever is still queued', () => {
     const frames = manualScheduler();
     const onThinkingDelta = vi.fn();
-    const { listeners, dispose } = withCoalescedDeltas({ onThinkingDelta }, frames.schedule);
+    const { listeners, dispose } = withCoalescedDeltas(
+      { onThinkingDelta },
+      { schedule: frames.schedule }
+    );
 
     listeners.onThinkingDelta?.(delta({ delta: 'hmm' }));
     dispose();
     expect(onThinkingDelta).toHaveBeenCalledWith(delta({ delta: 'hmm' }));
+  });
+
+  it('filters redelivered frames before merging, and the merge carries the last seq', () => {
+    const frames = manualScheduler();
+    const onTextDelta = vi.fn();
+    let lastSeq = 0;
+    const { listeners } = withCoalescedDeltas<
+      CoalescibleDelta & { seq: number },
+      { onTextDelta: typeof onTextDelta }
+    >(
+      { onTextDelta },
+      {
+        schedule: frames.schedule,
+        accept: event => {
+          if (event.seq <= lastSeq) return false;
+          lastSeq = event.seq;
+          return true;
+        },
+      }
+    );
+
+    listeners.onTextDelta({ ...delta({ delta: 'Hel' }), seq: 1 });
+    listeners.onTextDelta({ ...delta({ delta: 'lo' }), seq: 2 });
+    listeners.onTextDelta({ ...delta({ delta: 'Hel' }), seq: 1 }); // redelivery, same frame
+    frames.frame();
+
+    expect(onTextDelta).toHaveBeenCalledTimes(1);
+    expect(onTextDelta).toHaveBeenCalledWith(expect.objectContaining({ delta: 'Hello', seq: 2 }));
   });
 });

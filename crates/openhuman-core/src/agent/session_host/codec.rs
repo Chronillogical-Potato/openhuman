@@ -11,7 +11,7 @@ use crate::agent::{
 };
 use tinyagents_runtime::{RuntimeError, TranscriptCodec, TranscriptTurnOptions};
 use tinyagents_session::transcript::{
-    MessageUsage, SessionTranscript, ToolFailure, TranscriptMessage, TranscriptToolCall, TurnUsage,
+    MessageUsage, SessionTranscript, ToolFailure, TranscriptMessage, TurnUsage,
 };
 use tinyinference_llm::message::Message;
 
@@ -164,16 +164,17 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
             },
             ts: chrono::Utc::now().to_rfc3339(),
             reasoning_content: None,
-            tool_calls: sidecar
-                .tool_outcomes
-                .iter()
-                .map(|outcome| TranscriptToolCall {
-                    id: outcome.call_id.clone(),
-                    name: outcome.name.clone(),
-                    arguments: outcome.arguments.to_string(),
-                    extra_content: None,
-                })
-                .collect(),
+            // Deliberately empty. `TurnUsage` lands on the turn's *final*
+            // assistant row, and the transcript writer falls back to
+            // `tool_calls` here for any assistant row whose own content is not
+            // a native tool-call envelope — i.e. the plain-text final answer.
+            // Filling it with every outcome of the turn wrote each tool call a
+            // second time onto that answer, so a reader projected the answer
+            // as an interim step followed by duplicate, never-settled tool
+            // rows (which also mis-paired later FIFO results). Each call is
+            // already recorded, once, in the envelope of the assistant row
+            // that issued it.
+            tool_calls: Vec::new(),
             iteration: sidecar.model_calls.min(u32::MAX as usize) as u32,
         }))
     }

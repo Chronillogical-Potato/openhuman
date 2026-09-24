@@ -151,10 +151,12 @@ describe('turnSettled', () => {
       }),
     ]);
 
-  it('freezes the live trail under the request id, running rows settled', () => {
+  it('freezes the live trail under the request id, without inventing an outcome', () => {
     const settled = reducer(live(), turnSettled({ threadId: T, requestId: 'req-1' }));
     const frozen = settled.settledTurnsByThread[T]?.['req-1'];
-    expect(frozen?.timeline.map(row => [row.id, row.status])).toEqual([['call-a', 'success']]);
+    // A row with no result at `chat_done` stays running; the core projection's
+    // terminal status is overlaid at render (`buildRuntimeMessages`).
+    expect(frozen?.timeline.map(row => [row.id, row.status])).toEqual([['call-a', 'running']]);
     expect(frozen?.transcript.map(item => item.kind)).toEqual(['toolCall', 'narration']);
   });
 

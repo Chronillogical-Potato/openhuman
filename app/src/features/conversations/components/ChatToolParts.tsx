@@ -3,14 +3,8 @@ import {
   type ToolCallMessagePartComponent,
   useAui,
 } from '@assistant-ui/react';
-import { type FC, type PropsWithChildren, useCallback } from 'react';
+import { useCallback } from 'react';
 
-import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
-import {
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-} from '../../../components/assistant-ui/tool-group';
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
@@ -210,18 +204,4 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
   if (!isApprovalPending(props.approval)) return <OpenHumanToolCall {...props} />;
   if (props.toolName === COMPOSIO_CONNECT_TOOL) return <ComposioConnectCall {...props} />;
   return <GatedToolCall {...props} />;
-};
-
-/** Keep the assistant-ui tool cards visible; each card owns its detail collapse. */
-export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = ({
-  group,
-  children,
-}) => {
-  const running = group.status.type === 'running';
-  return (
-    <ToolGroupRoot variant="ghost" defaultOpen>
-      <ToolGroupTrigger count={group.indices.length} active={running} />
-      <ToolGroupContent>{children}</ToolGroupContent>
-    </ToolGroupRoot>
-  );
 };
