@@ -150,11 +150,20 @@ async fn image_tool_files_each_generated_file_as_an_artifact() {
         .count();
     assert_eq!(staged, 0, "generated file should have been moved");
 
-    // ...and the file now lives under the artifact store.
+    // ...and the file now lives under the artifact store, alongside the
+    // `meta.json` record `create_artifact_for_call` writes.
     let workspace = dir.path().join("workspace");
     let artifact_dir = workspace.join("artifacts").join(artifact_id);
-    let saved = std::fs::read_dir(&artifact_dir).unwrap().count();
-    assert_eq!(saved, 1, "expected the moved file under {artifact_dir:?}");
+    let entries: Vec<String> = std::fs::read_dir(&artifact_dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(entries.contains(&"meta.json".to_string()), "{entries:?}");
+    assert_eq!(
+        entries.len(),
+        2,
+        "expected meta.json + the moved media file under {artifact_dir:?}, got {entries:?}"
+    );
 }
 
 #[tokio::test]
