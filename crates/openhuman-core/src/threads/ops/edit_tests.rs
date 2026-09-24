@@ -206,7 +206,3 @@ fn truncate_transcript_for_regenerate_returns_none_when_no_turn_exists() {
         truncate_transcript_for_regenerate(dir.path(), thread_id, None).expect("truncate");
     assert_eq!(result, None, "no user/assistant turn to regenerate");
 }
-
-#[cfg(test)]
-#[path = "edit_turn_state_tests.rs"]
-mod turn_state_and_reply_lookup;

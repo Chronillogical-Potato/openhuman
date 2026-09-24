@@ -328,7 +328,7 @@ async fn chat_done_carries_timing_when_a_snapshot_is_supplied() {
         context_window: 8000,
         subagents: Vec::new(),
     };
-    let timing = super::turn_timing::TurnTimingSnapshot {
+    let timing = crate::web_chat::turn_timing::TurnTimingSnapshot {
         first_token_ms: Some(120),
         first_tool_ms: None,
         total_ms: Some(2000),
