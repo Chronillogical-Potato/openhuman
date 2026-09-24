@@ -1430,7 +1430,10 @@ const AssistantMessage: FC = () => {
               case 'group-source':
                 return SourceGroup ? <SourceGroupSlot Component={SourceGroup} /> : null;
               case 'text':
-                return <MarkdownText />;
+                // A stopped/cancelled turn's text renders once, inside
+                // `StoppedRunSlot` below (as `words`), not here — see that
+                // component's docstring.
+                return stopped ? null : <MarkdownText />;
               case 'reasoning':
                 // A step inside the activity group, not a disclosure of its own.
                 return (
