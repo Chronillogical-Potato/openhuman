@@ -169,7 +169,12 @@ describe('useMentionSource', () => {
   });
 
   it('treats a failed recall as no memory hits', async () => {
-    vi.mocked(callCoreRpc).mockRejectedValue(new Error('memory tree disabled'));
+    vi.mocked(callCoreRpc).mockImplementation(async request => {
+      if (request?.method === 'openhuman.memory_tree_recall') {
+        throw new Error('memory tree disabled');
+      }
+      return {} as never;
+    });
     const { result } = setup();
     act(() => result.current.aui.composer.setText('@roadmap'));
     await waitFor(() => expect(callCoreRpc).toHaveBeenCalled());
