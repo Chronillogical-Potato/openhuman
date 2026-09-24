@@ -31,7 +31,8 @@ const SKILL: CoreCommand = {
 };
 
 function rpcByMethod(responses: Record<string, unknown>) {
-  vi.mocked(callCoreRpc).mockImplementation(async ({ method }) => {
+  vi.mocked(callCoreRpc).mockImplementation(async request => {
+    const method = request?.method ?? '';
     if (method in responses) {
       const value = responses[method];
       if (value instanceof Error) throw value;
