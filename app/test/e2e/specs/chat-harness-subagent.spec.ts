@@ -135,7 +135,13 @@ async function snapshotRuntime(threadId: string): Promise<RuntimeSnapshot> {
 
 async function hasRenderedSubagentTimeline(): Promise<boolean> {
   return (await browser.execute(() => {
-    const rows = Array.from(document.querySelectorAll('[data-testid="agent-timeline-row"]'));
+    // The assistant-ui transcript renders a delegation as a sub-agent card and
+    // any other tool as a tool-call card.
+    const rows = Array.from(
+      document.querySelectorAll(
+        '[data-testid="assistant-ui-subagent-call"], [data-testid="assistant-ui-tool-call"]'
+      )
+    );
     return rows.some(row => {
       const text = row.textContent ?? '';
       return /Research|Researching|subagent/i.test(text);
