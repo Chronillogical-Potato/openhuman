@@ -546,7 +546,7 @@ pub async fn create_artifact_for_call(
         thread_id,
         client_id,
         tool_call_id: meta.tool_call_id.clone(),
-        request_id: None,
+        request_id,
     });
 
     Ok((meta, absolute_path))
