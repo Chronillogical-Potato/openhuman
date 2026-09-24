@@ -172,6 +172,13 @@ export type ThreadComponents = {
    * builder turns rather than chat turns.
    */
   Composer?: ComponentType | undefined;
+  /**
+   * Host-owned trigger pickers (`/` commands, `@` mentions), mounted inside the
+   * composer's `Unstable_TriggerPopoverRoot` in place of the built-in `/`
+   * popover fed by `slashCommands`. A component for the same reason the other
+   * slots are: its sources are host behaviour this file should not learn.
+   */
+  ComposerTriggers?: ComponentType | undefined;
 };
 
 export type ThreadProps = {
@@ -844,6 +851,7 @@ const Composer: FC<{
   const {
     ComposerHeader,
     ComposerAttachments: HostComposerAttachments,
+    ComposerTriggers: HostComposerTriggers,
     onComposerFiles,
     canAcceptComposerFiles,
   } = useContext(ThreadComponentsContext);
@@ -1061,8 +1069,12 @@ const Composer: FC<{
           </div>
         </ComposerPrimitive.AttachmentDropzone>
 
-        {commands.length > 0 && (
-          <ComposerTriggerPopover char="/" {...slash} emptyItemsLabel="No matching commands" />
+        {HostComposerTriggers ? (
+          <HostComposerTriggers />
+        ) : (
+          commands.length > 0 && (
+            <ComposerTriggerPopover char="/" {...slash} emptyItemsLabel="No matching commands" />
+          )
         )}
       </ComposerPrimitive.Root>
     </ComposerPrimitive.Unstable_TriggerPopoverRoot>
