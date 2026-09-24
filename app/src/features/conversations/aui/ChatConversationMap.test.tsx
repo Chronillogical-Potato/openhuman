@@ -20,7 +20,7 @@ import { AssistantUiChat } from '../components/AssistantUiChat';
 const THREAD_ID = 't-map';
 
 function userMessage(id: string, content: string, createdAt: string): ThreadMessage {
-  return { id, content, type: 'text', extraMetadata: {}, sender: 'human', createdAt };
+  return { id, content, type: 'text', extraMetadata: {}, sender: 'user', createdAt };
 }
 
 function agentMessage(id: string, content: string, createdAt: string): ThreadMessage {

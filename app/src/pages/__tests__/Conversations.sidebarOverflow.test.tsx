@@ -24,9 +24,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
+import runModeReducer from '../../store/runModeSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
+import threadGoalReducer from '../../store/threadGoalSlice';
 import threadReducer from '../../store/threadSlice';
+import threadTodosReducer from '../../store/threadTodosSlice';
 import type { Thread } from '../../types/thread';
 
 // ── Hoisted mock state ─────────────────────────────────────────────────────
