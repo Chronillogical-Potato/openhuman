@@ -110,7 +110,13 @@ fn schemas_expose_the_reference_standards() {
 }
 
 #[tokio::test]
-async fn image_tool_saves_under_generated_media_in_the_action_dir() {
+async fn image_tool_files_each_generated_file_as_an_artifact() {
+    // The `media_generate_image` tool is wrapped in a `MediaArtifactTool`
+    // (`super::artifact_tool`) which relocates every file the inner
+    // `GenerateImageTool` writes under `<action_dir>/generated-media/` into
+    // the artifact store under `<workspace_dir>/artifacts/<id>/` and tags
+    // the result entry with `artifact_id`, so nothing is left behind in
+    // `generated-media` and the artifact directory holds the file instead.
     let dir = tempfile::tempdir().unwrap();
     let tools = tools(dir.path());
     let result = by_name(&tools, IMAGE_TOOL_NAME)
@@ -118,10 +124,37 @@ async fn image_tool_saves_under_generated_media_in_the_action_dir() {
         .await
         .unwrap();
     assert!(!result.is_error, "{result:?}");
-    let saved = std::fs::read_dir(dir.path().join("generated-media"))
+
+    let payload = result
+        .content
+        .iter()
+        .find_map(|block| match block {
+            tinytools::ToolContent::Json { data } => Some(data.clone()),
+            _ => None,
+        })
+        .expect("json content block");
+    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
+    assert_eq!(artifacts.len(), 1);
+    let artifact_id = artifacts[0]["artifact_id"]
+        .as_str()
+        .expect("artifact_id set on the entry");
+    assert!(
+        artifacts[0].get("artifact_error").is_none(),
+        "{:?}",
+        artifacts[0]
+    );
+
+    // Nothing left behind in the raw generated-media staging dir...
+    let staged = std::fs::read_dir(dir.path().join("generated-media"))
         .unwrap()
         .count();
-    assert_eq!(saved, 1);
+    assert_eq!(staged, 0, "generated file should have been moved");
+
+    // ...and the file now lives under the artifact store.
+    let workspace = dir.path().join("workspace");
+    let artifact_dir = workspace.join("artifacts").join(artifact_id);
+    let saved = std::fs::read_dir(&artifact_dir).unwrap().count();
+    assert_eq!(saved, 1, "expected the moved file under {artifact_dir:?}");
 }
 
 #[tokio::test]
