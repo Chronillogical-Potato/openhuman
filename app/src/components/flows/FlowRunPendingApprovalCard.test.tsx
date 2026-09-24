@@ -58,7 +58,7 @@ describe('FlowRunPendingApprovalCard', () => {
     render(<FlowRunPendingApprovalCard approval={APPROVAL} deciding={false} onDecide={onDecide} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Always allow' }));
-    expect(screen.getByText('Approved, running')).toBeInTheDocument();
+    expect(screen.getByText('Working…')).toBeInTheDocument();
   });
 
   it('disables every action when already deciding on first render (external busy flag)', () => {
