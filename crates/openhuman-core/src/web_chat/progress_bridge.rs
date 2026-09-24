@@ -1019,6 +1019,7 @@ pub(crate) fn spawn_progress_bridge(
                     worker_thread_id,
                     checkpoint_path,
                 } => {
+                    let parent_call_id = subagent_parent_call_ids.get(&task_id).cloned().flatten();
                     log::debug!(
                         "[web_channel][bridge] subagent_awaiting_user agent_id={} task_id={} client_id={} thread_id={} request_id={}",
                         agent_id,
