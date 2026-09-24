@@ -227,6 +227,9 @@ export default function ToolCallGallery() {
   const [searchQuery, setSearchQuery] = useState('deploy');
   const [searchActive, setSearchActive] = useState(0);
   const [citationOpen, setCitationOpen] = useState<number | null>(null);
+  const [connectionPhase, setConnectionPhase] = useState<(typeof MOCK_CONNECTION_PHASES)[number]>(
+    MOCK_CONNECTION_PHASES[0]
+  );
   return (
     <div className="bg-background text-foreground min-h-screen overflow-auto p-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-10">
