@@ -1,11 +1,11 @@
+import type { RunMode } from '../../store/runModeSlice';
+
 type ComposerSendBlockReason =
   | 'empty_input'
   | 'missing_thread'
   | 'composer_blocked'
   | 'usage_limit_reached'
   | 'socket_disconnected';
-
-import type { RunMode } from '../../store/runModeSlice';
 
 export type SlashCommandDecision =
   | { kind: 'new_or_clear' }
