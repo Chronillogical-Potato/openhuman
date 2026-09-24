@@ -307,7 +307,10 @@ export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; 
   // The harness discovery bridge: `tool_call {name, arguments}` runs a deferred
   // tool (usually a Composio action the orchestrator found with `tool_search`).
   // Label the tool it ran, not the bridge.
-  const bridged = entry.name === 'tool_call' ? parsedArgs?.name?.trim() : undefined;
+  const bridged =
+    entry.name === 'tool_call' && typeof parsedArgs?.name === 'string'
+      ? parsedArgs.name.trim()
+      : undefined;
   if (bridged && bridged !== 'tool_call') {
     return formatTimelineEntry({
       ...entry,
@@ -506,7 +509,9 @@ export function extractAgentSources(entries: ToolTimelineEntry[]): AgentSource[]
   const sources: AgentSource[] = [];
   for (const entry of entries) {
     const baseName = entry.name.replace(/^subagent:/, '');
-    if (!URL_SOURCE_TOOLS.has(baseName)) continue;
+    // An attempted request is not a source. Do not represent a failed,
+    // cancelled, or still-running fetch as a page the agent visited.
+    if (entry.status !== 'success' || !URL_SOURCE_TOOLS.has(baseName)) continue;
     const url = parseToolArgs(entry.argsBuffer)?.url?.trim();
     // `url` is the raw tool-call argument the model emitted — it is
     // prompt-injection-influenceable and not guaranteed to be a real web

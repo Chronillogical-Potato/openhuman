@@ -35,10 +35,7 @@ import { AssistantUiInferenceStatus } from '../../features/conversations/compone
 import { ChatSources } from '../../features/conversations/components/aui/ChatSources';
 import { SubagentDrawerHost } from '../../features/conversations/components/aui/subagentDrawerHost';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
-import {
-  ChatToolFallback,
-  ChatToolGroup,
-} from '../../features/conversations/components/ChatToolParts';
+import { ChatToolFallback } from '../../features/conversations/components/ChatToolParts';
 import { useChatSurfaceRegistration } from '../../features/conversations/hooks/useChatSurfaceRegistration';
 import { useWorkflowBuilderChat } from '../../hooks/useWorkflowBuilderChat';
 import { diffGraphs } from '../../lib/flows/graphDiff';
@@ -682,7 +679,6 @@ export default function WorkflowCopilotPanel({
   const components = useMemo<ThreadComponents>(
     () => ({
       ToolFallback: ChatToolFallback,
-      ToolGroup: ChatToolGroup,
       RunningStatus: AssistantUiInferenceStatus,
       SourceGroup: ChatSources,
       Welcome: CopilotWelcome,

@@ -13,6 +13,8 @@ pub mod bus;
 pub mod bus_testing;
 pub mod cli;
 pub mod cli_capability;
+#[cfg(feature = "http-server")]
+pub mod dev_connect;
 pub mod dispatch;
 pub mod event_bind_tokens;
 pub mod events;

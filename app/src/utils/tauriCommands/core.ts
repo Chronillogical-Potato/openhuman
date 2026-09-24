@@ -276,9 +276,11 @@ export async function resetOpenHumanDataAndRestartCore(userId?: string | null): 
   console.debug('[core] resetOpenHumanDataAndRestartCore: done');
 }
 
-/** Read onboarding_completed from core config. */
+/**
+ * Read onboarding_completed from core config. Plain core RPC, so the browser
+ * build (no Tauri) reads the same flag instead of reporting `false`.
+ */
 export async function getOnboardingCompleted(): Promise<boolean> {
-  if (!isTauri()) return false;
   const res = await callCoreRpc<boolean | { result: boolean }>({
     method: 'openhuman.config_get_onboarding_completed',
   });
@@ -288,9 +290,12 @@ export async function getOnboardingCompleted(): Promise<boolean> {
   return false;
 }
 
-/** Write onboarding_completed to core config. */
+/**
+ * Write onboarding_completed to core config. Not Tauri-gated: in the browser
+ * build a gate here made completion never persist, so onboarding replayed on
+ * every reload.
+ */
 export async function setOnboardingCompleted(value: boolean): Promise<boolean> {
-  if (!isTauri()) return false;
   const res = await callCoreRpc<boolean | { result: boolean }>({
     method: 'openhuman.config_set_onboarding_completed',
     params: { value },

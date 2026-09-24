@@ -3,6 +3,7 @@ import { type EventData, EVENTS, Joyride, STATUS } from 'react-joyride';
 import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
+import { DEV_SKIP_ONBOARDING } from '../../utils/config';
 import { createWalkthroughSteps } from './walkthroughSteps';
 import WalkthroughTooltip from './WalkthroughTooltip';
 
@@ -22,6 +23,10 @@ const WALKTHROUGH_PENDING_KEY = 'openhuman:walkthrough_pending';
  * (e.g., in private-browsing mode or when storage is full/blocked).
  */
 export function isWalkthroughPending(userIsOnboarded = false): boolean {
+  // Dev browser sessions (`VITE_DEV_SKIP_ONBOARDING`) skip the tour too; its
+  // completion lives in this origin's localStorage, so a fresh DevTools
+  // profile would otherwise replay it on every run.
+  if (DEV_SKIP_ONBOARDING) return false;
   try {
     if (localStorage.getItem(WALKTHROUGH_KEY) === 'true') return false;
     return localStorage.getItem(WALKTHROUGH_PENDING_KEY) === 'true' || userIsOnboarded;

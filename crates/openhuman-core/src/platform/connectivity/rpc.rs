@@ -159,11 +159,34 @@ pub async fn pick_listen_port(preferred: u16) -> Result<PickListenPortResult, Pi
     pick_listen_port_for_host("127.0.0.1", preferred).await
 }
 
+/// What to do when the preferred port is held by another live OpenHuman core.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OccupiedByCore {
+    /// Return [`PickListenPortError::WouldTakeOver`] so the caller can run the
+    /// stale-listener takeover (#1130). The desktop shell's embedded core: a
+    /// second copy of the app's own core on its port is a leftover to replace.
+    Takeover,
+    /// Treat it like any other occupant and move to a fallback port. Headless
+    /// `openhuman-core serve`: another checkout's or the desktop app's core is
+    /// a neighbour to coexist with, not something to replace.
+    Fallback,
+}
+
 /// Same as [`pick_listen_port`] but allows an explicit host (used by the core
 /// server bootstrap so CLI host overrides remain respected).
 pub async fn pick_listen_port_for_host(
     host: &str,
     preferred: u16,
+) -> Result<PickListenPortResult, PickListenPortError> {
+    pick_listen_port_for_host_with(host, preferred, OccupiedByCore::Takeover).await
+}
+
+/// [`pick_listen_port_for_host`] with an explicit policy for a port that
+/// another OpenHuman core already holds.
+pub async fn pick_listen_port_for_host_with(
+    host: &str,
+    preferred: u16,
+    occupied_by_core: OccupiedByCore,
 ) -> Result<PickListenPortResult, PickListenPortError> {
     let fallbacks: Vec<u16> = if preferred == DEFAULT_CORE_PORT {
         (DEFAULT_FALLBACK_START..=DEFAULT_FALLBACK_END).collect()
@@ -172,7 +195,14 @@ pub async fn pick_listen_port_for_host(
             .filter_map(|delta| preferred.checked_add(delta))
             .collect()
     };
-    pick_listen_port_with_policy(host, preferred, &fallbacks, RetryPolicy::DEFAULT).await
+    pick_listen_port_with_policy(
+        host,
+        preferred,
+        &fallbacks,
+        RetryPolicy::DEFAULT,
+        occupied_by_core,
+    )
+    .await
 }
 
 async fn pick_listen_port_with_policy(
@@ -180,6 +210,7 @@ async fn pick_listen_port_with_policy(
     preferred: u16,
     fallback_ports: &[u16],
     retry_policy: RetryPolicy,
+    occupied_by_core: OccupiedByCore,
 ) -> Result<PickListenPortResult, PickListenPortError> {
     // `None`  → preferred port is occupied (AddrInUse): probe for a stale
     //           OpenHuman listener to take over before falling back.
@@ -255,7 +286,9 @@ async fn pick_listen_port_with_policy(
     let fingerprint_label = match excluded_reason {
         None => {
             let fingerprint = identify_listener(host, preferred).await;
-            if matches!(fingerprint, ListenerFingerprint::OpenHumanCore) {
+            if matches!(fingerprint, ListenerFingerprint::OpenHumanCore)
+                && occupied_by_core == OccupiedByCore::Takeover
+            {
                 return Err(PickListenPortError::WouldTakeOver {
                     preferred,
                     fingerprint: fingerprint.as_human_readable(),
