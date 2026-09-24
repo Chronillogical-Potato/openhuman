@@ -119,6 +119,12 @@ pub(super) struct WebChatTaskResult {
     /// re-resolved afterwards would be filed under whoever is signed in when
     /// the turn happens to finish.
     pub(super) workspace_dir: std::path::PathBuf,
+    /// The bridge's `TurnTiming` snapshot (first-token/first-tool/total ms),
+    /// read from `ProgressBridgeHandle::timing_snapshot()` after
+    /// `wait_drained` — i.e. after the bridge has seen `TurnCompleted`.
+    /// `None` for a synthetic result (budget-exhausted placeholder) that
+    /// never ran a bridge, or a turn that errored before completing a round.
+    pub(super) timing: Option<super::turn_timing::TurnTimingSnapshot>,
 }
 
 /// Per-request metadata carried alongside a chat send. Currently used by the
