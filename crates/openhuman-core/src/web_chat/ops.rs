@@ -20,7 +20,7 @@ pub(super) use budget_correlation::{
 
 pub use channel_ops::{
     cancel_chat, cancel_chat_scoped, channel_web_cancel, channel_web_chat, channel_web_queue_clear,
-    channel_web_queue_status,
+    channel_web_queue_remove, channel_web_queue_status,
 };
 
 pub use start_chat::start_chat;
