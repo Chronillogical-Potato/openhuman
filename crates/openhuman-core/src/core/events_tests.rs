@@ -914,6 +914,8 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
             size_bytes: 1,
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         },
         DomainEvent::ArtifactFailed {
             artifact_id: "a1".into(),
@@ -923,6 +925,8 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
             error: "boom".into(),
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         },
         DomainEvent::ArtifactPending {
             artifact_id: "a1".into(),
@@ -932,6 +936,8 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
             path: "a1/doc.docx".into(),
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         },
         DomainEvent::McpServerProbeTimedOut {
             server_id: "srv-1".into(),
@@ -1032,6 +1038,8 @@ fn an_empty_artifact_workspace_reads_as_unbound_not_as_a_workspace() {
             size_bytes: 1,
             thread_id: None,
             client_id: None,
+            tool_call_id: None,
+            request_id: None,
         }
         .workspace_dir(),
         None
