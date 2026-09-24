@@ -78,3 +78,38 @@ fn factory_records_all_ten_concrete_adapters_in_one_bundle() {
         host.capabilities.experience.as_ref().expect("experience"),
     ));
 }
+
+struct DeferredBrowser;
+
+#[async_trait::async_trait]
+impl tinytools::Tool for DeferredBrowser {
+    fn name(&self) -> &str {
+        "browser_open"
+    }
+    fn description(&self) -> &str {
+        "Open a website"
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object"})
+    }
+    fn exposure(&self) -> tinytools::ToolExposure {
+        tinytools::ToolExposure::Deferred
+    }
+    async fn execute(&self, _: serde_json::Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("ok"))
+    }
+}
+
+#[tokio::test]
+async fn hosted_orchestrator_allows_deferred_browser_discovery() {
+    let (mut inputs, turn) = inputs();
+    inputs.tool_sets = vec![Arc::new(vec![Box::new(DeferredBrowser)])];
+    let host = OpenHumanHostBundleFactory::build(inputs, &turn);
+    let definition = host
+        .definitions
+        .resolve("orchestrator")
+        .await
+        .expect("resolve")
+        .expect("orchestrator");
+    assert!(definition.tools.contains(&"browser_open".to_string()));
+}

@@ -426,6 +426,7 @@ async fn apply_browser_settings_updates_enabled_flag() {
         BrowserSettingsPatch {
             enabled: Some(true),
             backend: None,
+            ..Default::default()
         },
     )
     .await
@@ -444,6 +445,7 @@ async fn apply_browser_settings_updates_backend() {
         BrowserSettingsPatch {
             enabled: None,
             backend: Some("playwright".into()),
+            ..Default::default()
         },
     )
     .await
@@ -464,6 +466,7 @@ async fn apply_browser_settings_rejects_unknown_backend() {
         BrowserSettingsPatch {
             enabled: Some(true),
             backend: Some("netscape".into()),
+            ..Default::default()
         },
     )
     .await
@@ -472,6 +475,26 @@ async fn apply_browser_settings_rejects_unknown_backend() {
     assert!(err.contains("Unsupported browser backend"));
     assert!(!cfg.browser.enabled);
     assert_eq!(cfg.browser.backend, "agent_browser");
+}
+
+#[tokio::test]
+async fn apply_browser_settings_rejects_invalid_profile_without_partial_update() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let before = cfg.browser.enabled;
+    let err = apply_browser_settings(
+        &mut cfg,
+        BrowserSettingsPatch {
+            enabled: Some(!before),
+            profile_mode: Some("persistent".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect_err("profile path is required");
+    assert!(err.contains("profile_path"));
+    assert_eq!(cfg.browser.enabled, before);
+    assert_eq!(cfg.browser.profile_mode, "fresh");
 }
 
 #[tokio::test]

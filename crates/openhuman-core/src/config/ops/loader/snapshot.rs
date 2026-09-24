@@ -9,8 +9,16 @@ use crate::rpc::RpcOutcome;
 /// Serializes the current configuration into a JSON snapshot for the UI.
 pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String> {
     let value = serde_json::to_value(config).map_err(|e| e.to_string())?;
+    #[cfg(feature = "modules")]
+    let browser_billing_route = match crate::modules::browser_task::billing_route(config) {
+        crate::modules::browser_task::BillingRoute::DirectOpenRouter => "direct_openrouter",
+        crate::modules::browser_task::BillingRoute::Hosted => "hosted",
+    };
+    #[cfg(not(feature = "modules"))]
+    let browser_billing_route = "unavailable";
     Ok(json!({
         "config": value,
+        "browser_billing_route": browser_billing_route,
         "workspace_dir": config.workspace_dir.display().to_string(),
         "config_path": config.config_path.display().to_string(),
     }))

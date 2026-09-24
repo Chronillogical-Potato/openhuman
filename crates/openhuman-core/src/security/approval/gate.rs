@@ -203,6 +203,7 @@ pub(crate) struct RequestRoute {
     pub(crate) thread_id: Option<String>,
     pub(crate) client_id: Option<String>,
     pub(crate) tool_call_id: Option<String>,
+    pub(crate) forced: bool,
 }
 
 /// Coordinator for pending approvals.

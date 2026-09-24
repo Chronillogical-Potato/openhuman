@@ -12,6 +12,7 @@ const log = debug('composio:rpc');
 
 export interface ConfigSnapshot {
   config: Record<string, unknown>;
+  browser_billing_route?: 'direct_openrouter' | 'hosted';
   workspace_dir: string;
   config_path: string;
 }
@@ -150,7 +151,16 @@ export interface RuntimeSettingsUpdate {
 
 export interface BrowserSettingsUpdate {
   enabled?: boolean | null;
-  backend?: 'agent_browser' | 'playwright' | 'rust_native' | 'computer_use' | 'auto' | null;
+  backend?: 'tinybrowser' | null;
+  headless?: boolean;
+  viewport_width?: number;
+  viewport_height?: number;
+  chrome_path?: string | null;
+  profile_mode?: 'fresh' | 'persistent';
+  profile_path?: string | null;
+  download_dir?: string | null;
+  max_task_steps?: number;
+  task_timeout_secs?: number;
 }
 
 export interface LocalAiSettingsUpdate {
