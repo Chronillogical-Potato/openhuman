@@ -30,6 +30,16 @@ import { cn } from '@/components/assistant-ui/lib/utils';
 
 import { field, inkButton, mono, paper } from './surfaces';
 
+/**
+ * A button-slot prop type that permits `data-analytics-id` / `data-testid`
+ * (and any other `data-*` attribute) on an object literal. Plain
+ * `ComponentProps<'button'>` fails TypeScript's excess-property check for a
+ * literal assigned to a typed prop (JSX itself allows any `data-*`
+ * attribute; a plain object literal does not inherit that allowance).
+ */
+type ButtonSlotProps = ComponentProps<'button'> & Record<`data-${string}`, string>;
+
+
 export type GrantScope = 'session' | 'always' | 'denied';
 
 export function PermissionGrant({
@@ -68,9 +78,9 @@ export function PermissionGrant({
   pendingLabel?: string;
   deniedLabel?: string;
   grantedLabel?: (scope: GrantScope) => string;
-  denyProps?: ComponentProps<'button'>;
-  sessionProps?: ComponentProps<'button'>;
-  alwaysProps?: ComponentProps<'button'>;
+  denyProps?: ButtonSlotProps;
+  sessionProps?: ButtonSlotProps;
+  alwaysProps?: ButtonSlotProps;
 }) {
   return (
     <div

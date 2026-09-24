@@ -26,6 +26,16 @@ import { cn } from '@/components/assistant-ui/lib/utils';
 
 import { field, inkButton, mono, paper } from './surfaces';
 
+/**
+ * A button-slot prop type that permits `data-analytics-id` / `data-testid`
+ * (and any other `data-*` attribute) on an object literal. Plain
+ * `ComponentProps<'button'>` fails TypeScript's excess-property check for a
+ * literal assigned to a typed prop (JSX itself allows any `data-*`
+ * attribute; a plain object literal does not inherit that allowance).
+ */
+type ButtonSlotProps = ComponentProps<'button'> & Record<`data-${string}`, string>;
+
+
 export type ElicitationState = 'request' | 'accepted' | 'declined';
 
 export interface ElicitationField {
@@ -77,8 +87,8 @@ export function ElicitationForm({
   sendLabel?: string;
   acceptedLabel?: (server: string) => string;
   declinedLabel?: string;
-  acceptProps?: ComponentProps<'button'>;
-  declineProps?: ComponentProps<'button'>;
+  acceptProps?: ButtonSlotProps;
+  declineProps?: ButtonSlotProps;
 }) {
   return (
     <div
