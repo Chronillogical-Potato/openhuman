@@ -193,7 +193,7 @@ interface Props {
 /**
  * Renders `null` when `runId` is `null` so the parent can mount this
  * unconditionally and just flip `runId` (same convention as
- * `SubagentDrawer`).
+ * `AgentProcessSourcePanel`).
  */
 export function FlowRunInspectorDrawer({ runId, onClose, onFixWithAgent }: Props) {
   const { t } = useT();
