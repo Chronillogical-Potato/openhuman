@@ -32,15 +32,6 @@ import { field, inkButton, paper } from './surfaces';
 
 export type ApprovalState = 'request' | 'running' | 'done' | 'denied';
 
-export interface ApprovalCardLabels {
-  deny?: string;
-  alwaysAllow?: string;
-  allowOnce?: string;
-  runningLabel?: string;
-  deniedLabel?: string;
-  doneLabel?: string;
-}
-
 export function ApprovalCard({
   state,
   command,
