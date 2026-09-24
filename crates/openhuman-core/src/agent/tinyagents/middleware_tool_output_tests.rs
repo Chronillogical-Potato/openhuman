@@ -316,6 +316,23 @@ async fn prompt_cache_segments_do_not_promote_a_compaction_summary() {
 }
 
 #[tokio::test]
+async fn prompt_cache_segments_keep_an_unrecoverable_prefix_uncacheable() {
+    let mw = PromptCacheSegmentMiddleware;
+    let mut run = ctx();
+    run.data.cacheable_system_prefix_len = Some(0);
+    let mut request = ModelRequest::new(vec![
+        TaMessage::system("history summary"),
+        TaMessage::user("continue"),
+    ]);
+
+    mw.before_model(&mut run, &(), &mut request).await.unwrap();
+
+    assert_eq!(request.cache_segments.len(), 1);
+    assert_eq!(request.cache_segments[0].role, SegmentRole::Volatile);
+    assert!(!request.cache_segments[0].cacheable);
+}
+
+#[tokio::test]
 async fn prompt_cache_segments_name_each_system_tier_and_skip_tools_under_a_text_dialect() {
     // Two leading system messages (stable+context, then volatile) are two
     // segments named the way the harness's `refresh_prompt_cache_fingerprint`

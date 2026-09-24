@@ -36,8 +36,10 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 /// the crate prompt builder, so `cache_segments` would otherwise stay empty and
 /// the crate `PromptCacheGuardMiddleware` (installed immediately after this)
 /// would have no prefix to protect. The segments use the harness-layout ids
-/// `system` (`system.1`, … per leading system message) and `tools` — exactly
-/// those, and only those. The crate's
+/// `system` (`system.1`, … per frozen system tier) and `tools` — exactly
+/// those for an ordinary session. If a resumed session has no recoverable
+/// frozen prefix, a noncacheable marker prevents the dispatch layer from
+/// promoting its leading System history summary into one. The crate's
 /// `refresh_prompt_cache_fingerprint` (agent_loop/run_loop.rs) recognises that
 /// layout at dispatch and rebuilds `prompt_fingerprint` from the bytes actually
 /// sent (system messages + tool schemas), so an unchanged system prompt +
@@ -62,6 +64,9 @@ pub(crate) struct PromptCacheSegmentMiddleware;
 /// `tinyagents_harness::prompt::system_segment_id`). Any other id opts the
 /// request into whole-request fingerprinting (see the middleware docs).
 const HARNESS_TOOLS_SEGMENT_ID: &str = "tools";
+/// Explicitly opt out of auto-promoting a leading System history row when a
+/// resumed session has no recoverable frozen prompt prefix.
+const VOLATILE_SYSTEM_HISTORY_SEGMENT_ID: &str = "volatile-system-history";
 
 #[async_trait]
 impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
@@ -127,6 +132,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 id: HARNESS_TOOLS_SEGMENT_ID.to_string(),
                 role: SegmentRole::Tools,
                 cacheable: true,
+            });
+        }
+        if segments.is_empty()
+            && matches!(ctx.data.cacheable_system_prefix_len, Some(0))
+            && observed_leading_system > 0
+        {
+            segments.push(PromptSegment {
+                id: VOLATILE_SYSTEM_HISTORY_SEGMENT_ID.to_string(),
+                role: SegmentRole::Volatile,
+                cacheable: false,
             });
         }
         if !segments.is_empty() {

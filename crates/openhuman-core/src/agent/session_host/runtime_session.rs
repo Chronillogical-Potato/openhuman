@@ -1363,14 +1363,12 @@ impl OpenHumanSessionHost {
         // Resume restores the exact leading prompt messages from the durable
         // transcript. Carry their count to the cache stamper: a later System
         // compaction summary may be adjacent, but is not a frozen prompt tier.
-        let frozen_prefix_len = self
+        let runtime = self
             .runtime_session
             .as_ref()
-            .expect("runtime session initialized")
-            .prefix_snapshot()
-            .messages()
-            .len();
-        if frozen_prefix_len > 0 {
+            .expect("runtime session initialized");
+        let frozen_prefix_len = runtime.prefix_snapshot().messages().len();
+        if frozen_prefix_len > 0 || !runtime.history().is_empty() {
             options.run_context.data.cacheable_system_prefix_len = Some(frozen_prefix_len);
         }
         let outcome = self
