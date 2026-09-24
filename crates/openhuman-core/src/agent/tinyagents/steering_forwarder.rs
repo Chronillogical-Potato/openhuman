@@ -345,8 +345,8 @@ impl Drop for SteeringForwarderGuard {
         BUS.publish(DomainEvent::RunQueueSteerRequeued {
             thread_id: thread_label,
             requeued,
-            item_id: None,
-            text_preview: None,
+            item_id,
+            text_preview,
         });
     }
 }
