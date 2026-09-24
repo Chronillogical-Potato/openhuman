@@ -30,7 +30,7 @@ use super::turn_guards::{
 /// `Guardrail` is a structured verdict from the prompt-injection/security
 /// guardrail (`security::prompt_injection::enforce_prompt_input`) — the
 /// frontend classifies on this variant (`chat_error.error_type == "guardrail"`
-/// + a `guardrail` payload) instead of pattern-matching the user-facing
+/// with a `guardrail` payload) instead of pattern-matching the user-facing
 /// message string. Every other rejection (validation, a configured
 /// `beforeSubmitPrompt` hook block, an approval-routing failure) stays
 /// `Other`, which `Display`s exactly like the plain `String` errors this
