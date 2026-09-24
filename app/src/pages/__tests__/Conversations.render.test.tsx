@@ -8,7 +8,7 @@
  * previously-blocked lines that are now always rendered.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1460,6 +1460,218 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         expect(screen.getByRole('button', { name: 'Send message' })).not.toBeDisabled();
       });
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A snapshot describing a turn that is still running, as the core would have
+  // persisted it at its last flush boundary.
+  function inFlightSnapshot(lifecycle: 'started' | 'streaming' = 'streaming') {
+    return {
+      threadId: 'send-thread',
+      requestId: 'req-inherited-1',
+      lifecycle,
+      iteration: 15,
+      maxIterations: 50,
+      phase: 'thinking' as const,
+      streamingText: '',
+      thinking: '',
+      toolTimeline: [],
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  it('arms the silence timer for a turn inherited through hydration', async () => {
+    // Regression: `armSilenceTimer` was only called on the local send path, so
+    // a client that reloaded or reconnected mid-turn hydrated a live-looking
+    // "Thinking…" pill with no watchdog behind it. If the terminal event was
+    // then missed the pill never cleared — observed sitting on "Thinking… (15)"
+    // 25 minutes after the turn had ended.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+
+      // Hydration produced a live turn — without this the test could pass by
+      // asserting a timeout on a thread that was never rendered as running.
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+      expect(screen.queryByTestId('chat-send-error')).toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      const banner = await screen.findByTestId('chat-send-error');
+      expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeUndefined();
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['interrupted', 'completed'] as const)(
+    'does not arm the silence timer for a %s snapshot',
+    async lifecycle => {
+      // A terminal snapshot has no live driver. Arming here would fire a
+      // spurious `safety_timeout` on a thread that has already settled.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.mocked(threadApi.getTurnState).mockResolvedValue({ ...inFlightSnapshot(), lifecycle });
+      try {
+        const { store } = await renderSelectedConversation();
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(120_000);
+        });
+
+        expect(screen.queryByTestId('chat-send-error')).toBeNull();
+        expect(
+          store?.getState().chatRuntime.inferenceStatusByThread['send-thread']
+        ).toBeUndefined();
+      } finally {
+        vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it('rearms an inherited silence timer on a heartbeat', async () => {
+    // #4270: a silent reasoning phase emits only heartbeats. A hydrated timer
+    // must take part in the rearm effect exactly as a locally-armed one does,
+    // or a genuinely live inherited turn trips the watchdog mid-run.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80_000);
+      });
+      await act(async () => {
+        store?.dispatch(bumpInferenceHeartbeatForThread({ threadId: 'send-thread' }));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(80_000);
+      });
+
+      // 160s since hydration, but only 80s since the beat — still armed.
+      expect(screen.queryByTestId('chat-send-error')).toBeNull();
+
+      // Control: the timer was rearmed, NOT cancelled. Without this, the
+      // assertion above would pass just as well if the heartbeat had cleared
+      // the timer outright.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      const banner = await screen.findByTestId('chat-send-error');
+      expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it('arms the silence timer for a prefill turn that has no iteration yet', async () => {
+    // The hydration reducer writes `inferenceStatusByThread` only when
+    // `iteration > 0 && maxIterations > 0` and deletes it otherwise, so a turn
+    // that is genuinely running but has not reported its first iteration —
+    // initial prefill — hydrates with no status entry. Keying the arming
+    // decision on that entry alone left exactly this turn unwatched. The
+    // lifecycle is written regardless of iteration, so it still identifies it.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue({
+      ...inFlightSnapshot('started'),
+      iteration: 0,
+      maxIterations: 0,
+    });
+    try {
+      const { store } = await renderSelectedConversation();
+
+      // Precondition that makes this test meaningful: hydration produced a live
+      // lifecycle but NO status entry. If this ever flips, the test is no
+      // longer covering the prefill gap it was written for.
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceTurnLifecycleByThread['send-thread']).toBe(
+          'started'
+        );
+      });
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeUndefined();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      const banner = await screen.findByTestId('chat-send-error');
+      expect(banner).toHaveAttribute('data-chat-send-error-code', 'safety_timeout');
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not schedule a silence timer once the page has unmounted', async () => {
+    // The send path awaits `addMessageLocal` before arming, so an unmount that
+    // lands inside that await runs the cleanup — which finds nothing — and the
+    // continuation would then schedule a timer no cleanup can ever reach.
+    // Nothing can rearm it either, so it would survive to clear shared runtime
+    // state for a turn that may still be live.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+
+      // Tear down, then let hydration's own effects settle. Any arming that
+      // happens after this point is arming onto a dead instance.
+      await act(async () => {
+        cleanup();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not fire an armed silence timer after the page unmounts', async () => {
+    // The timer's callback outlives this component: it dispatches
+    // `clearRuntimeForThread` / `clearThreadInferenceActive` into the shared
+    // store. Left armed past teardown it would wipe the runtime of a turn that
+    // is still in flight, up to 120s after the user navigated away.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(inFlightSnapshot());
+    try {
+      const { store } = await renderSelectedConversation();
+
+      // Prove a timer was actually armed, so this cannot pass by unmounting a
+      // page that never had one.
+      await waitFor(() => {
+        expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+      });
+
+      await act(async () => {
+        cleanup();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(120_000);
+      });
+
+      // Still present: the cleanup cleared the timer, so nothing dispatched.
+      expect(store?.getState().chatRuntime.inferenceStatusByThread['send-thread']).toBeDefined();
+    } finally {
+      vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
       vi.useRealTimers();
     }
   });
