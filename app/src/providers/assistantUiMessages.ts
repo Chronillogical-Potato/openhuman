@@ -873,15 +873,21 @@ export function streamingTailMessage(
   }
   if (approval) parts = withApproval(parts, approval);
   if (parts.length === 0) return null;
+  // A sub-agent parked on `ask_user_clarification` is, like a parked
+  // ApprovalGate request, a turn stopped on the user rather than a running
+  // one. assistant-ui derives a tool-call part's own status from its
+  // ENCLOSING message when the part has no `result` (`toMessagePartStatus`),
+  // so this is the one place that can give the task card its `requires-action`
+  // state — the part itself has no status field of its own.
+  const hasAwaitingSubagent = timeline.some(entry => entry.subagent?.status === 'awaiting_user');
   return {
     id: STREAMING_TAIL_ID,
     role: 'assistant',
     content: parts,
-    // A parked gate is not a running turn: it is a turn stopped on the user.
-    // `requires-action` is what gives the gated tool part its own
-    // `requires-action` status (a tool part with no result inherits the
-    // message's), which is the state assistant-ui renders a decision on.
-    status: approval ? { type: 'requires-action', reason: 'interrupt' } : { type: 'running' },
+    status:
+      approval || hasAwaitingSubagent
+        ? { type: 'requires-action', reason: 'interrupt' }
+        : { type: 'running' },
     metadata: { custom: { requestId: streaming?.requestId, streaming: true } },
   };
 }
