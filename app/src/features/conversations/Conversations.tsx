@@ -28,7 +28,7 @@ import {
 } from '../../features/conversations/aui/useThreadTodos';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
-import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
+import { selectBackgroundProcesses } from '../../features/conversations/selectors/backgroundProcesses';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
