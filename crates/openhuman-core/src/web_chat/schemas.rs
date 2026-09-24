@@ -9,9 +9,12 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::rpc::RpcOutcome;
 
 use super::ops::{
-    channel_web_cancel, channel_web_chat, channel_web_queue_clear, channel_web_queue_status,
+    channel_web_cancel, channel_web_chat, channel_web_queue_clear, channel_web_queue_remove,
+    channel_web_queue_status,
 };
-use super::types::{ChatRequestMetadata, WebCancelParams, WebChatParams, WebQueueParams};
+use super::types::{
+    ChatRequestMetadata, WebCancelParams, WebChatParams, WebQueueParams, WebQueueRemoveParams,
+};
 
 pub fn all_web_channel_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -19,6 +22,7 @@ pub fn all_web_channel_controller_schemas() -> Vec<ControllerSchema> {
         schemas("cancel"),
         schemas("queue_status"),
         schemas("queue_clear"),
+        schemas("queue_remove"),
     ]
 }
 
@@ -39,6 +43,10 @@ pub fn all_web_channel_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("queue_clear"),
             handler: handle_queue_clear,
+        },
+        RegisteredController {
+            schema: schemas("queue_remove"),
+            handler: handle_queue_remove,
         },
     ]
 }
@@ -108,6 +116,20 @@ pub fn schemas(function: &str) -> ControllerSchema {
             description: "Clear the run queue for a thread.",
             inputs: vec![required_string("thread_id", "Thread identifier.")],
             outputs: vec![json_output("result", "Queue clear result.")],
+        },
+        "queue_remove" => ControllerSchema {
+            namespace: "channel",
+            function: "web_queue_remove",
+            description: "Remove one specific queued item from a thread's run queue by id.",
+            inputs: vec![
+                required_string("client_id", "Client stream identifier."),
+                required_string("thread_id", "Thread identifier."),
+                required_string("item_id", "Id of the queued item to remove."),
+            ],
+            outputs: vec![json_output(
+                "result",
+                "{ thread_id, item_id, removed }.",
+            )],
         },
         _ => ControllerSchema {
             namespace: "channel",
