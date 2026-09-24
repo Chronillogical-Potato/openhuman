@@ -9,7 +9,8 @@ use tokio_util::sync::CancellationToken;
 use super::{
     default_state, group_first_time_when_bus_ready, invoke_method, is_session_expired_error,
     is_unconfirmed_unauthorized_error, learning_first_time_when_bus_ready, params_to_object,
-    parse_json_params, type_name, DomainSubscriberPlan,
+    parse_json_params, should_publish_session_expired, translate_local_session_error, type_name,
+    DomainSubscriberPlan,
 };
 // These are the `http-server`-gated RPC-surface symbols (#5048); the tests that
 // name them below carry the same `#[cfg]` so the disabled-build test compile
@@ -900,6 +901,30 @@ fn is_session_expired_error_matches_missing_backend_session_token() {
     ));
     // Case-insensitive match — the helper lowercases first.
     assert!(is_session_expired_error("NO BACKEND SESSION TOKEN"));
+}
+
+#[test]
+fn local_offline_credential_does_not_publish_backend_session_expiry() {
+    let local = crate::security::credentials::session_support::is_local_session_token(
+        "header.payload.local",
+    );
+    let jwt = crate::security::credentials::session_support::is_local_session_token(
+        "header.payload.signature",
+    );
+    for error in [
+        "composio unavailable: no backend session token. Sign in first (auth_store_session).",
+        "SESSION_EXPIRED: backend rejected session token on GET /teams/me/usage",
+    ] {
+        assert!(!should_publish_session_expired(error, local), "{error}");
+        assert!(should_publish_session_expired(error, jwt), "{error}");
+        let translated = translate_local_session_error(error, local).expect("local fallback");
+        assert!(
+            translated.starts_with(crate::core::observability::BACKEND_UNAVAILABLE_PREFIX),
+            "{translated}"
+        );
+        assert!(!is_session_expired_error(&translated));
+        assert!(translate_local_session_error(error, jwt).is_none());
+    }
 }
 
 #[tokio::test(flavor = "current_thread")]
