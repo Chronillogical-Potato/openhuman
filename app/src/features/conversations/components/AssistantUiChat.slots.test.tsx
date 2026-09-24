@@ -153,7 +153,7 @@ describe('assistant-ui composer slots', () => {
     expect(dataTransfer.dropEffect).toBe('none');
   });
 
-  it('takes a file dropped anywhere over the open thread, not just the composer', () => {
+  it('takes a file dropped anywhere over the open thread, not just the composer', async () => {
     const store = buildStore();
     const onAttachFiles = vi.fn(() => Promise.resolve());
     render(
@@ -176,7 +176,7 @@ describe('assistant-ui composer slots', () => {
     });
 
     expect(drop).toBe(false); // default (navigate to the file) cancelled
-    expect(onAttachFiles).toHaveBeenCalledWith([file]);
+    await vi.waitFor(() => expect(onAttachFiles).toHaveBeenCalledWith([file]));
     expect(composerShell().getAttribute('data-dragging')).toBeNull();
   });
 
@@ -199,15 +199,13 @@ describe('assistant-ui composer slots', () => {
       });
 
     drop('first.txt');
-    await Promise.resolve();
-    expect(onAttachFiles).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(onAttachFiles).toHaveBeenCalledTimes(1));
     drop('second.txt');
     await Promise.resolve();
     expect(onAttachFiles).toHaveBeenCalledTimes(1);
 
     finishFirst();
     await firstFinished;
-    await Promise.resolve();
-    expect(onAttachFiles).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() => expect(onAttachFiles).toHaveBeenCalledTimes(2));
   });
 });
