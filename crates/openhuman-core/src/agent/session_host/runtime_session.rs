@@ -1941,6 +1941,7 @@ impl OpenHumanSessionHost {
             created: now.clone(),
             updated: now,
             turn_count: 0,
+            prefix_message_count: None,
             input_tokens: 0,
             output_tokens: 0,
             cached_input_tokens: 0,

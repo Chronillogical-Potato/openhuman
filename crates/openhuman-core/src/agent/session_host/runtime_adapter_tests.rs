@@ -328,6 +328,7 @@ fn meta() -> TranscriptMeta {
         created: chrono::Utc::now().to_rfc3339(),
         updated: chrono::Utc::now().to_rfc3339(),
         turn_count: 0,
+        prefix_message_count: None,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,
