@@ -113,10 +113,12 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
         "orchestrator prompt must carry the workflow routing rule"
     );
     assert!(
-        ARCHETYPE.contains(
-            "skill `workflows` (`build_workflow` to author, `discover_workflows` to find)"
-        ),
+        ARCHETYPE.contains("`build_workflow` specialist"),
         "the rule must name the delegate to call"
+    );
+    assert!(
+        ARCHETYPE.contains("It owns the saved-flow lookup tools"),
+        "saved-flow lookup must route to the specialist that can return its result"
     );
 
     // The rule is only true because these are the real names. Asserting the
@@ -144,6 +146,19 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
         "the prompt tells the model to call `build_workflow`; that must still be \
          workflow_builder's delegate_name, or the rule names a tool nobody has"
     );
+    match &builder.tools {
+        crate::agent::harness::definition::ToolScope::Named(tools) => {
+            for tool in ["list_flows", "get_flow"] {
+                assert!(
+                    tools.contains(&tool.to_string()),
+                    "the saved-flow lookup route needs `{tool}` on workflow_builder's belt"
+                );
+            }
+        }
+        crate::agent::harness::definition::ToolScope::Wildcard => {
+            panic!("workflow_builder must retain its explicit, narrow tool belt")
+        }
+    }
 }
 
 /// #6302: the hand-off the skills and MCP sections name is the call this
