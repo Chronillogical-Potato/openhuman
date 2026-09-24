@@ -1,4 +1,9 @@
-import { type ToolCallMessagePart, type ToolCallMessagePartComponent } from '@assistant-ui/react';
+import {
+  type ToolCallMessagePart,
+  type ToolCallMessagePartComponent,
+  useAui,
+} from '@assistant-ui/react';
+import { useCallback } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
