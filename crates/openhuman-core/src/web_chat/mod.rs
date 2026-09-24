@@ -25,6 +25,7 @@
 //! `web_errors*.rs` (provider error classification), `schemas.rs` (RPC
 //! contract), `types.rs` (shared param/state types).
 
+mod egress_surface;
 mod event_bus;
 mod journal_shadow;
 mod ops;
