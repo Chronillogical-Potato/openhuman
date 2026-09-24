@@ -69,7 +69,7 @@ pub(super) fn attach_flow_progress_bridge(
         source = %source,
         "[flows] progress bridge: attaching (streaming copilot/scout turn)"
     );
-    let _progress_bridge = crate::web_chat::spawn_progress_bridge(
+    crate::web_chat::spawn_progress_bridge(
         progress_rx,
         "system".to_string(),
         target.thread_id.clone(),
@@ -80,6 +80,7 @@ pub(super) fn attach_flow_progress_bridge(
             ..Default::default()
         },
         config.clone(),
+        None,
     );
 }
 

@@ -101,7 +101,7 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
     let store = TurnStateStore::new(tmp.path().join("turn_states"));
     let (tx, rx) = tokio::sync::mpsc::channel(16);
     let mut bus = super::super::event_bus::subscribe_web_channel_events();
-    let _progress_bridge = spawn_progress_bridge(
+    spawn_progress_bridge(
         rx,
         "client-out".into(),
         "thread-out".into(),
@@ -109,6 +109,7 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
         store,
         ChatRequestMetadata::default(),
         config,
+        None,
     );
 
     tx.send(crate::agent::progress::AgentProgress::ToolCallCompleted {
@@ -209,7 +210,7 @@ fn spawn_test_bridge(
     // Keep the tempdir alive for the bridge task's lifetime by leaking it —
     // a test-only allocation; the OS reclaims it on process exit.
     std::mem::forget(dir);
-    let _progress_bridge = spawn_progress_bridge(
+    spawn_progress_bridge(
         rx,
         "client-hb-4270".to_string(),
         thread_id.to_string(),
@@ -217,6 +218,7 @@ fn spawn_test_bridge(
         store,
         ChatRequestMetadata::default(),
         Config::default(),
+        None,
     );
     tx
 }
