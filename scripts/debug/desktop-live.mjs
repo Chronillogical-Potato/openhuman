@@ -131,8 +131,12 @@ function toolOutput(messages, wanted) {
   let result = null;
   for (const message of messages) {
     for (const call of message.tool_calls ?? []) {
-      if (call.name !== 'tool_call') continue;
-      let args = call.arguments;
+      const name = call.function?.name ?? call.name;
+      if (name !== 'tool_call') {
+        targets.set(call.id, name);
+        continue;
+      }
+      let args = call.function?.arguments ?? call.arguments;
       if (typeof args === 'string') {
         try { args = JSON.parse(args); } catch { args = {}; }
       }
@@ -208,10 +212,10 @@ transcript = await turn('goal', scenario !== 'textedit'
 names = calls(transcript);
 if (!names.includes('desktop_goal')) fail(`goal: desktop_goal was not called; saw ${names.join(', ')}`);
 const goalResult = toolOutput(transcript, 'desktop_goal');
-if (!goalResult || goalResult.turns?.length < 1) {
+if (!goalResult || !Array.isArray(goalResult.turns) || goalResult.turns.length < 1) {
   fail('goal: no desktop action was executed; an observed app state alone is insufficient');
 }
-if (goalResult) console.log(`goal: stop=${goalResult.stop}, executed_steps=${goalResult.turns?.length ?? 0}, jev_calls=${goalResult.metrics?.calls ?? 0}`);
+console.log(`goal: stop=${goalResult.stop}, executed_steps=${goalResult.turns.length}, jev_calls=${goalResult.metrics?.calls ?? 0}`);
 
 const pending = await rpc('openhuman.desktop_pending');
 const genericPending = await rpc('openhuman.approval_list_pending');
@@ -237,13 +241,18 @@ if (Array.isArray(pending) && pending.length > 0) {
   console.log('continue: trusted confirmation consumed by agent desktop_continue_goal call');
 }
 
+const beforeVerify = transcript.length;
 transcript = await turn('verify', scenario !== 'textedit'
   ? `Read the full accessibility snapshot of the Spotify player using desktop_snapshot with skeleton false. Do not change playback. Report whether a ${scenario === 'spotify_pause' ? 'Play' : 'Pause'} control is visible.`
   : 'Read the full accessibility snapshot of the current TextEdit document using desktop_snapshot with skeleton false. Do not change the document.');
-names = calls(transcript);
+const verifyRecords = transcript.slice(beforeVerify);
+names = calls(verifyRecords);
 if (!names.includes('desktop_snapshot')) fail(`verify: desktop_snapshot was not called; saw ${names.join(', ')}`);
-const observed = transcript.some((message) => message.role === 'tool' &&
-  JSON.stringify(message.content ?? '').includes(scenario === 'textedit' ? marker : scenario === 'spotify_pause' ? 'Play' : 'Pause'));
+const snapshot = toolOutput(verifyRecords, 'desktop_snapshot');
+const snapshotText = JSON.stringify(snapshot ?? '');
+const observed = scenario === 'textedit'
+  ? snapshotText.includes(marker)
+  : (scenario === 'spotify_pause' ? /\bPlay\b/ : /\bPause\b/).test(snapshotText);
 if (!observed) fail(`verify: ${scenario === 'textedit' ? 'marker' : scenario === 'spotify_pause' ? 'Play control' : 'Pause control'} was not observed in a desktop tool result`);
 console.log(`verify: ${scenario === 'textedit' ? 'marker' : scenario === 'spotify_pause' ? 'Play control' : 'Pause control'} observed in desktop_snapshot tool result`);
 console.log(`PASS: direct-core orchestrator discovered and used desktop tools${scenario === 'textedit' ? '; clean up the disposable TextEdit document' : ''}.`);
