@@ -35,6 +35,7 @@ import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeli
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
 import { ElicitationAdapter } from '../../features/conversations/aui/ElicitationAdapter';
 import { PermissionGrantAdapter } from '../../features/conversations/aui/PermissionGrantAdapter';
+import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { AssistantUiToolCallCard } from '../../features/conversations/components/AssistantUiToolCall';
 import coreToolNames from '../../features/conversations/tools/__fixtures__/coreToolNames.json';
 import { ToolIcon } from '../../features/conversations/tools/ToolIcon';
