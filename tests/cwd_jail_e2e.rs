@@ -218,6 +218,31 @@ fn macos_seatbelt_allows_write_inside_root() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn macos_seatbelt_allows_shell_redirection_to_dev_null() {
+    if !PathBuf::from("/usr/bin/sandbox-exec").exists() {
+        return;
+    }
+    let root = tempfile::tempdir().unwrap();
+    let jail = Jail::new(root.path(), "e2e.seatbelt.null");
+    let mut cmd = Command::new("/bin/sh");
+    cmd.arg("-c")
+        .arg(
+            "set -e; echo ignored >/dev/null; echo hidden 2>/dev/null >&2; echo completed > output",
+        )
+        .current_dir(root.path())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    let mut child = spawn(&jail, cmd).expect("spawn under seatbelt");
+    assert!(child.wait().expect("wait").success());
+    assert_eq!(
+        fs::read_to_string(root.path().join("output")).unwrap(),
+        "completed\n"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn macos_seatbelt_blocks_network_when_denied() {
     if !PathBuf::from("/usr/bin/sandbox-exec").exists() {
         return;
