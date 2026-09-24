@@ -97,10 +97,14 @@ impl Tool for MemoryRecallTool {
         // `None` scope: the guard intersects it with the ambient per-turn
         // allowlist, so this can only ever be narrowed, never widened.
         match guard.recall(query, limit, &recall_opts, None).await {
-            Ok(entries) if entries.is_empty() => Ok(ToolResult::success(
-                "No memories found matching that query.",
-            )),
+            Ok(entries) if entries.is_empty() => {
+                publish_memory_recalled(query, 0);
+                Ok(ToolResult::success(
+                    "No memories found matching that query.",
+                ))
+            }
             Ok(entries) => {
+                publish_memory_recalled(query, entries.len());
                 let mut output = format!("Found {} memories:\n", entries.len());
                 for entry in &entries {
                     let score = entry
