@@ -175,18 +175,11 @@ export type ThreadComponents = {
   /**
    * Host composer that REPLACES the built-in one (and the welcome suggestions
    * that belong to it) in the viewport footer, while the transcript above it
-   * stays assistant-ui. For surfaces whose input is not a text box at all —
-   * the mic-first voice composer — and which still want this transcript.
+   * stays assistant-ui: the mic-first voice composer, whose input is a
+   * push-to-talk button, and the workflow copilot, whose sends are structured
+   * builder turns rather than chat turns.
    */
   Composer?: ComponentType | undefined;
-  /** Placeholder for the built-in composer's input. */
-  composerPlaceholder?: string | undefined;
-  /**
-   * Whether the built-in composer offers the model pill. Defaults to `true`;
-   * a surface whose turns are not routed by the chat model (the workflow
-   * copilot, which runs a fixed specialist) turns it off.
-   */
-  showModelSelector?: boolean | undefined;
 };
 
 export type ThreadProps = {
@@ -791,7 +784,6 @@ const Composer: FC<{
     ComposerAttachments: HostComposerAttachments,
     onComposerFiles,
     canAcceptComposerFiles,
-    composerPlaceholder = 'Send a message...',
   } = useContext(ThreadComponentsContext);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   useEffect(() => {
@@ -992,7 +984,7 @@ const Composer: FC<{
              */}
             <LexicalComposerInput
               ref={inputWrapperRef}
-              placeholder={composerPlaceholder}
+              placeholder="Send a message..."
               onPasteCapture={handlePasteCapture}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
@@ -1076,7 +1068,6 @@ const ComposerAction: FC<{
     onComposerAttachmentSend,
     ComposerIdleAction,
     onSwitchToMicCloud,
-    showModelSelector = true,
   } = useContext(ThreadComponentsContext);
   const isRunning = useAuiState(state => state.thread.isRunning);
   // Nothing to send: the primary slot goes to the host's idle control instead
@@ -1089,7 +1080,7 @@ const ComposerAction: FC<{
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <div className="flex min-w-0 items-center gap-1">
         {HostComposerAddAttachment ? <HostComposerAddAttachment /> : <ComposerAddAttachment />}
-        {showModelSelector ? <ModelQualityPill value={model} onValueChange={onModelChange} /> : null}
+        <ModelQualityPill value={model} onValueChange={onModelChange} />
         <ComposerExtrasSlot />
       </div>
       <div className="flex items-center gap-1.5">
