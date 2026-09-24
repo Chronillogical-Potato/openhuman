@@ -70,7 +70,7 @@ interface DeleteArtifactOutcome {
   error?: string;
 }
 
-type ListedArtifactKind = 'presentation' | 'document' | 'image' | 'other';
+type ListedArtifactKind = 'presentation' | 'document' | 'image' | 'video' | 'other';
 
 interface ListedThreadArtifact {
   artifactId: string;

@@ -756,7 +756,7 @@ export type ArtifactStatus = 'in_progress' | 'ready' | 'failed';
 export interface ArtifactSnapshot {
   artifactId: string;
   /** Kind slug from the Rust `ArtifactKind` enum. */
-  kind: 'presentation' | 'document' | 'image' | 'other';
+  kind: 'presentation' | 'document' | 'image' | 'video' | 'other';
   /** Human-readable title; also the on-disk filename stem. */
   title: string;
   status: ArtifactStatus;
