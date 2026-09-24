@@ -17,8 +17,8 @@ import { TerminalBlock } from '../../../components/assistant-ui/elements/termina
 import { WebPreview } from '../../../components/assistant-ui/elements/web-preview';
 import { WebSearch } from '../../../components/assistant-ui/elements/web-search';
 import { BubbleMarkdown } from '../components/AgentMessageBubble';
-import { displayUrl, shortenPath, type ToolArgs } from './toolChips';
 import { parseWebSearchResult } from './parseWebSearchResult';
+import { displayUrl, shortenPath, type ToolArgs } from './toolChips';
 import { fillPlaceholders } from './toolPhrases';
 import type { Translate } from './toolPresentation';
 
@@ -38,7 +38,11 @@ function renderSearchLink({
   // routes it to the OS browser. `href` is an http(s) URL vetted by
   // `parseWebSearchResult`.
   return (
-    <Source href={href} rel="noreferrer noopener" className={className} data-testid="web-search-hit">
+    <Source
+      href={href}
+      rel="noreferrer noopener"
+      className={className}
+      data-testid="web-search-hit">
       {children}
     </Source>
   );
@@ -142,7 +146,9 @@ export function ShellBody({
       visibleCount={lines.length}
       done
       failed={failed}
-      exitLabel={failed ? t('conversations.tools.status.failed') : t('conversations.tools.status.done')}
+      exitLabel={
+        failed ? t('conversations.tools.status.failed') : t('conversations.tools.status.done')
+      }
     />
   );
 }

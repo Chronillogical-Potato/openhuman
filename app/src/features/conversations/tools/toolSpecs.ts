@@ -161,7 +161,9 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   update_memory_md: spec('updateMemoryNotes', ScrollTextIcon, 'memory', {
     chip: chip.text('file'),
   }),
-  git_operations: spec('runGit', GitBranchIcon, 'code', { chip: chip.text('operation', 'command') }),
+  git_operations: spec('runGit', GitBranchIcon, 'code', {
+    chip: chip.text('operation', 'command'),
+  }),
   read_diff: spec('readChanges', GitCompareIcon, 'code', { chip: chip.path() }),
   run_linter: spec('runLinter', ListChecksIcon, 'code'),
   run_tests: spec('runTests', ListChecksIcon, 'code'),
@@ -380,7 +382,9 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
     chip: chip.text('key', 'name'),
   }),
   storage_list_files: spec('listStoredFiles', HardDriveIcon, 'storage'),
-  storage_get_link: spec('createShareLink', LinkIcon, 'storage', { chip: chip.text('key', 'name') }),
+  storage_get_link: spec('createShareLink', LinkIcon, 'storage', {
+    chip: chip.text('key', 'name'),
+  }),
   storage_delete_file: spec('deleteFile', HardDriveIcon, 'storage', {
     chip: chip.text('key', 'name'),
   }),
@@ -440,86 +444,85 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
  * then by the argument named in `arg`. A value the table does not list falls
  * back to the tool's {@link EXACT_TOOL_SPECS} entry.
  */
-export const ACTION_TOOL_SPECS: Record<string, { arg: string; specs: Record<string, ToolSpec> }> =
-  {
-    memory: {
-      arg: 'action',
-      specs: {
-        recall: spec('recallMemories', BrainCircuitIcon, 'memory', { chip: chip.query() }),
-        store: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('key', 'content') }),
-        forget: spec('forgetMemory', EraserIcon, 'memory', { chip: chip.text('key') }),
-        hybrid_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
-        vector_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
-        raw_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
-        chunk_context: spec('inspectMemory', BrainIcon, 'memory'),
-        raw_chunks: spec('inspectMemory', BrainIcon, 'memory'),
-        kinds: spec('inspectMemory', BrainIcon, 'memory'),
-        flavour: spec('inspectMemory', BrainIcon, 'memory'),
-        doctor: spec('inspectMemory', StethoscopeIcon, 'memory'),
-      },
+export const ACTION_TOOL_SPECS: Record<string, { arg: string; specs: Record<string, ToolSpec> }> = {
+  memory: {
+    arg: 'action',
+    specs: {
+      recall: spec('recallMemories', BrainCircuitIcon, 'memory', { chip: chip.query() }),
+      store: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('key', 'content') }),
+      forget: spec('forgetMemory', EraserIcon, 'memory', { chip: chip.text('key') }),
+      hybrid_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
+      vector_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
+      raw_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
+      chunk_context: spec('inspectMemory', BrainIcon, 'memory'),
+      raw_chunks: spec('inspectMemory', BrainIcon, 'memory'),
+      kinds: spec('inspectMemory', BrainIcon, 'memory'),
+      flavour: spec('inspectMemory', BrainIcon, 'memory'),
+      doctor: spec('inspectMemory', StethoscopeIcon, 'memory'),
     },
-    memory_tree: {
-      arg: 'mode',
-      specs: {
-        ingest_document: spec('saveDocumentToMemory', SaveIcon, 'memory', {
-          chip: chip.text('title', 'path'),
-        }),
-      },
+  },
+  memory_tree: {
+    arg: 'mode',
+    specs: {
+      ingest_document: spec('saveDocumentToMemory', SaveIcon, 'memory', {
+        chip: chip.text('title', 'path'),
+      }),
     },
-    goals: {
-      arg: 'op',
-      specs: {
-        list: spec('reviewGoals', TargetIcon, 'memory'),
-        add: spec('updateGoals', TargetIcon, 'memory', { chip: chip.text('text', 'goal') }),
-        edit: spec('updateGoals', TargetIcon, 'memory', { chip: chip.text('text', 'goal') }),
-        delete: spec('updateGoals', TargetIcon, 'memory'),
-      },
+  },
+  goals: {
+    arg: 'op',
+    specs: {
+      list: spec('reviewGoals', TargetIcon, 'memory'),
+      add: spec('updateGoals', TargetIcon, 'memory', { chip: chip.text('text', 'goal') }),
+      edit: spec('updateGoals', TargetIcon, 'memory', { chip: chip.text('text', 'goal') }),
+      delete: spec('updateGoals', TargetIcon, 'memory'),
     },
-    cron: {
-      arg: 'action',
-      specs: {
-        list: spec('checkSchedules', CalendarClockIcon, 'schedule'),
-        add: spec('scheduleTask', CalendarClockIcon, 'schedule', { chip: chip.text('name') }),
-        update: spec('updateSchedule', CalendarClockIcon, 'schedule', { chip: chip.text('name') }),
-        remove: spec('removeSchedule', CalendarClockIcon, 'schedule'),
-        run: spec('runScheduledTask', CalendarClockIcon, 'schedule'),
-        runs: spec('checkRunHistory', CalendarClockIcon, 'schedule'),
-      },
+  },
+  cron: {
+    arg: 'action',
+    specs: {
+      list: spec('checkSchedules', CalendarClockIcon, 'schedule'),
+      add: spec('scheduleTask', CalendarClockIcon, 'schedule', { chip: chip.text('name') }),
+      update: spec('updateSchedule', CalendarClockIcon, 'schedule', { chip: chip.text('name') }),
+      remove: spec('removeSchedule', CalendarClockIcon, 'schedule'),
+      run: spec('runScheduledTask', CalendarClockIcon, 'schedule'),
+      runs: spec('checkRunHistory', CalendarClockIcon, 'schedule'),
     },
-    schedule: {
-      arg: 'action',
-      specs: {
-        list: spec('checkSchedules', CalendarClockIcon, 'schedule'),
-        get: spec('checkSchedules', CalendarClockIcon, 'schedule'),
-        cancel: spec('removeSchedule', CalendarClockIcon, 'schedule'),
-        remove: spec('removeSchedule', CalendarClockIcon, 'schedule'),
-        pause: spec('updateSchedule', CalendarClockIcon, 'schedule'),
-        resume: spec('updateSchedule', CalendarClockIcon, 'schedule'),
-      },
+  },
+  schedule: {
+    arg: 'action',
+    specs: {
+      list: spec('checkSchedules', CalendarClockIcon, 'schedule'),
+      get: spec('checkSchedules', CalendarClockIcon, 'schedule'),
+      cancel: spec('removeSchedule', CalendarClockIcon, 'schedule'),
+      remove: spec('removeSchedule', CalendarClockIcon, 'schedule'),
+      pause: spec('updateSchedule', CalendarClockIcon, 'schedule'),
+      resume: spec('updateSchedule', CalendarClockIcon, 'schedule'),
     },
-    browser: {
-      arg: 'action',
-      specs: {
-        open: spec('openPage', AppWindowIcon, 'browser', { chip: chip.url() }),
-        snapshot: spec('takeScreenshot', CameraIcon, 'browser'),
-        click: spec('click', MousePointerClickIcon, 'browser', { chip: chip.text('selector') }),
-        mouse_click: spec('click', MousePointerClickIcon, 'browser'),
-        hover: spec('click', MousePointerClickIcon, 'browser', { chip: chip.text('selector') }),
-        fill: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('selector') }),
-        type: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('selector') }),
-        key_type: spec('typeKeys', KeyboardIcon, 'browser'),
-        key_press: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('key') }),
-        press: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('key') }),
-        scroll: spec('scrollPage', AppWindowIcon, 'browser'),
-        get_text: spec('readPage', AppWindowIcon, 'browser'),
-        get_title: spec('readPage', AppWindowIcon, 'browser'),
-        get_url: spec('readPage', AppWindowIcon, 'browser'),
-        find: spec('readPage', AppWindowIcon, 'browser', { chip: chip.text('value', 'selector') }),
-        is_visible: spec('readPage', AppWindowIcon, 'browser'),
-        wait: spec('wait', HourglassIcon, 'browser'),
-      },
+  },
+  browser: {
+    arg: 'action',
+    specs: {
+      open: spec('openPage', AppWindowIcon, 'browser', { chip: chip.url() }),
+      snapshot: spec('takeScreenshot', CameraIcon, 'browser'),
+      click: spec('click', MousePointerClickIcon, 'browser', { chip: chip.text('selector') }),
+      mouse_click: spec('click', MousePointerClickIcon, 'browser'),
+      hover: spec('click', MousePointerClickIcon, 'browser', { chip: chip.text('selector') }),
+      fill: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('selector') }),
+      type: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('selector') }),
+      key_type: spec('typeKeys', KeyboardIcon, 'browser'),
+      key_press: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('key') }),
+      press: spec('typeKeys', KeyboardIcon, 'browser', { chip: chip.text('key') }),
+      scroll: spec('scrollPage', AppWindowIcon, 'browser'),
+      get_text: spec('readPage', AppWindowIcon, 'browser'),
+      get_title: spec('readPage', AppWindowIcon, 'browser'),
+      get_url: spec('readPage', AppWindowIcon, 'browser'),
+      find: spec('readPage', AppWindowIcon, 'browser', { chip: chip.text('value', 'selector') }),
+      is_visible: spec('readPage', AppWindowIcon, 'browser'),
+      wait: spec('wait', HourglassIcon, 'browser'),
     },
-  };
+  },
+};
 
 /**
  * Prefix families. Ordered: the first matching rule wins, so a narrower rule
@@ -552,13 +555,13 @@ export const FAMILY_TOOL_SPECS: ReadonlyArray<{ test: RegExp; spec: ToolSpec }> 
   },
   { test: /^task_source_(fetch|list_tasks)/, spec: spec('fetchTasks', ListChecksIcon, 'app') },
   { test: /^task_source_/, spec: spec('checkTaskSources', ListChecksIcon, 'app') },
-  {
-    test: /^hosting_(set_env|add_domain)/,
-    spec: spec('updateHosting', RocketIcon, 'storage'),
-  },
+  { test: /^hosting_(set_env|add_domain)/, spec: spec('updateHosting', RocketIcon, 'storage') },
   { test: /^hosting_/, spec: spec('checkHosting', RocketIcon, 'storage') },
   { test: /^storage_/, spec: spec('listStoredFiles', HardDriveIcon, 'storage') },
-  { test: /^stock_/, spec: spec('checkMarkets', TrendingUpIcon, 'app', { chip: chip.text('symbol') }) },
+  {
+    test: /^stock_/,
+    spec: spec('checkMarkets', TrendingUpIcon, 'app', { chip: chip.text('symbol') }),
+  },
   {
     test: /^wallet_(tx_|lookup_tx)/,
     spec: spec('checkTransaction', WalletIcon, 'wallet', { chip: chip.text('tx_hash', 'hash') }),
@@ -567,10 +570,7 @@ export const FAMILY_TOOL_SPECS: ReadonlyArray<{ test: RegExp; spec: ToolSpec }> 
   { test: /^composio_/, spec: spec('runAppAction', PlugIcon, 'app') },
   { test: /^mcp_/, spec: spec('checkMcpServers', ServerIcon, 'mcp') },
   { test: /^config_/, spec: spec('checkSettings', SettingsIcon, 'system') },
-  {
-    test: /^(daemon_host_prefs_|service_)/,
-    spec: spec('manageService', PowerIcon, 'system'),
-  },
+  { test: /^(daemon_host_prefs_|service_)/, spec: spec('manageService', PowerIcon, 'system') },
   { test: /^(doctor_|health_)/, spec: spec('runDiagnostics', StethoscopeIcon, 'system') },
   { test: /^cost_/, spec: spec('checkUsageCosts', ReceiptIcon, 'system') },
   { test: /^artifact_/, spec: spec('checkArtifacts', PackageIcon, 'system') },

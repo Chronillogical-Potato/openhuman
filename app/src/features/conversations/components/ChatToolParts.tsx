@@ -7,20 +7,20 @@ import {
 } from '@assistant-ui/react';
 import { type FC, type PropsWithChildren, useCallback, useMemo } from 'react';
 
-import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
 import { ToolTimeline } from '../../../components/assistant-ui/elements/tool-timeline';
+import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
 import { useT } from '../../../lib/i18n/I18nContext';
-import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import { readOpenHumanToolArtifact } from '../../../providers/assistantUiMessages';
+import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import type { PendingApproval, SubagentActivity } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
+import { summarizeToolCalls } from '../../../utils/toolTimelineFormatting';
+import { describeToolCall, toolLabel } from '../tools/toolPresentation';
 import { AssistantUiSubagentCall, isActiveSubagentStatus } from './AssistantUiSubagentCall';
 import { isApprovalPending, OpenHumanToolCall } from './AssistantUiToolCall';
 import { useSubagentDrawerHost } from './aui/subagentDrawerHost';
-import { describeToolCall, toolLabel } from '../tools/toolPresentation';
-import { summarizeToolCalls } from '../../../utils/toolTimelineFormatting';
 
 function asSubagentActivity(value: unknown): SubagentActivity | undefined {
   if (!value || typeof value !== 'object') return undefined;

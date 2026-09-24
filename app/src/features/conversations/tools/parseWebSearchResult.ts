@@ -104,7 +104,8 @@ function fromStructured(value: unknown): ParsedWebSearch | undefined {
     .map(item => {
       if (!item || typeof item !== 'object') return undefined;
       const row = item as Record<string, unknown>;
-      const str = (key: string) => (typeof row[key] === 'string' ? (row[key] as string) : undefined);
+      const str = (key: string) =>
+        typeof row[key] === 'string' ? (row[key] as string) : undefined;
       return hit(str('title'), str('url'), str('published'), str('excerpt'));
     })
     .filter((row): row is WebSearchHit => row !== undefined);
@@ -197,12 +198,7 @@ function fromText(text: string): ParsedWebSearch | undefined {
     if (row) results.push(row);
     i = j;
   }
-  return {
-    query: headingQuery(textHeading[1]),
-    provider,
-    results,
-    empty: results.length === 0,
-  };
+  return { query: headingQuery(textHeading[1]), provider, results, empty: results.length === 0 };
 }
 
 /**

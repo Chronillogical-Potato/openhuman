@@ -25,9 +25,9 @@ import {
 } from '../../../store/chatRuntimeSlice';
 import { basename } from '../../../utils/pathUtils';
 import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
-import { BubbleMarkdown } from './AgentMessageBubble';
-import { describeToolCall } from '../tools/toolPresentation';
 import { ToolIcon } from '../tools/ToolIcon';
+import { describeToolCall } from '../tools/toolPresentation';
+import { BubbleMarkdown } from './AgentMessageBubble';
 import { AssistantUiToolCallCard } from './AssistantUiToolCall';
 
 type ChildToolCall = SubagentToolCallEntry | Extract<SubagentTranscriptItem, { kind: 'tool' }>;

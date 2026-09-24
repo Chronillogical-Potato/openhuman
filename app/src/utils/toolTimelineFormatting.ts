@@ -10,6 +10,7 @@ import {
   extractSearchProvider,
   parseWebSearchResult,
 } from '../features/conversations/tools/parseWebSearchResult';
+import { fillPlaceholders } from '../features/conversations/tools/toolPhrases';
 import {
   describeToolCall,
   type ToolCallPresentation,
@@ -17,7 +18,6 @@ import {
   toolLabel,
   type Translate,
 } from '../features/conversations/tools/toolPresentation';
-import { fillPlaceholders } from '../features/conversations/tools/toolPhrases';
 import type { ToolTimelineEntry } from '../store/chatRuntimeSlice';
 import type { PersistedTranscriptItem } from '../types/turnState';
 
@@ -74,7 +74,10 @@ export function categorizeTool(name: string): ToolCategory {
   return describeToolCall({ name }).category;
 }
 
-const STEPS_KEY = { one: 'conversations.tools.steps.one', other: 'conversations.tools.steps.other' };
+const STEPS_KEY = {
+  one: 'conversations.tools.steps.one',
+  other: 'conversations.tools.steps.other',
+};
 const STEPS_EN = { one: '{count} step', other: '{count} steps' };
 
 /** "3 steps" in the caller's locale. */

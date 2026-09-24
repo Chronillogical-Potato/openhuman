@@ -38,13 +38,13 @@ import {
 import {
   ACTION_TOOL_SPECS,
   AGENT_SPECS,
-  type ToolBodyKind,
-  type ToolCategory,
   EXACT_TOOL_SPECS,
   FALLBACK_ICON,
   FAMILY_TOOL_SPECS,
   INTEGRATION_ICON,
   INTEGRATIONS_AGENT_ID,
+  type ToolBodyKind,
+  type ToolCategory,
   type ToolSpec,
 } from './toolSpecs';
 
