@@ -23,6 +23,7 @@ fn artifact_mw(
         tool_policies: HashMap::new(),
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
+        summary_focus_tools: Default::default(),
     }
 }
 

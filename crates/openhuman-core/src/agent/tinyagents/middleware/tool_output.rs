@@ -3,7 +3,7 @@
 //! content-aware compaction), per-tool char cap, shared byte-budget backstop,
 //! disclosure.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -23,8 +23,13 @@ use crate::agent::tinyagents::payload_summarizer::PayloadSummarizer;
 use crate::inference::tokenjuice::generate::GenerateTicket;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 
-fn estimate_output_tokens(bytes: usize) -> u64 {
-    bytes.div_ceil(4) as u64
+/// TinyJuice's own estimate: `ceil(characters / 4)`, not bytes. Multibyte
+/// content has more bytes than characters, so a byte-based estimate here
+/// would register a summary ticket TinyJuice's own threshold check would
+/// call `NotNeeded` and silently skip — a wasted prepare-and-summarize call
+/// for content that never gets summarized.
+fn estimate_output_tokens(content: &str) -> u64 {
+    content.chars().count().div_ceil(4) as u64
 }
 
 /// Tools whose results are self-describing JSON payloads that downstream
@@ -113,6 +118,10 @@ pub(crate) struct ToolOutputMiddleware {
     /// `summary_focus` values taken out of calls in `before_tool`, keyed by
     /// call id, for the summary of the same call's result.
     pub(crate) focus_by_call: Mutex<HashMap<String, String>>,
+    /// Tools whose schema carries TinyJuice's `summary_focus` property. Only
+    /// their calls lose the argument; any other tool with a parameter of the
+    /// same name (an MCP server's, say) keeps it.
+    pub(crate) summary_focus_tools: HashSet<String>,
 }
 
 impl ToolOutputMiddleware {
@@ -127,30 +136,35 @@ impl ToolOutputMiddleware {
 
     /// Register a summary call bound to this turn, when this agent has a
     /// summary model and the result is at least TinyJuice's threshold.
+    ///
+    /// `None` means no summary is wanted; `Some(Err(()))` means one was and
+    /// the call could not be prepared, which the result must disclose.
     fn summary_ticket(
         &self,
         ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         tool_name: &str,
-        bytes: usize,
-    ) -> Option<GenerateTicket> {
+        content: &str,
+    ) -> Option<Result<GenerateTicket, ()>> {
         let summarizer = self.payload_summarizer.as_ref()?;
         let threshold_tokens = self
             .runtime_config
             .as_ref()
             .map(|config| config.context.summarizer_payload_threshold_tokens)
             .unwrap_or_default();
-        if threshold_tokens == 0 || estimate_output_tokens(bytes) < threshold_tokens as u64 {
+        if threshold_tokens == 0 || estimate_output_tokens(content) < threshold_tokens as u64 {
             return None;
         }
         match summarizer.prepare(ctx) {
-            Ok(prepared) => Some(crate::inference::tokenjuice::generate::register(prepared)),
+            Ok(prepared) => Some(Ok(crate::inference::tokenjuice::generate::register(
+                prepared,
+            ))),
             Err(error) => {
                 tracing::warn!(
                     tool = tool_name,
                     error = %error,
                     "[tinyagents::mw] could not prepare a summary call; compacting without one"
                 );
-                None
+                Some(Err(()))
             }
         }
     }
@@ -169,10 +183,14 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         call: &mut TaToolCall,
     ) -> TaResult<()> {
         // Taken out before validation and before the tool runs: it is an
-        // argument to the summary of the result, not to the tool.
-        if let Some(focus) =
+        // argument to the summary of the result, not to the tool. Only from a
+        // tool that declared it; for any other tool it is the tool's own.
+        let focus = if self.summary_focus_tools.contains(&call.name) {
             crate::inference::tokenjuice::focus::take_summary_focus(&mut call.arguments)
-        {
+        } else {
+            None
+        };
+        if let Some(focus) = focus {
             tracing::debug!(
                 tool = %call.name,
                 call_id = %call.id,
@@ -334,8 +352,21 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             // Bind a summary call to this turn only when the result is big
             // enough for TinyJuice to want one; building the child context for
             // every small result would be waste.
-            let ticket = self.summary_ticket(ctx, tool_name, content.len());
+            let (ticket, unprepared) = match self.summary_ticket(ctx, tool_name, &content) {
+                Some(Ok(ticket)) => (Some(ticket), false),
+                Some(Err(())) => (None, true),
+                None => (None, false),
+            };
+            // Summary reuse and the failure breaker are per scope. A turn
+            // with no thread still gets one for the life of this run, rather
+            // than a fresh one per call that never reuses or trips.
+            let scope = ctx
+                .data
+                .thread_id
+                .clone()
+                .unwrap_or_else(|| format!("run-{}", ctx.instance_id()));
             let before_bytes = content.len();
+            let before_tokens = estimate_output_tokens(&content);
             let compacted = crate::inference::tokenjuice::compact_tool_output(
                 crate::inference::tokenjuice::ToolOutputCompaction {
                     content: std::mem::take(&mut content),
@@ -346,7 +377,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                     arguments: None,
                     focus,
                     context_token: ticket.as_ref().map(|t| t.token().to_string()),
-                    scope: ctx.data.thread_id.clone(),
+                    scope: Some(scope),
                 },
             )
             .await;
@@ -361,7 +392,10 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 );
                 summarized_from_bytes = Some(bytes);
             }
-            if let Some(notice) = compacted.notice {
+            let notice = compacted
+                .notice
+                .or_else(|| unprepared.then(crate::inference::tokenjuice::summary_failed_notice));
+            if let Some(notice) = notice {
                 tracing::warn!(
                     tool = tool_name,
                     bytes = content.len(),
@@ -372,8 +406,8 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             let after_bytes = content.len();
             if after_bytes < before_bytes {
                 ctx.emit(AgentEvent::Compressed {
-                    from_tokens: estimate_output_tokens(before_bytes),
-                    to_tokens: estimate_output_tokens(after_bytes),
+                    from_tokens: before_tokens,
+                    to_tokens: estimate_output_tokens(&content),
                 });
             }
         }
