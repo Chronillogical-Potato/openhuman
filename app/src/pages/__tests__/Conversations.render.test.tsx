@@ -548,7 +548,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           mode: 'system',
           tabBarLabels: 'hover',
           fontSize: 'medium',
-          agentMessageViewMode: 'text',
         },
       });
     });
@@ -681,7 +680,6 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           mode: 'system',
           tabBarLabels: 'hover',
           fontSize: 'medium',
-          agentMessageViewMode: 'bubbles',
         },
       });
     });

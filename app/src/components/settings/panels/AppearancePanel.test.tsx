@@ -22,7 +22,6 @@ function renderPanel(
         tabBarLabels: 'hover',
         fontSize,
         customFontSizePx,
-        agentMessageViewMode: 'bubbles',
       },
     },
   });
