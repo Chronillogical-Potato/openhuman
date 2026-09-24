@@ -480,6 +480,8 @@ fn embedder_hook_mw(
 
 #[path = "middleware_loop_guard_tests.rs"]
 mod loop_guard_tests;
+#[path = "middleware_prompt_cache_tests.rs"]
+mod prompt_cache_tests;
 #[path = "middleware_repeat_progress_tests.rs"]
 mod repeat_progress_tests;
 #[path = "middleware_tool_output_artifact_tests.rs"]
