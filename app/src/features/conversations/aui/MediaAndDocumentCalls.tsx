@@ -91,12 +91,22 @@ const DOCUMENT_TOOL_ICONS: Record<string, typeof FileTextIcon> = {
  * artifact's title once it returns.
  */
 export const DocumentArtifactCall: ToolCallMessagePartComponent = ({
+  toolCallId,
   toolName,
   args,
   result,
   status,
 }) => {
   const { t } = useT();
+  const threadId = useAuiThreadId();
+  // A failed `artifact_failed` snapshot for THIS call, when the producing
+  // tool reported one and the core sent `tool_call_id` on the event —
+  // `Conversations.tsx` filters an artifact carrying `toolCallId` OUT of the
+  // header's live-artifact deck precisely so it renders here instead.
+  const failedArtifact = useAppSelector(state => {
+    const list = threadId ? state.chatRuntime.artifactsByThread[threadId] : undefined;
+    return list?.find(a => a.toolCallId === toolCallId && a.status === 'failed');
+  });
   const running = status?.type === 'running';
   const Icon = DOCUMENT_TOOL_ICONS[toolName] ?? FileTextIcon;
   const kindTitle =
