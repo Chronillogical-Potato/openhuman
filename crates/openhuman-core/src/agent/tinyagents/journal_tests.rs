@@ -188,6 +188,7 @@ async fn journal_sink_handles_multibyte_utf8_spanning_window_boundary() {
         sink.emit(AgentEvent::ToolStarted {
             call_id: "call-11".into(),
             tool_name: "test_tool".to_string(),
+            input: None,
         });
         journal_sink.flush();
 
