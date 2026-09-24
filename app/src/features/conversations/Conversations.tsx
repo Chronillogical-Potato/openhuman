@@ -1529,7 +1529,7 @@ const Conversations = ({
   const mascotSubmit = useCallback((text: string) => handleSendMessageRef.current?.(text), []);
   const mascotError = useCallback((message: string) => {
     setSendError(chatSendError('voice_transcription', message));
-  }, []);
+  }, [setSendError]);
   useChatMascotSendBinding(chatMascot, {
     submit: mascotSubmit,
     onError: mascotError,
