@@ -31,6 +31,7 @@ import layoutReducer from '../../store/layoutSlice';
 import queueReducer, { queueItemQueued } from '../../store/queueSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
+import threadTodosReducer from '../../store/threadTodosSlice';
 import threadReducer from '../../store/threadSlice';
 import type { Thread, ThreadMessage } from '../../types/thread';
 
@@ -129,6 +130,7 @@ function buildStore(preload: Record<string, unknown> = {}) {
       chatRuntime: chatRuntimeReducer,
       queue: queueReducer,
       theme: themeReducer,
+      threadTodos: threadTodosReducer,
     }),
     preloadedState: preload as never,
   });

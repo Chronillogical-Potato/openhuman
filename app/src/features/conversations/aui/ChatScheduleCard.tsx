@@ -117,4 +117,4 @@ export const CronRunsCall: ToolCallMessagePartComponent = ({ args, result }) => 
       history={historyFromRuns(runs)}
     />
   );
-}
+};
