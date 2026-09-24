@@ -78,7 +78,7 @@ export function buildOpenHumanQueueAdapter({
   // while the runtime is running) always takes this lane.
   const enqueue = (message: AppendMessage) => {
     log('[aui-queue] enqueue (idle) → host send');
-    queueMicrotask(() => deliver('enqueue', message));
+    globalThis.queueMicrotask(() => deliver('enqueue', message));
   };
   // Running thread: the host queues it as a follow-up. One macrotask later, so
   // the composer clear the runtime made just before calling us reaches the host
