@@ -1,32 +1,25 @@
 /**
  * The user-message action bar offers only what the runtime can honour (#5897).
  *
- * # What went wrong, and why a DOM test is the guard
+ * # History
  *
- * `useOpenHumanExternalStore` supplies `onNew` / `onCancel` and implements
- * neither `onEdit` nor `setMessages`, so assistant-ui reports `edit: false` and
- * `EditComposer` never renders. `ActionBarPrimitive.Edit` was rendered anyway,
- * so every user message carried a pencil button that was visible, hoverable,
- * clickable — and completely inert.
+ * `useOpenHumanExternalStore` originally supplied `onNew` / `onCancel` and
+ * implemented neither `onEdit` nor `setMessages`, so assistant-ui reported
+ * `edit: false` and `EditComposer` never rendered — yet
+ * `ActionBarPrimitive.Edit` was rendered anyway, so every user message
+ * carried a pencil button that was visible, hoverable, clickable, and
+ * completely inert. `useAuiEditCapabilities`
+ * (`features/conversations/components/aui/auiThreadState.ts`) is the
+ * capability gate that gave the affordance somewhere honest to attach to.
  *
- * The capability gate for this already existed. `useAuiEditCapabilities`
- * (`features/conversations/components/aui/auiThreadState.ts`) calls itself "the
- * honest gate for those affordances" and had **zero production consumers**, and
- * the same file states the contract: *"deliberately absent rather than
- * rendered-and-inert: an edit button that looks supported and silently does
- * nothing is worse than no button."*
- *
- * `auiThreadState.test.tsx` asserts the capability FLAG and passes. Nobody ever
- * asserted the DOM, which is exactly how this shipped with the guard apparently
- * in place — so the guard has to live at the DOM, in a browser, which is what
- * this file is.
- *
- * # Scope
- *
- * These assert the *current* contract: while the adapter cannot edit, the
- * control is absent. They are not characterisation tests — when the adapter
- * grows `onEdit`, `canEdit` flips true, the button returns and these fail,
- * which is the correct prompt to replace them with real edit-flow coverage.
+ * The adapter now implements `onEdit` (`threads.edit_message`, core
+ * workstream C4) and `setMessages` (a no-op stub that exists only to
+ * un-gate the branch picker), so `canEdit` is true and the vendored
+ * `EditMessage` element (`components/assistant-ui/elements/edit-message.tsx`,
+ * composed in `thread.tsx`'s `EditComposer`) is reachable. This file now
+ * asserts the real edit flow — Edit button present, clicking it opens the
+ * composer, Cancel closes it without truncating the thread — rather than the
+ * button's prior absence.
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
