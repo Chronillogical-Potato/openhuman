@@ -507,7 +507,6 @@ impl Tool for ExaSearchTool {
         let body = self.build_body(&args, &query);
         let results = self.client.post_documents("search", body).await?;
         let mut result = self.client.to_result(&results, &query, limit, &options);
-        // Host-only structured payload (never model-facing).
         let excerpts: Vec<Option<String>> = results.iter().map(ExaResultItem::excerpt).collect();
         let structured: Vec<super::WebSearchResultRef<'_>> = results
             .iter()
