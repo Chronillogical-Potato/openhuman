@@ -73,9 +73,9 @@ export interface ApprovalCardAdapterProps<D = ApprovalDecision> {
    */
   onAlwaysAllowClick?: () => void;
   /** Decision to send for "Deny". Defaults to the approval-gate `'deny'`. */
-  denyDecision?: D;
+  denyDecision?: NoInfer<D>;
   /** Decision to send for "Allow once". Defaults to the approval-gate `'approve_once'`. */
-  allowOnceDecision?: D;
+  allowOnceDecision?: NoInfer<D>;
   /** Button label overrides, for a call site whose vocabulary differs from the approval-gate's ("Reject" vs. "Deny", "Approve & run" vs. "Approve"). Default to the approval-gate copy. */
   denyLabel?: string;
   alwaysAllowLabel?: string;
