@@ -61,6 +61,48 @@ fn needs_host_confirmation(action: &Action) -> bool {
     )
 }
 
+fn approval_target(action: &Action) -> (Option<&str>, String) {
+    let target = match action {
+        Action::Click { target, .. }
+        | Action::DoubleClick { target }
+        | Action::Fill { target, .. }
+        | Action::Select { target, .. }
+        | Action::Check { target, .. } => Some(target),
+        Action::Type { target, .. } => target.as_ref(),
+        _ => None,
+    };
+    let preview = |raw: &str| {
+        let cleaned = raw.chars().filter(|c| !c.is_control()).collect::<String>();
+        let mut short = cleaned.chars().take(96).collect::<String>();
+        if cleaned.chars().count() > 96 {
+            short.push('…');
+        }
+        short
+    };
+    match target {
+        Some(Target::Ref { value }) => (Some(value), format!(" @{value}")),
+        Some(Target::Selector { value }) => (None, format!(" CSS selector {:?}", preview(value))),
+        Some(Target::Locator { value }) => {
+            let name = value
+                .name
+                .as_deref()
+                .map(|name| format!(" named {:?}", preview(name)))
+                .unwrap_or_default();
+            (
+                None,
+                format!(
+                    " {:?} locator {:?}{name} (match {}, exact={})",
+                    value.by,
+                    preview(&value.value),
+                    value.index.saturating_add(1),
+                    value.exact
+                ),
+            )
+        }
+        None => (None, String::new()),
+    }
+}
+
 async fn approve_browser_action(
     client: &BrowserClient,
     session: &SessionId,
@@ -91,41 +133,13 @@ async fn approve_browser_action(
     let digest = Sha256::digest(serde_json::to_vec(
         &json!({"url": before.url, "action": action_json}),
     )?);
-    let target_ref = match action {
-        Action::Click {
-            target: Target::Ref { value },
-            ..
-        }
-        | Action::DoubleClick {
-            target: Target::Ref { value },
-        }
-        | Action::Fill {
-            target: Target::Ref { value },
-            ..
-        }
-        | Action::Select {
-            target: Target::Ref { value },
-            ..
-        }
-        | Action::Check {
-            target: Target::Ref { value },
-            ..
-        } => Some(value.as_str()),
-        Action::Type {
-            target: Some(Target::Ref { value }),
-            ..
-        } => Some(value.as_str()),
-        _ => None,
-    };
+    let (target_ref, target_detail) = approval_target(action);
     let input_detail = match action {
         Action::Fill { value, .. } => format!(" ({} input characters)", value.chars().count()),
         Action::Type { text, .. } => format!(" ({} input characters)", text.chars().count()),
         Action::Press { key } => format!(" ({key})"),
         _ => String::new(),
     };
-    let target_detail = target_ref
-        .map(|reference| format!(" @{reference}"))
-        .unwrap_or_default();
     let digest_hex = format!("{digest:x}");
     let display_target = format!(
         "{kind}{target_detail}{input_detail} on {origin} [action {}] — review the browser tool input before allowing",
@@ -133,7 +147,8 @@ async fn approve_browser_action(
     );
     let summary = format!("Browser {display_target}");
     // A digest binds the prompt to the complete action and URL without
-    // persisting form values, selectors, or sensitive URL query parameters.
+    // persisting form values or sensitive URL query parameters. The bounded
+    // selector/locator preview lets the host review which element is targeted.
     let args = json!({"action": kind, "origin": origin, "target": display_target,
         "target_ref": target_ref, "exact_action_sha256": digest_hex});
     match gate.intercept_forced("browser", &summary, args).await {

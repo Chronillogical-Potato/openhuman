@@ -58,6 +58,32 @@ fn every_direct_or_controller_action_that_can_submit_needs_confirmation() {
 }
 
 #[test]
+fn approval_describes_selector_and_locator_targets() {
+    let click = |selector: &str| Action::Click {
+        target: Target::selector(selector),
+        new_tab: false,
+    };
+    let submit = click("#submit");
+    let (reference, first) = approval_target(&submit);
+    let (_, second) = approval_target(&click("#delete"));
+    assert!(reference.is_none());
+    assert!(first.contains("CSS selector") && first.contains("#submit"));
+    assert_ne!(first, second);
+
+    let (_, locator) = approval_target(&Action::Fill {
+        target: Target::locator(Locator {
+            by: LocateBy::Role,
+            value: "textbox".into(),
+            name: Some("Email".into()),
+            ..Locator::default()
+        }),
+        value: "private@example.com".into(),
+    });
+    assert!(locator.contains("Role locator") && locator.contains("Email"));
+    assert!(!locator.contains("private@example.com"));
+}
+
+#[test]
 fn direct_actions_use_typed_targets_and_reject_unbounded_inputs() {
     assert!(
         matches!(parse_action(&json!({"action":"click","selector":"@e1"})).unwrap(), Action::Click { target: Target::Ref { value }, .. } if value == "e1")
