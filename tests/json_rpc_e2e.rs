@@ -2574,11 +2574,11 @@ async fn json_rpc_thread_goal_and_todos_get_and_queue_remove_are_wired() {
         }),
     )
     .await;
-    let remove_data = assert_no_jsonrpc_error(&remove, "channel_web_queue_remove")
-        .get("data")
-        .expect("data envelope in queue_remove response")
+    let remove_result = assert_no_jsonrpc_error(&remove, "channel_web_queue_remove")
+        .get("result")
+        .expect("result envelope in queue_remove response")
         .clone();
-    assert_eq!(remove_data.get("removed"), Some(&Value::Bool(false)));
+    assert_eq!(remove_result.get("removed"), Some(&Value::Bool(false)));
 
     api_join.abort();
     rpc_join.abort();
