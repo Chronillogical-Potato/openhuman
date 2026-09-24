@@ -214,12 +214,28 @@ pub async fn account_turn_against_goal(
                 "[thread_goals] accounted turn usage (+{} tok, +{secs}s)",
                 turn_tokens(input, output)
             );
-            if updated.status != prev_status {
+            // Publish on any status transition, or — for a live budget
+            // display — when accumulated usage has moved by at least 5% of
+            // the configured budget since the last publish. Without the
+            // throttle every single turn's accounting would emit a socket
+            // event; the threshold keeps the UI's budget meter live without
+            // flooding the bus on chatty threads.
+            let status_changed = updated.status != prev_status;
+            let budget_moved = updated
+                .token_budget
+                .filter(|b| *b > 0)
+                .is_some_and(|budget| {
+                    let delta = updated.tokens_used.saturating_sub(prev_tokens_used);
+                    // 5% of budget, at least 1 token so a tiny budget still reports.
+                    let threshold = (budget / 20).max(1);
+                    delta >= threshold
+                });
+            if status_changed || budget_moved {
                 BUS.publish(DomainEvent::ThreadGoalUpdated {
                     thread_id: updated.thread_id.clone(),
                     goal_id: updated.goal_id.clone(),
                     status: updated.status.as_str().to_string(),
-                    goal: None,
+                    goal: Some(super::goal_to_value(&updated)),
                 });
             }
         }
