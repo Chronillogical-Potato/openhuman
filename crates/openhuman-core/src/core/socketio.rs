@@ -627,6 +627,13 @@ struct ChatStartPayload {
     locale: Option<String>,
     #[serde(default)]
     queue_mode: Option<String>,
+    /// Optional `"plan"` | `"build"` — lets the composer start this turn with
+    /// the thread already in the requested run mode (e.g. a "Plan" toggle),
+    /// rather than a separate `agent.set_run_mode` round-trip racing the
+    /// `chat:start` itself. Unrecognized values are ignored (logged), not
+    /// rejected — a stale/typo'd client build should not fail the whole turn.
+    #[serde(default)]
+    run_mode: Option<String>,
 }
 
 #[cfg(feature = "http-server")]
