@@ -1,5 +1,22 @@
 'use client';
 
+/**
+ * assistant-ui's tool-group element: the collapsible that wraps a run of
+ * consecutive tool calls behind a single "N tool calls" trigger.
+ *
+ * Vendored from the assistant-ui `tool-group` / `elements-tool-group`
+ * registry items (https://r.assistant-ui.com/styles/base-nova/tool-group.json,
+ * .../elements-tool-group.json — `elements/tool-group.aui.tsx` upstream).
+ * Changes from upstream:
+ * - `cn` import path and Radix collapsible from `../ui/collapsible` (this
+ *   app's, not shadcn's).
+ * - `data-variant="outline-solid"` default (this app's Tailwind v4 token set
+ *   renames the `outline` utility).
+ * - `ToolGroupTrigger` takes an optional `label` prop that replaces the
+ *   default "N tool calls" text (used by `ActivityGroup` for a mixed
+ *   reasoning + tool run) and renders a shimmer duplicate of the label while
+ *   `active`, matching `tool-fallback`'s running-label treatment.
+ */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
   Collapsible,

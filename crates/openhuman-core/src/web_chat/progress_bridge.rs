@@ -677,7 +677,7 @@ pub(crate) fn spawn_progress_bridge(
                             request_id: request_id.clone(),
                             tool_name: Some(tool_name),
                             skill_id: Some("web_channel".to_string()),
-                            args: Some(arguments),
+                            args: cap_wire_args(Some(arguments)),
                             round: Some(iteration),
                             tool_call_id: Some(call_id),
                             tool_display_label: display_label,
