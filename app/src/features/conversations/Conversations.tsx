@@ -8,10 +8,10 @@ import { trackAnalyticsEvent } from '../../components/analytics';
 import ArtifactCard from '../../components/chat/ArtifactCard';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
 import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
-import QueuedFollowups from '../../components/chat/QueuedFollowups';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { decideApproval } from '../../services/api/approvalApi';
 import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
+import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
@@ -62,26 +62,23 @@ import { fetchThreadTokenUsage } from '../../services/api/threadUsageApi';
 import {
   aiRegenerate,
   chatCancel,
-  chatClearQueue,
   chatSend,
   useRustChat,
 } from '../../services/chatService';
 import { callCoreRpc } from '../../services/coreRpcClient';
 import {
   beginInferenceTurn,
-  clearFollowupsForThread,
   clearRuntimeForThread,
   clearThreadSendPending,
-  enqueueFollowup,
   fetchAndHydrateTurnState,
   hydrateThreadUsage,
   markThreadSendPending,
   type ProcessingTranscriptItem,
-  type QueuedFollowup,
   setToolTimelineForThread,
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { pendingFollowupAdded } from '../../store/queueSlice';
 import { selectSocketStatus } from '../../store/socketSelectors';
 import {
   addInferenceResponse,
@@ -151,10 +148,6 @@ interface ConversationsProps {
 // object identity when the slice field is absent (narrow test stores),
 // avoiding spurious re-renders.
 const EMPTY_ACTIVE_THREADS: Record<string, true> = {};
-
-// Stable empty reference for the queued-follow-ups map, so the selector keeps
-// the same identity when the slice field is absent (narrow test stores).
-const EMPTY_QUEUED_FOLLOWUPS: Record<string, QueuedFollowup[]> = {};
 
 // Stable empty live tool-timeline / processing-transcript for the selected
 // thread. A fresh `[]` here took a new identity every render, invalidating the
@@ -410,9 +403,6 @@ const Conversations = ({
   );
   const inferenceTurnLifecycleByThread = useAppSelector(
     state => state.chatRuntime.inferenceTurnLifecycleByThread
-  );
-  const queuedFollowupsByThread = useAppSelector(
-    state => state.chatRuntime.queuedFollowupsByThread ?? EMPTY_QUEUED_FOLLOWUPS
   );
   const rustChat = useRustChat();
   // Inline thread-title rename in the sidebar thread list — keyed by the
@@ -1215,9 +1205,10 @@ const Conversations = ({
   // current turn finishes. We do NOT insert it into the transcript now —
   // appending it mid-stream would persist it BEFORE the in-flight assistant
   // reply (the conversation store is an append log), so the prompt would show
-  // out of order on reload. Instead we record a queued-follow-up pill; the pill
-  // is flushed into the transcript (persisted, in order, after the assistant
-  // reply) when the turn ends — see `ChatRuntimeProvider`'s done/error paths.
+  // out of order on reload. Instead we keep it as a pending follow-up
+  // (`queueSlice`), flushed into the transcript (persisted, in order, after the
+  // assistant reply) when the turn ends — see `ChatRuntimeProvider`'s done/error
+  // paths. What the composer shows is the core's own queue, not this record.
   const handleSendFollowup = async (text?: string) => {
     if (!rustChat || !selectedThreadId) return;
     const threadId = selectedThreadId;
@@ -1260,10 +1251,6 @@ const Conversations = ({
       sender: 'user',
       createdAt: new Date().toISOString(),
     };
-    // Never render a blank pill for an attachments-only follow-up: fall back to
-    // the attachment file names as the label.
-    const label = normalized || pendingAttachments.map(a => a.file.name).join(', ');
-
     setSendError(null);
     setAttachError(null);
 
@@ -1279,7 +1266,7 @@ const Conversations = ({
       // failed send leaves the user's draft + attachments intact to retry.
       setInputValue('');
       setAttachments([]);
-      dispatch(enqueueFollowup({ threadId, message: followupMessage, label }));
+      dispatch(pendingFollowupAdded({ threadId, message: followupMessage, text: messageText }));
       trackAnalyticsEvent('chat_message_sent', {
         send_mode: 'followup',
         has_attachments: pendingAttachments.length > 0,
@@ -1292,21 +1279,6 @@ const Conversations = ({
       // explicitly instead of letting the user's draft disappear.
       setInputValue(normalized);
     }
-  };
-
-  // Dismiss every queued follow-up for the selected thread. Clear the backend
-  // run-queue FIRST and only drop the local pills if it succeeded — on failure
-  // the backend still holds (and will dispatch) the follow-ups, so keep the
-  // pills and surface the error rather than falsely showing them removed.
-  const handleClearQueuedFollowups = async () => {
-    if (!selectedThreadId) return;
-    const threadId = selectedThreadId;
-    const dropped = await chatClearQueue(threadId);
-    if (dropped === null) {
-      setSendError(chatSendError('cloud_send_failed', t('chat.queuedFollowups.clearFailed')));
-      return;
-    }
-    dispatch(clearFollowupsForThread({ threadId }));
   };
 
   // The composer's Send button (and plain Enter) route to a queued follow-up
@@ -1956,12 +1928,8 @@ const Conversations = ({
       {sendErrorBanner}
       {sendAdvisoryBanner}
       {liveArtifactDeck}
-      {selectedThreadId && (queuedFollowupsByThread[selectedThreadId]?.length ?? 0) > 0 ? (
-        <QueuedFollowups
-          items={queuedFollowupsByThread[selectedThreadId] ?? []}
-          onClear={() => void handleClearQueuedFollowups()}
-        />
-      ) : null}
+      {/* The core's run queue for this thread; renders nothing while empty. */}
+      <ComposerMessageQueue />
     </>
   );
 
@@ -1970,6 +1938,7 @@ const Conversations = ({
     <>
       {renderBackgroundProcessesButton(() => setShowBackgroundProcesses(true))}
       {chatFilesChip}
+      {selectedThreadId && <RunModeToggle threadId={selectedThreadId} />}
     </>
   );
 

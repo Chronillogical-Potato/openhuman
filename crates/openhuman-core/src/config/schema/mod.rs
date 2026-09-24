@@ -70,6 +70,7 @@ mod task_sources;
 mod tokenjuice;
 mod tools;
 mod update;
+mod web_chat_config;
 
 pub use agent::{
     AgentConfig, DelegateAgentConfig, MemoryContextWindow, MemoryWindowLimits,
