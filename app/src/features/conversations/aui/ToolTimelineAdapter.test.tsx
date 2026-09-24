@@ -1,8 +1,16 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
+import { store } from '../../../store';
 import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { ToolTimelineAdapter } from './ToolTimelineAdapter';
+
+// `WorkerThreadRefCard` (rendered for a `[worker_thread_ref]` envelope) reads
+// through `useAppDispatch`, so those cases render inside a real store.
+function renderInStore(ui: React.ReactNode) {
+  return render(<Provider store={store}>{ui}</Provider>);
+}
 
 /**
  * Ports the meaningful behavior coverage from the deleted
