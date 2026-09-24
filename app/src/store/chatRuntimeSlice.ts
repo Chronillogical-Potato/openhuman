@@ -638,6 +638,14 @@ export interface PendingPlanReview {
   summary: string;
   /** Ordered plan steps to display for review. */
   steps: string[];
+  /**
+   * The `request_plan_review` tool call this review binds to (wire contract:
+   * `DomainEvent::PlanReviewRequested.tool_call_id`, additive, lands with core
+   * workstream C2). Absent on a core that has not landed C2 yet.
+   */
+  toolCallId?: string;
+  /** RFC3339 expiry for the parked review (additive, lands with C2). */
+  expiresAt?: string;
 }
 
 /** One step in a `WorkflowProposal`'s summary — a non-trigger node. */
