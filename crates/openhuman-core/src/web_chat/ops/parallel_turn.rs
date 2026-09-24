@@ -171,6 +171,18 @@ pub(crate) async fn spawn_parallel_turn(
                         thread_id_task,
                         request_id_task
                     );
+                    // Cooperative cancel (deadline/cancel token) publishes no
+                    // `chat_error` on this path today — leaving a client
+                    // waiting on this request_id with no terminal event.
+                    // `chat_cancelled` closes it out.
+                    publish_web_channel_event(WebChannelEvent {
+                        event: "chat_cancelled".to_string(),
+                        client_id: client_id_task.clone(),
+                        thread_id: thread_id_task.clone(),
+                        request_id: request_id_task.clone(),
+                        cancel_reason: Some("user_stop".to_string()),
+                        ..Default::default()
+                    });
                 }
             }
 

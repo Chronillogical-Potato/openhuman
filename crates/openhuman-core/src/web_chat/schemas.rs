@@ -186,6 +186,13 @@ fn handle_queue_clear(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_queue_remove(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = deserialize_params::<WebQueueRemoveParams>(params)?;
+        to_json(channel_web_queue_remove(&p.client_id, &p.thread_id, &p.item_id).await?)
+    })
+}
+
 fn handle_cancel(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<WebCancelParams>(params)?;
