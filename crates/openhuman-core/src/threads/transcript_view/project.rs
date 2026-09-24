@@ -244,7 +244,13 @@ impl Projector {
                 if let Some(blocks) = prompt_tools::parse_tool_results(msg) {
                     // Tool plumbing, not something the user said.
                     for block in blocks {
-                        self.pair_result(block.id, block.body, ToolCallStatus::Success, None);
+                        self.pair_result(
+                            block.id,
+                            block.body,
+                            ToolCallStatus::Success,
+                            None,
+                            msg.ts.clone(),
+                        );
                     }
                     return;
                 }
@@ -423,7 +429,7 @@ impl Projector {
             (ToolCallStatus::Success, None)
         };
         let call_id = msg.message.id.clone().or(wrapped_id);
-        self.pair_result(call_id, result, status, failure);
+        self.pair_result(call_id, result, status, failure, msg.ts.clone());
     }
 
     /// Settle the pending call a result belongs to — by id first, else FIFO — or
@@ -434,6 +440,7 @@ impl Projector {
         result: String,
         status: ToolCallStatus,
         failure: Option<ToolCallFailure>,
+        ts: Option<String>,
     ) {
         // Pair by explicit call id first, else FIFO.
         let idx = call_id
@@ -467,7 +474,7 @@ impl Projector {
             result: Some(result),
             status,
             failure,
-            ts: msg.ts.clone(),
+            ts,
         });
     }
 }
@@ -593,7 +600,7 @@ fn project_text_tool_results(
             result: Some(result.content),
             status,
             failure,
-            ts: msg.ts.clone(),
+            ts,
         });
     }
 }
