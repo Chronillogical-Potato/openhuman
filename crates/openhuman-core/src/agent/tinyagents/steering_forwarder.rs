@@ -127,6 +127,15 @@ pub(super) async fn forward_collects(
         return;
     }
     let delivered = drained.len();
+    let (item_id, text_preview) = drained
+        .first()
+        .map(|msg| {
+            (
+                Some(msg.id.clone()),
+                Some(crate::agent::queued_turn::text_preview(&msg.text)),
+            )
+        })
+        .unwrap_or((None, None));
     for msg in drained {
         handle.send(SteeringCommand::InjectMessage(TaMessage::user(format!(
             "{COLLECT_PREFIX}{}",
@@ -142,8 +151,8 @@ pub(super) async fn forward_collects(
         thread_id: thread_label.to_string(),
         mode: "collect".to_string(),
         delivered,
-        item_id: None,
-        text_preview: None,
+        item_id,
+        text_preview,
     });
 }
 
