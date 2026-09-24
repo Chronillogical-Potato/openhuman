@@ -795,6 +795,13 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the card to, when
         /// known. `None` for non-chat callers.
         client_id: Option<String>,
+        /// The tool call that produced this artifact, when known — lets the
+        /// UI attach the finished card to that exact timeline row.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// The turn/request id this artifact was produced under, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
     /// An artifact transitioned to [`ArtifactStatus::Failed`] — the
     /// producer surfaced a reason and the UI should render a
