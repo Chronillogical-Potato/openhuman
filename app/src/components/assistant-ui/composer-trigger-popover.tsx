@@ -1,5 +1,18 @@
 'use client';
 
+/**
+ * Popover UI for a trigger-driven composer picker (`/` commands, `@` mentions).
+ *
+ * Vendored from the assistant-ui `composer-trigger-popover` registry item
+ * (https://r.assistant-ui.com/styles/base-nova/composer-trigger-popover.json),
+ * re-synced against the registry's `elements/composer-trigger-popover.aui.tsx`.
+ * Changes from upstream:
+ * - `cn` import path (`@/components/assistant-ui/lib/utils`); import order as
+ *   the repo's lint sorts it.
+ * - None to the body. The back / empty / loading captions are already props
+ *   with English defaults upstream; OpenHuman callers pass `useT()` strings
+ *   (see `features/conversations/aui/ComposerTriggers.tsx`).
+ */
 import { cn } from '@/components/assistant-ui/lib/utils';
 import {
   ComposerPrimitive,

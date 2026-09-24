@@ -111,6 +111,13 @@ pub(super) async fn finalize_flow_stream(
                 // stays the only persister of a flow turn's reply — unchanged
                 // from before #6034, which covered the chat surfaces.
                 None,
+                // `attach_flow_progress_bridge` discards its
+                // `ProgressBridgeHandle`, so there is no timing snapshot to
+                // forward here.
+                None,
+                // Flow Canvas copilot streaming is not the interactive chat
+                // surface follow-up suggestions are for (C5).
+                false,
             )
             .await;
         }

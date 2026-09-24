@@ -62,7 +62,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     async fn execute(
         &self,
         _state: &(),
-        _call_id: tinyagents_harness::CallId,
+        call_id: tinyagents_harness::CallId,
         arguments: serde_json::Value,
         _options: ToolCallOptions,
         parent: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
@@ -73,6 +73,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             parent.workspace.clone(),
             parent.data.child(),
             Some(parent),
+            Some(call_id.as_str().to_string()),
         )
         .await
     }
@@ -88,6 +89,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
     workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
+    parent_call_id: Option<String>,
 ) -> anyhow::Result<ToolResult> {
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let tasks = match parse_parallel_agent_tasks(&args) {
@@ -111,6 +113,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
         workspace_descriptor,
         run_context,
         live_parent,
+        parent_call_id,
     )
     .await
     .map_err(|e| anyhow::anyhow!(e))?;
@@ -238,6 +241,7 @@ impl Tool for SpawnParallelAgentsTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        let parent_call_id = crate::tools::host_extensions::tool_call_id(tool_context);
         if let Some(live_parent) = super::ambient_parent_run_context("direct-spawn-parallel") {
             return execute_spawn_parallel_agents(
                 args,
@@ -245,6 +249,7 @@ impl Tool for SpawnParallelAgentsTool {
                 live_parent.workspace.clone(),
                 live_parent.data.child(),
                 Some(&live_parent),
+                parent_call_id,
             )
             .await;
         }
@@ -255,6 +260,7 @@ impl Tool for SpawnParallelAgentsTool {
             workspace_descriptor,
             crate::agent::tinyagents::host::OpenHumanRunContext::new(),
             None,
+            parent_call_id,
         )
         .await
     }

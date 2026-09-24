@@ -67,6 +67,7 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             content,
             display_content,
             request_id,
+            ..
         } => {
             assert!(content.starts_with("Current Date & Time:"), "raw kept");
             assert_eq!(
@@ -91,10 +92,18 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
     }
     match &items[3] {
         DisplayItem::AssistantMessage {
-            content, interim, ..
+            content,
+            interim,
+            ts,
+            ..
         } => {
             assert_eq!(content, "Let me check.");
             assert!(*interim, "tool-calling assistant step is interim");
+            assert_eq!(
+                ts.as_deref(),
+                Some("2026-07-21T09:00:01Z"),
+                "assistantMessage carries the underlying record's ts"
+            );
         }
         other => panic!("expected interim assistantMessage, got {other:?}"),
     }
@@ -124,10 +133,18 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
     }
     match &items[5] {
         DisplayItem::AssistantMessage {
-            content, interim, ..
+            content,
+            interim,
+            ts,
+            ..
         } => {
             assert_eq!(content, "It's 72F and sunny in NYC.");
             assert!(!*interim, "final answer is not interim");
+            assert_eq!(
+                ts.as_deref(),
+                Some("2026-07-21T09:00:02Z"),
+                "final assistantMessage carries its own record's ts, not the interim step's"
+            );
         }
         other => panic!("expected final assistantMessage, got {other:?}"),
     }

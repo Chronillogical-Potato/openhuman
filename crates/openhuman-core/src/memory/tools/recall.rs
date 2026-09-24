@@ -97,10 +97,14 @@ impl Tool for MemoryRecallTool {
         // `None` scope: the guard intersects it with the ambient per-turn
         // allowlist, so this can only ever be narrowed, never widened.
         match guard.recall(query, limit, &recall_opts, None).await {
-            Ok(entries) if entries.is_empty() => Ok(ToolResult::success(
-                "No memories found matching that query.",
-            )),
+            Ok(entries) if entries.is_empty() => {
+                publish_memory_recalled(query, 0);
+                Ok(ToolResult::success(
+                    "No memories found matching that query.",
+                ))
+            }
             Ok(entries) => {
+                publish_memory_recalled(query, entries.len());
                 let mut output = format!("Found {} memories:\n", entries.len());
                 for entry in &entries {
                     let score = entry
@@ -117,6 +121,20 @@ impl Tool for MemoryRecallTool {
             Err(e) => Ok(ToolResult::error(format!("Memory recall failed: {e}"))),
         }
     }
+}
+
+/// Publishes `DomainEvent::MemoryRecalled` once per tool call — a discrete,
+/// per-turn action, not the hot-path per-driver-read the guard's own success
+/// path deliberately does not publish (see `memory::guard::audit` docs). The
+/// domain event itself still carries the raw `query` (existing shape,
+/// consumed only in-process); the web-channel bridge
+/// (`web_chat::event_bus::MemoryActivitySubscriber`) is what clips it to a
+/// short preview before it ever reaches a socket.
+fn publish_memory_recalled(query: &str, hit_count: usize) {
+    crate::core::bus::BUS.publish(crate::core::events::DomainEvent::MemoryRecalled {
+        query: query.to_string(),
+        hit_count,
+    });
 }
 
 /// The namespace a call searches: the one it names, or the default scope when

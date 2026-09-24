@@ -31,9 +31,8 @@ import { Thread, type ThreadComponents } from '@/components/assistant-ui/thread'
 import createDebug from 'debug';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { AssistantUiInferenceStatus } from '../../features/conversations/components/AssistantUiInferenceStatus';
+import { AgentRunningStatus } from '../../features/conversations/aui/AgentRunningStatus';
 import { ChatSources } from '../../features/conversations/components/aui/ChatSources';
-import { SubagentDrawerHost } from '../../features/conversations/components/aui/subagentDrawerHost';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
 import { ChatToolFallback } from '../../features/conversations/components/ChatToolParts';
 import { useChatSurfaceRegistration } from '../../features/conversations/hooks/useChatSurfaceRegistration';
@@ -510,12 +509,6 @@ export default function WorkflowCopilotPanel({
       ? (state.chatRuntime.processingByThread?.[threadId] ?? EMPTY_TRANSCRIPT)
       : EMPTY_TRANSCRIPT
   );
-  const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
-  const canOpenSubagent = useCallback(
-    (taskId: string) => toolTimeline.some(entry => entry.subagent?.taskId === taskId),
-    [toolTimeline]
-  );
-
   // The copilot's authoring footer: error line, proposal preview, capped card
   // and the builder composer. Parked approvals are NOT repeated here — the
   // assistant-ui transcript renders them inline on the gated tool call (see
@@ -679,7 +672,7 @@ export default function WorkflowCopilotPanel({
   const components = useMemo<ThreadComponents>(
     () => ({
       ToolFallback: ChatToolFallback,
-      RunningStatus: AssistantUiInferenceStatus,
+      RunningStatus: AgentRunningStatus,
       SourceGroup: ChatSources,
       Welcome: CopilotWelcome,
       Composer: CopilotComposer,
@@ -710,13 +703,9 @@ export default function WorkflowCopilotPanel({
           The home chat's starter prompts are off: a click sends the prompt,
           and they are not builder requests. */}
       <AssistantUiRuntimeProvider threadId={threadId} welcomeSuggestions={false}>
-        <SubagentDrawerHost
-          onOpenSubagent={setOpenSubagentTaskId}
-          canOpenSubagent={canOpenSubagent}>
-          <div className="min-h-0 flex-1" data-testid="workflow-copilot-transcript">
-            <Thread components={components} />
-          </div>
-        </SubagentDrawerHost>
+        <div className="min-h-0 flex-1" data-testid="workflow-copilot-transcript">
+          <Thread components={components} />
+        </div>
       </AssistantUiRuntimeProvider>
       <TranscriptOverlays
         threadId={threadId}
@@ -725,8 +714,6 @@ export default function WorkflowCopilotPanel({
         backgroundProcesses={NO_BACKGROUND_PROCESSES}
         showBackgroundProcesses={false}
         onCloseBackgroundProcesses={noop}
-        openSubagentTaskId={openSubagentTaskId}
-        onOpenSubagent={setOpenSubagentTaskId}
         showProcessSource={false}
         onCloseProcessSource={noop}
       />

@@ -1,11 +1,21 @@
 'use client';
 
-import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
+/**
+ * Not a vendored element. A local composition of two vendored primitives —
+ * `ToolGroupRoot` / `ToolGroupTrigger` / `ToolGroupContent`
+ * (`elements/tool-group.tsx`, from the assistant-ui `tool-group` registry
+ * item) and `OpenHumanReasoningGroup` (`reasoning-group.tsx`, over the
+ * `reasoning-trace` element) — that upstream has no equivalent for: one
+ * disclosure per `MessagePrimitive.GroupedParts` run of reasoning-and-tool
+ * activity, rather than a separate collapsible per part type. See the
+ * `ActivityGroup` doc comment below for why.
+ */
 import {
   ToolGroupContent,
   ToolGroupRoot,
   ToolGroupTrigger,
-} from '@/components/assistant-ui/tool-group';
+} from '@/components/assistant-ui/elements/tool-group';
+import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import { type MessagePrimitive, useAuiState } from '@assistant-ui/react';
 import { type FC, type PropsWithChildren, useState } from 'react';
 

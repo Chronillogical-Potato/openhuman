@@ -57,6 +57,9 @@ fn tool_completed(
         elapsed_ms: elapsed,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     }
 }
 
@@ -72,6 +75,7 @@ fn spawn(task: &str, display: &str) -> AgentProgress {
         prompt: "delegated prompt".to_string(),
         worker_thread_id: Some("worker-abc".to_string()),
         display_name: Some(display.to_string()),
+        parent_call_id: None,
     }
 }
 

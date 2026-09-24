@@ -15,6 +15,7 @@ fn make_meta(id: &str, title: &str, created_at: chrono::DateTime<Utc>) -> Artifa
         created_at,
         error: None,
         thread_id: None,
+        tool_call_id: None,
     }
 }
 
@@ -313,6 +314,7 @@ async fn create_artifact_publishes_artifact_pending_event() {
         path,
         thread_id,
         client_id,
+        ..
     } = &mine[0]
     else {
         unreachable!("filter pinned us to ArtifactPending");
@@ -327,6 +329,144 @@ async fn create_artifact_publishes_artifact_pending_event() {
     // intended degradation path for CLI / cron / sub-agent callers.
     assert!(thread_id.is_none(), "thread_id leaked, got {thread_id:?}");
     assert!(client_id.is_none(), "client_id leaked, got {client_id:?}");
+}
+
+/// `ArtifactPending`/`ArtifactReady`/`ArtifactFailed` all fill `request_id`
+/// from `ApprovalChatContext::request_id` when the producing call runs inside
+/// a bound chat context (the normal in-turn tool-call path). Left `None` by
+/// C5; this is the follow-up wiring.
+#[tokio::test]
+async fn artifact_events_fill_request_id_from_chat_context() {
+    use crate::security::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
+
+    crate::core::bus::init().await.expect("bus init");
+    let collector = PendingCollector::new();
+    let _handle = collector.subscribe();
+
+    let tmp = TempDir::new().unwrap();
+    let ctx = ApprovalChatContext {
+        thread_id: "thread-artifact-request-id".to_string(),
+        client_id: "client-artifact-request-id".to_string(),
+        request_id: Some("request-artifact-request-id".to_string()),
+    };
+
+    let (meta, _path) = APPROVAL_CHAT_CONTEXT
+        .scope(ctx, async {
+            let (meta, _path) =
+                create_artifact(tmp.path(), ArtifactKind::Document, "Report", "pdf")
+                    .await
+                    .expect("create_artifact succeeds");
+            finalize_artifact(tmp.path(), &meta.id, 42)
+                .await
+                .expect("finalize_artifact succeeds");
+            (meta, ())
+        })
+        .await;
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    let (mut saw_pending, mut saw_ready) = (false, false);
+    loop {
+        for event in collector.snapshot() {
+            match event {
+                DomainEvent::ArtifactPending {
+                    artifact_id,
+                    request_id,
+                    ..
+                } if artifact_id == meta.id => {
+                    assert_eq!(
+                        request_id,
+                        Some("request-artifact-request-id".to_string()),
+                        "ArtifactPending.request_id must come from ApprovalChatContext"
+                    );
+                    saw_pending = true;
+                }
+                DomainEvent::ArtifactReady {
+                    artifact_id,
+                    request_id,
+                    ..
+                } if artifact_id == meta.id => {
+                    assert_eq!(
+                        request_id,
+                        Some("request-artifact-request-id".to_string()),
+                        "ArtifactReady.request_id must come from ApprovalChatContext"
+                    );
+                    saw_ready = true;
+                }
+                _ => {}
+            }
+        }
+        if saw_pending && saw_ready {
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            panic!(
+                "did not observe both ArtifactPending and ArtifactReady with request_id for {} within 2s",
+                meta.id
+            );
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+}
+
+/// Same as above for the failure path: `fail_artifact` also fills
+/// `ArtifactFailed.request_id` from the bound chat context.
+#[tokio::test]
+async fn fail_artifact_fills_request_id_from_chat_context() {
+    use crate::security::approval::{ApprovalChatContext, APPROVAL_CHAT_CONTEXT};
+
+    crate::core::bus::init().await.expect("bus init");
+    let collector = PendingCollector::new();
+    let _handle = collector.subscribe();
+
+    let tmp = TempDir::new().unwrap();
+    let ctx = ApprovalChatContext {
+        thread_id: "thread-artifact-fail-request-id".to_string(),
+        client_id: "client-artifact-fail-request-id".to_string(),
+        request_id: Some("request-artifact-fail-request-id".to_string()),
+    };
+
+    let meta = APPROVAL_CHAT_CONTEXT
+        .scope(ctx, async {
+            let (meta, _path) =
+                create_artifact(tmp.path(), ArtifactKind::Document, "Report", "pdf")
+                    .await
+                    .expect("create_artifact succeeds");
+            fail_artifact(tmp.path(), &meta.id, "boom")
+                .await
+                .expect("fail_artifact succeeds");
+            meta
+        })
+        .await;
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        let found = collector
+            .snapshot()
+            .into_iter()
+            .find_map(|event| match event {
+                DomainEvent::ArtifactFailed {
+                    artifact_id,
+                    request_id,
+                    ..
+                } if artifact_id == meta.id => Some(request_id),
+                _ => None,
+            });
+        if let Some(request_id) = found {
+            assert_eq!(
+                request_id,
+                Some("request-artifact-fail-request-id".to_string()),
+                "ArtifactFailed.request_id must come from ApprovalChatContext"
+            );
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            panic!(
+                "did not observe ArtifactFailed with request_id for {} within 2s",
+                meta.id
+            );
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
 }
 
 // ── args sidecar + regenerate id reuse (#3162) ────────────────────────────

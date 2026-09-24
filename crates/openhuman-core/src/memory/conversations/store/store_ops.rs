@@ -281,6 +281,74 @@ impl ConversationStore {
         Ok(updated)
     }
 
+    /// Truncate a thread's message log at `message_id`: drop that message and
+    /// every message after it (append order == chronological order), keeping
+    /// everything before it. Backs `threads.edit_message` / `threads.regenerate`
+    /// (edit/regenerate rewrite the tail of a conversation, never the middle).
+    ///
+    /// Returns the number of messages removed, or `Ok(None)` if `message_id`
+    /// is not present in the thread (a stale/unknown cut point — the caller
+    /// should treat this as "nothing to truncate", not silently drop the
+    /// whole log).
+    ///
+    /// Evicts the thread from the cross-thread search index the same way
+    /// [`Self::delete_thread`] does: the index has no per-message removal, so
+    /// the conservative move is to drop the whole thread's postings rather
+    /// than search a stale truncated message back into a hit. The next
+    /// cross-thread search that touches this thread re-primes it from the
+    /// (now-truncated) file on disk.
+    pub fn delete_messages_from(
+        &self,
+        thread_id: &str,
+        message_id: &str,
+    ) -> Result<Option<usize>, String> {
+        let _lifecycle = self.locks.lifecycle.read();
+        let thread_lock = self.locks.thread(thread_id);
+        let _thread = thread_lock.lock();
+        let path = self.thread_messages_path(thread_id);
+        let messages = read_jsonl::<ConversationMessage>(&path)?;
+        let Some(cut_at) = messages.iter().position(|m| m.id == message_id) else {
+            return Ok(None);
+        };
+        let removed = messages.len() - cut_at;
+        let kept = &messages[..cut_at];
+        rewrite_jsonl(&path, kept)?;
+        // The compact stat trail in `threads.jsonl` (`MessageAppended`/
+        // `Stats`) only ever grows via `append_message`'s increment — it has
+        // no notion of a truncation. Append an authoritative `Stats` snapshot
+        // now so `list_threads`'s `message_count`/`last_message_at` reflect
+        // the post-truncation file immediately, instead of staying
+        // overcounted until this thread is next quarantined as unreadable
+        // and rescanned (which never happens on its own — see
+        // `list_threads_coordinated`, which only remeasures a `None` count).
+        let last_message_at = kept.last().map(|m| m.created_at.clone());
+        {
+            let _metadata = self.locks.metadata.lock();
+            let resolved_last = match last_message_at {
+                Some(ts) => ts,
+                None => self
+                    .thread_summary_unlocked(thread_id)?
+                    .map(|t| t.created_at)
+                    .unwrap_or_default(),
+            };
+            append_jsonl(
+                &self.ensure_root()?.join(THREADS_FILENAME),
+                &ThreadLogEntry::Stats {
+                    thread_id: thread_id.to_string(),
+                    message_count: kept.len(),
+                    last_message_at: resolved_last,
+                },
+            )?;
+        }
+        {
+            let mut cache = CONVERSATION_INDEX_CACHE.lock();
+            if let Some(idx) = cache.get_mut(&self.root_dir()) {
+                idx.remove_thread(thread_id);
+            }
+        }
+        Ok(Some(removed))
+    }
+
     /// Append a `Delete` entry and remove the thread's messages file. Returns
     /// `false` if the thread did not exist.
     pub fn delete_thread(&self, thread_id: &str, deleted_at: &str) -> Result<bool, String> {

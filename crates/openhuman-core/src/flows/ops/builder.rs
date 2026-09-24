@@ -176,6 +176,7 @@ pub(crate) async fn flows_build_with_extra_hidden_tools(
             let chat_ctx = ApprovalChatContext {
                 thread_id: target.thread_id.clone(),
                 client_id: "system".to_string(),
+                request_id: Some(target.request_id.clone()),
             };
             tracing::info!(
                 target: "flows",

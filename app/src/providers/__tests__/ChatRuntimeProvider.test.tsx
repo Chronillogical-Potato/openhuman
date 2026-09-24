@@ -9,14 +9,16 @@ import { socketService } from '../../services/socketService';
 import { store } from '../../store';
 import {
   clearAllChatRuntime,
-  enqueueFollowup,
   findPendingDelegationContext,
   registerParallelRequest,
   resetSessionTokenUsage,
   setPendingPlanReviewForThread,
+  setStreamingAssistantForThread,
 } from '../../store/chatRuntimeSlice';
+import { pendingFollowupAdded } from '../../store/queueSlice';
 import { setStatusForUser } from '../../store/socketSlice';
 import {
+  addMessageLocal,
   clearAllThreads,
   loadThreads,
   setActiveThread,
@@ -27,7 +29,12 @@ import { clearAllProactiveThreadPins } from '../proactiveThreadPins';
 
 vi.mock('../../services/chatService', async () => {
   const actual = await vi.importActual<typeof chatService>('../../services/chatService');
-  return { ...actual, subscribeChatEvents: vi.fn() };
+  return {
+    ...actual,
+    subscribeChatEvents: vi.fn(),
+    subscribeQueueEvents: vi.fn(() => () => {}),
+    subscribeSuggestionEvents: vi.fn(() => () => {}),
+  };
 });
 
 vi.mock('../../services/api/threadApi', () => ({
@@ -771,7 +778,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
     it('flushes queued follow-ups into the transcript when a turn ends', async () => {
       const listeners = renderProvider();
       store.dispatch(
-        enqueueFollowup({
+        pendingFollowupAdded({
           threadId: 't-fup',
           message: {
             id: 'f1',
@@ -781,7 +788,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
             sender: 'user',
             createdAt: '2026-01-01T00:00:00.000Z',
           },
-          label: 'queued follow-up text',
+          text: 'queued follow-up text',
         })
       );
 
@@ -804,7 +811,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
           expect.objectContaining({ content: 'queued follow-up text', sender: 'user' })
         )
       );
-      expect(store.getState().chatRuntime.queuedFollowupsByThread['t-fup']).toBeUndefined();
+      expect(store.getState().queue.pendingFollowupsByThread['t-fup']).toBeUndefined();
     });
 
     it('stamps the assistant answer with the producing turn requestId on chat_done', async () => {
@@ -2379,6 +2386,124 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         )
       );
     });
+  });
+});
+
+describe('ChatRuntimeProvider — chat_cancelled (wire-contract.md)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetRuntimeState();
+  });
+
+  afterEach(() => {
+    resetRuntimeState();
+  });
+
+  // `chat_cancelled` is the core-authoritative sibling of the local Stop path
+  // in `Conversations.tsx`; the core keeps emitting `chat_error{error_type:
+  // "cancelled"}` alongside it for one release (asserted above to append no
+  // message), so this dedupes on `request_id` against whatever the local
+  // path already persisted.
+  it('persists the live partial as a stopped reply, tagged with cancel_reason', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-chat-cancelled';
+
+    act(() => {
+      store.dispatch(
+        setStreamingAssistantForThread({
+          threadId,
+          streaming: { content: 'partial before supersede', thinking: '', requestId: 'r-sup' },
+        })
+      );
+    });
+
+    act(() => {
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-sup',
+        cancel_reason: 'superseded',
+        superseded_by: 'r-next',
+      });
+    });
+
+    await waitFor(() =>
+      expect(threadApi.appendMessage).toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({
+          sender: 'agent',
+          content: 'partial before supersede',
+          extraMetadata: expect.objectContaining({
+            stopped: true,
+            cancelReason: 'superseded',
+            supersededBy: 'r-next',
+            requestId: 'r-sup',
+          }),
+        })
+      )
+    );
+  });
+
+  it('does not double-persist a partial the local Stop path already saved for the same request', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-chat-cancelled-dedupe';
+    const alreadyPersisted = {
+      id: 'a-already-stopped',
+      sender: 'agent' as const,
+      type: 'text' as const,
+      content: 'already saved locally',
+      extraMetadata: { stopped: true, cancelReason: 'user_stop', requestId: 'r-dup' },
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    vi.mocked(threadApi.appendMessage).mockResolvedValueOnce(alreadyPersisted);
+
+    // Seed the local cache exactly as `Conversations.tsx`'s
+    // `handleStopGeneration` already does for a user-initiated Stop, keyed by
+    // the same `requestId` this turn's `chat_cancelled` will carry.
+    await act(async () => {
+      await store.dispatch(addMessageLocal({ threadId, message: alreadyPersisted })).unwrap();
+    });
+    expect(threadApi.appendMessage).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      store.dispatch(
+        setStreamingAssistantForThread({
+          threadId,
+          streaming: { content: 'already saved locally', thinking: '', requestId: 'r-dup' },
+        })
+      );
+    });
+
+    act(() => {
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-dup',
+        cancel_reason: 'user_stop',
+      });
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    // Still just the one call from the seed above — `onCancelled` must not
+    // have persisted a second copy of the same partial.
+    expect(threadApi.appendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('produces no message when nothing streamed (no partial to save)', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-chat-cancelled-empty';
+
+    act(() => {
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-empty',
+        cancel_reason: 'user_stop',
+      });
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(threadApi.appendMessage).not.toHaveBeenCalledWith(
+      threadId,
+      expect.objectContaining({ sender: 'agent' })
+    );
   });
 });
 

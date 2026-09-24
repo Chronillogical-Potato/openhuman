@@ -4,7 +4,6 @@ import debug from 'debug';
 import { mapDisplayItems } from '../features/conversations/derived/mapDisplayItems';
 import { threadApi } from '../services/api/threadApi';
 import type { DerivedTranscriptPage } from '../types/derivedTranscript';
-import type { ThreadMessage } from '../types/thread';
 import type {
   AgentRun,
   PersistedSubagentActivity,
@@ -69,6 +68,23 @@ export function isActiveTimelineStatus(status: string | undefined): boolean {
   return status === 'running' || status === 'awaiting_user';
 }
 
+/**
+ * Every `subagent:*` timeline row spawned by one `spawn_parallel_agents` tool
+ * call — the workers sharing `subagent.parentCallId === parentCallId` (see
+ * {@link SubagentActivity.parentCallId}) — in the order they were issued
+ * (`seq`). Used by `ParallelAgentsCard` (`features/conversations/aui/
+ * ParallelAgentsCard.tsx`) to render the vendored `SubagentList` above the
+ * per-child `TaskCard` rows for a `spawn_parallel_agents` call.
+ */
+export function selectSubagentChildrenByParentCallId(
+  timeline: ToolTimelineEntry[],
+  parentCallId: string
+): ToolTimelineEntry[] {
+  return timeline
+    .filter(entry => entry.subagent?.parentCallId === parentCallId)
+    .sort((a, b) => a.seq - b.seq);
+}
+
 /** Live progress of the running turn, as the socket handlers maintain it. */
 export interface InferenceStatus {
   phase: 'thinking' | 'tool_use' | 'subagent';
@@ -118,6 +134,18 @@ export interface SubagentActivity {
    * still blocked on the user.
    */
   spawnEventId?: string;
+  /**
+   * Provider-assigned id of the `spawn_subagent`/`spawn_async_subagent`/
+   * `delegate_*` tool call that started this delegation
+   * (`SubagentProgressDetail.parent_call_id` on the `subagent_spawned`
+   * event). When present, `assistantUiMessages.ts` renders this activity's
+   * `messages`/nested transcript directly on the ORIGINAL spawn tool-call
+   * part (`toolCallId === parentCallId`) instead of a synthetic row, and the
+   * spawn row's own part is suppressed so the two never collide. Absent on
+   * cores that predate this field — those threads keep rendering via the
+   * `findPendingDelegationContext` heuristic below.
+   */
+  parentCallId?: string;
   /** Human-readable display name from the agent registry (e.g. "Researcher"). */
   displayName?: string;
   /**
@@ -148,6 +176,12 @@ export interface SubagentActivity {
   elapsedMs?: number;
   /** Character length of the final assistant text. */
   outputChars?: number;
+  /**
+   * The sub-agent's final assistant text (`subagent_completed.subagent.output`,
+   * capped by the core). Rendered as the delegation's task-card result once
+   * it settles.
+   */
+  output?: string;
   /** Child tool calls executed inside the sub-agent, in arrival order. */
   toolCalls: SubagentToolCallEntry[];
   /**
@@ -299,6 +333,37 @@ export function parseToolFailure(raw: unknown): ToolFailureExplanation | undefin
 }
 
 /**
+ * Fold the optional completion fields of a `tool_result` into its row.
+ *
+ * The core's start event may carry no arguments (the harness reports them at
+ * completion), so `args` backfills an empty `argsBuffer`; without it a row
+ * could never show its target. A recomputed server label replaces the one
+ * sent at start, which was derived without arguments.
+ */
+function applyResultExtras(
+  entry: ToolTimelineEntry,
+  extras: {
+    args?: unknown;
+    elapsedMs?: number;
+    structured?: unknown;
+    displayLabel?: string;
+    displayDetail?: string;
+  }
+): void {
+  if (!entry.argsBuffer && extras.args && typeof extras.args === 'object') {
+    entry.argsBuffer = JSON.stringify(extras.args);
+  }
+  if (typeof extras.elapsedMs === 'number' && Number.isFinite(extras.elapsedMs)) {
+    entry.elapsedMs = extras.elapsedMs;
+  }
+  if (extras.structured && typeof extras.structured === 'object') {
+    entry.structured = extras.structured;
+  }
+  if (extras.displayLabel?.trim()) entry.displayName = extras.displayLabel.trim();
+  if (extras.displayDetail?.trim()) entry.detail = extras.displayDetail.trim();
+}
+
+/**
  * Attach a human label/detail to a tool-timeline row. The server supplies a
  * label/detail for dynamic Composio/MCP/integration tools the client can't know
  * — trust it for those; for the fixed set of built-ins the client formatter
@@ -306,11 +371,15 @@ export function parseToolFailure(raw: unknown): ToolFailureExplanation | undefin
  * caller that materialises a row.
  */
 function decorateEntry(entry: ToolTimelineEntry): ToolTimelineEntry {
+  // `displayName` holds only what the server said. Baking the client title in
+  // here froze its tense at call time, so a finished row kept reading
+  // "Reading file"; every surface now resolves the title at render time.
   const formatted = formatTimelineEntry(entry);
   if (entry.displayName && !isKnownClientTool(entry.name)) {
-    return { ...entry, displayName: entry.displayName, detail: entry.detail ?? formatted.detail };
+    return { ...entry, detail: entry.detail ?? formatted.detail };
   }
-  return { ...entry, displayName: formatted.title, detail: formatted.detail ?? entry.detail };
+  const { displayName: _serverLabel, ...rest } = entry;
+  return { ...rest, detail: entry.detail ?? formatted.detail };
 }
 
 /**
@@ -381,6 +450,15 @@ export interface ToolTimelineEntry {
    * and on rows from cores that predate output forwarding.
    */
   result?: string;
+  /**
+   * Machine-readable result the core attached to `tool_result` as
+   * `structured` (today `{ kind: "web_search", query, provider, results }`).
+   * Lets a rich renderer skip re-parsing `result` text. Absent on rows from
+   * older cores, which fall back to parsing.
+   */
+  structured?: unknown;
+  /** Wall time the call took, from `tool_result.elapsed_ms`. */
+  elapsedMs?: number;
 }
 
 export interface StreamingAssistantState {
@@ -568,6 +646,31 @@ export interface PendingApproval {
    * identifier (not PII), so it survives arg redaction unchanged.
    */
   toolkit?: string;
+  /**
+   * The parked call's own tool-call id, when the core attached one
+   * (`ChatApprovalRequestEvent.tool_call_id`, additive wire field). Lets
+   * `assistantUiMessages.ts`'s `withApproval` attach the approval to the
+   * exact tool-call part it gates instead of the newest-unresolved-by-name
+   * heuristic. Absent on a core that has not landed the C2 approvals
+   * workstream.
+   */
+  toolCallId?: string;
+  /**
+   * RFC3339 timestamp the gate's TTL expires at
+   * (`ChatApprovalRequestEvent.expires_at`, additive wire field). Drives the
+   * expiry countdown on the approval card. Absent on an older core.
+   */
+  expiresAt?: string;
+  /**
+   * Terminal non-decision outcome recorded by the server
+   * (`approval_decided` socket event) — the gate's TTL expired, or the
+   * request was cancelled, with nobody answering interactively. Distinct
+   * from simply clearing the entry: keeping it around with a resolution
+   * lets the card show *why* it is gone for one more render before the
+   * turn-end handlers remove it. Mirrors assistant-ui's own
+   * `ToolCallMessagePart.approval.resolution` union.
+   */
+  resolution?: 'expired' | 'cancelled';
 }
 
 /**
@@ -582,6 +685,14 @@ export interface PendingPlanReview {
   summary: string;
   /** Ordered plan steps to display for review. */
   steps: string[];
+  /**
+   * The `request_plan_review` tool call this review binds to (wire contract:
+   * `DomainEvent::PlanReviewRequested.tool_call_id`, additive, lands with core
+   * workstream C2). Absent on a core that has not landed C2 yet.
+   */
+  toolCallId?: string;
+  /** RFC3339 expiry for the parked review (additive, lands with C2). */
+  expiresAt?: string;
 }
 
 /** One step in a `WorkflowProposal`'s summary — a non-trigger node. */
@@ -658,7 +769,7 @@ export type ArtifactStatus = 'in_progress' | 'ready' | 'failed';
 export interface ArtifactSnapshot {
   artifactId: string;
   /** Kind slug from the Rust `ArtifactKind` enum. */
-  kind: 'presentation' | 'document' | 'image' | 'other';
+  kind: 'presentation' | 'document' | 'image' | 'video' | 'other';
   /** Human-readable title; also the on-disk filename stem. */
   title: string;
   status: ArtifactStatus;
@@ -670,6 +781,17 @@ export interface ArtifactSnapshot {
   error?: string;
   /** When the snapshot was last updated, milliseconds since epoch. */
   updatedAt: number;
+  /**
+   * The `tool_call_id` of the producing tool call, when the core sends one on
+   * the `Artifact*` socket event (additive wire field). Present for an
+   * artifact produced by a toolkit-rendered call (e.g. `media_generate_image`,
+   * `generate_document`) — those render their own in-place state via
+   * `MediaAndDocumentCalls.tsx` instead of the header's live-artifact deck, so
+   * `Conversations.tsx` filters them out of that deck by this field. Absent
+   * on older cores / snapshots that predate the field, and on any artifact
+   * with no owning tool call — those keep rendering in the header deck.
+   */
+  toolCallId?: string;
 }
 
 /**
@@ -824,15 +946,6 @@ interface ChatRuntimeState {
    */
   usageByThread: Record<string, SessionTokenUsage>;
   queueStatusByThread: Record<string, QueueStatus>;
-  /**
-   * Follow-up messages the user submitted while a turn was still streaming
-   * (queued via `queueMode: 'followup'`). The backend dispatches them as fresh
-   * turns once the current turn finishes; these entries are purely the
-   * optimistic UI surface so the user can see what they queued and clear it.
-   * Cleared per-thread on turn end (the queued texts then arrive as real
-   * messages on their dispatched turns).
-   */
-  queuedFollowupsByThread: Record<string, QueuedFollowup[]>;
 }
 
 /** Snapshot of the active-run queue depth per lane. */
@@ -842,22 +955,6 @@ export interface QueueStatus {
   followups: number;
   collects: number;
   total: number;
-}
-
-/** A follow-up message queued from the composer while a turn was streaming. */
-export interface QueuedFollowup {
-  /**
-   * The full user message, built exactly like a normal send (content +
-   * attachment metadata). It is persisted verbatim when the turn ends so the
-   * follow-up lands in the transcript identically to an interactive send.
-   * `message.id` doubles as the React key / removal handle.
-   */
-  message: ThreadMessage;
-  /**
-   * Display label for the pill — the message text, or the attachment file
-   * names for an attachments-only follow-up, so the row is never blank.
-   */
-  label: string;
 }
 
 const initialState: ChatRuntimeState = {
@@ -883,7 +980,6 @@ const initialState: ChatRuntimeState = {
   sessionTokenUsage: emptySessionTokenUsage(),
   usageByThread: {},
   queueStatusByThread: {},
-  queuedFollowupsByThread: {},
 };
 
 /**
@@ -1455,6 +1551,11 @@ const chatRuntimeSlice = createSlice({
         success: boolean;
         output?: string;
         failure?: unknown;
+        args?: unknown;
+        elapsedMs?: number;
+        structured?: unknown;
+        displayLabel?: string;
+        displayDetail?: string;
       }>
     ) => {
       const { threadId, round, toolName, success, output, failure } = action.payload;
@@ -1471,12 +1572,16 @@ const chatRuntimeSlice = createSlice({
       // The core forwards the (size-capped) tool result text on `output`; accept
       // only non-empty payloads so a stub-less row stays `undefined`.
       const result = output && output.length > 0 ? output : undefined;
+      const settle = (entry: ToolTimelineEntry) => {
+        entry.status = status;
+        entry.failure = parsedFailure;
+        entry.result = result;
+        applyResultExtras(entry, action.payload);
+      };
       if (toolCallId) {
         const entry = entries.find(e => e.id === toolCallId);
         if (entry) {
-          entry.status = status;
-          entry.failure = parsedFailure;
-          entry.result = result;
+          settle(entry);
           return;
         }
       }
@@ -1490,9 +1595,7 @@ const chatRuntimeSlice = createSlice({
       for (let i = 0; i < entries.length; i += 1) {
         const entry = entries[i];
         if (entry.status === 'running' && entry.name === toolName && entry.round === round) {
-          entry.status = status;
-          entry.failure = parsedFailure;
-          entry.result = result;
+          settle(entry);
           return;
         }
       }
@@ -1645,6 +1748,8 @@ const chatRuntimeSlice = createSlice({
         dedicatedThread?: boolean;
         /** `<request_id>:<seq>` of the emitting event; see {@link SubagentActivity.spawnEventId}. */
         spawnEventId?: string;
+        /** `SubagentProgressDetail.parent_call_id`; see {@link SubagentActivity.parentCallId}. */
+        parentCallId?: string;
       }>
     ) => {
       const {
@@ -1658,6 +1763,7 @@ const chatRuntimeSlice = createSlice({
         mode,
         dedicatedThread,
         spawnEventId,
+        parentCallId,
       } = action.payload;
       const entries = (state.toolTimelineByThread[threadId] ??= []);
       // Idempotent: a socket redelivery must not append a second row with the
@@ -1699,52 +1805,96 @@ const chatRuntimeSlice = createSlice({
         }
         return;
       }
-      const pending = findPendingDelegationContext(entries, round);
-      // Collapse the parent spawn/delegate row into the subagent row so the
-      // timeline shows one entry per delegation — IN PLACE. The row takes the
-      // spawn row's slot, its `seq` and its transcript pointer, so the
-      // delegation renders exactly where the agent issued it. Splicing it out
-      // and appending a fresh row left the pointer dangling and the sub-agent
-      // card sorted to the end of the turn, below text that came after it,
-      // and every part after the old slot shifted index (and remounted).
-      const spawnIdx = pending.spawnEntryId
-        ? entries.findIndex(e => e.id === pending.spawnEntryId)
-        : -1;
-      const spawnSeq = spawnIdx >= 0 ? entries[spawnIdx].seq : undefined;
-      let seq = spawnSeq;
-      if (seq === undefined) {
+      // `parent_call_id` names the exact spawn/delegate tool-call row that
+      // started this delegation — no need to guess it from "the newest
+      // running spawn-shaped row in this round" (the heuristic below).
+      // `assistantUiMessages.ts` renders this activity directly on that row
+      // (keyed by `parentCallId`) and suppresses that row's own tool-call
+      // part, so this reducer does not need to collapse it away either; the
+      // spawn row is simply left in the timeline for `resolveSubagentTimeline`
+      // to substitute at render time.
+      //
+      // Fallback for cores/history that predate `parent_call_id`: locate the
+      // running spawn/delegate row heuristically and collapse the two IN
+      // PLACE — the row takes the spawn row's slot, its `seq` and its
+      // transcript pointer, so the delegation renders exactly where the agent
+      // issued it. Splicing the spawn row out and appending a fresh one left
+      // the pointer dangling and the sub-agent card sorted to the end of the
+      // turn, below text that came after it, with every part after the old
+      // slot shifting index (and remounting).
+      let prompt: string | undefined;
+      let sourceToolName: string | undefined;
+      let seq: number;
+      if (parentCallId) {
+        const spawnEntry = entries.find(e => e.id === parentCallId);
+        prompt = spawnEntry?.detail ?? promptFromArgsBuffer(spawnEntry?.argsBuffer);
+        sourceToolName = spawnEntry?.name;
         seq = state.toolTimelineSeqByThread[threadId] ?? 0;
         state.toolTimelineSeqByThread[threadId] = seq + 1;
-      }
-      const row = decorateEntry({
-        id: rowId,
-        name: `subagent:${agentId}`,
-        round,
-        seq,
-        status: 'running',
-        detail: pending.prompt,
-        sourceToolName: pending.sourceToolName,
-        subagent: {
-          taskId,
-          agentId,
-          displayName,
-          workerThreadId,
-          spawnEventId,
-          mode,
-          dedicatedThread,
-          prompt: pending.prompt,
-          toolCalls: [],
-          transcript: [],
-        },
-      });
-      if (spawnIdx >= 0) {
-        entries[spawnIdx] = row;
-        const pointer = state.processingByThread[threadId]?.find(
-          item => item.kind === 'toolCall' && item.callId === pending.spawnEntryId
+        entries.push(
+          decorateEntry({
+            id: rowId,
+            name: `subagent:${agentId}`,
+            round,
+            seq,
+            status: 'running',
+            detail: prompt,
+            sourceToolName,
+            subagent: {
+              taskId,
+              agentId,
+              displayName,
+              workerThreadId,
+              spawnEventId,
+              parentCallId,
+              mode,
+              dedicatedThread,
+              prompt,
+              toolCalls: [],
+              transcript: [],
+            },
+          })
         );
-        if (pointer && pointer.kind === 'toolCall') pointer.callId = rowId;
       } else {
-        entries.push(row);
+        const pending = findPendingDelegationContext(entries, round);
+        prompt = pending.prompt;
+        sourceToolName = pending.sourceToolName;
+        const spawnIdx = pending.spawnEntryId
+          ? entries.findIndex(e => e.id === pending.spawnEntryId)
+          : -1;
+        const spawnSeq = spawnIdx >= 0 ? entries[spawnIdx].seq : undefined;
+        seq = spawnSeq ?? (state.toolTimelineSeqByThread[threadId] ?? 0);
+        if (spawnSeq === undefined) state.toolTimelineSeqByThread[threadId] = seq + 1;
+        const row = decorateEntry({
+          id: rowId,
+          name: `subagent:${agentId}`,
+          round,
+          seq,
+          status: 'running',
+          detail: pending.prompt,
+          sourceToolName: pending.sourceToolName,
+          subagent: {
+            taskId,
+            agentId,
+            displayName,
+            workerThreadId,
+            spawnEventId,
+            mode,
+            dedicatedThread,
+            prompt: pending.prompt,
+            toolCalls: [],
+            transcript: [],
+          },
+        });
+        if (spawnIdx >= 0) {
+          entries[spawnIdx] = row;
+          const pointer = state.processingByThread[threadId]?.find(
+            item => item.kind === 'toolCall' && item.callId === pending.spawnEntryId
+          );
+          if (pointer && pointer.kind === 'toolCall') pointer.callId = rowId;
+        } else {
+          entries.push(row);
+        }
       }
     },
     subagentAwaitingUser: (
@@ -1775,6 +1925,8 @@ const chatRuntimeSlice = createSlice({
         iterations?: number;
         elapsedMs?: number;
         outputChars?: number;
+        /** The sub-agent's final assistant text; see {@link SubagentActivity.output}. */
+        output?: string;
         worktreePath?: string;
         changedFiles?: string[];
         isDirty?: boolean;
@@ -1787,6 +1939,7 @@ const chatRuntimeSlice = createSlice({
         iterations,
         elapsedMs,
         outputChars,
+        output,
         worktreePath,
         changedFiles,
         isDirty,
@@ -1806,6 +1959,7 @@ const chatRuntimeSlice = createSlice({
         if (iterations !== undefined) s.iterations = iterations;
         if (elapsedMs !== undefined) s.elapsedMs = elapsedMs;
         if (outputChars !== undefined) s.outputChars = outputChars;
+        if (output !== undefined) s.output = output;
         if (worktreePath !== undefined) s.worktreePath = worktreePath;
         if (changedFiles !== undefined) s.changedFiles = changedFiles;
         if (isDirty !== undefined) s.isDirty = isDirty;
@@ -2027,6 +2181,28 @@ const chatRuntimeSlice = createSlice({
     clearPendingApprovalForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.pendingApprovalByThread[action.payload.threadId];
     },
+    /**
+     * Record a server-decided terminal resolution (`approval_decided` socket
+     * event carrying `resolution: 'expired' | 'cancelled'`) on the thread's
+     * still-parked entry, rather than deleting it outright. Only applies when
+     * the event names the SAME request the store is holding — a decided
+     * event for a request the client already cleared (the common,
+     * interactive-decision case) is a no-op here. A caller that wants the
+     * card gone immediately still dispatches `clearPendingApprovalForThread`
+     * itself once it has shown the resolution.
+     */
+    resolvePendingApprovalForThread: (
+      state,
+      action: PayloadAction<{
+        threadId: string;
+        requestId: string;
+        resolution: 'expired' | 'cancelled';
+      }>
+    ) => {
+      const current = state.pendingApprovalByThread[action.payload.threadId];
+      if (!current || current.requestId !== action.payload.requestId) return;
+      current.resolution = action.payload.resolution;
+    },
     setPendingPlanReviewForThread: (
       state,
       action: PayloadAction<{ threadId: string; review: PendingPlanReview }>
@@ -2077,9 +2253,10 @@ const chatRuntimeSlice = createSlice({
         artifactId: string;
         kind: ArtifactSnapshot['kind'];
         title: string;
+        toolCallId?: string;
       }>
     ) => {
-      const { threadId, artifactId, kind, title } = action.payload;
+      const { threadId, artifactId, kind, title, toolCallId } = action.payload;
       // No-downgrade guard: a late `artifact_pending` (re-delivery, or a
       // socket race) must never regress an artifact that already reached
       // `ready` / `failed` back to a spinner. Only the regenerate flow
@@ -2100,6 +2277,7 @@ const chatRuntimeSlice = createSlice({
         title,
         status: 'in_progress',
         updatedAt: Date.now(),
+        toolCallId: toolCallId ?? existing?.toolCallId,
       };
       state.artifactsByThread[threadId] = upsertArtifact(
         state.artifactsByThread[threadId],
@@ -2120,9 +2298,13 @@ const chatRuntimeSlice = createSlice({
         title: string;
         path: string;
         sizeBytes: number;
+        toolCallId?: string;
       }>
     ) => {
-      const { threadId, artifactId, kind, title, path, sizeBytes } = action.payload;
+      const { threadId, artifactId, kind, title, path, sizeBytes, toolCallId } = action.payload;
+      const existing = (state.artifactsByThread[threadId] ?? []).find(
+        entry => entry.artifactId === artifactId
+      );
       const snapshot: ArtifactSnapshot = {
         artifactId,
         kind,
@@ -2131,6 +2313,7 @@ const chatRuntimeSlice = createSlice({
         path,
         sizeBytes,
         updatedAt: Date.now(),
+        toolCallId: toolCallId ?? existing?.toolCallId,
       };
       state.artifactsByThread[threadId] = upsertArtifact(
         state.artifactsByThread[threadId],
@@ -2150,9 +2333,13 @@ const chatRuntimeSlice = createSlice({
         kind: ArtifactSnapshot['kind'];
         title: string;
         error: string;
+        toolCallId?: string;
       }>
     ) => {
-      const { threadId, artifactId, kind, title, error } = action.payload;
+      const { threadId, artifactId, kind, title, error, toolCallId } = action.payload;
+      const existing = (state.artifactsByThread[threadId] ?? []).find(
+        entry => entry.artifactId === artifactId
+      );
       const snapshot: ArtifactSnapshot = {
         artifactId,
         kind,
@@ -2160,6 +2347,7 @@ const chatRuntimeSlice = createSlice({
         status: 'failed',
         error,
         updatedAt: Date.now(),
+        toolCallId: toolCallId ?? existing?.toolCallId,
       };
       state.artifactsByThread[threadId] = upsertArtifact(
         state.artifactsByThread[threadId],
@@ -2197,31 +2385,6 @@ const chatRuntimeSlice = createSlice({
     },
     clearQueueStatusForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.queueStatusByThread[action.payload.threadId];
-    },
-    /** Append a follow-up the user queued while a turn was streaming. */
-    enqueueFollowup: (
-      state,
-      action: PayloadAction<{ threadId: string; message: ThreadMessage; label: string }>
-    ) => {
-      const { threadId, message, label } = action.payload;
-      const bucket = state.queuedFollowupsByThread[threadId] ?? [];
-      bucket.push({ message, label });
-      state.queuedFollowupsByThread[threadId] = bucket;
-    },
-    /** Drop a single queued follow-up by message id (e.g. the user removed it). */
-    removeFollowup: (state, action: PayloadAction<{ threadId: string; id: string }>) => {
-      const bucket = state.queuedFollowupsByThread[action.payload.threadId];
-      if (!bucket) return;
-      const next = bucket.filter(item => item.message.id !== action.payload.id);
-      if (next.length) {
-        state.queuedFollowupsByThread[action.payload.threadId] = next;
-      } else {
-        delete state.queuedFollowupsByThread[action.payload.threadId];
-      }
-    },
-    /** Drop all queued follow-ups for a thread (turn end / explicit clear). */
-    clearFollowupsForThread: (state, action: PayloadAction<{ threadId: string }>) => {
-      delete state.queuedFollowupsByThread[action.payload.threadId];
     },
     beginInferenceTurn: (state, action: PayloadAction<{ threadId: string }>) => {
       state.inferenceTurnLifecycleByThread[action.payload.threadId] = 'started';
@@ -2316,10 +2479,10 @@ const chatRuntimeSlice = createSlice({
     endInferenceTurn: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
       delete state.liveRequestIdByThread[action.payload.threadId];
-      // The turn finished, so any follow-ups queued behind it are now being
-      // dispatched by the backend — drop the optimistic pills; the queued
-      // texts reappear as real messages on their dispatched turns.
-      delete state.queuedFollowupsByThread[action.payload.threadId];
+      // The turn finished. Any follow-ups queued behind it are now being
+      // dispatched by the backend — `queueSlice`'s own `endInferenceTurn`
+      // listener drops its optimistic pills there; the queued texts reappear
+      // as real messages on their dispatched turns.
     },
     clearRuntimeForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.inferenceStatusByThread[action.payload.threadId];
@@ -2347,7 +2510,6 @@ const chatRuntimeSlice = createSlice({
       delete state.pendingPlanReviewByThread[action.payload.threadId];
       delete state.pendingWorkflowProposalsByThread[action.payload.threadId];
       delete state.queueStatusByThread[action.payload.threadId];
-      delete state.queuedFollowupsByThread[action.payload.threadId];
       delete state.pendingSendThreadIds[action.payload.threadId];
       // Note: artifactsByThread intentionally NOT cleared here. The
       // ArtifactCard renders inline in the message timeline, so the
@@ -2375,7 +2537,6 @@ const chatRuntimeSlice = createSlice({
       state.pendingWorkflowProposalsByThread = {};
       state.artifactsByThread = {};
       state.queueStatusByThread = {};
-      state.queuedFollowupsByThread = {};
       state.pendingSendThreadIds = {};
     },
     recordChatTurnUsage: (state, action: PayloadAction<ChatTurnUsagePayload>) => {
@@ -2699,6 +2860,7 @@ export const {
   resolveSubagentTranscriptTool,
   setPendingApprovalForThread,
   clearPendingApprovalForThread,
+  resolvePendingApprovalForThread,
   setPendingPlanReviewForThread,
   clearPendingPlanReviewForThread,
   setWorkflowProposalForThread,
@@ -2711,9 +2873,6 @@ export const {
   removeArtifactForThread,
   setQueueStatusForThread,
   clearQueueStatusForThread,
-  enqueueFollowup,
-  removeFollowup,
-  clearFollowupsForThread,
   beginInferenceTurn,
   markInferenceTurnStreaming,
   endInferenceTurn,

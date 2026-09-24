@@ -11,6 +11,10 @@
  * land while later tool calls and prose are already streaming. See
  * `mockChatModel` for how that is scheduled.
  */
+import type { CoreCommand } from '../../../../features/conversations/aui/useSlashCommandSource';
+import type { ContextBreakdown } from '../../../../services/api/agentContextApi';
+import type { ChatSuggestionsEvent } from '../../../../services/chatService';
+import type { RecallResponse } from '../../../../utils/tauriCommands/memoryTree';
 
 /**
  * JSON-safe argument payload. Tool-call parts require their `args` to be plain
@@ -171,6 +175,103 @@ Both delegations are still working. Nothing about them blocks this turn, so I ca
       excerpt: '<MessagePrimitive.GroupedParts groupBy={groupPartByType({ … })}>',
     },
   },
+  // Exercises the `media_generate_image` toolkit entry
+  // (`elements-image-generation` while running, then the `image` element).
+  {
+    kind: 'tool',
+    toolName: 'media_generate_image',
+    args: { prompt: 'a minimalist line-art fox reading a book' },
+    runMs: 1600,
+    result: {
+      artifacts: [
+        {
+          type: 'image',
+          source_url: 'https://picsum.photos/seed/openhuman-demo/512',
+          artifact_id: 'demo-image-1',
+        },
+      ],
+    },
+  },
+
+  // Exercises the `generate_document` toolkit entry (`elements-artifact-card`).
+  {
+    kind: 'tool',
+    toolName: 'generate_document',
+    args: { title: 'Demo transcript summary', sections: ['Overview', 'Findings'] },
+    runMs: 1200,
+    result: { title: 'Demo transcript summary', path: 'artifacts/demo-transcript-summary.docx' },
+  },
+
+  // Exercises the `goal_set` toolkit entry (`GoalToolLine.tsx` — a one-line
+  // inline summary, distinct from the pinned `AgentStatus` pill above the
+  // composer, which is driven live by `thread_goal_updated` instead).
+  {
+    kind: 'tool',
+    toolName: 'goal_set',
+    args: { objective: 'Cover every element the demo transcript can render' },
+    runMs: 400,
+    result: {
+      goal: {
+        goal_id: 'demo-goal-1',
+        objective: 'Cover every element the demo transcript can render',
+        status: 'active',
+        tokens_used: 1200,
+        token_budget: 20000,
+        time_used_seconds: 8,
+      },
+    },
+  },
+
+  // Exercises the `todo` toolkit entry (`TodoListPart.tsx` — the vendored
+  // `TodoList` element, mapping core `pending|in_progress|completed` onto
+  // the element's `pending|active|done|failed`).
+  {
+    kind: 'tool',
+    toolName: 'todo',
+    args: {
+      todos: [
+        { content: 'Stream reasoning and prose', status: 'completed' },
+        { content: 'Run a tool call and a delegation', status: 'completed' },
+        { content: 'Render the goal and plan-review elements', status: 'in_progress' },
+        { content: 'Wrap up with the closing summary', status: 'pending' },
+      ],
+    },
+    runMs: 400,
+    result: {
+      todos: [
+        { content: 'Stream reasoning and prose', status: 'completed' },
+        { content: 'Run a tool call and a delegation', status: 'completed' },
+        { content: 'Render the goal and plan-review elements', status: 'in_progress' },
+        { content: 'Wrap up with the closing summary', status: 'pending' },
+      ],
+    },
+  },
+
+  // Exercises the `request_plan_review` toolkit entry (`PlanReviewPart.tsx` —
+  // the vendored `AgentPlan` element). Rendered as already-decided history
+  // here (no `pendingPlanReviewByThread` entry backs a seeded/scripted
+  // call), so it shows fully "done" rather than the live approve/reject/
+  // revise row — see `/dev/tools` for the interactive decision states.
+  {
+    kind: 'tool',
+    toolName: 'request_plan_review',
+    args: {
+      steps: [
+        'Render the goal and todo elements inline',
+        'Show the plan under review',
+        'Resolve the review and continue',
+      ],
+    },
+    runMs: 400,
+    result: {
+      steps: [
+        'Render the goal and todo elements inline',
+        'Show the plan under review',
+        'Resolve the review and continue',
+      ],
+    },
+  },
+
   { kind: 'text', text: ANSWER },
 ];
 
@@ -254,3 +355,133 @@ export function buildSeedMessages() {
     },
   ];
 }
+
+/**
+ * A running turn with follow-ups queued behind it, for the message-queue
+ * element in the dev gallery (`/dev/tools`). Shaped like the core's run queue
+ * (`queue_item_queued` → `{ id, text_preview }`) projected to element props.
+ */
+export const MOCK_MESSAGE_QUEUE = {
+  running: SEED_PROMPT,
+  queued: [
+    { id: 'mock-queue-1', text: 'Then compare it with the legacy composer.' },
+    { id: 'mock-queue-2', text: 'And list anything that still renders a custom card.' },
+  ],
+} as const;
+
+/**
+ * A `openhuman.commands_list` response for the composer's `/` picker, shaped
+ * like the core catalog (`{ id, label, description?, kind, insert? }`). The
+ * gallery (`/dev/tools`) renders it through the vendored composer menu.
+ */
+export const MOCK_COMMANDS_LIST: CoreCommand[] = [
+  { id: 'plan', label: 'Plan', description: 'Plan first', kind: 'builtin' },
+  {
+    id: 'summarize',
+    label: 'Summarize',
+    description: 'Summarize this thread',
+    kind: 'skill',
+    insert: '/summarize ',
+  },
+  { id: 'weekly-report', label: 'Weekly report', kind: 'workflow' },
+];
+
+/**
+ * A `openhuman.memory_tree_recall` response for the composer's `@` picker
+ * (Memory category), plus the thread files it lists beside it.
+ */
+export const MOCK_MEMORY_RECALL: RecallResponse = {
+  chunks: [
+    {
+      id: 'mock-chunk-1',
+      source_kind: 'email',
+      source_id: 'mock-thread-1',
+      owner: 'me',
+      timestamp_ms: 1_767_225_600_000,
+      token_count: 120,
+      lifecycle_status: 'admitted',
+      content_preview: 'Quarterly planning notes: ship the composer pickers first',
+      has_embedding: true,
+      tags: [],
+    },
+    {
+      id: 'mock-chunk-2',
+      source_kind: 'doc',
+      source_id: 'roadmap.md',
+      owner: 'me',
+      timestamp_ms: 1_767_312_000_000,
+      token_count: 80,
+      lifecycle_status: 'admitted',
+      content_preview: 'Roadmap review with design',
+      has_embedding: true,
+      tags: [],
+    },
+  ],
+  scores: [0.91, 0.74],
+};
+
+export const MOCK_THREAD_FILES = [
+  {
+    id: 'mock-artifact-1',
+    label: 'Signed contract',
+    description: 'artifacts/signed-contract.docx',
+  },
+] as const;
+
+/**
+ * The composer's context-usage ring for a thread mid-conversation: the last
+ * turn's orchestrator tokens (what `chat_done.usage` leaves in
+ * `usageByThread`) against the model's window.
+ */
+export const MOCK_CONTEXT_USAGE = {
+  modelContextWindow: 200_000,
+  usage: { totalTokens: 61_400, inputTokens: 58_200, outputTokens: 3_200 },
+} as const;
+
+/**
+ * An `openhuman.agent_context_breakdown` response for the same thread, as the
+ * core shapes it: one row per rendered prompt heading, one `tools` row and one
+ * `history` row. The breakdown popover renders it through the vendored
+ * context-breakdown element.
+ */
+export const MOCK_CONTEXT_BREAKDOWN: ContextBreakdown = {
+  sections: [
+    { label: '(preamble)', bytes: 2_400, est_tokens: 600 },
+    { label: '## Identity', bytes: 3_200, est_tokens: 800 },
+    { label: '## Tools and delegation', bytes: 9_600, est_tokens: 2_400 },
+    { label: '## Memory', bytes: 4_800, est_tokens: 1_200 },
+    { label: 'tools', bytes: 72_000, est_tokens: 18_000 },
+    { label: 'history', bytes: 154_000, est_tokens: 38_500 },
+  ],
+  total_est_tokens: 61_500,
+  context_window: 200_000,
+};
+
+/**
+ * Every phase of the thread's connection banner (`ConnectionStateBanner`), for
+ * the gallery's phase toggle (`/dev/tools`). In the app the phase follows the
+ * renderer's socket status; here it is picked by hand.
+ */
+export const MOCK_CONNECTION_PHASES = ['dropped', 'reconnecting', 'resumed', 'online'] as const;
+
+/**
+ * A settled turn and the `chat_suggestions` event the core emits after its
+ * `chat_done` (`web_chat/suggestions.rs`: up to three `{ prompt, label }`
+ * pairs). The gallery (`/dev/tools`) runs the event through the same reducer
+ * and chip mapping as the app, then renders the vendored follow-up element.
+ */
+export const MOCK_SUGGESTIONS_TURN = {
+  user: 'What is on my calendar today?',
+  assistant: 'Two meetings: design review at 11:00 and a 1:1 with Sam at 15:30.',
+} as const;
+
+export const MOCK_CHAT_SUGGESTIONS_EVENT: ChatSuggestionsEvent = {
+  thread_id: 'mock-suggestions-thread',
+  client_id: 'mock-client',
+  turn_request_id: 'mock-request-1',
+  suggestions: [
+    { prompt: 'Move the design review to tomorrow morning', label: 'Reschedule review' },
+    { prompt: 'Draft an agenda for my 1:1 with Sam', label: 'Draft 1:1 agenda' },
+    { prompt: 'Is anything due before the design review?' },
+  ],
+};

@@ -677,11 +677,27 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Agent,
         crate::agent::plan_review::all_plan_review_registered_controllers(),
     );
+    // Per-thread Plan/Build run mode (agent.set_run_mode / agent.get_run_mode)
+    push(
+        &mut controllers,
+        DomainGroup::Agent,
+        crate::agent::tinyagents::run_mode::all_registered_controllers(),
+    );
     // Agent-generated artifact storage, retrieval, and lifecycle management
     push(
         &mut controllers,
         DomainGroup::Agent,
         crate::agent::artifacts::all_artifacts_registered_controllers(),
+    );
+    // Read-only command palette listing: built-ins merged with skills.list /
+    // flows.list (C5). Tagged `Agent` rather than a new `DomainGroup` variant
+    // — it is chat-harness surface, always on, and adding a variant for this
+    // single-RPC domain would touch every exhaustive `DomainGroup` match in
+    // this file.
+    push(
+        &mut controllers,
+        DomainGroup::Agent,
+        crate::commands::all_commands_registered_controllers(),
     );
     // Ad-hoc static directory HTTP hosting for local file sharing / previews.
     // Gated with the `http-server` feature (#5048): the domain is an axum server,
@@ -1182,6 +1198,7 @@ pub fn rpc_method_name(schema: &ControllerSchema) -> String {
 pub fn namespace_description(namespace: &str) -> Option<&'static str> {
     match namespace {
         "about_app" => Some("Catalog the app's user-facing capabilities and where to find them."),
+        "agent" => Some("Per-thread agent run-mode control (Plan vs Build)."),
         "ai" => Some("Agent-generated artifact storage, retrieval, and lifecycle management."),
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
         "auth" => Some("Manage app session and provider credentials."),

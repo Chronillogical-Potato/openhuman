@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use tinyagents_harness::cache::InMemoryResponseCache;
 use tinyagents_harness::middleware::{
-    BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware, PromptCacheGuardMiddleware,
-    ToolPolicyMiddleware as TaToolPolicyMiddleware,
+    plan_mode_middleware, BudgetLimits, BudgetMiddleware, ContextCompressionMiddleware,
+    PromptCacheGuardMiddleware, RunModeHandle, ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::steering::SteeringHandle;
@@ -135,6 +135,13 @@ pub(super) fn assemble_turn_harness(
     // The dialect the session composed its prompt for; see
     // `OpenHumanRunContext::tool_dialect`.
     tool_dialect: tinyagents_harness::config::ToolDispatcher,
+    // Live per-thread Plan/Build mode handle (`agent::tinyagents::run_mode`).
+    // `Some` installs `PlanModeMiddleware`, which hides/denies side-effecting
+    // tools while the thread is in `RunMode::Plan` — flipped without
+    // restarting the run by `plan_exit` or the `agent.set_run_mode` RPC.
+    // `None` for a caller with no thread identity (a sub-agent child, most
+    // notably), which never runs in plan mode.
+    run_mode: Option<RunModeHandle>,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
@@ -462,6 +469,30 @@ pub(super) fn assemble_turn_harness(
         .map(|schema| schema.name)
         .collect();
     context_mw.install(&mut harness, tool_policies, summary_focus_tools);
+
+    // Plan mode (issue: plan-mode approvals). `run_mode` is `Some` only for a
+    // turn with a thread identity (chat, not a sub-agent child); the
+    // middleware itself is a no-op whenever the live handle reads
+    // `RunMode::Build`, so pushing it unconditionally for those turns is
+    // cheap and lets a mid-run `plan_exit`/`agent.set_run_mode` flip take
+    // effect on the very next tool exposure or execution check. `.allow(..)`
+    // keeps plan-mode-specific and session-bookkeeping tools reachable while
+    // planning even though they are not (or should not be gated as)
+    // side-effect-free: `plan_exit` (the hand-off signal itself),
+    // `request_plan_review` (the review gate IS the consent surface), the
+    // session `todo` list, and the per-thread `goal_*` tools.
+    if let Some(mode) = run_mode {
+        harness.push_middleware(Arc::new(
+            plan_mode_middleware(mode, harness.tools().policies()).allow([
+                "plan_exit",
+                "request_plan_review",
+                "todo",
+                "goal_set",
+                "goal_get",
+                "goal_complete",
+            ]),
+        ));
+    }
 
     // Observe-only crate `BudgetMiddleware` (W2-budget-dedupe / workstream 06).
     // Installed with empty `BudgetLimits` so it NEVER enforces or halts: its

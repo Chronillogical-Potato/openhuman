@@ -88,6 +88,11 @@ const COPILOT_APPROVAL_TTL: Duration = Duration::from_secs(180);
 pub struct ApprovalChatContext {
     pub thread_id: String,
     pub client_id: String,
+    /// The turn currently running on this thread, when the caller has one in
+    /// scope. Carried through to `external_transfer_pending` (and any other
+    /// event this context backs) so the frontend can correlate a disclosure
+    /// to the turn that triggered it instead of only the thread.
+    pub request_id: Option<String>,
 }
 
 tokio::task_local! {
@@ -186,6 +191,20 @@ pub fn try_boot_state() -> Option<ApprovalGateBootState> {
     BOOT_STATE.get().copied()
 }
 
+/// Routing correlation captured at park time for one `request_id`: the chat
+/// thread/client to surface a decision to, plus the gated tool call's
+/// provider-assigned call id. Looked up by [`ApprovalGate::take_request_route`]
+/// when a decision resolves so `DomainEvent::ApprovalDecided` can carry the
+/// same routing the original `ApprovalRequested` did, without re-deriving it
+/// from ambient task-locals that may no longer be in scope (a decision can
+/// resolve from an RPC call with no chat context of its own).
+#[derive(Clone, Debug, Default)]
+pub(crate) struct RequestRoute {
+    pub(crate) thread_id: Option<String>,
+    pub(crate) client_id: Option<String>,
+    pub(crate) tool_call_id: Option<String>,
+}
+
 /// Coordinator for pending approvals.
 pub struct ApprovalGate {
     config: Config,
@@ -197,6 +216,12 @@ pub struct ApprovalGate {
     /// In-memory only (session-scoped — a parked approval doesn't survive a
     /// restart, and the oneshot waiter is in-memory anyway).
     thread_to_request: Mutex<HashMap<String, String>>,
+    /// request_id → [`RequestRoute`] for every currently-parked call. Populated
+    /// at park time (`intercept_audited_inner`), consulted when a decision
+    /// resolves (`decide`, and the TTL/channel-drop paths in
+    /// `gate_intercept.rs`) so `ApprovalDecided` can mirror the same
+    /// thread/client/tool_call_id the original `ApprovalRequested` carried.
+    request_routes: Mutex<HashMap<String, RequestRoute>>,
 }
 
 /// RAII guard that tears the parked waiter down even when the surrounding turn
@@ -251,7 +276,19 @@ impl Drop for WaiterGuard<'_> {
             self.gate
                 .clear_thread_route_if_owned(thread_id, &self.request_id);
         }
-        let _ = store::decide(&self.gate.config, &self.request_id, ApprovalDecision::Deny);
+        let decided = store::decide(&self.gate.config, &self.request_id, ApprovalDecision::Deny);
+        if let Ok(Some(row)) = decided {
+            let route = self.gate.take_request_route(&self.request_id);
+            BUS.publish(DomainEvent::ApprovalDecided {
+                request_id: row.request_id,
+                tool_name: row.tool_name,
+                decision: ApprovalDecision::Deny.as_str().to_string(),
+                thread_id: route.as_ref().and_then(|r| r.thread_id.clone()),
+                client_id: route.as_ref().and_then(|r| r.client_id.clone()),
+                tool_call_id: route.and_then(|r| r.tool_call_id),
+                resolution: Some("cancelled".to_string()),
+            });
+        }
         tracing::warn!(
             request_id = %self.request_id,
             "[approval::gate] parked approval future dropped mid-park (external turn teardown) — \
@@ -262,6 +299,7 @@ impl Drop for WaiterGuard<'_> {
 
 include!("gate_setup.rs");
 include!("gate_intercept.rs");
+include!("gate_intercept_decision.rs");
 include!("gate_state.rs");
 fn now_ms() -> u64 {
     std::time::SystemTime::now()

@@ -124,8 +124,10 @@ describe('a background approval on /chat', () => {
 
     const card = await screen.findByTestId('unrouted-approval-card', undefined, { timeout: 5000 });
     // The tool, so the user can tell what is being asked, not just that
-    // something is.
-    expect(screen.getByTestId('unrouted-approval-tool')).toHaveTextContent('triage.escalate');
+    // something is — rendered as the shared `ApprovalCardAdapter`'s command
+    // panel now (the tool name doubles as the command when the gate has no
+    // redacted command/path/url of its own).
+    expect(card).toHaveTextContent('triage.escalate');
     expect(card).toHaveTextContent('triage::ESCALATE');
   });
 
@@ -134,7 +136,7 @@ describe('a background approval on /chat', () => {
     await renderChatRoute();
     await screen.findByTestId('unrouted-approval-card', undefined, { timeout: 5000 });
 
-    await userEvent.click(screen.getByRole('button', { name: /approve once/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Approve' }));
 
     await waitFor(() =>
       expect(vi.mocked(decideApproval)).toHaveBeenCalledWith('req-triage-1', 'approve_once')

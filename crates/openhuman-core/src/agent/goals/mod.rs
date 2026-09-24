@@ -13,3 +13,13 @@ pub mod tools;
 
 pub use tinyagents_graph::goals::{ThreadGoal, ThreadGoalStatus};
 pub use tools::{GoalCompleteTool, GoalGetTool, GoalSetTool};
+
+/// Serialize a [`ThreadGoal`] for the `goal` field on `ThreadGoalUpdated` /
+/// `threads.goal_get`. `ThreadGoal` is owned by `tinyagents-graph`, so this is
+/// kept as a raw `Value` rather than a typed field on the event. Falls back to
+/// `Value::Null` on an (unexpected) serialization failure rather than
+/// panicking or dropping the event.
+#[must_use]
+pub fn goal_to_value(goal: &ThreadGoal) -> serde_json::Value {
+    serde_json::to_value(goal).unwrap_or(serde_json::Value::Null)
+}

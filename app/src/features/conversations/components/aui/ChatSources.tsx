@@ -1,43 +1,64 @@
 /**
- * The web sources a turn visited, as one collapsed disclosure under its answer.
+ * The sources a turn drew on, as one row of source badges under its answer:
+ * `url` sources (web fetch/search) and `document` sources (memory citations).
  *
- * The sources arrive as assistant-ui `source` parts, emitted by `assistantParts`
- * (`providers/assistantUiMessages.ts`) through `extractAgentSources`, which is
- * the one place a model-supplied URL is admitted (http(s) only) — the `url` is a
- * raw tool-call argument and so prompt-injection-influenceable. `Thread` groups
+ * Sources arrive as assistant-ui `source` parts, emitted by `assistantParts`
+ * (`providers/assistantUiMessages.ts`) through `extractAgentSources` for
+ * `url` (the one place a model-supplied URL is admitted, http(s) only — a raw
+ * tool-call argument, so prompt-injection-influenceable) and directly from
+ * the turn's `citations` (memory retrieval) for `document`. `Thread` groups
  * the run of source parts and hands them here through its `SourceGroup` slot.
  *
- * Collapsed by default: the answer stays the top of the turn.
+ * Renders through the vendored `sources.aui` element's per-part `Sources`
+ * component (a `SourceMessagePartComponent`) rather than the old collapsible
+ * `components/ai-elements/Sources.tsx` disclosure — every source shows as a
+ * badge/link inline, nothing hidden behind a click.
  */
-import { Sources, SourcesContent, SourcesTrigger } from '../../../../components/ai-elements';
-import type { SourceUrlPart } from '../../../../components/assistant-ui/thread';
+import { Badge } from '../../../../components/assistant-ui/badge';
+import {
+  DocumentSourceIcon,
+  Source,
+  SourceIcon,
+  SourceTitle,
+} from '../../../../components/assistant-ui/elements/sources.aui';
+import type { SourceItemPart } from '../../../../components/assistant-ui/thread';
 import { useT } from '../../../../lib/i18n/I18nContext';
-import { AgentSourceRow } from '../AgentSourceRow';
 
-export function ChatSources({ sources }: { sources: readonly SourceUrlPart[] }) {
+/**
+ * Composes the vendored `sources.aui` primitives (`Source`/`SourceIcon`/
+ * `SourceTitle`/`DocumentSourceIcon`/`Badge`) directly rather than calling its
+ * `Sources` message-part component: that component's prop type is the full
+ * assistant-ui `SourceMessagePartProps` (part `status`, `mediaType`, ...),
+ * which this app's `SourceItemPart` (derived from `extractAgentSources` /
+ * memory citations, not a live message-part subscription) does not carry.
+ */
+export function ChatSources({ sources }: { sources: readonly SourceItemPart[] }) {
   const { t } = useT();
   if (sources.length === 0) return null;
 
   return (
-    <Sources asChild className="mb-0 text-content-muted">
-      <section data-testid="turn-sources">
-        <SourcesTrigger
-          count={sources.length}
-          className="text-content-muted hover:text-content-secondary text-xs transition-colors">
-          {t('conversations.agentTaskInsights.sourcesHeading')} ({sources.length})
-        </SourcesTrigger>
-        <SourcesContent className="mt-1 w-full gap-0">
-          <ul className="space-y-0.5">
-            {sources.map(source => (
-              <AgentSourceRow
-                key={source.id}
-                source={{ id: source.id, url: source.url, title: source.title ?? source.url }}
-              />
-            ))}
-          </ul>
-        </SourcesContent>
-      </section>
-    </Sources>
+    <section
+      data-testid="turn-sources"
+      aria-label={t('conversations.agentTaskInsights.sourcesHeading')}
+      className="mt-1 flex flex-wrap items-center gap-1.5">
+      {sources.map(source =>
+        source.sourceType === 'url' ? (
+          <Source key={source.id} href={source.url} data-testid="agent-source-row">
+            <SourceIcon url={source.url} />
+            <SourceTitle>{source.title || source.url}</SourceTitle>
+          </Source>
+        ) : (
+          <Badge key={source.id} variant="secondary" data-testid="agent-memory-source-row">
+            <span className="inline-flex items-center gap-1.5">
+              <DocumentSourceIcon />
+              <SourceTitle>
+                {source.title ?? t('conversations.agentTaskInsights.memoryCitationFallbackTitle')}
+              </SourceTitle>
+            </span>
+          </Badge>
+        )
+      )}
+    </section>
   );
 }
 

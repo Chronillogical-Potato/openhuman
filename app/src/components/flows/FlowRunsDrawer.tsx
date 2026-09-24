@@ -4,9 +4,9 @@
  *
  * Right-side drawer listing a flow's run history, opened from the
  * "View runs" action on {@link FlowListRow}. Drawer chrome mirrors
- * `FlowRunInspectorDrawer`/`SubagentDrawer` (fixed overlay + backdrop-click-
- * to-close + Escape-to-close via `useDismissLayer`) so it renders as a fixed
- * overlay regardless of where the parent mounts it.
+ * `FlowRunInspectorDrawer` (fixed overlay + backdrop-click-to-close +
+ * Escape-to-close via `useDismissLayer`) so it renders as a fixed overlay
+ * regardless of where the parent mounts it.
  *
  * Data loads via `useFlowRunsQuery` on open, then stays live via
  * {@link useFlowRunsLiveRefresh} while any run in the list is still active —
@@ -57,7 +57,7 @@ interface Props {
 /**
  * Renders `null` when `flowId` is `null` so the parent can mount this
  * unconditionally and just flip `flowId` (same convention as
- * `FlowRunInspectorDrawer`/`SubagentDrawer`).
+ * `FlowRunInspectorDrawer`).
  */
 function FlowRunsDrawer({ flowId, flowName, onClose, onFixWithAgent }: Props) {
   const { t } = useT();

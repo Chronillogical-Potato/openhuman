@@ -125,6 +125,19 @@ function KindIcon({ kind }: { kind: ArtifactSnapshot['kind'] }) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l5-5 4 4 3-3 6 6" />
         </svg>
       );
+    case 'video':
+      return (
+        <svg
+          aria-hidden="true"
+          className="w-4 h-4 shrink-0"
+          fill="none"
+          stroke={stroke}
+          strokeWidth={1.8}
+          viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h13v14H3z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 10l5-3v10l-5-3z" />
+        </svg>
+      );
     default:
       return (
         <svg

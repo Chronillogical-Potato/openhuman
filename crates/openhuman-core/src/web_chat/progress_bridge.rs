@@ -11,6 +11,10 @@ use crate::threads::turn_state::{TurnStateMirror, TurnStateStore};
 use super::event_bus::publish_web_channel_event;
 use super::types::ChatRequestMetadata;
 
+#[path = "progress_bridge_subagent_events.rs"]
+mod subagent_events;
+use subagent_events::BridgeCtx;
+
 /// Cadence of the `inference_heartbeat` liveness beat the bridge emits while a
 /// turn is in flight (issue #4270). The frontend silence timer in
 /// `Conversations.tsx` only fires after ~120s with NO progress signal of any
@@ -52,6 +56,11 @@ pub(crate) const BRIDGE_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration
 #[derive(Clone)]
 pub(crate) struct ProgressBridgeHandle {
     drained: tokio::sync::watch::Receiver<bool>,
+    /// Set once, from inside the bridge task, when the turn's
+    /// `AgentProgress::TurnCompleted` arrives (`TurnTiming::snapshot()`).
+    /// Read by the caller after `wait_drained` so the same numbers the
+    /// `time-to-first-visible` log line reports reach `chat_done.timing`.
+    timing: std::sync::Arc<std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>>,
 }
 
 impl ProgressBridgeHandle {
@@ -63,6 +72,13 @@ impl ProgressBridgeHandle {
         let result = tokio::time::timeout(timeout, drained.wait_for(|done| *done)).await;
         // A dropped sender means the bridge task ended, which is drained too.
         matches!(result, Ok(Ok(_)) | Ok(Err(_)))
+    }
+
+    /// The turn's timing snapshot, if the bridge saw a `TurnCompleted` before
+    /// its channel closed. `None` for a turn that errored/was interrupted
+    /// before completing a round, or was never polled after completion.
+    pub(crate) fn timing_snapshot(&self) -> Option<super::turn_timing::TurnTimingSnapshot> {
+        self.timing.lock().ok().and_then(|guard| *guard)
     }
 }
 
@@ -129,7 +145,11 @@ fn interim_narration_text(buffer: &str) -> Option<String> {
 
 /// Current wall-clock time as Unix-epoch milliseconds, used to stamp tracing
 /// spans (issue #3886). Saturates to `0` if the clock is before the epoch.
-fn unix_epoch_ms() -> u64 {
+///
+/// `pub(crate)` so `web_chat::event_bus` and `core::socketio` can stamp
+/// `WebChannelEvent.ts` with the same clock instead of keeping a second
+/// epoch-ms helper in step by hand.
+pub(crate) fn unix_epoch_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -168,6 +188,23 @@ fn cap_wire_output(output: String) -> String {
         "{}\n…[truncated {omitted} bytes of tool output]",
         &output[..end]
     )
+}
+
+/// Cap a tool call's forwarded `args`/input payload the same way
+/// [`cap_wire_output`] caps tool output: a captured argument (e.g. a large
+/// inline file body) must never ship megabytes over the socket. Truncation
+/// only ever produces a marker string; it never re-nests as JSON, since the
+/// wire consumer only needs to know the payload was too big to show in full.
+fn cap_wire_args(args: Option<serde_json::Value>) -> Option<serde_json::Value> {
+    let value = args?;
+    if value.is_null() {
+        return None;
+    }
+    let rendered = value.to_string();
+    if rendered.len() <= MAX_WIRE_SUBAGENT_OUTPUT {
+        return Some(value);
+    }
+    Some(serde_json::Value::String(cap_wire_output(rendered)))
 }
 
 pub(super) fn ledger_upsert_agent_run(
@@ -292,6 +329,10 @@ pub(crate) fn spawn_progress_bridge(
     };
 
     let (drained_tx, drained_rx) = tokio::sync::watch::channel(false);
+    let timing_snapshot: std::sync::Arc<
+        std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>,
+    > = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let timing_snapshot_for_task = timing_snapshot.clone();
     tokio::spawn(async move {
         log::debug!(
             "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
@@ -312,6 +353,7 @@ pub(crate) fn spawn_progress_bridge(
         // (it belongs to the terminal round, which ends with no tool call).
         let mut pending_narration = String::new();
         let mut timing = super::turn_timing::TurnTiming::start();
+        let mut turn_cost_throttle = super::turn_timing::TurnCostThrottle::new();
         let mut events_seen: u64 = 0;
         // Per-request monotonic ordering key stamped on every emitted
         // web-channel event (see `publish_seq_stamped`). Unique per emission so
@@ -320,6 +362,11 @@ pub(crate) fn spawn_progress_bridge(
         let mut parent_completed = false;
         let mut parent_tool_count: u64 = 0;
         let mut child_tool_counts: HashMap<String, u64> = HashMap::new();
+        // task_id -> the parent tool-call id that spawned it, remembered from
+        // `SubagentSpawned` so later lifecycle events for the same task
+        // (`subagent_completed`/`_failed`/`_awaiting_user`) can still carry
+        // it even though those `AgentProgress` variants don't repeat it.
+        let mut subagent_parent_call_ids: HashMap<String, Option<String>> = HashMap::new();
         let mut turn_state =
             TurnStateMirror::new(turn_state_store, thread_id.clone(), request_id.clone());
 
@@ -635,7 +682,7 @@ pub(crate) fn spawn_progress_bridge(
                             request_id: request_id.clone(),
                             tool_name: Some(tool_name),
                             skill_id: Some("web_channel".to_string()),
-                            args: Some(arguments),
+                            args: cap_wire_args(Some(arguments)),
                             round: Some(iteration),
                             tool_call_id: Some(call_id),
                             tool_display_label: display_label,
@@ -650,10 +697,13 @@ pub(crate) fn spawn_progress_bridge(
                     success,
                     output_chars,
                     output,
+                    arguments,
                     elapsed_ms,
                     iteration,
                     failure,
-                    ..
+                    display_label,
+                    display_detail,
+                    structured,
                 } => {
                     // Serialize the classified failure (if any) for the UI + ledger.
                     let failure_json = failure.as_ref().and_then(|f| serde_json::to_value(f).ok());
@@ -673,6 +723,17 @@ pub(crate) fn spawn_progress_bridge(
                             }),
                         },
                     );
+                    log::debug!(
+                        "[web_channel][bridge] tool_result round={} tool={} call_id={} \
+                         success={} elapsed_ms={} has_structured={} request_id={}",
+                        iteration,
+                        tool_name,
+                        call_id,
+                        success,
+                        elapsed_ms,
+                        structured.is_some(),
+                        request_id
+                    );
                     publish_seq_stamped(
                         &mut emit_seq,
                         WebChannelEvent {
@@ -687,10 +748,23 @@ pub(crate) fn spawn_progress_bridge(
                             // `subagent_tool_result` path. Frontends that only
                             // need size/timing read the ledger telemetry instead.
                             output: Some(cap_wire_output(output)),
+                            // The call arguments the harness captured at
+                            // completion (`ToolCallStarted.arguments` is
+                            // always `Null` on this path). Omitted when the
+                            // harness ran with payload capture off.
+                            args: cap_wire_args(arguments),
                             success: Some(success),
                             round: Some(iteration),
                             tool_call_id: Some(call_id),
                             failure: failure_json,
+                            elapsed_ms: Some(elapsed_ms),
+                            structured,
+                            // Recomputed from the real arguments (unlike the
+                            // started event's args-free computation), so a
+                            // completed row can pick up a detail that only
+                            // became knowable once the arguments existed.
+                            tool_display_label: display_label,
+                            tool_display_detail: display_detail,
                             ..Default::default()
                         },
                     );
@@ -703,81 +777,28 @@ pub(crate) fn spawn_progress_bridge(
                     prompt_chars,
                     worker_thread_id,
                     display_name,
+                    parent_call_id,
                     ..
                 } => {
-                    let label = display_name.as_deref().unwrap_or(&agent_id);
-                    let kind = if worker_thread_id.is_some() {
-                        AgentRunKind::WorkerThread
-                    } else {
-                        AgentRunKind::Subagent
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
                     };
-                    ledger_upsert_agent_run(
-                        &config,
-                        AgentRunUpsert {
-                            id: task_id.clone(),
-                            kind,
-                            parent_run_id: Some(request_id.clone()),
-                            parent_thread_id: Some(thread_id.clone()),
-                            agent_id: Some(agent_id.clone()),
-                            status: AgentRunStatus::Running,
-                            prompt_ref: worker_thread_id
-                                .as_ref()
-                                .map(|id| format!("thread:{id}:message:seed")),
-                            worker_thread_id: worker_thread_id.clone(),
-                            checkpoint_path: None,
-                            checkpoint: None,
-                            summary: None,
-                            error: None,
-                            metadata: json!({
-                                "mode": mode,
-                                "dedicatedThread": dedicated_thread,
-                                "promptChars": prompt_chars,
-                                "displayName": display_name,
-                                "source": "agent_progress",
-                                "schemaVersion": 1
-                            }),
-                            started_at: None,
-                            completed_at: None,
-                        },
-                    );
-                    ledger_append_event(
-                        &config,
-                        RunEventAppend {
-                            run_id: task_id.clone(),
-                            event_type: "subagent_spawned".to_string(),
-                            payload: json!({
-                                "agentId": agent_id,
-                                "parentRunId": request_id,
-                                "threadId": thread_id,
-                                "workerThreadId": worker_thread_id,
-                                "mode": mode,
-                                "dedicatedThread": dedicated_thread,
-                                "promptChars": prompt_chars,
-                                "displayName": display_name
-                            }),
-                        },
-                    );
-                    publish_seq_stamped(
+                    subagent_events::on_subagent_spawned(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_spawned".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            message: Some(format!("Sub-agent '{label}' spawned")),
-                            tool_name: Some(agent_id),
-                            skill_id: Some(task_id),
-                            round: Some(round),
-                            subagent: Some(SubagentProgressDetail {
-                                mode: Some(mode),
-                                dedicated_thread: Some(dedicated_thread),
-                                prompt_chars: Some(prompt_chars as u64),
-                                worker_thread_id,
-                                display_name,
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        &mut subagent_parent_call_ids,
+                        round,
+                        agent_id,
+                        task_id,
+                        mode,
+                        dedicated_thread,
+                        prompt_chars,
+                        worker_thread_id,
+                        display_name,
+                        parent_call_id,
                     );
                 }
                 AgentProgress::SubagentCompleted {
@@ -786,99 +807,35 @@ pub(crate) fn spawn_progress_bridge(
                     elapsed_ms,
                     iterations,
                     output_chars,
+                    output,
                     usage,
                     worktree_path,
                     changed_files,
                     dirty_status,
                     ..
                 } => {
-                    let completed_at = chrono::Utc::now();
-                    ledger_upsert_agent_run(
-                        &config,
-                        AgentRunUpsert {
-                            id: task_id.clone(),
-                            kind: AgentRunKind::Subagent,
-                            parent_run_id: Some(request_id.clone()),
-                            parent_thread_id: Some(thread_id.clone()),
-                            agent_id: Some(agent_id.clone()),
-                            status: AgentRunStatus::Completed,
-                            prompt_ref: None,
-                            worker_thread_id: None,
-                            checkpoint_path: None,
-                            checkpoint: None,
-                            summary: Some(format!(
-                                "Completed in {iterations} iteration(s), {output_chars} output chars"
-                            )),
-                            error: None,
-                            metadata: json!({}),
-                            started_at: None,
-                            completed_at: Some(completed_at),
-                        },
-                    );
-                    ledger_upsert_telemetry(
-                        &config,
-                        RunTelemetryUpsert {
-                            run_id: task_id.clone(),
-                            elapsed_ms: Some(elapsed_ms),
-                            tool_count: child_tool_counts.get(&task_id).copied(),
-                            ..Default::default()
-                        },
-                    );
-                    ledger_append_event(
-                        &config,
-                        RunEventAppend {
-                            run_id: task_id.clone(),
-                            event_type: "subagent_completed".to_string(),
-                            payload: json!({
-                                "agentId": agent_id,
-                                "elapsedMs": elapsed_ms,
-                                "iterations": iterations,
-                                "outputChars": output_chars,
-                                "worktreePath": worktree_path,
-                                "changedFiles": changed_files,
-                                "dirtyStatus": dirty_status
-                            }),
-                        },
-                    );
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_completed(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_completed".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            message: Some(format!(
-                                "Sub-agent '{agent_id}' completed in {elapsed_ms}ms"
-                            )),
-                            tool_name: Some(agent_id),
-                            skill_id: Some(task_id),
-                            success: Some(true),
-                            round: Some(round),
-                            subagent: Some(SubagentProgressDetail {
-                                elapsed_ms: Some(elapsed_ms),
-                                iterations: Some(iterations),
-                                output_chars: Some(output_chars as u64),
-                                // Present only when this child's spend is NOT
-                                // already in the parent turn's totals — the
-                                // emitting site decides, because only it can
-                                // see whether the usage reached
-                                // `parent_subagent_usage`. Absent is the safe
-                                // default and means "add nothing".
-                                input_tokens: usage.as_ref().map(|u| u.input_tokens),
-                                output_tokens: usage.as_ref().map(|u| u.output_tokens),
-                                cached_input_tokens: usage.as_ref().map(|u| u.cached_input_tokens),
-                                cost_usd: usage.as_ref().map(|u| u.charged_amount_usd),
-                                // Worktree isolation metadata (#3376) — drives the
-                                // inline subagent worktree row's open/diff/remove
-                                // actions. All `None`/absent for non-isolated workers.
-                                ..subagent_worktree_detail(
-                                    worktree_path,
-                                    changed_files,
-                                    dirty_status,
-                                )
-                            }),
-                            ..Default::default()
-                        },
+                        &mut subagent_parent_call_ids,
+                        &child_tool_counts,
+                        round,
+                        agent_id,
+                        task_id,
+                        elapsed_ms,
+                        iterations,
+                        output_chars,
+                        output,
+                        usage,
+                        worktree_path,
+                        changed_files,
+                        dirty_status,
                     );
                 }
                 AgentProgress::SubagentFailed {
@@ -886,58 +843,21 @@ pub(crate) fn spawn_progress_bridge(
                     task_id,
                     error,
                 } => {
-                    let completed_at = chrono::Utc::now();
-                    ledger_upsert_agent_run(
-                        &config,
-                        AgentRunUpsert {
-                            id: task_id.clone(),
-                            kind: AgentRunKind::Subagent,
-                            parent_run_id: Some(request_id.clone()),
-                            parent_thread_id: Some(thread_id.clone()),
-                            agent_id: Some(agent_id.clone()),
-                            status: AgentRunStatus::Failed,
-                            prompt_ref: None,
-                            worker_thread_id: None,
-                            checkpoint_path: None,
-                            checkpoint: None,
-                            summary: None,
-                            error: Some(error.clone()),
-                            metadata: json!({}),
-                            started_at: None,
-                            completed_at: Some(completed_at),
-                        },
-                    );
-                    ledger_upsert_telemetry(
-                        &config,
-                        RunTelemetryUpsert {
-                            run_id: task_id.clone(),
-                            tool_count: child_tool_counts.get(&task_id).copied(),
-                            error: Some(error.clone()),
-                            ..Default::default()
-                        },
-                    );
-                    ledger_append_event(
-                        &config,
-                        RunEventAppend {
-                            run_id: task_id.clone(),
-                            event_type: "subagent_failed".to_string(),
-                            payload: json!({ "agentId": agent_id, "error": error }),
-                        },
-                    );
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_failed(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_failed".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            message: Some(error),
-                            tool_name: Some(agent_id),
-                            skill_id: Some(task_id),
-                            success: Some(false),
-                            round: Some(round),
-                            ..Default::default()
-                        },
+                        &mut subagent_parent_call_ids,
+                        &child_tool_counts,
+                        round,
+                        agent_id,
+                        task_id,
+                        error,
                     );
                 }
                 AgentProgress::SubagentAwaitingUser {
@@ -947,78 +867,22 @@ pub(crate) fn spawn_progress_bridge(
                     worker_thread_id,
                     checkpoint_path,
                 } => {
-                    log::debug!(
-                        "[web_channel][bridge] subagent_awaiting_user agent_id={} task_id={} client_id={} thread_id={} request_id={}",
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_awaiting_user(
+                        &ctx,
+                        &mut emit_seq,
+                        &subagent_parent_call_ids,
+                        round,
                         agent_id,
                         task_id,
-                        client_id,
-                        thread_id,
-                        request_id,
-                    );
-                    ledger_upsert_agent_run(
-                        &config,
-                        AgentRunUpsert {
-                            id: task_id.clone(),
-                            kind: if worker_thread_id.is_some() {
-                                AgentRunKind::WorkerThread
-                            } else {
-                                AgentRunKind::Subagent
-                            },
-                            parent_run_id: Some(request_id.clone()),
-                            parent_thread_id: Some(thread_id.clone()),
-                            agent_id: Some(agent_id.clone()),
-                            status: AgentRunStatus::AwaitingUser,
-                            prompt_ref: None,
-                            worker_thread_id: worker_thread_id.clone(),
-                            // What the runner actually wrote; the old rebuild
-                            // from `workspace_dir` asserted a checkpoint that
-                            // may never have been written (#5928).
-                            checkpoint_path: checkpoint_path.clone(),
-                            checkpoint: Some(json!({
-                                "resumeTool": "continue_subagent",
-                                "taskId": task_id,
-                                "agentId": agent_id,
-                                "question": question,
-                                "workerThreadId": worker_thread_id,
-                                "checkpointPersisted": checkpoint_path.is_some()
-                            })),
-                            summary: Some(question.clone()),
-                            error: None,
-                            metadata: json!({}),
-                            started_at: None,
-                            completed_at: None,
-                        },
-                    );
-                    ledger_append_event(
-                        &config,
-                        RunEventAppend {
-                            run_id: task_id.clone(),
-                            event_type: "subagent_awaiting_user".to_string(),
-                            payload: json!({
-                                "agentId": agent_id,
-                                "question": question,
-                                "workerThreadId": worker_thread_id
-                            }),
-                        },
-                    );
-                    publish_seq_stamped(
-                        &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_awaiting_user".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            message: Some(question),
-                            tool_name: Some(agent_id),
-                            skill_id: Some(task_id),
-                            success: Some(true),
-                            round: Some(round),
-                            subagent: Some(SubagentProgressDetail {
-                                worker_thread_id,
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        question,
+                        worker_thread_id,
+                        checkpoint_path,
                     );
                 }
                 AgentProgress::SubagentIterationStarted {
@@ -1028,34 +892,21 @@ pub(crate) fn spawn_progress_bridge(
                     max_iterations,
                     extended_policy,
                 } => {
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_iteration_started(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_iteration_start".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            message: Some(if extended_policy {
-                                format!("Sub-agent '{agent_id}' step {iteration}")
-                            } else {
-                                format!(
-                                    "Sub-agent '{agent_id}' iteration {iteration}/{max_iterations}"
-                                )
-                            }),
-                            tool_name: Some(agent_id),
-                            skill_id: Some(task_id),
-                            round: Some(round),
-                            subagent: Some(SubagentProgressDetail {
-                                child_iteration: Some(iteration),
-                                child_max_iterations: if extended_policy {
-                                    None
-                                } else {
-                                    Some(max_iterations)
-                                },
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        round,
+                        agent_id,
+                        task_id,
+                        iteration,
+                        max_iterations,
+                        extended_policy,
                     );
                 }
                 AgentProgress::SubagentToolCallStarted {
@@ -1068,58 +919,25 @@ pub(crate) fn spawn_progress_bridge(
                     display_label,
                     display_detail,
                 } => {
-                    let count = child_tool_counts.entry(task_id.clone()).or_insert(0);
-                    *count += 1;
-                    ledger_upsert_telemetry(
-                        &config,
-                        RunTelemetryUpsert {
-                            run_id: task_id.clone(),
-                            tool_count: Some(*count),
-                            ..Default::default()
-                        },
-                    );
-                    ledger_append_event(
-                        &config,
-                        RunEventAppend {
-                            run_id: task_id.clone(),
-                            event_type: "subagent_tool_call_started".to_string(),
-                            payload: json!({
-                                "agentId": agent_id,
-                                "callId": call_id,
-                                "toolName": tool_name,
-                                "iteration": iteration
-                            }),
-                        },
-                    );
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_tool_call_started(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_tool_call".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            tool_name: Some(tool_name),
-                            skill_id: Some(task_id.clone()),
-                            // The child's tool arguments, so the UI can show what
-                            // the sub-agent actually did (issue: subagent drawer
-                            // detail). Skipped from the wire when `null`.
-                            args: if arguments.is_null() {
-                                None
-                            } else {
-                                Some(arguments)
-                            },
-                            round: Some(round),
-                            tool_call_id: Some(call_id),
-                            tool_display_label: display_label,
-                            tool_display_detail: display_detail,
-                            subagent: Some(SubagentProgressDetail {
-                                child_iteration: Some(iteration),
-                                agent_id: Some(agent_id),
-                                task_id: Some(task_id),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        &mut child_tool_counts,
+                        round,
+                        agent_id,
+                        task_id,
+                        call_id,
+                        tool_name,
+                        arguments,
+                        iteration,
+                        display_label,
+                        display_detail,
                     );
                 }
                 AgentProgress::SubagentToolCallCompleted {
@@ -1130,60 +948,38 @@ pub(crate) fn spawn_progress_bridge(
                     success,
                     output_chars,
                     output,
+                    arguments,
                     elapsed_ms,
                     iteration,
                     failure,
-                    ..
+                    display_label,
+                    display_detail,
+                    structured,
                 } => {
-                    // Serialize the classified failure (if any) so a failed
-                    // sub-agent tool row carries its "why + next" copy on the
-                    // wire + ledger, matching the main-agent path (#4459).
-                    let failure_json = failure.as_ref().and_then(|f| serde_json::to_value(f).ok());
-                    ledger_append_event(
-                        &config,
-                        RunEventAppend {
-                            run_id: task_id.clone(),
-                            event_type: "subagent_tool_call_completed".to_string(),
-                            payload: json!({
-                                "agentId": agent_id,
-                                "callId": call_id,
-                                "toolName": tool_name,
-                                "success": success,
-                                "outputChars": output_chars,
-                                "elapsedMs": elapsed_ms,
-                                "iteration": iteration,
-                                "failure": failure_json,
-                            }),
-                        },
-                    );
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_tool_call_completed(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_tool_result".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            tool_name: Some(tool_name),
-                            skill_id: Some(task_id.clone()),
-                            success: Some(success),
-                            round: Some(round),
-                            tool_call_id: Some(call_id),
-                            // The child's actual tool output, so the drawer can show
-                            // *what came back* (not just a char count). Capped to a
-                            // bounded size for the wire (#4007); `output_chars` +
-                            // `elapsed_ms` still ride along in `subagent` below.
-                            output: Some(cap_wire_output(output)),
-                            failure: failure_json,
-                            subagent: Some(SubagentProgressDetail {
-                                child_iteration: Some(iteration),
-                                agent_id: Some(agent_id),
-                                task_id: Some(task_id),
-                                elapsed_ms: Some(elapsed_ms),
-                                output_chars: Some(output_chars as u64),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        round,
+                        agent_id,
+                        task_id,
+                        call_id,
+                        tool_name,
+                        success,
+                        output_chars,
+                        output,
+                        arguments,
+                        elapsed_ms,
+                        iteration,
+                        failure,
+                        display_label,
+                        display_detail,
+                        structured,
                     );
                 }
                 AgentProgress::SubagentTextDelta {
@@ -1192,25 +988,20 @@ pub(crate) fn spawn_progress_bridge(
                     delta,
                     iteration,
                 } => {
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_text_delta(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_text_delta".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            round: Some(round),
-                            delta: Some(delta),
-                            delta_kind: Some("text".to_string()),
-                            skill_id: Some(task_id.clone()),
-                            subagent: Some(SubagentProgressDetail {
-                                child_iteration: Some(iteration),
-                                agent_id: Some(agent_id),
-                                task_id: Some(task_id),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        round,
+                        agent_id,
+                        task_id,
+                        delta,
+                        iteration,
                     );
                 }
                 AgentProgress::SubagentThinkingDelta {
@@ -1219,25 +1010,20 @@ pub(crate) fn spawn_progress_bridge(
                     delta,
                     iteration,
                 } => {
-                    publish_seq_stamped(
+                    let ctx = BridgeCtx {
+                        client_id: &client_id,
+                        thread_id: &thread_id,
+                        request_id: &request_id,
+                        config: &config,
+                    };
+                    subagent_events::on_subagent_thinking_delta(
+                        &ctx,
                         &mut emit_seq,
-                        WebChannelEvent {
-                            event: "subagent_thinking_delta".to_string(),
-                            client_id: client_id.clone(),
-                            thread_id: thread_id.clone(),
-                            request_id: request_id.clone(),
-                            round: Some(round),
-                            delta: Some(delta),
-                            delta_kind: Some("thinking".to_string()),
-                            skill_id: Some(task_id.clone()),
-                            subagent: Some(SubagentProgressDetail {
-                                child_iteration: Some(iteration),
-                                agent_id: Some(agent_id),
-                                task_id: Some(task_id),
-                                ..Default::default()
-                            }),
-                            ..Default::default()
-                        },
+                        round,
+                        agent_id,
+                        task_id,
+                        delta,
+                        iteration,
                     );
                 }
                 AgentProgress::TextDelta { delta, iteration } => {
@@ -1304,6 +1090,9 @@ pub(crate) fn spawn_progress_bridge(
                 AgentProgress::TurnCompleted { iterations } => {
                     parent_completed = true;
                     timing.done(iterations, MIN_INTERIM_NARRATION_CHARS, &request_id);
+                    if let Ok(mut guard) = timing_snapshot_for_task.lock() {
+                        *guard = Some(timing.snapshot());
+                    }
                     // Turn is done — stop liveness beats (issue #4270). The FE
                     // clears its silence timer on `chat_done`/`chat_error`; this
                     // also prevents a stray beat racing the channel close.
@@ -1378,6 +1167,35 @@ pub(crate) fn spawn_progress_bridge(
                          in={input_tokens} out={output_tokens} cached_in={cached_input_tokens} \
                          total_usd={total_usd:.4} client_id={client_id} thread_id={thread_id}"
                     );
+
+                    // Live cost readout: throttled so a fast multi-round turn
+                    // doesn't flood the socket with one `turn_cost` per model
+                    // call. `TurnCostUpdated` is the parent's cumulative
+                    // rollup only — it carries no per-sub-agent breakdown, so
+                    // `subagents` stays empty here; the final `chat_done.usage`
+                    // (built from `LastTurnUsage` at delivery) is still where
+                    // sub-agent attribution shows up.
+                    if turn_cost_throttle.should_emit() {
+                        publish_seq_stamped(
+                            &mut emit_seq,
+                            WebChannelEvent {
+                                event: "turn_cost".to_string(),
+                                client_id: client_id.clone(),
+                                thread_id: thread_id.clone(),
+                                request_id: request_id.clone(),
+                                round: Some(iteration),
+                                usage: Some(crate::core::socketio::TurnUsagePayload {
+                                    input_tokens,
+                                    output_tokens,
+                                    cached_input_tokens,
+                                    cost_usd: total_usd,
+                                    context_window: 0,
+                                    subagents: Vec::new(),
+                                }),
+                                ..Default::default()
+                            },
+                        );
+                    }
                 }
                 AgentProgress::TurnContent { .. } => {
                     // Prompt/reply content is attached to the trace span by the
@@ -1480,6 +1298,7 @@ pub(crate) fn spawn_progress_bridge(
     });
     ProgressBridgeHandle {
         drained: drained_rx,
+        timing: timing_snapshot,
     }
 }
 

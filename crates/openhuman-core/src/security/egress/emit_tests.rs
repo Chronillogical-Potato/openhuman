@@ -22,6 +22,7 @@ async fn find_pending(
                 descriptor,
                 thread_id,
                 client_id,
+                ..
             }) if descriptor.service == marker => return (descriptor, thread_id, client_id),
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
@@ -88,6 +89,7 @@ async fn attaches_ambient_chat_context() {
             ApprovalChatContext {
                 thread_id: "thread-xyz".to_string(),
                 client_id: "client-abc".to_string(),
+                request_id: None,
             },
             async {
                 emit_external_transfer(EgressDescriptor::composio(marker));
@@ -199,6 +201,7 @@ async fn carries_risk_fields_when_present() {
             .with_risk(IdentificationRisk::High, vec!["email".to_string()]),
         thread_id: None,
         client_id: None,
+        request_id: None,
     });
 
     let (descriptor, _, _) = find_pending(&mut rx, marker).await;

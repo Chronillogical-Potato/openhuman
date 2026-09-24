@@ -110,6 +110,7 @@ fn artifact_meta_serde_roundtrip() {
         created_at: Utc.with_ymd_and_hms(2025, 6, 1, 12, 0, 0).unwrap(),
         error: None,
         thread_id: Some("thread-42".to_string()),
+        tool_call_id: None,
     };
     let json = serde_json::to_value(&meta).unwrap();
     assert_eq!(json["id"], "abc-123");
@@ -134,6 +135,7 @@ fn artifact_meta_json_shape() {
         created_at: Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
         error: None,
         thread_id: None,
+        tool_call_id: None,
     };
     let v = serde_json::to_value(&meta).unwrap();
     // Verify all expected fields are present
@@ -190,6 +192,7 @@ fn artifact_meta_thread_id_none_is_skipped_in_serialised_form() {
         created_at: Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
         error: None,
         thread_id: None,
+        tool_call_id: None,
     };
     let v = serde_json::to_value(&meta).unwrap();
     assert!(
@@ -212,6 +215,7 @@ fn artifact_meta_thread_id_some_round_trips() {
         created_at: Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
         error: None,
         thread_id: Some("thread-42".to_string()),
+        tool_call_id: None,
     };
     let v = serde_json::to_value(&meta).unwrap();
     assert_eq!(v["thread_id"], "thread-42");

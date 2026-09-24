@@ -25,6 +25,106 @@ use super::turn_guards::{
     run_turn_under_cancel_and_deadline, sentry_suppression_reason, timeout_bound_tag,
 };
 
+/// `start_chat`'s error type.
+///
+/// `Guardrail` is a structured verdict from the prompt-injection/security
+/// guardrail (`security::prompt_injection::enforce_prompt_input`) — the
+/// frontend classifies on this variant (`chat_error.error_type == "guardrail"`
+/// + a `guardrail` payload) instead of pattern-matching the user-facing
+/// message string. Every other rejection (validation, a configured
+/// `beforeSubmitPrompt` hook block, an approval-routing failure) stays
+/// `Other`, which `Display`s exactly like the plain `String` errors this
+/// replaced — existing `.to_string()` / `{err}` call sites need no other
+/// change.
+#[derive(Debug, Clone)]
+pub enum StartChatError {
+    Guardrail {
+        verdict: String,
+        score: f64,
+        reasons: Vec<crate::core::socketio::GuardrailReason>,
+    },
+    Other(String),
+}
+
+impl std::fmt::Display for StartChatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // The same user-facing copy `prompt_guard_user_message` gives a
+            // fresh rejection — a caller that only has `.to_string()` (a
+            // plain-string RPC error, a `{err}` log line) still gets an
+            // actionable message, not a bare verdict/score dump.
+            StartChatError::Guardrail { verdict, .. } => {
+                f.write_str(guardrail_verdict_user_message(verdict))
+            }
+            StartChatError::Other(message) => write!(f, "{message}"),
+        }
+    }
+}
+
+/// User-facing copy for a guardrail verdict string (`"block"` /
+/// `"review_blocked"` / `"allow"` — see the `match` in [`start_chat`] that
+/// builds [`StartChatError::Guardrail`]). Shared by `Display` above so a
+/// plain-string consumer of the error still reads the same rejection copy
+/// [`prompt_guard_user_message`] gives a fresh (non-error-wrapped) decision.
+fn guardrail_verdict_user_message(verdict: &str) -> &'static str {
+    match verdict {
+        "block" => prompt_guard_user_message(PromptEnforcementAction::Blocked),
+        "review_blocked" => prompt_guard_user_message(PromptEnforcementAction::ReviewBlocked),
+        _ => prompt_guard_user_message(PromptEnforcementAction::Allow),
+    }
+}
+
+impl std::error::Error for StartChatError {}
+
+impl From<String> for StartChatError {
+    fn from(message: String) -> Self {
+        StartChatError::Other(message)
+    }
+}
+
+impl From<&str> for StartChatError {
+    fn from(message: &str) -> Self {
+        StartChatError::Other(message.to_string())
+    }
+}
+
+/// Sentinel prefix a JSON-RPC/string-error caller can match on to recover the
+/// structured guardrail verdict, the same pattern as
+/// `core::observability::BACKEND_UNAVAILABLE_PREFIX`: the RPC surface only
+/// carries `Result<_, String>`, so the socket path's `chat_error.guardrail`
+/// payload gets a string-shaped equivalent here rather than a second, looser
+/// error shape.
+pub const GUARDRAIL_ERROR_PREFIX: &str = "GUARDRAIL:";
+
+impl From<StartChatError> for String {
+    fn from(error: StartChatError) -> Self {
+        match error {
+            StartChatError::Guardrail {
+                verdict,
+                score,
+                reasons,
+            } => {
+                let payload = crate::core::socketio::GuardrailPayload {
+                    verdict,
+                    score,
+                    reasons,
+                };
+                format!(
+                    "{GUARDRAIL_ERROR_PREFIX}{}",
+                    serde_json::to_string(&payload).unwrap_or_default()
+                )
+            }
+            StartChatError::Other(message) => message,
+        }
+    }
+}
+
+/// Whether `msg` is the [`GUARDRAIL_ERROR_PREFIX`] sentinel — mirrors
+/// [`crate::core::observability::is_backend_unavailable_message`].
+pub fn is_guardrail_error_message(msg: &str) -> bool {
+    msg.starts_with(GUARDRAIL_ERROR_PREFIX)
+}
+
 fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     match action {
         PromptEnforcementAction::Allow => "Message accepted.",
@@ -46,19 +146,19 @@ pub async fn start_chat(
     locale: Option<String>,
     queue_mode: Option<String>,
     metadata: ChatRequestMetadata,
-) -> Result<String, String> {
+) -> Result<String, StartChatError> {
     let client_id = client_id.trim().to_string();
     let thread_id = thread_id.trim().to_string();
     let message = message.trim().to_string();
 
     if client_id.is_empty() {
-        return Err("client_id is required".to_string());
+        return Err(StartChatError::Other("client_id is required".to_string()));
     }
     if thread_id.is_empty() {
-        return Err("thread_id is required".to_string());
+        return Err(StartChatError::Other("thread_id is required".to_string()));
     }
     if message.is_empty() {
-        return Err("message is required".to_string());
+        return Err(StartChatError::Other("message is required".to_string()));
     }
 
     // [pdf/image-attach fix] Process attachments at ingress, BEFORE the message is
@@ -146,7 +246,24 @@ pub async fn start_chat(
             prompt_decision.prompt_hash,
             prompt_decision.prompt_chars,
         );
-        return Err(prompt_guard_user_message(prompt_decision.action).to_string());
+        let verdict = match prompt_decision.action {
+            PromptEnforcementAction::Allow => "allow",
+            PromptEnforcementAction::Blocked => "block",
+            PromptEnforcementAction::ReviewBlocked => "review_blocked",
+        }
+        .to_string();
+        return Err(StartChatError::Guardrail {
+            verdict,
+            score: prompt_decision.score as f64,
+            reasons: prompt_decision
+                .reasons
+                .iter()
+                .map(|r| crate::core::socketio::GuardrailReason {
+                    code: r.code.clone(),
+                    message: r.message.clone(),
+                })
+                .collect(),
+        });
     }
 
     // Chat-native approval: if this thread has a parked approval and the message
@@ -218,7 +335,7 @@ pub async fn start_chat(
             log::info!(
                 "[web-channel] prompt blocked by a configured hook thread_id={thread_id}: {reason}"
             );
-            return Err(reason);
+            return Err(StartChatError::Other(reason));
         }
     }
 
@@ -264,7 +381,10 @@ pub async fn start_chat(
     if !matches!(parsed_mode, QueueMode::Interrupt) {
         let in_flight = IN_FLIGHT.lock().await;
         if let Some(existing) = in_flight.get(&map_key) {
+            let item_id = uuid::Uuid::new_v4().to_string();
+            let text_preview = crate::agent::queued_turn::text_preview(&message);
             let queued_msg = crate::agent::queued_turn::QueuedTurn {
+                id: item_id.clone(),
                 text: message.clone(),
                 client_id: client_id.clone(),
                 thread_id: thread_id.clone(),
@@ -282,7 +402,7 @@ pub async fn start_chat(
             existing.run_queue.push(lane, queued_msg).await;
             let status = existing.run_queue.status().await;
             log::info!(
-                "[web-channel] queued {} message thread_id={} request_id={} queue_depth={}",
+                "[web-channel] queued {} message thread_id={} request_id={} queue_depth={} item_id={item_id}",
                 parsed_mode,
                 thread_id,
                 request_id,
@@ -292,6 +412,8 @@ pub async fn start_chat(
                 thread_id: thread_id.clone(),
                 mode: parsed_mode.to_string(),
                 queue_depth: status.total,
+                item_id: Some(item_id),
+                text_preview: Some(text_preview),
             });
             return Ok(json!({
                 "queued": true,
@@ -323,14 +445,28 @@ pub async fn start_chat(
             crate::core::bus::BUS.publish(DomainEvent::RunQueueInterrupted {
                 thread_id: thread_id.clone(),
                 cancelled_request_id: cancelled_id.clone(),
+                item_id: Some(request_id.clone()),
+                text_preview: Some(crate::agent::queued_turn::text_preview(&message)),
             });
             publish_web_channel_event(WebChannelEvent {
                 event: "chat_error".to_string(),
                 client_id: client_id.clone(),
                 thread_id: thread_id.clone(),
-                request_id: cancelled_id,
+                request_id: cancelled_id.clone(),
                 message: Some("Cancelled by newer request".to_string()),
                 error_type: Some("cancelled".to_string()),
+                ..Default::default()
+            });
+            // See channel_ops::cancel_chat_inner — `chat_cancelled` is the
+            // structured successor to `chat_error{error_type:"cancelled"}`,
+            // kept alongside it for one release.
+            publish_web_channel_event(WebChannelEvent {
+                event: "chat_cancelled".to_string(),
+                client_id: client_id.clone(),
+                thread_id: thread_id.clone(),
+                request_id: cancelled_id,
+                cancel_reason: Some("superseded".to_string()),
+                superseded_by: Some(request_id.clone()),
                 ..Default::default()
             });
         }
@@ -356,6 +492,7 @@ pub async fn start_chat(
             let approval_ctx = crate::security::approval::ApprovalChatContext {
                 thread_id: thread_id_task.clone(),
                 client_id: client_id_task.clone(),
+                request_id: Some(request_id_task.clone()),
             };
             let origin = crate::agent::turn_origin::AgentTurnOrigin::WebChat {
                 thread_id: thread_id_task.clone(),
@@ -424,6 +561,10 @@ pub async fn start_chat(
                         // The workspace the turn ran in, so the reply is stored
                         // there before it is announced (#6034).
                         Some(chat_result.workspace_dir.as_path()),
+                        chat_result.timing,
+                        // The main single-user turn is the only surface with
+                        // a human waiting on a next-message suggestion (C5).
+                        true,
                     )
                     .await;
                     None
@@ -511,10 +652,17 @@ pub async fn start_chat(
                     followups.len(),
                     thread_id_task
                 );
+                // `followups` can carry more than one drained item; the event's
+                // `item_id`/`text_preview` describe the first one so the UI has
+                // something concrete to show even when several dispatch at once.
+                let first_followup = followups.first();
                 crate::core::bus::BUS.publish(
                     crate::core::events::DomainEvent::RunQueueFollowupDispatched {
                         thread_id: thread_id_task.clone(),
                         followup_count: followups.len(),
+                        item_id: first_followup.map(|f| f.id.clone()),
+                        text_preview: first_followup
+                            .map(|f| crate::agent::queued_turn::text_preview(&f.text)),
                     },
                 );
                 dispatch_followups(followups);
@@ -567,3 +715,7 @@ fn dispatch_followups(followups: Vec<crate::agent::queued_turn::QueuedTurn>) {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "start_chat_tests.rs"]
+mod tests;

@@ -161,6 +161,19 @@ pub struct SubagentActivity {
     /// from memory after a cold boot / interrupted turn.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub worker_thread_id: Option<String>,
+    /// The parent turn's tool-call id (the `spawn_subagent` / dispatch call)
+    /// this delegation is attributed to. Mirrors
+    /// [`crate::agent::progress::AgentProgress::SubagentSpawned::parent_call_id`].
+    /// `None` for legacy snapshots and spawn sites the harness gave no call
+    /// context (e.g. `orchestration::ops`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_call_id: Option<String>,
+    /// Size-capped final assistant text, persisted so a rehydrated row can
+    /// still show what the sub-agent answered — mirrors the live
+    /// `subagent_completed` socket payload's `subagent.output`. `None`
+    /// while running, on failure, and on legacy snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
     #[serde(default)]
     pub tool_calls: Vec<SubagentToolCall>,
     /// Ordered reasoning/narration/tool transcript for this sub-agent — what

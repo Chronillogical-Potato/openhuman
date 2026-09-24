@@ -292,4 +292,46 @@ describe('chatRuntimeSlice — in_progress no-downgrade guard (#3162)', () => {
     expect(list[0].status).toBe('in_progress');
     expect(list[0].error).toBeUndefined();
   });
+
+  it('threads toolCallId through pending -> ready, and preserves it once dropped from a later event', () => {
+    let state = reducer(
+      undefined,
+      upsertArtifactInProgressForThread({
+        threadId: 't-1',
+        artifactId: 'a-1',
+        kind: 'document',
+        title: 'Report',
+        toolCallId: 'call-1',
+      })
+    );
+    expect(state.artifactsByThread['t-1'][0].toolCallId).toBe('call-1');
+
+    // The `artifact_ready` event doesn't repeat `tool_call_id` — the merge
+    // must not drop the identity the `artifact_pending` event set.
+    state = reducer(
+      state,
+      upsertArtifactReadyForThread({
+        threadId: 't-1',
+        artifactId: 'a-1',
+        kind: 'document',
+        title: 'Report',
+        path: 'a-1/report.docx',
+        sizeBytes: 100,
+      })
+    );
+    expect(state.artifactsByThread['t-1'][0].toolCallId).toBe('call-1');
+  });
+
+  it('leaves toolCallId unset for an artifact with no owning tool call', () => {
+    const state = reducer(
+      undefined,
+      upsertArtifactInProgressForThread({
+        threadId: 't-1',
+        artifactId: 'a-1',
+        kind: 'document',
+        title: 'Report',
+      })
+    );
+    expect(state.artifactsByThread['t-1'][0].toolCallId).toBeUndefined();
+  });
 });

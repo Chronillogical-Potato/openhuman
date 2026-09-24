@@ -508,6 +508,14 @@ impl ProgressSink for OpenHumanProgressSink {
                     elapsed_ms,
                     iteration: opened.iteration,
                     failure,
+                    // Same registry gap as the `ToolCallStarted` arm above —
+                    // TODO(phase4): resolve labels from the tool registry.
+                    display_label: None,
+                    display_detail: None,
+                    // The coarse `ProgressEvent` stream carries no
+                    // `ToolResult`, so there is no metadata to copy structured
+                    // payloads from on this path.
+                    structured: None,
                 })
                 .await;
             }

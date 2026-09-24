@@ -148,7 +148,7 @@ pub(crate) async fn run_chat_task(
     // this already-large `run_chat_task` frame (which otherwise overflows the
     // default test-thread stack — see the channels web-turn coverage tests).
     let turn = Box::pin(agent.run_single(message));
-    let result = match turn.await {
+    let mut result = match turn.await {
         Ok(response) => {
             // A successful turn proves the thread's balance is usable, so drop
             // any stale budget-exhausted signal before it could mislabel a
@@ -161,6 +161,7 @@ pub(crate) async fn run_chat_task(
                 citations,
                 usage,
                 workspace_dir: config.workspace_dir.clone(),
+                timing: None,
             })
         }
         Err(err) => {
@@ -192,6 +193,7 @@ pub(crate) async fn run_chat_task(
                         citations: Vec::new(),
                         usage: None,
                         workspace_dir: config.workspace_dir.clone(),
+                        timing: None,
                     })
                 }
                 BudgetCorrelation::UpgradeEmptyToBudget => {
@@ -211,6 +213,7 @@ pub(crate) async fn run_chat_task(
                         citations: Vec::new(),
                         usage: None,
                         workspace_dir: config.workspace_dir.clone(),
+                        timing: None,
                     })
                 }
                 BudgetCorrelation::PassThrough => Err(err_message),
@@ -276,6 +279,16 @@ pub(crate) async fn run_chat_task(
             thread_id,
             request_id
         );
+    }
+
+    // The bridge only stamps its `TurnTimingSnapshot` once it has seen the
+    // parent's `TurnCompleted`, which `wait_drained` above waits for — read
+    // it now so `chat_done.timing` reports the same first-token/first-tool/
+    // total numbers as the bridge's own `time-to-first-visible` log line.
+    // `None` on a synthetic (budget-exhausted) result, an `Err`, or a bridge
+    // that never drained in time.
+    if let Ok(ref mut task_result) = result {
+        task_result.timing = bridge.timing_snapshot();
     }
 
     // Only the primary (non-fork) turn writes its agent back to the shared

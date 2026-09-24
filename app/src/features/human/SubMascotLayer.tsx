@@ -85,7 +85,9 @@ function activityForEntry(entry: ToolTimelineEntry): string {
 
   const lastRunningTool = [...subagent.toolCalls].reverse().find(call => call.status === 'running');
   if (lastRunningTool) {
-    return `Using ${formatToolName(lastRunningTool.toolName)}`;
+    // The label is already a present-tense activity ("Searching the web");
+    // prefixing "Using" produced "Using Searching the web".
+    return formatToolName(lastRunningTool.toolName);
   }
 
   if (subagent.childIteration) {

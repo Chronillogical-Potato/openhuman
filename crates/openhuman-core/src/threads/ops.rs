@@ -5,6 +5,8 @@
 mod tests;
 
 mod crud;
+mod edit;
+mod live_state;
 mod purge;
 mod support;
 mod title_generation;
@@ -13,8 +15,14 @@ mod turn_state_ops;
 mod usage;
 
 pub use crud::{
-    message_append, message_update, messages_list, thread_create_new, thread_delete,
+    delete_after, message_append, message_update, messages_list, thread_create_new, thread_delete,
     thread_update_labels, thread_update_title, thread_upsert, threads_list, transcript_search,
+};
+pub use edit::{
+    edit_message, regenerate, EditMessageRequest, EditOrRegenerateResponse, RegenerateRequest,
+};
+pub use live_state::{
+    goal_get, todos_get, ThreadGoalGetResponse, ThreadLiveStateRequest, ThreadTodosGetResponse,
 };
 pub use purge::threads_purge;
 pub use title_generation::thread_generate_title;

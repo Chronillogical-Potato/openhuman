@@ -146,6 +146,26 @@ impl TurnStateStore {
         Ok(removed)
     }
 
+    /// Delete one turn's snapshot by `request_id`, leaving every other turn on
+    /// the thread untouched. Returns `true` if a file was removed.
+    ///
+    /// Backs edit/regenerate (`threads.edit_message` / `threads.regenerate`):
+    /// truncating the message log after a cut point orphans the turn
+    /// snapshots for every dropped request — `delete(thread_id)` would also
+    /// discard the turns kept *before* the cut, which a client's "Agentic
+    /// task insights" trail for an earlier answer still needs.
+    pub fn delete_turn(&self, thread_id: &str, request_id: &str) -> Result<bool, String> {
+        let _guard = TURN_STATE_LOCK.lock();
+        self.migrate_thread_locked(thread_id);
+        let path = self.turn_path(thread_id, request_id);
+        if !path.exists() {
+            return Ok(false);
+        }
+        fs::remove_file(&path).map_err(|e| format!("remove turn-state {}: {e}", path.display()))?;
+        debug!("{LOG_PREFIX} deleted snapshot thread={thread_id} request={request_id}");
+        Ok(true)
+    }
+
     /// List the latest turn for every thread. Used by the UI on cold boot to
     /// surface interrupted turns from a previous process (one entry per thread,
     /// preserving the pre-ring-store contract).
@@ -625,6 +645,14 @@ pub fn get_turn(
 
 pub fn delete(workspace_dir: PathBuf, thread_id: &str) -> Result<bool, String> {
     TurnStateStore::new(workspace_dir).delete(thread_id)
+}
+
+pub fn delete_turn(
+    workspace_dir: PathBuf,
+    thread_id: &str,
+    request_id: &str,
+) -> Result<bool, String> {
+    TurnStateStore::new(workspace_dir).delete_turn(thread_id, request_id)
 }
 
 pub fn list(workspace_dir: PathBuf) -> Result<Vec<TurnState>, String> {

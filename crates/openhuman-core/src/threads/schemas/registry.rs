@@ -5,11 +5,12 @@ use crate::core::all::RegisteredController;
 use crate::core::ControllerSchema;
 
 use super::handlers::{
-    handle_create_new, handle_delete, handle_generate_title, handle_list, handle_message_append,
-    handle_message_update, handle_messages_list, handle_purge, handle_token_usage,
-    handle_transcript_get, handle_turn_state_clear, handle_turn_state_get,
-    handle_turn_state_get_turn, handle_turn_state_history, handle_turn_state_list,
-    handle_update_labels, handle_update_title, handle_upsert,
+    handle_create_new, handle_delete, handle_edit_message, handle_generate_title, handle_goal_get,
+    handle_list, handle_message_append, handle_message_update, handle_messages_list, handle_purge,
+    handle_regenerate, handle_todos_get, handle_token_usage, handle_transcript_get,
+    handle_turn_state_clear, handle_turn_state_get, handle_turn_state_get_turn,
+    handle_turn_state_history, handle_turn_state_list, handle_update_labels, handle_update_title,
+    handle_upsert,
 };
 use super::schema_defs::schemas;
 
@@ -33,6 +34,10 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("turn_state_clear"),
         schemas("token_usage"),
         schemas("transcript_get"),
+        schemas("goal_get"),
+        schemas("todos_get"),
+        schemas("edit_message"),
+        schemas("regenerate"),
     ]
 }
 
@@ -109,6 +114,22 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("transcript_get"),
             handler: handle_transcript_get,
+        },
+        RegisteredController {
+            schema: schemas("goal_get"),
+            handler: handle_goal_get,
+        },
+        RegisteredController {
+            schema: schemas("todos_get"),
+            handler: handle_todos_get,
+        },
+        RegisteredController {
+            schema: schemas("edit_message"),
+            handler: handle_edit_message,
+        },
+        RegisteredController {
+            schema: schemas("regenerate"),
+            handler: handle_regenerate,
         },
     ]
 }

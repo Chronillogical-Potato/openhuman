@@ -20,6 +20,8 @@ const ALL_FUNCTIONS: &[&str] = &[
     "turn_state_clear",
     "token_usage",
     "transcript_get",
+    "goal_get",
+    "todos_get",
 ];
 
 #[test]

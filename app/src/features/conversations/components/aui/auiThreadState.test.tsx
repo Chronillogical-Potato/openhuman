@@ -2,12 +2,14 @@
  * The runtime reads must degrade, not throw, when no runtime is mounted — and
  * must report the ADAPTER's real capabilities when one is.
  *
- * The capability half is the important one. `useOpenHumanExternalStore`
- * implements `onNew` / `onCancel` and neither `onEdit` nor
- * `setMessages`, so assistant-ui reports `edit` and `switchToBranch` as false.
- * The transcript renders no edit composer and no `BranchPickerPrimitive`
- * because of that, and this test is what would fail the day someone wires an
- * affordance to a capability the adapter cannot honour.
+ * The capability half is the important one. `useOpenHumanExternalStore` now
+ * implements `onEdit` (via `threads.edit_message`) and `setMessages` (a no-op
+ * stub that exists only to un-gate `BranchPicker` — the core has no
+ * per-branch message model yet, so `onReload`/`onEdit` both truncate the
+ * thread's single lineage rather than forking one), so assistant-ui reports
+ * `edit` and `switchToBranch` as true. `thread.tsx`'s `EditComposer` and
+ * `BranchPickerPrimitive` are gated on this hook, and this test is what would
+ * fail the day the adapter stops honouring either affordance.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { renderHook } from '@testing-library/react';
@@ -37,10 +39,10 @@ describe('auiThreadState', () => {
     expect(result.current).toEqual({ canEdit: false, canSwitchToBranch: false });
   });
 
-  it('reports the external-store adapter as supporting neither edit nor branching', () => {
+  it('reports the external-store adapter as supporting both edit and branching', () => {
     const { result } = renderHook(() => useAuiEditCapabilities(), {
       wrapper: withRuntime('t-caps'),
     });
-    expect(result.current).toEqual({ canEdit: false, canSwitchToBranch: false });
+    expect(result.current).toEqual({ canEdit: true, canSwitchToBranch: true });
   });
 });

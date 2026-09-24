@@ -136,6 +136,18 @@ pub async fn update_message(
     .await
 }
 
+/// [`store::delete_messages_from`] on the blocking pool.
+pub async fn delete_messages_from(
+    workspace_dir: PathBuf,
+    thread_id: String,
+    message_id: String,
+) -> Result<Option<usize>, String> {
+    run("delete_messages_from", move || {
+        store::delete_messages_from(workspace_dir, &thread_id, &message_id)
+    })
+    .await
+}
+
 /// [`store::update_thread_title`] on the blocking pool.
 pub async fn update_thread_title(
     workspace_dir: PathBuf,

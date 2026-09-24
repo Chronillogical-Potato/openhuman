@@ -92,6 +92,17 @@ pub(super) fn transcript_spend(transcript: &SessionTranscript) -> TranscriptSpen
         let Some(usage) = message.turn_usage.as_ref() else {
             continue;
         };
+        // A text-dialect tool round's issuing row carries a provenance-only
+        // record (its calls, zero spend); the turn's spend is on its final row.
+        // It is not a turn that spent, and must not become the "last" one.
+        if !usage.tool_calls.is_empty()
+            && usage.usage.input == 0
+            && usage.usage.output == 0
+            && usage.usage.cached_input == 0
+            && usage.usage.cost_usd == 0.0
+        {
+            continue;
+        }
         spend.input_tokens = spend.input_tokens.saturating_add(usage.usage.input);
         spend.output_tokens = spend.output_tokens.saturating_add(usage.usage.output);
         spend.cached_input_tokens = spend

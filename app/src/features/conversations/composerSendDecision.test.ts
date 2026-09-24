@@ -97,6 +97,19 @@ describe('handleComposerSlashCommand', () => {
   it('ignores normal chat text', () => {
     expect(handleComposerSlashCommand('hello')).toEqual({ kind: 'not_handled' });
   });
+
+  it('maps /plan and /build to a run-mode switch', () => {
+    expect(handleComposerSlashCommand('/plan')).toEqual({ kind: 'run_mode', mode: 'plan' });
+    expect(handleComposerSlashCommand('/Build')).toEqual({ kind: 'run_mode', mode: 'build' });
+  });
+
+  it('maps /stop to cancelling the running turn', () => {
+    expect(handleComposerSlashCommand('/stop')).toEqual({ kind: 'stop' });
+  });
+
+  it('does not treat a command followed by prose as the command', () => {
+    expect(handleComposerSlashCommand('/plan the migration')).toEqual({ kind: 'not_handled' });
+  });
 });
 
 describe('shouldSendComposerKeyDown', () => {

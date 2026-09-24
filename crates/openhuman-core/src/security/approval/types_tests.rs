@@ -141,6 +141,7 @@ fn pending_approval_debug_and_serialize_do_not_carry_session_id() {
         created_at: Utc::now(),
         expires_at: None,
         source_context: None,
+        tool_call_id: None,
     };
     let dbg = format!("{p:?}");
     assert!(

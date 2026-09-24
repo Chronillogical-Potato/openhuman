@@ -154,6 +154,11 @@ pub struct Config {
     #[serde(default)]
     pub shell: ShellConfig,
 
+    /// `[web_chat]` — web chat presentation-layer toggles (currently just
+    /// the post-turn follow-up-suggestions model call).
+    #[serde(default)]
+    pub web_chat: crate::config::schema::WebChatConfig,
+
     #[serde(default)]
     pub reliability: ReliabilityConfig,
 

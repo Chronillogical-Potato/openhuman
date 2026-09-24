@@ -160,7 +160,7 @@ describe('AgentProcessSourcePanel', () => {
     expect(screen.getByText('Let me check both docs first.')).toBeInTheDocument();
     expect(screen.getByText('Now I can see what is missing.')).toBeInTheDocument();
     // The two consecutive reads collapse into one human-summarized group.
-    expect(screen.getByText('Read 2 files')).toBeInTheDocument();
+    expect(screen.getByText('2 steps · Read file ×2')).toBeInTheDocument();
     expect(screen.getByTestId('processing-transcript')).toBeInTheDocument();
   });
 
@@ -226,7 +226,7 @@ describe('AgentProcessSourcePanel', () => {
       />
     );
     // Header shows the step's label, not the generic title.
-    expect(screen.getByText('Researching')).toBeInTheDocument();
+    expect(screen.getByText('Researched')).toBeInTheDocument();
     // Only the scoped step's activity renders…
     openFirstSubagent();
     expect(screen.getByTestId('subagent-activity').textContent).toContain('scoped thought');
@@ -248,7 +248,7 @@ describe('AgentProcessSourcePanel', () => {
     renderPanel(
       <AgentProcessSourcePanel open entries={[scoped]} scopedEntry={scoped} onClose={() => {}} />
     );
-    expect(screen.getByText('Run Code')).toBeInTheDocument();
+    expect(screen.getByText('Ran code')).toBeInTheDocument();
     expect(screen.getByText(/All checks passed/)).toBeInTheDocument();
     expect(screen.queryByText(/pnpm test/)).toBeNull();
   });

@@ -29,6 +29,7 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
         descriptor: EgressDescriptor::network_fetch(sentinel),
         thread_id: None,
         client_id: None,
+        request_id: None,
     });
 
     let mut count = 0usize;
@@ -80,6 +81,7 @@ async fn create_chat_model_local_runtime_does_not_emit_egress_realpath() {
         descriptor: EgressDescriptor::network_fetch(sentinel),
         thread_id: None,
         client_id: None,
+        request_id: None,
     });
 
     loop {

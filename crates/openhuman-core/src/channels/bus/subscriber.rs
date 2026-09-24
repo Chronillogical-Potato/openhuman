@@ -240,6 +240,30 @@ impl EventHandler<DomainEvent> for ChannelInboundSubscriber {
                                         .await;
                                     return;
                                 }
+                                // New terminal event (see web_chat::ops::channel_ops /
+                                // start_chat) — emitted alongside
+                                // `chat_error{error_type:"cancelled"}` for one
+                                // release. That legacy event already returns
+                                // above, ending this loop before `chat_cancelled`
+                                // for the same request_id would be observed, so
+                                // this arm only fires standalone (a cancel path
+                                // that stops emitting the legacy event, or one
+                                // that never did — e.g. the parallel-turn
+                                // cooperative-cancel path) and never double-ends
+                                // a turn already finalized by `chat_error`.
+                                "chat_cancelled" => {
+                                    tracing::info!(
+                                        "[channel-inbound] turn cancelled reason={:?}",
+                                        ev.cancel_reason
+                                    );
+                                    finalize_channel_reply(
+                                        channel,
+                                        &mut streaming_state,
+                                        "Cancelled.",
+                                    )
+                                    .await;
+                                    return;
+                                }
                                 _ => {}
                             }
                         }

@@ -89,6 +89,9 @@ fn tool_io_is_captured_when_capture_content_is_on() {
             elapsed_ms: 4,
             iteration: 1,
             failure: None,
+            display_label: None,
+            display_detail: None,
+            structured: None,
         },
         4,
     );
@@ -138,6 +141,9 @@ fn tool_io_is_never_recorded_when_capture_content_is_off() {
                 elapsed_ms: 4,
                 iteration: 1,
                 failure: None,
+                display_label: None,
+                display_detail: None,
+                structured: None,
             },
             4,
         ),
@@ -413,6 +419,9 @@ fn failed_tool_records_classified_cause_only_when_capture_on() {
             next_action: "Try again".to_string(),
             recoverable: true,
         }),
+        display_label: None,
+        display_detail: None,
+        structured: None,
     };
 
     // Capture ON → plain-language cause lands as error.message.
@@ -581,6 +590,9 @@ fn parent_tool_completion_backfills_arguments_and_records_output() {
                 elapsed_ms: 40,
                 iteration: 1,
                 failure: None,
+                display_label: None,
+                display_detail: None,
+                structured: None,
             },
             45,
         ),

@@ -143,6 +143,7 @@ pub(crate) async fn stage_spawn_parallel_workers_from_defs(
     parent: &ParentExecutionContext,
     action_root: Option<&Path>,
     parent_workspace_descriptor: Option<&WorkspaceDescriptor>,
+    parent_call_id: Option<&str>,
 ) -> (Vec<SpawnParallelWorker>, Vec<ParallelAgentResult>) {
     let mut immediate_results = Vec::new();
     let mut prepared = Vec::new();
@@ -240,6 +241,7 @@ pub(crate) async fn stage_spawn_parallel_workers_from_defs(
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .is_some(),
+            parent_call_id,
         )
         .await;
         let workspace_descriptor = match create_spawn_parallel_worktree(
@@ -304,6 +306,7 @@ async fn project_spawn_parallel_spawned(
     task_id: &str,
     prompt: &str,
     has_ownership: bool,
+    parent_call_id: Option<&str>,
 ) {
     let prompt_chars = prompt.chars().count();
     tracing::debug!(
@@ -332,6 +335,7 @@ async fn project_spawn_parallel_spawned(
                 prompt: prompt.to_string(),
                 worker_thread_id: None,
                 display_name: Some(definition.display_name().to_string()),
+                parent_call_id: parent_call_id.map(str::to_string),
             })
             .await
         {

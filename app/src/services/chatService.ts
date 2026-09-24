@@ -59,6 +59,18 @@ export interface ChatToolResultEvent {
    * `parseToolFailure` before it reaches the store.
    */
   failure?: unknown;
+  /** The call's arguments. The start event may carry none; this is the fallback. */
+  args?: unknown;
+  /** Wall time the call took. */
+  elapsed_ms?: number;
+  /**
+   * Machine-readable result, when the tool produced one (the tool's
+   * `ToolResult.metadata`), e.g. `{ kind: "web_search", results: [...] }`.
+   */
+  structured?: unknown;
+  /** Label / detail recomputed by the core with the call's real arguments. */
+  tool_display_label?: string;
+  tool_display_detail?: string;
 }
 
 /** One sub-agent's token/cost contribution within a turn (hover breakdown). */
@@ -118,6 +130,19 @@ export interface ChatDoneEvent {
   segment_total?: number | null;
   /** Memory citations captured during retrieval for this response. */
   citations?: ChatCitation[] | null;
+  /**
+   * Turn latency snapshot from the core progress bridge (wire-contract.md;
+   * mirrors the Rust `TurnTimingPayload`). Absent on a core that predates
+   * timing instrumentation, or on a synthetic done event.
+   */
+  timing?: TurnTimingWire | null;
+}
+
+/** Mirrors the Rust `TurnTimingPayload` (`crates/openhuman-core/src/core/socketio.rs`). */
+export interface TurnTimingWire {
+  first_token_ms?: number;
+  first_tool_ms?: number;
+  total_ms?: number;
 }
 
 export interface ChatCitation {
@@ -196,8 +221,72 @@ export interface ChatErrorEvent {
     | 'payload_too_large'
     | 'provider_request_rejected'
     | 'chat_template_rejected'
-    | 'budget_exhausted';
+    | 'budget_exhausted'
+    | 'max_iterations'
+    | 'turn_timeout'
+    | 'empty_response'
+    | 'action_budget_exceeded'
+    | 'capability_unsupported'
+    | 'guardrail';
   round: number | null;
+  /**
+   * Present only when `error_type === 'guardrail'`. Mirrors the Rust
+   * `GuardrailPayload` (`crates/openhuman-core/src/core/socketio.rs`) carried
+   * on `chat_error` — the policy verdict that blocked the turn, with the
+   * reasons the guardrail cited.
+   */
+  guardrail?: GuardrailPayload;
+}
+
+/** One reason a guardrail policy cited for its verdict. */
+export interface GuardrailReason {
+  code: string;
+  message: string;
+}
+
+/**
+ * The guardrail verdict carried on a `chat_error` whose `error_type` is
+ * `"guardrail"`. Mirrors the Rust `GuardrailPayload`
+ * (`crates/openhuman-core/src/core/socketio.rs`).
+ */
+export interface GuardrailPayload {
+  verdict: string;
+  score: number;
+  reasons: GuardrailReason[];
+}
+
+/**
+ * Emitted when the core's egress guard parks an outbound action (e.g. an
+ * integration call reaching outside the workspace) pending an explicit
+ * decision — a softer sibling of `chat_error{error_type:"guardrail"}` that
+ * does not fail the turn. Bridged from `DomainEvent::ExternalTransferPending`
+ * by `web_chat::event_bus` (`external_transfer_pending`).
+ */
+export interface ExternalTransferPendingEvent {
+  thread_id: string;
+  request_id?: string;
+  client_id?: string;
+  /** Destination provider (e.g. `"gmail"`, `"slack"`). */
+  provider?: string;
+  /** Destination service/endpoint within the provider. */
+  service?: string;
+  /** Human-readable reason the transfer was flagged. */
+  reason?: string;
+}
+
+/**
+ * Emitted when the core cancels an in-flight turn (`chat_cancel` RPC, a
+ * superseding send, or a queue interrupt) — see wire-contract.md. Carries the
+ * `cancel_reason` and, for a superseded turn, the id of the turn that
+ * replaced it. The core keeps emitting `chat_error{error_type:"cancelled"}`
+ * alongside this for one release; consumers must dedupe on `request_id`.
+ */
+export interface ChatCancelledEvent {
+  thread_id: string;
+  request_id?: string;
+  client_id?: string;
+  cancel_reason?: 'user_stop' | 'superseded';
+  superseded_by?: string;
 }
 
 /** Proactive assistant message pushed by the Rust event bus (not a chat turn). */
@@ -228,6 +317,48 @@ export interface ChatApprovalRequestEvent {
    * exact command/target from this so the user sees precisely what will run.
    */
   args?: Record<string, unknown>;
+  /**
+   * The parked call's own tool-call id (wire contract: `DomainEvent::
+   * ApprovalRequested.tool_call_id`, additive). Lets the approval attach to
+   * the EXACT tool-call part it gates rather than the newest-unresolved-by-
+   * name heuristic (`assistantUiMessages.ts`'s `withApproval`). May be absent
+   * on a core that has not landed the C2 approvals workstream yet — every
+   * reader must treat it as optional.
+   */
+  tool_call_id?: string;
+  /**
+   * RFC3339 timestamp the gate's TTL expires at (wire contract:
+   * `DomainEvent::ApprovalRequested.expires_at`, additive). Drives the
+   * expiry countdown on the approval card. Absent on an older core.
+   */
+  expires_at?: string;
+}
+
+/**
+ * Emitted when a parked approval is resolved by any path — an interactive
+ * decision routed through the RPC, the gate's TTL expiring with nobody
+ * answering, or an external cancel (thread deleted, turn superseded). Bridged
+ * from the Rust `DomainEvent::ApprovalDecided` (wire contract: additive
+ * `thread_id`/`client_id`/`tool_call_id`). Distinct from the client's own
+ * optimistic clear on a successful `openhuman.approval_decide` call: this is
+ * the SERVER's record of the outcome, and is the only signal for a TTL
+ * expiry or an approval decided by another connected client.
+ */
+export interface ChatApprovalDecidedEvent {
+  thread_id?: string;
+  client_id?: string;
+  request_id: string;
+  /** The gated call's tool-call id, when the core attached one (see above). */
+  tool_call_id?: string;
+  /** Human-readable summary of how the request was resolved. */
+  message?: string;
+  /**
+   * The terminal outcome. `'expired'` / `'cancelled'` map onto assistant-ui's
+   * own `ToolCallMessagePart.approval.resolution` union; any other value
+   * (e.g. a plain decision echo) is treated as an ordinary resolved decision
+   * with no special terminal state.
+   */
+  resolution?: 'expired' | 'cancelled' | string;
 }
 
 /**
@@ -244,6 +375,83 @@ export interface ChatPlanReviewRequestEvent {
   message: string;
   /** `{ steps: string[] }` — the ordered plan items shown in the review card. */
   args?: { steps?: string[] };
+  /**
+   * The `request_plan_review` tool call this parked review binds to (wire
+   * contract: `DomainEvent::PlanReviewRequested.tool_call_id`, additive —
+   * lands with core workstream C2). Lets the toolkit's `request_plan_review`
+   * entry attach the review to the EXACT tool-call part it gates, matching
+   * {@link ChatApprovalRequestEvent.tool_call_id}. Absent on a core that has
+   * not landed C2 yet; every reader must treat it as optional and fall back
+   * to "any pending review for this thread".
+   */
+  tool_call_id?: string;
+  /**
+   * RFC3339 timestamp the parked review expires at (wire contract:
+   * `DomainEvent::PlanReviewRequested.expires_at`, additive, lands with C2).
+   * Absent on an older core.
+   */
+  expires_at?: string;
+}
+
+/**
+ * One item of a thread's live todo list, as the core writes it via the
+ * `todo` tool. Bridged from `DomainEvent::ThreadTodosChanged` by the web
+ * channel (socket event `thread_todos_changed`).
+ */
+export interface ChatThreadTodoItem {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
+/**
+ * Emitted whenever the agent (re)writes the thread's todo list. Bridged from
+ * the Rust `DomainEvent::ThreadTodosChanged { thread_id, todos }`.
+ */
+export interface ChatThreadTodosChangedEvent {
+  thread_id: string;
+  todos: ChatThreadTodoItem[];
+}
+
+/**
+ * The durable objective the agent set for a thread via `goal_set`, kept
+ * across turns. Wire shape of `ThreadGoal` on the `thread_goal_updated`
+ * socket event.
+ */
+export interface ThreadGoal {
+  goal_id: string;
+  objective: string;
+  status: 'active' | 'paused' | 'budget_limited' | 'complete';
+  token_budget?: number;
+  tokens_used: number;
+  time_used_seconds: number;
+}
+
+/**
+ * Emitted when the thread's goal is set or updated. Bridged from the Rust
+ * `DomainEvent::ThreadGoalUpdated { thread_id, goal }`.
+ */
+export interface ChatThreadGoalUpdatedEvent {
+  thread_id: string;
+  goal: ThreadGoal;
+}
+
+/**
+ * Emitted when the thread's goal is cleared (`goal_complete`, or the
+ * orchestrator dropping it). Bridged from the `thread_goal_cleared` socket
+ * event.
+ */
+export interface ChatThreadGoalClearedEvent {
+  thread_id: string;
+}
+
+/**
+ * Emitted when a thread's plan/build run mode changes — via the
+ * `openhuman.agent_set_run_mode` RPC from this client or another, or a
+ * server-side transition. Bridged from the `run_mode_changed` socket event.
+ */
+export interface ChatRunModeChangedEvent {
+  thread_id: string;
+  mode: 'plan' | 'build';
 }
 
 /**
@@ -251,7 +459,7 @@ export interface ChatPlanReviewRequestEvent {
  * artifact lifecycle socket events. Mirrors the slugs produced by
  * `ArtifactKind::as_str()` in `crates/openhuman-core/src/agent/artifacts/types.rs`.
  */
-export type ArtifactKind = 'presentation' | 'document' | 'image' | 'other';
+export type ArtifactKind = 'presentation' | 'document' | 'image' | 'video' | 'other';
 
 /**
  * Emitted when the core `artifacts::store::finalize_artifact` flips an
@@ -278,6 +486,13 @@ export interface ArtifactReadyEvent {
   path: string;
   /** Final on-disk size in bytes. */
   size_bytes: number;
+  /**
+   * The producing tool call's id, when the core sends one (additive wire
+   * field). Lets the frontend route an artifact with an owning tool call to
+   * that call's own inline rendering instead of the header's live-artifact
+   * deck — see `ArtifactSnapshot.toolCallId`.
+   */
+  tool_call_id?: string;
 }
 
 /**
@@ -295,6 +510,8 @@ export interface ArtifactFailedEvent {
   workspace_dir: string;
   /** Producer-supplied failure reason, already truncated. */
   error: string;
+  /** See {@link ArtifactReadyEvent.tool_call_id}. */
+  tool_call_id?: string;
 }
 
 /**
@@ -315,6 +532,8 @@ export interface ArtifactPendingEvent {
   workspace_dir: string;
   /** Relative path under `<workspace>/artifacts/`, e.g. `<uuid>/deck.pptx`. */
   path: string;
+  /** See {@link ArtifactReadyEvent.tool_call_id}. */
+  tool_call_id?: string;
 }
 
 /** Emitted when the agent turn begins (before the first LLM call). */
@@ -426,6 +645,22 @@ export interface SubagentProgressDetail {
   output_tokens?: number;
   cached_input_tokens?: number;
   cost_usd?: number;
+  /**
+   * Provider-assigned id of the `spawn_subagent`/`spawn_async_subagent`/
+   * `delegate_*` tool call that started this delegation
+   * (`AgentProgress::SubagentSpawned::parent_call_id`, threaded onto every
+   * event in the `subagent_*` family — see `crates/openhuman-core/src/core/socketio.rs`).
+   * Lets the frontend attach the delegation's live activity to the EXACT
+   * spawn tool-call part instead of guessing which running row started it.
+   * Absent on cores that predate this field.
+   */
+  parent_call_id?: string;
+  /**
+   * The sub-agent's final assistant text (on `subagent_completed`), capped by
+   * the core (`cap_wire_output`). Rendered as the delegation's nested
+   * transcript result.
+   */
+  output?: string;
 }
 
 /** Extended payload for `subagent_spawned`. */
@@ -606,10 +841,17 @@ export interface ChatEventListeners {
   onToolArgsDelta?: (event: ChatToolArgsDeltaEvent) => void;
   onProactiveMessage?: (event: ProactiveMessageEvent) => void;
   onApprovalRequest?: (event: ChatApprovalRequestEvent) => void;
+  onApprovalDecided?: (event: ChatApprovalDecidedEvent) => void;
   onPlanReviewRequest?: (event: ChatPlanReviewRequestEvent) => void;
+  onThreadTodosChanged?: (event: ChatThreadTodosChangedEvent) => void;
+  onThreadGoalUpdated?: (event: ChatThreadGoalUpdatedEvent) => void;
+  onThreadGoalCleared?: (event: ChatThreadGoalClearedEvent) => void;
+  onRunModeChanged?: (event: ChatRunModeChangedEvent) => void;
   onArtifactPending?: (event: ArtifactPendingEvent) => void;
   onArtifactReady?: (event: ArtifactReadyEvent) => void;
   onArtifactFailed?: (event: ArtifactFailedEvent) => void;
+  onExternalTransferPending?: (event: ExternalTransferPendingEvent) => void;
+  onCancelled?: (event: ChatCancelledEvent) => void;
   onDone?: (event: ChatDoneEvent) => void;
   onError?: (event: ChatErrorEvent) => void;
 }
@@ -652,10 +894,17 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     toolArgsDelta: 'tool_args_delta',
     proactiveMessage: 'proactive_message',
     approvalRequest: 'approval_request',
+    approvalDecided: 'approval_decided',
     planReviewRequest: 'plan_review_request',
+    threadTodosChanged: 'thread_todos_changed',
+    threadGoalUpdated: 'thread_goal_updated',
+    threadGoalCleared: 'thread_goal_cleared',
+    runModeChanged: 'run_mode_changed',
     artifactPending: 'artifact_pending',
     artifactReady: 'artifact_ready',
     artifactFailed: 'artifact_failed',
+    externalTransferPending: 'external_transfer_pending',
+    cancelled: 'chat_cancelled',
     done: 'chat_done',
     error: 'chat_error',
   } as const;
@@ -1006,6 +1255,22 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     handlers.push([EVENTS.approvalRequest, cb]);
   }
 
+  if (listeners.onApprovalDecided) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatApprovalDecidedEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s resolution=%s',
+        EVENTS.approvalDecided,
+        e.thread_id,
+        e.request_id,
+        e.resolution
+      );
+      listeners.onApprovalDecided?.(e);
+    };
+    socket.on(EVENTS.approvalDecided, cb);
+    handlers.push([EVENTS.approvalDecided, cb]);
+  }
+
   if (listeners.onPlanReviewRequest) {
     const cb = (payload: unknown) => {
       const e = payload as ChatPlanReviewRequestEvent;
@@ -1014,6 +1279,51 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     };
     socket.on(EVENTS.planReviewRequest, cb);
     handlers.push([EVENTS.planReviewRequest, cb]);
+  }
+
+  if (listeners.onThreadTodosChanged) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatThreadTodosChangedEvent;
+      chatLog(
+        '%s thread_id=%s count=%d',
+        EVENTS.threadTodosChanged,
+        e.thread_id,
+        e.todos?.length ?? 0
+      );
+      listeners.onThreadTodosChanged?.(e);
+    };
+    socket.on(EVENTS.threadTodosChanged, cb);
+    handlers.push([EVENTS.threadTodosChanged, cb]);
+  }
+
+  if (listeners.onThreadGoalUpdated) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatThreadGoalUpdatedEvent;
+      chatLog('%s thread_id=%s status=%s', EVENTS.threadGoalUpdated, e.thread_id, e.goal?.status);
+      listeners.onThreadGoalUpdated?.(e);
+    };
+    socket.on(EVENTS.threadGoalUpdated, cb);
+    handlers.push([EVENTS.threadGoalUpdated, cb]);
+  }
+
+  if (listeners.onThreadGoalCleared) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatThreadGoalClearedEvent;
+      chatLog('%s thread_id=%s', EVENTS.threadGoalCleared, e.thread_id);
+      listeners.onThreadGoalCleared?.(e);
+    };
+    socket.on(EVENTS.threadGoalCleared, cb);
+    handlers.push([EVENTS.threadGoalCleared, cb]);
+  }
+
+  if (listeners.onRunModeChanged) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatRunModeChangedEvent;
+      chatLog('%s thread_id=%s mode=%s', EVENTS.runModeChanged, e.thread_id, e.mode);
+      listeners.onRunModeChanged?.(e);
+    };
+    socket.on(EVENTS.runModeChanged, cb);
+    handlers.push([EVENTS.runModeChanged, cb]);
   }
 
   // Artifact lifecycle events (#2779). The Rust subscriber in
@@ -1083,6 +1393,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
         title: args.title,
         workspace_dir: args.workspace_dir,
         path: args.path,
+        tool_call_id: isNonEmptyString(args.tool_call_id) ? args.tool_call_id : undefined,
       };
       chatLog(
         '%s thread_id=%s artifact_id=%s kind=%s',
@@ -1129,6 +1440,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
         workspace_dir: args.workspace_dir,
         path: args.path,
         size_bytes: args.size_bytes,
+        tool_call_id: isNonEmptyString(args.tool_call_id) ? args.tool_call_id : undefined,
       };
       chatLog(
         '%s thread_id=%s artifact_id=%s kind=%s size=%d',
@@ -1174,6 +1486,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
         title: args.title,
         workspace_dir: args.workspace_dir,
         error: args.error,
+        tool_call_id: isNonEmptyString(args.tool_call_id) ? args.tool_call_id : undefined,
       };
       // Defence-in-depth: producer is expected to pre-truncate, but
       // cap the log preview again so a leaky producer cannot blast
@@ -1191,6 +1504,39 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     };
     socket.on(EVENTS.artifactFailed, cb);
     handlers.push([EVENTS.artifactFailed, cb]);
+  }
+
+  if (listeners.onExternalTransferPending) {
+    const cb = (payload: unknown) => {
+      const e = payload as ExternalTransferPendingEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s provider=%s',
+        EVENTS.externalTransferPending,
+        e.thread_id,
+        e.request_id,
+        e.provider
+      );
+      listeners.onExternalTransferPending?.(e);
+    };
+    socket.on(EVENTS.externalTransferPending, cb);
+    handlers.push([EVENTS.externalTransferPending, cb]);
+  }
+
+  if (listeners.onCancelled) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatCancelledEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s cancel_reason=%s superseded_by=%s',
+        EVENTS.cancelled,
+        e.thread_id,
+        e.request_id,
+        e.cancel_reason,
+        e.superseded_by
+      );
+      listeners.onCancelled?.(e);
+    };
+    socket.on(EVENTS.cancelled, cb);
+    handlers.push([EVENTS.cancelled, cb]);
   }
 
   if (listeners.onDone) {
@@ -1316,8 +1662,14 @@ export interface ChatCancelOutcome {
 /**
  * Stop whatever is running on a thread via core RPC: the in-flight turn, its
  * parallel turns, and its detached background sub-agents.
+ *
+ * `requestId`, when supplied, scopes the cancel to that one turn (the id
+ * returned by {@link chatSend}) so a `parallel`-mode thread running more than
+ * one turn at once can stop just the one the caller means, rather than every
+ * turn on the thread. Optional and omittable for the existing single-turn
+ * callers.
  */
-export async function chatCancel(threadId: string): Promise<ChatCancelOutcome> {
+export async function chatCancel(threadId: string, requestId?: string): Promise<ChatCancelOutcome> {
   const socket = socketService.getSocket();
   const clientId = socket?.id;
   if (!clientId) {
@@ -1328,7 +1680,7 @@ export async function chatCancel(threadId: string): Promise<ChatCancelOutcome> {
   try {
     const result = await callCoreRpc<{ result?: { request_id?: unknown } }>({
       method: 'openhuman.channel_web_cancel',
-      params: { client_id: clientId, thread_id: threadId },
+      params: { client_id: clientId, thread_id: threadId, request_id: requestId ?? undefined },
     });
     const turnCancelled = typeof result?.result?.request_id === 'string';
     chatLog('chat_cancel: thread=%s turnCancelled=%s', threadId, turnCancelled);
@@ -1359,6 +1711,132 @@ export async function chatClearQueue(threadId: string): Promise<number | null> {
   }
 }
 
+/** One run-queue item (`QueueItemPayload` in `core/socketio.rs`). */
+export interface QueueItemPayload {
+  id: string;
+  /** `steer` / `followup` / `collect`; absent when the core does not say. */
+  lane?: string | null;
+  /** The message text, clipped by the core to 80 characters plus `…`. */
+  text_preview?: string | null;
+}
+
+/** `queue_item_queued` / `queue_item_delivered` / `queue_item_removed`. */
+export interface QueueItemEvent {
+  thread_id: string;
+  client_id?: string;
+  queue_item?: QueueItemPayload;
+}
+
+export interface QueueEventListeners {
+  /** A message joined a running turn's queue. */
+  onQueued?: (event: QueueItemEvent & { queue_item: QueueItemPayload }) => void;
+  /** The core handed a queued message to a turn (steered in, or dispatched). */
+  onDelivered?: (event: QueueItemEvent & { queue_item: QueueItemPayload }) => void;
+  /** A queued message was dropped and will not be sent. */
+  onRemoved?: (event: QueueItemEvent & { queue_item: QueueItemPayload }) => void;
+}
+
+/** Subscribe to the core's run-queue item events; returns the unsubscribe. */
+export function subscribeQueueEvents(listeners: QueueEventListeners): () => void {
+  const routes: Array<[string, QueueEventListeners[keyof QueueEventListeners]]> = [
+    ['queue_item_queued', listeners.onQueued],
+    ['queue_item_delivered', listeners.onDelivered],
+    ['queue_item_removed', listeners.onRemoved],
+  ];
+  const handlers: Array<[string, (payload: unknown) => void]> = [];
+  for (const [eventName, listener] of routes) {
+    if (!listener) continue;
+    const cb = (payload: unknown) => {
+      const e = payload as QueueItemEvent;
+      if (!e?.queue_item?.id) {
+        chatLog('%s thread_id=%s dropped: no queue_item', eventName, e?.thread_id);
+        return;
+      }
+      chatLog('%s thread_id=%s item_id=%s', eventName, e.thread_id, e.queue_item.id);
+      listener(e as QueueItemEvent & { queue_item: QueueItemPayload });
+    };
+    socketService.on(eventName, cb);
+    handlers.push([eventName, cb]);
+  }
+  return () => {
+    for (const [eventName, cb] of handlers) socketService.off(eventName, cb);
+  };
+}
+
+/** One follow-up suggestion (`ChatSuggestion` in `core/socketio.rs`). */
+export interface ChatSuggestionWire {
+  /** The message sent when the chip is picked. */
+  prompt: string;
+  /** A short 2-4 word button label for the chip (`web_chat/suggestions.rs`). */
+  label?: string | null;
+}
+
+/**
+ * `chat_suggestions`: follow-up prompts for the turn that just finished,
+ * emitted by the core after `chat_done` (`web_chat/suggestions.rs`). Best
+ * effort — a disabled, slow or malformed suggestions call means the event
+ * simply never arrives for that turn.
+ */
+export interface ChatSuggestionsEvent {
+  thread_id: string;
+  client_id?: string;
+  request_id?: string;
+  /** The turn the suggestions follow; the event fires outside its request. */
+  turn_request_id?: string;
+  suggestions: ChatSuggestionWire[];
+}
+
+export interface SuggestionEventListeners {
+  onSuggestions?: (event: ChatSuggestionsEvent) => void;
+}
+
+/** Subscribe to the core's `chat_suggestions` events; returns the unsubscribe. */
+export function subscribeSuggestionEvents(listeners: SuggestionEventListeners): () => void {
+  const eventName = 'chat_suggestions';
+  const cb = (payload: unknown) => {
+    const e = payload as Partial<ChatSuggestionsEvent> | null;
+    if (!e?.thread_id || !Array.isArray(e.suggestions)) {
+      chatLog('%s thread_id=%s dropped: malformed payload', eventName, e?.thread_id);
+      return;
+    }
+    chatLog(
+      '%s thread_id=%s turn_request_id=%s count=%d',
+      eventName,
+      e.thread_id,
+      e.turn_request_id,
+      e.suggestions.length
+    );
+    listeners.onSuggestions?.(e as ChatSuggestionsEvent);
+  };
+  socketService.on(eventName, cb);
+  return () => socketService.off(eventName, cb);
+}
+
+/**
+ * Take one message out of a running turn's queue so it is never sent.
+ * `true` only when the core confirmed it; on `false` the item is still queued
+ * and will be dispatched, so the caller must keep showing it.
+ */
+export async function chatRemoveQueueItem(threadId: string, itemId: string): Promise<boolean> {
+  const clientId = socketService.getSocket()?.id;
+  if (!clientId) {
+    chatLog('queue_remove: no socket id thread=%s — not sent', threadId);
+    return false;
+  }
+  try {
+    const res = await callCoreRpc<{ removed?: boolean }>({
+      method: 'openhuman.channel_web_queue_remove',
+      params: { client_id: clientId, thread_id: threadId, item_id: itemId },
+    });
+    const removed = res?.removed !== false;
+    chatLog('queue_remove: thread=%s item=%s removed=%s', threadId, itemId, removed);
+    return removed;
+  } catch (error) {
+    chatLog('queue_remove: rpc failed thread=%s item=%s error=%O', threadId, itemId, error);
+    return false;
+  }
+}
+
 /**
  * Re-dispatch the producing tool for a failed artifact, reusing the same
  * artifact id so the card swaps in place (#3162). Drives the failed-card
@@ -1378,6 +1856,59 @@ export async function aiRegenerate(artifactId: string, threadId: string): Promis
     params: { artifact_id: artifactId, thread_id: threadId, client_id: clientId },
   });
   return true;
+}
+
+/**
+ * Rewrite a settled message's content and truncate everything after it, via
+ * the `threads.edit_message` RPC (wire-contract.md; core workstream C4).
+ *
+ * The caller is responsible for truncating its own local cache to match —
+ * see `truncateMessagesFrom` in `store/threadSlice.ts` — because the RPC
+ * response carries no message list to replace it with; the socket events
+ * that follow (`inference_start`, ... `chat_done`) drive the new turn like
+ * any other send.
+ */
+export async function editMessage(params: {
+  threadId: string;
+  messageId: string;
+  content: string;
+}): Promise<void> {
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  await callCoreRpc({
+    method: 'openhuman.threads_edit_message',
+    params: {
+      thread_id: params.threadId,
+      message_id: params.messageId,
+      content: params.content,
+      client_id: clientId ?? undefined,
+    },
+  });
+}
+
+/**
+ * Re-run the turn after `messageId` (or the whole thread when omitted), via
+ * the `threads.regenerate` RPC (wire-contract.md; core workstream C4). Backs
+ * both the message action bar's Regenerate button and assistant-ui's
+ * `onReload`.
+ *
+ * Same truncation contract as {@link editMessage}: the caller drops the
+ * discarded replies from its own cache before calling this.
+ */
+export async function regenerateMessage(params: {
+  threadId: string;
+  messageId?: string | null;
+}): Promise<void> {
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  await callCoreRpc({
+    method: 'openhuman.threads_regenerate',
+    params: {
+      thread_id: params.threadId,
+      message_id: params.messageId ?? undefined,
+      client_id: clientId ?? undefined,
+    },
+  });
 }
 
 export function useRustChat(): boolean {

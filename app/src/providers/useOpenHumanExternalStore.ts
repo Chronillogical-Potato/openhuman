@@ -1,4 +1,5 @@
 import type {
+  AddToolResultOptions,
   AppendMessage,
   ThreadMessage as AuiThreadMessage,
   RespondToToolApprovalOptions,
@@ -6,18 +7,25 @@ import type {
 } from '@assistant-ui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useOpenHumanQueueAdapter } from '../features/conversations/aui/queueAdapter';
 import { mapDisplayItems } from '../features/conversations/derived/mapDisplayItems';
 import { useT } from '../lib/i18n/I18nContext';
 import { type ApprovalDecision, decideApproval } from '../services/api/approvalApi';
 import { threadApi } from '../services/api/threadApi';
+import { editMessage, regenerateMessage } from '../services/chatService';
 import {
   clearPendingApprovalForThread,
   type InferenceStatus,
   isActiveTimelineStatus,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
+import { toThreadSuggestions } from '../store/followupSuggestionsSlice';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { FEEDBACK_ROW_IDS_METADATA_KEY, persistMessageFeedback } from '../store/threadSlice';
+import {
+  FEEDBACK_ROW_IDS_METADATA_KEY,
+  persistMessageFeedback,
+  truncateMessagesFrom,
+} from '../store/threadSlice';
 import type { DerivedDisplayItem } from '../types/derivedTranscript';
 import type { ThreadMessage } from '../types/thread';
 import { buildRuntimeMessages, STREAMING_TAIL_ID } from './assistantUiMessages';
@@ -249,10 +257,10 @@ const WELCOME_SUGGESTION_KEYS = [
  * then *reappears as follow-up chips under every settled turn, forever*. Static
  * starter prompts hanging under turn 30 are worse than no chips at all.
  *
- * Gating here — at the only inlet — keeps the follow-up surface empty until a
- * real per-turn producer exists. There is none today; see openhuman#6465, which
- * also records this constraint. Do not lift the gate to the renderer: the
- * renderer cannot distinguish the two surfaces, because they read one field.
+ * Gating here — at the only inlet — keeps the follow-up surface for what only
+ * `useFollowupSuggestions` produces: the core's per-turn `chat_suggestions`
+ * (openhuman#6465 records this constraint). Do not lift the gate to the
+ * renderer: it cannot tell the two surfaces apart, because they read one field.
  *
  * `messageCount` is the *runtime's* message count (settled turns plus any live
  * tail), which is precisely what `isNewChatView` tests upstream — not the
@@ -271,6 +279,32 @@ function useWelcomeSuggestions(
         : EMPTY_SUGGESTIONS,
     [enabled, messageCount, t]
   );
+}
+
+/**
+ * The core's follow-up chips for the thread's latest turn, and nothing else.
+ *
+ * The complement of `useWelcomeSuggestions`: empty on an empty thread (the
+ * welcome chips own that state), empty while a turn runs, and empty unless
+ * the transcript ends on an assistant reply, because the chips follow that
+ * reply. The set comes from `chat_suggestions` via `followupSuggestionsSlice`,
+ * which also drops it the moment the next turn starts.
+ */
+function useFollowupSuggestions(
+  threadId: string | null,
+  messageCount: number,
+  lastRole: string | undefined,
+  isRunning: boolean
+): readonly ThreadSuggestion[] {
+  const stored = useAppSelector(state =>
+    threadId ? (state.followupSuggestions?.byThread[threadId] ?? null) : null
+  );
+  return useMemo(() => {
+    if (!stored || messageCount === 0 || isRunning || lastRole !== 'assistant') {
+      return EMPTY_SUGGESTIONS;
+    }
+    return toThreadSuggestions(stored.suggestions);
+  }, [stored, messageCount, lastRole, isRunning]);
 }
 
 /**
@@ -397,7 +431,16 @@ export function useOpenHumanExternalStore(
     ]
   );
 
-  const suggestions = useWelcomeSuggestions(runtimeMessages.length, welcomeSuggestions);
+  // The two gates are disjoint (welcome needs an empty thread, follow-ups a
+  // settled reply), so at most one of these is ever non-empty.
+  const welcomeChips = useWelcomeSuggestions(runtimeMessages.length, welcomeSuggestions);
+  const followupChips = useFollowupSuggestions(
+    threadId,
+    runtimeMessages.length,
+    runtimeMessages.at(-1)?.role,
+    isRunning
+  );
+  const suggestions = welcomeChips.length > 0 ? welcomeChips : followupChips;
 
   // The status line titles its `tool_use` / `subagent` phases from the matching
   // running timeline row (the same rows the surface renders as tool parts), so
@@ -477,6 +520,102 @@ export function useOpenHumanExternalStore(
     await getChatSurface(threadId)?.cancel?.();
   }, [threadId]);
 
+  // The core's run queue, as assistant-ui's message queue. Supplying it makes
+  // the runtime send through `queue.enqueue` / `queue.steer` instead of
+  // `onNew`; both forward to `onNew`, so the surface still picks the
+  // `queue_mode` (see `features/conversations/aui/queueAdapter.ts`).
+  const queue = useOpenHumanQueueAdapter(threadId, onNew);
+
+  /**
+   * Rewrite a settled message and resend it, via the `threads.edit_message`
+   * RPC (wire-contract.md; core workstream C4). `message.sourceId` is
+   * assistant-ui's own field for "the id of the message that was edited" —
+   * present because `EditComposer`/the vendored `EditMessage` element calls
+   * `useAui().thread.append` with the original message's id as `sourceId`.
+   *
+   * Supplying this key at all is what turns `capabilities.edit` on
+   * (`ExternalStoreThreadRuntimeCore` computes it as `!!this._store.onEdit`),
+   * which un-gates `UserActionBar`'s Edit button and `EditComposer` in
+   * `thread.tsx` (`useAuiEditCapabilities`).
+   */
+  const onEdit = useCallback(
+    async (message: AppendMessage) => {
+      if (!threadId) {
+        throw new Error('No thread selected for edit');
+      }
+      const messageId = message.sourceId;
+      if (!messageId) {
+        throw new Error('Edit is missing the source message id');
+      }
+      const text = `${appendMessageQuote(message)}${appendMessageText(message)}`;
+      // Truncate the local cache FIRST: the edit RPC returns no message list,
+      // and the socket events that follow (`inference_start` … `chat_done`)
+      // only carry the new turn, so a reader would still see the discarded
+      // replies until the next full refetch if this waited on the RPC.
+      dispatch(truncateMessagesFrom({ threadId, messageId, inclusive: true }));
+      await editMessage({ threadId, messageId, content: text });
+    },
+    [dispatch, threadId]
+  );
+
+  /**
+   * Re-run the turn after `parentId` (the assistant message being reloaded,
+   * or the message immediately before the point to regenerate from), via the
+   * `threads.regenerate` RPC. Same capability-gating rule as `onEdit`:
+   * supplying `onReload` is what turns `capabilities.reload` on, which
+   * un-gates the Reload button in `AssistantActionBar` (`useAuiReloadCapability`).
+   */
+  const onReload = useCallback(
+    async (parentId: string | null) => {
+      if (!threadId) {
+        throw new Error('No thread selected for reload');
+      }
+      if (parentId) {
+        dispatch(truncateMessagesFrom({ threadId, messageId: parentId, inclusive: false }));
+      }
+      await regenerateMessage({ threadId, messageId: parentId ?? undefined });
+    },
+    [dispatch, threadId]
+  );
+
+  /**
+   * Required alongside `onEdit`/`onReload` to un-gate `BranchPicker`
+   * (`capabilities.switchToBranch` is `!!this._store.setMessages`). A no-op:
+   * there is no per-branch message model on the core yet — `onEdit` and
+   * `onReload` both truncate the thread's single lineage rather than forking
+   * one, so the runtime never has an alternate branch to hand back here.
+   */
+  const setMessages = useCallback(() => {}, []);
+
+  /**
+   * Drop a message from the local cache only — there is no backend RPC to
+   * delete a persisted turn.
+   *
+   * Backs the vendored `StoppedRun` element's Discard action
+   * (`components/assistant-ui/thread.tsx`): the partial reply a stopped turn
+   * persists (`extraMetadata.stopped`, `Conversations.tsx`) is real content
+   * server-side, so this hides it from THIS client rather than erasing it —
+   * the same "never erases, only trims what the client reads" posture the
+   * transcript takes on compaction.
+   *
+   * Supplying `onDelete` at all is what the runtime checks FIRST
+   * (`ExternalStoreThreadRuntimeCore.deleteMessage`), ahead of the
+   * `setMessages`-based fallback that already made `capabilities.delete`
+   * true. That fallback filters its own internal repository and hands the
+   * result to `setMessages`, which above is a no-op — so without this, a
+   * `message.delete()` call would flash the message away and then restore it
+   * on the next render, since `messages` here is still bound to the
+   * unmodified Redux array. Reusing `truncateMessagesFrom` (the same local
+   * cache trim `onEdit`/`onReload` use) is what actually removes it.
+   */
+  const onDelete = useCallback(
+    (messageId: string) => {
+      if (!threadId) return;
+      dispatch(truncateMessagesFrom({ threadId, messageId, inclusive: true }));
+    },
+    [dispatch, threadId]
+  );
+
   /**
    * Record the user's decision on the parked tool call.
    *
@@ -501,6 +640,45 @@ export function useOpenHumanExternalStore(
       if (threadId) dispatch(clearPendingApprovalForThread({ threadId }));
     },
     [dispatch, threadId]
+  );
+
+  /**
+   * Answer a structured human-input request the run is parked on
+   * (`ask_user_clarification`, and any WS-D sub-agent clarification that
+   * reuses `ElicitationAdapter`).
+   *
+   * Every OpenHuman tool is a `type: 'backend'` toolkit entry (`aui/
+   * toolkit.tsx`) — the core executes it, never the browser — so there is no
+   * "resolve this call with a client-computed result" RPC for
+   * `onAddToolResult` to call. What unblocks the parked call is the SAME
+   * mechanism `ChatToolParts.tsx`'s `SubagentCall.onAnswer` already uses for
+   * the sub-agent case: an ordinary next turn through the registered chat
+   * surface, which the core's orchestrator treats as the clarification
+   * reply. Supplying this key is what turns `onAddToolResult` into a real
+   * capability rather than a throw the moment `ElicitationAdapter`'s Send
+   * button is wired to it.
+   */
+  const onAddToolResult = useCallback(
+    async ({ result }: AddToolResultOptions) => {
+      const surface = getChatSurface(threadId);
+      if (!surface) return;
+      const text = typeof result === 'string' ? result : JSON.stringify(result);
+      if (text.trim().length === 0) return;
+      await surface.send(text);
+    },
+    [threadId]
+  );
+
+  /** Same rationale as `onAddToolResult` above, for a resumed (paused) call. */
+  const onResumeToolCall = useCallback(
+    async ({ payload }: { toolCallId: string; payload: unknown }) => {
+      const surface = getChatSurface(threadId);
+      if (!surface) return;
+      const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      if (text.trim().length === 0) return;
+      await surface.send(text);
+    },
+    [threadId]
   );
 
   // DO NOT add `dictation: new WebSpeechDictationAdapter()` to the `adapters`
@@ -546,13 +724,21 @@ export function useOpenHumanExternalStore(
       isRunning,
       isLoading,
       extras,
-      // Empty on any thread that has content — see `useWelcomeSuggestions`.
+      // Welcome chips on an empty thread, the core's follow-ups after a settled
+      // reply, otherwise empty — see `useWelcomeSuggestions`.
       suggestions,
       // Already `ThreadMessageLike`; the runtime's converter is the identity.
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
       onNew,
       onCancel,
+      queue,
+      onEdit,
+      onReload,
+      setMessages,
+      onDelete,
       onRespondToToolApproval,
+      onAddToolResult,
+      onResumeToolCall,
       // Read-aloud for a single message. Supplying this is what makes
       // `capabilities.speech` true and the Speak / StopSpeaking controls
       // usable — and it must ship WITH the buttons, never before or after
@@ -573,7 +759,14 @@ export function useOpenHumanExternalStore(
       feedbackAdapter,
       onNew,
       onCancel,
+      queue,
+      onEdit,
+      onReload,
+      setMessages,
+      onDelete,
       onRespondToToolApproval,
+      onAddToolResult,
+      onResumeToolCall,
     ]
   );
 }

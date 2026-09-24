@@ -25,6 +25,7 @@ import channelConnectionsReducer from './channelConnectionsSlice';
 import chatRuntimeReducer from './chatRuntimeSlice';
 import connectivityReducer from './connectivitySlice';
 import coreModeReducer from './coreModeSlice';
+import followupSuggestionsReducer from './followupSuggestionsSlice';
 import githubStarReducer from './githubStarSlice';
 import layoutReducer from './layoutSlice';
 import localeReducer from './localeSlice';
@@ -33,9 +34,13 @@ import notificationReducer from './notificationSlice';
 import personaReducer from './personaSlice';
 import providerSurfacesReducer from './providerSurfaceSlice';
 import { pttReducer } from './pttSlice';
+import queueReducer from './queueSlice';
+import runModeReducer from './runModeSlice';
 import socketReducer from './socketSlice';
 import themeReducer from './themeSlice';
+import threadGoalReducer from './threadGoalSlice';
 import threadReducer from './threadSlice';
+import threadTodosReducer from './threadTodosSlice';
 import userErrorsReducer from './userErrorsSlice';
 import { userScopedStorage } from './userScopedStorage';
 import walletPreferencesReducer from './walletPreferencesSlice';
@@ -253,6 +258,10 @@ export const store = configureStore({
     thread: persistedThreadReducer,
     layout: persistedLayoutReducer,
     chatRuntime: persistedChatRuntimeReducer,
+    // In-memory only: the core's run queue for running turns.
+    queue: queueReducer,
+    // In-memory only: follow-up chips for each thread's latest settled turn.
+    followupSuggestions: followupSuggestionsReducer,
     channelConnections: persistedChannelConnectionsReducer,
     accounts: persistedAccountsReducer,
     notifications: persistedNotificationReducer,
@@ -270,6 +279,12 @@ export const store = configureStore({
     // completion, resets on restart + user switch. Durable storage is a #3931
     // follow-up.
     userErrors: userErrorsReducer,
+    // Live thread-level harness state (todos, goal, plan/build run mode),
+    // driven by dedicated core events/RPCs rather than tool-result scraping.
+    // In-memory only: re-fetched on thread open / reconnect.
+    threadTodos: threadTodosReducer,
+    threadGoal: threadGoalReducer,
+    runMode: runModeReducer,
   },
   middleware: getDefaultMiddleware => {
     const middleware = getDefaultMiddleware({

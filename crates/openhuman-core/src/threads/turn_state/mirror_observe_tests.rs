@@ -121,6 +121,9 @@ fn tool_call_start_and_complete_track_timeline() {
         elapsed_ms: 50,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
@@ -150,6 +153,9 @@ fn tool_call_completed_persists_capped_output() {
         elapsed_ms: 50,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].output.as_deref(), Some("hello world"));
@@ -175,6 +181,9 @@ fn tool_call_completed_persists_capped_output() {
         elapsed_ms: 50,
         iteration: 2,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     let s = m.snapshot();
     let persisted = s.tool_timeline[1].output.as_deref().unwrap();
@@ -218,6 +227,7 @@ fn tool_timeline_entries_carry_monotonic_seq() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: None,
+        parent_call_id: None,
     });
 
     let seqs: Vec<u64> = m
@@ -283,6 +293,7 @@ fn subagent_prose_item_is_size_capped() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: None,
+        parent_call_id: None,
     });
     // 40 KiB of reasoning in same-iteration chunks — must coalesce and cap.
     for _ in 0..40 {
@@ -406,6 +417,9 @@ fn tool_call_started_reuses_args_delta_placeholder_for_same_call_id() {
         elapsed_ms: 5,
         iteration: 1,
         failure: None,
+        display_label: None,
+        display_detail: None,
+        structured: None,
     });
     assert_eq!(m.snapshot().tool_timeline.len(), 1);
     assert_eq!(
@@ -481,6 +495,7 @@ fn subagent_lifecycle_records_and_clears_active() {
         prompt: String::new(),
         worker_thread_id: None,
         display_name: Some("Researcher".into()),
+        parent_call_id: None,
     });
     let s = m.snapshot();
     assert_eq!(s.active_subagent.as_deref(), Some("researcher"));
@@ -603,4 +618,118 @@ fn thinking_timing_wire_shape_is_camel_case_and_backward_compatible() {
     let reserialized = serde_json::to_value(&legacy).unwrap();
     assert!(reserialized.get("startedAt").is_none());
     assert!(reserialized.get("endedAt").is_none());
+}
+
+// ── C1: parent_call_id / source_tool_name derivation ─────────────────────
+
+#[test]
+fn subagent_spawned_derives_source_tool_name_from_the_parent_row() {
+    // Only `spawn_subagent` ever hardcoded a "spawn_subagent" source. Every
+    // other delegation path (`spawn_parallel_agents`, `spawn_async_subagent`,
+    // a synthesized `delegate_researcher`, …) must show its own real tool
+    // name, derived from the parent call's row by `parent_call_id` — never
+    // the historical hardcoded default.
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::ToolCallStarted {
+        call_id: "call-parallel".into(),
+        tool_name: "spawn_parallel_agents".into(),
+        arguments: serde_json::json!({}),
+        iteration: 1,
+        display_label: None,
+        display_detail: None,
+    });
+    m.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-1".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 4,
+        prompt: "help".into(),
+        worker_thread_id: None,
+        display_name: None,
+        parent_call_id: Some("call-parallel".into()),
+    });
+
+    let entry = m
+        .snapshot()
+        .tool_timeline
+        .iter()
+        .find(|e| e.id == "subagent:sub-1")
+        .cloned()
+        .expect("subagent row created");
+    assert_eq!(
+        entry.source_tool_name.as_deref(),
+        Some("spawn_parallel_agents")
+    );
+    let activity = entry.subagent.expect("subagent activity present");
+    assert_eq!(activity.parent_call_id.as_deref(), Some("call-parallel"));
+}
+
+#[test]
+fn subagent_spawned_falls_back_to_spawn_subagent_without_a_parent_call_id() {
+    // No `parent_call_id` (e.g. the `orchestration::ops` spawn path, which
+    // has no tool-call context to read one from) keeps the historical
+    // default so existing snapshots/consumers don't regress.
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-2".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 4,
+        prompt: "help".into(),
+        worker_thread_id: None,
+        display_name: None,
+        parent_call_id: None,
+    });
+
+    let entry = m
+        .snapshot()
+        .tool_timeline
+        .iter()
+        .find(|e| e.id == "subagent:sub-2")
+        .cloned()
+        .expect("subagent row created");
+    assert_eq!(entry.source_tool_name.as_deref(), Some("spawn_subagent"));
+    let activity = entry.subagent.expect("subagent activity present");
+    assert_eq!(activity.parent_call_id, None);
+}
+
+#[test]
+fn subagent_completed_persists_capped_output_on_the_activity() {
+    let (_d, mut m) = fresh("t");
+    m.observe(&AgentProgress::SubagentSpawned {
+        agent_id: "researcher".into(),
+        task_id: "sub-3".into(),
+        mode: "typed".into(),
+        dedicated_thread: false,
+        prompt_chars: 4,
+        prompt: "help".into(),
+        worker_thread_id: None,
+        display_name: None,
+        parent_call_id: Some("call-3".into()),
+    });
+    m.observe(&AgentProgress::SubagentCompleted {
+        agent_id: "researcher".into(),
+        task_id: "sub-3".into(),
+        elapsed_ms: 5,
+        iterations: 1,
+        output_chars: 11,
+        usage: None,
+        output: "final answer".into(),
+        worktree_path: None,
+        changed_files: Vec::new(),
+        dirty_status: None,
+    });
+
+    let entry = m
+        .snapshot()
+        .tool_timeline
+        .iter()
+        .find(|e| e.id == "subagent:sub-3")
+        .cloned()
+        .expect("subagent row created");
+    let activity = entry.subagent.expect("subagent activity present");
+    assert_eq!(activity.output.as_deref(), Some("final answer"));
+    assert_eq!(activity.parent_call_id.as_deref(), Some("call-3"));
 }

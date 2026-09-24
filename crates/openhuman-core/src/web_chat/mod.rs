@@ -25,17 +25,19 @@
 //! `web_errors*.rs` (provider error classification), `schemas.rs` (RPC
 //! contract), `types.rs` (shared param/state types).
 
+mod egress_surface;
 mod event_bus;
 mod journal_shadow;
 mod ops;
 // Response delivery/segmentation for the web surface (folded in from the former
 // standalone `presentation` provider — it is the web channel's delivery formatter).
 pub mod presentation;
-mod progress_bridge;
+pub(crate) mod progress_bridge;
 mod reply_persistence;
 mod run_task;
 mod schemas;
 mod session;
+mod suggestions;
 mod turn_timing;
 mod types;
 
@@ -50,9 +52,11 @@ pub(crate) use web_errors::{
 };
 
 // Public API — event bus
+pub use egress_surface::register_egress_surface_subscriber;
 pub use event_bus::{
-    approval_request_event, publish_web_channel_event, register_approval_surface_subscriber,
-    register_artifact_surface_subscriber, register_egress_surface_subscriber,
+    approval_request_event, plan_review_request_event, publish_web_channel_event,
+    register_agent_surface_subscriber, register_approval_surface_subscriber,
+    register_artifact_surface_subscriber, register_memory_activity_surface_subscriber,
     subscribe_web_channel_events,
 };
 
@@ -68,9 +72,9 @@ pub use ops::drain_queued_turns_for_test;
 pub use ops::parallel_in_flight_entries_for_test;
 pub use ops::{
     cancel_chat, cancel_chat_scoped, cancel_should_target, channel_web_cancel, channel_web_chat,
-    channel_web_queue_clear, channel_web_queue_status, in_flight_entries_for_test,
-    invalidate_thread_sessions, run_system_turn_on_thread, start_chat, SESSION_CHECKOUT_FAILURE,
-    SYSTEM_CLIENT_ID,
+    channel_web_queue_clear, channel_web_queue_remove, channel_web_queue_status,
+    in_flight_entries_for_test, invalidate_thread_sessions, run_system_turn_on_thread, start_chat,
+    StartChatError, SESSION_CHECKOUT_FAILURE, SYSTEM_CLIENT_ID,
 };
 pub use types::ChatRequestMetadata;
 

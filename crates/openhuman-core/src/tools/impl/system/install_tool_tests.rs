@@ -17,6 +17,7 @@ fn chat_ctx() -> ApprovalChatContext {
     ApprovalChatContext {
         thread_id: "t-test".into(),
         client_id: "c-test".into(),
+        request_id: None,
     }
 }
 

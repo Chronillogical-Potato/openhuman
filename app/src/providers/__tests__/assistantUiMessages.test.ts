@@ -144,10 +144,14 @@ describe('streamingTailMessage', () => {
     const complete = streamingTailMessage(null, [
       tool({ id: 'sub-1', name: 'subagent:researcher', status: 'success', subagent }),
     ]);
+    // `result` is `{status, activity}`, not the bare activity: the outer row's
+    // OWN `entry.status` is what settles reliably (`subagentDone` never
+    // touches `activity.status` itself), so `SubagentTaskCard` reads that
+    // rather than the activity's possibly-stale `status` field.
     expect(complete?.content[0]).toMatchObject({
       type: 'tool-call',
       toolName: 'task',
-      result: subagent,
+      result: { status: 'success', activity: subagent },
     });
   });
 });
@@ -788,16 +792,20 @@ describe('tool label on the part', () => {
       }),
     ]);
     expect(artifactOf(converted)).toEqual({
+      kind: 'openhuman-tool',
       displayName: 'Gmail send email',
       detail: 'me@example.com',
     });
   });
 
-  it('formats a row that arrived with no label from the tool identity', () => {
+  it('carries no artifact when the row has no server label — the renderer derives the label from tool identity', () => {
+    // `tool_search` is a client-known tool (an exact `toolSpecs.ts` entry), so
+    // `AssistantUiToolCall` resolves its own label through `describeToolCall`
+    // and never needs the artifact. Emitting one here would be pure noise.
     const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
       tool({ id: 'c1', name: 'tool_search', status: 'success', argsBuffer: '{"query":"gmail"}' }),
     ]);
-    expect(artifactOf(converted)).toEqual({ displayName: 'Finding the right tool' });
+    expect(artifactOf(converted)).toBeUndefined();
   });
 });
 

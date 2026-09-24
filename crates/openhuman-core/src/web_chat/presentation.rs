@@ -65,8 +65,12 @@ pub(crate) async fn deliver_response(
     citations: &[crate::memory::agent::memory_loader::MemoryCitation],
     usage: Option<&LastTurnUsage>,
     workspace_dir: Option<&std::path::Path>,
+    timing: Option<super::turn_timing::TurnTimingSnapshot>,
+    suggest_follow_ups: bool,
 ) {
     let usage_payload = usage_payload(usage);
+    let timing_payload =
+        timing.map(|snapshot| snapshot.into_payload(usage.map(|u| u.output_tokens)));
 
     // Spawn reaction decision in parallel — it runs on the local model and
     // shouldn't block segmentation or delivery.
@@ -140,7 +144,17 @@ pub(crate) async fn deliver_response(
             reaction_emoji,
             citations,
             usage_payload,
+            timing_payload,
         );
+        if suggest_follow_ups {
+            super::suggestions::spawn_follow_up_suggestions(
+                client_id.to_string(),
+                thread_id.to_string(),
+                request_id.to_string(),
+                user_message.to_string(),
+                full_response.to_string(),
+            );
+        }
         return;
     }
 
@@ -183,6 +197,8 @@ pub(crate) async fn deliver_response(
             subagent: None,
             tool_display_label: None,
             tool_display_detail: None,
+            elapsed_ms: None,
+            structured: None,
             citations: if i == 0 && !citations.is_empty() {
                 Some(serde_json::json!(citations))
             } else {
@@ -191,6 +207,7 @@ pub(crate) async fn deliver_response(
             // Usage is attached only to the terminal `chat_done`, never segments.
             usage: None,
             seq: None,
+            ..Default::default()
         });
     }
 
@@ -224,16 +241,30 @@ pub(crate) async fn deliver_response(
         subagent: None,
         tool_display_label: None,
         tool_display_detail: None,
+        elapsed_ms: None,
+        structured: None,
         citations: if citations.is_empty() {
             None
         } else {
             Some(serde_json::json!(citations))
         },
         usage: usage_payload,
+        timing: timing_payload,
         // Terminal delivery events are emitted outside the seq-stamping
         // progress bridge; leave `seq` unset (older clients ignore it).
         seq: None,
+        ..Default::default()
     });
+
+    if suggest_follow_ups {
+        super::suggestions::spawn_follow_up_suggestions(
+            client_id.to_string(),
+            thread_id.to_string(),
+            request_id.to_string(),
+            user_message.to_string(),
+            full_response.to_string(),
+        );
+    }
 }
 
 /// Deliver an agent response as exactly one `chat_done` bubble — no
@@ -260,6 +291,9 @@ pub(crate) fn deliver_response_single_bubble(
         None,
         &[],
         usage_payload(usage),
+        // Background/core-initiated turns don't run through the web-channel
+        // progress bridge, so there is no `TurnTiming` to report here.
+        None,
     );
 }
 
@@ -272,6 +306,7 @@ fn publish_chat_done(
     reaction_emoji: Option<String>,
     citations: &[crate::memory::agent::memory_loader::MemoryCitation],
     usage_payload: Option<TurnUsagePayload>,
+    timing_payload: Option<crate::core::socketio::TurnTimingPayload>,
 ) {
     publish_web_channel_event(WebChannelEvent {
         event: "chat_done".to_string(),
@@ -302,15 +337,19 @@ fn publish_chat_done(
         subagent: None,
         tool_display_label: None,
         tool_display_detail: None,
+        elapsed_ms: None,
+        structured: None,
         citations: if citations.is_empty() {
             None
         } else {
             Some(serde_json::json!(citations))
         },
         usage: usage_payload,
+        timing: timing_payload,
         // Terminal delivery events are emitted outside the seq-stamping
         // progress bridge; leave `seq` unset (older clients ignore it).
         seq: None,
+        ..Default::default()
     });
 }
 

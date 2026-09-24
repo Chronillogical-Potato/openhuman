@@ -22,6 +22,7 @@ async fn seed_run_events(workspace: &Path, count: usize) -> String {
         sink.emit(AgentEvent::ToolStarted {
             call_id: format!("c{i}").into(),
             tool_name: format!("tool-{i}"),
+            input: None,
         });
     }
     run_id.as_str().to_string()
