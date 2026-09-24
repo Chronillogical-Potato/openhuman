@@ -11306,6 +11306,33 @@ async fn json_rpc_flows_validate_reports_warnings_and_errors() {
         "an invalid graph reports errors, not warnings"
     );
 
+    // 4. A graph that cannot deserialize must preserve the member location
+    // and serde detail through the JSON-RPC envelope, not only in the
+    // in-process migration helper.
+    let malformed_graph = json!({
+        "inputs": [ { "type": "string" } ]
+    });
+    let validate_malformed = post_json_rpc(
+        &rpc_base,
+        9504,
+        "openhuman.flows_validate",
+        json!({ "graph": malformed_graph }),
+    )
+    .await;
+    let malformed = peel_logs_envelope(assert_no_jsonrpc_error(
+        &validate_malformed,
+        "flows_validate malformed graph",
+    ));
+    assert_eq!(malformed.get("valid").and_then(Value::as_bool), Some(false));
+    let errors = malformed
+        .get("errors")
+        .and_then(Value::as_array)
+        .expect("errors");
+    assert_eq!(errors.len(), 1, "malformed graph has one parse error");
+    let error = errors[0].as_str().expect("string error");
+    assert!(error.contains("inputs[0]"), "missing member path: {error}");
+    assert!(error.contains("missing field"), "missing serde detail: {error}");
+
     api_join.abort();
     rpc_join.abort();
 }

@@ -31,10 +31,8 @@ fn migrate_and_deserialize_graph_falls_back_when_no_member_is_at_fault() {
 fn migrate_and_deserialize_graph_reports_a_non_object_graph_without_inventing_a_location() {
     let err = migrate_and_deserialize_graph(json!("this is a string, not a workflow graph"))
         .expect_err("a non-object graph must not deserialize");
+    // A non-object has no member to attribute: retain serde's bare type
+    // diagnostic rather than manufacturing a top-level field/path prefix.
+    assert!(err.starts_with("invalid type: "), "got: {err}");
     assert!(!err.contains('['), "got: {err}");
-    assert!(
-        !err.contains(": invalid") || !err.starts_with("name"),
-        "got: {err}"
-    );
-    assert!(err.contains("invalid type"), "got: {err}");
 }
