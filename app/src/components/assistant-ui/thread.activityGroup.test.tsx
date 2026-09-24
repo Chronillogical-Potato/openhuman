@@ -74,8 +74,15 @@ describe('activity group', () => {
     // Settled work starts collapsed; opening it shows the steps in order.
     fireEvent.click(triggers[0]!);
     const first = within(group).getByText('first thought');
+    const firstTool = within(group).getByText('search_one');
     const second = within(group).getByText('second thought');
-    expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const secondTool = within(group).getByText('search_two');
+    const steps = [first, firstTool, second, secondTool];
+    for (const [current, next] of steps.map((step, index) => [step, steps[index + 1]] as const)) {
+      if (next) {
+        expect(current.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      }
+    }
   });
 
   it('is open while the turn is still running', () => {
@@ -115,6 +122,51 @@ describe('activity group', () => {
     expect(screen.getByRole('button', { name: '2 tool calls' })).toHaveAttribute(
       'aria-expanded',
       'true'
+    );
+  });
+
+  it('is open when an earlier part is parked even though the message is running', () => {
+    render(
+      <Harness
+        messages={[
+          { role: 'user', content: [{ type: 'text', text: 'do it' }] },
+          {
+            role: 'assistant',
+            status: { type: 'running' },
+            content: [
+              tool('t1', 'shell', { result: undefined, status: { type: 'requires-action' } }),
+              tool('t2', 'search_two'),
+            ],
+          },
+        ]}
+        isRunning={false}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '2 tool calls' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+  });
+
+  it('closes a completed group once streaming has moved to following text', () => {
+    render(
+      <Harness
+        messages={[
+          { role: 'user', content: [{ type: 'text', text: 'do it' }] },
+          {
+            role: 'assistant',
+            status: { type: 'running' },
+            content: [tool('t1', 'search_one'), { type: 'text', text: 'streaming answer' }],
+          },
+        ]}
+        isRunning
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '1 tool call' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
     );
   });
 });
