@@ -290,4 +290,37 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
       expect.objectContaining({ enabledTools: existing })
     );
   });
+
+  /**
+   * Same read-through guard as `ToolsPanel.test.tsx`, for the other writer.
+   *
+   * `completeAndExit` re-sends the whole `StoredOnboardingTasks` record, so it
+   * has to carry `accessibilityPermissionGranted` through with
+   * `?? false` (OnboardingLayout.tsx). Every other fixture in this file passes
+   * `false` for it, so a regression that hardcoded `false` would be invisible
+   * here. (matrix 2.2.3)
+   *
+   * Worth knowing: at this commit nothing in `app/src` ever writes that flag
+   * `true` — both writers read it and write it straight back, and nothing
+   * re-derives it from the core's `detect_permissions()`. This test does not
+   * fix that; it makes sure the value is not dropped once it can be set.
+   */
+  it('carries a recorded accessibility permission through onboarding completion', async () => {
+    const { mockSetOnboardingTasks } = await setupLayout({
+      accessibilityPermissionGranted: true,
+      localModelConsentGiven: false,
+      localModelDownloadStarted: false,
+      enabledTools: ['shell'],
+      connectedSources: [],
+      updatedAtMs: 1,
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('complete-btn'));
+    });
+
+    expect(mockSetOnboardingTasks).toHaveBeenCalledWith(
+      expect.objectContaining({ accessibilityPermissionGranted: true })
+    );
+  });
 });
