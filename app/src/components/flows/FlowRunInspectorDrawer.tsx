@@ -4,9 +4,10 @@
  *
  * Right-side drawer showing a single durable `tinyflows` run's status + step
  * timeline, opened from the "View run" action on {@link FlowApprovalCard}.
- * Drawer chrome mirrors `features/conversations/components/SubagentDrawer.tsx`
- * (fixed overlay + backdrop-click-to-close + Escape-to-close) so it renders
- * as a fixed overlay regardless of where the parent mounts it in the DOM.
+ * Drawer chrome mirrors the shared Radix-backed `Sheet` overlay pattern used
+ * by `features/conversations/components/AgentProcessSourcePanel.tsx` (fixed
+ * overlay + backdrop-click-to-close + Escape-to-close) so it renders as a
+ * fixed overlay regardless of where the parent mounts it in the DOM.
  *
  * Data comes from {@link useFlowRunPoller}, which polls
  * `openhuman.flows_get_run` every 2s until the run reaches a terminal status
