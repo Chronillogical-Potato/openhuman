@@ -143,7 +143,9 @@ describe('assistant-ui composer slots', () => {
     const store = buildStore();
     const onAttachFiles = vi.fn(() => Promise.resolve());
     render(
-      <Provider store={store}>{chat(undefined, { attachmentsEnabled: true, onAttachFiles })}</Provider>
+      <Provider store={store}>
+        {chat(undefined, { attachmentsEnabled: true, onAttachFiles })}
+      </Provider>
     );
 
     const file = new File(['png'], 'shot.png', { type: 'image/png' });
