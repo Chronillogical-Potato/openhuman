@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
 
 import reducer, {
   beginInferenceTurn,
-  type ChatRuntimeState,
   liveTurnStarted,
   markInferenceTurnStreaming,
   registerParallelRequest,
@@ -20,6 +19,8 @@ import reducer, {
   toolCallReceived,
   turnSettled,
 } from '../chatRuntimeSlice';
+
+type ChatRuntimeState = ReturnType<typeof reducer>;
 
 const T = 'thread-1';
 
