@@ -81,7 +81,7 @@ pub async fn pause_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
                     thread_id: goal.thread_id.clone(),
                     goal_id: goal.goal_id.clone(),
                     status: goal.status.as_str().to_string(),
-                    goal: None,
+                    goal: Some(super::goal_to_value(&goal)),
                 });
             }
         }
