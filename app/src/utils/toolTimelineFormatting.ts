@@ -276,7 +276,7 @@ export function extractAgentSources(entries: ToolTimelineEntry[]): AgentSource[]
       );
       continue;
     }
-    if (!URL_SOURCE_TOOLS.has(presentation.baseName)) continue;
+    if (entry.status !== 'success' || !URL_SOURCE_TOOLS.has(presentation.baseName)) continue;
     const url = parseArgsObject(entry.argsBuffer)?.url;
     if (typeof url !== 'string') continue;
     const trimmed = url.trim();
