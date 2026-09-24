@@ -130,6 +130,106 @@ fn permission_state_serde_round_trip() {
     assert_eq!(back.microphone, PermissionState::Unsupported);
 }
 
+/// Partial permission state must survive as three independent fields on the
+/// wire, spelled exactly as the renderer reads them (matrix 2.2.4).
+///
+/// `permission_state_serde_round_trip` above proves Rust -> JSON -> Rust, which
+/// passes even if the keys were `a`/`b`/`c` and the variants `V1`/`V2`: both
+/// sides of that round trip use the same `derive`. Nothing pinned the *wire
+/// spelling*, and the renderer does not go through `serde` — it indexes the
+/// JSON by name. A `rename_all` change or a renamed field would leave every
+/// lookup `undefined`, which renders as "not granted" indefinitely and looks
+/// exactly like a permission the user never gave.
+///
+/// The three states here are deliberately all different: a status that
+/// collapsed to one verdict, or grew a fourth field, fails the shape check
+/// rather than silently reporting the first field for all three.
+#[test]
+fn partial_permission_status_serializes_three_distinct_snake_case_fields() {
+    use crate::desktop::accessibility::types::{PermissionState, PermissionStatus};
+
+    let status = PermissionStatus {
+        accessibility: PermissionState::Granted,
+        input_monitoring: PermissionState::Denied,
+        microphone: PermissionState::Unsupported,
+    };
+
+    let json = serde_json::to_value(&status).expect("serialize PermissionStatus");
+    let object = json
+        .as_object()
+        .expect("PermissionStatus must serialize to a JSON object");
+
+    assert_eq!(
+        object.len(),
+        3,
+        "PermissionStatus gained or lost a field; the renderer reads exactly \
+         accessibility/input_monitoring/microphone: {json}"
+    );
+    assert_eq!(
+        object.get("accessibility").and_then(|v| v.as_str()),
+        Some("granted"),
+        "accessibility must serialize as snake_case `granted`: {json}"
+    );
+    assert_eq!(
+        object.get("input_monitoring").and_then(|v| v.as_str()),
+        Some("denied"),
+        "input_monitoring must keep its own value, not the accessibility one: {json}"
+    );
+    assert_eq!(
+        object.get("microphone").and_then(|v| v.as_str()),
+        Some("unsupported"),
+        "microphone must keep its own value: {json}"
+    );
+}
+
+/// `Unsupported` is not `Granted`, and a caller cannot get away with treating
+/// "not denied" as "granted" (matrix 2.2.4).
+///
+/// On a non-macOS build `detect_permissions` reports accessibility and
+/// input_monitoring as `Unsupported` while microphone is a real CPAL probe, so
+/// the struct is genuinely mixed-provenance in production. Any consumer that
+/// reduces it to one boolean is wrong on at least one field; this pins the
+/// three-way distinction the reduction would erase.
+#[test]
+fn unsupported_is_distinguishable_from_granted_and_denied() {
+    use crate::desktop::accessibility::types::PermissionState;
+
+    let states = [
+        PermissionState::Granted,
+        PermissionState::Denied,
+        PermissionState::Unknown,
+        PermissionState::Unsupported,
+    ];
+
+    let wire: Vec<String> = states
+        .iter()
+        .map(|state| {
+            serde_json::to_value(state)
+                .expect("serialize PermissionState")
+                .as_str()
+                .expect("PermissionState serializes to a string")
+                .to_string()
+        })
+        .collect();
+
+    assert_eq!(
+        wire,
+        vec!["granted", "denied", "unknown", "unsupported"],
+        "PermissionState wire spelling changed; the renderer compares these \
+         strings literally"
+    );
+
+    let mut unique = wire.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(
+        unique.len(),
+        states.len(),
+        "two PermissionState variants collapsed to the same wire value, so a \
+         partial permission state cannot be told apart: {wire:?}"
+    );
+}
+
 // ── No stale denied cache across restart (automation_state) ───────────────
 //
 // The `automation_state` module exposes a process-local atomic flag. The
