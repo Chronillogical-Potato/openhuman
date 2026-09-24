@@ -142,17 +142,20 @@ const ComposioConnectCall: ToolCallMessagePartComponent = props => {
   const gate = useGatedApproval(props.approval);
   if (!gate) return <OpenHumanToolCall {...props} />;
   return (
-    <div data-testid="assistant-ui-integration-connect">
-      {/* Keyed by request id so a second parked connect remounts the card with
-          fresh phase / field / poll state, matching the legacy placement. */}
-      <IntegrationConnectCard
-        key={gate.request.requestId}
-        threadId={gate.threadId}
-        approval={gate.request}
-      />
-    </div>
+    // Keyed by request id so a second parked connect remounts the card with
+    // fresh phase / field / poll state, matching the legacy placement.
+    <PermissionGrantAdapter
+      key={gate.request.requestId}
+      threadId={gate.threadId}
+      approval={gate.request}
+    />
   );
 };
+
+/** Redacted args the gate extracted for display, as the approval card's command. */
+function commandFromApproval(approval: PendingApproval): string {
+  return approval.command ?? '';
+}
 
 /**
  * A parked tool call, with the decision attached to the call it gates.

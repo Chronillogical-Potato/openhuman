@@ -87,6 +87,7 @@ import {
   loadThreadMessages,
   setActiveThread,
   setSelectedThread,
+  TIMING_METADATA_KEY,
 } from '../store/threadSlice';
 import { reportUserError } from '../store/userErrorsSlice';
 import { IS_PROD } from '../utils/config';
