@@ -228,3 +228,5 @@ mod core_flow_tests;
 mod origin_intercept_tests;
 #[path = "gate_ttl_and_triage_tests.rs"]
 mod ttl_and_triage_tests;
+#[path = "gate_triage_tests.rs"]
+mod triage_tests;
