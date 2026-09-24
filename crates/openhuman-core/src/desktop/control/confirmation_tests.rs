@@ -7,13 +7,14 @@ async fn confirmation_requires_trusted_one_use_decision_for_same_goal() {
     record(
         "TextEdit",
         "make a note",
+        "thread-a",
         &json!({
             "stop":"confirmation_required", "confirmation_id":id,
             "pending":{"operation":"CLICK", "reason":"May save a file",
                 "target":{"ref_id":"@s1:e2", "name":"Save", "role":"button"}}
         }),
     );
-    assert!(take_approved(&id).is_err());
+    assert!(take_approved(&id, Some("thread-a")).is_err());
     let listed = pending();
     let item = listed
         .iter()
@@ -26,10 +27,18 @@ async fn confirmation_requires_trusted_one_use_decision_for_same_goal() {
     let approved = confirm(&config, &id, true).await.unwrap();
     assert_eq!(approved["approve"], true);
     assert_eq!(
-        take_approved(&id).unwrap(),
+        take_approved(&id, None).unwrap_err(),
+        "desktop confirmation requires a threaded agent run"
+    );
+    assert_eq!(
+        take_approved(&id, Some("thread-b")).unwrap_err(),
+        "desktop confirmation does not match this thread"
+    );
+    assert_eq!(
+        take_approved(&id, Some("thread-a")).unwrap(),
         ("TextEdit".to_owned(), "make a note".to_owned())
     );
-    assert!(take_approved(&id).is_err());
+    assert!(take_approved(&id, Some("thread-a")).is_err());
 }
 
 #[test]
@@ -39,6 +48,7 @@ fn unnamed_target_cannot_be_approved() {
     record(
         "TextEdit",
         "test",
+        "thread-a",
         &json!({
             "stop":"confirmation_required", "confirmation_id":id,
             "pending":{"operation":"CLICK", "target":{"ref_id":"@s1:e2", "role":"button"}}

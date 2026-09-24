@@ -8,7 +8,6 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tinydesktop_bus::names;
 
-use crate::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::config::Config;
 
 const TTL: Duration = Duration::from_secs(10 * 60);
@@ -48,17 +47,8 @@ fn table() -> &'static Mutex<HashMap<String, Pending>> {
     TABLE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn origin_key() -> String {
-    match turn_origin::current() {
-        Some(AgentTurnOrigin::WebChat { thread_id, .. }) => format!("web:{thread_id}"),
-        Some(AgentTurnOrigin::DirectChat) => "direct-chat".to_owned(),
-        Some(AgentTurnOrigin::Cli) => "cli".to_owned(),
-        _ => "untrusted".to_owned(),
-    }
-}
-
 /// Capture only the operation and target named by a module confirmation stop.
-pub(super) fn record(app: &str, goal: &str, data: &Value) {
+pub(super) fn record(app: &str, goal: &str, thread_id: &str, data: &Value) {
     if data.get("stop").and_then(Value::as_str) != Some("confirmation_required") {
         return;
     }
@@ -114,7 +104,7 @@ pub(super) fn record(app: &str, goal: &str, data: &Value) {
             Pending {
                 app: app.to_owned(),
                 goal: goal.to_owned(),
-                origin: origin_key(),
+                origin: thread_id.to_owned(),
                 operation: operation.to_owned(),
                 target,
                 target_name: Some(target_name),
@@ -189,7 +179,10 @@ pub async fn confirm(config: &Config, id: &str, approve: bool) -> Result<Value, 
 }
 
 /// Consume an approved decision before making one continuation call.
-pub(super) fn take_approved(id: &str) -> Result<(String, String), String> {
+pub(super) fn take_approved(id: &str, thread_id: Option<&str>) -> Result<(String, String), String> {
+    let thread_id = thread_id
+        .filter(|thread_id| !thread_id.is_empty())
+        .ok_or("desktop confirmation requires a threaded agent run")?;
     let mut guard = table()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -203,7 +196,7 @@ pub(super) fn take_approved(id: &str) -> Result<(String, String), String> {
     if !item.approved {
         return Err("desktop action needs the user's explicit confirmation".to_owned());
     }
-    if item.origin != origin_key() {
+    if item.origin != thread_id {
         return Err("desktop confirmation does not match this thread".to_owned());
     }
     let item = guard.remove(id).expect("checked above");

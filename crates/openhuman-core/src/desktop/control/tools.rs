@@ -9,7 +9,7 @@ use tinydesktop_bus::{
     names, DesktopResponse, FindRequest, LaunchRequest, ListAppsRequest, ListWindowsRequest,
     RefRequest, SnapshotRequest, TypeRequest,
 };
-use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult, ToolRunContext};
 
 use crate::config::Config;
 
@@ -201,6 +201,19 @@ impl Tool for DesktopTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, ToolCallOptions::default(), None)
+            .await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: Value,
+        _options: ToolCallOptions,
+        context: Option<&dyn ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
+        let thread_id = context
+            .and_then(ToolRunContext::thread_id)
+            .filter(|thread_id| !thread_id.is_empty());
         if !super::ops::listener_is_loopback() || !super::ops::enabled(&self.config) {
             return Ok(ToolResult::error(
                 "Desktop control is disabled in Connections.",
@@ -317,8 +330,8 @@ impl Tool for DesktopTool {
                 let (app, goal, continuation) =
                     if matches!(self.kind, DesktopToolKind::ContinueGoal) {
                         let id = required(&args, "confirmation_id")?;
-                        let (app, goal) =
-                            super::confirmation::take_approved(&id).map_err(anyhow::Error::msg)?;
+                        let (app, goal) = super::confirmation::take_approved(&id, thread_id)
+                            .map_err(anyhow::Error::msg)?;
                         (app, goal, Some(json!({"id":id,"approve":true})))
                     } else {
                         (required(&args, "app")?, required(&args, "goal")?, None)
@@ -379,7 +392,14 @@ impl Tool for DesktopTool {
             Ok(response) if response.ok => {
                 let data = response.data.unwrap_or(Value::Null);
                 if let Some((app, goal)) = goal_identity.filter(|_| approvals_enabled) {
-                    super::confirmation::record(&app, &goal, &data);
+                    if data.get("stop").and_then(Value::as_str) == Some("confirmation_required") {
+                        let Some(thread_id) = thread_id else {
+                            return Ok(ToolResult::error(
+                                "desktop confirmation requires a threaded agent run",
+                            ));
+                        };
+                        super::confirmation::record(&app, &goal, thread_id, &data);
+                    }
                 }
                 let rendered = serde_json::to_string(&data)?;
                 // A bounded model result; full screenshots are not exposed through this tool.

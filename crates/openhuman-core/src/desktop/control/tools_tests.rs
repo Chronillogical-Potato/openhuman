@@ -40,7 +40,7 @@ fn goal_and_continuation_have_distinct_required_inputs() {
     assert!(continuation.parameters_schema()["properties"]
         .get("approve")
         .is_none());
-    assert!(super::super::confirmation::take_approved("unknown").is_err());
+    assert!(super::super::confirmation::take_approved("unknown", Some("thread-a")).is_err());
 }
 
 #[tokio::test]
