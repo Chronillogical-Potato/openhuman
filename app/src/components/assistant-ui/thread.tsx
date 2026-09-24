@@ -1309,10 +1309,9 @@ const ComposerAction: FC<{
 };
 
 /**
- * The runtime's own error boundary for a message (`message.status.type ===
- * 'error'` — a throw from `onNew`/`onEdit`/`onReload`, not a `chat_error`
- * socket event, which instead lands as its own assistant reply — see
- * `ChatRuntimeProvider`'s `onError` handler).
+ * The runtime's error presentation for a failed message. The external-store
+ * projection marks persisted `chat_error` rows as incomplete/error, so they
+ * use this same card as errors raised directly by assistant-ui.
  *
  * `useMessageError`/`useActionBarReload` come straight from
  * `@assistant-ui/core/react` rather than through a primitive: there is no

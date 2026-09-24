@@ -106,8 +106,6 @@ import { AssistantUiRuntimeProvider } from './AssistantUiRuntimeProvider';
 import { isProactiveConversationSurface, proactiveThreadPins } from './proactiveThreadPins';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
-const USER_FACING_AGENT_ERROR_MESSAGE =
-  'Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path="community/discord-report">Report on Discord</openhuman-link>';
 
 const SEGMENT_DELIVERY_TTL_MS = 5 * 60 * 1000;
 const MAX_SEGMENT_DELIVERIES = 100;
@@ -1798,9 +1796,13 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               segmentDeliveryKey(event.thread_id, event.request_id)
             );
             if (event.error_type !== 'cancelled') {
-              const errorContent = event.message || USER_FACING_AGENT_ERROR_MESSAGE;
+              const errorContent = event.message || '';
               void dispatch(
-                addInferenceResponse({ content: errorContent, threadId: event.thread_id })
+                addInferenceResponse({
+                  content: errorContent,
+                  threadId: event.thread_id,
+                  extraMetadata: chatErrorExtraMetadata(event),
+                })
               );
               requestUsageRefresh();
             }
@@ -1835,8 +1837,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             // upstream provider error appended as a `> quote` block (secret-scrubbed and
             // length-capped server-side via with_provider_detail()/sanitize_api_error()), so
             // surfacing it tells the user *why* the turn failed instead of a blanket apology.
-            // The hardcoded constant is only a last-resort fallback for an empty/missing message.
-            const errorContent = event.message || USER_FACING_AGENT_ERROR_MESSAGE;
+            // An empty message still becomes an error-status row; assistant-ui
+            // supplies its own fallback in the error card.
+            const errorContent = event.message || '';
             // A core-owned failure carries a deterministic id, so dedupe on that
             // rather than on the text. Two runs can fail with byte-identical
             // content — the same upstream provider message, or the generic

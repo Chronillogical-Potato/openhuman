@@ -433,6 +433,33 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(after.streamingAssistantByThread['t-par']?.content).toBe('P');
     });
 
+    it('marks a failed parallel turn for the assistant-ui error card', async () => {
+      const listeners = renderProvider();
+      act(() => {
+        store.dispatch(registerParallelRequest({ threadId: 't-par', requestId: 'branch-error' }));
+        listeners.onError?.({
+          thread_id: 't-par',
+          request_id: 'branch-error',
+          message: 'The provider refused this turn.',
+          error_type: 'provider_error',
+          round: 0,
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          't-par',
+          expect.objectContaining({
+            content: 'The provider refused this turn.',
+            extraMetadata: expect.objectContaining({
+              chatError: expect.objectContaining({ errorType: 'provider_error' }),
+            }),
+          })
+        )
+      );
+      expect(store.getState().chatRuntime.parallelRequestThreads['branch-error']).toBeUndefined();
+    });
+
     it('bumps the heartbeat counter only for the primary turn, never a parallel branch (#4282)', () => {
       const listeners = renderProvider();
 
@@ -2251,13 +2278,10 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
   // user-friendly `message` from classify_inference_error() in web_errors.rs,
   // which is forwarded directly so the user sees the real reason (for
   // 'inference' that message is a friendly summary plus the sanitized upstream
-  // provider error as a `> quote` block). The USER_FACING_FALLBACK constant is
-  // only used when the server sends an empty/missing message. 'cancelled'
-  // produces no bubble at all.
+  // provider error as a `> quote` block). An empty server message is stored
+  // as an empty error row for assistant-ui's ErrorState fallback. 'cancelled'
+  // produces no error row.
   describe('inference error classifier — full type set', () => {
-    const USER_FACING_FALLBACK =
-      'Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path="community/discord-report">Report on Discord</openhuman-link>';
-
     it.each([
       ['rate_limited', 'You have been rate limited. Please try again later.'],
       ['auth_error', 'Authentication failed. Please reconnect your account.'],
@@ -2321,7 +2345,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       );
     });
 
-    it('falls back to the constant when an inference error has no message', async () => {
+    it('stores an empty error row for assistant-ui when an inference error has no message', async () => {
       const listeners = renderProvider();
       const threadId = 't-inference-empty';
 
@@ -2338,7 +2362,13 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       await waitFor(() =>
         expect(threadApi.appendMessage).toHaveBeenCalledWith(
           threadId,
-          expect.objectContaining({ content: USER_FACING_FALLBACK, sender: 'agent' })
+          expect.objectContaining({
+            content: '',
+            sender: 'agent',
+            extraMetadata: expect.objectContaining({
+              chatError: expect.objectContaining({ errorType: 'inference' }),
+            }),
+          })
         )
       );
     });
@@ -2365,7 +2395,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       );
     });
 
-    it('falls back to USER_FACING constant when inference error has empty message', async () => {
+    it('stores an empty error row for other error types without a message', async () => {
       const listeners = renderProvider();
       const threadId = 't-empty-msg';
 
@@ -2382,7 +2412,13 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       await waitFor(() =>
         expect(threadApi.appendMessage).toHaveBeenCalledWith(
           threadId,
-          expect.objectContaining({ content: USER_FACING_FALLBACK, sender: 'agent' })
+          expect.objectContaining({
+            content: '',
+            sender: 'agent',
+            extraMetadata: expect.objectContaining({
+              chatError: expect.objectContaining({ errorType: 'network' }),
+            }),
+          })
         )
       );
     });

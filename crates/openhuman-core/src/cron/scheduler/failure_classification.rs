@@ -4,7 +4,7 @@
 use crate::agent::error::AgentError;
 use crate::cron::JobType;
 
-pub(super) const AGENT_JOB_USER_FAILURE_MESSAGE: &str = "Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path=\"community/discord-report\">Report on Discord</openhuman-link>";
+pub(super) const AGENT_JOB_USER_FAILURE_MESSAGE: &str = "Something went wrong. Please try again.";
 // Actionable, static failure copy for the three permanent cron halt states
 // (TAURI-RUST-514 / -BMW / -HCK). Surfaced verbatim in the alerts tab + run
 // history in place of the generic `AGENT_JOB_USER_FAILURE_MESSAGE`, so a user

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ToolTimelineEntry } from '../../store/chatRuntimeSlice';
+import { CHAT_ERROR_METADATA_KEY } from '../../store/threadSlice';
 import type { ThreadMessage } from '../../types/thread';
 import {
   buildRuntimeMessages,
@@ -60,6 +61,26 @@ describe('toThreadMessageLike', () => {
     const m = msg({ id: 'meta', extraMetadata: { requestId: 'r1' } });
     expect(toThreadMessageLike(m).metadata?.custom).toMatchObject({
       extraMetadata: { requestId: 'r1' },
+    });
+  });
+
+  it('shows a failed turn through assistant-ui error status without raw link markup', () => {
+    const content =
+      'Something went wrong. Please try again.\n<openhuman-link path="community/discord-report">Report on Discord</openhuman-link>\n\n> Provider detail';
+    const converted = toThreadMessageLike(
+      msg({
+        id: 'failed-turn',
+        sender: 'agent',
+        content,
+        extraMetadata: { [CHAT_ERROR_METADATA_KEY]: { errorType: 'inference' } },
+      })
+    );
+
+    expect(converted.content).toEqual([]);
+    expect(converted.status).toEqual({
+      type: 'incomplete',
+      reason: 'error',
+      error: 'Something went wrong. Please try again.\n\n> Provider detail',
     });
   });
 
