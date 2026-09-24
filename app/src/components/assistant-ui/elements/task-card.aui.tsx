@@ -232,10 +232,10 @@ export const TaskGroup: FC<{
   const shown = indices.slice(0, visible);
   const hidden = indices.length - shown.length;
   const summary = [
-    `${indices.length} tasks`,
-    counts.running > 0 && `${counts.running} running`,
-    counts.requiresAction > 0 && `${counts.requiresAction} waiting`,
-    failed > 0 && `${failed} failed`,
+    strings.tasks(indices.length),
+    counts.running > 0 && strings.running(counts.running),
+    counts.requiresAction > 0 && strings.waiting(counts.requiresAction),
+    failed > 0 && strings.failed(failed),
   ].filter((entry): entry is string => typeof entry === 'string');
 
   return (
