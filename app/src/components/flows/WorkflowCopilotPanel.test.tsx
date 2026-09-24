@@ -7,30 +7,39 @@ import WorkflowCopilotPanel from './WorkflowCopilotPanel';
 
 vi.mock('../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
 
-// The panel now delegates its entire transcript to the shared `ChatThreadView`
-// (message bubbles, tool timeline, sub-agent drawer, streaming previews). That
-// component reads the real Redux store; its rendering — including the B25
-// tool-call-envelope unwrap and interim-narration handling — is covered by
-// `features/conversations/components/ChatThreadView.test.tsx`. Here we stub it
-// so these tests stay focused on the copilot's OWN authoring behavior (the
-// `flows_build` send path, seed auto-sends, and the proposal / capped cards)
-// without needing a Redux Provider.
-vi.mock('../../features/conversations/components/ChatThreadView', () => ({
-  ChatThreadView: ({ emptyContent }: { emptyContent?: unknown }) => (
-    <div data-testid="chat-thread-view">{emptyContent as never}</div>
-  ),
+// The panel delegates its transcript to the shared assistant-ui `Thread`, and
+// hands it the copilot's authoring footer through the `Composer` slot and its
+// empty hint through `Welcome`. The real `Thread` needs a full runtime (see
+// `WorkflowCopilotPanel.thread.test.tsx`); here it is stubbed down to exactly
+// those two slots so these tests stay focused on the copilot's OWN authoring
+// behavior (the `flows_build` send path, seed auto-sends, and the proposal /
+// capped cards) without needing a Redux Provider.
+vi.mock('@/components/assistant-ui/thread', () => ({
+  Thread: ({
+    components,
+  }: {
+    components: { Welcome?: () => JSX.Element; Composer?: () => JSX.Element };
+  }) => {
+    const { Welcome, Composer } = components;
+    return (
+      <div data-testid="assistant-ui-thread">
+        {Welcome ? <Welcome /> : null}
+        {Composer ? <Composer /> : null}
+      </div>
+    );
+  },
+}));
+// The sub-agent drawer overlay is irrelevant to the authoring surface.
+vi.mock('../../features/conversations/components/aui/TranscriptOverlays', () => ({
+  TranscriptOverlays: () => null,
 }));
 
-// `ApprovalRequestCard` / `IntegrationConnectCard` (rendered for PR3:
-// flows-copilot-live-run-approval) dispatch via `useAppDispatch` internally —
-// stub the store hook rather than wrapping every render in a real Redux
-// `Provider`, since these tests only assert which card renders, not the
-// decide/connect flow those components own (covered by their own test files).
-// `useAppSelector` is stubbed too: the panel now nests its own
-// `AssistantUiRuntimeProvider` (scoped to the copilot's dedicated thread),
-// which projects the thread's transcript out of the store. These tests stub
-// `ChatThreadView`, so nothing under that runtime is asserted here — it just
-// needs a store shape it can read. The runtime's real behaviour is covered by
+// The store hooks are stubbed rather than wrapping every render in a real
+// Redux `Provider`: the panel nests its own `AssistantUiRuntimeProvider`
+// (scoped to the copilot's dedicated thread), which projects the thread's
+// transcript out of the store. These tests stub `Thread`, so nothing under
+// that runtime is asserted here — it just needs a store shape it can read. The
+// runtime's real behaviour is covered by
 // `WorkflowCopilotPanel.assistantUiRuntime.test.tsx`, against a real store.
 vi.mock('../../store/hooks', () => ({
   useAppDispatch: () => vi.fn(),
@@ -171,13 +180,10 @@ describe('WorkflowCopilotPanel', () => {
     expect(thirdArg.request.instruction).toBe('also add a filter step');
   });
 
-  // Transcript rendering (message bubbles, the shared tool timeline + sub-agent
-  // drawer, streaming previews, the B25 tool-call-envelope unwrap, interim
-  // narration, and stick-to-bottom scroll pinning) now lives in the shared
-  // `ChatThreadView` and is covered by
-  // `features/conversations/components/ChatThreadView.test.tsx`. The panel here
-  // stubs that component (see the mock above), so these tests assert only the
-  // copilot's own authoring surface (send path, seeds, proposal / capped cards).
+  // Transcript rendering (messages, tool and sub-agent cards, inline approvals,
+  // scroll following) lives in the shared assistant-ui `Thread`. The panel here
+  // stubs it (see the mock above), so these tests assert only the copilot's
+  // own authoring surface (send path, seeds, proposal / capped cards).
 
   it('surfaces a new proposal to the host and shows the added/removed diff', () => {
     const onProposal = vi.fn();
@@ -903,89 +909,29 @@ describe('WorkflowCopilotPanel', () => {
     expect(hookState.send.mock.calls[0][0].request.mode).toBe('revise');
   });
 
-  // PR3 (flows-copilot-live-run-approval): `flows_build` now runs the
-  // streaming turn under `AgentTurnOrigin::WebChat` + `APPROVAL_CHAT_CONTEXT`,
-  // so a parked `run_flow` / `resume_flow_run` call surfaces here via the same
-  // `pendingApproval` (sourced from `pendingApprovalByThread`) the main chat's
-  // `Conversations.tsx` reads — reusing the EXISTING `ApprovalRequestCard` /
-  // `IntegrationConnectCard`, no new component.
-  describe('parked approval surface (PR3: flows-copilot-live-run-approval)', () => {
-    function approvalOf(over: Partial<PendingApproval> = {}): PendingApproval {
-      return {
-        requestId: 'req-1',
-        toolName: 'run_flow',
-        message: 'Run the saved flow "Daily digest" to test it?',
-        ...over,
-      };
-    }
-
-    it('renders nothing when there is no pending approval', () => {
-      hookState.pendingApproval = null;
-      render(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-        />
-      );
-      expect(screen.queryByTestId('workflow-copilot-approval')).not.toBeInTheDocument();
-    });
-
-    it('renders the shared ApprovalRequestCard for a parked run_flow/resume_flow_run/cancel_flow_run call', () => {
-      hookState.pendingApproval = approvalOf({ toolName: 'run_flow' });
-      render(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-        />
-      );
-      expect(screen.getByTestId('workflow-copilot-approval')).toBeInTheDocument();
-      // ApprovalRequestCard renders the parked call's message text verbatim.
-      expect(screen.getByText('Run the saved flow "Daily digest" to test it?')).toBeInTheDocument();
-    });
-
-    it('renders IntegrationConnectCard (not ApprovalRequestCard) for a parked composio_connect call', () => {
-      hookState.pendingApproval = approvalOf({
-        toolName: 'composio_connect',
-        toolkit: 'slack',
-        message: 'Connect slack to complete your task',
-      });
-      render(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-        />
-      );
-      const surface = screen.getByTestId('workflow-copilot-approval');
-      expect(surface).toBeInTheDocument();
-      // IntegrationConnectCard's affordance is a Connect button, not
-      // Approve/Deny — assert the connect-specific copy is present and the
-      // approve/deny copy is not, distinguishing it from ApprovalRequestCard.
-      expect(screen.getByText('composio.connect.connect')).toBeInTheDocument();
-      expect(screen.queryByText('chat.approval.approve')).not.toBeInTheDocument();
-    });
-
-    it('does not render the approval surface when threadId is not yet established', () => {
-      // Guards the `pendingApproval && threadId` render condition: a parked
-      // approval with no resolved thread id (shouldn't happen in practice —
-      // an approval can only park on a thread `flows_build` already streamed
-      // into — but defends against a stale/mismatched hook state).
-      hookState.threadId = null;
-      hookState.pendingApproval = approvalOf();
-      render(
-        <WorkflowCopilotPanel
-          graph={baseGraph}
-          onProposal={vi.fn()}
-          onAccept={vi.fn()}
-          onReject={vi.fn()}
-        />
-      );
-      expect(screen.queryByTestId('workflow-copilot-approval')).not.toBeInTheDocument();
-    });
+  // PR3 (flows-copilot-live-run-approval): a parked `run_flow` /
+  // `resume_flow_run` / `composio_connect` call on the copilot's thread is
+  // answered INLINE in the assistant-ui transcript, on the gated tool call
+  // (`ChatToolParts`, covered by `ChatToolParts.approval.test.tsx`) — the same
+  // place the home chat answers it. The footer must not repeat it as a second
+  // card, which would offer two live Approve buttons for one request.
+  it('does not duplicate a parked approval as a footer card', () => {
+    hookState.pendingApproval = {
+      requestId: 'req-1',
+      toolName: 'run_flow',
+      message: 'Run the saved flow "Daily digest" to test it?',
+    };
+    render(
+      <WorkflowCopilotPanel
+        graph={baseGraph}
+        onProposal={vi.fn()}
+        onAccept={vi.fn()}
+        onReject={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId('workflow-copilot-approval')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Run the saved flow "Daily digest" to test it?')
+    ).not.toBeInTheDocument();
   });
 });
