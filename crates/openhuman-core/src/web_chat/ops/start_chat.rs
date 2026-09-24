@@ -49,14 +49,28 @@ pub enum StartChatError {
 impl std::fmt::Display for StartChatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StartChatError::Guardrail {
-                verdict, score, ..
-            } => write!(
-                f,
-                "blocked by guardrail (verdict={verdict} score={score:.2})"
-            ),
+            // The same user-facing copy `prompt_guard_user_message` gives a
+            // fresh rejection — a caller that only has `.to_string()` (a
+            // plain-string RPC error, a `{err}` log line) still gets an
+            // actionable message, not a bare verdict/score dump.
+            StartChatError::Guardrail { verdict, .. } => {
+                f.write_str(guardrail_verdict_user_message(verdict))
+            }
             StartChatError::Other(message) => write!(f, "{message}"),
         }
+    }
+}
+
+/// User-facing copy for a guardrail verdict string (`"block"` /
+/// `"review_blocked"` / `"allow"` — see the `match` in [`start_chat`] that
+/// builds [`StartChatError::Guardrail`]). Shared by `Display` above so a
+/// plain-string consumer of the error still reads the same rejection copy
+/// [`prompt_guard_user_message`] gives a fresh (non-error-wrapped) decision.
+fn guardrail_verdict_user_message(verdict: &str) -> &'static str {
+    match verdict {
+        "block" => prompt_guard_user_message(PromptEnforcementAction::Blocked),
+        "review_blocked" => prompt_guard_user_message(PromptEnforcementAction::ReviewBlocked),
+        _ => prompt_guard_user_message(PromptEnforcementAction::Allow),
     }
 }
 
