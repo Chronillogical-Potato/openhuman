@@ -33,10 +33,21 @@ const SERVER_NAME = 'pw-focus-trap';
  * the detail offer a Connect button; the launcher is a command that exits at
  * once, so the background connect the declaration starts fails harmlessly
  * instead of leaving a subprocess behind.
+ *
+ * The launcher is the bare name `false`, NOT `/bin/false`. `locate_command`
+ * (`tinymcp/.../transport/stdio/spawn_env/mod.rs:296-318`) branches on
+ * `has_path_separator`: anything containing `/` is taken as a literal path with
+ * no PATH lookup, while a bare name is resolved across PATH. `/bin/false` is a
+ * Linux-ism — on macOS `false` lives at `/usr/bin/false` — so the absolute form
+ * made the launcher unfindable there, the connect failed with `MissingRuntime`,
+ * the server never reached a connected state and the vehicle's row never
+ * rendered. Every case in this file then timed out on that row, for a reason CI
+ * (Linux, where `/bin/false` exists) never sees. The bare name is correct on
+ * both platforms.
  */
 async function declareVehicleServer(keyName: string): Promise<void> {
   await callCoreRpc('openhuman.mcp_clients_config_set', {
-    mcpServers: { [SERVER_NAME]: { command: '/bin/false', env: { [keyName]: 'seed' } } },
+    mcpServers: { [SERVER_NAME]: { command: 'false', env: { [keyName]: 'seed' } } },
   });
 }
 
@@ -110,6 +121,34 @@ test.afterEach(async () => {
 // one element. It was strictly weaker than the Tab test below, which fails on
 // the third press. Do not re-add it.
 // TODO(#6398): restore isolated core lifecycle coverage for this browser suite.
+//
+// STILL QUARANTINED, deliberately. The portability defect above is fixed, which
+// unblocks reproducing this locally on macOS, but it is NOT the reported
+// failure: the issue describes repeated ECONNREFUSED in CI when the core at
+// 127.0.0.1:17788 disappears mid-suite, and that has not been reproduced or
+// explained. A run on macOS at `0f1ecc9d2` found the core healthy throughout —
+// 414 log lines, no panic or abort, every `mcp_clients_config_set` returning
+// ok, and the log ending in the session's own SIGTERM teardown — so the
+// premise in the title ("its test core exits") is not established.
+//
+// Un-skipping now would remove the marker without fixing the behaviour it was
+// raised for, which is worse than leaving it: the suite would be restored on a
+// guess, and because `.github/workflows/e2e-playwright.yml` is
+// `on: workflow_dispatch: {}` with no push or pull_request trigger, nothing
+// would contradict the guess automatically.
+//
+// What restoring this needs, in order: (1) a macOS run, which additionally
+// needs #6476 — `e2e-web-session.sh` launches the core through `setsid`, which
+// is util-linux and absent on macOS, so the core never starts; (2) a CI run
+// that reproduces the ECONNREFUSED with `core.log` and `core-resource.log`
+// retained (the workflow uploads both on failure, 7-day retention) to separate
+// a runner OOM from an in-process failure.
+//
+// Worth knowing before deleting instead of restoring: `mcp-tab-flow.spec.ts`
+// covers the same route and selector but is entirely mocked — it installs
+// `page.route('**/rpc', ...)` and fulfils the RPCs itself, with zero
+// `callCoreRpc`. This suite is therefore the only spec exercising this surface
+// against a live core.
 test.describe.skip('Connector modal — focus containment', () => {
   // Precondition assertion, not mutation-proven: this survived BOTH the
   // trap-deletion mutation and removing the input's `autoFocus`, because Radix
