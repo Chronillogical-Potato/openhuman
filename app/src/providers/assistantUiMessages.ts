@@ -355,7 +355,8 @@ export function reasoningPart(
 function assistantParts(
   text: string,
   timeline: readonly ToolTimelineEntry[],
-  transcript: readonly ProcessingTranscriptItem[]
+  transcript: readonly ProcessingTranscriptItem[],
+  citations: readonly ChatCitation[] = EMPTY_CITATIONS
 ): ThreadAssistantMessagePart[] {
   const parts: ThreadAssistantMessagePart[] = [];
   const timelineById = new Map(timeline.map(entry => [entry.id, entry]));
