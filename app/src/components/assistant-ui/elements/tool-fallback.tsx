@@ -43,12 +43,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
+import { Textarea } from '@/components/assistant-ui/ui/textarea';
 import {
+  toolApprovalAcceptsText,
   type ToolApprovalOption,
   type ToolCallMessagePart,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
   type ToolCallMessagePartStatus,
+  useAuiState,
   useScrollLock,
   useToolCallElapsed,
 } from '@assistant-ui/react';
