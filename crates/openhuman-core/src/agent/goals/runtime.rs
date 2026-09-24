@@ -111,7 +111,7 @@ pub async fn complete_for_thread(workspace_dir: &Path, thread_id: Option<&str>) 
                     thread_id: goal.thread_id.clone(),
                     goal_id: goal.goal_id.clone(),
                     status: goal.status.as_str().to_string(),
-                    goal: None,
+                    goal: Some(super::goal_to_value(&goal)),
                 });
             }
         }
@@ -133,7 +133,13 @@ pub async fn clear_for_thread(workspace_dir: &Path, thread_id: Option<&str>) {
         return;
     };
     match store::clear(workspace_dir, &thread_id).await {
-        Ok(_existed) => {}
+        Ok(existed) => {
+            if existed {
+                BUS.publish(DomainEvent::ThreadGoalCleared {
+                    thread_id: thread_id.clone(),
+                });
+            }
+        }
         Err(e) => {
             tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] clear_for_thread failed");
         }
