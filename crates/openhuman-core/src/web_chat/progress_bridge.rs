@@ -349,15 +349,7 @@ pub(crate) fn spawn_progress_bridge(
         // (it belongs to the terminal round, which ends with no tool call).
         let mut pending_narration = String::new();
         let mut timing = super::turn_timing::TurnTiming::start();
-        // Throttle for the live `turn_cost` socket event below: a multi-round
-        // turn can report a `TurnCostUpdated` on every model call, and a
-        // fast-tool-calling round can do that several times a second — far
-        // more often than a cost readout needs to repaint. Unconditionally
-        // `None` initially so the *first* update of a turn always emits
-        // immediately rather than waiting out the interval.
-        let mut last_turn_cost_emit: Option<std::time::Instant> = None;
-        const TURN_COST_EMIT_MIN_INTERVAL: std::time::Duration =
-            std::time::Duration::from_millis(750);
+        let mut turn_cost_throttle = super::turn_timing::TurnCostThrottle::new();
         let mut events_seen: u64 = 0;
         // Per-request monotonic ordering key stamped on every emitted
         // web-channel event (see `publish_seq_stamped`). Unique per emission so

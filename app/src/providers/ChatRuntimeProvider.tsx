@@ -14,6 +14,7 @@ import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposa
 import {
   type ChatApprovalDecidedEvent,
   type ChatApprovalRequestEvent,
+  type ChatCancelledEvent,
   type ChatDoneEvent,
   type ChatErrorEvent,
   type ChatInferenceHeartbeatEvent,
