@@ -456,6 +456,7 @@ const ThreadRoot: FC<{
             )}>
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
+            <ConnectionStateBanner />
             {HostComposer ? (
               <HostComposer />
             ) : (
