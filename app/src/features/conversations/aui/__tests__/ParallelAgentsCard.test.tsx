@@ -42,7 +42,7 @@ function renderCard(timeline: ToolTimelineEntry[], toolCallId = PARENT_CALL_ID) 
           addResult: vi.fn(),
           resume: vi.fn(),
           respondToApproval: vi.fn(),
-        } as unknown as Parameters<typeof ParallelAgentsCard>[0])}
+        } as unknown as React.ComponentProps<typeof ParallelAgentsCard>)}
       />
     </Provider>
   );
