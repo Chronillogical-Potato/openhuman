@@ -781,6 +781,7 @@ pub(crate) fn spawn_progress_bridge(
                                 "dedicatedThread": dedicated_thread,
                                 "promptChars": prompt_chars,
                                 "displayName": display_name,
+                                "parentCallId": parent_call_id,
                                 "source": "agent_progress",
                                 "schemaVersion": 1
                             }),
@@ -801,7 +802,8 @@ pub(crate) fn spawn_progress_bridge(
                                 "mode": mode,
                                 "dedicatedThread": dedicated_thread,
                                 "promptChars": prompt_chars,
-                                "displayName": display_name
+                                "displayName": display_name,
+                                "parentCallId": parent_call_id
                             }),
                         },
                     );
@@ -822,6 +824,7 @@ pub(crate) fn spawn_progress_bridge(
                                 prompt_chars: Some(prompt_chars as u64),
                                 worker_thread_id,
                                 display_name,
+                                parent_call_id,
                                 ..Default::default()
                             }),
                             ..Default::default()
