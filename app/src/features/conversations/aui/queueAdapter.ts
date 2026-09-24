@@ -74,7 +74,7 @@ export function buildOpenHumanQueueAdapter({
   // `onNew`, so deliver synchronously and keep that path unchanged.
   const enqueue = (message: AppendMessage) => {
     log('[aui-queue] enqueue (idle) → host send');
-    deliver('enqueue', message);
+    queueMicrotask(() => deliver('enqueue', message));
   };
   // Running thread: the host queues it as a follow-up. One macrotask later, so
   // the composer clear the runtime made just before calling us reaches the host
