@@ -1,5 +1,4 @@
 import type {
-  AddToolResultOptions,
   AppendMessage,
   ThreadMessage as AuiThreadMessage,
   RespondToToolApprovalOptions,
@@ -572,6 +571,7 @@ export function useOpenHumanExternalStore(
       convertMessage: (m: (typeof runtimeMessages)[number]) => m,
       onNew,
       onCancel,
+      queue,
       onEdit,
       onReload,
       setMessages,
