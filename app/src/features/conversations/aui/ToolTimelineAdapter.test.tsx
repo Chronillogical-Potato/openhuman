@@ -88,7 +88,7 @@ describe('ToolTimelineAdapter — agentic task insights surface', () => {
     const { rerender } = render(<ToolTimelineAdapter entries={turn1Settled} />);
     expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
-    fireEvent.click(screen.getByText('Agentic task insights'));
+    fireEvent.click(screen.getByRole('button', { name: 'Agentic task insights' }));
     expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
     const turn2Running: ToolTimelineEntry[] = [
