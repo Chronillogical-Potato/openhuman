@@ -33,7 +33,7 @@ import {
   type ContextBreakdown as ContextBreakdownData,
   getContextBreakdown,
 } from '../../../services/api/agentContextApi';
-import { emptySessionTokenUsage } from '../../../store/chatRuntimeSlice';
+import { emptySessionTokenUsage, type SessionTokenUsage } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 
 const log = debug('openhuman:context-usage');
