@@ -1212,9 +1212,9 @@ const selectMessageParts = (state: AssistantState) => state.message.parts;
  * a count, then the rows), so it needs the parts themselves, not one child per
  * part.
  */
-const SourceGroupSlot: FC<{
-  Component: ComponentType<{ sources: readonly SourceUrlPart[] }>;
-}> = ({ Component }) => {
+const SourceGroupSlot: FC<{ Component: ComponentType<{ sources: readonly SourceUrlPart[] }> }> = ({
+  Component,
+}) => {
   const parts = useAuiState(selectMessageParts);
   const sources = useMemo(
     () =>

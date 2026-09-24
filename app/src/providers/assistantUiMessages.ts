@@ -144,10 +144,7 @@ function toolLabelArtifact(entry: ToolTimelineEntry): ToolLabelArtifact {
   const formatted = entry.displayName ? undefined : formatTimelineEntry(entry);
   const displayName = entry.displayName ?? formatted?.title;
   const detail = entry.detail ?? formatted?.detail;
-  return {
-    ...(displayName ? { displayName } : {}),
-    ...(detail ? { detail } : {}),
-  };
+  return { ...(displayName ? { displayName } : {}), ...(detail ? { detail } : {}) };
 }
 
 function toolPart(entry: ToolTimelineEntry): ThreadAssistantMessagePart {
@@ -579,10 +576,7 @@ export function toThreadMessageLike(
       // survive the next turn, a thread switch and a reload. Without this the
       // control silently un-presses, which is worse than having no control.
       ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
-      custom: {
-        extraMetadata: msg.extraMetadata ?? {},
-        sourceType: msg.type,
-      },
+      custom: { extraMetadata: msg.extraMetadata ?? {}, sourceType: msg.type },
     },
   };
 

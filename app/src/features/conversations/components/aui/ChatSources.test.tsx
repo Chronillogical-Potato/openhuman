@@ -171,10 +171,10 @@ describe('inline turn sources', () => {
 
   it('draws the turn once, with no process footer under the answer', async () => {
     vi.spyOn(threadApi, 'getDerivedTranscript').mockResolvedValue(
-      page(
-        toolCall('c1', 'https://example.com/a'),
-        { kind: 'reasoning', text: 'Looking it up.' } as DerivedDisplayItem
-      ) as never
+      page(toolCall('c1', 'https://example.com/a'), {
+        kind: 'reasoning',
+        text: 'Looking it up.',
+      } as DerivedDisplayItem) as never
     );
 
     renderChat();

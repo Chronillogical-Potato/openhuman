@@ -8,11 +8,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '../../../components/assistant-ui/ui/collapsible';
+import type { ToolLabelArtifact } from '../../../providers/assistantUiMessages';
 import type {
   ToolFailureExplanation,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
-import type { ToolLabelArtifact } from '../../../providers/assistantUiMessages';
 import { toolCallLabel } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { ToolFailureLines } from './ToolFailureLines';

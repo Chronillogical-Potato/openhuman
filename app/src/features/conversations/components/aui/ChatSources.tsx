@@ -9,8 +9,8 @@
  *
  * Collapsed by default: the answer stays the top of the turn.
  */
-import type { SourceUrlPart } from '../../../../components/assistant-ui/thread';
 import { Sources, SourcesContent, SourcesTrigger } from '../../../../components/ai-elements';
+import type { SourceUrlPart } from '../../../../components/assistant-ui/thread';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import { AgentSourceRow } from '../AgentSourceRow';
 
