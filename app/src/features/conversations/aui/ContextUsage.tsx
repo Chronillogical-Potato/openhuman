@@ -64,7 +64,7 @@ type BreakdownState =
  * labels, strip markdown hashes off prompt headings, fold duplicate headings
  * into one row (the element keys rows by label) and drop empty ones.
  */
-function toSegments(
+export function contextBreakdownSegments(
   data: ContextBreakdownData,
   t: (key: string) => string
 ): readonly ContextSegment[] {
@@ -163,7 +163,7 @@ export function ContextUsage({
     const limit = breakdown.data.context_window > 0 ? breakdown.data.context_window : contextWindow;
     body = (
       <ContextBreakdown
-        segments={toSegments(breakdown.data, t)}
+        segments={contextBreakdownSegments(breakdown.data, t)}
         limit={limit}
         title={t('conversations.composer.context.breakdownTitle')}
         headroomLabel={t('conversations.composer.context.headroom')}

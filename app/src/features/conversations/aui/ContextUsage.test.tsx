@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from '../../../services/coreRpcClient';
 import chatRuntimeReducer, { hydrateThreadUsage } from '../../../store/chatRuntimeSlice';
-import { ContextUsage } from './ContextUsage';
+import { contextBreakdownSegments, ContextUsage } from './ContextUsage';
 
 vi.mock('../../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
@@ -118,5 +118,30 @@ describe('ContextUsage', () => {
 
     await waitFor(() => expect(popover).toHaveTextContent('Tools'));
     expect(mockCall).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('contextBreakdownSegments', () => {
+  const t = (key: string) => key.split('.').pop() ?? key;
+
+  it('folds repeated headings into one row and drops empty sections', () => {
+    const segments = contextBreakdownSegments(
+      {
+        sections: [
+          { label: '## Rules', bytes: 40, est_tokens: 10 },
+          { label: '### Rules', bytes: 80, est_tokens: 20 },
+          { label: '## Empty', bytes: 0, est_tokens: 0 },
+          { label: 'tools', bytes: 400, est_tokens: 100 },
+        ],
+        total_est_tokens: 130,
+        context_window: 0,
+      },
+      t
+    );
+
+    expect(segments.map(s => [s.label, s.tokens])).toEqual([
+      ['Rules', 30],
+      ['tools', 100],
+    ]);
   });
 });
