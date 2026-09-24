@@ -181,11 +181,16 @@ export function ChatConversationMap({ children }: { children: ReactNode }) {
               <Timeline
                 events={events}
                 visibleCount={events.length}
-                onClick={(event: React.MouseEvent<HTMLDivElement>) => {
-                  const target = (event.target as HTMLElement).closest<HTMLElement>('[data-slot="timeline"] > div');
-                  const index = target
-                    ? Array.from(target.parentElement?.children ?? []).indexOf(target)
-                    : -1;
+                onClick={event => {
+                  // Each event renders as one direct child of the `Timeline`
+                  // root (`data-slot="timeline"`), in `events` order — there is
+                  // no per-row id in the vendored markup to select on, so the
+                  // clicked row's position among its siblings is the row's
+                  // index into `events`.
+                  const root = event.currentTarget;
+                  const index = Array.from(root.children).findIndex(child =>
+                    child.contains(event.target as Node)
+                  );
                   const clicked = index >= 0 ? events[index] : undefined;
                   if (clicked) onTimelineClick(clicked.id);
                 }}
