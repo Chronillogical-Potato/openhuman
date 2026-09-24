@@ -440,3 +440,14 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     assert_eq!(pending_count("sess-stop"), 1);
     let _ = take_pending("sess-stop");
 }
+
+#[test]
+fn resuming_a_thread_removes_its_stop_order_entry() {
+    let mut state = QueueState::default();
+    state.stop("thread-resume");
+
+    state.resume_thread("thread-resume");
+
+    assert!(!state.stopped_threads.contains("thread-resume"));
+    assert!(state.stopped_order.is_empty());
+}

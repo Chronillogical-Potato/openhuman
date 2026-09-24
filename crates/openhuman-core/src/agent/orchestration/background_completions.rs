@@ -140,7 +140,9 @@ impl QueueState {
     }
 
     fn resume_thread(&mut self, thread_id: &str) {
-        self.stopped_threads.remove(thread_id);
+        if self.stopped_threads.remove(thread_id) {
+            self.stopped_order.retain(|stopped| stopped != thread_id);
+        }
     }
 
     fn mark_stopped_task_if_thread_stopped(&mut self, thread_id: &str, task_id: &str) -> bool {
