@@ -400,3 +400,11 @@ async fn clear_dropped_turn_states(
         ),
     }
 }
+
+#[cfg(test)]
+#[path = "edit_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "edit_turn_state_tests.rs"]
+mod turn_state_tests;
