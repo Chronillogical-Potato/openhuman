@@ -188,6 +188,39 @@ describe('turnSettled', () => {
   });
 });
 
+describe('turn boundaries', () => {
+  it('a newer live turn is not torn down by the previous turn settling late', () => {
+    const state = run([
+      beginInferenceTurn({ threadId: T }),
+      markInferenceTurnStreaming({ threadId: T }),
+      liveTurnStarted({ threadId: T, requestId: 'req-2' }),
+      toolCallReceived({ threadId: T, round: 1, toolName: 'shell', toolCallId: 'call-2' }),
+      turnSettled({ threadId: T, requestId: 'req-1' }),
+    ]);
+    expect(state.inferenceTurnLifecycleByThread[T]).toBe('streaming');
+    expect(state.liveRequestIdByThread[T]).toBe('req-2');
+    expect(state.toolTimelineByThread[T]?.[0]?.status).toBe('running');
+    expect(state.settledTurnsByThread[T]?.['req-1']).toBeUndefined();
+  });
+
+  it('a new send starts from an empty transcript, not the last turn’s', () => {
+    const state = run([
+      streamDeltaReceived({
+        threadId: T,
+        requestId: 'req-1',
+        round: 1,
+        delta: 'Last turn said this.',
+        channel: 'content',
+      }),
+      turnSettled({ threadId: T, requestId: 'req-1' }),
+      beginInferenceTurn({ threadId: T }),
+    ]);
+    expect(state.processingByThread[T]).toBeUndefined();
+    // …while the settled turn keeps the trail it rendered with.
+    expect(state.settledTurnsByThread[T]?.['req-1']?.transcript).toHaveLength(1);
+  });
+});
+
 describe('liveTurnStarted', () => {
   it('ignores a parallel (forked) request, which never owns the tail', () => {
     const state = run([

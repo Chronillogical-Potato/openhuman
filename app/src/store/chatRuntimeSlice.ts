@@ -2161,6 +2161,13 @@ const chatRuntimeSlice = createSlice({
     },
     beginInferenceTurn: (state, action: PayloadAction<{ threadId: string }>) => {
       state.inferenceTurnLifecycleByThread[action.payload.threadId] = 'started';
+      // The live transcript belongs to the previous turn until this one's
+      // `inference_start` resets it — and the tail is minted from the moment
+      // the lifecycle is `started`, so it would draw the last turn's narration
+      // and reasoning again under the new question. That turn is settled (its
+      // trail frozen, or served by the core projection); start this one clean.
+      delete state.processingByThread[action.payload.threadId];
+      delete state.liveRequestIdByThread[action.payload.threadId];
     },
     markInferenceTurnStreaming: (state, action: PayloadAction<{ threadId: string }>) => {
       if (state.inferenceTurnLifecycleByThread[action.payload.threadId]) {
@@ -2200,7 +2207,22 @@ const chatRuntimeSlice = createSlice({
      */
     turnSettled: (state, action: PayloadAction<{ threadId: string; requestId?: string }>) => {
       const { threadId } = action.payload;
-      const requestId = action.payload.requestId ?? state.liveRequestIdByThread[threadId];
+      const live = state.liveRequestIdByThread[threadId];
+      // A newer turn is already live on the thread (a queued follow-up the
+      // core started while this turn's reply was still being persisted). The
+      // live state is that turn's now: freezing or clearing it would erase the
+      // turn that is streaming. This turn's reply is already in the cache and
+      // its trail comes from the core projection.
+      if (action.payload.requestId && live && live !== action.payload.requestId) {
+        turnStateLog(
+          'turn settle superseded thread=%s request=%s live=%s',
+          threadId,
+          action.payload.requestId,
+          live
+        );
+        return;
+      }
+      const requestId = action.payload.requestId ?? live;
       if (requestId) {
         const timeline = (state.toolTimelineByThread[threadId] ?? []).map(entry =>
           entry.status === 'running' ? { ...entry, status: 'success' as const } : entry
@@ -2251,7 +2273,9 @@ const chatRuntimeSlice = createSlice({
       delete state.toolTimelineByThread[action.payload.threadId];
       delete state.toolTimelineSeqByThread[action.payload.threadId];
       delete state.processingByThread[action.payload.threadId];
-      delete state.settledTurnsByThread[action.payload.threadId];
+      // `settledTurnsByThread` is kept: those turns are finished, and their
+      // frozen trails are what their messages render — dropping them here (a
+      // failed send, the silence timeout) would remount every settled turn.
       delete state.liveRequestIdByThread[action.payload.threadId];
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
       delete state.pendingApprovalByThread[action.payload.threadId];
