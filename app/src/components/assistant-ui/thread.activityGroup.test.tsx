@@ -80,7 +80,9 @@ describe('activity group', () => {
     const steps = [first, firstTool, second, secondTool];
     for (const [current, next] of steps.map((step, index) => [step, steps[index + 1]] as const)) {
       if (next) {
-        expect(current.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(
+          current.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING
+        ).toBeTruthy();
       }
     }
   });
