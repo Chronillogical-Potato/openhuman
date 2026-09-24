@@ -101,6 +101,15 @@ pub struct ArtifactMeta {
     /// disk after a redux-persist purge / fresh-device boot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
+    /// Provider-assigned tool-call id of the producing tool invocation,
+    /// captured at [`super::store::create_artifact`] time and carried on
+    /// every lifecycle event (`ArtifactPending`/`Ready`/`Failed`) so the UI
+    /// can correlate the card with the tool-call bubble that produced it.
+    /// `None` for producers that ran outside a harness tool-call context
+    /// (CLI, cron) and for `meta.json` files written before this field
+    /// existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 #[cfg(test)]

@@ -89,6 +89,7 @@ pub(crate) async fn execute_spawn_parallel_agents(
     workspace_descriptor: Option<tinytools::WorkspaceDescriptor>,
     run_context: crate::agent::tinyagents::host::OpenHumanRunContext,
     live_parent: Option<&RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>>,
+    parent_call_id: Option<String>,
 ) -> anyhow::Result<ToolResult> {
     tracing::debug!("[spawn_parallel_agents] execute entry");
     let tasks = match parse_parallel_agent_tasks(&args) {
