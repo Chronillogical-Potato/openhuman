@@ -98,8 +98,13 @@ DevTools client can attach to it. Run the same SPA in Chrome instead:
   `http://localhost:<vite>/__dev-connect`. Sign-in takes one click on a provider:
   the browser build passes `<origin>/__dev-auth` as the backend `redirectUri`,
   and the session persists in that core's workspace.
-- Busy ports are fine. Vite and the standalone core move to the next free port,
-  and the printed URL always uses the real one.
+- Busy ports are fine. Vite moves to the next free port, and so does
+  `openhuman-core serve`, even when another live core holds the port.
+  (`OccupiedByCore::Fallback`; only the desktop shell's embedded core runs the
+  stale-listener takeover.) The printed URL always uses the real ports.
+- Onboarding and the walkthrough tour are skipped by default
+  (`VITE_DEV_SKIP_ONBOARDING`, marked complete in the core for a signed-in
+  user). Pass `--onboarding` to keep them for debugging.
 - Inspect with `take_snapshot`, `list_console_messages`,
   `list_network_requests` (check the `/rpc` calls), `evaluate_script`, and
   `take_screenshot`.
@@ -544,4 +549,5 @@ serialization.
 - macOS deep links require a built app bundle.
 - Windows registers `openhuman://` through `tauri-plugin-deep-link`.
 - Standalone debugging uses `./target/debug/openhuman-core serve`. Public
-  endpoints are `GET /health`, `GET /schema`, and `GET /events`.
+  endpoints are `GET /health`, `GET /schema`, and `GET /events`, plus the
+  debug-build-only `GET /dev/connect`.
