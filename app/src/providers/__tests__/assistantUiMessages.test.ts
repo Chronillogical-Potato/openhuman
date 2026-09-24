@@ -744,7 +744,7 @@ describe('tool label on the part', () => {
     const converted = toThreadMessageLike(msg({ id: 'a', sender: 'agent', content: 'done' }), [
       tool({ id: 'c1', name: 'tool_search', status: 'success', argsBuffer: '{"query":"gmail"}' }),
     ]);
-    expect(artifactOf(converted)).toEqual({ displayName: 'Searching tools' });
+    expect(artifactOf(converted)).toEqual({ displayName: 'Finding the right tool' });
   });
 });
 

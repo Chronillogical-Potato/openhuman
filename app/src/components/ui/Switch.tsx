@@ -8,6 +8,7 @@ export interface SwitchProps {
   onCheckedChange: (next: boolean) => void;
   disabled?: boolean;
   className?: string;
+  thumbClassName?: string;
   'aria-label'?: string;
   'data-testid'?: string;
 }
@@ -29,6 +30,7 @@ const Switch = ({
   onCheckedChange,
   disabled = false,
   className,
+  thumbClassName,
   'aria-label': ariaLabel,
   'data-testid': testId,
 }: SwitchProps) => (
@@ -52,7 +54,8 @@ const Switch = ({
       className={cn(
         'pointer-events-none inline-block h-[18px] w-[18px] transform rounded-full bg-surface shadow-xs ring-0',
         'transition-transform duration-200 ease-in-out motion-reduce:transition-none',
-        'data-[state=checked]:translate-x-[16px] data-[state=unchecked]:translate-x-0'
+        'data-[state=checked]:translate-x-[16px] data-[state=unchecked]:translate-x-0',
+        thumbClassName
       )}
     />
   </SwitchPrimitive.Root>

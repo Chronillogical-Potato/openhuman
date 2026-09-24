@@ -111,6 +111,7 @@ const INTENTIONAL_ENGLISH = new Set([
   "vault.excludesPlaceholder",
   "vault.syncSummaryDuration",
   "voice.providers.chip.piper",
+  "walletSend.amountWithSymbol", // "{{amount}} {{symbol}}" — amount + symbol are variable placeholders, untranslatable data
   "walkthrough.tooltip.stepCounter",
   "workflows.create.optional",
   "workspace.obsidianConfigDirPlaceholder",
