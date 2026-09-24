@@ -5,6 +5,7 @@
 mod tests;
 
 mod crud;
+mod edit;
 mod live_state;
 mod purge;
 mod support;
