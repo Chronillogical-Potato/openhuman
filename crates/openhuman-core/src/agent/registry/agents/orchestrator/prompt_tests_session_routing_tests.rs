@@ -146,7 +146,7 @@ fn prompt_routes_workflow_authoring_to_the_builder_not_use_skill() {
         "the prompt tells the model to call `build_workflow`; that must still be \
          workflow_builder's delegate_name, or the rule names a tool nobody has"
     );
-    match &builder.tool_scope {
+    match &builder.tools {
         crate::agent::harness::definition::ToolScope::Named(tools) => {
             for tool in ["list_flows", "get_flow"] {
                 assert!(
