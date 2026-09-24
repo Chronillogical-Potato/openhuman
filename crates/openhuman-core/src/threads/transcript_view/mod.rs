@@ -6,6 +6,7 @@
 
 mod cache;
 mod project;
+mod prompt_tools;
 pub mod types;
 
 use std::path::Path;

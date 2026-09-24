@@ -5,12 +5,13 @@
 //! ([`DisplayItem`]), sanitizing injected scaffolding as it goes. Sub-agent
 //! sibling files are discovered and nested one level deep.
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use tinyagents_session::transcript::{self, CompactionMarker, DisplayMessage, DisplayRecord};
 
+use super::prompt_tools::{self, CallRegistry, PromptToolResult};
 use super::types::{DisplayItem, ProjectedTranscript, ToolCallFailure, ToolCallStatus};
 
 const LOG_PREFIX: &str = "[threads][transcript]";
@@ -303,6 +304,9 @@ fn anchor_request_id(child_unix: Option<i64>, segments: &[(String, i64)]) -> Opt
 ///   preceding its message.
 /// - Assistant `tool_calls` register pending [`DisplayItem::ToolCall`]s; a later
 ///   `role:"tool"` line pairs to one by id, falling back to FIFO order.
+/// - Prompt-guided tool rounds (no per-line `tool_calls`, results folded into a
+///   `[Tool results]` user line) project to the same shape: see
+///   [`prompt_tools`].
 /// - Interrupted partials and compaction markers pass through as their items.
 /// - A [`DisplayItem::TurnBoundary`] is emitted whenever `request_id` changes.
 pub fn project_records(records: &[DisplayRecord]) -> Vec<DisplayItem> {
@@ -310,12 +314,22 @@ pub fn project_records(records: &[DisplayRecord]) -> Vec<DisplayItem> {
     // Pending tool calls awaiting a result line: (call_id, index into `items`).
     let mut pending: VecDeque<(String, usize)> = VecDeque::new();
     let mut last_request_id: Option<String> = None;
+    let mut calls = ProjectedCalls {
+        registry: CallRegistry::from_records(records),
+        emitted: HashSet::new(),
+    };
 
-    for record in records {
+    for (index, record) in records.iter().enumerate() {
         match record {
             DisplayRecord::Message(msg) => {
                 maybe_emit_turn_boundary(msg, &mut last_request_id, &mut items);
-                project_message(msg, &mut items, &mut pending);
+                // A prompt-guided round's results are on the NEXT line; they are
+                // the only record of which calls this assistant line issued.
+                let next_results = match records.get(index + 1) {
+                    Some(DisplayRecord::Message(next)) => prompt_tools::parse_tool_results(next),
+                    _ => None,
+                };
+                project_message(msg, next_results, &mut items, &mut pending, &mut calls);
             }
             DisplayRecord::Compaction(marker) => {
                 project_compaction(marker, &mut items);
@@ -344,10 +358,20 @@ fn maybe_emit_turn_boundary(
     }
 }
 
+/// Which calls the projection has already placed, and where to look them up.
+struct ProjectedCalls {
+    registry: CallRegistry,
+    /// Call ids already emitted as a [`DisplayItem::ToolCall`]. A prompt-guided
+    /// turn records its calls again on the answer line; those are not new.
+    emitted: HashSet<String>,
+}
+
 fn project_message(
     msg: &DisplayMessage,
+    next_results: Option<Vec<PromptToolResult>>,
     items: &mut Vec<DisplayItem>,
     pending: &mut VecDeque<(String, usize)>,
+    calls: &mut ProjectedCalls,
 ) {
     // Interrupted partial: display-only, carries its own thinking.
     if msg.interrupted {
@@ -364,6 +388,13 @@ fn project_message(
             log::debug!("{LOG_PREFIX} sanitize: dropped system line from projection");
         }
         "user" => {
+            if let Some(blocks) = prompt_tools::parse_tool_results(msg) {
+                // Tool plumbing, not something the user said.
+                for block in blocks {
+                    pair_tool_result(block.id.as_deref(), block.body, false, None, items, pending);
+                }
+                return;
+            }
             let raw = msg.message.content.clone();
             let sanitized = sanitize_user_content(&raw);
             if sanitized.is_some() {
@@ -375,7 +406,7 @@ fn project_message(
                 request_id: msg.request_id.clone(),
             });
         }
-        "assistant" => project_assistant(msg, items, pending),
+        "assistant" => project_assistant(msg, next_results, items, pending, calls),
         "tool" => project_tool_result(msg, items, pending),
         other => {
             log::debug!("{LOG_PREFIX} projecting unknown role {other:?} as assistant message");
@@ -392,8 +423,10 @@ fn project_message(
 
 fn project_assistant(
     msg: &DisplayMessage,
+    next_results: Option<Vec<PromptToolResult>>,
     items: &mut Vec<DisplayItem>,
     pending: &mut VecDeque<(String, usize)>,
+    calls: &mut ProjectedCalls,
 ) {
     // Reasoning precedes the message it belongs to.
     if let Some(reasoning) = msg.reasoning_content.as_deref() {
@@ -419,7 +452,7 @@ fn project_assistant(
     // and carry the invocation only inside the provider replay envelope. Use
     // that canonical call shape rather than degrading the paired result to an
     // orphan named "tool".
-    let tool_calls = if persisted_tool_calls.is_empty() {
+    let recorded_calls: Vec<NativeToolCall> = if persisted_tool_calls.is_empty() {
         native_envelope
             .as_ref()
             .map(|(_, calls)| calls.clone())
@@ -427,6 +460,30 @@ fn project_assistant(
     } else {
         persisted_tool_calls
     };
+    // Calls already placed after an earlier narration are the prompt-guided
+    // turn-level list repeated on its answer line — not calls this line made.
+    let mut tool_calls: Vec<NativeToolCall> = recorded_calls
+        .into_iter()
+        .filter(|(id, _, _)| id.is_empty() || !calls.emitted.contains(id))
+        .collect();
+    // A prompt-guided line records no calls of its own; the `[Tool results]`
+    // line after it names the calls it made.
+    if tool_calls.is_empty() {
+        if let Some(blocks) = next_results.as_deref() {
+            tool_calls = calls
+                .registry
+                .calls_for(&msg.request_id, blocks, &calls.emitted);
+            log::debug!(
+                "{LOG_PREFIX} prompt-guided round: {} call(s) inferred from the next [Tool results] line",
+                tool_calls.len()
+            );
+        }
+    }
+    for (id, _, _) in &tool_calls {
+        if !id.is_empty() {
+            calls.emitted.insert(id.clone());
+        }
+    }
     let interim = !tool_calls.is_empty();
 
     // Native tool-call turns are persisted as their provider envelope so they
@@ -495,24 +552,40 @@ fn project_tool_result(
     items: &mut Vec<DisplayItem>,
     pending: &mut VecDeque<(String, usize)>,
 ) {
-    let result = msg.message.content.clone();
+    pair_tool_result(
+        msg.message.id.as_deref(),
+        msg.message.content.clone(),
+        msg.failure,
+        msg.failure_detail.clone(),
+        items,
+        pending,
+    );
+}
+
+/// Settle the pending call a result belongs to — by id first, else FIFO — or
+/// emit an orphan row so the output is not lost.
+fn pair_tool_result(
+    call_id: Option<&str>,
+    result: String,
+    failed: bool,
+    failure_detail: Option<String>,
+    items: &mut Vec<DisplayItem>,
+    pending: &mut VecDeque<(String, usize)>,
+) {
     // A failed tool line (`ToolResult::is_error`, stamped at persistence) pairs
     // to an error row with a failure payload instead of a false success.
-    let (status, failure) = if msg.failure {
+    let (status, failure) = if failed {
         (
             ToolCallStatus::Error,
             Some(ToolCallFailure {
-                detail: msg.failure_detail.clone(),
+                detail: failure_detail,
             }),
         )
     } else {
         (ToolCallStatus::Success, None)
     };
     // Pair by explicit call id first, else FIFO.
-    let idx = msg
-        .message
-        .id
-        .as_deref()
+    let idx = call_id
         .and_then(|id| take_pending_by_id(pending, id))
         .or_else(|| pending.pop_front().map(|(_, idx)| idx));
 
@@ -535,7 +608,7 @@ fn project_tool_result(
     // a best-effort completed tool row so the output is not lost.
     log::debug!("{LOG_PREFIX} tool result with no pending call — emitting orphan tool row");
     items.push(DisplayItem::ToolCall {
-        call_id: msg.message.id.clone().unwrap_or_default(),
+        call_id: call_id.unwrap_or_default().to_string(),
         name: "tool".to_string(),
         args: None,
         result: Some(result),
