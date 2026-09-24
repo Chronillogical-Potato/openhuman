@@ -94,7 +94,10 @@ describe('SubagentDrawer', () => {
         onClose={() => {}}
       />
     );
-    const failure = screen.getByTestId('processing-tool-failure');
+    // Rendered through the vendored `tool-error` element (`ToolFailureCard`)
+    // now that this drawer's failed child rows go through `AssistantUiToolCall`
+    // instead of the legacy `ToolFailureLines` text.
+    const failure = screen.getByTestId('assistant-ui-tool-failure');
     expect(failure).toHaveTextContent('You declined this action.');
     expect(failure).toHaveTextContent('Ask again if you change your mind.');
   });
