@@ -643,7 +643,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       // Snapshot polling can outlive this completed turn. Capture the rows it
       // owns before awaiting it so a newer turn on the same thread is never
       // cancelled by this recovery path.
-      const unresolvedRowIds = (store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [])
+      const unresolvedRowIds = (
+        store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? []
+      )
         .filter(entry => entry.status === 'running' && entry.subagent?.mode !== 'async')
         .map(entry => entry.id);
       // Socket reducers keep only the current iteration's prose in the live
@@ -656,7 +658,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
         fetchAndHydrateCompletedTurnState(event.thread_id)
       ).unwrap();
       if (!completedSnapshot) {
-        dispatch(cancelUnresolvedTurnTimeline({ threadId: event.thread_id, rowIds: unresolvedRowIds }));
+        dispatch(
+          cancelUnresolvedTurnTimeline({ threadId: event.thread_id, rowIds: unresolvedRowIds })
+        );
       }
     };
 
