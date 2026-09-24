@@ -21,6 +21,7 @@ fn skill(name: &str, location: Option<std::path::PathBuf>) -> Workflow {
         scope: WorkflowScope::Project,
         legacy: false,
         warnings: vec![],
+        body: None,
     }
 }
 

@@ -1,15 +1,27 @@
 //! OpenHuman-compatible names for the portable `tinyskills` model.
 
-pub use tinyskills::model::{
-    MAX_DESCRIPTION_LEN, MAX_NAME_LEN, RESOURCE_DIRS, SKILL_JSON, SKILL_MD, SKILL_TOML,
-    WORKFLOW_MD, WORKFLOW_TOML,
-};
 pub use tinyskills::{
     Skill as Workflow, SkillFrontmatter as WorkflowFrontmatter, SkillScope as WorkflowScope,
 };
 
+pub const MAX_DESCRIPTION_LEN: usize = 1024;
+pub const MAX_NAME_LEN: usize = 64;
+pub const RESOURCE_DIRS: &[&str] = &[
+    "scripts",
+    "references",
+    "assets",
+    "templates",
+    "examples",
+    "prompts",
+];
+pub const SKILL_JSON: &str = "skill.json";
+pub const SKILL_MD: &str = "SKILL.md";
+pub const SKILL_TOML: &str = "skill.toml";
+pub const WORKFLOW_MD: &str = "WORKFLOW.md";
+pub const WORKFLOW_TOML: &str = "workflow.toml";
+
 pub(crate) const TRUST_MARKER: &str = "trust";
-pub const MAX_WORKFLOW_RESOURCE_BYTES: u64 = tinyskills::model::MAX_RESOURCE_BYTES;
+pub const MAX_WORKFLOW_RESOURCE_BYTES: u64 = 128 * 1024;
 
 /// Read a string-valued metadata entry from skill frontmatter.
 pub(crate) fn metadata_string(fm: &WorkflowFrontmatter, key: &str) -> Option<String> {
