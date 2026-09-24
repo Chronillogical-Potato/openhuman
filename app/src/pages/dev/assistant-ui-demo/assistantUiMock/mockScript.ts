@@ -11,6 +11,8 @@
  * land while later tool calls and prose are already streaming. See
  * `mockChatModel` for how that is scheduled.
  */
+import type { CoreCommand } from '../../../../features/conversations/aui/useSlashCommandSource';
+import type { RecallResponse } from '../../../../utils/tauriCommands/memoryTree';
 
 /**
  * JSON-safe argument payload. Tool-call parts require their `args` to be plain
@@ -294,3 +296,58 @@ export const MOCK_MESSAGE_QUEUE = {
     { id: 'mock-queue-2', text: 'And list anything that still renders a custom card.' },
   ],
 } as const;
+
+/**
+ * A `openhuman.commands_list` response for the composer's `/` picker, shaped
+ * like the core catalog (`{ id, label, description?, kind, insert? }`). The
+ * gallery (`/dev/tools`) renders it through the vendored composer menu.
+ */
+export const MOCK_COMMANDS_LIST: CoreCommand[] = [
+  { id: 'plan', label: 'Plan', description: 'Plan first', kind: 'builtin' },
+  {
+    id: 'summarize',
+    label: 'Summarize',
+    description: 'Summarize this thread',
+    kind: 'skill',
+    insert: '/summarize ',
+  },
+  { id: 'weekly-report', label: 'Weekly report', kind: 'workflow' },
+];
+
+/**
+ * A `openhuman.memory_tree_recall` response for the composer's `@` picker
+ * (Memory category), plus the thread files it lists beside it.
+ */
+export const MOCK_MEMORY_RECALL: RecallResponse = {
+  chunks: [
+    {
+      id: 'mock-chunk-1',
+      source_kind: 'email',
+      source_id: 'mock-thread-1',
+      owner: 'me',
+      timestamp_ms: 1_767_225_600_000,
+      token_count: 120,
+      lifecycle_status: 'admitted',
+      content_preview: 'Quarterly planning notes: ship the composer pickers first',
+      has_embedding: true,
+      tags: [],
+    },
+    {
+      id: 'mock-chunk-2',
+      source_kind: 'doc',
+      source_id: 'roadmap.md',
+      owner: 'me',
+      timestamp_ms: 1_767_312_000_000,
+      token_count: 80,
+      lifecycle_status: 'admitted',
+      content_preview: 'Roadmap review with design',
+      has_embedding: true,
+      tags: [],
+    },
+  ],
+  scores: [0.91, 0.74],
+};
+
+export const MOCK_THREAD_FILES = [
+  { id: 'mock-artifact-1', label: 'Signed contract', description: 'artifacts/signed-contract.docx' },
+] as const;
