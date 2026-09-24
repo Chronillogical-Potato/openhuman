@@ -3092,6 +3092,13 @@ const messages: TranslationMap = {
   'chat.approval.fallback': 'Agent chce wykonać akcję wymagającą Twojej zgody.',
   'chat.approval.title': 'Wymagana zgoda',
   'chat.approval.tool': 'Narzędzie:',
+  'chat.approval.expiresIn': 'Wygasa za {time}',
+  'chat.elicitation.send': 'Wyślij',
+  'chat.elicitation.decline': 'Odrzuć',
+  'chat.elicitation.needsInput': 'wymaga danych',
+  'chat.elicitation.sentTo': 'Wysłano do {server}',
+  'chat.elicitation.declined': 'Odrzucono',
+  'chat.elicitation.title': 'Wymaga Twojej odpowiedzi',
   'chat.flowApproval.title': 'Przepływ pracy wymaga zatwierdzenia',
   'chat.flowApproval.fallback':
     'Uruchomienie przepływu pracy chce wykonać czynność, która wymaga twojego zatwierdzenia.',

@@ -3070,6 +3070,13 @@ const messages: TranslationMap = {
   'chat.approval.fallback': 'Agen ingin melakukan tindakan yang membutuhkan persetujuanmu.',
   'chat.approval.title': 'Perlu persetujuan',
   'chat.approval.tool': 'Alat:',
+  'chat.approval.expiresIn': 'Berakhir dalam {time}',
+  'chat.elicitation.send': 'Kirim',
+  'chat.elicitation.decline': 'Tolak',
+  'chat.elicitation.needsInput': 'perlu masukan',
+  'chat.elicitation.sentTo': 'Terkirim ke {server}',
+  'chat.elicitation.declined': 'Ditolak',
+  'chat.elicitation.title': 'Perlu tanggapan Anda',
   'chat.flowApproval.title': 'Alur kerja memerlukan persetujuan',
   'chat.flowApproval.fallback':
     'Proses alur kerja ingin melakukan tindakan yang memerlukan persetujuan Anda.',

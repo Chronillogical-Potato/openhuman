@@ -3106,6 +3106,13 @@ const messages: TranslationMap = {
   'chat.approval.fallback': 'O agente quer executar uma ação que precisa da sua aprovação.',
   'chat.approval.title': 'Aprovação necessária',
   'chat.approval.tool': 'Ferramenta:',
+  'chat.approval.expiresIn': 'Expira em {time}',
+  'chat.elicitation.send': 'Enviar',
+  'chat.elicitation.decline': 'Recusar',
+  'chat.elicitation.needsInput': 'precisa de informações',
+  'chat.elicitation.sentTo': 'Enviado para {server}',
+  'chat.elicitation.declined': 'Recusado',
+  'chat.elicitation.title': 'Precisa da sua resposta',
   'chat.flowApproval.title': 'O fluxo de trabalho precisa de aprovação',
   'chat.flowApproval.fallback':
     'Uma execução de fluxo de trabalho deseja realizar uma ação que precisa da sua aprovação.',

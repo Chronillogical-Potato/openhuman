@@ -3142,6 +3142,13 @@ const messages: TranslationMap = {
     'Der Agent möchte eine Aktion ausführen, die Ihre Zustimmung erfordert.',
   'chat.approval.title': 'Genehmigung erforderlich',
   'chat.approval.tool': 'Werkzeug:',
+  'chat.approval.expiresIn': 'Läuft in {time} ab',
+  'chat.elicitation.send': 'Senden',
+  'chat.elicitation.decline': 'Ablehnen',
+  'chat.elicitation.needsInput': 'benötigt Eingabe',
+  'chat.elicitation.sentTo': 'Gesendet an {server}',
+  'chat.elicitation.declined': 'Abgelehnt',
+  'chat.elicitation.title': 'Erfordert Ihre Eingabe',
   'chat.flowApproval.title': 'Workflow benötigt Genehmigung',
   'chat.flowApproval.fallback':
     'Ein Workflow-Lauf möchte eine Aktion ausführen, die deine Genehmigung erfordert.',

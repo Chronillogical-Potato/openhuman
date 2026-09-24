@@ -3132,6 +3132,13 @@ const messages: TranslationMap = {
   'chat.approval.fallback': "L'agent veut exécuter une action qui nécessite votre approbation.",
   'chat.approval.title': 'Approbation requise',
   'chat.approval.tool': 'Outil:',
+  'chat.approval.expiresIn': 'Expire dans {time}',
+  'chat.elicitation.send': 'Envoyer',
+  'chat.elicitation.decline': 'Refuser',
+  'chat.elicitation.needsInput': 'besoin d’informations',
+  'chat.elicitation.sentTo': 'Envoyé à {server}',
+  'chat.elicitation.declined': 'Refusé',
+  'chat.elicitation.title': 'Nécessite votre réponse',
   'chat.flowApproval.title': 'Le workflow nécessite une approbation',
   'chat.flowApproval.fallback':
     'Une exécution de workflow souhaite effectuer une action qui nécessite votre approbation.',

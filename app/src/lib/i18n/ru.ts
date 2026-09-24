@@ -3080,6 +3080,13 @@ const messages: TranslationMap = {
   'chat.approval.fallback': 'Агент хочет выполнить действие, требующее вашего одобрения.',
   'chat.approval.title': 'Требуется одобрение',
   'chat.approval.tool': 'Инструмент:',
+  'chat.approval.expiresIn': 'Истекает через {time}',
+  'chat.elicitation.send': 'Отправить',
+  'chat.elicitation.decline': 'Отклонить',
+  'chat.elicitation.needsInput': 'требуется ввод',
+  'chat.elicitation.sentTo': 'Отправлено в {server}',
+  'chat.elicitation.declined': 'Отклонено',
+  'chat.elicitation.title': 'Требуется ваш ответ',
   'chat.flowApproval.title': 'Рабочий процесс требует одобрения',
   'chat.flowApproval.fallback':
     'Запуск рабочего процесса хочет выполнить действие, которое требует вашего одобрения.',

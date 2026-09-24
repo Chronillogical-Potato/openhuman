@@ -3457,6 +3457,13 @@ const en: TranslationMap = {
   'chat.approval.fallback': 'The agent wants to run an action that needs your approval.',
   'chat.approval.title': 'Approval needed',
   'chat.approval.tool': 'Tool:',
+  'chat.approval.expiresIn': 'Expires in {time}',
+  'chat.elicitation.send': 'Send',
+  'chat.elicitation.decline': 'Decline',
+  'chat.elicitation.needsInput': 'needs input',
+  'chat.elicitation.sentTo': 'Sent to {server}',
+  'chat.elicitation.declined': 'Declined',
+  'chat.elicitation.title': 'Needs your input',
   // Flow-approval surface: chat banner for a `flow_approval_request` socket
   // event (a paused tinyflows run's gate, surfaced while the user is
   // chatting rather than inspecting the run directly).

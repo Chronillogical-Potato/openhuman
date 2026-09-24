@@ -3053,6 +3053,13 @@ const messages: TranslationMap = {
   'chat.approval.fallback': 'এজেন্ট এমন কাজ করতে চায় যা আপনার অনুমোদন প্রয়োজন.',
   'chat.approval.title': 'অনুমোদন প্রয়োজন',
   'chat.approval.tool': 'টুল:',
+  'chat.approval.expiresIn': '{time} অ মেয়াদ শেষ হবে',
+  'chat.elicitation.send': 'পাঠান',
+  'chat.elicitation.decline': 'প্রত্যাখ্যান করুন',
+  'chat.elicitation.needsInput': 'ইনপুট প্রয়োজন',
+  'chat.elicitation.sentTo': '{server} অ পাঠানো হয়েছে',
+  'chat.elicitation.declined': 'প্রত্যাখ্যাত',
+  'chat.elicitation.title': 'আপনার উত্তর প্রয়োজন',
   'chat.flowApproval.title': 'ওয়ার্কফ্লোর জন্য অনুমোদন প্রয়োজন',
   'chat.flowApproval.fallback':
     'একটি ওয়ার্কফ্লো রান আপনার অনুমোদনের প্রয়োজন এমন একটি কাজ সম্পাদন করতে চায়।',
