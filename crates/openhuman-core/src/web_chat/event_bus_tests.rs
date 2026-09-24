@@ -79,6 +79,7 @@ async fn egress_surface_bridges_pending_with_chat_context() {
     let ev = find_egress_web_event(&mut web_rx, marker).await;
     assert_eq!(ev.thread_id, "thread-1");
     assert_eq!(ev.client_id, "client-1");
+    assert_eq!(ev.request_id, "request-1");
     let args = ev.args.expect("args present");
     assert_eq!(args["provider_slug"], "composio");
     assert_eq!(args["reason"], "tool_call");
