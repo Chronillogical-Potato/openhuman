@@ -2365,6 +2365,12 @@ describe('Conversations — turn gates on the assistant-ui surface', () => {
       );
     });
 
+    // The feedback textarea is revealed by the "Revise" decision button
+    // (`PlanReviewCardCore` in `aui/PlanReviewPart.tsx`) rather than shown
+    // unconditionally, unlike the old `PlanReviewCard.tsx` this replaced.
+    await act(async () => {
+      fireEvent.click(screen.getByText('Revise'));
+    });
     const feedback = await screen.findByTestId('plan-review-feedback');
     await act(async () => {
       fireEvent.change(feedback, { target: { value: 'use the staging bucket' } });
