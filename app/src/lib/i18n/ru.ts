@@ -737,9 +737,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Введите параллельную ветку: ⌘/Ctrl+Enter для отправки',
   'chat.followupHint':
     'Поставить продолжение в очередь: отправится после этого ответа · ⌘/Ctrl+Enter для параллельной ветки',
-  'chat.queuedFollowups.label': 'Сообщения в очереди',
-  'chat.queuedFollowups.clear': 'Очистить',
-  'chat.queuedFollowups.clearFailed': 'Не удалось очистить очередь: попробуйте ещё раз.',
+  'chat.messageQueue.running': 'выполняется',
+  'chat.messageQueue.queuedCount': 'В очереди: {count}',
+  'chat.messageQueue.pendingHint': 'отправится, когда это завершится',
+  'chat.messageQueue.remove': 'Убрать «{text}» из очереди',
   'chat.createThreadFailed': 'Не удалось создать новый диалог. Попробуйте ещё раз.',
   'chat.parallelBranchLabel': 'Параллельная ветка',
   'chat.thinking': 'Думаю...',

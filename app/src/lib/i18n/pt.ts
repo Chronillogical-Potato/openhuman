@@ -744,9 +744,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Digite uma ramificação paralela: ⌘/Ctrl+Enter para enviar',
   'chat.followupHint':
     'Enfileirar um acompanhamento: enviado após esta resposta · ⌘/Ctrl+Enter para uma ramificação paralela',
-  'chat.queuedFollowups.label': 'Acompanhamentos na fila',
-  'chat.queuedFollowups.clear': 'Limpar',
-  'chat.queuedFollowups.clearFailed': 'Não foi possível limpar a fila: tente novamente.',
+  'chat.messageQueue.running': 'em execução',
+  'chat.messageQueue.queuedCount': '{count} na fila',
+  'chat.messageQueue.pendingHint': 'será enviado quando isto terminar',
+  'chat.messageQueue.remove': 'Remover "{text}" da fila',
   'chat.createThreadFailed': 'Não foi possível criar uma nova conversa. Tente novamente.',
   'chat.parallelBranchLabel': 'Ramificação paralela',
   'chat.thinking': 'Pensando...',

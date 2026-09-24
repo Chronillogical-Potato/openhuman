@@ -758,9 +758,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Saisir une branche parallèle: ⌘/Ctrl+Entrée pour envoyer',
   'chat.followupHint':
     'Mettre un suivi en file: envoyé après cette réponse · ⌘/Ctrl+Entrée pour une branche parallèle',
-  'chat.queuedFollowups.label': 'Suivis en file',
-  'chat.queuedFollowups.clear': 'Effacer',
-  'chat.queuedFollowups.clearFailed': 'Impossible de vider la file: réessayez.',
+  'chat.messageQueue.running': 'en cours',
+  'chat.messageQueue.queuedCount': '{count} en file',
+  'chat.messageQueue.pendingHint': "s'envoie une fois celui-ci terminé",
+  'chat.messageQueue.remove': 'Retirer « {text} » de la file',
   'chat.createThreadFailed': 'Impossible de créer un nouveau fil. Veuillez réessayer.',
   'chat.parallelBranchLabel': 'Branche parallèle',
   'chat.thinking': 'En train de réfléchir…',

@@ -758,10 +758,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Parallelen Zweig eingeben: ⌘/Strg+Enter zum Senden',
   'chat.followupHint':
     'Folgenachricht einreihen: wird nach dieser Antwort gesendet · ⌘/Strg+Enter für parallelen Zweig',
-  'chat.queuedFollowups.label': 'Eingereihte Folgenachrichten',
-  'chat.queuedFollowups.clear': 'Löschen',
-  'chat.queuedFollowups.clearFailed':
-    'Warteschlange konnte nicht geleert werden – bitte erneut versuchen.',
+  'chat.messageQueue.running': 'läuft',
+  'chat.messageQueue.queuedCount': '{count} in der Warteschlange',
+  'chat.messageQueue.pendingHint': 'wird gesendet, sobald dies fertig ist',
+  'chat.messageQueue.remove': '„{text}“ aus der Warteschlange entfernen',
   'chat.createThreadFailed': 'Neuer Thread konnte nicht erstellt werden – bitte erneut versuchen.',
   'chat.parallelBranchLabel': 'Paralleler Zweig',
   'chat.thinking': 'Denken...',

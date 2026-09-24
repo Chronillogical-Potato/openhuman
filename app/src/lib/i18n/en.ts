@@ -546,9 +546,10 @@ const en: TranslationMap = {
   'chat.parallelBranchHint': 'Type a parallel branch: ⌘/Ctrl+Enter to send',
   'chat.followupHint':
     'Queue a follow-up: sent after this reply · ⌘/Ctrl+Enter for a parallel branch',
-  'chat.queuedFollowups.label': 'Queued follow-ups',
-  'chat.queuedFollowups.clear': 'Clear',
-  'chat.queuedFollowups.clearFailed': "Couldn't clear the queue. Try again.",
+  'chat.messageQueue.running': 'running',
+  'chat.messageQueue.queuedCount': '{count} queued',
+  'chat.messageQueue.pendingHint': 'sends when this finishes',
+  'chat.messageQueue.remove': 'Remove "{text}" from the queue',
   'chat.createThreadFailed': "Couldn't create a new thread. Please try again.",
   'chat.parallelBranchLabel': 'Parallel branch',
   'chat.thinking': 'Thinking...',

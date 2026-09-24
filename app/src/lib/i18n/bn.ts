@@ -726,9 +726,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'সমান্তরাল শাখা টাইপ করুন: পাঠাতে ⌘/Ctrl+Enter',
   'chat.followupHint':
     'একটি ফলো-আপ সারিবদ্ধ করুন: এই উত্তরের পরে পাঠানো হবে · সমান্তরাল শাখার জন্য ⌘/Ctrl+Enter',
-  'chat.queuedFollowups.label': 'সারিবদ্ধ ফলো-আপ',
-  'chat.queuedFollowups.clear': 'সাফ করুন',
-  'chat.queuedFollowups.clearFailed': 'সারি সাফ করা যায়নি: আবার চেষ্টা করুন।',
+  'chat.messageQueue.running': 'চলছে',
+  'chat.messageQueue.queuedCount': 'সারিতে {count}টি',
+  'chat.messageQueue.pendingHint': 'এটি শেষ হলে পাঠানো হবে',
+  'chat.messageQueue.remove': 'সারি থেকে "{text}" সরান',
   'chat.createThreadFailed': 'নতুন থ্রেড তৈরি করা যায়নি: আবার চেষ্টা করুন।',
   'chat.parallelBranchLabel': 'সমান্তরাল শাখা',
   'chat.thinking': 'ভাবছে...',

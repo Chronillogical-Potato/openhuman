@@ -726,9 +726,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'समानांतर शाखा टाइप करें: भेजने के लिए ⌘/Ctrl+Enter',
   'chat.followupHint':
     'फ़ॉलो-अप कतार में लगाएँ: इस उत्तर के बाद भेजा जाएगा · समानांतर शाखा के लिए ⌘/Ctrl+Enter',
-  'chat.queuedFollowups.label': 'कतारबद्ध फ़ॉलो-अप',
-  'chat.queuedFollowups.clear': 'साफ़ करें',
-  'chat.queuedFollowups.clearFailed': 'कतार साफ़ नहीं हो सकी: फिर से प्रयास करें।',
+  'chat.messageQueue.running': 'चल रहा है',
+  'chat.messageQueue.queuedCount': 'कतार में {count}',
+  'chat.messageQueue.pendingHint': 'यह पूरा होने पर भेजा जाएगा',
+  'chat.messageQueue.remove': 'कतार से "{text}" हटाएँ',
   'chat.createThreadFailed': 'नया थ्रेड नहीं बनाया जा सका: कृपया पुनः प्रयास करें।',
   'chat.parallelBranchLabel': 'समानांतर शाखा',
   'chat.thinking': 'सोच रहा है...',

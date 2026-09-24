@@ -366,6 +366,15 @@ export const FEEDBACK_METADATA_KEY = 'feedback';
 export const FEEDBACK_ROW_IDS_METADATA_KEY = 'feedbackRowIds';
 
 /**
+ * `extraMetadata` key holding the turn's latency snapshot
+ * (`ChatDoneEvent.timing` — wire-contract.md), stamped by
+ * `ChatRuntimeProvider`'s `chatDoneExtraMetadata` and read back by
+ * `assistantUiMessages.ts` to build `ThreadMessageLike.metadata.timing` for
+ * the vendored `MessageTiming` element.
+ */
+export const TIMING_METADATA_KEY = 'timing';
+
+/**
  * Persist a thumbs rating on one assistant message: read the row from Redux,
  * patch its `extraMetadata`, and write back the persisted row.
  *

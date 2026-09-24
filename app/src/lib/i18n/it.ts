@@ -747,9 +747,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Digita un ramo parallelo: ⌘/Ctrl+Invio per inviare',
   'chat.followupHint':
     'Metti in coda un follow-up: inviato dopo questa risposta · ⌘/Ctrl+Invio per un ramo parallelo',
-  'chat.queuedFollowups.label': 'Follow-up in coda',
-  'chat.queuedFollowups.clear': 'Cancella',
-  'chat.queuedFollowups.clearFailed': 'Impossibile svuotare la coda: riprova.',
+  'chat.messageQueue.running': 'in corso',
+  'chat.messageQueue.queuedCount': '{count} in coda',
+  'chat.messageQueue.pendingHint': 'verrà inviato al termine',
+  'chat.messageQueue.remove': 'Rimuovi "{text}" dalla coda',
   'chat.createThreadFailed': 'Impossibile creare una nuova conversazione. Riprova.',
   'chat.parallelBranchLabel': 'Ramo parallelo',
   'chat.thinking': 'Sto pensando...',

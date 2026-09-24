@@ -737,9 +737,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Ketik cabang paralel: ⌘/Ctrl+Enter untuk mengirim',
   'chat.followupHint':
     'Antrekan tindak lanjut: dikirim setelah balasan ini · ⌘/Ctrl+Enter untuk cabang paralel',
-  'chat.queuedFollowups.label': 'Tindak lanjut dalam antrean',
-  'chat.queuedFollowups.clear': 'Hapus',
-  'chat.queuedFollowups.clearFailed': 'Gagal mengosongkan antrean: coba lagi.',
+  'chat.messageQueue.running': 'berjalan',
+  'chat.messageQueue.queuedCount': '{count} dalam antrean',
+  'chat.messageQueue.pendingHint': 'terkirim setelah ini selesai',
+  'chat.messageQueue.remove': 'Hapus "{text}" dari antrean',
   'chat.createThreadFailed': 'Gagal membuat thread baru: coba lagi.',
   'chat.parallelBranchLabel': 'Cabang paralel',
   'chat.thinking': 'Berpikir...',

@@ -746,9 +746,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Escribe una rama paralela: ⌘/Ctrl+Enter para enviar',
   'chat.followupHint':
     'Pon en cola un seguimiento: se envía tras esta respuesta · ⌘/Ctrl+Enter para una rama paralela',
-  'chat.queuedFollowups.label': 'Seguimientos en cola',
-  'chat.queuedFollowups.clear': 'Borrar',
-  'chat.queuedFollowups.clearFailed': 'No se pudo vaciar la cola: inténtalo de nuevo.',
+  'chat.messageQueue.running': 'en curso',
+  'chat.messageQueue.queuedCount': '{count} en cola',
+  'chat.messageQueue.pendingHint': 'se envía cuando esto termine',
+  'chat.messageQueue.remove': 'Quitar «{text}» de la cola',
   'chat.createThreadFailed': 'No se pudo crear un nuevo hilo. Inténtalo de nuevo.',
   'chat.parallelBranchLabel': 'Rama paralela',
   'chat.thinking': 'Pensando...',

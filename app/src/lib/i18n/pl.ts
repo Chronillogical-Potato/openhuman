@@ -742,9 +742,10 @@ const messages: TranslationMap = {
   'chat.parallelBranchHint': 'Wpisz równoległą gałąź: ⌘/Ctrl+Enter, aby wysłać',
   'chat.followupHint':
     'Dodaj wiadomość uzupełniającą do kolejki: wyślemy po tej odpowiedzi · ⌘/Ctrl+Enter dla równoległej gałęzi',
-  'chat.queuedFollowups.label': 'Wiadomości w kolejce',
-  'chat.queuedFollowups.clear': 'Wyczyść',
-  'chat.queuedFollowups.clearFailed': 'Nie udało się wyczyścić kolejki: spróbuj ponownie.',
+  'chat.messageQueue.running': 'w toku',
+  'chat.messageQueue.queuedCount': 'W kolejce: {count}',
+  'chat.messageQueue.pendingHint': 'wyśle się po zakończeniu',
+  'chat.messageQueue.remove': 'Usuń „{text}” z kolejki',
   'chat.createThreadFailed': 'Nie udało się utworzyć nowego wątku. Spróbuj ponownie.',
   'chat.parallelBranchLabel': 'Równoległa gałąź',
   'chat.thinking': 'Myślę...',
