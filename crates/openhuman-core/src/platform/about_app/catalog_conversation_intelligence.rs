@@ -202,7 +202,7 @@ Capability {
         name: "Image Generation",
         domain: "agent",
         category: CapabilityCategory::Intelligence,
-        description: "Delegate image creation to a dedicated image sub-agent — generate images from a text prompt, or edit/restyle reference images, using hosted GMI models (Seedream / SeedEdit). Results are saved to the workspace.",
+        description: "Delegate image creation to a dedicated image sub-agent — generate images from a text prompt, or edit/restyle reference images, using hosted GMI models (Seedream / SeedEdit). Each generated image is filed as a chat artifact (download card + Files panel entry).",
         how_to: "Ask the assistant to generate, draw, or edit an image",
         status: CapabilityStatus::Beta,
         privacy: MEDIA_GEN_TO_BACKEND,
