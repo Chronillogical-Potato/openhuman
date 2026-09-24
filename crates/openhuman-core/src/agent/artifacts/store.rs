@@ -528,6 +528,8 @@ pub async fn create_artifact(
         path: meta.path.clone(),
         thread_id,
         client_id,
+        tool_call_id: None,
+        request_id: None,
     });
 
     Ok((meta, absolute_path))
