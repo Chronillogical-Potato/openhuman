@@ -689,6 +689,16 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Agent,
         crate::agent::artifacts::all_artifacts_registered_controllers(),
     );
+    // Read-only command palette listing: built-ins merged with skills.list /
+    // flows.list (C5). Tagged `Agent` rather than a new `DomainGroup` variant
+    // — it is chat-harness surface, always on, and adding a variant would
+    // touch every exhaustive `DomainGroup` match in this file for one
+    // three-RPC-sized domain.
+    push(
+        &mut controllers,
+        DomainGroup::Agent,
+        crate::commands::all_commands_registered_controllers(),
+    );
     // Ad-hoc static directory HTTP hosting for local file sharing / previews.
     // Gated with the `http-server` feature (#5048): the domain is an axum server,
     // so a slim build has no `http_host.*` controllers to register.
