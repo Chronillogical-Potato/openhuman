@@ -96,7 +96,18 @@ const MarkdownTextImpl = () => {
   // renders: the gate must not flip mid-reveal.
   const { text } = useMessagePartText();
   const hasMath = hasLatexContent(text);
-  const sources = useAuiState(state => sourcePartsToCitations(state.message.parts));
+  // Some callers (e.g. a bare `TextMessagePartProvider` in tests, or a tool
+  // result rendered through `MarkdownText` outside a full message scope)
+  // provide a message-PART scope with no message-level `state.message` — the
+  // proxy throws reading it. No sources to linkify is the correct fallback,
+  // not a crash.
+  const sources = useAuiState(state => {
+    try {
+      return sourcePartsToCitations(state.message.parts);
+    } catch {
+      return EMPTY_CITATION_SOURCES;
+    }
+  });
 
   const preprocess = (input: string): string => {
     const withCitations = linkifyCitationMarkers(input, sources.length);

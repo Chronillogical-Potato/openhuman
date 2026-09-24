@@ -212,6 +212,7 @@ pub(crate) async fn deliver_response(
     }
 
     // Final chat_done with full text (for deduplication / state sync).
+    #[allow(clippy::needless_update)]
     publish_web_channel_event(WebChannelEvent {
         event: "chat_done".to_string(),
         client_id: client_id.to_string(),
