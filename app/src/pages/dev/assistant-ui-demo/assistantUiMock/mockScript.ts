@@ -281,3 +281,16 @@ export function buildSeedMessages() {
     },
   ];
 }
+
+/**
+ * A running turn with follow-ups queued behind it, for the message-queue
+ * element in the dev gallery (`/dev/tools`). Shaped like the core's run queue
+ * (`queue_item_queued` → `{ id, text_preview }`) projected to element props.
+ */
+export const MOCK_MESSAGE_QUEUE = {
+  running: SEED_PROMPT,
+  queued: [
+    { id: 'mock-queue-1', text: 'Then compare it with the legacy composer.' },
+    { id: 'mock-queue-2', text: 'And list anything that still renders a custom card.' },
+  ],
+} as const;

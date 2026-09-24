@@ -8,12 +8,14 @@
  */
 import { useState } from 'react';
 
+import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
 import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeline';
 import { AssistantUiToolCallCard } from '../../features/conversations/components/AssistantUiToolCall';
 import coreToolNames from '../../features/conversations/tools/__fixtures__/coreToolNames.json';
 import { ToolIcon } from '../../features/conversations/tools/ToolIcon';
 import { describeToolCall, toolLabel } from '../../features/conversations/tools/toolPresentation';
 import { useT } from '../../lib/i18n/I18nContext';
+import { MOCK_MESSAGE_QUEUE } from './assistant-ui-demo/assistantUiMock/mockScript';
 
 const SEARCH_RESULT = [
   'Search results for: rust async traits (via Exa)',
@@ -175,6 +177,22 @@ export default function ToolCallGallery() {
             args={{ tool: 'SLACK_SEND_MESSAGE' }}
             awaitingUser
             footer={<p className="text-foreground/50 ps-5 text-xs">(approval card renders here)</p>}
+          />
+        </section>
+
+        <section className="flex flex-col gap-1">
+          <h2 className="text-foreground/60 mb-2 text-xs font-medium uppercase">Message queue</h2>
+          <MessageQueue
+            data-testid="tool-gallery-message-queue"
+            running={MOCK_MESSAGE_QUEUE.running}
+            queued={MOCK_MESSAGE_QUEUE.queued}
+            onCancel={() => {}}
+            runningLabel={t('chat.messageQueue.running')}
+            queuedLabel={count =>
+              t('chat.messageQueue.queuedCount').replace('{count}', String(count))
+            }
+            pendingHint={t('chat.messageQueue.pendingHint')}
+            removeLabel={text => t('chat.messageQueue.remove').replace('{text}', text)}
           />
         </section>
 
