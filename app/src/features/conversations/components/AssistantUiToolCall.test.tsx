@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { AssistantUiToolCallCard, formatElapsed } from './AssistantUiToolCall';
-import { ChatToolGroup } from './ChatToolParts';
 
 const SEARCH_TEXT = [
   'Search results for: rust async traits (via Exa)',
@@ -120,30 +119,6 @@ describe('AssistantUiToolCallCard', () => {
     expect(card).toHaveTextContent('Used Gmail');
     expect(card).toHaveTextContent('Send email');
     expect(card).not.toHaveTextContent('GMAIL_SEND_EMAIL');
-  });
-});
-
-describe('ChatToolGroup', () => {
-  it('renders a lone call without a timeline header', () => {
-    render(
-      <ChatToolGroup group={{ type: 'group-tool', status: { type: 'complete' }, indices: [0] }}>
-        <span>only step</span>
-      </ChatToolGroup>
-    );
-    expect(screen.getByText('only step')).toBeVisible();
-    expect(screen.queryByTestId('tool-timeline')).toBeNull();
-  });
-
-  it('wraps several calls in the assistant-ui tool timeline', () => {
-    render(
-      <ChatToolGroup group={{ type: 'group-tool', status: { type: 'running' }, indices: [0, 1] }}>
-        <span>step one</span>
-        <span>step two</span>
-      </ChatToolGroup>
-    );
-    const timeline = screen.getByTestId('tool-timeline');
-    expect(timeline).toHaveAttribute('data-slot', 'tool-timeline');
-    expect(screen.getByText('step two')).toBeVisible();
   });
 });
 

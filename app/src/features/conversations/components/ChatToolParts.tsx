@@ -1,23 +1,15 @@
 import {
-  type AssistantState,
   type ToolCallMessagePart,
   type ToolCallMessagePartComponent,
   useAui,
-  useAuiState,
 } from '@assistant-ui/react';
-import { type FC, type PropsWithChildren, useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { ToolTimeline } from '../../../components/assistant-ui/elements/tool-timeline';
-import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
-import { useT } from '../../../lib/i18n/I18nContext';
-import { readOpenHumanToolArtifact } from '../../../providers/assistantUiMessages';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import type { PendingApproval, SubagentActivity } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
-import { summarizeToolCalls } from '../../../utils/toolTimelineFormatting';
-import { describeToolCall, toolLabel } from '../tools/toolPresentation';
 import { AssistantUiSubagentCall, isActiveSubagentStatus } from './AssistantUiSubagentCall';
 import { isApprovalPending, OpenHumanToolCall } from './AssistantUiToolCall';
 import { useSubagentDrawerHost } from './aui/subagentDrawerHost';
@@ -212,75 +204,3 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
   if (props.toolName === COMPOSIO_CONNECT_TOOL) return <ComposioConnectCall {...props} />;
   return <GatedToolCall {...props} />;
 };
-
-const NO_PARTS: readonly never[] = [];
-// `optional`: a group rendered outside a message (tests, previews) has no
-// message scope, and reading `state.message` there throws.
-const selectMessageParts = (state: AssistantState) => state.optional.message?.parts ?? NO_PARTS;
-
-/**
- * The chat's tool timeline: a run of adjacent tool calls under assistant-ui's
- * tool-timeline element.
- *
- * Its label shimmers with what is happening now ("Searching the web") while
- * the run is in flight, and swaps to a summary once it settles ("5 steps ·
- * Read file ×3, Searched the web ×2"). Each step is a full tool-call element.
- * A lone call needs no header over itself, so it renders bare.
- */
-export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = ({
-  group,
-  children,
-}) => {
-  const { t } = useT();
-  const parts = useAuiState(selectMessageParts);
-  const running = group.status.type === 'running';
-  const presentations = useMemo(
-    () =>
-      group.indices
-        .map(index => parts[index])
-        .filter(part => part?.type === 'tool-call')
-        .map(part => toolPartPresentation(part as unknown as ToolCallMessagePart)),
-    [group.indices, parts]
-  );
-  if (group.indices.length <= 1) {
-    return <div className="flex flex-col gap-1">{children}</div>;
-  }
-  const active = [...presentations].reverse().find(p => p.tense === 'active');
-  return (
-    <ToolTimeline
-      data-testid="tool-timeline"
-      className="max-w-none"
-      defaultOpen
-      streaming={running}
-      activeLabel={active ? toolLabel(active, t) : t('conversations.tools.working')}
-      restingLabel={summarizeToolCalls(presentations, t)}>
-      {children}
-    </ToolTimeline>
-  );
-};
-
-/** Resolve a raw assistant-ui tool part (status packed into `result`). */
-function toolPartPresentation(part: ToolCallMessagePart) {
-  const result = part.result as { status?: unknown } | undefined;
-  const envelopeStatus =
-    result && typeof result === 'object' && !Array.isArray(result) ? result.status : undefined;
-  const status =
-    envelopeStatus === 'error' || envelopeStatus === 'cancelled'
-      ? envelopeStatus
-      : part.result === undefined
-        ? 'running'
-        : 'success';
-  if (part.toolName === 'task') {
-    const args = part.args as { subagent_type?: unknown } | undefined;
-    const agent = typeof args?.subagent_type === 'string' ? args.subagent_type : 'subagent';
-    return describeToolCall({ name: `subagent:${agent}`, status });
-  }
-  const artifact = readOpenHumanToolArtifact(part.artifact);
-  return describeToolCall({
-    name: part.toolName,
-    args: part.args,
-    status,
-    serverLabel: artifact?.displayName,
-    serverDetail: artifact?.detail,
-  });
-}

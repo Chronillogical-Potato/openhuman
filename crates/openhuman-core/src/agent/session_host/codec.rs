@@ -178,12 +178,18 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
             },
             ts: chrono::Utc::now().to_rfc3339(),
             reasoning_content: None,
-            // The writer attaches this record to the turn's *final* assistant
-            // row. A call belongs to the row that issued it — the native
-            // envelope, or `attach_text_dialect_rounds` for a text dialect —
-            // so listing the turn's calls here filed every one of them under
-            // the answer that followed their results, and the projection
-            // reported them as never settled.
+            // Deliberately empty. `TurnUsage` lands on the turn's *final*
+            // assistant row, and the transcript writer falls back to
+            // `tool_calls` here for any assistant row whose own content is not
+            // a native tool-call envelope — i.e. the plain-text final answer.
+            // Filling it with every outcome of the turn wrote each tool call a
+            // second time onto that answer, so a reader projected the answer
+            // as an interim step followed by duplicate, never-settled tool
+            // rows (which also mis-paired later FIFO results). Each call is
+            // already recorded, once, in the envelope of the assistant row
+            // that issued it.
+            // A text dialect has no envelope; `attach_text_dialect_rounds` files
+            // each round's calls on its issuing row instead.
             tool_calls: Vec::new(),
             iteration: sidecar.model_calls.min(u32::MAX as usize) as u32,
         }))
