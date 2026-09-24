@@ -43,6 +43,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { threadApi } from '../../../../services/api/threadApi';
 import chatRuntimeReducer from '../../../../store/chatRuntimeSlice';
 import mascotReducer from '../../../../store/mascotSlice';
+import runModeReducer from '../../../../store/runModeSlice';
 import threadReducer from '../../../../store/threadSlice';
 import type { DerivedDisplayItem } from '../../../../types/derivedTranscript';
 import type { ThreadMessage } from '../../../../types/thread';
@@ -86,6 +87,7 @@ function buildStore(message: ThreadMessage = agentMessage()) {
       thread: threadReducer,
       chatRuntime: chatRuntimeReducer,
       mascot: mascotReducer,
+      runMode: runModeReducer,
     }),
     preloadedState: {
       thread: {

@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { threadApi } from '../../../services/api/threadApi';
 import chatRuntimeReducer from '../../../store/chatRuntimeSlice';
 import mascotReducer from '../../../store/mascotSlice';
+import runModeReducer from '../../../store/runModeSlice';
 import threadReducer from '../../../store/threadSlice';
 import type { ThreadMessage } from '../../../types/thread';
 import { AssistantUiChat } from '../components/AssistantUiChat';
@@ -33,6 +34,7 @@ function buildStore(messages: ThreadMessage[]) {
       thread: threadReducer,
       chatRuntime: chatRuntimeReducer,
       mascot: mascotReducer,
+      runMode: runModeReducer,
     }),
     preloadedState: {
       thread: {
