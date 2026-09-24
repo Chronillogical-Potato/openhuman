@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { ChatToolFallback } from './ChatToolParts';
+import { ChatToolFallback, SubagentCall } from './ChatToolParts';
 
 const activity: SubagentActivity = {
   taskId: 'sub-1',
