@@ -848,15 +848,6 @@ interface ChatRuntimeState {
    */
   usageByThread: Record<string, SessionTokenUsage>;
   queueStatusByThread: Record<string, QueueStatus>;
-  /**
-   * Follow-up messages the user submitted while a turn was still streaming
-   * (queued via `queueMode: 'followup'`). The backend dispatches them as fresh
-   * turns once the current turn finishes; these entries are purely the
-   * optimistic UI surface so the user can see what they queued and clear it.
-   * Cleared per-thread on turn end (the queued texts then arrive as real
-   * messages on their dispatched turns).
-   */
-  queuedFollowupsByThread: Record<string, QueuedFollowup[]>;
 }
 
 /** Snapshot of the active-run queue depth per lane. */
@@ -866,22 +857,6 @@ export interface QueueStatus {
   followups: number;
   collects: number;
   total: number;
-}
-
-/** A follow-up message queued from the composer while a turn was streaming. */
-export interface QueuedFollowup {
-  /**
-   * The full user message, built exactly like a normal send (content +
-   * attachment metadata). It is persisted verbatim when the turn ends so the
-   * follow-up lands in the transcript identically to an interactive send.
-   * `message.id` doubles as the React key / removal handle.
-   */
-  message: ThreadMessage;
-  /**
-   * Display label for the pill — the message text, or the attachment file
-   * names for an attachments-only follow-up, so the row is never blank.
-   */
-  label: string;
 }
 
 const initialState: ChatRuntimeState = {
@@ -902,7 +877,6 @@ const initialState: ChatRuntimeState = {
   sessionTokenUsage: emptySessionTokenUsage(),
   usageByThread: {},
   queueStatusByThread: {},
-  queuedFollowupsByThread: {},
 };
 
 /**
@@ -2164,31 +2138,6 @@ const chatRuntimeSlice = createSlice({
     clearQueueStatusForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.queueStatusByThread[action.payload.threadId];
     },
-    /** Append a follow-up the user queued while a turn was streaming. */
-    enqueueFollowup: (
-      state,
-      action: PayloadAction<{ threadId: string; message: ThreadMessage; label: string }>
-    ) => {
-      const { threadId, message, label } = action.payload;
-      const bucket = state.queuedFollowupsByThread[threadId] ?? [];
-      bucket.push({ message, label });
-      state.queuedFollowupsByThread[threadId] = bucket;
-    },
-    /** Drop a single queued follow-up by message id (e.g. the user removed it). */
-    removeFollowup: (state, action: PayloadAction<{ threadId: string; id: string }>) => {
-      const bucket = state.queuedFollowupsByThread[action.payload.threadId];
-      if (!bucket) return;
-      const next = bucket.filter(item => item.message.id !== action.payload.id);
-      if (next.length) {
-        state.queuedFollowupsByThread[action.payload.threadId] = next;
-      } else {
-        delete state.queuedFollowupsByThread[action.payload.threadId];
-      }
-    },
-    /** Drop all queued follow-ups for a thread (turn end / explicit clear). */
-    clearFollowupsForThread: (state, action: PayloadAction<{ threadId: string }>) => {
-      delete state.queuedFollowupsByThread[action.payload.threadId];
-    },
     beginInferenceTurn: (state, action: PayloadAction<{ threadId: string }>) => {
       state.inferenceTurnLifecycleByThread[action.payload.threadId] = 'started';
     },
@@ -2199,10 +2148,6 @@ const chatRuntimeSlice = createSlice({
     },
     endInferenceTurn: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.inferenceTurnLifecycleByThread[action.payload.threadId];
-      // The turn finished, so any follow-ups queued behind it are now being
-      // dispatched by the backend — drop the optimistic pills; the queued
-      // texts reappear as real messages on their dispatched turns.
-      delete state.queuedFollowupsByThread[action.payload.threadId];
     },
     clearRuntimeForThread: (state, action: PayloadAction<{ threadId: string }>) => {
       delete state.inferenceStatusByThread[action.payload.threadId];
@@ -2216,7 +2161,6 @@ const chatRuntimeSlice = createSlice({
       delete state.pendingPlanReviewByThread[action.payload.threadId];
       delete state.pendingWorkflowProposalsByThread[action.payload.threadId];
       delete state.queueStatusByThread[action.payload.threadId];
-      delete state.queuedFollowupsByThread[action.payload.threadId];
       delete state.pendingSendThreadIds[action.payload.threadId];
       // Note: artifactsByThread intentionally NOT cleared here. The
       // ArtifactCard renders inline in the message timeline, so the
@@ -2239,7 +2183,6 @@ const chatRuntimeSlice = createSlice({
       state.pendingWorkflowProposalsByThread = {};
       state.artifactsByThread = {};
       state.queueStatusByThread = {};
-      state.queuedFollowupsByThread = {};
       state.pendingSendThreadIds = {};
     },
     recordChatTurnUsage: (state, action: PayloadAction<ChatTurnUsagePayload>) => {
@@ -2542,9 +2485,6 @@ export const {
   removeArtifactForThread,
   setQueueStatusForThread,
   clearQueueStatusForThread,
-  enqueueFollowup,
-  removeFollowup,
-  clearFollowupsForThread,
   beginInferenceTurn,
   markInferenceTurnStreaming,
   endInferenceTurn,

@@ -266,20 +266,25 @@ export function PermissionGrantAdapter({ threadId, approval }: Props) {
         onGrant={
           showConnect
             ? scope => {
-                if (scope === 'denied') void cancel();
-                else void connect();
+                // Only "Always" actually connects — this OAuth handoff is
+                // binary (live or not), so both "Deny" and "This session"
+                // cancel the same way. Distinct labels keep exactly one
+                // button reading "Connect", which is what a user (and this
+                // component's own test suite) looks for.
+                if (scope === 'always') void connect();
+                else void cancel();
               }
             : undefined
         }
         denyLabel={t('chat.approval.deny')}
-        sessionLabel={t('composio.connect.connect')}
+        sessionLabel={t('chat.approval.deny')}
         alwaysLabel={
           phase === 'error' ? t('composio.connect.retryConnection') : t('composio.connect.connect')
         }
         pendingLabel={t('chat.approval.deciding')}
         denyProps={{ 'data-analytics-id': 'chat-integration-connect-cancel' }}
+        sessionProps={{ 'data-analytics-id': 'chat-integration-connect-cancel' }}
         alwaysProps={{ 'data-analytics-id': 'chat-integration-connect', disabled: !toolkit }}
-        sessionProps={{ 'data-analytics-id': 'chat-integration-connect', disabled: !toolkit }}
       />
 
       {errorMsg && (

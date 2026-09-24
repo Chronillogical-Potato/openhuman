@@ -74,3 +74,7 @@ pub async fn todos_get(
     };
     Ok(envelope(ThreadTodosGetResponse { todos }, None, None))
 }
+
+#[cfg(test)]
+#[path = "live_state_tests.rs"]
+mod tests;
