@@ -69,6 +69,28 @@ async fn apply_agent_settings_rejects_unknown_chat_agent_id() {
     assert!(cfg.agent.chat_agent_id.is_none());
 }
 
+#[tokio::test]
+async fn apply_agent_settings_rejects_a_mixed_patch_without_mutating_config() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let original_timeout = cfg.agent.agent_timeout_secs;
+
+    let err = apply_agent_settings(
+        &mut cfg,
+        AgentSettingsPatch {
+            agent_timeout_secs: Some(300),
+            chat_agent_id: Some("typoed_agent".into()),
+        },
+    )
+    .await
+    .expect_err("unknown agent must reject the entire patch");
+
+    assert!(err.contains("not a runnable agent definition"), "{err}");
+    assert_eq!(cfg.agent.agent_timeout_secs, original_timeout);
+    assert!(cfg.agent.chat_agent_id.is_none());
+}
+
 // ── apply_agent_paths_settings (action_dir editable, issue #3240) ──────────────
 
 #[tokio::test]

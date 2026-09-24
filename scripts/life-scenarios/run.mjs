@@ -49,6 +49,7 @@ import { startMockSearch, DEFAULT_INDEX_PATH } from "./mock-search.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
 const FIXTURES = path.join(HERE, "fixtures");
+const SUPPORTED_AGENT_IDS = new Set(["life_scenarios", "orchestrator"]);
 
 // ---------------------------------------------------------------------------
 // args
@@ -104,9 +105,14 @@ function parseArgs(argv) {
     else if (a === "--driver") o.driver = next();
     else if (a === "--agent") {
       const agentId = next();
-      if (agentId && !/^[A-Za-z0-9_-]+$/.test(agentId)) {
+      if (!/^[A-Za-z0-9_-]+$/.test(agentId)) {
         throw new Error(
           "--agent must contain only ASCII letters, digits, '_' or '-'",
+        );
+      }
+      if (!SUPPORTED_AGENT_IDS.has(agentId)) {
+        throw new Error(
+          `--agent must be one of: ${[...SUPPORTED_AGENT_IDS].join(", ")}`,
         );
       }
       o.agentId = agentId;

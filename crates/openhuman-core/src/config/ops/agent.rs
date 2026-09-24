@@ -227,7 +227,6 @@ pub async fn apply_agent_settings(
                 "agent_timeout_secs must be between {MIN_TIMEOUT_SECS} and {MAX_TIMEOUT_SECS} seconds (got {timeout_secs})"
             ));
         }
-        config.agent.agent_timeout_secs = timeout_secs;
     }
 
     if let Some(chat_agent_id) = update.chat_agent_id {
@@ -239,6 +238,14 @@ pub async fn apply_agent_settings(
                 "chat_agent_id '{trimmed}' is not a runnable agent definition"
             ));
         }
+    }
+
+    if let Some(timeout_secs) = update.agent_timeout_secs {
+        config.agent.agent_timeout_secs = timeout_secs;
+    }
+
+    if let Some(chat_agent_id) = update.chat_agent_id {
+        let trimmed = chat_agent_id.trim();
         config.agent.chat_agent_id = (!trimmed.is_empty()).then(|| trimmed.to_string());
         log::debug!(
             "[config][agent] chat_agent_id -> {:?}",
