@@ -179,6 +179,13 @@ pub(super) struct WebQueueParams {
 }
 
 #[derive(Debug, Deserialize)]
+pub(super) struct WebQueueRemoveParams {
+    pub(super) client_id: String,
+    pub(super) thread_id: String,
+    pub(super) item_id: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub(super) struct WebCancelParams {
     pub(super) client_id: String,
     pub(super) thread_id: String,
