@@ -14,8 +14,8 @@ import {
   stripToolCallEnvelopes,
 } from '../../../utils/toolTimelineFormatting';
 import { ToolIcon } from '../tools/ToolIcon';
-import { ToolFailureCard } from './ToolFailureCard';
 import { SubagentActivityCard } from './SubagentActivityCard';
+import { ToolFailureCard } from './ToolFailureCard';
 
 /**
  * The Hermes-style "View processing" body: the agent's narration and hidden
@@ -177,7 +177,11 @@ function ToolRow({ entry }: { entry: ToolTimelineEntry }) {
           ) : null}
           {entry.status === 'error' && entry.failure ? (
             <span className="mt-1 block">
-              <ToolFailureCard toolName={entry.name} target={detail ?? title} failure={entry.failure} />
+              <ToolFailureCard
+                toolName={entry.name}
+                target={detail ?? title}
+                failure={entry.failure}
+              />
             </span>
           ) : null}
         </span>

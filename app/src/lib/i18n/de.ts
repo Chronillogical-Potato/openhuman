@@ -3400,7 +3400,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.meterValue': '{used} von {limit}',
   'conversations.composer.context.loading': 'Kontext wird gemessen…',
   'conversations.composer.context.errorTitle': 'Kontextaufschlüsselung nicht verfügbar',
-  'conversations.composer.context.errorDetail': 'Der Core konnte den Prompt dieses Threads nicht messen.',
+  'conversations.composer.context.errorDetail':
+    'Der Core konnte den Prompt dieses Threads nicht messen.',
   'conversations.composer.context.section.preamble': 'System-Prompt',
   'conversations.composer.context.section.tools': 'Werkzeuge',
   'conversations.composer.context.section.history': 'Gesprächsverlauf',

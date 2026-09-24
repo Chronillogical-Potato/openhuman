@@ -185,9 +185,11 @@ const messages: TranslationMap = {
   'conversations.chatError.guardrail.tryInstead': 'probar en su lugar',
   'conversations.assistantUi.edit.ariaLabel': 'Editar tu mensaje',
   'conversations.assistantUi.edit.discardedRepliesOne': 'Al enviar se descartará {count} respuesta',
-  'conversations.assistantUi.edit.discardedRepliesOther': 'Al enviar se descartarán {count} respuestas',
+  'conversations.assistantUi.edit.discardedRepliesOther':
+    'Al enviar se descartarán {count} respuestas',
   'conversations.assistantUi.stoppedRun.reasonUserStop': 'Detenido',
-  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Reemplazado por un mensaje más reciente',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded':
+    'Reemplazado por un mensaje más reciente',
   'conversations.toolFailure.whyLabel': 'Por qué',
   'conversations.toolFailure.nextLabel': 'Qué hacer a continuación',
   'conversations.toolFailure.missingPermission.cause':

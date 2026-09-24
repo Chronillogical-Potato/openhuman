@@ -184,7 +184,8 @@ const messages: TranslationMap = {
   'conversations.assistantUi.edit.discardedRepliesOne': 'Enviar descartará {count} resposta',
   'conversations.assistantUi.edit.discardedRepliesOther': 'Enviar descartará {count} respostas',
   'conversations.assistantUi.stoppedRun.reasonUserStop': 'Interrompido',
-  'conversations.assistantUi.stoppedRun.reasonSuperseded': 'Substituído por uma mensagem mais recente',
+  'conversations.assistantUi.stoppedRun.reasonSuperseded':
+    'Substituído por uma mensagem mais recente',
   'conversations.toolFailure.whyLabel': 'Por quê',
   'conversations.toolFailure.nextLabel': 'O que fazer a seguir',
   'conversations.toolFailure.missingPermission.cause':
@@ -3361,7 +3362,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.meterValue': '{used} de {limit}',
   'conversations.composer.context.loading': 'Medindo o contexto…',
   'conversations.composer.context.errorTitle': 'Detalhamento do contexto indisponível',
-  'conversations.composer.context.errorDetail': 'O núcleo não conseguiu medir o prompt desta conversa.',
+  'conversations.composer.context.errorDetail':
+    'O núcleo não conseguiu medir o prompt desta conversa.',
   'conversations.composer.context.section.preamble': 'Prompt do sistema',
   'conversations.composer.context.section.tools': 'Ferramentas',
   'conversations.composer.context.section.history': 'Histórico da conversa',

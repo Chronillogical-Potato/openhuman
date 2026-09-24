@@ -1,6 +1,9 @@
 import { useState } from 'react';
 
-import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../../store/chatRuntimeSlice';
+import type {
+  ProcessingTranscriptItem,
+  ToolTimelineEntry,
+} from '../../../../store/chatRuntimeSlice';
 import { AgentProcessSourcePanel } from '../AgentProcessSourcePanel';
 import { type BackgroundProcess, BackgroundProcessesPanel } from '../BackgroundProcessesPanel';
 

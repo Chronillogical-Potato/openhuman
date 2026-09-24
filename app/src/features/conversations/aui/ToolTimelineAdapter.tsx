@@ -8,10 +8,7 @@ import {
   CollapsibleTrigger,
 } from '../../../components/ui/Collapsible';
 import { useT } from '../../../lib/i18n/I18nContext';
-import type {
-  ProcessingTranscriptItem,
-  ToolTimelineEntry,
-} from '../../../store/chatRuntimeSlice';
+import type { ProcessingTranscriptItem, ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { formatTimelineEntry, stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { WorkerThreadRefCard } from '../components/WorkerThreadRefCard';
 import { parseWorkerThreadRef } from '../utils/workerThreadRef';

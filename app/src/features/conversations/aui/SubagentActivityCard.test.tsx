@@ -14,7 +14,10 @@ describe('SubagentActivityCard', () => {
         activity={{ taskId: 't', agentId: 'researcher', status: 'running', toolCalls: [] }}
       />
     );
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute('data-status', 'working');
+    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
+      'data-status',
+      'working'
+    );
   });
 
   it('marks a failed delegation as failed rather than complete', () => {
@@ -23,7 +26,10 @@ describe('SubagentActivityCard', () => {
         activity={{ taskId: 't', agentId: 'researcher', status: 'failed', toolCalls: [] }}
       />
     );
-    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute('data-status', 'failed');
+    expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute(
+      'data-status',
+      'failed'
+    );
   });
 
   it('marks a cancelled delegation as cancelled', () => {
@@ -94,9 +100,11 @@ describe('SubagentActivityCard', () => {
   });
 
   it('renders no nested-transcript disclosure chevron when there is nothing to show', () => {
-    render(<SubagentActivityCard activity={{ taskId: 't', agentId: 'researcher', toolCalls: [] }} />);
-    expect(
-      screen.getByRole('button', { name: /Delegated to researcher/i })
-    ).toHaveAttribute('disabled');
+    render(
+      <SubagentActivityCard activity={{ taskId: 't', agentId: 'researcher', toolCalls: [] }} />
+    );
+    expect(screen.getByRole('button', { name: /Delegated to researcher/i })).toHaveAttribute(
+      'disabled'
+    );
   });
 });

@@ -3272,7 +3272,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.meterValue': '{limit} 중 {used}',
   'conversations.composer.context.loading': '컨텍스트 측정 중…',
   'conversations.composer.context.errorTitle': '컨텍스트 분석을 사용할 수 없음',
-  'conversations.composer.context.errorDetail': '코어가 이 스레드의 프롬프트를 측정하지 못했습니다.',
+  'conversations.composer.context.errorDetail':
+    '코어가 이 스레드의 프롬프트를 측정하지 못했습니다.',
   'conversations.composer.context.section.preamble': '시스템 프롬프트',
   'conversations.composer.context.section.tools': '도구',
   'conversations.composer.context.section.history': '대화 기록',

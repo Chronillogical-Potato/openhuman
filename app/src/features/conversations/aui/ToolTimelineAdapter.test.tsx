@@ -15,8 +15,22 @@ import { ToolTimelineAdapter } from './ToolTimelineAdapter';
 describe('ToolTimelineAdapter — agentic task insights surface', () => {
   it('wraps rows in the "Agentic task insights" group and conveys run state on the name', () => {
     const entries: ToolTimelineEntry[] = [
-      { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running', argsBuffer: '{"query":"f1"}' },
-      { id: 'd', name: 'file_read', round: 1, seq: 0, status: 'success', argsBuffer: '{"path":"/a/b.txt"}' },
+      {
+        id: 'r',
+        name: 'web_search',
+        round: 1,
+        seq: 0,
+        status: 'running',
+        argsBuffer: '{"query":"f1"}',
+      },
+      {
+        id: 'd',
+        name: 'file_read',
+        round: 1,
+        seq: 0,
+        status: 'success',
+        argsBuffer: '{"path":"/a/b.txt"}',
+      },
     ];
     render(<ToolTimelineAdapter entries={entries} />);
     const group = screen.getByTestId('agent-task-insights');
@@ -50,11 +64,15 @@ describe('ToolTimelineAdapter — agentic task insights surface', () => {
   });
 
   it('stays open while running and collapses once settled so a finished run does not dominate', () => {
-    const running: ToolTimelineEntry[] = [{ id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running' }];
+    const running: ToolTimelineEntry[] = [
+      { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running' },
+    ];
     const { rerender } = render(<ToolTimelineAdapter entries={running} />);
     expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'open');
 
-    const settled: ToolTimelineEntry[] = [{ id: 'r', name: 'web_search', round: 1, seq: 0, status: 'success' }];
+    const settled: ToolTimelineEntry[] = [
+      { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'success' },
+    ];
     rerender(<ToolTimelineAdapter entries={settled} />);
     expect(screen.getByTestId('agent-task-insights')).toHaveAttribute('data-state', 'closed');
 
@@ -130,7 +148,14 @@ describe('ToolTimelineAdapter — agentic task insights surface', () => {
 
   it('renders the parent live response inside the panel under a Response heading, stripping a leaked tool_call envelope', () => {
     const entries: ToolTimelineEntry[] = [
-      { id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running', argsBuffer: '{"query":"f1"}' },
+      {
+        id: 'r',
+        name: 'web_search',
+        round: 1,
+        seq: 0,
+        status: 'running',
+        argsBuffer: '{"query":"f1"}',
+      },
     ];
     render(
       <ToolTimelineAdapter
@@ -146,7 +171,9 @@ describe('ToolTimelineAdapter — agentic task insights surface', () => {
 
   it('omits the Response block when there is no live response', () => {
     render(
-      <ToolTimelineAdapter entries={[{ id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running' }]} />
+      <ToolTimelineAdapter
+        entries={[{ id: 'r', name: 'web_search', round: 1, seq: 0, status: 'running' }]}
+      />
     );
     expect(screen.queryByTestId('agent-live-response')).toBeNull();
   });
@@ -322,12 +349,16 @@ describe('ToolTimelineAdapter — in-flight viewport windowing', () => {
 
   it('does not window once the turn has settled', () => {
     render(<ToolTimelineAdapter entries={runningEntries} turnActive={false} />);
-    expect(screen.getByTestId('tool-timeline-viewport').getAttribute('data-windowed')).toBe('false');
+    expect(screen.getByTestId('tool-timeline-viewport').getAttribute('data-windowed')).toBe(
+      'false'
+    );
   });
 
   it('never windows under expandAllRows, even mid-turn', () => {
     render(<ToolTimelineAdapter entries={runningEntries} turnActive expandAllRows />);
-    expect(screen.getByTestId('tool-timeline-viewport').getAttribute('data-windowed')).toBe('false');
+    expect(screen.getByTestId('tool-timeline-viewport').getAttribute('data-windowed')).toBe(
+      'false'
+    );
   });
 
   it('attaches a scroll handler that does not throw as scroll metrics change', () => {
@@ -359,7 +390,9 @@ describe('ToolTimelineAdapter — renders the processing transcript inline', () 
 
   it('falls back to the tool-row list when no transcript is present', () => {
     render(
-      <ToolTimelineAdapter entries={[{ id: 'a', name: 'web_search', round: 1, seq: 0, status: 'success' }]} />
+      <ToolTimelineAdapter
+        entries={[{ id: 'a', name: 'web_search', round: 1, seq: 0, status: 'success' }]}
+      />
     );
     expect(screen.queryByTestId('processing-transcript')).toBeNull();
     expect(screen.getByTestId('agent-timeline-row')).toBeInTheDocument();

@@ -106,6 +106,7 @@ export function useAuiReloadCapability(): boolean {
  * UI off again automatically instead of leaving a dead button.
  */
 export const EDIT_AND_BRANCH_SEAM = Object.freeze({
-  editComposer: 'thread.tsx UserMessage — vendored EditMessage, gated on useAuiEditCapabilities().canEdit',
+  editComposer:
+    'thread.tsx UserMessage — vendored EditMessage, gated on useAuiEditCapabilities().canEdit',
   branchPicker: 'thread.tsx BranchPicker — gated on useAuiEditCapabilities().canSwitchToBranch',
 });

@@ -18,15 +18,15 @@
  * inline via `TaskCard`'s own disclosure, mirroring what `SubagentTaskCard`
  * does for a live delegation.
  */
-import { useT } from '../../../lib/i18n/I18nContext';
-import { subagentMessages } from '../../../providers/assistantUiMessages';
-import { isActiveTimelineStatus, type SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { basename } from '../../../utils/pathUtils';
 import { TaskCard, type TaskCardState } from '../../../components/assistant-ui/elements/task-card';
 import { TaskTranscript } from '../../../components/assistant-ui/elements/task-card.aui';
 import { formatElapsed } from '../../../components/assistant-ui/utils/task';
 import Badge from '../../../components/ui/Badge';
 import WorktreeActions from '../../../components/worktree/WorktreeActions';
+import { useT } from '../../../lib/i18n/I18nContext';
+import { subagentMessages } from '../../../providers/assistantUiMessages';
+import { isActiveTimelineStatus, type SubagentActivity } from '../../../store/chatRuntimeSlice';
+import { basename } from '../../../utils/pathUtils';
 
 function stateOf(activity: SubagentActivity): TaskCardState {
   if (activity.status === 'awaiting_user') return 'waiting';

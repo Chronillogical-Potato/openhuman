@@ -3719,7 +3719,8 @@ const en: TranslationMap = {
   'conversations.composer.context.meterValue': '{used} of {limit}',
   'conversations.composer.context.loading': 'Measuring context…',
   'conversations.composer.context.errorTitle': 'Context breakdown unavailable',
-  'conversations.composer.context.errorDetail': 'The core could not measure the prompt for this thread.',
+  'conversations.composer.context.errorDetail':
+    'The core could not measure the prompt for this thread.',
   'conversations.composer.context.section.preamble': 'System prompt',
   'conversations.composer.context.section.tools': 'Tools',
   'conversations.composer.context.section.history': 'Conversation history',
