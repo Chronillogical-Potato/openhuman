@@ -133,6 +133,21 @@ function rtLog(message: string, fields?: Record<string, string | number | null |
   }
 }
 
+/**
+ * Per-call identity for a tool event's dedupe key: the call id, or — for a
+ * provider that sends none — the core-stamped `seq`. Without it two id-less
+ * calls of the same tool in one round shared a key and the second was dropped
+ * as a "duplicate"; a genuine redelivery repeats the same `seq`, so it still
+ * dedupes.
+ */
+function toolEventIdentity(event: { tool_call_id?: string; seq?: number }): string {
+  if (event.tool_call_id) return event.tool_call_id;
+  return event.seq !== undefined ? `seq:${event.seq}` : '';
+}
+
+/** Bound on the per-request "last delta seq" map (see `isReplayedDelta`). */
+const MAX_DELTA_SEQ_ENTRIES = 200;
+
 function segmentDeliveryKey(threadId: string, requestId?: string | null): string {
   return `${threadId}:${requestId ?? 'none'}`;
 }
@@ -350,6 +365,40 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     streamingAssistantRef.current = streamingAssistantByThread;
   }, [streamingAssistantByThread]);
+
+  // Highest `seq` seen on a text/thinking delta, per thread+request.
+  const lastDeltaSeqRef = useRef<Map<string, number>>(new Map());
+
+  /**
+   * Whether a streamed text/thinking delta is a redelivery. The core stamps a
+   * per-request monotonic `seq` on every event and the socket delivers in
+   * order, so a delta at or below the last seen `seq` for its request has
+   * already been appended — appending it again duplicates text in the live
+   * preview and the processing transcript. Deltas without a `seq` (older
+   * cores) are always accepted.
+   */
+  const isReplayedDelta = (event: {
+    thread_id: string;
+    request_id?: string;
+    seq?: number;
+  }): boolean => {
+    if (event.seq === undefined || !event.request_id) return false;
+    const key = `${event.thread_id}:${event.request_id}`;
+    const seen = lastDeltaSeqRef.current;
+    const last = seen.get(key);
+    if (last !== undefined && event.seq <= last) {
+      rtLog('delta_replay_drop', { thread: event.thread_id, request: event.request_id, seq: event.seq });
+      return true;
+    }
+    seen.delete(key);
+    seen.set(key, event.seq);
+    while (seen.size > MAX_DELTA_SEQ_ENTRIES) {
+      const oldest = seen.keys().next().value;
+      if (oldest === undefined) break;
+      seen.delete(oldest);
+    }
+    return false;
+  };
 
   const markChatEventSeen = (
     key: string,
