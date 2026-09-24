@@ -1633,12 +1633,30 @@ const chatRuntimeSlice = createSlice({
         }
         return;
       }
-      const pending = findPendingDelegationContext(entries, round);
-      // Collapse the parent spawn/delegate row into the subagent row so the
-      // timeline shows one entry per delegation.
-      if (pending.spawnEntryId) {
-        const spawnIdx = entries.findIndex(e => e.id === pending.spawnEntryId);
-        if (spawnIdx >= 0) entries.splice(spawnIdx, 1);
+      // `parent_call_id` names the exact spawn/delegate tool-call row that
+      // started this delegation — no need to guess it from "the newest
+      // running spawn-shaped row in this round" (the heuristic below).
+      // `assistantUiMessages.ts` renders this activity directly on that row
+      // (keyed by `parentCallId`) and suppresses that row's own tool-call
+      // part, so this reducer does not need to splice it away either.
+      //
+      // Fallback for cores/history that predate `parent_call_id`: locate the
+      // running spawn/delegate row heuristically and collapse it away here so
+      // the timeline still shows one entry per delegation.
+      let prompt: string | undefined;
+      let sourceToolName: string | undefined;
+      if (parentCallId) {
+        const spawnEntry = entries.find(e => e.id === parentCallId);
+        prompt = spawnEntry?.detail ?? promptFromArgsBuffer(spawnEntry?.argsBuffer);
+        sourceToolName = spawnEntry?.name;
+      } else {
+        const pending = findPendingDelegationContext(entries, round);
+        prompt = pending.prompt;
+        sourceToolName = pending.sourceToolName;
+        if (pending.spawnEntryId) {
+          const spawnIdx = entries.findIndex(e => e.id === pending.spawnEntryId);
+          if (spawnIdx >= 0) entries.splice(spawnIdx, 1);
+        }
       }
       const seq = state.toolTimelineSeqByThread[threadId] ?? 0;
       state.toolTimelineSeqByThread[threadId] = seq + 1;
@@ -1649,17 +1667,18 @@ const chatRuntimeSlice = createSlice({
           round,
           seq,
           status: 'running',
-          detail: pending.prompt,
-          sourceToolName: pending.sourceToolName,
+          detail: prompt,
+          sourceToolName,
           subagent: {
             taskId,
             agentId,
             displayName,
             workerThreadId,
             spawnEventId,
+            parentCallId,
             mode,
             dedicatedThread,
-            prompt: pending.prompt,
+            prompt,
             toolCalls: [],
             transcript: [],
           },

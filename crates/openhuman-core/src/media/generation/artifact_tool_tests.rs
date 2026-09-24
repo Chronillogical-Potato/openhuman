@@ -154,7 +154,8 @@ async fn leaves_an_errored_tool_result_untouched() {
 
 #[tokio::test]
 async fn host_metadata_forwards_to_the_inner_tool() {
-    let workspace = tempfile::tempdir().unwrap().into_path();
+    let workspace_dir = tempfile::tempdir().unwrap();
+    let workspace = workspace_dir.path().to_path_buf();
     let wrapped = MediaArtifactTool::new(
         StubMediaTool {
             file_count: 0,
