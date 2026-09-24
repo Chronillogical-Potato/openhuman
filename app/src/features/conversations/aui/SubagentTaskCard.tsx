@@ -30,6 +30,7 @@ import Badge from '../../../components/ui/Badge';
 import WorktreeActions from '../../../components/worktree/WorktreeActions';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { subagentMessages } from '../../../providers/assistantUiMessages';
+import { subagentApi } from '../../../services/api/subagentApi';
 import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
 import { basename } from '../../../utils/pathUtils';
 
