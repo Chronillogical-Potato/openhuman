@@ -106,17 +106,28 @@ export function ConnectionStateNotice({
   );
 }
 
-function ConnectedConnectionStateBanner() {
-  const phase = useConnectionPhase(useAppSelector(selectSocketStatus));
+function ConnectedConnectionStateBanner({ status }: { status: SocketStatus }) {
+  const phase = useConnectionPhase(status);
   return <ConnectionStateNotice phase={phase} onRetry={reconnect} />;
 }
 
+/** `null` under a host store that carries no `socket` slice. */
+const selectSocketStatusIfTracked = (state: RootState): SocketStatus | null =>
+  state.socket ? selectSocketStatus(state) : null;
+
+function StoreConnectionStateBanner() {
+  const status = useAppSelector(selectSocketStatusIfTracked);
+  if (status === null) return null;
+  return <ConnectedConnectionStateBanner status={status} />;
+}
+
 /**
- * Renders nothing when there is no Redux store above it: the thread is also
- * mounted standalone (dev demo, component tests), with no socket to report on.
+ * Renders nothing when there is no socket state above it: the thread is also
+ * mounted standalone or under a partial host store (dev demo, component
+ * tests), with no socket to report on.
  */
 export function ConnectionStateBanner() {
   const redux = useContext(ReactReduxContext);
   if (!redux) return null;
-  return <ConnectedConnectionStateBanner />;
+  return <StoreConnectionStateBanner />;
 }
