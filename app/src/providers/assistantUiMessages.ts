@@ -14,13 +14,13 @@ import {
   type StreamingAssistantState,
   type ToolTimelineEntry,
 } from '../store/chatRuntimeSlice';
-import { extractAgentSources } from '../utils/toolTimelineFormatting';
 import {
   FEEDBACK_METADATA_KEY,
   FEEDBACK_ROW_IDS_METADATA_KEY,
   type MessageFeedback,
 } from '../store/threadSlice';
 import type { ThreadMessage } from '../types/thread';
+import { extractAgentSources } from '../utils/toolTimelineFormatting';
 
 /**
  * Redux -> assistant-ui message mapping.
@@ -610,10 +610,7 @@ export function toThreadMessageLike(
       // survive the next turn, a thread switch and a reload. Without this the
       // control silently un-presses, which is worse than having no control.
       ...(feedback ? { submittedFeedback: { type: feedback } } : {}),
-      custom: {
-        extraMetadata: msg.extraMetadata ?? {},
-        sourceType: msg.type,
-      },
+      custom: { extraMetadata: msg.extraMetadata ?? {}, sourceType: msg.type },
     },
   };
 
