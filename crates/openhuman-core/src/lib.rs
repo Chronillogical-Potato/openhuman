@@ -54,6 +54,7 @@
 pub mod agent;
 pub mod api;
 pub mod channels;
+pub mod commands;
 pub mod config;
 pub mod core;
 pub mod cron;
