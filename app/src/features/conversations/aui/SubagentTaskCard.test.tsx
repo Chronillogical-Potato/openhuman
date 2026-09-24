@@ -14,7 +14,7 @@ const activity: SubagentActivity = {
 };
 
 describe('SubagentTaskCard', () => {
-  it('renders a running delegation with its nested transcript', async () => {
+  it('renders a running delegation, collapsed, with a nested-transcript disclosure', () => {
     render(
       <SubagentTaskCard
         type="tool-call"
@@ -32,11 +32,14 @@ describe('SubagentTaskCard', () => {
 
     expect(screen.getByTestId('assistant-ui-subagent-call')).toHaveAttribute('data-state', 'working');
     expect(screen.getByText('Delegated to Researcher')).toBeInTheDocument();
-    // The transcript is collapsed by default.
+    // The transcript is collapsed by default, but the card knows it has one
+    // (the vendored `TaskCard`'s disclosure chevron only renders when
+    // `children` is non-empty).
     expect(screen.queryByText('Checking primary sources.')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /Delegated to Researcher/i }));
-    expect(screen.getByTestId('subagent-activity')).toBeInTheDocument();
-    expect(screen.getByText('Checking primary sources.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delegated to Researcher/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 
   it('renders a failed delegation as failed, not as a completed one', () => {
