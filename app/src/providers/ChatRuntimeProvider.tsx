@@ -14,19 +14,26 @@ import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
 import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposal';
 import { withCoalescedDeltas } from '../services/chatDeltaCoalescer';
 import {
+  type ChatApprovalDecidedEvent,
   type ChatApprovalRequestEvent,
+  type ChatCancelledEvent,
   type ChatDoneEvent,
+  type ChatErrorEvent,
   type ChatEventListeners,
   type ChatInferenceHeartbeatEvent,
   type ChatInferenceStartEvent,
   type ChatInterimEvent,
   type ChatIterationStartEvent,
   type ChatPlanReviewRequestEvent,
+  type ChatRunModeChangedEvent,
   type ChatSegmentEvent,
   type ChatSubagentDoneEvent,
   type ChatSubagentTextDeltaEvent,
   type ChatSubagentThinkingDeltaEvent,
   type ChatTextDeltaEvent,
+  type ChatThreadGoalClearedEvent,
+  type ChatThreadGoalUpdatedEvent,
+  type ChatThreadTodosChangedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
   type ProactiveMessageEvent,
@@ -1451,7 +1458,10 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           );
         },
         onThreadTodosChanged: (event: ChatThreadTodosChangedEvent) => {
-          rtLog('thread_todos_changed', { thread: event.thread_id, count: event.todos?.length ?? 0 });
+          rtLog('thread_todos_changed', {
+            thread: event.thread_id,
+            count: event.todos?.length ?? 0,
+          });
           dispatch(setThreadTodos({ threadId: event.thread_id, todos: event.todos ?? [] }));
         },
         onThreadGoalUpdated: (event: ChatThreadGoalUpdatedEvent) => {
