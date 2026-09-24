@@ -171,6 +171,12 @@ pub(crate) struct WebChatParams {
     /// `followup`, or `collect`.
     #[serde(default)]
     pub(super) queue_mode: Option<String>,
+    /// Optional `"plan"` | `"build"` — lets the caller start this turn with
+    /// the thread already in the requested run mode, mirroring the socket
+    /// `chat:start` payload's `run_mode` field. Unrecognized values are
+    /// ignored (logged), not rejected.
+    #[serde(default)]
+    pub(super) run_mode: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
