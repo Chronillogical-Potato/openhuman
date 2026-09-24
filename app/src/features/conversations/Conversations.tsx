@@ -261,10 +261,9 @@ const Conversations = ({
   attachmentsRef.current = attachments;
   // Tail of the ingest queue; see `handleAttachFiles`.
   const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
-  // Disclosure state for the three transcript-local overlays (background
-  // processes, the sub-agent drawer, the Agent Process Source panel).
+  // Disclosure state for the transcript-local overlays (background
+  // processes, the Agent Process Source panel).
   const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
-  const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
   const [showProcessSource, setShowProcessSource] = useState(false);
   // The Agent Process Source panel (the whole-run view, and the visited-source
   // list, which exists nowhere else) is reached from the command palette:
