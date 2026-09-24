@@ -65,8 +65,11 @@ pub(crate) async fn deliver_response(
     citations: &[crate::memory::agent::memory_loader::MemoryCitation],
     usage: Option<&LastTurnUsage>,
     workspace_dir: Option<&std::path::Path>,
+    timing: Option<super::turn_timing::TurnTimingSnapshot>,
 ) {
     let usage_payload = usage_payload(usage);
+    let timing_payload =
+        timing.map(|snapshot| snapshot.into_payload(usage.map(|u| u.output_tokens)));
 
     // Spawn reaction decision in parallel — it runs on the local model and
     // shouldn't block segmentation or delivery.
