@@ -18,7 +18,7 @@ vi.mock('@/components/assistant-ui/thread', () => ({
   Thread: ({
     components,
   }: {
-    components: { Welcome?: () => JSX.Element; Composer?: () => JSX.Element };
+    components: { Welcome?: () => React.ReactNode; Composer?: () => React.ReactNode };
   }) => {
     const { Welcome, Composer } = components;
     return (
