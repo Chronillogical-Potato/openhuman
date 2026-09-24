@@ -178,6 +178,7 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                 size_bytes,
                 thread_id,
                 client_id,
+                ..
             } => {
                 let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
                     log::debug!(
@@ -211,6 +212,7 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                 error,
                 thread_id,
                 client_id,
+                ..
             } => {
                 let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
                     log::debug!(
@@ -244,6 +246,7 @@ impl EventHandler<DomainEvent> for ArtifactSurfaceSubscriber {
                 path,
                 thread_id,
                 client_id,
+                ..
             } => {
                 let (Some(thread_id), Some(client_id)) = (thread_id, client_id) else {
                     log::debug!(
