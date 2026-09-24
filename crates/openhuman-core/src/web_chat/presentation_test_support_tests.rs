@@ -35,7 +35,7 @@ pub async fn deliver_response_for_test(
 /// `deliver_response` with an explicit `timing` snapshot and usage, so a
 /// test can assert `chat_done.timing` (and its `tokens_per_second`
 /// derivation) reaches the wire event.
-pub async fn deliver_response_with_timing_for_test(
+pub(crate) async fn deliver_response_with_timing_for_test(
     client_id: &str,
     thread_id: &str,
     request_id: &str,

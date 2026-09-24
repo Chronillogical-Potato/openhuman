@@ -14263,3 +14263,496 @@ async fn json_rpc_agent_run_mode_set_and_get_round_trip() {
     api_join.abort();
     rpc_join.abort();
 }
+
+#[tokio::test]
+async fn json_rpc_agent_context_breakdown_default_agent_returns_sections() {
+    // `agent.context_breakdown` (wire method `openhuman.agent_context_breakdown`,
+    // namespace="agent" function="context_breakdown") rebuilds the real
+    // orchestrator prompt through `PromptSizeReport::build` and reports its
+    // system/tools sections as a stacked-bar-friendly list. Called with no
+    // params it must default `agent_id` to "orchestrator" and still work
+    // against a bare `write_min_config` setup (no thread bootstrap needed).
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let breakdown = post_json_rpc(
+        &rpc_base,
+        9501,
+        "openhuman.agent_context_breakdown",
+        json!({}),
+    )
+    .await;
+    let result = assert_no_jsonrpc_error(&breakdown, "agent_context_breakdown default agent");
+
+    assert_eq!(
+        result.get("agent_id").and_then(Value::as_str),
+        Some("orchestrator"),
+        "context_breakdown with no agent_id must default to the orchestrator: {result}"
+    );
+
+    let sections = result
+        .get("sections")
+        .and_then(Value::as_array)
+        .unwrap_or_else(|| panic!("expected non-empty 'sections' array: {result}"));
+    assert!(
+        !sections.is_empty(),
+        "expected at least one prompt section: {result}"
+    );
+    for section in sections {
+        assert!(
+            section.get("label").and_then(Value::as_str).is_some(),
+            "section missing 'label': {section}"
+        );
+        assert!(
+            section.get("bytes").and_then(Value::as_u64).is_some(),
+            "section missing 'bytes': {section}"
+        );
+        assert!(
+            section.get("est_tokens").and_then(Value::as_u64).is_some(),
+            "section missing 'est_tokens': {section}"
+        );
+    }
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_commands_list_merges_builtins() {
+    // `commands.list` (wire method `openhuman.commands_list`, no params) must
+    // at least surface the fixed built-in slash commands (skills.list /
+    // flows.list are best-effort and may be empty in this bare setup).
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let list = post_json_rpc(&rpc_base, 9502, "openhuman.commands_list", json!({})).await;
+    let result = assert_no_jsonrpc_error(&list, "commands_list");
+
+    let commands = result
+        .get("commands")
+        .and_then(Value::as_array)
+        .unwrap_or_else(|| panic!("expected 'commands' array: {result}"));
+    assert!(
+        !commands.is_empty(),
+        "expected at least the fixed built-ins: {result}"
+    );
+
+    let new_entry = commands
+        .iter()
+        .find(|c| c.get("id").and_then(Value::as_str) == Some("new"))
+        .unwrap_or_else(|| panic!("expected a built-in '/new' entry: {result}"));
+    assert_eq!(
+        new_entry.get("kind").and_then(Value::as_str),
+        Some("builtin"),
+        "'/new' entry should be kind=builtin: {new_entry}"
+    );
+    assert_eq!(
+        new_entry.get("insert").and_then(Value::as_str),
+        Some("/new"),
+        "'/new' entry should insert literal '/new': {new_entry}"
+    );
+    assert!(
+        new_entry.get("label").and_then(Value::as_str).is_some(),
+        "'/new' entry missing 'label': {new_entry}"
+    );
+    assert!(
+        new_entry
+            .get("description")
+            .and_then(Value::as_str)
+            .is_some(),
+        "'/new' entry missing 'description': {new_entry}"
+    );
+
+    // Every other documented built-in must also be present.
+    for builtin_id in ["clear", "plan", "build", "goal", "todo", "stop"] {
+        assert!(
+            commands
+                .iter()
+                .any(|c| c.get("id").and_then(Value::as_str) == Some(builtin_id)),
+            "expected built-in '{builtin_id}' in commands.list: {result}"
+        );
+    }
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_threads_edit_message_truncates_and_restarts_turn() {
+    // `threads.edit_message` (wire method `openhuman.threads_edit_message`)
+    // cancels any in-flight turn, forks the session transcript + message log
+    // to drop the edited message and everything after it, then restarts the
+    // turn with the new content. This round-trips a real completed turn
+    // through the mock upstream, edits the user message that produced it
+    // (which does have a reply, per the module's own doc comment on the
+    // "editing the newest unanswered message" gap), and verifies the store
+    // was actually mutated rather than just accepting the RPC.
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let client_id = "e2e-edit-client";
+    let thread_id = "thread-edit-e2e";
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+
+    // --- Turn 1: a normal web-channel turn against the mock upstream. ---
+    let sse_task_1 = {
+        let events_url = events_url.clone();
+        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
+    };
+    let turn1 = post_json_rpc(
+        &rpc_base,
+        9601,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "Original message for edit test",
+            "model_override": "e2e-mock-model",
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&turn1, "channel_web_chat turn1");
+    let sse_event_1 = sse_task_1.await.expect("sse task 1 join should succeed");
+    assert_eq!(
+        sse_event_1.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "turn1 should complete successfully: {sse_event_1}"
+    );
+
+    // The frontend — not the core — is the one that appends the user's own
+    // message to the conversation store (the core only auto-persists the
+    // assistant's reply, see `web_chat::reply_persistence`'s module doc), so
+    // mirror that here: append the user message the turn above was actually
+    // run for, so it has a real deterministic reply after it in store order.
+    let user_message_id = "msg-user-edit-e2e";
+    let user_append = post_json_rpc(
+        &rpc_base,
+        9602,
+        "openhuman.threads_message_append",
+        json!({
+            "thread_id": thread_id,
+            "message": {
+                "id": user_message_id,
+                "content": "Original message for edit test",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-01-01T00:00:00Z"
+            }
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&user_append, "threads_message_append user (pre-edit)");
+
+    let before_list = post_json_rpc(
+        &rpc_base,
+        9603,
+        "openhuman.threads_messages_list",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let before_outer = assert_no_jsonrpc_error(&before_list, "threads_messages_list before edit");
+    let before_data = before_outer
+        .get("data")
+        .expect("data envelope in messages_list response");
+    let before_messages = before_data
+        .get("messages")
+        .and_then(Value::as_array)
+        .expect("messages array before edit");
+    let before_count = before_messages.len();
+    assert!(
+        before_messages
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(user_message_id)),
+        "expected the manually-appended user message before editing: {before_messages:?}"
+    );
+
+    // --- Edit the user message: cancels (no-op, turn1 already finished),
+    // forks the transcript before turn1's user prompt, truncates the message
+    // log from `user_message_id` onward, and restarts with new content. ---
+    let sse_task_2 = {
+        let events_url = events_url.clone();
+        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
+    };
+    let edit = post_json_rpc(
+        &rpc_base,
+        9604,
+        "openhuman.threads_edit_message",
+        json!({
+            "thread_id": thread_id,
+            "message_id": user_message_id,
+            "content": "Edited message for edit test",
+            "client_id": client_id,
+        }),
+    )
+    .await;
+    let edit_outer = assert_no_jsonrpc_error(&edit, "threads_edit_message");
+    let edit_result = peel_logs_envelope(edit_outer);
+    let new_request_id = edit_result
+        .get("request_id")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("expected 'request_id' in edit_message response: {edit_outer}"));
+    assert!(
+        !new_request_id.is_empty(),
+        "edit_message must return a non-empty request_id: {edit_outer}"
+    );
+
+    let sse_event_2 = sse_task_2.await.expect("sse task 2 join should succeed");
+    assert_eq!(
+        sse_event_2.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the restarted turn after edit should complete successfully: {sse_event_2}"
+    );
+
+    // --- Verify the store was actually mutated: the edited message and
+    // everything after it (the old reply) are gone, replaced by the fresh
+    // turn's own reply. ---
+    let after_list = post_json_rpc(
+        &rpc_base,
+        9605,
+        "openhuman.threads_messages_list",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let after_outer = assert_no_jsonrpc_error(&after_list, "threads_messages_list after edit");
+    let after_data = after_outer
+        .get("data")
+        .expect("data envelope in messages_list response");
+    let after_messages = after_data
+        .get("messages")
+        .and_then(Value::as_array)
+        .expect("messages array after edit");
+
+    assert!(
+        !after_messages
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(user_message_id)),
+        "edited user message must be truncated from the log: {after_messages:?}"
+    );
+    assert!(
+        after_messages.len() < before_count,
+        "expected fewer messages after the edit truncation (before={before_count}, \
+         after={}): {after_messages:?}",
+        after_messages.len()
+    );
+    assert!(
+        after_messages
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str)
+                == Some(format!("agent:{new_request_id}").as_str())),
+        "expected the fresh turn's reply (agent:{new_request_id}) in the log: {after_messages:?}"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn json_rpc_threads_regenerate_truncates_and_restarts_turn() {
+    // `threads.regenerate` (wire method `openhuman.threads_regenerate`) with
+    // no `message_id` redoes the thread's last turn: cancels any in-flight
+    // turn, forks the transcript at `TruncateCut::LastAssistantTurn`, drops
+    // the old reply from the message log, then restarts with the same user
+    // prompt. Verifies the old reply id is gone and a fresh one appears once
+    // the new turn completes.
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    let client_id = "e2e-regen-client";
+    let thread_id = "thread-regen-e2e";
+    let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
+
+    // --- Turn 1: a normal web-channel turn against the mock upstream. ---
+    let sse_task_1 = {
+        let events_url = events_url.clone();
+        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
+    };
+    let turn1 = post_json_rpc(
+        &rpc_base,
+        9701,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": client_id,
+            "thread_id": thread_id,
+            "message": "Original message for regenerate test",
+            "model_override": "e2e-mock-model",
+        }),
+    )
+    .await;
+    let turn1_result = assert_no_jsonrpc_error(&turn1, "channel_web_chat turn1");
+    let turn1_request_id = turn1_result
+        .get("result")
+        .and_then(|v| v.get("request_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("expected request_id in channel_web_chat response: {turn1_result}"))
+        .to_string();
+    let sse_event_1 = sse_task_1.await.expect("sse task 1 join should succeed");
+    assert_eq!(
+        sse_event_1.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "turn1 should complete successfully: {sse_event_1}"
+    );
+
+    let old_reply_id = format!("agent:{turn1_request_id}");
+
+    let before_list = post_json_rpc(
+        &rpc_base,
+        9702,
+        "openhuman.threads_messages_list",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let before_outer = assert_no_jsonrpc_error(&before_list, "threads_messages_list before regen");
+    let before_data = before_outer
+        .get("data")
+        .expect("data envelope in messages_list response");
+    let before_messages = before_data
+        .get("messages")
+        .and_then(Value::as_array)
+        .expect("messages array before regen");
+    assert!(
+        before_messages
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(old_reply_id.as_str())),
+        "expected the turn1 reply ({old_reply_id}) in the log before regen: {before_messages:?}"
+    );
+    let before_count = before_messages.len();
+
+    // --- Regenerate the last turn: no message_id, so it redoes turn1. ---
+    let sse_task_2 = {
+        let events_url = events_url.clone();
+        tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await })
+    };
+    let regen = post_json_rpc(
+        &rpc_base,
+        9703,
+        "openhuman.threads_regenerate",
+        json!({
+            "thread_id": thread_id,
+            "client_id": client_id,
+        }),
+    )
+    .await;
+    let regen_outer = assert_no_jsonrpc_error(&regen, "threads_regenerate");
+    let regen_result = peel_logs_envelope(regen_outer);
+    let new_request_id = regen_result
+        .get("request_id")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("expected 'request_id' in regenerate response: {regen_outer}"));
+    assert!(
+        !new_request_id.is_empty(),
+        "regenerate must return a non-empty request_id: {regen_outer}"
+    );
+    assert_ne!(
+        new_request_id, turn1_request_id,
+        "regenerate must restart under a fresh request_id"
+    );
+
+    let sse_event_2 = sse_task_2.await.expect("sse task 2 join should succeed");
+    assert_eq!(
+        sse_event_2.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the regenerated turn should complete successfully: {sse_event_2}"
+    );
+
+    // --- Verify the store was actually mutated: the old reply is gone,
+    // replaced by the fresh turn's own reply. ---
+    let after_list = post_json_rpc(
+        &rpc_base,
+        9704,
+        "openhuman.threads_messages_list",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let after_outer = assert_no_jsonrpc_error(&after_list, "threads_messages_list after regen");
+    let after_data = after_outer
+        .get("data")
+        .expect("data envelope in messages_list response");
+    let after_messages = after_data
+        .get("messages")
+        .and_then(Value::as_array)
+        .expect("messages array after regen");
+
+    let new_reply_id = format!("agent:{new_request_id}");
+    assert!(
+        !after_messages
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(old_reply_id.as_str())),
+        "old reply ({old_reply_id}) must be truncated from the log: {after_messages:?}"
+    );
+    assert!(
+        after_messages
+            .iter()
+            .any(|m| m.get("id").and_then(Value::as_str) == Some(new_reply_id.as_str())),
+        "expected the fresh turn's reply ({new_reply_id}) in the log: {after_messages:?}"
+    );
+    assert_eq!(
+        after_messages.len(),
+        before_count,
+        "regenerate should replace the reply in place, not grow the log: before={before_count} \
+         after={after_messages:?}"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
