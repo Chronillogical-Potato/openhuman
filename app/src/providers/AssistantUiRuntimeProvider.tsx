@@ -1,7 +1,8 @@
-import { AssistantRuntimeProvider, useExternalStoreRuntime } from '@assistant-ui/react';
+import { AssistantRuntimeProvider, AuiConfig, Tools, useExternalStoreRuntime } from '@assistant-ui/react';
 import debugFactory from 'debug';
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, type ReactNode, useContext, useMemo } from 'react';
 
+import { useOpenHumanToolkit } from '../features/conversations/aui/toolkit';
 import { useAppSelector } from '../store/hooks';
 import { useOpenHumanExternalStore } from './useOpenHumanExternalStore';
 
