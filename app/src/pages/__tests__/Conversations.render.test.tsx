@@ -96,7 +96,6 @@ vi.mock('../../services/api/threadApi', () => ({
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
 
 // coreState/store: getCoreStateSnapshot used by selectSocketStatus.
 vi.mock('../../lib/coreState/store', () => ({

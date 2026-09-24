@@ -65,7 +65,6 @@ vi.mock('../../hooks/useUsageState', () => ({
   // Reads `useCoreState`, which needs a provider this test does not mount.
   useUsageState: () => ({ usage: null, loading: false, error: null, refresh: vi.fn() }),
 }));
-vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
 vi.mock('../../lib/coreState/store', () => ({
   getCoreStateSnapshot: vi.fn(() => ({ isBootstrapping: false, isReady: true })),
   subscribeCoreState: vi.fn(() => () => undefined),

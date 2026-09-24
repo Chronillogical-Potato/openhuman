@@ -85,16 +85,12 @@ vi.mock('../../services/api/openrouterFreeModels', () => ({ applyOpenRouterFreeM
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
 
 vi.mock('../../store/socketSelectors', () => ({
   selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
     state.socket?.byUser?.__pending__?.status ?? 'disconnected',
 }));
 
-vi.mock('../../hooks/useStickToBottom', () => ({
-  useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
-}));
 
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
 
