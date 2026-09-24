@@ -1490,11 +1490,7 @@ pub(crate) fn spawn_progress_bridge(
                     // `subagents` stays empty here; the final `chat_done.usage`
                     // (built from `LastTurnUsage` at delivery) is still where
                     // sub-agent attribution shows up.
-                    let should_emit_turn_cost = last_turn_cost_emit
-                        .map(|at| at.elapsed() >= TURN_COST_EMIT_MIN_INTERVAL)
-                        .unwrap_or(true);
-                    if should_emit_turn_cost {
-                        last_turn_cost_emit = Some(std::time::Instant::now());
+                    if turn_cost_throttle.should_emit() {
                         publish_seq_stamped(
                             &mut emit_seq,
                             WebChannelEvent {
