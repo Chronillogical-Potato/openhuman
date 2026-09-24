@@ -221,6 +221,7 @@ pub async fn steer(
         .push(
             lane,
             crate::agent::queued_turn::QueuedTurn {
+                id: uuid::Uuid::new_v4().to_string(),
                 text,
                 client_id: "steer_subagent".to_string(),
                 thread_id: task_id.to_string(),
@@ -285,6 +286,7 @@ pub(crate) async fn steer_control(
         .push(
             lane,
             crate::agent::queued_turn::QueuedTurn {
+                id: uuid::Uuid::new_v4().to_string(),
                 text,
                 client_id: "subagent_control_rpc".to_string(),
                 thread_id: task_id.to_string(),

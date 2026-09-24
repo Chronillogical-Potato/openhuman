@@ -609,9 +609,44 @@ pub fn is_flow_tool_trusted(config: &Config, flow_id: &str, tool_name: &str) -> 
     })
 }
 
-fn expire_stale_with_now(conn: &Connection, now: DateTime<Utc>) -> Result<usize> {
+/// Lazily transition every stale (past-`expires_at`, undecided) row into a
+/// terminal `Deny` state and return the rows that were transitioned.
+///
+/// Fetches the about-to-expire rows BEFORE the `UPDATE` (their non-decision
+/// columns are immutable at that point) so the caller can publish a
+/// `DomainEvent::ApprovalDecided { resolution: "expired" }` per row — a sweep
+/// runs with no live `ApprovalGate` in scope (`list_pending`/`decide` are
+/// called through the store, not the gate), so this is the only place that
+/// observes an expiry and must be the one to tell the web channel a parked
+/// card is now stale.
+fn expire_stale_with_now(conn: &Connection, now: DateTime<Utc>) -> Result<Vec<PendingApproval>> {
     let now_rfc3339 = now.to_rfc3339();
     let deny = ApprovalDecision::Deny.as_str();
+
+    let mut about_to_expire: Vec<PendingApproval> = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT request_id, tool_name, action_summary, args_redacted,
+                        session_id, created_at, expires_at, source_context, tool_call_id
+                 FROM pending_approvals
+                 WHERE decided_at IS NULL
+                   AND expires_at IS NOT NULL
+                   AND strftime('%s', expires_at) <= strftime('%s', ?1)",
+            )
+            .context("[approval::store] prepare expire_stale select")?;
+        let rows = stmt
+            .query_map(params![now_rfc3339], |row| Ok(row_to_pending(row)))
+            .context("[approval::store] query expire_stale select")?;
+        for r in rows {
+            about_to_expire.push(r.context("[approval::store] expire_stale row decode")??);
+        }
+    }
+
+    if about_to_expire.is_empty() {
+        return Ok(about_to_expire);
+    }
+
     let updated = conn
         .execute(
             "UPDATE pending_approvals
@@ -622,7 +657,22 @@ fn expire_stale_with_now(conn: &Connection, now: DateTime<Utc>) -> Result<usize>
             params![now_rfc3339, deny, now_rfc3339],
         )
         .context("[approval::store] expire stale rows")?;
-    Ok(updated)
+    tracing::debug!(
+        rows = updated,
+        "[approval::store] lazily expired stale pending_approvals rows"
+    );
+    for row in &about_to_expire {
+        BUS.publish(DomainEvent::ApprovalDecided {
+            request_id: row.request_id.clone(),
+            tool_name: row.tool_name.clone(),
+            decision: deny.to_string(),
+            thread_id: None,
+            client_id: None,
+            tool_call_id: row.tool_call_id.clone(),
+            resolution: Some("expired".to_string()),
+        });
+    }
+    Ok(about_to_expire)
 }
 
 fn row_to_audit_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<ApprovalAuditEntry> {
