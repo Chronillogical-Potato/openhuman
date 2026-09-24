@@ -9,6 +9,7 @@ import { MemoryHybridSearchCall, MemoryRecallCall, MemoryStoreCall } from './Cha
 import { CronAddOrUpdateCall, CronListCall, CronRunsCall } from './ChatScheduleCard';
 import { GoalToolLine } from './GoalToolLine';
 import { DocumentArtifactCall, MediaGenerationCall } from './MediaAndDocumentCalls';
+import { ParallelAgentsCard } from './ParallelAgentsCard';
 import { PlanReviewPart } from './PlanReviewPart';
 import { SubagentTaskCard } from './SubagentTaskCard';
 import { TodoListPart } from './TodoListPart';
