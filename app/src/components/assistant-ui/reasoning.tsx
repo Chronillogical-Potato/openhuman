@@ -10,15 +10,7 @@ import {
 import { type ReasoningMessagePartComponent, useScrollLock } from '@assistant-ui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { BrainIcon, ChevronDownIcon } from 'lucide-react';
-import {
-  createContext,
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 const ANIMATION_DURATION = 200;
 

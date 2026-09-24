@@ -10,6 +10,7 @@ import {
 import { classifyReplyDeliveryFailure } from '../lib/userErrors/classify';
 import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
 import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposal';
+import { withCoalescedDeltas } from '../services/chatDeltaCoalescer';
 import {
   type ChatApprovalRequestEvent,
   type ChatDoneEvent,
@@ -30,7 +31,6 @@ import {
   segmentText,
   subscribeChatEvents,
 } from '../services/chatService';
-import { withCoalescedDeltas } from '../services/chatDeltaCoalescer';
 import { socketService } from '../services/socketService';
 import { store } from '../store';
 import {

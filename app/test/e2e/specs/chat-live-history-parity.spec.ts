@@ -223,8 +223,9 @@ describe('Chat live/history parity', () => {
     // renders from the persisted messages plus the core transcript projection.
     expect(await clickByTitle('New thread', 8_000)).toBe(true);
     await browser.execute(tid => {
-      const store = (window as unknown as { __OPENHUMAN_STORE__?: { dispatch: (a: unknown) => void } })
-        .__OPENHUMAN_STORE__;
+      const store = (
+        window as unknown as { __OPENHUMAN_STORE__?: { dispatch: (a: unknown) => void } }
+      ).__OPENHUMAN_STORE__;
       store?.dispatch({ type: 'chatRuntime/clearRuntimeForThread', payload: { threadId: tid } });
       store?.dispatch({ type: 'thread/setSelectedThread', payload: tid });
     }, threadId);

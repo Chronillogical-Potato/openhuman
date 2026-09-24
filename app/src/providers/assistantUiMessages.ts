@@ -689,10 +689,7 @@ export type AssistantUiProjection = {
   settledTurns?: Readonly<
     Record<
       string,
-      {
-        timeline: readonly ToolTimelineEntry[];
-        transcript: readonly ProcessingTranscriptItem[];
-      }
+      { timeline: readonly ToolTimelineEntry[]; transcript: readonly ProcessingTranscriptItem[] }
     >
   >;
   /** `request_id` of the turn the live tail stands for, when known. */

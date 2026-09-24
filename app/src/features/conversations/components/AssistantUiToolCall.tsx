@@ -156,10 +156,7 @@ export function AssistantUiToolCallCard({
   // and stayed open, the same card reloaded was closed, and any remount in
   // between flipped it. The header already says what the call is and whether
   // it is running; the body is detail on demand.
-  const [open, setOpen] = useDisclosure(
-    disclosureKey ? `tool:${disclosureKey}` : undefined,
-    false
-  );
+  const [open, setOpen] = useDisclosure(disclosureKey ? `tool:${disclosureKey}` : undefined, false);
   const running =
     awaitingUser ||
     (status ? status === 'running' || status === 'awaiting_user' : result === undefined);

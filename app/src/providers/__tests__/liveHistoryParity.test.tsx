@@ -26,8 +26,8 @@ import { act } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mapDisplayItems } from '../../features/conversations/derived/mapDisplayItems';
 import * as chatService from '../../services/chatService';
+import { mapDisplayItems } from '../../features/conversations/derived/mapDisplayItems';
 import { threadApi } from '../../services/api/threadApi';
 import { store } from '../../store';
 import { beginInferenceTurn, clearAllChatRuntime } from '../../store/chatRuntimeSlice';

@@ -56,7 +56,8 @@ describe('createChatDeltaCoalescer', () => {
     const frames = manualScheduler();
     const delivered: [DeltaChannel, string][] = [];
     const coalescer = createChatDeltaCoalescer<CoalescibleDelta>(
-      (channel, event) => delivered.push([channel, `${event.thread_id}/${event.round}:${event.delta}`]),
+      (channel, event) =>
+        delivered.push([channel, `${event.thread_id}/${event.round}:${event.delta}`]),
       frames.schedule
     );
 

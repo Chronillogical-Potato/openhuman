@@ -347,7 +347,9 @@ export function mapDisplayItems(
 
 /** Tool names that open a delegation — mirrors `findPendingDelegationContext`. */
 function isDelegationToolName(name: string): boolean {
-  return name === 'spawn_subagent' || name === 'spawn_async_subagent' || name.startsWith('delegate_');
+  return (
+    name === 'spawn_subagent' || name === 'spawn_async_subagent' || name.startsWith('delegate_')
+  );
 }
 
 /** `subagent:<id>`, disambiguated when one turn delegates to the same agent twice. */

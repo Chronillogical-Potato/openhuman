@@ -90,13 +90,7 @@ export const LIVE_TURN_STEPS: SocketStep[] = [
   // No provider id at all.
   {
     listener: 'onToolCall',
-    event: {
-      ...base,
-      round: 1,
-      tool_name: 'web_search',
-      skill_id: 'web',
-      args: { q: 'agenda' },
-    },
+    event: { ...base, round: 1, tool_name: 'web_search', skill_id: 'web', args: { q: 'agenda' } },
   },
   {
     listener: 'onToolResult',
@@ -136,14 +130,7 @@ export const LIVE_TURN_STEPS: SocketStep[] = [
   },
   {
     listener: 'onSubagentSpawned',
-    event: {
-      ...base,
-      round: 2,
-      tool_name: 'researcher',
-      skill_id: 'sub-1',
-      message: '',
-      seq: 1,
-    },
+    event: { ...base, round: 2, tool_name: 'researcher', skill_id: 'sub-1', message: '', seq: 1 },
   },
   {
     listener: 'onSubagentDone',
@@ -206,12 +193,7 @@ export const HISTORY_ITEMS: DerivedDisplayItem[] = (
       result: 'done',
       status: 'success',
     },
-    {
-      kind: 'assistantMessage',
-      content: FINAL_ANSWER,
-      requestId: TURN_REQUEST,
-      iteration: 3,
-    },
+    { kind: 'assistantMessage', content: FINAL_ANSWER, requestId: TURN_REQUEST, iteration: 3 },
     // Sub-agents are projected after every root item, with no link back to the
     // call that spawned them.
     {

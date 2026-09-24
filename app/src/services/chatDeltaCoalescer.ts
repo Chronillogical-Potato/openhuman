@@ -29,10 +29,7 @@ export interface CoalescibleDelta {
   delta: string;
 }
 
-type Pending<E extends CoalescibleDelta> = {
-  channel: DeltaChannel;
-  event: E;
-};
+type Pending<E extends CoalescibleDelta> = { channel: DeltaChannel; event: E };
 
 /** Schedules one flush; returns a canceller. */
 export type FlushScheduler = (flush: () => void) => () => void;
