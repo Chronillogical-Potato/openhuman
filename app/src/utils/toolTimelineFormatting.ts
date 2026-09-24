@@ -363,7 +363,7 @@ export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; 
  */
 type ProcessingBlock =
   | { kind: 'narration'; key: string; text: string }
-  | { kind: 'thinking'; key: string; text: string }
+  | { kind: 'thinking'; key: string; text: string; startedAt?: number; endedAt?: number }
   | { kind: 'toolGroup'; key: string; summary: string; entries: ToolTimelineEntry[] };
 
 /**
@@ -413,7 +413,20 @@ export function buildProcessingBlocks(
     flush();
     const text = stripToolCallEnvelopes(item.text).trim();
     if (!text) continue;
-    blocks.push({ kind: item.kind, key: `${item.kind}-${item.seq}`, text });
+    const key = `${item.kind}-${item.seq}`;
+    if (item.kind === 'thinking') {
+      // Carry the block's timing through so the rail's reasoning panel can
+      // say "Thought for Ns".
+      blocks.push({
+        kind: 'thinking',
+        key,
+        text,
+        ...(item.startedAt !== undefined ? { startedAt: item.startedAt } : {}),
+        ...(item.endedAt !== undefined ? { endedAt: item.endedAt } : {}),
+      });
+    } else {
+      blocks.push({ kind: item.kind, key, text });
+    }
   }
   flush();
   return blocks;

@@ -74,21 +74,59 @@ pub(crate) const COMPACTION_EXEMPT_TOOLS: &[&str] = &[
 /// backstop keeps these calls from blowing the context budget.
 pub(crate) const SAMPLING_TOOLS: &[&str] = &["get_tool_output_sample", "get_tool_contract"];
 
+/// Tool **discovery** listings: the catalogue a bridged server answers
+/// `tools/list` with.
+///
+/// These are not a tool's output. They are the model's only way to learn that
+/// a tool exists and what arguments it takes, so every content-rewriting stage
+/// below is not "shrinking a result" but "removing capability" — and removing
+/// it silently, which is the part that costs turns.
+///
+/// Observed, on a `tools/list` over an MCP server publishing 30 tools with
+/// full JSON schemas: the response ran past the 16 KiB budget, was cut at byte
+/// 16000 and spilled to an artifact. The two tools at the tail of the
+/// catalogue fell off the end. The model had been told in its system prompt
+/// that one of them existed, could not find it in the listing, and so narrated
+/// what it meant to do instead of calling anything. On other turns it called a
+/// tool it *had* seen with a guessed argument name and took the refusal. The
+/// tell was the model itself reaching for
+/// `file_read(path="…/mcp_list_tools/….txt", offset=16000)` — it knew the
+/// catalogue had been cut and was trying to page past the boundary.
+///
+/// Truncation-exempt for that reason, and compaction-exempt for the same
+/// reason [`SAMPLING_TOOLS`] are: a catalogue is a uniform object-array of
+/// many rows, exactly what tokenjuice tabulates into a `[json table: …]`
+/// marker, and tabulating away the schemas is indistinguishable from not
+/// having listed them.
+///
+/// The honest cost: a server with a very large catalogue now spends that many
+/// bytes of context. That is the right trade — a listing the model cannot act
+/// on is not cheaper, it is just wrong more quietly — but a host that wants a
+/// bound should bound the *catalogue* (serve fewer tools, or page the listing),
+/// not cut the bytes underneath it.
+pub(crate) const DISCOVERY_TOOLS: &[&str] = &["mcp_list_tools", "mcp_list_servers"];
+
 /// Steps 1 (TinyJuice summary) + 2 (tokenjuice compaction) exemption:
-/// proposal tools (final-output contract, see [`COMPACTION_EXEMPT_TOOLS`])
-/// plus sampling tools (tabulation would corrupt the schema they exist to
-/// reveal, see [`SAMPLING_TOOLS`]).
+/// proposal tools (final-output contract, see [`COMPACTION_EXEMPT_TOOLS`]),
+/// sampling tools (tabulation would corrupt the schema they exist to reveal,
+/// see [`SAMPLING_TOOLS`]) and discovery listings (tabulating away a
+/// catalogue's schemas is indistinguishable from not having listed them, see
+/// [`DISCOVERY_TOOLS`]).
 pub(crate) fn is_compaction_exempt(name: &str) -> bool {
-    COMPACTION_EXEMPT_TOOLS.contains(&name) || SAMPLING_TOOLS.contains(&name)
+    COMPACTION_EXEMPT_TOOLS.contains(&name)
+        || SAMPLING_TOOLS.contains(&name)
+        || DISCOVERY_TOOLS.contains(&name)
 }
 
 /// Steps 3 (per-tool char cap) + 4 (shared byte-budget backstop) exemption:
-/// proposal tools only. Their JSON is parsed as a single whole-string
-/// document downstream, so any truncation — not just tokenjuice tabulation —
-/// breaks the parse. Sampling tools are deliberately *not* in this set: see
-/// [`SAMPLING_TOOLS`] for why the byte cap stays in force for them.
+/// proposal tools and discovery listings. A proposal's JSON is parsed as a
+/// single whole-string document downstream, so any truncation — not just
+/// tokenjuice tabulation — breaks the parse; a cut catalogue silently drops
+/// whichever tools sit past the boundary. Sampling tools are deliberately
+/// *not* in this set: see [`SAMPLING_TOOLS`] for why the byte cap stays in
+/// force for them.
 pub(crate) fn is_truncation_exempt(name: &str) -> bool {
-    COMPACTION_EXEMPT_TOOLS.contains(&name)
+    COMPACTION_EXEMPT_TOOLS.contains(&name) || DISCOVERY_TOOLS.contains(&name)
 }
 
 /// Whether this call is a `web_fetch` that asked for the body **as sent**

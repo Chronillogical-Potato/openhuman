@@ -13,13 +13,8 @@ import { Image } from '@/components/assistant-ui/image';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningRoot,
-  ReasoningText,
-  ReasoningTrigger,
-} from '@/components/assistant-ui/reasoning';
+import { Reasoning } from '@/components/assistant-ui/reasoning';
+import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import { ToolFallback } from '@/components/assistant-ui/tool-fallback';
 import {
   ToolGroupContent,
@@ -1296,14 +1291,13 @@ const AssistantMessage: FC = () => {
                 if (ReasoningGroup) {
                   return <ReasoningGroup group={part}>{children}</ReasoningGroup>;
                 }
-                const running = part.status.type === 'running';
+                // The static reasoning panel reads the grouped parts' text and
+                // timing itself; the per-part `children` are only for overrides.
                 return (
-                  <ReasoningRoot streaming={running}>
-                    <ReasoningTrigger active={running} />
-                    <ReasoningContent aria-busy={running}>
-                      <ReasoningText>{children}</ReasoningText>
-                    </ReasoningContent>
-                  </ReasoningRoot>
+                  <OpenHumanReasoningGroup
+                    indices={part.indices}
+                    running={part.status.type === 'running'}
+                  />
                 );
               }
               case 'text':

@@ -456,21 +456,35 @@ impl TurnStateMirror {
 
     /// Append a hidden-reasoning delta to the transcript, with the same
     /// coalescing rule as [`Self::push_transcript_narration`].
+    ///
+    /// Stamps the block's first delta as `started_at` and every appended delta
+    /// as `ended_at` (epoch ms), which is what the "Thought for Ns" label reads.
     fn push_transcript_thinking(&mut self, round: u32, delta: &str) {
-        if let Some(TranscriptItem::Thinking { round: r, text, .. }) =
-            self.state.transcript.last_mut()
+        let now = now_epoch_ms();
+        if let Some(TranscriptItem::Thinking {
+            round: r,
+            text,
+            ended_at,
+            ..
+        }) = self.state.transcript.last_mut()
         {
             if *r == round {
                 append_capped_transcript_text(text, delta);
+                *ended_at = Some(now);
                 return;
             }
         }
         let seq = self.next_seq();
         let mut text = String::new();
         append_capped_transcript_text(&mut text, delta);
-        self.state
-            .transcript
-            .push(TranscriptItem::Thinking { round, seq, text });
+        log::trace!("[turn_state] thinking block opened round={round} seq={seq}");
+        self.state.transcript.push(TranscriptItem::Thinking {
+            round,
+            seq,
+            text,
+            started_at: Some(now),
+            ended_at: Some(now),
+        });
     }
 
     /// Record a tool call in the transcript at the point it occurred, as a
@@ -565,4 +579,13 @@ impl TurnStateMirror {
             }
         });
     }
+}
+
+/// Wall-clock epoch milliseconds for transcript timing (0 if the clock is
+/// before the epoch, which only a broken system clock produces).
+fn now_epoch_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
 }

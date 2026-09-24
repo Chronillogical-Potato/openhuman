@@ -457,3 +457,64 @@ describe('OAuthProviderButton', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
+
+describe('OAuthProviderButton web dev redirect', () => {
+  const originalLocation = window.location;
+
+  const setLocation = (origin: string) => {
+    const url = new URL(origin);
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = {
+      href: '',
+      origin: url.origin,
+      protocol: url.protocol,
+      hostname: url.hostname,
+    };
+  };
+
+  const clickAndDrain = async (name: string) => {
+    fireEvent.click(screen.getByRole('button', { name }));
+    await act(async () => {
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    });
+  };
+
+  beforeEach(() => {
+    vi.mocked(checkBackendHealthy).mockResolvedValue(healthyResult);
+    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(getDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+  });
+
+  afterEach(() => {
+    (window as unknown as Record<string, unknown>).location = originalLocation;
+    vi.clearAllMocks();
+  });
+
+  it('returns a loopback browser build to /__dev-auth instead of JSON', async () => {
+    setLocation('http://localhost:1420');
+    render(<OAuthProviderButton provider={stubProvider} />);
+    await clickAndDrain('Google');
+
+    const target = new URL((window.location as unknown as { href: string }).href);
+    expect(target.origin + target.pathname).toBe('https://backend.test/auth/google/login');
+    expect(target.searchParams.get('redirectUri')).toBe('http://localhost:1420/__dev-auth');
+    expect(target.searchParams.get('responseType')).toBeNull();
+    expect(target.searchParams.get('state')).toBe('mock-state');
+    expect(openUrl).not.toHaveBeenCalled();
+  });
+
+  it('keeps the responseType=json fallback on a non-loopback origin', async () => {
+    setLocation('http://dev-box.lan:1420');
+    render(<OAuthProviderButton provider={stubProvider} />);
+    await clickAndDrain('Google');
+
+    const target = new URL((window.location as unknown as { href: string }).href);
+    expect(target.searchParams.get('responseType')).toBe('json');
+    expect(target.searchParams.get('redirectUri')).toBeNull();
+  });
+});
