@@ -52,6 +52,7 @@ pub async fn deliver_response_in_workspace_for_test(
         citations,
         None,
         workspace_dir,
+        None,
     )
     .await;
 }
