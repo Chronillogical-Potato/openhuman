@@ -45,6 +45,8 @@ export type TimelineItem = TimelineItemBase &
         kind: 'streamingText';
         text: string;
         thinking?: string;
+        /** Epoch ms of the stream's first thinking delta (live elapsed badge). */
+        thinkingStartedAt?: number;
         /** `requestId` of the stream; distinguishes the primary from branches. */
         streamId?: string;
         /** True for a `parallelStreamsByThread` forked branch. */

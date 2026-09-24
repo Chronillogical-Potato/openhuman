@@ -377,6 +377,13 @@ test.describe('Chat Harness - Subagent', () => {
       limit: 500,
     });
     expect(JSON.stringify(derived)).toContain(PARENT_THINKING);
+    // The parent's reasoning rehydrates into the static reasoning panel,
+    // settled to a "Thought…" label (never the old hard-coded "Reasoning").
+    const reasoningPanel = page.getByTestId('reasoning-panel').first();
+    await expect(reasoningPanel).toBeVisible({ timeout: 20_000 });
+    await expect(reasoningPanel.locator('[data-slot="reasoning-panel-resting-label"]')).toHaveText(
+      /^Thought( for \d|( briefly)?$)/
+    );
     const restoredMessage = page
       .getByTestId('agent-message')
       .filter({ has: page.getByTestId('assistant-ui-subagent-call') })

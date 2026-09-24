@@ -92,7 +92,13 @@ Send another message to replay it.`;
 export const MOCK_SCRIPT: readonly MockStep[] = [
   {
     kind: 'reasoning',
-    text: `The user is exercising the demo, so there is no real question to answer. What I can do is make the turn cover every part the transcript knows how to render, in the order a real turn would produce them.`,
+    text: `**Reading the request**
+
+The user is exercising the demo, so there is no real question to answer.
+
+**Planning the turn**
+
+What I can do is make the turn cover every part the transcript knows how to render, in the order a real turn would produce them: reasoning, tools, delegations, then prose.`,
   },
   { kind: 'text', text: INTRO },
 
@@ -150,7 +156,9 @@ export const MOCK_SCRIPT: readonly MockStep[] = [
 
   {
     kind: 'reasoning',
-    text: `Both delegations are still working. Nothing about them blocks this turn, so I can keep going and fold their reports in when they land.`,
+    text: `**Checking on the delegations**
+
+Both delegations are still working. Nothing about them blocks this turn, so I can keep going and fold their reports in when they land.`,
   },
   {
     kind: 'tool',
