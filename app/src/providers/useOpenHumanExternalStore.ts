@@ -242,6 +242,38 @@ function useWelcomeSuggestions(
 }
 
 /**
+ * The core's follow-up chips for the thread's latest turn, and nothing else.
+ *
+ * The complement of `useWelcomeSuggestions`: empty on an empty thread (the
+ * welcome chips own that state), empty while a turn runs, and empty unless
+ * the transcript ends on an assistant reply, because the chips follow that
+ * reply. The set comes from `chat_suggestions` via `followupSuggestionsSlice`,
+ * which also drops it the moment the next turn starts.
+ *
+ * The core's `label` is "a short 2-4 word button label" for the prompt
+ * (`web_chat/suggestions.rs`), which is assistant-ui's `title` (the chip's
+ * text), not its `label` (secondary text appended after the title).
+ */
+function useFollowupSuggestions(
+  threadId: string | null,
+  messageCount: number,
+  lastRole: string | undefined,
+  isRunning: boolean
+): readonly ThreadSuggestion[] {
+  const stored = useAppSelector(state =>
+    threadId ? (state.followupSuggestions?.byThread[threadId] ?? null) : null
+  );
+  return useMemo(() => {
+    if (!stored || messageCount === 0 || isRunning || lastRole !== 'assistant') {
+      return EMPTY_SUGGESTIONS;
+    }
+    return stored.suggestions.map(({ prompt, label }) =>
+      label ? { prompt, title: label } : { prompt }
+    );
+  }, [stored, messageCount, lastRole, isRunning]);
+}
+
+/**
  * The excerpt the user quoted, as a markdown blockquote, or `''`.
  *
  * The composer carries a quote as STRUCTURE — `metadata.custom.quote`, a
@@ -350,7 +382,16 @@ export function useOpenHumanExternalStore(
     [messages, streaming, isRunning, liveTimeline, liveTranscript, pendingApproval, coreTranscript]
   );
 
-  const suggestions = useWelcomeSuggestions(runtimeMessages.length, welcomeSuggestions);
+  // The two gates are disjoint (welcome needs an empty thread, follow-ups a
+  // settled reply), so at most one of these is ever non-empty.
+  const welcomeChips = useWelcomeSuggestions(runtimeMessages.length, welcomeSuggestions);
+  const followupChips = useFollowupSuggestions(
+    threadId,
+    runtimeMessages.length,
+    runtimeMessages.at(-1)?.role,
+    isRunning
+  );
+  const suggestions = welcomeChips.length > 0 ? welcomeChips : followupChips;
 
   // The status line titles its `tool_use` / `subagent` phases from the matching
   // running timeline row (the same rows the surface renders as tool parts), so
