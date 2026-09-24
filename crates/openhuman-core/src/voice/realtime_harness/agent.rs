@@ -141,6 +141,8 @@ async fn run_single_with_timeout(
     let approval_ctx = crate::security::approval::ApprovalChatContext {
         thread_id: VOICE_CHAT_THREAD_ID.to_string(),
         client_id: VOICE_CHAT_CLIENT_ID.to_string(),
+        // The realtime voice harness has no web-channel turn request_id.
+        request_id: None,
     };
     agent.set_thread_id(Some(VOICE_CHAT_THREAD_ID));
     let scoped_run = agent.run_single(prompt);
