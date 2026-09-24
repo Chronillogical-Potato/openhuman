@@ -119,6 +119,9 @@ impl PlanReviewGate {
         BUS.publish(DomainEvent::PlanReviewDecided {
             request_id: request_id.clone(),
             decision: resolution.as_str().to_string(),
+            thread_id: None,
+            client_id: None,
+            tool_call_id: None,
         });
         tracing::info!(
             request_id = %request_id,
