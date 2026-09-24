@@ -143,6 +143,14 @@ impl QueueState {
         self.stopped_threads.remove(thread_id);
     }
 
+    fn mark_stopped_task_if_thread_stopped(&mut self, thread_id: &str, task_id: &str) -> bool {
+        if !self.stopped_threads.contains(thread_id) {
+            return false;
+        }
+        self.finish_stop(&[task_id.to_string()]);
+        true
+    }
+
     /// Tombstone `task_id` so a completion that records after the parent
     /// collected it inline is dropped rather than delivered again.
     fn tombstone_collected(&mut self, task_id: &str) {
@@ -405,6 +413,18 @@ pub(crate) fn resume_stopped_thread(thread_id: &str) {
         .lock()
         .expect("background_completions queue poisoned")
         .resume_thread(thread_id);
+}
+
+/// Record a child that registers while its parent thread is stopped.
+///
+/// Registration happens after the detached task is spawned. If Stop races that
+/// narrow interval, the registry sweep cannot see the child; marking its task
+/// id here keeps it rejected even after a later user turn reopens the thread.
+pub(crate) fn mark_stopped_task_if_thread_stopped(thread_id: &str, task_id: &str) -> bool {
+    queue()
+        .lock()
+        .expect("background_completions queue poisoned")
+        .mark_stopped_task_if_thread_stopped(thread_id, task_id)
 }
 
 fn remove_pending_for_thread(state: &mut QueueState, thread_id: &str) -> usize {

@@ -414,7 +414,22 @@ fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
     );
     assert_eq!(pending_count("sess-stop"), 0);
 
+    // A child that was spawned before Stop but registers after the registry
+    // sweep gets its own tombstone before the thread can be reopened.
+    assert!(mark_stopped_task_if_thread_stopped(
+        "thread-stop-live",
+        "sub-stop-registered-late"
+    ));
+
     resume_stopped_thread("thread-stop-live");
+    record_completion(
+        "sess-stop",
+        "sub-stop-registered-late",
+        "researcher",
+        "late registration result",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 0);
     record_completion(
         "sess-stop",
         "sub-stop-new-turn",
