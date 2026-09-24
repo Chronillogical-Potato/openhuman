@@ -146,7 +146,8 @@ export function AssistantUiToolCallCard({
       className="max-w-none"
       label={doneLabel}
       activeLabel={activeLabel}
-      query={presentation.chip}
+      // The web-search element shows the query as its own pill.
+      query={searchBody ? undefined : presentation.chip}
       running={running}
       outcome={outcome}
       defaultOpen={awaitingUser}
