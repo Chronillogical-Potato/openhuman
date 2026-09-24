@@ -79,6 +79,12 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
     // `external_transfer_pending` web-channel events so the frontend can show a
     // per-action "what leaves, to where, why" card (privacy epic S2, #4436).
     crate::web_chat::register_egress_surface_subscriber();
+    // Surface thread-goal / thread-todo / run-queue lifecycle events
+    // (ThreadGoalUpdated/Cleared, ThreadTodosChanged, RunQueue*) as
+    // `thread_goal_updated`/`thread_goal_cleared`/`thread_todos_changed`/
+    // `queue_item_queued`/`queue_item_delivered` web-channel events so the
+    // desktop goal chip, todo drawer, and message-queue UI stay live (C3).
+    crate::web_chat::register_agent_surface_subscriber();
     // Spawn the per-toolkit provider periodic sync scheduler. This is
     // a thin tokio task that ticks every minute and dispatches into
     // any provider whose `sync_interval_secs` has elapsed for an
