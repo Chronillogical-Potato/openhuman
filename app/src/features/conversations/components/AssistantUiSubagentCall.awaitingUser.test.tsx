@@ -7,8 +7,8 @@
  * which folds `awaiting_user` into `running`: the delegation card showed a
  * spinning "running" chip for as long as the gate stayed open, the question was
  * never carried out of the socket event at all, and the only surface that could
- * have shown it (`SubagentDrawer`) lives inside the unreachable
- * `legacyMainPanel`.
+ * have shown it (`SubagentDrawer`) was then mounted only by the legacy
+ * transcript, which `/chat` did not render.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';

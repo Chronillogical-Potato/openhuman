@@ -86,7 +86,8 @@ export function useAuiReloadCapability(): boolean {
  *
  * When the core gains a branch model and `useOpenHumanExternalStore` grows
  * `onEdit` + `setMessages`, two affordances become renderable and both belong
- * inside `TranscriptRow` (the memoized per-turn component), NOT here:
+ * in the assistant-ui message components (`components/assistant-ui/thread.tsx`),
+ * NOT here:
  *
  * - an edit composer, gated on `useAuiEditCapabilities().canEdit`, rendered
  *   from `ComposerPrimitive.Root` / `ComposerPrimitive.Input` inside a
@@ -101,9 +102,9 @@ export function useAuiReloadCapability(): boolean {
  * That rule was stated here but not enforced anywhere until #5897 — this hook
  * had zero production consumers while `ActionBarPrimitive.Edit` shipped
  * unconditionally, so the button was rendered, clickable and inert. The gate is
- * wired now; keep it wired when the affordances move into `TranscriptRow`.
+ * wired now; keep it wired when the affordances land in `thread.tsx`.
  */
 export const EDIT_AND_BRANCH_SEAM = Object.freeze({
-  editComposer: 'TranscriptRow — gated on useAuiEditCapabilities().canEdit',
-  branchPicker: 'TranscriptRow — gated on useAuiEditCapabilities().canSwitchToBranch',
+  editComposer: 'thread.tsx UserMessage — gated on useAuiEditCapabilities().canEdit',
+  branchPicker: 'thread.tsx BranchPicker — gated on useAuiEditCapabilities().canSwitchToBranch',
 });

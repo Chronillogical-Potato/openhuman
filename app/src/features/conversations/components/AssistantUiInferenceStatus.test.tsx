@@ -1,8 +1,7 @@
 /**
  * The progress line on the assistant-ui chat surface.
  *
- * `/chat` renders `AssistantUiChat`, never `ChatThreadView`, so before the
- * `RunningStatus` slot the whole of `chatRuntime.inferenceStatusByThread` —
+ * `/chat` renders `AssistantUiChat`, so before the `RunningStatus` slot the whole of `chatRuntime.inferenceStatusByThread` —
  * reasoning round, active tool, delegated sub-agent — was dispatched by
  * `onInferenceStart` / `onIterationStart` / `onToolCall` and rendered nowhere.
  * assistant-ui knows only `thread.isRunning`, so a long turn was a spinner with

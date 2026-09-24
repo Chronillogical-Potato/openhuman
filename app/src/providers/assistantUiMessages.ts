@@ -39,9 +39,8 @@ export type ToolLabelArtifact = { displayName?: string; detail?: string };
  *
  * The one property that matters for performance is stated as a test, not a
  * comment: converting the transcript while a token streams must not re-convert
- * the settled messages above the live tail. `ChatThreadView.renderPerf.test.tsx`
- * pins the equivalent property for the render tree; `assistantUiMessages.test.ts`
- * pins it for this projection.
+ * the settled messages above the live tail. `assistantUiMessages.test.ts` pins
+ * it for this projection.
  */
 
 type ConversionCacheEntry = {

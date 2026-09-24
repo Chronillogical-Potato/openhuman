@@ -13,8 +13,8 @@
  *    transcript RPC → `mapDisplayItems` → the adapter → message metadata), not
  *    by rendering `ChatSources` directly with a hand-made prop. A component that
  *    renders correctly in isolation while nothing mounts it is the defect shape
- *    this codebase keeps producing (`legacyMainPanel`, the assistant-ui
- *    reasoning part, the suggestion chips), so proving the wiring is the point;
+ *    this codebase keeps producing (the old voice-only transcript panel, the
+ *    assistant-ui reasoning part, the suggestion chips), so proving the wiring is the point;
  * 3. a non-`http(s)` URL never becomes a link. Sources are derived from the
  *    `url` argument of a fetch tool call, which is raw model output, so a
  *    `javascript:` value must not reach an `<a href>`. `extractAgentSources`
