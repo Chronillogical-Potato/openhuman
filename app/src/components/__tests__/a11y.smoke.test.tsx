@@ -13,13 +13,9 @@ import { axe } from 'jest-axe';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
+import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import type { ArtifactSnapshot } from '../../store/chatRuntimeSlice';
-import ArtifactCard from '../chat/ArtifactCard';
 
-vi.mock('../../services/artifactDownloadService', () => ({
-  saveArtifactViaDialog: vi.fn(),
-  revealArtifactInFileManager: vi.fn(),
-}));
 vi.mock('../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
 async function expectNoViolations(container: HTMLElement) {
