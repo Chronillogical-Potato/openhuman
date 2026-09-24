@@ -152,7 +152,10 @@ impl EventHandler<DomainEvent> for MemoryActivitySurfaceSubscriber {
                 }),
             ),
             DomainEvent::MemoryRecalled { query, hit_count } => {
-                let preview: String = query.chars().take(MEMORY_ACTIVITY_QUERY_PREVIEW_CHARS).collect();
+                let preview: String = query
+                    .chars()
+                    .take(MEMORY_ACTIVITY_QUERY_PREVIEW_CHARS)
+                    .collect();
                 let truncated = query.chars().count() > MEMORY_ACTIVITY_QUERY_PREVIEW_CHARS;
                 (
                     "recalled",
@@ -166,9 +169,7 @@ impl EventHandler<DomainEvent> for MemoryActivitySurfaceSubscriber {
             _ => return,
         };
         let Some((thread_id, client_id)) = current_chat_context() else {
-            log::debug!(
-                "[web-channel] memory-activity-surface skip {event_name}: no chat context"
-            );
+            log::debug!("[web-channel] memory-activity-surface skip {event_name}: no chat context");
             return;
         };
         log::debug!(

@@ -161,8 +161,7 @@ impl TurnStateStore {
         if !path.exists() {
             return Ok(false);
         }
-        fs::remove_file(&path)
-            .map_err(|e| format!("remove turn-state {}: {e}", path.display()))?;
+        fs::remove_file(&path).map_err(|e| format!("remove turn-state {}: {e}", path.display()))?;
         debug!("{LOG_PREFIX} deleted snapshot thread={thread_id} request={request_id}");
         Ok(true)
     }
@@ -648,7 +647,11 @@ pub fn delete(workspace_dir: PathBuf, thread_id: &str) -> Result<bool, String> {
     TurnStateStore::new(workspace_dir).delete(thread_id)
 }
 
-pub fn delete_turn(workspace_dir: PathBuf, thread_id: &str, request_id: &str) -> Result<bool, String> {
+pub fn delete_turn(
+    workspace_dir: PathBuf,
+    thread_id: &str,
+    request_id: &str,
+) -> Result<bool, String> {
     TurnStateStore::new(workspace_dir).delete_turn(thread_id, request_id)
 }
 

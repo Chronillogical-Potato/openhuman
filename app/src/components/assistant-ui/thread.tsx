@@ -1306,12 +1306,71 @@ const SourceGroupSlot: FC<{ Component: ComponentType<{ sources: readonly SourceI
   return sources.length > 0 ? <Component sources={sources} /> : null;
 };
 
+/** Whether this message is a stopped/cancelled turn's partial reply. */
+const isStoppedRun = (s: AssistantState): boolean =>
+  s.message.status?.type === 'incomplete' && s.message.status.reason === 'cancelled';
+
+/**
+ * The stopped turn's own text, split into words for the vendored
+ * `StoppedRun` element, plus `cancel_reason`/`superseded_by`
+ * (wire-contract.md `chat_cancelled`, carried through
+ * `metadata.custom.extraMetadata` by `assistantUiMessages.ts`) so the reason
+ * chip can distinguish a user-initiated Stop from a turn the core superseded.
+ */
+const selectStoppedRunState = (s: AssistantState) => {
+  const text = s.message.parts
+    .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+    .map(part => part.text)
+    .join(' ');
+  const custom = s.message.metadata?.custom as
+    | { extraMetadata?: { cancelReason?: string; supersededBy?: string } }
+    | undefined;
+  return {
+    words: text.length > 0 ? text.split(/\s+/).filter(Boolean) : [],
+    cancelReason: custom?.extraMetadata?.cancelReason,
+  };
+};
+
+/**
+ * Renders in place of the normal part switch for a stopped/cancelled
+ * assistant message (#4862 kept the raw text visible via a plain "Stopped"
+ * label; this replaces that with the real vendored element). Continue re-runs
+ * the turn through the same Reload capability `AssistantActionBar` uses;
+ * Discard drops the partial reply from this client's view via `onDelete`
+ * (`useOpenHumanExternalStore.ts` — the core keeps the persisted row, this
+ * only stops showing it here).
+ */
+const StoppedRunSlot: FC = () => {
+  const aui = useAui();
+  const { t } = useT();
+  const { words, cancelReason } = useAuiState(selectStoppedRunState);
+  const { disabled: reloadDisabled, reload } = useActionBarReload();
+  const reasonLabel =
+    cancelReason === 'superseded'
+      ? t('conversations.assistantUi.stoppedRun.reasonSuperseded')
+      : t('conversations.assistantUi.stoppedRun.reasonUserStop');
+  return (
+    <StoppedRun
+      data-testid="stopped-marker"
+      words={words}
+      reason={reasonLabel}
+      onContinue={() => {
+        if (!reloadDisabled) reload();
+      }}
+      onDiscard={() => aui.message.delete()}
+      continueLabel={t('common.continue')}
+      discardLabel={t('settings.ai.discard')}
+    />
+  );
+};
+
 const AssistantMessage: FC = () => {
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
     ActivityGroup = DefaultActivityGroup,
     SourceGroup,
   } = useContext(ThreadComponentsContext);
+  const stopped = useAuiState(isStoppedRun);
 
   const ACTION_BAR_PT = 'pt-1.5';
   // `min-h` reserves the bar's height (`pt-1.5` + a `size-6` button = 7.5) so a

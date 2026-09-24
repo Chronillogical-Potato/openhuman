@@ -285,7 +285,7 @@ export function AssistantUiChat({
       ToolFallback: ChatToolFallback,
       // `/` commands (builtins + core `commands_list` + registry actions) and
       // `@` mentions (memory recall, thread files); see `aui/ComposerTriggers`.
-      //TMP ComposerTriggers,
+      ComposerTriggers,
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,
