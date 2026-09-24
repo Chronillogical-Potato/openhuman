@@ -241,6 +241,7 @@ impl Tool for SpawnParallelAgentsTool {
         _options: ToolCallOptions,
         tool_context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
+        let parent_call_id = crate::tools::host_extensions::tool_call_id(tool_context);
         if let Some(live_parent) = super::ambient_parent_run_context("direct-spawn-parallel") {
             return execute_spawn_parallel_agents(
                 args,
@@ -248,6 +249,7 @@ impl Tool for SpawnParallelAgentsTool {
                 live_parent.workspace.clone(),
                 live_parent.data.child(),
                 Some(&live_parent),
+                parent_call_id,
             )
             .await;
         }
@@ -258,6 +260,7 @@ impl Tool for SpawnParallelAgentsTool {
             workspace_descriptor,
             crate::agent::tinyagents::host::OpenHumanRunContext::new(),
             None,
+            parent_call_id,
         )
         .await
     }
