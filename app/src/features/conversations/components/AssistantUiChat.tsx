@@ -8,18 +8,16 @@ import { Button } from '../../../components/ui';
 import type { Attachment } from '../../../lib/attachments';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { AssistantUiRuntimeProvider } from '../../../providers/AssistantUiRuntimeProvider';
-import { emptySessionTokenUsage } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { DEFAULT_MASCOT_COLOR } from '../../../store/mascotSlice';
 import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
 import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ComposerTriggers } from '../aui/ComposerTriggers';
+import { ContextUsage } from '../aui/ContextUsage';
 import { ChatSources } from './aui/ChatSources';
 import { ChatToolFallback } from './ChatToolParts';
-import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
 
-const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
 const selectComposerText = (state: AssistantState) => state.composer.text;
 
 function ComposerTextBridge({
@@ -120,15 +118,6 @@ export function AssistantUiChat({
   const mascotCustomPrimary = useAppSelector(state => state.mascot?.customPrimaryColor ?? null);
   const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
   const loadError = useAppSelector(state => state.thread.messagesError);
-  const tokenUsage = useAppSelector(state =>
-    selectedThreadId
-      ? (state.chatRuntime.usageByThread[selectedThreadId] ?? EMPTY_TOKEN_USAGE)
-      : EMPTY_TOKEN_USAGE
-  );
-  const contextUsage = useMemo(
-    () => contextUsageFromTokenUsage(tokenUsage, modelContextWindow),
-    [modelContextWindow, tokenUsage]
-  );
 
   // Every prop the composer slots below read, refreshed on each host render.
   //
@@ -141,24 +130,26 @@ export function AssistantUiChat({
   const slotPropsRef = useRef({
     attachments,
     attachmentInteractionBlocked,
-    contextUsage,
     maxAttachments,
     mascotColor,
     mascotCustomPrimary,
+    modelContextWindow,
     onAttachFiles,
     onOpenHumanMode,
     onRemoveAttachment,
+    selectedThreadId,
   });
   slotPropsRef.current = {
     attachments,
     attachmentInteractionBlocked,
-    contextUsage,
     maxAttachments,
     mascotColor,
     mascotCustomPrimary,
+    modelContextWindow,
     onAttachFiles,
     onOpenHumanMode,
     onRemoveAttachment,
+    selectedThreadId,
   };
   // Read through a ref for the same reason `ComposerHeader` does below: the
   // slot is rendered by type, so closing over the node would remount the whole
@@ -166,10 +157,10 @@ export function AssistantUiChat({
   const composerFooterExtrasRef = useRef(composerFooterExtras);
   composerFooterExtrasRef.current = composerFooterExtras;
   const ComposerExtras = useCallback(() => {
-    const { contextUsage: usage } = slotPropsRef.current;
+    const { modelContextWindow, selectedThreadId } = slotPropsRef.current;
     return (
       <>
-        <ContextWindowPill usage={usage} />
+        <ContextUsage threadId={selectedThreadId} modelContextWindow={modelContextWindow} />
         {composerFooterExtrasRef.current}
       </>
     );
