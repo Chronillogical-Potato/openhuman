@@ -313,6 +313,33 @@ impl ConversationStore {
         let removed = messages.len() - cut_at;
         let kept = &messages[..cut_at];
         rewrite_jsonl(&path, kept)?;
+        // The compact stat trail in `threads.jsonl` (`MessageAppended`/
+        // `Stats`) only ever grows via `append_message`'s increment — it has
+        // no notion of a truncation. Append an authoritative `Stats` snapshot
+        // now so `list_threads`'s `message_count`/`last_message_at` reflect
+        // the post-truncation file immediately, instead of staying
+        // overcounted until this thread is next quarantined as unreadable
+        // and rescanned (which never happens on its own — see
+        // `list_threads_coordinated`, which only remeasures a `None` count).
+        let last_message_at = kept.last().map(|m| m.created_at.clone());
+        {
+            let _metadata = self.locks.metadata.lock();
+            let resolved_last = match last_message_at {
+                Some(ts) => ts,
+                None => self
+                    .thread_summary_unlocked(thread_id)?
+                    .map(|t| t.created_at)
+                    .unwrap_or_default(),
+            };
+            append_jsonl(
+                &self.ensure_root()?.join(THREADS_FILENAME),
+                &ThreadLogEntry::Stats {
+                    thread_id: thread_id.to_string(),
+                    message_count: kept.len(),
+                    last_message_at: resolved_last,
+                },
+            )?;
+        }
         {
             let mut cache = CONVERSATION_INDEX_CACHE.lock();
             if let Some(idx) = cache.get_mut(&self.root_dir()) {
