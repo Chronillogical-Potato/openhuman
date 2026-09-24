@@ -19,7 +19,7 @@ import { SubagentDrawerHost } from './aui/subagentDrawerHost';
 import { TurnFooter } from './aui/TurnFooter';
 import { TurnFooterHost } from './aui/turnFooterHost';
 import { TurnSources } from './aui/TurnSources';
-import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
+import { ChatToolFallback } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
 
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
@@ -276,7 +276,6 @@ export function AssistantUiChat({
   const components: ThreadComponents = useMemo(
     () => ({
       ToolFallback: ChatToolFallback,
-      ToolGroup: ChatToolGroup,
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,

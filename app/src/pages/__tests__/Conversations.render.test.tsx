@@ -630,7 +630,9 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       });
     });
 
-    // The past turn's core transcript is projected into assistant-ui exactly once.
+    // The past turn's core transcript is projected into one settled activity
+    // group. Open it before checking the contained tool card.
+    fireEvent.click(await screen.findByRole('button', { name: '1 tool call' }));
     expect(await screen.findByTestId('assistant-ui-tool-call')).toHaveTextContent('Read File');
   });
 
