@@ -319,7 +319,6 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
     let reconstructed = SessionTranscript {
         tools: None,
         meta: meta.clone(),
-        tools: None,
         messages: durable_messages(&live_messages),
     };
     write_live_turn(ws.path(), stem, &reconstructed)
@@ -356,7 +355,6 @@ async fn shadow_read_unavailable_and_divergence() {
     let legacy = SessionTranscript {
         tools: None,
         meta: meta.clone(),
-        tools: None,
         messages: durable_messages(&[ChatMessage::user("hi"), ChatMessage::assistant("done")]),
     };
     assert_eq!(
@@ -373,7 +371,6 @@ async fn shadow_read_unavailable_and_divergence() {
     let diverging = SessionTranscript {
         tools: None,
         meta,
-        tools: None,
         messages: durable_messages(&[
             ChatMessage::user("hi"),
             ChatMessage::assistant("done"),
