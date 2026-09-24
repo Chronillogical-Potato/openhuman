@@ -16,7 +16,7 @@ import { MascotChipAvatar } from '../../human/Mascot/MascotChipAvatar';
 import { AssistantUiInferenceStatus } from './AssistantUiInferenceStatus';
 import { ChatSources } from './aui/ChatSources';
 import { SubagentDrawerHost } from './aui/subagentDrawerHost';
-import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
+import { ChatToolFallback } from './ChatToolParts';
 import { contextUsageFromTokenUsage, ContextWindowPill } from './composer/ContextWindowPill';
 
 const EMPTY_TOKEN_USAGE = emptySessionTokenUsage();
@@ -264,13 +264,12 @@ export function AssistantUiChat({
   // the picker uses. Stable like the slots above, and for the same reason: it
   // is handed to `thread.tsx` through the components object.
   const handleComposerFiles = useCallback((files: FileList | File[] | null) => {
-    void slotPropsRef.current.onAttachFiles(files);
+    return slotPropsRef.current.onAttachFiles(files);
   }, []);
 
   const components: ThreadComponents = useMemo(
     () => ({
       ToolFallback: ChatToolFallback,
-      ToolGroup: ChatToolGroup,
       ComposerExtras,
       ComposerHeader,
       ComposerIdleAction,

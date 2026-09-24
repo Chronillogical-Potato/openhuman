@@ -31,6 +31,7 @@
 //! - `GET /`              — public info page
 //! - `GET /health`        — liveness probe
 //! - `GET /schema`        — read-only schema discovery
+//! - `GET /dev/connect`   — dev-only core handoff; see `core::dev_connect`
 //! - `GET /events`        — SSE stream; browser `EventSource` cannot set
 //!                          headers, so the handler enforces a bind-token /
 //!                          bearer credential itself
@@ -105,6 +106,10 @@ const PUBLIC_PATHS: &[&str] = &[
     // authorization server posts back here with `?code=…&state=…` and no
     // bearer; the one-time `state` (minted in `oauth_begin`) is the guard.
     "/oauth/mcp/callback",
+    // Dev-only handoff to a loopback Vite renderer. Guards live in the handler
+    // (`core::dev_connect`): debug build or explicit opt-in, loopback `app`
+    // origin and `Host`, no cross-site navigation.
+    "/dev/connect",
     "/schema",
     "/events",
 ];

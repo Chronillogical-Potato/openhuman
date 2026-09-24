@@ -605,3 +605,190 @@ async fn draft_promote_of_invalid_graph_is_rejected_and_keeps_the_draft() {
     // The draft survives a failed promote so the user can fix it.
     assert!(flows_draft_get(&config, &draft.id).is_ok());
 }
+
+/// Regression for #6540: a graph whose *node* omits `name` must report which
+/// object is at fault, not a bare `missing field \`name\``.
+///
+/// The bare message is worse than uninformative here, because the one reading
+/// it cannot even rule out the obvious candidate: every field of
+/// `WorkflowGraph` is `#[serde(default)]`, so the top-level `name` can never be
+/// the cause — yet an authoring agent that assumes it is will re-send the same
+/// graph until it exhausts its iteration cap. That is exactly what happened
+/// live: six identical retries, 392k input tokens, no workflow created.
+#[test]
+fn migrate_and_deserialize_graph_names_the_node_that_is_missing_a_field() {
+    let missing_node_name = json!({
+        "name": "top-level name is present and is NOT the problem",
+        "nodes": [
+            { "id": "start", "kind": "trigger", "name": "Trigger" },
+            { "id": "nameless", "kind": "trigger" }
+        ]
+    });
+
+    let err = migrate_and_deserialize_graph(missing_node_name)
+        .expect_err("a node without `name` must not deserialize");
+
+    // The path is the point of the fix: `nodes[1]` is the second node, and
+    // naming it is what distinguishes this from the two other required `name`
+    // fields reachable from one graph (`Port::name`, `WorkflowInput::name`).
+    assert!(
+        err.contains("nodes[1]"),
+        "error must name the offending node's path, got: {err}"
+    );
+    // ...and the original serde detail must survive the wrapping, or the fix
+    // would have traded one unactionable message for another.
+    assert!(
+        err.contains("missing field") && err.contains("name"),
+        "error must still say which field is missing, got: {err}"
+    );
+}
+
+/// The premise of the test above: a graph with no top-level `name` at all
+/// deserializes fine. If this ever starts failing, `missing field \`name\``
+/// becomes genuinely ambiguous and the path in the message matters more, not
+/// less.
+#[test]
+fn migrate_and_deserialize_graph_accepts_a_graph_with_no_top_level_name() {
+    let no_top_level_name = json!({
+        "nodes": [ { "id": "start", "kind": "trigger", "name": "Trigger" } ]
+    });
+
+    let graph = migrate_and_deserialize_graph(no_top_level_name)
+        .expect("top-level `name` is #[serde(default)] and must not be required");
+    assert_eq!(
+        graph.name, "",
+        "absent top-level name must default to empty"
+    );
+}
+
+/// Regression for the misattribution case raised in review on #6545: when the
+/// graph's own fields are at fault *and* a node is independently invalid, the
+/// error must not be pinned on the node.
+///
+/// Locating by "first member that fails on its own" is only sound once the
+/// top level is known good — otherwise it turns a correct vague message into a
+/// confident wrong one, which is worse than what this PR set out to fix.
+#[test]
+fn migrate_and_deserialize_graph_does_not_blame_a_node_for_a_top_level_fault() {
+    let top_level_fault = json!({
+        // Wrong type, not missing: `name` is `String`, so this fails the graph
+        // parse on its own account.
+        "name": 123,
+        "nodes": [
+            // Independently invalid too — the bait for the member scan.
+            { "id": "nameless", "kind": "trigger" }
+        ]
+    });
+
+    let err = migrate_and_deserialize_graph(top_level_fault)
+        .expect_err("a non-string top-level `name` must not deserialize");
+
+    // Assert what must NOT be claimed. Comparing the rendered string to the
+    // bare serde message would pass for the wrong reason: the two messages can
+    // coincide without the failing path being the same one.
+    assert!(
+        !err.contains("nodes["),
+        "a top-level fault must not be attributed to a node, got: {err}"
+    );
+    assert!(
+        err.contains("name"),
+        "error should still name the offending field, got: {err}"
+    );
+}
+
+/// The member scan covers four arrays, and until now only `nodes` was ever
+/// exercised — the other three arms were unreachable in the test suite while
+/// looking correct by inspection.
+///
+/// Each case supplies a graph whose *only* fault is one member of one array, so
+/// a failure here cannot be the top-level guard firing instead.
+#[test]
+fn migrate_and_deserialize_graph_names_the_member_in_inputs_agents_and_edges() {
+    // `WorkflowInput::name` is required; every other field defaults.
+    let bad_input = json!({
+        "inputs": [ { "type": "string" } ]
+    });
+    let err = migrate_and_deserialize_graph(bad_input).expect_err("input without `name`");
+    assert!(
+        err.starts_with("inputs[0]: "),
+        "expected the inputs arm to name the member, got: {err}"
+    );
+
+    // `AgentDefinition::id` is required — `name` is #[serde(default)] here, so
+    // this is a different required field from the node case on purpose.
+    let bad_agent = json!({
+        "agents": [ { "name": "no id" } ]
+    });
+    let err = migrate_and_deserialize_graph(bad_agent).expect_err("agent without `id`");
+    assert!(
+        err.starts_with("agents[0]: "),
+        "expected the agents arm to name the member, got: {err}"
+    );
+
+    // `Edge::from_node` / `to_node` are required.
+    let bad_edge = json!({
+        "edges": [ { "from_port": "main" } ]
+    });
+    let err = migrate_and_deserialize_graph(bad_edge).expect_err("edge without endpoints");
+    assert!(
+        err.starts_with("edges[0]: "),
+        "expected the edges arm to name the member, got: {err}"
+    );
+}
+
+/// The fallback: the graph's own fields are fine and no member is individually
+/// at fault, yet the parse still fails — here `nodes` is a string rather than an
+/// array, so the member scan has nothing to iterate.
+///
+/// This is the case that must NOT invent a location. Emptying the arrays for
+/// the top-level probe also masks this fault, which is exactly why the bare
+/// message has to survive as the last resort.
+#[test]
+fn migrate_and_deserialize_graph_falls_back_when_no_member_is_at_fault() {
+    let nodes_not_an_array = json!({
+        "name": "valid",
+        "nodes": "this is not an array"
+    });
+
+    let err = migrate_and_deserialize_graph(nodes_not_an_array)
+        .expect_err("a non-array `nodes` must not deserialize");
+
+    assert!(
+        !err.contains("nodes["),
+        "no member is at fault, so none may be named: {err}"
+    );
+    assert!(
+        err.contains("invalid type"),
+        "the original serde detail must survive the fallback: {err}"
+    );
+}
+
+/// A graph that is not a JSON object at all.
+///
+/// `tinyflows::migrate::migrate` passes it through rather than rejecting it —
+/// it reads `schema_version` with `Value::get`, which is `None` on a non-object,
+/// and stamps the version back only `if let Value::Object`. So this reaches the
+/// error path with nothing to probe: no members, and no fields to iterate.
+///
+/// The requirement is negative. There is no location to report, so none may be
+/// invented, and the caller must still get serde's own explanation.
+#[test]
+fn migrate_and_deserialize_graph_reports_a_non_object_graph_without_inventing_a_location() {
+    let not_an_object = json!("this is a string, not a workflow graph");
+
+    let err = migrate_and_deserialize_graph(not_an_object)
+        .expect_err("a non-object graph must not deserialize");
+
+    assert!(
+        !err.contains('['),
+        "nothing can be indexed here, so no index may appear: {err}"
+    );
+    assert!(
+        !err.contains(": invalid") || !err.starts_with("name"),
+        "no field may be named for a value that has no fields: {err}"
+    );
+    assert!(
+        err.contains("invalid type"),
+        "serde's own explanation must survive: {err}"
+    );
+}

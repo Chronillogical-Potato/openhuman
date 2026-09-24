@@ -64,6 +64,7 @@ async fn pick_listen_port_preferred_free() {
             attempts: 0,
             backoff: Duration::from_millis(1),
         },
+        OccupiedByCore::Takeover,
     )
     .await
     .expect("preferred bind should succeed");
@@ -88,6 +89,7 @@ async fn pick_listen_port_openhuman_listener_requests_takeover() {
             attempts: 1,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await;
 
@@ -96,6 +98,39 @@ async fn pick_listen_port_openhuman_listener_requests_takeover() {
         matches!(err, PickListenPortError::WouldTakeOver { preferred: p, .. } if p == preferred),
         "expected WouldTakeOver for preferred port, got: {err:?}"
     );
+
+    let _ = shutdown_tx.send(());
+    let _ = server_task.await;
+}
+
+#[tokio::test]
+async fn pick_listen_port_openhuman_listener_falls_back_when_asked() {
+    let holder = reserve_port();
+    let preferred = holder.local_addr().expect("preferred local addr").port();
+    drop(holder);
+    let fallback_holder = reserve_port();
+    let fallback = fallback_holder
+        .local_addr()
+        .expect("fallback local addr")
+        .port();
+    drop(fallback_holder);
+
+    let (server_task, shutdown_tx) = spawn_openhuman_probe_listener(preferred).await;
+
+    let picked = pick_listen_port_with_policy(
+        "127.0.0.1",
+        preferred,
+        &[fallback],
+        RetryPolicy {
+            attempts: 1,
+            backoff: Duration::from_millis(10),
+        },
+        OccupiedByCore::Fallback,
+    )
+    .await
+    .expect("a live neighbouring core should not block a headless core");
+    assert_eq!(picked.port, fallback);
+    assert_eq!(picked.fallback_from, Some(preferred));
 
     let _ = shutdown_tx.send(());
     let _ = server_task.await;
@@ -128,6 +163,7 @@ async fn pick_listen_port_other_listener_falls_back() {
             attempts: 1,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await
     .expect("fallback bind should succeed");
@@ -162,6 +198,7 @@ async fn pick_listen_port_all_candidates_busy_errors() {
             attempts: 1,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await;
 
@@ -192,6 +229,7 @@ async fn pick_listen_port_retries_transient_addr_in_use() {
             attempts: 6,
             backoff: Duration::from_millis(10),
         },
+        OccupiedByCore::Takeover,
     )
     .await
     .expect("transient in-use should recover to preferred port");
