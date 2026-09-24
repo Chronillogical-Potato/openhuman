@@ -5,11 +5,15 @@ import {
 } from '@assistant-ui/react';
 import { useCallback } from 'react';
 
-import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
-import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
+import { ApprovalCardAdapter } from '../aui/ApprovalCardAdapter';
+import { ElicitationAdapter } from '../aui/ElicitationAdapter';
+import { PermissionGrantAdapter } from '../aui/PermissionGrantAdapter';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
+import { decideApproval } from '../../../services/api/approvalApi';
+import { clearPendingApprovalForThread } from '../../../store/chatRuntimeSlice';
 import type { PendingApproval, SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { useAppSelector } from '../../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { useT } from '../../../lib/i18n/I18nContext';
 import { AssistantUiSubagentCall, isActiveSubagentStatus } from './AssistantUiSubagentCall';
 import { isApprovalPending, OpenHumanToolCall } from './AssistantUiToolCall';
 import { useSubagentDrawerHost } from './aui/subagentDrawerHost';
