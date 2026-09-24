@@ -10,8 +10,8 @@ const selectThreadExtras = (state: AssistantState) => state.thread.extras;
  *
  * assistant-ui knows only `thread.isRunning`, so before this the whole of
  * `chatRuntime.inferenceStatusByThread` — reasoning round, active tool,
- * delegated sub-agent — stopped at `ChatThreadView`, which `/chat` no longer
- * renders. A slow turn was an unlabelled spinner.
+ * delegated sub-agent — reached no assistant-ui surface. A slow turn was an
+ * unlabelled spinner.
  *
  * The status arrives on the runtime's `extras` channel
  * (`useOpenHumanExternalStore`), so it is always the status of the thread *this
@@ -40,9 +40,8 @@ const selectThreadExtras = (state: AssistantState) => state.thread.extras;
  * (`@assistant-ui/core`, `contentLength === 0 && isRunning`), and
  * `components/assistant-ui/thread.tsx` renders that part as
  * `<span data-slot="aui_assistant-message-indicator">●</span>`. Being
- * message-level, it exists only on this surface — `ChatThreadView` has no
- * equivalent, which is why the shared `InferenceStatusLine` keeps its
- * `thinking` branch and the suppression lives here instead.
+ * message-level, which is why the suppression lives here, at this caller,
+ * rather than in the shared `InferenceStatusLine`.
  *
  * It is NOT `@assistant-ui/react-markdown/styles/dot.css` painting
  * `.aui-md[data-status="running"]:empty::after`. That rule cannot fire in this

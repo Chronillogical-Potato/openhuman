@@ -13,6 +13,10 @@ interface ParsedToolArgs {
   query?: string;
   tool_name?: string;
   question?: string;
+  /** `tool_call` (harness discovery bridge): the deferred tool it invokes. */
+  name?: string;
+  /** `tool_call`: the arguments forwarded to {@link ParsedToolArgs.name}. */
+  arguments?: unknown;
 }
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
@@ -43,6 +47,28 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   tool_search: 'Finding the right tool',
   tool_call: 'Using a tool',
   gitbooks_search: 'Searching docs',
+  // The other search engines the core registers (`search/`); each is a real
+  // web search, so they read the same as the canonical slot.
+  brave_news_search: 'Searching the news',
+  brave_image_search: 'Searching images',
+  brave_video_search: 'Searching videos',
+  searxng_search: 'Searching the web',
+  seltz_search: 'Searching the web',
+  tinyfish_search: 'Searching the web',
+  parallel_search: 'Searching the web',
+  google_places_search: 'Searching places',
+  // `tool_call` is unwrapped to the tool it invokes in `formatTimelineEntry`;
+  // its entry above is only the fallback for a call with no `name`.
+  search_tool_catalog: 'Finding the right tool',
+  mcp_registry_search: 'Searching MCP servers',
+  skill_registry_search: 'Searching skills',
+  // Memory reads. Named `*_search`, but they search the user's memory.
+  memory_recall: 'Recalling memory',
+  memory_hybrid_search: 'Searching memory',
+  memory_vector_search: 'Searching memory',
+  memory_store_raw_search: 'Searching memory',
+  memory_tree_search_entities: 'Searching memory',
+  flow_memory_recall: 'Recalling memory',
   file_read: 'Reading file',
   file_write: 'Writing file',
   edit: 'Editing file',
@@ -202,6 +228,13 @@ const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   web_search: 'search',
   web_search_tool: 'search',
   gitbooks_search: 'search',
+  brave_news_search: 'search',
+  brave_image_search: 'search',
+  brave_video_search: 'search',
+  searxng_search: 'search',
+  seltz_search: 'search',
+  tinyfish_search: 'search',
+  parallel_search: 'search',
   gitbooks_get_page: 'read',
   shell: 'run',
   node_exec: 'run',
@@ -270,6 +303,22 @@ export function summarizeToolGroup(entries: ToolTimelineEntry[]): string {
 
 export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; detail?: string } {
   const parsedArgs = parseToolArgs(entry.argsBuffer);
+
+  // The harness discovery bridge: `tool_call {name, arguments}` runs a deferred
+  // tool (usually a Composio action the orchestrator found with `tool_search`).
+  // Label the tool it ran, not the bridge.
+  const bridged =
+    entry.name === 'tool_call' && typeof parsedArgs?.name === 'string'
+      ? parsedArgs.name.trim()
+      : undefined;
+  if (bridged && bridged !== 'tool_call') {
+    return formatTimelineEntry({
+      ...entry,
+      name: bridged,
+      argsBuffer: stringifyBridgedArgs(parsedArgs?.arguments),
+      displayName: undefined,
+    });
+  }
 
   if (entry.name === 'spawn_subagent' && parsedArgs?.agent_id === 'integrations_agent') {
     const provider =
@@ -350,7 +399,7 @@ export function formatTimelineEntry(entry: ToolTimelineEntry): { title: string; 
   }
 
   return {
-    title: entry.displayName ?? humanizeIdentifier(entry.name),
+    title: entry.displayName ?? formatToolName(entry.name),
     detail: entry.detail ?? parsedArgs?.prompt,
   };
 }
@@ -460,7 +509,9 @@ export function extractAgentSources(entries: ToolTimelineEntry[]): AgentSource[]
   const sources: AgentSource[] = [];
   for (const entry of entries) {
     const baseName = entry.name.replace(/^subagent:/, '');
-    if (!URL_SOURCE_TOOLS.has(baseName)) continue;
+    // An attempted request is not a source. Do not represent a failed,
+    // cancelled, or still-running fetch as a page the agent visited.
+    if (entry.status !== 'success' || !URL_SOURCE_TOOLS.has(baseName)) continue;
     const url = parseToolArgs(entry.argsBuffer)?.url?.trim();
     // `url` is the raw tool-call argument the model emitted — it is
     // prompt-injection-influenceable and not guaranteed to be a real web
@@ -743,6 +794,42 @@ function inferIntegrationNameFromPrompt(prompt?: string): string | undefined {
 
   const lower = prompt.toLowerCase();
   return known.find(name => lower.includes(name.toLowerCase()));
+}
+
+function stringifyBridgedArgs(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The label and detail for one tool call, from its name, raw argument text and
+ * result, for surfaces that hold a tool part rather than a timeline row.
+ *
+ * Deliberately the same formatter the timeline uses: every surface labels a
+ * tool from the tool's identity. Nothing here guesses a category from a
+ * substring of the name or from which argument keys happen to be present —
+ * that heuristic is what labelled `tool_search` and every Composio action with
+ * a `query` argument as a web search.
+ */
+export function toolCallLabel(
+  toolName: string,
+  argsText?: string,
+  result?: string
+): { title: string; detail?: string } {
+  return formatTimelineEntry({
+    id: '',
+    name: toolName,
+    round: 0,
+    seq: 0,
+    status: result === undefined ? 'running' : 'success',
+    argsBuffer: argsText,
+    result,
+  });
 }
 
 function parseToolArgs(argsBuffer?: string): ParsedToolArgs | null {

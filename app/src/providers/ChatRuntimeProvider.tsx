@@ -683,6 +683,14 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           // Fresh turn: drop the previous turn's live processing transcript so a
           // new turn's narration/steps don't append onto the old one.
           dispatch(clearProcessingForThread({ threadId: event.thread_id }));
+          // A queued primary follow-up starts with a clean timeline. Parallel
+          // branches have their own lane and must not erase the primary rows.
+          if (
+            !event.request_id ||
+            store.getState().chatRuntime.parallelRequestThreads[event.request_id] === undefined
+          ) {
+            dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: [] }));
+          }
           dispatch(markInferenceTurnStreaming({ threadId: event.thread_id }));
           if (event.request_id) {
             dispatch(liveTurnStarted({ threadId: event.thread_id, requestId: event.request_id }));

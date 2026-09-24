@@ -17,13 +17,7 @@ function renderPanel(
 ) {
   return renderWithProviders(<AppearancePanel />, {
     preloadedState: {
-      theme: {
-        mode: 'system',
-        tabBarLabels: 'hover',
-        fontSize,
-        customFontSizePx,
-        agentMessageViewMode: 'bubbles',
-      },
+      theme: { mode: 'system', tabBarLabels: 'hover', fontSize, customFontSizePx },
     },
   });
 }

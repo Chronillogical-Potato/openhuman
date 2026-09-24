@@ -3,18 +3,17 @@
  * obscuring actionable error states".
  *
  * On the Human page the chat embed renders the sidebar variant of
- * Conversations. Its composer footer stacks the upsell/error banners, the
- * actionable error CTAs (e.g. the voice-transcription "Setup" link), and the
- * composer itself in a single block inside the `overflow-hidden` mainPanel.
- * The footer used to be a plain `shrink-0` block, so on a short window its
- * natural height exceeded the panel and its bottom was clipped with no scroll
- * affordance — the composer and the fix button became unreachable.
+ * Conversations with the mic-first (`mic-cloud`) composer. Its composer stacks
+ * the upsell/error banners, the actionable error CTAs (e.g. the
+ * voice-transcription "Setup" link), and the mic itself. It used to be a rigid
+ * footer beside the transcript inside the `overflow-hidden` mainPanel, so on a
+ * short window its bottom was clipped with no scroll affordance.
  *
- * The fix lets the footer SHRINK and scroll instead of staying rigid: dropping
- * `shrink-0` and adding `min-h-0 overflow-y-auto` makes the flex algorithm
- * cap it to the available height and scroll it internally. jsdom does not lay
- * out, so we assert the footer is class-wise scroll-capable + shrinkable, which
- * is what prevents the silent clipping from coming back.
+ * The voice composer now renders in the assistant-ui `Thread`'s composer slot,
+ * INSIDE the thread's scrolling viewport (`overflow-y-scroll`), so however tall
+ * it grows it stays reachable by scrolling. jsdom does not lay out, so we
+ * assert that containment, which is what prevents the clipping from coming
+ * back.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, render } from '@testing-library/react';
@@ -85,15 +84,9 @@ vi.mock('../../services/api/openrouterFreeModels', () => ({ applyOpenRouterFreeM
 
 vi.mock('../../hooks/useUsageState', () => ({ useUsageState: mockUseUsageState }));
 
-vi.mock('../../components/chat/ChatNewWindowHero', () => ({ default: () => null }));
-
 vi.mock('../../store/socketSelectors', () => ({
   selectSocketStatus: (state: { socket?: { byUser?: Record<string, { status: string }> } }) =>
     state.socket?.byUser?.__pending__?.status ?? 'disconnected',
-}));
-
-vi.mock('../../hooks/useStickToBottom', () => ({
-  useStickToBottom: vi.fn(() => ({ containerRef: { current: null }, endRef: { current: null } })),
 }));
 
 vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
@@ -201,7 +194,7 @@ describe('Conversations — sidebar composer footer overflow (#3785)', () => {
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
   });
 
-  it('caps the footer to the panel and scrolls it internally so it cannot be clipped', async () => {
+  it('renders the voice composer inside the scrolling thread viewport so it cannot be clipped', async () => {
     const thread = makeThread({ id: 'human-thread', title: 'Human' });
     mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
 
@@ -210,11 +203,13 @@ describe('Conversations — sidebar composer footer overflow (#3785)', () => {
       socket: socketState('connected'),
     });
 
-    const footer = container.querySelector('[data-walkthrough="home-cta"]');
-    expect(footer).not.toBeNull();
-    expect(footer).toHaveClass('overflow-y-auto');
-    expect(footer).toHaveClass('min-h-0');
-    expect(footer).not.toHaveClass('shrink-0');
+    const voiceComposer = container.querySelector('[data-testid="voice-composer"]');
+    expect(voiceComposer).not.toBeNull();
+    const viewport = voiceComposer?.closest('[data-slot="aui_thread-viewport"]');
+    expect(viewport).not.toBeNull();
+    expect(viewport).toHaveClass('overflow-y-scroll');
+    // No rigid legacy footer beside the transcript any more.
+    expect(container.querySelector('[data-walkthrough="home-cta"]')).toBeNull();
   });
 
   it('keeps the assistant-ui page composer in flow (no legacy floating footer)', async () => {

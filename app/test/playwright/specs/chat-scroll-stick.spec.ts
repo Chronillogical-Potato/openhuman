@@ -23,11 +23,10 @@
  *
  * Everything is measured from the live scroll container, not from mock calls.
  *
- * **The container has no testid on the shipped path.** `chat-messages-scroll`
- * belongs to `ChatThreadView` (the legacy composer's transcript);
- * `Conversations.tsx:2539` renders the assistant-ui panel by default, whose
- * viewport is `thread.tsx:226` — `relative flex flex-1 flex-col
- * overflow-x-auto overflow-y-scroll scroll-smooth`, with no testid. Rather
+ * **The container has no testid on the shipped path.** Every chat surface
+ * renders the assistant-ui `Thread`, whose viewport (`thread.tsx`) is
+ * `relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll
+ * scroll-smooth`, with no testid. Rather
  * than pin a Tailwind string, this walks up from the composer input and takes
  * the first ancestor that actually scrolls, and throws if there is none — so a
  * class rename fails loudly instead of silently measuring `document`.
@@ -271,8 +270,7 @@ test.describe('Chat transcript stick-to-bottom', () => {
     // bottom-follow behaviour, but disables its unconditional run-start scroll.
     // That lets a reader who has scrolled up keep their place while a reader at
     // the bottom follows the new turn. Do not assert an exact bottom distance
-    // here; `useStickToBottom`'s 80px threshold belongs to the legacy
-    // `ChatThreadView`, not this viewport.
+    // here; the follow threshold is an implementation detail of this viewport.
     //
     // What the user actually needs is that the new turn is brought into view,
     // and that is what this asserts.

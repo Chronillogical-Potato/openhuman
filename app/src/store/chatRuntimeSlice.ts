@@ -887,6 +887,23 @@ const initialState: ChatRuntimeState = {
 };
 
 /**
+ * A detached child can outlive its parent's reply. Keep its late progress in
+ * the frozen turn as well as the live timeline so the settled message remains
+ * current without changing its row identity.
+ */
+function subagentRows(
+  state: ChatRuntimeState,
+  threadId: string,
+  predicate: (entry: ToolTimelineEntry) => boolean
+): ToolTimelineEntry[] {
+  const rows = [
+    ...(state.toolTimelineByThread[threadId] ?? []),
+    ...Object.values(state.settledTurnsByThread[threadId] ?? {}).flatMap(turn => turn.timeline),
+  ].filter(predicate);
+  return rows.filter((row, index) => rows.indexOf(row) === index);
+}
+
+/**
  * Upsert a single artifact snapshot for a thread. New entries append
  * in insertion order (matches the timeline ordering the UI expects);
  * existing entries are replaced in place so the inline card flips
@@ -1734,12 +1751,14 @@ const chatRuntimeSlice = createSlice({
       state,
       action: PayloadAction<{ threadId: string; rowId: string; question?: string }>
     ) => {
-      const entry = state.toolTimelineByThread[action.payload.threadId]?.find(
+      const entries = subagentRows(
+        state,
+        action.payload.threadId,
         e => e.id === action.payload.rowId && e.status === 'running'
       );
-      if (!entry) return;
-      entry.status = 'awaiting_user';
-      if (entry.subagent) {
+      for (const entry of entries) {
+        entry.status = 'awaiting_user';
+        if (!entry.subagent) continue;
         entry.subagent.status = 'awaiting_user';
         // The question is the whole point of the pause. Keep the previous one
         // if this event carried none rather than blanking a readable prompt.
@@ -1775,12 +1794,14 @@ const chatRuntimeSlice = createSlice({
       // Settle a still-in-flight row: `running`, or `awaiting_user` (a subagent
       // paused for input that then completes must not stay stuck at
       // awaiting_user). Already-terminal rows are left as-is.
-      const entry = state.toolTimelineByThread[threadId]?.find(
+      const entries = subagentRows(
+        state,
+        threadId,
         e => e.id === rowId && (e.status === 'running' || e.status === 'awaiting_user')
       );
-      if (!entry) return;
-      entry.status = success ? 'success' : 'error';
-      if (entry.subagent) {
+      for (const entry of entries) {
+        entry.status = success ? 'success' : 'error';
+        if (!entry.subagent) continue;
         const s = entry.subagent;
         if (iterations !== undefined) s.iterations = iterations;
         if (elapsedMs !== undefined) s.elapsedMs = elapsedMs;
@@ -1820,19 +1841,12 @@ const chatRuntimeSlice = createSlice({
     ) => {
       const { threadId, rowId, callId, toolName, iteration, args, displayName, detail } =
         action.payload;
-      const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
-      if (!entry?.subagent) return;
-      // De-dupe on call_id — a redelivered event must not append twice.
-      if (entry.subagent.toolCalls.some(c => c.callId === callId)) return;
-      entry.subagent.toolCalls.push({
-        callId,
-        toolName,
-        status: 'running',
-        iteration,
-        args,
-        displayName,
-        detail,
-      });
+      for (const entry of subagentRows(state, threadId, e => e.id === rowId)) {
+        if (!entry.subagent || entry.subagent.toolCalls.some(c => c.callId === callId)) continue;
+        entry.subagent.toolCalls.push({
+          callId, toolName, status: 'running', iteration, args, displayName, detail,
+        });
+      }
     },
     subagentToolResultReceived: (
       state,
@@ -1849,16 +1863,16 @@ const chatRuntimeSlice = createSlice({
     ) => {
       const { threadId, rowId, callId, success, elapsedMs, outputChars, result, failure } =
         action.payload;
-      const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
-      if (!entry?.subagent) return;
-      const call = entry.subagent.toolCalls.find(c => c.callId === callId);
-      if (!call) return;
-      call.status = success ? 'success' : 'error';
-      if (elapsedMs !== undefined) call.elapsedMs = elapsedMs;
-      if (outputChars !== undefined) call.outputChars = outputChars;
-      if (result !== undefined) call.result = result;
-      // A successful result clears any stale failure on the row.
-      call.failure = success ? undefined : parseToolFailure(failure);
+      for (const entry of subagentRows(state, threadId, e => e.id === rowId)) {
+        const call = entry.subagent?.toolCalls.find(c => c.callId === callId);
+        if (!call) continue;
+        call.status = success ? 'success' : 'error';
+        if (elapsedMs !== undefined) call.elapsedMs = elapsedMs;
+        if (outputChars !== undefined) call.outputChars = outputChars;
+        if (result !== undefined) call.result = result;
+        // A successful result clears any stale failure on the row.
+        call.failure = success ? undefined : parseToolFailure(failure);
+      }
     },
     /**
      * Optimistically mark a detached background sub-agent as cancelled after the
@@ -1868,10 +1882,10 @@ const chatRuntimeSlice = createSlice({
      */
     markSubagentCancelled: (state, action: PayloadAction<{ threadId: string; taskId: string }>) => {
       const { threadId, taskId } = action.payload;
-      const entry = state.toolTimelineByThread[threadId]?.find(e => e.subagent?.taskId === taskId);
-      if (!entry) return;
-      entry.status = 'cancelled';
-      if (entry.subagent) entry.subagent.status = 'cancelled';
+      for (const entry of subagentRows(state, threadId, e => e.subagent?.taskId === taskId)) {
+        entry.status = 'cancelled';
+        if (entry.subagent) entry.subagent.status = 'cancelled';
+      }
     },
     /**
      * Settle rows whose terminal turn snapshot could not be fetched.
@@ -1917,22 +1931,23 @@ const chatRuntimeSlice = createSlice({
       }>
     ) => {
       const { threadId, rowId, kind, delta, iteration } = action.payload;
-      const entry = state.toolTimelineByThread[threadId]?.find(e => e.id === rowId);
-      if (!entry?.subagent) return;
-      const transcript = (entry.subagent.transcript ??= []);
-      const last = transcript[transcript.length - 1];
+      for (const entry of subagentRows(state, threadId, e => e.id === rowId)) {
+        if (!entry.subagent) continue;
+        const transcript = (entry.subagent.transcript ??= []);
+        const last = transcript[transcript.length - 1];
       // Extend the trailing item only when it's the same kind AND the same
       // iteration — otherwise two same-kind chunks from different turns (with
       // no tool call between them) would fuse into one transcript entry.
-      if (
-        last &&
-        (last.kind === 'text' || last.kind === 'thinking') &&
-        last.kind === kind &&
-        last.iteration === iteration
-      ) {
-        last.text += delta;
-      } else {
-        transcript.push({ kind, iteration, text: delta });
+        if (
+          last &&
+          (last.kind === 'text' || last.kind === 'thinking') &&
+          last.kind === kind &&
+          last.iteration === iteration
+        ) {
+          last.text += delta;
+        } else {
+          transcript.push({ kind, iteration, text: delta });
+        }
       }
     },
     /**

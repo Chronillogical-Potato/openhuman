@@ -50,13 +50,16 @@ export function useDisclosure(
   key: string | undefined,
   defaultOpen: boolean
 ): [boolean, (open: boolean) => void] {
-  const [choice, setChoice] = useState<boolean | undefined>(() =>
-    key === undefined ? undefined : choices.get(key)
+  // A virtualized card can stay mounted while its part changes identity. Keep
+  // the identity with the local value so card B never shows card A's choice.
+  const [local, setLocal] = useState<{ key: string | undefined; choice: boolean | undefined }>(
+    () => ({ key, choice: key === undefined ? undefined : choices.get(key) })
   );
+  const choice = local.key === key ? local.choice : key === undefined ? undefined : choices.get(key);
   const setOpen = useCallback(
     (open: boolean) => {
       if (key !== undefined) remember(key, open);
-      setChoice(open);
+      setLocal({ key, choice: open });
     },
     [key]
   );

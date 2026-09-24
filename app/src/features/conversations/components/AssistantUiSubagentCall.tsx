@@ -43,6 +43,7 @@ function ChildToolCallCard({ call }: { call: ChildToolCall }) {
       detail={call.detail}
       elapsedMs={call.elapsedMs}
       failure={call.failure}
+      disclosureKey={call.callId}
     />
   );
 }

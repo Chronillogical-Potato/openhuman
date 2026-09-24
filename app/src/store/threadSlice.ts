@@ -348,35 +348,6 @@ export const generateThreadTitleIfNeeded = createAsyncThunk(
   }
 );
 
-export const persistReaction = createAsyncThunk(
-  'thread/persistReaction',
-  async (
-    payload: { threadId: string; messageId: string; emoji: string },
-    { getState, rejectWithValue }
-  ) => {
-    const state = getState() as { thread: ThreadState };
-    const stored = state.thread.messagesByThreadId[payload.threadId] ?? [];
-    const message = stored.find(e => e.id === payload.messageId);
-    if (!message) return rejectWithValue('Message not found');
-
-    const prev = (message.extraMetadata['myReactions'] as string[] | undefined) ?? [];
-    const idx = prev.indexOf(payload.emoji);
-    const next = idx >= 0 ? prev.filter(e => e !== payload.emoji) : [...prev, payload.emoji];
-    const extraMetadata = { ...message.extraMetadata, myReactions: next };
-
-    try {
-      const persisted = await threadApi.updateMessage(
-        payload.threadId,
-        payload.messageId,
-        extraMetadata
-      );
-      return { threadId: payload.threadId, message: persisted };
-    } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to save reaction');
-    }
-  }
-);
-
 /** The rating a user gave one assistant reply. */
 export type MessageFeedback = 'positive' | 'negative';
 
@@ -395,9 +366,8 @@ export const FEEDBACK_METADATA_KEY = 'feedback';
 export const FEEDBACK_ROW_IDS_METADATA_KEY = 'feedbackRowIds';
 
 /**
- * Persist a thumbs rating on one assistant message, modelled on
- * [`persistReaction`] — same read-from-Redux, patch-`extraMetadata`,
- * write-back-the-persisted-row shape.
+ * Persist a thumbs rating on one assistant message: read the row from Redux,
+ * patch its `extraMetadata`, and write back the persisted row.
  *
  * Pressing the same rating again clears it, so a mis-click is recoverable: the
  * assistant-ui action bar has no third "unrated" control to offer.
@@ -636,9 +606,6 @@ const threadSlice = createSlice({
         // Do NOT clear activeThreadId here — ChatRuntimeProvider clears it on
         // chat_done / chat_error. Clearing on every rejected segment append
         // would re-enable the composer while the turn is still in-flight.
-      })
-      .addCase(persistReaction.fulfilled, (state, action) => {
-        appendMessageToCache(state, action.payload.threadId, action.payload.message, true);
       })
       .addCase(persistMessageFeedback.fulfilled, (state, action) => {
         appendMessageToCache(state, action.payload.threadId, action.payload.message, true);

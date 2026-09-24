@@ -221,3 +221,26 @@ describe('tauriCommands/core', () => {
     });
   });
 });
+
+describe('tauriCommands/core onboarding flag outside Tauri', () => {
+  test('reads and writes onboarding_completed through core RPC in the browser build', async () => {
+    (isTauri as Mock).mockReturnValue(false);
+    const { callCoreRpc } = await import('../../services/coreRpcClient');
+    const mockCall = callCoreRpc as Mock;
+    const { getOnboardingCompleted, setOnboardingCompleted } =
+      await vi.importActual<typeof import('./core')>('./core');
+
+    mockCall.mockResolvedValueOnce(true);
+    await expect(setOnboardingCompleted(true)).resolves.toBe(true);
+    expect(mockCall).toHaveBeenCalledWith({
+      method: 'openhuman.config_set_onboarding_completed',
+      params: { value: true },
+    });
+
+    mockCall.mockResolvedValueOnce({ result: true });
+    await expect(getOnboardingCompleted()).resolves.toBe(true);
+    expect(mockCall).toHaveBeenLastCalledWith({
+      method: 'openhuman.config_get_onboarding_completed',
+    });
+  });
+});

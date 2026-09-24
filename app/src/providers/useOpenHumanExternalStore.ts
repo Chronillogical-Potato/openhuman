@@ -259,14 +259,17 @@ const WELCOME_SUGGESTION_KEYS = [
  * Redux row count, which excludes the in-flight turn and would leave the chips
  * up for the first streaming answer.
  */
-function useWelcomeSuggestions(messageCount: number): readonly ThreadSuggestion[] {
+function useWelcomeSuggestions(
+  messageCount: number,
+  enabled: boolean
+): readonly ThreadSuggestion[] {
   const { t } = useT();
   return useMemo(
     () =>
-      messageCount === 0
+      enabled && messageCount === 0
         ? WELCOME_SUGGESTION_KEYS.map(key => ({ prompt: t(key) }))
         : EMPTY_SUGGESTIONS,
-    [messageCount, t]
+    [enabled, messageCount, t]
   );
 }
 
@@ -306,7 +309,19 @@ function appendMessageQuote(message: AppendMessage): string {
  * reasoning/tool/sub-agent history comes directly from the core transcript
  * projection. Redux is not a second transcript database.
  */
-export function useOpenHumanExternalStore(threadId: string | null) {
+export function useOpenHumanExternalStore(
+  threadId: string | null,
+  {
+    welcomeSuggestions = true,
+  }: {
+    /**
+     * Offer the home chat's starter prompts on an empty thread. Off for a
+     * surface whose agent is not the general assistant (the workflow copilot):
+     * a click SENDS the prompt, and those prompts are not builder requests.
+     */
+    welcomeSuggestions?: boolean;
+  } = {}
+) {
   const dispatch = useAppDispatch();
   const messages = useAppSelector(state =>
     threadId ? (state.thread.messagesByThreadId[threadId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES
@@ -382,7 +397,7 @@ export function useOpenHumanExternalStore(threadId: string | null) {
     ]
   );
 
-  const suggestions = useWelcomeSuggestions(runtimeMessages.length);
+  const suggestions = useWelcomeSuggestions(runtimeMessages.length, welcomeSuggestions);
 
   // The status line titles its `tool_use` / `subagent` phases from the matching
   // running timeline row (the same rows the surface renders as tool parts), so

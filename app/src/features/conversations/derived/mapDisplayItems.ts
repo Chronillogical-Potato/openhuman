@@ -3,11 +3,10 @@
  * {@link DerivedDisplayItem}s onto the **existing** settled-turn renderer
  * models, keyed by producing `requestId` — the exact shapes
  * `fetchAndHydrateTurnHistory` produces from the legacy `turn_state_history`
- * snapshot ring, so `PastTurnInsights` / `ProcessingTranscriptView` /
- * assistant-ui tool and delegation cards are reused unchanged.
+ * snapshot ring, so `ProcessingTranscriptView` / assistant-ui tool and
+ * delegation cards are reused unchanged.
  *
- * Division of labour (matches how `turnTimelinesByThread` / `PastTurnInsights`
- * anchor today):
+ * Division of labour (matches how `turnTimelinesByThread` anchors today):
  * - **Final assistant text and user text are NOT emitted here** — they stay
  *   rendered from the thread message list (`threads_messages_list`). This
  *   mapper only produces the *process trail* (reasoning, interim narration,
