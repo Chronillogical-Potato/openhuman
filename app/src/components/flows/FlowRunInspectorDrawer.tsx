@@ -18,9 +18,8 @@
  * only — no per-step status/timing), so each step renders as a plain label
  * + collapsible output, not a graduated status timeline. Status-dot/pill
  * visual language borrows from `components/intelligence/WorkflowRunDetail.tsx`
- * (`RUN_STATUS_ACCENT`/`PHASE_STATUS_DOT`) and
- * `features/conversations/components/ToolTimelineBlock.tsx` (`StatusTag`) —
- * dots, not progress bars (project rule).
+ * (`RUN_STATUS_ACCENT`/`PHASE_STATUS_DOT`) and the agent-insights timeline's
+ * own status-tone convention — dots, not progress bars (project rule).
  */
 import debug from 'debug';
 
