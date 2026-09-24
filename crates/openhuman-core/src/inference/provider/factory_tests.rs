@@ -182,10 +182,10 @@ fn only_library_hosts_are_exempt_from_app_login() {
     }
 }
 
-#[path = "factory_crate_native_tests.rs"]
-mod crate_native_tests;
 #[path = "factory_crate_native_diagnostics_tests.rs"]
 mod crate_native_diagnostics_tests;
+#[path = "factory_crate_native_tests.rs"]
+mod crate_native_tests;
 #[path = "factory_egress_fallback_tests.rs"]
 mod egress_fallback_tests;
 #[path = "factory_route_resolution_tests.rs"]

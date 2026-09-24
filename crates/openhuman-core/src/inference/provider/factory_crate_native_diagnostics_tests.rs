@@ -1,8 +1,7 @@
 use super::*;
 
 use crate::inference::provider::factory::cloud_slug::{
-    openrouter_default_provider_options,
-    OPENROUTER_PROVIDER_SORT,
+    openrouter_default_provider_options, OPENROUTER_PROVIDER_SORT,
 };
 
 #[test]

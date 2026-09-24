@@ -592,4 +592,3 @@ fn try_create_cloud_slug_flips_openai_but_declines_non_cloud() {
     unconfigured.chat_provider = Some("deepseek:deepseek-chat".to_string());
     assert!(try_create_cloud_slug_chat_model("chat", &unconfigured).is_none());
 }
-

@@ -440,14 +440,17 @@ async fn fail_artifact_fills_request_id_from_chat_context() {
 
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
     loop {
-        let found = collector.snapshot().into_iter().find_map(|event| match event {
-            DomainEvent::ArtifactFailed {
-                artifact_id,
-                request_id,
-                ..
-            } if artifact_id == meta.id => Some(request_id),
-            _ => None,
-        });
+        let found = collector
+            .snapshot()
+            .into_iter()
+            .find_map(|event| match event {
+                DomainEvent::ArtifactFailed {
+                    artifact_id,
+                    request_id,
+                    ..
+                } if artifact_id == meta.id => Some(request_id),
+                _ => None,
+            });
         if let Some(request_id) = found {
             assert_eq!(
                 request_id,

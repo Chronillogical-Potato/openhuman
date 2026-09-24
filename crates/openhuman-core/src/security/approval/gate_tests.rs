@@ -226,7 +226,7 @@ async fn find_approval_decided(
 mod core_flow_tests;
 #[path = "gate_origin_intercept_tests.rs"]
 mod origin_intercept_tests;
-#[path = "gate_ttl_and_triage_tests.rs"]
-mod ttl_and_triage_tests;
 #[path = "gate_triage_tests.rs"]
 mod triage_tests;
+#[path = "gate_ttl_and_triage_tests.rs"]
+mod ttl_and_triage_tests;

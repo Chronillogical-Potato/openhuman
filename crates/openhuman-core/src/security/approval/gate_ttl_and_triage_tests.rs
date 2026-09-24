@@ -420,4 +420,3 @@ async fn copilot_streaming_park_persists_the_clamped_expiry() {
     let outcome = handle.await.unwrap();
     assert!(matches!(outcome, GateOutcome::Allow));
 }
-

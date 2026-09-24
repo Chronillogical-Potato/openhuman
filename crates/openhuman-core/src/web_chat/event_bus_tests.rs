@@ -535,7 +535,9 @@ async fn publish_web_channel_event_stamps_ts_when_unset() {
 
     let ev = find_agent_web_event(&mut web_rx, "ts_stamp_probe", "thread-ts-stamp-probe").await;
     let after = crate::web_chat::progress_bridge::unix_epoch_ms();
-    let ts = ev.ts.expect("publish_web_channel_event must stamp ts when unset");
+    let ts = ev
+        .ts
+        .expect("publish_web_channel_event must stamp ts when unset");
     assert!(
         ts >= before && ts <= after,
         "stamped ts ({ts}) must fall within [{before}, {after}]"
