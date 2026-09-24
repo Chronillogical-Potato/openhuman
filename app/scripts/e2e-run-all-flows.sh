@@ -262,6 +262,7 @@ if should_run_suite "chat"; then
   run "test/e2e/specs/chat-harness-wallet-flow.spec.ts"       "chat-wallet"               "chat"
   run "test/e2e/specs/chat-tool-call-flow.spec.ts"            "chat-tool-call"            "chat"
   run "test/e2e/specs/chat-multi-tool-round.spec.ts"          "chat-multi-tool"           "chat"
+  run "test/e2e/specs/chat-live-history-parity.spec.ts"      "chat-live-history-parity"  "chat"
   run "test/e2e/specs/chat-tool-error-recovery.spec.ts"       "chat-error-recovery"       "chat"
   run "test/e2e/specs/agent-review.spec.ts"                   "agent-review"              "chat"
   run "test/e2e/specs/mega-flow.spec.ts"                      "mega-flow"                 "chat"
