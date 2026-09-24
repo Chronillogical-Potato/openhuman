@@ -136,9 +136,9 @@ const ASK_USER_CLARIFICATION_TOOL = 'ask_user_clarification';
 
 /**
  * A top-level `ask_user_clarification` call — the agent itself (not a
- * delegated sub-agent, which `SubagentCall`/`AssistantUiSubagentCall` already
- * render their own question UI for) needs a structured answer before the turn
- * can continue. Answered the same way a sub-agent's clarification is: append
+ * delegated sub-agent, which `SubagentTaskCard` already renders its own
+ * question UI for) needs a structured answer before the turn can continue.
+ * Answered the same way a sub-agent's clarification is: append
  * an ordinary user turn through the runtime (see `ElicitationAdapter`'s doc
  * comment for why there is no separate RPC to call instead).
  */
