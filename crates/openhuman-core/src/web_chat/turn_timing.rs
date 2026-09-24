@@ -61,4 +61,50 @@ impl TurnTiming {
             self.round_one_narration_chars
         );
     }
+
+    /// A point-in-time copy of this turn's timing, for carrying across the
+    /// `ProgressBridgeHandle` → `WebChatTaskResult` → `chat_done.timing`
+    /// pipeline (the bridge task itself never outlives the turn it times, so
+    /// the `Instant` stays put — only the derived millisecond counts leave
+    /// this module).
+    pub(super) fn snapshot(&self) -> TurnTimingSnapshot {
+        TurnTimingSnapshot {
+            first_token_ms: self.first_text_ms.map(|ms| ms as u64),
+            first_tool_ms: self.first_tool_ms.map(|ms| ms as u64),
+            total_ms: Some(self.started.elapsed().as_millis() as u64),
+        }
+    }
+}
+
+/// Plain-data copy of a turn's timing, safe to hand across an `Arc<Mutex<_>>`
+/// out of the bridge task and into `chat_done.timing`.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct TurnTimingSnapshot {
+    pub(crate) first_token_ms: Option<u64>,
+    pub(crate) first_tool_ms: Option<u64>,
+    pub(crate) total_ms: Option<u64>,
+}
+
+impl TurnTimingSnapshot {
+    /// Convert to the wire payload, filling `tokens_per_second` from
+    /// `output_tokens` when both it and `total_ms` are available and
+    /// `total_ms` is non-zero (avoids a division-by-zero / infinity on an
+    /// instantaneous synthetic result).
+    pub(crate) fn into_payload(
+        self,
+        output_tokens: Option<u64>,
+    ) -> crate::core::socketio::TurnTimingPayload {
+        let tokens_per_second = match (output_tokens, self.total_ms) {
+            (Some(tokens), Some(total_ms)) if total_ms > 0 => {
+                Some(tokens as f64 / (total_ms as f64 / 1000.0))
+            }
+            _ => None,
+        };
+        crate::core::socketio::TurnTimingPayload {
+            first_token_ms: self.first_token_ms,
+            first_tool_ms: self.first_tool_ms,
+            total_ms: self.total_ms,
+            tokens_per_second,
+        }
+    }
 }
