@@ -37,11 +37,9 @@ export function useAuiThreadId(): string | null {
  * It used to read `state.thread.selectedThreadId` itself. That is wrong for any
  * surface whose thread is NOT the selected one, and there is exactly such a
  * surface: the Workflow Copilot (`WorkflowCopilotPanel`) renders the shared
- * `ChatThreadView` against its own dedicated builder thread, which is never
- * equal to `selectedThreadId`. While nothing inside `ChatThreadView` read
- * assistant-ui context the mismatch was invisible; the moment the transcript
- * renders from `ThreadPrimitive`/`MessagePrimitive` it would paint the HOME
- * chat's messages inside the copilot. So the thread is chosen by whoever mounts
+ * assistant-ui `Thread` against its own dedicated builder thread, which is
+ * never equal to `selectedThreadId`. Reading the selection here would paint
+ * the HOME chat's messages inside the copilot. So the thread is chosen by whoever mounts
  * the runtime, and two instances with different thread ids can coexist —
  * assistant-ui's `AssistantRuntimeProvider` is ordinary React context, so the
  * nearest one wins for each subtree.
@@ -57,6 +55,7 @@ export function useAuiThreadId(): string | null {
  */
 export function AssistantUiRuntimeProvider({
   threadId,
+  welcomeSuggestions = true,
   children,
 }: {
   /**
@@ -65,6 +64,8 @@ export function AssistantUiRuntimeProvider({
    * created it yet.
    */
   threadId?: string | null;
+  /** Offer the home chat's starter prompts on an empty thread; see the store. */
+  welcomeSuggestions?: boolean;
   children: ReactNode;
 }) {
   const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
@@ -74,7 +75,7 @@ export function AssistantUiRuntimeProvider({
     effectiveThreadId ?? '(none)',
     threadId === undefined ? 'selection' : 'explicit'
   );
-  const adapter = useOpenHumanExternalStore(effectiveThreadId);
+  const adapter = useOpenHumanExternalStore(effectiveThreadId, { welcomeSuggestions });
   const runtime = useExternalStoreRuntime(adapter);
   return (
     <AssistantRuntimeProvider runtime={runtime}>
