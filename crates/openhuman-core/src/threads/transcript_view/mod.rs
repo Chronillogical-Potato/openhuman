@@ -108,5 +108,9 @@ fn parse_cursor(cursor: Option<&str>) -> usize {
 mod tests;
 
 #[cfg(test)]
+#[path = "prompt_tools_tests.rs"]
+mod prompt_tools_tests;
+
+#[cfg(test)]
 #[path = "transcript_ordering_tests.rs"]
 mod ordering_tests;
