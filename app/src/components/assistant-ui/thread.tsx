@@ -1236,7 +1236,7 @@ const ComposerAction: FC<{
  */
 const MessageError: FC = () => {
   const error = useMessageError();
-  const reload = useActionBarReload();
+  const { disabled: reloadDisabled, reload } = useActionBarReload();
   if (error === undefined) return null;
   const detail = typeof error === 'string' ? error : JSON.stringify(error);
   return (
@@ -1246,7 +1246,9 @@ const MessageError: FC = () => {
         title="Something went wrong"
         detail={detail}
         retrying={false}
-        onRetry={() => reload?.()}
+        onRetry={() => {
+          if (!reloadDisabled) reload();
+        }}
       />
     </MessagePrimitive.Error>
   );
