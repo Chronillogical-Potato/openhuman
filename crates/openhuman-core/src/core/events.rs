@@ -859,6 +859,12 @@ pub enum DomainEvent {
         /// Socket.IO client id (room) to surface the card to, when known.
         /// `None` for non-chat callers.
         client_id: Option<String>,
+        /// The tool call that reserved this artifact, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        /// The turn/request id this artifact was reserved under, when known.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
     },
 
     // ── Webhooks ────────────────────────────────────────────────────────
