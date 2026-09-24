@@ -26,6 +26,8 @@ pub(crate) const ARTIFACT_CAPABILITIES_PIN: &str = "1.16.1";
 /// (`ExtractEntities`, `EmbedText`, `EmbedderSlug`), which the artifact serves
 /// and which `as_scoring` below forwards, so it is advertised here in the same
 /// change, the way `Episodic` arrived with `as_episodic`.
+/// Re-read at `v1.16.1`: the capability and member declarations are unchanged
+/// from `v1.16.0`, so the advertised families stay the same.
 ///
 /// Read at tag `v1.3.0`. Unchanged from v1.2.0 — the release added members
 /// within existing families (`retry_failed`, the diagnostics trio,
