@@ -532,6 +532,8 @@ export interface ArtifactPendingEvent {
   workspace_dir: string;
   /** Relative path under `<workspace>/artifacts/`, e.g. `<uuid>/deck.pptx`. */
   path: string;
+  /** See {@link ArtifactReadyEvent.tool_call_id}. */
+  tool_call_id?: string;
 }
 
 /** Emitted when the agent turn begins (before the first LLM call). */
