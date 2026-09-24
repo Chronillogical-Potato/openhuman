@@ -829,6 +829,16 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     thread_id,
                     payload.message.len()
                 );
+                    if let Some(run_mode) = payload.run_mode.as_deref() {
+                        match crate::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
+                            Some(mode) => {
+                                crate::agent::tinyagents::run_mode::set_mode(&thread_id, mode);
+                            }
+                            None => log::warn!(
+                                "[socketio] chat:start thread_id={thread_id} ignoring unrecognized run_mode={run_mode}"
+                            ),
+                        }
+                    }
 
                     // Trigger the web channel's chat logic.
                     match crate::web_chat::start_chat(
