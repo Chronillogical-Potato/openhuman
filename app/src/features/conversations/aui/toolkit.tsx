@@ -38,38 +38,48 @@ export interface OpenHumanToolEntry {
  * to any one tool's name and therefore not something a per-name registry can
  * own. Only tools whose call deserves its *own* rich element belong here.
  *
- * To add one: import the render component and add a key. Nothing else in
- * this module needs to change — `buildOpenHumanToolkit`/`useOpenHumanToolkit`
- * pick up every entry automatically.
+ * A function, not a module-level object: `ChatToolParts.tsx` imports from
+ * `AssistantUiRuntimeProvider.tsx` (for `useAuiThreadId`), which imports this
+ * module (for the toolkit) — a real cycle. Evaluating `SubagentCall` in a
+ * module-scope object literal races that cycle: whichever side of it loads
+ * first can capture `SubagentCall` before `ChatToolParts.tsx` has finished
+ * defining it, baking `undefined` into a frozen entry. Building the record
+ * inside a function defers that read to call time, after every module in the
+ * cycle has finished loading.
+ *
+ * To add an entry: import the render component and add a key here. Nothing
+ * else in this module needs to change — `buildOpenHumanToolkit` /
+ * `useOpenHumanToolkit` pick up every entry automatically.
  */
-export const openHumanToolEntries: Record<string, OpenHumanToolEntry> = {
-  /**
-   * A sub-agent delegation. Never approval-gated (the orchestrator spawns it
-   * directly), so its render skips the gate check every other entry would
-   * need and goes straight to the shared delegation card — exactly what the
-   * old `ChatToolFallback`'s `toolName === 'task'` branch did before this
-   * registry replaced the manual switch.
-   */
-  task: { type: 'backend', display: 'inline', render: SubagentCall },
-};
-
-/**
- * Build the toolkit once. `defineToolkit` only types/validates the entries;
- * the object it returns is stable, so callers that are not React components
- * (tests, non-hook call sites) can use this directly instead of the hook.
- */
-export function buildOpenHumanToolkit(): Toolkit {
-  return defineToolkit(openHumanToolEntries);
+export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
+  return {
+    /**
+     * A sub-agent delegation. Never approval-gated (the orchestrator spawns
+     * it directly), so its render skips the gate check every other entry
+     * would need and goes straight to the shared delegation card — exactly
+     * what the old `ChatToolFallback`'s `toolName === 'task'` branch did
+     * before this registry replaced the manual switch.
+     */
+    task: { type: 'backend', display: 'inline', render: SubagentCall },
+  };
 }
 
-const openHumanToolkit = buildOpenHumanToolkit();
+/**
+ * Build the toolkit. `defineToolkit` only types/validates the entries; the
+ * object it returns is cheap to recompute, so callers that are not React
+ * components (tests, non-hook call sites) can call this directly instead of
+ * the hook.
+ */
+export function buildOpenHumanToolkit(): Toolkit {
+  return defineToolkit(openHumanToolEntries());
+}
 
 /**
  * The toolkit for the runtime provider's `config` (`AuiConfig({ tools: Tools({
- * toolkit }) })` in {@link AssistantUiRuntimeProvider}). A stable reference —
- * entries are static module state, not derived from props or Redux — so
- * mounting it costs no extra renders.
+ * toolkit }) })` in {@link AssistantUiRuntimeProvider}). Entries are static —
+ * not derived from props or Redux — so the memo never recomputes after the
+ * first render.
  */
 export function useOpenHumanToolkit(): Toolkit {
-  return useMemo(() => openHumanToolkit, []);
+  return useMemo(() => buildOpenHumanToolkit(), []);
 }
