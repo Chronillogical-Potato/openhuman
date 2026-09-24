@@ -61,11 +61,28 @@ pub(super) fn recorded_integration_actions(recorded: &[ToolSpec]) -> Vec<ToolSpe
 pub(super) fn rehydrate_integration_actions(
     recorded: &[ToolSpec],
     live: &[Box<dyn Tool>],
+    integrations: &[crate::agent::prompts::ConnectedIntegration],
+    integrations_are_authoritative: bool,
 ) -> Vec<Box<dyn Tool>> {
     let live_names: HashSet<&str> = live.iter().map(|tool| tool.name()).collect();
     let mut seen = HashSet::new();
     recorded
         .iter()
+        // A missing snapshot is not evidence that a connection was revoked,
+        // so preserve the resume fallback until integrations can be fetched.
+        // Once the snapshot is authoritative, however, never reintroduce an
+        // action which its current connection or scope policy removed.
+        .filter(|spec| {
+            !integrations_are_authoritative
+                || integrations.iter().any(|integration| {
+                    integration.connected
+                        && integration.toolkit.eq_ignore_ascii_case(&toolkit_of(&spec.name))
+                        && !integration
+                            .gated_tools
+                            .iter()
+                            .any(|gated| gated.name == spec.name)
+                })
+        })
         .filter(|spec| !live_names.contains(spec.name.as_str()))
         .filter(|spec| seen.insert(spec.name.clone()))
         .map(|spec| {

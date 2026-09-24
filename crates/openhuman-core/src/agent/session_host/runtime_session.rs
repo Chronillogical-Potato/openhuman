@@ -421,12 +421,16 @@ impl OpenHumanTurnPrelude {
         if definition.subagents.is_empty() {
             return;
         }
-        let integrations = self
-            .mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .connected_integrations
-            .clone();
+        let (integrations, integrations_are_authoritative) = {
+            let mutable = self
+                .mutable
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            (
+                mutable.connected_integrations.clone(),
+                mutable.connected_integrations_initialized,
+            )
+        };
         let mut surface = self
             .tool_surface
             .lock()
@@ -448,8 +452,12 @@ impl OpenHumanTurnPrelude {
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .recorded_integration_actions
                 .clone();
-            let rebuilt =
-                super::recorded_tools::rehydrate_integration_actions(&recorded, &collected);
+            let rebuilt = super::recorded_tools::rehydrate_integration_actions(
+                &recorded,
+                &collected,
+                &integrations,
+                integrations_are_authoritative,
+            );
             if !rebuilt.is_empty() {
                 log::info!(
                     "[session] rebuilt {} recorded integration action(s) the live integrations did not supply agent={}",
