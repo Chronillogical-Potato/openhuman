@@ -340,6 +340,11 @@ pub(crate) fn spawn_progress_bridge(
         let mut parent_completed = false;
         let mut parent_tool_count: u64 = 0;
         let mut child_tool_counts: HashMap<String, u64> = HashMap::new();
+        // task_id -> the parent tool-call id that spawned it, remembered from
+        // `SubagentSpawned` so later lifecycle events for the same task
+        // (`subagent_completed`/`_failed`/`_awaiting_user`) can still carry
+        // it even though those `AgentProgress` variants don't repeat it.
+        let mut subagent_parent_call_ids: HashMap<String, Option<String>> = HashMap::new();
         let mut turn_state =
             TurnStateMirror::new(turn_state_store, thread_id.clone(), request_id.clone());
 
