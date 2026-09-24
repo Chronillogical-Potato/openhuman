@@ -949,6 +949,7 @@ pub(crate) fn spawn_progress_bridge(
                     task_id,
                     error,
                 } => {
+                    let parent_call_id = subagent_parent_call_ids.remove(&task_id).flatten();
                     let completed_at = chrono::Utc::now();
                     ledger_upsert_agent_run(
                         &config,
@@ -984,7 +985,11 @@ pub(crate) fn spawn_progress_bridge(
                         RunEventAppend {
                             run_id: task_id.clone(),
                             event_type: "subagent_failed".to_string(),
-                            payload: json!({ "agentId": agent_id, "error": error }),
+                            payload: json!({
+                                "agentId": agent_id,
+                                "error": error,
+                                "parentCallId": parent_call_id
+                            }),
                         },
                     );
                     publish_seq_stamped(
@@ -998,6 +1003,10 @@ pub(crate) fn spawn_progress_bridge(
                             tool_name: Some(agent_id),
                             skill_id: Some(task_id),
                             success: Some(false),
+                            subagent: Some(SubagentProgressDetail {
+                                parent_call_id,
+                                ..Default::default()
+                            }),
                             round: Some(round),
                             ..Default::default()
                         },

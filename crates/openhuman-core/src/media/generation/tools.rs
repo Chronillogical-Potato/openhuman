@@ -71,21 +71,25 @@ pub fn media_tools_from(
     let output = MediaOutput::new(action_dir)
         .with_reference_policy(reference_policy(action_dir, workspace_dir));
     let tools: Vec<Box<dyn Tool>> = vec![
-        Box::new(
+        Box::new(MediaArtifactTool::new(
             GenerateImageTool::new(Arc::clone(&image), output.clone())
                 .with_name(IMAGE_TOOL_NAME)
                 .with_description(IMAGE_DESCRIPTION)
                 .with_permission_level(PermissionLevel::Execute)
                 .with_category(ToolCategory::Workflow),
-        ),
-        Box::new(
+            ArtifactKind::Image,
+            workspace_dir.to_path_buf(),
+        )),
+        Box::new(MediaArtifactTool::new(
             GenerateVideoTool::new(Arc::clone(&video), output)
                 .with_name(VIDEO_TOOL_NAME)
                 .with_description(VIDEO_DESCRIPTION)
                 .with_permission_level(PermissionLevel::Execute)
                 .with_category(ToolCategory::Workflow)
                 .with_wait_policy(video_wait),
-        ),
+            ArtifactKind::Video,
+            workspace_dir.to_path_buf(),
+        )),
         Box::new(MediaListModelsTool { image, video }),
     ];
     tracing::debug!("[media_generation] registered {} media tools", tools.len());

@@ -270,6 +270,9 @@ pub(crate) fn deliver_response_single_bubble(
         None,
         &[],
         usage_payload(usage),
+        // Background/core-initiated turns don't run through the web-channel
+        // progress bridge, so there is no `TurnTiming` to report here.
+        None,
     );
 }
 
@@ -282,6 +285,7 @@ fn publish_chat_done(
     reaction_emoji: Option<String>,
     citations: &[crate::memory::agent::memory_loader::MemoryCitation],
     usage_payload: Option<TurnUsagePayload>,
+    timing_payload: Option<crate::core::socketio::TurnTimingPayload>,
 ) {
     publish_web_channel_event(WebChannelEvent {
         event: "chat_done".to_string(),
