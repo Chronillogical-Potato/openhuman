@@ -135,6 +135,18 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
     let rows = OpenHumanTranscriptCodec
         .reconcile(&[], &[], &next, &options)
         .unwrap();
+    let failed_result = rows
+        .iter()
+        .find(|row| row.role == "user" && row.content.starts_with("[Tool results]"))
+        .expect("text dialect result row");
+    assert_eq!(
+        failed_result
+            .extra_metadata
+            .as_ref()
+            .and_then(|meta| meta.get("openhuman_tool_failures")),
+        Some(&serde_json::json!(["call_file_read_1"])),
+        "codec must preserve failed tool IDs on the result row: {failed_result:?}"
+    );
     let usage = OpenHumanTranscriptCodec.turn_usage(&options).unwrap();
 
     let meta = transcript::TranscriptMeta {

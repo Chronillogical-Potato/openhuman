@@ -241,6 +241,13 @@ impl Projector {
                 log::debug!("{LOG_PREFIX} sanitize: dropped system line from projection");
             }
             "user" => {
+                // The strict dialect replay shape also starts with
+                // `[Tool results]`. Handle it first so its persisted failure
+                // IDs are applied rather than treating every block as success.
+                if let Some(results) = parse_replayed_results(&msg.message.content) {
+                    self.text_tool_results(msg, results);
+                    return;
+                }
                 if let Some(blocks) = prompt_tools::parse_tool_results(msg) {
                     // Tool plumbing, not something the user said.
                     for block in blocks {
@@ -252,12 +259,6 @@ impl Projector {
                             msg.ts.clone(),
                         );
                     }
-                    return;
-                }
-                // A text dialect folds a round's results into one user turn; it
-                // is tool output, never the user's words.
-                if let Some(results) = parse_replayed_results(&msg.message.content) {
-                    self.text_tool_results(msg, results);
                     return;
                 }
                 // A legacy turn without request ids still restarts the step
