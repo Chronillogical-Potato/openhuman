@@ -459,7 +459,7 @@ export interface ChatRunModeChangedEvent {
  * artifact lifecycle socket events. Mirrors the slugs produced by
  * `ArtifactKind::as_str()` in `crates/openhuman-core/src/agent/artifacts/types.rs`.
  */
-export type ArtifactKind = 'presentation' | 'document' | 'image' | 'other';
+export type ArtifactKind = 'presentation' | 'document' | 'image' | 'video' | 'other';
 
 /**
  * Emitted when the core `artifacts::store::finalize_artifact` flips an
