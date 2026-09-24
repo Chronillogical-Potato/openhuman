@@ -63,13 +63,16 @@ pub const EVENTS_INTERFACE: &str = "ai.tinyhumans.openhuman.Events";
 /// `1.2.0` added `ActiveWorkspaceChanged` (#5966).
 /// `1.3.0` retired `McpSetupSecretRequested` with the MCP setup agent; a
 /// subscriber that still matches on it simply never sees one.
-/// `1.4.0` is the wire-contract pass ahead of the assistant-UI-elements work:
-/// additive fields on `ApprovalRequested`/`ApprovalDecided`,
-/// `PlanReviewRequested`/`PlanReviewDecided`, the `Artifact*` family, the
-/// `RunQueue*` family, and `ThreadGoalUpdated`, plus the new
-/// `ThreadTodosChanged` variant. All additions are optional/defaulted, so an
-/// older subscriber keeps parsing what a newer publisher emits.
-pub const EVENTS_VERSION: Version = Version::new(1, 5, 0);
+/// `1.4.0` is the assistant-UI-elements pass: additive fields on
+/// `ApprovalRequested`/`ApprovalDecided` (`tool_call_id`, `expires_at`,
+/// `thread_id`, `client_id`, `resolution`), `PlanReviewRequested`/
+/// `PlanReviewDecided` (same additions), the `Artifact*` family
+/// (`tool_call_id`, `request_id`), the `RunQueue*` family (`item_id`,
+/// `text_preview`), `ThreadGoalUpdated` (`goal`), `ExternalTransferPending`
+/// (`request_id`), the new `ThreadTodosChanged` and `ThreadRunModeChanged`
+/// variants. All additions are optional/defaulted, so an older subscriber
+/// keeps parsing what a newer publisher emits.
+pub const EVENTS_VERSION: Version = Version::new(1, 4, 0);
 
 /// The bus. Initialised once by [`init`]; safe to touch before that.
 pub static BUS: OnceBus<DomainEvent> = OnceBus::new();
