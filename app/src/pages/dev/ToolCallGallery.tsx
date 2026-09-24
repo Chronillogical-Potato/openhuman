@@ -35,6 +35,7 @@ import { Timeline, type TimelineEvent } from '../../components/assistant-ui/elem
 import { TodoList } from '../../components/assistant-ui/elements/todo-list';
 import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeline';
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
+import { ConnectionStateNotice } from '../../features/conversations/aui/ConnectionStateBanner';
 import { contextBreakdownSegments } from '../../features/conversations/aui/ContextUsage';
 import { ElicitationAdapter } from '../../features/conversations/aui/ElicitationAdapter';
 import { PermissionGrantAdapter } from '../../features/conversations/aui/PermissionGrantAdapter';

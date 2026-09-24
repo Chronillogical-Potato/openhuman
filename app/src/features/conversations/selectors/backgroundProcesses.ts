@@ -48,6 +48,7 @@ export function selectBackgroundProcesses(timeline: ToolTimelineEntry[]): Backgr
       status: entry.status,
       toolCount: sub.toolCalls?.length ?? 0,
       iterations: sub.iterations,
+      elapsedMs: sub.elapsedMs,
     });
   }
   // Running first, so live work stays at the top of the list.
