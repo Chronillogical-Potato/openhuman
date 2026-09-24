@@ -305,6 +305,7 @@ impl AgentPrepareContextTool {
                 .map(str::to_owned),
             run_context,
             live_parent,
+            crate::tools::host_extensions::tool_call_id(tool_context),
         )
         .await
     }

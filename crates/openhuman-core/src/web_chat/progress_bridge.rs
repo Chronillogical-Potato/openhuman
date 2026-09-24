@@ -52,6 +52,11 @@ pub(crate) const BRIDGE_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration
 #[derive(Clone)]
 pub(crate) struct ProgressBridgeHandle {
     drained: tokio::sync::watch::Receiver<bool>,
+    /// Set once, from inside the bridge task, when the turn's
+    /// `AgentProgress::TurnCompleted` arrives (`TurnTiming::snapshot()`).
+    /// Read by the caller after `wait_drained` so the same numbers the
+    /// `time-to-first-visible` log line reports reach `chat_done.timing`.
+    timing: std::sync::Arc<std::sync::Mutex<Option<super::turn_timing::TurnTimingSnapshot>>>,
 }
 
 impl ProgressBridgeHandle {
@@ -63,6 +68,13 @@ impl ProgressBridgeHandle {
         let result = tokio::time::timeout(timeout, drained.wait_for(|done| *done)).await;
         // A dropped sender means the bridge task ended, which is drained too.
         matches!(result, Ok(Ok(_)) | Ok(Err(_)))
+    }
+
+    /// The turn's timing snapshot, if the bridge saw a `TurnCompleted` before
+    /// its channel closed. `None` for a turn that errored/was interrupted
+    /// before completing a round, or was never polled after completion.
+    pub(crate) fn timing_snapshot(&self) -> Option<super::turn_timing::TurnTimingSnapshot> {
+        self.timing.lock().ok().and_then(|guard| *guard)
     }
 }
 
