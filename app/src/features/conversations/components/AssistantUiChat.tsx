@@ -336,14 +336,16 @@ export function AssistantUiChat({
     <AssistantUiRuntimeProvider>
       <ComposerTextBridge value={inputValue} onChange={onInputValueChange} />
       <SubagentDrawerHost onOpenSubagent={onOpenSubagent} canOpenSubagent={canOpenSubagent}>
-        <Thread
-          components={components}
-          model={model}
-          onModelChange={onModelChange}
-          loadError={loadError}
-          onEscape={onEscape}
-          slashCommands={slashCommands}
-        />
+        <ChatConversationMap>
+          <Thread
+            components={components}
+            model={model}
+            onModelChange={onModelChange}
+            loadError={loadError}
+            onEscape={onEscape}
+            slashCommands={slashCommands}
+          />
+        </ChatConversationMap>
       </SubagentDrawerHost>
     </AssistantUiRuntimeProvider>
   );

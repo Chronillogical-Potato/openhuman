@@ -642,6 +642,8 @@ export function useOpenHumanExternalStore(
       onReload,
       setMessages,
       onRespondToToolApproval,
+      onAddToolResult,
+      onResumeToolCall,
     ]
   );
 }
