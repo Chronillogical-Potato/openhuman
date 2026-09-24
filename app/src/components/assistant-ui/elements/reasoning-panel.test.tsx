@@ -18,10 +18,12 @@ const STEPS = [
 ];
 
 const trigger = () => screen.getByRole('button');
+// `SwapLabel` stacks the live and resting labels as two layers and hides the
+// inactive one with aria-hidden.
 const liveLayer = (root: HTMLElement) =>
-  root.querySelector('[data-swap-layer="live"]') as HTMLElement;
+  root.querySelector('[data-slot="reasoning-panel-live-label"]')!.parentElement as HTMLElement;
 const restingLayer = (root: HTMLElement) =>
-  root.querySelector('[data-swap-layer="resting"]') as HTMLElement;
+  root.querySelector('[data-slot="reasoning-panel-resting-label"]')!.parentElement as HTMLElement;
 
 describe('ReasoningPanel (collapsible)', () => {
   it('renders titled steps with markdown bodies when open', () => {
@@ -59,7 +61,7 @@ describe('ReasoningPanel (collapsible)', () => {
     expect(restingLayer(root).textContent).toBe('Thought for 12s');
     expect(restingLayer(root).getAttribute('aria-hidden')).toBe('false');
     expect(liveLayer(root).getAttribute('aria-hidden')).toBe('true');
-    expect(container.querySelector('[data-shimmer]')).toBeNull();
+    expect(container.querySelector('.shimmer')).toBeNull();
   });
 
   it('toggles open and closed from the trigger', () => {
@@ -87,7 +89,7 @@ describe('ReasoningPanel (collapsible)', () => {
     const root = screen.getByTestId('panel');
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(liveLayer(root).getAttribute('aria-hidden')).toBe('false');
-    const shimmer = container.querySelector('[data-shimmer]');
+    const shimmer = container.querySelector('.shimmer');
     expect(shimmer?.textContent).toBe('Planning the fix');
     expect(shimmer?.className).toContain('shimmer');
     expect(root.querySelector('[data-slot="reasoning-panel-elapsed"]')?.textContent).toBe('4s');

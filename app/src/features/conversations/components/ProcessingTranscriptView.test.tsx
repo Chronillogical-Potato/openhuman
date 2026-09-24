@@ -91,7 +91,7 @@ describe('ProcessingTranscriptView live thinking', () => {
     // sentence's closing period).
     expect(live.textContent).toContain('The user wants a week in Kashmir in October');
     expect(live.getAttribute('aria-busy')).toBe('true');
-    expect(live.querySelector('[data-shimmer]')).not.toBeNull();
+    expect(live.querySelector('.shimmer')).not.toBeNull();
     // No settled row for the same thought.
     expect(screen.queryByTestId('processing-thinking')).toBeNull();
   });
@@ -108,7 +108,7 @@ describe('ProcessingTranscriptView live thinking', () => {
     // The rail keeps the trail visible: no disclosure, no live shimmer.
     expect(settled.getAttribute('data-variant')).toBe('static');
     expect(settled.querySelector('button')).toBeNull();
-    expect(settled.querySelector('[data-shimmer]')).toBeNull();
+    expect(settled.querySelector('.shimmer')).toBeNull();
     expect(settled.textContent).toContain('Settled reasoning that should stay quiet');
   });
 
@@ -122,7 +122,7 @@ describe('ProcessingTranscriptView live thinking', () => {
     const settled = screen.getByTestId('processing-thinking');
     // `useT` is mocked to echo keys: the timed "Thought for {n}" key is
     // chosen, not the untimed "Thought" fallback.
-    expect(settled.querySelector('[data-swap-layer="resting"]')?.textContent).toBe(
+    expect(settled.querySelector('[data-slot="reasoning-panel-resting-label"]')?.textContent).toBe(
       'chat.reasoning.thoughtFor'
     );
     expect(settled.querySelector('[data-slot="reasoning-step-title"]')?.textContent).toBe(
