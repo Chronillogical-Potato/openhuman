@@ -5,11 +5,12 @@ use crate::core::all::RegisteredController;
 use crate::core::ControllerSchema;
 
 use super::handlers::{
-    handle_create_new, handle_delete, handle_generate_title, handle_goal_get, handle_list,
-    handle_message_append, handle_message_update, handle_messages_list, handle_purge,
-    handle_todos_get, handle_token_usage, handle_transcript_get, handle_turn_state_clear,
-    handle_turn_state_get, handle_turn_state_get_turn, handle_turn_state_history,
-    handle_turn_state_list, handle_update_labels, handle_update_title, handle_upsert,
+    handle_create_new, handle_delete, handle_edit_message, handle_generate_title,
+    handle_goal_get, handle_list, handle_message_append, handle_message_update,
+    handle_messages_list, handle_purge, handle_regenerate, handle_todos_get, handle_token_usage,
+    handle_transcript_get, handle_turn_state_clear, handle_turn_state_get,
+    handle_turn_state_get_turn, handle_turn_state_history, handle_turn_state_list,
+    handle_update_labels, handle_update_title, handle_upsert,
 };
 use super::schema_defs::schemas;
 
