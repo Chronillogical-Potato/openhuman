@@ -648,6 +648,10 @@ pub fn delete(workspace_dir: PathBuf, thread_id: &str) -> Result<bool, String> {
     TurnStateStore::new(workspace_dir).delete(thread_id)
 }
 
+pub fn delete_turn(workspace_dir: PathBuf, thread_id: &str, request_id: &str) -> Result<bool, String> {
+    TurnStateStore::new(workspace_dir).delete_turn(thread_id, request_id)
+}
+
 pub fn list(workspace_dir: PathBuf) -> Result<Vec<TurnState>, String> {
     TurnStateStore::new(workspace_dir).list()
 }
