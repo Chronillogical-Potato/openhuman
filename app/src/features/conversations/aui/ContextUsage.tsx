@@ -50,8 +50,7 @@ const DEFAULT_CONTEXT_WINDOW = 200_000;
 
 const EMPTY_USAGE = emptySessionTokenUsage();
 
-const formatUsd = (usd: number): string =>
-  usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`;
+const formatUsd = (usd: number): string => (usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`);
 
 /**
  * Turn cost + per-sub-agent spend, appended under the vendored
@@ -60,13 +59,7 @@ const formatUsd = (usd: number): string =>
  * token so the figures read as part of the same card rather than a
  * bespoke widget; hidden entirely once there is no spend to show.
  */
-function CostFooter({
-  usage,
-  t,
-}: {
-  usage: SessionTokenUsage;
-  t: (key: string) => string;
-}) {
+function CostFooter({ usage, t }: { usage: SessionTokenUsage; t: (key: string) => string }) {
   if (usage.costUsd <= 0) return null;
   const subAgents = Object.values(usage.subAgents).filter(sub => sub.costUsd > 0);
   return (
