@@ -1,17 +1,35 @@
 "use client";
 
+/**
+ * How full the model's context window is, as a ring / bar / text trigger with
+ * the token breakdown in a tooltip.
+ *
+ * Vendored from the assistant-ui `context-display` registry item
+ * (https://r.assistant-ui.com/styles/base-nova/context-display.json) — the
+ * props-only file, not its `.aui` wrapper, which reads usage through
+ * `@assistant-ui/ai-sdk` (not a dependency here). Changes from upstream:
+ * - `cn` and tooltip import paths (`@/components/assistant-ui/...`).
+ * - The "% full" caption and the Input / Cached input / Output / Reasoning
+ *   row labels are a `labels` prop with English defaults, for `useT()`.
+ * - The Ring / Bar / Text presets forward any other button props to their
+ *   trigger, so the "Context usage" accessible name can be translated and a
+ *   preset can itself be a popover trigger (`render={<ContextDisplayRing />}`).
+ * See `ContextUsage` in `features/conversations/aui/ContextUsage.tsx`, the
+ * only caller.
+ */
+import { cn } from "@/components/assistant-ui/lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+} from "@/components/assistant-ui/ui/tooltip";
 import {
   createContext,
   useContext,
   useMemo,
   useState,
+  type ComponentProps,
   type FC,
   type ReactNode,
 } from "react";
@@ -68,11 +86,28 @@ const getPercentColor = (percent: number): string => {
   if (severity === "warning") return "text-amber-500";
   return "text-muted-foreground";
 };
+export type ContextDisplayLabels = {
+  full: (percent: number) => string;
+  input: string;
+  cachedInput: string;
+  output: string;
+  reasoning: string;
+};
+
+const DEFAULT_LABELS: ContextDisplayLabels = {
+  full: (percent) => `${percent}% full`,
+  input: "Input",
+  cachedInput: "Cached input",
+  output: "Output",
+  reasoning: "Reasoning",
+};
+
 type ContextDisplayContextValue = {
   usage: TokenUsage | undefined;
   totalTokens: number;
   percent: number;
   modelContextWindow: number;
+  labels: ContextDisplayLabels;
 };
 
 const ContextDisplayContext = createContext<ContextDisplayContextValue | null>(
