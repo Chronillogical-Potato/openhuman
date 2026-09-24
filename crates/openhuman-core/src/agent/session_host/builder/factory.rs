@@ -167,7 +167,14 @@ impl OpenHumanSessionHost {
         host: &super::HostTools,
         session_id: Option<&str>,
     ) -> Result<Self> {
-        Self::build_session_agent_inner(config, &definition.id, Some(definition), false, Some(host), session_id)
+        Self::build_session_agent_inner(
+            config,
+            &definition.id,
+            Some(definition),
+            false,
+            Some(host),
+            session_id,
+        )
     }
 
     /// Internal constructor that consumes the optionally-resolved agent
@@ -1028,13 +1035,19 @@ impl OpenHumanSessionHost {
             );
             effective_agent_config.max_tool_iterations = def_cap;
         }
-        // The host's own belt, last, so a host tool wins a name collision with
-        // a config-derived one: the host asked for this object specifically,
-        // and `dedup_visible_tool_specs` keeps the first occurrence, so the
-        // advertised spec must be the one that will actually run.
-        let host_policy = match host.map(|build| {
-            build(super::host_tools::TurnContext::new(agent_id, session_id))
-        }) {
+        // The host's own belt goes FIRST, so a host tool wins a name collision
+        // with a config-derived one: the host named this object specifically,
+        // and a host that cannot override a tool it collides with has no way
+        // to correct one.
+        //
+        // First, not last, because `dedup_visible_tool_specs` keeps the first
+        // occurrence -- appending would advertise the config-derived spec
+        // while the host believed it had replaced it, which is the failure
+        // that is hardest to see: the model is told about one tool and a
+        // different one answers.
+        let host_policy = match host
+            .map(|build| build(super::host_tools::TurnContext::new(agent_id, session_id)))
+        {
             Some(host_tools) if !host_tools.is_empty() => {
                 log::debug!(
                     "[agent::builder] host supplied {} tool(s) for agent_id={agent_id}: {:?}",
@@ -1045,8 +1058,8 @@ impl OpenHumanSessionHost {
                         .map(|tool| tool.name())
                         .collect::<Vec<_>>(),
                 );
-                let mut host_tools = host_tools;
-                tools.append(&mut host_tools.tools);
+                let host_tools = host_tools;
+                tools.splice(0..0, host_tools.tools);
                 visible.extend(host_tools.visible);
                 host_tools.policy
             }
@@ -1087,10 +1100,15 @@ impl OpenHumanSessionHost {
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
         }
-        // The host's gate, when it sent one. Ahead of the session's own by
-        // construction: a host that supplies both a belt and a gate is saying
-        // what may run on that belt, and a config-derived policy knows nothing
-        // about tools it did not produce.
+        // The host's gate, when it sent one. This REPLACES the session's own
+        // policy rather than sitting in front of it -- `tool_policy` assigns.
+        //
+        // That is deliberate: a host supplying a gate is saying what may run
+        // on this session, not only on its own belt, and the episode case
+        // needs exactly that (admit my tools, ask me about everything else).
+        // But it means a host that gates only its own names denies every
+        // config-derived tool, so the host composes, not this builder. See
+        // `HostTurnTools::with_policy`, which says so.
         if let Some(policy) = host_policy {
             builder = builder.tool_policy(policy);
         }

@@ -210,9 +210,9 @@ pub struct TurnOutcome {
     /// What the turn spent: tokens, cost, context window, and any synchronous
     /// children it ran.
     ///
-    /// A host that meters its agents needs this at the only moment it exists --
-    /// when the turn ends -- and it is reported for a failed turn too, because
-    /// a turn that ended badly still spent what it spent.
+    /// Present only when the turn returned. A turn that **failed** also spent
+    /// what it spent, and there is no outcome to carry it on -- use
+    /// [`Turn::meter`] for that, which fires either way.
     ///
     /// `None` when the turn ran against a caller-built runtime's orchestrator
     /// rather than a runtime-owned [`Agent`](crate::Agent): that path answers
@@ -242,6 +242,7 @@ pub struct Turn {
     origin: Option<AgentTurnOrigin>,
     progress: Option<tokio::sync::mpsc::Sender<AgentProgress>>,
     seed: Option<Vec<(String, String)>>,
+    meter: Option<Box<dyn FnOnce(Option<LastTurnUsage>) + Send>>,
 }
 
 impl Turn {
@@ -253,6 +254,7 @@ impl Turn {
             origin: None,
             progress: None,
             seed: None,
+            meter: None,
         }
     }
 
@@ -307,6 +309,39 @@ impl Turn {
     /// ```
     pub fn seed(mut self, history: Vec<(String, String)>) -> Self {
         self.seed = Some(history);
+        self
+    }
+
+    /// Report what this turn spent, whether or not it succeeded.
+    ///
+    /// [`TurnOutcome::usage`] carries the same figures, but only when there is
+    /// an outcome to carry them on. A host that meters its agents cannot let a
+    /// failed turn go unbilled -- a turn that ran, called tools and then
+    /// errored spent real tokens, and an agent whose failures are free is an
+    /// agent whose costs are understated exactly where they run highest.
+    ///
+    /// `f` is called once, after the turn settles and before its error (if
+    /// any) is returned -- so a turn that ran and then failed is reported.
+    ///
+    /// It does **not** fire for a turn refused before dispatch, such as one
+    /// whose [`route`](Self::route) pairs a bearer with a plain-http endpoint:
+    /// nothing ran, so there is nothing to bill. `None` means the turn ran but
+    /// the session reported no usage, which is not the same as zero.
+    ///
+    /// ```no_run
+    /// # use openhuman_embed::Agent;
+    /// # async fn go(agent: &Agent) -> anyhow::Result<()> {
+    /// let (tx, rx) = std::sync::mpsc::channel();
+    /// let result = agent.turn("go")
+    ///     .meter(move |spent| { let _ = tx.send(spent); })
+    ///     .send()
+    ///     .await;
+    /// let spent = rx.recv().ok().flatten();   // arrives even if `result` is an error
+    /// # let _ = (result, spent); Ok(()) }
+    /// ```
+    #[must_use]
+    pub fn meter(mut self, f: impl FnOnce(Option<LastTurnUsage>) + Send + 'static) -> Self {
+        self.meter = Some(Box::new(f));
         self
     }
 
@@ -421,6 +456,7 @@ impl Turn {
         // turn is still metered. Read back below whether the dispatch returned
         // a reply or an error.
         let usage: UsageSink = std::sync::Mutex::new(None);
+        let meter = self.meter.take();
         let dispatch = dispatch(self.target, self.request, self.seed.take(), &usage);
 
         let reply = match (self.origin, self.progress) {
@@ -456,7 +492,20 @@ impl Turn {
                 crate::error::CoreError::InvalidRoute { .. } => "invalid_route",
             };
             log::debug!("[embed][agent] turn_failed session={session_id} kind={tag}");
-        })?;
+        });
+
+        // Before the `?`. A turn that errored still spent what it spent, and
+        // this is the only place both the sink and a failing result are in
+        // hand -- `TurnOutcome` below is never built on that path.
+        if let Some(meter) = meter {
+            meter(
+                usage
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone(),
+            );
+        }
+        let reply = reply?;
 
         log::debug!(
             "[embed][agent] turn_completed session={session_id} reply_len={}",
@@ -481,7 +530,9 @@ impl Turn {
 /// target reaches `agent_chat_for` natively under the agent's own context —
 /// the definition it carries cannot travel as JSON — so it applies the
 /// DomainSet gate itself before touching the core.
-type UsageSink = std::sync::Mutex<Option<openhuman_core::agent::tinyagents::host::LastTurnUsage>>;
+use openhuman_core::agent::tinyagents::host::LastTurnUsage;
+
+type UsageSink = std::sync::Mutex<Option<LastTurnUsage>>;
 
 async fn dispatch(
     target: TurnTarget,

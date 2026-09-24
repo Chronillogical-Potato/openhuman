@@ -35,15 +35,17 @@ use crate::agent::tool_policy::ToolPolicy;
 ///
 /// `visible` is the provider-visible allow-list to union into the session's
 /// own; leaving it empty makes the tools reachable but unadvertised, which is
-/// rarely what a host wants. `policy` is consulted for these tools before the
-/// session's own gate.
+/// rarely what a host wants. `policy`, when set, becomes the session's gate --
+/// see [`with_policy`](Self::with_policy), which is not what "host tools"
+/// might suggest.
 #[derive(Default)]
 pub struct HostTurnTools {
-    /// The tools themselves, appended to the belt config produced.
+    /// The tools themselves, placed **ahead of** the config-derived belt so a
+    /// host tool wins a collision on its name.
     pub tools: Vec<Box<dyn Tool>>,
     /// Names to add to the provider-visible allow-list.
     pub visible: HashSet<String>,
-    /// An admission gate consulted ahead of the session's own, if any.
+    /// The session's admission gate, if the host sets one.
     pub policy: Option<Arc<dyn ToolPolicy>>,
 }
 
@@ -59,7 +61,20 @@ impl HostTurnTools {
         }
     }
 
-    /// Sets the admission gate consulted ahead of the session's own.
+    /// Sets the gate for the whole session.
+    ///
+    /// # This replaces; it does not wrap
+    ///
+    /// The policy set here becomes the session's tool policy outright -- it is
+    /// not consulted first and then deferred to a config-derived one, because
+    /// there is no composition step to defer through.
+    ///
+    /// That is what the episode case wants: a gate saying *admit my belt, and
+    /// ask me about everything else* is a statement about the whole session,
+    /// not only about the tools the host supplied. But it means **a host that
+    /// gates only its own names denies every other tool on the belt**. If the
+    /// session should keep an existing policy for calls the host does not own,
+    /// the host composes the two and passes the result here.
     #[must_use]
     pub fn with_policy(mut self, policy: Arc<dyn ToolPolicy>) -> Self {
         self.policy = Some(policy);

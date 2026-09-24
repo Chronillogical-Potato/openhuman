@@ -129,7 +129,9 @@ impl HarnessBuilder {
     #[must_use]
     pub fn tools(
         mut self,
-        f: impl for<'a> Fn(openhuman_core::agent::TurnContext<'a>) -> openhuman_core::agent::HostTurnTools
+        f: impl for<'a> Fn(
+                openhuman_core::agent::TurnContext<'a>,
+            ) -> openhuman_core::agent::HostTurnTools
             + Send
             + Sync
             + 'static,

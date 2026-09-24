@@ -193,3 +193,59 @@ fn the_factory_is_told_the_session_it_is_building_for() {
         "the factory is told the agent every time, and the session when one was named"
     );
 }
+
+/// A host tool wins a collision with a config-derived tool of the same name.
+///
+/// The rule only holds because the host belt is spliced in *first* and
+/// `dedup_visible_tool_specs` keeps the first occurrence. Append instead and
+/// the config spec is advertised while the host believes it replaced it --
+/// the model told about one tool and a different one answering, which is the
+/// version of this bug that is hardest to see from the outside.
+#[test]
+fn a_host_tool_overrides_a_config_tool_of_the_same_name() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+
+    // A name the config-derived belt already carries, so the two collide.
+    let contested =
+        crate::agent::OpenHumanSessionHost::from_config_with_definition(&config, &definition())
+            .expect("build a session without a host belt")
+            .visible_tool_specs_arc()
+            .first()
+            .map(|spec| spec.name.clone())
+            .expect("the config-derived belt advertises at least one tool");
+
+    let host: crate::agent::HostTools = {
+        let contested = contested.clone();
+        Arc::new(move |_| {
+            crate::agent::HostTurnTools::advertised(vec![Box::new(Marker(Box::leak(
+                contested.clone().into_boxed_str(),
+            )))])
+        })
+    };
+
+    let agent = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
+        &config,
+        &definition(),
+        &host,
+        None,
+    )
+    .expect("build a session whose host belt collides");
+
+    let advertised: Vec<_> = agent
+        .visible_tool_specs_arc()
+        .iter()
+        .filter(|spec| spec.name == contested)
+        .map(|spec| spec.description.clone())
+        .collect();
+
+    assert_eq!(
+        advertised.len(),
+        1,
+        "a collision must leave exactly one advertised spec for {contested}"
+    );
+    assert_eq!(
+        advertised[0], "a test marker",
+        "the surviving spec must be the host's, not the config-derived one"
+    );
+}

@@ -308,7 +308,9 @@ pub async fn agent_chat_for(
         usage: Some(sink), ..
     } = target
     {
-        *sink.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = agent.last_turn_usage();
+        *sink
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = agent.last_turn_usage();
     }
     let response = outcome.map_err(|e| e.to_string())?;
     Ok(RpcOutcome::single_log(response, "agent chat completed"))
