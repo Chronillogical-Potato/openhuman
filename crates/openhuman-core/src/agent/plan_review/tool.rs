@@ -138,6 +138,31 @@ impl RequestPlanReviewTool {
         let thread_id = chat_ctx.as_ref().map(|c| c.thread_id.clone());
         let client_id = chat_ctx.as_ref().map(|c| c.client_id.clone());
 
+        // Inert outside Plan mode (issue: plan-mode approvals). The chat
+        // orchestrator carries this tool on its belt at all times so it is
+        // reachable the instant a thread enters Plan mode (`agent.toml`), but
+        // a research/lookup turn in ordinary Build mode must never park
+        // behind a review card — that is the whole reason the tool was kept
+        // off the orchestrator's belt before Plan mode existed. Deny the
+        // model's own attempt to call it outside Plan mode with a plain
+        // instruction rather than parking, so a mis-fire degrades to a no-op
+        // instead of freezing the turn on an approval nobody asked for.
+        let mode = thread_id
+            .as_deref()
+            .map(crate::agent::tinyagents::run_mode::get_mode)
+            .unwrap_or_default();
+        if mode != tinyagents_harness::middleware::RunMode::Plan {
+            tracing::debug!(
+                thread_id = ?thread_id,
+                "[tool][request_plan_review] thread is not in plan mode — not parking"
+            );
+            return Ok(ToolResult::success(
+                "not applicable: this thread is not in plan mode, so there is no plan to \
+                 review. Do not call `request_plan_review` again this turn."
+                    .to_string(),
+            ));
+        }
+
         tracing::info!(
             thread_id = ?thread_id,
             steps = steps.len(),
