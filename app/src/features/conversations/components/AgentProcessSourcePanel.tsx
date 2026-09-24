@@ -125,7 +125,7 @@ export function AgentProcessSourcePanel({
             {scopedEntry ? (
               // Scoped to one step: show only that step's details.
               scopedEntry.subagent ? (
-                <AssistantUiSubagentCall activity={scopedEntry.subagent} />
+                <SubagentActivityCard activity={scopedEntry.subagent} />
               ) : scopedDetail ? (
                 <pre className="max-h-[60vh] overflow-y-auto rounded-lg bg-surface-muted px-3 py-2 text-[12px] whitespace-pre-wrap wrap-break-word text-content-secondary">
                   {scopedDetail}
@@ -135,21 +135,12 @@ export function AgentProcessSourcePanel({
                   {t('conversations.agentTaskInsights.noSteps')}
                 </p>
               )
-            ) : transcript.length > 0 ? (
-              // Hermes-style interleaved narration + grouped, human-labeled steps.
-              // `renderSubagent` restores the nested child-run activity the
-              // legacy fallback below always had — without it a delegated
-              // sub-agent collapsed to a single line here, hiding every tool
-              // call it made.
-              <ProcessingTranscriptView
-                transcript={transcript}
-                entries={entries}
-                renderSubagent={subagent => <AssistantUiSubagentCall activity={subagent} />}
-              />
-            ) : entries.length > 0 ? (
-              // Legacy snapshot (no transcript): fall back to the tool timeline,
-              // which already nests each sub-agent's full activity inline.
-              <ToolTimelineBlock entries={entries} expandAllRows />
+            ) : entries.length > 0 || transcript.length > 0 ? (
+              // Whole-run view — `ToolTimelineAdapter` already switches between
+              // the interleaved narration/tool-group view (when `transcript` is
+              // present) and the plain tool-row list (legacy snapshot),
+              // nesting each sub-agent's full activity inline either way.
+              <ToolTimelineAdapter entries={entries} transcript={transcript} expandAllRows />
             ) : (
               <p className="text-xs text-content-faint italic">
                 {t('conversations.agentTaskInsights.noSteps')}
@@ -172,7 +163,7 @@ export function AgentProcessSourcePanel({
                     <p className="text-[12px] font-medium text-content-secondary">
                       {formatTimelineEntry(entry, t).title}
                     </p>
-                    <AssistantUiSubagentCall activity={entry.subagent!} />
+                    <SubagentActivityCard activity={entry.subagent!} />
                   </div>
                 ))}
               </div>
