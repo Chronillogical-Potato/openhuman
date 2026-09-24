@@ -147,17 +147,34 @@ pub enum DomainEvent {
         thread_id: String,
         mode: String,
         queue_depth: usize,
+        /// Stable id of the queued item, when the run queue assigns one.
+        /// `None` until the queue implementation is updated to mint ids.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        /// Short, non-sensitive preview of the queued text (already
+        /// truncated by the publisher — never the raw message body at
+        /// full length). `None` until wired up.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// A queued followup message was dispatched as a fresh turn after the
     /// current turn completed.
     RunQueueFollowupDispatched {
         thread_id: String,
         followup_count: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// The active turn was interrupted by a new message (default behavior).
     RunQueueInterrupted {
         thread_id: String,
         cancelled_request_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// One or more queued steer/collect messages were delivered into a running
     /// turn's steering handle (the harness applies them at the next iteration
@@ -168,11 +185,22 @@ pub enum DomainEvent {
         thread_id: String,
         mode: String,
         delivered: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
     },
     /// Residual steer messages that the turn ended or was cancelled before
     /// applying were drained back into the session run queue so they become the
     /// next turn's input instead of silently vanishing (issue #4456).
-    RunQueueSteerRequeued { thread_id: String, requeued: usize },
+    RunQueueSteerRequeued {
+        thread_id: String,
+        requeued: usize,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        item_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text_preview: Option<String>,
+    },
 
     // ── Monitor ───────────────────────────────────────────────────────
     /// A background monitor changed lifecycle state.
