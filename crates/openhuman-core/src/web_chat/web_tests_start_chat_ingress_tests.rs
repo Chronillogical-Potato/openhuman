@@ -60,7 +60,22 @@ async fn start_chat_rejects_prompt_injection_payload() {
     .await
     .expect_err("prompt-injection payload should be rejected");
 
-    let lower = err.to_ascii_lowercase();
+    // Structured now (StartChatError::Guardrail{verdict,score,reasons}), not
+    // a plain string — assert the classifiable shape as well as the
+    // human-readable copy `Display` still gives a plain-string consumer.
+    match &err {
+        StartChatError::Guardrail { verdict, .. } => {
+            assert!(
+                verdict == "block" || verdict == "review_blocked",
+                "unexpected guardrail verdict: {verdict}"
+            );
+        }
+        StartChatError::Other(message) => {
+            panic!("expected a Guardrail rejection, got Other({message})");
+        }
+    }
+
+    let lower = err.to_string().to_ascii_lowercase();
     assert!(
         lower.contains("blocked by a security policy")
             || lower.contains("flagged for security review"),
