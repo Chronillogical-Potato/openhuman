@@ -518,3 +518,50 @@ async fn plan_review_surface_bridges_plan_review_decided() {
     assert_eq!(ev.cancel_reason, None);
     assert_eq!(ev.message, Some("approve".to_string()));
 }
+
+/// `publish_web_channel_event` stamps `ts` (epoch ms) when the caller left it
+/// unset, so every emitted event carries a wall-clock time even when the
+/// producer never set one explicitly.
+#[tokio::test]
+async fn publish_web_channel_event_stamps_ts_when_unset() {
+    let mut web_rx = subscribe_web_channel_events();
+    let before = crate::web_chat::progress_bridge::unix_epoch_ms();
+
+    publish_web_channel_event(WebChannelEvent {
+        event: "ts_stamp_probe".to_string(),
+        thread_id: "thread-ts-stamp-probe".to_string(),
+        ..Default::default()
+    });
+
+    let ev = find_agent_web_event(&mut web_rx, "ts_stamp_probe", "thread-ts-stamp-probe").await;
+    let after = crate::web_chat::progress_bridge::unix_epoch_ms();
+    let ts = ev.ts.expect("publish_web_channel_event must stamp ts when unset");
+    assert!(
+        ts >= before && ts <= after,
+        "stamped ts ({ts}) must fall within [{before}, {after}]"
+    );
+}
+
+/// A caller that already set `ts` keeps its own value — `publish_web_channel_event`
+/// only fills the field in when it is `None`, so a replayed event (e.g. the
+/// parked-approval replay path) keeps its original timestamp instead of being
+/// re-stamped with "now".
+#[tokio::test]
+async fn publish_web_channel_event_preserves_an_explicit_ts() {
+    let mut web_rx = subscribe_web_channel_events();
+
+    publish_web_channel_event(WebChannelEvent {
+        event: "ts_stamp_probe_explicit".to_string(),
+        thread_id: "thread-ts-stamp-probe-explicit".to_string(),
+        ts: Some(123),
+        ..Default::default()
+    });
+
+    let ev = find_agent_web_event(
+        &mut web_rx,
+        "ts_stamp_probe_explicit",
+        "thread-ts-stamp-probe-explicit",
+    )
+    .await;
+    assert_eq!(ev.ts, Some(123));
+}
