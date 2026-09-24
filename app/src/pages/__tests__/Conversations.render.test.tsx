@@ -29,6 +29,7 @@ import chatRuntimeReducer, {
 } from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
 import queueReducer, { queueItemQueued } from '../../store/queueSlice';
+import runModeReducer from '../../store/runModeSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
 import threadGoalReducer from '../../store/threadGoalSlice';
@@ -133,6 +134,7 @@ function buildStore(preload: Record<string, unknown> = {}) {
       theme: themeReducer,
       threadTodos: threadTodosReducer,
       threadGoal: threadGoalReducer,
+      runMode: runModeReducer,
     }),
     preloadedState: preload as never,
   });
