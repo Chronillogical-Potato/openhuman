@@ -239,7 +239,7 @@ const Conversations = ({
   const location = useLocation();
   const { threadId: routeThreadId } = useParams<{ threadId?: string }>();
   const shouldSyncChatRoute = variant === 'page' && location.pathname.startsWith('/chat');
-  const { threads, selectedThreadId, messages, isLoadingMessages, messagesError } = useAppSelector(
+  const { threads, selectedThreadId, messages } = useAppSelector(
     state => state.thread
   );
   // Optional-chain + default: narrow test stores may omit `activeThreadIds`.
@@ -289,7 +289,7 @@ const Conversations = ({
     labelKey: 'conversations.agentTaskInsights.viewProcessSource',
     group: 'Chat',
     handler: () => setShowProcessSource(true),
-    enabled: () => selectedThreadId !== null && composer !== 'mic-cloud',
+    enabled: () => selectedThreadId !== null,
     keywords: ['agent', 'process', 'source', 'timeline', 'run'],
   });
   // Thread-list filtering is fixed to the General bucket — the in-sidebar
@@ -358,9 +358,6 @@ const Conversations = ({
   // behaviour stays intact.
   const uiLocale = useAppSelector(state => state.locale?.current ?? 'en');
   const toolTimelineByThread = useAppSelector(state => state.chatRuntime.toolTimelineByThread);
-  const interruptedAssistantByThread = useAppSelector(
-    state => state.chatRuntime.interruptedAssistantByThread
-  );
   const processingByThread = useAppSelector(state => state.chatRuntime.processingByThread);
   const inferenceStatusByThread = useAppSelector(
     state => state.chatRuntime.inferenceStatusByThread
@@ -1465,17 +1462,6 @@ const Conversations = ({
   const pendingWorkflowProposal = selectedThreadId
     ? (pendingWorkflowProposalsByThread[selectedThreadId] ?? null)
     : null;
-  const visibleMessages = messages.filter(msg => !msg.extraMetadata?.hidden);
-  const hasVisibleMessages = visibleMessages.length > 0;
-  const selectedStreamingAssistant = selectedThreadId
-    ? (streamingAssistantByThread[selectedThreadId] ?? null)
-    : null;
-  // The partial reply an interrupted turn left behind (restore-fidelity fix 2):
-  // surfaced as a settled, marked-interrupted bubble on restore so a turn that
-  // crashed mid-answer keeps its visible work instead of rendering blank.
-  const selectedInterruptedAssistant = selectedThreadId
-    ? (interruptedAssistantByThread[selectedThreadId] ?? null)
-    : null;
   // Blocks all composer interaction while a turn is in-flight or Rust chat is unavailable.
   // isSending: the *selected* thread is in-flight (drives selected-thread UI only).
   const composerInteractionBlocked = isComposerInteractionBlocked({
@@ -1511,21 +1497,6 @@ const Conversations = ({
     disabled: composerInteractionBlocked || isSending || !selectedThreadId,
   });
   const mascotDock = chatMascot ? <ChatMascotDock /> : undefined;
-
-  // Live agent activity that must stay visible even before the thread's
-  // message history has loaded: an in-flight turn, recorded tool steps, a
-  // processing transcript, or streamed prose. Without this, switching to a
-  // thread mid-turn rendered a blank pane (the message list is gated on
-  // `hasVisibleMessages`) until `loadThreadMessages` resolved — tool calls and
-  // streaming output silently invisible despite landing in Redux.
-  const hasLiveAgentActivity =
-    isSending ||
-    selectedThreadToolTimeline.length > 0 ||
-    selectedThreadProcessing.length > 0 ||
-    Boolean(selectedStreamingAssistant) ||
-    // An interrupted turn's restored partial answer must surface too, even
-    // before the durable message history loads (restore-fidelity fix 2).
-    Boolean(selectedInterruptedAssistant);
 
   const filteredThreads = useMemo(() => {
     return threads.filter(t => isThreadVisibleInTab(t, selectedLabel));
