@@ -384,6 +384,7 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
             client_id,
             summary,
             steps,
+            ..
         } = event
         {
             match (thread_id, client_id) {
