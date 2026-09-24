@@ -108,7 +108,6 @@ describe('inline citation markers', () => {
     renderChat(agentMessage('That page says so [1].'));
 
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
-    console.log('DEBUG_HTML', document.querySelector('.aui-md')?.innerHTML);
     const marker = screen.getByRole('button', { name: '1' });
     expect(marker).toBeTruthy();
     // Plain text, not a markdown link: the bracketed number itself is gone
