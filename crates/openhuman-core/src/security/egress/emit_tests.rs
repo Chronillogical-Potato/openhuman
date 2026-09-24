@@ -22,6 +22,7 @@ async fn find_pending(
                 descriptor,
                 thread_id,
                 client_id,
+                ..
             }) if descriptor.service == marker => return (descriptor, thread_id, client_id),
             Some(_) => continue,
             None => panic!("the bus closed before the expected event arrived"),
