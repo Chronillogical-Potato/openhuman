@@ -222,11 +222,15 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({ args, result, m
   const elapsed = resolved.elapsedMs !== undefined ? formatElapsed(resolved.elapsedMs) : undefined;
   const awaiting = state === 'waiting' && resolved.status === 'awaiting_user';
 
+  const cancellable =
+    (state === 'working' || state === 'waiting') && resolved.taskId !== 'pending-subagent';
+
   const actions =
-    awaiting || resolved.worktreePath ? (
+    awaiting || resolved.worktreePath || cancellable ? (
       <div className="flex flex-col gap-2.5">
         {awaiting ? <AwaitingUserActions activity={resolved} /> : null}
         <WorktreeRow activity={resolved} />
+        {cancellable ? <CancelTaskAction taskId={resolved.taskId} /> : null}
       </div>
     ) : undefined;
 
