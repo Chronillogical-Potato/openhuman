@@ -1,4 +1,3 @@
-import { convertFileSrc } from '@tauri-apps/api/core';
 import debugFactory from 'debug';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -6,14 +5,10 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { type ChatSendError, chatSendError } from '../../chat/chatSendError';
 import { checkPromptInjection, promptGuardMessage } from '../../chat/promptInjectionGuard';
 import { trackAnalyticsEvent } from '../../components/analytics';
-import ApprovalRequestCard from '../../components/chat/ApprovalRequestCard';
 import ArtifactCard from '../../components/chat/ArtifactCard';
-import ChatComposer from '../../components/chat/ChatComposer';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
-import ChatNewWindowHero from '../../components/chat/ChatNewWindowHero';
 import ComposerTokenStats from '../../components/chat/ComposerTokenStats';
 import { FlowApprovalRequestCard } from '../../components/chat/FlowApprovalRequestCard';
-import IntegrationConnectCard from '../../components/chat/IntegrationConnectCard';
 import QueuedFollowups from '../../components/chat/QueuedFollowups';
 import { UnroutedApprovalCard } from '../../components/chat/UnroutedApprovalCard';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
@@ -22,10 +17,6 @@ import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
 import { selectBackgroundProcesses } from '../../features/conversations/components/BackgroundProcessesPanel';
-import {
-  ChatThreadView,
-  type ChatThreadViewHandle,
-} from '../../features/conversations/components/ChatThreadView';
 import { GoalBanner } from '../../features/conversations/components/GoalBanner';
 import { PlanReviewCard } from '../../features/conversations/components/PlanReviewCard';
 import { TodoChecklist } from '../../features/conversations/components/TodoChecklist';
@@ -80,7 +71,6 @@ import {
   markThreadSendPending,
   type ProcessingTranscriptItem,
   type QueuedFollowup,
-  registerParallelRequest,
   setToolTimelineForThread,
   type ToolTimelineEntry,
 } from '../../store/chatRuntimeSlice';
@@ -104,12 +94,6 @@ import type { ConfirmationModal as ConfirmationModalType } from '../../types/int
 import type { ThreadMessage } from '../../types/thread';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
-import {
-  notifyOverlaySttState,
-  openhumanVoiceStatus,
-  openhumanVoiceTranscribeBytes,
-  openhumanVoiceTts,
-} from '../../utils/tauriCommands';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
 
@@ -280,15 +264,8 @@ const Conversations = ({
   attachmentsRef.current = attachments;
   // Tail of the ingest queue; see `handleAttachFiles`.
   const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Imperative handle onto the transcript's own background-processes panel
-  // (its state now lives inside `ChatThreadView`) so the header badge below
-  // can still open it without lifting that state back up.
-  // Disclosure state for the three transcript-local overlays on the
-  // assistant-ui surface. `ChatThreadView` owns an identical trio for the
-  // legacy voice panel, but it is not mounted on `/chat` any more, so the
-  // panels it hosts (background processes, the sub-agent drawer, the Agent
-  // Process Source panel) had no host at all there.
+  // Disclosure state for the three transcript-local overlays (background
+  // processes, the sub-agent drawer, the Agent Process Source panel).
   const [showBackgroundProcesses, setShowBackgroundProcesses] = useState(false);
   const [openSubagentTaskId, setOpenSubagentTaskId] = useState<string | null>(null);
   const [showProcessSource, setShowProcessSource] = useState(false);
@@ -315,13 +292,6 @@ const Conversations = ({
     enabled: () => selectedThreadId !== null && composer !== 'mic-cloud',
     keywords: ['agent', 'process', 'source', 'timeline', 'run'],
   });
-  // Measured height of the floating composer footer (page variant only). The
-  // footer is `absolute`ly positioned over the scroll area, so the message list
-  // needs matching bottom padding to keep its tail visible. Defaults to 128px
-  // (the old static `pb-32`) so layout is unchanged until the ResizeObserver
-  // reports a real height — and grows automatically when the queued-followups
-  // panel, approval cards, or error banners expand the footer (#4268).
-  const [composerFooterHeight, setComposerFooterHeight] = useState(128);
   // Thread-list filtering is fixed to the General bucket — the in-sidebar
   // General/Subconscious/Tasks chips were removed. Subconscious reflections and
   // task/worker threads have dedicated surfaces (Intelligence, Tasks board).
@@ -396,9 +366,6 @@ const Conversations = ({
     state => state.chatRuntime.inferenceStatusByThread
   );
   const artifactsByThread = useAppSelector(state => state.chatRuntime.artifactsByThread);
-  const pendingApprovalByThread = useAppSelector(
-    state => state.chatRuntime.pendingApprovalByThread
-  );
   // Flow-approval surface (chat): a paused tinyflows run's gate, pushed via
   // the `flow_approval_request` socket event. Not thread-scoped — the
   // payload carries no `thread_id` — so it's tracked independently of the
@@ -768,10 +735,6 @@ const Conversations = ({
         const base = prev.trim();
         if (!base) return text;
         return `${base}${base.endsWith(' ') ? '' : ' '}${text}`;
-      });
-
-      window.requestAnimationFrame(() => {
-        textInputRef.current?.focus();
       });
     };
 
@@ -1443,12 +1406,6 @@ const Conversations = ({
       if (restored.length > 0) {
         debug('[chat] esc interrupt: restored prompt len=%d', restored.length);
         setInputValue(restored);
-        window.requestAnimationFrame(() => {
-          const ta = textInputRef.current;
-          if (!ta) return;
-          ta.focus();
-          ta.setSelectionRange(restored.length, restored.length);
-        });
       }
     }
   }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
@@ -1581,44 +1538,6 @@ const Conversations = ({
   }, [filteredThreads]);
 
   const isSidebar = variant === 'sidebar';
-  // "New window" = the merged Home surface: a page-variant chat whose selected
-  // thread has no messages yet. We show the greeting + banners hero above a
-  // centered composer; the moment the first message lands, hasVisibleMessages
-  // flips true and this collapses back to the normal conversation layout.
-  const isNewWindow =
-    !isSidebar &&
-    !isLoadingMessages &&
-    !messagesError &&
-    !hasVisibleMessages &&
-    !hasLiveAgentActivity;
-
-  // Track the floating composer footer's height so the message list can reserve
-  // matching bottom padding. In the page variant the footer is absolutely
-  // positioned over the scroll area, so a static padding (the old `pb-32`) gets
-  // overrun whenever the footer grows — most visibly when the "Queued
-  // follow-ups" panel appears mid-reply, hiding the tail of the response
-  // (#4268). The sidebar variant lays the composer out in normal flow and never
-  // overlaps, so we skip the observer there and keep its `pb-4`.
-  useEffect(() => {
-    if (isSidebar) return;
-    const el = composerFooterRef.current;
-    if (!el) return;
-    const measure = () => {
-      const next = Math.round(el.getBoundingClientRect().height);
-      if (next <= 0) return;
-      // Skip no-op updates. This observer watches the footer that *contains* the
-      // composer, while `composerFooterHeight` feeds the message list's bottom
-      // padding — so re-rendering on an unchanged measurement lets a sub-pixel
-      // rounding oscillation cascade into React's nested-update limit
-      // ("Maximum update depth exceeded", #5162 / TAURI-REACT-2G).
-      setComposerFooterHeight(prev => (prev === next ? prev : next));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isSidebar, selectedThreadId]);
-
   // Stable title resolver used by both the sidebar thread list and the header.
   const resolveThreadDisplayTitle = (threadId: string | null): string => {
     if (!threadId) return t('chat.selectThread');
