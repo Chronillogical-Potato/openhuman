@@ -9,6 +9,10 @@ use tinydesktop_bus::{names, DesktopResponse, PermissionsRequest};
 
 use crate::config::Config;
 
+#[cfg(test)]
+#[path = "desktop_tests.rs"]
+mod tests;
+
 pub const MODULE_ID: &str = "tinydesktop";
 
 /// This confidential payload is sent only to the module lifecycle callback.
@@ -108,6 +112,14 @@ pub async fn call<Request: Serialize + Send>(
     request: Request,
 ) -> Result<DesktopResponse, String> {
     let proxy = proxy(config).await?;
+    call_with_proxy(&proxy, member, request).await
+}
+
+async fn call_with_proxy<Request: Serialize + Send>(
+    proxy: &Proxy,
+    member: &str,
+    request: Request,
+) -> Result<DesktopResponse, String> {
     let response = if member == names::methods::RUN_GOAL || member == names::methods::RESOLVE_INTENT
     {
         proxy
