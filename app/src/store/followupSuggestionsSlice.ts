@@ -12,8 +12,8 @@
  * `inference_start`), or the transcript tail is cut (`truncateMessagesFrom`).
  *
  * Only `useOpenHumanExternalStore` reads this, and only after a settled turn.
- * See `useThreadSuggestions` there for why the welcome and follow-up chips
- * must never show together.
+ * See `useWelcomeSuggestions` / `useFollowupSuggestions` there for why the
+ * welcome and follow-up chips must never show together.
  */
 import type { ThreadSuggestion } from '@assistant-ui/react';
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
