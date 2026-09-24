@@ -896,7 +896,8 @@ pub(crate) fn spawn_progress_bridge(
                                 "outputChars": output_chars,
                                 "worktreePath": worktree_path,
                                 "changedFiles": changed_files,
-                                "dirtyStatus": dirty_status
+                                "dirtyStatus": dirty_status,
+                                "parentCallId": parent_call_id
                             }),
                         },
                     );
@@ -918,6 +919,8 @@ pub(crate) fn spawn_progress_bridge(
                                 elapsed_ms: Some(elapsed_ms),
                                 iterations: Some(iterations),
                                 output_chars: Some(output_chars as u64),
+                                output: Some(capped_output),
+                                parent_call_id,
                                 // Present only when this child's spend is NOT
                                 // already in the parent turn's totals — the
                                 // emitting site decides, because only it can

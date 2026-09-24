@@ -143,6 +143,7 @@ pub(crate) async fn deliver_response(
             reaction_emoji,
             citations,
             usage_payload,
+            timing_payload,
         );
         return;
     }
