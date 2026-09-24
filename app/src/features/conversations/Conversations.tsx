@@ -1482,14 +1482,6 @@ const Conversations = ({
   const liveTodos = useThreadTodos(selectedThreadId ?? null);
   const threadGoal = useThreadGoal(selectedThreadId ?? null);
   const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
-  // `TranscriptOverlays` resolves the open delegation out of this same live
-  // timeline and renders nothing when the id is absent, so an inline card must
-  // not offer "View full processing" for a delegation that would open an empty
-  // sheet -- a delegation replayed from the settled core transcript, say.
-  const canOpenSubagentDrawer = useCallback(
-    (taskId: string) => selectedThreadToolTimeline.some(entry => entry.subagent?.taskId === taskId),
-    [selectedThreadToolTimeline]
-  );
   // Poll-free live signal: lights the badge when memories are syncing even if
   // no sub-agent is running and the panel is closed.
   const memorySyncActive = useMemorySyncActive();
