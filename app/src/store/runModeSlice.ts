@@ -12,9 +12,7 @@ export interface RunModeState {
   byThread: Record<string, RunMode>;
 }
 
-const initialState: RunModeState = {
-  byThread: {},
-};
+const initialState: RunModeState = { byThread: {} };
 
 const runModeSlice = createSlice({
   name: 'runMode',

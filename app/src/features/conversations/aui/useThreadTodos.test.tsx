@@ -8,9 +8,7 @@ import { threadApi } from '../../../services/api/threadApi';
 import threadTodosReducer from '../../../store/threadTodosSlice';
 import { useLoadThreadTodos, useThreadTodos } from './useThreadTodos';
 
-vi.mock('../../../services/api/threadApi', () => ({
-  threadApi: { getTodos: vi.fn() },
-}));
+vi.mock('../../../services/api/threadApi', () => ({ threadApi: { getTodos: vi.fn() } }));
 
 function setup() {
   const store = configureStore({ reducer: combineReducers({ threadTodos: threadTodosReducer }) });
@@ -40,7 +38,9 @@ describe('useLoadThreadTodos', () => {
   beforeEach(() => vi.mocked(threadApi.getTodos).mockReset());
 
   it('primes the slice from the RPC on thread open', async () => {
-    vi.mocked(threadApi.getTodos).mockResolvedValue([{ content: 'Write tests', status: 'pending' }]);
+    vi.mocked(threadApi.getTodos).mockResolvedValue([
+      { content: 'Write tests', status: 'pending' },
+    ]);
     const { store, wrapper } = setup();
     renderHook(() => useLoadThreadTodos('t1'), { wrapper });
 

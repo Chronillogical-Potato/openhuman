@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import reducer, { setRunMode, type RunModeState } from './runModeSlice';
+import reducer, { type RunModeState, setRunMode } from './runModeSlice';
 
 const initial: RunModeState = { byThread: {} };
 

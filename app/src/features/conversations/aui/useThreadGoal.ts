@@ -19,9 +19,7 @@ export function formatTokens(count: number): string {
 
 /** `null` when the thread has no goal (or none loaded yet). */
 export function useThreadGoal(threadId: string | null): ThreadGoalView | null {
-  return useAppSelector(state =>
-    threadId ? state.threadGoal.byThread[threadId] ?? null : null
-  );
+  return useAppSelector(state => (threadId ? (state.threadGoal.byThread[threadId] ?? null) : null));
 }
 
 /**

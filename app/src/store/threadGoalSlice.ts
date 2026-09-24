@@ -22,9 +22,7 @@ export interface ThreadGoalState {
   byThread: Record<string, ThreadGoalView | null>;
 }
 
-const initialState: ThreadGoalState = {
-  byThread: {},
-};
+const initialState: ThreadGoalState = { byThread: {} };
 
 const threadGoalSlice = createSlice({
   name: 'threadGoal',

@@ -31,7 +31,7 @@ export interface UseRunModeResult {
 export function useRunMode(threadId: string | null): UseRunModeResult {
   const dispatch = useAppDispatch();
   const mode = useAppSelector(state =>
-    threadId ? state.runMode.byThread[threadId] ?? DEFAULT_MODE : DEFAULT_MODE
+    threadId ? (state.runMode.byThread[threadId] ?? DEFAULT_MODE) : DEFAULT_MODE
   );
   // Presence (not the defaulted `mode` above) — needed so the load-on-open
   // effect can tell "no entry yet" apart from "explicitly build".

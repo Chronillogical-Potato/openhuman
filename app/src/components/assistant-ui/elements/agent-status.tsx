@@ -41,7 +41,11 @@ export function AgentStatus({
   return (
     <span
       data-slot="agent-status"
-      className={cn(paper, 'flex items-center gap-2.5 rounded-full py-1.5 ps-3.5 pe-1.5', className)}
+      className={cn(
+        paper,
+        'flex items-center gap-2.5 rounded-full py-1.5 ps-3.5 pe-1.5',
+        className
+      )}
       {...props}>
       {state === 'done' ? (
         <CheckIcon aria-hidden className="size-3 shrink-0 text-emerald-500" />

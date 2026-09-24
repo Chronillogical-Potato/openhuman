@@ -24,9 +24,7 @@ export interface ThreadTodosState {
   byThread: Record<string, ThreadTodoItemView[]>;
 }
 
-const initialState: ThreadTodosState = {
-  byThread: {},
-};
+const initialState: ThreadTodosState = { byThread: {} };
 
 const threadTodosSlice = createSlice({
   name: 'threadTodos',

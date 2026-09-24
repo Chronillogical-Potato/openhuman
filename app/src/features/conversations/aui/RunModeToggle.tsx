@@ -21,7 +21,8 @@ export function RunModeToggle({ threadId }: { threadId: string }) {
   const { t } = useT();
   const { mode, setMode } = useRunMode(threadId);
   const nextMode = mode === 'plan' ? 'build' : 'plan';
-  const label = mode === 'plan' ? t('conversations.runMode.plan') : t('conversations.runMode.build');
+  const label =
+    mode === 'plan' ? t('conversations.runMode.plan') : t('conversations.runMode.build');
 
   return (
     <button

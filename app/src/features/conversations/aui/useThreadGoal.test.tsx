@@ -8,9 +8,7 @@ import { threadApi } from '../../../services/api/threadApi';
 import threadGoalReducer from '../../../store/threadGoalSlice';
 import { formatTokens, useLoadThreadGoal, useThreadGoal } from './useThreadGoal';
 
-vi.mock('../../../services/api/threadApi', () => ({
-  threadApi: { getGoal: vi.fn() },
-}));
+vi.mock('../../../services/api/threadApi', () => ({ threadApi: { getGoal: vi.fn() } }));
 
 function setup() {
   const store = configureStore({ reducer: combineReducers({ threadGoal: threadGoalReducer }) });

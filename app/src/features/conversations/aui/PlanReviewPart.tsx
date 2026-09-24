@@ -8,7 +8,10 @@ import { field } from '../../../components/assistant-ui/elements/surfaces';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
 import { callCoreRpc } from '../../../services/coreRpcClient';
-import { clearPendingPlanReviewForThread, type PendingPlanReview } from '../../../store/chatRuntimeSlice';
+import {
+  clearPendingPlanReviewForThread,
+  type PendingPlanReview,
+} from '../../../store/chatRuntimeSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { useThreadTodos } from './useThreadTodos';
 
@@ -91,7 +94,11 @@ export function PlanReviewCardCore({
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-3" data-testid="plan-review-card">
-      <AgentPlan steps={review.steps} activeIndex={activeIndex} title={t('conversations.planReview.title')} />
+      <AgentPlan
+        steps={review.steps}
+        activeIndex={activeIndex}
+        title={t('conversations.planReview.title')}
+      />
 
       {errorMsg && <p className="text-xs text-red-600 dark:text-red-400">{errorMsg}</p>}
 
@@ -141,7 +148,9 @@ export function PlanReviewCardCore({
               onClick={submitFeedback}
               disabled={deciding !== null || feedback.trim().length === 0}
               className="text-foreground/70 hover:bg-foreground/[0.06] hover:text-foreground/95 h-7 rounded-full px-2.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30">
-              {deciding === 'revise' ? t('chat.approval.deciding') : t('conversations.planReview.sendFeedback')}
+              {deciding === 'revise'
+                ? t('chat.approval.deciding')
+                : t('conversations.planReview.sendFeedback')}
             </button>
           </div>
         </div>
@@ -165,10 +174,12 @@ export const PlanReviewPart: ToolCallMessagePartComponent = ({ args, toolCallId 
   const { t } = useT();
   const threadId = useAuiThreadId();
   const steps = Array.isArray((args as { steps?: unknown } | undefined)?.steps)
-    ? ((args as { steps: unknown[] }).steps.filter((s): s is string => typeof s === 'string') as string[])
+    ? ((args as { steps: unknown[] }).steps.filter(
+        (s): s is string => typeof s === 'string'
+      ) as string[])
     : [];
   const pending = useAppSelector(state =>
-    threadId ? state.chatRuntime.pendingPlanReviewByThread[threadId] ?? null : null
+    threadId ? (state.chatRuntime.pendingPlanReviewByThread[threadId] ?? null) : null
   );
   const isForThisCall =
     pending != null && (pending.toolCallId ? pending.toolCallId === toolCallId : true);
@@ -179,5 +190,11 @@ export const PlanReviewPart: ToolCallMessagePartComponent = ({ args, toolCallId 
     return <PlanReviewCardCore threadId={threadId} review={pending} />;
   }
 
-  return <AgentPlan steps={steps} activeIndex={steps.length} title={t('conversations.planReview.title')} />;
+  return (
+    <AgentPlan
+      steps={steps}
+      activeIndex={steps.length}
+      title={t('conversations.planReview.title')}
+    />
+  );
 };

@@ -17,8 +17,8 @@ import { cn } from '@/components/assistant-ui/lib/utils';
 import { CheckIcon, Loader2Icon } from 'lucide-react';
 import type { ComponentProps } from 'react';
 
-import { mono } from './surfaces';
 import { pct, progressOf } from '../utils/range';
+import { mono } from './surfaces';
 
 export function AgentPlan({
   steps,

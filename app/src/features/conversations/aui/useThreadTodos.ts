@@ -11,7 +11,9 @@ import { setThreadTodos, type ThreadTodoItemView } from '../../../store/threadTo
 
 /** `null` when the thread has no live entry yet (not "empty list"). */
 export function useThreadTodos(threadId: string | null): ThreadTodoItemView[] | null {
-  return useAppSelector(state => (threadId ? state.threadTodos.byThread[threadId] ?? null : null));
+  return useAppSelector(state =>
+    threadId ? (state.threadTodos.byThread[threadId] ?? null) : null
+  );
 }
 
 /**

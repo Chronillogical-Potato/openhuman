@@ -15,8 +15,8 @@ import { ConfirmationModal } from '../../components/intelligence/ConfirmationMod
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
-import { useRunMode } from '../../features/conversations/aui/useRunMode';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
+import { useRunMode } from '../../features/conversations/aui/useRunMode';
 import {
   formatTokens,
   useLoadThreadGoal,

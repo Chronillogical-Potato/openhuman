@@ -15,10 +15,7 @@ import { useT } from '../../../lib/i18n/I18nContext';
  * single text row — the closest approximation available.
  */
 interface GoalToolPayload {
-  goal?: {
-    objective?: string;
-    status?: string;
-  } | null;
+  goal?: { objective?: string; status?: string } | null;
 }
 
 export const GoalToolLine: ToolCallMessagePartComponent = ({ args, result }) => {

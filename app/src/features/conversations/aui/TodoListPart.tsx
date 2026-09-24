@@ -1,6 +1,10 @@
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 
-import { TodoList, type TodoItem, type TodoStatus } from '../../../components/assistant-ui/elements/todo-list';
+import {
+  type TodoItem,
+  TodoList,
+  type TodoStatus,
+} from '../../../components/assistant-ui/elements/todo-list';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { CoreTodoStatus } from '../../../store/threadTodosSlice';
 

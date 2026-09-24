@@ -1,6 +1,5 @@
 import debug from 'debug';
 
-import type { ChatThreadTodoItem, ThreadGoal } from '../chatService';
 import type {
   DerivedTranscriptGetOptions,
   DerivedTranscriptPage,
@@ -24,6 +23,7 @@ import type {
   RunEvent,
   RunEventListResponse,
 } from '../../types/turnState';
+import type { ChatThreadTodoItem, ThreadGoal } from '../chatService';
 import { callCoreRpc } from '../coreRpcClient';
 
 interface Envelope<T> {
