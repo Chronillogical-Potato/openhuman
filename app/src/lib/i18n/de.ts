@@ -3413,7 +3413,7 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'System-Prompt',
   'conversations.composer.context.section.tools': 'Werkzeuge',
   'conversations.composer.context.section.history': 'Gesprächsverlauf',
-  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.turnCost': 'Dieser Zug',
   'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'Unterhaltung leeren',
   'conversations.composer.command.new': 'Neue Unterhaltung beginnen',

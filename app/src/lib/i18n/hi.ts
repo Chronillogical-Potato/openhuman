@@ -3319,7 +3319,7 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': 'सिस्टम प्रॉम्प्ट',
   'conversations.composer.context.section.tools': 'टूल',
   'conversations.composer.context.section.history': 'बातचीत का इतिहास',
-  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.turnCost': 'यह टर्न',
   'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': 'बातचीत साफ़ करें',
   'conversations.composer.command.new': 'नई बातचीत शुरू करें',

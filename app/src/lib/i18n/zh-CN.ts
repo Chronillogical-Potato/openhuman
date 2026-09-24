@@ -3124,7 +3124,7 @@ const messages: TranslationMap = {
   'conversations.composer.context.section.preamble': '系统提示词',
   'conversations.composer.context.section.tools': '工具',
   'conversations.composer.context.section.history': '对话历史',
-  'conversations.composer.context.turnCost': 'This turn',
+  'conversations.composer.context.turnCost': '本轮',
   'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': '清空对话',
   'conversations.composer.command.new': '开始新对话',
