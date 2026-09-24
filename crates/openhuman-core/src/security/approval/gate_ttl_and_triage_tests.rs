@@ -14,6 +14,7 @@ async fn pending_for_thread_tracks_request_under_chat_context_and_clears() {
     let ctx = ApprovalChatContext {
         thread_id: "thread-42".into(),
         client_id: "client-1".into(),
+    request_id: None,
     };
     let origin = AgentTurnOrigin::WebChat {
         thread_id: "thread-42".into(),
@@ -192,6 +193,7 @@ async fn intercept_audited_bounded_abandons_park_and_leaves_row_pending() {
     let ctx = ApprovalChatContext {
         thread_id: "thread-bound".into(),
         client_id: "client-1".into(),
+    request_id: None,
     };
     let origin = AgentTurnOrigin::WebChat {
         thread_id: "thread-bound".into(),
@@ -649,6 +651,7 @@ async fn a_parked_approval_is_recoverable_from_its_thread_for_replay() {
     let ctx = ApprovalChatContext {
         thread_id: "thread-replay".into(),
         client_id: "client-that-went-away".into(),
+    request_id: None,
     };
     let origin = AgentTurnOrigin::WebChat {
         thread_id: "thread-replay".into(),
