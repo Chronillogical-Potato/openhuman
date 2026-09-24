@@ -1317,17 +1317,20 @@ const isStoppedRun = (s: AssistantState): boolean =>
  * `metadata.custom.extraMetadata` by `assistantUiMessages.ts`) so the reason
  * chip can distinguish a user-initiated Stop from a turn the core superseded.
  */
-const selectStoppedRunState = (s: AssistantState) => {
-  const text = s.message.parts
-    .flatMap(part => (part.type === 'text' ? [part.text] : []))
-    .join(' ');
+// Two primitive selectors rather than one object-returning selector:
+// `useAuiState`'s selector is compared by `Object.is`, so an inline `{...}`
+// literal differs from itself on every store tick and free-runs the
+// subscription — exactly the "Maximum update depth exceeded" loop this file
+// hit once already. `words` (an array) is derived from `text` with
+// `useMemo` in the component below instead of being computed here.
+const selectStoppedRunText = (s: AssistantState): string =>
+  s.message.parts.flatMap(part => (part.type === 'text' ? [part.text] : [])).join(' ');
+
+const selectStoppedRunCancelReason = (s: AssistantState): string | undefined => {
   const custom = s.message.metadata?.custom as
     | { extraMetadata?: { cancelReason?: string; supersededBy?: string } }
     | undefined;
-  return {
-    words: text.length > 0 ? text.split(/\s+/).filter(Boolean) : [],
-    cancelReason: custom?.extraMetadata?.cancelReason,
-  };
+  return custom?.extraMetadata?.cancelReason;
 };
 
 /**
@@ -1342,7 +1345,9 @@ const selectStoppedRunState = (s: AssistantState) => {
 const StoppedRunSlot: FC = () => {
   const aui = useAui();
   const { t } = useT();
-  const { words, cancelReason } = useAuiState(selectStoppedRunState);
+  const text = useAuiState(selectStoppedRunText);
+  const cancelReason = useAuiState(selectStoppedRunCancelReason);
+  const words = useMemo(() => (text.length > 0 ? text.split(/\s+/).filter(Boolean) : []), [text]);
   const { disabled: reloadDisabled, reload } = useActionBarReload();
   const reasonLabel =
     cancelReason === 'superseded'
