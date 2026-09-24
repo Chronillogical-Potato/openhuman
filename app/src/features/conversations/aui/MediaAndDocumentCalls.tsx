@@ -140,7 +140,12 @@ export const DocumentArtifactCall: ToolCallMessagePartComponent = ({
   if (failedArtifact) {
     return (
       <div className="flex flex-col items-start gap-1.5">
-        <ArtifactCard title={title} meta={t('chat.artifact.failed')} generating={false} icon={Icon} />
+        <ArtifactCard
+          title={title}
+          meta={t('chat.artifact.failed')}
+          generating={false}
+          icon={Icon}
+        />
         {threadId ? (
           <Button
             variant="secondary"

@@ -17,10 +17,16 @@
  */
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 
-import { type SubagentItem, SubagentList } from '../../../components/assistant-ui/elements/subagent-list';
+import {
+  type SubagentItem,
+  SubagentList,
+} from '../../../components/assistant-ui/elements/subagent-list';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
-import { isActiveTimelineStatus, selectSubagentChildrenByParentCallId } from '../../../store/chatRuntimeSlice';
+import {
+  isActiveTimelineStatus,
+  selectSubagentChildrenByParentCallId,
+} from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 import { SubagentActivityCard } from './SubagentActivityCard';
 
@@ -28,15 +34,26 @@ const EMPTY_TIMELINE: never[] = [];
 
 function childName(entry: ReturnType<typeof selectSubagentChildrenByParentCallId>[number]): string {
   const sub = entry.subagent;
-  return (sub?.displayName && sub.displayName.trim()) || sub?.agentId || entry.displayName || 'sub-agent';
+  return (
+    (sub?.displayName && sub.displayName.trim()) || sub?.agentId || entry.displayName || 'sub-agent'
+  );
 }
 
-function childProgressPct(entry: ReturnType<typeof selectSubagentChildrenByParentCallId>[number]): number {
+function childProgressPct(
+  entry: ReturnType<typeof selectSubagentChildrenByParentCallId>[number]
+): number {
   const sub = entry.subagent;
   if (!sub) return entry.status === 'running' ? 50 : 100;
   if (!isActiveTimelineStatus(sub.status ?? entry.status)) return 100;
-  if (typeof sub.childIteration === 'number' && typeof sub.childMaxIterations === 'number' && sub.childMaxIterations > 0) {
-    return Math.max(0, Math.min(100, Math.round((sub.childIteration / sub.childMaxIterations) * 100)));
+  if (
+    typeof sub.childIteration === 'number' &&
+    typeof sub.childMaxIterations === 'number' &&
+    sub.childMaxIterations > 0
+  ) {
+    return Math.max(
+      0,
+      Math.min(100, Math.round((sub.childIteration / sub.childMaxIterations) * 100))
+    );
   }
   return 50;
 }

@@ -114,7 +114,9 @@ export const TaskTranscript: FC<{
   roleLabels?: TaskTranscriptRoleLabels;
 }> = ({ messages, roleLabels = DEFAULT_ROLE_LABELS }) => (
   <ReadonlyThreadProvider messages={messages}>
-    <ThreadPrimitive.Messages>{() => <NestedMessage roleLabels={roleLabels} />}</ThreadPrimitive.Messages>
+    <ThreadPrimitive.Messages>
+      {() => <NestedMessage roleLabels={roleLabels} />}
+    </ThreadPrimitive.Messages>
   </ReadonlyThreadProvider>
 );
 

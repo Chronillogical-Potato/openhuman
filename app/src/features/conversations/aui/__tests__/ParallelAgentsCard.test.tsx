@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import type React from 'react';
 import { render, screen } from '@testing-library/react';
+import type React from 'react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,15 +18,17 @@ function sub(partial: Partial<SubagentActivity> & { taskId: string }): SubagentA
   return { agentId: 'researcher', toolCalls: [], parentCallId: PARENT_CALL_ID, ...partial };
 }
 
-function entry(id: string, status: ToolTimelineEntry['status'], subagent: SubagentActivity): ToolTimelineEntry {
+function entry(
+  id: string,
+  status: ToolTimelineEntry['status'],
+  subagent: SubagentActivity
+): ToolTimelineEntry {
   return { id, name: 'subagent:x', round: 0, seq: 0, status, subagent };
 }
 
 function buildStore(timeline: ToolTimelineEntry[]) {
   return configureStore({
-    reducer: {
-      chatRuntime: () => ({ toolTimelineByThread: { [THREAD_ID]: timeline } }),
-    },
+    reducer: { chatRuntime: () => ({ toolTimelineByThread: { [THREAD_ID]: timeline } }) },
   });
 }
 
@@ -59,9 +61,21 @@ describe('ParallelAgentsCard', () => {
 
   it('renders the SubagentList + a TaskCard row per worker sharing parentCallId', () => {
     renderCard([
-      entry('e1', 'running', sub({ taskId: 'sub-1', displayName: 'Researcher', status: 'running' })),
-      entry('e2', 'success', sub({ taskId: 'sub-2', displayName: 'Archivist', status: 'completed' })),
-      entry('e3', 'running', sub({ taskId: 'sub-3', parentCallId: 'other-call', displayName: 'Unrelated' })),
+      entry(
+        'e1',
+        'running',
+        sub({ taskId: 'sub-1', displayName: 'Researcher', status: 'running' })
+      ),
+      entry(
+        'e2',
+        'success',
+        sub({ taskId: 'sub-2', displayName: 'Archivist', status: 'completed' })
+      ),
+      entry(
+        'e3',
+        'running',
+        sub({ taskId: 'sub-3', parentCallId: 'other-call', displayName: 'Unrelated' })
+      ),
     ]);
 
     expect(screen.getAllByText('Researcher').length).toBeGreaterThan(0);

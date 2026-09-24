@@ -6,14 +6,25 @@ import type { BackgroundProcess } from '../../selectors/backgroundProcesses';
 import { BackgroundInboxCard } from '../BackgroundInboxCard';
 
 const procs: BackgroundProcess[] = [
-  { taskId: 'sub-1', name: 'Researcher', goal: 'research the Eiffel Tower', status: 'running', toolCount: 16 },
+  {
+    taskId: 'sub-1',
+    name: 'Researcher',
+    goal: 'research the Eiffel Tower',
+    status: 'running',
+    toolCount: 16,
+  },
   { taskId: 'sub-2', name: 'Archivist', goal: 'summarize notes', status: 'success', toolCount: 4 },
 ];
 
 describe('BackgroundInboxCard', () => {
   it('renders nothing when closed', () => {
     render(
-      <BackgroundInboxCard open={false} processes={procs} onClose={vi.fn()} onOpenProcess={vi.fn()} />
+      <BackgroundInboxCard
+        open={false}
+        processes={procs}
+        onClose={vi.fn()}
+        onOpenProcess={vi.fn()}
+      />
     );
     expect(document.body.querySelector('[data-testid="background-processes-panel"]')).toBeNull();
   });

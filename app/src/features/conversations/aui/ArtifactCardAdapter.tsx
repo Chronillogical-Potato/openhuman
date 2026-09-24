@@ -20,10 +20,10 @@ import { FileTextIcon, ImageIcon, PresentationIcon } from 'lucide-react';
 import type { ElementType } from 'react';
 
 import { ArtifactCard } from '../../../components/assistant-ui/elements/artifact-card';
+import { Button } from '../../../components/ui';
 import { formatFileSize } from '../../../lib/attachments';
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { ArtifactSnapshot } from '../../../store/chatRuntimeSlice';
-import { Button } from '../../../components/ui';
 
 const KIND_ICONS: Record<ArtifactSnapshot['kind'], ElementType> = {
   presentation: PresentationIcon,

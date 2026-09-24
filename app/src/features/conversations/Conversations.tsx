@@ -7,11 +7,11 @@ import { checkPromptInjection, promptGuardMessage } from '../../chat/promptInjec
 import { trackAnalyticsEvent } from '../../components/analytics';
 import { AgentStatus } from '../../components/assistant-ui/elements/agent-status';
 import { TodoList } from '../../components/assistant-ui/elements/todo-list';
-import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import ChatFilesChip from '../../components/chat/ChatFilesChip';
 import WorkflowProposalCard from '../../components/chat/WorkflowProposalCard';
 import { ConfirmationModal } from '../../components/intelligence/ConfirmationModal';
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
+import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import { ContextUsage } from '../../features/conversations/aui/ContextUsage';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
@@ -28,13 +28,13 @@ import {
 } from '../../features/conversations/aui/useThreadTodos';
 import { AssistantUiChat } from '../../features/conversations/components/AssistantUiChat';
 import { TranscriptOverlays } from '../../features/conversations/components/aui/TranscriptOverlays';
-import { selectBackgroundProcesses } from '../../features/conversations/selectors/backgroundProcesses';
 import {
   evaluateComposerSend,
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
 import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
+import { selectBackgroundProcesses } from '../../features/conversations/selectors/backgroundProcesses';
 import {
   GENERAL_TAB_VALUE,
   isThreadVisibleInTab,

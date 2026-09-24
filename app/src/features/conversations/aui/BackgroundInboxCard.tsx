@@ -18,21 +18,21 @@
  * `BackgroundProcessesPanel`'s `onOpenProcess` used, now threaded through
  * `TranscriptOverlays`.
  */
-import { JobProgress, type JobStage } from '../../../components/assistant-ui/elements/job-progress';
-import { Timeline, type TimelineEvent } from '../../../components/assistant-ui/elements/timeline';
 import {
   BackgroundInbox,
   type BackgroundRun,
   type BackgroundState,
 } from '../../../components/assistant-ui/elements/background-inbox';
+import { JobProgress, type JobStage } from '../../../components/assistant-ui/elements/job-progress';
+import { Timeline, type TimelineEvent } from '../../../components/assistant-ui/elements/timeline';
 import { formatElapsed } from '../../../components/assistant-ui/utils/task';
 import Button from '../../../components/ui/Button';
 import { SheetContent, SheetRoot, SheetTitle } from '../../../components/ui/Sheet';
 import { useT } from '../../../lib/i18n/I18nContext';
+import type { CoreCronJob } from '../../../utils/tauriCommands/cron';
 import { type MemorySyncSummary, useBackgroundActivity } from '../hooks/useBackgroundActivity';
 import type { BackgroundProcess } from '../selectors/backgroundProcesses';
 import { formatRelativeTime, formatResetTime } from '../utils/format';
-import type { CoreCronJob } from '../../../utils/tauriCommands/cron';
 
 function stateOf(status: BackgroundProcess['status']): BackgroundState {
   if (status === 'running' || status === 'awaiting_user') return 'running';

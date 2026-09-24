@@ -1,4 +1,8 @@
-import type { SubagentActivity, ToolTimelineEntry, ToolTimelineEntryStatus } from '../../../store/chatRuntimeSlice';
+import type {
+  SubagentActivity,
+  ToolTimelineEntry,
+  ToolTimelineEntryStatus,
+} from '../../../store/chatRuntimeSlice';
 
 /**
  * A background process = a *detached* sub-agent spawned with
