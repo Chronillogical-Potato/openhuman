@@ -1743,6 +1743,7 @@ const chatRuntimeSlice = createSlice({
         if (iterations !== undefined) s.iterations = iterations;
         if (elapsedMs !== undefined) s.elapsedMs = elapsedMs;
         if (outputChars !== undefined) s.outputChars = outputChars;
+        if (output !== undefined) s.output = output;
         if (worktreePath !== undefined) s.worktreePath = worktreePath;
         if (changedFiles !== undefined) s.changedFiles = changedFiles;
         if (isDirty !== undefined) s.isDirty = isDirty;
