@@ -397,7 +397,9 @@ export async function dispatchFileDrop(
   return browser.execute(
     (element: HTMLElement, droppedFile: { name: string; type: string; contents: string }) => {
       const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(new File([droppedFile.contents], droppedFile.name, { type: droppedFile.type }));
+      dataTransfer.items.add(
+        new File([droppedFile.contents], droppedFile.name, { type: droppedFile.type })
+      );
 
       const dispatch = (type: 'dragover' | 'drop') => {
         const event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer });
