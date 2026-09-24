@@ -1,29 +1,21 @@
 import type { ToolCallMessagePart, ToolCallMessagePartProps } from '@assistant-ui/react';
-import { CheckIcon, ChevronDownIcon, CircleXIcon, Loader2Icon } from 'lucide-react';
 import type { FC, ReactNode } from 'react';
 
-import { cn } from '../../../components/assistant-ui/lib/utils';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../../../components/assistant-ui/ui/collapsible';
+  ToolCall,
+  type ToolCallOutcome,
+} from '../../../components/assistant-ui/elements/tool-call';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { readOpenHumanToolArtifact } from '../../../providers/assistantUiMessages';
 import type {
   ToolFailureExplanation,
   ToolTimelineEntryStatus,
 } from '../../../store/chatRuntimeSlice';
-import { parseWebSearchResult } from '../tools/parseWebSearchResult';
-import { FetchBody, FileBody, ShellBody, WebSearchResults } from '../tools/ToolBodies';
+import { openUrl } from '../../../utils/openUrl';
+import { FetchBody, FileBody, ShellBody, WebSearchBody } from '../tools/ToolBodies';
 import { hasDisplayValue, parsedValue, ToolDataView } from '../tools/ToolDataView';
 import { ToolIcon } from '../tools/ToolIcon';
-import {
-  describeToolCall,
-  parseToolArgs,
-  type ToolCallPresentation,
-  toolLabel,
-} from '../tools/toolPresentation';
+import { describeToolCall, parseToolArgs, toolLabel } from '../tools/toolPresentation';
 import { ToolFailureLines } from './ToolFailureLines';
 
 /** `1234` → "1.2s", `850` → "850ms", `75000` → "1m 15s". */
@@ -44,34 +36,6 @@ export function formatElapsed(ms: number): string {
  */
 export function isApprovalPending(approval: ToolCallMessagePart['approval']): boolean {
   return approval != null && approval.approved === undefined && approval.resolution === undefined;
-}
-
-/**
- * A step's node on the timeline rail: the tool's icon in a ring that sits on
- * the vertical line `ToolTimeline` draws. Shared with the delegation card so
- * every step in a group lines up.
- */
-export function TimelineNode({
-  presentation,
-  state,
-}: {
-  presentation: Pick<ToolCallPresentation, 'icon' | 'integration'>;
-  state: 'running' | 'done' | 'failed' | 'awaiting';
-}) {
-  return (
-    <span
-      aria-hidden
-      data-slot="tool-timeline-node"
-      className={cn(
-        'bg-background absolute top-1.5 left-0 z-10 flex size-6 items-center justify-center rounded-full ring-1',
-        state === 'running' && 'ring-primary/50 text-foreground',
-        state === 'done' && 'ring-border text-muted-foreground',
-        state === 'failed' && 'text-red-600 ring-red-500/40 dark:text-red-400',
-        state === 'awaiting' && 'text-amber-700 ring-amber-400/60 dark:text-amber-300'
-      )}>
-      <ToolIcon presentation={presentation} className="size-3.5" />
-    </span>
-  );
 }
 
 export interface AssistantUiToolCallCardProps {
@@ -97,41 +61,14 @@ export interface AssistantUiToolCallCardProps {
   footer?: ReactNode;
 }
 
-function ToolBody({
-  presentation,
-  args,
-  result,
-  running,
-}: {
-  presentation: ToolCallPresentation;
-  args: Record<string, unknown>;
-  result: unknown;
-  running: boolean;
-}): ReactNode {
-  if (running) return null;
-  // Called as functions, not mounted: each returns `null` when the call left
-  // nothing to show, and the caller needs that answer to decide whether the
-  // generic Input/Output view renders instead. None of them use hooks.
-  switch (presentation.body) {
-    case 'shell':
-      return ShellBody({ args, result });
-    case 'webFetch':
-      return FetchBody({ args, result });
-    case 'file':
-      return FileBody({ args, result });
-    default:
-      return null;
-  }
-}
-
 /**
- * One tool call, rendered as a step on the tool timeline.
+ * One tool call, rendered with assistant-ui's tool-call element.
  *
- * The icon, the label and the target chip all come from the presentation
- * registry, so every surface names a call the same way. The label changes
- * tense as the call settles ("Reading file" → "Read file"), and the step
- * expands into the tool's own renderer: search results, a terminal, a diff,
- * a fetched page, or the generic Input/Output view.
+ * The icon, the label (in both tenses, which the element swaps between as
+ * the call settles) and the target chip all come from the presentation
+ * registry, so every surface names a call the same way. The panel expands
+ * into the tool's own assistant-ui element (search results, terminal, diff,
+ * page preview) or the generic Request / Result view.
  */
 export function AssistantUiToolCallCard({
   toolName,
@@ -163,127 +100,104 @@ export function AssistantUiToolCallCard({
     serverLabel: displayName,
     serverDetail: detail,
   });
-  const label = toolLabel(presentation, t);
+  const activeLabel = toolLabel({ ...presentation, tense: 'active' }, t);
+  const doneLabel = toolLabel({ ...presentation, tense: 'done' }, t);
   const failed = status === 'error';
-  // A cancelled call did not succeed either: it gets the failure icon, not a
-  // check, even though only an `error` carries an explanation block.
-  const terminalNonSuccess = failed || status === 'cancelled';
   const awaiting = awaitingUser || status === 'awaiting_user';
-  const statusLabel = failed
-    ? t('conversations.tools.status.failed')
+  const outcome: ToolCallOutcome = failed
+    ? 'error'
     : status === 'cancelled'
-      ? t('conversations.tools.status.cancelled')
+      ? 'cancelled'
       : awaiting
-        ? t('conversations.tools.status.awaiting')
-        : running
-          ? t('conversations.tools.status.running')
-          : t('conversations.tools.status.done');
-  const nodeState = terminalNonSuccess
-    ? 'failed'
-    : awaiting
-      ? 'awaiting'
-      : running
-        ? 'running'
-        : 'done';
-  const richBody = ToolBody({ presentation, args: parsedArgs, result: output, running });
-  const isSearch =
-    presentation.body === 'webSearch' &&
-    (running || parseWebSearchResult(output, structured) !== undefined);
-  const searchBody = isSearch ? (
-    <WebSearchResults
-      args={parsedArgs}
-      result={output}
-      structured={structured}
-      searching={running}
-    />
-  ) : null;
+        ? 'awaiting'
+        : 'success';
+  const statusText =
+    outcome === 'error'
+      ? t('conversations.tools.status.failed')
+      : outcome === 'cancelled'
+        ? t('conversations.tools.status.cancelled')
+        : outcome === 'awaiting'
+          ? t('conversations.tools.status.awaiting')
+          : undefined;
+
+  const searchBody =
+    presentation.body === 'webSearch'
+      ? WebSearchBody({ args: parsedArgs, result: output, structured, searching: running, t })
+      : null;
+  const richBody = running
+    ? null
+    : presentation.body === 'shell'
+      ? ShellBody({ args: parsedArgs, result: output, failed, t })
+      : presentation.body === 'webFetch'
+        ? FetchBody({ args: parsedArgs, result: output, t, onOpenExternal: openExternal })
+        : presentation.body === 'file'
+          ? FileBody({ args: parsedArgs, result: output })
+          : null;
+  const showOutput = !searchBody && hasDisplayValue(parsedValue(output));
 
   return (
-    <Collapsible
-      data-slot="aui_openhuman-tool-call"
+    <ToolCall
       data-testid="assistant-ui-tool-call"
-      data-tool={presentation.baseName}
-      data-status={effectiveStatus}
-      data-awaiting-user={awaitingUser ? 'true' : undefined}
+      className="max-w-none"
+      label={doneLabel}
+      activeLabel={activeLabel}
+      query={presentation.chip}
+      running={running}
+      outcome={outcome}
       defaultOpen={awaitingUser}
-      className="group/step relative min-w-0 pl-9">
-      <TimelineNode presentation={presentation} state={nodeState} />
-      <CollapsibleTrigger className="group/tool text-muted-foreground hover:text-foreground flex w-full min-w-0 items-center gap-2 py-1.5 text-sm transition-colors">
-        <span
-          data-testid="tool-call-label"
-          className={cn(
-            'text-foreground shrink-0 text-start font-medium',
-            running && !awaiting && 'tool-shimmer'
-          )}>
-          {label}
-        </span>
-        {presentation.chip ? (
-          <span
-            data-testid="tool-call-chip"
-            className="bg-muted text-muted-foreground min-w-0 truncate rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-            {presentation.chip}
-          </span>
-        ) : null}
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-[11px]">
-          {running && !awaiting ? (
-            <Loader2Icon className="size-3 animate-spin [animation-duration:0.6s]" />
-          ) : terminalNonSuccess ? (
-            <CircleXIcon className="size-3.5 text-red-600 dark:text-red-400" />
-          ) : awaiting ? null : (
-            <CheckIcon className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-          )}
-          <span
-            data-testid="tool-call-status"
-            className={cn(
-              (running && !awaiting) || (!running && !terminalNonSuccess) ? 'sr-only' : undefined,
-              awaiting && 'text-amber-700 dark:text-amber-300'
-            )}>
-            {statusLabel}
-          </span>
+      icon={<ToolIcon presentation={presentation} className="text-foreground/45 size-3.5" />}
+      requestLabel={t('conversations.subagent.input')}
+      resultLabel={t('conversations.subagent.output')}
+      request={
+        !richBody && hasDisplayValue(input) ? (
+          <div data-testid="assistant-ui-tool-input">
+            <ToolDataView value={input} />
+          </div>
+        ) : undefined
+      }
+      result={
+        !richBody && showOutput ? (
+          <div data-testid="assistant-ui-tool-output">
+            <ToolDataView value={output} />
+          </div>
+        ) : undefined
+      }
+      meta={
+        <>
+          {statusText ? (
+            <span
+              data-testid="tool-call-status"
+              className={outcome === 'awaiting' ? 'text-amber-600 dark:text-amber-400' : undefined}>
+              {statusText}
+            </span>
+          ) : null}
           {elapsedMs != null && !running ? (
             <span data-testid="tool-call-elapsed" className="tabular-nums">
               {formatElapsed(elapsedMs)}
             </span>
           ) : null}
-          <ChevronDownIcon className="size-4 shrink-0 -rotate-90 transition-transform group-data-[state=open]/tool:rotate-0" />
-        </span>
-      </CollapsibleTrigger>
-      {failed && failure ? (
-        <div className="pb-2">
-          <ToolFailureLines failure={failure} />
-        </div>
-      ) : null}
-      {/* Outside `CollapsibleContent` on purpose: a decision the turn is
-          blocked on must not be hidden behind a disclosure the user has to
-          find and open. Search results are the call's whole point, so they
-          stay visible too. */}
-      {footer}
-      {searchBody ? <div className="pt-0.5 pb-2">{searchBody}</div> : null}
-      <CollapsibleContent className="space-y-2 pb-3">
-        {richBody}
-        {!richBody && hasDisplayValue(input) ? (
-          <div data-testid="assistant-ui-tool-input">
-            <p className="text-muted-foreground mb-1 text-[11px] font-medium uppercase">
-              {t('conversations.subagent.input')}
-            </p>
-            <div className="max-h-48 overflow-auto">
-              <ToolDataView value={input} />
+        </>
+      }
+      aside={
+        <>
+          {failed && failure ? (
+            <div className="pt-1 pb-2">
+              <ToolFailureLines failure={failure} />
             </div>
-          </div>
-        ) : null}
-        {!richBody && !searchBody && hasDisplayValue(parsedValue(output)) ? (
-          <div data-testid="assistant-ui-tool-output">
-            <p className="text-muted-foreground mb-1 text-[11px] font-medium uppercase">
-              {t('conversations.subagent.output')}
-            </p>
-            <div className="max-h-64 overflow-auto">
-              <ToolDataView value={output} />
-            </div>
-          </div>
-        ) : null}
-      </CollapsibleContent>
-    </Collapsible>
+          ) : null}
+          {footer}
+          {/* Search results are the call's whole point: visible without
+              opening the disclosure, as in assistant-ui's own web-search. */}
+          {searchBody ? <div className="ps-5 pt-1 pb-2">{searchBody}</div> : null}
+        </>
+      }>
+      {richBody ? <div className="mt-2">{richBody}</div> : undefined}
+    </ToolCall>
   );
+}
+
+function openExternal(url: string): void {
+  void openUrl(url).catch(() => undefined);
 }
 
 /**

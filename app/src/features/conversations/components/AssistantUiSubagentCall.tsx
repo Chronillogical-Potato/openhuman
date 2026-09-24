@@ -28,7 +28,8 @@ import { basename } from '../../../utils/pathUtils';
 import { stripToolCallEnvelopes } from '../../../utils/toolTimelineFormatting';
 import { BubbleMarkdown } from './AgentMessageBubble';
 import { describeToolCall } from '../tools/toolPresentation';
-import { AssistantUiToolCallCard, TimelineNode } from './AssistantUiToolCall';
+import { ToolIcon } from '../tools/ToolIcon';
+import { AssistantUiToolCallCard } from './AssistantUiToolCall';
 
 type ChildToolCall = SubagentToolCallEntry | Extract<SubagentTranscriptItem, { kind: 'tool' }>;
 
@@ -335,11 +336,6 @@ export function AssistantUiSubagentCall({
   const presentation = describeToolCall({ name: `subagent:${activity.agentId ?? 'subagent'}` });
   const [before, after] = t('conversations.tools.delegatedTo').split('{agent}');
   return (
-    <div className="relative min-w-0 pl-9" data-slot="tool-timeline-step">
-      <TimelineNode
-        presentation={presentation}
-        state={failed ? 'failed' : awaiting ? 'awaiting' : active ? 'running' : 'done'}
-      />
     <Collapsible
       open={disclosureOpen}
       onOpenChange={setOpen}
@@ -352,7 +348,8 @@ export function AssistantUiSubagentCall({
         awaiting && 'border-solid border-amber-300 dark:border-amber-400/40'
       )}>
       <CollapsibleTrigger className="group/subagent text-muted-foreground hover:text-foreground flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors">
-        <span className={cn('text-start leading-none', active && !awaiting && 'tool-shimmer')}>
+        <ToolIcon presentation={presentation} className="size-4" />
+        <span className="text-start leading-none">
           {before}
           <b className="text-foreground">{name}</b>
           {after}
@@ -389,6 +386,5 @@ export function AssistantUiSubagentCall({
         <SubagentDetails subagent={activity} onView={onView} />
       </CollapsibleContent>
     </Collapsible>
-    </div>
   );
 }

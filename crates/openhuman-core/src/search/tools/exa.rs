@@ -508,7 +508,29 @@ impl Tool for ExaSearchTool {
         let limit = self.client.requested_results(&args);
         let body = self.build_body(&args, &query);
         let results = self.client.post_documents("search", body).await?;
-        Ok(self.client.to_result(&results, &query, limit, &options))
+        let mut result = self.client.to_result(&results, &query, limit, &options);
+        // Host-only structured payload for the chat UI's tool-call
+        // presentation — never rendered to the model, so `render_plain`'s
+        // text above (and the cache key that depends on it) is unaffected.
+        // `find_similar`/`get_contents` share `to_result` but aren't a
+        // query-shaped search, so this is set here rather than in the
+        // shared helper.
+        let structured_results: Vec<super::WebSearchResultRef<'_>> = results
+            .iter()
+            .map(|r| super::WebSearchResultRef {
+                title: r.display_title(),
+                url: r.url.as_str(),
+                published: r.published_date.as_deref(),
+                excerpt: r.excerpt().as_deref().map(str::to_string).as_deref(),
+            })
+            .collect();
+        result.metadata = Some(super::web_search_metadata(
+            &query,
+            "Exa",
+            &structured_results,
+            limit,
+        ));
+        Ok(result)
     }
 }
 
