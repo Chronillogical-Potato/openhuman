@@ -57,7 +57,10 @@ async fn goal_get_reads_back_a_stored_goal() {
     .await
     .unwrap();
     let empty_json = empty.into_cli_compatible_json().unwrap();
-    assert!(empty_json["result"]["data"]["goal"].is_null(), "{empty_json}");
+    assert!(
+        empty_json["result"]["data"]["goal"].is_null(),
+        "{empty_json}"
+    );
 
     let dir = crate::config::Config::load_or_init()
         .await
@@ -94,7 +97,10 @@ async fn todos_get_reads_back_what_the_todo_tool_wrote() {
     .await
     .unwrap();
     let empty_json = empty.into_cli_compatible_json().unwrap();
-    assert!(empty_json["result"]["data"]["todos"].as_array().unwrap().is_empty());
+    assert!(empty_json["result"]["data"]["todos"]
+        .as_array()
+        .unwrap()
+        .is_empty());
 
     let scope = crate::agent::todos::ops::TodoScope::Session {
         id: "thread-todos-live".to_string(),
