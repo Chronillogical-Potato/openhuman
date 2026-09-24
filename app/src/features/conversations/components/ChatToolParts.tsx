@@ -8,11 +8,7 @@ import {
 import { type FC, type PropsWithChildren, useCallback, useMemo } from 'react';
 
 import type { ThreadGroupPart } from '../../../components/assistant-ui/thread';
-import {
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-} from '../../../components/assistant-ui/tool-group';
+import { ToolTimeline } from '../../../components/assistant-ui/elements/tool-timeline';
 import ApprovalRequestCard from '../../../components/chat/ApprovalRequestCard';
 import IntegrationConnectCard from '../../../components/chat/IntegrationConnectCard';
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -219,25 +215,14 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
 
 const selectMessageParts = (state: AssistantState) => state.message.parts;
 
-/** The vertical rail every step's node sits on. */
-function TimelineRail({ children }: PropsWithChildren) {
-  return (
-    <div
-      data-slot="tool-timeline"
-      data-testid="tool-timeline"
-      className="relative flex flex-col gap-0.5 before:absolute before:top-3 before:bottom-3 before:left-[11.5px] before:w-px before:bg-border">
-      {children}
-    </div>
-  );
-}
-
 /**
- * The chat's tool timeline: a run of adjacent tool calls under one header.
+ * The chat's tool timeline: a run of adjacent tool calls under assistant-ui's
+ * tool-timeline element.
  *
- * The header reads what is happening now ("Searching the web…") while the
- * run is in flight, and a summary once it settles ("5 steps · Read file ×3,
- * Searched the web ×2"). A lone call needs no header over itself, so it
- * renders as a bare step. The steps sit on a rail, each with its own icon.
+ * Its label shimmers with what is happening now ("Searching the web") while
+ * the run is in flight, and swaps to a summary once it settles ("5 steps ·
+ * Read file ×3, Searched the web ×2"). Each step is a full tool-call element.
+ * A lone call needs no header over itself, so it renders bare.
  */
 export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = ({
   group,
@@ -254,23 +239,20 @@ export const ChatToolGroup: FC<PropsWithChildren<{ group: ThreadGroupPart }>> = 
         .map(toolPartPresentation),
     [group.indices, parts]
   );
-  if (group.indices.length <= 1) return <TimelineRail>{children}</TimelineRail>;
+  if (group.indices.length <= 1) {
+    return <div className="flex flex-col gap-1">{children}</div>;
+  }
   const active = [...presentations].reverse().find(p => p.tense === 'active');
-  const label = running
-    ? `${active ? toolLabel(active, t) : t('conversations.tools.working')}…`
-    : summarizeToolCalls(presentations, t);
   return (
-    <ToolGroupRoot variant="ghost" defaultOpen>
-      <ToolGroupTrigger
-        count={group.indices.length}
-        label={label}
-        active={running}
-        data-testid="tool-timeline-trigger"
-      />
-      <ToolGroupContent>
-        <TimelineRail>{children}</TimelineRail>
-      </ToolGroupContent>
-    </ToolGroupRoot>
+    <ToolTimeline
+      data-testid="tool-timeline"
+      className="max-w-none"
+      defaultOpen
+      streaming={running}
+      activeLabel={active ? toolLabel(active, t) : t('conversations.tools.working')}
+      restingLabel={summarizeToolCalls(presentations, t)}>
+      {children}
+    </ToolTimeline>
   );
 };
 
