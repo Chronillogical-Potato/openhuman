@@ -600,7 +600,7 @@ fn project_text_tool_results(
             result: Some(result.content),
             status,
             failure,
-            ts,
+            ts: msg.ts.clone(),
         });
     }
 }
