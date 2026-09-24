@@ -17,7 +17,9 @@ use tinyagents_harness::tinyinference_image::ImageGenerator;
 use tinyagents_harness::tinyinference_video::{VideoGenerator, WaitPolicy};
 use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
+use super::artifact_tool::MediaArtifactTool;
 use super::provider::{managed_generators, MediaGenerators};
+use crate::agent::artifacts::ArtifactKind;
 use crate::config::Config;
 
 /// Image tool name (pinned by the `media` pack and agent allowlists).
