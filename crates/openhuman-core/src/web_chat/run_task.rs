@@ -161,6 +161,7 @@ pub(crate) async fn run_chat_task(
                 citations,
                 usage,
                 workspace_dir: config.workspace_dir.clone(),
+                timing: None,
             })
         }
         Err(err) => {

@@ -40,6 +40,7 @@ async fn collect_reaches_the_next_model_boundary_as_additional_context() {
         .push(
             QueueLane::Collect,
             crate::agent::queued_turn::QueuedTurn {
+                id: "queued-test".to_string(),
                 text: "the deployment finished successfully".to_string(),
                 client_id: "client-test".to_string(),
                 thread_id: "thread-test".to_string(),
