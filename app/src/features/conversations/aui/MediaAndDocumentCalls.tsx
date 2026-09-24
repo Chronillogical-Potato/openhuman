@@ -1,0 +1,120 @@
+import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
+import { FileTextIcon, PresentationIcon } from 'lucide-react';
+
+import { ArtifactCard } from '../../../components/assistant-ui/elements/artifact-card';
+import { ImageGeneration } from '../../../components/assistant-ui/elements/image-generation';
+import { Image } from '../../../components/assistant-ui/elements/image';
+import { useT } from '../../../lib/i18n/I18nContext';
+
+/**
+ * Result shape for `media_generate_image` / `media_generate_video`
+ * (`crates/openhuman-core/src/media/generation/tools.rs`) per the
+ * fe-brief's wire contract: an array of produced artifacts. `path` is a
+ * local, core-served file (opened through the existing artifact
+ * download/serve path — see `services/artifactDownloadService.ts` and
+ * `ChatFilesPanel`); `source_url` is used directly when the artifact is
+ * already externally hosted.
+ */
+interface MediaArtifact {
+  type?: string;
+  path?: string;
+  source_url?: string;
+  thumbnail_url?: string;
+  artifact_id?: string;
+}
+
+function asMediaArtifacts(result: unknown): MediaArtifact[] | undefined {
+  if (!result || typeof result !== 'object') return undefined;
+  const artifacts = (result as { artifacts?: unknown }).artifacts;
+  if (!Array.isArray(artifacts)) return undefined;
+  return artifacts.filter(
+    (a): a is MediaArtifact => typeof a === 'object' && a !== null
+  );
+}
+
+/**
+ * `media_generate_image` / `media_generate_video`: the `elements-image-
+ * generation` placeholder while the tool runs, then one `image` element per
+ * produced artifact.
+ *
+ * `path` (a local, core-served artifact) is resolved through
+ * `artifact_id` via the existing artifact download/reveal path rather than
+ * dereferenced directly — an artifact's on-disk location is not a stable
+ * URL a plain `<img>` can load without the core's static file route, and
+ * that route is what `services/artifactDownloadService.ts` already knows
+ * how to reach. Until the wire contract confirms the served URL shape, the
+ * local-path case falls back to `thumbnail_url` when present and otherwise
+ * skips the artifact rather than guessing a path.
+ */
+export const MediaGenerationCall: ToolCallMessagePartComponent = ({ args, result, status }) => {
+  const prompt = typeof (args as { prompt?: unknown })?.prompt === 'string' ? (args as { prompt: string }).prompt : '';
+  const running = status?.type === 'running';
+  const artifacts = asMediaArtifacts(result) ?? [];
+
+  if (running || artifacts.length === 0) {
+    return <ImageGeneration prompt={prompt} generating={running} />;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2" data-testid="assistant-ui-media-generation-result">
+      {artifacts.map((artifact, index) => {
+        const src = artifact.source_url ?? artifact.thumbnail_url;
+        if (!src) return null;
+        return (
+          <Image
+            key={artifact.artifact_id ?? `${artifact.path ?? 'artifact'}-${index}`}
+            image={src}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+const DOCUMENT_TOOL_ICONS: Record<string, typeof FileTextIcon> = {
+  generate_document: FileTextIcon,
+  generate_presentation: PresentationIcon,
+};
+
+/**
+ * `generate_document` / `generate_presentation`
+ * (`crates/openhuman-core/src/tools/impl/{document,presentation}/mod.rs`):
+ * the `elements-artifact-card` element, generating (with a rough word count
+ * from the call's args) while the tool runs, settling to the produced
+ * artifact's title once it returns.
+ */
+export const DocumentArtifactCall: ToolCallMessagePartComponent = ({
+  toolName,
+  args,
+  result,
+  status,
+}) => {
+  const { t } = useT();
+  const running = status?.type === 'running';
+  const Icon = DOCUMENT_TOOL_ICONS[toolName] ?? FileTextIcon;
+  const kindTitle =
+    toolName === 'generate_presentation'
+      ? t('conversations.tools.presentation.title', 'Presentation')
+      : t('conversations.tools.document.title', 'Document');
+
+  const title =
+    (typeof (result as { title?: unknown })?.title === 'string'
+      ? (result as { title: string }).title
+      : undefined) ??
+    (typeof (args as { title?: unknown })?.title === 'string'
+      ? (args as { title: string }).title
+      : undefined) ??
+    kindTitle;
+
+  // No live token count from the core mid-generation; approximate from the
+  // args payload so the shimmering "N words" line has something to show
+  // rather than staying frozen at zero.
+  const words = running ? JSON.stringify(args ?? '').split(/\s+/).filter(Boolean).length : 0;
+
+  const meta =
+    typeof (result as { path?: unknown })?.path === 'string'
+      ? (result as { path: string }).path
+      : kindTitle;
+
+  return <ArtifactCard title={title} meta={meta} generating={running} words={words} icon={Icon} />;
+};

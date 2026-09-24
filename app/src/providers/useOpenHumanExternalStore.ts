@@ -429,6 +429,67 @@ export function useOpenHumanExternalStore(
   }, [threadId]);
 
   /**
+   * Rewrite a settled message and resend it, via the `threads.edit_message`
+   * RPC (wire-contract.md; core workstream C4). `message.sourceId` is
+   * assistant-ui's own field for "the id of the message that was edited" —
+   * present because `EditComposer`/the vendored `EditMessage` element calls
+   * `useAui().thread.append` with the original message's id as `sourceId`.
+   *
+   * Supplying this key at all is what turns `capabilities.edit` on
+   * (`ExternalStoreThreadRuntimeCore` computes it as `!!this._store.onEdit`),
+   * which un-gates `UserActionBar`'s Edit button and `EditComposer` in
+   * `thread.tsx` (`useAuiEditCapabilities`).
+   */
+  const onEdit = useCallback(
+    async (message: AppendMessage) => {
+      if (!threadId) {
+        throw new Error('No thread selected for edit');
+      }
+      const messageId = message.sourceId;
+      if (!messageId) {
+        throw new Error('Edit is missing the source message id');
+      }
+      const text = `${appendMessageQuote(message)}${appendMessageText(message)}`;
+      // Truncate the local cache FIRST: the edit RPC returns no message list,
+      // and the socket events that follow (`inference_start` … `chat_done`)
+      // only carry the new turn, so a reader would still see the discarded
+      // replies until the next full refetch if this waited on the RPC.
+      dispatch(truncateMessagesFrom({ threadId, messageId, inclusive: true }));
+      await editMessage({ threadId, messageId, content: text });
+    },
+    [dispatch, threadId]
+  );
+
+  /**
+   * Re-run the turn after `parentId` (the assistant message being reloaded,
+   * or the message immediately before the point to regenerate from), via the
+   * `threads.regenerate` RPC. Same capability-gating rule as `onEdit`:
+   * supplying `onReload` is what turns `capabilities.reload` on, which
+   * un-gates the Reload button in `AssistantActionBar` (`useAuiReloadCapability`).
+   */
+  const onReload = useCallback(
+    async (parentId: string | null) => {
+      if (!threadId) {
+        throw new Error('No thread selected for reload');
+      }
+      if (parentId) {
+        dispatch(truncateMessagesFrom({ threadId, messageId: parentId, inclusive: false }));
+      }
+      await regenerateMessage({ threadId, messageId: parentId ?? undefined });
+    },
+    [dispatch, threadId]
+  );
+
+  /**
+   * Required alongside `onEdit`/`onReload` to un-gate `BranchPicker`
+   * (`capabilities.switchToBranch` is `!!this._store.setMessages`). A no-op:
+   * there is no per-branch message model on the core yet — `onEdit` and
+   * `onReload` both truncate the thread's single lineage rather than forking
+   * one, so the runtime never has an alternate branch to hand back here.
+   */
+  const setMessages = useCallback(() => {}, []);
+
+  /**
    * Record the user's decision on the parked tool call.
    *
    * `optionId` is the core's own `decision` literal (see
