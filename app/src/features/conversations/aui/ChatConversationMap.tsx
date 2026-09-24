@@ -12,9 +12,12 @@
  * itself needs to know about.
  */
 import { type AssistantState, useAuiState } from '@assistant-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ConversationSearch, type SearchHit } from '../../../components/assistant-ui/elements/conversation-search';
+import {
+  ConversationSearch,
+  type SearchHit,
+} from '../../../components/assistant-ui/elements/conversation-search';
 import { Timeline, type TimelineEvent } from '../../../components/assistant-ui/elements/timeline';
 import { useT } from '../../../lib/i18n/I18nContext';
 
@@ -23,9 +26,7 @@ const CONTEXT_CHARS = 24;
 const MAX_TIMELINE_EVENTS = 50;
 
 function messageText(message: AssistantState['thread']['messages'][number]): string {
-  return message.content
-    .flatMap(part => (part.type === 'text' ? [part.text] : []))
-    .join('\n');
+  return message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])).join('\n');
 }
 
 function buildHits(
@@ -47,8 +48,7 @@ function buildHits(
       const at = haystack.indexOf(needle, from);
       if (at === -1) break;
       const element = viewport?.querySelector<HTMLElement>(`[data-message-id="${message.id}"]`);
-      const position =
-        element && scrollHeight > 0 ? (element.offsetTop / scrollHeight) * 100 : 0;
+      const position = element && scrollHeight > 0 ? (element.offsetTop / scrollHeight) * 100 : 0;
       hits.push({
         id: `${message.id}:${occurrence}`,
         before: text.slice(Math.max(0, at - CONTEXT_CHARS), at),
@@ -74,10 +74,13 @@ function formatTime(iso: string): string {
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function buildTimelineEvents(
-  messages: readonly AssistantState['thread']['messages'][number][]
-): { events: TimelineEvent[]; messageIdByEventId: Map<string, string> } {
-  const userMessages = messages.filter(message => message.role === 'user').slice(-MAX_TIMELINE_EVENTS);
+function buildTimelineEvents(messages: readonly AssistantState['thread']['messages'][number][]): {
+  events: TimelineEvent[];
+  messageIdByEventId: Map<string, string>;
+} {
+  const userMessages = messages
+    .filter(message => message.role === 'user')
+    .slice(-MAX_TIMELINE_EVENTS);
   const messageIdByEventId = new Map<string, string>();
   const events = userMessages.map((message, index): TimelineEvent => {
     const eventId = `turn:${message.id}`;

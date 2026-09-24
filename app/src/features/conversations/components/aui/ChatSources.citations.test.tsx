@@ -47,7 +47,11 @@ function agentMessage(content: string): ThreadMessage {
 
 function buildStore(message: ThreadMessage) {
   return configureStore({
-    reducer: combineReducers({ thread: threadReducer, chatRuntime: chatRuntimeReducer, mascot: mascotReducer }),
+    reducer: combineReducers({
+      thread: threadReducer,
+      chatRuntime: chatRuntimeReducer,
+      mascot: mascotReducer,
+    }),
     preloadedState: {
       thread: {
         threads: [

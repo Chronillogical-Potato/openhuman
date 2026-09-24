@@ -10,10 +10,9 @@
  *   `forgetAriaLabel` props with English defaults, for `useT()` — see
  *   `features/conversations/aui/ChatMemoryChips.tsx`, the caller.
  */
-import type { ComponentProps } from 'react';
-import { BrainIcon, XIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { BrainIcon, XIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { field, ghostButton, mono } from './surfaces';
 
@@ -33,10 +32,7 @@ export function MemoryChips({
   forgetAriaLabel = (text: string) => `Forget "${text}"`,
   className,
   ...props
-}: Omit<
-  ComponentProps<'div'>,
-  'children' | 'chips' | 'onForget'
-> & {
+}: Omit<ComponentProps<'div'>, 'children' | 'chips' | 'onForget'> & {
   chips: readonly MemoryChip[];
   onForget?: (id: string) => void;
   headingRememberedLabel?: (n: number) => string;
@@ -46,7 +42,10 @@ export function MemoryChips({
   const fresh = chips.filter(chip => chip.change !== 'existing').length;
 
   return (
-    <div data-slot="memory-chips" className={cn('flex w-full max-w-sm flex-col gap-2', className)} {...props}>
+    <div
+      data-slot="memory-chips"
+      className={cn('flex w-full max-w-sm flex-col gap-2', className)}
+      {...props}>
       <div className="flex items-center gap-1.5">
         <BrainIcon className="text-foreground/30 size-3.5" />
         <span className={cn(mono, 'text-foreground/35')}>

@@ -13,10 +13,9 @@
  * surfaces (the conversation-map outline here, a sub-agent activity feed
  * there) can share it.
  */
-import type { ComponentProps } from 'react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { take } from '@/components/assistant-ui/utils/range';
+import type { ComponentProps } from 'react';
 
 import { mono, paper } from './surfaces';
 
@@ -86,7 +85,9 @@ export function Timeline({
               {event.title}
             </span>
             {event.detail && (
-              <span className="text-foreground/45 text-xs leading-relaxed break-words">{event.detail}</span>
+              <span className="text-foreground/45 text-xs leading-relaxed break-words">
+                {event.detail}
+              </span>
             )}
           </div>
         </div>

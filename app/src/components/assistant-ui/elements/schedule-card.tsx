@@ -9,10 +9,9 @@
  *   `Pause {name}` / `Resume {name}` toggle aria-label are props with English
  *   defaults, for `useT()` — see `features/conversations/aui/ChatScheduleCard.tsx`.
  */
-import type { ComponentProps } from 'react';
-import { CheckIcon, ClockIcon, XIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { CheckIcon, ClockIcon, XIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { field, mono, paper } from './surfaces';
 
@@ -88,7 +87,11 @@ export function ScheduleCard({
       </div>
 
       <div
-        className={cn(field, 'flex items-baseline gap-2 rounded-xl px-3 py-2', !enabled && 'opacity-45')}>
+        className={cn(
+          field,
+          'flex items-baseline gap-2 rounded-xl px-3 py-2',
+          !enabled && 'opacity-45'
+        )}>
         <span className={cn(mono, 'text-foreground/30')}>{nextLabel}</span>
         <span className="text-foreground/80 text-[13px]">{enabled ? nextRun : pausedLabel}</span>
       </div>
@@ -103,7 +106,9 @@ export function ScheduleCard({
               <XIcon className="size-3 shrink-0 translate-y-0.5 text-red-500" />
             )}
             <span className="text-foreground/60 min-w-0 flex-1 truncate text-xs">{run.at}</span>
-            <span className={cn(mono, 'text-foreground/25 shrink-0')}>{run.ok ? okLabel : failedLabel}</span>
+            <span className={cn(mono, 'text-foreground/25 shrink-0')}>
+              {run.ok ? okLabel : failedLabel}
+            </span>
           </div>
         ))}
       </div>

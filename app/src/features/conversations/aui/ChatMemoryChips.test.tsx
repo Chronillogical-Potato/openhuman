@@ -10,11 +10,7 @@ import {
 } from './ChatMemoryChips';
 
 /** The prop fields every `ToolCallMessagePartComponent` requires, beyond `args`/`result`. */
-function toolCallProps(
-  toolName: string,
-  args: unknown,
-  result: unknown
-): ToolCallMessagePartProps {
+function toolCallProps(toolName: string, args: unknown, result: unknown): ToolCallMessagePartProps {
   return {
     type: 'tool-call',
     toolName,
@@ -31,8 +27,14 @@ function toolCallProps(
 
 describe('memoryToolChips', () => {
   it('builds one "added" chip for a memory_store call, keyed by its key', () => {
-    const chips = memoryToolChips('memory_store', { key: 'favorite_color', content: 'blue' }, undefined);
-    expect(chips).toEqual([{ id: 'store:favorite_color', text: 'favorite_color', change: 'added' }]);
+    const chips = memoryToolChips(
+      'memory_store',
+      { key: 'favorite_color', content: 'blue' },
+      undefined
+    );
+    expect(chips).toEqual([
+      { id: 'store:favorite_color', text: 'favorite_color', change: 'added' },
+    ]);
   });
 
   it('builds one "existing" chip per hit for memory_recall / memory_hybrid_search', () => {
@@ -51,7 +53,9 @@ describe('memoryToolChips', () => {
 
 describe('memory tool call renders', () => {
   it('MemoryStoreCall renders the vendored memory-chips element', () => {
-    render(<MemoryStoreCall {...toolCallProps('memory_store', { key: 'favorite_color' }, undefined)} />);
+    render(
+      <MemoryStoreCall {...toolCallProps('memory_store', { key: 'favorite_color' }, undefined)} />
+    );
     expect(screen.getByText('favorite_color')).toBeTruthy();
   });
 
@@ -65,7 +69,9 @@ describe('memory tool call renders', () => {
   it('MemoryHybridSearchCall renders one chip per hit', () => {
     render(
       <MemoryHybridSearchCall
-        {...toolCallProps('memory_hybrid_search', undefined, { results: [{ key: 'k1' }, { key: 'k2' }] })}
+        {...toolCallProps('memory_hybrid_search', undefined, {
+          results: [{ key: 'k1' }, { key: 'k2' }],
+        })}
       />
     );
     expect(screen.getByText('k1')).toBeTruthy();

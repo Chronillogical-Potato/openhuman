@@ -8,12 +8,19 @@
  */
 import { useState } from 'react';
 
-import { ConversationSearch, type SearchHit } from '../../components/assistant-ui/elements/conversation-search';
+import {
+  ConversationSearch,
+  type SearchHit,
+} from '../../components/assistant-ui/elements/conversation-search';
 import { CitationMarker } from '../../components/assistant-ui/elements/inline-citation';
-import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
 import { MemoryChips } from '../../components/assistant-ui/elements/memory-chips';
+import { MessageQueue } from '../../components/assistant-ui/elements/message-queue';
 import { ScheduleCard } from '../../components/assistant-ui/elements/schedule-card';
-import { Source, SourceIcon, SourceTitle } from '../../components/assistant-ui/elements/sources.aui';
+import {
+  Source,
+  SourceIcon,
+  SourceTitle,
+} from '../../components/assistant-ui/elements/sources.aui';
 import { Timeline, type TimelineEvent } from '../../components/assistant-ui/elements/timeline';
 import { ToolTimeline } from '../../components/assistant-ui/elements/tool-timeline';
 import { ApprovalCardAdapter } from '../../features/conversations/aui/ApprovalCardAdapter';
@@ -65,8 +72,20 @@ const SEARCH_RESULT = [
 
 /** Fixtures for WS-G's rich-content elements (sources/citations, memory, schedule, conversation map). */
 const MEMORY_SEARCH_HITS: SearchHit[] = [
-  { id: 'hit-1', before: 'The deploy runs ', match: 'nightly', after: ' at 2am UTC.', position: 12 },
-  { id: 'hit-2', before: 'Config lives in ', match: 'deploy/', after: 'config.yaml.', position: 68 },
+  {
+    id: 'hit-1',
+    before: 'The deploy runs ',
+    match: 'nightly',
+    after: ' at 2am UTC.',
+    position: 12,
+  },
+  {
+    id: 'hit-2',
+    before: 'Config lives in ',
+    match: 'deploy/',
+    after: 'config.yaml.',
+    position: 68,
+  },
 ];
 
 const MEMORY_TIMELINE_EVENTS: TimelineEvent[] = [
@@ -320,7 +339,9 @@ export default function ToolCallGallery() {
             </Source>
           </div>
 
-          <p className="text-foreground/40 text-xs">Inline citation marker (hover for the source)</p>
+          <p className="text-foreground/40 text-xs">
+            Inline citation marker (hover for the source)
+          </p>
           <p className="text-foreground/80 text-sm">
             The deploy runs nightly
             <CitationMarker

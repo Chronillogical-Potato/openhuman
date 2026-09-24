@@ -23,10 +23,9 @@
  *   dropped; `Source` (renamed `CitationSource` to avoid a name clash with
  *   `sources.aui.tsx`'s `Source`) and `CitationMarker` are the public API.
  */
+import { cn } from '@/components/assistant-ui/lib/utils';
 import { PreviewCard } from '@base-ui/react/preview-card';
 import type { ComponentProps } from 'react';
-
-import { cn } from '@/components/assistant-ui/lib/utils';
 
 import { floating, mono } from './surfaces';
 
@@ -36,7 +35,10 @@ export interface CitationSource {
   snippet: string;
 }
 
-export interface CitationMarkerProps extends Omit<ComponentProps<'button'>, 'children' | 'onOpenChange'> {
+export interface CitationMarkerProps extends Omit<
+  ComponentProps<'button'>,
+  'children' | 'onOpenChange'
+> {
   /** 0-based position, rendered as `index + 1`. */
   index: number;
   source: CitationSource;

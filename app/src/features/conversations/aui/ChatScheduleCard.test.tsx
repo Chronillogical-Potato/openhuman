@@ -2,8 +2,8 @@ import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CoreCronJob } from '../../../utils/tauriCommands/cron';
 import * as cron from '../../../utils/tauriCommands/cron';
+import type { CoreCronJob } from '../../../utils/tauriCommands/cron';
 import { CronAddOrUpdateCall, CronListCall, CronRunsCall } from './ChatScheduleCard';
 
 function toolCallProps(toolName: string, args: unknown, result: unknown): ToolCallMessagePartProps {
@@ -54,7 +54,11 @@ describe('cron tool call renders', () => {
   });
 
   it('CronListCall renders one card per job', () => {
-    render(<CronListCall {...toolCallProps('cron_list', {}, [job(), job({ id: 'job-2', name: 'Weekly digest' })])} />);
+    render(
+      <CronListCall
+        {...toolCallProps('cron_list', {}, [job(), job({ id: 'job-2', name: 'Weekly digest' })])}
+      />
+    );
     expect(screen.getByText('Daily report')).toBeTruthy();
     expect(screen.getByText('Weekly digest')).toBeTruthy();
   });
@@ -63,7 +67,13 @@ describe('cron tool call renders', () => {
     render(
       <CronRunsCall
         {...toolCallProps('cron_runs', { job_id: 'job-1' }, [
-          { id: 1, job_id: 'job-1', started_at: '2026-01-01T09:00:00.000Z', finished_at: '', status: 'ok' },
+          {
+            id: 1,
+            job_id: 'job-1',
+            started_at: '2026-01-01T09:00:00.000Z',
+            finished_at: '',
+            status: 'ok',
+          },
         ])}
       />
     );

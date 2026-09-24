@@ -39,10 +39,10 @@ describe('auiThreadState', () => {
     expect(result.current).toEqual({ canEdit: false, canSwitchToBranch: false });
   });
 
-  it('reports the external-store adapter as supporting neither edit nor branching', () => {
+  it('reports the external-store adapter as supporting both edit and branching', () => {
     const { result } = renderHook(() => useAuiEditCapabilities(), {
       wrapper: withRuntime('t-caps'),
     });
-    expect(result.current).toEqual({ canEdit: false, canSwitchToBranch: false });
+    expect(result.current).toEqual({ canEdit: true, canSwitchToBranch: true });
   });
 });

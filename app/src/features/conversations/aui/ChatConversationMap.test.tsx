@@ -29,7 +29,11 @@ function agentMessage(id: string, content: string, createdAt: string): ThreadMes
 
 function buildStore(messages: ThreadMessage[]) {
   return configureStore({
-    reducer: combineReducers({ thread: threadReducer, chatRuntime: chatRuntimeReducer, mascot: mascotReducer }),
+    reducer: combineReducers({
+      thread: threadReducer,
+      chatRuntime: chatRuntimeReducer,
+      mascot: mascotReducer,
+    }),
     preloadedState: {
       thread: {
         threads: [
@@ -97,7 +101,7 @@ describe('ChatConversationMap', () => {
     expect(screen.getByText('It runs nightly at 2am UTC.')).toBeTruthy();
   });
 
-  it('opens the timeline outline and lists the thread\'s user turns', async () => {
+  it("opens the timeline outline and lists the thread's user turns", async () => {
     renderChat([
       userMessage('u1', 'First question', '2026-01-01T00:00:00.000Z'),
       agentMessage('a1', 'First answer', '2026-01-01T00:00:05.000Z'),

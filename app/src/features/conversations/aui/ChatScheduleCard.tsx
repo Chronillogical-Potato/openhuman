@@ -16,9 +16,16 @@
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { useCallback, useState } from 'react';
 
-import { ScheduleCard, type ScheduleRun } from '../../../components/assistant-ui/elements/schedule-card';
+import {
+  ScheduleCard,
+  type ScheduleRun,
+} from '../../../components/assistant-ui/elements/schedule-card';
 import { useT } from '../../../lib/i18n/I18nContext';
-import { openhumanCronUpdate, type CoreCronJob, type CoreCronRun } from '../../../utils/tauriCommands/cron';
+import {
+  type CoreCronJob,
+  type CoreCronRun,
+  openhumanCronUpdate,
+} from '../../../utils/tauriCommands/cron';
 
 function cadenceOf(job: CoreCronJob): string {
   if (job.schedule.kind === 'cron') return job.schedule.expr;
@@ -95,8 +102,11 @@ export const CronListCall: ToolCallMessagePartComponent = ({ result }) => {
 
 /** `cron_runs`: one job's run history, read from `args.job_id` + the result list. */
 export const CronRunsCall: ToolCallMessagePartComponent = ({ args, result }) => {
-  const jobId = args && typeof args === 'object' ? (args as { job_id?: unknown }).job_id : undefined;
-  const runs = Array.isArray(result) ? result.filter((r): r is CoreCronRun => !!r && typeof r === 'object') : [];
+  const jobId =
+    args && typeof args === 'object' ? (args as { job_id?: unknown }).job_id : undefined;
+  const runs = Array.isArray(result)
+    ? result.filter((r): r is CoreCronRun => !!r && typeof r === 'object')
+    : [];
   if (typeof jobId !== 'string' || runs.length === 0) return null;
   return (
     <OneScheduleCard

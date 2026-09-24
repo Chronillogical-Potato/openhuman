@@ -17,7 +17,7 @@ import { cn } from '@/components/assistant-ui/lib/utils';
 import type { SourceMessagePartComponent } from '@assistant-ui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { FileTextIcon } from 'lucide-react';
-import { memo, useState, type ComponentProps } from 'react';
+import { type ComponentProps, memo, useState } from 'react';
 
 import { Badge } from '../badge';
 
@@ -40,16 +40,9 @@ const sourceVariants = cva(
         destructive:
           'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 [a&]:hover:bg-red-100/80',
       },
-      size: {
-        sm: 'px-1.5 py-0.5',
-        default: 'px-2 py-1',
-        lg: 'px-2.5 py-1.5 text-sm',
-      },
+      size: { sm: 'px-1.5 py-0.5', default: 'px-2 py-1', lg: 'px-2.5 py-1.5 text-sm' },
     },
-    defaultVariants: {
-      variant: 'outline',
-      size: 'default',
-    },
+    defaultVariants: { variant: 'outline', size: 'default' },
   }
 );
 
@@ -68,10 +61,7 @@ function SourceIcon({
   className,
   faviconUrl = defaultFaviconUrl,
   ...props
-}: ComponentProps<'span'> & {
-  url: string;
-  faviconUrl?: (domain: string) => string;
-}) {
+}: ComponentProps<'span'> & { url: string; faviconUrl?: (domain: string) => string }) {
   const domain = extractDomain(url);
   const src = faviconUrl(domain);
   const [errorSrc, setErrorSrc] = useState<string | undefined>(undefined);
@@ -108,14 +98,19 @@ function SourceIcon({
 }
 
 function SourceTitle({ className, ...props }: ComponentProps<'span'>) {
-  return <span data-slot="source-title" className={cn('max-w-37.5 truncate', className)} {...props} />;
+  return (
+    <span data-slot="source-title" className={cn('max-w-37.5 truncate', className)} {...props} />
+  );
 }
 
 function DocumentSourceIcon({ className, ...props }: ComponentProps<'span'>) {
   return (
     <span
       data-slot="source-document-icon"
-      className={cn('text-muted-foreground flex size-3 shrink-0 items-center justify-center', className)}
+      className={cn(
+        'text-muted-foreground flex size-3 shrink-0 items-center justify-center',
+        className
+      )}
       {...props}>
       <FileTextIcon className="size-3" />
     </span>

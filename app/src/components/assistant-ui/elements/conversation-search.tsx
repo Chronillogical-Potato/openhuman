@@ -9,10 +9,9 @@
  *   aria-labels are props with English defaults, for `useT()` — see
  *   `features/conversations/aui/ChatConversationSearch.tsx`.
  */
-import type { ComponentProps } from 'react';
-import { ChevronDownIcon, ChevronUpIcon, SearchIcon } from 'lucide-react';
-
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { ChevronDownIcon, ChevronUpIcon, SearchIcon } from 'lucide-react';
+import type { ComponentProps } from 'react';
 
 import { field, ghostButton, mono, paper } from './surfaces';
 
@@ -52,7 +51,10 @@ export function ConversationSearch({
   const active = index === -1 ? undefined : hits[index];
 
   return (
-    <div data-slot="conversation-search" className={cn('flex w-full max-w-sm gap-2', className)} {...props}>
+    <div
+      data-slot="conversation-search"
+      className={cn('flex w-full max-w-sm gap-2', className)}
+      {...props}>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className={cn(paper, 'flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-3')}>
           <SearchIcon className="text-foreground/30 size-3.5 shrink-0" />
@@ -87,9 +89,15 @@ export function ConversationSearch({
         </div>
 
         {active && (
-          <div className={cn(field, 'fade-in animate-in rounded-xl px-3 py-2 text-xs leading-relaxed duration-200')}>
+          <div
+            className={cn(
+              field,
+              'fade-in animate-in rounded-xl px-3 py-2 text-xs leading-relaxed duration-200'
+            )}>
             <span className="text-foreground/45">{active.before}</span>
-            <span className="text-foreground/95 rounded bg-amber-400/35 px-0.5">{active.match}</span>
+            <span className="text-foreground/95 rounded bg-amber-400/35 px-0.5">
+              {active.match}
+            </span>
             <span className="text-foreground/45">{active.after}</span>
           </div>
         )}

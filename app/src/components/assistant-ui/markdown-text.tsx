@@ -26,9 +26,9 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
-import { CitationMarker, type CitationSource } from './elements/inline-citation';
 import { hasLatexContent, normalizeLatexDelimiters } from '../../utils/latex';
 import { extractLanguage, extractTextContent } from '../markdown/CodeBlock';
+import { CitationMarker, type CitationSource } from './elements/inline-citation';
 
 /**
  * This message's `source` parts (`SourceGroupSlot` in `thread.tsx` reads the

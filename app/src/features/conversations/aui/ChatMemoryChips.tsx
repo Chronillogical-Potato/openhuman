@@ -20,7 +20,10 @@
  */
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 
-import { MemoryChips, type MemoryChip } from '../../../components/assistant-ui/elements/memory-chips';
+import {
+  type MemoryChip,
+  MemoryChips,
+} from '../../../components/assistant-ui/elements/memory-chips';
 import { useT } from '../../../lib/i18n/I18nContext';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -53,14 +56,15 @@ function chipsForRecall(result: unknown): MemoryChip[] {
         : [];
   return items.flatMap((item, index): MemoryChip[] => {
     const entry = asRecord(item);
-    const text = stringField(entry, 'key') ?? stringField(entry, 'text') ?? stringField(entry, 'snippet');
+    const text =
+      stringField(entry, 'key') ?? stringField(entry, 'text') ?? stringField(entry, 'snippet');
     if (!text) return [];
     return [{ id: `recall:${index}:${text}`, text: text.slice(0, 60), change: 'existing' }];
   });
 }
 
 const CHIP_BUILDERS: Record<string, (args: unknown, result: unknown) => MemoryChip[]> = {
-  memory_store: (args) => chipsForStore(args),
+  memory_store: args => chipsForStore(args),
   memory_recall: (_args, result) => chipsForRecall(result),
   memory_hybrid_search: (_args, result) => chipsForRecall(result),
 };
@@ -81,7 +85,9 @@ function createMemoryToolCall(toolName: string): ToolCallMessagePartComponent {
           t('conversations.memoryChips.remembered').replace('{n}', String(n))
         }
         headingIdleLabel={t('conversations.memoryChips.idle')}
-        forgetAriaLabel={text => t('conversations.memoryChips.forgetAriaLabel').replace('{text}', text)}
+        forgetAriaLabel={text =>
+          t('conversations.memoryChips.forgetAriaLabel').replace('{text}', text)
+        }
       />
     );
   };
