@@ -493,8 +493,9 @@ function assistantParts(
   transcript: readonly ProcessingTranscriptItem[],
   citations: readonly ChatCitation[] = EMPTY_CITATIONS
 ): ThreadAssistantMessagePart[] {
+  const resolvedTimeline = resolveSubagentTimeline(timeline);
   const parts: ThreadAssistantMessagePart[] = [];
-  const timelineById = new Map(timeline.map(entry => [entry.id, entry]));
+  const timelineById = new Map(resolvedTimeline.map(entry => [entry.id, entry]));
   const emittedToolIds = new Set<string>();
   const claim = (entry: ToolTimelineEntry): boolean => {
     if (emittedToolIds.has(entry.id)) return false;
