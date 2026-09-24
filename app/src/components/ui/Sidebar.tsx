@@ -47,8 +47,13 @@ import { cn } from '../../lib/cn';
 export const SIDEBAR_DEFAULT_WIDTH = 224;
 export const SIDEBAR_MIN_WIDTH = 188;
 export const SIDEBAR_MAX_WIDTH = 420;
-/** Column width when collapsed with `collapsible="icon"` — fits a 32px rail button. */
-export const SIDEBAR_ICON_WIDTH = 56;
+/**
+ * Column width when collapsed with `collapsible="icon"`.
+ *
+ * Wide enough for the macOS traffic-light cluster plus its native breathing
+ * room; the 32px rail controls are centered on the same column axis below it.
+ */
+export const SIDEBAR_ICON_WIDTH = 88;
 /** Pixels per arrow-key press on {@link SidebarRail}. */
 export const SIDEBAR_KEYBOARD_STEP = 16;
 
@@ -487,7 +492,7 @@ export const SidebarInset = forwardRef<HTMLDivElement, SidebarInsetProps>(
         // whether a caller overlays a sidebar, and RootShellLayout owns that
         // routed-content inset explicitly.
         !unframed &&
-          'm-3 rounded-2xl after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-content-edge',
+          'm-2 rounded-2xl after:pointer-events-none after:absolute after:inset-0 after:z-20 after:rounded-[inherit] after:shadow-content-edge',
         className
       )}
       {...rest}

@@ -14,7 +14,6 @@ import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import { ContextUsage } from '../../features/conversations/aui/ContextUsage';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
-import { RunModeToggle } from '../../features/conversations/aui/RunModeToggle';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
 import { useRunMode } from '../../features/conversations/aui/useRunMode';
 import {
@@ -33,7 +32,6 @@ import {
   getComposerBlockedSendFeedback,
   handleComposerSlashCommand,
 } from '../../features/conversations/composerSendDecision';
-import { useMemorySyncActive } from '../../features/conversations/hooks/useBackgroundActivity';
 import { selectBackgroundProcesses } from '../../features/conversations/selectors/backgroundProcesses';
 import {
   GENERAL_TAB_VALUE,
@@ -1464,8 +1462,8 @@ const Conversations = ({
       ]
     : EMPTY_PROCESSING;
   // Detached background sub-agents (mode === 'async') spawned in this thread.
-  // The composer's background-processes badge needs the count/status, and
-  // `TranscriptOverlays` lists them.
+  // `TranscriptOverlays` keeps their panel mounted even while its composer
+  // shortcut is temporarily hidden.
   const backgroundProcesses = useMemo(
     () => selectBackgroundProcesses(selectedThreadToolTimeline),
     [selectedThreadToolTimeline]
@@ -1480,10 +1478,6 @@ const Conversations = ({
   useLoadThreadGoal(selectedThreadId ?? null);
   const liveTodos = useThreadTodos(selectedThreadId ?? null);
   const threadGoal = useThreadGoal(selectedThreadId ?? null);
-  const runningBackgroundCount = backgroundProcesses.filter(p => p.status === 'running').length;
-  // Poll-free live signal: lights the badge when memories are syncing even if
-  // no sub-agent is running and the panel is closed.
-  const memorySyncActive = useMemorySyncActive();
   // A plan the orchestrator parked for interactive review (request_plan_review
   // gate). When present, the PlanReviewCard renders above the composer and
   // resolves the parked turn.
@@ -1875,46 +1869,6 @@ const Conversations = ({
       <ChatFilesChip threadId={(selectedThreadId ?? firstActiveThreadId) as string} />
     ) : null;
 
-  // The control that opens the background-processes panel, plus its
-  // running-count / memory-sync badge. Opens `TranscriptOverlays`' panel.
-  const renderBackgroundProcessesButton = (onOpen: () => void) =>
-    selectedThreadId ? (
-      <button
-        type="button"
-        data-testid="background-processes-toggle"
-        data-analytics-id="chat-header-background-processes"
-        onClick={onOpen}
-        aria-label={t('conversations.backgroundTasks.title')}
-        title={
-          backgroundProcesses.length > 0
-            ? t('conversations.backgroundTasks.titleWithCount').replace(
-                '{count}',
-                String(backgroundProcesses.length)
-              )
-            : t('conversations.backgroundTasks.title')
-        }
-        className="relative flex h-7 w-7 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-hover hover:text-content-secondary">
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-          />
-        </svg>
-        {runningBackgroundCount > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-semibold leading-none text-content-inverted">
-            {runningBackgroundCount}
-          </span>
-        ) : memorySyncActive ? (
-          <span
-            data-testid="background-activity-dot"
-            className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-amber-500"
-          />
-        ) : null}
-      </button>
-    ) : null;
-
   const assistantComposerHeader = (
     <>
       {/* Turn gates first: a parked plan review and a drafted workflow both
@@ -1950,13 +1904,7 @@ const Conversations = ({
   );
 
   // Left-hand controls in the assistant-ui composer toolbar.
-  const assistantComposerFooterExtras = (
-    <>
-      {renderBackgroundProcessesButton(() => setShowBackgroundProcesses(true))}
-      {chatFilesChip}
-      {selectedThreadId && <RunModeToggle threadId={selectedThreadId} />}
-    </>
-  );
+  const assistantComposerFooterExtras = <>{chatFilesChip}</>;
 
   // The mic-first (`mic-cloud`) composer. It replaces only the text composer:
   // the transcript above it is the same assistant-ui `Thread` as text mode, so

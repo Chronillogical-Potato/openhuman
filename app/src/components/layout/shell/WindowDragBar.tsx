@@ -5,7 +5,7 @@ import { isTauri } from '../../../utils/tauriCommands/common';
  * Height (px) of the drag strip. Matches the macOS traffic-light zone so the
  * native window controls sit within the band.
  */
-export const WINDOW_DRAG_BAR_HEIGHT = 28;
+export const WINDOW_DRAG_BAR_HEIGHT = 32;
 
 /**
  * Transparent macOS window-drag band for the overlay title bar.
@@ -16,13 +16,13 @@ export const WINDOW_DRAG_BAR_HEIGHT = 28;
  * webview captures the pointer events. We opt back in with a `data-tauri-drag-
  * region` band.
  *
- * Positioned over the top of the content column ({@link RootShellLayout}), so
- * it does not reserve vertical space or add an inherited top inset to routed
- * pages. The window controls overlay this same title-bar region.
+ * Absolutely overlaid above the routed surface, so it contributes no layout
+ * height and never shifts page content. It paints nothing: the routed content
+ * remains fully visible through the draggable hit-area.
  *
- * Native CEF provider webviews composite above all HTML and so can't be dragged
- * through; that's a platform limit, not this band. The sidebar is intentionally
- * excluded — its header already drags in place.
+ * Native child webviews composite above HTML and cannot be dragged through;
+ * that is a platform limit, not this band. The sidebar is intentionally
+ * excluded because its header already drags in place.
  *
  * The attribute is deliberately bare (React renders it as `="true"`). `drag.js`
  * reads that as direct-hit-only — `el === composedPath[0]` — which is exactly
@@ -41,7 +41,7 @@ export default function WindowDragBar() {
     <div
       data-tauri-drag-region
       aria-hidden="true"
-      className="absolute inset-x-0 top-0 z-10"
+      className="absolute inset-x-0 top-0 z-20 bg-transparent"
       style={{ height: WINDOW_DRAG_BAR_HEIGHT }}
     />
   );

@@ -3123,6 +3123,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': '核心无法测量此会话的提示词。',
   'conversations.composer.context.section.preamble': '系统提示词',
   'conversations.composer.context.section.tools': '工具',
+  'conversations.composer.context.section.toolSchemas': '工具架构',
+  'conversations.composer.context.section.yourInput': '你的输入',
   'conversations.composer.context.section.history': '对话历史',
   'conversations.composer.context.turnCost': '本轮',
   'conversations.composer.context.subagentCost': '{agent}',

@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { FaDiscord } from 'react-icons/fa6';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NAV_TABS, type NavTab } from '../../../config/navConfig';
@@ -7,7 +6,6 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
 import { useAppSelector } from '../../../store/hooks';
 import { selectUnreadCount } from '../../../store/notificationSlice';
-import { openUrl } from '../../../utils/openUrl';
 import {
   SidebarMenu,
   SidebarMenuBadge,
@@ -16,9 +14,7 @@ import {
   Tooltip,
 } from '../../ui';
 import { NavIcon } from './navIcons';
-import { DISCORD_URL } from './SidebarHeader';
 import { useCloudNavGate } from './useCloudNavGate';
-import { useHomeNav } from './useHomeNav';
 
 /** Same active-route rules as the expanded {@link SidebarNav}. */
 function matchActive(path: string, pathname: string): boolean {
@@ -30,18 +26,17 @@ function matchActive(path: string, pathname: string): boolean {
 }
 
 /**
- * Rail footprint layered on `SidebarMenuButton`: the rail is a 32px square
- * where the primitive's rows are full-width and left-aligned, and the unread
- * badge needs a positioning context. Everything else — the active fill, the
- * focus ring, the transition — comes from the primitive.
+ * Compact labelled rail footprint layered on `SidebarMenuButton`. The 72px
+ * button fits the collapsed column with an icon over a one-line label; the
+ * badge keeps the same positioning context.
  */
-const RAIL_BTN = 'relative h-8 w-8 justify-center rounded-lg p-0';
+const RAIL_BTN = 'relative h-12 w-[72px] flex-col justify-center gap-1 rounded-lg px-1 py-1.5';
+const RAIL_LABEL = 'max-w-full truncate text-[9px] font-medium leading-none';
 
 /**
- * Icon-only navigation shown in the collapsed root-shell rail: the Home action
- * plus every primary {@link NAV_TABS} destination. Mirrors {@link SidebarNav}'s
- * routing/active rules and {@link SidebarHeader}'s Home behaviour (via the shared
- * {@link useHomeNav} hook) so a collapsed sidebar still navigates the app.
+ * Compact labelled navigation shown in the collapsed root-shell rail: every
+ * primary {@link NAV_TABS} destination plus Settings. Mirrors
+ * {@link SidebarNav}'s routing and active-route rules.
  *
  * Renders outside the `Sidebar` column (the column is unmounted while
  * collapsed), which is fine: the menu primitives read no sidebar context.
@@ -50,7 +45,6 @@ export default function CollapsedNavRail() {
   const { t } = useT();
   const location = useLocation();
   const navigate = useNavigate();
-  const handleHome = useHomeNav();
   const unreadCount = useAppSelector(state => selectUnreadCount(state.notifications.items));
 
   const cloudAllowed = useCloudNavGate();
@@ -76,39 +70,11 @@ export default function CollapsedNavRail() {
     navigate(tab.path);
   };
 
-  const homeActive = location.pathname === '/chat' || location.pathname.startsWith('/chat/');
   const settingsActive = matchActive('/settings', location.pathname);
 
   return (
     <nav aria-label={t('nav.home')}>
       <SidebarMenu className="items-center gap-2">
-        {/* Home */}
-        <SidebarMenuItem>
-          <Tooltip label={t('nav.home')}>
-            <SidebarMenuButton
-              isActive={homeActive}
-              onClick={handleHome}
-              aria-label={t('nav.home')}
-              className={RAIL_BTN}>
-              <NavIcon id="home" className="h-5 w-5" />
-            </SidebarMenuButton>
-          </Tooltip>
-        </SidebarMenuItem>
-
-        {/* Community Discord — mirrors SidebarHeader's Discord button for the
-            collapsed state. Opens the invite in the system browser. */}
-        <SidebarMenuItem>
-          <Tooltip label={t('nav.discord')}>
-            <SidebarMenuButton
-              onClick={() => void openUrl(DISCORD_URL).catch(() => {})}
-              aria-label={t('nav.discord')}
-              data-analytics-id="collapsed-rail-discord"
-              className={RAIL_BTN}>
-              <FaDiscord className="h-5 w-5" />
-            </SidebarMenuButton>
-          </Tooltip>
-        </SidebarMenuItem>
-
         {/* Primary nav destinations */}
         {tabs.map(tab => {
           const active = matchActive(tab.path, location.pathname);
@@ -122,11 +88,10 @@ export default function CollapsedNavRail() {
                   onClick={() => handleClick(tab, active)}
                   aria-label={tab.label}
                   className={RAIL_BTN}>
-                  <NavIcon id={tab.id} className="h-5 w-5" />
+                  <NavIcon id={tab.id} className="h-4 w-4" />
+                  <span className={RAIL_LABEL}>{tab.label}</span>
                   {showBadge && (
-                    <SidebarMenuBadge
-                      tone="attention"
-                      className="absolute -right-0.5 -top-0.5 ml-0">
+                    <SidebarMenuBadge tone="attention" className="absolute right-1 top-1 ml-0">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </SidebarMenuBadge>
                   )}
@@ -139,15 +104,17 @@ export default function CollapsedNavRail() {
         {/* Settings — reached via the header gear when expanded, which is hidden
             in the collapsed rail, so it gets its own icon here. */}
         <SidebarMenuItem>
-          <SidebarMenuButton
-            isActive={settingsActive}
-            onClick={() => navigate('/settings')}
-            title={t('nav.settings')}
-            aria-label={t('nav.settings')}
-            data-analytics-id="collapsed-rail-settings"
-            className={RAIL_BTN}>
-            <NavIcon id="settings" className="h-5 w-5" />
-          </SidebarMenuButton>
+          <Tooltip label={t('nav.settings')}>
+            <SidebarMenuButton
+              isActive={settingsActive}
+              onClick={() => navigate('/settings')}
+              aria-label={t('nav.settings')}
+              data-analytics-id="collapsed-rail-settings"
+              className={RAIL_BTN}>
+              <NavIcon id="settings" className="h-4 w-4" />
+              <span className={RAIL_LABEL}>{t('nav.settings')}</span>
+            </SidebarMenuButton>
+          </Tooltip>
         </SidebarMenuItem>
       </SidebarMenu>
     </nav>

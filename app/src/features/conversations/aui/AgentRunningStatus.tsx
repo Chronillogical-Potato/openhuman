@@ -15,15 +15,17 @@
  * component at all; assistant-ui's own running-message indicator already
  * signals "something is happening" for those, same as before.
  *
- * With no task running, this falls back to the vendored `ThinkingIndicator`
- * (WS-E) rather than rendering nothing, so a turn that has not yet spawned any
- * sub-agent still shows a running signal beneath the composer.
+ * With no task running, this falls back to assistant-ui's vendored
+ * `GenerationLoader`, with a shimmering Thinking label, so a turn that has not
+ * yet spawned a sub-agent still shows one coherent running signal.
  */
+import { useEffect, useState } from 'react';
+
 import {
   TaskTray,
   useTaskSummary,
 } from '../../../components/assistant-ui/elements/agent-status.aui';
-import { ThinkingIndicator } from '../../../components/assistant-ui/elements/thinking-indicator';
+import { GenerationLoader } from '../../../components/assistant-ui/elements/loading-state';
 import { useT } from '../../../lib/i18n/I18nContext';
 
 /** English defaults mapped onto `AgentStatusStrings` via `useT()`. */
@@ -44,11 +46,22 @@ export function AgentRunningStatus() {
   const { t } = useT();
   const summary = useTaskSummary();
   const strings = useAgentStatusStrings();
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (summary.total > 0) return undefined;
+    const timer = window.setInterval(() => setTick(value => value + 1), 120);
+    return () => window.clearInterval(timer);
+  }, [summary.total]);
+
   if (summary.total === 0) {
     return (
-      <ThinkingIndicator
+      <GenerationLoader
         data-testid="agent-running-status-thinking"
         label={t('chat.thinkingDots')}
+        tick={tick}
+        variant="rounded"
+        className="flex-row justify-start gap-2.5 px-2 [&>div]:gap-0.5 [&>div>span]:size-1"
       />
     );
   }

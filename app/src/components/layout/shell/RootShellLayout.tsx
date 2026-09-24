@@ -34,8 +34,12 @@ const LAYOUT_ID = APP_SHELL_LAYOUT_ID;
 // here — they were byte-identical, and two copies of a clamp is one copy too
 // many once the primitive is the thing doing the clamping.
 const LAYOUT_DEFAULTS = { sidebarVisible: true, sidebarWidth: SIDEBAR_DEFAULT_WIDTH };
-/** Matches Tailwind's `3` spacing used for the floating shell inset. */
-const SHELL_GUTTER = 12;
+/** Framed-mode inset; the app shell defaults to a full-bleed surface. */
+const FRAMED_CONTENT_SURFACE_INSET = 8;
+/** Tight floating offset shared by the desktop app and browser shell. */
+const SIDEBAR_INSET = 8;
+/** Breathing room between the floating sidebar edge and routed page content. */
+const ROUTED_CONTENT_GAP = 16;
 
 function clamp(width: number): number {
   return Math.min(Math.max(width, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH);
@@ -83,8 +87,8 @@ interface RootShellLayoutProps {
  *   - **Chrome** — this component paints nothing of its own. The themed
  *     {@link AppBackground} behind it shows through here and behind the
  *     sidebar, so the frame carries the theme's hue as one continuous surface.
- *   - **Card** — the routed content sits on a full-window inset, rounded
- *     {@link ContentSurface}, the opaque sheet beneath the sidebar.
+ *   - **Surface** — routed content fills the whole window beneath the sidebar;
+ *     there is no second outer card or exposed chrome gutter.
  *   - **Sidebar** — an inset material floats above that sheet. The routed
  *     content receives an equal inline inset, so it never sits under the
  *     floating navigation even though its background continues behind it.
@@ -108,7 +112,11 @@ interface RootShellLayoutProps {
  * `lib/commands/registry` already binds mod+B to `toggleSidebar`, and a second
  * window listener on the same chord toggles twice and cancels out.
  */
-export default function RootShellLayout({ sidebar, children, unframed }: RootShellLayoutProps) {
+export default function RootShellLayout({
+  sidebar,
+  children,
+  unframed = true,
+}: RootShellLayoutProps) {
   const { t } = useT();
   const dispatch = useAppDispatch();
   const layout = useAppSelector(selectPanelLayout(LAYOUT_ID, LAYOUT_DEFAULTS));
@@ -149,7 +157,9 @@ export default function RootShellLayout({ sidebar, children, unframed }: RootShe
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const width = dragWidth ?? persistedWidth;
   const renderedSidebarWidth = isOpen ? width : SIDEBAR_ICON_WIDTH;
-  const routedContentInset = renderedSidebarWidth + SHELL_GUTTER;
+  const contentSurfaceInset = unframed ? 0 : FRAMED_CONTENT_SURFACE_INSET;
+  const routedContentInset =
+    renderedSidebarWidth + (SIDEBAR_INSET - contentSurfaceInset) + ROUTED_CONTENT_GAP;
 
   const commitWidth = useCallback(
     (next: number) => dispatch(setSidebarWidth({ id: LAYOUT_ID, width: clamp(Math.round(next)) })),
@@ -254,8 +264,9 @@ export default function RootShellLayout({ sidebar, children, unframed }: RootShe
           confirms there is no bounds-tracked child webview left anywhere in
           the shell; the whole app renders as one native webview, so there is
           no second compositing layer for a narrowed HTML column to be
-          "punched through" by. `icon` mode's real ~48–56px column — never
-          zero-width, in either state — does not reintroduce the failure mode
+          "punched through" by. `icon` mode's real 88px column — never
+          zero-width, in either state, and wide enough for the macOS traffic
+          lights — does not reintroduce the failure mode
           `offcanvas` was chosen for; that failure mode's precondition no
           longer exists. `AppSidebar` reads {@link useSidebar}'s `state` to
           render its own compact, icon-only body while collapsed (formerly
@@ -263,7 +274,7 @@ export default function RootShellLayout({ sidebar, children, unframed }: RootShe
       <Sidebar
         collapsible="icon"
         data-testid="root-shell-sidebar"
-        className="absolute inset-y-3 left-3 z-30 h-auto rounded-2xl border border-sidebar-border bg-sidebar/85 shadow-large backdrop-blur-2xl">
+        className="sidebar-material absolute inset-y-2 left-2 z-30 h-auto animate-sidebar-shadow rounded-2xl border border-content-faint/40 shadow-[2px_4px_10px_-4px_rgb(0_0_0/0.05),4px_14px_28px_-14px_rgb(0_0_0/0.07)] backdrop-blur-2xl motion-reduce:animate-none">
         {sidebar}
       </Sidebar>
 
@@ -279,17 +290,18 @@ export default function RootShellLayout({ sidebar, children, unframed }: RootShe
           data-testid="root-shell-divider"
           data-analytics-id="root-shell-resize-divider"
           onPointerDown={handleRailPointerDown}
-          className="absolute inset-y-3 z-40"
-          style={{ left: width + SHELL_GUTTER }}
+          className="absolute inset-y-2 z-40"
+          style={{ left: width + SIDEBAR_INSET }}
         />
       )}
 
       <div
         className="relative flex w-full min-w-0 flex-1 flex-col overflow-hidden"
         data-testid="root-shell-content">
-        {/* macOS overlay-title-bar drag region. It is absolutely positioned, so
-            the routed surface keeps its full height. No-op off macOS / outside
-            Tauri, where the native title bar already owns this area. */}
+        {/* Empty macOS overlay-title-bar band. It is absolutely positioned and
+            fully transparent, so it is draggable without shifting or painting
+            over the page. No-op off macOS / outside Tauri, where the native
+            title bar owns this area. */}
         <WindowDragBar />
         <ContentSurface unframed={unframed}>
           <div

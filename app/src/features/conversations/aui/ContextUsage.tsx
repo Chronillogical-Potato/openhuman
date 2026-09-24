@@ -29,7 +29,7 @@ import {
   type TokenUsage,
 } from '@/components/assistant-ui/elements/context-display';
 import { ErrorState } from '@/components/assistant-ui/elements/error-state';
-import { mono, paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
+import { paper, ShimmerLabel } from '@/components/assistant-ui/elements/surfaces';
 import { cn } from '@/components/assistant-ui/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/assistant-ui/ui/popover';
 import debug from 'debug';
@@ -52,50 +52,6 @@ const EMPTY_USAGE = emptySessionTokenUsage();
 
 const formatUsd = (usd: number): string => (usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`);
 
-/**
- * Turn cost + per-sub-agent spend, appended under the vendored
- * `ContextBreakdown` card rather than inside it (that element has no cost
- * field of its own — see the fe-brief's WS-F note). Reuses its own `mono`
- * token so the figures read as part of the same card rather than a
- * bespoke widget; hidden entirely once there is no spend to show.
- */
-function CostFooter({ usage, t }: { usage: SessionTokenUsage; t: (key: string) => string }) {
-  if (usage.costUsd <= 0) return null;
-  const subAgents = Object.values(usage.subAgents).filter(sub => sub.costUsd > 0);
-  return (
-    <div className={cn(paper, 'flex w-full max-w-sm flex-col gap-1.5 rounded-2xl p-4')}>
-      <div className="flex items-baseline justify-between">
-        <span className="text-foreground/70 text-[13px]">
-          {t('conversations.composer.context.turnCost')}
-        </span>
-        <span className={cn(mono, 'text-foreground/70 tabular-nums')}>
-          {formatUsd(usage.costUsd)}
-        </span>
-      </div>
-      {subAgents.map(sub => (
-        <div key={sub.agentId} className="flex items-baseline justify-between">
-          <span className="text-foreground/45 truncate text-[12px]">
-            {t('conversations.composer.context.subagentCost').replace('{agent}', sub.agentId)}
-          </span>
-          <span className={cn(mono, 'text-foreground/45 shrink-0 tabular-nums')}>
-            {formatUsd(sub.costUsd)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Section labels the core emits verbatim; everything else is a prompt heading. */
-const KNOWN_SECTIONS: Record<string, { key: string; tint: string }> = {
-  '(preamble)': { key: 'conversations.composer.context.section.preamble', tint: 'bg-blue-500' },
-  tools: { key: 'conversations.composer.context.section.tools', tint: 'bg-violet-500' },
-  history: { key: 'conversations.composer.context.section.history', tint: 'bg-amber-500' },
-};
-
-/** Prompt headings share the system prompt's hue, stepped so neighbours differ. */
-const PROMPT_TINTS = ['bg-blue-400', 'bg-blue-600', 'bg-blue-300', 'bg-blue-700'];
-
 type BreakdownState =
   | { status: 'idle' }
   | { status: 'loading' }
@@ -104,30 +60,57 @@ type BreakdownState =
 
 /**
  * Map the core's sections onto the element's segments: translate the fixed
- * labels, strip markdown hashes off prompt headings, fold duplicate headings
- * into one row (the element keys rows by label) and drop empty ones.
+ * labels, group every rendered prompt heading into one System prompt bucket,
+ * fold duplicate buckets into one row and drop empty sections.
  */
 export function contextBreakdownSegments(
   data: ContextBreakdownData,
-  t: (key: string) => string
+  t: (key: string) => string,
+  usage: Pick<SessionTokenUsage, 'lastTurnInputTokens' | 'lastTurnOutputTokens'> = EMPTY_USAGE
 ): readonly ContextSegment[] {
-  const byLabel = new Map<string, ContextSegment>();
-  let promptIndex = 0;
+  let systemPrompt = 0;
+  let toolSchemas = 0;
+  let hiddenToolUsage = 0;
   for (const section of data.sections) {
     if (section.est_tokens <= 0) continue;
-    const known = KNOWN_SECTIONS[section.label];
-    const label = known
-      ? t(known.key)
-      : section.label.replace(/^#+\s*/, '').trim() || section.label;
-    const existing = byLabel.get(label);
-    if (existing) {
-      existing.tokens += section.est_tokens;
-      continue;
+    const label = section.label.toLowerCase();
+    if (label === 'tools' || label === 'tool_schemas' || label === 'tool schemas') {
+      toolSchemas += section.est_tokens;
+    } else if (label === 'tool_usage' || label === 'tool usage' || label === 'tool results') {
+      hiddenToolUsage += section.est_tokens;
+    } else if (label === 'thinking' || label === 'reasoning') {
+      // Provider output currently folds these tokens into its output total.
+      // Hide the separate row until the usage wire reports it independently.
+    } else if (label !== 'history' && label !== 'input' && label !== 'output') {
+      systemPrompt += section.est_tokens;
     }
-    const tint = known?.tint ?? PROMPT_TINTS[promptIndex++ % PROMPT_TINTS.length];
-    byLabel.set(label, { label, tokens: section.est_tokens, tint });
   }
-  return [...byLabel.values()];
+  const yourInput = Math.max(
+    0,
+    usage.lastTurnInputTokens - systemPrompt - toolSchemas - hiddenToolUsage
+  );
+  return [
+    {
+      label: t('conversations.composer.context.section.preamble'),
+      tokens: systemPrompt,
+      tint: 'bg-blue-500',
+    },
+    {
+      label: t('conversations.composer.context.section.toolSchemas'),
+      tokens: toolSchemas,
+      tint: 'bg-violet-500',
+    },
+    {
+      label: t('conversations.composer.context.output'),
+      tokens: usage.lastTurnOutputTokens,
+      tint: 'bg-emerald-500',
+    },
+    {
+      label: t('conversations.composer.context.section.yourInput'),
+      tokens: yourInput,
+      tint: 'bg-amber-500',
+    },
+  ];
 }
 
 export function ContextUsage({
@@ -204,24 +187,36 @@ export function ContextUsage({
   let body;
   if (breakdown.status === 'ready') {
     const limit = breakdown.data.context_window > 0 ? breakdown.data.context_window : contextWindow;
+    const cacheHit =
+      usage.inputTokens > 0
+        ? Math.min(100, Math.round((usage.cachedTokens / usage.inputTokens) * 100))
+        : 0;
+    const stats = [
+      { label: t('token.popCacheHit'), value: `${cacheHit}%` },
+      { label: t('token.costTitle'), value: formatUsd(usage.costUsd) },
+      ...Object.values(usage.subAgents).map(sub => ({
+        label: t('conversations.composer.context.subagentCost').replace('{agent}', sub.agentId),
+        value: `${(sub.inputTokens + sub.outputTokens).toLocaleString('en-US')} · ${formatUsd(
+          sub.costUsd
+        )}`,
+      })),
+    ];
     body = (
-      <div className="flex flex-col gap-2">
-        <ContextBreakdown
-          segments={contextBreakdownSegments(breakdown.data, t)}
-          limit={limit}
-          title={t('conversations.composer.context.title')}
-          headroomLabel={t('conversations.composer.context.headroom')}
-          meterLabel={label =>
-            t('conversations.composer.context.meterLabel').replace('{label}', label)
-          }
-          meterValueText={(used, max) =>
-            t('conversations.composer.context.meterValue')
-              .replace('{used}', used)
-              .replace('{limit}', max)
-          }
-        />
-        <CostFooter usage={usage} t={t} />
-      </div>
+      <ContextBreakdown
+        segments={contextBreakdownSegments(breakdown.data, t, usage)}
+        limit={limit}
+        title={t('conversations.composer.context.title')}
+        headroomLabel={t('conversations.composer.context.headroom')}
+        stats={stats}
+        meterLabel={label =>
+          t('conversations.composer.context.meterLabel').replace('{label}', label)
+        }
+        meterValueText={(used, max) =>
+          t('conversations.composer.context.meterValue')
+            .replace('{used}', used)
+            .replace('{limit}', max)
+        }
+      />
     );
   } else if (breakdown.status === 'error') {
     body = (

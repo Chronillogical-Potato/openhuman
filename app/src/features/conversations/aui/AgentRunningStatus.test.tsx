@@ -54,6 +54,11 @@ describe('AgentRunningStatus', () => {
     );
 
     expect(screen.getByTestId('agent-running-status-thinking')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-running-status-thinking')).toHaveAttribute(
+      'data-slot',
+      'generation-loader'
+    );
+    expect(screen.getByTestId('agent-running-status-thinking')).toHaveClass('[&>div>span]:size-1');
     expect(screen.queryByTestId('agent-running-status-tasks')).not.toBeInTheDocument();
   });
 });

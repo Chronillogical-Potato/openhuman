@@ -3357,6 +3357,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail': 'Rdzeń nie mógł zmierzyć promptu tego wątku.',
   'conversations.composer.context.section.preamble': 'Prompt systemowy',
   'conversations.composer.context.section.tools': 'Narzędzia',
+  'conversations.composer.context.section.toolSchemas': 'Schematy narzędzi',
+  'conversations.composer.context.section.yourInput': 'Twoje dane wejściowe',
   'conversations.composer.context.section.history': 'Historia rozmowy',
   'conversations.composer.context.turnCost': 'Ta tura',
   'conversations.composer.context.subagentCost': '{agent}',

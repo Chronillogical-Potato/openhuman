@@ -3412,6 +3412,8 @@ const messages: TranslationMap = {
     'Der Core konnte den Prompt dieses Threads nicht messen.',
   'conversations.composer.context.section.preamble': 'System-Prompt',
   'conversations.composer.context.section.tools': 'Werkzeuge',
+  'conversations.composer.context.section.toolSchemas': 'Tool-Schemas',
+  'conversations.composer.context.section.yourInput': 'Deine Eingabe',
   'conversations.composer.context.section.history': 'Gesprächsverlauf',
   'conversations.composer.context.turnCost': 'Dieser Zug',
   'conversations.composer.context.subagentCost': '{agent}',

@@ -272,13 +272,9 @@ export function AppShellDesktop() {
           {chromeless ? (
             content
           ) : (
-            // Nothing sets `unframed` today. It existed for live CEF provider
-            // webviews — WebviewHost handed the Rust side a plain rectangle and
-            // CEF composited that child view above the whole HTML layer, so a
-            // rounded card under it showed four square corners punching through
-            // the radius. That surface was removed upstream along with
-            // WebviewHost, so no route needs the escape hatch right now; the
-            // prop stays on the primitive for the next full-bleed surface.
+            // The root surface is full-bleed by default. The floating sidebar
+            // supplies the inset/elevation; another rounded outer card would
+            // expose an unnecessary band of window chrome around the content.
             <RootShellLayout sidebar={<AppSidebar />}>{content}</RootShellLayout>
           )}
         </div>

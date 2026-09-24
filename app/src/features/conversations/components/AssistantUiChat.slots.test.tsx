@@ -109,6 +109,11 @@ describe('assistant-ui composer slots', () => {
     );
 
     const button = screen.getByTestId('composer-human-mode');
+    const icon = screen.getByTestId('composer-human-mascot-icon');
+    expect(icon).toHaveAttribute('width', '24');
+    expect(icon).toHaveAttribute('height', '24');
+    expect(icon.tagName).toBe('IMG');
+    expect(icon.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
 
     rerender(<Provider store={store}>{chat(() => navigate('/human'))}</Provider>);
 

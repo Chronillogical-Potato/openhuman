@@ -24,6 +24,7 @@ describe('WindowDragBar', () => {
     expect(bar).not.toBeNull();
     expect((bar as HTMLElement).style.height).toBe(`${WINDOW_DRAG_BAR_HEIGHT}px`);
     expect((bar as HTMLElement).className).toContain('absolute');
+    expect((bar as HTMLElement).className).toContain('bg-transparent');
   });
 
   // Presence is what the assertions above cover, and presence is exactly what a

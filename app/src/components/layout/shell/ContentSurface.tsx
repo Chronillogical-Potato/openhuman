@@ -34,7 +34,7 @@ interface ContentSurfaceProps {
  * consistent background across every theme.
  *
  * The geometry is the `SidebarInset` primitive: the framed default is an even
- * 12px inset on every window edge, a 2xl radius, and a `content-edge` hairline.
+ * 8px inset on every window edge, a 2xl radius, and a `content-edge` hairline.
  * The primitive reads no sidebar context, so this stays renderable outside a
  * `SidebarProvider` — several page-level tests mount it on its own.
  */

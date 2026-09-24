@@ -299,10 +299,7 @@ const defaultComponents = memoizeMarkdownComponents({
     if (source) return <CitationMarker index={citationIndex} source={source} />;
     return (
       <a
-        className={cn(
-          'aui-md-a text-primary hover:text-primary/80 underline underline-offset-2',
-          className
-        )}
+        className={cn('aui-md-a text-primary hover:text-primary/80 no-underline', className)}
         href={href}
         {...props}>
         {children}

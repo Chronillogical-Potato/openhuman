@@ -3284,6 +3284,8 @@ const messages: TranslationMap = {
     '코어가 이 스레드의 프롬프트를 측정하지 못했습니다.',
   'conversations.composer.context.section.preamble': '시스템 프롬프트',
   'conversations.composer.context.section.tools': '도구',
+  'conversations.composer.context.section.toolSchemas': '도구 스키마',
+  'conversations.composer.context.section.yourInput': '사용자 입력',
   'conversations.composer.context.section.history': '대화 기록',
   'conversations.composer.context.turnCost': '이번 턴',
   'conversations.composer.context.subagentCost': '{agent}',

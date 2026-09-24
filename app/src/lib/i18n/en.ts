@@ -3727,6 +3727,8 @@ const en: TranslationMap = {
     'The core could not measure the prompt for this thread.',
   'conversations.composer.context.section.preamble': 'System prompt',
   'conversations.composer.context.section.tools': 'Tools',
+  'conversations.composer.context.section.toolSchemas': 'Tool schemas',
+  'conversations.composer.context.section.yourInput': 'Your input',
   'conversations.composer.context.section.history': 'Conversation history',
   'conversations.composer.context.turnCost': 'This turn',
   'conversations.composer.context.subagentCost': '{agent}',
