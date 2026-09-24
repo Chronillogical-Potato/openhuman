@@ -5,7 +5,7 @@
  * groups them into its `SourceGroup` slot, which `/chat` fills with
  * `ChatSources`.
  *
- * Four things are under test, and the second is the one that matters:
+ * Five things are under test, and the second is the one that matters:
  *
  * 1. the list renders the turn's `http(s)` sources;
  * 2. it is actually **reached from the live `/chat` surface** — mounted through
@@ -23,14 +23,20 @@
  * 4. the turn is drawn once. A settled answer used to carry a second summary
  *    of its own reasoning and tools under it (a "N steps · M tools" footer and
  *    a sources list both read from a duplicate `processTrail`); only the inline
- *    parts remain.
+ *    parts remain;
+ * 5. a memory citation on the message's `extraMetadata.citations`
+ *    (`ChatDoneEvent.citations` / `ChatSegmentEvent.citations`) renders
+ *    alongside the `url` sources as a `document` source badge, with no href.
+ *
+ * Every row now renders through the vendored `sources.aui` element's
+ * primitives directly (no collapsible disclosure — see `ChatSources.tsx`),
+ * so there is no "expand" step left to drive.
  *
  * Only the RPC is stubbed — the boundary a unit test should stub. Everything
  * between it and the DOM is production code.
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
