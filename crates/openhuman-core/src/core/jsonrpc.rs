@@ -2252,6 +2252,10 @@ pub async fn bootstrap_core_runtime(
     // disclosures reach the UI even on cores that skip `start_channels` or run
     // with the approval gate disabled. Idempotent (OnceLock-guarded).
     crate::web_chat::register_egress_surface_subscriber();
+    // Agent-surface bridge (goals/todos/queue, C3) — registered unconditionally
+    // for the same reason as the two bridges above: this JSON-RPC serve boot
+    // path can run without `start_channels`. Idempotent (OnceLock-guarded).
+    crate::web_chat::register_agent_surface_subscriber();
 
     if decision.install_gate {
         // Per-launch correlation token for the approval gate. This is
