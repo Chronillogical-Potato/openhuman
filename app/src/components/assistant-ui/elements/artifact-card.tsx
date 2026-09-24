@@ -72,6 +72,35 @@ export function ArtifactCard({
 
   return (
     <div data-slot="artifact-card" className={cardClassName} {...props}>
+      <ArtifactCardBody
+        title={title}
+        meta={meta}
+        generating={generating}
+        words={words}
+        writingLabel={writingLabel}
+        Icon={Icon}
+      />
+    </div>
+  );
+}
+
+function ArtifactCardBody({
+  title,
+  meta,
+  generating,
+  words,
+  writingLabel,
+  Icon,
+}: {
+  title: string;
+  meta: string;
+  generating: boolean;
+  words: number;
+  writingLabel: string;
+  Icon: ElementType;
+}) {
+  return (
+    <>
       <span className="bg-foreground/[0.05] text-foreground/45 flex size-9 shrink-0 items-center justify-center rounded-xl">
         <Icon className={cn('size-4', generating && 'animate-pulse motion-reduce:animate-none')} />
       </span>
@@ -94,6 +123,6 @@ export function ArtifactCard({
         )}
       </div>
       <ArrowUpRightIcon className="text-foreground/35 size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-    </Container>
+    </>
   );
 }

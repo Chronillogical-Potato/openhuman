@@ -45,7 +45,10 @@ export function ComposerMessageQueue() {
       data-testid="queued-followups"
       className="mb-2 max-w-none"
       running={running}
-      queued={queue.map(item => ({ id: item.id, text: item.prompt }))}
+      queued={queue.map(item => ({
+        id: item.id,
+        text: item.parts.map(part => (part.type === 'text' ? part.text : '')).join(''),
+      }))}
       onCancel={id => aui.composer.queueItem({ id }).remove()}
       runningLabel={t('chat.messageQueue.running')}
       queuedLabel={count => t('chat.messageQueue.queuedCount').replace('{count}', String(count))}

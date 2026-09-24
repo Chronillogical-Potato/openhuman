@@ -439,8 +439,6 @@ function assistantParts(
   return parts;
 }
 
-const EMPTY_CITATIONS: readonly ChatCitation[] = [];
-
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
