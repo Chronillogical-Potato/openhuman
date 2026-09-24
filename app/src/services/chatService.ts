@@ -208,8 +208,72 @@ export interface ChatErrorEvent {
     | 'payload_too_large'
     | 'provider_request_rejected'
     | 'chat_template_rejected'
-    | 'budget_exhausted';
+    | 'budget_exhausted'
+    | 'max_iterations'
+    | 'turn_timeout'
+    | 'empty_response'
+    | 'action_budget_exceeded'
+    | 'capability_unsupported'
+    | 'guardrail';
   round: number | null;
+  /**
+   * Present only when `error_type === 'guardrail'`. Mirrors the Rust
+   * `GuardrailPayload` (`crates/openhuman-core/src/core/socketio.rs`) carried
+   * on `chat_error` — the policy verdict that blocked the turn, with the
+   * reasons the guardrail cited.
+   */
+  guardrail?: GuardrailPayload;
+}
+
+/** One reason a guardrail policy cited for its verdict. */
+export interface GuardrailReason {
+  code: string;
+  message: string;
+}
+
+/**
+ * The guardrail verdict carried on a `chat_error` whose `error_type` is
+ * `"guardrail"`. Mirrors the Rust `GuardrailPayload`
+ * (`crates/openhuman-core/src/core/socketio.rs`).
+ */
+export interface GuardrailPayload {
+  verdict: string;
+  score: number;
+  reasons: GuardrailReason[];
+}
+
+/**
+ * Emitted when the core's egress guard parks an outbound action (e.g. an
+ * integration call reaching outside the workspace) pending an explicit
+ * decision — a softer sibling of `chat_error{error_type:"guardrail"}` that
+ * does not fail the turn. Bridged from `DomainEvent::ExternalTransferPending`
+ * by `web_chat::event_bus` (`external_transfer_pending`).
+ */
+export interface ExternalTransferPendingEvent {
+  thread_id: string;
+  request_id?: string;
+  client_id?: string;
+  /** Destination provider (e.g. `"gmail"`, `"slack"`). */
+  provider?: string;
+  /** Destination service/endpoint within the provider. */
+  service?: string;
+  /** Human-readable reason the transfer was flagged. */
+  reason?: string;
+}
+
+/**
+ * Emitted when the core cancels an in-flight turn (`chat_cancel` RPC, a
+ * superseding send, or a queue interrupt) — see wire-contract.md. Carries the
+ * `cancel_reason` and, for a superseded turn, the id of the turn that
+ * replaced it. The core keeps emitting `chat_error{error_type:"cancelled"}`
+ * alongside this for one release; consumers must dedupe on `request_id`.
+ */
+export interface ChatCancelledEvent {
+  thread_id: string;
+  request_id?: string;
+  client_id?: string;
+  cancel_reason?: 'user_stop' | 'superseded';
+  superseded_by?: string;
 }
 
 /** Proactive assistant message pushed by the Rust event bus (not a chat turn). */
