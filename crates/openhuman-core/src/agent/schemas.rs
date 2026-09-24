@@ -38,6 +38,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("triage_evaluate"),
         schemas("graph_topologies"),
         schemas("registry_snapshot"),
+        schemas("context_breakdown"),
     ]
 }
 
