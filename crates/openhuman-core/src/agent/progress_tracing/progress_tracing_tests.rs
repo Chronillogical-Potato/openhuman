@@ -75,6 +75,7 @@ fn spawn(task: &str, display: &str) -> AgentProgress {
         prompt: "delegated prompt".to_string(),
         worker_thread_id: Some("worker-abc".to_string()),
         display_name: Some(display.to_string()),
+        parent_call_id: None,
     }
 }
 
