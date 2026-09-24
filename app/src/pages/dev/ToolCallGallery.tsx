@@ -175,6 +175,10 @@ function CatalogRow({ name }: { name: string }) {
 export default function ToolCallGallery() {
   const { t } = useT();
   const [streaming, setStreaming] = useState(true);
+  const [scheduleEnabled, setScheduleEnabled] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('deploy');
+  const [searchActive, setSearchActive] = useState(0);
+  const [citationOpen, setCitationOpen] = useState<number | null>(null);
   return (
     <div className="bg-background text-foreground min-h-screen overflow-auto p-8">
       <div className="mx-auto flex max-w-3xl flex-col gap-10">

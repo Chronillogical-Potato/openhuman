@@ -2,7 +2,7 @@ import {
   AssistantRuntimeProvider,
   type ThreadMessageLike,
   useExternalStoreRuntime,
-  useTriggerPopoverRootContextOptional,
+  unstable_useTriggerPopoverRootContextOptional,
 } from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -28,7 +28,7 @@ function Harness({ components }: { components?: Parameters<typeof Thread>[0]['co
 }
 
 function HostTriggers() {
-  const root = useTriggerPopoverRootContextOptional();
+  const root = unstable_useTriggerPopoverRootContextOptional();
   return <div data-testid="host-triggers" data-in-root={root ? 'yes' : 'no'} />;
 }
 
