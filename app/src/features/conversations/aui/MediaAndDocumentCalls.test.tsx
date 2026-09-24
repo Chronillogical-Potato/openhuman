@@ -9,7 +9,7 @@ const baseProps = {
   argsText: '{}',
   addResult: () => {},
   resume: () => {},
-  respondToApproval: () => {},
+  respondToApproval: async () => {},
 };
 
 describe('MediaGenerationCall', () => {
