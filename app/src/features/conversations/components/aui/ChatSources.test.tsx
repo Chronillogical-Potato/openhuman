@@ -80,7 +80,7 @@ function agentMessage(citations?: unknown[]): ThreadMessage {
   };
 }
 
-function buildStore() {
+function buildStore(message: ThreadMessage = agentMessage()) {
   return configureStore({
     reducer: combineReducers({
       thread: threadReducer,
@@ -104,8 +104,8 @@ function buildStore() {
         selectedThreadId: THREAD_ID,
         activeThreadIds: {},
         welcomeThreadId: null,
-        messagesByThreadId: { [THREAD_ID]: [agentMessage()] },
-        messages: [agentMessage()],
+        messagesByThreadId: { [THREAD_ID]: [message] },
+        messages: [message],
         isLoadingThreads: false,
         isLoadingMessages: false,
         messagesError: null,
@@ -115,9 +115,9 @@ function buildStore() {
 }
 
 /** Mounted exactly as `/chat` mounts it — never `<ChatSources />` directly. */
-function renderChat() {
+function renderChat(message?: ThreadMessage) {
   return render(
-    <Provider store={buildStore()}>
+    <Provider store={buildStore(message)}>
       <AssistantUiChat
         model={null}
         onModelChange={vi.fn()}
@@ -133,16 +133,6 @@ function renderChat() {
       />
     </Provider>
   );
-}
-
-/**
- * Open the disclosure. Collapsed is the shipped default — the answer stays the
- * top of the turn — so the rows are genuinely absent from the DOM until the
- * reader asks for them, and a test that asserted hrefs without this would be
- * asserting against the closed state.
- */
-async function expandSources(): Promise<void> {
-  await userEvent.click(document.querySelector('[data-slot="sources-trigger"]') as HTMLElement);
 }
 
 function sourceHrefs(): (string | null)[] {
