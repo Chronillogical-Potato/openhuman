@@ -18,7 +18,7 @@ describe('ToolFailureCard', () => {
 
     const card = screen.getByTestId('assistant-ui-tool-failure');
     expect(card).toHaveTextContent('calendar_create_event');
-    expect(card).toHaveTextContent(/grant calendar access/i);
+    expect(card).toHaveTextContent(/grant the permission/i);
   });
 
   it('falls back to the failure class as the target when none is given', () => {
