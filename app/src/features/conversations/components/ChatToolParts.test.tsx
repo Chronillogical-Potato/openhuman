@@ -14,9 +14,14 @@ const activity: SubagentActivity = {
 };
 
 describe('ChatToolParts', () => {
+  // `task` is registered as a `defineToolkit` entry (`aui/toolkit.tsx`) that
+  // renders `SubagentCall` directly — assistant-ui resolves it ahead of
+  // `ChatToolFallback`, so these render `SubagentCall` the way the toolkit
+  // does rather than routing a `toolName="task"` part through the fallback,
+  // which no longer special-cases it.
   it('renders a running delegation collapsed by default', async () => {
     render(
-      <ChatToolFallback
+      <SubagentCall
         type="tool-call"
         toolName="task"
         toolCallId="sub-1"
