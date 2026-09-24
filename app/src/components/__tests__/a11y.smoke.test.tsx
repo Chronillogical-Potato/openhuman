@@ -24,7 +24,7 @@ async function expectNoViolations(container: HTMLElement) {
 }
 
 describe('accessibility smoke', () => {
-  it('ArtifactCard (ready) has no axe violations', async () => {
+  it('ArtifactCardAdapter (ready) has no axe violations', async () => {
     const artifact: ArtifactSnapshot = {
       artifactId: 'a-1',
       kind: 'presentation',
@@ -34,11 +34,11 @@ describe('accessibility smoke', () => {
       path: 'a-1/deck.pptx',
       updatedAt: 0,
     };
-    const { container } = render(<ArtifactCard artifact={artifact} />);
+    const { container } = render(<ArtifactCardAdapter artifact={artifact} />);
     await expectNoViolations(container);
   });
 
-  it('ArtifactCard (failed with error) has no axe violations', async () => {
+  it('ArtifactCardAdapter (failed with error) has no axe violations', async () => {
     const artifact: ArtifactSnapshot = {
       artifactId: 'a-2',
       kind: 'document',
@@ -47,7 +47,7 @@ describe('accessibility smoke', () => {
       error: 'producer crashed',
       updatedAt: 0,
     };
-    const { container } = render(<ArtifactCard artifact={artifact} onRetry={vi.fn()} />);
+    const { container } = render(<ArtifactCardAdapter artifact={artifact} onRetry={vi.fn()} />);
     await expectNoViolations(container);
   });
 
