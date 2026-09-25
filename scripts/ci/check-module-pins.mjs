@@ -77,6 +77,7 @@ const ROOT = resolve(process.argv[2] ?? join(HERE, "..", ".."));
 // ship out of the tinyruntime release, so they are checked against
 // `vendor/tinyruntime` via `sharesWith`.
 const PIN_MAP = {
+  tinybrowser: { submodule: "vendor/tinybrowser" },
   tinydocs: { submodule: "vendor/tinydocs" },
   tinywallet: { submodule: "vendor/tinywallet" },
   tinymemory: { submodule: "vendor/tinymemory" },

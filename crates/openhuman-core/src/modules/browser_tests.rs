@@ -53,12 +53,26 @@ fn allow_all_starts_denied_and_explicit_urls_bind_one_https_host_tree() {
 }
 
 #[test]
-fn no_release_asset_exists_before_a_published_checksum() {
+fn published_browser_release_covers_desktop_platforms() {
     let record = registry::find(MODULE_ID).unwrap();
     assert_eq!(record.bus_name, names::INTERFACE);
     assert_eq!(record.object_path, names::OBJECT_PATH);
-    assert!(record.assets.is_empty());
-    assert!(record.release_url.is_empty());
+    assert_eq!(record.version, "0.2.2");
+    assert_eq!(
+        record.release_url,
+        "https://github.com/tinyhumansai/tinybrowser/releases/tag/v0.2.2"
+    );
+    assert_eq!(record.assets.len(), 16);
+    let keys = record
+        .assets
+        .iter()
+        .map(|asset| asset.host_key)
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(keys.len(), record.assets.len());
+    for asset in record.assets {
+        assert!(asset.archive.starts_with("tinybrowser-0.2.2-"));
+        assert_eq!(asset.sha256.len(), 64);
+    }
 }
 
 #[test]
