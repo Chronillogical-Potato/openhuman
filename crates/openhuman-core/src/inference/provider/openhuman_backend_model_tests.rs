@@ -317,6 +317,9 @@ async fn spawn_static_chat_server(status: axum::http::StatusCode, body: Value) -
     addr.to_string()
 }
 
+#[path = "openhuman_backend_model_stream_tests.rs"]
+mod stream_tests;
+
 async fn slow_chat_handler() -> axum::response::Response {
     use axum::response::IntoResponse;
     // Longer than the probe's 5s timeout — the probe must return before

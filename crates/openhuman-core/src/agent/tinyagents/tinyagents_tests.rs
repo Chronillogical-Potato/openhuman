@@ -96,6 +96,12 @@ fn run_policy_for_makes_invalid_tool_arguments_recoverable() {
 }
 
 #[test]
+fn run_policy_retries_one_nontruncated_empty_completion() {
+    let policy = run_policy_for(10, false);
+    assert_eq!(policy.empty_response_retries, 1);
+}
+
+#[test]
 fn parse_model_call_wall_clock_defaults_to_fifteen_minutes() {
     // Absent and unparseable values both fall back to the 900s default.
     assert_eq!(parse_model_call_wall_clock_ms(None), Some(900_000));
