@@ -1348,3 +1348,95 @@ async fn tree_reset_and_flush_route_through_the_maintenance_contract() {
 
     rpc_join.abort();
 }
+
+// ── A2: `openhuman.memory_scheduler_override` ────────────────────────
+//
+// Gate controller `memory_scheduler_override` had zero references under
+// `tests/` or `app/test/` before this test.
+//
+// The scheduler gate's pauses (`mode = off`, signed-out, battery) exist to stop
+// background work the user did not ask for. This RPC is the sanctioned
+// exception for work they explicitly did — "process my memory now" — so the
+// bound on how long that exception lasts is the whole safety property
+// (openhuman#5935). `memory/ops/sync.rs` clamps it host-side:
+//
+//     let seconds = seconds.unwrap_or(600).min(3600);
+//
+// and the handler reports back the value it *granted*, not the one that was
+// asked for. Two regressions are therefore invisible today: dropping the
+// `.min(3600)` opens an unbounded background-work window, and reporting the
+// requested rather than the granted value makes every surface that displays it
+// lie about when maintenance stops.
+//
+// This goes over JSON-RPC rather than calling the handler directly, because
+// with the `modules` feature on the call dispatches into the loaded tinymemory
+// module — the same boundary the rest of this file exercises. If the module is
+// unavailable the call fails loudly here rather than silently skipping.
+
+/// The clamp is a safety bound, so each case pins the exact granted value.
+///
+/// `None` → the 600 s default; a value under the ceiling passes through
+/// unchanged; a value over the ceiling is cut to 3600. The three expected
+/// values are mutually distinct, so no single constant satisfies all three.
+#[tokio::test]
+async fn scheduler_override_clamps_its_window_and_reports_the_granted_value() {
+    let _guard = env_lock();
+    let home = test_home();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home = EnvVarGuard::set_to_path("HOME", home);
+    let _ws = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend = EnvVarGuard::unset("BACKEND_URL");
+    let _vite = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    write_config(&openhuman_home);
+
+    let (rpc_base, _rpc_join) = serve().await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    // (requested, granted) — `None` means the parameter is omitted entirely.
+    let cases: [(Option<u64>, u64); 4] = [
+        (None, 600),          // default
+        (Some(120), 120),     // under the ceiling: untouched
+        (Some(3600), 3600),   // exactly the ceiling: untouched
+        (Some(99_999), 3600), // over the ceiling: clamped
+    ];
+
+    for (index, (requested, granted)) in cases.into_iter().enumerate() {
+        let params = match requested {
+            Some(seconds) => json!({ "seconds": seconds }),
+            None => json!({}),
+        };
+        let response = rpc(
+            &rpc_base,
+            920 + index as i64,
+            "openhuman.memory_scheduler_override",
+            params,
+        )
+        .await;
+        let result = ok(
+            &response,
+            &format!("memory_scheduler_override(requested={requested:?})"),
+        );
+
+        // The gate was actually opened — without this the `seconds` assertion
+        // below could be satisfied by a handler that echoed a number and did
+        // nothing, which is precisely the shape of the bug it guards against.
+        assert_eq!(
+            result.get("overridden"),
+            Some(&json!(true)),
+            "override(requested={requested:?}) did not report overridden=true — got {result}"
+        );
+
+        let reported = result
+            .get("seconds")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(|| panic!("no numeric `seconds` in {result}"));
+        assert_eq!(
+            reported, granted,
+            "override(requested={requested:?}) must grant {granted}s and report that granted \
+             value, not the requested one — got {reported}s. A ceiling that stops clamping \
+             opens an unbounded background-maintenance window (openhuman#5935)."
+        );
+    }
+}

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -8,7 +8,7 @@ import {
   waitForAppReady,
 } from '../helpers/core-rpc';
 
-async function openSkillsPage(page: Parameters<typeof test>[0]['page'], userId: string) {
+async function openSkillsPage(page: Page, userId: string) {
   await bootRuntimeReadyGuestPage(page);
   await signInViaBypassUser(page, userId);
   await page.evaluate(() => {

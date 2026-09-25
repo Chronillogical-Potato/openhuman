@@ -99,7 +99,6 @@ describe('Jira Composio connector flow', () => {
     // Clear the durable cache so the tile mounts disconnected and the modal
     // opens in `idle`.
     setMockBehavior('composioConnections', JSON.stringify([]));
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     await browser.execute(() => {
       Object.keys(window.localStorage)
         .filter(k => k.includes('composio:connections'))
@@ -117,7 +116,6 @@ describe('Jira Composio connector flow', () => {
     expect(modal).toBeTruthy();
     // The Jira connect modal should render a subdomain input per toolkitRequiredFields.ts
     // It uses data-testid="composio-required-subdomain"
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     const hasSubdomainInput = await browser
       .execute(() => {
         return (
@@ -141,7 +139,6 @@ describe('Jira Composio connector flow', () => {
     expect(hasSubdomainInput).toBe(true);
     console.log(`${LOG} PASS: subdomain input field visible in Jira modal`);
     // Close modal by pressing Escape
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     await browser.keys(['Escape']).catch(() => {});
     await assertSessionNotNuked();
   });

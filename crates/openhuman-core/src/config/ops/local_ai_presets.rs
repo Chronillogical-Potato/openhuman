@@ -77,3 +77,7 @@ fn preset_matches_config(
         && vision_matches
         && config.embedding_model_id == preset.embedding_model_id
 }
+
+#[cfg(test)]
+#[path = "local_ai_presets_tests.rs"]
+mod tests;

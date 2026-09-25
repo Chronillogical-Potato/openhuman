@@ -26,6 +26,7 @@
     "build:web:e2e": "bash ./scripts/e2e-web-build.sh",
     "build:web": "cross-env VITE_OPENHUMAN_TARGET=web node scripts/build-parallel.mjs",
     "compile": "tsc --noEmit",
+    "typecheck:e2e": "tsc -p test/tsconfig.e2e.json --noEmit",
     "preview": "vite preview",
     "tauri": "node scripts/tauri.cjs",
     "tauri:build:ui": "node scripts/tauri.cjs build -- --bin OpenHuman",

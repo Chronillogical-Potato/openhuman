@@ -94,10 +94,19 @@ function fixture(t, options = {}) {
     // the exclusion claims lives on the SECOND of those — which is the whole
     // reason the gate walks the chain instead of reading the file it found the
     // controller in.
+    //
+    // That second declaration goes in **`lib.rs`**, because that is where it
+    // goes in the crate. This fixture used to write `src/mod.rs`, which Rust
+    // cannot have: a crate root is `lib.rs` or `main.rs`, never `mod.rs`. The
+    // walk only looked for `mod.rs`, so against the fixture it found the gate
+    // and against the real tree it fell off the end — and every test here
+    // passed while the gate told `openhuman` to "restore" a `#[cfg]` that was
+    // never removed. A fixture that models an impossible world proves nothing
+    // about the real one.
     write(root, 'crates/openhuman-core/src/test_support/mod.rs', 'mod schemas;\n');
     write(
       root,
-      'crates/openhuman-core/src/mod.rs',
+      'crates/openhuman-core/src/lib.rs',
       `${excludedModuleCfg ? `${excludedModuleCfg}\n` : ''}pub mod test_support;\n`,
     );
   }
@@ -602,5 +611,210 @@ test('accepts repeated declarations when every one of them requires the gate', (
     result.stdout,
     /Excluded 2 controller\(s\)/,
     `the exclusion must still apply; got:\n${result.stdout}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// #6382 quarantine: crediting coverage to files that compile to nothing.
+//
+// 52 of the repo's 115 `tests/**/*_e2e.rs` files open with `#![cfg(any())]` —
+// `any()` with no branches is unsatisfiable, so the whole module is thrown
+// away. The scan is textual and credited them anyway: 176 distinct controllers
+// sat in the covered column without a single compiled line behind them. That
+// is not a weaker signal than a real test, it is the absence of one wearing a
+// real one's clothes.
+test('credits nothing from a file whose own cfg can never be satisfied', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-core/src/widgets/schemas.rs', controller('widgets', 'list'));
+  write(root, 'tests/widgets_e2e.rs', '#![cfg(any())]\nlet m = "openhuman.widgets_list";');
+
+  const result = runGate(root);
+
+  assert.match(
+    result.stdout,
+    /\| widgets \| widgets \| 0\/1 \| 0\.0% \|/,
+    `a quarantined file must credit nothing; got:\n${result.stdout}`,
+  );
+  assert.match(
+    result.stdout,
+    /openhuman\.widgets_list/,
+    `the controller must be reported missing, not covered; got:\n${result.stdout}`,
+  );
+});
+
+// The negative control for the test above, and the reason this is not just a
+// "does the file mention cfg" check. `#![cfg(feature = "mcp")]` is how
+// `tests/mcp_registry_e2e.rs` keeps the slim build compiling; it is a real
+// conditional, it IS built in the measured configuration, and treating it like
+// the quarantine would delete genuine coverage — the direction that hides work.
+test('still credits a file gated on a real feature', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-core/src/widgets/schemas.rs', controller('widgets', 'list'));
+  write(root, 'tests/widgets_e2e.rs', '#![cfg(feature = "mcp")]\nlet m = "openhuman.widgets_list";');
+
+  const result = runGate(root);
+
+  assert.match(
+    result.stdout,
+    /\| widgets \| widgets \| 1\/1 \| 100\.0% \|/,
+    `a feature-gated file must still count; got:\n${result.stdout}`,
+  );
+});
+
+// A namespace that outgrows one file splits the same way every time: the
+// `const NAMESPACE` stays with the aggregate and the `ControllerSchema`
+// literals move into siblings reaching it through `use super::*`. Per-file
+// lookup found no const, resolved the namespace to undefined, and skipped
+// every controller in the file. 43 controllers went that way — and 26 of them
+// were `memory_tree`, which kept the five declared in the file that still had
+// a local const and reported 5/5, 100%.
+test('resolves const NAMESPACE from the aggregate file beside the split', (t) => {
+  const root = fixture(t);
+  write(
+    root,
+    'crates/openhuman-core/src/widgets/schemas.rs',
+    'const NAMESPACE: &str = "widgets";\nmod list_schemas;\n',
+  );
+  write(
+    root,
+    'crates/openhuman-core/src/widgets/schemas/list_schemas.rs',
+    `
+pub const SCHEMA: ControllerSchema = ControllerSchema {
+    namespace: NAMESPACE,
+    function: "list",
+};
+`,
+  );
+  write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
+
+  const result = runGate(root);
+
+  assert.match(
+    result.stdout,
+    /\| widgets \| widgets \| 1\/1 \| 100\.0% \|/,
+    `a controller in a split file must resolve its namespace; got:\n${result.stdout}`,
+  );
+});
+
+// The `memory_tree` shape specifically: the const is in a SIBLING of the file
+// holding the literals, not in the parent. Directory-scoped resolution covers
+// both; parent-only resolution would not.
+test('resolves const NAMESPACE from a sibling in the same module directory', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-core/src/widgets/definitions.rs', 'const NAMESPACE: &str = "widgets";\n');
+  write(
+    root,
+    'crates/openhuman-core/src/widgets/tree_schema.rs',
+    `
+pub const SCHEMA: ControllerSchema = ControllerSchema {
+    namespace: NAMESPACE,
+    function: "ingest",
+};
+`,
+  );
+  write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_ingest";');
+
+  const result = runGate(root);
+
+  assert.match(
+    result.stdout,
+    /\| widgets \| widgets \| 1\/1 \| 100\.0% \|/,
+    `a sibling const must resolve the namespace; got:\n${result.stdout}`,
+  );
+});
+
+// `openhuman.a_b` was a `ControllerSchema` fixture inside
+// `core/core_mod_tests.rs`, invented by discovery and then failing the lane as
+// its own 0/1 row. Two more (`test_echo`, `test_configure`) inflated the `test`
+// exclusion from 1 real controller to 3. A `*_tests.rs` file is never a
+// registration site.
+test('ignores ControllerSchema fixtures declared in a *_tests.rs file', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-core/src/widgets/schemas.rs', controller('widgets', 'list'));
+  write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
+  // The shape that invented `openhuman.a_b`: a fixture in a unit-test file.
+  write(root, 'crates/openhuman-core/src/core/core_mod_tests.rs', controller('a', 'b'));
+
+  const result = runGate(root);
+
+  assert.doesNotMatch(
+    result.stdout,
+    /openhuman\.a_b/,
+    `a unit-test fixture must not become a controller; got:\n${result.stdout}`,
+  );
+  // `widgets` only. `test` / `test_support` are reported on the Excluded line,
+  // and `a` must not appear at all — before the fix it was its own 0/1 row.
+  assert.match(
+    result.stdout,
+    /Discovered 1 controllers across 1 namespaces/,
+    `the fixture namespace must not gain a phantom; got:\n${result.stdout}`,
+  );
+  assert.doesNotMatch(
+    result.stdout,
+    /^\| a \|/m,
+    `the fixture namespace must not become a table row; got:\n${result.stdout}`,
+  );
+});
+
+// `[a-z_]+` rejected every namespace carrying a digit, so `web3_swap`,
+// `web3_bridge`, `web3_dapp` and `x402` — ten controllers, including every
+// wallet swap and bridge entry point — were never measured.
+test('discovers a namespace whose name contains a digit', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-core/src/web3/swap/schemas.rs', controller('web3_swap', 'quote'));
+  write(root, 'tests/web3_e2e.rs', 'let m = "openhuman.web3_swap_quote";');
+
+  const result = runGate(root);
+
+  assert.match(
+    result.stdout,
+    /\| web3_swap \| web3_swap \| 1\/1 \| 100\.0% \|/,
+    `a namespace with a digit must be measured; got:\n${result.stdout}`,
+  );
+});
+
+// The exclusion check walks upward for the `#[cfg]` that makes a namespace
+// unreachable. `#[cfg] pub mod test_support;` lives in the crate ROOT, which is
+// `lib.rs` — `crates/openhuman-core/src/mod.rs` is not a file Rust can have.
+// Looking only for `mod.rs` meant the walk fell off the end and reported the
+// gate missing while `lib.rs:86` carried it the whole time.
+test('resolves an exclusion gate declared in the crate root lib.rs', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-core/src/widgets/schemas.rs', controller('widgets', 'list'));
+  write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.widgets_list";');
+
+  const result = runGate(root);
+
+  assert.doesNotMatch(
+    result.stderr,
+    /no longer behind the gate they claim/,
+    `a gate in lib.rs must be found; got:\n${result.stderr}`,
+  );
+});
+
+// `crates/openhuman-tinyhumans` registers `billing`, `team`, `referral` and
+// `announcements` into the same registry at runtime through
+// `register_controller_extension`, so they dispatch exactly like a built-in
+// controller. SCHEMA_ROOTS named only the core and the vendored channels bus,
+// so those 34 were exempt from the threshold entirely — the family most likely
+// to move money was the one family nothing measured.
+test('discovers controllers declared in the hosted tinyhumans crate', (t) => {
+  const root = fixture(t);
+  write(root, 'crates/openhuman-tinyhumans/src/hosted/billing/schemas.rs', controller('billing', 'get_balance'));
+  // Named by no e2e target: it must show up as a real, uncovered obligation
+  // rather than not show up at all.
+  write(root, 'tests/widgets_e2e.rs', 'let m = "openhuman.nothing_here";');
+
+  const result = runGate(root);
+
+  assert.match(
+    result.stdout,
+    /\| billing \| billing \| 0\/1 \| 0\.0% \|/,
+    `a hosted-crate controller must be measured; got:\n${result.stdout}`,
+  );
+  assert.match(
+    result.stdout,
+    /openhuman\.billing_get_balance/,
+    `the hosted controller must be named as missing; got:\n${result.stdout}`,
   );
 });
