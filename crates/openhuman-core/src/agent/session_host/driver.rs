@@ -512,7 +512,9 @@ fn driver_error_with_snapshot(
     let history = guard.messages[..accepted_end].to_vec();
     let unanswered =
         crate::agent::tinyagents::render_unanswered_steps(&guard.messages[accepted_end..]);
-    let display = if error.contains(crate::agent::tinyagents::middleware::STREAM_STALL_ERROR) {
+    let display = if error
+        .contains(&tinyagents_harness::TinyAgentsError::GenerationStalled.to_string())
+    {
         // The model's streamed narration was stopped before it could repeat
         // indefinitely. Preserve the completed tools as a useful, bounded
         // partial rather than showing only the failed model's process text.

@@ -59,7 +59,7 @@ fn stalled_model_stream_reports_completed_evidence_instead_of_its_narration() {
         },
     ));
     let failure = driver_error_with_snapshot(
-        crate::agent::tinyagents::middleware::STREAM_STALL_ERROR,
+        tinyagents_harness::TinyAgentsError::GenerationStalled,
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),

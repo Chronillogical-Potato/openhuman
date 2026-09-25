@@ -560,8 +560,6 @@ pub(super) fn assemble_turn_harness(
     if subagent_scope.is_none() {
         harness.push_middleware(Arc::new(middleware::ResearchBudgetMiddleware::new()));
     }
-    harness.push_middleware(Arc::new(middleware::StreamStallMiddleware::new()));
-
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
     // 01.1). Keep this narrow for now: enforce sandbox requirements declared by
     // adapter policies without enabling classification/approval/result-byte

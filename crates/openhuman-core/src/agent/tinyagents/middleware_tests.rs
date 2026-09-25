@@ -490,8 +490,6 @@ mod repeat_progress_tests;
 #[path = "middleware_research_budget_tests.rs"]
 mod research_budget_tests;
 
-#[path = "middleware_stream_stall_tests.rs"]
-mod stream_stall_tests;
 #[path = "middleware_tool_output_artifact_tests.rs"]
 mod tool_output_artifact_tests;
 #[path = "middleware_tool_output_tests.rs"]
