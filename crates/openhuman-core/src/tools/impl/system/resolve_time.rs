@@ -153,8 +153,7 @@ fn parse_clock_time(raw: &str) -> Option<NaiveTime> {
     let compact = raw
         .trim()
         .trim_start_matches("at ")
-        .replace(' ', "")
-        .replace('.', "")
+        .replace([' ', '.'], "")
         .to_ascii_uppercase();
     match compact.as_str() {
         "NOON" => return NaiveTime::from_hms_opt(12, 0, 0),
