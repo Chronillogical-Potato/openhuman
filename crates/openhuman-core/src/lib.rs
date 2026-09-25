@@ -4,7 +4,7 @@
 //! (`src/main.rs`). Owns business rules, persistence, execution
 //! policy, the JSON-RPC/Socket.IO server, and the CLI. Hosted in-process by
 //! `openhuman-app` (the Tauri shell), `openhuman-embed` (the typed facade for
-//! third-party embedders such as Medulla and OpenCompany), and `openhuman-tui`.
+//! third-party embedders such as OpenCompany), and `openhuman-tui`.
 //!
 //! Business logic lives one directory per domain family under `src/`, listed
 //! below in the order they are declared (module declarations are kept
@@ -13,10 +13,10 @@
 //! `channels`, `config`, `core`, `cron`, `desktop`, `flows` (feature
 //! `flows`), `hooks`, `hosting` (feature `hosting`), `http_host`
 //! (feature `http-server`), `inference`, `integrations`, `json_schema`,
-//! `mcp`, `media` (feature `media`), `medulla`, `memory`, `modules` (feature
+//! `mcp`, `media` (feature `media`), `memory`, `modules` (feature
 //! `modules`), `platform`, `runtime`, `sandbox`, `search`, `security`,
 //! `skills`, `test_support` (feature `e2e-test-support`), `threads`, `tools`,
-//! `util`, `voice`, `web3`, `web_chat`. `channels`, `mcp`, `medulla`,
+//! `util`, `voice`, `web3`, `web_chat`. `channels`, `mcp`,
 //! `skills`, `voice` and `web3` are always declared but gate most of their
 //! contents inside their own `mod.rs` behind the feature of the same name.
 //! `core/` is not a domain: it holds transport, dispatch, the controller
@@ -72,7 +72,6 @@ pub mod json_schema;
 pub mod mcp;
 #[cfg(feature = "media")]
 pub mod media;
-pub mod medulla;
 pub mod memory;
 #[cfg(feature = "modules")]
 pub mod modules;

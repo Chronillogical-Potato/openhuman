@@ -114,10 +114,8 @@ const UNREACHABLE_NAMESPACES = {
 //
 // It runs every suite with `--features "$(scripts/ci/product-features.sh)"` and
 // does NOT pass `--no-default-features`, so the measured configuration is
-// `default` UNION the product set — not the product set alone. The distinction
-// decides real cases: `medulla` is absent from product-features.txt but present
-// in `[features] default`, so its nine controllers ARE dispatchable in an e2e
-// build and are genuine obligations, not exclusions.
+// `default` UNION the product set, not the product set alone. Default-on
+// controllers remain dispatchable and require E2E coverage.
 const CORE_MANIFEST = path.join(ROOT, 'crates/openhuman-core/Cargo.toml');
 const PRODUCT_FEATURES_FILE = path.join(ROOT, 'scripts', 'ci', 'product-features.txt');
 

@@ -247,7 +247,7 @@ pub async fn list_configured_models_from_config(
             // backend (BACKEND_URL=http://127.0.0.1:...) still works in dev.
             if !token.is_empty() && url_is_credential_safe(&models_url) {
                 // Managed traffic is attributed per embedding product
-                // (OpenCompany / Medulla / desktop); the generic provider client
+                // (OpenCompany / desktop); the generic provider client
                 // does not carry it, so attach it explicitly.
                 let (name, value) = crate::api::product::product_identity_header();
                 request

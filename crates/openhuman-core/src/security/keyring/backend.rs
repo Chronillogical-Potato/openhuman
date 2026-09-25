@@ -109,7 +109,7 @@ impl KeyringBackend for OsBackend {
 /// Every secret lives in this one file, so a `set` or `delete` is a read →
 /// modify → write cycle over *all* of them. That cycle is guarded by the
 /// cross-process advisory lock in [`file_store::lock_for_write`] — an in-process
-/// mutex is not enough, because a desktop core, a `medulla` TUI embedding the
+/// mutex is not enough, because a desktop core, another process embedding the
 /// same core, and a `cargo test` run that inherited `OPENHUMAN_WORKSPACE` all
 /// address the same path. Unguarded, the later writer's map (read before the
 /// earlier writer landed) silently discards the earlier one's secret; when that

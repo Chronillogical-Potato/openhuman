@@ -198,9 +198,6 @@ pub struct DomainSet {
     /// future backing controller would stay live. Fold the media-generation
     /// controller into this group when it lands.
     pub media: bool,
-    /// Medulla integration: cloud client, session runtime, chat store, and
-    /// authored harness workflows.
-    pub medulla: bool,
     /// Model inference: providers, routing, local engines, embeddings.
     pub inference: bool,
     /// External connectors (Composio, calendar, file storage, task sources).
@@ -236,7 +233,6 @@ impl DomainSet {
             web3: true,
             voice: true,
             media: true,
-            medulla: true,
             inference: true,
             integrations: true,
             automation: true,
@@ -265,7 +261,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: false,
             inference: false,
             integrations: false,
             automation: false,
@@ -277,8 +272,8 @@ impl DomainSet {
         }
     }
 
-    /// A long-lived embedded host: the harness core plus the Medulla
-    /// integration and the workflow engine it runs on, and the supporting
+    /// A long-lived embedded host: the harness core plus the workflow engine
+    /// and the supporting
     /// runtime, automation, integration, and platform surfaces it needs.
     ///
     /// Named for the *shape* rather than any downstream consumer — the core
@@ -291,8 +286,8 @@ impl DomainSet {
     /// and todos, and leaves `channels` off — but `channel.web_chat` is tagged
     /// `DomainGroup::Channels` and an embedded host drives chat turns through it.
     ///
-    /// `flows: true` is load-bearing, not incidental: `medulla_workflows` runs
-    /// on the tinyflows engine and boot reconciliation keys off
+    /// `flows: true` keeps the tinyflows engine and boot reconciliation on;
+    /// reconciliation keys off
     /// `ctx.domains().flows` rather than a `ServiceSet` flag.
     ///
     /// An embedded host supplies its own harness wrappers, networking and
@@ -311,7 +306,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: true,
             inference: true,
             integrations: true,
             automation: true,
@@ -346,7 +340,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: false,
             inference: false,
             integrations: false,
             automation: false,
@@ -373,7 +366,6 @@ impl DomainSet {
             web3: false,
             voice: false,
             media: false,
-            medulla: false,
             inference: false,
             integrations: false,
             automation: false,
@@ -400,7 +392,6 @@ impl DomainSet {
             DomainGroup::Web3 => self.web3,
             DomainGroup::Voice => self.voice,
             DomainGroup::Media => self.media,
-            DomainGroup::Medulla => self.medulla,
             DomainGroup::Inference => self.inference,
             DomainGroup::Integrations => self.integrations,
             DomainGroup::Automation => self.automation,
@@ -435,7 +426,6 @@ impl DomainSet {
             web3: self.web3 && other.web3,
             voice: self.voice && other.voice,
             media: self.media && other.media,
-            medulla: self.medulla && other.medulla,
             inference: self.inference && other.inference,
             integrations: self.integrations && other.integrations,
             automation: self.automation && other.automation,
@@ -630,8 +620,7 @@ impl CoreBuilder {
     /// Sugar over [`config`](Self::config), like [`workspace`](Self::workspace).
     /// Worth having as its own method because the value reaches more than the
     /// obvious client: `/auth/me` session validation, the hosted-backend
-    /// surfaces, and — with no `OPENHUMAN_MEDULLA_BASE_URL` override — the
-    /// Medulla client all resolve through it. A host that sets only one of
+    /// surfaces all resolve through it. A host that sets only one of
     /// those has the other two pointing at a different deployment, which fails
     /// as "backend rejected session token" rather than as a mismatch.
     pub fn backend_url(mut self, url: impl Into<String>) -> Self {
@@ -1020,12 +1009,7 @@ impl CoreRuntime {
     /// each service keeps its own runtime config gate.
     async fn start_selected_services(&self) {
         use crate::core::runtime::services;
-        jsonrpc::start_core_runtime_services(
-            self.services,
-            self.config.as_ref(),
-            self.ctx.domains().flows,
-        )
-        .await;
+        jsonrpc::start_core_runtime_services(self.services, self.config.as_ref()).await;
 
         if self.services.heartbeat {
             services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell());

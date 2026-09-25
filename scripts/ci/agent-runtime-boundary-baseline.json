@@ -911,20 +911,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/platform/socket/medulla/mod.rs",
-    "line": 48,
-    "text": "use crate::agent::turn_origin::{with_origin, AgentTurnOrigin};",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/platform/socket/medulla/mod.rs",
-    "line": 249,
-    "text": "let turn = Box::pin(with_origin(origin, agent.run_single(&next_input)));",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/security/approval/gate_intercept.rs",
     "line": 22,
     "text": "let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);",

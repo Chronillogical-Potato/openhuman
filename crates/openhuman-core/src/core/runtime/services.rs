@@ -426,7 +426,6 @@ pub(crate) async fn run_legacy_migrations(config: &Config) {
 pub fn spawn_socket_auto_connect(
     services: ServiceSet,
     socket_mgr: std::sync::Arc<crate::platform::socket::SocketManager>,
-    _flows_enabled: bool,
 ) {
     if services.socketio {
         tokio::spawn(async move {
@@ -456,8 +455,7 @@ pub fn spawn_socket_auto_connect(
                 "[socket] Session token found — auto-connecting to {}",
                 api_url
             );
-            // Keep the authenticated token and user-scoped workflow bridge in
-            // one serialized identity transaction. The active profile may have
+            // Rebind the socket identity in one serialized transaction. The active profile may have
             // changed since CoreRuntime::build(), so the build-time Config is
             // not authoritative here.
             let _rebind = socket_mgr.lock_identity_rebind().await;
@@ -467,26 +465,14 @@ pub fn spawn_socket_auto_connect(
             // handshake (#6181); if it is already up for this identity there is
             // nothing to rebind.
             if socket_mgr.is_live_for(&api_url, &initial_token) {
-                // The socket is reusable, the bridge is not: it is pinned to the
-                // `Config` resolved above, which a workspace switch invalidates.
-                // `set_workflow_bridge` re-advertises over a live socket by
-                // design, so reinstall and skip only the handshake.
-                #[cfg(feature = "flows")]
-                if _flows_enabled {
-                    crate::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
-                }
                 log::info!(
-                    "[socket] Auto-connect: {api_url} already connected with this session — refreshed the workflow bridge, kept the socket"
+                    "[socket] Auto-connect: {api_url} already connected with this session — kept the socket"
                 );
                 return;
             }
             if let Err(e) = socket_mgr.disconnect().await {
                 log::error!("[socket] Auto-connect could not stop the prior connection: {e}");
                 return;
-            }
-            #[cfg(feature = "flows")]
-            if _flows_enabled {
-                crate::flows::medulla_bridge::install(std::sync::Arc::clone(&config));
             }
             let provider =
                 crate::platform::socket::token_provider::token_provider_from_config(config);
