@@ -7196,7 +7196,7 @@ dependencies = [
 
 [[package]]
 name = "tinybrowser-bus"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -7204,7 +7204,7 @@ dependencies = [
 
 [[package]]
 name = "tinybrowser-control"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde_json",
  "thiserror 2.0.20",
