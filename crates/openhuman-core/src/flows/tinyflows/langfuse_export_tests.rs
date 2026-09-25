@@ -92,7 +92,7 @@ fn flow_trace_config_uses_thread_id_and_flow_coordinates() {
         FlowRunTrigger::Schedule,
     );
     assert_eq!(trace.trace_id.as_deref(), Some("flow:flow-1:uuid-1"));
-    assert_eq!(trace.session_id.as_deref(), Some("flow:flow-1:uuid-1"));
+    assert_eq!(trace.session_id.as_deref(), Some("flow:flow-1"));
     assert_eq!(trace.name.as_deref(), Some("flow.run:Daily digest"));
     assert_eq!(trace.tags, vec!["run:flow", "trigger:schedule"]);
     assert_eq!(trace.metadata["flow_id"], "flow-1");
@@ -129,12 +129,12 @@ fn batch_carries_flow_trace_and_langgraph_keys_on_node_spans() {
         .expect("batch");
     let batch = payload["batch"].as_array().expect("batch array");
 
-    // Trace: id + sessionId are the run thread id; name and flow
+    // Trace id is the run thread id; sessionId groups runs by flow; name and flow
     // coordinates as configured.
     let trace_event = &batch[0];
     assert_eq!(trace_event["type"], "trace-create");
     assert_eq!(trace_event["body"]["id"], thread_id);
-    assert_eq!(trace_event["body"]["sessionId"], thread_id);
+    assert_eq!(trace_event["body"]["sessionId"], "flow:flow-1");
     assert_eq!(trace_event["body"]["name"], "flow.run:Daily digest");
     assert_eq!(trace_event["body"]["metadata"]["flow_id"], "flow-1");
     assert_eq!(trace_event["body"]["metadata"]["status"], "completed");

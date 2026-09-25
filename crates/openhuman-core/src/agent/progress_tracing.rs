@@ -26,11 +26,11 @@
 //! Spans always carry *metadata* — span names, counts, timings, and
 //! token/cost figures (model labels are `{provider_id}.{model}`, e.g.
 //! `managed.hint:chat`). While `observability.agent_tracing.capture_content` is
-//! on, content is additionally recorded as span `input`/`output` — the turn's
+//! on (the default), content is additionally recorded as span `input`/`output` — the turn's
 //! prompt/reply, each generation's **truncated** request messages (system
 //! prompt included) + completion, **truncated** tool arguments/results, and
-//! each subagent's delegated prompt + final output. With the flag off (the
-//! default — #4454), none of that content ever reaches the in-memory span, so
+//! each subagent's delegated prompt + final output. With the flag off,
+//! none of that content ever reaches the in-memory span, so
 //! no exporter (NDJSON file, app log, or Langfuse) can leak it.
 //! Streamed text/thinking deltas (`TextDelta`, `ThinkingDelta`,
 //! `ToolCallArgsDelta`), raw error strings, and filesystem paths are **never**
@@ -39,9 +39,8 @@
 //!
 //! The one exception is the turn's prompt/reply, delivered via
 //! `AgentProgress::TurnContent`. It is attached to the turn span **only** when
-//! the operator opts in via `observability.agent_tracing.capture_content`
-//! (default `false`). That gate is enforced at storage time in
-//! [`SpanCollector`] — the single choke point — so with the default off, no
+//! `observability.agent_tracing.capture_content` is enabled. That gate is
+//! enforced at storage time in [`SpanCollector`] — the single choke point — so when off, no
 //! exporter (NDJSON file, app log, or Langfuse push) can ever serialize it.
 //!
 //! ## Wiring
@@ -54,7 +53,7 @@
 
 /// Journal-backed projection from durable tinyagents observations.
 pub(crate) mod journal_projection;
-/// Langfuse ingestion exporter (remote push to the co-hosted staging server).
+/// Langfuse ingestion exporter (remote push through the configured backend).
 pub(crate) mod langfuse;
 
 /// The [`SpanCollector`] state machine that folds progress events into spans.
@@ -72,6 +71,7 @@ pub use collector::SpanCollector;
 pub use types::SpanKind;
 pub use types::{trace_session_id, RunType, SpanStatus, TraceContext, TraceSpan};
 
+pub(crate) use export::export_subagent_journal_trace;
 pub(crate) use export::{export_run_trace, export_run_trace_from_journal};
 
 #[cfg(test)]

@@ -248,7 +248,7 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
     let url = ingestion_url(config);
     // Ahead of the URL check, the session lookup and the request: a skipped
     // environment must cost nothing per turn. An unresolvable URL lands in
-    // `environment_for_base`'s catch-all, which is `production` — so a garbage
+    // `environment_for_base`'s catch-all, which is `external` — so a garbage
     // host skips rather than erroring, which is the right way round.
     let environment = environment_for_base(&url);
     if skip_push(environment) {

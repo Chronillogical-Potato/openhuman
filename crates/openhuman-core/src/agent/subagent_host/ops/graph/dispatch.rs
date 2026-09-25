@@ -179,6 +179,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // otherwise a child remains in its parent's conversation. Do this before
     // constructing *any* model so managed requests, transcript metadata, and
     // the child carrier cannot disagree.
+    let trace_session_group = run_context.thread_id.clone().or_else(|| thread_id.clone());
     let thread_id = inherited_thread_id(run_context.thread_id.clone(), thread_id);
     tracing::info!(
         model,
@@ -200,10 +201,12 @@ pub(in super::super) async fn run_subagent_via_graph(
     // seam this is a sub-agent turn, so the unknown-tool recovery uses the
     // sub-agent wording. With no progress sink the scoped events simply have
     // nowhere to go, which is harmless.
+    let child_journal_run_id = std::sync::Arc::new(std::sync::Mutex::new(None));
     let subagent_scope = Some(SubagentScope {
         agent_id: agent_id.to_string(),
         task_id: task_id.to_string(),
         extended_policy,
+        journal_run_id: Some(child_journal_run_id.clone()),
     });
 
     // A standalone summarizer model for the cap-hit checkpoint call below (the
@@ -342,6 +345,29 @@ pub(in super::super) async fn run_subagent_via_graph(
         false,
     ))
     .await;
+
+    if let Some(config) = config.filter(|config| config.observability.share_usage_data) {
+        let journal_run_id = child_journal_run_id
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if let Some(journal_run_id) = journal_run_id {
+            let config = config.clone();
+            let thread_id = trace_session_group.clone();
+            let agent_id = agent_id.to_string();
+            let task_id = task_id.to_string();
+            tokio::spawn(async move {
+                crate::agent::progress_tracing::export_subagent_journal_trace(
+                    &config,
+                    &journal_run_id,
+                    thread_id.as_deref(),
+                    &agent_id,
+                    &task_id,
+                )
+                .await;
+            });
+        }
+    }
 
     let mut outcome = match run_result {
         Ok(outcome) => outcome,

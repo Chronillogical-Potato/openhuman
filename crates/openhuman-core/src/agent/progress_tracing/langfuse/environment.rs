@@ -33,7 +33,8 @@ const DEPLOYMENT_DOMAIN: &str = "tinyhumans.ai";
 /// the resolved backend host is the single existing config-driven fact that
 /// distinguishes deployments (there is no NODE_ENV-style flag in the core
 /// config) — loopback/local → development, a staging host under
-/// [`DEPLOYMENT_DOMAIN`] → staging, anything else → production.
+/// [`DEPLOYMENT_DOMAIN`] → staging, the canonical API host → production,
+/// anything else → external.
 ///
 /// # Why the host is parsed rather than substring-matched
 ///
@@ -47,10 +48,10 @@ const DEPLOYMENT_DOMAIN: &str = "tinyhumans.ai";
 ///   `staging`, so it classified as staging and passed the push gate — a host
 ///   nothing in this tree owns, reached with a live session token. Anchoring
 ///   to [`DEPLOYMENT_DOMAIN`] is what makes the classifier fail *closed*: a
-///   host that is not ours is production, and production does not push.
+///   host that is not ours is external, and external does not push.
 /// - **Too narrow on local.** An IPv6 loopback backend (`http://[::1]:7788`)
 ///   or a private LAN address matched none of the three literals and
-///   classified as production, so a working development setup would have
+///   classified as external, so a working development setup would have
 ///   silently stopped exporting the moment the gate landed.
 ///
 /// Host classification is delegated to [`crate::api::config::host_is_local`],
@@ -60,20 +61,23 @@ const DEPLOYMENT_DOMAIN: &str = "tinyhumans.ai";
 /// predicates that disagree is how a gate lets through exactly the case the
 /// other one blocks.
 ///
-/// An unparseable URL is production — the fail-closed default. `ingestion_url`
+/// An unparseable URL is external — the fail-closed default. `ingestion_url`
 /// can return a non-URL placeholder when no backend host resolves, and the
 /// caller checks `starts_with("http")` separately; classifying that as
 /// anything pushable would defeat the gate.
 pub(crate) fn environment_for_base(base: &str) -> &'static str {
     let Ok(parsed) = url::Url::parse(base) else {
-        return "production";
+        return "external";
     };
     if crate::api::config::host_is_local(&parsed) {
         return "development";
     }
+    if parsed.scheme() != "https" {
+        return "external";
+    }
     let Some(url::Host::Domain(host)) = parsed.host() else {
         // A public IP literal is not a deployment of ours.
-        return "production";
+        return "external";
     };
     let host = host.to_ascii_lowercase();
     let under_deployment_domain =
@@ -85,26 +89,25 @@ pub(crate) fn environment_for_base(base: &str) -> &'static str {
         .split('.')
         .next()
         .is_some_and(|label| label == "staging" || label.starts_with("staging-"));
-    if under_deployment_domain && leftmost_is_staging {
+    if host == "api.tinyhumans.ai" {
+        "production"
+    } else if under_deployment_domain && leftmost_is_staging {
         "staging"
     } else {
-        "production"
+        "external"
     }
 }
 
 /// The environments this client may push to Langfuse from.
 ///
-/// An allowlist, not `!= "production"`, and it mirrors the backend's rule
-/// (`backend:src/config/langfuseEnvironment.ts`) deliberately: the two gates
-/// have to agree, and two negations drift more easily than two lists. Stating
-/// the permitted set also makes the fail-closed property structural — if
+/// An allowlist keeps the fail-closed property structural — if
 /// [`environment_for_base`] ever grows a fourth bucket, that bucket does not
 /// push until someone adds it here on purpose.
 ///
 /// `test` appears in the backend's list but not here because there is no such
 /// bucket on this side: [`environment_for_base`] maps loopback hosts to
 /// `development`, and that is what the Rust suite resolves to.
-pub(super) const LANGFUSE_PUSH_ENVIRONMENTS: &[&str] = &["staging", "development"];
+pub(super) const LANGFUSE_PUSH_ENVIRONMENTS: &[&str] = &["production", "staging", "development"];
 
 /// Whether a push is permitted for a resolved environment.
 pub(super) fn push_allowed(environment: &str) -> bool {
@@ -119,17 +122,13 @@ static SKIP_LOGGED: std::sync::Once = std::sync::Once::new();
 ///
 /// # Why skip at all, when the backend already refuses
 ///
-/// Defence in depth, and latency. The backend answers `403 FEATURE_DISABLED`
-/// outside staging (backend#1291), so nothing reaches Langfuse either way —
-/// but a client that still asks pays a full authenticated round-trip on every
-/// agent turn to be told no, and [`PUSH_TIMEOUT`] bounds that at ten seconds
-/// when the host is slow. #5602 is that stall. The cheapest request is the one
-/// not made.
+/// Defence in depth: an unknown backend origin must not receive a session
+/// bearer merely because usage sharing is enabled.
 ///
 /// # Why once per process, and at info
 ///
 /// This is on the path of every completed run. A warning per turn would move
-/// the noise rather than remove it, and a skip in production is the configured
+/// the noise rather than remove it, and a skip for an external host is the configured
 /// outcome, not a fault — so it is `info`, said once, and then silence. The
 /// caller receives `Ok(())`: skipping is a successful no-op, and returning
 /// `Err` would make the caller log the same line on every turn, which is the
