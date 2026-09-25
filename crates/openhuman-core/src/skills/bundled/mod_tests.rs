@@ -18,21 +18,19 @@ const SAMPLE: BundledSkill = BundledSkill {
 
 fn validate_relative_path(dir_name: &str, path: &str) -> Result<(), String> {
     let path: &'static str = Box::leak(path.to_owned().into_boxed_str());
+    let mut files = vec![BundledFile {
+        path: "WORKFLOW.md",
+        contents: "---\nname: test\ndescription: test\n---\n",
+    }];
+    if path != "WORKFLOW.md" {
+        files.push(BundledFile {
+            path,
+            contents: "body",
+        });
+    }
     let skill = BundledSkill {
         dir_name: Box::leak(dir_name.to_owned().into_boxed_str()),
-        files: Box::leak(
-            vec![
-                BundledFile {
-                    path: "WORKFLOW.md",
-                    contents: "---\nname: test\ndescription: test\n---\n",
-                },
-                BundledFile {
-                    path,
-                    contents: "body",
-                },
-            ]
-            .into_boxed_slice(),
-        ),
+        files: Box::leak(files.into_boxed_slice()),
     };
     skill.validate()
 }
