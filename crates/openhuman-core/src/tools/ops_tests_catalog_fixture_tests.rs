@@ -20,6 +20,44 @@ fn fixture_path() -> PathBuf {
         .join("../../app/src/features/conversations/tools/__fixtures__/coreToolNames.json")
 }
 
+/// Track the full shipped feature contract, rather than a hand-picked subset
+/// that can accidentally classify a partial build as the product profile.
+fn full_product_features_enabled() -> bool {
+    let flags = [
+        ("channels", cfg!(feature = "channels")),
+        ("media", cfg!(feature = "media")),
+        ("inference", cfg!(feature = "inference")),
+        ("voice", cfg!(feature = "voice")),
+        ("web3", cfg!(feature = "web3")),
+        ("documents", cfg!(feature = "documents")),
+        ("modules", cfg!(feature = "modules")),
+        ("flows", cfg!(feature = "flows")),
+        ("skills", cfg!(feature = "skills")),
+        ("mcp", cfg!(feature = "mcp")),
+        ("crash-reporting", cfg!(feature = "crash-reporting")),
+        ("http-server", cfg!(feature = "http-server")),
+        ("scheduler-gate", cfg!(feature = "scheduler-gate")),
+        ("file-logging", cfg!(feature = "file-logging")),
+        ("contacts", cfg!(feature = "contacts")),
+        ("runtime-node", cfg!(feature = "runtime-node")),
+        ("hosting", cfg!(feature = "hosting")),
+    ];
+    let declared: std::collections::BTreeSet<_> = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../scripts/ci/product-features.txt"
+    ))
+    .lines()
+    .map(|line| line.split('#').next().unwrap_or("").trim())
+    .filter(|line| !line.is_empty())
+    .collect();
+    let checked: std::collections::BTreeSet<_> = flags.iter().map(|(name, _)| *name).collect();
+    assert_eq!(
+        checked, declared,
+        "update the product catalog feature gate list"
+    );
+    flags.iter().all(|(_, enabled)| *enabled)
+}
+
 /// The full model-facing tool catalog this build can register, sorted and
 /// deduplicated.
 ///
@@ -132,19 +170,9 @@ fn tool_catalog_matches_frontend_fixture() {
     expected.sort();
     expected.dedup();
 
-    // All product-only tool families are represented only when these product
-    // gates are enabled together. Contributor and partial-feature builds may
-    // lack them; they still must never register an unknown name.
-    let full_product = cfg!(all(
-        feature = "voice",
-        feature = "web3",
-        feature = "documents",
-        feature = "runtime-node",
-        feature = "inference",
-        feature = "hosting",
-        feature = "contacts",
-        feature = "crash-reporting"
-    ));
+    // Contributor and partial-feature builds may lack product tools, but
+    // every registered name must still belong to the shipped catalog.
+    let full_product = full_product_features_enabled();
     let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
     let removed: Vec<&String> = if full_product {
         expected.iter().filter(|n| !names.contains(n)).collect()
