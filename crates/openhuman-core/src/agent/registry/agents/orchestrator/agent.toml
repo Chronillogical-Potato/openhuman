@@ -134,10 +134,6 @@ allowlist = [
     # generation is async (minutes) and the agent blocks until the clip is saved.
     "video_agent",
     "skill_creator",
-    "critic",
-    # Product docs/help specialist. Route OpenHuman docs, settings,
-    # setup, and feature questions here before guessing from priors.
-    "help",
     # Scheduling/reminder specialist. Owns current_time + cron tools and
     # confirmation-before-create policy so the chat prompt does not carry
     # cron-specific instructions on every turn.
@@ -278,21 +274,6 @@ named = [
     # domain gates both pass at runtime (the driver advertises `goals`), so
     # this list was the only closed layer (#5875 test session).
     "goals",
-    # Memory-protocol close-out (#4116). A successful `memory_store` is a durable
-    # write, so the memory-protocol middleware appends a "call `update_memory_md`
-    # to keep the MEMORY.md index in sync" note to the tool result and warns at run
-    # end if the index was never reconciled. Since the orchestrator now takes the
-    # direct-store path itself, it must own that closing step too — otherwise the
-    # guidance is unsatisfiable and MEMORY.md (which this agent loads,
-    # `omit_memory_md = false`) drifts from the store. `update_memory_md` is locked
-    # to the MEMORY.md / SKILL.md workspace index files (enum-gated, symlink-hardened),
-    # NOT a general file-editor: it is the index-sync counterpart of `memory_store`,
-    # so it belongs in the same memory bucket as the writes above — the "no write
-    # tools" rule (below) is about editing arbitrary files (`edit` / `file_write` /
-    # `apply_patch`) and running commands, which stay out. `save_preference` writes
-    # to the preference store and is deliberately NOT part of the MEMORY.md wiki, so
-    # it needs no reconcile.
-    "update_memory_md",
     # Managed file-storage transfer surface for passing artifacts/attachments
     # between chat, users, and workers. Storage lifecycle mutators
     # (`storage_set_visibility`, `storage_delete_file`) stay out of the broad
@@ -380,19 +361,6 @@ named = [
     # == "todo"`; the legacy `todowrite` alias resolves to no registered
     # tool).
     "todo",
-    # `request_plan_review` / `plan_exit` — carried on the belt so both are
-    # reachable the instant a thread flips into Plan mode
-    # (`agent.set_run_mode` / a `chat:start`-time toggle / `plan_mode`
-    # middleware), but inert while the thread is in ordinary Build mode: a
-    # research or lookup question must never park the turn behind an
-    # approval card, and destructive actions are already gated by the
-    # shell/file approval layer. `RequestPlanReviewTool::execute_with_context`
-    # itself checks `agent::tinyagents::run_mode::get_mode` and no-ops
-    # outside Plan mode rather than parking, so simply holding the tool here
-    # does not change Build-mode behavior. Planner and cron agents also keep
-    # the plan-review tool for their own non-chat plan-approval paths.
-    "request_plan_review",
-    "plan_exit",
     # Thread-level goal (Codex-style per-thread completion contract). `goal_set`
     # records the durable objective for THIS thread when a non-trivial request
     # lands (the orchestrator is authoritative — it always creates or replaces);

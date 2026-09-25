@@ -44,7 +44,7 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
 
     // A visible set shaped like the live one: the advertised delegates are in,
     // the packed ones are not.
-    let visible: HashSet<String> = ["research", "plan", "ask_docs", "file_read", "goal_complete"]
+    let visible: HashSet<String> = ["research", "plan", "file_read", "goal_complete"]
         .iter()
         .map(|s| s.to_string())
         .collect();
