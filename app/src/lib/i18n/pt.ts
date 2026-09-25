@@ -1469,8 +1469,18 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Conectado a um núcleo remoto. Altere isso no BootCheck ou no seletor de modo de nuvem.',
   'settings.heartbeat.title': 'Heartbeat e loops',
-  'settings.usage.title': 'Uso e limites',
-  'settings.usage.menuDesc': 'Custos, uso de tokens, orçamentos e atividade em segundo plano',
+  'settings.usage.title': 'Uso',
+  'settings.usage.menuDesc':
+    'Custos, economia de tokens, registros de uso e atividade em segundo plano',
+  'settings.costDashboard.monthToDate': 'Acumulado no mês',
+  'settings.costDashboard.period': 'Período',
+  'settings.costDashboard.periodDays': 'Últimos {days} dias',
+  'settings.costDashboard.all': 'Todos',
+  'settings.costDashboard.costSource': 'Origem do custo',
+  'settings.costDashboard.estimated': 'Estimado',
+  'settings.costDashboard.providerCharged': 'Cobrado pelo provedor',
+  'settings.costDashboard.searchModelSession': 'Modelo ou sessão',
+  'settings.costDashboard.filteredTotal': '{shown} de {loaded} registros carregados • {cost}',
   'settings.costDashboard.title': 'Painel de custos',
   'settings.costDashboard.sevenDayCost': 'Custo diário de 7 dias',
   'settings.costDashboard.sevenDayTokens': 'Uso de token de 7 dias',
@@ -1497,7 +1507,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'O painel de custos está desativado na configuração. Defina [cost.dashboard] enabled = true no config.toml para reativar.',
   'settings.costDashboard.subtitle':
-    'Gastos ao vivo e queima de tokens em todo o enxame. As barras atualizam automaticamente a cada poucos segundos: sem necessidade de recarregar a página.',
+    'Uso local por chamada ao provedor. Os custos podem ser estimados; a cobrança é separada.',
   'settings.costDashboard.summaryAriaLabel': 'Métricas de resumo de custos',
   'settings.costDashboard.lastSevenDays': 'últimos 7 dias',
   'settings.costDashboard.utilizationOf': 'de',

@@ -1446,8 +1446,18 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Terhubung ke inti remote. Ubah ini dalam BootCheck atau mode awan picker.',
   'settings.heartbeat.title': 'Detak jantung & loop',
-  'settings.usage.title': 'Penggunaan & batas',
-  'settings.usage.menuDesc': 'Biaya, penggunaan token, anggaran, dan aktivitas latar belakang',
+  'settings.usage.title': 'Penggunaan',
+  'settings.usage.menuDesc':
+    'Biaya, penghematan token, catatan penggunaan, dan aktivitas latar belakang',
+  'settings.costDashboard.monthToDate': 'Bulan ini',
+  'settings.costDashboard.period': 'Periode',
+  'settings.costDashboard.periodDays': '{days} hari terakhir',
+  'settings.costDashboard.all': 'Semua',
+  'settings.costDashboard.costSource': 'Sumber biaya',
+  'settings.costDashboard.estimated': 'Perkiraan',
+  'settings.costDashboard.providerCharged': 'Ditagih penyedia',
+  'settings.costDashboard.searchModelSession': 'Model atau sesi',
+  'settings.costDashboard.filteredTotal': '{shown} dari {loaded} catatan dimuat • {cost}',
   'settings.costDashboard.title': 'Papan dashboard Biaya',
   'settings.costDashboard.sevenDayCost': '7 hari biaya harian',
   'settings.costDashboard.sevenDayTokens': 'Penggunaan token 7 hari',
@@ -1474,7 +1484,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'Papan dashboard biaya dinonaktifkan dalam konfigurasi. Set [cost.dashboard] diaktifkan = true dalam config.toml untuk mengaktifkan kembali.',
   'settings.costDashboard.subtitle':
-    'Hidup menghabiskan dan token membakar seluruh kawanan. Bars auto- refresh setiap beberapa detik - tidak ada halaman reload yang dibutuhkan.',
+    'Penggunaan panggilan penyedia lokal. Biaya dapat berupa perkiraan; penagihan terpisah.',
   'settings.costDashboard.summaryAriaLabel': 'Metric ringkasan biaya',
   'settings.costDashboard.lastSevenDays': '7 hari terakhir',
   'settings.costDashboard.utilizationOf': 'of',

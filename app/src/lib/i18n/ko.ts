@@ -1420,8 +1420,17 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     '원격 코어에 연결되었습니다. BootCheck 또는 클라우드 모드 선택기에서 변경하세요.',
   'settings.heartbeat.title': '하트비트 및 루프',
-  'settings.usage.title': '사용량 및 한도',
-  'settings.usage.menuDesc': '비용, 토큰 사용량, 예산 및 백그라운드 활동',
+  'settings.usage.title': '사용량',
+  'settings.usage.menuDesc': '비용, 토큰 절약, 사용 기록 및 백그라운드 활동',
+  'settings.costDashboard.monthToDate': '이번 달 누계',
+  'settings.costDashboard.period': '기간',
+  'settings.costDashboard.periodDays': '최근 {days}일',
+  'settings.costDashboard.all': '전체',
+  'settings.costDashboard.costSource': '비용 출처',
+  'settings.costDashboard.estimated': '추정',
+  'settings.costDashboard.providerCharged': '제공업체 청구',
+  'settings.costDashboard.searchModelSession': '모델 또는 세션',
+  'settings.costDashboard.filteredTotal': '불러온 {loaded}개 중 {shown}개 • {cost}',
   'settings.costDashboard.title': '비용 대시보드',
   'settings.costDashboard.sevenDayCost': '7일 일별 비용',
   'settings.costDashboard.sevenDayTokens': '7일 토큰 사용량',
@@ -1448,7 +1457,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     '비용 대시보드가 config에서 비활성화되어 있습니다. 다시 활성화하려면 config.toml에서 [cost.dashboard] enabled = true로 설정하세요.',
   'settings.costDashboard.subtitle':
-    '전체 스웜의 실시간 지출과 토큰 사용량입니다. 막대는 몇 초마다 자동으로 새로고침되며 페이지를 다시 로드할 필요가 없습니다.',
+    '로컬 제공업체 호출 사용량입니다. 비용은 추정치일 수 있으며 청구는 별도로 처리됩니다.',
   'settings.costDashboard.summaryAriaLabel': '비용 요약 지표',
   'settings.costDashboard.lastSevenDays': '지난 7일',
   'settings.costDashboard.utilizationOf': '/',

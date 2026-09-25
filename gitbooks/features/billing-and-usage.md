@@ -1,13 +1,13 @@
 ---
 description: >-
   Plans, credits and saved cards over Stripe and Coinbase, plus a local
-  real-time dashboard for token usage, cost and budget enforcement.
+  local dashboard for token usage and cost estimates.
 icon: credit-card
 ---
 
 # Billing, Cost & Usage
 
-OpenHuman keeps two related but separate ledgers. **Billing** is what you pay the hosted backend: plans, credit top-ups, saved cards and coupons, all settled through Stripe or Coinbase. **Cost & Usage** is what the agent spends on your behalf, tracked locally per provider call so you can see (and cap) real token spend before the bill ever lands.
+OpenHuman keeps two related but separate ledgers. **Billing** is what you pay the hosted backend: plans, credit top-ups, saved cards and coupons, all settled through Stripe or Coinbase. **Cost & Usage** is what the agent spends on your behalf, tracked locally per provider call so you can inspect estimated token costs.
 
 The first lives in the cloud; the second never leaves your workspace.
 
@@ -50,7 +50,7 @@ Coupon codes are redeemed against the backend (`POST /coupons/redeem`), and you 
 
 ### Where billing lives in the app
 
-The desktop **Settings → Billing** panel is read-only. It shows the current plan, promotional and top-up balances, total remaining funds, current-cycle spend, and usage breakdowns. Buttons link to the hosted web **billing dashboard**, which is the single place to manage plans, top-ups, coupons, cards, and invoices. Other clients can reach the same hosted billing operations through the authenticated RPC controllers described below; they are not exposed as agent tools.
+The **Billing** button on the desktop Accounts page opens the hosted web billing dashboard, where you can manage plans, top-ups, coupons, cards, and invoices. The former desktop Billing summary page has been removed. Other clients can reach the same hosted billing operations through the authenticated RPC controllers described below; they are not exposed as agent tools.
 
 ### RPC surface
 
@@ -60,38 +60,30 @@ Namespace `billing`, exposed as `openhuman.billing_*` (16 methods), e.g. `billin
 
 ## Part 2: Cost & Usage Dashboard
 
-The `cost` domain is entirely local. It records every provider call's token usage and computed USD cost to an append-only JSONL file (`<workspace>/state/costs.jsonl`), keeps in-memory daily/monthly aggregates, enforces budgets, and serves a 7-day dashboard over JSON-RPC. A process-global singleton tracker is shared by the agent turn loop (which logs telemetry after each provider call) and the dashboard handlers, so each call is persisted exactly once.
+The `cost` domain is entirely local. It records every provider call's token usage and computed USD cost to an append-only JSONL file (`<workspace>/state/costs.jsonl`), keeps in-memory daily/monthly aggregates and serves a 7-day dashboard over JSON-RPC. A process-global singleton tracker is shared by the agent turn loop (which logs telemetry after each provider call) and the dashboard handlers, so each call is persisted exactly once.
 
 ### Real-time token & cost tracking
 
 For each call, per-call cost is computed from token counts and per-million-token prices (clamping non-finite or negative prices to `0.0`). When the provider echoes an authoritative `charged_amount_usd` that value wins; otherwise OpenHuman falls back to a static pricing catalog of known models. Usage is bucketed in UTC, keyed by model, with the **provider** derived from the `provider/model` prefix. All-zero usage payloads are skipped so providers that don't report usage don't inflate the request count.
 
-### Budgets & enforcement
+### Local tracking and usage view
 
-Budget enforcement is configured under the `[cost]` config block:
+The local `[cost] monthly_limit_usd` setting is a legacy display target, not an enforced cap. The core no longer refuses requests when estimated cost passes it. Hosted credit exhaustion is enforced by the backend and is separate from the local usage ledger. The Usage view therefore does not show a budget gauge, limit status, or daily threshold colors.
 
-| Setting             | Default  | Role                                      |
-| ------------------- | -------- | ----------------------------------------- |
-| `enabled`           | `true`   | Gates **enforcement only**, not telemetry |
-| `daily_limit_usd`   | `10.00`  | Hard daily cap                            |
-| `monthly_limit_usd` | `100.00` | Hard monthly cap                          |
-| `warn_at_percent`   | `80`     | Warn threshold for `check_budget`         |
+Settings → **Usage** shows the last seven UTC calendar days of recorded cost and token activity, a monthly pace projection, and a per-model breakdown. Costs can be estimates when the provider did not return a charged amount. The dashboard refreshes about every 10 seconds.
 
-`check_budget` returns `Allowed`, `Warning` (warn threshold reached) or `Exceeded` (over the daily or monthly cap). A crucial detail: **`enabled` controls enforcement, not capture.** When it is `false`, `check_budget` always returns `Allowed` and hard caps are off. The agent still records usage unconditionally, so your spend history accumulates and you can review it _before_ opting into hard caps. To hide the panel set `dashboard.enabled = false`; to clear history delete the JSONL file (it is local and never leaves the workspace).
-
-### The 7-day dashboard
-
-Settings → **Usage & Limits** hosts the cost dashboard (alongside background-activity controls). It renders a 7-day daily history (gap days zero-filled, oldest first), a token-usage chart, a monthly-pace projection, budget utilisation and a per-model cost breakdown. Dashboard colour-coding uses fractions of the monthly budget: bars flip to amber at the `warn_threshold` (default `0.8`) and red at the `alert_threshold` (default `0.95`). `budget_utilization` is clamped to `1.0` for display, while status is computed from the raw value. The panel polls roughly every 10 seconds and shows an "Updated Ns ago" freshness pill. A read-only fallback tracker (sharing the same JSONL file) serves the UI when the global tracker isn't yet initialised.
+The **Usage log** tab shows local provider-call records in a selected rolling period. It fetches at most 1,000 newest rows and supports category, provider, cost-source, and model/session filters over those loaded rows. The displayed row count and cost are for the filtered loaded set, not a complete billing total.
 
 ### RPC surface
 
 Namespace `cost`, exposed as `openhuman.cost_*`:
 
-| Method                   | Inputs                                | Output                                                                         |
-| ------------------------ | ------------------------------------- | ------------------------------------------------------------------------------ |
-| `cost_get_dashboard`     | none                                  | 7-day buckets, summary metrics, budget utilisation/status, per-model breakdown |
-| `cost_get_daily_history` | `days?` (default 7, clamped 1 to 366) | Ordered daily entries, oldest first, gaps zero-filled                          |
-| `cost_get_summary`       | none                                  | Live session / daily / monthly cost summary                                    |
+| Method                   | Inputs                                | Output                                                                        |
+| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------- |
+| `cost_get_dashboard`     | none                                  | 7-day buckets, summary metrics, legacy budget fields, per-model breakdown     |
+| `cost_get_daily_history` | `days?` (default 7, clamped 1 to 366) | Ordered daily entries, oldest first, gaps zero-filled                         |
+| `cost_get_summary`       | none                                  | Live session / daily / monthly cost summary                                   |
+| `cost_get_usage_log`     | `days?`, `limit?`                     | Newest local provider-call records and category totals, bounded to 1,000 rows |
 
 These are also exposed as read-only, default-ON agent tools so the agent can inspect its own spend.
 
@@ -99,7 +91,7 @@ These are also exposed as read-only, default-ON agent tools so the agent can ins
 
 ## Cost & token compression
 
-Because cost tracks **real token counts**, anything that shrinks the prompt directly lowers spend. OpenHuman's [TokenJuice token compression](token-compression.md) reduces the tokens sent on each call, and [model routing](model-routing/README.md) sends work to the cheapest model that can handle it. Both show up as lower bars in the dashboard and slower budget burn.
+Because cost tracks **real token counts**, anything that shrinks the prompt directly lowers spend. OpenHuman's [TokenJuice token compression](token-compression.md) reduces the tokens sent on each call, and [model routing](model-routing/README.md) sends work to the cheapest model that can handle it. Both can show up as lower recorded costs in the dashboard.
 
 ---
 

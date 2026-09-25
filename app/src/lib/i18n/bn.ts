@@ -1432,8 +1432,17 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'রিমোটের সাথে সংযুক্ত। এটি বুট করা অথবা মেঘের মোড দ্বারা পরিবর্তন করা হবে।',
   'settings.heartbeat.title': 'হার্টবিট এবং লুপস',
-  'settings.usage.title': 'ব্যবহার ও সীমা',
-  'settings.usage.menuDesc': 'খরচ, টোকেন ব্যবহার, বাজেট এবং পটভূমির কার্যকলাপ',
+  'settings.usage.title': 'ব্যবহার',
+  'settings.usage.menuDesc': 'খরচ, টোকেন সাশ্রয়, ব্যবহারের রেকর্ড ও পটভূমির কার্যকলাপ',
+  'settings.costDashboard.monthToDate': 'এই মাসে এখন পর্যন্ত',
+  'settings.costDashboard.period': 'সময়কাল',
+  'settings.costDashboard.periodDays': 'শেষ {days} দিন',
+  'settings.costDashboard.all': 'সব',
+  'settings.costDashboard.costSource': 'খরচের উৎস',
+  'settings.costDashboard.estimated': 'আনুমানিক',
+  'settings.costDashboard.providerCharged': 'প্রদানকারীর চার্জ',
+  'settings.costDashboard.searchModelSession': 'মডেল বা সেশন',
+  'settings.costDashboard.filteredTotal': 'লোড হওয়া {loaded}টির মধ্যে {shown}টি • {cost}',
   'settings.costDashboard.title': 'বিভাজনের স্থান',
   'settings.costDashboard.sevenDayCost': '৭ দিনের মূল্য',
   'settings.costDashboard.sevenDayTokens': '৭ দিনের ব্যবহার',
@@ -1460,7 +1469,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'কনফিগ- এর ড্যাশবোর্ড নিষ্ক্রিয় করা হয়েছে। এক্স- অক্ষের সাথে ( xxxqx) সক্রিয় করুন = xx1xqxXqx সক্রিয় করুন।',
   'settings.costDashboard.subtitle':
-    'লাইভ সময় কাটান আর গোছগাছে পুড়ে যায়। কয়েক সেকেন্ডের মধ্যে বার নতুন করে নতুন করে তৈরি করা হয়: কোনো পৃষ্ঠা পুনরায় লোড করার প্রয়োজন নেই ।',
+    'স্থানীয় প্রদানকারী কলের ব্যবহার। খরচ আনুমানিক হতে পারে; হোস্ট করা বিলিং আলাদা।',
   'settings.costDashboard.summaryAriaLabel': 'অবস্থানের সংক্ষিপ্ত তথ্য',
   'settings.costDashboard.lastSevenDays': 'গত ৭ দিন',
   'settings.costDashboard.utilizationOf': 'এর',

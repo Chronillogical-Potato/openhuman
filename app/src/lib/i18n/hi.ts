@@ -1430,8 +1430,17 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'एक दूरस्थ कोर से जुड़ा हुआ है। इसे बूट चेक या क्लाउड मोड पिकर में बदलें।',
   'settings.heartbeat.title': 'दिल की धड़कन और लूप',
-  'settings.usage.title': 'उपयोग और सीमाएँ',
-  'settings.usage.menuDesc': 'लागत, टोकन उपयोग, बजट और पृष्ठभूमि गतिविधि',
+  'settings.usage.title': 'उपयोग',
+  'settings.usage.menuDesc': 'लागत, टोकन बचत, उपयोग रिकॉर्ड और पृष्ठभूमि गतिविधि',
+  'settings.costDashboard.monthToDate': 'इस महीने अब तक',
+  'settings.costDashboard.period': 'अवधि',
+  'settings.costDashboard.periodDays': 'पिछले {days} दिन',
+  'settings.costDashboard.all': 'सभी',
+  'settings.costDashboard.costSource': 'लागत स्रोत',
+  'settings.costDashboard.estimated': 'अनुमानित',
+  'settings.costDashboard.providerCharged': 'प्रदाता द्वारा शुल्क',
+  'settings.costDashboard.searchModelSession': 'मॉडल या सत्र',
+  'settings.costDashboard.filteredTotal': '{loaded} में से {shown} रिकॉर्ड • {cost}',
   'settings.costDashboard.title': 'कॉस्ट डैशबोर्ड',
   'settings.costDashboard.sevenDayCost': '7 दिन दैनिक लागत',
   'settings.costDashboard.sevenDayTokens': '7 दिन टोकन उपयोग',
@@ -1458,7 +1467,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'लागत डैशबोर्ड विन्यास में अक्षम है। सेट [cost.dashboard] सक्षम = config.toml में फिर से सक्षम करने के लिए सही।',
   'settings.costDashboard.subtitle':
-    'लाइव खर्च और टोकन पूरे झुंड में जलाते हैं। बार्स ऑटो रिफ्रेश हर कुछ सेकंड - कोई पेज पुनः लोड की जरूरत है।',
+    'स्थानीय प्रदाता कॉल का उपयोग। लागत अनुमानित हो सकती है; होस्ट की गई बिलिंग अलग है।',
   'settings.costDashboard.summaryAriaLabel': 'लागत सारांश मीट्रिक',
   'settings.costDashboard.lastSevenDays': 'पिछले 7 दिनों',
   'settings.costDashboard.utilizationOf': 'of',

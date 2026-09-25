@@ -1,6 +1,9 @@
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
+import { BILLING_DASHBOARD_URL } from '../../../utils/links';
+import { openUrl } from '../../../utils/openUrl';
 import { AvatarFallback, AvatarRoot } from '../../ui/Avatar';
+import Button from '../../ui/Button';
 import { SettingsSection } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import LogoutAndClearActions from '../LogoutAndClearActions';
@@ -40,6 +43,17 @@ const AccountPanel = () => {
       )}
 
       <SettingsSection>
+        {user && (
+          <div className="px-4 py-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => void openUrl(`${BILLING_DASHBOARD_URL}?tab=billing`)}>
+              {t('nav.avatarMenu.billing')}
+            </Button>
+          </div>
+        )}
         <LogoutAndClearActions />
       </SettingsSection>
     </SettingsPanel>

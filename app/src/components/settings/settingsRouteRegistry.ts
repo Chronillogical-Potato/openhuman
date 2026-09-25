@@ -143,7 +143,16 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     titleKey: 'pages.settings.accountSection.title',
     descriptionKey: 'pages.settings.accountSection.description',
     section: 'home',
-    searchKeywords: ['profile', 'sign out', 'logout'],
+    searchKeywords: [
+      'profile',
+      'sign out',
+      'logout',
+      'billing',
+      'subscription',
+      'payment',
+      'plan',
+      'invoice',
+    ],
     navGroup: 'general',
     navOrder: 0,
   },
@@ -352,8 +361,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
       'ledger',
       'cost',
       'spend',
-      'billing',
-      'budget',
       'heartbeat',
       'loops',
       'background',
@@ -563,16 +570,6 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // =========================================================================
   // INTENTIONALLY HIDDEN / DEEP-LINK ONLY (not surfaced in any menu)
   // =========================================================================
-  {
-    // billing: surfaced in the General group (also opened from the avatar menu).
-    id: 'billing',
-    titleKey: 'nav.avatarMenu.billing',
-    section: 'home',
-    searchKeywords: ['billing', 'subscription', 'payment', 'plan', 'invoice'],
-    navGroup: 'general',
-    navOrder: 4,
-    highlight: true,
-  },
   {
     // search: web search engine settings (Brave / Google / Tavily provider).
     // Surfaced on the Connections page (Intelligence group); route kept for

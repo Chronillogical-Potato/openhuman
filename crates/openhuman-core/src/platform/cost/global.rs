@@ -26,18 +26,10 @@ static GLOBAL_TRACKER: OnceCell<Arc<CostTracker>> = OnceCell::new();
 /// no-ops and the original tracker is preserved. Logs (but does not panic)
 /// when construction fails so a bad workspace path never blocks core boot.
 ///
-/// **Semantics note (changed in the cost-dashboard PR):**
-///
-/// - `cost.enabled = true` (the new default) — budget enforcement and
-///   dashboard telemetry are both active.
-/// - `cost.enabled = false` — budget enforcement is **off**, but the
-///   dashboard telemetry path still appends to `costs.jsonl` (see
-///   [`record_provider_usage`]). The flag now gates enforcement only;
-///   observability is independent. This is a deliberate trade-off so
-///   operators can review historical spend before opting into hard
-///   budget caps. A `warn` is emitted below so the change is visible
-///   in logs for anyone upgrading from a prior build where
-///   `cost.enabled = false` blocked recording too.
+/// The agent telemetry path appends to `costs.jsonl` through
+/// [`record_provider_usage`] regardless of `cost.enabled`. That flag only
+/// affects direct calls to `CostTracker::record_usage`; it does not enforce a
+/// spend cap. The local ledger remains available when the flag is false.
 ///
 /// The first-boot `info` log records `enabled` and the resolved
 /// workspace so the default-on behaviour shows up in startup logs for
@@ -59,10 +51,8 @@ pub fn init_global(config: CostConfig, workspace_dir: &Path) {
                 );
                 if !cost_enabled {
                     log::warn!(
-                        "[cost] cost.enabled=false: budget enforcement is OFF, but dashboard \
-                         telemetry will still append to costs.jsonl. This is a behavioural \
-                         change from prior builds where cost.enabled=false also blocked \
-                         recording. Set cost.dashboard.enabled=false to disable the panel; \
+                        "[cost] cost.enabled=false: dashboard telemetry will still append to \
+                         costs.jsonl. Set cost.dashboard.enabled=false to disable the panel; \
                          the JSONL is local and never leaves the workspace."
                     );
                 }
@@ -102,10 +92,7 @@ pub fn try_global() -> Option<Arc<CostTracker>> {
 ///
 /// Note: this path uses
 /// [`crate::platform::cost::tracker::CostTracker::record_usage_unconditional`],
-/// so dashboard telemetry is captured even when `cost.enabled = false` —
-/// the `cost.enabled` flag gates budget enforcement (refusing requests),
-/// not observability. This lets users see history first and decide
-/// whether to switch on enforcement.
+/// so dashboard telemetry is captured even when `cost.enabled = false`.
 ///
 /// `model` is the model identifier the request was routed to (e.g.
 /// `"anthropic/claude-sonnet-4-20250514"`) and is used as the bucket key

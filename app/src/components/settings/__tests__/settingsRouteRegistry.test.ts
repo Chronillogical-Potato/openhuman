@@ -194,7 +194,6 @@ describe('SETTINGS_ROUTE_REGISTRY integrity', () => {
   it('surfaces the restructured home hub entries', () => {
     const homeIds = entriesForSection('home').map(e => e.id);
     expect(homeIds).toContain('personality');
-    // billing is surfaced in the General group now (no longer a hidden deep-link).
-    expect(homeIds).toContain('billing');
+    expect(homeIds).not.toContain('billing');
   });
 });
