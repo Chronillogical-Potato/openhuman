@@ -465,6 +465,10 @@ fn a_named_scope_session_closes_the_pack_its_visible_list_never_mentions() {
 /// and `use_skill { skill: "files" }` answered "has no tools available in this
 /// session". The agent's own `agent.toml` names `file_write` and says it
 /// "creates new files"; this pins that the pack table no longer contradicts it.
+///
+/// `file_read` is held to the same rule for a different reason: every
+/// `[tool_result_preview]` the harness emits says `read_with: file_read`, so a
+/// closed `file_read` turns each oversized result into an `unknown tool` loop.
 #[test]
 fn the_orchestrators_only_file_creator_is_never_closed() {
     use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
@@ -493,11 +497,17 @@ fn the_orchestrators_only_file_creator_is_never_closed() {
         "`file_write` must stay reachable to the orchestrator: {closed:?}"
     );
     assert!(
-        closed.contains(&"file_read"),
-        "the rest of the `files` pack is still the specialists' belt: {closed:?}"
+        !closed.contains(&"file_read"),
+        "`file_read` must stay reachable: every result preview names it: {closed:?}"
     );
     assert!(
-        registry::pack_for_tool("file_write").is_none(),
-        "`file_write` must belong to no pack — that is what keeps it open"
+        closed.contains(&"grep"),
+        "the rest of the `files` pack is still the specialists' belt: {closed:?}"
     );
+    for tool in ["file_write", "file_read"] {
+        assert!(
+            registry::pack_for_tool(tool).is_none(),
+            "`{tool}` must belong to no pack — that is what keeps it open"
+        );
+    }
 }

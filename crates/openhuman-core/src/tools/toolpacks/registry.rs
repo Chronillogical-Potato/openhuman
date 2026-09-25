@@ -249,7 +249,7 @@ pub const PACKS: &[ToolPack] = &[
     },
     ToolPack {
         id: "files",
-        summary: "Files and repositories: read, write, grep, glob, list, git.",
+        summary: "Files and repositories: grep, glob, list, git.",
         // `shell` covers every one of these for an agent that has it, so on a
         // belt that also carries `shell` the family is duplicate surface
         // charged on every turn. It stays one `use_skill` away, and the
@@ -271,7 +271,20 @@ pub const PACKS: &[ToolPack] = &[
         // no file at all, and `meal-plan` burned eleven rounds discovering it
         // had no writer. One ~300 B schema per turn is the right price for the
         // single most common assistant task.
-        tools: &["file_read", "grep", "glob", "list", "git_operations"],
+        //
+        // `file_read` left too, because the harness itself tells the model to
+        // call it. Every oversized tool result is replaced by a
+        // `[tool_result_preview]` whose `read_with:` line is
+        // `file_read {"path": …}` (`agent/harness/tool_result_artifacts`), and
+        // the orchestrator is the agent that receives most of those previews
+        // (Gmail listings, catalogue dumps, search results). Packed, the same
+        // rule DENIED it, and the bare-name router (`packed_tool_route`) does
+        // not route a denied tool, so the call answered `unknown tool`. Observed
+        // on v0.64.0: asked to list ten emails, the orchestrator followed the
+        // preview, got `unknown tool file_read`, then invented `ranges` and
+        // `tool_read_file`, misused `desktop_continue_goal` and `plan`, and ran
+        // out of iterations without reading its own result.
+        tools: &["grep", "glob", "list", "git_operations"],
         owners: &[
             "code_executor",
             "critic",
