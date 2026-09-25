@@ -171,6 +171,59 @@ export interface SendOptions {
 }
 
 /**
+ * Arm the shared turn-lifecycle entry for `threadId`, the way a real send does.
+ *
+ * Without this, every surface gated on `s.thread.isRunning` is invisible to a
+ * driven turn, and the turn itself looks fine — tokens stream, the answer
+ * renders, only the "something is running" chrome never appears.
+ *
+ * The chain: `useOpenHumanExternalStore.ts:404` derives `isRunning` from
+ * `chatRuntime.inferenceTurnLifecycleByThread`, which is written in exactly two
+ * places. `beginInferenceTurn` CREATES the entry and is dispatched client-side
+ * on send (`Conversations.tsx:1161`) — not by anything the core emits.
+ * `markInferenceTurnStreaming`, which the socket's `inference_start` drives
+ * (`ChatRuntimeProvider.tsx:750`), only UPDATES an entry that already exists
+ * (`chatRuntimeSlice.ts:2400` guards on it). So an RPC-driven turn creates no
+ * entry, the socket event is a no-op against it, and `isRunning` stays `false`
+ * for the whole turn.
+ *
+ * `useWorkflowBuilderChat.ts:427-439` hit this first and fixed it the same way,
+ * and its comment is the clearest statement of the mechanism in the codebase.
+ *
+ * Dispatched as a plain action object because the slice's action creators are
+ * not on `window`; the type string is `<slice name>/<reducer>` and both halves
+ * are pinned by `chat-drive.test.ts`, so a rename cannot silently turn this
+ * into a no-op dispatch that Redux ignores.
+ */
+async function armTurnLifecycle(page: Page, threadId: string): Promise<void> {
+  const armed = await page.evaluate(threadId => {
+    const store = (
+      window as unknown as {
+        __OPENHUMAN_STORE__?: {
+          dispatch?: (action: unknown) => void;
+          getState?: () => {
+            chatRuntime?: { inferenceTurnLifecycleByThread?: Record<string, string> };
+          };
+        };
+      }
+    ).__OPENHUMAN_STORE__;
+    if (!store?.dispatch || !store.getState) return false;
+    store.dispatch({ type: 'chatRuntime/beginInferenceTurn', payload: { threadId } });
+    const lifecycles = store.getState().chatRuntime?.inferenceTurnLifecycleByThread ?? {};
+    return lifecycles[threadId] === 'started';
+  }, threadId);
+
+  // A dispatch Redux did not recognise is silently ignored, which would put
+  // this helper right back where it started while looking like it worked.
+  // Read the state back instead of trusting the dispatch.
+  expect(
+    armed,
+    'beginInferenceTurn did not reach chatRuntime.inferenceTurnLifecycleByThread; ' +
+      'the action type or slice name has changed'
+  ).toBe(true);
+}
+
+/**
  * Send `message` on `threadId` as this page's user, and return once the core
  * has accepted it. The turn then streams to this page over the socket exactly
  * as a typed message would.
@@ -182,6 +235,11 @@ export async function sendTurn(
   options: SendOptions = {}
 ): Promise<void> {
   const clientId = await waitForConnectedSocketId(page);
+  // Before the RPC, mirroring the order a real send uses
+  // (`Conversations.tsx:1161` dispatches, then calls the service): the socket
+  // can answer faster than the next `page.evaluate` round trip, and
+  // `markInferenceTurnStreaming` is a no-op against a thread with no entry.
+  await armTurnLifecycle(page, threadId);
   await callRpcFromPage(page, 'openhuman.channel_web_chat', {
     client_id: clientId,
     thread_id: threadId,

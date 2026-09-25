@@ -80,6 +80,11 @@ function createMemoryToolCall(toolName: string): ToolCallMessagePartComponent {
     if (chips.length === 0) return null;
     return (
       <MemoryChips
+        // The vendored element carries only `data-slot="memory-chips"`, which
+        // every instance shares. `toolName` makes the hook name which memory
+        // tool produced these chips, so a spec can tell a `memory_store` write
+        // from a `memory_recall` read in a turn that did both.
+        data-testid={`chat-memory-chips-${toolName}`}
         chips={chips}
         headingRememberedLabel={n =>
           t('conversations.memoryChips.remembered').replace('{n}', String(n))
