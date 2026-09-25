@@ -51,6 +51,21 @@ pub(super) struct GroundedClose {
     pub(super) usage: RepairUsage,
 }
 
+/// A classified halt has enough evidence for a deterministic partial result.
+/// Keeping this separate from the model-driven repair path guarantees zero
+/// additional provider calls once its recovery budget is exhausted.
+fn classified_halt_close(outcome: &TinyagentsTurnOutcome) -> Option<GroundedClose> {
+    let reason = outcome.breaker_halt.as_deref()?;
+    if !reason.starts_with("Stopping after ") {
+        return None;
+    }
+    let records = results_from_tool_outcomes(&outcome.tool_outcomes);
+    Some(GroundedClose {
+        output: build_deterministic_final_summary(&records, Some(reason)),
+        usage: RepairUsage::default(),
+    })
+}
+
 /// Repair an otherwise valid terminal reply which omits the host's required
 /// structured-output block.  This mirrors the legacy session contract while
 /// keeping the repair call and its usage inside the explicit driver sidecar.
@@ -145,6 +160,9 @@ pub(super) async fn close_if_needed(
         return None;
     }
 
+    if let Some(close) = classified_halt_close(outcome) {
+        return Some(close);
+    }
     let records = results_from_tool_outcomes(&outcome.tool_outcomes);
     let rendered = render_tool_results(&records, turn_checkpoint::GROUNDING_TOTAL_CHARS);
     let instruction = if needs_cap_close {

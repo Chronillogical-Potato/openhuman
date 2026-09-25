@@ -7,6 +7,36 @@ const RECORDS: &str = "\n- `list_directory` — ok\n  > three crates\n";
 const CLEAN_REPLY: &str = "The workspace holds three crates; the build is green.";
 const FALLBACK: &str = "deterministic fallback";
 
+#[test]
+fn classified_halt_returns_partial_work_without_provider_usage() {
+    use crate::agent::tinyagents::ToolCallOutcome;
+    let outcome = TinyagentsTurnOutcome {
+        text: String::new(),
+        resolved_route: None,
+        history: Vec::new(),
+        conversation: Vec::new(),
+        model_calls: 2,
+        tool_calls: 2,
+        input_tokens: 100,
+        output_tokens: 20,
+        cached_input_tokens: 0,
+        charged_amount_usd: 0.0,
+        early_exit_tool: None,
+        hit_cap: false,
+        wrap_up_injected: false,
+        breaker_halt: Some("Stopping after 1 attempt(s): failure class `permission` still blocks operation `search` on `catalog`. Resolve this blocker before retrying.".into()),
+        tool_outcomes: vec![
+            ToolCallOutcome { call_id: "a".into(), name: "list".into(), arguments: serde_json::json!({}), success: true, content: "three items".into(), duration_ms: 1 },
+            ToolCallOutcome { call_id: "b".into(), name: "search".into(), arguments: serde_json::json!({}), success: false, content: "403 Forbidden".into(), duration_ms: 1 },
+        ],
+    };
+    let close = classified_halt_close(&outcome).expect("classified halt");
+    assert_eq!(close.usage.model_calls, 0);
+    assert!(close.output.contains("permission"), "{}", close.output);
+    assert!(close.output.contains("three items"), "{}", close.output);
+    assert!(close.output.contains("403 Forbidden"), "{}", close.output);
+}
+
 /// A candidate carrying a verbatim span of the directive it was just handed —
 /// the shape this guard exists for, spliced from the constant so a reword
 /// cannot leave this fixture quoting text nobody is given.

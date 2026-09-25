@@ -303,7 +303,29 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
         history.extend(appended);
 
         let required_output = request.run_context.data.required_output.clone();
+        let classified_halt = outcome
+            .breaker_halt
+            .as_deref()
+            .is_some_and(|reason| reason.starts_with("Stopping after "));
         let required_repair = match required_output.as_ref() {
+            Some(contract) if classified_halt => {
+                if !crate::agent::harness::required_output::output_satisfies_contract(
+                    &output, contract,
+                ) {
+                    output.push_str("\n\n");
+                    output.push_str(&crate::agent::harness::required_output::synthesize_block(
+                        contract,
+                    ));
+                    if history
+                        .last()
+                        .is_some_and(|message| matches!(message, Message::Assistant(_)))
+                    {
+                        history.pop();
+                    }
+                    history.push(Message::assistant(output.clone()));
+                }
+                None
+            }
             Some(contract) => {
                 grounded_close::repair_required_output(
                     &self.turn_model_source,
