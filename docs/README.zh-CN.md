@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
- <a href="https://discord.tinyhumans.ai/">Discord</a> •
+ <a href="https://guild.tinyhumans.ai/">Discord</a> •
  <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
  <a href="https://tinyhumans.gitbook.io/openhuman/">文档</a> •
@@ -176,7 +176,7 @@ _致力于 AGI 和人工意识？为仓库加星，帮助更多人找到这条�
 
 # 贡献者名人堂
 
-贡献一份力量，进入名人堂。贡献者可获得免费周边以及我们 [Discord](https://discord.tinyhumans.ai/) 的专属访问权限。
+贡献一份力量，进入名人堂。贡献者可获得免费周边以及我们 [Discord](https://guild.tinyhumans.ai/) 的专属访问权限。
 
 <a href="https://github.com/tinyhumansai/openhuman/graphs/contributors">
  <img src="https://contrib.rocks/image?repo=tinyhumansai/openhuman" alt="OpenHuman contributors" />

@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
- <a href="https://discord.tinyhumans.ai/">Discord</a> •
+ <a href="https://guild.tinyhumans.ai/">Discord</a> •
  <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
  <a href="https://tinyhumans.gitbook.io/openhuman/">Doku</a> •
@@ -176,7 +176,7 @@ _Baust du auch in Richtung AGI und künstlichem Bewusstsein? Setze einen Stern u
 
 # Contributors Hall of Fame
 
-Zeig etwas Liebe und lande in der Hall of Fame. Mitwirkende erhalten kostenloses Merch und besonderen Zugang zu unserem [Discord](https://discord.tinyhumans.ai/).
+Zeig etwas Liebe und lande in der Hall of Fame. Mitwirkende erhalten kostenloses Merch und besonderen Zugang zu unserem [Discord](https://guild.tinyhumans.ai/).
 
 <a href="https://github.com/tinyhumansai/openhuman/graphs/contributors">
  <img src="https://contrib.rocks/image?repo=tinyhumansai/openhuman" alt="OpenHuman contributors" />

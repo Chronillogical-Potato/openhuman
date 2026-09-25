@@ -81,4 +81,4 @@ Now that the agent has memory and a model, the rest of the product is about givi
 OpenHuman is in early beta. Feedback and contributions make a real difference at this stage.
 
 - **GitHub:** [github.com/tinyhumansai/openhuman](https://github.com/tinyhumansai/openhuman)
-- **Discord:** [discord.tinyhumans.ai](https://discord.tinyhumans.ai)
+- **Discord:** [guild.tinyhumans.ai](https://guild.tinyhumans.ai)

@@ -29,7 +29,7 @@ describe('SUPPORT_URL (real config)', () => {
     vi.resetModules();
   });
 
-  test('defaults to the community Discord, not the retired /support page', async () => {
+  test('defaults to the community destination, not the retired /support page', async () => {
     // `https://tinyhumans.ai/support` 404s — that is the bug #5870 reported.
     const { SUPPORT_URL } = await realConfig();
     expect(SUPPORT_URL).not.toContain('tinyhumans.ai/support');
@@ -40,11 +40,11 @@ describe('SUPPORT_URL (real config)', () => {
     // Not merely equal by coincidence: config.ts imports the constant, so the
     // vanity domain moves in one edit rather than two that can drift.
     const { SUPPORT_URL } = await realConfig();
-    expect(SUPPORT_URL).toBe('https://discord.tinyhumans.ai');
+    expect(SUPPORT_URL).toBe('https://guild.tinyhumans.ai');
   });
 
   test('does not claim to consume a ref by default', async () => {
-    // With no VITE_SUPPORT_URL override the destination is a Discord invite,
+    // With no VITE_SUPPORT_URL override the destination is the community site,
     // which ignores the query. Callers key the `?ref=<sentryEventId>` append on
     // this flag, so a default build must not advertise it.
     const { SUPPORT_URL_ACCEPTS_REF } = await realConfig();

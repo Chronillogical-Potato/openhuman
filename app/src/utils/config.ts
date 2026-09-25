@@ -272,7 +272,7 @@ const SUPPORT_URL_OVERRIDE = (import.meta.env.VITE_SUPPORT_URL as string | undef
 /**
  * Where "Contact Support" on the crash screen sends the user.
  *
- * The default is the community Discord — `https://tinyhumans.ai/support` 404s
+ * The default is the community site — `https://tinyhumans.ai/support` 404s
  * (#5870). It is the same value as `links.ts`'s `DISCORD_INVITE_URL` and is
  * imported from there rather than repeated, so moving the vanity domain is one
  * edit and not two.
@@ -287,8 +287,8 @@ export const SUPPORT_URL = SUPPORT_URL_OVERRIDE || DISCORD_INVITE_URL;
  * Whether {@link SUPPORT_URL} is a destination that can consume
  * `?ref=<sentryEventId>`.
  *
- * Only an explicitly configured endpoint can: a Discord invite renders a join
- * page and ignores the query entirely, so appending a ref there produces a
+ * Only an explicitly configured endpoint can: the community destination is
+ * not configured to accept that query, so appending a ref there produces a
  * link that looks like it carries the crash id and does not — the correlation
  * the ref exists for silently stops happening (tinysweeper on #5953).
  *
@@ -299,8 +299,8 @@ export const SUPPORT_URL = SUPPORT_URL_OVERRIDE || DISCORD_INVITE_URL;
  * Defaults to "an override is configured", because `VITE_SUPPORT_URL` exists
  * for deployment-specific *support endpoints* and one of those can consume a
  * ref by definition. Set `VITE_SUPPORT_URL_ACCEPTS_REF=false` for the case
- * that inference gets wrong — an override pointed at a chat invite, which
- * ignores the query the same way the Discord default does. The escape hatch is
+ * that inference gets wrong — an override pointed at a community site, which
+ * ignores the query the same way the default does. The escape hatch is
  * an opt-OUT rather than an opt-in on purpose: defaulting to `false` would
  * make the *useful* behaviour the one a deployer can forget to switch on, and
  * forgetting it fails silently, which is the exact failure this whole flag

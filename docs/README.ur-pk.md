@@ -35,7 +35,7 @@
 </p>
 
 <p align="center">
- <a href="https://discord.tinyhumans.ai/">ڈسکارڈ</a> •
+ <a href="https://guild.tinyhumans.ai/">ڈسکارڈ</a> •
  <a href="https://www.reddit.com/r/tinyhumansai/">ریڈٹ</a> •
  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/ٹویٹر</a> •
  <a href="https://tinyhumans.gitbook.io/openhuman/">دستاویزات</a> •
@@ -230,7 +230,7 @@ _AGI اور مصنوعی شعور کی طرف بڑھ رہے ہیں؟ ریپو ک
 
 # شراکت داروں کا ہال آف فیم
 
-کچھ محبت دکھائیں اور ہال آف فیم میں جگہ پائیں۔ شراکت داروں کو مفت مرچ اور ہمارے [ڈسکارڈ](https://discord.tinyhumans.ai/) تک خصوصی رسائی ملتی ہے۔
+کچھ محبت دکھائیں اور ہال آف فیم میں جگہ پائیں۔ شراکت داروں کو مفت مرچ اور ہمارے [ڈسکارڈ](https://guild.tinyhumans.ai/) تک خصوصی رسائی ملتی ہے۔
 
 </div>
 

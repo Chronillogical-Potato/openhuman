@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
- <a href="https://discord.tinyhumans.ai/">Discord</a> •
+ <a href="https://guild.tinyhumans.ai/">Discord</a> •
  <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
  <a href="https://tinyhumans.gitbook.io/openhuman/">ドキュメント</a> •
@@ -176,7 +176,7 @@ _AGI と人工意識への道を進んでいますか? リポジトリにスタ�
 
 # コントリビューター・ホール・オブ・フェイム
 
-愛を示して、殿堂入りしましょう。コントリビューターには無料グッズと [Discord](https://discord.tinyhumans.ai/) への特別アクセスが提供されます。
+愛を示して、殿堂入りしましょう。コントリビューターには無料グッズと [Discord](https://guild.tinyhumans.ai/) への特別アクセスが提供されます。
 
 <a href="https://github.com/tinyhumansai/openhuman/graphs/contributors">
  <img src="https://contrib.rocks/image?repo=tinyhumansai/openhuman" alt="OpenHuman contributors" />
