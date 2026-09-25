@@ -334,7 +334,14 @@ pub(super) fn assemble_turn_harness(
     // dedupe read or leaves the index stale. Pushed ahead of every other
     // result-rewriting middleware so its `after_tool` runs *after* the byte-cap
     // truncation, keeping the note.
-    harness.push_middleware(Arc::new(middleware::MemoryProtocolMiddleware::new()));
+    // Dedupe guidance stays active; only the closing-step reminder depends on
+    // whether this turn can call the index-update tool.
+    let can_update_index = allowed
+        .as_ref()
+        .is_none_or(|names| names.contains("update_memory_md"));
+    harness.push_middleware(Arc::new(
+        middleware::MemoryProtocolMiddleware::with_index_update_tool(can_update_index),
+    ));
 
     // Repeated-failure circuit breaker: pause the run when a tool returns the same
     // error `REPEATED_TOOL_FAILURE_THRESHOLD` times in a row, so a deterministic

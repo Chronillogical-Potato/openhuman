@@ -135,6 +135,16 @@ impl MemoryProtocolObservation {
     /// Render the corrective note appended to the tool result, or `None` when no
     /// guidance is warranted. The wording escalates with the violations detected.
     pub fn guidance(&self, tool_name: &str) -> Option<String> {
+        self.guidance_with_index_update(tool_name, true)
+    }
+
+    /// Keep dedupe guidance when the agent cannot update the index, without
+    /// telling it to call a tool absent from its turn.
+    pub fn guidance_with_index_update(
+        &self,
+        tool_name: &str,
+        can_update_index: bool,
+    ) -> Option<String> {
         if !self.needs_guidance() {
             return None;
         }
@@ -146,19 +156,20 @@ impl MemoryProtocolObservation {
                  so you don't store a near-duplicate."
             ));
         }
-        if self.index_drift {
+        if self.index_drift && can_update_index {
             parts.push(
                 "A previous memory write was never followed by `update_memory_md`, so the MEMORY.md \
                  index is drifting from stored memory. Reconcile it now."
                     .to_string(),
             );
         }
-        // The always-on closing-step reminder: keep the index in sync.
-        parts.push(
-            "After mutating memory, call `update_memory_md` to keep the MEMORY.md index in sync."
-                .to_string(),
-        );
-        Some(format!("{MEMORY_PROTOCOL_MARKER} {}", parts.join(" ")))
+        if can_update_index {
+            parts.push(
+                "After mutating memory, call `update_memory_md` to keep the MEMORY.md index in sync."
+                    .to_string(),
+            );
+        }
+        (!parts.is_empty()).then(|| format!("{MEMORY_PROTOCOL_MARKER} {}", parts.join(" ")))
     }
 }
 
