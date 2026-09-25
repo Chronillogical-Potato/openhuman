@@ -403,15 +403,6 @@ fn master_agent_has_coding_hint_and_named_tools() {
                     "orchestrator must have direct memory tool `{direct}` (#4762)"
                 );
             }
-            // Memory-protocol close-out (#4116): a direct `memory_store` write
-            // obliges an `update_memory_md` index reconcile, so the tool that
-            // performs it must be in scope — otherwise the protocol's guidance
-            // is unsatisfiable and MEMORY.md (loaded here) drifts from the store.
-            assert!(
-                tools.iter().any(|t| t == "update_memory_md"),
-                "orchestrator must have `update_memory_md` to reconcile MEMORY.md \
-                 after a direct memory_store (#4762)"
-            );
         }
         ToolScope::Wildcard => panic!("orchestrator must have named tool allowlist"),
     }
@@ -687,6 +678,29 @@ fn the_orchestrator_does_not_delegate_to_the_generalist_or_the_archivist() {
             registry.get(dropped).is_some(),
             "`{dropped}` must stay registered — its definition should not be \
              deleted, only dropped from the orchestrator's advertised list"
+        );
+    }
+}
+
+#[test]
+fn orchestrator_omits_removed_prompt_tools() {
+    let orchestrator = find("orchestrator");
+    let ToolScope::Named(tools) = &orchestrator.tools else {
+        panic!("orchestrator must have a named tool scope");
+    };
+    for removed in ["request_plan_review", "plan_exit", "update_memory_md"] {
+        assert!(
+            !tools.iter().any(|tool| tool == removed),
+            "`{removed}` must not appear in the orchestrator tool list"
+        );
+    }
+    for removed in ["critic", "help"] {
+        assert!(
+            !orchestrator
+                .subagents
+                .iter()
+                .any(|entry| matches!(entry, SubagentEntry::AgentId(id) if id == removed)),
+            "`{removed}` adds a delegate tool to the orchestrator prompt"
         );
     }
 }

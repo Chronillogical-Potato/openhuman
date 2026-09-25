@@ -609,6 +609,19 @@ async fn memory_write_without_index_read_gets_a_corrective_note() {
 }
 
 #[tokio::test]
+async fn memory_write_without_index_tool_still_gets_dedupe_guidance() {
+    let mw = MemoryProtocolMiddleware::with_index_update_tool(false);
+    let result = run_cycle(&mw, "memory_store", json!({}), "stored entry", None).await;
+    let text = result_text(&result);
+    assert!(text.contains("without first reading the memory index"));
+    assert!(!text.contains("update_memory_md"));
+
+    run_cycle(&mw, "memory_recall", json!({}), "found entry", None).await;
+    let after_read = run_cycle(&mw, "memory_store", json!({}), "stored another", None).await;
+    assert!(!result_text(&after_read).contains("update_memory_md"));
+}
+
+#[tokio::test]
 async fn full_cycle_read_then_write_then_update_only_reminds_on_the_write() {
     let mw = MemoryProtocolMiddleware::new();
 
