@@ -932,6 +932,29 @@ async fn multi_turn_state_persistence_inner() {
         Some("chat_done"),
         "turn-2 expected chat_done, got: {second}"
     );
+    // The warm session must commit each turn through its own progress sender.
+    // Before the fix, turn 2 delivered chat_done but its persisted streaming
+    // text stayed empty until a third turn displaced the retained sender.
+    let turns = turn_state_history(&stack.rpc_base, 202, "thread-mt").await;
+    for (request_id, expected) in [
+        (&first_request_id, "The project is called FOO_CANARY."),
+        (&second_request_id, "Yes, FOO_CANARY is the one."),
+    ] {
+        let turn = turns
+            .iter()
+            .find(|turn| turn.get("requestId").and_then(Value::as_str) == Some(request_id.as_str()))
+            .unwrap_or_else(|| panic!("missing turn state for {request_id}: {turns:?}"));
+        assert_eq!(
+            turn.get("lifecycle").and_then(Value::as_str),
+            Some("completed")
+        );
+        assert!(
+            turn.get("streamingText")
+                .and_then(Value::as_str)
+                .is_some_and(|text| text.contains(expected)),
+            "turn {request_id} did not persist its own reply before another turn: {turn}"
+        );
+    }
 
     // Last captured upstream request must carry turn-1 context in body.messages.
     let requests = with_captured(|c| c.clone());
