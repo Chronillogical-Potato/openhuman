@@ -42,6 +42,9 @@ Configure with environment variables:
   CAPTURE_ALLOW_REMOTE=1              bind a non-loopback CAPTURE_HOST
   CAPTURE_ALLOW_PLAINTEXT_UPSTREAM=1  forward the bearer to a non-loopback http: upstream
 
+Request and response captures contain raw conversation content. They are
+written as local owner-only files; remove the capture directory after diagnosis.
+
 Point the core at it, then drive turns and read the summary lines:
   CAPTURE_ALL=1 pnpm debug capture
   api_url = "http://127.0.0.1:18765"           # in the user's config.toml, or
