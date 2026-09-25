@@ -2,11 +2,29 @@
 //! of `load_workflow_metadata*` / `discover_workflows*` shims that select a
 //! root scan (see [`super::scan`]) for a given caller shape.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{LazyLock, RwLock};
 
 use crate::skills::ops_types::{Workflow, TRUST_MARKER};
 
 use super::scan::{discover_filtered, ALL_ROOT_KINDS, WORKFLOW_ROOT_KINDS};
+
+type MetadataCacheKey = (PathBuf, Option<PathBuf>, bool);
+static METADATA_CACHE: LazyLock<RwLock<HashMap<MetadataCacheKey, Vec<Workflow>>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+static METADATA_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+/// Drop the process-wide metadata snapshot after a skill is created, installed,
+/// or removed. Live sessions receive `WorkflowsChanged` separately and rebuild
+/// their own catalogue from the next cached snapshot.
+pub(crate) fn invalidate_workflow_metadata_cache() {
+    if let Ok(mut cache) = METADATA_CACHE.write() {
+        cache.clear();
+        METADATA_GENERATION.fetch_add(1, Ordering::SeqCst);
+    }
+}
 
 /// Initialize the legacy skills directory in the specified workspace.
 ///
@@ -65,7 +83,20 @@ pub fn discovery_home_dir() -> Option<PathBuf> {
 pub fn load_workflow_metadata(workspace_dir: &Path) -> Vec<Workflow> {
     let trusted = is_workspace_trusted(workspace_dir);
     let home = discovery_home_dir();
-    discover_workflows_inner(home.as_deref(), Some(workspace_dir), trusted)
+    let key = (workspace_dir.to_path_buf(), home.clone(), trusted);
+    if let Ok(cache) = METADATA_CACHE.read() {
+        if let Some(workflows) = cache.get(&key) {
+            return workflows.clone();
+        }
+    }
+    let generation = METADATA_GENERATION.load(Ordering::SeqCst);
+    let workflows = discover_workflows_inner(home.as_deref(), Some(workspace_dir), trusted);
+    if let Ok(mut cache) = METADATA_CACHE.write() {
+        if METADATA_GENERATION.load(Ordering::SeqCst) == generation {
+            cache.insert(key, workflows.clone());
+        }
+    }
+    workflows
 }
 
 /// Discover skills from every supported location.

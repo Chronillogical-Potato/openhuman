@@ -701,3 +701,31 @@ async fn load_workflow_metadata_skips_user_roots_under_a_hidden_context() {
         "no user-scope skill may leak into a hidden-root context: {names:?}"
     );
 }
+
+#[test]
+fn workflow_metadata_is_reused_until_invalidated() {
+    let workspace = tempfile::tempdir().unwrap();
+    let skill = workspace.path().join("skills").join("cached-skill");
+    write(
+        &skill.join("SKILL.md"),
+        "---\nname: cached-skill\ndescription: first version\n---\n",
+    );
+    let first = load_workflow_metadata(workspace.path());
+    assert!(first.iter().any(|item| item.name == "cached-skill"));
+
+    std::fs::remove_dir_all(&skill).unwrap();
+    assert!(
+        load_workflow_metadata(workspace.path())
+            .iter()
+            .any(|item| item.name == "cached-skill"),
+        "a turn reuses the startup snapshot"
+    );
+
+    crate::skills::ops_discover::invalidate_workflow_metadata_cache();
+    assert!(
+        !load_workflow_metadata(workspace.path())
+            .iter()
+            .any(|item| item.name == "cached-skill"),
+        "a skill change refreshes the snapshot"
+    );
+}

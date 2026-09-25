@@ -91,7 +91,15 @@ pub async fn composio_list_connections(
 
     let active = resp.connections.iter().filter(|c| c.is_active()).count();
     let total = resp.connections.len();
-    sync_cache_with_connections(&resp.connections);
+    if sync_cache_with_connections(&resp.connections) {
+        // The Settings poll also catches OAuth completions that outlive the
+        // connection-created subscriber's readiness window. Re-warm here so
+        // the next chat turn does not perform the three discovery requests.
+        let config = config.clone();
+        tokio::spawn(async move {
+            let _ = fetch_connected_integrations_status(&config).await;
+        });
+    }
     let resp = enrich_connections_with_identity(config, resp).await;
     Ok(RpcOutcome::new(
         resp,

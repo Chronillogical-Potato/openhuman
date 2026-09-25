@@ -4,12 +4,13 @@
 //! on a miss) and the just-in-time [`fetch_toolkit_actions`], plus their
 //! small toolkit-membership/description helpers.
 
+use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use crate::agent::prompts::{ConnectedIntegration, ConnectedIntegrationTool};
 use crate::config::Config;
 
-use super::cache::{cache_key, CachedIntegrations, CACHE_TTL, INTEGRATIONS_CACHE};
+use super::cache::{cache_key, CachedIntegrations, CACHE_GENERATION, INTEGRATIONS_CACHE};
 use super::fetch_uncached::fetch_connected_integrations_uncached;
 use crate::integrations::composio::client::ComposioClient;
 use crate::integrations::composio::ops::should_forward_tags;
@@ -23,10 +24,8 @@ use crate::integrations::composio::ops::should_forward_tags;
 ///
 /// Results are cached process-wide (keyed by config identity) and
 /// returned instantly on subsequent calls. The cache is invalidated
-/// when a new connection is created
-/// (via [`invalidate_connected_integrations_cache`]), when a UI
-/// `list_connections` poll observes a divergent live set, when
-/// [`CACHE_TTL`] expires, or on process restart.
+/// when a connection changes (via [`invalidate_connected_integrations_cache`]
+/// or `list_connections` reconciliation), or on process restart.
 ///
 /// Best-effort: returns an empty vec when the user isn't signed in,
 /// the backend is unreachable, or any step fails.
@@ -84,42 +83,41 @@ pub async fn fetch_connected_integrations_status(
     }
     let key = cache_key(config);
 
-    // Fast path: return cached result if fresh. Stale entries fall
-    // through to the backend fetch below so the chat runtime can never
-    // be more than `CACHE_TTL` behind a real-world change.
+    // A connection event or a divergent list_connections response invalidates
+    // this snapshot. Idle time alone must never put a network request on the
+    // first-token path.
     if let Ok(guard) = INTEGRATIONS_CACHE.read() {
         if let Some(cached) = guard.get(&key) {
             let age = cached.cached_at.elapsed();
-            if age < CACHE_TTL {
-                tracing::debug!(
-                    count = cached.entries.len(),
-                    age_ms = age.as_millis() as u64,
-                    key = %key,
-                    "[composio][integrations] returning cached result"
-                );
-                return FetchConnectedIntegrationsStatus::Authoritative(cached.entries.clone());
-            }
-            tracing::info!(
+            tracing::debug!(
                 count = cached.entries.len(),
                 age_ms = age.as_millis() as u64,
-                ttl_ms = CACHE_TTL.as_millis() as u64,
                 key = %key,
-                "[composio][integrations] cache entry expired — refetching"
+                "[composio][integrations] returning cached result"
             );
+            return FetchConnectedIntegrationsStatus::Authoritative(cached.entries.clone());
         }
     }
 
+    let generation = CACHE_GENERATION.load(Ordering::SeqCst);
     match fetch_connected_integrations_uncached(config).await {
         Some(result) => {
             // Backend was reachable — cache the result (even if empty).
             if let Ok(mut guard) = INTEGRATIONS_CACHE.write() {
-                guard.insert(
-                    key,
-                    CachedIntegrations {
-                        entries: result.clone(),
-                        cached_at: Instant::now(),
-                    },
-                );
+                if CACHE_GENERATION.load(Ordering::SeqCst) == generation {
+                    guard.insert(
+                        key,
+                        CachedIntegrations {
+                            entries: result.clone(),
+                            cached_at: Instant::now(),
+                        },
+                    );
+                } else {
+                    tracing::debug!(
+                        "[composio][integrations] discarded fetch invalidated in flight"
+                    );
+                    return FetchConnectedIntegrationsStatus::Unavailable;
+                }
             }
             FetchConnectedIntegrationsStatus::Authoritative(result)
         }

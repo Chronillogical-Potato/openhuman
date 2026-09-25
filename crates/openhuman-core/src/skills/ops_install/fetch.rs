@@ -438,6 +438,7 @@ pub(crate) async fn install_workflow_from_url_with_home(
 
     // Notify live agent sessions so they refresh their `## Installed Skills`
     // catalogue mid-conversation (see `OpenHumanSessionHost::refresh_workflows`).
+    crate::skills::ops_discover::invalidate_workflow_metadata_cache();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::WorkflowsChanged {
         reason: "install".to_string(),
     });

@@ -166,6 +166,7 @@ pub fn uninstall_workflow(
 
     // Notify live agent sessions to drop the removed skill from their
     // `## Installed Skills` catalogue (see `OpenHumanSessionHost::refresh_workflows`).
+    crate::skills::ops_discover::invalidate_workflow_metadata_cache();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::WorkflowsChanged {
         reason: "uninstall".to_string(),
     });
