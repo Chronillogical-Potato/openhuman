@@ -9,7 +9,9 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::middleware::{Middleware, ToolInvocationIdentity};
-use tinyagents_harness::no_progress::{NoProgress, NoProgressTracker, ToolAttempt};
+use tinyagents_harness::no_progress::{
+    ClassifiedFailure, ClassifiedFailureTracker, NoProgress, NoProgressTracker, ToolAttempt,
+};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::message::Message as TaMessage;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
@@ -55,6 +57,7 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// Crate no-progress escalation ladder — the single source of the
     /// identical-failure / varied-failure / hard-reject logic (tinyagents 1.5.0).
     tracker: NoProgressTracker,
+    classified: ClassifiedFailureTracker,
     /// Monotonic tool-outcome counter, used only for the crate's "no progress
     /// since step X" nudge wording. Not the model-call count, but a stable,
     /// increasing marker is all the wording needs.
@@ -65,6 +68,9 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// argument sets that happen to share a first error line don't count as a
     /// repeat and can't pre-empt the generic no-progress backstop.
     arg_sigs: std::sync::Mutex<std::collections::HashMap<String, String>>,
+    /// Call ID to stable target identity. Query strings and free-form prompts
+    /// are excluded so varying a query cannot evade a resource-level blocker.
+    target_scopes: std::sync::Mutex<std::collections::HashMap<String, String>>,
     /// Recoverable-failure ladder (issue #4463): transient failures (timeouts,
     /// connection resets, rate limits, 5xx) are routed here instead of the crate
     /// tracker so they get the legacy extended headroom
@@ -91,8 +97,10 @@ impl RepeatedToolFailureMiddleware {
             handle,
             halt_summary,
             tracker: NoProgressTracker::new(identical_threshold),
+            classified: ClassifiedFailureTracker::default(),
             step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
+            target_scopes: std::sync::Mutex::new(std::collections::HashMap::new()),
             recoverable_sig_counts: std::sync::Mutex::new(std::collections::HashMap::new()),
             recoverable_consecutive: AtomicU32::new(0),
         }
@@ -195,6 +203,111 @@ fn args_fingerprint(arguments: &serde_json::Value) -> String {
     format!("{:x}", hasher.finish())
 }
 
+/// Stable resource identity supplied by the call, excluding free-form queries,
+/// prompts, credentials, and URL query parameters. An absent target remains
+/// scoped to the operation, never to the changing argument fingerprint.
+pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String {
+    let mut scope = tool.to_owned();
+    for field in [
+        "account_id",
+        "workspace_id",
+        "app",
+        "window_id",
+        "resource",
+        "endpoint",
+        "url",
+    ] {
+        let value = match arguments.get(field) {
+            Some(serde_json::Value::String(value)) if !value.is_empty() => value.clone(),
+            Some(serde_json::Value::Number(value)) => value.to_string(),
+            _ => continue,
+        };
+        scope.push(':');
+        scope.push_str(field);
+        scope.push('=');
+        scope.push_str(&crate::util::truncate_with_ellipsis(
+            value.split('?').next().unwrap_or(&value),
+            120,
+        ));
+    }
+    scope
+}
+
+/// Explicit recovery policy. Only recognised failures enter the classified
+/// ledger; unknown prose continues through the established exact-repeat guard.
+pub(super) fn recovery_policy(
+    tool: &str,
+    error: &str,
+    body_level_failure: bool,
+) -> Option<(&'static str, usize)> {
+    use crate::tools::status::ToolFailureClass as Class;
+    if body_level_failure {
+        return Some(("validation", 1));
+    }
+    // A tool-owned JSON error contract is less ambiguous than rendered prose.
+    // Read only explicit status/code fields; arbitrary response data is not a
+    // failure signal (this function is called only for `is_error` results).
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(error) {
+        let status = value
+            .get("status_code")
+            .or_else(|| value.get("status"))
+            .or_else(|| value.pointer("/error/status_code"))
+            .and_then(serde_json::Value::as_u64);
+        match status {
+            Some(401) => return Some(("authentication", 0)),
+            Some(403) => return Some(("permission", 0)),
+            Some(400 | 422) => return Some(("validation", 1)),
+            Some(429 | 500 | 502 | 503 | 504) => return Some(("transient", 2)),
+            _ => {}
+        }
+        let code = value
+            .get("code")
+            .or_else(|| value.pointer("/error/code"))
+            .and_then(serde_json::Value::as_str);
+        match code {
+            Some("PERMISSION_DENIED") => return Some(("permission", 0)),
+            Some("UNAUTHENTICATED") => return Some(("authentication", 0)),
+            Some("INVALID_ARGUMENT") => return Some(("validation", 1)),
+            Some("WINDOW_NOT_FOUND") => return Some(("missing_window", 1)),
+            Some("APP_NOT_FOUND") => return Some(("missing_app", 1)),
+            Some("UNIMPLEMENTED") => return Some(("unsupported", 0)),
+            Some("UNAVAILABLE" | "RESOURCE_EXHAUSTED") => return Some(("transient", 2)),
+            _ => {}
+        }
+    }
+    let class = crate::tools::status::classify(error, false).class;
+    Some(match class {
+        Class::MissingPermission => ("permission", 0),
+        Class::BadCredentials => ("authentication", 0),
+        Class::BlockedByPolicy | Class::Denied | Class::ApprovalExpired => ("policy", 0),
+        Class::Unsupported | Class::MissingApp => ("unsupported", 0),
+        Class::NotFound
+            if tool.contains("desktop") && error.to_ascii_lowercase().contains("window") =>
+        {
+            ("missing_window", 1)
+        }
+        Class::NotFound => ("not_found", 1),
+        Class::ServiceUnavailable | Class::ModelConnection => ("transient", 2),
+        Class::Timeout
+            if matches!(
+                tool,
+                "web_search" | "web_fetch" | "file_read" | "list_files" | "desktop_list_windows"
+            ) =>
+        {
+            ("transient", 2)
+        }
+        Class::Timeout => ("uncertain_side_effect", 0),
+        Class::Unknown if is_recoverable_tool_failure(error) => ("transient", 2),
+        Class::Unknown
+            if error.to_ascii_lowercase().contains("schema validation")
+                || error.to_ascii_lowercase().contains("invalid arguments") =>
+        {
+            ("validation", 1)
+        }
+        Class::Unknown => return None,
+    })
+}
+
 /// Detect a **body-level** failure from `validate_workflow` / `dry_run_workflow`
 /// (issue: flows breaker doesn't see repeated invalid-graph loops). Both tools
 /// report an invalid graph / aborted sandbox run via `ToolResult::success` with
@@ -239,6 +352,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         if let Ok(mut sigs) = self.arg_sigs.lock() {
             sigs.insert(call.id.clone(), args_fingerprint(&call.arguments));
         }
+        if let Ok(mut scopes) = self.target_scopes.lock() {
+            scopes.insert(call.id.clone(), failure_scope(&call.name, &call.arguments));
+        }
         Ok(())
     }
 
@@ -257,6 +373,12 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             .ok()
             .and_then(|mut sigs| sigs.remove(&invocation.call_id().to_string()))
             .unwrap_or_default();
+        let scope = self
+            .target_scopes
+            .lock()
+            .ok()
+            .and_then(|mut scopes| scopes.remove(&invocation.call_id().to_string()))
+            .unwrap_or_else(|| tool_name.to_owned());
         let step = self.step.fetch_add(1, Ordering::SeqCst) + 1;
 
         // Body-level failure signal: `validate_workflow` / `dry_run_workflow`
@@ -274,6 +396,64 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             false if body_level_failure => content.clone(),
             false => String::new(),
         };
+
+        if !result.is_error && !body_level_failure {
+            // Only a successful observation against this operation and scope
+            // demonstrates that its blocker changed. Unrelated successes do not.
+            for class in [
+                "permission",
+                "authentication",
+                "policy",
+                "unsupported",
+                "missing_window",
+                "missing_app",
+                "not_found",
+                "transient",
+                "uncertain_side_effect",
+                "validation",
+            ] {
+                self.classified
+                    .clear(&ClassifiedFailure::new(class, tool_name, &scope));
+            }
+        } else if !is_repeat_call_exempt(tool_name) {
+            if let Some((class, budget)) =
+                recovery_policy(tool_name, &failure_text, body_level_failure)
+            {
+                let key = ClassifiedFailure::new(class, tool_name, &scope);
+                if let NoProgress::Halt(mut summary) = self.classified.record(&key, budget) {
+                    tracing::warn!(
+                        tool = tool_name,
+                        class,
+                        budget,
+                        "[tinyagents::mw] classified failure budget exhausted"
+                    );
+                    if class == "uncertain_side_effect" {
+                        summary.push_str(" The action may already have happened; reconcile its external state before any retry.");
+                    }
+                    if let Ok(mut slot) = self.halt_summary.lock() {
+                        *slot = Some(summary);
+                    }
+                    self.handle.send(SteeringCommand::Pause);
+                    self.tracker.reset();
+                    return Ok(());
+                }
+                if matches!(class, "missing_window" | "missing_app" | "validation") {
+                    let instruction = if class == "validation" {
+                        "The last call failed validation. Correct its schema or arguments once before trying again."
+                    } else {
+                        "The desktop target was not found. Rediscover the current app and window once before trying again."
+                    };
+                    self.handle
+                        .send(SteeringCommand::InjectMessage(TaMessage::system(
+                            instruction,
+                        )));
+                }
+                // The classified budget owns this known blocker. In particular,
+                // a different query must not reset its count or trigger a
+                // competing exact-repeat nudge.
+                return Ok(());
+            }
+        }
 
         // ── Part 5 (#3104): terminal delegated-inference fast-halt ──────────────
         // A permanent inference failure (out of budget / provider-config rejection)
