@@ -951,12 +951,13 @@ async fn read_sse_event_by_type(events_url: &str, target_event: &str) -> Value {
 /// This prevents tests from timing out blindly when the turn actually
 /// completed with `chat_error` rather than `chat_done`.
 async fn read_terminal_web_chat_event(events_url: &str) -> Value {
-    read_terminal_web_chat_event_with_ready(events_url, None).await
+    read_terminal_web_chat_event_with_ready(events_url, None, None).await
 }
 
 async fn read_terminal_web_chat_event_with_ready(
     events_url: &str,
     ready: Option<tokio::sync::oneshot::Sender<()>>,
+    expected_request: Option<tokio::sync::oneshot::Receiver<String>>,
 ) -> Value {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(120))
@@ -977,6 +978,10 @@ async fn read_terminal_web_chat_event_with_ready(
     if let Some(ready) = ready {
         let _ = ready.send(());
     }
+    let expected_request_id = match expected_request {
+        Some(receiver) => Some(receiver.await.expect("accepted request id should be sent")),
+        None => None,
+    };
 
     let mut stream = resp.bytes_stream();
     let mut buffer = String::new();
@@ -998,7 +1003,13 @@ async fn read_terminal_web_chat_event_with_ready(
                 let value: Value = serde_json::from_str(&payload)
                     .unwrap_or_else(|e| panic!("invalid sse data json: {e}"));
                 match value.get("event").and_then(Value::as_str) {
-                    Some("chat_done") | Some("chat_error") => return value,
+                    Some("chat_done") | Some("chat_error")
+                        if expected_request_id.as_deref().is_none_or(|id| {
+                            value.get("request_id").and_then(Value::as_str) == Some(id)
+                        }) =>
+                    {
+                        return value;
+                    }
                     _ => {}
                 }
             }
@@ -1007,17 +1018,39 @@ async fn read_terminal_web_chat_event_with_ready(
     panic!("SSE stream ended before receiving terminal web-chat event");
 }
 
-async fn spawn_ready_terminal_web_chat_event(events_url: &str) -> tokio::task::JoinHandle<Value> {
+async fn spawn_ready_terminal_web_chat_event_for_request(
+    events_url: &str,
+) -> (
+    tokio::task::JoinHandle<Value>,
+    tokio::sync::oneshot::Sender<String>,
+) {
+    // The previous turn can emit a late cancellation on the same client SSE
+    // stream. Subscribe before submitting, then match only the accepted turn.
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+    let (request_tx, request_rx) = tokio::sync::oneshot::channel();
     let events_url = events_url.to_owned();
     let task = tokio::spawn(async move {
-        read_terminal_web_chat_event_with_ready(&events_url, Some(ready_tx)).await
+        read_terminal_web_chat_event_with_ready(&events_url, Some(ready_tx), Some(request_rx)).await
     });
     tokio::time::timeout(Duration::from_secs(5), ready_rx)
         .await
         .expect("SSE subscription should become ready")
         .expect("SSE reader should signal readiness");
-    task
+    (task, request_tx)
+}
+
+fn signal_accepted_web_chat_request_id(
+    sender: tokio::sync::oneshot::Sender<String>,
+    accepted: &Value,
+) {
+    let request_id = accepted
+        .get("result")
+        .and_then(|result| result.get("request_id"))
+        .and_then(Value::as_str)
+        .expect("accepted web chat request_id");
+    sender
+        .send(request_id.to_owned())
+        .expect("SSE reader should receive request_id");
 }
 
 async fn wait_for_chat_completion_requests_len(expected_len: usize) -> Vec<Value> {
@@ -4518,8 +4551,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     let client_id = "custom-provider-client";
     let thread_id = "custom-provider-thread";
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
-    let sse_task =
-        tokio::spawn(async move { read_sse_event_by_type(&events_url, "chat_done").await });
+    let (sse_task, request_tx) = spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
 
     let accepted = post_json_rpc(
         &rpc_base,
@@ -4539,6 +4571,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
             .and_then(|v| v.get("accepted")),
         Some(&json!(true))
     );
+    signal_accepted_web_chat_request_id(request_tx, accepted_result);
     let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
         .await
         .expect("timed out waiting for first custom-provider chat_done")
@@ -4546,22 +4579,28 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     assert_eq!(
         sse_event.get("event").and_then(Value::as_str),
         Some("chat_done"),
-        "unexpected first custom-provider terminal event: {sse_event}; requests={:?}",
-        with_chat_completion_requests(|requests| requests.clone())
+        "unexpected first custom-provider terminal event: {sse_event}; request count={}",
+        with_chat_completion_requests(|requests| requests.len())
     );
 
     let requests = wait_for_chat_completion_requests_len(1).await;
     let custom_request = requests
         .iter()
         .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-4.1-mini"))
-        .unwrap_or_else(|| panic!("expected gpt-4.1-mini outbound provider call: {requests:?}"));
+        .unwrap_or_else(|| {
+            panic!(
+                "expected gpt-4.1-mini among {} provider calls",
+                requests.len()
+            )
+        });
     assert_eq!(
         custom_request.get("path").and_then(Value::as_str),
         Some("/chat/completions")
     );
-    assert_eq!(
-        custom_request.get("authorization").and_then(Value::as_str),
-        Some("Bearer sk-custom-openai-key")
+    assert!(
+        custom_request.get("authorization").and_then(Value::as_str)
+            == Some("Bearer sk-custom-openai-key"),
+        "custom provider call must use its stored credential"
     );
 
     let update_again = post_json_rpc(
@@ -4576,7 +4615,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     assert_no_jsonrpc_error(&update_again, "update_model_settings second");
 
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
-    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+    let (sse_task, request_tx) = spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
 
     let accepted = post_json_rpc(
         &rpc_base,
@@ -4596,6 +4635,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
             .and_then(|v| v.get("accepted")),
         Some(&json!(true))
     );
+    signal_accepted_web_chat_request_id(request_tx, accepted_result);
     let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
         .await
         .expect("timed out waiting for second custom-provider chat_done")
@@ -4603,8 +4643,8 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     assert_eq!(
         sse_event.get("event").and_then(Value::as_str),
         Some("chat_done"),
-        "unexpected second custom-provider terminal event: {sse_event}; requests={:?}",
-        with_chat_completion_requests(|requests| requests.clone())
+        "unexpected second custom-provider terminal event: {sse_event}; request count={}",
+        with_chat_completion_requests(|requests| requests.len())
     );
 
     let requests = wait_for_chat_completion_requests_len(2).await;
@@ -4612,20 +4652,24 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
         .iter()
         .find(|request| request.get("model").and_then(Value::as_str) == Some("gpt-4.1-nano"))
         .unwrap_or_else(|| {
-            panic!("expected gpt-4.1-nano outbound provider call after route change: {requests:?}")
+            panic!(
+                "expected gpt-4.1-nano among {} provider calls",
+                requests.len()
+            )
         });
     assert_eq!(
         updated_request.get("model").and_then(Value::as_str),
         Some("gpt-4.1-nano"),
         "cached web-chat session should rebuild when chat_provider changes"
     );
-    assert_eq!(
-        updated_request.get("authorization").and_then(Value::as_str),
-        Some("Bearer sk-custom-openai-key")
+    assert!(
+        updated_request.get("authorization").and_then(Value::as_str)
+            == Some("Bearer sk-custom-openai-key"),
+        "updated provider call must use its stored credential"
     );
 
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
-    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+    let (sse_task, request_tx) = spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
 
     let accepted = post_json_rpc(
         &rpc_base,
@@ -4647,6 +4691,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
             .and_then(|v| v.get("accepted")),
         Some(&json!(true))
     );
+    signal_accepted_web_chat_request_id(request_tx, accepted_result);
     let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
         .await
         .expect("timed out waiting for unaffected agentic chat_done")
@@ -4654,8 +4699,8 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
     assert_eq!(
         sse_event.get("event").and_then(Value::as_str),
         Some("chat_done"),
-        "unexpected unaffected-agentic terminal event: {sse_event}; requests={:?}",
-        with_chat_completion_requests(|requests| requests.clone())
+        "unexpected unaffected-agentic terminal event: {sse_event}; request count={}",
+        with_chat_completion_requests(|requests| requests.len())
     );
 
     let agentic_request = wait_for_chat_completion_request_with_message(
@@ -14530,7 +14575,8 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn_inner() {
 
     // --- Turn 1: a normal web-channel turn against the mock upstream, for
     // the same content just appended above. ---
-    let sse_task_1 = spawn_ready_terminal_web_chat_event(&events_url).await;
+    let (sse_task_1, request_tx) =
+        spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
     let turn1 = post_json_rpc(
         &rpc_base,
         9601,
@@ -14543,7 +14589,8 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn_inner() {
         }),
     )
     .await;
-    assert_no_jsonrpc_error(&turn1, "channel_web_chat turn1");
+    let turn1_result = assert_no_jsonrpc_error(&turn1, "channel_web_chat turn1");
+    signal_accepted_web_chat_request_id(request_tx, turn1_result);
     let sse_event_1 = sse_task_1.await.expect("sse task 1 join should succeed");
     assert_eq!(
         sse_event_1.get("event").and_then(Value::as_str),
@@ -14577,7 +14624,8 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn_inner() {
     // --- Edit the user message: cancels (no-op, turn1 already finished),
     // forks the transcript before turn1's user prompt, truncates the message
     // log from `user_message_id` onward, and restarts with new content. ---
-    let sse_task_2 = spawn_ready_terminal_web_chat_event(&events_url).await;
+    let (sse_task_2, request_tx) =
+        spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
     let edit = post_json_rpc(
         &rpc_base,
         9604,
@@ -14600,6 +14648,9 @@ async fn json_rpc_threads_edit_message_truncates_and_restarts_turn_inner() {
         !new_request_id.is_empty(),
         "edit_message must return a non-empty request_id: {edit_outer}"
     );
+    request_tx
+        .send(new_request_id.to_owned())
+        .expect("SSE reader should receive edited turn request_id");
 
     let sse_event_2 = sse_task_2.await.expect("sse task 2 join should succeed");
     assert_eq!(
@@ -14706,7 +14757,8 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn_inner() {
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
 
     // --- Turn 1: a normal web-channel turn against the mock upstream. ---
-    let sse_task_1 = spawn_ready_terminal_web_chat_event(&events_url).await;
+    let (sse_task_1, request_tx) =
+        spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
     let turn1 = post_json_rpc(
         &rpc_base,
         9701,
@@ -14728,6 +14780,7 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn_inner() {
             panic!("expected request_id in channel_web_chat response: {turn1_result}")
         })
         .to_string();
+    signal_accepted_web_chat_request_id(request_tx, turn1_result);
     let sse_event_1 = sse_task_1.await.expect("sse task 1 join should succeed");
     assert_eq!(
         sse_event_1.get("event").and_then(Value::as_str),
@@ -14761,7 +14814,8 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn_inner() {
     let before_count = before_messages.len();
 
     // --- Regenerate the last turn: no message_id, so it redoes turn1. ---
-    let sse_task_2 = spawn_ready_terminal_web_chat_event(&events_url).await;
+    let (sse_task_2, request_tx) =
+        spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
     let regen = post_json_rpc(
         &rpc_base,
         9703,
@@ -14786,6 +14840,9 @@ async fn json_rpc_threads_regenerate_truncates_and_restarts_turn_inner() {
         new_request_id, turn1_request_id,
         "regenerate must restart under a fresh request_id"
     );
+    request_tx
+        .send(new_request_id.to_owned())
+        .expect("SSE reader should receive regenerated turn request_id");
 
     let sse_event_2 = sse_task_2.await.expect("sse task 2 join should succeed");
     assert_eq!(
