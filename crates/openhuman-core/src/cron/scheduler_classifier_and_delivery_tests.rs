@@ -141,7 +141,8 @@ fn agent_error_to_user_message_does_not_infer_credits_from_empty_response() {
     let err = AgentError::EmptyProviderResponse { iteration: 1 };
     let msg = agent_error_to_user_message(&err);
     assert!(
-        !msg.to_ascii_lowercase().contains("credit") && !msg.contains("Billing"),
+        !msg.to_ascii_lowercase().contains("credit")
+            && !msg.to_ascii_lowercase().contains("billing"),
         "must not infer credit exhaustion from an empty completion: {msg}"
     );
     assert!(

@@ -10,7 +10,7 @@ fn classify_inference_error_empty_response_does_not_claim_credit_exhaustion() {
     assert_eq!(classified.error_type, "empty_response");
     assert!(
         !classified.message.to_ascii_lowercase().contains("credit")
-            && !classified.message.contains("Billing"),
+            && !classified.message.to_ascii_lowercase().contains("billing"),
         "must not infer credit exhaustion from an empty completion: {}",
         classified.message
     );
