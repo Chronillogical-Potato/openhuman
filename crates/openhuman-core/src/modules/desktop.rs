@@ -120,6 +120,16 @@ async fn call_with_proxy<Request: Serialize + Send>(
     member: &str,
     request: Request,
 ) -> Result<DesktopResponse, String> {
+    // RunGoal enforces its own shorter elapsed-time budget (at most five
+    // minutes). Keep the bus deadline beyond that budget so the caller gets a
+    // structured stop and partial execution evidence instead of a transport
+    // timeout after TinyBus's default 30 seconds.
+    let goal_proxy = (member == names::methods::RUN_GOAL).then(|| {
+        proxy
+            .clone()
+            .with_timeout(std::time::Duration::from_secs(330))
+    });
+    let proxy = goal_proxy.as_ref().unwrap_or(proxy);
     let response = if member == names::methods::RUN_GOAL || member == names::methods::RESOLVE_INTENT
     {
         proxy

@@ -1,5 +1,4 @@
 use super::*;
-use tinydesktop_bus::DesktopError;
 
 #[test]
 fn desktop_arguments_reject_missing_or_blank_required_values() {
@@ -56,14 +55,42 @@ fn raw_ref_action_requires_a_snapshot_ref_and_declares_a_write_effect() {
 }
 
 #[test]
+fn snapshot_can_bind_the_window_listed_by_desktop() {
+    let tool = DesktopTool::new(Arc::new(Config::default()), DesktopToolKind::Snapshot);
+    assert_eq!(tool.exposure(), ToolExposure::Deferred);
+    assert!(tool.parameters_schema()["properties"]
+        .get("window_id")
+        .is_some());
+    let request = snapshot_request(&json!({"app":"TextEdit","window_id":"w-515619"})).unwrap();
+    assert_eq!(request.app.as_deref(), Some("TextEdit"));
+    assert_eq!(request.window_id.as_deref(), Some("w-515619"));
+    assert!(snapshot_request(&json!({"window_id":"  "})).is_err());
+}
+
+#[test]
 fn goal_and_continuation_have_distinct_required_inputs() {
     let config = Arc::new(Config::default());
     let goal = DesktopTool::new(config.clone(), DesktopToolKind::Goal);
     let continuation = DesktopTool::new(config, DesktopToolKind::ContinueGoal);
-    assert_eq!(goal.parameters_schema()["required"], json!(["app", "goal"]));
+    assert_eq!(
+        goal.parameters_schema()["required"],
+        json!([
+            "app",
+            "goal",
+            "allowed_operations",
+            "allowed_targets",
+            "success"
+        ])
+    );
     assert!(goal.parameters_schema()["properties"]
         .get("confirmation_id")
         .is_none());
+    assert!(
+        !goal.parameters_schema()["properties"]["success"]["items"]["properties"]["kind"]["enum"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("name_absent"))
+    );
     assert_eq!(
         continuation.parameters_schema()["required"],
         json!(["confirmation_id"])
@@ -74,159 +101,80 @@ fn goal_and_continuation_have_distinct_required_inputs() {
     assert!(super::super::confirmation::take_approved("unknown", Some("thread-a")).is_err());
 }
 
-#[tokio::test]
-async fn approvals_off_continues_one_use_handle_and_reports_module_result() {
-    assert!(!Config::default().desktop.approvals_enabled);
-    let called = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let observed = Arc::clone(&called);
-    let initial = DesktopResponse::ok(
-        "run-goal",
-        json!({
-            "stop":"confirmation_required", "confirmation_id":"once"
-        }),
+#[test]
+fn goal_request_carries_scoped_task_and_disables_confirmations() {
+    let args = json!({
+        "app":"TextEdit", "window":"Untitled", "window_id":"w-515619",
+        "goal":"Enter a disposable marker",
+        "allowed_operations":["TYPE_TEXT"], "allowed_targets":["Text Entry Area"],
+        "text_slots":{"Text Entry Area":"desktop-test-42"},
+        "success":[{"kind":"value_equals","name":"Text Entry Area","value":"desktop-test-42"}],
+        "max_steps":3, "max_model_calls":5, "max_elapsed_ms":20_000
+    });
+    let request = goal_request(&args, false).unwrap();
+    assert_eq!(request["require_confirmations"], false);
+    assert_eq!(request["window"], "Untitled");
+    assert_eq!(request["window_id"], "w-515619");
+    let goal = DesktopTool::new(Arc::new(Config::default()), DesktopToolKind::Goal);
+    assert!(goal.parameters_schema()["properties"]
+        .get("window_id")
+        .is_some());
+    assert_eq!(request["allowed_operations"], json!(["TYPE_TEXT"]));
+    assert_eq!(request["allowed_targets"], json!(["Text Entry Area"]));
+    assert_eq!(request["text_slots"]["Text Entry Area"], "desktop-test-42");
+    assert_eq!(request["success"], args["success"]);
+    assert_eq!(request["max_elapsed_ms"], 20_000);
+    assert!(request["continuation"].is_null());
+    assert_eq!(
+        goal_request(&args, true).unwrap()["require_confirmations"],
+        true
     );
-    let result = advance_goal_confirmations(initial, false, move |id, approve| {
-        let observed = Arc::clone(&observed);
-        async move {
-            assert_eq!(id, "once");
-            assert!(approve);
-            observed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Ok(DesktopResponse::ok(
-                "run-goal",
-                json!({
-                    "stop":"stale_target", "turns":[], "metrics":{"calls":1}
-                }),
-            ))
-        }
-    })
-    .await
-    .unwrap();
-    assert_eq!(called.load(std::sync::atomic::Ordering::SeqCst), 1);
-    assert_eq!(result.data.unwrap()["stop"], "stale_target");
+    assert!(goal_request(&json!({"app":"TextEdit","goal":"type"}), false).is_err());
+    let without_targets = json!({"app":"TextEdit","goal":"type", "allowed_operations":["TYPE_TEXT"],
+        "success":[{"kind":"name_present","name":"Text Entry Area"}]});
+    assert!(goal_request(&without_targets, false)
+        .unwrap_err()
+        .to_string()
+        .contains("needs_inspection"));
+    let mut blank_target = without_targets.clone();
+    blank_target["allowed_targets"] = json!(["  "]);
+    assert!(goal_request(&blank_target, false).is_err());
+    let mut blank_window = args.clone();
+    blank_window["window_id"] = json!("  ");
+    assert!(goal_request(&blank_window, false).is_err());
+    let malformed = json!({"app":"TextEdit","goal":"type", "allowed_operations":["TYPE_TEXT"],
+        "allowed_targets":["Text Entry Area"],
+        "success":[{"kind":"value_contains","name":"Text Entry Area"}]});
+    assert!(goal_request(&malformed, false).is_err());
+    for predicate in [
+        json!({"kind":"name_absent","name":"Play"}),
+        json!({"kind":"name_present","name":"  "}),
+        json!({"kind":"value_contains","name":"Text Entry Area","value":""}),
+        json!({"kind":"value_equals","name":"","value":"marker"}),
+        json!({"kind":"state_contains","name":"Play","state":" "}),
+    ] {
+        let mut request = args.clone();
+        request["success"] = json!([predicate]);
+        assert!(goal_request(&request, false).is_err());
+    }
+    let mut cleared = args.clone();
+    cleared["success"] = json!([{"kind":"value_equals","name":"Text Entry Area","value":""}]);
+    assert!(goal_request(&cleared, false).is_ok());
 }
 
-#[tokio::test]
-async fn approvals_on_returns_pending_without_self_approval() {
-    let initial = DesktopResponse::ok(
-        "run-goal",
-        json!({
-            "stop":"confirmation_required", "confirmation_id":"once"
-        }),
+#[test]
+fn goal_timeout_outlives_the_module_loop_budget() {
+    let goal = DesktopTool::new(Arc::new(Config::default()), DesktopToolKind::Goal);
+    assert_eq!(
+        goal.timeout_policy(&json!({})),
+        ToolTimeout::Millis(150_000)
     );
-    let result = advance_goal_confirmations(initial, true, |_id, _approve| async {
-        panic!("manual approval mode must never auto-continue")
-    })
-    .await
-    .unwrap();
-    assert_eq!(result.data.unwrap()["confirmation_id"], "once");
-}
-
-#[tokio::test]
-async fn a_missing_confirmation_handle_never_triggers_an_action() {
-    let malformed = DesktopResponse::ok("run-goal", json!({"stop":"confirmation_required"}));
-    let error = advance_goal_confirmations(malformed, false, |_id, _approve| async {
-        panic!("a missing handle must not reach the desktop module")
-    })
-    .await
-    .unwrap_err();
-    assert!(error.contains("without a continuation handle"));
-
-    let failure = DesktopResponse::err("run-goal", DesktopError::new("PERM_DENIED", "denied"));
-    let returned = advance_goal_confirmations(failure.clone(), false, |_id, _approve| async {
-        panic!("a failed goal must not be continued")
-    })
-    .await
-    .unwrap();
-    assert_eq!(returned, failure);
-}
-
-#[tokio::test]
-async fn continuation_ceiling_returns_cancelled_result_with_all_executed_turns() {
-    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let seen = Arc::clone(&calls);
-    let initial = DesktopResponse::ok(
-        "run-goal",
-        json!({
-            "stop":"confirmation_required", "confirmation_id":"id-0", "turns":[]
-        }),
+    assert_eq!(
+        goal.timeout_policy(&json!({"max_elapsed_ms":300_000})),
+        ToolTimeout::Millis(330_000)
     );
-    let result = advance_goal_confirmations(initial, false, move |id, approve| {
-        let seen = Arc::clone(&seen);
-        async move {
-            let index = seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            assert_eq!(id, format!("id-{index}"));
-            if approve {
-                Ok(DesktopResponse::ok(
-                    "run-goal",
-                    json!({
-                        "stop":"confirmation_required",
-                        "confirmation_id":format!("id-{}", index + 1),
-                        "turns":vec![Value::Null; index + 1],
-                        "metrics":{"calls":index + 1}
-                    }),
-                ))
-            } else {
-                assert_eq!(index, 8);
-                Ok(DesktopResponse::ok(
-                    "run-goal",
-                    json!({
-                        "stop":"cancelled", "turns":vec![Value::Null; 8],
-                        "metrics":{"calls":8}
-                    }),
-                ))
-            }
-        }
-    })
-    .await
-    .unwrap();
-    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 9);
-    let data = result.data.unwrap();
-    assert_eq!(data["stop"], "cancelled");
-    assert_eq!(data["turns"].as_array().unwrap().len(), 8);
-    assert_eq!(data["metrics"]["calls"], 8);
-}
-
-#[tokio::test]
-async fn continuation_ceiling_reports_uncertain_cancellation_delivery() {
-    let initial = DesktopResponse::ok(
-        "run-goal",
-        json!({"stop":"confirmation_required", "confirmation_id":"once", "turns":[]}),
+    assert_eq!(
+        goal.timeout_policy(&json!({"max_elapsed_ms":999_999})),
+        ToolTimeout::Millis(330_000)
     );
-    let result = advance_goal_confirmations(initial, false, |_id, approve| async move {
-        if approve {
-            Ok(DesktopResponse::ok(
-                "run-goal",
-                json!({"stop":"confirmation_required", "confirmation_id":"once", "turns":[null]}),
-            ))
-        } else {
-            Err("connection lost".to_owned())
-        }
-    })
-    .await;
-    let error = result.unwrap_err();
-    assert!(error.contains("continuation limit"));
-    assert!(error.contains("cancellation delivery is uncertain: connection lost"));
-}
-
-#[tokio::test]
-async fn continuation_ceiling_rejects_a_module_that_refuses_cancellation() {
-    let initial = DesktopResponse::ok(
-        "run-goal",
-        json!({"stop":"confirmation_required", "confirmation_id":"once"}),
-    );
-    let result = advance_goal_confirmations(initial, false, |_id, approve| async move {
-        if approve {
-            Ok(DesktopResponse::ok(
-                "run-goal",
-                json!({"stop":"confirmation_required", "confirmation_id":"once"}),
-            ))
-        } else {
-            Ok(DesktopResponse::err(
-                "run-goal",
-                DesktopError::new("CANCEL_FAILED", "not cancelled"),
-            ))
-        }
-    })
-    .await;
-    assert!(result.unwrap_err().contains("module refused cancellation"));
 }

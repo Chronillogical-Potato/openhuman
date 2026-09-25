@@ -2,20 +2,21 @@
 /**
  * Opt-in core-only desktop smoke test against an already-running local core.
  *
- * Prepare a disposable TextEdit document first for the textedit scenario. Set
- * `[agent] tool_dispatcher = "native"` in the isolated config for an OpenRouter
- * model that supports structured tool calls. Start the core with an
- * isolated OPENHUMAN_WORKSPACE, an operator-supplied OPENHUMAN_CORE_TOKEN (so it
- * writes no core.token file), and OPENROUTER_API_KEY when no TinyHumans session
- * is present. Then run:
+ * Prepare the disposable TextEdit document `desktop-e2e-noapproval.txt` first
+ * for the textedit scenario. Use native tool dispatch for an OpenRouter model
+ * that supports structured tool calls. Point --workspace at the running core's
+ * actual workspace; a live signed-in profile works without changing its auth.
+ * Supply the core bearer in OPENHUMAN_CORE_TOKEN and, if needed, a live
+ * OPENROUTER_API_KEY. Then run:
  *
  *   node scripts/debug/desktop-live.mjs --live --workspace "$OPENHUMAN_WORKSPACE" \
  *     --model 'openai/gpt-4.1-mini' --rpc-url http://127.0.0.1:7788/rpc
  *
  * The script prints only method names and counts. It never prints a prompt,
  * transcript body, credential, accessibility value, or the random test marker.
- * It makes three bounded orchestrator turns: discover/list apps, type into the
- * disposable document through Jev, and read the value back through accessibility.
+ * The Calculator scenario makes one orchestrator turn and requires the goal
+ * to complete multiple actions through one Jev call. The other scenarios make
+ * bounded discovery, goal, and independent-readback turns.
  * Clean up the disposable document after the run.
  */
 
@@ -57,7 +58,9 @@ const openRouterKey = process.env.OPENROUTER_API_KEY;
 const approveDisposable = process.argv.includes('--approve-disposable');
 const localOfflineSession = process.argv.includes('--local-offline-session');
 const scenario = option('--scenario', 'textedit');
-if (!['textedit', 'spotify', 'spotify_pause'].includes(scenario)) fail('--scenario must be textedit, spotify, or spotify_pause');
+if (!['textedit', 'spotify', 'spotify_pause', 'calculator'].includes(scenario)) {
+  fail('--scenario must be textedit, spotify, spotify_pause, or calculator');
+}
 if (!workspace || !model || !token) {
   fail('Set --workspace, --model, and OPENHUMAN_CORE_TOKEN.');
 }
@@ -189,7 +192,43 @@ console.log(`desktop: module=${status.module_state}, accessibility=${status.acce
 if (!status.jev_ready) fail('No Jev credential is available to the core.');
 if (status.approvals_enabled !== false) fail('Live no-prompt run requires desktop approvals disabled.');
 
-const appName = scenario === 'textedit' ? 'TextEdit' : 'Spotify';
+const appName = scenario === 'textedit' ? 'TextEdit' : scenario === 'calculator' ? 'Calculator' : 'Spotify';
+if (scenario === 'calculator') {
+  const transcript = await turn('single-turn',
+    'In the native Calculator app, compute 12 + 34 and verify that the displayed result is 46. ' +
+    'Use tool_search to discover desktop tools, launch Calculator, and inspect its accessibility snapshot. ' +
+    'Then make exactly one desktop_goal call. Give it a bounded goal, the exact current window scope, ' +
+    'CLICK as the only allowed mutation, exact target labels from the snapshot, and a value_equals or ' +
+    'value_contains success predicate for the result display using its exact accessibility label. ' +
+    'Allow up to 12 actions, 24 Jev decisions and 120 seconds. Do not use desktop_act. ' +
+    'The Jev loop should do the calculator steps itself; do not make another desktop_goal call for each key. ' +
+    'After the goal, read a fresh desktop_snapshot and report whether 46 is visible.');
+  const observedCalls = calls(transcript);
+  if (!observedCalls.includes('tool_search') || !observedCalls.includes('desktop_launch') ||
+      !observedCalls.includes('desktop_goal') || !observedCalls.includes('desktop_snapshot')) {
+    fail(`single-turn: missing desktop discovery, launch, goal or snapshot; saw ${observedCalls.join(', ')}`);
+  }
+  if (observedCalls.filter((name) => name === 'desktop_goal').length !== 1) {
+    fail('single-turn: expected exactly one desktop_goal call');
+  }
+  const goal = toolOutput(transcript, 'desktop_goal');
+  if (goal?.verified !== true || !Array.isArray(goal.turns) || goal.turns.length < 2) {
+    fail(`single-turn: goal did not verify a multi-action result (stop=${goal?.stop ?? 'missing'}, steps=${goal?.turns?.length ?? 0})`);
+  }
+  const snapshot = toolOutput(transcript, 'desktop_snapshot');
+  if (!JSON.stringify(snapshot ?? '').includes('46')) {
+    fail('single-turn: independent Calculator snapshot did not contain result 46');
+  }
+  const pending = await rpc('openhuman.desktop_pending');
+  const generic = await rpc('openhuman.approval_list_pending');
+  const genericRows = Array.isArray(generic) ? generic : generic?.result;
+  if ((Array.isArray(pending) && pending.length > 0) || !Array.isArray(genericRows) || genericRows.length > 0) {
+    fail('single-turn: an approval remained pending');
+  }
+  console.log(`single-turn: one desktop_goal call, ${goal.turns.length} actions, verified result 46, no pending approvals`);
+  console.log('PASS: Calculator task completed through one orchestrator turn and one Jev goal call.');
+  process.exit(0);
+}
 let transcript = await turn('discover',
   `List the running desktop applications on this computer. Discover desktop tools with tool_search first, then call the matching desktop tool. Report only whether ${appName} is running.`);
 let names = calls(transcript);
@@ -204,17 +243,29 @@ names = calls(transcript);
 if (!names.includes('desktop_launch')) fail(`windows: desktop_launch was not called; saw ${names.join(', ')}`);
 if (!names.includes('desktop_list_windows')) fail(`windows: desktop_list_windows was not called; saw ${names.join(', ')}`);
 console.log('windows: desktop_launch -> desktop_list_windows observed');
+const listedWindows = toolOutput(transcript, 'desktop_list_windows');
+const activeWindow = Array.isArray(listedWindows)
+  ? listedWindows.find((window) => window.title === 'desktop-e2e-noapproval.txt' && window.accessible)
+  : null;
+if (scenario === 'textedit' && (!activeWindow?.title || !activeWindow?.id)) {
+  fail('windows: disposable TextEdit test document is not available');
+}
 
 transcript = await turn('goal', scenario !== 'textedit'
-  ? `In the running Spotify desktop app, ${scenario === 'spotify_pause' ? 'pause playback' : 'play the current track if paused'}. Use tool_search to find desktop_goal and run it with max_steps 4 and max_model_calls 8. Verify the player shows a ${scenario === 'spotify_pause' ? 'Play' : 'Pause'} control. Do not change playlists or account settings.`
+  ? `In the running Spotify desktop app, ${scenario === 'spotify_pause' ? 'pause playback' : 'play the current track if paused'}. Use tool_search to find desktop_goal and run it with max_steps 4 and max_model_calls 8. Supply a name_present success predicate for the ${scenario === 'spotify_pause' ? 'Play' : 'Pause'} control using its exact accessibility name. Do not change playlists or account settings.`
   : `In the already open disposable TextEdit document, append this exact marker: ${marker}. ` +
-    'Use tool_search to find desktop_goal. Pass the marker as the first value in its text array, and run the bounded goal with max_steps 4 and max_model_calls 8. Do not save or close the document.');
+    `The just-inspected disposable document is titled ${JSON.stringify(activeWindow.title)} and its editable field has the exact native AX identifier "First Text View". ` +
+    `Use tool_search to find desktop_goal, then call it once with app TextEdit, window ${JSON.stringify(activeWindow.title)}, window_id ${JSON.stringify(activeWindow.id)}, ` +
+    'allowed_operations [TYPE_TEXT], allowed_targets [First Text View], a text_slots entry keyed First Text View ' +
+    'containing the marker, and a value_contains success predicate with name First Text View and value equal to the marker. ' +
+    'Set max_steps 4 and max_model_calls 8. Let the goal tool make its own fresh observation. Do not save or close the document.');
 names = calls(transcript);
 if (!names.includes('desktop_goal')) fail(`goal: desktop_goal was not called; saw ${names.join(', ')}`);
 const goalResult = toolOutput(transcript, 'desktop_goal');
 if (!goalResult || !Array.isArray(goalResult.turns) || goalResult.turns.length < 1) {
   fail('goal: no desktop action was executed; an observed app state alone is insufficient');
 }
+if (goalResult.verified !== true) fail(`goal: result was not independently verified (stop=${goalResult.stop})`);
 console.log(`goal: stop=${goalResult.stop}, executed_steps=${goalResult.turns.length}, jev_calls=${goalResult.metrics?.calls ?? 0}`);
 
 const pending = await rpc('openhuman.desktop_pending');
@@ -244,7 +295,7 @@ if (Array.isArray(pending) && pending.length > 0) {
 const beforeVerify = transcript.length;
 transcript = await turn('verify', scenario !== 'textedit'
   ? `Read the full accessibility snapshot of the Spotify player using desktop_snapshot with skeleton false. Do not change playback. Report whether a ${scenario === 'spotify_pause' ? 'Play' : 'Pause'} control is visible.`
-  : 'Read the full accessibility snapshot of the current TextEdit document using desktop_snapshot with skeleton false. Do not change the document.');
+  : `Read the full accessibility snapshot of TextEdit window_id ${JSON.stringify(activeWindow.id)} using desktop_snapshot with skeleton false. Do not change the document.`);
 const verifyRecords = transcript.slice(beforeVerify);
 names = calls(verifyRecords);
 if (!names.includes('desktop_snapshot')) fail(`verify: desktop_snapshot was not called; saw ${names.join(', ')}`);
