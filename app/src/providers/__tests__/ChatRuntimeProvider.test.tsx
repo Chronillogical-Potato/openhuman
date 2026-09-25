@@ -8,6 +8,7 @@ import { threadApi } from '../../services/api/threadApi';
 import { socketService } from '../../services/socketService';
 import { store } from '../../store';
 import {
+  beginInferenceTurn,
   clearAllChatRuntime,
   findPendingDelegationContext,
   registerParallelRequest,
@@ -1790,6 +1791,41 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       const timeline = store.getState().chatRuntime.toolTimelineByThread['t-err'] ?? [];
       expect(timeline[0]?.status).toBe('error');
       expect(store.getState().chatRuntime.inferenceStatusByThread['t-err']).toBeUndefined();
+    });
+
+    it('keeps a queued follow-up live when the previous turn error arrives late', async () => {
+      const listeners = renderProvider();
+      const threadId = 't-late-error';
+      act(() => {
+        store.dispatch(beginInferenceTurn({ threadId }));
+        store.dispatch(setActiveThread(threadId));
+        listeners.onInferenceStart?.({ thread_id: threadId, request_id: 'new' });
+        store.dispatch(
+          setStreamingAssistantForThread({
+            threadId,
+            streaming: { content: 'new answer', thinking: '', requestId: 'new' },
+          })
+        );
+        listeners.onError?.({
+          thread_id: threadId,
+          request_id: 'old',
+          message: 'Earlier turn failed',
+          error_type: 'inference',
+          round: 0,
+        });
+      });
+
+      const state = store.getState();
+      expect(state.chatRuntime.liveRequestIdByThread[threadId]).toBe('new');
+      expect(state.chatRuntime.inferenceTurnLifecycleByThread[threadId]).toBe('streaming');
+      expect(state.chatRuntime.streamingAssistantByThread[threadId]?.content).toBe('new answer');
+      expect(state.thread.activeThreadIds[threadId]).toBe(true);
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          threadId,
+          expect.objectContaining({ content: 'Earlier turn failed' })
+        )
+      );
     });
 
     it('forwards the server-provided inference error message verbatim', async () => {
