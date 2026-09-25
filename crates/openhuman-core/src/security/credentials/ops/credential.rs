@@ -24,7 +24,9 @@ use crate::security::credentials::{
     api_key, identity, sentry_scope, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
-use super::gated_services::{start_credential_gated_services, stop_credential_gated_services};
+use super::gated_services::{
+    spawn_integrations_cache_warm, start_credential_gated_services, stop_credential_gated_services,
+};
 use super::user_scope::{
     activate_user_scope, deactivate_user_scope, rebind_after_credential_change, reload_config_or,
 };
@@ -186,12 +188,15 @@ pub async fn set_credential(
         let was_authenticated =
             crate::security::credentials::session_support::has_backend_credential(config);
         api_key::store_api_key(config, &resolved.token).map_err(|e| e.to_string())?;
+        crate::integrations::composio::invalidate_connected_integrations_cache();
         // API-key-backed runs must not retain a previous session identity in
         // prompt composition or observability scope.
         identity::clear_current_user();
         sentry_scope::clear();
         if !was_authenticated {
             start_credential_gated_services(config).await;
+        } else {
+            spawn_integrations_cache_warm(config);
         }
         crate::cron::scheduler_gate::set_signed_out(false);
         tracing::info!(
@@ -281,6 +286,7 @@ pub async fn set_credential(
     logs.push(format!("{} credential stored", resolved.kind.as_str()));
 
     if !refresh {
+        crate::integrations::composio::invalidate_connected_integrations_cache();
         if let Err(error) =
             rebind_after_credential_change(&effective_config, "credential installed")
         {
@@ -412,6 +418,7 @@ pub async fn clear_credential(
         removed_api_key =
             api_key::clear_api_key(config).map_err(|e| e.to_string())? || cleared_source_api_key;
         if removed_api_key {
+            crate::integrations::composio::invalidate_connected_integrations_cache();
             logs.push("api key cleared".to_string());
         }
         if !crate::security::credentials::session_support::has_backend_credential(config) {
@@ -430,6 +437,7 @@ pub async fn clear_credential(
                         .and_then(|raw| serde_json::from_str(raw).ok()),
                 );
             }
+            spawn_integrations_cache_warm(config);
         }
     }
 
@@ -471,6 +479,9 @@ async fn clear_session_credential(config: &Config) -> Result<RpcOutcome<bool>, S
     let removed = AuthService::from_config(config)
         .remove_profile(APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
         .map_err(|e| e.to_string())?;
+    if removed {
+        crate::integrations::composio::invalidate_connected_integrations_cache();
+    }
 
     // The core process stays alive on sign-out. Tear down its authenticated
     // Socket.IO transport and the user-pinned workflow bridge so neither can

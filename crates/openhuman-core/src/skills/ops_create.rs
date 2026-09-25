@@ -407,6 +407,7 @@ pub(crate) fn create_workflow_inner(
 
     // Notify live agent sessions so they pick up the new skill in their
     // `## Installed Skills` catalogue (see `OpenHumanSessionHost::refresh_workflows`).
+    crate::skills::ops_discover::invalidate_workflow_metadata_cache();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::WorkflowsChanged {
         reason: "create".to_string(),
     });
