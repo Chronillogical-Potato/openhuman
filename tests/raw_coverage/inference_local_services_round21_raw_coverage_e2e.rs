@@ -86,7 +86,7 @@ async fn local_services_cover_mocked_inference_assets_speech_and_ops_entry_point
     write_stub_script(
         scripts.path(),
         "piper",
-        "#!/bin/sh\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output_file\" ]; then shift; out=\"$1\"; fi\n  shift || true\ndone\ncat >/dev/null\nprintf 'RIFFmock' > \"$out\"\n",
+        "#!/bin/sh\nwhile [ \"$#\" -gt 0 ]; do\n  if [ \"$1\" = \"--output_file\" ]; then shift; out=\"$1\"; fi\n  shift || true\ndone\ninput=''\nwhile IFS= read -r line || [ -n \"$line\" ]; do input=\"${input}${line}\"; done\n[ \"$input\" = 'hello from piper' ] || exit 1\nprintf 'RIFFmock' > \"$out\"\n",
     );
     write_stub_script(scripts.path(), "ollama", "#!/bin/sh\nexit 42\n");
     write_stub_script(scripts.path(), "python", "#!/bin/sh\nexit 42\n");

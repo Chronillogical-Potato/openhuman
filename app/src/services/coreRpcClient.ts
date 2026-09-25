@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri as isTauriRuntime } from '@tauri-apps/api/core';
 import debug from 'debug';
 
 import { dispatchLocalAiMethod } from '../lib/ai/localCoreAiMemory';
@@ -95,6 +95,17 @@ let resolvingShellEndpoint: Promise<{ url: string; token: string } | null> | nul
 
 /** Active transport set by TransportManager for non-local profiles. */
 let _activeTransport: CoreTransport | null = null;
+
+/** Desktop controls in the UI target only the native app's resolved local core. */
+export async function isLocalDesktopHost(): Promise<boolean> {
+  if (!isTauriRuntime() || _activeTransport !== null) return false;
+  try {
+    const host = new URL(await getCoreRpcUrl()).hostname;
+    return host === '127.0.0.1' || host === 'localhost' || host === '[::1]';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Override the active transport used by `callCoreRpc`.

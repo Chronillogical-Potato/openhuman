@@ -36,7 +36,8 @@
  *  - non-shade numeric suffixes (`border-l-2`, `w-12`, `divide-y-0`), because
  *    the shaded pass requires a real Tailwind shade step and the shadeless
  *    pass requires every name segment to begin with a letter;
- *  - prose. The shadeless pass skips `src/lib/i18n/` and test files, where
+ *  - prose. The shadeless pass skips `src/lib/i18n/`, the tool phrase catalogue,
+ *    and test files, where
  *    "text-to-speech", "to-do" and fixture strings like `bg-noise` are English
  *    and test data, not class lists. The shaded pass still scans them.
  */
@@ -349,7 +350,7 @@ function* walk(dir) {
 }
 
 /**
- * Translation catalogues and test fixtures hold English and sample data, not
+ * Translation catalogues, tool phrases, and test fixtures hold English and sample data, not
  * class lists — "text-to-speech", "to-do", `bg-noise`. Only the shadeless pass
  * is loose enough to trip on those, so only it skips them.
  */
@@ -362,6 +363,7 @@ function holdsProseNotClasses(relative) {
 
   return (
     posix.startsWith('src/lib/i18n/') ||
+    posix === 'src/features/conversations/tools/toolPhrases.ts' ||
     posix.includes('/__tests__/') ||
     /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(posix)
   );

@@ -28,13 +28,13 @@ fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
     write_raw(dir.path(), root_stem, thread_id, &root_refs);
     write_raw(
         dir.path(),
-        &format!("{root_stem}__1000050_coder"),
+        &format!("{root_stem}__999950_coder"),
         thread_id,
         &[r#"{"role":"assistant","content":"coder work"}"#],
     );
     write_raw(
         dir.path(),
-        &format!("{root_stem}__2000050_planner"),
+        &format!("{root_stem}__1999950_planner"),
         thread_id,
         &[r#"{"role":"assistant","content":"planner work"}"#],
     );

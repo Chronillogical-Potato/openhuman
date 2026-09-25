@@ -62,10 +62,10 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
         if (!next) onClose();
       }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm duration-200 animate-in fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-surface-overlay/60 backdrop-blur-sm duration-200 animate-in fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-1/2 z-50 w-full max-w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-surface p-0 shadow-2xl duration-200 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 flex flex-col max-h-[85vh] border border-white/5">
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-surface p-0 shadow-2xl duration-200 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 flex flex-col max-h-[85vh] border border-content-inverted/5">
           <div className="relative flex items-center justify-center px-5 py-4 shrink-0">
             <DialogPrimitive.Title className="text-sm font-semibold text-content m-0 p-0">
               {t('mnemonic.saveRecoveryPhrase')}
@@ -112,10 +112,10 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
                   <button
                     type="button"
                     aria-label={t('mnemonic.revealPhrase')}
-                    className="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer bg-black/40 hover:bg-black/30 transition-colors"
+                    className="absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer bg-surface-overlay/40 hover:bg-surface-overlay/30 transition-colors"
                     onClick={() => setRevealed(true)}>
                     <svg
-                      className="w-7 h-7 text-white mb-2"
+                      className="w-7 h-7 text-content-inverted mb-2"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -126,10 +126,10 @@ export default function RevealRecoveryModal({ open, onClose, mnemonic }: RevealR
                         d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
                       />
                     </svg>
-                    <span className="text-[15px] font-semibold text-white mb-1 tracking-tight">
+                    <span className="text-[15px] font-semibold text-content-inverted mb-1 tracking-tight">
                       {t('mnemonic.revealPhrase')}
                     </span>
-                    <span className="text-[12px] font-medium text-white/80">
+                    <span className="text-[12px] font-medium text-content-inverted/80">
                       {t('mnemonic.warning')}
                     </span>
                   </button>

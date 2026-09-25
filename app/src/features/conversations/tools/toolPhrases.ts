@@ -80,6 +80,10 @@ export const TOOL_PHRASES = {
   scrollPage: { active: 'Scrolling', done: 'Scrolled' },
   readPage: { active: 'Reading page', done: 'Read page' },
 
+  // ── Native desktop ───────────────────────────────────────────────────────
+  inspectDesktop: { active: 'Inspecting desktop', done: 'Inspected desktop' },
+  controlDesktop: { active: 'Controlling desktop', done: 'Controlled desktop' },
+
   // ── Media and documents ────────────────────────────────────────────────
   analyzeImage: { active: 'Analyzing image', done: 'Analyzed image' },
   generateImage: { active: 'Generating image', done: 'Generated image' },

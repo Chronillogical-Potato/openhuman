@@ -79,7 +79,7 @@ fn subagent_correlates_by_ledger_parent_call_id_over_the_heuristic() {
     let root_body = vec![
         r#"{"role":"user","content":"do research","request_id":"req-1"}"#.to_string(),
         format!(
-            r#"{{"role":"assistant","content":"","tool_calls":[{{"id":"call-decoy","name":"spawn_async_subagent","arguments":"{{}}"}},{{"id":"call-real","name":"spawn_async_subagent","arguments":"{{}}"}}],"iteration":1,"request_id":"req-1","ts":"{commit_ts}"}}"#
+            r#"{{"role":"assistant","content":"","provider":"test","model":"test","usage":{{"input":1,"output":1,"cached_input":0,"cost_usd":0.0}},"tool_calls":[{{"id":"call-decoy","name":"spawn_async_subagent","arguments":"{{}}"}},{{"id":"call-real","name":"spawn_async_subagent","arguments":"{{}}"}}],"iteration":1,"request_id":"req-1","ts":"{commit_ts}"}}"#
         ),
     ];
     let root_refs: Vec<&str> = root_body.iter().map(String::as_str).collect();

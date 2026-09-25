@@ -122,6 +122,16 @@ Capability {
         privacy: None,
     },
 Capability {
+        id: "settings.desktop_control",
+        name: "Desktop Control",
+        domain: "desktop",
+        category: CapabilityCategory::Settings,
+        description: "Let agents inspect and control native desktop apps through a local, permission-aware connection. Desktop actions are discovered on demand.",
+        how_to: "Connections → Desktop; enable access and grant operating system permissions when requested",
+        status: CapabilityStatus::Beta,
+        privacy: DESKTOP_TO_JEV,
+    },
+Capability {
         id: "settings.persona_pack",
         name: "Choose Assistant Mascot",
         domain: "settings",

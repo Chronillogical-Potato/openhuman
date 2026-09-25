@@ -133,6 +133,9 @@ pub struct Config {
     #[serde(default)]
     pub autonomy: AutonomyConfig,
 
+    #[serde(default)]
+    pub desktop: DesktopConfig,
+
     /// Host-level switches for the configurable hook system. The hooks
     /// themselves live in `hooks.json` files, not here — see
     /// [`HooksConfig`].

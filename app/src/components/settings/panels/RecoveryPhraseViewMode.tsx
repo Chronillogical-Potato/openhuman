@@ -240,7 +240,7 @@ const RecoveryPhraseViewMode = ({
               type="button"
               variant="tertiary"
               size="md"
-              className="w-full bg-surface dark:bg-white/5 border border-line hover:bg-surface-hover dark:hover:bg-white/10 group transition-all duration-200">
+              className="w-full bg-surface dark:bg-content-inverted/5 border border-line hover:bg-surface-hover dark:hover:bg-content-inverted/10 group transition-all duration-200">
               <span className="text-content-secondary group-hover:text-content font-semibold transition-colors flex items-center justify-center gap-2">
                 {t('mnemonic.replaceWallet')}
                 <LuChevronDown className="w-4 h-4" />

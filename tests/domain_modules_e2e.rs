@@ -923,7 +923,9 @@ async fn mcp_audit_list_dispatches_internally_and_stays_out_of_the_schema_dump()
         .map(|(_, _, method)| method)
         .collect();
     assert!(
-        !advertised.iter().any(|method| method == "openhuman.mcp_audit_list"),
+        !advertised
+            .iter()
+            .any(|method| method == "openhuman.mcp_audit_list"),
         "mcp_audit_list is internal-registry only and must not appear in GET /schema"
     );
 

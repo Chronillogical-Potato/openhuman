@@ -10,6 +10,14 @@ mod mod_tests;
 
 /// Skills compiled into this product build.
 pub const BUNDLED: &[BundledSkill] = &[
+    #[cfg(feature = "modules")]
+    BundledSkill {
+        dir_name: "desktop-control",
+        files: &[BundledFile {
+            path: "WORKFLOW.md",
+            contents: include_str!("../../desktop/control/WORKFLOW.md"),
+        }],
+    },
     #[cfg(feature = "flows")]
     crate::flows::skills::FLOW_AUTHORING,
 ];

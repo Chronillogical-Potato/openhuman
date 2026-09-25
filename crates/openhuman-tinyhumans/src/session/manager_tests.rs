@@ -359,7 +359,9 @@ async fn relinking_the_same_user_with_a_new_token_refreshes_rather_than_switches
     // user to Welcome midway through linking a provider.
     let events = drain(&mut rx).await;
     assert!(
-        !events.iter().any(|e| matches!(e, SessionEvent::Expired { .. })),
+        !events
+            .iter()
+            .any(|e| matches!(e, SessionEvent::Expired { .. })),
         "same-user re-login emitted an Expired event: {events:?}"
     );
     assert!(

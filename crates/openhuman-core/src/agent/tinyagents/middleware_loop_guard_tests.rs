@@ -593,52 +593,6 @@ async fn successful_repeat_tracker_resets_failed_and_exempt_batches() {
     );
 }
 
-// ── ApprovalSecurityMiddleware ──────────────────────────────────────────
-
-#[test]
-fn approval_external_effect_resolution_walks_the_tool_sets() {
-    let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![
-        Box::new(FakeTool {
-            name: "send_email",
-            cap: None,
-            external: true,
-        }),
-        Box::new(FakeTool {
-            name: "read_file",
-            cap: None,
-            external: false,
-        }),
-    ]);
-    let mw = ApprovalSecurityMiddleware::new(vec![tools]);
-    assert!(mw.has_external_effect("send_email", &json!({})));
-    assert!(!mw.has_external_effect("read_file", &json!({})));
-    // Unknown tool defaults to no external effect (nothing to gate).
-    assert!(!mw.has_external_effect("missing", &json!({})));
-}
-
-#[test]
-fn approval_identity_scopes_composio_dispatcher_grants_to_one_action() {
-    assert_eq!(
-        approval_tool_name(
-            "composio_execute",
-            &json!({ "tool": "  GMAIL_SEND_EMAIL  " })
-        ),
-        "composio_execute:GMAIL_SEND_EMAIL"
-    );
-    assert_eq!(
-        approval_tool_name("composio_execute", &json!({ "tool": "GMAIL_DELETE_EMAIL" })),
-        "composio_execute:GMAIL_DELETE_EMAIL"
-    );
-    assert_eq!(
-        approval_tool_name("composio_execute", &json!({})),
-        "composio_execute:<invalid-action>"
-    );
-    assert_eq!(
-        approval_tool_name("send_email", &json!({ "tool": "ignored" })),
-        "send_email"
-    );
-}
-
 #[tokio::test]
 async fn memory_write_without_index_read_gets_a_corrective_note() {
     let mw = MemoryProtocolMiddleware::new();

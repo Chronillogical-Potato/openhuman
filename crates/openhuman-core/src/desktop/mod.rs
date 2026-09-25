@@ -18,6 +18,8 @@
 
 pub mod accessibility;
 pub mod app_state;
+#[cfg(feature = "modules")]
+pub mod control;
 pub mod dashboard;
 pub mod notifications;
 pub mod overlay;

@@ -3913,6 +3913,7 @@ dependencies = [
  "tinychannels",
  "tinychannels-bus",
  "tinyconnectors-bus",
+ "tinydesktop-bus",
  "tinydocs-bus",
  "tinyflows",
  "tinyflows-catalog",
@@ -6398,6 +6399,14 @@ dependencies = [
 [[package]]
 name = "tinyconnectors-bus"
 version = "0.10.1"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "tinydesktop-bus"
+version = "0.5.0"
 dependencies = [
  "serde",
  "serde_json",

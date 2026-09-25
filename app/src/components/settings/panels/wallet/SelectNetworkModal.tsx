@@ -23,7 +23,7 @@ export default function SelectNetworkModal({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(next: boolean) => !next && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm duration-200 animate-in fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-surface-overlay/60 backdrop-blur-sm duration-200 animate-in fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           className="fixed left-1/2 top-1/2 z-50 w-full max-w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface p-0 shadow-2xl duration-200 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95">

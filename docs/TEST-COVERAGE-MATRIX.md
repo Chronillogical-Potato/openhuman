@@ -301,6 +301,14 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 6.4.3 | `storage_list_files` / `storage_get_link`                        | RU    | `crates/openhuman-core/src/integrations/file_storage/tools_tests.rs` | ✅     | List + usage rendering; presigned link generation with expiry arg validation.                                                                                      |
 | 6.4.4 | `storage_set_visibility` / `storage_delete_file`                 | RU    | `crates/openhuman-core/src/integrations/file_storage/tools_tests.rs` | ✅     | Public/private toggle surfaces the stable public URL; delete confirms backend `deleted` flag; both are Write-level tools with external effect.                     |
 
+### 6.5 Native Desktop Control
+
+| ID    | Feature                                             | Layer    | Test path(s)                                                                                                                  | Status | Notes |
+| ----- | --------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- | ------ | ----- |
+| 6.5.1 | Local connection, permissions, and read-only probe  | RU+VU+MS | `crates/openhuman-core/src/desktop/control/ops_tests.rs`, `app/src/components/desktop/DesktopConnectionPage.test.tsx`         | ✅     | Enablement stays local and off by default; the native module checks Accessibility before observation. OS grants need release smoke. |
+| 6.5.2 | Deferred tool discovery and bounded desktop goals  | RU+MS    | `crates/openhuman-core/src/tools/ops_tests_domain_family_tests.rs`, `crates/openhuman-core/src/desktop/control/tools_tests.rs` | ✅     | Desktop schemas stay behind `tool_search`; the live core smoke in `scripts/debug/desktop-live.mjs` needs an unlocked desktop. |
+| 6.5.3 | Desktop approval default and continuation behavior | RU+VU    | `crates/openhuman-core/src/desktop/control/tools_tests.rs`, `app/src/components/desktop/DesktopConnectionPage.test.tsx`       | ✅     | Approval waits are off by default for registered desktop tools; opt-in confirmation uses a one-use, revalidated handle. |
+
 ---
 
 ## 7. Web & Network Capabilities

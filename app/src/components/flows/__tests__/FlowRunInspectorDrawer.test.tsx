@@ -291,7 +291,6 @@ describe('FlowRunInspectorDrawer', () => {
       decide,
     });
     renderDrawer('thread-1', vi.fn());
-
     const card = screen.getByTestId('flow-run-pending-approval-req-a');
     fireEvent.click(within(card).getByRole('button', { name: button }));
     expect(decide).toHaveBeenCalledWith('req-a', decision);

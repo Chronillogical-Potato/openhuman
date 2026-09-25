@@ -1132,6 +1132,12 @@ fn build_registered_controllers() -> Vec<GroupedController> {
 /// (e.g. the desktop shell) that should not appear in agent tool listings.
 fn build_internal_only_controllers() -> Vec<GroupedController> {
     let mut controllers = Vec::new();
+    #[cfg(feature = "modules")]
+    push(
+        &mut controllers,
+        DomainGroup::Desktop,
+        crate::desktop::control::all_registered_controllers(),
+    );
     // MCP write audit list: internal-only so the desktop UI/CLI can inspect
     // local write history without exposing cross-client history as an MCP tool.
     push(

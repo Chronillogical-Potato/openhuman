@@ -59,6 +59,7 @@ function selectWithin(node: Node, text: string) {
     toString: () => text,
     getRangeAt: () => ({
       commonAncestorContainer: node,
+      intersectsNode: (candidate: Node) => candidate.contains(node),
       getBoundingClientRect: () => ({ top: 100, left: 40, width: 120, height: 18 }),
     }),
     removeAllRanges,

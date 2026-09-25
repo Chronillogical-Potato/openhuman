@@ -391,6 +391,13 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// is carried forward so a later prompting stage does not ask twice.
     async fn authorize_tool(&self, call: &ToolCallRequest) -> TaResult<GateDecision> {
         let policy = self.effective_policy();
+        #[cfg(feature = "modules")]
+        let desktop_approval_disabled = match self.resolve_tool(&call.tool_name) {
+            Some(tool) => crate::desktop::control::approvals_disabled_for(tool).await,
+            None => false,
+        };
+        #[cfg(not(feature = "modules"))]
+        let desktop_approval_disabled = false;
         tracing::debug!(
             target: "tinyagents",
             tool = %call.tool_name,
@@ -414,6 +421,10 @@ impl SecurityGate for OpenHumanSecurityGate {
                     "[tinyagents::host::security] denied by the session tool policy"
                 );
                 return Ok(GateDecision::Deny { reason });
+            }
+            ToolPolicyVerdict::RequireApproval if desktop_approval_disabled => {
+                tracing::debug!(tool = %call.tool_name,
+                    "[desktop] channel approval park skipped by desktop setting");
             }
             ToolPolicyVerdict::RequireApproval => {
                 // The channel says a human must approve. Unlike the shell and
@@ -566,7 +577,7 @@ impl SecurityGate for OpenHumanSecurityGate {
 
         // 5. Everything else: the tool's own external-effect classification
         //    decides whether a human is asked.
-        if tool.external_effect_with_args(&call.arguments) {
+        if tool.external_effect_with_args(&call.arguments) && !desktop_approval_disabled {
             return Ok(self.park_once(call, channel_approved).await);
         }
 

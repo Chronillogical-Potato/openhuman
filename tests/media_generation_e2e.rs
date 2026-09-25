@@ -199,6 +199,19 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
         .await
         .unwrap();
     assert!(!result.is_error, "image tool failed: {result:?}");
+    let image_artifacts = result
+        .content
+        .iter()
+        .find_map(|block| match block {
+            tinytools::ToolContent::Json { data } => data["artifacts"].as_array(),
+            _ => None,
+        })
+        .expect("image result artifacts");
+    assert_eq!(image_artifacts.len(), 1, "one filed image: {result:?}");
+    let image_id = image_artifacts[0]["artifact_id"]
+        .as_str()
+        .expect("image filed as artifact")
+        .to_owned();
 
     // ── video: must poll through `completed` with no outputs ─────────────
     let result = tool(&tools, "media_generate_video")
@@ -211,20 +224,46 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
         .await
         .unwrap();
     assert!(!result.is_error, "video tool failed: {result:?}");
+    let video_artifacts = result
+        .content
+        .iter()
+        .find_map(|block| match block {
+            tinytools::ToolContent::Json { data } => data["artifacts"].as_array(),
+            _ => None,
+        })
+        .expect("video result artifacts");
+    assert_eq!(video_artifacts.len(), 1, "one filed video: {result:?}");
+    let video_id = video_artifacts[0]["artifact_id"]
+        .as_str()
+        .expect("video filed as artifact")
+        .to_owned();
     assert!(
         backend.polls.load(Ordering::SeqCst) >= 4,
         "the job must be polled through the empty `completed` states"
     );
 
     // ── artifacts on disk ────────────────────────────────────────────────
-    let mut saved: Vec<(String, Vec<u8>)> = std::fs::read_dir(action_dir.join("generated-media"))
-        .expect("generated-media directory")
-        .map(|entry| {
-            let path = entry.unwrap().path();
-            (
-                path.extension().unwrap().to_string_lossy().into_owned(),
-                std::fs::read(&path).unwrap(),
-            )
+    assert_eq!(
+        std::fs::read_dir(action_dir.join("generated-media"))
+            .expect("generated-media staging directory")
+            .count(),
+        0,
+        "filed media must leave the staging directory"
+    );
+    let mut saved: Vec<(String, Vec<u8>)> = [image_id, video_id]
+        .iter()
+        .flat_map(|id| {
+            std::fs::read_dir(config.workspace_dir.join("artifacts").join(id))
+                .expect("filed artifact directory")
+                .map(|entry| entry.unwrap().path())
+                .filter(|path| path.extension().is_some_and(|ext| ext != "json"))
+                .map(|path| {
+                    (
+                        path.extension().unwrap().to_string_lossy().into_owned(),
+                        std::fs::read(&path).unwrap(),
+                    )
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
     saved.sort();

@@ -578,7 +578,18 @@ fn account_tools_survive_a_narrow_user_preference_set() {
 fn desktop_tools_are_registered() {
     let tmp = TempDir::new().unwrap();
     let names = tool_names(&expansion_tools_for(&tmp));
+    if !cfg!(feature = "modules") {
+        assert!(!names.iter().any(|name| name.starts_with("desktop_")));
+        return;
+    }
     assert_contains_all(&names, DESKTOP_TOOLS);
+    assert!(names.iter().any(|name| name == "desktop_goal"));
+    assert!(names.iter().any(|name| name == "desktop_launch"));
+    assert!(names.iter().any(|name| name == "desktop_snapshot"));
+    assert!(
+        !names.iter().any(|name| name == "desktop_act"),
+        "raw ref actions must not enter the agent/tool_search registry"
+    );
 }
 
 #[test]

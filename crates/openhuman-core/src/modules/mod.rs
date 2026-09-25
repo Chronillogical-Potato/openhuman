@@ -44,6 +44,7 @@ pub mod boot;
 pub mod browser;
 pub mod browser_task;
 pub mod connectors;
+pub mod desktop;
 #[cfg(feature = "documents")]
 pub mod documents;
 pub mod host;

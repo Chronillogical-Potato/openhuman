@@ -43,6 +43,7 @@ impl Default for Config {
             observability: ObservabilityConfig::default(),
             dashboard: DashboardConfig::default(),
             autonomy: AutonomyConfig::default(),
+            desktop: DesktopConfig::default(),
             hooks: HooksConfig::default(),
             privacy: PrivacyConfig::default(),
             sandbox: SandboxConfig::default(),

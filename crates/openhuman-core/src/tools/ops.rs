@@ -559,6 +559,23 @@ pub fn all_tools_with_runtime(
         Box::new(CostDailyHistoryTool::new(config.clone())),
         Box::new(CostSummaryTool::new(config.clone())),
         Box::new(DashboardModelHealthTool::new(config.clone())),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Apps)),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Windows)),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Launch)),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Snapshot)),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Find)),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(config.clone(), DesktopToolKind::Goal)),
+        #[cfg(feature = "modules")]
+        Box::new(DesktopTool::new(
+            config.clone(),
+            DesktopToolKind::ContinueGoal,
+        )),
         Box::new(SecurityPolicyInfoTool::new(config.clone())),
         Box::new(ServiceStatusTool::new(config.clone())),
         Box::new(DaemonHostPrefsGetTool::new(config.clone())),
@@ -1287,7 +1304,7 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         return DomainGroup::Hosted;
     }
     // Desktop: shell-facing surfaces.
-    if name.starts_with("dashboard_") {
+    if name.starts_with("dashboard_") || name.starts_with("desktop_") {
         return DomainGroup::Desktop;
     }
     // Runtimes: the managed Node/Python execution tools. These live under

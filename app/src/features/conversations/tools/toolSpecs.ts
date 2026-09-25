@@ -244,6 +244,15 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   browser: spec('useBrowser', AppWindowIcon, 'browser', { chip: chip.url() }),
   browser_open: spec('openPage', AppWindowIcon, 'browser', { chip: chip.url() }),
 
+  // ── Native desktop ───────────────────────────────────────────────────────
+  desktop_list_apps: spec('inspectDesktop', AppWindowIcon, 'app'),
+  desktop_list_windows: spec('inspectDesktop', AppWindowIcon, 'app', { chip: chip.text('app') }),
+  desktop_launch: spec('controlDesktop', AppWindowIcon, 'app', { chip: chip.text('app') }),
+  desktop_snapshot: spec('inspectDesktop', ScanEyeIcon, 'app', { chip: chip.text('app') }),
+  desktop_find: spec('inspectDesktop', ScanSearchIcon, 'app', { chip: chip.text('app') }),
+  desktop_goal: spec('controlDesktop', MousePointerClickIcon, 'app', { chip: chip.text('app') }),
+  desktop_continue_goal: spec('controlDesktop', MousePointerClickIcon, 'app'),
+
   // ── Media and documents ────────────────────────────────────────────────
   image_info: spec('analyzeImage', ScanEyeIcon, 'media', { chip: chip.path() }),
   media_generate_image: spec('generateImage', ImagePlusIcon, 'media', {

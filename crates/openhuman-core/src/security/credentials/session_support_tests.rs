@@ -256,6 +256,23 @@ fn get_session_token_returns_stored_token_when_present() {
     assert!(state.profile_id.is_some());
 }
 
+#[test]
+fn offline_local_token_is_never_a_backend_bearer() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    let error = resolve_backend_credential(&config).unwrap_err();
+    assert_eq!(error, "backend unavailable for offline local session");
+}
+
 /// Regression: when both an app-session profile and a stored API key are
 /// present, `auth.get_state` must report `credential: "api-key"`, matching
 /// `resolve_backend_credential`'s precedence — every backend request the

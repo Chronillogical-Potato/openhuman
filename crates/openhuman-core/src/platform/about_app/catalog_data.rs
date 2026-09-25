@@ -8,6 +8,15 @@ const LOCAL_RAW: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
     destinations: &[],
 });
 
+const DESKTOP_TO_JEV: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
+    leaves_device: true,
+    data_kind: PrivacyDataKind::Raw,
+    destinations: &[
+        "Configured OpenHuman inference provider",
+        "TinyHumans OpenRouter Jev proxy",
+    ],
+});
+
 const DERIVED_TO_BACKEND: Option<CapabilityPrivacy> = Some(CapabilityPrivacy {
     leaves_device: true,
     data_kind: PrivacyDataKind::Derived,

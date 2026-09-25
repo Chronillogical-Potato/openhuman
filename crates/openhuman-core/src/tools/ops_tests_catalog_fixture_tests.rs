@@ -142,6 +142,7 @@ fn tool_catalog_matches_frontend_fixture() {
     let path = fixture_path();
 
     if std::env::var("UPDATE_TOOL_CATALOG").as_deref() == Ok("1") {
+        assert!(full_product_features_enabled(), "{REGENERATE_COMMAND}");
         let json = serde_json::to_string_pretty(&names).expect("serialize tool catalog");
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).expect("create fixture directory");
@@ -181,7 +182,7 @@ fn tool_catalog_matches_frontend_fixture() {
     };
     if !added.is_empty() || !removed.is_empty() {
         panic!(
-            "core tool catalog drifted from the frontend fixture at {}.\n\
+            "core tool catalog drifted from the frontend fixture at {} (product features compiled: {full_product}).\n\
              added:   {added:?}\n\
              removed: {removed:?}\n\n\
              Regenerate with:\n  {REGENERATE_COMMAND}",
