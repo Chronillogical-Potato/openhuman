@@ -18,6 +18,16 @@ fn test_scrub_credentials_short_val() {
     assert!(output.contains("api_key: 1234*[REDACTED]"));
 }
 
+#[test]
+fn scrubbed_json_keeps_its_quoted_key_and_parses() {
+    let input = r#"{"token":"example-secret-value","status":"ready"}"#;
+    let output = scrub_credentials(input);
+    let parsed: serde_json::Value = serde_json::from_str(&output).expect("valid JSON after scrub");
+    assert_eq!(parsed["status"], "ready");
+    assert!(!output.contains("example-secret-value"));
+    assert!(output.contains("*[REDACTED]"));
+}
+
 // #4453: bare, unlabelled secrets that show up in env dumps / API responses.
 
 #[test]

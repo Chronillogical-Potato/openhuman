@@ -45,31 +45,22 @@ fn redact_prefix(val: &str) -> &str {
 pub(crate) fn scrub_credentials(input: &str) -> String {
     let stage_kv = SENSITIVE_KV_REGEX.replace_all(input, |caps: &regex::Captures| {
         let full_match = &caps[0];
-        let key = &caps[1];
-        let val = caps
+        let value = caps
             .get(2)
             .or(caps.get(3))
             .or(caps.get(4))
-            .map(|m| m.as_str())
-            .unwrap_or("");
-
-        let prefix = redact_prefix(val);
-
-        if full_match.contains(':') {
-            if full_match.contains('"') {
-                format!("\"{}\": \"{}*[REDACTED]\"", key, prefix)
-            } else {
-                format!("{}: {}*[REDACTED]", key, prefix)
-            }
-        } else if full_match.contains('=') {
-            if full_match.contains('"') {
-                format!("{}=\"{}*[REDACTED]\"", key, prefix)
-            } else {
-                format!("{}={}*[REDACTED]", key, prefix)
-            }
-        } else {
-            format!("{}: {}*[REDACTED]", key, prefix)
-        }
+            .expect("sensitive key-value match has a value");
+        // Replace only the value span. Rebuilding the key from captures used
+        // to add a second opening quote to JSON (`""token": ...`), making
+        // tool results impossible to parse after redaction.
+        let start = value.start() - caps.get(0).expect("full match").start();
+        let end = value.end() - caps.get(0).expect("full match").start();
+        format!(
+            "{}{}*[REDACTED]{}",
+            &full_match[..start],
+            redact_prefix(value.as_str()),
+            &full_match[end..]
+        )
     });
 
     // Bare AWS access-key IDs: keep the 4-char `AKIA`/`ASIA` prefix for context.

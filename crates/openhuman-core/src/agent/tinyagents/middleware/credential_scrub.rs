@@ -78,6 +78,50 @@ fn scrub_with_notice(content: &str) -> Option<(String, usize)> {
     ))
 }
 
+/// The browser task's `pending.token` is a host-minted, one-time confirmation
+/// handle, not a credential from page content. Protect only that field in a
+/// `NeedsConfirmation` result; every other string still crosses the ordinary
+/// credential scrubber, including page text and action input.
+fn scrub_with_notice_for_tool(tool_name: &str, content: &str) -> Option<(String, usize)> {
+    if tool_name != "browser" {
+        return scrub_with_notice(content);
+    }
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content) else {
+        return scrub_with_notice(content);
+    };
+    if value["status"] != "NeedsConfirmation" {
+        return scrub_with_notice(content);
+    }
+    let Some(token) = value["pending"]["token"].as_str().map(str::to_owned) else {
+        return scrub_with_notice(content);
+    };
+    if token.len() != 36 || uuid::Uuid::parse_str(&token).is_err() {
+        return scrub_with_notice(content);
+    }
+    value["pending"]["token"] = serde_json::Value::String("x".into());
+    let protected = match serde_json::to_string(&value) {
+        Ok(protected) => protected,
+        Err(_) => return scrub_with_notice(content),
+    };
+    let scrubbed = crate::agent::harness::credentials::scrub_credentials(&protected);
+    if scrubbed == protected {
+        return None;
+    }
+    let redactions = scrubbed
+        .matches(REDACTION_PLACEHOLDER)
+        .count()
+        .saturating_sub(protected.matches(REDACTION_PLACEHOLDER).count());
+    let mut result: serde_json::Value = match serde_json::from_str(&scrubbed) {
+        Ok(result) => result,
+        Err(_) => return scrub_with_notice(content),
+    };
+    result["pending"]["token"] = serde_json::Value::String(token);
+    Some((
+        format!("{}\n\n{}", result, redaction_notice(redactions)),
+        redactions,
+    ))
+}
+
 pub(crate) struct CredentialScrubMiddleware;
 
 impl CredentialScrubMiddleware {
@@ -112,7 +156,7 @@ impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         };
 
         let content = crate::agent::tinyagents::middleware::tool_result_text(&result);
-        if let Some((annotated, redactions)) = scrub_with_notice(&content) {
+        if let Some((annotated, redactions)) = scrub_with_notice_for_tool(&tool_name, &content) {
             tracing::warn!(
                 tool = %tool_name,
                 redactions,

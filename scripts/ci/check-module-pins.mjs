@@ -81,6 +81,7 @@ const PIN_MAP = {
   tinybox: { submodule: "vendor/tinybox" },
   tinychannels: { submodule: "vendor/tinychannels" },
   tinyhosts: { submodule: "vendor/tinyhosts" },
+  tinybrowser: { submodule: "vendor/tinybrowser" },
   tinydocs: { submodule: "vendor/tinydocs" },
   tinywallet: { submodule: "vendor/tinywallet" },
   tinymemory: { submodule: "vendor/tinymemory" },

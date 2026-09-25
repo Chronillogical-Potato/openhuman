@@ -28,6 +28,8 @@
 //!
 //! - [`registry`] — the compiled-in set of loadable modules and their digests.
 //! - [`documents`] — the host half of the `tinydocs` module's three operations.
+//! - [`browser`] and [`browser_task`] — TinyBrowser bus calls and Jev decisions
+//!   without linking the browser engine into the core.
 //! - [`wallet`] — the host half of the `tinywallet` module, which builds and
 //!   assembles transactions while the signing key stays in this process.
 //! - [`platform`] — which published artifact belongs to this host.
@@ -39,6 +41,8 @@
 //! - [`boot`] — what happens at startup.
 
 pub mod boot;
+pub mod browser;
+pub mod browser_task;
 pub mod connectors;
 pub mod desktop;
 #[cfg(feature = "documents")]

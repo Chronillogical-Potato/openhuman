@@ -61,6 +61,20 @@ pub fn is_local_session_token(token: &str) -> bool {
     )
 }
 
+/// Whether the current RPC workspace is authenticated by the offline local
+/// credential. A backend-only route may report a missing session or 401 while
+/// this credential remains valid; those errors must not broadcast sign-out.
+/// A failed lookup leaves the ordinary session-expiry path in place.
+pub async fn current_session_is_local() -> bool {
+    let Ok(config) = crate::config::rpc::load_config_with_timeout().await else {
+        return false;
+    };
+    get_session_token(&config)
+        .ok()
+        .flatten()
+        .is_some_and(|token| is_local_session_token(&token))
+}
+
 pub fn parse_fields_value(
     input: Option<serde_json::Value>,
 ) -> Result<std::collections::HashMap<String, String>, String> {

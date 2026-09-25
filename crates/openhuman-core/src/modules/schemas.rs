@@ -10,6 +10,8 @@
 //! an arbitrary path would turn this namespace into remote code execution.
 
 use serde_json::{Map, Value};
+use std::sync::Arc;
+use tinybrowser_bus::SessionOptions;
 
 use super::ops;
 use crate::config::rpc as config_rpc;
@@ -17,7 +19,12 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![schemas("list"), schemas("status"), schemas("load")]
+    vec![
+        schemas("list"),
+        schemas("status"),
+        schemas("load"),
+        schemas("browser_check_readiness"),
+    ]
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
@@ -33,6 +40,10 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("load"),
             handler: handle_load,
+        },
+        RegisteredController {
+            schema: schemas("browser_check_readiness"),
+            handler: handle_browser_check_readiness,
         },
     ]
 }
@@ -85,6 +96,32 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "browser_check_readiness" => ControllerSchema {
+            namespace: "modules",
+            function: "browser_check_readiness",
+            description: "Load TinyBrowser and briefly launch Chrome to check readiness.",
+            inputs: vec![],
+            outputs: vec![
+                FieldSchema {
+                    name: "module_ready",
+                    ty: TypeSchema::Bool,
+                    comment: "TinyBrowser module is serving.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "chrome_ready",
+                    ty: TypeSchema::Bool,
+                    comment: "Chrome launched and closed successfully.",
+                    required: true,
+                },
+                FieldSchema {
+                    name: "error",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Sanitized setup failure, if any.",
+                    required: false,
+                },
+            ],
+        },
         _ => ControllerSchema {
             namespace: "modules",
             function: "unknown",
@@ -98,6 +135,44 @@ pub fn schemas(function: &str) -> ControllerSchema {
             }],
         },
     }
+}
+
+fn handle_browser_check_readiness(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let mut config = config_rpc::load_config_with_timeout().await?;
+        // The probe never navigates. Give its disposable session a non-routable
+        // origin so an empty website allowlist does not prevent a Chrome check.
+        config.http_request.allowed_domains = vec!["example.invalid".into()];
+        let client = super::browser::BrowserClient::new(Arc::new(config));
+        if client.ensure_ready().await.is_err() {
+            return Ok(
+                serde_json::json!({"module_ready": false, "chrome_ready": false, "error": "TinyBrowser module is unavailable; configure a local module override"}),
+            );
+        }
+        let opened = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            client.open_session(SessionOptions::default()),
+        )
+        .await;
+        match opened {
+            Ok(Ok(session)) => {
+                // A session is always closed after this non-navigating probe.
+                let closed = client.close_session(&session.id).await.is_ok();
+                Ok(
+                    serde_json::json!({"module_ready": true, "chrome_ready": closed,
+                    "error": if closed { None } else { Some("Chrome session could not close cleanly") }}),
+                )
+            }
+            Ok(Err(_)) => Ok(
+                serde_json::json!({"module_ready": true, "chrome_ready": false,
+                "error": "Chrome could not start; check browser settings and allowed websites"}),
+            ),
+            Err(_) => Ok(
+                serde_json::json!({"module_ready": true, "chrome_ready": false,
+                "error": "Chrome launch timed out"}),
+            ),
+        }
+    })
 }
 
 fn handle_list(_params: Map<String, Value>) -> ControllerFuture {

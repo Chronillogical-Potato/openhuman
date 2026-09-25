@@ -360,17 +360,22 @@ impl PromptSection for ToolsSection {
     }
 
     fn build(&self, ctx: &PromptContext<'_>) -> Result<String> {
-        // Native function-calling: the provider already sends full JSON
-        // schemas in the API request — no need to repeat the tool catalogue
-        // in the system prompt (pure token bloat). However, any non-empty
-        // `dispatcher_instructions` (e.g. the "## Tool Use Protocol" block
-        // from NativeDialect) must still be included so the model
-        // receives its behavioural guidance.
+        let browser_deferred = ctx.tools.iter().any(|tool| {
+            matches!(tool.name.as_ref(), "browser" | "browser_open")
+                && !ctx.visible_tool_names.contains(tool.name.as_ref())
+        }) && ctx.visible_tool_names.contains("tool_search");
+        const BROWSER_HINT: &str = "For website tasks, use tool_search to find browser tools.";
+        // Native providers receive schemas in the request. Keep dispatcher
+        // instructions and the browser discovery hint in the prompt.
         if ctx.tool_call_format == ToolCallFormat::Native {
-            if ctx.dispatcher_instructions.trim().is_empty() {
-                return Ok(String::new());
+            let mut out = ctx.dispatcher_instructions.to_string();
+            if browser_deferred {
+                if !out.is_empty() {
+                    out.push('\n');
+                }
+                out.push_str(BROWSER_HINT);
             }
-            return Ok(ctx.dispatcher_instructions.to_string());
+            return Ok(out);
         }
         // TinyTools renders the compact catalogue from the same schemas and
         // argument order that its parser consumes. For `Native` dispatchers
@@ -418,6 +423,10 @@ impl PromptSection for ToolsSection {
         if !ctx.dispatcher_instructions.is_empty() {
             out.push('\n');
             out.push_str(ctx.dispatcher_instructions);
+        }
+        if browser_deferred {
+            out.push('\n');
+            out.push_str(BROWSER_HINT);
         }
         Ok(out)
     }

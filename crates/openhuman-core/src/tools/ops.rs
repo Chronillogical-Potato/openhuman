@@ -688,35 +688,19 @@ pub fn all_tools_with_runtime(
         )));
     }
 
+    #[cfg(feature = "modules")]
     if browser_config.enabled {
-        // Unified web-access allowlist (merge fetch + browser firewalls): the
-        // browser tool shares the single `http_request.allowed_domains` host
-        // list rather than the now-deprecated `[browser].allowed_domains`. See
-        // `browser_allowed_domains` for why the `"*"` wildcard is stripped.
-        let browser_allowed_domains = browser_allowed_domains(&http_config.allowed_domains);
-        // Add legacy browser_open tool for simple URL opening
+        // BrowserClient enforces the shared `http_request.allowed_domains`
+        // policy for both browser tools.
+        let browser_client = Arc::new(crate::modules::browser::BrowserClient::new(config.clone()));
         tools.push(Box::new(BrowserOpenTool::new(
             security.clone(),
-            browser_allowed_domains.clone(),
+            browser_client.clone(),
         )));
-        // Add full browser automation tool (pluggable backend)
-        tools.push(Box::new(BrowserTool::new_with_backend(
+        tools.push(Box::new(BrowserTool::new(
             security.clone(),
-            browser_allowed_domains.clone(),
-            browser_config.session_name.clone(),
-            browser_config.backend.clone(),
-            browser_config.native_headless,
-            browser_config.native_webdriver_url.clone(),
-            browser_config.native_chrome_path.clone(),
-            ComputerUseConfig {
-                endpoint: browser_config.computer_use.endpoint.clone(),
-                api_key: None,
-                timeout_ms: browser_config.computer_use.timeout_ms,
-                allow_remote_endpoint: browser_config.computer_use.allow_remote_endpoint,
-                window_allowlist: browser_config.computer_use.window_allowlist.clone(),
-                max_coordinate_x: browser_config.computer_use.max_coordinate_x,
-                max_coordinate_y: browser_config.computer_use.max_coordinate_y,
-            },
+            browser_client,
+            browser_config.max_task_steps,
         )));
     }
 

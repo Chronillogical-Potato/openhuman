@@ -4297,6 +4297,8 @@ dependencies = [
  "tinyagents-registry",
  "tinyagents-runtime",
  "tinyagents-session",
+ "tinybrowser-bus",
+ "tinybrowser-control",
  "tinybus",
  "tinychannels",
  "tinychannels-bus",
@@ -4314,6 +4316,7 @@ dependencies = [
  "tinyinference-local",
  "tinyinference-providers",
  "tinyinference-voice",
+ "tinyjevclient 0.2.1",
  "tinyjuice",
  "tinyjuice-bus",
  "tinymcp",
@@ -4437,7 +4440,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.20",
  "tinyhumans-sdk",
- "tinyjevclient",
+ "tinyjevclient 0.2.1 (git+https://github.com/tinyhumansai/tinyjevclient?rev=84b3983c7e1e14f7515658ceafabb6c4e7967c94)",
  "tinytools 0.4.1",
  "tinytools-jev",
  "tokio",
@@ -7193,6 +7196,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinybrowser-bus"
+version = "0.2.2"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "tinybrowser-control"
+version = "0.2.2"
+dependencies = [
+ "serde_json",
+ "thiserror 2.0.20",
+ "tinybrowser-bus",
+ "tinyjevclient 0.2.1",
+]
+
+[[package]]
 name = "tinybus"
 version = "0.1.2"
 dependencies = [
@@ -7531,6 +7552,18 @@ dependencies = [
  "tinyinference-local",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "tinyjevclient"
+version = "0.2.1"
+dependencies = [
+ "httpdate",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]

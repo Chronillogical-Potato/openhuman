@@ -1155,6 +1155,18 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
                 break;
             };
             if let crate::core::events::DomainEvent::SessionExpired { source, reason } = event {
+                // Other publishers may emit a backend 401 while this core is
+                // using its offline local credential. The auth subscriber
+                // correctly keeps that credential, so the UI must not receive
+                // a contradictory sign-out event from this independent bus
+                // consumer. Real JWT expiry still broadcasts as before.
+                if crate::security::credentials::session_support::current_session_is_local().await {
+                    log::info!(
+                        "[socketio] suppress auth:session_expired for local offline credential source={}",
+                        source
+                    );
+                    continue;
+                }
                 log::info!(
                     "[socketio] broadcast auth:session_expired source={} reason_len={}",
                     source,

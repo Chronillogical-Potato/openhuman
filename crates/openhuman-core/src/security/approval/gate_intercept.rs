@@ -14,6 +14,7 @@ impl ApprovalGate {
         park_bound: Option<Duration>,
         park_bound_elapsed: &mut bool,
         tool_call_id: Option<&str>,
+        forced: bool,
     ) -> (GateOutcome, Option<String>) {
         // Origin tells us who scheduled this turn. Entry points (web channel,
         // channel runtime, subconscious, cron, CLI) scope a typed
@@ -21,6 +22,22 @@ impl ApprovalGate {
         // `Unknown`, which is denied — the gate refuses to execute an
         // external_effect tool from an unlabelled call site.
         let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
+        if forced
+            && !matches!(
+                &origin,
+                AgentTurnOrigin::WebChat { thread_id, client_id, .. }
+                    if !thread_id.trim().is_empty() && !client_id.trim().is_empty()
+            )
+        {
+            return (
+                GateOutcome::Deny {
+                    reason: format!(
+                        "{POLICY_DENIED_MARKER} '{tool_name}' requires an interactive WebChat approval."
+                    ),
+                },
+                None,
+            );
+        }
         tracing::debug!(
             tool = tool_name,
             ?origin,
@@ -57,24 +74,26 @@ impl ApprovalGate {
             job_id: flow_id,
         } = &origin
         {
-            match store::is_flow_tool_trusted(&self.config, flow_id, tool_name) {
-                Ok(true) => {
-                    tracing::debug!(
-                        tool = tool_name,
-                        flow_id = %flow_id,
-                        "[approval::gate] flow_tool_trust hit — auto-allowing without prompt"
-                    );
-                    return (GateOutcome::Allow, None);
-                }
-                Ok(false) => {}
-                Err(err) => {
-                    tracing::warn!(
-                        tool = tool_name,
-                        flow_id = %flow_id,
-                        error = %err,
-                        "[approval::gate] flow_tool_trust lookup failed — falling through to \
-                         normal gating (fail-safe: still gated, not silently allowed)"
-                    );
+            if !forced {
+                match store::is_flow_tool_trusted(&self.config, flow_id, tool_name) {
+                    Ok(true) => {
+                        tracing::debug!(
+                            tool = tool_name,
+                            flow_id = %flow_id,
+                            "[approval::gate] flow_tool_trust hit — auto-allowing without prompt"
+                        );
+                        return (GateOutcome::Allow, None);
+                    }
+                    Ok(false) => {}
+                    Err(err) => {
+                        tracing::warn!(
+                            tool = tool_name,
+                            flow_id = %flow_id,
+                            error = %err,
+                            "[approval::gate] flow_tool_trust lookup failed — falling through to \
+                             normal gating (fail-safe: still gated, not silently allowed)"
+                        );
+                    }
                 }
             }
         }
@@ -137,7 +156,7 @@ impl ApprovalGate {
                 } | AgentTurnOrigin::Unknown
             );
 
-        if auto_all {
+        if auto_all && !forced {
             // `origin_class` is the sanitized variant label (no thread/client
             // ids, channel sender, reply target, or message id) — safe at
             // `info`. The full `?origin` (with those identifiers) is still
@@ -162,7 +181,7 @@ impl ApprovalGate {
         // live policy) takes effect on the very next tool call; fall back to the
         // gate's boot-time config when no live policy is installed (e.g. a CLI
         // invocation that never started a session runtime, or a unit test).
-        if !bypass_auto_approve_shortcut && self.tool_is_auto_approved(tool_name) {
+        if !forced && !bypass_auto_approve_shortcut && self.tool_is_auto_approved(tool_name) {
             tracing::debug!(
                 tool = tool_name,
                 "[approval::gate] auto_approve allowlist hit, skipping prompt"
@@ -187,7 +206,11 @@ impl ApprovalGate {
         // `ApprovalRequested` event ("thread/client absent — NOT surfacing"),
         // and the park silently TTL-denies — so a `cron_add` scheduled from a
         // chat turn never completes.
-        let chat_ctx = APPROVAL_CHAT_CONTEXT.try_with(|c| c.clone()).ok();
+        // Forced approvals route from the validated WebChat origin itself. A
+        // stray task-local must not redirect the decision to another thread.
+        let chat_ctx = (!forced)
+            .then(|| APPROVAL_CHAT_CONTEXT.try_with(|c| c.clone()).ok())
+            .flatten();
         let origin_chat_route = match &origin {
             AgentTurnOrigin::WebChat {
                 thread_id,
@@ -215,7 +238,7 @@ impl ApprovalGate {
         // Copilot-streaming context — set by `flows::ops::flows_build` around
         // the streaming `run_single` call. Presence alone clamps the park
         // window to `COPILOT_APPROVAL_TTL`; see that task-local's doc.
-        let copilot_stream = APPROVAL_COPILOT_STREAM_CONTEXT.try_with(|_| ()).is_ok();
+        let copilot_stream = !forced && APPROVAL_COPILOT_STREAM_CONTEXT.try_with(|_| ()).is_ok();
 
         // Branch by origin. Web chat parks for an in-app approval; external
         // channel persists an audit row and TTL-denies (no routable approval
@@ -457,6 +480,7 @@ impl ApprovalGate {
                 thread_id: chat_thread_id.clone(),
                 client_id: chat_client_id.clone(),
                 tool_call_id: tool_call_id.map(str::to_string),
+                forced,
             },
         );
         if let Err(err) = store::insert_pending(&self.config, &pending, &self.session_id) {

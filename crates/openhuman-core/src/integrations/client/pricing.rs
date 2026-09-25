@@ -66,7 +66,8 @@ pub async fn pricing_for_config(
 }
 
 /// Helper: build an `Arc<IntegrationClient>` from the root config, or
-/// `None` if the user isn't signed in yet.
+/// `None` if there is no backend session JWT. A local offline credential keeps
+/// the core signed in but cannot authenticate hosted integration routes.
 ///
 /// Both the backend URL and the auth token come from **core defaults**:
 ///
@@ -80,7 +81,8 @@ pub async fn pricing_for_config(
 ///   Ollama/vLLM endpoint and 404.
 /// - auth token → [`crate::api::jwt::get_session_token`], i.e. the
 ///   app-session JWT written by `auth_store_session` — the same token
-///   that billing, team, webhooks, referral, memory, etc. all use.
+///   that billing, team, webhooks, referral, memory, etc. all use. The local
+///   offline token is excluded before constructing an HTTP client.
 ///
 /// There are no per-feature toggles for the shared client itself —
 /// callers that need a kill switch (e.g. twilio, google_places,
@@ -98,34 +100,48 @@ pub fn build_client(config: &crate::config::Config) -> Option<Arc<IntegrationCli
 
     // Primary: app-session JWT from the auth profile store.
     let session_token = match crate::api::jwt::get_session_token(config) {
-        Ok(Some(tok)) => {
-            let trimmed = tok.trim().to_string();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed)
-            }
-        }
-        Ok(None) => None,
+        Ok(token) => token,
         Err(e) => {
             tracing::warn!("[integrations] failed to read session token: {e}");
             None
         }
     };
 
-    match session_token {
-        Some(token) => {
+    build_client_with_session_token(config, backend_url, session_token)
+}
+
+/// The credential decision is separate from profile-store lookup so callers
+/// can test the backend boundary without process-wide auth-store state.
+fn build_client_with_session_token(
+    config: &crate::config::Config,
+    backend_url: String,
+    session_token: Option<String>,
+) -> Option<Arc<IntegrationClient>> {
+    match session_token.as_deref().map(str::trim) {
+        Some(token)
+            if crate::security::credentials::session_support::is_local_session_token(token) =>
+        {
+            // Offline identity is valid for the local core, but the hosted
+            // integrations API cannot authenticate it. Never send it as a
+            // backend JWT: a predictable 401 would publish a global
+            // SessionExpired event into an otherwise healthy local chat.
+            tracing::debug!(
+                "[integrations] local offline credential has no hosted integrations client"
+            );
+            None
+        }
+        Some(token) if !token.is_empty() => {
             tracing::debug!(
                 backend_url = %backend_url,
                 "[integrations] client built (session token resolved)"
             );
             Some(Arc::new(IntegrationClient::new_with_budget_config(
                 backend_url,
-                token,
+                token.to_owned(),
                 Arc::new(config.clone()),
             )))
         }
-        None => {
+        _ => {
             tracing::warn!(
                 "[integrations] no auth token available — user is not signed in \
                  (no app-session JWT)"
@@ -134,3 +150,7 @@ pub fn build_client(config: &crate::config::Config) -> Option<Arc<IntegrationCli
         }
     }
 }
+
+#[cfg(test)]
+#[path = "pricing_tests.rs"]
+mod tests;

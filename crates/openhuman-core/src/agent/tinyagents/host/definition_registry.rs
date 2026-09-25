@@ -139,13 +139,13 @@ pub struct OpenHumanDefinitionRegistry {
     /// non-empty cannot be projected faithfully and [`Self::tools_for`] fails
     /// closed rather than re-granting the denied tools.
     registered_tools: Option<Arc<Vec<String>>>,
+    /// Registered deferred tools. A named belt that lists the intrinsic
+    /// `tool_search` bridge grants these names to the hosted harness too.
+    deferred_tools: Option<Arc<Vec<String>>>,
     /// Per-invocation direct delegation routes synthesized beside the durable
     /// tool registry. They must augment a named root scope so the hosted loop
     /// authorizes the same hand-off routes it advertises.
     session_delegation_tools: Option<Arc<Vec<String>>>,
-    /// Deferred tools admitted through a named `tool_search` belt. The hosted
-    /// invocation's own allowlist must retain them for the intrinsic bridge.
-    session_deferred_tools: Option<Arc<Vec<String>>>,
     /// The session's own caller-supplied definition, when it has one.
     ///
     /// A library host builds its agent from a definition it owns and passes by
@@ -186,8 +186,8 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Shared(registry),
             config: None,
             registered_tools: None,
+            deferred_tools: None,
             session_delegation_tools: None,
-            session_deferred_tools: None,
             session_definition: None,
         }
     }
@@ -203,8 +203,8 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Global(registry),
             config: None,
             registered_tools: None,
+            deferred_tools: None,
             session_delegation_tools: None,
-            session_deferred_tools: None,
             session_definition: None,
         })
     }
@@ -232,14 +232,14 @@ impl OpenHumanDefinitionRegistry {
         self
     }
 
-    /// Attaches the root invocation's synthesized direct-delegation names.
-    pub fn with_session_delegation_tools(mut self, tools: Arc<Vec<String>>) -> Self {
-        self.session_delegation_tools = Some(tools);
+    pub fn with_deferred_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.deferred_tools = Some(tools);
         self
     }
 
-    pub fn with_session_deferred_tools(mut self, tools: Arc<Vec<String>>) -> Self {
-        self.session_deferred_tools = Some(tools);
+    /// Attaches the root invocation's synthesized direct-delegation names.
+    pub fn with_session_delegation_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.session_delegation_tools = Some(tools);
         self
     }
 
@@ -335,8 +335,11 @@ impl OpenHumanDefinitionRegistry {
         match &def.tools {
             ToolScope::Named(named) => {
                 let mut names = named.clone();
-                if named.iter().any(|name| name == "tool_search") {
-                    if let Some(deferred) = self.session_deferred_tools.as_deref() {
+                if named
+                    .iter()
+                    .any(|name| name == crate::tools::implementations::meta::TOOL_SEARCH_NAME)
+                {
+                    if let Some(deferred) = self.deferred_tools.as_deref() {
                         names.extend(deferred.iter().cloned());
                     }
                 }

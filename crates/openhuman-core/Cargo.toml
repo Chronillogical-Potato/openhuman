@@ -333,6 +333,9 @@ tinychannels = { version = "0.1", features = ["relay-websocket"], optional = tru
 # never loads a module. The kernel-floor ratchet catches exactly that, and did.
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
 tinydesktop-bus = { path = "../../vendor/tinydesktop/crates/tinydesktop-bus", optional = true }
+tinybrowser-bus = { path = "../../vendor/tinybrowser/crates/tinybrowser-bus" }
+tinybrowser-control = { path = "../../vendor/tinybrowser/crates/tinybrowser-control", default-features = false }
+tinyjevclient = { path = "../../vendor/tinybrowser/vendor/tinyjevclient/crates/tinyjevclient" }
 # Portable skill metadata, parsing, discovery, and filesystem hardening.
 tinyskills = { path = "../../vendor/tinyskills/crates/tinyskills" }
 serde = { version = "1", features = ["derive"] }
@@ -470,7 +473,6 @@ bs58 = { version = "0.5", default-features = false, features = ["std", "check"] 
 # Solana off-curve check for ATA derivation (find_program_address).
 curve25519-dalek = { version = "4", default-features = false, features = ["alloc"], optional = true }
 
-fantoccini = { version = "0.22.0", optional = true, default-features = false, features = ["rustls-tls"] }
 # The WhatsApp Web provider (and its `whatsapp-rust` / `wacore` / `serde-big-array`
 # stack) now lives in the tinychannels crate; the `whatsapp-web` feature forwards
 # to `tinychannels/whatsapp-web`.
@@ -1162,8 +1164,6 @@ medulla = []
 channels = ["dep:tinychannels", "tinychannels/email", "tinychannels/lark"]
 sandbox-landlock = ["dep:landlock"]
 sandbox-bubblewrap = []
-browser-native = ["dep:fantoccini"]
-fantoccini = ["browser-native"]
 landlock = ["sandbox-landlock"]
 # The WhatsApp Web provider now lives in tinychannels; forward to its feature.
 # It is a refinement INSIDE the `channels` gate — enabling it pulls in the whole
