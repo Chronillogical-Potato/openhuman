@@ -74,7 +74,7 @@ async fn goal_get_reads_back_a_stored_goal() {
     .unwrap();
     let filled_json = filled.into_cli_compatible_json().unwrap();
     let goal = &filled_json["data"]["goal"];
-    assert_eq!(goal["objective"], "ship it");
+    assert_eq!(goal["objective"], "ship it", "{filled_json}");
     assert_eq!(goal["status"], "active");
 }
 
@@ -113,7 +113,9 @@ async fn todos_get_reads_back_what_the_todo_tool_wrote() {
     .await
     .unwrap();
     let filled_json = filled.into_cli_compatible_json().unwrap();
-    let todos = filled_json["data"]["todos"].as_array().unwrap();
+    let todos = filled_json["data"]["todos"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing todos in {filled_json}"));
     assert_eq!(todos.len(), 1);
     assert_eq!(todos[0]["content"], "write tests");
 }

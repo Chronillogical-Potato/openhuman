@@ -87,7 +87,6 @@ describe('Composio pending-connection cancel flow', () => {
           entry.url.includes(PENDING_CONNECTION_ID)
       );
       if (deleteSeen) break;
-      // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
       await browser.pause(500);
     }
     if (!deleteSeen) {

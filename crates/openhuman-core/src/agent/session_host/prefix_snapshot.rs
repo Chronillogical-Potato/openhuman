@@ -4,8 +4,9 @@
 //! `agent::prompts::TieredPrompt::system_messages`) and sent as one leading
 //! system message per tier. This helper turns a rendered prompt into that
 //! prefix, so `runtime_session` never has to know how many messages a prefix
-//! is. A resumed thread's prefix is restored by the tinyagents session from
-//! the transcript's leading system rows; nothing here re-derives it.
+//! is. A resumed thread's prefix is restored by the tinyagents session using
+//! the transcript's recorded frozen-prefix count (or the legacy generation
+//! fallback); nothing here re-derives it.
 
 use tinyagents_runtime::PrefixSnapshot;
 use tinyinference_llm::message::Message;

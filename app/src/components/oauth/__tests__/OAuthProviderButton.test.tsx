@@ -13,6 +13,7 @@ import { prepareOAuthLoginLaunch } from '../../../utils/oauthAppVersionGate';
 import { openUrl } from '../../../utils/openUrl';
 import { isTauri } from '../../../utils/tauriCommands';
 import OAuthProviderButton from '../OAuthProviderButton';
+import { oauthProviderConfigs } from '../providerConfigs';
 
 vi.mock('../../../services/backendHealth', () => ({ checkBackendHealthy: vi.fn() }));
 
@@ -516,5 +517,70 @@ describe('OAuthProviderButton web dev redirect', () => {
     const target = new URL((window.location as unknown as { href: string }).href);
     expect(target.searchParams.get('responseType')).toBe('json');
     expect(target.searchParams.get('redirectUri')).toBeNull();
+  });
+});
+
+// Every case above this point renders `stubProvider` (google) or a google stub
+// with the id swapped, so all of them pass even if `github` or `discord` were
+// misspelled in the real config. The provider id is the ONLY part of a login
+// that is observable client-side: `/auth/me` returns no provider field and the
+// session crate models none, so a wrong id here is invisible until the backend
+// 404s. Drive the real config, not a stub. (matrix 1.1.1-1.1.4)
+// [provider id, accessible button name]. Written out rather than derived, so
+// the table below is a claim about what SHOULD ship, not an echo of what does.
+const EXPECTED_LOGIN_PROVIDERS = [
+  ['google', 'Google'],
+  ['github', 'GitHub'],
+  ['twitter', 'Twitter'],
+  ['discord', 'Discord'],
+] as const;
+
+describe('OAuthProviderButton — every configured provider reaches its own backend route', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(checkBackendHealthy).mockResolvedValue(healthyResult);
+    vi.mocked(openUrl).mockResolvedValue(undefined);
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(getDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  // Pins the fixture itself. Without this, the `it.each` below degrades to a
+  // no-op the day someone empties the config, and the suite stays green while
+  // login is broken for a provider nobody tested by hand.
+  it('the shipped config is exactly the four expected providers', () => {
+    expect(oauthProviderConfigs.map(config => config.id)).toEqual(
+      EXPECTED_LOGIN_PROVIDERS.map(([id]) => id)
+    );
+  });
+
+  it.each(EXPECTED_LOGIN_PROVIDERS)('provider %s opens /auth/%s/login', async (id, name) => {
+    // Looked up by the expected id rather than iterated off the config: a
+    // table built by mapping the config would assert `/auth/<whatever the
+    // config says>/login` and pass for a typo'd id. This fails instead.
+    const config = oauthProviderConfigs.find(candidate => candidate.id === id);
+    expect(config, `no provider config with id "${id}"`).toBeDefined();
+
+    render(<OAuthProviderButton provider={config!} />);
+
+    fireEvent.click(screen.getByRole('button', { name }));
+    await act(async () => {
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+    });
+
+    expect(openUrl).toHaveBeenCalledTimes(1);
+    const opened = new URL(vi.mocked(openUrl).mock.calls[0][0] as string);
+    // Exact pathname, not a `contains`: `/auth/x/login` must not satisfy a
+    // check for `/auth/twitter/login`, and vice versa.
+    expect(opened.origin + opened.pathname).toBe(`https://backend.test/auth/${id}/login`);
   });
 });

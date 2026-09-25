@@ -25,6 +25,7 @@ fn meta(thread_id: &str, session_id: Option<String>, parent: Option<String>) -> 
         created: "2023-11-14T22:00:00+00:00".into(),
         updated: "2023-11-14T22:00:00+00:00".into(),
         turn_count: 1,
+        prefix_message_count: None,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,

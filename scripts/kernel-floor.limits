@@ -13,13 +13,13 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
-#   303/282/2  2026-09-25  The current upstream/main flows graph already
-#                      exceeds the previous 300/280 ratchet after dependency
-#                      refreshes unrelated to desktop control. The desktop bus
-#                      contract is optional under `modules`, so it is absent
-#                      from this profile. Measured with cargo tree for the
-#                      CI Linux target (x86_64-unknown-linux-gnu); native
-#                      builds remain libsqlite3-sys and ring.
+#   303/282/2  2026-09-25  The TinyChannels 0.1.3 contract refresh moves its
+#                      required HMAC path to hmac 0.13. The flows graph keeps
+#                      hmac 0.12 elsewhere, so this adds one package version;
+#                      digest 0.11 then resolves ctutils and cmov, adding two
+#                      names and two more packages. Comparing the pre-refresh
+#                      and current graphs gives +3 packages, +2 names, and no
+#                      new native build (still libsqlite3-sys and ring).
 #   300/280/2  2026-09-22  The TinyAgents 2.1.2 graph update moves its
 #                      runtime/session/graph split into the required agent
 #                      harness path. The `flows` profile therefore resolves

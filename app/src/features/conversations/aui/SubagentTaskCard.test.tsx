@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
@@ -8,6 +8,12 @@ import { SubagentTaskCard } from './SubagentTaskCard';
 // These tests exercise the card and its reply actions without mounting a thread.
 vi.mock('../../../components/assistant-ui/elements/task-card.aui', () => ({
   TaskTranscript: () => <div>Nested transcript</div>,
+}));
+
+const append = vi.hoisted(() => vi.fn());
+vi.mock('@assistant-ui/react', async importActual => ({
+  ...(await importActual<typeof import('@assistant-ui/react')>()),
+  useAui: () => ({ thread: { append } }),
 }));
 
 const activity: SubagentActivity = {
@@ -85,6 +91,7 @@ describe('SubagentTaskCard', () => {
         }
         argsText="{}"
         result={undefined}
+        messages={[]}
         status={{ type: 'requires-action', reason: 'interrupt' }}
         addResult={() => {}}
         resume={() => {}}
@@ -94,5 +101,14 @@ describe('SubagentTaskCard', () => {
 
     expect(screen.getByTestId('subagent-awaiting-user')).toBeInTheDocument();
     expect(screen.getByTestId('subagent-awaiting-question')).toHaveTextContent('Which repo?');
+    fireEvent.change(screen.getByTestId('subagent-answer-input'), {
+      target: { value: 'OpenHuman' },
+    });
+    fireEvent.click(screen.getByTestId('subagent-answer-send'));
+    expect(append).toHaveBeenCalledWith({
+      role: 'user',
+      content: [{ type: 'text', text: 'OpenHuman' }],
+    });
+    expect(screen.getByTestId('subagent-answer-sent')).toBeInTheDocument();
   });
 });

@@ -14,12 +14,37 @@ impl TurnStateMirror {
         if self.turn_completed {
             return;
         }
-        self.state.lifecycle = TurnLifecycle::Interrupted;
+        // The turn driver settles this snapshot the moment the turn ends
+        // (`TurnStateStore::settle_turn`), because this bridge can outlive its
+        // turn by minutes — it only exits when its progress sender drops, and
+        // for a cached per-thread session that waits for the *next* turn. If the
+        // driver already recorded a terminal outcome, keep it: a late blind
+        // `Interrupted` here would raise a retry banner on a turn that actually
+        // succeeded and whose reply was delivered.
+        let already_completed = matches!(
+            self.store
+                .get_turn(&self.state.thread_id, &self.state.request_id)
+                .ok()
+                .flatten()
+                .map(|snapshot| snapshot.lifecycle),
+            Some(TurnLifecycle::Completed)
+        );
+        self.state.lifecycle = if already_completed {
+            self.state.phase = None;
+            TurnLifecycle::Completed
+        } else {
+            TurnLifecycle::Interrupted
+        };
         self.state.active_tool = None;
         self.state.active_subagent = None;
         self.state.updated_at = chrono::Utc::now().to_rfc3339();
         self.flush();
-        self.persist_interrupted_partial();
+        // Only a genuinely interrupted turn has a partial answer to carry over;
+        // a settled turn's reply was already delivered and persisted, and
+        // appending it again would duplicate it in the session transcript.
+        if !already_completed {
+            self.persist_interrupted_partial();
+        }
     }
 
     /// Append the partial streamed answer of an interrupted turn to the session

@@ -40,12 +40,11 @@ async fn interactive_turn_parks_until_resolved() {
             tool.execute(json!({ "summary": "plan", "steps": ["one"] })),
         ),
     );
-    // An interactive turn must BLOCK on the gate rather than return
-    // immediately — a short timeout elapses with no result (the parked
-    // future is then dropped, and the gate cleans up).
-    let res = tokio::time::timeout(std::time::Duration::from_millis(60), fut).await;
+    // The web channel supplies both task locals. One poll reaches the gate
+    // and must remain pending; no wall-clock timeout is needed to prove park.
+    tokio::pin!(fut);
     assert!(
-        res.is_err(),
+        matches!(futures::poll!(fut.as_mut()), std::task::Poll::Pending),
         "interactive turn should park, not resolve immediately"
     );
 }

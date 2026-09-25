@@ -281,6 +281,35 @@ pub(crate) async fn run_chat_task(
         );
     }
 
+    // Settle the turn's own snapshot now the turn is over.
+    //
+    // The bridge marks the snapshot terminal on its way out, but it only exits
+    // once its progress sender drops — and for a cached per-thread session that
+    // does not happen until the *next* turn replaces the sink, so a bridge
+    // routinely outlives its turn by minutes (the `did not drain` warning above
+    // is the visible edge of it). The last turn of a thread has no next turn to
+    // release it, leaving `Streaming` on disk indefinitely: re-entering the
+    // thread then hydrates that snapshot and paints a live "Thinking..."
+    // indicator under a reply that was already delivered. The turn has ended
+    // here by construction, so record that. A bridge that later observes
+    // `TurnCompleted` overwrites this with `Completed`, terminal either way.
+    {
+        let lifecycle = if result.is_ok() {
+            crate::threads::turn_state::TurnLifecycle::Completed
+        } else {
+            crate::threads::turn_state::TurnLifecycle::Interrupted
+        };
+        let now = chrono::Utc::now().to_rfc3339();
+        if let Err(err) = TurnStateStore::new(config.workspace_dir.clone())
+            .settle_turn(thread_id, request_id, lifecycle, &now)
+        {
+            log::warn!(
+                "[web-channel] failed to settle turn snapshot client={client_id} \
+                 thread={thread_id} request_id={request_id}: {err}"
+            );
+        }
+    }
+
     // The bridge only stamps its `TurnTimingSnapshot` once it has seen the
     // parent's `TurnCompleted`, which `wait_drained` above waits for — read
     // it now so `chat_done.timing` reports the same first-token/first-tool/

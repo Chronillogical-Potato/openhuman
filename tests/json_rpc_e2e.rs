@@ -6578,6 +6578,198 @@ async fn json_rpc_local_ai_device_profile_and_presets() {
     rpc_join.abort();
 }
 
+/// Matrix 3.1.5 — the model context-window requirement gate, over RPC.
+///
+/// `local_ai.model_context_check` rejects installed Ollama models whose native
+/// context window is below the memory layer's minimum, so that "short-context
+/// models can't silently truncate and corrupt recall" (its own capability
+/// description). The rejection itself was asserted nowhere that runs:
+///
+///   * the implementation and its unit tests live in
+///     `vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local/`,
+///     and `vendor` is in the root `[workspace] exclude` — no OpenHuman lane
+///     compiles that package, let alone runs its tests;
+///   * OpenHuman itself never names `model_requirements`, so there is no
+///     in-crate seam to unit-test the way `local_ai_presets_tests.rs` tests the
+///     preset mapping;
+///   * `openhuman.inference_diagnostics` was named by two live e2e targets, but
+///     only inside a schema-catalog list and an error-path table.
+///
+/// So the RPC boundary is the only place this behaviour is reachable from code
+/// this repo builds, and that is what this test drives: a mock Ollama serving
+/// one model below the floor and one comfortably above it, through
+/// `/api/tags` + `/api/show`, exactly as the real daemon would.
+///
+/// Deliberately asserts the *relationship* rather than the literal 8192:
+/// `min_context_tokens` is re-exported from
+/// `tinyinference_embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS` and is allowed
+/// to move. What must not change without someone noticing is that a model under
+/// whatever that floor is gets `below_minimum` and one over it gets `ok`.
+#[tokio::test]
+async fn json_rpc_local_ai_ollama_diagnostics_rejects_a_short_context_model() {
+    let _env_lock = json_rpc_e2e_env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _tier_guard = EnvVarGuard::unset("OPENHUMAN_LOCAL_AI_TIER");
+    let _ollama_env_guard = EnvVarGuard::unset("OPENHUMAN_OLLAMA_BASE_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    // Well under any plausible floor; the memory layer must refuse it.
+    const SHORT_CTX: u64 = 2_048;
+    // Comfortably over it.
+    const AMPLE_CTX: u64 = 131_072;
+    // The short-context model must be one the MVP chat allowlist accepts, or
+    // `effective_chat_model_id` rewrites the configured id to
+    // `MVP_DEFAULT_CHAT_MODEL` and `expected.chat_eligibility` resolves against
+    // a model this mock never lists. That rewrite is real behaviour, not a test
+    // artefact: under Ollama an off-allowlist chat model is redirected, so the
+    // realistic failure this gate exists for is the *allowlisted* model having
+    // too small a window.
+    const SHORT_MODEL: &str = "gemma3:1b-it-qat";
+    const AMPLE_MODEL: &str = "roomy-ctx:latest";
+
+    let ollama_app = Router::new()
+        .route(
+            "/api/tags",
+            get(|| async {
+                Json(json!({
+                    "models": [
+                        { "name": SHORT_MODEL, "size": 1_000_000, "modified_at": "2026-09-24T00:00:00Z" },
+                        { "name": AMPLE_MODEL, "size": 2_000_000, "modified_at": "2026-09-24T00:00:00Z" },
+                    ]
+                }))
+            }),
+        )
+        .route(
+            "/api/show",
+            post(|Json(body): Json<Value>| async move {
+                // `context_length_from_model_info` reads `{arch}.context_length`
+                // keyed off `general.architecture`; mirror that shape rather
+                // than a flattened convenience key, or the gate reads `Unknown`
+                // and this test would pass for the wrong reason.
+                let model = body.get("model").and_then(Value::as_str).unwrap_or_default();
+                let ctx = if model.starts_with("gemma3") {
+                    SHORT_CTX
+                } else {
+                    AMPLE_CTX
+                };
+                Json(json!({
+                    "model_info": {
+                        "general.architecture": "llama",
+                        "llama.context_length": ctx,
+                    },
+                    "capabilities": ["completion"],
+                }))
+            }),
+        );
+    let (ollama_addr, ollama_join) = serve_on_ephemeral(ollama_app).await;
+    let ollama_base = format!("http://{ollama_addr}");
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let update = post_json_rpc(
+        &rpc_base,
+        60,
+        "openhuman.inference_update_local_settings",
+        json!({
+            "runtime_enabled": true,
+            "opt_in_confirmed": true,
+            "provider": "ollama",
+            "base_url": ollama_base,
+            "model_id": SHORT_MODEL,
+            "chat_model_id": SHORT_MODEL
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&update, "update_local_ai_settings_for_ollama");
+
+    let diagnostics =
+        post_json_rpc(&rpc_base, 61, "openhuman.inference_diagnostics", json!({})).await;
+    let result = assert_no_jsonrpc_error(&diagnostics, "ollama_context_diagnostics");
+
+    // The floor is reported, and it is a real number rather than a default 0 —
+    // a zero floor would accept everything and make the rest of this vacuous.
+    let floor = result
+        .get("context_requirement")
+        .and_then(|requirement| requirement.get("min_context_tokens"))
+        .and_then(Value::as_u64)
+        .expect("diagnostics must report the context floor");
+    assert!(
+        floor > SHORT_CTX && floor < AMPLE_CTX,
+        "this test's two fixtures must straddle the floor; floor={floor}, \
+         short={SHORT_CTX}, ample={AMPLE_CTX}"
+    );
+
+    let installed = result
+        .get("installed_models")
+        .and_then(Value::as_array)
+        .expect("diagnostics must list installed models");
+    assert_eq!(installed.len(), 2, "both mock models should be listed");
+
+    let eligibility_of = |name: &str| -> Value {
+        installed
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some(name))
+            .and_then(|entry| entry.get("eligibility"))
+            .cloned()
+            .unwrap_or(Value::Null)
+    };
+
+    let short = eligibility_of(SHORT_MODEL);
+    assert_eq!(
+        short.get("status").and_then(Value::as_str),
+        Some("below_minimum"),
+        "a {SHORT_CTX}-token model is under the {floor}-token floor and must be \
+         rejected, not merely reported: {short}"
+    );
+    assert_eq!(
+        short.get("context_length").and_then(Value::as_u64),
+        Some(SHORT_CTX),
+        "the rejection must carry the window it read, so the UI can say why"
+    );
+    assert_eq!(
+        short.get("required").and_then(Value::as_u64),
+        Some(floor),
+        "the rejection must carry the floor it was measured against"
+    );
+
+    let ample = eligibility_of(AMPLE_MODEL);
+    assert_eq!(
+        ample.get("status").and_then(Value::as_str),
+        Some("ok"),
+        "a {AMPLE_CTX}-token model is over the floor and must be accepted; if \
+         this is also below_minimum the gate is refusing everything: {ample}"
+    );
+
+    // The active chat model is the short one, so the expected-model verdict
+    // must carry the rejection too — this is the field the UI reads to warn.
+    assert_eq!(
+        result
+            .get("expected")
+            .and_then(|expected| expected.get("chat_eligibility"))
+            .and_then(|eligibility| eligibility.get("status"))
+            .and_then(Value::as_str),
+        Some("below_minimum"),
+        "the configured chat model is the short-context one; its eligibility \
+         must reflect that"
+    );
+
+    ollama_join.abort();
+    mock_join.abort();
+    rpc_join.abort();
+}
+
 #[tokio::test]
 async fn json_rpc_local_ai_lm_studio_config_diagnostics_and_prompt() {
     let _env_lock = json_rpc_e2e_env_lock();

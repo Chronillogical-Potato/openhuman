@@ -16,31 +16,31 @@
       "id": "tinyjuice",
       "submodule": "vendor/tinyjuice",
       "expect": "v0.3.2-3-g69622d76",
-      "reason": "The source is three CI and toolchain commits past v0.3.2; the bus contract is unchanged and the registry loads the published v0.3.2 artifact."
+      "reason": "The source is three commits past published v0.3.2 for a Rust 1.96.1 toolchain pin; git diff v0.3.2..HEAD changes only rust-toolchain.toml. No bus or module code changed, so the registry retains the published v0.3.2 artifact and its release digest."
     },
     {
       "id": "tinyruntime",
       "submodule": "vendor/tinyruntime",
       "expect": "v0.2.5-5-g1f41a4d1",
-      "reason": "The source is five CI and toolchain commits past v0.2.5; the bus contract is unchanged and the registry loads the published v0.2.5 artifact."
+      "reason": "The source is five commits past published v0.2.5 for Rust toolchain and CI/MSRV setup; git diff v0.2.5..HEAD changes only rust-toolchain.toml and .github/workflows/ci.yml. No bus or module code changed, so the registry retains the published v0.2.5 artifact and its release digest."
     },
     {
       "id": "tinyruntime-nodejs",
       "submodule": "vendor/tinyruntime",
       "expect": "v0.2.5-5-g1f41a4d1",
-      "reason": "The provider is published independently at v0.2.2 while the shared tinyruntime source is five CI and toolchain commits past v0.2.5; registry retains its published provider artifact."
+      "reason": "The provider is published independently at v0.2.2 while the shared source is v0.2.5 plus five CI/toolchain-only commits. Registry retains its matching published v0.2.2 provider artifact; git diff v0.2.5..HEAD changes no bus or module code."
     },
     {
       "id": "tinyruntime-python",
       "submodule": "vendor/tinyruntime",
       "expect": "v0.2.5-5-g1f41a4d1",
-      "reason": "The provider is published independently at v0.2.2 while the shared tinyruntime source is five CI and toolchain commits past v0.2.5; registry retains its published provider artifact."
+      "reason": "The provider is published independently at v0.2.2 while the shared source is v0.2.5 plus five CI/toolchain-only commits. Registry retains its matching published v0.2.2 provider artifact; git diff v0.2.5..HEAD changes no bus or module code."
     },
     {
       "id": "tinyconnectors",
       "submodule": "vendor/tinyconnectors",
       "expect": "v0.10.1-7-ge5c934c3",
-      "reason": "The source is seven CI, formatting, and toolchain commits past v0.10.1; the bus contract is unchanged and the registry loads the published v0.10.1 artifact."
+      "reason": "The source is seven commits past published v0.10.1 for Rust toolchain and CI/MSRV setup plus removal of obsolete Clippy allowances in tinybus_module/mod.rs. The only module-code diff changes allow attributes, not dispatch or wire behavior; registry retains the published v0.10.1 artifact and its release digest."
     }
   ]
 }

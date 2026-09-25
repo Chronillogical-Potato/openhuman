@@ -274,10 +274,10 @@ describe('FlowRunInspectorDrawer', () => {
   });
 
   it.each([
-    ['Approve', 'approve_once'],
-    ['Always allow', 'approve_always_for_flow'],
-    ['Deny', 'deny'],
-  ] as const)('routes %s to the hook with the request id', (label, decision) => {
+    { button: 'Approve', decision: 'approve_once' },
+    { button: 'Always allow', decision: 'approve_always_for_flow' },
+    { button: 'Deny', decision: 'deny' },
+  ])('routes $button to the hook with the request id', ({ button, decision }) => {
     const decide = vi.fn().mockResolvedValue(undefined);
     useFlowRunPoller.mockReturnValue({
       run: makeRun({ status: 'pending_approval' }),
@@ -291,9 +291,8 @@ describe('FlowRunInspectorDrawer', () => {
       decide,
     });
     renderDrawer('thread-1', vi.fn());
-    const card = within(screen.getByTestId('flow-run-pending-approval-req-a'));
-
-    fireEvent.click(card.getByRole('button', { name: label }));
+    const card = screen.getByTestId('flow-run-pending-approval-req-a');
+    fireEvent.click(within(card).getByRole('button', { name: button }));
     expect(decide).toHaveBeenCalledWith('req-a', decision);
   });
 

@@ -302,6 +302,130 @@ async fn current_user_rejection_signs_out_and_emits_expired() {
     assert!(!state.core.is_authenticated);
 }
 
+/// Linking a second provider to the same account is a session refresh, not a
+/// different user (matrix 1.2.2).
+///
+/// Nothing the client can see says *which* provider logged you in: `/auth/me`
+/// returns no provider field and this crate models none, so "signing in with
+/// GitHub when you already signed in with Google" arrives here as nothing more
+/// than a second login token that redeems to a **different JWT for the same
+/// backend user id**. That is the whole of multi-provider linking as far as the
+/// desktop app is concerned, and it is the only part of matrix 1.2.2 that is
+/// testable client-side.
+///
+/// It matters because `store_session_token` signs the previous user out when
+/// the user id changes. If a same-user re-login were ever treated as a user
+/// change, linking a second provider would wipe the first provider's session
+/// state on every login.
+#[tokio::test]
+async fn relinking_the_same_user_with_a_new_token_refreshes_rather_than_switches_user() {
+    let _global = ENV_LOCK.lock().await;
+    let backend = Backend::start(vec![MeAnswer::Ok(me_user()), MeAnswer::Ok(me_user())]).await;
+    let core = FakeCore::new(&backend.url);
+    let m = manager(&core);
+
+    m.login_with_token("via-google").await.unwrap();
+    assert_eq!(core.session().unwrap().token, *LIVE_JWT);
+    assert_eq!(identity::peek_user_id().as_deref(), Some("user-123"));
+
+    // The second provider's login redeems to a different JWT. Same claims —
+    // same `sub`, same `exp` — so the same backend user; only the signature
+    // differs, exactly as a freshly issued session would.
+    let second_jwt = format!("{}x", *LIVE_JWT);
+    *backend.state.consume_jwt.lock().unwrap() = Some(second_jwt.clone());
+
+    let mut rx = m.subscribe();
+    let state = m.login_with_token("via-github").await.unwrap();
+
+    assert!(state.core.is_authenticated);
+    assert_eq!(
+        state.core.user_id.as_deref(),
+        Some("user-123"),
+        "a second provider for the same account must not change the user id"
+    );
+    assert_eq!(
+        core.session().unwrap().token,
+        second_jwt,
+        "the newly issued session token should have replaced the old one"
+    );
+    assert_eq!(
+        identity::peek_user_id().as_deref(),
+        Some("user-123"),
+        "the identity slot must survive a same-user re-login"
+    );
+
+    // No sign-out anywhere in the transition. `SessionEvent::Expired` or a
+    // `Changed` carrying `!is_authenticated` would mean the app bounced the
+    // user to Welcome midway through linking a provider.
+    let events = drain(&mut rx).await;
+    assert!(
+        !events.iter().any(|e| matches!(e, SessionEvent::Expired { .. })),
+        "same-user re-login emitted an Expired event: {events:?}"
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|e| matches!(e, SessionEvent::Changed(s) if !s.core.is_authenticated)),
+        "same-user re-login emitted a signed-out state: {events:?}"
+    );
+}
+
+/// Server-side revocation must clear the identity slot and the user cache, not
+/// just the core credential (matrix 1.4.3).
+///
+/// `current_user_rejection_signs_out_and_emits_expired` above covers the
+/// credential and the events; it does not look at `identity::peek_user_id()`
+/// or `cache().peek()`. `logout_clears_the_session_and_identity` checks both,
+/// but only for an *explicit* logout — so a revocation path that forgot either
+/// one would pass the whole suite.
+///
+/// Both matter, for different reasons:
+///   * the identity slot is the process-global `Sentry before_send` reads
+///     (`session/identity.rs` — *"Only the id is kept"*), so a stale id there
+///     attributes every later event to a user who was signed out, silently and
+///     for the life of the process.
+///   * a surviving `CurrentUserCache` entry lets `current_user(false)` serve
+///     the revoked user's profile from memory after the backend already
+///     refused it.
+#[tokio::test]
+async fn current_user_rejection_also_clears_identity_and_cache() {
+    let backend = Backend::start(vec![MeAnswer::Ok(me_user()), MeAnswer::Status(401)]).await;
+    let core = FakeCore::new(&backend.url);
+    let m = manager(&core);
+    m.login_with_token("tok").await.unwrap();
+
+    // Precondition, asserted rather than assumed: a rejection test that starts
+    // from an already-empty identity slot proves nothing about clearing it.
+    assert!(
+        identity::peek_user_id().is_some(),
+        "login should have populated the identity slot; without that this test \
+         cannot show the rejection cleared it"
+    );
+    assert!(
+        m.cache().peek().is_some(),
+        "login should have populated the user cache; without that this test \
+         cannot show the rejection cleared it"
+    );
+
+    assert!(matches!(
+        m.current_user(true).await,
+        Err(SessionError::Rejected(_))
+    ));
+
+    assert_eq!(
+        identity::peek_user_id(),
+        None,
+        "a revoked session left its user id in the process-global identity \
+         slot; Sentry would keep attributing events to a signed-out user"
+    );
+    assert_eq!(
+        m.cache().peek(),
+        None,
+        "a revoked session left its profile in the current-user cache; a later \
+         current_user(false) would serve it from memory"
+    );
+}
+
 #[tokio::test]
 async fn clearing_a_rejected_session_reports_a_surviving_api_key() {
     let backend = Backend::start(vec![]).await;
