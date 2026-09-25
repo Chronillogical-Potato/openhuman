@@ -5,6 +5,76 @@ use std::sync::Arc;
 use tinyagents_runtime::ToolSnapshot;
 use tinytools::ToolSpec;
 
+#[tokio::test]
+async fn committed_progress_uses_each_turns_receipt_sender() {
+    use crate::agent::progress::AgentProgress;
+    use tinyagents_runtime::{
+        CommitReceipt, ResumeMode, SessionTurnOutcome, TranscriptTurnOptions,
+    };
+
+    let receipt = |tx| {
+        let mut context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+        context.progress = Some(tx);
+        CommitReceipt {
+            outcome: SessionTurnOutcome {
+                history: Vec::new(),
+                output: Some("answer".into()),
+                interrupted: false,
+            },
+            options: TranscriptTurnOptions {
+                request_id: None,
+                thread_id: None,
+                stream: true,
+                resume: ResumeMode::Never,
+                context,
+            },
+            transcript: None,
+        }
+    };
+    let (first_tx, mut first_rx) = tokio::sync::mpsc::channel(2);
+    let (second_tx, mut second_rx) = tokio::sync::mpsc::channel(2);
+    let first = receipt(first_tx);
+    let second = receipt(second_tx);
+
+    assert!(super::progress::send_receipt_progress(&second, "question", "answer", 2).await);
+    assert!(matches!(
+        second_rx.recv().await,
+        Some(AgentProgress::TurnContent { .. })
+    ));
+    assert!(matches!(
+        second_rx.recv().await,
+        Some(AgentProgress::TurnCompleted { iterations: 2 })
+    ));
+    assert!(matches!(
+        first_rx.try_recv(),
+        Err(tokio::sync::mpsc::error::TryRecvError::Empty)
+    ));
+    drop(first);
+}
+
+#[test]
+fn clearing_progress_releases_warm_prelude_sender() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
+    let mut host =
+        crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+            .expect("orchestrator");
+    host.ensure_runtime_session().expect("warm runtime");
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    host.set_on_progress(Some(tx));
+    host.set_on_progress(None);
+    assert!(matches!(
+        rx.try_recv(),
+        Err(tokio::sync::mpsc::error::TryRecvError::Disconnected)
+    ));
+}
+
 /// A full progress channel must not discard the only terminal signal. A busy
 /// bridge can catch up after the turn commits; it cannot infer completion from
 /// an event that was dropped.

@@ -420,6 +420,10 @@ impl OpenHumanSessionHost {
         &mut self,
         tx: Option<tokio::sync::mpsc::Sender<crate::agent::progress::AgentProgress>>,
     ) {
+        // A warm runtime retains the last turn's prelude. Release its sender
+        // along with the host sender so the finished turn's bridge can drain
+        // and persist the final text without waiting for another turn.
+        self.update_runtime_prelude_progress(tx.clone());
         self.on_progress = tx;
     }
 
