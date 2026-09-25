@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
@@ -116,9 +116,7 @@ test.describe('Settings - AI & Skills', () => {
     page,
   }) => {
     await emulateTauriRuntime(page);
-    await callCoreRpc('openhuman.inference_update_model_settings', {
-      default_model: PINNED_MODEL,
-    });
+    await callCoreRpc('openhuman.inference_update_model_settings', { default_model: PINNED_MODEL });
     expect(await pinnedDefaultModel()).toBe(PINNED_MODEL);
 
     await openRoutingTab(page);
