@@ -9,13 +9,13 @@ import {
   buildOpenAiRequest,
   buildReleasePayload,
   collectCommits,
+  collectContributorStats,
   createRecordSplitter,
   ensureAllPullRequestsLinked,
   extractPullRequestNumbers,
   parseArgs,
   parseGitHubRepoFromRemote,
   parseGitLog,
-  priorAuthorKeys,
   renderDeterministicNotes,
 } from '../release/generate-release-notes.mjs';
 
@@ -44,6 +44,57 @@ test('pull request numbers preserve all linked PRs and pick the last as primary'
     'abc123def456\x1ffeat(voice): global push-to-talk hotkey (#3090) (#3349)\x1fCodeGhost21\x1fbot@example.com\x1f2026-06-01T00:00:00Z\x1e',
   );
   assert.equal(commit.primaryPrNumber, 3349);
+  assert.deepEqual(extractPullRequestNumbers('Merge pull request #6638 from contributor/feature'), [6638]);
+});
+
+test('release notes collect only first-parent pull request merges', async (t) => {
+  const repo = mkdtempSync(join(tmpdir(), 'release-notes-merges-'));
+  t.after(() => rmSync(repo, { recursive: true, force: true }));
+  const git = (...args) => execFileSync('git', args, {
+    cwd: repo,
+    encoding: 'utf8',
+    env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' },
+  });
+  git('init', '--quiet', '--initial-branch', 'main');
+  git('config', 'user.name', 'Range Fixture');
+  git('config', 'user.email', 'range@example.test');
+  git('config', 'commit.gpgsign', 'false');
+  git('commit', '--allow-empty', '--quiet', '-m', 'base');
+  git('tag', 'start');
+  git('switch', '--quiet', '-c', 'feature');
+  git('commit', '--allow-empty', '--quiet', '-m', 'feat: branch change (#100)');
+  git('switch', '--quiet', '-c', 'nested-feature');
+  git('commit', '--allow-empty', '--quiet', '-m', 'feat: nested branch change (#99)');
+  git('switch', '--quiet', 'feature');
+  git('merge', '--quiet', '--no-ff', '-m', 'Merge pull request #99 from contributor/nested-feature', 'nested-feature');
+  git('switch', '--quiet', 'main');
+  git('merge', '--quiet', '--no-ff', '-m', 'Merge pull request #100 from contributor/feature', 'feature');
+  git('commit', '--allow-empty', '--quiet', '-m', 'chore: direct change (#101)');
+  git('switch', '--quiet', '-c', 'nested');
+  git('commit', '--allow-empty', '--quiet', '-m', 'feat: nested change (#102)');
+  git('switch', '--quiet', 'main');
+  git('merge', '--quiet', '--no-ff', '-m', 'Merge branch nested', 'nested');
+  git('tag', 'end');
+
+  const previousCwd = process.cwd();
+  process.chdir(repo);
+  t.after(() => process.chdir(previousCwd));
+
+  const commits = await collectCommits('start', 'end');
+  assert.deepEqual(commits.map((commit) => commit.primaryPrNumber), [100]);
+});
+
+test('contributor credits use PR authors instead of merge authors', () => {
+  const contributors = collectContributorStats([
+    { number: 100, author: 'new-contributor', authorAssociation: 'FIRST_TIME_CONTRIBUTOR' },
+    { number: 101, author: 'returning-contributor', authorAssociation: 'CONTRIBUTOR' },
+    { number: 102, author: 'new-contributor', authorAssociation: 'CONTRIBUTOR' },
+  ]);
+
+  assert.deepEqual(contributors, [
+    { name: 'new-contributor', commits: 2, prs: [100, 102], isNew: true },
+    { name: 'returning-contributor', commits: 1, prs: [101], isNew: false },
+  ]);
 });
 
 test('OpenAI request contains required release sections and compare payload', () => {
@@ -240,7 +291,7 @@ test('record splitter reassembles records across chunk boundaries', () => {
   assert.deepEqual(records, ['alpha', 'beta', 'gamma']);
 });
 
-test('commit collection survives a git log larger than the 1 MiB spawn buffer', async (t) => {
+test('merge collection survives a git log larger than the 1 MiB spawn buffer', async (t) => {
   // Regression guard for the v0.63.21 release failure: `execFileSync` buffers the
   // child's whole stdout and throws `spawnSync git ENOBUFS` past Node's 1 MiB
   // `maxBuffer` default. The release span grows with every unpublished tag, so the
@@ -270,13 +321,12 @@ test('commit collection survives a git log larger than the 1 MiB spawn buffer', 
   const COMMITS = 150;
   const SUBJECT_PADDING = 8000;
   for (let index = 0; index < COMMITS; index += 1) {
-    git(
-      'commit',
-      '--allow-empty',
-      '--quiet',
-      '-m',
-      `chore: padded commit ${index} ${'x'.repeat(SUBJECT_PADDING)} (#${1000 + index})`,
-    );
+    git('switch', '--quiet', '-c', `feature-${index}`);
+    git('commit', '--allow-empty', '--quiet', '-m', `feature ${index}`);
+    git('switch', '--quiet', 'main');
+    git('merge', '--quiet', '--no-ff', '-m',
+      `Merge pull request #${1000 + index} from contributor/feature-${index} ${'x'.repeat(SUBJECT_PADDING)}`,
+      `feature-${index}`);
   }
   git('tag', 'end');
 
@@ -289,7 +339,7 @@ test('commit collection survives a git log larger than the 1 MiB spawn buffer', 
   const rawBytes = Buffer.byteLength(
     execFileSync(
       'git',
-      ['log', 'start..end', '--reverse', '--format=%H%x1f%s%x1f%an%x1f%ae%x1f%aI%x1e'],
+      ['log', 'start..end', '--first-parent', '--merges', '--reverse', '--format=%H%x1f%s%x1f%an%x1f%ae%x1f%aI%x1e'],
       {
         cwd: repo,
         encoding: 'utf8',
@@ -309,6 +359,4 @@ test('commit collection survives a git log larger than the 1 MiB spawn buffer', 
   assert.equal(commits.at(-1).primaryPrNumber, 1000 + COMMITS - 1);
   assert.ok(commits.every((commit) => commit.sha.length === 40));
 
-  const priorKeys = await priorAuthorKeys('start');
-  assert.ok(priorKeys.has('range fixture <range@example.test>'));
 });
