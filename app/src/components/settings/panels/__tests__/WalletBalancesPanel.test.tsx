@@ -193,7 +193,7 @@ describe('WalletBalancesPanel — empty state', () => {
 });
 
 describe('WalletBalancesPanel — wallet not configured', () => {
-  it('shows the setup hint + placeholder rows instead of a blocking error', async () => {
+  it('shows the setup hint and supported network cards without suggesting balances exist', async () => {
     mockFetchWalletStatus.mockReset();
     mockFetchWalletStatus.mockResolvedValueOnce(UNCONFIGURED_STATUS);
 
@@ -202,12 +202,12 @@ describe('WalletBalancesPanel — wallet not configured', () => {
     await waitFor(() => {
       expect(screen.getByText(/Set it up to enable your wallet/i)).toBeInTheDocument();
     });
-    // Placeholder rows render per displayed network (Ethereum/Base/BNB Chain)
-    // plus Bitcoin/Solana/Tron — one "Not set up" each.
+    // Each supported network is visible, with no address or balance table.
     expect(screen.getByText('Ethereum')).toBeInTheDocument();
     expect(screen.getByText('Base')).toBeInTheDocument();
     expect(screen.getByText('BNB Smart Chain')).toBeInTheDocument();
     expect(screen.getAllByText('Not set up')).toHaveLength(6);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
     // No balances fetch, no red error / retry button.
     expect(mockFetchWalletBalances).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();

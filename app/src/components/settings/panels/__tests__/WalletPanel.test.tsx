@@ -12,6 +12,7 @@ describe('WalletPanel', () => {
     render(<WalletPanel />);
 
     // Balance shown first.
+    expect(screen.getByText('walletBalances.earlyAlphaNotice')).toBeInTheDocument();
     expect(screen.getByText('balance-panel')).toBeInTheDocument();
     expect(screen.queryByText('recovery-panel')).not.toBeInTheDocument();
 

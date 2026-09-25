@@ -7,6 +7,14 @@ import {
   openhumanGetConfig,
   openhumanUpdateBrowserSettings,
 } from '../../../utils/tauriCommands/config';
+import { Alert, AlertDescription } from '../../ui/Alert';
+import Badge from '../../ui/Badge';
+import Button from '../../ui/Button';
+import Card from '../../ui/Card';
+import Input from '../../ui/Input';
+import Label from '../../ui/Label';
+import NativeSelect from '../../ui/NativeSelect';
+import Switch from '../../ui/Switch';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
 
 type BrowserSettings = {
@@ -146,10 +154,10 @@ export default function BrowserConnectionsPanel() {
   };
 
   const field = (key: keyof BrowserSettings, label: string, type: 'text' | 'number' = 'text') => (
-    <label className="flex flex-col gap-1 text-sm text-content" key={key}>
-      <span>{label}</span>
-      <input
-        className="rounded-lg border border-line bg-surface px-3 py-2"
+    <div className="space-y-1.5" key={key}>
+      <Label htmlFor={`browser-${key}`}>{label}</Label>
+      <Input
+        id={`browser-${key}`}
         type={type}
         min={type === 'number' ? numericBounds[key as keyof typeof numericBounds][0] : undefined}
         max={type === 'number' ? numericBounds[key as keyof typeof numericBounds][1] : undefined}
@@ -161,7 +169,7 @@ export default function BrowserConnectionsPanel() {
           }))
         }
       />
-    </label>
+    </div>
   );
 
   const agenticRoute =
@@ -175,105 +183,131 @@ export default function BrowserConnectionsPanel() {
     <SettingsTabbedPage
       title={t('connections.tabs.browser')}
       description={t('connections.browser.description')}>
-      <div className="max-w-3xl space-y-6 text-sm text-content">
-        <div className="rounded-xl border border-line p-4 space-y-2">
-          <p>
-            {t('connections.browser.module')}:{' '}
-            <strong>{module?.state ?? t('connections.browser.unknown')}</strong>
+      <div className="max-w-5xl space-y-4 text-sm text-content">
+        <Alert variant="warning" role={undefined}>
+          <AlertDescription>{t('connections.earlyAlphaNotice')}</AlertDescription>
+        </Alert>
+        <Card title={t('connections.browser.module')} padded divided={false}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant={module?.state === 'ready' ? 'success' : 'neutral'}>
+                {module?.state ?? t('connections.browser.unknown')}
+              </Badge>
+              <span className="text-content-muted">{t('connections.browser.chrome')}</span>
+              <Badge
+                variant={
+                  chromeReady === true ? 'success' : chromeReady === false ? 'warning' : 'neutral'
+                }>
+                {chromeReady === true
+                  ? t('connections.browser.chromeReady')
+                  : chromeReady === false
+                    ? t('connections.browser.chromeNotReady')
+                    : t('connections.browser.notVerified')}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" disabled={busy} onClick={testModule}>
+                {t('connections.browser.testModule')}
+              </Button>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={testBrowser}>
+                {t('connections.browser.testBrowser')}
+              </Button>
+            </div>
+          </div>
+          {module?.detail && <p className="mt-3 text-content-muted">{module.detail}</p>}
+          <p className="mt-3 text-xs text-content-muted">
+            {t('connections.browser.localOverride')}
           </p>
-          {module?.detail && <p className="text-content-muted">{module.detail}</p>}
-          <p>
-            {t('connections.browser.chrome')}:{' '}
-            <strong>
-              {chromeReady === true
-                ? t('connections.browser.chromeReady')
-                : chromeReady === false
-                  ? t('connections.browser.chromeNotReady')
-                  : t('connections.browser.notVerified')}
-            </strong>
+        </Card>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card title={t('connections.tabs.browser')} padded divided={false}>
+            <div className="space-y-5">
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="browser-enabled">{t('connections.browser.enabled')}</Label>
+                <Switch
+                  id="browser-enabled"
+                  checked={settings.enabled}
+                  onCheckedChange={enabled => setSettings(current => ({ ...current, enabled }))}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="browser-headless">{t('connections.browser.headless')}</Label>
+                <Switch
+                  id="browser-headless"
+                  checked={settings.headless}
+                  onCheckedChange={headless => setSettings(current => ({ ...current, headless }))}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {field('viewport_width', t('connections.browser.width'), 'number')}
+                {field('viewport_height', t('connections.browser.height'), 'number')}
+              </div>
+            </div>
+          </Card>
+
+          <Card title={t('connections.browser.profileMode')} padded divided={false}>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="browser-profile-mode">{t('connections.browser.profileMode')}</Label>
+                <NativeSelect
+                  id="browser-profile-mode"
+                  className="w-full"
+                  value={settings.profile_mode ?? 'fresh'}
+                  onChange={event =>
+                    setSettings(current => ({
+                      ...current,
+                      profile_mode: event.target.value as 'fresh' | 'persistent',
+                    }))
+                  }>
+                  <option value="fresh">{t('connections.browser.fresh')}</option>
+                  <option value="persistent">{t('connections.browser.persistent')}</option>
+                </NativeSelect>
+              </div>
+              {settings.profile_mode === 'persistent' &&
+                field('profile_path', t('connections.browser.profilePath'))}
+              {field('chrome_path', t('connections.browser.chromePath'))}
+              {field('download_dir', t('connections.browser.downloadDir'))}
+            </div>
+          </Card>
+
+          <Card title={t('connections.browser.maxSteps')} padded divided={false}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {field('max_task_steps', t('connections.browser.maxSteps'), 'number')}
+              {field('task_timeout_secs', t('connections.browser.timeout'), 'number')}
+            </div>
+            <p className="mt-4 text-xs text-content-muted">
+              {t('connections.browser.testInConversation')}
+            </p>
+          </Card>
+
+          <Card title={t('connections.browser.allowedWebsites')} padded divided={false}>
+            <p className="text-content-muted">{t('connections.browser.sharedPolicy')}</p>
+            <p className="mt-3 break-words font-medium">
+              {allowedDomains.length
+                ? allowedDomains.join(', ')
+                : t('connections.browser.noneAllowed')}
+            </p>
+            <Button asChild variant="tertiary" size="sm" className="mt-3 px-0">
+              <Link to="/connections?tab=search">{t('connections.browser.manageWebsites')}</Link>
+            </Button>
+          </Card>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-content-muted">
+            {t('connections.browser.jevRoute')}:{' '}
+            <span className="font-medium text-content">{agenticRoute}</span>
           </p>
-          <p className="text-content-muted">{t('connections.browser.localOverride')}</p>
-          <button
-            className="rounded-lg border border-line px-3 py-2 disabled:opacity-50"
-            disabled={busy}
-            onClick={testModule}>
-            {t('connections.browser.testModule')}
-          </button>
-          <button
-            className="ml-2 rounded-lg border border-line px-3 py-2 disabled:opacity-50"
-            disabled={busy}
-            onClick={testBrowser}>
-            {t('connections.browser.testBrowser')}
-          </button>
+          <Button disabled={busy} onClick={save}>
+            {t('connections.browser.save')}
+          </Button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={settings.enabled}
-              onChange={event =>
-                setSettings(current => ({ ...current, enabled: event.target.checked }))
-              }
-            />
-            {t('connections.browser.enabled')}
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={settings.headless}
-              onChange={event =>
-                setSettings(current => ({ ...current, headless: event.target.checked }))
-              }
-            />
-            {t('connections.browser.headless')}
-          </label>
-          {field('viewport_width', t('connections.browser.width'), 'number')}
-          {field('viewport_height', t('connections.browser.height'), 'number')}
-          {field('chrome_path', t('connections.browser.chromePath'))}
-          <label className="flex flex-col gap-1">
-            {t('connections.browser.profileMode')}
-            <select
-              className="rounded-lg border border-line bg-surface px-3 py-2"
-              value={settings.profile_mode ?? 'fresh'}
-              onChange={event =>
-                setSettings(current => ({
-                  ...current,
-                  profile_mode: event.target.value as 'fresh' | 'persistent',
-                }))
-              }>
-              <option value="fresh">{t('connections.browser.fresh')}</option>
-              <option value="persistent">{t('connections.browser.persistent')}</option>
-            </select>
-          </label>
-          {settings.profile_mode === 'persistent' &&
-            field('profile_path', t('connections.browser.profilePath'))}
-          {field('download_dir', t('connections.browser.downloadDir'))}
-          {field('max_task_steps', t('connections.browser.maxSteps'), 'number')}
-          {field('task_timeout_secs', t('connections.browser.timeout'), 'number')}
-        </div>
-        <div className="rounded-xl border border-line p-4 space-y-2">
-          <p>{t('connections.browser.allowedWebsites')}</p>
-          <p className="text-content-muted">{t('connections.browser.sharedPolicy')}</p>
-          <p>
-            {allowedDomains.length
-              ? allowedDomains.join(', ')
-              : t('connections.browser.noneAllowed')}
-          </p>
-          <Link className="text-primary-600 underline" to="/connections?tab=search">
-            {t('connections.browser.manageWebsites')}
-          </Link>
-        </div>
-        <p>
-          {t('connections.browser.jevRoute')}: <strong>{agenticRoute}</strong>
-        </p>
-        <p className="text-content-muted">{t('connections.browser.testInConversation')}</p>
-        <button
-          className="rounded-lg bg-primary-600 px-4 py-2 text-content-inverted disabled:opacity-50"
-          disabled={busy}
-          onClick={save}>
-          {t('connections.browser.save')}
-        </button>
-        {message && <p role="status">{message}</p>}
+        {message && (
+          <Alert variant="info" role="status">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
       </div>
     </SettingsTabbedPage>
   );

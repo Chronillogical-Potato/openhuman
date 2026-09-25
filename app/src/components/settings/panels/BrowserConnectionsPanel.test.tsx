@@ -38,6 +38,7 @@ beforeEach(() => {
 describe('BrowserConnectionsPanel', () => {
   it('shows actual module state and shared website policy', async () => {
     renderWithProviders(<BrowserConnectionsPanel />);
+    expect(screen.getByText('connections.earlyAlphaNotice')).toBeInTheDocument();
     expect(await screen.findByText('selenium.dev')).toBeInTheDocument();
     expect(screen.getByText('available')).toBeInTheDocument();
     expect(screen.getByText('connections.browser.routeDirect')).toBeInTheDocument();

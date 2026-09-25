@@ -976,6 +976,16 @@ export default function Skills() {
                     ),
                   },
                   {
+                    value: 'browser',
+                    label: t('connections.tabs.browser'),
+                    icon: navIcon('M3 5h18v14H3zM3 10h18M9 10v9'),
+                  },
+                  {
+                    value: 'desktop',
+                    label: t('desktop.title'),
+                    icon: navIcon('M4 5h16v11H4zM8 20h8m-4-4v4'),
+                  },
+                  {
                     // Wallet balances relocated from Settings → Data.
                     value: 'wallet',
                     label: t('pages.settings.account.walletBalances'),
@@ -1022,11 +1032,6 @@ export default function Skills() {
                     icon: navIcon('M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'),
                   },
                   {
-                    value: 'browser',
-                    label: t('connections.tabs.browser'),
-                    icon: navIcon('M3 5h18v14H3zM3 10h18M9 10v9'),
-                  },
-                  {
                     // Usage & limits (cost dashboard, token savings, background
                     // loops) relocated from Settings.
                     value: 'usage',
@@ -1034,16 +1039,6 @@ export default function Skills() {
                     icon: navIcon(
                       'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
                     ),
-                  },
-                ],
-              },
-              {
-                label: t('connections.groups.desktop'),
-                items: [
-                  {
-                    value: 'desktop',
-                    label: t('desktop.title'),
-                    icon: navIcon('M4 5h16v11H4zM8 20h8m-4-4v4'),
                   },
                 ],
               },

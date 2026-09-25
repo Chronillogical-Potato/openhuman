@@ -677,8 +677,10 @@ const en: TranslationMap = {
   'connections.tabs.composioKey': 'Composio',
   'connections.tabs.channels': 'Channels',
   'connections.tabs.mcp': 'MCP Servers',
-  'connections.tabs.browser': 'Browser',
+  'connections.tabs.browser': 'Browser Control',
   'connections.browser.description': 'Set up browser tasks and inspect readiness.',
+  'connections.earlyAlphaNotice':
+    'Early Alpha: Browser and desktop control are still being tested. Actions may behave unexpectedly or change between releases.',
   'connections.browser.module': 'Module',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'Unknown',
@@ -727,7 +729,7 @@ const en: TranslationMap = {
   'desktop.action.expand': 'Expand',
   'desktop.action.collapse': 'Collapse',
   'desktop.action.scroll': 'Scroll',
-  'desktop.title': 'Desktop control',
+  'desktop.title': 'Desktop Control',
   'desktop.description': 'Let your agent work in apps on this computer.',
   'desktop.enabledPending': 'Enabled. Finish setup below before using desktop tools.',
   'desktop.moduleUnavailable': 'The desktop module is unavailable. Check its status and try again.',
@@ -7009,6 +7011,12 @@ const en: TranslationMap = {
   'wallet.ariaLabel': 'Wallet views',
   // WalletBalancesPanel strings
   'walletBalances.title': 'Wallet Balances',
+  'walletBalances.earlyAlphaNotice':
+    'Early Alpha: Wallet balances are still being tested. Amounts and network support may change between releases.',
+  'walletBalances.allNetworks': 'All networks',
+  'walletBalances.manageTokens': 'Manage tokens',
+  'walletBalances.noFilterMatches': 'No balances match your filters',
+  'walletBalances.colToken': 'Token',
   'walletBalances.colNetwork': 'Network',
   'walletBalances.colAddress': 'Address',
   'walletBalances.colBalance': 'Balance',

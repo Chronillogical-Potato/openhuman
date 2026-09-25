@@ -856,8 +856,10 @@ const messages: TranslationMap = {
   'connections.tabs.composio': 'Composio',
   'connections.tabs.channels': 'Canales',
   'connections.tabs.mcp': 'Servidores MCP',
-  'connections.tabs.browser': 'Navegador',
+  'connections.tabs.browser': 'Control del navegador',
   'connections.browser.description': 'Configura las tareas del navegador y comprueba su estado.',
+  'connections.earlyAlphaNotice':
+    'Alfa temprana: el control del navegador y del escritorio sigue en pruebas. Las acciones pueden comportarse de forma inesperada o cambiar entre versiones.',
   'connections.browser.module': 'Módulo',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'Desconocido',
@@ -6389,6 +6391,12 @@ const messages: TranslationMap = {
   'pages.settings.account.walletBalancesDesc':
     'Ver saldos en múltiples cadenas de tu billetera local',
   'walletBalances.title': 'Saldos de billetera',
+  'walletBalances.earlyAlphaNotice':
+    'Alfa temprana: los saldos de la billetera siguen en pruebas. Los importes y las redes compatibles pueden cambiar entre versiones.',
+  'walletBalances.allNetworks': 'Todas las redes',
+  'walletBalances.manageTokens': 'Gestionar tokens',
+  'walletBalances.noFilterMatches': 'Ningún saldo coincide con los filtros',
+  'walletBalances.colToken': 'Token',
   'walletBalances.colNetwork': 'Red',
   'walletBalances.colAddress': 'Dirección',
   'walletBalances.colBalance': 'Saldo',

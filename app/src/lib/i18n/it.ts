@@ -856,8 +856,10 @@ const messages: TranslationMap = {
   'connections.tabs.composio': 'Composio',
   'connections.tabs.channels': 'Canali',
   'connections.tabs.mcp': 'Server MCP',
-  'connections.tabs.browser': 'Browser',
+  'connections.tabs.browser': 'Controllo del browser',
   'connections.browser.description': 'Configura le attività del browser e verifica lo stato.',
+  'connections.earlyAlphaNotice':
+    'Alpha iniziale: il controllo del browser e del desktop è ancora in fase di test. Le azioni potrebbero comportarsi in modo imprevisto o cambiare tra le versioni.',
   'connections.browser.module': 'Modulo',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'Sconosciuto',
@@ -6372,6 +6374,12 @@ const messages: TranslationMap = {
   'pages.settings.account.walletBalancesDesc':
     'Visualizza i saldi multi-chain del tuo portafoglio locale',
   'walletBalances.title': 'Saldi portafoglio',
+  'walletBalances.earlyAlphaNotice':
+    'Alpha iniziale: i saldi del portafoglio sono ancora in fase di test. Gli importi e le reti supportate potrebbero cambiare tra le versioni.',
+  'walletBalances.allNetworks': 'Tutte le reti',
+  'walletBalances.manageTokens': 'Gestisci token',
+  'walletBalances.noFilterMatches': 'Nessun saldo corrisponde ai filtri',
+  'walletBalances.colToken': 'Token',
   'walletBalances.colNetwork': 'Rete',
   'walletBalances.colAddress': 'Indirizzo',
   'walletBalances.colBalance': 'Saldo',
