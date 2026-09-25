@@ -462,6 +462,54 @@ fn user_reflections_render_above_user_memory_when_both_present() {
 // ─── ToolsSection native-skip tests ──────────────────────────────────────────
 
 #[test]
+fn deferred_browser_prompt_has_only_discovery_hint_in_native_and_text_modes() {
+    let tools = vec![
+        PromptTool::owned(
+            "browser".into(),
+            "browser full schema".into(),
+            r#"{"type":"object","properties":{"secret_browser_action":{"type":"string"}}}"#.into(),
+        ),
+        PromptTool::owned(
+            "browser_open".into(),
+            "browser open schema".into(),
+            r#"{"type":"object","properties":{"secret_open_url":{"type":"string"}}}"#.into(),
+        ),
+        PromptTool::owned(
+            "tool_search".into(),
+            "Find tools".into(),
+            r#"{"type":"object"}"#.into(),
+        ),
+    ];
+    let visible = std::collections::HashSet::from(["tool_search".to_string()]);
+    for format in [ToolCallFormat::Native, ToolCallFormat::Python] {
+        let ctx = PromptContext {
+            workspace_dir: Path::new("/tmp"),
+            model_name: "test-model",
+            agent_id: "",
+            tools: &tools,
+            workflows: &[],
+            dispatcher_instructions: "",
+            learned: LearnedContextData::default(),
+            visible_tool_names: &visible,
+            tool_call_format: format,
+            connected_integrations: &[],
+            connected_identities_md: String::new(),
+            include_profile: false,
+            include_memory_md: false,
+            curated_snapshot: None,
+            user_identity: None,
+            personality_roster: vec![],
+            agents_md_global: None,
+            agents_md_local: None,
+        };
+        let rendered = ToolsSection.build(&ctx).unwrap();
+        assert!(rendered.contains("For website tasks, use tool_search to find browser tools."));
+        assert!(!rendered.contains("secret_browser_action"));
+        assert!(!rendered.contains("secret_open_url"));
+    }
+}
+
+#[test]
 fn tools_section_empty_for_native() {
     // Native function-calling: the provider sends full JSON schemas in the
     // API request — repeating them in the system prompt is pure token bloat.

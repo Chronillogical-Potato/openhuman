@@ -40,6 +40,15 @@ impl ApprovalGate {
         request_id: &str,
         decision: ApprovalDecision,
     ) -> anyhow::Result<Option<PendingApproval>> {
+        if !matches!(decision, ApprovalDecision::ApproveOnce | ApprovalDecision::Deny)
+            && self
+                .request_routes
+                .lock()
+                .get(request_id)
+                .is_some_and(|route| route.forced)
+        {
+            anyhow::bail!("this action requires a one-time approval or denial");
+        }
         let decided = store::decide(&self.config, request_id, decision)?;
         if let Some(row) = &decided {
             // `ApproveAlwaysForTool` persistence (append to `autonomy.auto_approve`

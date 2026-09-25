@@ -1,0 +1,101 @@
+use super::*;
+
+#[tokio::test]
+async fn forced_approval_parks_with_autonomy_disabled_and_releases_exact_request() {
+    let (gate, _dir) = test_gate();
+    assert!(!gate.config.autonomy.enabled);
+    let gate = Arc::new(gate);
+    let worker = gate.clone();
+    let handle = tokio::spawn(async move {
+        turn_origin::with_origin(
+            web_origin(),
+            APPROVAL_CHAT_CONTEXT.scope(
+                chat_ctx(),
+                worker.intercept_forced(
+                    "browser",
+                    "Click Submit on checkout",
+                    serde_json::json!({"action": "click", "target": "Submit"}),
+                ),
+            ),
+        )
+        .await
+    });
+
+    let pending = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(row) = gate.list_pending().unwrap().into_iter().next() {
+                break row;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("forced approval never parked");
+    assert_eq!(pending.tool_name, "browser");
+    assert_eq!(pending.action_summary, "Click Submit on checkout");
+    assert_eq!(pending.args_redacted["target"], "Submit");
+    assert!(!handle.is_finished());
+    decide_parked(&gate, &pending.request_id, ApprovalDecision::ApproveOnce);
+    assert!(matches!(handle.await.unwrap(), GateOutcome::Allow));
+    assert!(gate.list_pending().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn forced_approval_denies_without_routable_web_chat_origin() {
+    let (gate, _dir) = test_gate();
+    let outcome = APPROVAL_CHAT_CONTEXT
+        .scope(
+            chat_ctx(),
+            gate.intercept_forced("browser", "click", serde_json::json!({})),
+        )
+        .await;
+    assert!(matches!(outcome, GateOutcome::Deny { .. }));
+    assert!(gate.list_pending().unwrap().is_empty());
+
+    let outcome = turn_origin::with_origin(
+        AgentTurnOrigin::WebChat {
+            thread_id: String::new(),
+            client_id: "client".into(),
+            request_id: None,
+        },
+        gate.intercept_forced("browser", "click", serde_json::json!({})),
+    )
+    .await;
+    assert!(matches!(outcome, GateOutcome::Deny { .. }));
+}
+
+#[tokio::test]
+async fn forced_approval_ignores_auto_approval_and_rejects_persistent_grants() {
+    let (mut gate, _dir) = test_gate();
+    gate.config.autonomy.auto_approve_all = true;
+    gate.config.autonomy.auto_approve = vec!["browser_forced_test".into()];
+    let gate = Arc::new(gate);
+    let worker = gate.clone();
+    let handle = tokio::spawn(async move {
+        turn_origin::with_origin(
+            web_origin(),
+            APPROVAL_CHAT_CONTEXT.scope(
+                chat_ctx(),
+                worker.intercept_forced("browser_forced_test", "click", serde_json::json!({})),
+            ),
+        )
+        .await
+    });
+    let request_id = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(id) = parked_request_id(&gate) {
+                break id;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("forced approval with auto flags never parked");
+    assert!(!handle.is_finished());
+    assert!(gate
+        .decide(&request_id, ApprovalDecision::ApproveAlwaysForTool)
+        .is_err());
+    assert!(!handle.is_finished());
+    decide_parked(&gate, &request_id, ApprovalDecision::Deny);
+    assert!(matches!(handle.await.unwrap(), GateOutcome::Deny { .. }));
+}

@@ -138,6 +138,29 @@ impl ApprovalGate {
             .0
     }
 
+    /// Require an explicit, one-time decision for this exact action. This
+    /// entry point ignores all ordinary auto-approval and origin shortcuts.
+    /// A turn without a routable WebChat origin fails closed.
+    pub async fn intercept_forced(
+        &self,
+        tool_name: &str,
+        action_summary: &str,
+        args_redacted: serde_json::Value,
+    ) -> GateOutcome {
+        let mut _park_bound_elapsed = false;
+        self.intercept_audited_inner(
+            tool_name,
+            action_summary,
+            args_redacted,
+            None,
+            &mut _park_bound_elapsed,
+            None,
+            true,
+        )
+        .await
+        .0
+    }
+
     /// Audited variant of [`Self::intercept`].
     ///
     /// Returns `(outcome, Some(request_id))` when the call was
@@ -185,6 +208,7 @@ impl ApprovalGate {
             None,
             &mut _park_bound_elapsed,
             tool_call_id,
+            false,
         )
         .await
     }
@@ -222,6 +246,7 @@ impl ApprovalGate {
                 park_bound,
                 &mut park_bound_elapsed,
                 None,
+                false,
             )
             .await;
         if park_bound_elapsed {

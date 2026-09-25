@@ -21,6 +21,9 @@ vi.mock('../../components/settings/panels/EmbeddingsPanel', () => ({
 vi.mock('../../components/settings/panels/SearchPanel', () => ({
   default: () => <div data-testid="skills-search-panel" />,
 }));
+vi.mock('../../components/settings/panels/BrowserConnectionsPanel', () => ({
+  default: () => <div data-testid="skills-browser-panel" />,
+}));
 vi.mock('../../components/settings/panels/ComposioPanel', () => ({
   default: () => <div data-testid="skills-composio-panel" />,
 }));
@@ -77,6 +80,7 @@ describe('Skills page — API keys (intelligence) tabs', () => {
     ['voice', 'skills-voice-panel'],
     ['embeddings', 'skills-embeddings-panel'],
     ['search', 'skills-search-panel'],
+    ['browser', 'skills-browser-panel'],
     ['usage', 'skills-usage-panel'],
     ['composio-key', 'skills-composio-panel'],
   ])('renders the %s panel for ?tab=%s', async (tab, testId) => {

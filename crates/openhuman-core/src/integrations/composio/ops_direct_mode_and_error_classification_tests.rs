@@ -629,6 +629,22 @@ fn backend_mode_without_session_is_false_once_signed_in() {
 }
 
 #[test]
+fn backend_mode_treats_local_offline_credential_as_no_backend_session() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    crate::security::credentials::AuthService::from_config(&config)
+        .store_provider_token(
+            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            "header.payload.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store offline credential");
+    assert!(backend_mode_without_session(&config));
+}
+
+#[test]
 fn backend_mode_without_session_is_false_when_the_session_store_is_unreadable() {
     let tmp = tempfile::tempdir().unwrap();
     // The auth-profile store lives in `config_path.parent()`

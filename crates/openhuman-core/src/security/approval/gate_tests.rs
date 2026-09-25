@@ -224,6 +224,8 @@ async fn find_approval_decided(
 
 #[path = "gate_core_flow_tests.rs"]
 mod core_flow_tests;
+#[path = "gate_forced_tests.rs"]
+mod forced_tests;
 #[path = "gate_origin_intercept_tests.rs"]
 mod origin_intercept_tests;
 #[path = "gate_triage_tests.rs"]

@@ -139,6 +139,9 @@ pub struct OpenHumanDefinitionRegistry {
     /// non-empty cannot be projected faithfully and [`Self::tools_for`] fails
     /// closed rather than re-granting the denied tools.
     registered_tools: Option<Arc<Vec<String>>>,
+    /// Registered deferred tools. A named belt that lists the intrinsic
+    /// `tool_search` bridge grants these names to the hosted harness too.
+    deferred_tools: Option<Arc<Vec<String>>>,
     /// Per-invocation direct delegation routes synthesized beside the durable
     /// tool registry. They must augment a named root scope so the hosted loop
     /// authorizes the same hand-off routes it advertises.
@@ -183,6 +186,7 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Shared(registry),
             config: None,
             registered_tools: None,
+            deferred_tools: None,
             session_delegation_tools: None,
             session_definition: None,
         }
@@ -199,6 +203,7 @@ impl OpenHumanDefinitionRegistry {
             registry: RegistryHandle::Global(registry),
             config: None,
             registered_tools: None,
+            deferred_tools: None,
             session_delegation_tools: None,
             session_definition: None,
         })
@@ -224,6 +229,11 @@ impl OpenHumanDefinitionRegistry {
     /// list. Without it such a definition fails closed — see [`Self::tools_for`].
     pub fn with_registered_tools(mut self, tools: Arc<Vec<String>>) -> Self {
         self.registered_tools = Some(tools);
+        self
+    }
+
+    pub fn with_deferred_tools(mut self, tools: Arc<Vec<String>>) -> Self {
+        self.deferred_tools = Some(tools);
         self
     }
 
@@ -325,6 +335,14 @@ impl OpenHumanDefinitionRegistry {
         match &def.tools {
             ToolScope::Named(named) => {
                 let mut names = named.clone();
+                if named
+                    .iter()
+                    .any(|name| name == crate::tools::implementations::meta::TOOL_SEARCH_NAME)
+                {
+                    if let Some(deferred) = self.deferred_tools.as_deref() {
+                        names.extend(deferred.iter().cloned());
+                    }
+                }
                 if let Some(delegation_tools) = self.session_delegation_tools.as_deref() {
                     names.extend(delegation_tools.iter().cloned());
                 }

@@ -66,6 +66,42 @@ pub struct BrowserConfig {
     pub native_chrome_path: Option<String>,
     #[serde(default)]
     pub computer_use: BrowserComputerUseConfig,
+    /// Run Chrome without a visible window.
+    #[serde(default = "default_true")]
+    pub headless: bool,
+    #[serde(default = "default_viewport_width")]
+    pub viewport_width: u32,
+    #[serde(default = "default_viewport_height")]
+    pub viewport_height: u32,
+    #[serde(default)]
+    pub chrome_path: Option<String>,
+    /// `fresh` creates an isolated disposable Chrome profile; `persistent` uses `profile_path`.
+    #[serde(default = "default_profile_mode")]
+    pub profile_mode: String,
+    #[serde(default)]
+    pub profile_path: Option<String>,
+    #[serde(default)]
+    pub download_dir: Option<String>,
+    #[serde(default = "default_max_task_steps")]
+    pub max_task_steps: usize,
+    #[serde(default = "default_task_timeout_secs")]
+    pub task_timeout_secs: u64,
+}
+
+fn default_viewport_width() -> u32 {
+    1280
+}
+fn default_viewport_height() -> u32 {
+    800
+}
+fn default_profile_mode() -> String {
+    "fresh".into()
+}
+fn default_max_task_steps() -> usize {
+    20
+}
+fn default_task_timeout_secs() -> u64 {
+    120
 }
 
 fn default_true() -> bool {
@@ -73,7 +109,7 @@ fn default_true() -> bool {
 }
 
 fn default_browser_backend() -> String {
-    "auto".into()
+    "tinybrowser".into()
 }
 
 fn default_browser_webdriver_url() -> String {
@@ -91,6 +127,15 @@ impl Default for BrowserConfig {
             native_webdriver_url: default_browser_webdriver_url(),
             native_chrome_path: None,
             computer_use: BrowserComputerUseConfig::default(),
+            headless: true,
+            viewport_width: default_viewport_width(),
+            viewport_height: default_viewport_height(),
+            chrome_path: None,
+            profile_mode: default_profile_mode(),
+            profile_path: None,
+            download_dir: None,
+            max_task_steps: default_max_task_steps(),
+            task_timeout_secs: default_task_timeout_secs(),
         }
     }
 }

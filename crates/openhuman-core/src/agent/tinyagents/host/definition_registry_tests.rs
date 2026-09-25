@@ -244,6 +244,31 @@ fn an_undenied_wildcard_scope_projects_registered_tools() {
     );
 }
 
+#[test]
+fn named_discovery_scope_authorizes_only_registered_deferred_tools() {
+    let mut def = synthetic("searcher", AgentTier::Chat, &[]);
+    def.tools = ToolScope::Named(vec!["file_read".into(), "tool_search".into()]);
+    def.disallowed_tools = vec!["blocked_*".into()];
+    let projected = registry_of(vec![def.clone()])
+        .with_deferred_tools(Arc::new(vec![
+            "browser_open".into(),
+            "browser".into(),
+            "blocked_secret".into(),
+        ]))
+        .project(&def);
+    assert!(projected.tools.contains(&"browser_open".to_string()));
+    assert!(projected.tools.contains(&"browser".to_string()));
+    assert!(!projected.tools.contains(&"blocked_secret".to_string()));
+
+    def.tools = ToolScope::Named(vec!["file_read".into()]);
+    let without_discovery = registry_of(vec![def.clone()])
+        .with_deferred_tools(Arc::new(vec!["browser_open".into()]))
+        .project(&def);
+    assert!(!without_discovery
+        .tools
+        .contains(&"browser_open".to_string()));
+}
+
 /// A wildcard scope carrying a denylist must be materialised against the
 /// registered tool list, not projected as the unrestricted marker — which
 /// would hand every denied tool straight back.

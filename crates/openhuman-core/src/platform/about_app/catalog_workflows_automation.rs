@@ -77,6 +77,20 @@ Capability {
         privacy: DERIVED_TO_BACKEND,
     },
 Capability {
+        id: "workflows.tinybrowser_automation",
+        name: "Browser Automation",
+        domain: "workflows",
+        category: CapabilityCategory::Workflows,
+        description: "Inspect pages and run bounded browser tasks in Chrome through TinyBrowser.",
+        how_to: "Connections > Browser, then ask the assistant to use the browser",
+        status: CapabilityStatus::Beta,
+        privacy: Some(CapabilityPrivacy {
+            leaves_device: true,
+            data_kind: PrivacyDataKind::Raw,
+            destinations: &["Visited websites", "OpenRouter or OpenHuman backend for Jev tasks"],
+        }),
+    },
+Capability {
         id: "workflows.toggle_enabled",
         name: "Enable or Disable Workflows",
         domain: "workflows",

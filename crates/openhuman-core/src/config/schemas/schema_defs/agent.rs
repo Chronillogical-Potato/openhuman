@@ -2,7 +2,7 @@
 
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
-use super::super::helpers::{json_output, optional_bool, optional_string};
+use super::super::helpers::{json_output, optional_bool, optional_number, optional_string};
 
 pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
     match function {
@@ -113,8 +113,17 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                 optional_bool("enabled", "Enable browser integration."),
                 optional_string(
                     "backend",
-                    "Browser backend: agent_browser, playwright, rust_native, computer_use, or auto.",
+                    "Browser backend: tinybrowser (legacy values accepted for migration).",
                 ),
+                optional_bool("headless", "Run Chrome without a visible window."),
+                optional_number("viewport_width", "Chrome viewport width in pixels (320-3840)."),
+                optional_number("viewport_height", "Chrome viewport height in pixels (240-2160)."),
+                optional_string("chrome_path", "Optional Chrome executable path; empty clears."),
+                optional_string("profile_mode", "fresh or persistent."),
+                optional_string("profile_path", "Persistent Chrome profile path; empty clears."),
+                optional_string("download_dir", "Absolute permitted download folder; empty clears."),
+                optional_number("max_task_steps", "Maximum Jev task steps (1-100)."),
+                optional_number("task_timeout_secs", "Browser task timeout in seconds (5-600)."),
             ],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         }),

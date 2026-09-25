@@ -17,6 +17,7 @@ import { SidebarContent } from '../components/layout/shell/SidebarSlot';
 import TwoPaneNav from '../components/layout/TwoPaneNav';
 import { SettingsLayoutProvider } from '../components/settings/layout/SettingsLayoutContext';
 import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
+import BrowserConnectionsPanel from '../components/settings/panels/BrowserConnectionsPanel';
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
 import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
@@ -449,6 +450,7 @@ type ConnectionsTab =
   | 'voice'
   | 'embeddings'
   | 'search'
+  | 'browser'
   | 'usage'
   | 'composio-key'
   | 'wallet';
@@ -489,6 +491,7 @@ const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'voice',
   'embeddings',
   'search',
+  'browser',
   'composio-key',
   'usage',
   'wallet',
@@ -499,6 +502,7 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'voice',
   'embeddings',
   'search',
+  'browser',
   'usage',
   'composio-key',
   'wallet',
@@ -527,6 +531,7 @@ export default function Skills() {
       raw === 'voice' ||
       raw === 'embeddings' ||
       raw === 'search' ||
+      raw === 'browser' ||
       raw === 'usage' ||
       raw === 'composio-key' ||
       raw === 'wallet'
@@ -1012,6 +1017,11 @@ export default function Skills() {
                     icon: navIcon('M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'),
                   },
                   {
+                    value: 'browser',
+                    label: t('connections.tabs.browser'),
+                    icon: navIcon('M3 5h18v14H3zM3 10h18M9 10v9'),
+                  },
+                  {
                     // Usage & limits (cost dashboard, token savings, background
                     // loops) relocated from Settings.
                     value: 'usage',
@@ -1108,6 +1118,7 @@ export default function Skills() {
                     <EmbeddingsPanel embedded />
                   </SettingsTabbedPage>
                 )}
+                {activeTab === 'browser' && <BrowserConnectionsPanel />}
                 {activeTab === 'search' && (
                   <SettingsTabbedPage
                     title={t('settings.search.title')}
