@@ -9,13 +9,13 @@ import {
   buildOpenAiRequest,
   buildReleasePayload,
   collectCommits,
+  collectContributorStats,
   createRecordSplitter,
   ensureAllPullRequestsLinked,
   extractPullRequestNumbers,
   parseArgs,
   parseGitHubRepoFromRemote,
   parseGitLog,
-  priorAuthorKeys,
   renderDeterministicNotes,
 } from '../release/generate-release-notes.mjs';
 
@@ -82,6 +82,19 @@ test('release notes collect only first-parent pull request merges', async (t) =>
 
   const commits = await collectCommits('start', 'end');
   assert.deepEqual(commits.map((commit) => commit.primaryPrNumber), [100]);
+});
+
+test('contributor credits use PR authors instead of merge authors', () => {
+  const contributors = collectContributorStats([
+    { number: 100, author: 'new-contributor', authorAssociation: 'FIRST_TIME_CONTRIBUTOR' },
+    { number: 101, author: 'returning-contributor', authorAssociation: 'CONTRIBUTOR' },
+    { number: 102, author: 'new-contributor', authorAssociation: 'CONTRIBUTOR' },
+  ]);
+
+  assert.deepEqual(contributors, [
+    { name: 'new-contributor', commits: 2, prs: [100, 102], isNew: true },
+    { name: 'returning-contributor', commits: 1, prs: [101], isNew: false },
+  ]);
 });
 
 test('OpenAI request contains required release sections and compare payload', () => {
@@ -346,6 +359,4 @@ test('merge collection survives a git log larger than the 1 MiB spawn buffer', a
   assert.equal(commits.at(-1).primaryPrNumber, 1000 + COMMITS - 1);
   assert.ok(commits.every((commit) => commit.sha.length === 40));
 
-  const priorKeys = await priorAuthorKeys('start');
-  assert.ok(priorKeys.has('range fixture <range@example.test>'));
 });

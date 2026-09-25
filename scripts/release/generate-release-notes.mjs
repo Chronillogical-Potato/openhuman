@@ -287,39 +287,25 @@ export async function collectCommits(from, to) {
   return commits;
 }
 
-export async function priorAuthorKeys(from) {
-  const keys = new Set();
-  await streamGitRecords(['log', from, '--format=%an%x1f%ae%x1e'], (entry) => {
-    const [name, email] = entry.trim().split('\x1f');
-    if (name || email) {
-      keys.add(authorKey({ authorName: name, authorEmail: email }));
-    }
-  });
-  return keys;
-}
-
-function authorKey(author) {
-  return `${String(author.authorName || '').toLowerCase()} <${String(author.authorEmail || '').toLowerCase()}>`;
-}
-
-function collectContributorStats(commits, priorKeys) {
+export function collectContributorStats(pullRequests) {
   const contributors = new Map();
-  for (const commit of commits) {
-    const key = authorKey(commit);
+  for (const pullRequest of pullRequests) {
+    if (!pullRequest.author) {
+      continue;
+    }
+    const key = pullRequest.author.toLowerCase();
     if (!contributors.has(key)) {
       contributors.set(key, {
-        name: commit.authorName,
-        email: commit.authorEmail,
+        name: pullRequest.author,
         commits: 0,
         prs: new Set(),
-        isNew: !priorKeys.has(key),
+        isNew: false,
       });
     }
     const contributor = contributors.get(key);
     contributor.commits += 1;
-    if (commit.primaryPrNumber) {
-      contributor.prs.add(commit.primaryPrNumber);
-    }
+    contributor.prs.add(pullRequest.number);
+    contributor.isNew ||= ['FIRST_TIMER', 'FIRST_TIME_CONTRIBUTOR'].includes(pullRequest.authorAssociation);
   }
 
   return [...contributors.values()]
@@ -347,19 +333,31 @@ function collectPrCommits(commits) {
 
 function fetchPullRequest(repo, number) {
   try {
+    const [owner, name] = repo.split('/');
+    const query = `query($owner: String!, $name: String!, $number: Int!) {
+      repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) {
+          number title url mergedAt body authorAssociation
+          author { login }
+          labels(first: 100) { nodes { name } }
+        }
+      }
+    }`;
     const json = runGh(
       [
-        'pr',
-        'view',
-        String(number),
-        '--repo',
-        repo,
-        '--json',
-        'number,title,url,author,mergedAt,body,labels',
+        'api', 'graphql',
+        '-f', `query=${query}`,
+        '-f', `owner=${owner}`,
+        '-f', `name=${name}`,
+        '-F', `number=${number}`,
       ],
       { allowFailure: true },
     );
-    return JSON.parse(json);
+    const detail = JSON.parse(json)?.data?.repository?.pullRequest;
+    if (!detail) {
+      throw new Error('GitHub returned no pull request');
+    }
+    return { ...detail, labels: detail.labels?.nodes || [] };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
@@ -370,6 +368,7 @@ function fetchPullRequest(repo, number) {
       mergedAt: null,
       body: null,
       labels: [],
+      authorAssociation: null,
       warning: `Failed to fetch PR metadata with gh: ${message}`,
     };
   }
@@ -388,6 +387,7 @@ function collectPullRequests(repo, commits) {
       title: detail.title || fallbackTitle,
       url: detail.url || `https://github.com/${repo}/pull/${number}`,
       author: detail.author?.login || commitsForPr.at(-1)?.authorName || null,
+      authorAssociation: detail.authorAssociation || null,
       mergedAt: detail.mergedAt || commitsForPr.at(-1)?.authoredAt || null,
       labels: (detail.labels || []).map((label) => label.name || label).filter(Boolean),
       body: trimBody(detail.body),
@@ -760,8 +760,8 @@ async function main() {
 
   console.error(`[release-notes] Collecting ${repo} changes from ${from} to ${resolvedTo}`);
   const commits = await collectCommits(from, resolvedTo);
-  const contributors = collectContributorStats(commits, await priorAuthorKeys(from));
   const pullRequests = collectPullRequests(repo, commits);
+  const contributors = collectContributorStats(pullRequests);
   const payload = buildReleasePayload({
     from,
     to: options.to,
