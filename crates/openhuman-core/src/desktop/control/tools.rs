@@ -123,6 +123,9 @@ fn goal_request(args: &Value, approvals_enabled: bool) -> anyhow::Result<Value> 
     let request: RunGoalRequest = serde_json::from_value(request)?;
     if !request.success.iter().all(|predicate| match predicate {
         VisiblePredicate::NamePresent { name } => !name.trim().is_empty(),
+        VisiblePredicate::NameContains { fragment, within } => {
+            !fragment.trim().is_empty() && !within.trim().is_empty()
+        }
         VisiblePredicate::ValueEquals { name, .. } => !name.trim().is_empty(),
         VisiblePredicate::ValueContains { name, value } => {
             !name.trim().is_empty() && !value.trim().is_empty()
@@ -132,8 +135,15 @@ fn goal_request(args: &Value, approvals_enabled: bool) -> anyhow::Result<Value> 
         }
     }) {
         anyhow::bail!(
-            "desktop_goal success predicates require nonblank names, state tokens, and value_contains fragments"
+            "desktop_goal success predicates require nonblank names, state tokens, fragments, and ancestor scopes"
         );
+    }
+    if request
+        .text_slots
+        .keys()
+        .any(|name| !request.allowed_targets.iter().any(|target| target == name))
+    {
+        anyhow::bail!("desktop_goal text_slots keys must match an exact allowed target");
     }
     Ok(serde_json::to_value(request)?)
 }
@@ -235,11 +245,14 @@ impl Tool for DesktopTool {
                 "goal":{"type":"string","description":"One bounded desktop task; describe the intended visible result"},
                 "allowed_operations":{"type":"array","minItems":1,"items":{"type":"string","enum":["CLICK","TYPE_TEXT","CHECK","UNCHECK","EXPAND","COLLAPSE","SCROLL"]},"description":"Mutating operations Jev may execute; enumerate those needed for this task"},
                 "allowed_targets":{"type":"array","minItems":1,"items":{"type":"string"},"description":"Exact accessible name, description, or native_id.value from desktop_snapshot or desktop_find for each action target"},
-                "text_slots":{"type":"object","additionalProperties":{"type":"string"},"description":"Prepared text keyed by the target's exact accessible name, description, or native_id.value"},
+                "text_slots":{"type":"object","additionalProperties":{"type":"string"},"description":"Prepared text keyed by an exact allowed target. Copy user supplied text verbatim; do not normalize punctuation, spacing, or case"},
                 "success":{"type":"array","minItems":1,"items":{"type":"object","properties":{
-                    "kind":{"type":"string","enum":["name_present","value_equals","value_contains","state_contains"]},
-                    "name":{"type":"string","description":"Exact accessible name, description, or native_id.value from the snapshot"},"value":{"type":"string"},"state":{"type":"string"}},
-                    "required":["kind","name"]},"description":"All predicates must match a fresh accessibility observation before completion"},
+                    "kind":{"type":"string","enum":["name_present","name_contains","value_equals","value_contains","state_contains"]},
+                    "name":{"type":"string","description":"Exact accessible name, description, or native_id.value from the snapshot for name_present, value_equals, value_contains, or state_contains"},
+                    "fragment":{"type":"string","description":"For name_contains, a stable substring of the visible descendant name, such as the exact outgoing message text"},
+                    "within":{"type":"string","description":"For name_contains, the exact accessible name of the ancestor container, such as the active conversation message list"},
+                    "value":{"type":"string"},"state":{"type":"string"}},
+                    "required":["kind"]},"description":"All predicates must match a fresh accessibility observation before completion. name_contains requires fragment and within"},
                 "max_steps":{"type":"integer","minimum":1,"maximum":20},
                 "max_model_calls":{"type":"integer","minimum":1,"maximum":40},
                 "max_elapsed_ms":{"type":"integer","minimum":1000,"maximum":300000}},

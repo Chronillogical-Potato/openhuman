@@ -119,6 +119,12 @@ fn goal_request_carries_scoped_task_and_disables_confirmations() {
     assert!(goal.parameters_schema()["properties"]
         .get("window_id")
         .is_some());
+    assert!(
+        goal.parameters_schema()["properties"]["success"]["items"]["properties"]["kind"]["enum"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("name_contains"))
+    );
     assert_eq!(request["allowed_operations"], json!(["TYPE_TEXT"]));
     assert_eq!(request["allowed_targets"], json!(["Text Entry Area"]));
     assert_eq!(request["text_slots"]["Text Entry Area"], "desktop-test-42");
@@ -160,6 +166,32 @@ fn goal_request_carries_scoped_task_and_disables_confirmations() {
     let mut cleared = args.clone();
     cleared["success"] = json!([{"kind":"value_equals","name":"Text Entry Area","value":""}]);
     assert!(goal_request(&cleared, false).is_ok());
+
+    let outbound = json!({
+        "app":"WhatsApp", "goal":"Send exactly the prepared text to Alex Rivera",
+        "allowed_operations":["CLICK","TYPE_TEXT"],
+        "allowed_targets":["Compose message","Send"],
+        "text_slots":{"Compose message":"Hello from OpenHuman!  "},
+        "success":[
+            {"kind":"name_present","name":"Messages in chat with Alex Rivera"},
+            {"kind":"name_contains","fragment":"Your message, Hello from OpenHuman!  ","within":"Messages in chat with Alex Rivera"}
+        ]
+    });
+    let prepared = goal_request(&outbound, false).unwrap();
+    assert_eq!(
+        prepared["text_slots"]["Compose message"],
+        "Hello from OpenHuman!  "
+    );
+    assert_eq!(
+        prepared["success"][1]["fragment"],
+        "Your message, Hello from OpenHuman!  "
+    );
+    let mut wrong_slot = outbound.clone();
+    wrong_slot["text_slots"] = json!({"Other field":"Hello from OpenHuman!  "});
+    assert!(goal_request(&wrong_slot, false).is_err());
+    let mut missing_scope = outbound;
+    missing_scope["success"][1]["within"] = json!(" ");
+    assert!(goal_request(&missing_scope, false).is_err());
 }
 
 #[test]
