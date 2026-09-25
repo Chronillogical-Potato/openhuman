@@ -136,16 +136,13 @@ fn agent_error_to_user_message_classifies_max_iterations() {
 }
 
 #[test]
-fn agent_error_to_user_message_classifies_empty_provider_response_for_3335() {
-    // Issue #3335: the cron-path copy must stay in lock-step with the
-    // web-channel `empty_response` arm — names the credits / billing
-    // remedy explicitly and drops the misleading "local provider"
-    // misdirect that broke remediation for Managed users.
+fn agent_error_to_user_message_does_not_infer_credits_from_empty_response() {
+    // An empty completion does not establish that billing rejected the call.
     let err = AgentError::EmptyProviderResponse { iteration: 1 };
     let msg = agent_error_to_user_message(&err);
     assert!(
-        msg.contains("Settings \u{2192} Billing"),
-        "must point at billing for credit exhaustion: {msg}"
+        !msg.to_ascii_lowercase().contains("credit") && !msg.contains("Billing"),
+        "must not infer credit exhaustion from an empty completion: {msg}"
     );
     assert!(
         !msg.contains("local provider"),
@@ -237,12 +234,7 @@ fn agent_error_to_user_message_canned_strings_are_short() {
             required_level: "x".into(),
             channel_max_level: "x".into(),
         },
-        // Issue #3335: EmptyProviderResponse was historically absent from
-        // this variants list — its old copy happened to fit, but nothing
-        // enforced it. The fix shipped a new copy that explicitly names
-        // the credits / billing remedy, which makes the length tradeoff
-        // active rather than incidental. Lock it in so a future copy
-        // change can't quietly grow past the drawer-render budget.
+        // Keep empty-response notifications within the drawer width.
         AgentError::EmptyProviderResponse { iteration: 0 },
     ];
     for v in &variants {
