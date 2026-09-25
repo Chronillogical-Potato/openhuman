@@ -1,7 +1,7 @@
 //! Error type for the embedded typed facade.
 //!
 //! Every [`super::Core`] method returns [`CoreError`]. The variants exist to let
-//! an embedding host (the Medulla TUI, a CLI, a test) tell four genuinely
+//! an embedding host (a TUI, a CLI, a test) tell four genuinely
 //! different situations apart without parsing strings:
 //!
 //! - [`CoreError::Domain`] — the domain rejected the call and said why, via the

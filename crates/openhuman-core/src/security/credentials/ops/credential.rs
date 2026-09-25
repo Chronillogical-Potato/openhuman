@@ -480,7 +480,6 @@ async fn clear_session_credential(config: &Config) -> Result<RpcOutcome<bool>, S
             tracing::warn!(%error, "{LOG_PREFIX} failed to disconnect backend socket on sign-out");
         }
     }
-    crate::platform::socket::medulla::workflows::clear_workflow_bridge();
 
     deactivate_user_scope()?;
     stop_credential_gated_services(config).await;

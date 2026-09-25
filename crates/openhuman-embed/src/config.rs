@@ -1,6 +1,6 @@
 //! Config sub-facade — the first typed surface, and the proof of the pattern.
 //!
-//! Every other sub-facade (memory, workflows, chat, medulla, …) follows the
+//! Every other sub-facade (memory, workflows, chat, …) follows the
 //! shape established here:
 //!
 //! 1. A borrowed newtype over `&Arc<CoreRuntime>` — zero-cost, no state.

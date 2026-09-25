@@ -39,14 +39,14 @@ fn new_keeps_allowed_characters_and_trims() {
 fn new_drops_header_unsafe_characters() {
     // A newline would otherwise let a caller inject a second header.
     assert_eq!(
-        ProductIdentity::new("medulla\r\nx-admin: 1")
+        ProductIdentity::new("opencompany\r\nx-admin: 1")
             .unwrap()
             .as_str(),
-        "medullax-admin1"
+        "opencompanyx-admin1"
     );
     assert_eq!(
         ProductIdentity::new("med ulla").unwrap().as_str(),
-        "medulla"
+        "opencompany"
     );
 }
 
@@ -82,9 +82,9 @@ fn header_carries_the_current_identity() {
         DEFAULT_PRODUCT_IDENTITY
     );
 
-    set_product_identity(ProductIdentity::new("medulla").unwrap());
+    set_product_identity(ProductIdentity::new("opencompany").unwrap());
     let headers = product_identity_headers();
-    assert_eq!(headers.get(PRODUCT_IDENTITY_HEADER).unwrap(), "medulla");
+    assert_eq!(headers.get(PRODUCT_IDENTITY_HEADER).unwrap(), "opencompany");
 
     reset_product_identity_for_test();
 }

@@ -53,7 +53,7 @@ fn launch_options_reject_missing_or_empty_values() {
 }
 
 /// Serialises env-mutating CLI tests via the crate-wide backend env lock —
-/// these tests set `BACKEND_URL`, which `api::config` and `medulla::ops`
+/// these tests set `BACKEND_URL`, which `api::config`
 /// tests also read/remove, so a module-local lock is not enough.
 fn env_lock() -> std::sync::MutexGuard<'static, ()> {
     crate::api::config::backend_env_test_lock()

@@ -148,13 +148,12 @@ async fn run_pending_bumps_version_on_fresh_install() {
 }
 
 #[tokio::test]
-async fn run_pending_retires_medulla_engine_from_v11_config() {
+async fn run_pending_rewrites_v11_config() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir_all(tmp.path().join("workspace")).unwrap();
 
     let mut config = config_in(&tmp);
     config.schema_version = 11;
-    config.subconscious.engine = crate::config::schema::SubconsciousEngine::Medulla;
 
     run_pending(&mut config).await;
 

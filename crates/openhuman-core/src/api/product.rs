@@ -1,6 +1,6 @@
 //! Product identity attached to every backend-bound HTTP request.
 //!
-//! OpenHuman, OpenCompany and Medulla share a single login and all three reach
+//! OpenHuman and OpenCompany share a single login and both reach
 //! the TinyHumans backend through this crate, so without a per-product marker
 //! the backend sees three products as one undifferentiated user base. Every
 //! request therefore carries an `x-sdk-name` header, which the backend reads
@@ -108,8 +108,7 @@ fn slot() -> &'static RwLock<ProductIdentity> {
 /// Call once during startup, before the first backend client is constructed.
 /// [`crate::api::rest::BackendOAuthClient`] and `IntegrationClient` read the
 /// identity into their default headers at construction, so a later call does
-/// not retroactively re-tag clients that already exist. (`MedullaClient` reads
-/// it per request, but do not rely on that difference.)
+/// not retroactively re-tag clients that already exist.
 pub fn set_product_identity(identity: ProductIdentity) {
     log::debug!("[api][product] product identity set to {identity}");
     let mut guard = slot()
@@ -153,7 +152,7 @@ pub fn product_identity_headers() -> HeaderMap {
 /// process-wide product identity.
 ///
 /// The identity is process state, so a module-local lock cannot prevent
-/// cross-module races: `api::product`, `api::rest`, `crate::medulla` and
+/// cross-module races: `api::product`, `api::rest` and
 /// `crate::integrations` tests all touch it from parallel test threads, and
 /// a test asserting the `openhuman` default would flake against a test that has
 /// installed an override. Every test that touches the identity must take THIS

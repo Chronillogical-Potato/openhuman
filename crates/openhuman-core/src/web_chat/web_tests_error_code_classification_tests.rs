@@ -1,29 +1,24 @@
 use super::*;
 
 #[test]
-fn classify_inference_error_empty_response_copy_names_billing_remedy_and_drops_local_provider_misdirect(
-) {
-    // Issue #3335: the prior copy ("Try a different model or check your
-    // local provider in Connections → API keys → LLM") sent Managed-route users
-    // toward a remedy that does not exist for them. The common underlying
-    // cause is credit exhaustion (issue #3386), so the revised copy must
-    // name the credits / billing path explicitly, must NOT claim a "local
-    // provider" exists, and must still offer the model-switch path for
-    // users on self-hosted providers.
+fn classify_inference_error_empty_response_does_not_claim_credit_exhaustion() {
+    // An empty successful completion provides no evidence about the user's
+    // balance. A real credit error has its own backend errorCode classification.
     let raw = "run_chat_task failed client_id=abc thread_id=t-1 request_id=r-1 \
                error=The model returned an empty response. Please try again.";
     let classified = classify_inference_error(raw);
     assert_eq!(classified.error_type, "empty_response");
-    // New: names the credits / billing remedy (was absent in the old copy,
-    // so Managed users had no way to self-diagnose credit exhaustion).
     assert!(
-        classified.message.contains("Settings → Billing"),
-        "must point at the billing surface for credit exhaustion: {}",
+        classified.message.contains("Please retry"),
+        "must keep the retry guidance: {}",
         classified.message
     );
-    // New: drops the misleading "local provider" framing — the previous
-    // copy made a false claim for Managed users where no local provider
-    // exists.
+    assert!(
+        !classified.message.to_ascii_lowercase().contains("credit")
+            && !classified.message.to_ascii_lowercase().contains("billing"),
+        "must not infer credit exhaustion from an empty completion: {}",
+        classified.message
+    );
     assert!(
         !classified.message.contains("local provider"),
         "must not claim a local provider exists: {}",

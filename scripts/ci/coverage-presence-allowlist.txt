@@ -36,10 +36,3 @@ crates/openhuman-core/src/desktop/accessibility/helper/swift_focus.rs
 crates/openhuman-core/src/desktop/accessibility/helper/swift_paste.rs
 crates/openhuman-core/src/desktop/accessibility/helper/swift_ax_actions.rs
 crates/openhuman-core/src/desktop/accessibility/helper/swift_overlay.rs
-
-# Medulla is deliberately not forwarded by the desktop product: it is a
-# library/TUI-facing integration whose network client must not be compiled into
-# the shipped Tauri app. `openhuman-embed` keeps the matching typed facade
-# behind its `medulla` feature, so this Linux product-coverage lane cannot
-# produce records for it.
-crates/openhuman-embed/src/medulla.rs

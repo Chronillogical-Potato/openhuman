@@ -16,7 +16,7 @@ description = "OpenHuman core business logic and RPC server"
 # The crate ships a verbatim GPLv3 `LICENSE` file but carried no `license` key,
 # which left the grant ambiguous to every tool that reads metadata rather than
 # the file (cargo-deny, crates.io, SBOM generators). Declared explicitly as
-# `only` — not `or-later` — to match `medulla-public` and the `GPL-3.0-only`
+# `only` — not `or-later` — to match the `GPL-3.0-only`
 # first-party crates in the closure (`tinyagents`).
 license.workspace = true
 repository.workspace = true
@@ -754,7 +754,7 @@ proptest = "1"
 # (`modules`: Contrib=ON, Product=ON) and with `scripts/ci/product-features.txt`,
 # which already lists it. This does NOT move the kernel floor: that profile is
 # `--no-default-features --features flows` and never reads this list.
-default = ["media", "skills", "flows", "mcp", "channels", "medulla", "http-server", "scheduler-gate", "file-logging", "modules"]
+default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules"]
 # HTTP + Socket.IO server transport (#5048): the `/rpc` JSON-RPC endpoint and
 # its auth middleware/CORS layer (`core::jsonrpc`, `core::auth`), the `/v1`
 # OpenAI-compatible router (`inference::http`), the ad-hoc static-dir file
@@ -1093,32 +1093,6 @@ mcp = []
 # the crash-reporting feature" error.
 crash-reporting = ["dep:sentry"]
 
-# Medulla integration: the HTTP/SSE client for the Medulla orchestration backend
-# (`openhuman::medulla::client`) — durable sessions, event streaming, worker
-# routing + roster, the operator task ledger and its GitHub sources, one-shot
-# orchestration runs, the public feedback board, and the onboarding history
-# reward. This is the real Medulla surface; it replaced the `medulla-local`
-# supervised-child draft, which has been removed.
-#
-# Default-ON, but INTENTIONALLY NOT FORWARDED to the Tauri shell (allowlisted in
-# scripts/lib/feature-forwarding.mjs): the desktop app is
-# OpenHuman's own product and never dials a Medulla backend. The consumer is the
-# Medulla TUI, which embeds this crate directly.
-#
-# Facade + type carve-out, NOT a leaf gate: `pub mod medulla;` is always
-# compiled, and `medulla::contract` + `medulla::events` stay compiled in BOTH
-# builds because `crates/openhuman-embed/src/` names those types in public signatures. Only
-# `medulla::client` — everything that touches reqwest — is gated. This follows
-# the rule the `skills` / `mcp` gates established: carve inert types
-# out and gate behaviour, so the two builds share one type definition and
-# cannot drift.
-#
-# Sheds ZERO exclusive dependencies — do NOT "fix" the empty list. `reqwest`,
-# `futures`, `serde`, and `tokio` are all load-bearing for other domains; the
-# gate's value is compile-time surface and RPC/tool reach, not binary size.
-# Verify before ever claiming otherwise:
-#   cargo tree -i reqwest --no-default-features
-medulla = []
 
 # Channels domain: `openhuman::channels` (external-messaging providers — Telegram,
 # Discord, Slack, Signal, WhatsApp, iMessage, IRC, … — plus the channel runtime,

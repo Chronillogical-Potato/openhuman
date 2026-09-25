@@ -12,7 +12,7 @@ pub use cloud_providers::{
 pub mod ephemeral_route;
 pub use ephemeral_route::{EphemeralRoute, EPHEMERAL_ROUTE_SLUG};
 pub mod subconscious;
-pub use subconscious::{MedullaLocalConfig, SubconsciousConfig, SubconsciousEngine};
+pub use subconscious::{SubconsciousConfig, SubconsciousEngine};
 mod agent;
 mod autonomy;
 mod capability_providers;

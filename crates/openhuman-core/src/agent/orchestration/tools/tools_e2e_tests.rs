@@ -262,23 +262,40 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
         RunConfig::new("continue-async-e2e").with_thread("thread-continue-parent"),
     );
     let session_id = session.subagent_session_id.clone();
-    let result = with_parent_context(ctx, async {
-        ContinueSubagentTool::new()
+    let (wrong_agent, result) = with_parent_context(ctx, async {
+        let tool = ContinueSubagentTool::new();
+        let wrong_agent = tool
             .execute_with_live_parent_context(
                 json!({
                     "task_id": session_id,
-                    "agent_id": "researcher",
+                    "agent_id": "unrelated_agent",
+                    "message": "this must not resume the worker"
+                }),
+                None,
+                parent_run.data.child(),
+                Some(&parent_run),
+            )
+            .await?;
+        let result = tool
+            .execute_with_live_parent_context(
+                json!({
+                    "task_id": session_id,
+                    // Production callers sometimes copy the roster's session
+                    // id into both fields; this is the regression case.
+                    "agent_id": session.subagent_session_id,
                     "message": "looks good — proceed with continue-durable-canary"
                 }),
                 None,
                 parent_run.data.child(),
                 Some(&parent_run),
             )
-            .await
+            .await?;
+        Ok::<_, anyhow::Error>((wrong_agent, result))
     })
     .await
     .expect("tool execution");
 
+    assert!(wrong_agent.is_error, "unrelated agent id must be rejected");
     assert!(!result.is_error, "{}", result.output());
     let out = result.output();
     assert!(
