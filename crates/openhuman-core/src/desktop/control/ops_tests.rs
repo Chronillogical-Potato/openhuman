@@ -35,7 +35,7 @@ async fn disabled_probe_never_calls_the_module() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
-    let result = probe_with(&config, |_| async {
+    let result = probe_with(&config, true, |_| async {
         panic!("disabled probe reached module")
     })
     .await;
@@ -52,7 +52,7 @@ async fn disabled_status_reports_local_setting_without_contacting_module() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
-    let result = status_with(&config, || async {
+    let result = status_with(&config, true, || async {
         panic!("disabled status reached module")
     })
     .await;
@@ -61,20 +61,40 @@ async fn disabled_status_reports_local_setting_without_contacting_module() {
     assert_eq!(result.accessibility, "unknown");
     assert_eq!(result.screen_recording, "unknown");
     assert_eq!(result.platform, std::env::consts::OS);
+
+    let unsupported = status_with(&config, false, || async {
+        panic!("unsupported status reached module")
+    })
+    .await;
+    assert!(!unsupported.supported);
+    assert!(unsupported
+        .reason
+        .as_deref()
+        .unwrap()
+        .contains("loopback core listener"));
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn enable_request_fails_closed_on_unsupported_platform_without_persisting() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = dir.path().to_path_buf();
+    let error = set_enabled(&config, true).await.unwrap_err();
+    assert!(error.contains("macOS or Windows"));
+    assert!(!enabled(&config));
+}
+
 #[tokio::test]
 async fn enabled_status_reports_module_permissions_and_errors() {
     use tinydesktop_bus::{DesktopError, DesktopResponse};
 
-    let _loopback = test_loopback_guard();
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
     save(&config, true).unwrap();
 
-    let permitted = status_with(&config, || async {
+    let permitted = status_with(&config, true, || async {
         Ok(DesktopResponse::ok(
             "permissions",
             serde_json::json!({
@@ -88,7 +108,7 @@ async fn enabled_status_reports_module_permissions_and_errors() {
     assert_eq!(permitted.accessibility, "granted");
     assert_eq!(permitted.screen_recording, "not_required");
 
-    let refused = status_with(&config, || async {
+    let refused = status_with(&config, true, || async {
         Ok(DesktopResponse::err(
             "permissions",
             DesktopError::new("PERM_DENIED", "Grant Accessibility"),
@@ -98,7 +118,7 @@ async fn enabled_status_reports_module_permissions_and_errors() {
     assert_eq!(refused.reason.as_deref(), Some("Grant Accessibility"));
     assert_eq!(refused.accessibility, "unknown");
 
-    let unavailable = status_with(&config, || async {
+    let unavailable = status_with(&config, true, || async {
         Err("module could not start".to_owned())
     })
     .await;
@@ -119,18 +139,16 @@ async fn disabling_desktop_persists_even_if_state_was_enabled() {
     assert!(!enabled(&config));
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 #[tokio::test]
 async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
     use tinydesktop_bus::{DesktopError, DesktopResponse};
 
-    let _loopback = test_loopback_guard();
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
     save(&config, true).unwrap();
 
-    let denied = probe_with(&config, |member| async move {
+    let denied = probe_with(&config, true, |member| async move {
         assert_eq!(member, names::methods::PERMISSIONS);
         Ok(DesktopResponse::ok(
             member,
@@ -146,7 +164,7 @@ async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
         Some("Accessibility permission is not granted to the core process")
     );
 
-    let failed = probe_with(&config, |member| async move {
+    let failed = probe_with(&config, true, |member| async move {
         match member {
             names::methods::PERMISSIONS => Ok(DesktopResponse::ok(
                 member,
@@ -165,7 +183,7 @@ async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
     assert!(!failed.ok);
     assert_eq!(failed.reason.as_deref(), Some("Screen Recording required"));
 
-    let success = probe_with(&config, |member| async move {
+    let success = probe_with(&config, true, |member| async move {
         Ok(DesktopResponse::ok(
             member,
             match member {
@@ -185,7 +203,7 @@ async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
     assert_eq!(success.app_count, Some(2));
     assert!(success.reason.is_none());
 
-    let transport_error = probe_with(&config, |member| async move {
+    let transport_error = probe_with(&config, true, |member| async move {
         match member {
             names::methods::PERMISSIONS => Ok(DesktopResponse::ok(
                 member,
@@ -207,7 +225,7 @@ async fn probe_requires_accessibility_and_snapshot_before_listing_apps() {
         Some("app list bus disconnected")
     );
 
-    let module_error = probe_with(&config, |member| async move {
+    let module_error = probe_with(&config, true, |member| async move {
         match member {
             names::methods::PERMISSIONS => Ok(DesktopResponse::ok(
                 member,

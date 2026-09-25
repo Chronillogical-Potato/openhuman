@@ -186,10 +186,17 @@ fn permission(data: &serde_json::Value, field: &str) -> String {
 }
 
 pub async fn status(config: &Config) -> DesktopStatus {
-    status_with(config, || crate::modules::desktop::permissions(config)).await
+    status_with(config, supported(), || {
+        crate::modules::desktop::permissions(config)
+    })
+    .await
 }
 
-async fn status_with<F, Fut>(config: &Config, permissions: F) -> DesktopStatus
+async fn status_with<F, Fut>(
+    config: &Config,
+    platform_supported: bool,
+    permissions: F,
+) -> DesktopStatus
 where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<tinydesktop_bus::DesktopResponse, String>>,
@@ -197,7 +204,7 @@ where
     let local_enabled = enabled(config);
     let (module_state, mut reason) = crate::modules::desktop::state(config);
     let mut result = DesktopStatus {
-        supported: supported(),
+        supported: platform_supported,
         enabled: local_enabled,
         approvals_enabled: config.desktop.approvals_enabled,
         platform: std::env::consts::OS,
@@ -230,7 +237,7 @@ where
 }
 
 pub async fn probe(config: &Config) -> DesktopProbe {
-    probe_with(config, |member| async move {
+    probe_with(config, supported(), |member| async move {
         match member {
             names::methods::PERMISSIONS => crate::modules::desktop::permissions(config).await,
             names::methods::SNAPSHOT => {
@@ -253,12 +260,12 @@ pub async fn probe(config: &Config) -> DesktopProbe {
     .await
 }
 
-async fn probe_with<F, Fut>(config: &Config, mut call: F) -> DesktopProbe
+async fn probe_with<F, Fut>(config: &Config, platform_supported: bool, mut call: F) -> DesktopProbe
 where
     F: FnMut(&'static str) -> Fut,
     Fut: std::future::Future<Output = Result<tinydesktop_bus::DesktopResponse, String>>,
 {
-    if !supported() || !enabled(config) {
+    if !platform_supported || !enabled(config) {
         return DesktopProbe {
             ok: false,
             app_count: None,
