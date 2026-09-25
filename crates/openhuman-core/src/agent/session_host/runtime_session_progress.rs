@@ -1,10 +1,27 @@
 //! Post-commit progress delivery for a chat turn.
 
 use crate::agent::progress::AgentProgress;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
+use tinyagents_runtime::CommitReceipt;
 
 /// Preserve the response path if a progress receiver stays open but stops
 /// consuming events. The web bridge has its own bounded drain wait afterward.
 const COMMITTED_TURN_PROGRESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Route the commit fence to the turn that produced the receipt. A warm
+/// session reuses its commit callback, so a sender captured when the session
+/// was created would point at a prior turn's bridge.
+pub(super) async fn send_receipt_progress(
+    receipt: &CommitReceipt<OpenHumanRunContext>,
+    input: &str,
+    output: &str,
+    iterations: u32,
+) -> bool {
+    match receipt.options.context.progress.as_ref() {
+        Some(progress) => send_committed_turn_progress(progress, input, output, iterations).await,
+        None => false,
+    }
+}
 
 /// Send the terminal event as the progress bridge's drain fence. Content
 /// capture stays best effort; the completion waits for channel capacity, up to

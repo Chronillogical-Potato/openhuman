@@ -1259,6 +1259,21 @@ async fn collect_prelude_tree_roots(
 }
 
 impl OpenHumanSessionHost {
+    pub(super) fn update_runtime_prelude_progress(
+        &mut self,
+        tx: Option<tokio::sync::mpsc::Sender<crate::agent::progress::AgentProgress>>,
+    ) {
+        if let Some(prelude) = self
+            .runtime_state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .prelude
+            .as_mut()
+        {
+            prelude.on_progress = tx;
+        }
+    }
+
     /// Seed a cold runtime session from a host-provided message log.
     ///
     /// The runtime receives both the seed and any subsequent append; the host
@@ -1700,14 +1715,12 @@ impl OpenHumanSessionHost {
             },
             {
                 let state = self.runtime_state.clone();
-                let progress = self.on_progress.clone();
                 let post_turn_hooks = self.post_turn_hooks.clone();
                 let session_id = self.event_session_id.clone();
                 let agent_id = self.agent_definition_id.clone();
                 let channel = self.event_channel.clone();
                 move |receipt| {
                     let state = state.clone();
-                    let progress = progress.clone();
                     let post_turn_hooks = post_turn_hooks.clone();
                     let session_id = session_id.clone();
                     let agent_id = agent_id.clone();
@@ -1786,6 +1799,9 @@ impl OpenHumanSessionHost {
                             Some(task) => task.await.unwrap_or_default(),
                             None => Vec::new(),
                         };
+                        let _ =
+                            progress::send_receipt_progress(&receipt, &input, &output, iterations)
+                                .await;
                         state
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -1797,12 +1813,6 @@ impl OpenHumanSessionHost {
                             state.last_turn_hit_cap = interrupted;
                             state.last_turn_usage = Some(usage);
                             state.last_turn_citations = citations;
-                        }
-                        if let Some(progress) = &progress {
-                            let _ = progress::send_committed_turn_progress(
-                                progress, &input, &output, iterations,
-                            )
-                            .await;
                         }
                         crate::agent::hooks::fire_hooks(
                             &post_turn_hooks,
