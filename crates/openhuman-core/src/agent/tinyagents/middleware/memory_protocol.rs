@@ -141,7 +141,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             .lock()
             .map(|tracker| tracker.pending_index_update())
             .unwrap_or(false);
-        if pending {
+        if self.can_update_index && pending {
             tracing::warn!(
                 "[tinyagents::mw] memory-protocol: run ended with a memory write that was never \
                  followed by update_memory_md — the MEMORY.md index is left stale"
