@@ -259,7 +259,7 @@ export default function BrowserConnectionsPanel() {
               ? allowedDomains.join(', ')
               : t('connections.browser.noneAllowed')}
           </p>
-          <Link className="text-ocean-600 underline" to="/connections?tab=search">
+          <Link className="text-primary-600 underline" to="/connections?tab=search">
             {t('connections.browser.manageWebsites')}
           </Link>
         </div>
@@ -268,7 +268,7 @@ export default function BrowserConnectionsPanel() {
         </p>
         <p className="text-content-muted">{t('connections.browser.testInConversation')}</p>
         <button
-          className="rounded-lg bg-ocean-600 px-4 py-2 text-content-inverted disabled:opacity-50"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-content-inverted disabled:opacity-50"
           disabled={busy}
           onClick={save}>
           {t('connections.browser.save')}
