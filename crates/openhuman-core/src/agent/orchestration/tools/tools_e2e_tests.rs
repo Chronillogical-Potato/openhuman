@@ -280,6 +280,8 @@ async fn continue_subagent_resumes_idle_durable_session_e2e() {
             .execute_with_live_parent_context(
                 json!({
                     "task_id": session_id,
+                    // Production callers sometimes copy the roster's session
+                    // id into both fields; this is the regression case.
                     "agent_id": session.subagent_session_id,
                     "message": "looks good — proceed with continue-durable-canary"
                 }),
