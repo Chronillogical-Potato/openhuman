@@ -33,6 +33,11 @@ fn usage_round_trips_charged_usd_and_all_token_breakdowns() {
     assert_eq!(usage.cache_read_tokens, 40);
     assert_eq!(usage.cache_creation_tokens, 10);
     assert_eq!(usage.reasoning_tokens, 7);
+    assert_eq!(
+        usage.charged_amount.map(|amount| amount.micros),
+        Some(12_300)
+    );
+    assert_eq!(usage.context_window_tokens, Some(128_000));
 
     // Charged USD + context window ride raw and reconstruct exactly.
     let recovered = usage_info_from_response(&model_response).expect("usage info");

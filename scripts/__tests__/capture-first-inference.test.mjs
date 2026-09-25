@@ -226,6 +226,73 @@ test('capture proxy forwards an inference call, dumps the body, and summarises t
   assert.match(await waitForOutput(proxy.output, summaryLine), summaryLine);
 });
 
+test('capture proxy forwards Socket.IO WebSocket upgrades and both socket directions', async () => {
+  const port = await proxy.ready;
+  let seen;
+  let upstreamSocket;
+  const onUpgrade = (req, socket, head) => {
+    upstreamSocket = socket;
+    seen = { url: req.url, authorization: req.headers.authorization, host: req.headers.host };
+    socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+    if (head.length) socket.write(head);
+    socket.on('data', chunk => socket.write(chunk));
+  };
+  upstream.server.on('upgrade', onUpgrade);
+
+  let clientSocket;
+  try {
+    await new Promise((resolve, reject) => {
+      const request = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: '/socket.io/?EIO=4&transport=websocket',
+        headers: {
+          connection: 'Upgrade',
+          upgrade: 'websocket',
+          authorization: 'Bearer websocket-test',
+        },
+      });
+      const timer = setTimeout(
+        () => request.destroy(new Error('WebSocket upgrade did not complete')),
+        1500
+      );
+      request.on('upgrade', (response, socket) => {
+        clientSocket = socket;
+        if (response.statusCode !== 101) {
+          clearTimeout(timer);
+          reject(new Error(`unexpected upgrade status ${response.statusCode}`));
+          return;
+        }
+        socket.on('data', chunk => {
+          if (chunk.toString() === 'socket-ping') {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+        socket.write('socket-ping');
+      });
+      request.on('response', response => {
+        clearTimeout(timer);
+        reject(new Error(`upgrade returned HTTP ${response.statusCode}`));
+      });
+      request.on('error', error => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      request.end();
+    });
+    assert.deepEqual(seen, {
+      url: '/socket.io/?EIO=4&transport=websocket',
+      authorization: 'Bearer websocket-test',
+      host: `127.0.0.1:${upstream.port}`,
+    });
+  } finally {
+    clientSocket?.destroy();
+    upstreamSocket?.destroy();
+    upstream.server.off('upgrade', onUpgrade);
+  }
+});
+
 test('capture proxy records a non-2xx inference response body and names the error', async () => {
   const port = await proxy.ready;
   const reply = await post(port, '/openai/v1/chat/completions', { model: 'boom', messages: [] });

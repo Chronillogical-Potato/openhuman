@@ -27,6 +27,7 @@ pub use api::{
 pub use resource::read_workflow_resource;
 
 pub(crate) use api::discover_workflows_inner;
+pub(crate) use api::invalidate_workflow_metadata_cache;
 
 #[cfg(test)]
 pub(crate) use api::DISCOVERY_CALLS;

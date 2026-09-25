@@ -96,7 +96,7 @@ pub use super::types::{ComposioConnection as Connection, ComposioToolSchema as T
 #[cfg(test)]
 pub(crate) use super::connected_integrations::cache_key;
 #[cfg(test)]
-pub(crate) use super::connected_integrations::{CachedIntegrations, CACHE_TTL, INTEGRATIONS_CACHE};
+pub(crate) use super::connected_integrations::{CachedIntegrations, INTEGRATIONS_CACHE};
 #[cfg(test)]
 pub(crate) use crate::agent::prompts::ConnectedIntegration;
 #[cfg(test)]

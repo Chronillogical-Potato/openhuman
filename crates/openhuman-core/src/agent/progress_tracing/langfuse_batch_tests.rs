@@ -36,25 +36,22 @@ fn split_ingestion_batch_passes_small_payloads_through() {
     assert_eq!(split_ingestion_batch(no_batch.clone(), 500), vec![no_batch]);
 }
 
-// ── production push gate (#5602) ──────────────────────────────
-//
-// The client already knew which environment it was in — `environment_for_base`
-// has returned "production" for a prod host since it was written — and pushed
-// anyway, paying an authenticated round-trip per agent turn bounded by the
-// 10s `PUSH_TIMEOUT`. These pin that it now skips instead.
+// The canonical production and staging APIs accept traces. Unknown origins
+// must remain closed before a session bearer is read.
 
 #[test]
-fn push_is_allowed_only_in_staging_and_development() {
+fn push_is_allowed_for_our_backends() {
+    assert!(push_allowed("production"));
     assert!(push_allowed("staging"));
     assert!(push_allowed("development"));
-    assert!(!push_allowed("production"));
+    assert!(!push_allowed("external"));
 }
 
 #[test]
 fn an_unrecognised_environment_fails_closed() {
     // The allowlist, not a `!= "production"` negation, is what makes this
     // true: a bucket nobody has thought of yet does not push.
-    for unknown in ["preview", "prod", "PRODUCTION", "", "qa"] {
+    for unknown in ["preview", "prod", "PRODUCTION", "", "qa", "external"] {
         assert!(
             !push_allowed(unknown),
             "{unknown:?} must not push — the allowlist is the fail-closed guard"
@@ -70,19 +67,19 @@ fn every_environment_for_base_bucket_is_classified_deliberately() {
         "https://staging-api.tinyhumans.ai"
     )));
     assert!(push_allowed(environment_for_base("http://localhost:7788")));
-    assert!(!push_allowed(environment_for_base(
+    assert!(push_allowed(environment_for_base(
         "https://api.tinyhumans.ai"
     )));
 }
 
 #[tokio::test]
-async fn push_spans_skips_production_without_a_session_or_a_request() {
+async fn push_spans_skips_external_without_a_session_or_a_request() {
     // No live session is seeded here, so reaching `require_live_session_token`
     // would return `Err`. `Ok(())` therefore proves the gate returned before
     // it — i.e. before any credential work, and before any network call.
     let mut config = Config::default();
-    config.api_url = Some("https://api.tinyhumans.ai/api/v1".to_string());
-    assert_eq!(environment_for_base(&ingestion_url(&config)), "production");
+    config.api_url = Some("https://other.example".to_string());
+    assert_eq!(environment_for_base(&ingestion_url(&config)), "external");
 
     let spans = vec![span(
         "trace:req-1",
@@ -98,15 +95,15 @@ async fn push_spans_skips_production_without_a_session_or_a_request() {
     assert_eq!(
         push_spans(&config, &spans).await,
         Ok(()),
-        "a production push must be a silent no-op, not an error the caller \
+        "an external push must be a silent no-op, not an error the caller \
          logs on every turn"
     );
 }
 
 #[tokio::test]
-async fn push_observations_skips_production_too() {
+async fn push_observations_skips_external_too() {
     let mut config = Config::default();
-    config.api_url = Some("https://api.tinyhumans.ai/api/v1".to_string());
+    config.api_url = Some("https://other.example".to_string());
     let ctx = TraceContext::new("trace:req-1", Some("user-1".to_string()));
     let observations = vec![obs(
         1,
@@ -128,7 +125,7 @@ async fn push_observations_skips_production_too() {
 #[tokio::test]
 async fn an_unresolvable_host_skips_rather_than_erroring() {
     // `ingestion_url` on a base it cannot parse lands in the catch-all
-    // bucket, which is production — so the gate swallows it first. Better
+    // bucket, which is external — so the gate swallows it first. Better
     // than the previous `Err`, which the caller logged every turn.
     let mut config = Config::default();
     config.api_url = Some("not a url".to_string());
@@ -260,6 +257,51 @@ fn trace_ctx_with_run_lineage_derives_from_subagent_observations() {
 }
 
 #[test]
+fn child_run_roots_its_own_trace_and_preserves_parent_lineage() {
+    let child = AgentObservation {
+        event_id: EventId::new("child-evt-1"),
+        run_id: RunId::new("child-run"),
+        parent_run_id: Some(RunId::new("parent-run")),
+        root_run_id: RunId::new("root-run"),
+        offset: 1,
+        ts_ms: 1_000,
+        event: AgentEvent::ModelCompleted {
+            call_id: CallId::new("model-1"),
+            started_at_ms: Some(900),
+            usage: Some(Usage::new(10, 3)),
+            input: None,
+            output: None,
+        },
+    };
+    let ctx = trace_ctx_with_run_lineage(
+        &TraceContext::new("subagent:child-run", Some("user-1".into()))
+            .with_session_group("thread-1")
+            .with_run_lineage(
+                Some("child-run".into()),
+                Some("parent-run".into()),
+                Some("root-run".into()),
+            ),
+        &root_subagent_observations(&[child.clone()]),
+    );
+    let trace = trace_config_from_context(&ctx, "production");
+    assert_eq!(trace.session_id.as_deref(), Some("thread-1"));
+    assert_eq!(trace.metadata["parent_run_id"], "parent-run");
+    assert_eq!(trace.metadata["root_run_id"], "root-run");
+    let rooted = root_subagent_observations(&[child]);
+    assert!(rooted[0].parent_run_id.is_none());
+    assert_eq!(rooted[0].root_run_id.as_str(), "child-run");
+    let client = LangfuseClient::proxy("https://api.tinyhumans.ai", "token").unwrap();
+    let batch = client.build_ingestion_batch(trace, &rooted).unwrap();
+    let child_run = batch["batch"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|event| event["type"] == "span-create" && event["body"]["name"] == "agent")
+        .unwrap();
+    assert!(child_run["body"].get("parentObservationId").is_none());
+}
+
+#[test]
 fn journal_observation_content_follows_capture_gate() {
     let observations = vec![
         obs(
@@ -376,6 +418,20 @@ fn run_telemetry_inserts_aggregate_generation() {
     assert_eq!(body["metadata"]["run_id"], "req-1");
     assert_eq!(body["metadata"]["tool_count"], 2);
     assert_eq!(body["metadata"]["provider"], "managed");
+
+    let mut already_charged = client
+        .build_ingestion_batch(
+            trace_config_from_context(&TraceContext::new("trace:req-1", None), "production"),
+            &observations,
+        )
+        .unwrap();
+    already_charged["batch"][2]["body"]["costDetails"] = json!({ "total": 0.0123 });
+    let before = already_charged["batch"].as_array().unwrap().len();
+    assert!(!insert_run_telemetry_generation(
+        &mut already_charged,
+        Some(&telemetry)
+    ));
+    assert_eq!(already_charged["batch"].as_array().unwrap().len(), before);
 }
 
 #[test]
@@ -597,10 +653,10 @@ fn environment_derivation_from_backend_base() {
 
 /// A hostname that merely *contains* `staging` is not ours. The classifier
 /// gates whether a live session token leaves the process, so anything it
-/// cannot positively recognise has to land on `production` — which does
+/// cannot positively recognise has to land on `external` — which does
 /// not push.
 #[test]
-fn a_lookalike_staging_host_is_production_not_staging() {
+fn a_lookalike_staging_host_is_external_not_staging() {
     for base in [
         // The substring match this replaced classified all of these as
         // staging, and `push_allowed` would then have let them through.
@@ -611,11 +667,13 @@ fn a_lookalike_staging_host_is_production_not_staging() {
         "https://api-staging-mirror.tinyhumans.ai",
         // A public IP literal is never a deployment of ours.
         "https://93.184.216.34",
+        // Never send a session bearer to a public backend over plaintext.
+        "http://api.tinyhumans.ai",
     ] {
         let environment = environment_for_base(base);
         assert_eq!(
-            environment, "production",
-            "{base} must classify as production, got {environment}"
+            environment, "external",
+            "{base} must classify as external, got {environment}"
         );
         assert!(!push_allowed(environment), "{base} must not be pushable");
     }
@@ -623,7 +681,7 @@ fn a_lookalike_staging_host_is_production_not_staging() {
 
 /// The local buckets the substring form missed. An IPv6 loopback backend
 /// is an ordinary local setup, and before the parse it classified as
-/// production — so turning the push gate on would have silently stopped
+/// external — so turning the push gate on would have silently stopped
 /// exports that had been working.
 #[test]
 fn local_backends_are_development_including_ipv6_and_private_ranges() {

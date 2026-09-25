@@ -194,12 +194,14 @@ fn sync_cache_invalidates_when_connection_becomes_active() {
 
     // Fresh UI poll shows gmail just flipped ACTIVE — mirrors a
     // user who finished OAuth in the system browser.
-    sync_cache_with_connections(&[conn("c-1", "gmail", "ACTIVE")]);
+    assert!(sync_cache_with_connections(&[conn(
+        "c-1", "gmail", "ACTIVE"
+    )]));
 
     // Chat-runtime cache must be cleared so the next
     // `fetch_connected_integrations` re-fetches truth from the
     // backend. Without this fix the entry would live on until
-    // `CACHE_TTL` expired or the process restarted.
+    // the connection changes or the process restarts.
     let guard = INTEGRATIONS_CACHE.read().unwrap();
     assert!(
         guard.get(key).is_none(),
@@ -217,7 +219,7 @@ fn sync_cache_invalidates_when_connection_is_removed() {
     clear_cache_key(key);
     seed_cache(key, vec![integration("gmail", true)]);
 
-    sync_cache_with_connections(&[]);
+    assert!(sync_cache_with_connections(&[]));
 
     let guard = INTEGRATIONS_CACHE.read().unwrap();
     assert!(
@@ -298,44 +300,33 @@ fn sync_cache_treats_connected_status_equivalent_to_active() {
     );
 }
 
-#[test]
-fn cache_entries_expire_after_ttl() {
+#[tokio::test]
+async fn cache_entries_survive_idle_time_until_connection_change() {
     let _guard = cache_guard();
-    // Even without any UI polling, the chat runtime must
-    // self-heal stale state within `CACHE_TTL`. We can't wait
-    // 60 s in a unit test; instead, directly age the entry by
-    // rewriting its `cached_at`.
-    let key = "windows-regression-6";
-    clear_cache_key(key);
-    seed_cache(key, vec![integration("gmail", true)]);
-
-    // Age the entry past the TTL.
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let key = crate::integrations::composio::connected_integrations::cache_key(&config);
+    clear_cache_key(&key);
+    seed_cache(&key, vec![integration("gmail", true)]);
     {
         let mut guard = INTEGRATIONS_CACHE.write().unwrap();
-        let entry = guard.get_mut(key).unwrap();
-        entry.cached_at = Instant::now() - (CACHE_TTL + Duration::from_secs(1));
+        guard.get_mut(&key).unwrap().cached_at = Instant::now() - Duration::from_secs(3600);
     }
-
-    // Re-read via the public API — expired reads must not serve
-    // the stale entry. We can't trigger a real backend call in a
-    // unit test, so assert that the read path falls through (by
-    // asserting the entry is still present before the read, and
-    // proving the staleness check via a direct helper).
-    let is_fresh = {
-        let guard = INTEGRATIONS_CACHE.read().unwrap();
-        guard
-            .get(key)
-            .map(|c| c.cached_at.elapsed() < CACHE_TTL)
-            .unwrap_or(false)
-    };
-    assert!(
-        !is_fresh,
-        "entry aged past CACHE_TTL must not be treated as fresh"
-    );
+    assert_eq!(cached_active_integrations(&config).unwrap().len(), 1);
+    assert!(matches!(
+        fetch_connected_integrations_status(&config).await,
+        FetchConnectedIntegrationsStatus::Authoritative(entries) if entries.len() == 1
+    ));
+    sync_cache_with_connections(&[]);
+    assert!(cached_active_integrations(&config).is_none());
+    assert!(matches!(
+        fetch_connected_integrations_status(&config).await,
+        FetchConnectedIntegrationsStatus::Unavailable
+    ));
 }
 
 #[test]
-fn including_expired_serves_stale_snapshot_for_transient_fallback() {
+fn fallback_reader_matches_main_reader_without_time_based_expiry() {
     let _guard = cache_guard();
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -343,20 +334,12 @@ fn including_expired_serves_stale_snapshot_for_transient_fallback() {
     clear_cache_key(&key);
     seed_cache(&key, vec![integration("gmail", true)]);
 
-    // Age the entry past the TTL (simulates a session idle > 60s).
+    // Simulate a long idle session.
     {
         let mut guard = INTEGRATIONS_CACHE.write().unwrap();
-        guard.get_mut(&key).unwrap().cached_at =
-            Instant::now() - (CACHE_TTL + Duration::from_secs(1));
+        guard.get_mut(&key).unwrap().cached_at = Instant::now() - Duration::from_secs(3600);
     }
-
-    // The TTL-enforcing read treats the expired entry as missing…
-    assert!(
-        cached_active_integrations(&config).is_none(),
-        "expired entry must not be served by the freshness-checked read"
-    );
-    // …but the transient-failure fallback read preserves the last-known set,
-    // so a backend blip just after TTL expiry doesn't drop tool-calling.
+    assert!(cached_active_integrations(&config).is_some());
     let stale = cached_active_integrations_including_expired(&config)
         .expect("expired entry should still be returned by the fallback read");
     assert_eq!(stale.len(), 1);

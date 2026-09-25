@@ -317,6 +317,58 @@ const server = http.createServer((req, res) => {
   });
 });
 
+// Socket.IO upgrades never enter the HTTP request callback. Relay the
+// handshake and then pipe both raw sockets so desktop backend events work.
+server.on('upgrade', (req, clientSocket, clientHead) => {
+  const transport = upstream.protocol === 'https:' ? https : http;
+  const upstreamReq = transport.request({
+    protocol: upstream.protocol,
+    hostname: upstream.hostname,
+    port: upstream.port || undefined,
+    method: req.method,
+    path: upstreamPath(req.url),
+    headers: { ...req.headers, host: upstream.host },
+  });
+
+  let upstreamSocket;
+  const writeResponseHead = response => {
+    clientSocket.write(
+      `HTTP/${response.httpVersion} ${response.statusCode} ${response.statusMessage}\r\n`
+    );
+    for (let i = 0; i < response.rawHeaders.length; i += 2) {
+      clientSocket.write(`${response.rawHeaders[i]}: ${response.rawHeaders[i + 1]}\r\n`);
+    }
+    clientSocket.write('\r\n');
+  };
+
+  upstreamReq.on('upgrade', (response, socket, upstreamHead) => {
+    upstreamSocket = socket;
+    writeResponseHead(response);
+    if (upstreamHead.length) clientSocket.write(upstreamHead);
+    if (clientHead.length) socket.write(clientHead);
+    socket.pipe(clientSocket);
+    clientSocket.pipe(socket);
+    socket.on('error', () => clientSocket.destroy());
+    clientSocket.on('error', () => socket.destroy());
+  });
+  upstreamReq.on('response', response => {
+    writeResponseHead(response);
+    response.pipe(clientSocket);
+    response.on('end', () => clientSocket.end());
+  });
+  upstreamReq.on('error', error => {
+    process.stderr.write(`[capture] websocket upstream error: ${error.message}\n`);
+    if (!clientSocket.destroyed) {
+      clientSocket.end('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n');
+    }
+  });
+  clientSocket.on('close', () => {
+    upstreamReq.destroy();
+    upstreamSocket?.destroy();
+  });
+  upstreamReq.end();
+});
+
 server.listen(listenPort, listenHost, () => {
   // Report the bound port, not the configured one: CAPTURE_PORT=0 asks the OS
   // for a free port, which is how the self-test runs several proxies at once.
