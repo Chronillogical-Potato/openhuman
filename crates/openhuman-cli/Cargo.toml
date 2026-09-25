@@ -176,6 +176,10 @@ name = "calendar_grounding_e2e"
 path = "../../tests/calendar_grounding_e2e.rs"
 
 [[test]]
+name = "channels_default_channel_e2e"
+path = "../../tests/channels_default_channel_e2e.rs"
+
+[[test]]
 name = "channels_host_boundary_e2e"
 path = "../../tests/channels_host_boundary_e2e.rs"
 
@@ -257,12 +261,24 @@ path = "../../tests/media_generation_e2e.rs"
 required-features = ["media"]
 
 [[test]]
+name = "memory_graph_roundtrip_e2e"
+path = "../../tests/memory_graph_roundtrip_e2e.rs"
+
+[[test]]
 name = "memory_roundtrip_e2e"
 path = "../../tests/memory_roundtrip_e2e.rs"
 
 [[test]]
 name = "memory_sources_e2e"
 path = "../../tests/memory_sources_e2e.rs"
+
+[[test]]
+name = "memory_tree_health_e2e"
+path = "../../tests/memory_tree_health_e2e.rs"
+
+[[test]]
+name = "tree_summarizer_e2e"
+path = "../../tests/tree_summarizer_e2e.rs"
 
 [[test]]
 name = "observability_wallet_expected_e2e"

@@ -3,7 +3,7 @@
 use super::*;
 use crate::threads::turn_state::types::{
     SubagentActivity, SubagentToolCall, SubagentTranscriptItem, ToolTimelineEntry,
-    ToolTimelineStatus, TurnLifecycle, TurnState,
+    ToolTimelineStatus, TurnLifecycle, TurnPhase, TurnState,
 };
 use tempfile::tempdir;
 
@@ -465,4 +465,80 @@ fn put_overwrites_previous_snapshot() {
     let loaded = store.get("t").expect("get").expect("present");
     assert_eq!(loaded.iteration, 7);
     assert_eq!(loaded.updated_at, "2026-05-04T10:05:00Z");
+}
+
+/// The last turn of a thread is left `Streaming` on disk when its progress
+/// bridge outlives the turn (the bridge only exits when its progress sender
+/// drops, which for a cached session waits for the *next* turn). Re-entering
+/// the thread then hydrates that snapshot into a permanent "Thinking…"
+/// indicator under a reply that already landed, so the turn driver settles it.
+#[test]
+fn settle_turn_marks_a_live_snapshot_terminal() {
+    let dir = tempdir().expect("tempdir");
+    let store = TurnStateStore::new(dir.path().to_path_buf());
+    let mut state = turn("thread-settle", "req-live", "2026-05-04T10:00:00Z");
+    state.lifecycle = TurnLifecycle::Streaming;
+    state.phase = Some(TurnPhase::Thinking);
+    state.active_tool = Some("shell".into());
+    store.put(&state).expect("put");
+
+    let changed = store
+        .settle_turn(
+            "thread-settle",
+            "req-live",
+            TurnLifecycle::Completed,
+            "2026-05-04T10:05:00Z",
+        )
+        .expect("settle_turn");
+    assert!(changed, "a Streaming snapshot must be settled");
+
+    // `get` is what `threads_turn_state_get` serves to the UI, and the UI reads
+    // `lifecycle` alone to decide whether the turn is still running.
+    let loaded = store.get("thread-settle").expect("get").expect("present");
+    assert_eq!(loaded.lifecycle, TurnLifecycle::Completed);
+    assert_eq!(loaded.phase, None);
+    assert_eq!(loaded.active_tool, None);
+    assert_eq!(loaded.updated_at, "2026-05-04T10:05:00Z");
+}
+
+/// Settling is a floor, not an override: a bridge that already recorded the
+/// true outcome must win, so a failed turn can never downgrade a `Completed`
+/// snapshot to `Interrupted` and raise a spurious retry banner.
+#[test]
+fn settle_turn_leaves_an_already_terminal_snapshot_alone() {
+    let dir = tempdir().expect("tempdir");
+    let store = TurnStateStore::new(dir.path().to_path_buf());
+    let mut state = turn("thread-done", "req-done", "2026-05-04T10:00:00Z");
+    state.lifecycle = TurnLifecycle::Completed;
+    store.put(&state).expect("put");
+
+    let changed = store
+        .settle_turn(
+            "thread-done",
+            "req-done",
+            TurnLifecycle::Interrupted,
+            "2026-05-04T10:05:00Z",
+        )
+        .expect("settle_turn");
+    assert!(!changed, "a terminal snapshot must not be rewritten");
+    let loaded = store.get("thread-done").expect("get").expect("present");
+    assert_eq!(loaded.lifecycle, TurnLifecycle::Completed);
+    assert_eq!(loaded.updated_at, "2026-05-04T10:00:00Z");
+}
+
+/// An absent snapshot is a no-op rather than an error — a turn can end before
+/// the bridge ever flushed one (an immediate failure writes nothing).
+#[test]
+fn settle_turn_is_a_noop_when_no_snapshot_exists() {
+    let dir = tempdir().expect("tempdir");
+    let store = TurnStateStore::new(dir.path().to_path_buf());
+    let changed = store
+        .settle_turn(
+            "thread-missing",
+            "req-missing",
+            TurnLifecycle::Completed,
+            "2026-05-04T10:05:00Z",
+        )
+        .expect("settle_turn");
+    assert!(!changed);
 }

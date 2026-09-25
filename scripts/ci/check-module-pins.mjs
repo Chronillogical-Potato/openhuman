@@ -2,7 +2,7 @@
 // Fails when a module's registry pin and its submodule pin describe different
 // releases — the drift behind openhuman#5727.
 //
-// Nine subsystems load as downloaded cdylib modules, and each is pinned TWICE,
+// Downloaded cdylib modules are pinned TWICE,
 // independently: once as a git submodule (the source this repo compiles the
 // wire contract against) and once as a `version` + per-platform SHA-256 in
 // `crates/openhuman-core/src/modules/registry.rs` (the artifact actually loaded at runtime).
@@ -86,6 +86,9 @@ const PIN_MAP = {
   tinyruntime: { submodule: "vendor/tinyruntime" },
   tinymcp: { submodule: "vendor/tinymcp" },
   tinyconnectors: { submodule: "vendor/tinyconnectors" },
+  tinybox: { submodule: "vendor/tinybox" },
+  tinychannels: { submodule: "vendor/tinychannels" },
+  tinyhosts: { submodule: "vendor/tinyhosts" },
   "tinyruntime-nodejs": {
     submodule: null,
     sharesWith: "vendor/tinyruntime",

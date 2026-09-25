@@ -36,8 +36,10 @@ fn stable_prefix_fingerprint(value: &serde_json::Value) -> String {
 /// the crate prompt builder, so `cache_segments` would otherwise stay empty and
 /// the crate `PromptCacheGuardMiddleware` (installed immediately after this)
 /// would have no prefix to protect. The segments use the harness-layout ids
-/// `system` (`system.1`, … per leading system message) and `tools` — exactly
-/// those, and only those. The crate's
+/// `system` (`system.1`, … per frozen system tier) and `tools` — exactly
+/// those for an ordinary session. If a resumed session has no recoverable
+/// frozen prefix, a noncacheable marker prevents the dispatch layer from
+/// promoting its leading System history summary into one. The crate's
 /// `refresh_prompt_cache_fingerprint` (agent_loop/run_loop.rs) recognises that
 /// layout at dispatch and rebuilds `prompt_fingerprint` from the bytes actually
 /// sent (system messages + tool schemas), so an unchanged system prompt +
@@ -62,6 +64,9 @@ pub(crate) struct PromptCacheSegmentMiddleware;
 /// `tinyagents_harness::prompt::system_segment_id`). Any other id opts the
 /// request into whole-request fingerprinting (see the middleware docs).
 const HARNESS_TOOLS_SEGMENT_ID: &str = "tools";
+/// Explicitly opt out of auto-promoting a leading System history row when a
+/// resumed session has no recoverable frozen prompt prefix.
+const VOLATILE_SYSTEM_HISTORY_SEGMENT_ID: &str = "volatile-system-history";
 
 #[async_trait]
 impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
@@ -85,11 +90,22 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         //    `runtime_session::prepare`), so a rewritten volatile tier shows up
         //    as a change to `system.1` while `system` keeps its id and the
         //    layout guard can say which tier moved.
-        let leading_system = request
+        let observed_leading_system = request
             .messages
             .iter()
             .take_while(|m| matches!(m, TaMessage::System(_)))
             .count();
+        let leading_system = match ctx.data.cacheable_system_prefix_len {
+            Some(frozen) => frozen.min(observed_leading_system),
+            None => {
+                // A new session renders its prefix during the first turn's
+                // prepare hook, after the run context was constructed. Learn
+                // that initial tier count once; later System summaries do not
+                // become new cacheable tiers within the run.
+                ctx.data.cacheable_system_prefix_len = Some(observed_leading_system);
+                observed_leading_system
+            }
+        };
         for index in 0..leading_system {
             segments.push(PromptSegment {
                 id: tinyagents_harness::prompt::system_segment_id(index),
@@ -118,15 +134,25 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 cacheable: true,
             });
         }
+        if segments.is_empty()
+            && matches!(ctx.data.cacheable_system_prefix_len, Some(0))
+            && observed_leading_system > 0
+        {
+            segments.push(PromptSegment {
+                id: VOLATILE_SYSTEM_HISTORY_SEGMENT_ID.to_string(),
+                role: SegmentRole::Volatile,
+                cacheable: false,
+            });
+        }
         if !segments.is_empty() {
             // Content-derived, so a guard reading it before dispatch sees a
             // system-prompt or tool-schema edit; the crate recomputes it from
             // the final bytes at dispatch.
-            let system_messages: Vec<&TaMessage> = request
-                .messages
-                .iter()
-                .filter(|m| matches!(m, TaMessage::System(_)))
-                .collect();
+            // Steering nudges and other runtime notes may be System messages
+            // after the first user turn. They belong to the changing history,
+            // not to the cacheable leading system tiers declared above.
+            let system_messages: Vec<&TaMessage> =
+                request.messages.iter().take(leading_system).collect();
             request.prompt_fingerprint = Some(stable_prefix_fingerprint(&serde_json::json!({
                 "system": system_messages,
                 "tools": &request.tools,

@@ -49,6 +49,7 @@ fn meta(thread_id: &str) -> TranscriptMeta {
         created: "2024-01-01T00:00:00Z".to_string(),
         updated: "2024-01-01T00:05:00Z".to_string(),
         turn_count: 1,
+        prefix_message_count: None,
         input_tokens: 100,
         output_tokens: 50,
         cached_input_tokens: 20,

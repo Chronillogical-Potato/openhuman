@@ -265,6 +265,13 @@ if should_run_suite "chat"; then
   run "test/e2e/specs/chat-live-history-parity.spec.ts"       "chat-live-history-parity"  "chat"
   run "test/e2e/specs/chat-tool-error-recovery.spec.ts"       "chat-error-recovery"       "chat"
   run "test/e2e/specs/agent-review.spec.ts"                   "agent-review"              "chat"
+  run "test/e2e/specs/chat-harness-subagent-continue.spec.ts" "chat-subagent-continue"    "chat"
+  run "test/e2e/specs/chat-background-activity-panel.spec.ts" "chat-background-activity"  "chat"
+  run "test/e2e/specs/chat-todos-goals.spec.ts"               "chat-todos-goals"          "chat"
+  run "test/e2e/specs/agent-harness-behaviors.spec.ts"        "agent-harness-behaviors"   "chat"
+  run "test/e2e/specs/agent-teams-live.spec.ts"               "agent-teams-live"          "chat"
+  run "test/e2e/specs/file-drop-guard.spec.ts"                "file-drop-guard"           "chat"
+  run "test/e2e/specs/chat-external-link.spec.ts"             "chat-external-link"        "chat"
   run "test/e2e/specs/mega-flow.spec.ts"                      "mega-flow"                 "chat"
   _mini_summary "chat"
 fi
@@ -281,6 +288,8 @@ if should_run_suite "skills"; then
   run "test/e2e/specs/skill-multi-round.spec.ts"              "skill-multi-round"         "skills"
   run "test/e2e/specs/skill-oauth.spec.ts"                    "skill-oauth"               "skills"
   run "test/e2e/specs/skill-socket-reconnect.spec.ts"         "skill-socket-reconnect"    "skills"
+  run "test/e2e/specs/skill-activate-invoke-chat.spec.ts"     "skill-activate-invoke"     "skills"
+  run "test/e2e/specs/skill-activation-persistence.spec.ts"   "skill-activation-persist"  "skills"
   _mini_summary "skills"
 fi
 
@@ -293,6 +302,8 @@ if should_run_suite "notifications"; then
   run "test/e2e/specs/notifications.spec.ts"                  "notifications"             "notifications"
   run "test/e2e/specs/memory-roundtrip.spec.ts"               "memory-roundtrip"          "notifications"
   run "test/e2e/specs/coding-session-memory.spec.ts"           "coding-session-memory"     "notifications"
+  run "test/e2e/specs/memory-sources-conversation.spec.ts"    "memory-sources-conv"       "notifications"
+  run "test/e2e/specs/memory-sync-schedule.spec.ts"           "memory-sync-schedule"      "notifications"
   run "test/e2e/specs/cron-jobs-flow.spec.ts"                 "cron-jobs"                 "notifications"
   _mini_summary "notifications"
 fi
@@ -326,6 +337,7 @@ if should_run_suite "providers"; then
   run "test/e2e/specs/telegram-channel-flow.spec.ts"          "telegram-channel"          "providers"
   run "test/e2e/specs/gmail-flow.spec.ts"                     "gmail"                     "providers"
   run "test/e2e/specs/accounts-provider-modal.spec.ts"        "accounts-providers"        "providers"
+  run "test/e2e/specs/credential-channels-flow.spec.ts"       "credential-channels"       "providers"
   _mini_summary "providers"
 fi
 
@@ -372,6 +384,7 @@ if should_run_suite "connectors"; then
   run "test/e2e/specs/connector-gmail-composio.spec.ts"      "connector-gmail-composio"  "connectors"
   run "test/e2e/specs/connector-jira.spec.ts"                "connector-jira"            "connectors"
   run "test/e2e/specs/connector-session-guard.spec.ts"       "connector-session-guard"   "connectors"
+  run "test/e2e/specs/composio-github-tools-tags.spec.ts"    "composio-github-tags"      "connectors"
   _mini_summary "connectors"
 fi
 
@@ -399,6 +412,7 @@ if should_run_suite "settings"; then
   run "test/e2e/specs/settings-account-preferences.spec.ts"   "settings-account"          "settings"
   run "test/e2e/specs/settings-advanced-config.spec.ts"       "settings-advanced"         "settings"
   run "test/e2e/specs/settings-feature-preferences.spec.ts"   "settings-features"         "settings"
+  run "test/e2e/specs/settings-search.spec.ts"                "settings-search"           "settings"
   _mini_summary "settings"
 fi
 
@@ -418,6 +432,7 @@ if should_run_suite "system"; then
   # PR #1061 (core is now in-process). Skip by not setting OPENHUMAN_SERVICE_MOCK=1.
   run "test/e2e/specs/service-connectivity-flow.spec.ts"    "service-connectivity"      "system"
   run "test/e2e/specs/core-port-conflict-recovery.spec.ts"  "core-port-conflict"        "system"
+  run "test/e2e/specs/ptt-flow.spec.ts"                       "ptt-flow"                  "system"
   if [[ "$(uname -s)" == "Linux" ]]; then
     run "test/e2e/specs/linux-cef-deb-runtime.spec.ts"        "linux-cef-deb-runtime"     "system"
   fi
@@ -433,6 +448,7 @@ if should_run_suite "journeys"; then
   run "test/e2e/specs/user-journey-full-task.spec.ts"              "journey-full-task"     "journeys"
   run "test/e2e/specs/user-journey-settings-round-trip.spec.ts"    "journey-settings"      "journeys"
   run "test/e2e/specs/chat-conversation-history.spec.ts"           "chat-history"          "journeys"
+  run "test/e2e/specs/flows.spec.ts"                               "flows"                 "journeys"
   _mini_summary "journeys"
 fi
 

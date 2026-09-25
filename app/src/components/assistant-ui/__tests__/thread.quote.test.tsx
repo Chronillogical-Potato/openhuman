@@ -58,6 +58,7 @@ function selectWithin(node: Node, text: string) {
     rangeCount: 1,
     toString: () => text,
     getRangeAt: () => ({
+      commonAncestorContainer: node,
       getBoundingClientRect: () => ({ top: 100, left: 40, width: 120, height: 18 }),
     }),
     removeAllRanges,

@@ -23,6 +23,10 @@ frontend:
   - 'app/src/**'
   - 'app/scripts/**'
   - 'app/test/vitest.config.ts'
+  # The e2e/Playwright specs themselves: `typecheck:e2e` in the frontend
+  # job exists to check them, so a PR that touches only a spec has to
+  # match this filter or the job skips and the check reads as green.
+  - 'app/test/**'
   - 'app/tsconfig*.json'
   - 'app/vite.config.*'
   - 'app/tailwind.config.*'
