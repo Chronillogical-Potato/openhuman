@@ -11,7 +11,6 @@ import AgentEditorPage from './panels/AgentEditorPage';
 import AgentsPanel from './panels/AgentsPanel';
 import AppearancePanel from './panels/AppearancePanel';
 import ApprovalHistoryPanel from './panels/ApprovalHistoryPanel';
-import BillingPanel from './panels/BillingPanel';
 import CoreConnectionPanel from './panels/CoreConnectionPanel';
 import DeveloperOptionsPanel from './panels/DeveloperOptionsPanel';
 import DevicesPanel from './panels/DevicesPanel';
@@ -78,7 +77,7 @@ export function settingsRouteElements(): ReactNode {
           index via the catch-all. */}
       <Route path="team" element={<SettingsRedirect to="/settings/account" />} />
       <Route path="team/*" element={<SettingsRedirect to="/settings/account" />} />
-      <Route path="billing" element={wrapSettingsPage(<BillingPanel />)} />
+      <Route path="billing" element={<SettingsRedirect to="/settings/account" />} />
       <Route path="privacy" element={wrapSettingsPage(<PrivacyPanel />)} />
       <Route path="security" element={wrapSettingsPage(<SecurityPanel />)} />
       <Route path="migration" element={wrapSettingsPage(<MigrationPanel />)} />

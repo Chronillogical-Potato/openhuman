@@ -30,6 +30,10 @@ vi.mock('../TokenUsagePanel', () => ({
   ),
 }));
 
+vi.mock('../../../dashboard/UsageLogPanel', () => ({
+  default: () => <div data-testid="stub-usage-log" />,
+}));
+
 vi.mock('../../../../services/api/aiSettingsApi', async () => {
   const actual = await vi.importActual<typeof import('../../../../services/api/aiSettingsApi')>(
     '../../../../services/api/aiSettingsApi'
@@ -77,6 +81,14 @@ describe('UsagePanel', () => {
 
     expect(screen.getByTestId('usage-tab-tokens')).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('stub-token-usage')).toHaveAttribute('data-embedded', 'true');
+    expect(screen.queryByTestId('stub-cost-dashboard')).not.toBeInTheDocument();
+  });
+
+  test('#log hash selects the usage log without mounting the cost dashboard', () => {
+    renderWithProviders(<UsagePanel />, { initialEntries: ['/settings/usage#log'] });
+
+    expect(screen.getByTestId('usage-tab-log')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('stub-usage-log')).toBeInTheDocument();
     expect(screen.queryByTestId('stub-cost-dashboard')).not.toBeInTheDocument();
   });
 

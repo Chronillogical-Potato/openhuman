@@ -1399,8 +1399,17 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'متصلة بقاعدة نائية غيّر هذا في (بوتشيك) أو مُخلّق السحابة.',
   'settings.heartbeat.title': 'نبضات القلب والحلقات',
-  'settings.usage.title': 'الاستخدام والحدود',
-  'settings.usage.menuDesc': 'التكاليف واستخدام الرموز والميزانيات والنشاط في الخلفية',
+  'settings.usage.title': 'الاستخدام',
+  'settings.usage.menuDesc': 'التكاليف وتوفير الرموز وسجل الاستخدام والنشاط في الخلفية',
+  'settings.costDashboard.monthToDate': 'من بداية الشهر',
+  'settings.costDashboard.period': 'الفترة',
+  'settings.costDashboard.periodDays': 'آخر {days} يومًا',
+  'settings.costDashboard.all': 'الكل',
+  'settings.costDashboard.costSource': 'مصدر التكلفة',
+  'settings.costDashboard.estimated': 'تقديري',
+  'settings.costDashboard.providerCharged': 'محصّل من المزوّد',
+  'settings.costDashboard.searchModelSession': 'النموذج أو الجلسة',
+  'settings.costDashboard.filteredTotal': '{shown} من {loaded} سجل محمّل • {cost}',
   'settings.costDashboard.title': 'لوحة بيانات التكاليف',
   'settings.costDashboard.sevenDayCost': 'التكلفة اليومية',
   'settings.costDashboard.sevenDayTokens': '7 أيام',
@@ -1427,7 +1436,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'خزانة التكاليف معطلة في الدير مجموعة [xx0xx] مُمَكَّنَة = حقيقي في Xqx1x إلى re-enable.',
   'settings.costDashboard.subtitle':
-    'نقضي حياتنا ونحترق عبر الحزام ولا حاجة إلى إعادة تحميل الصفحات.',
+    'استخدام محلي لكل استدعاء للمزوّد. قد تكون التكاليف تقديرية؛ وتتم الفوترة المستضافة بشكل منفصل.',
   'settings.costDashboard.summaryAriaLabel': 'القياسات الموجزة للتكاليف',
   'settings.costDashboard.lastSevenDays': '7 أيام',
   'settings.costDashboard.utilizationOf': 'من',

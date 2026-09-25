@@ -1460,8 +1460,17 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Połączono ze zdalnym rdzeniem. Zmień to w BootCheck lub w wyborze trybu chmury.',
   'settings.heartbeat.title': 'Heartbeat i pętle',
-  'settings.usage.title': 'Zużycie i limity',
-  'settings.usage.menuDesc': 'Koszty, zużycie tokenów, budżety i aktywność w tle',
+  'settings.usage.title': 'Użycie',
+  'settings.usage.menuDesc': 'Koszty, oszczędność tokenów, dziennik użycia i aktywność w tle',
+  'settings.costDashboard.monthToDate': 'Od początku miesiąca',
+  'settings.costDashboard.period': 'Okres',
+  'settings.costDashboard.periodDays': 'Ostatnie {days} dni',
+  'settings.costDashboard.all': 'Wszystkie',
+  'settings.costDashboard.costSource': 'Źródło kosztu',
+  'settings.costDashboard.estimated': 'Szacowany',
+  'settings.costDashboard.providerCharged': 'Naliczony przez dostawcę',
+  'settings.costDashboard.searchModelSession': 'Model lub sesja',
+  'settings.costDashboard.filteredTotal': '{shown} z {loaded} wczytanych wpisów • {cost}',
   'settings.costDashboard.title': 'Panel kosztów',
   'settings.costDashboard.sevenDayCost': 'Dzienny koszt z 7 dni',
   'settings.costDashboard.sevenDayTokens': 'Zużycie tokenów z 7 dni',
@@ -1488,7 +1497,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'Panel kosztów jest wyłączony w konfiguracji. Ustaw [cost.dashboard] enabled = true w config.toml, aby włączyć go ponownie.',
   'settings.costDashboard.subtitle':
-    'Bieżące wydatki i zużycie tokenów w całym roju. Słupki odświeżają się automatycznie co kilka sekund: bez przeładowywania strony.',
+    'Lokalne użycie według wywołań dostawcy. Koszty mogą być szacowane; rozliczenia są osobne.',
   'settings.costDashboard.summaryAriaLabel': 'Metryki podsumowania kosztów',
   'settings.costDashboard.lastSevenDays': 'ostatnie 7 dni',
   'settings.costDashboard.utilizationOf': 'z',

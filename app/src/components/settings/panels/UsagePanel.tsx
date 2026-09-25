@@ -4,24 +4,31 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { type AISettings, loadAISettings } from '../../../services/api/aiSettingsApi';
 import CostDashboardPanel from '../../dashboard/CostDashboardPanel';
+import UsageLogPanel from '../../dashboard/UsageLogPanel';
 import { SettingsStatusLine } from '../controls';
 import SettingsPanel from '../layout/SettingsPanel';
 import { BackgroundLoopControls } from './AIPanel';
 import TokenUsagePanel from './TokenUsagePanel';
 
-type TabId = 'costs' | 'tokens' | 'background';
+type TabId = 'costs' | 'log' | 'tokens' | 'background';
 
-const TAB_HASH: Record<TabId, string> = { costs: '', tokens: '#tokens', background: '#background' };
+const TAB_HASH: Record<TabId, string> = {
+  costs: '',
+  log: '#log',
+  tokens: '#tokens',
+  background: '#background',
+};
 
 const hashToTab = (hash: string): TabId => {
   if (hash === '#background') return 'background';
   if (hash === '#tokens') return 'tokens';
+  if (hash === '#log') return 'log';
   return 'costs';
 };
 
 /**
- * Single Settings entry for usage & limits. Combines the cost dashboard
- * (charts, budgets, usage log), the Tokenjuice token-savings surface, and the
+ * Single Settings entry for usage. Combines the cost dashboard, usage log,
+ * Tokenjuice token-savings surface, and the
  * background-activity controls (heartbeat cadences + usage ledger, previously
  * the separate Heartbeat and Usage-ledger pages) as tabs under one header. The
  * active tab is reflected in the URL hash (`#tokens` / `#background`) so deep
@@ -52,6 +59,7 @@ const UsagePanel = () => {
           label: t('settings.costDashboard.title'),
           content: <CostDashboardPanel embedded />,
         },
+        { id: 'log', label: t('settings.costDashboard.usageLog'), content: <UsageLogPanel /> },
         {
           id: 'tokens',
           label: t('settings.tokenUsage.title'),
