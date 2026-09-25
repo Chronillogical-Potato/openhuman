@@ -130,7 +130,7 @@ fn parse_relative_duration(raw: &str) -> Option<Duration> {
     if !any {
         return None;
     }
-    let magnitude = Duration::seconds(seconds);
+    let magnitude = Duration::try_seconds(seconds)?;
     Some(if future { magnitude } else { -magnitude })
 }
 
@@ -221,7 +221,9 @@ fn resolve_calendar_phrase(
     };
     let today = zone.civil_date(now);
     let date = match anchor.as_str() {
-        "today" | "tonight" => today,
+        "today" => today,
+        "tonight" if time == NaiveTime::from_hms_opt(0, 0, 0)? => today + Duration::days(1),
+        "tonight" => today,
         "yesterday" => today - Duration::days(1),
         "tomorrow" => today + Duration::days(1),
         _ => {

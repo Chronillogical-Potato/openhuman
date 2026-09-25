@@ -97,6 +97,7 @@ fn conversational_dates_resolve_in_the_requested_timezone() {
         ("last Wednesday", "2025-12-30T18:30:00Z"),
         ("2026-01-09 at 9am", "2026-01-09T03:30:00Z"),
         ("11 PM tonight", "2026-01-07T17:30:00Z"),
+        ("tonight at midnight", "2026-01-07T18:30:00Z"),
         ("9am next Friday", "2026-01-09T03:30:00Z"),
         ("tomorrow at noon", "2026-01-08T06:30:00Z"),
     ] {
@@ -226,4 +227,14 @@ async fn execute_bad_timezone_errors() {
         .unwrap();
     assert!(result.is_error);
     assert!(result.output().contains("unknown IANA timezone"));
+}
+
+#[tokio::test]
+async fn execute_rejects_out_of_range_duration_without_panicking() {
+    let result = ResolveTimeTool::new()
+        .execute(json!({ "expr": "in 9223372036854776s" }))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.output().contains("could not parse"));
 }
