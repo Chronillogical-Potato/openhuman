@@ -2,11 +2,12 @@
 //!
 //! Deciding that with words costs nothing — no embedding, no store — which is
 //! what lets the lane run on every turn without paying on every turn. The rule
-//! is deliberately narrow: a message must **own** something (`my`, `me`, `I`,
+//! is deliberately narrow: a message must **own** something (`my`, `I`, `about me`,
 //! …) **and** ask or request (`who … ?`, `what's …`, `tell me …`, `remind me
 //! …`). "Fix my code" owns but does not ask; "what's the weather" asks but owns
-//! nothing; neither reaches the store. A false positive costs one bounded tree
-//! lookup that injects nothing; a false negative is covered by the standing
+//! nothing; neither reaches the store. A false positive can inject an unrelated
+//! source hit, so indirect-object phrases such as "find me information" do not
+//! count as ownership. A false negative is covered by the standing
 //! memory-access instruction, which tells the model to retrieve before it
 //! claims something is not stored.
 //!
@@ -21,9 +22,10 @@
 /// about the user. They never reach the store.
 const MAX_MESSAGE_CHARS: usize = 600;
 
-/// First-person ownership or self-reference. Apostrophes are stripped before
-/// matching, so `i've` and `ive` both land on the same entry.
-const FIRST_PERSON: &[&str] = &["my", "me", "mine", "myself", "i", "im", "ive", "id", "ill"];
+/// First-person ownership or self-reference. Bare `me` is excluded: "find me
+/// information about Jev" asks about Jev, not the user. Apostrophes are
+/// stripped before matching, so `i've` and `ive` both land on the same entry.
+const FIRST_PERSON: &[&str] = &["my", "mine", "myself", "i", "im", "ive", "id", "ill"];
 
 /// Words a message may open with before it gets to the point — politeness,
 /// greetings, fillers. Skipped before the lead word is read, so "please remind
@@ -80,10 +82,13 @@ pub fn gate_decision(message: &str) -> GateDecision {
     }
 
     let words = words_of(trimmed);
-    if !words
+    let owns_user_fact = words
         .iter()
         .any(|word| FIRST_PERSON.contains(&word.as_str()))
-    {
+        || words.windows(2).any(|pair| {
+            pair[1] == "me" && matches!(pair[0].as_str(), "about" | "know" | "remember")
+        });
+    if !owns_user_fact {
         return GateDecision::Closed("no_first_person");
     }
     let lead = words.iter().find(|word| !PREAMBLE.contains(&word.as_str()));

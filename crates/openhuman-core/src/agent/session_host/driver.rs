@@ -534,9 +534,27 @@ fn driver_error_with_snapshot(
     let history = guard.messages[..accepted_end].to_vec();
     let unanswered =
         crate::agent::tinyagents::render_unanswered_steps(&guard.messages[accepted_end..]);
-    let display = match unanswered {
-        Some(steps) => format!("The turn stopped before completion: {error}.\n\n{steps}"),
-        None => format!("The turn stopped before completion: {error}."),
+    let display = if error
+        .contains(&tinyagents_harness::TinyAgentsError::GenerationStalled.to_string())
+    {
+        // The model's streamed narration was stopped before it could repeat
+        // indefinitely. Preserve the completed tools as a useful, bounded
+        // partial rather than showing only the failed model's process text.
+        let results = crate::agent::session_host::turn_checkpoint::results_from_tool_outcomes(
+            &guard.tool_outcomes,
+        );
+        let evidence = crate::agent::session_host::turn_checkpoint::render_tool_results(
+            &results,
+            crate::agent::session_host::turn_checkpoint::CHECKPOINT_TOTAL_CHARS,
+        );
+        format!(
+            "I stopped a repetitive model response before it could finish. Here are the completed tool results I can report:\n{evidence}"
+        )
+    } else {
+        match unanswered {
+            Some(steps) => format!("The turn stopped before completion: {error}.\n\n{steps}"),
+            None => format!("The turn stopped before completion: {error}."),
+        }
     };
     DriverFailure {
         error: RuntimeError::Driver(error),

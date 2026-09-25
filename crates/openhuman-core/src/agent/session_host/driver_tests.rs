@@ -41,6 +41,38 @@ fn graph_failure_persists_only_accepted_snapshot_history() {
 }
 
 #[test]
+fn stalled_model_stream_reports_completed_evidence_instead_of_its_narration() {
+    let snapshot = Arc::new(std::sync::Mutex::new(
+        crate::agent::tinyagents::TranscriptSnapshot {
+            messages: vec![Message::user("Find information about Jev")],
+            accepted_len: 1,
+            request_base_len: 1,
+            tool_outcomes: vec![crate::agent::tinyagents::ToolCallOutcome {
+                call_id: "search-1".into(),
+                name: "web_search_tool".into(),
+                arguments: serde_json::json!({"query": "Jev TypeSafe"}),
+                success: true,
+                content: "TypeSafe describes Jev as a System One model".into(),
+                duration_ms: 12,
+            }],
+            ..Default::default()
+        },
+    ));
+    let failure = driver_error_with_snapshot(
+        tinyagents_harness::TinyAgentsError::GenerationStalled,
+        &snapshot,
+        &sidecar(),
+        std::time::Duration::from_millis(1),
+        "chat-v1",
+    );
+    let partial = failure.partial.expect("interrupted partial");
+    let display = partial.partial.expect("display partial").content;
+    assert!(display.contains("stopped a repetitive model response"));
+    assert!(display.contains("TypeSafe describes Jev as a System One model"));
+    assert!(!display.contains("Let me"));
+}
+
+#[test]
 fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
     let snapshot = Arc::new(std::sync::Mutex::new(
         crate::agent::tinyagents::TranscriptSnapshot {

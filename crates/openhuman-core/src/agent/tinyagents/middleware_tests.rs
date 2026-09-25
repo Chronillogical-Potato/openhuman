@@ -488,6 +488,10 @@ mod loop_guard_tests;
 mod prompt_cache_tests;
 #[path = "middleware_repeat_progress_tests.rs"]
 mod repeat_progress_tests;
+
+#[path = "middleware_research_budget_tests.rs"]
+mod research_budget_tests;
+
 #[path = "middleware_tool_output_artifact_tests.rs"]
 mod tool_output_artifact_tests;
 #[path = "middleware_tool_output_tests.rs"]

@@ -553,6 +553,13 @@ pub(super) fn assemble_turn_harness(
         &tool_outcome_sink,
     );
 
+    // Direct web lookup is for a bounded answer. Once enough search/fetch
+    // results have returned, spend the next model call on synthesis rather
+    // than another variation of the same query. Specialist research runs keep
+    // their own budgets and are not narrowed here.
+    if subagent_scope.is_none() {
+        harness.push_middleware(Arc::new(middleware::ResearchBudgetMiddleware::new()));
+    }
     // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
     // 01.1). Keep this narrow for now: enforce sandbox requirements declared by
     // adapter policies without enabling classification/approval/result-byte
