@@ -95,6 +95,15 @@ pub(super) struct RuntimeSettingsUpdate {
 pub(super) struct BrowserSettingsUpdate {
     pub(super) enabled: Option<bool>,
     pub(super) backend: Option<String>,
+    pub(super) headless: Option<bool>,
+    pub(super) viewport_width: Option<u32>,
+    pub(super) viewport_height: Option<u32>,
+    pub(super) chrome_path: Option<String>,
+    pub(super) profile_mode: Option<String>,
+    pub(super) profile_path: Option<String>,
+    pub(super) download_dir: Option<String>,
+    pub(super) max_task_steps: Option<usize>,
+    pub(super) task_timeout_secs: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -305,6 +314,15 @@ pub fn optional_bool(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,
         ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
+        comment,
+        required: false,
+    }
+}
+
+pub fn optional_number(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
         comment,
         required: false,
     }

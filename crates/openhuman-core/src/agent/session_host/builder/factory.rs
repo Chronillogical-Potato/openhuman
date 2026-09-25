@@ -201,11 +201,10 @@ impl OpenHumanSessionHost {
         // module or remote driver can supply. The engine's connection is now
         // exclusively the engine's. Lane C (#6040) rides the same binding.
         let (archivist_provider, auto_recall) = super::helpers::bind_session_memory(config)?;
-
         // Load the user's persisted tool preferences once. They drive two
         // things below: granting the App UI Control / App Automation mutation
         // opt-in (#3762) and filtering the tool set to the enabled snapshot.
-        let enabled_tools: Vec<String> = {
+        let mut enabled_tools: Vec<String> = {
             use crate::desktop::app_state::load_stored_app_state;
             match load_stored_app_state(config) {
                 Ok(stored) => stored
@@ -220,7 +219,10 @@ impl OpenHumanSessionHost {
                 }
             }
         };
-
+        if config.browser.enabled && !enabled_tools.is_empty() {
+            // Browser's explicit opt-in outranks a positive-only onboarding snapshot.
+            enabled_tools.extend(["browser".to_string(), "browser_open".to_string()]);
+        }
         // Share a single `Arc<Config>` across the heavyweight per-build consumers
         // (the tool registry, the reflection hook, the turn provider) instead of
         // deep-cloning the large `Config` at each site (#5050, Fix 1). `Config` is

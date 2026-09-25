@@ -105,7 +105,7 @@ fn every_asset_name_carries_the_pinned_version() {
 fn the_release_url_is_a_tag_on_github() {
     // tinybus refuses a URL that is not a tag, because a branch URL names
     // bytes that can change under a digest that was checked once.
-    for record in ALL {
+    for record in ALL.iter().filter(|record| !record.assets.is_empty()) {
         assert!(
             record
                 .release_url

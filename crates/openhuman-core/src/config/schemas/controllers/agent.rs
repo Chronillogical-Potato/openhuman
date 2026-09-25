@@ -95,6 +95,15 @@ pub(super) fn handle_update_browser_settings(params: Map<String, Value>) -> Cont
         let patch = config_rpc::BrowserSettingsPatch {
             enabled: update.enabled,
             backend: update.backend,
+            headless: update.headless,
+            viewport_width: update.viewport_width,
+            viewport_height: update.viewport_height,
+            chrome_path: update.chrome_path,
+            profile_mode: update.profile_mode,
+            profile_path: update.profile_path,
+            download_dir: update.download_dir,
+            max_task_steps: update.max_task_steps,
+            task_timeout_secs: update.task_timeout_secs,
         };
         to_json(config_rpc::load_and_apply_browser_settings(patch).await?)
     })

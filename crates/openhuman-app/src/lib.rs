@@ -56,6 +56,11 @@ const _: () = assert!(
      Add \"http-server\" to the openhuman_core `features` list in crates/openhuman-app/Cargo.toml."
 );
 
+// The desktop shell runs the same in-process core as the CLI. Keep its module
+// loader and TinyBrowser host adapter compiled in; the verified release module
+// is resolved by that core at first use.
+const _: &str = openhuman_core::modules::browser::MODULE_ID;
+
 mod app_update;
 // Artifact export command (#2779) — cross-platform Downloads copy. The `rfd`
 // Save-As dialog that used to sit in front of it was removed with the crate.

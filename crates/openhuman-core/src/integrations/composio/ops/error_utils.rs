@@ -111,7 +111,10 @@ pub(crate) fn backend_mode_without_session(config: &Config) -> bool {
         return false;
     }
     match crate::api::jwt::get_session_token(config) {
-        Ok(token) => token.as_deref().map(str::trim).is_none_or(str::is_empty),
+        Ok(token) => token.as_deref().map(str::trim).is_none_or(|token| {
+            token.is_empty()
+                || crate::security::credentials::session_support::is_local_session_token(token)
+        }),
         Err(error) => {
             tracing::warn!(
                 "[composio] backend_mode_without_session: session lookup failed ({error}); \

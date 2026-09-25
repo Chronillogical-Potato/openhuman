@@ -54,3 +54,6 @@
 [submodule "vendor/tinyskills"]
 	path = vendor/tinyskills
 	url = https://github.com/tinyhumansai/tinyskills
+[submodule "vendor/tinybrowser"]
+	path = vendor/tinybrowser
+	url = https://github.com/tinyhumansai/tinybrowser.git

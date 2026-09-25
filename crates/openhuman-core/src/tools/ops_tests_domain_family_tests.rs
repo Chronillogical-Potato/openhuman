@@ -306,8 +306,14 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
         // The `computer`-family tools are compiled out with the
         // `desktop-automation` feature; gate these two cases per-element so the
         // rest of the read-only policy assertions still run in the slim build.
+        #[cfg(feature = "modules")]
         (
-            Box::new(BrowserOpenTool::new(sec.clone(), vec![])),
+            Box::new(BrowserOpenTool::new(
+                sec.clone(),
+                Arc::new(crate::modules::browser::BrowserClient::new(Arc::new(
+                    crate::config::Config::default(),
+                ))),
+            )),
             serde_json::json!({ "url": "https://example.com" }),
         ),
         (

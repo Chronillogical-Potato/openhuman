@@ -53,6 +53,79 @@ fn spec(name: &str) -> ToolSpec {
     }
 }
 
+#[cfg(feature = "modules")]
+#[tokio::test]
+async fn desktop_browser_setting_keeps_deferred_tools_in_fresh_and_resumed_surfaces() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(workspace.join("state")).expect("state dir");
+    // A desktop onboarding snapshot predating TinyBrowser has other enabled
+    // tools but cannot name browser/browser_open. The explicit Browser setting
+    // must still register both deferred tools for the user-facing session.
+    std::fs::write(
+        workspace.join("state/app-state.json"),
+        r#"{"onboardingTasks":{"enabledTools":["shell","file_read"]}}"#,
+    )
+    .expect("app state");
+    let mut config = crate::config::Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace.clone(),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
+    config.browser.enabled = true;
+    config.http_request.allowed_domains = vec!["example.com".into()];
+    let mut host =
+        crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+            .expect("desktop orchestrator");
+    for name in ["browser", "browser_open"] {
+        assert!(host.deferred_tool_names_for_test().contains(name), "{name}");
+        assert!(!host
+            .visible_tool_specs_arc()
+            .iter()
+            .any(|spec| spec.name == name));
+    }
+    host.ensure_runtime_session().expect("runtime session");
+    let prelude = host
+        .runtime_state
+        .lock()
+        .expect("runtime state")
+        .prelude
+        .clone()
+        .expect("prelude");
+    let fresh = prelude.prepare(true).await.expect("fresh tool surface");
+    let fresh = fresh.tools.expect("fresh tools");
+    for name in ["browser", "browser_open"] {
+        assert!(fresh.specs().iter().any(|spec| spec.name == name), "{name}");
+    }
+    prelude.adopt_recorded_tools(Some(&fresh));
+    prelude.refresh_delegation_tool_surface();
+    let resumed = prelude.prepare(false).await.expect("resumed tool surface");
+    for name in ["browser", "browser_open"] {
+        assert!(
+            resumed
+                .tools
+                .as_ref()
+                .unwrap()
+                .specs()
+                .iter()
+                .any(|spec| spec.name == name),
+            "{name}"
+        );
+    }
+
+    config.browser.enabled = false;
+    let disabled =
+        crate::agent::OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+            .expect("browser-disabled orchestrator");
+    for name in ["browser", "browser_open"] {
+        assert!(
+            !disabled.deferred_tool_names_for_test().contains(name),
+            "{name}"
+        );
+    }
+}
+
 /// The incident this guards: a thread resumed in a fresh process (empty
 /// integrations cache) lost every Composio action, so the orchestrator's
 /// `tool_search` had nothing to find although its restored prompt told it to

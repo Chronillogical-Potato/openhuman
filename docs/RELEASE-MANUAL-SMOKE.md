@@ -25,6 +25,11 @@ Applies to every release, all platforms.
 - [ ] **An existing chat accepts another turn after restart** — Send a message and wait for its reply, fully quit OpenHuman, then reopen that conversation and send a second message. Expected: the second reply streams normally, retains the earlier context, and does not show a generic error. Repeat after the conversation has compacted if a long-running test profile is available (#6608).
 - [ ] **A failed chat turn does not offer an invalid regenerate action** — Trigger a provider failure in a test profile and inspect its error card. Expected: the diagnostic text remains visible, with no Retry or Refresh button on that failed message. A completed assistant reply still offers Refresh (#6613).
 
+### Browser module
+
+- [ ] **Browser readiness and setup** — Open Settings > Connections > Browser on each desktop platform. Expected: the checksum-pinned TinyBrowser module downloads and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
+- [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked.
+
 ### Checkbox appearance
 
 - [ ] **Skill source filters show their selection** — In Connections → Skills, open the catalog source filter and toggle a source off and on. Verify that the rows filter correctly, the menu stays open, and the selected source has a visible checkmark. Repeat in light and dark themes, including Matrix, Ocean and Sepia dark; selected and indeterminate shared checkboxes must show a contrasting mark, while unchecked boxes remain empty.

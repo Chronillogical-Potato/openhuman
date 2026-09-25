@@ -12,6 +12,15 @@ use super::loader::{fallback_workspace_dir, load_config_with_timeout, snapshot_c
 pub struct BrowserSettingsPatch {
     pub enabled: Option<bool>,
     pub backend: Option<String>,
+    pub headless: Option<bool>,
+    pub viewport_width: Option<u32>,
+    pub viewport_height: Option<u32>,
+    pub chrome_path: Option<String>,
+    pub profile_mode: Option<String>,
+    pub profile_path: Option<String>,
+    pub download_dir: Option<String>,
+    pub max_task_steps: Option<usize>,
+    pub task_timeout_secs: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -88,13 +97,60 @@ pub async fn apply_browser_settings(
         .as_deref()
         .map(normalize_browser_backend)
         .transpose()?;
+    let mut browser = config.browser.clone();
 
     if let Some(enabled) = update.enabled {
-        config.browser.enabled = enabled;
+        browser.enabled = enabled;
     }
     if let Some(backend) = normalized_backend {
-        config.browser.backend = backend;
+        browser.backend = backend;
     }
+    if let Some(headless) = update.headless {
+        browser.headless = headless;
+    }
+    if let Some(width) = update.viewport_width {
+        if !(320..=3840).contains(&width) {
+            return Err("viewport_width must be 320..=3840".into());
+        }
+        browser.viewport_width = width;
+    }
+    if let Some(height) = update.viewport_height {
+        if !(240..=2160).contains(&height) {
+            return Err("viewport_height must be 240..=2160".into());
+        }
+        browser.viewport_height = height;
+    }
+    if let Some(path) = update.chrome_path {
+        browser.chrome_path = nonempty(path);
+    }
+    if let Some(mode) = update.profile_mode {
+        if mode != "fresh" && mode != "persistent" {
+            return Err("profile_mode must be fresh or persistent".into());
+        }
+        browser.profile_mode = mode;
+    }
+    if let Some(path) = update.profile_path {
+        browser.profile_path = nonempty(path);
+    }
+    if let Some(path) = update.download_dir {
+        browser.download_dir = nonempty(path);
+    }
+    if browser.profile_mode == "persistent" && browser.profile_path.is_none() {
+        return Err("persistent profile requires profile_path".into());
+    }
+    if let Some(steps) = update.max_task_steps {
+        if !(1..=100).contains(&steps) {
+            return Err("max_task_steps must be 1..=100".into());
+        }
+        browser.max_task_steps = steps;
+    }
+    if let Some(timeout) = update.task_timeout_secs {
+        if !(5..=600).contains(&timeout) {
+            return Err("task_timeout_secs must be 5..=600".into());
+        }
+        browser.task_timeout_secs = timeout;
+    }
+    config.browser = browser;
     config.save().await.map_err(|e| e.to_string())?;
     let snapshot = snapshot_config_json(config)?;
     Ok(RpcOutcome::new(
@@ -106,9 +162,15 @@ pub async fn apply_browser_settings(
     ))
 }
 
+fn nonempty(value: String) -> Option<String> {
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
 fn normalize_browser_backend(raw: &str) -> Result<String, String> {
     let key = raw.trim().to_ascii_lowercase().replace('-', "_");
     match key.as_str() {
+        "tinybrowser" | "tiny_browser" => Ok("tinybrowser".to_string()),
         "agent_browser" | "agentbrowser" => Ok("agent_browser".to_string()),
         "playwright" => Ok("playwright".to_string()),
         "rust_native" | "native" => Ok("rust_native".to_string()),

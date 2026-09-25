@@ -1,13 +1,15 @@
-//! Browser tools: DOM-snapshot automation (`BrowserTool` with pluggable
-//! backends), `BrowserOpenTool`, and `ImageInfoTool`. Gates and the host
-//! allowlist rules are documented in `tools/impl/README.md`.
+//! Browser tools backed by the loadable TinyBrowser module.
 
 #[allow(clippy::module_inception)]
+#[cfg(feature = "modules")]
 mod browser;
+#[cfg(feature = "modules")]
 mod browser_open;
 mod image_info;
-mod playwright_backend;
+mod security;
 
-pub use browser::{BrowserAction, BrowserTool, ComputerUseConfig};
+#[cfg(feature = "modules")]
+pub use browser::BrowserTool;
+#[cfg(feature = "modules")]
 pub use browser_open::BrowserOpenTool;
 pub use image_info::ImageInfoTool;
