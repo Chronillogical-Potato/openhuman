@@ -76,7 +76,6 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { pendingFollowupAdded } from '../../store/queueSlice';
 import { selectSocketStatus } from '../../store/socketSelectors';
 import {
-  addInferenceResponse,
   addMessageLocal,
   clearCreateThreadError,
   clearThreadInferenceActive,
@@ -510,7 +509,6 @@ const Conversations = ({
   // ids whose partial reply has already been persisted, so a repeated Stop/ESC
   // fired before the `cancelled` event clears the live stream can't append the
   // same partial twice.
-  const stoppedRequestIdsRef = useRef<Set<string>>(new Set());
   // Threads with an in-flight send, guarding against double-submit to the SAME
   // thread. Per-thread (a Set) so a send to thread B isn't blocked by an
   // in-flight send to thread A.
@@ -1301,40 +1299,16 @@ const Conversations = ({
   // Cancel control (mic-cloud / voice modes) so the cancel path lives in one
   // place.
   //
-  // Any assistant text already streamed for this turn is persisted as its own
-  // message flagged `stopped: true` so the partial output stays in the
-  // transcript (clearly marked) instead of vanishing when the `cancelled`
-  // chat_error clears the live streaming preview (#4862). The matching
-  // `onError` path deliberately appends no message for `cancelled`, so this can
-  // never double-render the partial reply.
-  //
-  // Persistence is gated on the cancel actually being accepted: `chatCancel`
-  // resolves `false` (no throw) when the socket is down or the RPC is rejected,
-  // and in that case the original turn may keep running and later append its
-  // own final response — so persisting a partial here would leave a
-  // misleading/duplicate bubble. On failure we release the one-shot claim so a
-  // retry can still preserve the partial once cancellation succeeds.
+  // `ChatRuntimeProvider.onCancelled` persists the partial and its processing
+  // trail after the core confirms cancellation. Keeping that in one place also
+  // covers turns superseded without a local Stop click.
   const handleStopGeneration = useCallback(() => {
     if (!selectedThreadId) {
       debug('[chat] stop generation: no selected thread — noop');
       return;
     }
     const threadId = selectedThreadId;
-    const streaming = streamingAssistantByThread[threadId];
-    const partial = streaming?.content ?? '';
-    const requestId = streaming?.requestId;
-    // Claim the turn synchronously so a second Stop/ESC in the same tick (before
-    // the cancel round-trips) can't queue a duplicate persist.
-    const shouldPersist =
-      partial.trim().length > 0 && (!requestId || !stoppedRequestIdsRef.current.has(requestId));
-    if (shouldPersist && requestId) stoppedRequestIdsRef.current.add(requestId);
-    debug(
-      '[chat] stop generation: thread=%s request=%s partialLen=%d willPersist=%s',
-      threadId,
-      requestId ?? 'none',
-      partial.trim().length,
-      shouldPersist
-    );
+    debug('[chat] stop generation: thread=%s', threadId);
     void chatCancel(threadId).then(outcome => {
       const accepted = outcome?.accepted === true;
       const turnCancelled = outcome?.turnCancelled === true;
@@ -1344,12 +1318,6 @@ const Conversations = ({
         accepted,
         turnCancelled
       );
-      if (!accepted || !turnCancelled) {
-        // Cancel not accepted, or the core had no turn to tear down: don't leave
-        // a misleading partial, and release the claim so a later Stop/ESC can
-        // persist once cancellation goes through.
-        if (shouldPersist && requestId) stoppedRequestIdsRef.current.delete(requestId);
-      }
       if (!accepted) return;
       if (!turnCancelled) {
         // The core has nothing running on this thread, so no `cancelled`
@@ -1372,26 +1340,8 @@ const Conversations = ({
         dispatch(clearThreadInferenceActive(threadId));
         return;
       }
-      if (shouldPersist) {
-        void dispatch(
-          addInferenceResponse({
-            content: partial,
-            threadId,
-            // `cancelReason: 'user_stop'` is what the vendored `StoppedRun`
-            // element's reason chip reads (`thread.tsx`'s `StoppedRunSlot`);
-            // this is the user-initiated Stop path, as opposed to the core
-            // superseding the turn (`chat_cancelled{cancel_reason:
-            // "superseded"}`, handled in `ChatRuntimeProvider`).
-            extraMetadata: {
-              stopped: true,
-              cancelReason: 'user_stop',
-              ...(requestId ? { requestId } : {}),
-            },
-          })
-        ).then(() => debug('[chat] stop generation: persisted stopped reply thread=%s', threadId));
-      }
     });
-  }, [selectedThreadId, streamingAssistantByThread, dispatch, clearSilenceTimer]);
+  }, [selectedThreadId, dispatch, clearSilenceTimer]);
 
   handleStopGenerationRef.current = handleStopGeneration;
 

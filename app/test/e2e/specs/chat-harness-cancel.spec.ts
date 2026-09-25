@@ -18,8 +18,8 @@
  *        - IN_FLIGHT clears (Rust side).
  *        - The DOM never accumulates the final two chunks.
  *        - Send button becomes enabled again.
- *   5. The conversation file on disk does NOT contain the full reply
- *      (the cancel happened before the assistant finished).
+ *   5. The early partial remains visible and persisted, while the late
+ *      chunks never land.
  *
  * This is the second hardest scenario in the chat pipeline — the first
  * being the streaming reply itself. If cancel breaks, in-flight chats
@@ -59,6 +59,7 @@ const SLOW_SCRIPT = [
 const EARLY_PIECES = ['one ', 'two '];
 const LATE_PIECES = ['five ', 'six.'];
 let cancelAttempted = false;
+let sawEarlyDelta = false;
 
 /**
  * Click the composer's mid-stream cancel control. In the text composer the Send
@@ -116,6 +117,7 @@ describe('Chat harness — mid-stream cancel', () => {
 
   it('sends → IN_FLIGHT populates → Cancel clears it before late chunks land', async () => {
     cancelAttempted = false;
+    sawEarlyDelta = false;
     setMockBehavior('llmStreamScript', JSON.stringify(SLOW_SCRIPT));
     setMockBehavior('llmStreamChunkDelayMs', '500');
 
@@ -182,6 +184,7 @@ describe('Chat harness — mid-stream cancel', () => {
         timeoutMsg: 'first delta never landed before cancel attempt',
       })
       .catch(() => false);
+    sawEarlyDelta = sawFirstDelta;
     if (!sawFirstDelta) {
       console.warn(
         '[chat-harness-cancel] first delta was not visible before cancel; attempting cancel from in-flight state'
@@ -207,6 +210,9 @@ describe('Chat harness — mid-stream cancel', () => {
     for (const piece of LATE_PIECES) {
       const present = await textExists(piece);
       expect(present).toBe(false);
+    }
+    if (sawFirstDelta) {
+      expect(await textExists(EARLY_PIECES[0])).toBe(true);
     }
   });
 
@@ -249,15 +255,17 @@ describe('Chat harness — mid-stream cancel', () => {
     expect(typeof threadId).toBe('string');
     const relPath = `memory/conversations/threads/${hexEncodeThreadId(threadId as string)}.jsonl`;
 
-    // The store may or may not record the partial assistant turn — both
-    // are acceptable. What we lock down is the contract that the
-    // LATE_PIECES never reach the persisted file.
+    // The stopped reply should be durable, with no chunks after Stop.
     const read = await callOpenhumanRpc<{ result: { content_utf8: string } }>(
       'openhuman.test_support_read_workspace_file',
       { rel_path: relPath, max_bytes: 131_072 }
     );
-    if (!read.ok) return; // No file yet → nothing to violate, also fine.
+    if (sawEarlyDelta) expect(read.ok).toBe(true);
+    if (!read.ok) return;
     const content = read.result?.result?.content_utf8 ?? '';
+    if (sawEarlyDelta) {
+      expect(content.includes(EARLY_PIECES[0])).toBe(true);
+    }
     for (const piece of LATE_PIECES) {
       expect(content.includes(piece)).toBe(false);
     }
