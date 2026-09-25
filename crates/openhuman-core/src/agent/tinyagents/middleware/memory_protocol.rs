@@ -24,6 +24,7 @@ use tinytools::ToolResult as TaToolResult;
 /// neither creates an entry nor obliges an index update. Non-memory tools are
 /// ignored, so this is a no-op on turns that never touch memory.
 pub struct MemoryProtocolMiddleware {
+    can_update_index: bool,
     tracker: std::sync::Mutex<crate::agent::harness::memory_protocol::MemoryProtocolTracker>,
     /// call_id → classified op, captured in `before_tool` (the tool result carries
     /// no arguments, yet `update_memory_md` and `memory_tree` can only be
@@ -36,7 +37,12 @@ pub struct MemoryProtocolMiddleware {
 
 impl MemoryProtocolMiddleware {
     pub fn new() -> Self {
+        Self::with_index_update_tool(true)
+    }
+
+    pub fn with_index_update_tool(can_update_index: bool) -> Self {
         Self {
+            can_update_index,
             tracker: std::sync::Mutex::new(
                 crate::agent::harness::memory_protocol::MemoryProtocolTracker::new(),
             ),
@@ -108,7 +114,8 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             };
             tracker.observe(op)
         };
-        if let Some(note) = observation.guidance(tool_name) {
+        if let Some(note) = observation.guidance_with_index_update(tool_name, self.can_update_index)
+        {
             tracing::debug!(
                 tool = tool_name,
                 missing_index_read = observation.missing_index_read,
