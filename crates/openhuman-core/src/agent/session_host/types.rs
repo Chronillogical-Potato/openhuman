@@ -275,6 +275,24 @@ pub struct OpenHumanSessionHost {
     /// reading the old directory.
     pub(super) session_history_locator:
         Option<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
+    /// First-call memo for [`OpenHumanSessionHost::session_locator`][Self::session_locator]'s
+    /// lazily-constructed `FileTranscriptLocator` (the `session_history_locator` `None` branch).
+    ///
+    /// tinyagents' `SessionBuilder` only accepts a later transcript-target
+    /// change when it is the *same* locator object (`Arc::ptr_eq`), not merely
+    /// an equivalent one — see `tinyagents_session::transcript`'s
+    /// `TranscriptTarget::same_binding`. `session_locator` is called from more
+    /// than one place while building a session's runtime turn machinery (the
+    /// `before_resume` resume target and the eager construction-time bind), and
+    /// without this memo each call minted a fresh `Arc` over the same
+    /// destination, so the second bind was rejected with "cannot change a
+    /// transcript target after it is bound or committed" even though both
+    /// calls agreed on the file. `OnceLock` keeps the resolution lazy — still
+    /// read from `workspace_dir` at first use, not frozen at struct-build time
+    /// — while guaranteeing every later caller in this host's lifetime gets
+    /// back the identical `Arc`.
+    pub(super) session_history_locator_memo:
+        std::sync::OnceLock<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
     /// Unique transcript key for this session, formatted as
     /// `"{unix_ts}_{agent_id}"`. Generated once at agent-build time so
     /// every transcript write in this session uses the same filename

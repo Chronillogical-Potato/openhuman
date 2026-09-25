@@ -1902,11 +1902,16 @@ impl OpenHumanSessionHost {
     pub(in crate::agent::session_host) fn session_locator(
         &self,
     ) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
-        self.session_history_locator.clone().unwrap_or_else(|| {
-            Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
-                self.workspace_dir.clone(),
-            ))
-        })
+        if let Some(injected) = self.session_history_locator.clone() {
+            return injected;
+        }
+        self.session_history_locator_memo
+            .get_or_init(|| {
+                Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
+                    self.workspace_dir.clone(),
+                ))
+            })
+            .clone()
     }
 
     fn runtime_transcript_meta(&self) -> TranscriptMeta {

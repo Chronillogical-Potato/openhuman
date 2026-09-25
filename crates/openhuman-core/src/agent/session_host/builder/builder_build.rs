@@ -397,6 +397,7 @@ impl SessionHostBuilder {
             // `subagents` declaration against the global registry.
             agent_definition_id: agent_definition_name.clone(),
             session_history_locator: self.session_history_locator,
+            session_history_locator_memo: std::sync::OnceLock::new(),
             session_key: {
                 let unix_ts = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
