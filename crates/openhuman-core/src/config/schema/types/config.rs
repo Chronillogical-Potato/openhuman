@@ -231,7 +231,7 @@ pub struct Config {
     pub heartbeat: HeartbeatConfig,
 
     /// Subconscious engine selection (local tinyagents graph vs. local
-    /// medulla-serve child). Default `local` — omitting this block preserves
+    /// retired engine). Default `local` — omitting this block preserves
     /// the historical behavior exactly.
     #[serde(default)]
     pub subconscious: crate::config::schema::SubconsciousConfig,

@@ -2342,7 +2342,6 @@ pub async fn bootstrap_core_runtime(
 pub async fn start_core_runtime_services(
     services: crate::core::runtime::ServiceSet,
     config: Option<&crate::config::Config>,
-    flows_enabled: bool,
 ) {
     let Some(cfg) = config else {
         log::error!(
@@ -2366,11 +2365,7 @@ pub async fn start_core_runtime_services(
 
     match crate::platform::socket::global_socket_manager() {
         Some(socket_mgr) => {
-            crate::core::runtime::services::spawn_socket_auto_connect(
-                services,
-                socket_mgr.clone(),
-                flows_enabled,
-            );
+            crate::core::runtime::services::spawn_socket_auto_connect(services, socket_mgr.clone());
         }
         None => {
             log::warn!(

@@ -4,7 +4,7 @@
 //! keep every secret in **one** file and mutate it with a read → modify → write
 //! cycle. That shape is fine within a process — a mutex covers it — and unsafe
 //! across processes, which is the configuration this codebase actually runs in:
-//! a desktop core, a `medulla` TUI embedding the same core, and any `cargo test`
+//! a desktop core, another process embedding the same core, and any `cargo test`
 //! run that inherits `OPENHUMAN_WORKSPACE` all address the same file.
 //!
 //! Two failures follow from doing that unguarded, and both destroy secrets

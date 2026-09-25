@@ -50,7 +50,6 @@
  */
 export const INTENTIONALLY_NOT_FORWARDED = {
   // 'some-gate': 'Reason it must not ship in the desktop build.',
-  medulla: 'Medulla orchestration-backend client; the desktop app is OpenHuman\'s own product and never dials a Medulla backend. Consumed by the Medulla TUI, which embeds this crate directly.',
 };
 
 /**

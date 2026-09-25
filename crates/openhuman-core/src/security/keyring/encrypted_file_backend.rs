@@ -177,7 +177,7 @@ fn master_key() -> Option<&'static [u8; KEY_LEN]> {
 /// whole set, guarded by the cross-process advisory lock in
 /// [`file_store::lock_for_write`]. An in-process mutex would not do: more than
 /// one process routinely addresses the same workspace (a desktop core and a
-/// `medulla` TUI embedding the same core), and the later writer's snapshot —
+/// second process embedding the same core), and the later writer's snapshot —
 /// read before the earlier writer landed — silently drops the earlier secret.
 pub struct EncryptedFileBackend {
     path: PathBuf,

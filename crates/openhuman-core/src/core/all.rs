@@ -104,15 +104,6 @@ pub enum DomainGroup {
     Web3,
     Voice,
     Media,
-    /// Medulla integration: the cloud client (`medulla`), the folded session
-    /// runtime (`medulla_session`), the chat store (`medulla::chat`), and
-    /// authored harness workflows (`medulla_workflows`).
-    ///
-    /// One coarse family rather than four, because these are never
-    /// independently useful — a host that wants `medulla_session` always wants
-    /// `medulla` (it folds that domain's envelopes). Splitting them would add
-    /// drift surface for no reachable configuration.
-    Medulla,
     // Families carved out of the `Platform` catch-all once the domain reorg
     // (#5328) gave each one a directory to be named after. Before that, half the
     // controller surface was tagged `Platform` purely because there was no
@@ -172,7 +163,6 @@ impl DomainGroup {
         DomainGroup::Web3,
         DomainGroup::Voice,
         DomainGroup::Media,
-        DomainGroup::Medulla,
         DomainGroup::Inference,
         DomainGroup::Integrations,
         DomainGroup::Automation,
@@ -200,15 +190,14 @@ impl DomainGroup {
             DomainGroup::Web3 => 9,
             DomainGroup::Voice => 10,
             DomainGroup::Media => 11,
-            DomainGroup::Medulla => 12,
-            DomainGroup::Inference => 13,
-            DomainGroup::Integrations => 14,
-            DomainGroup::Automation => 15,
-            DomainGroup::Runtimes => 16,
-            DomainGroup::Desktop => 17,
-            DomainGroup::Hosted => 18,
-            DomainGroup::Modules => 19,
-            DomainGroup::Platform => 20,
+            DomainGroup::Inference => 12,
+            DomainGroup::Integrations => 13,
+            DomainGroup::Automation => 14,
+            DomainGroup::Runtimes => 15,
+            DomainGroup::Desktop => 16,
+            DomainGroup::Hosted => 17,
+            DomainGroup::Modules => 18,
+            DomainGroup::Platform => 19,
         }
     }
 }
@@ -814,17 +803,6 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Runtimes,
         crate::runtime::javascript::all_javascript_registered_controllers(),
     );
-    // Medulla integration: readiness, durable sessions, and the connected worker
-    // roster against the Medulla orchestration backend. Registration-site gate
-    // like `flows` — with the `medulla` feature off these methods are absent
-    // (unknown-method), which is what lets a host hide the surface instead of
-    // rendering a failure.
-    #[cfg(feature = "medulla")]
-    push(
-        &mut controllers,
-        DomainGroup::Medulla,
-        crate::medulla::all_medulla_registered_controllers(),
-    );
     // Discovered SKILL.md skills and their bundled resources
     push(
         &mut controllers,
@@ -1235,7 +1213,6 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "inference" => Some("Connect to configured text, vision, and embedding inference runtimes."),
         "migrate" => Some("Data migration utilities."),
         "javascript" => Some("First-class JavaScript runtime bridge for listing and dispatching tools."),
-        "medulla" => Some("Medulla orchestration backend: integration readiness, durable sessions, and the connected worker roster."),
         "security" => Some("Security policy and autonomy guardrail metadata."),
         "service" => Some("Desktop service lifecycle management."),
         "session_import" => {

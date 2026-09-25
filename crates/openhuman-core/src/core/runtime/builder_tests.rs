@@ -18,7 +18,6 @@ fn domain_set_presets_have_expected_flags() {
         DomainGroup::Web3,
         DomainGroup::Voice,
         DomainGroup::Media,
-        DomainGroup::Medulla,
         DomainGroup::Integrations,
         DomainGroup::Platform,
     ] {
@@ -45,7 +44,6 @@ fn domain_set_presets_have_expected_flags() {
         DomainGroup::Web3,
         DomainGroup::Voice,
         DomainGroup::Media,
-        DomainGroup::Medulla,
         DomainGroup::Platform,
     ] {
         assert!(!harness.allows(off), "harness() must NOT allow {off:?}");
@@ -66,7 +64,6 @@ fn domain_set_presets_have_expected_flags() {
         DomainGroup::Web3,
         DomainGroup::Voice,
         DomainGroup::Media,
-        DomainGroup::Medulla,
         DomainGroup::Platform,
     ] {
         assert!(!none.allows(group), "none() must NOT allow {group:?}");
@@ -87,7 +84,6 @@ fn embedded_domain_set_enables_the_host_families() {
         DomainGroup::Threads,
         DomainGroup::Config,
         DomainGroup::Security,
-        DomainGroup::Medulla,
         DomainGroup::Platform,
     ] {
         assert!(set.allows(on), "embedded() must allow {on:?}");
@@ -105,9 +101,7 @@ fn embedded_domain_set_enables_the_host_families() {
 
 #[test]
 fn embedded_keeps_flows_on_for_workflow_boot_reconcile() {
-    // Not incidental: `medulla_workflows` runs on the tinyflows engine and
-    // boot reconciliation keys off `ctx.domains().flows`, not a ServiceSet
-    // flag. Turning this off silently strands orphaned runs.
+    // Boot reconciliation keys off `ctx.domains().flows`.
     assert!(DomainSet::embedded().allows(DomainGroup::Flows));
 }
 
@@ -120,7 +114,7 @@ fn embedded_keeps_channels_on_for_web_chat() {
 }
 
 #[test]
-fn embedded_is_not_harness_plus_medulla() {
+fn embedded_retains_supporting_domains() {
     // Guards the most tempting future "simplification": deriving this
     // preset from harness(), which leaves the supporting Platform,
     // Channels, and Integrations families off.

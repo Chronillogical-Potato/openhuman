@@ -7,10 +7,6 @@
 //! [`crate::flows::tinyflows::caps::FlowStateStore`]); the RPC/CLI
 //! controller surface in `schemas` (private, re-exported below).
 //!
-//! [`medulla_bridge`] adapts this store onto the medulla harness protocol's
-//! workflow plane, so a remote orchestrator can read these graphs and brief the
-//! authoring copilot without any of that reaching back into `ops`.
-//!
 //! # Gate shape — leaf, not facade
 //!
 //! The whole family (this module plus [`tinyflows`]) is gated at
@@ -37,7 +33,6 @@ mod draft_store;
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod import_tests;
-pub mod medulla_bridge;
 pub mod memory_tools;
 pub mod node_contracts;
 pub mod ops;

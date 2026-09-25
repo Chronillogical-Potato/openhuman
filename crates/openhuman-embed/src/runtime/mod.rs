@@ -245,7 +245,7 @@ impl Runtime {
         ids
     }
 
-    /// Typed access to non-turn core domains (config, auth, medulla).
+    /// Typed access to non-turn core domains (config, auth).
     ///
     /// Turns belong to agents: this facade deliberately exposes neither the
     /// orchestrator agent nor the raw runtime, so no turn can bypass an
