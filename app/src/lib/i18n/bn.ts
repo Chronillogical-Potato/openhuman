@@ -834,8 +834,10 @@ const messages: TranslationMap = {
   'connections.tabs.composio': 'Composio',
   'connections.tabs.channels': 'চ্যানেল',
   'connections.tabs.mcp': 'MCP সার্ভার',
-  'connections.tabs.browser': 'ব্রাউজার',
+  'connections.tabs.browser': 'ব্রাউজার নিয়ন্ত্রণ',
   'connections.browser.description': 'ব্রাউজারের কাজ সেট করুন এবং প্রস্তুতি যাচাই করুন।',
+  'connections.earlyAlphaNotice':
+    'প্রাথমিক আলফা: ব্রাউজার ও ডেস্কটপ নিয়ন্ত্রণ এখনও পরীক্ষাধীন। কাজগুলো অপ্রত্যাশিতভাবে চলতে পারে বা নতুন সংস্করণে বদলে যেতে পারে।',
   'connections.browser.module': 'মডিউল',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'অজানা',
@@ -6268,6 +6270,12 @@ const messages: TranslationMap = {
   'pages.settings.account.walletBalancesDesc':
     'আপনার স্থানীয় ওয়ালেটের মাল্টি-চেইন ব্যালেন্স দেখুন',
   'walletBalances.title': 'ওয়ালেট ব্যালেন্স',
+  'walletBalances.earlyAlphaNotice':
+    'প্রাথমিক আলফা: ওয়ালেট ব্যালেন্স এখনও পরীক্ষাধীন। পরিমাণ ও সমর্থিত নেটওয়ার্ক নতুন সংস্করণে বদলাতে পারে।',
+  'walletBalances.allNetworks': 'সব নেটওয়ার্ক',
+  'walletBalances.manageTokens': 'টোকেন পরিচালনা করুন',
+  'walletBalances.noFilterMatches': 'আপনার ফিল্টারের সঙ্গে কোনো ব্যালেন্স মেলেনি',
+  'walletBalances.colToken': 'টোকেন',
   'walletBalances.colNetwork': 'নেটওয়ার্ক',
   'walletBalances.colAddress': 'ঠিকানা',
   'walletBalances.colBalance': 'ব্যালেন্স',

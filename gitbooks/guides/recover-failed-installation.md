@@ -111,7 +111,7 @@ At no point in Rungs 1 to 3 do you delete anything. Rung 4 **renames** your data
 
 ## If you're still stuck
 
-Gather this and open an issue on [GitHub](https://github.com/tinyhumansai/openhuman) or ask on [Discord](https://discord.tinyhumans.ai):
+Gather this and open an issue on [GitHub](https://github.com/tinyhumansai/openhuman) or ask on [Discord](https://guild.tinyhumans.ai):
 
 - App version and OS.
 - The last error lines from the log (**tokens/JWTs redacted**).

@@ -867,8 +867,10 @@ const messages: TranslationMap = {
   'connections.tabs.composio': 'Composio',
   'connections.tabs.channels': 'Kanäle',
   'connections.tabs.mcp': 'MCP-Server',
-  'connections.tabs.browser': 'Browser',
+  'connections.tabs.browser': 'Browsersteuerung',
   'connections.browser.description': 'Browseraufgaben einrichten und Bereitschaft prüfen.',
+  'connections.earlyAlphaNotice':
+    'Frühe Alpha: Browser- und Desktopsteuerung werden noch getestet. Aktionen können unerwartet funktionieren oder sich zwischen Versionen ändern.',
   'connections.browser.module': 'Modul',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'Unbekannt',
@@ -6429,6 +6431,12 @@ const messages: TranslationMap = {
   'pages.settings.account.walletBalancesDesc':
     'Multi-Chain-Guthaben deiner lokalen Wallet anzeigen',
   'walletBalances.title': 'Wallet-Guthaben',
+  'walletBalances.earlyAlphaNotice':
+    'Frühe Alpha: Wallet-Guthaben werden noch getestet. Beträge und unterstützte Netzwerke können sich zwischen Versionen ändern.',
+  'walletBalances.allNetworks': 'Alle Netzwerke',
+  'walletBalances.manageTokens': 'Token verwalten',
+  'walletBalances.noFilterMatches': 'Keine Guthaben entsprechen den Filtern',
+  'walletBalances.colToken': 'Token',
   'walletBalances.colNetwork': 'Netzwerk',
   'walletBalances.colAddress': 'Adresse',
   'walletBalances.colBalance': 'Guthaben',

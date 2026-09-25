@@ -5,8 +5,11 @@ import { useT } from '../../lib/i18n/I18nContext';
 import { callCoreRpc, isLocalDesktopHost } from '../../services/coreRpcClient';
 import { openUrl } from '../../utils/openUrl';
 import SettingsTabbedPage from '../settings/layout/SettingsTabbedPage';
+import { Alert, AlertDescription } from '../ui/Alert';
+import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import Separator from '../ui/Separator';
 
 export interface DesktopStatus {
   supported: boolean;
@@ -184,10 +187,19 @@ export default function DesktopConnectionPage() {
           ? t('common.error')
           : t('common.notAvailable');
     return (
-      <div key={kind} className="flex flex-wrap items-center justify-between gap-3 py-3">
-        <div>
+      <div key={kind} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0">
+        <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm font-medium text-content">{label}</p>
-          <p className="text-xs text-content-muted">{stateLabel}</p>
+          <Badge
+            variant={
+              value === 'granted' || value === 'not_required'
+                ? 'success'
+                : value === 'denied'
+                  ? 'danger'
+                  : 'neutral'
+            }>
+            {stateLabel}
+          </Badge>
         </div>
         {value !== 'granted' && value !== 'not_required' && url && (
           <Button variant="secondary" size="sm" onClick={() => void openSettings(kind)}>
@@ -214,49 +226,72 @@ export default function DesktopConnectionPage() {
           {t('common.refresh')}
         </Button>
       }>
-      <div className="max-w-2xl space-y-4" data-testid="desktop-connection-page">
-        <Card title={t('desktop.title')} padded divided={false}>
-          {loading && <p className="text-sm text-content-muted">{t('common.loading')}</p>}
-          {!loading && status && (
-            <div className="space-y-4">
-              <p className="text-sm text-content-secondary">
-                {!status.supported
-                  ? t('desktop.unsupported')
-                  : !status.enabled
-                    ? t('common.disabled')
-                    : status.module_state === 'failed'
-                      ? t('desktop.moduleUnavailable')
-                      : status.module_state === 'ready' &&
-                          status.accessibility === 'granted' &&
-                          status.jev_ready
-                        ? t('channels.status.connected')
-                        : t('desktop.enabledPending')}
-              </p>
-              {status.reason && <p className="text-sm text-content-muted">{status.reason}</p>}
-              <p className="text-xs text-content-muted">{t('desktop.localOnly')}</p>
-              {status.supported && (
-                <Button onClick={() => void setEnabled()} disabled={busy}>
-                  {status.enabled ? t('common.disable') : t('common.enable')}
-                </Button>
-              )}
-            </div>
-          )}
-        </Card>
-
-        {status?.supported && (
-          <Card title={t('desktop.permissions')} padded>
-            {permissionRow('accessibility', status.accessibility)}
-            {permissionRow('screen_recording', status.screen_recording)}
-            <p className="py-3 text-xs text-content-muted">{t('desktop.captureNote')}</p>
+      <div className="max-w-5xl space-y-4" data-testid="desktop-connection-page">
+        <Alert variant="warning" role={undefined}>
+          <AlertDescription>{t('connections.earlyAlphaNotice')}</AlertDescription>
+        </Alert>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card
+            title={t('desktop.title')}
+            padded
+            divided={false}
+            className={status && !status.supported ? 'lg:col-span-2' : undefined}>
+            {loading && <p className="text-sm text-content-muted">{t('common.loading')}</p>}
+            {!loading && status && (
+              <div className="space-y-4">
+                {!status.supported ? (
+                  <p className="text-sm text-content-secondary">{t('desktop.unsupported')}</p>
+                ) : (
+                  <Badge
+                    variant={
+                      !status.enabled
+                        ? 'neutral'
+                        : status.module_state === 'ready' &&
+                            status.accessibility === 'granted' &&
+                            status.jev_ready
+                          ? 'success'
+                          : 'warning'
+                    }>
+                    {!status.enabled
+                      ? t('common.disabled')
+                      : status.module_state === 'failed'
+                        ? t('desktop.moduleUnavailable')
+                        : status.module_state === 'ready' &&
+                            status.accessibility === 'granted' &&
+                            status.jev_ready
+                          ? t('channels.status.connected')
+                          : t('desktop.enabledPending')}
+                  </Badge>
+                )}
+                {status.reason && <p className="text-sm text-content-muted">{status.reason}</p>}
+                <p className="text-sm text-content-muted">{t('desktop.localOnly')}</p>
+                {status.supported && (
+                  <Button onClick={() => void setEnabled()} disabled={busy}>
+                    {status.enabled ? t('common.disable') : t('common.enable')}
+                  </Button>
+                )}
+              </div>
+            )}
           </Card>
-        )}
+
+          {status?.supported && (
+            <Card title={t('desktop.permissions')} padded divided={false}>
+              {permissionRow('accessibility', status.accessibility)}
+              <Separator />
+              {permissionRow('screen_recording', status.screen_recording)}
+              <p className="pt-3 text-xs text-content-muted">{t('desktop.captureNote')}</p>
+            </Card>
+          )}
+        </div>
 
         {status?.supported && status.enabled && (
           <>
             {status.approvals_enabled && pending.length > 0 && (
-              <Card title={t('chat.approval.title')} padded>
+              <Card title={t('chat.approval.title')} padded divided={false}>
                 {pending.map(entry => (
-                  <div key={entry.confirmation_id} className="space-y-2 py-3">
+                  <div
+                    key={entry.confirmation_id}
+                    className="space-y-3 border-b border-line-subtle py-4 last:border-b-0">
                     <p className="text-sm font-medium text-content">
                       {entry.target_name
                         ? t('desktop.approvalSummary')
@@ -289,28 +324,32 @@ export default function DesktopConnectionPage() {
               </Card>
             )}
             <Card title={t('desktop.testButton')} padded divided={false}>
-              <p className="mb-3 text-sm text-content-muted">{t('desktop.testDescription')}</p>
-              <Button variant="secondary" onClick={() => void runProbe()} disabled={busy}>
-                {t('desktop.testButton')}
-              </Button>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <p className="text-sm text-content-muted">{t('desktop.testDescription')}</p>
+                <Button variant="secondary" onClick={() => void runProbe()} disabled={busy}>
+                  {t('desktop.testButton')}
+                </Button>
+              </div>
               {probe && (
-                <p className="mt-3 text-sm" role="status">
-                  {probe.ok ? t('desktop.testPassed') : (probe.reason ?? t('desktop.testFailed'))}
-                </p>
+                <Alert variant={probe.ok ? 'success' : 'warning'} role="status" className="mt-4">
+                  <AlertDescription>
+                    {probe.ok ? t('desktop.testPassed') : (probe.reason ?? t('desktop.testFailed'))}
+                  </AlertDescription>
+                </Alert>
               )}
             </Card>
           </>
         )}
 
         {error && (
-          <p className="text-sm text-coral-600 dark:text-coral-400" role="alert">
-            {error}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
         {pendingError && (
-          <p className="text-sm text-coral-600 dark:text-coral-400" role="alert">
-            {pendingError}
-          </p>
+          <Alert variant="destructive">
+            <AlertDescription>{pendingError}</AlertDescription>
+          </Alert>
         )}
       </div>
     </SettingsTabbedPage>

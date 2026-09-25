@@ -1,4 +1,4 @@
-export const DISCORD_INVITE_URL = 'https://discord.tinyhumans.ai';
+export const DISCORD_INVITE_URL = 'https://guild.tinyhumans.ai';
 export const PRICING_URL = 'https://tinyhumans.ai/pricing';
 export const BILLING_DASHBOARD_URL = 'https://tinyhumans.ai/dashboard';
 export const PRIVACY_POLICY_URL = 'https://tinyhumans.gitbook.io/openhuman/legal/privacy-policy';

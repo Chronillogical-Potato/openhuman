@@ -40,6 +40,7 @@ describe('Desktop connection', () => {
       throw new Error(`Unexpected method: ${method}`);
     });
     renderWithProviders(<DesktopConnectionPage />);
+    expect(screen.getByText(/Early Alpha/)).toBeInTheDocument();
 
     expect(await screen.findByText('Screen Recording')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));

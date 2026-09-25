@@ -866,8 +866,10 @@ const messages: TranslationMap = {
   'connections.tabs.composio': 'Composio',
   'connections.tabs.channels': 'Canaux',
   'connections.tabs.mcp': 'Serveurs MCP',
-  'connections.tabs.browser': 'Navigateur',
+  'connections.tabs.browser': 'Contrôle du navigateur',
   'connections.browser.description': 'Configurez les tâches du navigateur et vérifiez son état.',
+  'connections.earlyAlphaNotice':
+    'Alpha précoce : le contrôle du navigateur et du bureau est encore en cours de test. Les actions peuvent être imprévisibles ou changer entre les versions.',
   'connections.browser.module': 'Module',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'Inconnu',
@@ -6414,6 +6416,12 @@ const messages: TranslationMap = {
   'pages.settings.account.walletBalancesDesc':
     'Afficher les soldes multi-chaînes de votre portefeuille local',
   'walletBalances.title': 'Soldes du portefeuille',
+  'walletBalances.earlyAlphaNotice':
+    'Alpha précoce : les soldes du portefeuille sont encore en cours de test. Les montants et les réseaux pris en charge peuvent changer entre les versions.',
+  'walletBalances.allNetworks': 'Tous les réseaux',
+  'walletBalances.manageTokens': 'Gérer les jetons',
+  'walletBalances.noFilterMatches': 'Aucun solde ne correspond aux filtres',
+  'walletBalances.colToken': 'Jeton',
   'walletBalances.colNetwork': 'Réseau',
   'walletBalances.colAddress': 'Adresse',
   'walletBalances.colBalance': 'Solde',

@@ -845,8 +845,10 @@ const messages: TranslationMap = {
   'connections.tabs.composio': 'Composio',
   'connections.tabs.channels': 'Каналы',
   'connections.tabs.mcp': 'MCP-серверы',
-  'connections.tabs.browser': 'Браузер',
+  'connections.tabs.browser': 'Управление браузером',
   'connections.browser.description': 'Настройте задачи браузера и проверьте готовность.',
+  'connections.earlyAlphaNotice':
+    'Ранняя альфа: управление браузером и рабочим столом всё ещё тестируется. Действия могут работать непредсказуемо или меняться между выпусками.',
   'connections.browser.module': 'Модуль',
   'connections.browser.chrome': 'Chrome',
   'connections.browser.unknown': 'Неизвестно',
@@ -6330,6 +6332,12 @@ const messages: TranslationMap = {
   'pages.settings.account.walletBalancesDesc':
     'Просмотр мультичейн-балансов вашего локального кошелька',
   'walletBalances.title': 'Баланс кошелька',
+  'walletBalances.earlyAlphaNotice':
+    'Ранняя альфа: отображение балансов кошелька всё ещё тестируется. Суммы и поддерживаемые сети могут меняться между выпусками.',
+  'walletBalances.allNetworks': 'Все сети',
+  'walletBalances.manageTokens': 'Управление токенами',
+  'walletBalances.noFilterMatches': 'Нет балансов по выбранным фильтрам',
+  'walletBalances.colToken': 'Токен',
   'walletBalances.colNetwork': 'Сеть',
   'walletBalances.colAddress': 'Адрес',
   'walletBalances.colBalance': 'Баланс',

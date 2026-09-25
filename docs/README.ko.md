@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
- <a href="https://discord.tinyhumans.ai/">Discord</a> •
+ <a href="https://guild.tinyhumans.ai/">Discord</a> •
  <a href="https://www.reddit.com/r/tinyhumansai/">Reddit</a> •
  <a href="https://x.com/intent/follow?screen_name=tinyhumansai">X/Twitter</a> •
  <a href="https://tinyhumans.gitbook.io/openhuman/">문서</a> •
@@ -176,7 +176,7 @@ _AGI와 인공 의식을 향해 나아가고 계신가요? 저장소에 스타�
 
 # 기여자 명예의 전당
 
-기여를 통해 명예의 전당에 이름을 올리세요. 기여자에게는 무료 굿즈와 [Discord](https://discord.tinyhumans.ai/) 특별 권한이 제공됩니다.
+기여를 통해 명예의 전당에 이름을 올리세요. 기여자에게는 무료 굿즈와 [Discord](https://guild.tinyhumans.ai/) 특별 권한이 제공됩니다.
 
 <a href="https://github.com/tinyhumansai/openhuman/graphs/contributors">
  <img src="https://contrib.rocks/image?repo=tinyhumansai/openhuman" alt="OpenHuman 기여자" />

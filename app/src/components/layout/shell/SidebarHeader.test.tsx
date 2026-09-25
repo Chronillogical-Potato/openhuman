@@ -38,7 +38,7 @@ describe('SidebarHeader', () => {
   it('Discord button opens the community invite in the browser', () => {
     renderWithProviders(<SidebarHeader />, { initialEntries: ['/home'] });
     fireEvent.click(screen.getByRole('button', { name: 'nav.discord' }));
-    expect(openUrl).toHaveBeenCalledWith('https://discord.tinyhumans.ai');
+    expect(openUrl).toHaveBeenCalledWith('https://guild.tinyhumans.ai');
   });
 
   it('Discord button has correct data-analytics-id', () => {

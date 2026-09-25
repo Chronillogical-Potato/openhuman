@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 
 import { registry } from '../../../lib/commands/registry';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { DISCORD_INVITE_URL } from '../../../utils/links';
 import { openUrl } from '../../../utils/openUrl';
 import { Button, SidebarHeader as SidebarHeaderShell, Tooltip } from '../../ui';
 import { useRootSidebar } from './RootShellLayout';
 
-/** The community invite the Discord button opens. */
-export const DISCORD_URL = 'https://discord.tinyhumans.ai';
+/** The community destination opened by the Discord button. */
+export const DISCORD_URL = DISCORD_INVITE_URL;
 
 /**
  * Header footprint layered on `<Button variant="tertiary" iconOnly>`: 28px

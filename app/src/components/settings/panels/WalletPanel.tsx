@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
+import { Alert, AlertDescription } from '../../ui/Alert';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
 import RecoveryPhrasePanel from './RecoveryPhrasePanel';
 import WalletBalancesPanel from './WalletBalancesPanel';
@@ -29,7 +30,10 @@ export default function WalletPanel() {
       onChange={setTab}
       tabsAriaLabel={t('wallet.ariaLabel')}
       tabsTestIdPrefix="wallet">
-      <div className="min-h-0 h-full" data-testid="wallet-panel">
+      <div className="min-h-0 space-y-4" data-testid="wallet-panel">
+        <Alert variant="warning" role={undefined} className="max-w-5xl">
+          <AlertDescription>{t('walletBalances.earlyAlphaNotice')}</AlertDescription>
+        </Alert>
         {tab === 'balance' ? <WalletBalancesPanel /> : <RecoveryPhrasePanel />}
       </div>
     </SettingsTabbedPage>

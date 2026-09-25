@@ -27,14 +27,18 @@ Applies to every release, all platforms.
 
 ### Native desktop control
 
-- [ ] **Connections enables the published desktop module on an unlocked macOS or Windows session** — Open Connections → Desktop, enable it, grant Accessibility if prompted, and run the read-only test. Expected: the module loads from the pinned release, the panel reports the actual permission state, and the test sees an accessibility snapshot. Screen Recording is required only when testing capture. A locked macOS screen must not be reported as a successful probe.
+- [ ] **Connections enables the published desktop module on an unlocked macOS or Windows session** — Open Connections → Integrations → Desktop Control, verify the Early Alpha notice, enable it, grant Accessibility if prompted, and run the read-only test. Expected: the module loads from the pinned release, the panel reports the actual permission state, and the test sees an accessibility snapshot. Screen Recording is required only when testing capture. A locked macOS screen must not be reported as a successful probe.
 - [ ] **An agent completes a disposable desktop task without an approval wait by default** — In a fresh thread, ask the orchestrator to use a harmless app such as TextEdit or Calculator, make one visible change, and verify it through a new accessibility snapshot. Expected: `tool_search` discovers the deferred desktop tool, the released module performs the action, no approval card parks the turn, and the observed app state matches the request. Disable Desktop afterward and verify a subsequent tool call is refused.
 - [ ] **A scoped message goal sends exact text once** — With a consenting test contact and an unlocked desktop session, ask the agent to send one unique message through the native chat app. Expected: it confirms the active conversation header, preserves the requested text exactly, and verifies the outgoing message inside that conversation. A chat-list row alone must not count as success; an unverified delivered send must stop as uncertain without a second click. Inspect the chat independently for duplicates.
 
 ### Browser module
 
-- [ ] **Browser readiness and setup** — Open Settings > Connections > Browser on each desktop platform. Expected: the checksum-pinned TinyBrowser module downloads and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
+- [ ] **Browser readiness and setup** — Open Connections → Integrations → Browser Control on each desktop platform and verify the Early Alpha notice. Expected: the checksum-pinned TinyBrowser module downloads and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
 - [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked.
+
+### Wallet balances
+
+- [ ] **Connections wallet layout and setup** — Open Connections → Integrations → Wallet Balances at the default window size and a narrower size. Expected: the heading, Early Alpha notice, toolbar, and cards share one horizontal gutter; an unconfigured wallet shows a setup notice and supported network cards without a balance table. On a configured test wallet, Refresh, network filtering, address copy, Send, and Receive remain available.
 
 ### Checkbox appearance
 

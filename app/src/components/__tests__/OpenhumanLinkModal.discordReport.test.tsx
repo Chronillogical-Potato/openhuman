@@ -47,7 +47,7 @@ describe('OpenhumanLinkModal discord-report flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Discord' }));
 
-    expect(openUrlSpy).toHaveBeenCalledWith('https://discord.tinyhumans.ai');
+    expect(openUrlSpy).toHaveBeenCalledWith('https://guild.tinyhumans.ai');
   });
 
   it('clicking "Open Discord" closes the modal', async () => {
@@ -95,7 +95,7 @@ describe('OpenhumanLinkModal discord join-community flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open invite link' }));
 
     await waitFor(() => {
-      expect(openUrlSpy).toHaveBeenCalledWith('https://discord.tinyhumans.ai');
+      expect(openUrlSpy).toHaveBeenCalledWith('https://guild.tinyhumans.ai');
     });
   });
 
