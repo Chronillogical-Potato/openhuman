@@ -87,7 +87,7 @@ interface AvatarMenuItem {
 
 /**
  * Avatar dropdown menu items.
- * Order: Account → Billing → Invites → Wallet.
+ * Order: Account → Invites → Wallet.
  *
  * Rewards is not here: it is a primary `NAV_TABS` destination now, and one
  * door per surface is the point of moving it.
@@ -98,13 +98,6 @@ export const AVATAR_MENU_ITEMS: AvatarMenuItem[] = [
     labelKey: 'nav.avatarMenu.account',
     target: '/settings/account',
     kind: 'navigate',
-  },
-  {
-    id: 'billing',
-    labelKey: 'nav.avatarMenu.billing',
-    target: '/settings/billing',
-    kind: 'navigate',
-    cloudOnly: true,
   },
   {
     id: 'invites',

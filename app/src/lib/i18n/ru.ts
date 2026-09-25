@@ -1449,8 +1449,17 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Подключен к удаленному ядру. Измените это в BootCheck или в средстве выбора облачного режима.',
   'settings.heartbeat.title': 'Heartbeat и циклы',
-  'settings.usage.title': 'Использование и лимиты',
-  'settings.usage.menuDesc': 'Расходы, использование токенов, бюджеты и фоновая активность',
+  'settings.usage.title': 'Использование',
+  'settings.usage.menuDesc': 'Расходы, экономия токенов, журнал использования и фоновая активность',
+  'settings.costDashboard.monthToDate': 'С начала месяца',
+  'settings.costDashboard.period': 'Период',
+  'settings.costDashboard.periodDays': 'Последние {days} дней',
+  'settings.costDashboard.all': 'Все',
+  'settings.costDashboard.costSource': 'Источник стоимости',
+  'settings.costDashboard.estimated': 'Оценка',
+  'settings.costDashboard.providerCharged': 'Списано поставщиком',
+  'settings.costDashboard.searchModelSession': 'Модель или сеанс',
+  'settings.costDashboard.filteredTotal': '{shown} из {loaded} загруженных записей • {cost}',
   'settings.costDashboard.title': 'Панель затрат',
   'settings.costDashboard.sevenDayCost': '7-дневная ежедневная стоимость',
   'settings.costDashboard.sevenDayTokens': '7-дневное использование токена',
@@ -1477,7 +1486,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'Панель затрат отключена в конфигурации. Установите [cost.dashboard] Enabled = True в config.toml, чтобы повторно включить.',
   'settings.costDashboard.subtitle':
-    'Расходы в реальном времени и сжигание токенов по всему множеству. Бары автоматически обновляются каждые несколько секунд: перезагрузка страницы не требуется.',
+    'Локальные данные по вызовам поставщика. Стоимость может быть оценочной; оплата учитывается отдельно.',
   'settings.costDashboard.summaryAriaLabel': 'Сводные показатели затрат',
   'settings.costDashboard.lastSevenDays': 'последние 7 дней',
   'settings.costDashboard.utilizationOf': 'из',

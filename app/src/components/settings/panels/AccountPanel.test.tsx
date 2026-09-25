@@ -1,8 +1,13 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders } from '../../../test/test-utils';
 import AccountPanel from './AccountPanel';
+
+const openUrlMock = vi.fn();
+vi.mock('../../../utils/openUrl', () => ({
+  openUrl: (...args: unknown[]) => openUrlMock(...args),
+}));
 
 const useCoreStateMock = vi.fn();
 vi.mock('../../../providers/CoreStateProvider', () => ({ useCoreState: () => useCoreStateMock() }));
@@ -36,6 +41,8 @@ describe('AccountPanel', () => {
     expect(screen.getByText('@ada')).toBeInTheDocument();
     // Avatar fallback renders the first letter of the display name.
     expect(screen.getByText('A')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Billing' }));
+    expect(openUrlMock).toHaveBeenCalledWith('https://tinyhumans.ai/dashboard?tab=billing');
   });
 
   it('falls back to the username initial when no name is set', () => {
@@ -49,5 +56,6 @@ describe('AccountPanel', () => {
     renderPanel(null);
 
     expect(screen.queryByText('@')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Billing' })).not.toBeInTheDocument();
   });
 });

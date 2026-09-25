@@ -1483,8 +1483,18 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Connecté à un noyau distant. Modifiez cela dans BootCheck ou le sélecteur de mode cloud.',
   'settings.heartbeat.title': 'Battement de coeur et boucles',
-  'settings.usage.title': 'Utilisation et limites',
-  'settings.usage.menuDesc': 'Coûts, utilisation des tokens, budgets et activité en arrière-plan',
+  'settings.usage.title': 'Utilisation',
+  'settings.usage.menuDesc':
+    'Coûts, économies de jetons, journal d’utilisation et activité en arrière-plan',
+  'settings.costDashboard.monthToDate': 'Depuis le début du mois',
+  'settings.costDashboard.period': 'Période',
+  'settings.costDashboard.periodDays': '{days} derniers jours',
+  'settings.costDashboard.all': 'Tous',
+  'settings.costDashboard.costSource': 'Source du coût',
+  'settings.costDashboard.estimated': 'Estimé',
+  'settings.costDashboard.providerCharged': 'Facturé par le fournisseur',
+  'settings.costDashboard.searchModelSession': 'Modèle ou session',
+  'settings.costDashboard.filteredTotal': '{shown} entrées sur {loaded} chargées • {cost}',
   'settings.costDashboard.title': 'Tableau de bord des coûts',
   'settings.costDashboard.sevenDayCost': 'Coût quotidien sur 7 jours',
   'settings.costDashboard.sevenDayTokens': 'Utilisation du jeton sur 7 jours',
@@ -1511,7 +1521,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'Le tableau de bord des coûts est désactivé dans la configuration. Définissez [cost.dashboard] enabled = true dans config.toml pour le réactiver.',
   'settings.costDashboard.subtitle':
-    "Dépenses en direct et combustion de jetons à travers l'essaim. Les barres se rafraîchissent automatiquement toutes les quelques secondes: aucun rechargement de page nécessaire.",
+    'Utilisation locale par appel au fournisseur. Les coûts peuvent être estimés ; la facturation est distincte.',
   'settings.costDashboard.summaryAriaLabel': 'Résumé des métriques de coût',
   'settings.costDashboard.lastSevenDays': 'les 7 derniers jours',
   'settings.costDashboard.utilizationOf': 'de',

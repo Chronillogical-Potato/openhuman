@@ -1467,8 +1467,18 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Connesso a un core remoto. Cambia questo in BootCheck o nel selettore della modalità cloud.',
   'settings.heartbeat.title': 'Heartbeat e loop',
-  'settings.usage.title': 'Utilizzo e limiti',
-  'settings.usage.menuDesc': 'Costi, utilizzo dei token, budget e attività in background',
+  'settings.usage.title': 'Utilizzo',
+  'settings.usage.menuDesc':
+    'Costi, risparmio di token, registro utilizzo e attività in background',
+  'settings.costDashboard.monthToDate': 'Da inizio mese',
+  'settings.costDashboard.period': 'Periodo',
+  'settings.costDashboard.periodDays': 'Ultimi {days} giorni',
+  'settings.costDashboard.all': 'Tutti',
+  'settings.costDashboard.costSource': 'Origine del costo',
+  'settings.costDashboard.estimated': 'Stimato',
+  'settings.costDashboard.providerCharged': 'Addebitato dal fornitore',
+  'settings.costDashboard.searchModelSession': 'Modello o sessione',
+  'settings.costDashboard.filteredTotal': '{shown} di {loaded} record caricati • {cost}',
   'settings.costDashboard.title': 'Cruscotto dei costi',
   'settings.costDashboard.sevenDayCost': 'Costo giornaliero di 7 giorni',
   'settings.costDashboard.sevenDayTokens': 'Utilizzo del token di 7 giorni',
@@ -1495,7 +1505,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'La dashboard dei costi è disabilitata nella configurazione. Imposta [cost.dashboard] enabled = true in config.toml per riattivarla.',
   'settings.costDashboard.subtitle':
-    'Spese live e distruzione di token attraverso lo sciame. Le barre si aggiornano automaticamente ogni pochi secondi: nessun bisogno di ricaricare la pagina.',
+    'Utilizzo locale per chiamata al fornitore. I costi possono essere stimati; la fatturazione è separata.',
   'settings.costDashboard.summaryAriaLabel': 'Metriche riepilogative dei costi',
   'settings.costDashboard.lastSevenDays': 'ultimi 7 giorni',
   'settings.costDashboard.utilizationOf': 'di',

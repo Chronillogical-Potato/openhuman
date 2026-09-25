@@ -200,23 +200,25 @@ export function useCostUsageLog(options: UseCostUsageLogOptions = {}): UseCostUs
   const [isFetching, setIsFetching] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const cancelledRef = useRef<boolean>(false);
+  const requestRef = useRef(0);
 
   const fetchOnce = useCallback(async () => {
+    const request = ++requestRef.current;
     setIsFetching(true);
     try {
       const response = await callCoreRpc<RpcEnvelope<CostUsageLogPayload> | CostUsageLogPayload>({
         method: 'openhuman.cost_get_usage_log',
         params: { days, limit },
       });
-      if (cancelledRef.current) return;
+      if (cancelledRef.current || request !== requestRef.current) return;
       setData(unwrapRpcPayload(response));
       setError(null);
       setLastUpdated(Date.now());
     } catch (err) {
-      if (cancelledRef.current) return;
+      if (cancelledRef.current || request !== requestRef.current) return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (!cancelledRef.current) {
+      if (!cancelledRef.current && request === requestRef.current) {
         setIsLoading(false);
         setIsFetching(false);
       }
@@ -229,10 +231,13 @@ export function useCostUsageLog(options: UseCostUsageLogOptions = {}): UseCostUs
 
   useEffect(() => {
     cancelledRef.current = false;
+    setData(null);
+    setIsLoading(true);
     void fetchOnce();
     if (paused) {
       return () => {
         cancelledRef.current = true;
+        requestRef.current++;
       };
     }
     const interval = window.setInterval(
@@ -243,6 +248,7 @@ export function useCostUsageLog(options: UseCostUsageLogOptions = {}): UseCostUs
     );
     return () => {
       cancelledRef.current = true;
+      requestRef.current++;
       window.clearInterval(interval);
     };
   }, [fetchOnce, refreshMs, paused]);

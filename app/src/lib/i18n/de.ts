@@ -1482,8 +1482,18 @@ const messages: TranslationMap = {
   'settings.about.connectionHelperCloud':
     'Verbunden mit einem Remote-Core. Ändern Sie dies in BootCheck oder in der Cloud-Modus-Auswahl.',
   'settings.heartbeat.title': 'Heartbeat und Schleifen',
-  'settings.usage.title': 'Nutzung & Limits',
-  'settings.usage.menuDesc': 'Kosten, Token-Verbrauch, Budgets und Hintergrundaktivität',
+  'settings.usage.title': 'Nutzung',
+  'settings.usage.menuDesc':
+    'Kosten, Token-Einsparungen, Nutzungsprotokoll und Hintergrundaktivität',
+  'settings.costDashboard.monthToDate': 'Seit Monatsbeginn',
+  'settings.costDashboard.period': 'Zeitraum',
+  'settings.costDashboard.periodDays': 'Letzte {days} Tage',
+  'settings.costDashboard.all': 'Alle',
+  'settings.costDashboard.costSource': 'Kostenquelle',
+  'settings.costDashboard.estimated': 'Geschätzt',
+  'settings.costDashboard.providerCharged': 'Vom Anbieter berechnet',
+  'settings.costDashboard.searchModelSession': 'Modell oder Sitzung',
+  'settings.costDashboard.filteredTotal': '{shown} von {loaded} geladenen Einträgen • {cost}',
   'settings.costDashboard.title': 'Kosten-Dashboard',
   'settings.costDashboard.sevenDayCost': '7-Tage-Tageskosten',
   'settings.costDashboard.sevenDayTokens': '7-Tage-Token-Nutzung',
@@ -1510,7 +1520,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.disabledHint':
     'Das Kosten-Dashboard ist in der Konfiguration deaktiviert. [cost.dashboard] enabled = true in config.toml auf re-enable setzen.',
   'settings.costDashboard.subtitle':
-    'Lebendige Ausgaben und Token brennen über den Schwarm. Leisten werden alle paar Sekunden automatisch aktualisiert: kein Neuladen der Seite erforderlich.',
+    'Lokale Nutzung pro Anbieteraufruf. Kosten können geschätzt sein; die Abrechnung erfolgt separat.',
   'settings.costDashboard.summaryAriaLabel': 'Kostenübersicht Metriken',
   'settings.costDashboard.lastSevenDays': 'letzten 7 Tage',
   'settings.costDashboard.utilizationOf': 'der',

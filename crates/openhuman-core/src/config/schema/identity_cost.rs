@@ -10,31 +10,28 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct CostConfig {
-    /// Enable budget enforcement (default: true).
-    ///
     /// Retained for **recording**, not enforcement: nothing refuses a request
     /// on cost any more. `CostTracker::record_usage` is a no-op when this is
     /// `false`; `record_usage_unconditional` (the dashboard/telemetry path)
     /// ignores it.
     ///
-    /// **Important:** as of the cost-dashboard PR this flag controls
-    /// **enforcement only**, not telemetry capture. The dashboard
+    /// Dashboard telemetry uses `record_usage_unconditional`, so this flag
+    /// does not disable telemetry capture. The dashboard
     /// JSONL store at `{workspace}/state/costs.jsonl` is populated by
     /// [`crate::platform::cost::record_provider_usage`] regardless of
-    /// this flag, so users can review historical spend before opting
-    /// into hard caps. Set `dashboard.enabled = false` to hide the
+    /// this flag, so users can review historical usage. Set
+    /// `dashboard.enabled = false` to hide the
     /// Settings panel; delete the JSONL file to clear collected
     /// history. The file is local and never leaves the workspace.
     #[serde(default = "default_cost_enabled")]
     pub enabled: bool,
 
-    /// Monthly budget in USD, for the dashboard only (default: 100.00).
+    /// Legacy monthly display target in USD (default: 100.00).
     ///
     /// **This is a display target, not a cap.** Nothing in the core refuses a
     /// request when it is exceeded — the enforcement path was removed with the
-    /// spend cap. It is the denominator behind the dashboard's budget gauge
-    /// and status (`CostTracker::get_dashboard`), which is why it survives and
-    /// why the settings copy still points at `cost.monthly_limit_usd`.
+    /// spend cap. It remains in the dashboard RPC payload for compatibility,
+    /// but the UI no longer presents it as a limit.
     ///
     /// Counts **managed (OpenHuman-credit) spend only** — see
     /// [`crate::platform::cost::route`]. Bring-your-own-key and local
@@ -61,9 +58,8 @@ pub struct CostConfig {
 
 /// Configuration for the 7-day cost & token usage dashboard panel.
 ///
-/// The monthly budget itself is read from [`CostConfig::monthly_limit_usd`]
-/// — `warn_threshold` and `alert_threshold` are fractions of that budget
-/// that drive bar colour-coding and status badges on the chart.
+/// Legacy thresholds are retained in the dashboard RPC payload for
+/// compatibility; the UI does not display budget warnings.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct CostDashboardConfig {

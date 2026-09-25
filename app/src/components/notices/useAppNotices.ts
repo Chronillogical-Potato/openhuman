@@ -63,7 +63,7 @@ export interface AppNotice {
 
 /** Deep-link target for each classified-error action. `dismiss` has no route. */
 const ACTION_ROUTE: Record<Exclude<UserErrorAction, 'dismiss'>, string> = {
-  open_billing: '/settings/billing',
+  open_billing: '/settings/account',
   open_provider_settings: '/settings/llm',
   // #5324: both memory-embedding remediations (local Ollama, BYO key) live on
   // this one screen, so a single CTA covers them without the user needing to
