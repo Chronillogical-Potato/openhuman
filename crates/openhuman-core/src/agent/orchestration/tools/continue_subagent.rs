@@ -116,7 +116,10 @@ impl ContinueSubagentTool {
                  fresh task if the worker was closed."
             )));
         };
-        if session.agent_id != agent_id {
+        // The session id already identifies a worker within this parent's
+        // store. Accept it in `agent_id` too when a caller copies the roster's
+        // session id into both fields, but keep rejecting unrelated agents.
+        if session.agent_id != agent_id && session.subagent_session_id != agent_id {
             return Ok(ToolResult::error(format!(
                 "continue_subagent: agent_id mismatch — durable session '{}' belongs to \
                  '{}', caller passed '{agent_id}'",
@@ -134,7 +137,7 @@ impl ContinueSubagentTool {
         tracing::info!(
             task_id = %task_id,
             subagent_session_id = %session.subagent_session_id,
-            agent_id = %agent_id,
+            agent_id = %session.agent_id,
             status = ?session.status,
             "[continue_subagent] resuming durable session via reusable async path"
         );
@@ -203,7 +206,7 @@ impl Tool for ContinueSubagentTool {
                 },
                 "agent_id": {
                     "type": "string",
-                    "description": "The worker's agent_id (from the envelope or the roster line)."
+                    "description": "The worker's agent_id (from the envelope or roster). For a durable session, its subagent_session_id is also accepted here when used as task_id."
                 },
                 "message": {
                     "type": "string",
