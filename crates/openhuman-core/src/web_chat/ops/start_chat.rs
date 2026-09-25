@@ -646,6 +646,13 @@ pub async fn start_chat(
                 };
                 followups
             };
+            // Announce the failed turn before starting its queued successor.
+            // Socket subscribers then observe the old terminal event before
+            // any inference_start from the follow-up, even if it starts at
+            // once on another task.
+            if let Some(event) = deferred_error {
+                publish_web_channel_event(event);
+            }
             if !followups.is_empty() {
                 log::info!(
                     "[web-channel] dispatching {} followup(s) thread_id={}",
@@ -666,9 +673,6 @@ pub async fn start_chat(
                     },
                 );
                 dispatch_followups(followups);
-            }
-            if let Some(event) = deferred_error {
-                publish_web_channel_event(event);
             }
         },
     ));

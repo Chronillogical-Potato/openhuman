@@ -1845,20 +1845,28 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             segmentDeliveriesRef.current,
             segmentDeliveryKey(event.thread_id, event.request_id)
           );
-          dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
-          dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
-          dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
-          dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
+          const currentState = store.getState();
+          const liveRequestId =
+            currentState.chatRuntime.liveRequestIdByThread[event.thread_id] ??
+            currentState.chatRuntime.streamingAssistantByThread[event.thread_id]?.requestId;
+          const olderTurn = Boolean(
+            event.request_id && liveRequestId && event.request_id !== liveRequestId
+          );
+          if (!olderTurn) {
+            dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
+            dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
+            dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+            dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
-          const existing = store.getState().chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
-          if (existing.length > 0) {
-            const entries = existing.map(entry =>
-              entry.status === 'running' ? { ...entry, status: 'error' as const } : entry
-            );
-            dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
+            const existing = currentState.chatRuntime.toolTimelineByThread[event.thread_id] ?? [];
+            if (existing.length > 0) {
+              const entries = existing.map(entry =>
+                entry.status === 'running' ? { ...entry, status: 'error' as const } : entry
+              );
+              dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries }));
+            }
           }
 
-          const currentState = store.getState();
           const threadMessages = currentState.thread.messagesByThreadId[event.thread_id] ?? [];
           const lastMsg = threadMessages[threadMessages.length - 1];
           // Every error_type — including the generic 'inference' fallback — carries a
@@ -1897,6 +1905,11 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
             reason: 'chat_error',
           });
           requestUsageRefresh();
+
+          // The core can start a queued follow-up before delivering the prior
+          // turn's error. Its error card still belongs in the thread, but the
+          // live lifecycle and composer now belong to the follow-up request.
+          if (olderTurn) return;
 
           // The backend drains + dispatches queued follow-ups even when the turn
           // errored, so flush them to the transcript here too (otherwise their
