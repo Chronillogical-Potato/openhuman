@@ -107,7 +107,41 @@ fn profile_allows_default_and_jails_writes() {
     assert!(p.contains("(allow default)"));
     assert!(p.contains("(deny file-write*)"));
     assert!(p.contains("(subpath \"/tmp/abc\")"));
+    assert!(p.contains("(literal \"/dev/null\")"));
+    assert!(!p.contains("(subpath \"/dev\")"));
     assert!(p.contains("(deny network*)"));
+}
+
+#[test]
+fn seatbelt_allows_redirecting_output_to_dev_null() {
+    let backend = SeatbeltBackend::new();
+    if !backend.is_available() {
+        return;
+    }
+    let root = tempfile::tempdir().unwrap();
+    let root_path = root.path();
+    let mut jail = Jail::new(root_path, "null-redirection");
+    jail.canonicalize().unwrap();
+
+    let mut cmd = Command::new("/bin/sh");
+    cmd.arg("-c")
+        .arg(
+            "set -e; echo ignored >/dev/null; echo hidden 2>/dev/null >&2; echo completed > output",
+        )
+        .current_dir(root_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    let mut child = backend.spawn(&jail, cmd).expect("spawn");
+    let status = child.wait().expect("wait");
+
+    assert!(
+        status.success(),
+        "shell redirection to /dev/null was denied"
+    );
+    assert_eq!(
+        fs::read_to_string(root_path.join("output")).unwrap(),
+        "completed\n"
+    );
 }
 
 #[test]

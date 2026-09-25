@@ -22,6 +22,8 @@ const ALL_FUNCTIONS: &[&str] = &[
     "transcript_get",
     "goal_get",
     "todos_get",
+    "edit_message",
+    "regenerate",
 ];
 
 #[test]

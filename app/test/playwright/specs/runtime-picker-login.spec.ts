@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import {
   bootRuntimeReadyGuestPage,
@@ -42,69 +42,34 @@ async function waitForMockRequest(method: string, pathFragment: string, timeoutM
   return null;
 }
 
-async function openRuntimePicker(page: Page): Promise<void> {
-  if (
-    await page
-      .getByText('Connect to Your Runtime')
-      .isVisible()
-      .catch(() => false)
-  ) {
-    return;
-  }
-  await dismissWalkthroughIfPresent(page);
-  await page.getByRole('button', { name: 'Select a Runtime' }).click({ force: true });
-  await expect(page.getByText('Connect to Your Runtime')).toBeVisible();
-}
-
 test.describe('Runtime picker -> login -> logout', () => {
   test.beforeEach(async ({ page }) => {
     await resetMock();
     await bootRuntimeReadyGuestPage(page);
   });
 
-  test('runtime picker validates cloud URL/token inputs and unreachable hosts', async ({
-    page,
-  }) => {
-    test.skip(
-      true,
-      'web Playwright lane does not reliably surface the desktop-style runtime picker overlay yet'
-    );
-    await openRuntimePicker(page);
-
-    await page.getByText('Run on the Cloud (Complex)').click();
-    await expect(page.getByText('Runtime URL')).toBeVisible();
-    await expect(page.getByText('Auth Token')).toBeVisible();
-
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText('Please enter a runtime URL.')).toBeVisible();
-
-    await page.locator('input[type="url"]').fill('http://127.0.0.1:1/rpc');
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText("We'll need an auth token to connect.")).toBeVisible();
-
-    await page.locator('input[type="password"]').fill('bad-token-e2e');
-    await page.getByRole('button', { name: 'Test Connection' }).click();
-    await expect(
-      page.getByText(/Couldn't reach it:|That token didn't work\. Double-check it and try again\./)
-    ).toBeVisible({ timeout: 20_000 });
-  });
-
-  test('returning to cloud-mode guest state keeps provider login available', async ({ page }) => {
-    test.skip(
-      true,
-      'web Playwright lane does not reliably surface the desktop-style runtime picker overlay yet'
-    );
-    await openRuntimePicker(page);
-
-    await page.getByText('Run on the Cloud (Complex)').click();
-    await page.locator('input[type="url"]').fill('http://127.0.0.1:17788/rpc');
-    await page.locator('input[type="password"]').fill('openhuman-playwright-token');
-    await page.getByRole('button', { name: 'Continue' }).click();
-
-    await waitForAppReady(page);
-    await expect(page.getByText('Welcome to OpenHuman')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Select a Runtime' })).toBeVisible();
-  });
+  // DELETED, not unskipped: `runtime picker validates cloud URL/token inputs
+  // and unreachable hosts` and `returning to cloud-mode guest state keeps
+  // provider login available`.
+  //
+  // Both carried `test.skip(true, 'web Playwright lane does not reliably
+  // surface the desktop-style runtime picker overlay yet')`. That reason is
+  // structural, not flaky, and no amount of rewriting fixes it: every test in
+  // this file boots through `bootRuntimeReadyGuestPage`, which calls
+  // `seedBrowserCoreMode` and writes `openhuman_core_mode`,
+  // `openhuman_core_rpc_url` and `openhuman_core_rpc_token` into localStorage
+  // before the first paint. The app therefore already knows its runtime and
+  // is correct not to show the picker. Removing that seeding leaves the web
+  // build with no core to talk to, so the page never boots — the overlay is
+  // unreachable in this lane by construction.
+  //
+  // The desktop lane covers all of it, and more: see
+  // `app/test/e2e/specs/runtime-picker-login.spec.ts` —
+  //   `clicking "Select a Runtime" opens the runtime picker with both options`,
+  //   `cloud option reveals URL + token inputs and validates them`,
+  //   `"Test Connection" against an unreachable host shows the unreachable pill`,
+  //   `switching back to Local and clicking Continue closes the picker`.
+  // That is a strict superset of the two deleted cases.
 
   test('provider login reaches home and logout returns to welcome', async ({ page }) => {
     await signInViaBypassUser(page, 'pw-runtime-picker-login');

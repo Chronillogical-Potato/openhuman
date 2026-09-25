@@ -1,3 +1,5 @@
+import type { ChainablePromiseElement } from 'webdriverio';
+
 import { waitForApp, waitForAppReady } from '../helpers/app-helpers';
 import { waitForWebView } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
@@ -64,10 +66,36 @@ async function dispatchKey(
   }
 }
 
+// Open the command palette, retrying mod+K up to 3 times — the WebDriver
+// Actions API can silently drop the first dispatch while the focus context is
+// still settling.
+//
+// Returns the combobox or throws. The previous shape declared `let input` and
+// assigned it inside the loop, so every use after it was an unchecked read of a
+// possibly-undefined element: the `attempt === 2` throw happens to make that
+// safe, which is a property of the loop body rather than something the types
+// could see. Returning from a helper states it instead.
+async function openPaletteWithRetry(): Promise<ChainablePromiseElement> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await dispatchKey('k', MOD_KEY);
+    const input = await browser.$('input[role="combobox"]');
+    try {
+      await input.waitForExist({ timeout: 3000 });
+      return input;
+    } catch {
+      if (attempt === 2) break;
+    }
+  }
+  throw new Error('Command palette did not open after 3 mod+K attempts');
+}
+
 // Close an overlay via Escape, escalating to a document-targeted synthetic
 // event as a last resort. ModalShell's `useEscapeKey` binds to `document`, so a
 // `window`-dispatched fallback would miss it — dispatch on `document` directly.
-async function closeOverlayWithEscape(el: WebdriverIO.Element, timeoutMsg: string): Promise<void> {
+async function closeOverlayWithEscape(
+  el: ChainablePromiseElement,
+  timeoutMsg: string
+): Promise<void> {
   try {
     await browser.keys('Escape');
   } catch {
@@ -99,19 +127,7 @@ describe('Command palette', () => {
   });
 
   it('opens via mod+K, runs an action, closes and navigates', async () => {
-    // Retry mod+K up to 3 times — WebDriver Actions API can silently drop the
-    // first dispatch when the focus context hasn't settled yet.
-    let input: WebdriverIO.Element | undefined;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await dispatchKey('k', MOD_KEY);
-      input = await browser.$('input[role="combobox"]');
-      try {
-        await input.waitForExist({ timeout: 3000 });
-        break;
-      } catch {
-        if (attempt === 2) throw new Error('Command palette did not open after 3 mod+K attempts');
-      }
-    }
+    const input = await openPaletteWithRetry();
 
     await input.setValue('settings');
     await browser.keys('Enter');

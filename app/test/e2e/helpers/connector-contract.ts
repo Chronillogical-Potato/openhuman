@@ -27,8 +27,28 @@ import {
 } from './composio-helpers';
 import { callOpenhumanRpc } from './core-rpc';
 import { triggerAuthDeepLinkBypass } from './deep-link-helpers';
-import { textExists, waitForText, waitForWebView, waitForWindowVisible } from './element-helpers';
+import {
+  clickButton,
+  textExists,
+  waitForText,
+  waitForWebView,
+  waitForWindowVisible,
+} from './element-helpers';
 import { completeOnboardingIfVisible, navigateToSkills } from './shared-flows';
+
+/**
+ * One entry from the mock server's request log.
+ *
+ * `mock-server.ts` carries `@ts-nocheck` and re-exports `getRequestLog` from a
+ * plain `.mjs` module, so the log arrives untyped and every predicate
+ * parameter would otherwise be an implicit `any` (TS7006). Narrowing it here
+ * keeps the three `.find(...)` / `.some(...)` call sites below typed without
+ * touching the shared mock wrapper.
+ */
+interface MockRequestLogEntry {
+  method: string;
+  url: string;
+}
 
 export interface ConnectorContractConfig {
   /** Human-facing connector name as rendered in the UI (e.g. "Google Calendar"). */
@@ -91,7 +111,7 @@ export function runConnectorContract(config: ConnectorContractConfig): void {
       clearRequestLog();
       const out = await callOpenhumanRpc('openhuman.composio_authorize', { toolkit: slug });
       expect(out.ok).toBe(true);
-      const authReq = getRequestLog().find(
+      const authReq = (getRequestLog() as MockRequestLogEntry[]).find(
         r => r.method === 'POST' && r.url.includes('/composio/authorize')
       );
       expect(authReq).toBeDefined();
@@ -157,6 +177,61 @@ export function runConnectorContract(config: ConnectorContractConfig): void {
       console.log(`${LOG} PASS: expired auth does not log user out`);
     });
 
+    // The case above stops at the affordance: it proves the Reconnect button
+    // RENDERS. Nothing pressed it, so a regression that renders the button and
+    // wires it to nothing — or to a route that 400s — left every connector
+    // permanently un-reconnectable with the lane green. Matrix row 10.7.3
+    // records that hole as "re-auth post-revoke not asserted".
+    //
+    // The button carries no `data-testid`, so this clicks its user-visible
+    // label (`composio.reconnect` + the toolkit name, ComposioConnectModal.tsx
+    // :245-253). A testid on that button would be the better hook; see the W5
+    // phase-2 report.
+    it('pressing Reconnect after expiry re-authorizes and restores the connection', async function () {
+      this.timeout(60_000);
+      seedComposioConnection(slug, 'EXPIRED', expiredId);
+      await navigateToSkills();
+      await waitForText(name, 10_000);
+      const modal = await openConnectorModal(name, 15_000, 'Auth expired');
+      expect(modal).toBeTruthy();
+      await assertModalPhase('expired', name);
+
+      // Cleared AFTER the modal is open so the assertion below can only be
+      // satisfied by a request the button itself caused.
+      clearRequestLog();
+      await clickButton(`Reconnect ${name}`, 15_000);
+
+      // The same evidence the happy-path connect case uses, so the two agree
+      // on what "authorization was requested" means.
+      await browser.waitUntil(
+        async () =>
+          (getRequestLog() as MockRequestLogEntry[]).some(
+            r => r.method === 'POST' && r.url.includes('/composio/authorize')
+          ),
+        {
+          timeout: 15_000,
+          timeoutMsg:
+            `Reconnect was pressed for ${name} but no POST to /composio/authorize followed — ` +
+            'the expired-state button is not wired to the authorize route',
+        }
+      );
+
+      // Stand in for the OAuth callback the real flow completes in a browser,
+      // then assert the connector reports itself usable again. Without this the
+      // test would prove a request was sent and nothing about recovery.
+      seedComposioConnection(slug, 'ACTIVE', activeId);
+      const out = await callOpenhumanRpc('openhuman.composio_list_connections', {});
+      const result = (out.result as { result?: unknown })?.result ?? out.result;
+      const connections = (result as { connections?: unknown[] })?.connections ?? [];
+      const hit = (connections as { toolkit?: string; status?: string }[]).find(
+        c => c.toolkit?.toLowerCase() === slug
+      );
+      expect(hit?.status).toBe('ACTIVE');
+
+      await assertSessionNotNuked();
+      console.log(`${LOG} PASS: reconnect after expiry re-authorizes`);
+    });
+
     it('unrelated 400 on composio route does not nuke session', async function () {
       this.timeout(60_000);
       injectComposioFault(400);
@@ -174,7 +249,7 @@ export function runConnectorContract(config: ConnectorContractConfig): void {
       seedComposioConnection(slug, 'ACTIVE', activeId);
       clearRequestLog();
       await callOpenhumanRpc('openhuman.composio_delete_connection', { connection_id: activeId });
-      const deleteReq = getRequestLog().find(
+      const deleteReq = (getRequestLog() as MockRequestLogEntry[]).find(
         r => r.method === 'DELETE' && r.url.includes('/composio/connections/')
       );
       expect(deleteReq).toBeDefined();

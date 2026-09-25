@@ -84,24 +84,61 @@ export async function openConnectorModal(
     'Disconnect',
   ];
 
+  // Click the connector's OWN control, not merely a button that mentions it.
+  //
+  // This used to take the first button whose aria-label/title/text `includes`
+  // the connector name, under a variable called `exactButton` — the name
+  // described an intent the predicate did not implement. A bare substring match
+  // collides with any unrelated chrome carrying the same word, and `.find()`
+  // returns the first such button in DOM order, which is whichever the shell
+  // renders earliest.
+  //
+  // That is not hypothetical and it is why this helper looked "flaky" for
+  // exactly one connector. `SidebarHeader.tsx:95-103` renders a community-invite
+  // button with `aria-label="Join our Discord"` on every page, ahead of the page
+  // content. For `name = 'Discord'`, `'Join our Discord'.includes('Discord')` is
+  // true, so the helper clicked the invite — which calls `openUrl` and hands off
+  // to the system browser — instead of the Discord connector tile. The modal
+  // never opened, every retry re-clicked the same wrong button, and the failure
+  // looked like slow modal discovery. `Jira`, `GitHub` and `Gmail` have no
+  // equivalent twin in the shell, which is why three sibling specs calling this
+  // helper with the identical signature never saw it.
+  //
+  // Match the tile's own action labels exactly (trimmed, case-insensitively),
+  // falling back to a substring match only when none is present — preserving the
+  // old reach for tiles whose label this list does not yet name, without letting
+  // unrelated chrome win by being earlier in the document.
+  //
+  // Deliberately NOT reusing `candidates` for this: that list is the set of
+  // strings that indicate the modal is ALREADY open, and includes in-modal text
+  // like `Disconnect`. Those are the right things to detect and the wrong things
+  // to click.
   const ensureModalOpen = async (): Promise<boolean> =>
-    browser.execute((connectorName: string) => {
-      const dialog = document.querySelector('[role="dialog"]');
-      if (dialog) return true;
-      const exactButton = Array.from(document.querySelectorAll('button')).find(btn => {
-        const label = btn.getAttribute('aria-label') ?? '';
-        const title = btn.getAttribute('title') ?? '';
-        const text = btn.textContent ?? '';
-        return (
-          label.includes(connectorName) ||
-          title.includes(connectorName) ||
-          text.includes(connectorName)
-        );
-      }) as HTMLButtonElement | undefined;
-      if (!exactButton) return false;
-      exactButton.click();
-      return false;
-    }, name);
+    browser.execute(
+      (connectorName: string, accepted: string[]) => {
+        const dialog = document.querySelector('[role="dialog"]');
+        if (dialog) return true;
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const labelsOf = (btn: Element): string[] =>
+          [
+            btn.getAttribute('aria-label') ?? '',
+            btn.getAttribute('title') ?? '',
+            btn.textContent ?? '',
+          ].map(value => value.trim().toLowerCase());
+        const wanted = accepted.map(value => value.trim().toLowerCase());
+
+        const exact = buttons.find(btn => labelsOf(btn).some(value => wanted.includes(value)));
+        const target = (exact ??
+          buttons.find(btn =>
+            labelsOf(btn).some(value => value.includes(connectorName.toLowerCase()))
+          )) as HTMLButtonElement | undefined;
+        if (!target) return false;
+        target.click();
+        return false;
+      },
+      name,
+      [`Connect ${name}`, `Manage ${name}`, `Reconnect ${name}`]
+    );
 
   // Click once up front. If the modal appears, stop trying to re-click the
   // underlying card; the backdrop will intercept any later coordinate clicks.
@@ -113,7 +150,6 @@ export async function openConnectorModal(
       const statusDeadline = Date.now() + timeout;
       while (Date.now() < statusDeadline) {
         if (await textExists(waitForTileStatus)) break;
-        // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
         await browser.pause(300);
       }
     } catch {
@@ -138,7 +174,6 @@ export async function openConnectorModal(
       await ensureModalOpen();
       lastReopenAt = Date.now();
     }
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     await browser.pause(250);
   }
 
@@ -179,7 +214,6 @@ export async function assertModalPhase(
         return;
       }
     }
-    // @ts-expect-error -- browser global is injected by WDIO at runtime, not typed in this env
     await browser.pause(400);
   }
 

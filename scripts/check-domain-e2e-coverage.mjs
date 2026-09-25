@@ -133,8 +133,18 @@ const PRODUCT_FEATURES_FILE = path.join(ROOT, 'scripts', 'ci', 'product-features
 //
 // `app/src/services/__tests__/rpcMethods.test.ts` already reaches into the same
 // vendored crate for the same reason.
+//
+// The third root is the hosted TinyHumans surface. `crates/openhuman-tinyhumans`
+// registers `billing`, `team`, `referral` and `announcements` into the same
+// registry at runtime through `register_controller_extension`
+// (`crates/openhuman-core/src/core/all.rs`), so those 34 controllers dispatch
+// exactly like a built-in one — but they are declared in a crate this list did
+// not name, so the gate could not see them and they were exempt from the
+// threshold entirely. The family most likely to move money was the one family
+// nothing measured.
 const SCHEMA_ROOTS = [
   path.join(ROOT, 'crates', 'openhuman-core', 'src'),
+  path.join(ROOT, 'crates', 'openhuman-tinyhumans', 'src'),
   path.join(ROOT, 'vendor', 'tinychannels', 'crates', 'tinychannels-bus', 'src', 'controllers'),
 ];
 
@@ -183,12 +193,48 @@ function collectInvokedMethods() {
 
   for (const file of files) {
     const text = read(file);
+    // A file the compiler throws away cannot invoke anything. 52 of the 115
+    // e2e files open with `#![cfg(any())]` pending the #6382 migration, and
+    // crediting them put 176 controllers in the covered column that no build
+    // has compiled since the day they were switched off — the largest single
+    // source of false coverage this gate had.
+    if (fileIsCompiledOut(text)) continue;
     for (const match of text.matchAll(/"((?:openhuman)\.[A-Za-z0-9_]+)"/g)) {
       methods.add(match[1]);
     }
   }
 
   return methods;
+}
+
+/**
+ * Is this file's own `#![cfg(...)]` unsatisfiable, whatever the feature set?
+ *
+ * Only ever answers true for a predicate that is false by construction, never
+ * for one that merely happens to be off here — `#![cfg(feature = "mcp")]` on
+ * `tests/mcp_registry_e2e.rs` is a real conditional and its methods stay
+ * credited. Deliberately narrow: this gate has no business deciding whether
+ * `unix` or `target_os` holds, and a wrong "always false" silently deletes
+ * real coverage, which is the direction that hides work.
+ *
+ *  - `any()` with no branches can never be satisfied. That is the literal
+ *    shape the #6382 quarantine uses.
+ *  - `all(...)` is unsatisfiable as soon as ONE branch is.
+ *  - everything else, including any `not(...)`, is treated as satisfiable.
+ */
+function cfgIsAlwaysFalse(node) {
+  if (!node) return false;
+  if (node.kind === 'any') return node.children.length === 0;
+  if (node.kind === 'all') return node.children.some(cfgIsAlwaysFalse);
+  return false;
+}
+
+/** File-level `#![cfg(...)]` inner attributes, which gate the whole module. */
+function fileIsCompiledOut(text) {
+  for (const match of text.matchAll(/^#!\[\s*cfg\s*\(([\s\S]*?)\)\s*\]/gm)) {
+    if (cfgIsAlwaysFalse(parseCfgPredicate(match[1]))) return true;
+  }
+  return false;
 }
 
 /**
@@ -214,12 +260,23 @@ function collectSchemaMethods() {
 
   for (const root of SCHEMA_ROOTS) {
     for (const file of walk(root, (f) => f.endsWith('.rs'))) {
+      // A `*_tests.rs` file is unit-test scaffolding, never a registration
+      // site. Reading them invented three controllers that do not exist as
+      // RPCs — `openhuman.a_b` (`core/core_mod_tests.rs`), `openhuman.test_echo`
+      // and `openhuman.test_configure` (`core/cli_tests.rs`, fixtures for
+      // `parse_function_params`) — and `a_b` was its own 0/1 row, failing the
+      // lane over a method nothing can dispatch.
+      if (path.basename(file).endsWith('_tests.rs')) continue;
       const text = read(file);
-      const constNamespace = text.match(/const\s+NAMESPACE:\s*&str\s*=\s*"([a-z_]+)"/)?.[1];
+      const constNamespace = namespaceConstFor(file, text);
       // `ChannelControllerSchema` is the vendored bus crate's equivalent shape.
       for (const match of text.matchAll(/(?:Channel)?ControllerSchema\s*\{([\s\S]*?)\n\s*\}/g)) {
         const block = match[1];
-        const namespaceToken = block.match(/namespace:\s*(?:NAMESPACE|"([a-z_]+)")/);
+        // `[a-z0-9_]`, not `[a-z_]`: a digit in the name is not exotic, and
+        // excluding it silently dropped `web3_swap`, `web3_bridge`,
+        // `web3_dapp` and `x402` — ten controllers, including every wallet
+        // swap and bridge entry point.
+        const namespaceToken = block.match(/namespace:\s*(?:NAMESPACE|"([a-z0-9_]+)")/);
         const functionName = block.match(/function:\s*"([A-Za-z0-9_]+)"/)?.[1];
         const namespace = namespaceToken?.[1] ?? (namespaceToken ? constNamespace : undefined);
         if (!namespace || !functionName || functionName === 'unknown') continue;
@@ -232,6 +289,56 @@ function collectSchemaMethods() {
   }
 
   return { methodsByNamespace, filesByNamespace };
+}
+
+const NAMESPACE_CONST = /const\s+NAMESPACE:\s*&str\s*=\s*"([a-z0-9_]+)"/;
+
+/**
+ * The `const NAMESPACE` a file's `namespace: NAMESPACE` literals resolve to.
+ *
+ * Reading only the file itself was the second instance of the bug the comment
+ * on `collectSchemaMethods` describes. When a namespace outgrows one file the
+ * split is always the same: the `const` stays with the aggregate
+ * (`memory/sources/schemas.rs`, `memory/schema/definitions.rs`) and the
+ * `ControllerSchema` literals move into siblings that reach it through
+ * `use super::*`. Per-file lookup then finds no const, resolves the namespace
+ * to `undefined`, and `continue`s past every controller in the file — silently.
+ *
+ * That cost 43 controllers. Seventeen of them were `memory_sources`, which at
+ * least failed loudly because MODULES names it and the gate noticed it had
+ * measured nothing. The other 26 were `memory_tree`, which is not in MODULES:
+ * it kept the five controllers declared in the one file that still had a local
+ * const and reported **5/5, 100%** for a namespace with 31 — fail-open, with a
+ * green tick on it.
+ *
+ * So resolution is scoped to the module directory: the file, then its
+ * siblings, then the file that defines the directory as a module (`mod.rs`, or
+ * `<dir>.rs` beside it). Verified unambiguous — no directory in the tree
+ * declares two different values.
+ */
+function namespaceConstFor(file, text) {
+  const local = text.match(NAMESPACE_CONST)?.[1];
+  if (local) return local;
+
+  const dir = path.dirname(file);
+  const candidates = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.rs')) candidates.push(path.join(dir, entry.name));
+  }
+  candidates.push(path.join(dir, 'mod.rs'), `${dir}.rs`);
+
+  const found = new Set();
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) continue;
+    const value = read(candidate).match(NAMESPACE_CONST)?.[1];
+    if (value) found.add(value);
+  }
+  // Two different answers is not a namespace this function can name. Returning
+  // nothing drops the controllers, which is the same silent loss as before —
+  // but it is also not a case that exists today, and inventing a tie-break for
+  // it would be untested code. If it ever fires, the MODULES/discovery guards
+  // are what surface it.
+  return found.size === 1 ? [...found][0] : undefined;
 }
 
 /**
@@ -388,9 +495,21 @@ function moduleGateProves(file, feature) {
     // further up and under the directory's name.
     const name = isModFile ? segments[segments.length - 2] : base;
     const parentDir = isModFile ? segments.slice(0, -2) : segments.slice(0, -1);
-    const declaringFile = path.join(ROOT, ...parentDir, 'mod.rs');
+    // `mod.rs` is only the declaring file for a module nested inside another.
+    // At the top of a crate the declaration lives in the crate ROOT, which is
+    // `lib.rs` (or `main.rs`) and never `mod.rs` — `crates/openhuman-core/src/mod.rs`
+    // is not a file Rust can have. Looking only for `mod.rs` meant this walk
+    // fell off the end for every top-level `pub mod`, returned false, and the
+    // exclusion check then reported `test` / `test_support` as "no longer
+    // behind the gate they claim" while `lib.rs:86` carried the `#[cfg]` the
+    // whole time. The gate's own fixture hid it by writing a `src/mod.rs`.
+    const declaringFiles = [path.join(ROOT, ...parentDir, 'mod.rs')];
+    if (parentDir[parentDir.length - 1] === 'src') {
+      declaringFiles.push(path.join(ROOT, ...parentDir, 'lib.rs'), path.join(ROOT, ...parentDir, 'main.rs'));
+    }
 
-    if (fs.existsSync(declaringFile)) {
+    for (const declaringFile of declaringFiles) {
+      if (!fs.existsSync(declaringFile)) continue;
       const text = read(declaringFile);
       const declaration = new RegExp(`^[ \\t]*(?:pub(?:\\([^)]*\\))?[ \\t]+)?mod[ \\t]+${name}[ \\t]*;`, 'gm');
       // EVERY declaration has to imply the feature, not merely the first one.

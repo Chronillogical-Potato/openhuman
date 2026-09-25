@@ -189,6 +189,7 @@ fn fake_meta(thread_id: Option<&str>) -> TranscriptMeta {
         created: "2026-05-09T11:00:00Z".into(),
         updated: "2026-05-09T12:00:00Z".into(),
         turn_count: 4,
+        prefix_message_count: None,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,

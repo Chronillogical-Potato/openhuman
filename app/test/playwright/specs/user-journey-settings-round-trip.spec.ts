@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import { bootAuthenticatedPage, waitForAppReady } from '../helpers/core-rpc';
 
@@ -23,7 +23,7 @@ const panels: PanelCheck[] = [
   { hash: '/chat', markers: [] },
 ];
 
-async function waitForPanelLoad(page: Parameters<typeof test>[0]['page']) {
+async function waitForPanelLoad(page: Page) {
   await waitForAppReady(page);
   const chars = await page.locator('#root').innerText();
   expect(chars.trim().length).toBeGreaterThan(50);

@@ -23,6 +23,7 @@ fn meta(agent: &str, agent_type: &str, thread_id: Option<&str>) -> TranscriptMet
         created: "2026-09-22T00:00:00Z".into(),
         updated: "2026-09-22T01:00:00Z".into(),
         turn_count: 0,
+        prefix_message_count: None,
         // Every fixture leaves the denormalised `_meta` rollups at zero: that is
         // exactly what is on disk for every root transcript written since
         // `33566d382`, and the aggregate must not depend on them.

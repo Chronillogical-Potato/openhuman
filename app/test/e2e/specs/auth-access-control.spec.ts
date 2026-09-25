@@ -22,6 +22,7 @@
  * have been built with VITE_BACKEND_URL pointing there.
  */
 import { waitForApp, waitForAppReady, waitForAuthBootstrap } from '../helpers/app-helpers';
+import { callOpenhumanRpc, expectRpcOk } from '../helpers/core-rpc';
 import { triggerAuthDeepLink } from '../helpers/deep-link-helpers';
 import {
   clickButton,
@@ -137,6 +138,18 @@ async function performFullLogin(token = 'e2e-test-token') {
     throw new Error('Full login did not reach Home page');
   }
   console.log(`[AuthAccess] Home page confirmed: found "${homeText}"`);
+}
+
+/**
+ * `AuthStateResponse` — `crates/openhuman-core/src/security/credentials/responses.rs`.
+ *
+ * `credential` is `skip_serializing_if = "Option::is_none"` on the Rust side,
+ * so it is absent (not null) when signed out.
+ */
+interface AuthStateResponse {
+  isAuthenticated: boolean;
+  userId?: string | null;
+  credential?: 'session' | 'api-key' | 'local';
 }
 
 // ===========================================================================
@@ -383,8 +396,37 @@ describe('Auth & Access Control', () => {
       await browser.pause(2_000);
     }
 
-    // Verify we landed on the logged-out state — assert a specific marker
+    // ── Assertion, rewritten ────────────────────────────────────────────
+    //
+    // This used to be `expect(onWelcome || !hasToken).toBe(true)`, where
+    // `hasToken` read `localStorage['persist:auth']`. That key does not
+    // exist and has not for some time: `app/src/store/index.ts` registers no
+    // `auth` reducer and no `auth` persist config, and this suite's sibling
+    // says so in a comment (`login-flow.spec.ts`, bypass case). So `hasToken`
+    // was always `false`, `!hasToken` was always `true`, and the disjunction
+    // was a tautology — the test passed whether or not logout did anything.
+    // Matrix row 1.4.1 was marked green on that.
+    //
+    // Two independent mechanisms now, both required:
+    //   1. the core no longer holds a credential (the half that matters for
+    //      security: a UI that routes to Welcome while the core keeps
+    //      authenticating is exactly the regression worth catching), and
+    //   2. the shell actually renders the logged-out surface.
     await browser.pause(3_000);
+
+    const state = await callOpenhumanRpc<AuthStateResponse>('openhuman.auth_get_state', {});
+    expectRpcOk('auth_get_state', state);
+    expect(state.result!.isAuthenticated).toBe(false);
+    // `credential` is `skip_serializing_if = "Option::is_none"` on the Rust
+    // side, so a signed-out state omits it entirely. A stale "session" or
+    // "local" value here means the credential outlived the logout.
+    expect(state.result!.credential).toBeUndefined();
+    console.log('[AuthAccess] Logout: core reports no credential');
+
+    // `'OpenHuman'` is deliberately NOT in this list. It appears 148 times in
+    // `app/src/lib/i18n/en.ts` and `textExists` is an unanchored
+    // `//*[contains(text(), …)]`, so including it would match on most screens
+    // and re-create the same always-true assertion in a new disguise.
     const welcomeCandidates = ['Welcome', 'Sign in', 'Login', 'Get Started'];
     let onWelcome = false;
     for (const text of welcomeCandidates) {
@@ -394,23 +436,7 @@ describe('Auth & Access Control', () => {
         break;
       }
     }
-
-    // Also verify auth token was cleared from localStorage
-    const hasToken = await browser.execute(() => {
-      const persisted = localStorage.getItem('persist:auth');
-      if (!persisted) return false;
-      try {
-        const parsed = JSON.parse(persisted);
-        const token = typeof parsed.token === 'string' ? parsed.token.replace(/^"|"$/g, '') : null;
-        return !!token && token !== 'null';
-      } catch {
-        return false;
-      }
-    });
-
-    // Must see logged-out UI or token must be cleared (or both)
-    expect(onWelcome || !hasToken).toBe(true);
-    console.log(`[AuthAccess] Logout verified: welcomeUI=${onWelcome}, tokenCleared=${!hasToken}`);
+    expect(onWelcome).toBe(true);
   });
 
   it('revoked session auto-logs out the user', async function () {
@@ -449,23 +475,50 @@ describe('Auth & Access Control', () => {
       }
     );
 
-    // The app should auto-log out when it gets a 401
-    const stillOnHome = await waitForHomePage(5_000);
-    if (!stillOnHome) {
-      console.log('[AuthAccess] Revoked session: user was logged out (no home page markers)');
-    }
+    // ── Assertion, rewritten ────────────────────────────────────────────
+    //
+    // Was `expect(onWelcome || !stillOnHome).toBe(true)` with `'OpenHuman'`
+    // in the `onWelcome` candidate list. `'OpenHuman'` occurs 148 times in
+    // `app/src/lib/i18n/en.ts` and `textExists` matches any text node
+    // containing it, so the first disjunct was satisfiable on essentially
+    // any screen — including the Home the test was supposed to prove we had
+    // left. The test could not distinguish "revocation propagated" from
+    // "revocation did nothing".
+    //
+    // Three assertions now, and none of them is a disjunction:
+    //   1. the mock actually served the 401 (proves the fault was injected —
+    //      without this the whole test can pass because nothing was revoked),
+    //   2. the core dropped the credential,
+    //   3. the shell left the authenticated surface.
 
-    // Verify the app is either on Welcome or not on Home
-    const welcomeCandidates = ['Welcome', 'Sign in', 'Login', 'Get Started', 'OpenHuman'];
-    let onWelcome = false;
-    for (const text of welcomeCandidates) {
-      if (await textExists(text)) {
-        onWelcome = true;
-        break;
+    // 1. The injection landed. A revoked-session test that never provoked a
+    //    401 is the "couldn't-run wearing the clothes of proved" failure:
+    //    everything downstream would look like a clean auto-logout.
+    const meCalls = getRequestLog().filter(r => r.method === 'GET' && r.url.includes('/auth/me'));
+    expect(
+      meCalls.length,
+      'no GET /auth/me reached the mock, so the revoked-session 401 was never served'
+    ).toBeGreaterThan(0);
+
+    // 2. The core dropped the credential.
+    await browser.waitUntil(
+      async () => {
+        const state = await callOpenhumanRpc<AuthStateResponse>('openhuman.auth_get_state', {});
+        return state.ok && state.result?.isAuthenticated === false;
+      },
+      {
+        timeout: 20_000,
+        interval: 1_000,
+        timeoutMsg: 'core still reports isAuthenticated=true after the backend revoked the session',
       }
-    }
+    );
+    const revokedState = await callOpenhumanRpc<AuthStateResponse>('openhuman.auth_get_state', {});
+    expectRpcOk('auth_get_state', revokedState);
+    expect(revokedState.result!.credential).toBeUndefined();
 
-    expect(onWelcome || !stillOnHome).toBe(true);
+    // 3. The shell left the authenticated surface.
+    const stillOnHome = await waitForHomePage(5_000);
+    expect(stillOnHome, 'app stayed on Home after the session was revoked').toBeNull();
     console.log('[AuthAccess] Revoked session auto-logout verified');
   });
 });

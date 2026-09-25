@@ -284,6 +284,48 @@ impl TurnStateStore {
         Ok(count)
     }
 
+    /// Force one turn's snapshot to a terminal `lifecycle` if it is still
+    /// `Started`/`Streaming`. Returns `true` when it changed something; a
+    /// missing or already-terminal snapshot is a no-op.
+    ///
+    /// The progress bridge is normally the only writer that marks a snapshot
+    /// terminal, and it does so on its way out — but it only exits once its
+    /// progress sender drops, and for a cached per-thread session that does not
+    /// happen until the *next* turn replaces the sink. The last turn of a thread
+    /// would otherwise keep a non-terminal snapshot on disk indefinitely
+    /// (`prune_completed_locked` only prunes `Completed` turns, and the startup
+    /// sweep runs once per process), so re-entering the thread hydrates a
+    /// live-looking "Thinking…" indicator under a reply that already landed.
+    /// The turn driver calls this the moment the turn ends, which is the
+    /// earliest point that is known for certain.
+    pub fn settle_turn(
+        &self,
+        thread_id: &str,
+        request_id: &str,
+        lifecycle: TurnLifecycle,
+        now_rfc3339: &str,
+    ) -> Result<bool, String> {
+        let Some(mut snapshot) = self.get_turn(thread_id, request_id)? else {
+            return Ok(false);
+        };
+        if matches!(
+            snapshot.lifecycle,
+            TurnLifecycle::Interrupted | TurnLifecycle::Completed
+        ) {
+            return Ok(false);
+        }
+        snapshot.lifecycle = lifecycle;
+        snapshot.phase = None;
+        snapshot.active_tool = None;
+        snapshot.active_subagent = None;
+        snapshot.updated_at = now_rfc3339.to_string();
+        self.put(&snapshot)?;
+        debug!(
+            "{LOG_PREFIX} settled non-terminal snapshot thread={thread_id} request={request_id} lifecycle={lifecycle:?}"
+        );
+        Ok(true)
+    }
+
     // --- internals -------------------------------------------------------
 
     fn ensure_thread_dir(&self, thread_id: &str) -> Result<PathBuf, String> {

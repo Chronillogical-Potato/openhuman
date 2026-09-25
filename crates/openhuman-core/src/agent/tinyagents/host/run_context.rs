@@ -301,6 +301,9 @@ pub struct OpenHumanRunContext {
     /// the registry that recovers positional / code-style calls; `Auto`
     /// (the default) leaves the harness to choose from the model profile.
     pub(crate) tool_dialect: tinyagents_harness::config::ToolDispatcher,
+    /// Number of frozen system tiers restored from the session prefix. A
+    /// later System compaction summary remains outside this cacheable prefix.
+    pub(crate) cacheable_system_prefix_len: Option<usize>,
 }
 
 impl Default for OpenHumanRunContext {
@@ -341,6 +344,7 @@ impl OpenHumanRunContext {
             session_sidecar: Arc::new(Mutex::new(SessionTurnSidecar::default())),
             required_output: None,
             tool_dialect: tinyagents_harness::config::ToolDispatcher::Auto,
+            cacheable_system_prefix_len: None,
         }
     }
 
@@ -431,6 +435,7 @@ impl OpenHumanRunContext {
         child.parent_subagent_usage = Some(self.subagent_usage.clone());
         child.subagent_usage = Arc::new(Mutex::new(Vec::new()));
         child.resolved_route = Arc::new(Mutex::new(None));
+        child.cacheable_system_prefix_len = None;
         child
     }
 
