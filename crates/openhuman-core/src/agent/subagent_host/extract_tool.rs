@@ -615,6 +615,7 @@ fn write_extract_transcript(
         created: ts_rfc3339.clone(),
         updated: ts_rfc3339,
         turn_count: 1,
+        prefix_message_count: None,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,
