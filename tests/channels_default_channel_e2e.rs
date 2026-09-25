@@ -343,7 +343,9 @@ async fn set_default_persists_the_choice_to_config_on_disk() {
         "precondition: the harness should have planted at least one config.toml under $HOME"
     );
     assert!(
-        before.iter().all(|(_, body)| !body.contains("active_channel")),
+        before
+            .iter()
+            .all(|(_, body)| !body.contains("active_channel")),
         "precondition: no config.toml should already name an active_channel, otherwise the \
          assertion below cannot tell a write from a pre-existing value — found: {:?}",
         before.iter().map(|(path, _)| path).collect::<Vec<_>>()
