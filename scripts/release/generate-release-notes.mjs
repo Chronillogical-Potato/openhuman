@@ -237,7 +237,11 @@ function assertRefExists(ref, label) {
 }
 
 export function extractPullRequestNumbers(subject) {
-  const matches = [...String(subject || '').matchAll(/\(#(\d+)\)/g)];
+  const text = String(subject || '');
+  const matches = [
+    ...text.matchAll(/\(#(\d+)\)/g),
+    ...text.matchAll(/^Merge pull request #(\d+)\b/g),
+  ];
   return [...new Set(matches.map((match) => Number(match[1])).filter(Number.isInteger))];
 }
 
@@ -271,10 +275,13 @@ export function parseGitLog(logText) {
 export async function collectCommits(from, to) {
   const format = '%H%x1f%s%x1f%an%x1f%ae%x1f%aI%x1e';
   const commits = [];
-  await streamGitRecords(['log', `${from}..${to}`, '--reverse', `--format=${format}`], (entry) => {
+  await streamGitRecords(['log', `${from}..${to}`, '--first-parent', '--merges', '--reverse', `--format=${format}`], (entry) => {
     const trimmed = entry.trim();
     if (trimmed) {
-      commits.push(parseCommitRecord(trimmed));
+      const commit = parseCommitRecord(trimmed);
+      if (commit.primaryPrNumber) {
+        commits.push(commit);
+      }
     }
   });
   return commits;
