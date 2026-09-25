@@ -6,11 +6,11 @@ fn tinydesktop_registry_matches_bus_contract_and_published_release() {
     let desktop = find("tinydesktop").expect("compiled desktop module");
     assert_eq!(desktop.bus_name, tinydesktop_bus::names::INTERFACE);
     assert_eq!(desktop.object_path, tinydesktop_bus::names::OBJECT_PATH);
-    assert_eq!(desktop.version, "0.4.0");
+    assert_eq!(desktop.version, "0.5.1");
     assert_eq!(desktop.assets.len(), 7);
     assert_eq!(
         desktop.asset_for("macos-26-arm64").unwrap().sha256,
-        "85a5a43e5b09d05d05dbb9e85e9bc5fa0dc2b3edcbf230fe491c7270aab96b37"
+        "41b32370ec8789891f42bbcb40d7e1ea8c359ce1edbe210d1cd636ba2ba2562b"
     );
 }
 
