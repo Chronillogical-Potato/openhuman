@@ -9,6 +9,11 @@ fn classify_inference_error_empty_response_does_not_claim_credit_exhaustion() {
     let classified = classify_inference_error(raw);
     assert_eq!(classified.error_type, "empty_response");
     assert!(
+        classified.message.contains("Please retry"),
+        "must keep the retry guidance: {}",
+        classified.message
+    );
+    assert!(
         !classified.message.to_ascii_lowercase().contains("credit")
             && !classified.message.to_ascii_lowercase().contains("billing"),
         "must not infer credit exhaustion from an empty completion: {}",

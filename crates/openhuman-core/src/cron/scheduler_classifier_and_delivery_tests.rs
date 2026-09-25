@@ -154,6 +154,10 @@ fn agent_error_to_user_message_does_not_infer_credits_from_empty_response() {
         "must keep the model-switch remedy: {msg}"
     );
     assert!(
+        msg.to_ascii_lowercase().contains("retry"),
+        "must keep the retry remedy: {msg}"
+    );
+    assert!(
         msg.contains("Connections \u{2192} API keys \u{2192} LLM"),
         "must keep the provider-config deep link: {msg}"
     );
