@@ -296,8 +296,7 @@ fn subagent_worktree_detail(
 /// Trace user attribution for a turn whose stored user payload carries no identity
 /// (headless / autonomous / freshly booted cores): read the on-disk
 /// app-session profile and return the user's email (preferred) or backend
-/// user id. `None` when signed out or the profile is unreadable — the caller
-/// then falls back to the transport client id.
+/// user id. `None` when signed out or the profile is unreadable.
 fn session_profile_user_attribution(config: &crate::config::Config) -> Option<String> {
     let state = crate::security::credentials::session_support::build_session_state(config).ok()?;
     state
@@ -370,10 +369,10 @@ pub(crate) fn spawn_progress_bridge(
         let mut turn_state =
             TurnStateMirror::new(turn_state_store, thread_id.clone(), request_id.clone());
 
-        // #3886: opt-in structured tracing export. When enabled, fold the same
+        // #3886: structured tracing export. When enabled, fold the same
         // progress stream into OTel/Langfuse-style spans correlated by session
         // id (falling back to the thread id for headless/autonomous runs).
-        // `None` (disabled) is zero-cost.
+        // `None` (both remote and local exporters disabled) is zero-cost.
         let mut journal_trace_ctx = None;
         let mut span_collector = if config.observability.share_usage_data
             || config.observability.agent_tracing.enabled
@@ -389,15 +388,13 @@ pub(crate) fn spawn_progress_bridge(
             // Attribute the trace to the *real* authenticated user (cached
             // stored credential identity: id, else email) — the transport client
             // id (socket client / "system") is NOT a user; it rides along as
-            // the separate `client.id` metadata attribute. When no identity is
-            // cached (signed-out / fresh install), fall back to the client id
-            // so the trace still carries some attribution.
+            // the separate `client.id` metadata attribute. The backend stamps
+            // the authenticated JWT user on every accepted trace.
             let identity = crate::security::credentials::identity::peek_credential_user_identity();
-            let user_attributed = identity.is_some();
             let user_id = identity
                 .and_then(|i| i.id.or(i.email))
-                .or_else(|| session_profile_user_attribution(&config))
-                .unwrap_or_else(|| client_id.clone());
+                .or_else(|| session_profile_user_attribution(&config));
+            let user_attributed = user_id.is_some();
             // Run origin for trace metadata: the request's source tag
             // ("ptt"/"dictation"/"type"/"autonomous"/…), else a
             // plain interactive chat turn.
@@ -422,7 +419,7 @@ pub(crate) fn spawn_progress_bridge(
                 capture_content,
                 request_id,
             );
-            let mut trace_ctx = TraceContext::new(trace_id, Some(user_id))
+            let mut trace_ctx = TraceContext::new(trace_id, user_id)
                 .with_session_group(thread_id.clone())
                 .with_client_id(client_id.clone())
                 .with_channel_source(channel_source)

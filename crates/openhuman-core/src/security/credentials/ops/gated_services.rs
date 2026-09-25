@@ -15,6 +15,31 @@ pub(super) fn is_embedder_host() -> bool {
     crate::core::runtime::context::CoreContext::current_embedder_config().is_some()
 }
 
+/// Populate the process cache away from the next chat turn after startup or a
+/// credential change. Connection changes have their own invalidation paths.
+pub(super) fn spawn_integrations_cache_warm(config: &Config) {
+    let integration_config = config.clone();
+    tokio::spawn(async move {
+        let started = std::time::Instant::now();
+        match crate::integrations::composio::fetch_connected_integrations_status(
+            &integration_config,
+        )
+        .await
+        {
+            crate::integrations::composio::FetchConnectedIntegrationsStatus::Authoritative(
+                entries,
+            ) => log::info!(
+                "[services] integrations cache warmed entries={} elapsed_ms={}",
+                entries.len(),
+                started.elapsed().as_millis()
+            ),
+            crate::integrations::composio::FetchConnectedIntegrationsStatus::Unavailable => {
+                log::debug!("[services] integrations cache warm unavailable; first turn may retry")
+            }
+        }
+    });
+}
+
 /// Start all login-gated background services (local AI and voice). Called both
 /// from the initial boot path (when an existing
 /// session is detected) and from `set_credential()` when a credential is installed.
@@ -50,6 +75,18 @@ pub async fn start_credential_gated_services(config: &Config) {
         log::debug!("[services] login-gated services skipped under unit test");
         return;
     }
+
+    // An embedder's task-local user-root policy does not cross spawn_blocking;
+    // its first agent build warms the correctly scoped cache instead.
+    if !is_embedder_host() {
+        let skills_workspace = config.workspace_dir.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            let count = crate::skills::load_workflow_metadata(&skills_workspace).len();
+            log::debug!("[services] skill metadata cache warmed entries={count}");
+        });
+    }
+
+    spawn_integrations_cache_warm(config);
 
     let started = std::time::Instant::now();
     // (service label, task) pairs so a panic surfaced on join is attributed to

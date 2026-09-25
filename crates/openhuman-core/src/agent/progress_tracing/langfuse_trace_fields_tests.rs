@@ -5,11 +5,11 @@ use crate::agent::progress_tracing::langfuse::span_export::spans_to_langfuse_bat
 /// pushable bucket. `ingestion_url` returns a non-URL placeholder when no
 /// backend host resolves.
 #[test]
-fn an_unparseable_base_is_production() {
+fn an_unparseable_base_is_external() {
     for base in ["", "not a url", "/api/v1/ingestion"] {
         assert_eq!(
             environment_for_base(base),
-            "production",
+            "external",
             "{base:?} must fail closed"
         );
     }

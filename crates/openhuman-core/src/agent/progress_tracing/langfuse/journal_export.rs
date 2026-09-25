@@ -33,13 +33,37 @@ pub(super) fn trace_ctx_with_run_lineage(
         return trace_ctx.clone();
     };
     trace_ctx.clone().with_run_lineage(
-        Some(first.run_id.as_str().to_string()),
-        first
-            .parent_run_id
-            .as_ref()
-            .map(|id| id.as_str().to_string()),
-        Some(first.root_run_id.as_str().to_string()),
+        trace_ctx
+            .run_id
+            .clone()
+            .or_else(|| Some(first.run_id.as_str().to_string())),
+        trace_ctx.parent_run_id.clone().or_else(|| {
+            first
+                .parent_run_id
+                .as_ref()
+                .map(|id| id.as_str().to_string())
+        }),
+        trace_ctx
+            .root_run_id
+            .clone()
+            .or_else(|| Some(first.root_run_id.as_str().to_string())),
     )
+}
+
+/// A child is a root observation within its own trace. Preserve its original
+/// run lineage on the trace metadata before calling this projection.
+pub(crate) fn root_subagent_observations(
+    observations: &[AgentObservation],
+) -> Vec<AgentObservation> {
+    observations
+        .iter()
+        .cloned()
+        .map(|mut observation| {
+            observation.parent_run_id = None;
+            observation.root_run_id = observation.run_id.clone();
+            observation
+        })
+        .collect()
 }
 
 pub(super) fn trace_config_from_context(
@@ -138,6 +162,14 @@ pub(super) fn insert_run_telemetry_generation(
     let Some(batch) = payload.get_mut("batch").and_then(Value::as_array_mut) else {
         return false;
     };
+    // Native per-call charges are already counted by Langfuse. Adding the
+    // run aggregate as another generation would double-count the same spend.
+    if batch.iter().any(|event| {
+        event["type"] == "generation-create"
+            && event["body"]["costDetails"]["total"].as_f64().is_some()
+    }) {
+        return false;
+    }
     let Some(trace_id) = batch
         .first()
         .and_then(|event| event.get("body"))

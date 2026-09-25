@@ -32,8 +32,7 @@ impl OpenHumanTurnPrelude {
     pub(super) async fn refresh_turn_boundary(&self, cold: bool) {
         // Hydrate on the first turn of *this session instance*, not only on a
         // brand-new thread. A resumed thread is never `cold`, and a session
-        // rebuilt after a restart (or any rebuild past the 60 s integrations
-        // cache TTL) is seeded from an empty cache — gating the fetch on
+        // rebuilt after a restart is seeded from an empty cache — gating the fetch on
         // `cold` left it with zero integrations, no deferred Composio
         // actions, and no `tool_search` bridge for the whole thread.
         // `refresh_cold_integrations` is a no-op once hydrated.
@@ -113,8 +112,8 @@ impl OpenHumanTurnPrelude {
                 .map(Arc::new),
         };
         if let Some(config) = config.as_deref() {
-            // An expired cache is refetched rather than skipped, so a
-            // long-lived session keeps tracking connects/revokes.
+            // The connection list and change events invalidate the process
+            // snapshot, so the turn reads it without an idle-time refresh.
             let current = match crate::integrations::composio::cached_active_integrations(config) {
                 Some(current) => Some((current, true)),
                 None => load_connected_integrations(config).await,

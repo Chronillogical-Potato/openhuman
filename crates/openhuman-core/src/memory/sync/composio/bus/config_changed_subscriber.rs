@@ -13,7 +13,7 @@ use crate::integrations::composio::FetchConnectedIntegrationsStatus;
 /// `config.composio().mode` between `"backend"` and `"direct"` or
 /// stores/clears the direct-mode API key. Without this, the chat
 /// runtime keeps the old tenant's tool catalogue / connection list
-/// pinned for up to `CACHE_TTL` (60s) — that's the regression behind
+/// pinned until another event or process restart — that's the regression behind
 /// "I switched to Direct and my old integrations are still showing"
 /// (#1710).
 ///

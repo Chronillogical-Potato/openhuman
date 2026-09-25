@@ -33,6 +33,6 @@ pub use fetch::{
 // these via a plain `use super::<name>;`, exactly as when this was one
 // un-split file. See each item's `pub(super)` in its owning submodule.
 #[cfg(test)]
-pub(crate) use cache::{cache_key, CachedIntegrations, CACHE_TTL, INTEGRATIONS_CACHE};
+pub(crate) use cache::{cache_key, CachedIntegrations, INTEGRATIONS_CACHE};
 #[cfg(test)]
 pub(crate) use fetch::{connectable_toolkit_slugs, resolve_toolkit_description};

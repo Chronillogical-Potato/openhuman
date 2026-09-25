@@ -56,8 +56,9 @@ fn ingestion_url(config: &Config) -> String {
 /// traces can be correlated with the app build that produced them.
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Builds the [`LangfuseTraceConfig`] for one flow run: the trace id **and**
-/// session id are the run's `thread_id` (`flow:{flow_id}:{uuid}`), the trace
+/// Builds the [`LangfuseTraceConfig`] for one flow run: the trace id is the
+/// run's `thread_id` (`flow:{flow_id}:{uuid}`), while the session id is the
+/// stable `flow:{flow_id}` so repeated runs group together. The trace
 /// is named `flow.run:{flow_name}`, run-type tags (`run:flow` +
 /// `trigger:<kind>`) mark how the run started, and flow coordinates plus the
 /// app version ride on the trace metadata. No content — ids, name, status,
@@ -72,7 +73,7 @@ fn build_flow_trace_config(
     LangfuseTraceConfig {
         trace_id: Some(thread_id.to_string()),
         name: Some(format!("flow.run:{flow_name}")),
-        session_id: Some(thread_id.to_string()),
+        session_id: Some(format!("flow:{flow_id}")),
         release: Some(APP_VERSION.to_string()),
         tags: vec![
             "run:flow".to_string(),
