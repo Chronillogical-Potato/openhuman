@@ -114,10 +114,7 @@ const CREDENTIAL_CHANNELS = [
     channel: 'yuanbao',
     label: 'Yuanbao',
     requiredFields: ['app_key', 'app_secret'],
-    validCredentials: {
-      app_key: 'e2e-yuanbao-app-key',
-      app_secret: 'e2e-yuanbao-app-secret',
-    },
+    validCredentials: { app_key: 'e2e-yuanbao-app-key', app_secret: 'e2e-yuanbao-app-secret' },
     /** Omits `app_secret`, which the definition marks required. */
     incompleteCredentials: { app_key: 'e2e-yuanbao-app-key' },
     missingFieldHint: 'app_secret',
@@ -199,10 +196,7 @@ describe('Credential channels — Yuanbao and Email (IMAP/SMTP)', () => {
       this.timeout(60_000);
       // Start from a known-disconnected state so a leftover connection from an
       // earlier run cannot make the assertion below pass without a connect.
-      await callOpenhumanRpc('openhuman.channels_disconnect', {
-        channel,
-        authMode: 'api_key',
-      });
+      await callOpenhumanRpc('openhuman.channels_disconnect', { channel, authMode: 'api_key' });
       if (isConnected(await statusFor(channel))) {
         throw new Error(
           `precondition: ${label} should be disconnected before the connect under test`
@@ -229,10 +223,7 @@ describe('Credential channels — Yuanbao and Email (IMAP/SMTP)', () => {
 
     it(`D.4 ${channel} connect missing a required credential is rejected`, async function () {
       this.timeout(60_000);
-      await callOpenhumanRpc('openhuman.channels_disconnect', {
-        channel,
-        authMode: 'api_key',
-      });
+      await callOpenhumanRpc('openhuman.channels_disconnect', { channel, authMode: 'api_key' });
 
       const out = await callOpenhumanRpc('openhuman.channels_connect', {
         channel,

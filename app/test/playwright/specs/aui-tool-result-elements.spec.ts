@@ -321,10 +321,7 @@ test.describe('assistant-ui tool-result elements', () => {
     await scriptToolCall('AUI-DOC-CASE', [
       {
         name: 'generate_document',
-        arguments: {
-          title: DOC_TITLE,
-          prompt: 'summarise the infrastructure work this quarter',
-        },
+        arguments: { title: DOC_TITLE, prompt: 'summarise the infrastructure work this quarter' },
       },
     ]);
 
