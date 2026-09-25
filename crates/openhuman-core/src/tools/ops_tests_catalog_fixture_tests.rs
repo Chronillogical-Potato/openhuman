@@ -7,8 +7,9 @@
 //! replays a persisted timeline). That fallback table is only ever as
 //! accurate as the day someone last updated it by hand, so this test builds
 //! the REAL registered catalog on every core test run and fails loudly the
-//! moment it disagrees with the frontend's copy, naming exactly what was
-//! added or removed and how to regenerate.
+//! moment the shipped product disagrees with the frontend's copy. Contributor
+//! builds may omit product-only gates, so they check only for unrecognized
+//! registered names rather than treating gated names as removals.
 use super::*;
 use std::path::PathBuf;
 
@@ -17,6 +18,44 @@ use std::path::PathBuf;
 fn fixture_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../app/src/features/conversations/tools/__fixtures__/coreToolNames.json")
+}
+
+/// Track the full shipped feature contract, rather than a hand-picked subset
+/// that can accidentally classify a partial build as the product profile.
+fn full_product_features_enabled() -> bool {
+    let flags = [
+        ("channels", cfg!(feature = "channels")),
+        ("media", cfg!(feature = "media")),
+        ("inference", cfg!(feature = "inference")),
+        ("voice", cfg!(feature = "voice")),
+        ("web3", cfg!(feature = "web3")),
+        ("documents", cfg!(feature = "documents")),
+        ("modules", cfg!(feature = "modules")),
+        ("flows", cfg!(feature = "flows")),
+        ("skills", cfg!(feature = "skills")),
+        ("mcp", cfg!(feature = "mcp")),
+        ("crash-reporting", cfg!(feature = "crash-reporting")),
+        ("http-server", cfg!(feature = "http-server")),
+        ("scheduler-gate", cfg!(feature = "scheduler-gate")),
+        ("file-logging", cfg!(feature = "file-logging")),
+        ("contacts", cfg!(feature = "contacts")),
+        ("runtime-node", cfg!(feature = "runtime-node")),
+        ("hosting", cfg!(feature = "hosting")),
+    ];
+    let declared: std::collections::BTreeSet<_> = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../scripts/ci/product-features.txt"
+    ))
+    .lines()
+    .map(|line| line.split('#').next().unwrap_or("").trim())
+    .filter(|line| !line.is_empty())
+    .collect();
+    let checked: std::collections::BTreeSet<_> = flags.iter().map(|(name, _)| *name).collect();
+    assert_eq!(
+        checked, declared,
+        "update the product catalog feature gate list"
+    );
+    flags.iter().all(|(_, enabled)| *enabled)
 }
 
 /// The full model-facing tool catalog this build can register, sorted and
@@ -41,14 +80,10 @@ fn fixture_path() -> PathBuf {
 ///   API-key-gated tools that require a live key in config are absent here;
 ///   only the managed `web_search_tool` (or whichever tool the enabled
 ///   feature set + config resolves to) is registered.
-/// * **Cargo feature gates**: this test runs under this crate's default
-///   features (`cargo test -p openhuman`), matching the contributor build
-///   `AGENTS.md` documents as authoritative for the test lane. A tool
-///   compiled out under a non-default feature set (see
-///   `scripts/ci/product-features.txt` for the shipped product's gates)
-///   will not appear here even though it exists in the source tree; this is
-///   intentional; add a comment at the call site (not in the fixture) when
-///   a name conditionally disappears under a feature combination CI covers.
+/// * **Cargo feature gates**: the fixture represents the shipped product
+///   feature set (`scripts/ci/product-features.txt`). A default contributor
+///   build may register fewer tools, but every name it registers must be in
+///   the product catalog. The full product build checks exact equality.
 ///
 /// On top of the domain registry this adds the two harness-intrinsic bridge
 /// tool names, `tool_search` and `tool_call`
@@ -96,6 +131,7 @@ fn full_tool_catalog_names() -> Vec<String> {
 }
 
 const REGENERATE_COMMAND: &str = "UPDATE_TOOL_CATALOG=1 cargo test -p openhuman --lib \
+     --features \"$(bash scripts/ci/product-features.sh)\" \
      tools::ops::tests::catalog_fixture_tests::tool_catalog_matches_frontend_fixture";
 
 /// Regenerates the fixture when `UPDATE_TOOL_CATALOG=1`, otherwise fails with
@@ -134,9 +170,16 @@ fn tool_catalog_matches_frontend_fixture() {
     expected.sort();
     expected.dedup();
 
-    if names != expected {
-        let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
-        let removed: Vec<&String> = expected.iter().filter(|n| !names.contains(n)).collect();
+    // Contributor and partial-feature builds may lack product tools, but
+    // every registered name must still belong to the shipped catalog.
+    let full_product = full_product_features_enabled();
+    let added: Vec<&String> = names.iter().filter(|n| !expected.contains(n)).collect();
+    let removed: Vec<&String> = if full_product {
+        expected.iter().filter(|n| !names.contains(n)).collect()
+    } else {
+        Vec::new()
+    };
+    if !added.is_empty() || !removed.is_empty() {
         panic!(
             "core tool catalog drifted from the frontend fixture at {}.\n\
              added:   {added:?}\n\
