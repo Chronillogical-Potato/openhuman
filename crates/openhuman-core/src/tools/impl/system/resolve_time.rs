@@ -10,16 +10,9 @@
 //! returns the value ready to paste into a tool argument
 //! (`oldest`/`latest`/`since`/`after`, cron times, …).
 //!
-//! Read-only, no side effects. Accepts:
-//!   - `"now"`
-//!   - past relative durations: `"24h ago"`, `"last 24 hours"`, `"-7d"`,
-//!     `"30d"`, `"15m"`, `"2 weeks ago"` (units: s/m/h/d/w)
-//!   - future relative durations (for scheduling): `"in 10 minutes"`,
-//!     `"30m from now"`, `"+2h"`, `"next 7d"`
-//!   - day anchors: `"today"`, `"yesterday"`, `"tomorrow"` (civil midnight in
-//!     the resolved zone)
-//!   - absolute: RFC-3339 (`"2026-06-09T19:12:00Z"`), bare date (`"2026-06-09"`),
-//!     or `"YYYY-MM-DD HH:MM:SS"`
+//! Read-only, no side effects. Accepts durations, conversational calendar
+//! phrases, and ISO dates/timestamps. Bare durations look backward; `in` and
+//! `next` look forward. Civil dates and clock times use the requested timezone.
 //!
 //! Returns every common representation so the caller can pick the one the
 //! target tool's schema wants:
@@ -27,11 +20,14 @@
 //!   - `unix_ms`    — Unix milliseconds (integer)
 //!   - `slack_ts`   — Slack `conversations.history` style `"<secs>.000000"`
 //!   - `rfc3339`    — `"2026-06-09T19:12:00+00:00"`
-//!   - `value`      — the representation named by the optional `format` arg
-//!                    (defaults to `unix_s`), as a string, for copy-paste.
+//!   - `value`      — Unix seconds as a string for copy-paste; legacy callers
+//!                    may still select another representation with `format`.
 
 use async_trait::async_trait;
-use chrono::{DateTime, Duration, Local, NaiveDate, NaiveDateTime, SecondsFormat, Utc};
+use chrono::{
+    DateTime, Datelike, Duration, Local, NaiveDate, NaiveDateTime, NaiveTime, SecondsFormat, Utc,
+    Weekday,
+};
 use chrono_tz::Tz;
 use serde_json::json;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
@@ -53,11 +49,8 @@ impl Default for ResolveTimeTool {
 /// Parse a relative-duration expression into a **signed** [`Duration`] offset
 /// from now: negative = the past, positive = the future.
 ///
-/// Direction comes from explicit markers — `"… ago"`, `"last "`, `"past "`, or
-/// a leading `-` mean the past; `"in "`, `"next "`, `"… from now"`, or a
-/// leading `+` mean the future. A bare duration (`"24h"`, `"7d"`) defaults to
-/// the **past**, since the dominant caller is "recent / last N" history
-/// lookups. Returns `None` if the input isn't a recognized relative duration.
+/// Direction comes from `ago`, `last`, `past`, or `-` for the past and `in`,
+/// `next`, `from now`, or `+` for the future. A bare duration looks backward.
 ///
 /// Getting the sign right matters: `scheduler_agent` passes future phrasing
 /// like `"in 10 minutes"`, which must resolve forward, not backward.
@@ -93,33 +86,186 @@ fn parse_relative_duration(raw: &str) -> Option<Duration> {
         s = rest.trim().to_string();
     }
 
-    // Collapse internal whitespace between the number and the unit.
-    let s: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
-
-    // Split into leading number + trailing unit (with or without a space).
-    let split_at = s.find(|c: char| !c.is_ascii_digit())?;
-    if split_at == 0 {
-        return None; // no leading number
+    // Split both "2 hours 30 minutes" and "2h30m" into number/unit pairs.
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut was_digit = None;
+    for c in s.chars() {
+        if c.is_ascii_digit() || c.is_ascii_alphabetic() {
+            let is_digit = c.is_ascii_digit();
+            if was_digit.is_some_and(|previous| previous != is_digit) && !current.is_empty() {
+                tokens.push(std::mem::take(&mut current));
+            }
+            current.push(c);
+            was_digit = Some(is_digit);
+        } else if c.is_whitespace() || c == ',' {
+            if !current.is_empty() {
+                tokens.push(std::mem::take(&mut current));
+            }
+            was_digit = None;
+        } else {
+            return None;
+        }
     }
-    let (num_str, unit_str) = s.split_at(split_at);
-    let n: i64 = num_str.trim().parse().ok()?;
-    let unit = unit_str.trim();
-
-    let secs_per = match unit {
-        "s" | "sec" | "secs" | "second" | "seconds" => 1,
-        "m" | "min" | "mins" | "minute" | "minutes" => 60,
-        "h" | "hr" | "hrs" | "hour" | "hours" => 3_600,
-        "d" | "day" | "days" => 86_400,
-        "w" | "wk" | "wks" | "week" | "weeks" => 604_800,
-        _ => return None,
-    };
-    let magnitude = Duration::seconds(n.saturating_mul(secs_per));
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    let mut parts = tokens.into_iter().filter(|token| token != "and");
+    let mut seconds = 0_i64;
+    let mut any = false;
+    while let Some(number) = parts.next() {
+        let n: i64 = number.parse().ok()?;
+        let unit = parts.next()?;
+        let secs_per = match unit.as_str() {
+            "s" | "sec" | "secs" | "second" | "seconds" => 1,
+            "m" | "min" | "mins" | "minute" | "minutes" => 60,
+            "h" | "hr" | "hrs" | "hour" | "hours" => 3_600,
+            "d" | "day" | "days" => 86_400,
+            "w" | "wk" | "wks" | "week" | "weeks" => 604_800,
+            _ => return None,
+        };
+        seconds = seconds.checked_add(n.checked_mul(secs_per)?)?;
+        any = true;
+    }
+    if !any {
+        return None;
+    }
+    let magnitude = Duration::seconds(seconds);
     Some(if future { magnitude } else { -magnitude })
 }
 
 /// Resolve `expr` to an absolute UTC instant. `zone` interprets civil
 /// inputs (`today`, `yesterday`, bare dates without an explicit offset).
+fn parse_weekday(name: &str) -> Option<Weekday> {
+    match name {
+        "monday" | "mon" => Some(Weekday::Mon),
+        "tuesday" | "tue" | "tues" => Some(Weekday::Tue),
+        "wednesday" | "wed" => Some(Weekday::Wed),
+        "thursday" | "thu" | "thur" | "thurs" => Some(Weekday::Thu),
+        "friday" | "fri" => Some(Weekday::Fri),
+        "saturday" | "sat" => Some(Weekday::Sat),
+        "sunday" | "sun" => Some(Weekday::Sun),
+        _ => None,
+    }
+}
+
+fn parse_clock_time(raw: &str) -> Option<NaiveTime> {
+    let compact = raw
+        .trim()
+        .trim_start_matches("at ")
+        .replace(' ', "")
+        .replace('.', "")
+        .to_ascii_uppercase();
+    match compact.as_str() {
+        "NOON" => return NaiveTime::from_hms_opt(12, 0, 0),
+        "MIDNIGHT" => return NaiveTime::from_hms_opt(0, 0, 0),
+        _ => {}
+    }
+    let (clock, meridiem) = if let Some(clock) = compact.strip_suffix("AM") {
+        (clock, Some(false))
+    } else if let Some(clock) = compact.strip_suffix("PM") {
+        (clock, Some(true))
+    } else {
+        (compact.as_str(), None)
+    };
+    let parts: Vec<&str> = clock.split(':').collect();
+    if parts.is_empty() || parts.len() > 3 {
+        return None;
+    }
+    let mut hour: u32 = parts[0].parse().ok()?;
+    let minute: u32 = parts.get(1).map_or(Some(0), |s| s.parse().ok())?;
+    let second: u32 = parts.get(2).map_or(Some(0), |s| s.parse().ok())?;
+    if let Some(pm) = meridiem {
+        if !(1..=12).contains(&hour) {
+            return None;
+        }
+        hour = hour % 12 + if pm { 12 } else { 0 };
+    }
+    NaiveTime::from_hms_opt(hour, minute, second)
+}
+
+/// A calendar phrase may be a day on its own or a day plus a clock time.
+/// Unqualified weekdays refer to the most recent occurrence, which makes
+/// "since Monday" useful for history queries; "next" is always in the future.
+fn resolve_calendar_phrase(
+    lower: &str,
+    zone: &ResolveZone,
+    now: DateTime<Utc>,
+) -> Option<Result<DateTime<Utc>, String>> {
+    let words: Vec<&str> = lower.split_whitespace().collect();
+    let first = *words.first()?;
+    let anchor_len = if matches!(first, "last" | "next" | "this" | "since")
+        && words
+            .get(1)
+            .is_some_and(|word| parse_weekday(word).is_some())
+    {
+        2
+    } else if matches!(first, "today" | "tomorrow" | "yesterday" | "tonight")
+        || parse_weekday(first).is_some()
+    {
+        1
+    } else {
+        return None;
+    };
+    let anchor = words[..anchor_len].join(" ");
+    let time_words = words[anchor_len..].join(" ");
+    let time = if time_words.is_empty() {
+        // "Tonight" is a period, not an exact instant. Require a clock time
+        // rather than silently inventing one for a reminder.
+        if anchor == "tonight" {
+            return None;
+        }
+        NaiveTime::from_hms_opt(0, 0, 0)?
+    } else {
+        parse_clock_time(&time_words)?
+    };
+    let today = zone.civil_date(now);
+    let date = match anchor.as_str() {
+        "today" | "tonight" => today,
+        "yesterday" => today - Duration::days(1),
+        "tomorrow" => today + Duration::days(1),
+        _ => {
+            let (direction, weekday_name) = anchor
+                .split_once(' ')
+                .map_or(("since", anchor.as_str()), |(a, b)| (a, b));
+            let weekday = parse_weekday(weekday_name)?;
+            let current = today.weekday().num_days_from_monday() as i64;
+            let target = weekday.num_days_from_monday() as i64;
+            let days = match direction {
+                "next" => {
+                    let ahead = (target - current).rem_euclid(7);
+                    if ahead == 0 {
+                        7
+                    } else {
+                        ahead
+                    }
+                }
+                "this" => target - current,
+                "last" => {
+                    let behind = (current - target).rem_euclid(7);
+                    if behind == 0 {
+                        -7
+                    } else {
+                        -behind
+                    }
+                }
+                _ => -(current - target).rem_euclid(7),
+            };
+            today + Duration::days(days)
+        }
+    };
+    Some(zone.naive_to_utc(date.and_time(time)))
+}
+
 fn resolve_expr(expr: &str, zone: ResolveZone) -> Result<DateTime<Utc>, String> {
+    resolve_expr_at(expr, zone, Utc::now())
+}
+
+fn resolve_expr_at(
+    expr: &str,
+    zone: ResolveZone,
+    now: DateTime<Utc>,
+) -> Result<DateTime<Utc>, String> {
     let trimmed = expr.trim();
     if trimmed.is_empty() {
         return Err(
@@ -129,24 +275,18 @@ fn resolve_expr(expr: &str, zone: ResolveZone) -> Result<DateTime<Utc>, String> 
     let lower = trimmed.to_ascii_lowercase();
 
     if lower == "now" {
-        return Ok(Utc::now());
+        return Ok(now);
     }
 
     // Relative duration → signed offset from now (sign encodes past/future).
     if let Some(dur) = parse_relative_duration(trimmed) {
-        return Ok(Utc::now() + dur);
+        return now
+            .checked_add_signed(dur)
+            .ok_or_else(|| "relative time is outside the supported date range".to_string());
     }
 
-    // Day anchors: civil midnight in the resolved zone.
-    if lower == "today" || lower == "yesterday" || lower == "tomorrow" {
-        let offset_days = match lower.as_str() {
-            "yesterday" => -1,
-            "tomorrow" => 1,
-            _ => 0,
-        };
-        let today_civil = zone.now_civil_date();
-        let target = today_civil + Duration::days(offset_days);
-        return zone.civil_midnight_to_utc(target);
+    if let Some(result) = resolve_calendar_phrase(&lower, &zone, now) {
+        return result;
     }
 
     // RFC-3339 / ISO-8601 with explicit offset (e.g. ...Z, +05:30).
@@ -166,13 +306,34 @@ fn resolve_expr(expr: &str, zone: ResolveZone) -> Result<DateTime<Utc>, String> 
         return zone.civil_midnight_to_utc(date);
     }
 
+    // Date with a conversational clock time, e.g. "2026-06-09 at 9am".
+    if let Some((date_text, clock_text)) = trimmed.split_once(' ') {
+        if let (Ok(date), Some(time)) = (
+            NaiveDate::parse_from_str(date_text, "%Y-%m-%d"),
+            parse_clock_time(clock_text),
+        ) {
+            return zone.naive_to_utc(date.and_time(time));
+        }
+    }
+
+    // Accept time-first forms too: "11pm tonight", "9am next Friday".
+    let words: Vec<&str> = lower.split_whitespace().collect();
+    for anchor_len in [2, 1] {
+        if words.len() > anchor_len {
+            let split = words.len() - anchor_len;
+            let clock = words[..split].join(" ");
+            if parse_clock_time(&clock).is_some() {
+                let reordered = format!("{} {clock}", words[split..].join(" "));
+                if let Some(result) = resolve_calendar_phrase(&reordered, &zone, now) {
+                    return result;
+                }
+            }
+        }
+    }
+
     Err(format!(
-        "could not parse time expression {trimmed:?}. Accepted: \"now\", a relative \
-         duration — past (\"24h ago\" / \"7d\" / \"2 weeks ago\") or future \
-         (\"in 10 minutes\" / \"30m from now\") with units s/m/h/d/w, \
-         \"today\" / \"yesterday\" / \"tomorrow\", an RFC-3339 timestamp like \
-         \"2026-06-09T19:12:00Z\", a bare date \"2026-06-09\", or \
-         \"YYYY-MM-DD HH:MM:SS\"."
+        "could not parse {trimmed:?}; try 'last 24 hours', 'tomorrow at 9am', \
+         'since Monday', or an ISO date/time."
     ))
 }
 
@@ -185,10 +346,10 @@ enum ResolveZone {
 }
 
 impl ResolveZone {
-    fn now_civil_date(&self) -> NaiveDate {
+    fn civil_date(&self, now: DateTime<Utc>) -> NaiveDate {
         match self {
-            ResolveZone::Local => Local::now().date_naive(),
-            ResolveZone::Iana(tz) => Utc::now().with_timezone(tz).date_naive(),
+            ResolveZone::Local => now.with_timezone(&Local).date_naive(),
+            ResolveZone::Iana(tz) => now.with_timezone(tz).date_naive(),
         }
     }
 
@@ -226,9 +387,9 @@ impl Tool for ResolveTimeTool {
     }
 
     fn description(&self) -> &str {
-        "Resolve a time expression (\"now\", \"24h ago\", \"in 10 minutes\", \"today\", \
-         RFC-3339 or a date) into `unix_s`, `unix_ms`, `slack_ts` and `rfc3339`. Every \
-         date/time argument for another tool comes from here."
+        "Turn a time phrase into exact timestamps. Accepts 'last 24 hours', \
+         'in 10 minutes', 'since Monday', 'tomorrow at 9am', or an ISO date/time. \
+         Returns Unix seconds, milliseconds, Slack timestamp, and RFC-3339."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -237,17 +398,11 @@ impl Tool for ResolveTimeTool {
             "properties": {
                 "expr": {
                     "type": "string",
-                    "description": "\"now\", \"24h ago\", \"in 10 minutes\", \"tomorrow\", \
-                                    an RFC-3339 timestamp or a date."
-                },
-                "format": {
-                    "type": "string",
-                    "enum": ["unix_s", "unix_ms", "slack_ts", "rfc3339"],
-                    "description": "Representation for the top-level `value` (default unix_s)."
+                    "description": "Time phrase or ISO date/time, e.g. 'tomorrow at 9am'."
                 },
                 "timezone": {
                     "type": "string",
-                    "description": "IANA timezone for offset-less inputs; defaults to local."
+                    "description": "IANA timezone for dates without an offset; defaults to local."
                 }
             },
             "required": ["expr"]

@@ -30,13 +30,12 @@ For an agent job, call `cron` with `action:"add"`, `job_type:"agent"`, and a `pr
 
 User: "remind me at 11 PM tonight".
 
-1. Call `current_time` to identify today's date and the user's local timezone.
-2. Resolve the concrete local civil time with `resolve_time`, using a parseable expression:
+1. Call `current_time` to identify the user's local timezone.
+2. Pass the user's phrase directly to `resolve_time`:
    ```json
    {
-     "expr": "<today YYYY-MM-DD> 23:00",
-     "timezone": "<user IANA timezone from current_time>",
-     "format": "rfc3339"
+     "expr": "11 PM tonight",
+     "timezone": "<user IANA timezone from current_time>"
    }
    ```
 3. Confirm the resolved local time with the user.

@@ -12,6 +12,7 @@ fn schema_requires_expr() {
     let schema = ResolveTimeTool::new().parameters_schema();
     assert_eq!(schema["type"], "object");
     assert_eq!(schema["required"][0], "expr");
+    assert!(schema["properties"].get("format").is_none());
 }
 
 #[test]
@@ -66,6 +67,47 @@ fn future_variants_resolve_to_a_positive_offset() {
         parse_relative_duration("next 7d").unwrap().num_seconds(),
         604_800
     );
+}
+
+#[test]
+fn combined_durations_are_accepted() {
+    assert_eq!(
+        parse_relative_duration("1 hour and 30 minutes ago")
+            .unwrap()
+            .num_seconds(),
+        -5_400
+    );
+    assert_eq!(
+        parse_relative_duration("in 2h30m").unwrap().num_seconds(),
+        9_000
+    );
+    assert!(parse_relative_duration("in 2 hours and nonsense").is_none());
+}
+
+#[test]
+fn conversational_dates_resolve_in_the_requested_timezone() {
+    let zone: Tz = "Asia/Kolkata".parse().unwrap();
+    let now = DateTime::parse_from_rfc3339("2026-01-07T12:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    for (expr, expected) in [
+        ("tomorrow 9am", "2026-01-08T03:30:00Z"),
+        ("next Friday at 3:30 pm", "2026-01-09T10:00:00Z"),
+        ("since Monday", "2026-01-04T18:30:00Z"),
+        ("last Wednesday", "2025-12-30T18:30:00Z"),
+        ("2026-01-09 at 9am", "2026-01-09T03:30:00Z"),
+        ("11 PM tonight", "2026-01-07T17:30:00Z"),
+        ("9am next Friday", "2026-01-09T03:30:00Z"),
+        ("tomorrow at noon", "2026-01-08T06:30:00Z"),
+    ] {
+        let actual = resolve_expr_at(expr, ResolveZone::Iana(zone), now).unwrap();
+        assert_eq!(
+            actual.to_rfc3339_opts(SecondsFormat::Secs, true),
+            expected,
+            "{expr}"
+        );
+    }
+    assert!(resolve_expr_at("tonight", ResolveZone::Iana(zone), now).is_err());
 }
 
 #[test]
