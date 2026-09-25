@@ -14,6 +14,7 @@ import {
   resetSessionTokenUsage,
   setPendingPlanReviewForThread,
   setStreamingAssistantForThread,
+  streamDeltaReceived,
 } from '../../store/chatRuntimeSlice';
 import { pendingFollowupAdded } from '../../store/queueSlice';
 import { setStatusForUser } from '../../store/socketSlice';
@@ -2476,6 +2477,145 @@ describe('ChatRuntimeProvider — chat_cancelled (wire-contract.md)', () => {
           }),
         })
       )
+    );
+  });
+
+  it('keeps the partial when the core sends cancelled chat_error before chat_cancelled', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-stop-event-order';
+
+    act(() => {
+      store.dispatch(
+        setStreamingAssistantForThread({
+          threadId,
+          streaming: { content: 'answer so far', thinking: '', requestId: 'r-stop' },
+        })
+      );
+      listeners.onError?.({
+        thread_id: threadId,
+        request_id: 'r-stop',
+        message: 'Cancelled',
+        error_type: 'cancelled',
+        round: 0,
+      });
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-stop',
+        cancel_reason: 'user_stop',
+      });
+    });
+
+    await waitFor(() =>
+      expect(threadApi.appendMessage).toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({
+          content: 'answer so far',
+          extraMetadata: expect.objectContaining({
+            stopped: true,
+            cancelReason: 'user_stop',
+            requestId: 'r-stop',
+          }),
+        })
+      )
+    );
+    expect(threadApi.appendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('anchors a stopped turn whose output was only processing activity', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-processing-stop';
+
+    act(() => {
+      store.dispatch(
+        streamDeltaReceived({
+          threadId,
+          requestId: 'r-thinking',
+          round: 1,
+          delta: 'considering the request',
+          channel: 'thinking',
+          at: Date.now(),
+        })
+      );
+      listeners.onError?.({
+        thread_id: threadId,
+        request_id: 'r-thinking',
+        message: 'Cancelled',
+        error_type: 'cancelled',
+        round: 1,
+      });
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-thinking',
+        cancel_reason: 'user_stop',
+      });
+    });
+
+    await waitFor(() =>
+      expect(threadApi.appendMessage).toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({
+          content: '',
+          extraMetadata: expect.objectContaining({ stopped: true, requestId: 'r-thinking' }),
+        })
+      )
+    );
+    await waitFor(() =>
+      expect(store.getState().chatRuntime.settledTurnsByThread[threadId]?.['r-thinking']).toEqual(
+        expect.objectContaining({
+          transcript: expect.arrayContaining([
+            expect.objectContaining({ kind: 'thinking', text: 'considering the request' }),
+          ]),
+        })
+      )
+    );
+  });
+
+  it('stops a parallel branch without clearing the primary turn', async () => {
+    const listeners = renderProvider();
+    const threadId = 't-parallel-stop';
+
+    act(() => {
+      store.dispatch(registerParallelRequest({ threadId, requestId: 'r-branch' }));
+      store.dispatch(
+        setStreamingAssistantForThread({
+          threadId,
+          streaming: { content: 'primary continues', thinking: '', requestId: 'r-primary' },
+        })
+      );
+      store.dispatch(
+        streamDeltaReceived({
+          threadId,
+          requestId: 'r-branch',
+          round: 1,
+          delta: 'branch partial',
+          channel: 'content',
+        })
+      );
+      listeners.onError?.({
+        thread_id: threadId,
+        request_id: 'r-branch',
+        message: 'Cancelled',
+        error_type: 'cancelled',
+        round: 1,
+      });
+      listeners.onCancelled?.({
+        thread_id: threadId,
+        request_id: 'r-branch',
+        cancel_reason: 'user_stop',
+      });
+    });
+
+    await waitFor(() =>
+      expect(threadApi.appendMessage).toHaveBeenCalledWith(
+        threadId,
+        expect.objectContaining({ content: 'branch partial' })
+      )
+    );
+    await waitFor(() =>
+      expect(store.getState().chatRuntime.parallelRequestThreads['r-branch']).toBeUndefined()
+    );
+    expect(store.getState().chatRuntime.streamingAssistantByThread[threadId]?.content).toBe(
+      'primary continues'
     );
   });
 
