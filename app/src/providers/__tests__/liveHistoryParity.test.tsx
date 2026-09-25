@@ -67,7 +67,7 @@ vi.mock('../../services/api/threadApi', () => ({
 }));
 
 vi.mock('../../services/socketService', () => ({
-  socketService: { subscribeThread: vi.fn(() => Promise.resolve(true)) },
+  socketService: { subscribeThread: vi.fn(() => Promise.resolve(true)), on: vi.fn(), off: vi.fn() },
 }));
 
 vi.mock('../../hooks/usageRefresh', () => ({ requestUsageRefresh: vi.fn() }));
