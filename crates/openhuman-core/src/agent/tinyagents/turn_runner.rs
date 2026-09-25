@@ -441,6 +441,14 @@ async fn run_turn_via_tinyagents_inner(
     // the restart-stable `{run_id}-evt-{offset}` a late-attach replay
     // reconstructs the timeline from (05.1). The same id keys the journal + status.
     let journal_run_id = journal::mint_run_id();
+    if let Some(scope) = &subagent_scope {
+        if let Some(slot) = &scope.journal_run_id {
+            *slot
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                Some(journal_run_id.as_str().to_string());
+        }
+    }
     let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
 
     // Attach the event bridge for EVERY turn — including an unobserved

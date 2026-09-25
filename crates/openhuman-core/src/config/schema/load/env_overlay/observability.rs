@@ -26,8 +26,8 @@ impl Config {
             }
         }
 
-        // Opt-in: export prompt/reply content on trace spans (default off — a
-        // deliberate PII reversal). Token/cost export is unaffected by this flag.
+        // Prompt/reply content is captured by default; operators can disable
+        // it independently of token and cost telemetry.
         if let Some(flag) = env.get("OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT") {
             let normalized = flag.trim().to_ascii_lowercase();
             match normalized.as_str() {

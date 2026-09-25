@@ -133,6 +133,14 @@ fn response_to_model_response(
         usage.cache_read_tokens = u.cached_input_tokens;
         usage.cache_creation_tokens = u.cache_creation_tokens;
         usage.reasoning_tokens = u.reasoning_tokens;
+        if u.charged_amount_usd.is_finite() && u.charged_amount_usd > 0.0 {
+            usage.charged_amount = Some(tinyinference_llm::usage::ChargedAmount::usd_micros(
+                (u.charged_amount_usd * 1_000_000.0).round() as i64,
+            ));
+        }
+        if u.context_window > 0 {
+            usage.context_window_tokens = Some(u.context_window);
+        }
         usage
     });
     let finish_reason = if tool_calls.is_empty() {

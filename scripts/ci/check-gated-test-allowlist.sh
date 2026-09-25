@@ -41,7 +41,6 @@ flows/mod.rs
 mcp/server/resources.rs
 mcp/server/tools/mod.rs
 platform/socket/event_handlers.rs
-platform/socket/ops.rs
 skills/bundled/mod.rs
 skills/mod.rs
 skills/search.rs
