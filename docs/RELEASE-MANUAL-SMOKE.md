@@ -27,8 +27,8 @@ Applies to every release, all platforms.
 
 ### Browser module
 
-- [ ] **Browser readiness and setup** — When a checksum-pinned TinyBrowser release is included, open Settings > Connections > Browser on each desktop platform. Expected: module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch. Mark N/A while the module is available only through the development override.
-- [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked. Mark N/A while the module is available only through the development override.
+- [ ] **Browser readiness and setup** — Open Settings > Connections > Browser on each desktop platform. Expected: the checksum-pinned TinyBrowser module downloads and passes TinyBus admission, module and Chrome readiness are reported separately, Test works, and saved viewport, profile, download folder, task limits, and allowed websites survive relaunch.
+- [ ] **Browser task and policy** — With an allowed Selenium test site, use a conversation to submit its web form and download File 1. Expected: `tool_search` discovers `browser`, consequential actions wait for the exact host approval, the submitted page shows “Received!”, and a completed download is verified on disk. Then restrict allowed websites and confirm a disallowed navigation is blocked.
 
 ### Checkbox appearance
 

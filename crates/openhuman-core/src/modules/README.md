@@ -25,7 +25,7 @@ directory on `modules`.
 | Path | Purpose |
 | --- | --- |
 | `mod.rs` | Module rustdoc for the whole loading model; re-exports |
-| `registry.rs` (+ `registry/records_browser.rs`, `registry/records_docs_wallet.rs`, `registry/records_extra.rs`, `registry/records_mcp_connectors.rs`, `registry/records_memory_juice.rs`, `registry/records_runtime.rs`, `registry/records_voice.rs`) | The compiled-in table: every `ModuleRecord`, its per-platform digests, and `find`/`ALL`; TinyBrowser is local-override-only until it publishes verified archives |
+| `registry.rs` (+ `registry/records_browser.rs`, `registry/records_docs_wallet.rs`, `registry/records_extra.rs`, `registry/records_mcp_connectors.rs`, `registry/records_memory_juice.rs`, `registry/records_runtime.rs`, `registry/records_voice.rs`) | The compiled-in table: every `ModuleRecord`, its published per-platform digests, and `find`/`ALL` |
 | `platform.rs` | Which published artifact (`ubuntu-24.04-x86_64`, `macos-15-arm64`, ...) belongs to this host, newest-compatible first |
 | `types.rs` | `LoadPolicy`, `ModuleRecord`, `ModuleSource`, `ModuleState`, `ModuleStatus`, `PlatformAsset` |
 | `host.rs` | The module broker: a dedicated process-lifetime tokio runtime, its `ModuleHost`, and the host's own `Connection` for calling into loaded modules |
