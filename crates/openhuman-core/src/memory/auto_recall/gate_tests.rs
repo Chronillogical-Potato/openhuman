@@ -40,6 +40,8 @@ const OPENS: &[&str] = &[
     "ok so what do I usually order at cafés",
     "yo bro, can you tell me what my timezone is",
     "quick question, do I have any allergies",
+    "what do you know about me?",
+    "do you remember me?",
 ];
 
 /// Messages that are not about the user: the gate must stay closed.
@@ -63,7 +65,7 @@ const CLOSES: &[(&str, &str)] = &[
     ("generate an image of a cat", "no_first_person"),
     ("convert 10 miles to km", "no_first_person"),
     ("what time is it in tokyo?", "no_first_person"),
-    ("give me a summary of the meeting notes", "not_a_question"),
+    ("give me a summary of the meeting notes", "no_first_person"),
     ("send my email to the team", "not_a_question"),
     ("open my calendar", "not_a_question"),
     ("search the web for rust async patterns", "no_first_person"),
@@ -78,6 +80,14 @@ const CLOSES: &[(&str, &str)] = &[
     ("deploy my branch to staging", "not_a_question"),
     ("please fix my code", "not_a_question"),
     ("hey, please summarise this thread", "no_first_person"),
+    (
+        "can you find me more infomration about JEV the model form typesafe?",
+        "no_first_person",
+    ),
+    (
+        "could you show me information about Jev?",
+        "no_first_person",
+    ),
     ("", "empty"),
     ("   \n  ", "empty"),
 ];
