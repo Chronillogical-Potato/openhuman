@@ -137,6 +137,11 @@ pub(super) fn parse_model_call_wall_clock_ms(env_value: Option<&str>) -> Option<
 /// routes (chat→burst, reasoning→agentic, …) the way the harness registry can.
 pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPolicy {
     let mut policy = RunPolicy::default();
+    // A managed streaming response can finish with reasoning but no visible
+    // answer. Reissue that unusable call once; the harness keeps the same
+    // output cap and drops the blank assistant row before retrying. If it
+    // repeats, the existing EmptyProviderResponse path remains actionable.
+    policy.empty_response_retries = 1;
     policy.limits.max_model_calls = max_iterations;
     policy.limits.max_tool_calls = max_iterations.saturating_mul(8).max(8);
     policy.limits.max_depth = MAX_SPAWN_DEPTH;
