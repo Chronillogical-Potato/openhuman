@@ -52,7 +52,19 @@ static MASTER_KEY: OnceLock<Option<[u8; KEY_LEN]>> = OnceLock::new();
 /// used instead). The result is cached process-wide; subsequent calls are
 /// no-ops. Which source supplied the key is logged at `info`; the key never
 /// is.
-pub fn init_master_key() {
+///
+/// # Errors
+///
+/// Returns `Err` only when an operator-supplied source ([`MASTER_KEY_ENV`] /
+/// [`MASTER_KEY_FILE_ENV`]) is set but unusable — both set, unreadable file,
+/// wrong length, not hex. That is a configuration error the process should
+/// not start with: continuing would run with secrets unreadable and fail
+/// later, on the first store, with a less specific message. An OS-keychain
+/// failure is **not** an error here: it keeps the #3311 behaviour (log,
+/// notify the frontend, run with secrets inaccessible until keychain access
+/// is restored). The outcome is cached process-wide, so a second call after
+/// a configuration error returns `Ok` with no master key loaded.
+pub fn init_master_key() -> Result<(), String> {
     // Ensure workspace dir is set for the backend before anything else.
     let dir = crate::security::keyring::store::workspace_dir_for_file_backend();
     log::info!(
@@ -61,6 +73,7 @@ pub fn init_master_key() {
     );
     crate::security::keyring::init_workspace(&dir);
 
+    let mut configuration_error: Option<String> = None;
     MASTER_KEY.get_or_init(|| {
         let backend_kind = crate::security::keyring::store::effective_backend_kind();
         if backend_kind != BackendKind::EncryptedFile {
@@ -75,7 +88,15 @@ pub fn init_master_key() {
                 log::info!("[keyring:encrypted_file] master key loaded from {source}");
                 Some(key)
             }
-            Err(e) => {
+            Err(MasterKeyError::Configured(e)) => {
+                log::error!(
+                    "[keyring:encrypted_file] operator-supplied master key rejected; refusing \
+                     to start with secrets unreadable. Cause: {e}"
+                );
+                configuration_error = Some(e);
+                None
+            }
+            Err(MasterKeyError::Keychain(e)) => {
                 log::error!(
                     "[keyring:encrypted_file] master key load FAILED — refusing to mint a \
                      replacement (that would orphan existing secrets, #3311). Secrets are \
@@ -89,6 +110,21 @@ pub fn init_master_key() {
             }
         }
     });
+    match configuration_error {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+/// Why the master key could not be loaded. The two kinds are handled
+/// differently at startup — see [`init_master_key`].
+#[derive(Debug)]
+enum MasterKeyError {
+    /// An operator-supplied source is set but unusable. Fatal at startup.
+    Configured(String),
+    /// The OS keychain could not provide (or safely mint) the key. Not fatal:
+    /// the process runs with secrets inaccessible, as before.
+    Keychain(String),
 }
 
 /// Abstraction over the OS-keychain entry that holds the master key.
@@ -120,17 +156,43 @@ impl MasterKeyEntry for keyring::Entry {
 /// error, not a fall-through: silently continuing to the keychain would mask
 /// the misconfiguration and, in a container, fail later with a less specific
 /// "master key unavailable".
-fn try_load_master_key() -> Result<([u8; KEY_LEN], String), String> {
-    let inline = std::env::var(MASTER_KEY_ENV).ok();
-    let file = std::env::var(MASTER_KEY_FILE_ENV).ok();
+fn try_load_master_key() -> Result<([u8; KEY_LEN], String), MasterKeyError> {
+    let inline = env_value(MASTER_KEY_ENV, std::env::var(MASTER_KEY_ENV))
+        .map_err(MasterKeyError::Configured)?;
+    let file = env_value(MASTER_KEY_FILE_ENV, std::env::var(MASTER_KEY_FILE_ENV))
+        .map_err(MasterKeyError::Configured)?;
     if let Some(from_env) =
-        master_key_from_env(inline.as_deref(), file.as_deref(), read_master_key_file)?
+        master_key_from_env(inline.as_deref(), file.as_deref(), read_master_key_file)
+            .map_err(MasterKeyError::Configured)?
     {
         return Ok(from_env);
     }
     let entry = keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_MASTER_KEY_USERNAME)
-        .map_err(|e| format!("keychain entry creation failed: {e}"))?;
-    load_or_mint_master_key(&entry).map(|key| (key, "OS keychain".to_string()))
+        .map_err(|e| MasterKeyError::Keychain(format!("keychain entry creation failed: {e}")))?;
+    load_or_mint_master_key(&entry)
+        .map(|key| (key, "OS keychain".to_string()))
+        .map_err(MasterKeyError::Keychain)
+}
+
+/// Interprets one `std::env::var` result for a master-key variable.
+///
+/// Only `NotPresent` means unset. A value that is not valid Unicode is a
+/// misconfiguration and must not be treated as unset: that would fall
+/// through to the OS keychain, where [`load_or_mint_master_key`] could mint
+/// a different key and orphan every secret in `secrets.enc`. The rejected
+/// value is never formatted into the error (`VarError`'s `Display` would
+/// include it).
+fn env_value(
+    name: &str,
+    raw: Result<String, std::env::VarError>,
+) -> Result<Option<String>, String> {
+    match raw {
+        Ok(value) => Ok(Some(value)),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(std::env::VarError::NotUnicode(_)) => {
+            Err(format!("{name} is set but is not valid Unicode"))
+        }
+    }
 }
 
 /// Resolves an operator-supplied master key from the two environment

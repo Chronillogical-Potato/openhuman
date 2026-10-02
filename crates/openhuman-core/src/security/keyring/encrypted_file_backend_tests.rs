@@ -263,3 +263,85 @@ fn parse_master_key_hex_round_trips_an_encoded_key() {
     let parsed = parse_master_key_hex(&crypto::hex_encode(&key_bytes)).expect("valid");
     assert_eq!(parsed.as_slice(), key_bytes.as_slice());
 }
+
+#[test]
+fn env_value_distinguishes_unset_from_invalid_unicode() {
+    use std::env::VarError;
+
+    assert_eq!(
+        env_value(MASTER_KEY_ENV, Ok("abc".to_string())).expect("set"),
+        Some("abc".to_string())
+    );
+    assert_eq!(
+        env_value(MASTER_KEY_ENV, Err(VarError::NotPresent)).expect("unset is not an error"),
+        None
+    );
+
+    // Invalid Unicode must be rejected, not treated as unset: falling through
+    // to the keychain could mint a different key and orphan `secrets.enc`.
+    let rejected = std::ffi::OsString::from("not-the-real-bytes");
+    let err = env_value(MASTER_KEY_FILE_ENV, Err(VarError::NotUnicode(rejected)))
+        .expect_err("invalid Unicode is a configuration error");
+    assert!(err.contains(MASTER_KEY_FILE_ENV), "{err}");
+    assert!(err.contains("not valid Unicode"), "{err}");
+    assert!(
+        !err.contains("not-the-real-bytes"),
+        "error must not echo the value: {err}"
+    );
+}
+
+// ── Wiring: the real env → `try_load_master_key` → key, no keychain ─────────
+
+#[test]
+fn try_load_master_key_prefers_the_inline_env_key_and_never_touches_the_keychain() {
+    let hex = hex_key(0x55);
+    let _env = crate::config::test_env::EnvVarGuard::locked()
+        .with(MASTER_KEY_ENV, &hex)
+        .without(MASTER_KEY_FILE_ENV);
+
+    // A real OS keychain cannot be exercised under `cargo test` (the first
+    // access blocks on a GUI prompt), so reaching the keychain here would hang
+    // or fail; returning means the env source short-circuited it.
+    let (key, source) = try_load_master_key().expect("inline env key loads");
+    assert_eq!(key, [0x55u8; KEY_LEN]);
+    assert_eq!(source, MASTER_KEY_ENV);
+}
+
+#[test]
+fn try_load_master_key_reads_the_file_source_and_is_stable_across_restarts() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let path = tmp.path().join("master.key");
+    std::fs::write(&path, format!("{}\n", hex_key(0x66))).unwrap();
+    let _env = crate::config::test_env::EnvVarGuard::locked()
+        .without(MASTER_KEY_ENV)
+        .with(MASTER_KEY_FILE_ENV, &path);
+
+    // Two loads stand in for two process starts: the same file must yield
+    // the same key, so a secret encrypted before a restart decrypts after it.
+    let (first, source) = try_load_master_key().expect("file key loads");
+    let (second, _) = try_load_master_key().expect("file key loads again");
+    assert_eq!(first, [0x66u8; KEY_LEN]);
+    assert_eq!(first, second);
+    assert!(source.contains(&path.display().to_string()), "{source}");
+
+    let blob = crypto::chacha20_encrypt(&first, b"sk-live-secret").expect("encrypt");
+    assert_eq!(
+        crypto::chacha20_decrypt(&second, &blob).expect("decrypt with the restarted key"),
+        b"sk-live-secret"
+    );
+}
+
+#[test]
+fn try_load_master_key_reports_a_configured_source_error_as_configured() {
+    let _env = crate::config::test_env::EnvVarGuard::locked()
+        .with(MASTER_KEY_ENV, "not-a-key")
+        .without(MASTER_KEY_FILE_ENV);
+
+    match try_load_master_key() {
+        Err(MasterKeyError::Configured(e)) => {
+            assert!(e.contains(MASTER_KEY_ENV), "{e}");
+            assert!(!e.contains("not-a-key"), "must not echo the value: {e}");
+        }
+        other => panic!("expected a configuration error, got {other:?}"),
+    }
+}

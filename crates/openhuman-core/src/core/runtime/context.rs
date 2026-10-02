@@ -255,8 +255,9 @@ impl CoreContext {
 
         // 2. Load the master encryption key before any config/credential op that
         //    needs to decrypt secrets. No-op if already called (e.g. from
-        //    run_core_from_args for the CLI).
-        crate::security::keyring::init_master_key();
+        //    run_core_from_args for the CLI). An operator-supplied key that is
+        //    set but unusable is a configuration error worth failing startup on.
+        crate::security::keyring::init_master_key().map_err(anyhow::Error::msg)?;
 
         // 4. Seed the per-process RPC bearer. `Fixed` seeds the in-memory value
         //    directly (never touches the env); `EnvOrFile` reads
