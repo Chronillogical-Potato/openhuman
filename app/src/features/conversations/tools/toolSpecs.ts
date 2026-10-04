@@ -288,7 +288,10 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   }),
 
   // ── Memory ──────────────────────────────────────────────────────────────
-  memory: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
+  // The single memory tool: recall asks a `question`, fetch a `query`, learn stores `text`.
+  memory: spec('searchMemory', BrainIcon, 'memory', {
+    chip: chip.text('question', 'query', 'text'),
+  }),
   memory_store: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('key', 'content') }),
   memory_recall: spec('recallMemories', BrainCircuitIcon, 'memory', { chip: chip.query() }),
   memory_forget: spec('forgetMemory', EraserIcon, 'memory', { chip: chip.text('key') }),

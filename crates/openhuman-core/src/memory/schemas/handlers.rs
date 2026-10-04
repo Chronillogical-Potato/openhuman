@@ -10,13 +10,13 @@ use crate::core::all::ControllerFuture;
 use crate::core::Outcome;
 use crate::memory::error::{MemoryError, MemoryResult};
 use crate::memory::explore::{self, ExploreParams, ItemsGetParams};
+use crate::memory::lifecycle::views::{self, JobsRunParams, PackPreviewParams, PolicySetParams};
 use crate::memory::types::{
-    ContextNodeParams, ContextSetParams, ConversationsSetParams, EmptyParams, EngineSetParams,
-    FetchParams, ForgetParams, ImportStartParams, ImportStateView, ItemsListParams, LearnParams,
-    RecallParams, SourceAddedView, SourceRemovedView, SourcesAddParams, SourcesListView,
-    SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
+    EmptyParams, EngineSetParams, FetchParams, ForgetParams, ImportStartParams, ImportStateView,
+    ItemsListParams, LearnParams, RecallParams, SourceAddedView, SourceRemovedView,
+    SourcesAddParams, SourcesListView, SourcesRemoveParams, SourcesSyncParams, SourcesSyncView,
 };
-use crate::memory::{context, conversations, engine, import, ops, sources};
+use crate::memory::{backfill, brain, engine, import, ops, sources};
 
 fn parse<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
     serde_json::from_value(Value::Object(params))
@@ -120,38 +120,90 @@ pub(super) fn items_get(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+pub(super) fn policy_get(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        to_json(views::policy_view(&load().await?))
+    })
+}
+
+pub(super) fn policy_set(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<PolicySetParams>(params)?;
+        let mut config = load().await?;
+        views::apply_policy_set(&mut config, &params).map_err(String::from)?;
+        save(&config).await.map_err(String::from)?;
+        to_json(views::policy_view(&config))
+    })
+}
+
+pub(super) fn pack_preview(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<PackPreviewParams>(params)?;
+        finish(views::pack_preview(&load().await?, params).await)
+    })
+}
+
+pub(super) fn agents_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        finish(views::agents_list(&load().await?).await)
+    })
+}
+
 pub(super) fn conversations_backfill_status(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         parse::<EmptyParams>(params)?;
-        finish(conversations::backfill::status(&load().await?).await)
+        finish(backfill::status(&load().await?).await)
     })
 }
 
 pub(super) fn conversations_backfill_start(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<conversations::backfill::BackfillStartParams>(params)?;
-        finish(conversations::backfill::start(&load().await?, params).await)
+        let params = parse::<backfill::BackfillStartParams>(params)?;
+        finish(backfill::start(&load().await?, params).await)
     })
 }
 
-pub(super) fn conversations_get(params: Map<String, Value>) -> ControllerFuture {
+pub(super) fn brain_sources(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         parse::<EmptyParams>(params)?;
-        to_json(conversations::view(&load().await?))
+        finish(brain::sources(&load().await?).await)
     })
 }
 
-pub(super) fn conversations_set(params: Map<String, Value>) -> ControllerFuture {
+pub(super) fn brain_search(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let params = parse::<ConversationsSetParams>(params)?;
-        let mut config = load().await?;
-        let was_enabled = config.memory.conversations.enabled;
-        conversations::apply_set(&mut config, &params).map_err(String::from)?;
-        save(&config).await.map_err(String::from)?;
-        if was_enabled && !config.memory.conversations.enabled {
-            conversations::flush_all(&config).await;
-        }
-        to_json(conversations::view(&config))
+        let params = parse::<brain::BrainSearchParams>(params)?;
+        finish(brain::search(&load().await?, params).await)
+    })
+}
+
+pub(super) fn brain_ingest(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<brain::BrainIngestParams>(params)?;
+        finish(brain::ingest(&load().await?, params).await)
+    })
+}
+
+pub(super) fn brain_forget(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<brain::BrainForgetParams>(params)?;
+        finish(brain::forget(&load().await?, params).await)
+    })
+}
+
+pub(super) fn jobs_list(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        parse::<EmptyParams>(params)?;
+        to_json(views::jobs_list(&load().await?).await)
+    })
+}
+
+pub(super) fn jobs_run(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let params = parse::<JobsRunParams>(params)?;
+        finish(views::jobs_run(&load().await?, params).await)
     })
 }
 
@@ -200,33 +252,6 @@ pub(super) fn sources_sync(params: Map<String, Value>) -> ControllerFuture {
         let config = load().await?;
         let started = sources::start_sync(&config, params.id.as_deref()).map_err(String::from)?;
         to_json(SourcesSyncView { started })
-    })
-}
-
-pub(super) fn context_get(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let namespace = parse::<ContextNodeParams>(params)?.node()?;
-        to_json(context::view_for(&load().await?, &namespace))
-    })
-}
-
-pub(super) fn context_refresh(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let namespace = parse::<ContextNodeParams>(params)?.node()?;
-        finish(context::refresh_for(&load().await?, &namespace).await)
-    })
-}
-
-pub(super) fn context_set(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let params = parse::<ContextSetParams>(params)?;
-        let mut config = load().await?;
-        context::apply_set(&mut config, &params).map_err(String::from)?;
-        save(&config).await.map_err(String::from)?;
-        if let Err(error) = crate::cron::system_jobs::ensure_memory_jobs(&config) {
-            tracing::warn!(error = %error, "[memory:rpc] rescheduling memory jobs failed");
-        }
-        to_json(context::view(&config))
     })
 }
 

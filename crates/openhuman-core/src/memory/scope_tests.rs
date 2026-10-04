@@ -2,136 +2,112 @@ use super::*;
 
 use crate::config::schema::MemoryAgentConfig;
 
-fn config() -> Config {
-    Config::default()
-}
-
 fn ns(value: &str) -> Namespace {
     value.parse().unwrap()
 }
 
 #[test]
-fn the_main_agent_is_the_root_and_others_get_their_own_node() {
-    let config = config();
+fn by_default_an_agent_is_its_definition_under_the_default_root() {
+    let config = Config::default();
+    let researcher = MemoryIdentity::agent("researcher").resolve(&config);
+    assert_eq!(researcher.agent_id, "researcher");
+    assert_eq!(researcher.root(), &Namespace::ROOT);
+    assert!(researcher.recall);
+
+    let nobody = MemoryIdentity::root().resolve(&config);
+    assert_eq!(nobody.agent_id, DEFAULT_AGENT_ID);
     assert_eq!(
-        namespace_for(&config, "orchestrator", None),
-        Namespace::ROOT
-    );
-    assert_eq!(
-        namespace_for(&config, "researcher", None),
-        ns("agent:researcher")
-    );
-    assert_eq!(
-        namespace_for(&config, "writer", Some("acme")),
-        ns("team:acme/agent:writer")
-    );
-    assert_eq!(
-        namespace_for(&config, "orchestrator", Some("acme")),
-        ns("team:acme"),
-        "a root agent in a team writes the team's node"
-    );
-    assert_eq!(namespace_for(&config, "", None), Namespace::ROOT);
-    assert_eq!(MemoryIdentity::root().namespace(&config), Namespace::ROOT);
-    assert_eq!(
-        namespace_for(&config, "a.b", None).segments()[0].kind(),
-        SegmentKind::Agent,
-        "an id outside the charset is sanitized, not refused"
+        MemoryIdentity::agent("  ").resolve(&config).agent_id,
+        DEFAULT_AGENT_ID
     );
 }
 
 #[test]
-fn config_pins_a_node_and_can_switch_inheritance_off() {
-    let mut config = config();
+fn a_team_member_shares_its_teams_root() {
+    let config = Config::default();
+    let writer = MemoryIdentity::team_member("acme", "writer").resolve(&config);
+    assert_eq!(writer.root(), &ns("team:acme"));
+    assert_eq!(writer.agent_id, "writer");
+    assert_eq!(
+        writer.layout.conversations("writer").unwrap(),
+        ns("team:acme/agent:writer")
+    );
+    let child = MemoryIdentity::team_member("acme", "lead").child("scout");
+    assert_eq!(child.resolve(&config).root(), &ns("team:acme"));
+}
+
+#[test]
+fn a_definition_pin_beats_the_team_and_the_default() {
+    let mut config = Config::default();
     config.memory.agents.insert(
         "analyst".into(),
         MemoryAgentConfig {
-            namespace: Some("project:q4".into()),
-            inherit: false,
-            context: None,
+            agent_id: Some("q4-desk".into()),
+            root: Some("project:q4".into()),
+            recall: Some(false),
         },
     );
     config.memory.agents.insert(
         "broken".into(),
         MemoryAgentConfig {
-            namespace: Some("not a namespace".into()),
+            root: Some("not a namespace".into()),
             ..MemoryAgentConfig::default()
         },
     );
-    let analyst = MemoryIdentity::agent("analyst");
-    assert_eq!(analyst.namespace(&config), ns("project:q4"));
-    assert_eq!(analyst.reach(&config), Reach::exact(ns("project:q4")));
+    let analyst = MemoryIdentity::team_member("acme", "analyst").resolve(&config);
+    assert_eq!(analyst.agent_id, "q4-desk");
+    assert_eq!(analyst.root(), &ns("project:q4"));
+    assert!(!analyst.recall);
     assert_eq!(
-        MemoryIdentity::agent("broken").namespace(&config),
-        ns("agent:broken"),
-        "an invalid pin falls back to the derived node"
-    );
-    config.memory.root_agents.push("assistant".into());
-    assert_eq!(namespace_for(&config, "assistant", None), Namespace::ROOT);
-}
-
-#[test]
-fn sub_agents_nest_under_their_parent() {
-    let config = config();
-    let main = MemoryIdentity::agent("orchestrator");
-    assert_eq!(main.namespace(&config), Namespace::ROOT);
-    let researcher = main.child("researcher");
-    assert_eq!(researcher.namespace(&config), ns("agent:researcher"));
-    let scout = researcher.child("scout");
-    assert_eq!(scout.lineage, ["orchestrator", "researcher"]);
-    assert_eq!(scout.namespace(&config), ns("agent:researcher/agent:scout"));
-    assert_eq!(
-        scout.reach(&config).nodes(),
-        vec![
-            Namespace::ROOT,
-            ns("agent:researcher"),
-            ns("agent:researcher/agent:scout")
-        ]
-    );
-    assert_eq!(
-        researcher.child("orchestrator").namespace(&config),
-        ns("agent:researcher"),
-        "a root agent spawned below stays on its parent's node"
-    );
-    let member = MemoryIdentity::team_member("acme", "writer");
-    assert_eq!(member.namespace(&config).shared_ancestor(), ns("team:acme"));
-    assert_eq!(
-        member.child("editor").namespace(&config),
-        ns("team:acme/agent:writer/agent:editor")
+        MemoryIdentity::agent("broken").resolve(&config).root(),
+        &Namespace::ROOT,
+        "an invalid root falls back to the default"
     );
 }
 
 #[test]
-fn deep_spawn_chains_stop_at_the_depth_limit() {
-    let config = config();
-    let mut identity = MemoryIdentity::root();
-    for depth in 0..20 {
-        identity = identity.child(&format!("a{depth}"));
+fn a_host_binding_beats_everything() {
+    let mut config = Config::default();
+    config.memory.agent_id = Some("employee-7".into());
+    config.memory.root = Some("project:acme".into());
+    config.memory.agents.insert(
+        "researcher".into(),
+        MemoryAgentConfig {
+            agent_id: Some("ignored".into()),
+            root: Some("project:ignored".into()),
+            recall: None,
+        },
+    );
+    for identity in [
+        MemoryIdentity::agent("researcher"),
+        MemoryIdentity::team_member("acme", "writer"),
+        MemoryIdentity::root(),
+    ] {
+        let resolved = identity.resolve(&config);
+        assert_eq!(resolved.agent_id, "employee-7");
+        assert_eq!(resolved.root(), &ns("project:acme"));
     }
-    assert_eq!(
-        identity.namespace(&config).depth(),
-        tinymemory::namespace::MAX_DEPTH
-    );
 }
 
 #[tokio::test]
-async fn turns_scope_the_identity_and_nest_inside_another_agent() {
+async fn within_agent_scopes_a_child_in_the_same_team() {
     assert_eq!(current(), None);
-    within_agent("orchestrator", async {
-        assert_eq!(current().unwrap().agent_id.as_deref(), Some("orchestrator"));
-        within_agent("orchestrator", async {
-            assert!(
-                current().unwrap().lineage.is_empty(),
-                "the same agent keeps its identity"
-            );
+    let seen = within(MemoryIdentity::team_member("acme", "lead"), async {
+        within_agent("lead", async {
+            within_agent("scout", async { current().unwrap() }).await
         })
-        .await;
-        within_agent("researcher", async {
-            let inner = current().unwrap();
-            assert_eq!(inner.agent_id.as_deref(), Some("researcher"));
-            assert_eq!(inner.lineage, ["orchestrator"]);
-        })
-        .await;
+        .await
     })
     .await;
-    assert_eq!(current(), None);
+    assert_eq!(seen, MemoryIdentity::team_member("acme", "scout"));
+    let alone = within_agent("solo", async { current().unwrap() }).await;
+    assert_eq!(alone, MemoryIdentity::agent("solo"));
+}
+
+#[test]
+fn validate_root_accepts_nodes_and_refuses_junk() {
+    assert!(validate_root("team:acme").is_ok());
+    assert!(validate_root("project:q4/team:ops").is_ok());
+    assert!(validate_root("not a namespace").is_err());
+    assert!(validate_root("company:acme").is_err());
 }

@@ -2,7 +2,7 @@ use super::*;
 use crate::memory::error::INVALID_REQUEST;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use chrono::Duration;
-use tinymemory::{DocumentBody, MemoryMeta, SourceKind, SourceRef, StoreItem};
+use tinymemory_api::{DocumentBody, MemoryMeta, SourceKind, SourceRef, StoreItem};
 
 fn add_params(kind: &str, target: &str) -> SourcesAddParams {
     SourcesAddParams {
@@ -251,7 +251,7 @@ async fn forget_items_removes_only_that_sources_documents() {
         .unwrap();
     }
     assert_eq!(forget_items(&config, "src-a").await.unwrap(), 1);
-    let left = stored(&engine, tinymemory::MetaFilter::default()).await;
+    let left = stored(&engine, tinymemory_api::MetaFilter::default()).await;
     assert_eq!(left.len(), 1);
     assert_eq!(left[0].meta.source.id.as_deref(), Some("src-b"));
 }
@@ -267,14 +267,14 @@ async fn forget_items_with_memory_off_is_not_an_error() {
 fn a_source_can_store_at_an_agent_node() {
     let mut config = Config::default();
     let mut params = add_params("link", "https://example.com/a");
-    params.namespace = Some("agent:researcher".into());
+    params.namespace = Some("team:acme".into());
     let added = apply_add(&mut config, &params).unwrap();
-    assert_eq!(added.namespace.as_deref(), Some("agent:researcher"));
+    assert_eq!(added.namespace.as_deref(), Some("team:acme"));
     assert_eq!(
-        namespace_of(&config, &added.id),
-        tinymemory::Namespace::agent("researcher")
+        layout_of(&config, &added.id).root().to_string(),
+        "team:acme"
     );
-    assert!(namespace_of(&config, "unknown").is_root());
+    assert!(layout_of(&config, "unknown").root().is_root());
 
     let mut bad = add_params("link", "https://example.com/b");
     bad.namespace = Some("nope".into());
@@ -285,5 +285,5 @@ fn a_source_can_store_at_an_agent_node() {
 
     let mut hand_edited = source("x", None);
     hand_edited.namespace = Some("not a node".into());
-    assert!(namespace_of_source(&hand_edited).is_root());
+    assert!(layout_of_source(&config, &hand_edited).root().is_root());
 }

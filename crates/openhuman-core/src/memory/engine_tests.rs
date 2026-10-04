@@ -87,7 +87,10 @@ fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
     assert!(has_key(&config, CORTEXDB_ENGINE));
     let first = resolve(&config).engine().expect("bound");
     assert_eq!(first.id, CORTEXDB_ENGINE);
-    assert_eq!(first.endpoint, tinymemory::cortex::CORTEX_API_ENDPOINT);
+    assert_eq!(
+        first.endpoint,
+        tinymemory_integrations::cortex::CORTEX_API_ENDPOINT
+    );
 
     store_cortexdb_key(&config, "cdb-key-two").unwrap();
     let second = resolve(&config).engine().expect("rebound");
@@ -125,7 +128,7 @@ async fn host_bearer_reads_the_credential_per_request() {
         config: Arc::new(config.clone()),
     };
     let error = source.bearer().await.unwrap_err();
-    assert!(matches!(error, tinymemory::Error::Unauthorized(_)));
+    assert!(matches!(error, tinymemory_api::Error::Unauthorized(_)));
 
     store_api_key(&config, "test-api-key-not-real").unwrap();
     assert_eq!(source.bearer().await.unwrap(), "test-api-key-not-real");

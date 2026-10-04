@@ -1,6 +1,6 @@
 use super::*;
 
-use tinymemory::{ItemKind, MemoryEngine, MemoryMeta, SourceKind, SourceRef, StoreItem};
+use tinymemory_api::{ItemKind, MemoryEngine, MemoryMeta, SourceKind, SourceRef, StoreItem};
 
 use crate::memory::error::{INVALID_REQUEST, MEMORY_OFF};
 use crate::memory::ops;
@@ -39,7 +39,7 @@ async fn seed(engine: &dyn MemoryEngine) -> Vec<String> {
         doc("gamma", "/notes/deep"),
         StoreItem::learning(
             "prefers tea",
-            tinymemory::LearningKind::Preference,
+            tinymemory_api::LearningKind::Preference,
             0.9,
             MemoryMeta {
                 source: SourceRef {

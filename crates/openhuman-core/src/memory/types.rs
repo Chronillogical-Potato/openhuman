@@ -8,7 +8,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub use tinymemory::{
+pub use tinymemory_api::{
     Citation, EngineDescriptor, FetchMode, Hit, ItemKind, LearningKind, MemoryMeta, MetaFilter,
 };
 
@@ -171,7 +171,7 @@ pub struct ForgetParams {
     /// left alone as if it named nothing. The `memory` tool always sets the
     /// calling agent's reach.
     #[serde(default)]
-    pub reach: Option<tinymemory::Reach>,
+    pub reach: Option<tinymemory_api::Reach>,
 }
 
 /// `memory_forget` result.
@@ -206,44 +206,6 @@ pub struct ItemsListView {
     /// Cursor of the next page.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
-}
-
-/// One recently stored conversation batch.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RecentConversation {
-    /// The thread it came from.
-    pub thread_id: String,
-    /// How many turns the batch held.
-    pub turns: u32,
-    /// When it was stored.
-    pub stored_at: DateTime<Utc>,
-}
-
-/// `memory_conversations_get` / `_set` result.
-#[derive(Debug, Clone, Serialize)]
-pub struct ConversationsView {
-    /// Whether conversations are stored.
-    pub enabled: bool,
-    /// Turns per stored batch.
-    pub batch_turns: u32,
-    /// Idle seconds before a partial batch is stored.
-    pub idle_secs: u64,
-    /// The latest stored batches, newest first.
-    pub recent: Vec<RecentConversation>,
-}
-
-/// `memory_conversations_set` params.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct ConversationsSetParams {
-    /// New `enabled`.
-    #[serde(default)]
-    pub enabled: Option<bool>,
-    /// New `batch_turns` (≥ 1).
-    #[serde(default)]
-    pub batch_turns: Option<u32>,
-    /// New `idle_secs` (≥ 1).
-    #[serde(default)]
-    pub idle_secs: Option<u64>,
 }
 
 /// A source's sync status.
@@ -350,64 +312,6 @@ pub struct SourcesSyncView {
     pub started: Vec<String>,
 }
 
-/// `memory_context_*` result.
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextView {
-    /// The memory node the document is about (`root` for the shared one).
-    pub namespace: String,
-    /// The compiled document (empty when none).
-    pub markdown: String,
-    /// Its estimated tokens.
-    pub tokens: usize,
-    /// When it was compiled.
-    pub generated_at: Option<DateTime<Utc>>,
-    /// Minutes between scheduled recompiles.
-    pub interval_mins: u32,
-    /// Token budget.
-    pub budget_tokens: u32,
-    /// Whether compilation and injection are on.
-    pub enabled: bool,
-}
-
-/// `memory_context_get` / `memory_context_refresh` params.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct ContextNodeParams {
-    /// The memory node; the root when omitted.
-    #[serde(default)]
-    pub namespace: Option<String>,
-}
-
-impl ContextNodeParams {
-    /// The node named, checked.
-    ///
-    /// # Errors
-    ///
-    /// A malformed namespace.
-    pub fn node(&self) -> Result<tinymemory::Namespace, String> {
-        self.namespace
-            .as_deref()
-            .unwrap_or_default()
-            .parse()
-            .map_err(|error: tinymemory::Error| {
-                String::from(super::error::MemoryError::invalid(error.to_string()))
-            })
-    }
-}
-
-/// `memory_context_set` params.
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct ContextSetParams {
-    /// New `enabled`.
-    #[serde(default)]
-    pub enabled: Option<bool>,
-    /// New `interval_mins` (≥ 5).
-    #[serde(default)]
-    pub interval_mins: Option<u32>,
-    /// New `budget_tokens` (≥ 100).
-    #[serde(default)]
-    pub budget_tokens: Option<u32>,
-}
-
 /// Item counts a legacy store would import.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportCounts {
@@ -493,6 +397,23 @@ pub struct TurnCitation {
     pub timestamp: String,
     /// Short excerpt.
     pub snippet: String,
+}
+
+impl From<&Hit> for TurnCitation {
+    fn from(hit: &Hit) -> Self {
+        Self {
+            id: hit.id.0.clone(),
+            key: hit.kind.as_str().to_string(),
+            namespace: Some(hit.meta.source.kind.as_str().to_string()),
+            score: Some(f64::from(hit.score)).filter(|score| *score > 0.0),
+            timestamp: hit
+                .meta
+                .observed_at
+                .map(|at| at.to_rfc3339())
+                .unwrap_or_default(),
+            snippet: hit.text.chars().take(TURN_CITATION_SNIPPET_CHARS).collect(),
+        }
+    }
 }
 
 impl From<&Citation> for TurnCitation {

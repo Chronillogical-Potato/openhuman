@@ -49,7 +49,7 @@ If you're not sure, pick **Cloud**. You can change any of this later in **Settin
 An assistant with no memory is just a chatbot. Connect at least one source so it has context to draw on:
 
 - Open **Settings** and connect an integration (Gmail is the common starting point). Each connection is a one-click OAuth approval.
-- Once connected, add the integration as a source under **Connections → Memory → Documents** (kind `composio`); it syncs into [Memory](../features/memory.md) on a schedule.
+- Once connected, add the integration as a source under **Connections → Memory → Brain** (kind `composio`); it syncs into [Memory](../features/memory.md) on a schedule.
 
 ### 4. Set your boundaries
 
@@ -89,7 +89,7 @@ You have a working assistant when **all** of these are true:
 - [ ] The app is signed in (you're past the welcome screen and in the chat/home view).
 - [ ] At least one integration shows as **connected** in Settings.
 - [ ] A briefing prompt ("what's waiting on me?") returns something drawn from your actual data, not a generic answer.
-- [ ] Opening **Connections → Memory → Documents** shows your source with an item count after it syncs.
+- [ ] Opening **Connections → Memory → Brain** shows your source with an item count after it syncs.
 - [ ] When you ask it to do something with an external effect (e.g. "draft and send an email"), you see an **Approval Request card** appear above the chat box rather than it silently acting.
 
 ## Common failures

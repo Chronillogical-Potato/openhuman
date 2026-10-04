@@ -6,23 +6,23 @@
 //!
 //! - `workspace` — the agent's working folder (`action_dir`, or the turn's
 //!   isolated workspace when one is scoped);
-//! - `thread_id` and `agent_id`;
-//! - `namespace` — the acting agent's memory node ([`super::scope`]), or,
-//!   for `learn` with `share: true`, the nearest shared node above it (its
-//!   team's, else the root);
+//! - `thread_id` and `agent_id` (the memory agent id the turn runs as,
+//!   [`super::scope`]);
+//! - `namespace` — the layout's learnings node: the root of the acting
+//!   identity's layout, which every agent under that root shares;
 //! - `tool_call` — this call's name and provider-assigned id;
 //! - `source.kind = agent`.
 //!
-//! `recall`, `fetch` and `forget` are confined to the agent's reach: its own
-//! node and the nodes it inherits, never a sibling agent's. A `reach` in the
-//! model's filter is overwritten.
+//! `recall`, `fetch` and `forget` are confined to the identity's layout:
+//! everything under its root, never another root's (another tenant's or
+//! team's). A `reach` in the model's filter is overwritten.
 
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tinymemory::{MemoryMeta, Namespace, Reach, SourceKind, SourceRef, ToolCallRef};
+use tinymemory_api::{MemoryMeta, Namespace, Reach, SourceKind, SourceRef, ToolCallRef};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 use crate::config::Config;
@@ -41,7 +41,7 @@ const MAX_TURN_CITATIONS: usize = 20;
 static TURN_CITATIONS: LazyLock<Mutex<HashMap<String, Vec<TurnCitation>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-fn record_turn_citations(thread_id: &str, citations: &[tinymemory::Citation]) {
+fn record_turn_citations(thread_id: &str, citations: &[tinymemory_api::Citation]) {
     if citations.is_empty() {
         return;
     }
@@ -59,8 +59,29 @@ fn record_turn_citations(thread_id: &str, citations: &[tinymemory::Citation]) {
     }
 }
 
-/// Drains the citations `recall` produced for `thread_id` since the last
-/// drain.
+/// Records `citations` for `thread_id`'s in-flight turn: what the turn's
+/// memory pack cited (`lifecycle::hooks::pre_turn`), beside what `recall`
+/// cites.
+pub fn record_pack_citations(thread_id: &str, citations: Vec<TurnCitation>) {
+    if citations.is_empty() {
+        return;
+    }
+    let mut all = TURN_CITATIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let entry = all.entry(thread_id.to_string()).or_default();
+    for citation in citations {
+        if entry.len() >= MAX_TURN_CITATIONS {
+            break;
+        }
+        if !entry.iter().any(|existing| existing.id == citation.id) {
+            entry.push(citation);
+        }
+    }
+}
+
+/// Drains the citations `recall` and the turn's pack produced for
+/// `thread_id` since the last drain.
 #[must_use]
 pub fn take_turn_citations(thread_id: &str) -> Vec<TurnCitation> {
     TURN_CITATIONS
@@ -97,11 +118,9 @@ pub struct CallFacts {
     pub agent_id: Option<String>,
     /// The provider-assigned tool-call id.
     pub tool_call_id: Option<String>,
-    /// The calling agent's memory node.
+    /// Where the agent's learnings go: its layout's learnings node.
     pub namespace: Namespace,
-    /// Where the agent's shared learnings go.
-    pub shared_namespace: Namespace,
-    /// What the agent may read.
+    /// What the agent may read and forget: its whole layout.
     pub reach: Reach,
 }
 
@@ -137,26 +156,20 @@ impl CallFacts {
     /// context.
     #[must_use]
     pub fn of(config: &Config, identity: &super::scope::MemoryIdentity) -> Self {
-        let namespace = identity.namespace(config);
+        let resolved = identity.resolve(config);
         Self {
-            agent_id: identity.agent_id.clone(),
-            shared_namespace: namespace.shared_ancestor(),
-            reach: identity.reach(config),
-            namespace,
+            agent_id: Some(resolved.agent_id.clone()),
+            namespace: resolved.layout.learnings().clone(),
+            reach: Reach::subtree(resolved.root().clone()),
             ..Self::default()
         }
     }
 
-    /// The metadata `learn` stamps on the stored item: at the agent's own
-    /// node, or at its shared node when `share`.
+    /// The metadata `learn` stamps on the stored item.
     #[must_use]
-    pub fn learn_meta(&self, share: bool) -> MemoryMeta {
+    pub fn learn_meta(&self) -> MemoryMeta {
         MemoryMeta {
-            namespace: if share {
-                self.shared_namespace.clone()
-            } else {
-                self.namespace.clone()
-            },
+            namespace: self.namespace.clone(),
             workspace: self.workspace.clone(),
             thread_id: self.thread_id.clone(),
             agent_id: self.agent_id.clone(),
@@ -224,9 +237,8 @@ pub async fn run_action(config: &Config, args: &Value, facts: &CallFacts) -> Too
         "learn" => match parse::<LearnParams>(args) {
             Ok(mut params) => {
                 params.meta = None;
-                let kind = params.kind.unwrap_or(tinymemory::LearningKind::Fact);
-                let share = args.get("share").and_then(Value::as_bool) == Some(true);
-                ops::learn(config, params, Some(facts.learn_meta(share)))
+                let kind = params.kind.unwrap_or(tinymemory_api::LearningKind::Fact);
+                ops::learn(config, params, Some(facts.learn_meta()))
                     .await
                     .map(|view| {
                         BUS.publish(DomainEvent::MemoryStored {
@@ -261,7 +273,7 @@ pub async fn run_action(config: &Config, args: &Value, facts: &CallFacts) -> Too
 }
 
 /// Confines a model-supplied filter to the calling agent's reach.
-fn confine(filter: &mut Option<tinymemory::MetaFilter>, facts: &CallFacts) {
+fn confine(filter: &mut Option<tinymemory_api::MetaFilter>, facts: &CallFacts) {
     filter.get_or_insert_with(Default::default).reach = Some(facts.reach.clone());
 }
 
@@ -280,10 +292,11 @@ impl Tool for MemoryTool {
          `recall` answers a question from memory with citations; `fetch` returns raw \
          matching items (filter by metadata such as workspace, repo, file_path, kinds); \
          `learn` stores a durable fact, preference, procedure or correction about the \
-         user or their work — in your own memory, or with `share: true` in the memory \
-         your team or every agent shares; `forget` removes items by id. You read your own \
-         memory plus what is shared with you. Recall before asking the user something they \
-         may already have told you; learn things worth remembering next time."
+         user or their work, shared with every agent working alongside you; `forget` \
+         removes items by id. Relevant memory is already added to each turn as \
+         <memory-context>; use `recall` or `fetch` to look further. Recall before asking \
+         the user something they may already have told you; learn things worth \
+         remembering next time."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -304,7 +317,6 @@ impl Tool for MemoryTool {
                 "text": {"type": "string", "description": "learn: the learning, one self-contained sentence."},
                 "kind": {"type": "string", "enum": ["preference", "fact", "procedure", "correction", "other"], "description": "learn: what kind of learning (default fact)."},
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1, "description": "learn: confidence (default 0.8)."},
-                "share": {"type": "boolean", "description": "learn: store in shared memory every agent (or your team) reads, instead of your own (default false)."},
                 "ids": {"type": "array", "items": {"type": "string"}, "description": "forget: item ids to remove."}
             },
             "required": ["action"]

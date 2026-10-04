@@ -32,7 +32,6 @@ Inside it, the things you care about migrating:
 
 | What                                                   | Where (inside the data folder)                | Travels with a folder copy?       |
 | ------------------------------------------------------ | --------------------------------------------- | --------------------------------- |
-| **Compiled memory brief**                              | `…/memory/context.md`                         | ✅ Yes                            |
 | **Memory items**                                       | In your engine (TinyHumans or CortexDB)       | Sign in again / re-enter the key  |
 | **Persona & behavior**                                 | `SOUL.md`, `IDENTITY.md`, `ROLE.md`           | ✅ Yes                            |
 | **Config** (models, providers, routing, autonomy)      | `config.toml`                                 | ✅ Yes                            |

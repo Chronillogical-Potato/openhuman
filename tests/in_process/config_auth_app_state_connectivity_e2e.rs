@@ -386,7 +386,7 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
     let memory = MemoryConfig::default();
     assert_eq!(memory.engine, "tinyhumans");
     assert!(memory.conversations.enabled);
-    assert!(memory.context.enabled);
+    assert!(memory.recall.enabled);
 
     let telegram: TelegramConfig = serde_json::from_value(json!({
         "bot_token": "bot-token",

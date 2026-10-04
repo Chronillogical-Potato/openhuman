@@ -3,7 +3,7 @@ use crate::memory::scope::MemoryIdentity;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use tinymemory::{ItemKind, MetaFilter, Namespace};
+use tinymemory_api::{ItemKind, MetaFilter, Namespace};
 
 struct Ctx {
     root: PathBuf,
@@ -259,8 +259,8 @@ async fn fetch_with_an_undeclared_mode_is_unsupported() {
 
 #[test]
 fn turn_citations_are_capped_and_deduplicated() {
-    let citation = |n: usize| tinymemory::Citation {
-        id: tinymemory::ItemId(format!("cite-{n}")),
+    let citation = |n: usize| tinymemory_api::Citation {
+        id: tinymemory_api::ItemId(format!("cite-{n}")),
         kind: ItemKind::Learning,
         snippet: "s".repeat(1000),
         score: Some(0.5),
@@ -332,43 +332,39 @@ fn gather_falls_back_to_the_action_dir() {
     assert_eq!(gathered.workspace.as_deref(), Some("/the/action/dir"));
     assert!(gathered.thread_id.is_none());
     assert!(gathered.tool_call_id.is_none());
-    let meta = gathered.learn_meta(false);
-    assert!(meta.namespace.is_root(), "no agent in scope: the root");
+    let meta = gathered.learn_meta();
+    assert!(
+        meta.namespace.is_root(),
+        "no agent in scope: the default root"
+    );
     assert_eq!(meta.source.kind, SourceKind::Agent);
     assert_eq!(meta.tool_call.unwrap().name, MEMORY_TOOL_NAME);
 }
 
 #[tokio::test]
-async fn agents_keep_their_own_memory_and_share_on_request() {
+async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     let engine = bind_reference(&config);
-    let learn = |facts: CallFacts, text: &'static str, share: bool| {
+    let member = || CallFacts {
+        thread_id: Some("thread-team".into()),
+        ..CallFacts::of(&config, &MemoryIdentity::team_member("acme", "writer"))
+    };
+    let learn = |facts: CallFacts, text: &'static str| {
         let config = config.clone();
         async move {
             let result = run_action(
                 &config,
-                &json!({"action": "learn", "text": text, "share": share}),
+                &json!({"action": "learn", "text": text, "share": true}),
                 &facts,
             )
             .await;
             assert!(!result.is_error, "{}", result.text());
         }
     };
-    learn(facts(), "the main agent knows the deploy day", false).await;
-    learn(
-        facts_of("researcher"),
-        "the researcher prefers arxiv",
-        false,
-    )
-    .await;
-    learn(
-        facts_of("writer"),
-        "the writer drafts in british english",
-        false,
-    )
-    .await;
-    learn(facts_of("writer"), "the user is called Sam", true).await;
+    learn(facts(), "the main agent knows the deploy day").await;
+    learn(facts_of("researcher"), "the researcher prefers arxiv").await;
+    learn(member(), "the acme team drafts in british english").await;
 
     let all = stored(&engine, MetaFilter::kinds([ItemKind::Learning])).await;
     let at = |text: &str| {
@@ -381,55 +377,49 @@ async fn agents_keep_their_own_memory_and_share_on_request() {
         at("deploy day"),
         ("root".into(), Some("orchestrator".into()))
     );
+    assert_eq!(at("arxiv"), ("root".into(), Some("researcher".into())));
     assert_eq!(
-        at("arxiv"),
-        ("agent:researcher".into(), Some("researcher".into()))
-    );
-    assert_eq!(
-        at("Sam"),
-        ("root".into(), Some("writer".into())),
-        "shared to the root"
+        at("british english"),
+        ("team:acme".into(), Some("writer".into())),
+        "a team member learns into its team's root"
     );
 
-    let fetched = run_action(
-        &config,
-        &json!({"action": "fetch", "query": "the", "limit": 50, "filter": {"reach": null}}),
-        &facts_of("researcher"),
-    )
-    .await;
-    let body = fetched.text();
-    assert!(body.contains("arxiv"), "{body}");
-    assert!(body.contains("deploy day"), "root memory is inherited");
-    assert!(body.contains("Sam"), "shared learnings are inherited");
+    let fetch = |facts: CallFacts| {
+        let config = config.clone();
+        async move {
+            run_action(
+                &config,
+                &json!({"action": "fetch", "query": "the", "limit": 50, "filter": {"reach": null}}),
+                &facts,
+            )
+            .await
+            .text()
+        }
+    };
+    let researcher = fetch(facts_of("researcher")).await;
+    assert!(researcher.contains("arxiv") && researcher.contains("deploy day"));
+    let team = fetch(member()).await;
+    assert!(team.contains("british english"), "{team}");
     assert!(
-        !body.contains("british english"),
-        "a sibling's memory is out of reach: {body}"
+        !team.contains("deploy day"),
+        "the default root's memory is out of a team's reach: {team}"
     );
 
-    let writers = stored(&engine, MetaFilter::default())
+    let main_item = stored(&engine, MetaFilter::default())
         .await
         .into_iter()
-        .find(|hit| hit.text.contains("british english"))
+        .find(|hit| hit.text.contains("deploy day"))
         .unwrap();
     let forgot = run_action(
         &config,
-        &json!({"action": "forget", "ids": [writers.id.0.clone()]}),
-        &facts_of("researcher"),
+        &json!({"action": "forget", "ids": [main_item.id.0.clone()]}),
+        &member(),
     )
     .await;
     assert!(
         forgot.text().contains("\"forgotten\":0"),
         "{}",
         forgot.text()
-    );
-    assert_eq!(
-        stored(&engine, MetaFilter::default())
-            .await
-            .iter()
-            .filter(|hit| hit.text.contains("british english"))
-            .count(),
-        1,
-        "a sibling's item is not forgotten"
     );
     assert!(stored(&engine, MetaFilter::default())
         .await

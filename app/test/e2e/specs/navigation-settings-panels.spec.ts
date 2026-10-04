@@ -8,7 +8,7 @@
  * Tests:
  *   N2.1 — /settings (root index)
  *   N2.2 — /settings/connections
- *   N2.3 — /settings/memory-data (redirects to the Memory page's Documents chip)
+ *   N2.3 — /settings/memory-data (redirects to the Memory page's Brain chip)
  *   N2.4 — /settings/intelligence (redirects to the Memory page)
  *   N2.5 — /settings/developer-options
  *   N2.6 — /settings/billing
@@ -52,7 +52,7 @@ const PANELS: PanelCheck[] = [
   },
   {
     // N2.3 — the v1 memory data panel is gone; the slug redirects to the
-    // Memory page's Documents chip (/connections?tab=brain&brain=documents).
+    // Memory page's Brain chip (/connections?tab=brain&brain=brain).
     hash: '/settings/memory-data',
     markers: ['Documents', 'Memory', 'Engine'],
   },

@@ -186,8 +186,8 @@ const HASH_REDIRECTS = {
   '/brain': '/connections?tab=brain',
   '/settings/intelligence': '/connections?tab=brain',
   '/settings/memory-engine': '/connections?tab=brain&brain=engine',
-  '/settings/memory-data': '/connections?tab=brain&brain=documents',
-  '/settings/memory-sync': '/connections?tab=brain&brain=documents',
+  '/settings/memory-data': '/connections?tab=brain&brain=brain',
+  '/settings/memory-sync': '/connections?tab=brain&brain=brain',
   '/settings/memory-debug': '/connections?tab=brain&brain=ask',
   '/settings/tasks': '/connections?tab=brain&brain=ask',
 };
@@ -220,7 +220,7 @@ function routeReadySelector(hash) {
     '/settings/voice': '[data-testid="voice-providers-section"]',
     '/connections?tab=brain': '[data-testid="memory-page"]',
     '/connections?tab=brain&brain=engine': '[data-testid="memory-page"]',
-    '/connections?tab=brain&brain=documents': '[data-testid="memory-page"]',
+    '/connections?tab=brain&brain=brain': '[data-testid="memory-page"]',
     '/connections?tab=brain&brain=ask': '[data-testid="memory-page"]',
     '/settings/recovery-phrase': '[data-testid="recovery-phrase-panel"]',
   };
@@ -265,7 +265,7 @@ async function waitForHashRouteReady(hash, options = {}) {
       // A known route-ready selector being present is a definitive signal the
       // target panel rendered — accept it regardless of the hash, since routes
       // can redirect to a different hash (e.g. /settings/memory-data →
-      // /connections?tab=brain&brain=documents).
+      // /connections?tab=brain&brain=brain).
       if (res.hasSelector) return true;
       // Otherwise require the resolved target hash. Redirects are accounted
       // for above when computing `expected`.

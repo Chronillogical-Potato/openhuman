@@ -5,11 +5,12 @@
  * it has no route of its own. Connections owns `?tab=` and the sidebar; this
  * page keeps its chip in `?brain=`:
  *
- *   engine · ask · explorer · learnings · conversations · documents · context
+ *   engine · ask · explorer · learnings · conversations · brain · background · settings
  *
  * With no `?brain=` the page opens on Ask when an engine is active and on
- * Engine otherwise. Old v1 values (`graph`, `goals`, `sources`, `sync`,
- * `history`) are rewritten to their v2 chip. While memory is off every chip
+ * Engine otherwise. Retired values (v1's `graph`, `goals`, `sources`, `sync`,
+ * `history`; v2's `documents` and `context`) are rewritten to their current
+ * chip. While memory is off every chip
  * but Engine shows an empty state that points there.
  *
  * debug logging: DEBUG=openhuman:memory
@@ -19,15 +20,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import MemoryAskTab from '../components/memory/MemoryAskTab';
+import MemoryBackgroundTab from '../components/memory/MemoryBackgroundTab';
+import MemoryBrainTab from '../components/memory/MemoryBrainTab';
 import { type MemoryChip, resolveMemoryChip } from '../components/memory/memoryChips';
-import MemoryContextTab from '../components/memory/MemoryContextTab';
 import MemoryConversationsTab from '../components/memory/MemoryConversationsTab';
-import MemoryDocumentsTab from '../components/memory/MemoryDocumentsTab';
 import MemoryEngineTab from '../components/memory/MemoryEngineTab';
 import MemoryExplorerTab from '../components/memory/MemoryExplorerTab';
 import MemoryImportBanner from '../components/memory/MemoryImportBanner';
 import MemoryLearningsTab from '../components/memory/MemoryLearningsTab';
 import MemoryOffState from '../components/memory/MemoryOffState';
+import MemorySettingsTab from '../components/memory/MemorySettingsTab';
 import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage';
 import { Alert, AlertDescription, Button } from '../components/ui';
 import { CenteredLoadingState } from '../components/ui/LoadingState';
@@ -118,11 +120,15 @@ export default function Memory() {
       title: t('memoryPage.tabs.conversations'),
       description: t('memoryPage.header.conversations'),
     },
-    documents: {
-      title: t('memoryPage.tabs.documents'),
-      description: t('memoryPage.header.documents'),
+    brain: { title: t('memoryPage.tabs.brain'), description: t('memoryPage.header.brain') },
+    background: {
+      title: t('memoryPage.tabs.background'),
+      description: t('memoryPage.header.background'),
     },
-    context: { title: t('memoryPage.tabs.context'), description: t('memoryPage.header.context') },
+    settings: {
+      title: t('memoryPage.tabs.settings'),
+      description: t('memoryPage.header.settings'),
+    },
   };
 
   const activeLabel =
@@ -147,10 +153,12 @@ export default function Memory() {
         return <MemoryLearningsTab />;
       case 'conversations':
         return <MemoryConversationsTab />;
-      case 'documents':
-        return <MemoryDocumentsTab />;
-      case 'context':
-        return <MemoryContextTab />;
+      case 'brain':
+        return <MemoryBrainTab />;
+      case 'background':
+        return <MemoryBackgroundTab />;
+      case 'settings':
+        return <MemorySettingsTab />;
       default:
         return null;
     }
@@ -167,8 +175,9 @@ export default function Memory() {
           { id: 'explorer', label: t('memoryPage.tabs.explorer') },
           { id: 'learnings', label: t('memoryPage.tabs.learnings') },
           { id: 'conversations', label: t('memoryPage.tabs.conversations') },
-          { id: 'documents', label: t('memoryPage.tabs.documents') },
-          { id: 'context', label: t('memoryPage.tabs.context') },
+          { id: 'brain', label: t('memoryPage.tabs.brain') },
+          { id: 'background', label: t('memoryPage.tabs.background') },
+          { id: 'settings', label: t('memoryPage.tabs.settings') },
         ]}
         value={chip ?? undefined}
         onChange={next => setChip(next)}

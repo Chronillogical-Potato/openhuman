@@ -194,7 +194,7 @@ enabled = false
 [memory.conversations]
 enabled = false
 
-[memory.context]
+[memory.recall]
 enabled = false
 "#,
         );

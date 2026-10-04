@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { MEMORY_CHIPS, resolveMemoryChip } from './memoryChips';
-import { fill, formatScore, formatTimestamp, metaFacts, parsePositiveInt } from './memoryFormat';
+import {
+  fill,
+  formatScore,
+  formatTimestamp,
+  metaFacts,
+  parseIntInRange,
+  parsePositiveInt,
+} from './memoryFormat';
 
 const t = (key: string) => key;
 
@@ -13,9 +20,14 @@ describe('resolveMemoryChip', () => {
   it('maps v1 sub-tabs', () => {
     expect(resolveMemoryChip('graph')).toBe('ask');
     expect(resolveMemoryChip('goals')).toBe('ask');
-    expect(resolveMemoryChip('sources')).toBe('documents');
-    expect(resolveMemoryChip('sync')).toBe('documents');
-    expect(resolveMemoryChip('history')).toBe('documents');
+    expect(resolveMemoryChip('sources')).toBe('brain');
+    expect(resolveMemoryChip('sync')).toBe('brain');
+    expect(resolveMemoryChip('history')).toBe('brain');
+  });
+
+  it('maps retired v2 chips', () => {
+    expect(resolveMemoryChip('documents')).toBe('brain');
+    expect(resolveMemoryChip('context')).toBe('ask');
   });
 
   it('returns null for nothing or an unknown value', () => {
@@ -57,5 +69,13 @@ describe('memoryFormat', () => {
     expect(parsePositiveInt('-1')).toBeNull();
     expect(parsePositiveInt('1.5')).toBeNull();
     expect(parsePositiveInt('')).toBeNull();
+  });
+
+  it('parses integers within a range only', () => {
+    expect(parseIntInRange('0', 0, 50)).toBe(0);
+    expect(parseIntInRange('50', 0, 50)).toBe(50);
+    expect(parseIntInRange('51', 0, 50)).toBeNull();
+    expect(parseIntInRange('99', 100, 16000)).toBeNull();
+    expect(parseIntInRange('abc', 0, 50)).toBeNull();
   });
 });

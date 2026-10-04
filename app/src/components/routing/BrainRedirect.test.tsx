@@ -33,22 +33,27 @@ describe('BrainRedirect', () => {
     expect(renderAt('/brain?tab=goals')).toBe('/connections?tab=brain&brain=ask');
   });
 
-  it('maps the v1 sources and sync sub-tabs to the documents chip', () => {
-    expect(renderAt('/brain?tab=sources')).toBe('/connections?tab=brain&brain=documents');
-    expect(renderAt('/brain?tab=sync')).toBe('/connections?tab=brain&brain=documents');
+  it('maps the v1 sources and sync sub-tabs to the brain chip', () => {
+    expect(renderAt('/brain?tab=sources')).toBe('/connections?tab=brain&brain=brain');
+    expect(renderAt('/brain?tab=sync')).toBe('/connections?tab=brain&brain=brain');
   });
 
-  it('passes a v2 chip through unchanged', () => {
-    expect(renderAt('/brain?tab=context')).toBe('/connections?tab=brain&brain=context');
+  it('passes a current chip through unchanged', () => {
+    expect(renderAt('/brain?tab=background')).toBe('/connections?tab=brain&brain=background');
+  });
+
+  it('maps the retired context and documents chips', () => {
+    expect(renderAt('/brain?tab=context')).toBe('/connections?tab=brain&brain=ask');
+    expect(renderAt('/brain?tab=documents')).toBe('/connections?tab=brain&brain=brain');
   });
 
   it('drops a sub-tab that names no chip so the page picks its default', () => {
     expect(renderAt('/brain?tab=welcome')).toBe('/connections?tab=brain');
   });
 
-  it('maps the sync history view to documents and keeps other params and the hash', () => {
+  it('maps the sync history view to brain and keeps other params and the hash', () => {
     expect(renderAt('/brain?tab=sync&view=history&foo=1#x')).toBe(
-      '/connections?tab=brain&brain=documents&foo=1#x'
+      '/connections?tab=brain&brain=brain&foo=1#x'
     );
   });
 });

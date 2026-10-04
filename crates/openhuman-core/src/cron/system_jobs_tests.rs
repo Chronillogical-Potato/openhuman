@@ -102,30 +102,29 @@ fn ensure_system_job_restores_a_cleared_name() {
 }
 
 #[test]
-fn ensure_memory_jobs_seeds_both_jobs_and_follows_the_context_interval() {
+fn ensure_memory_jobs_seeds_both_jobs_and_retires_the_context_refresh() {
     let tmp = TempDir::new().unwrap();
-    let mut config = test_config(&tmp);
-    config.memory.context.interval_mins = 60;
+    let config = test_config(&tmp);
+    let retired = ensure_system_job(&config, RETIRED_CONTEXT_REFRESH_JOB, every(360)).unwrap();
     ensure_memory_jobs(&config).unwrap();
 
-    let refresh = system_rows(&config, CONTEXT_REFRESH_JOB);
+    let background = system_rows(&config, BACKGROUND_JOB);
     let sync = system_rows(&config, SOURCES_SYNC_JOB);
-    assert_eq!(refresh.len(), 1);
+    assert_eq!(background.len(), 1);
     assert_eq!(sync.len(), 1);
-    assert_eq!(refresh[0].schedule, every(60));
+    assert_eq!(
+        background[0].schedule,
+        every(BACKGROUND_INTERVAL_MINS as u32)
+    );
     assert_eq!(sync[0].schedule, every(SOURCES_SYNC_INTERVAL_MINS));
+    assert!(
+        system_rows(&config, RETIRED_CONTEXT_REFRESH_JOB).is_empty(),
+        "the retired row {} is removed",
+        retired.id
+    );
 
-    // Re-running changes nothing; a new interval reschedules only the refresh.
+    // Re-running changes nothing.
     ensure_memory_jobs(&config).unwrap();
-    assert_eq!(
-        system_rows(&config, CONTEXT_REFRESH_JOB)[0].id,
-        refresh[0].id
-    );
-    config.memory.context.interval_mins = 120;
-    ensure_memory_jobs(&config).unwrap();
-    assert_eq!(
-        system_rows(&config, CONTEXT_REFRESH_JOB)[0].schedule,
-        every(120)
-    );
+    assert_eq!(system_rows(&config, BACKGROUND_JOB)[0].id, background[0].id);
     assert_eq!(system_rows(&config, SOURCES_SYNC_JOB)[0].id, sync[0].id);
 }

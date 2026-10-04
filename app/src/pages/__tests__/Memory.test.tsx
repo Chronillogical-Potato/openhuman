@@ -32,11 +32,14 @@ vi.mock('../../components/memory/MemoryLearningsTab', () => ({
 vi.mock('../../components/memory/MemoryConversationsTab', () => ({
   default: () => <div data-testid="stub-conversations" />,
 }));
-vi.mock('../../components/memory/MemoryDocumentsTab', () => ({
-  default: () => <div data-testid="stub-documents" />,
+vi.mock('../../components/memory/MemoryBrainTab', () => ({
+  default: () => <div data-testid="stub-brain" />,
 }));
-vi.mock('../../components/memory/MemoryContextTab', () => ({
-  default: () => <div data-testid="stub-context" />,
+vi.mock('../../components/memory/MemoryBackgroundTab', () => ({
+  default: () => <div data-testid="stub-background" />,
+}));
+vi.mock('../../components/memory/MemorySettingsTab', () => ({
+  default: () => <div data-testid="stub-settings" />,
 }));
 vi.mock('../../components/memory/MemoryImportBanner', () => ({
   default: ({ engineLabel }: { engineLabel: string }) => (
@@ -84,7 +87,7 @@ beforeEach(() => {
 });
 
 describe('Memory page', () => {
-  it('renders the seven chips', async () => {
+  it('renders the eight chips', async () => {
     renderAt('?tab=brain');
     for (const chip of [
       'engine',
@@ -92,8 +95,9 @@ describe('Memory page', () => {
       'explorer',
       'learnings',
       'conversations',
-      'documents',
-      'context',
+      'brain',
+      'background',
+      'settings',
     ]) {
       expect(await screen.findByTestId(`brain-tab-${chip}`)).toBeInTheDocument();
     }
@@ -116,8 +120,9 @@ describe('Memory page', () => {
     ['explorer', 'stub-explorer'],
     ['learnings', 'stub-learnings'],
     ['conversations', 'stub-conversations'],
-    ['documents', 'stub-documents'],
-    ['context', 'stub-context'],
+    ['brain', 'stub-brain'],
+    ['background', 'stub-background'],
+    ['settings', 'stub-settings'],
     ['engine', 'stub-engine'],
   ])('opens the %s chip from ?brain=', async (chip, testId) => {
     renderAt(`?tab=brain&brain=${chip}`);
@@ -127,9 +132,11 @@ describe('Memory page', () => {
   it.each([
     ['graph', 'ask', 'stub-ask'],
     ['goals', 'ask', 'stub-ask'],
-    ['sources', 'documents', 'stub-documents'],
-    ['sync', 'documents', 'stub-documents'],
-    ['history', 'documents', 'stub-documents'],
+    ['sources', 'brain', 'stub-brain'],
+    ['sync', 'brain', 'stub-brain'],
+    ['history', 'brain', 'stub-brain'],
+    ['documents', 'brain', 'stub-brain'],
+    ['context', 'ask', 'stub-ask'],
   ])('rewrites legacy ?brain=%s to %s', async (legacy, chip, testId) => {
     renderAt(`?tab=brain&brain=${legacy}&view=history`);
     expect(await screen.findByTestId(testId)).toBeInTheDocument();
@@ -149,11 +156,11 @@ describe('Memory page', () => {
 
   it('shows the off state on non-engine chips and links to the Engine chip', async () => {
     hoisted.engineGet.mockResolvedValue(OFF);
-    renderAt('?tab=brain&brain=documents');
+    renderAt('?tab=brain&brain=brain');
     expect(await screen.findByTestId('memory-off-state')).toHaveTextContent(
       'Sign in or add a CortexDB key'
     );
-    expect(screen.queryByTestId('stub-documents')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stub-brain')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('memory-off-open-engine'));
     expect(await screen.findByTestId('stub-engine')).toBeInTheDocument();
     expect(screen.getByTestId('where')).toHaveTextContent('brain=engine');

@@ -23,7 +23,7 @@ fn structured_error_carries_the_code_and_flags_user_states() {
 
 #[test]
 fn tinymemory_errors_map_onto_the_taxonomy() {
-    use tinymemory::Error as E;
+    use tinymemory_api::Error as E;
     let cases = [
         (E::Unsupported("a".into()), UNSUPPORTED),
         (E::InvalidRequest("a".into()), INVALID_REQUEST),

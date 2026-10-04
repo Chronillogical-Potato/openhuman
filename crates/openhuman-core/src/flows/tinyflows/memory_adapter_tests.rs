@@ -23,7 +23,7 @@ fn adapter(autonomy: AutonomyLevel) -> (TempDir, OpenHumanMemory) {
     let (tmp, config) = test_config();
     crate::memory::engine::install_test_engine(
         &config.workspace_dir,
-        Arc::new(tinymemory::conformance::ReferenceEngine::new()),
+        Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
     );
     (
         tmp,

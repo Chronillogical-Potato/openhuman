@@ -52,7 +52,7 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
     },
     ToolFamily {
         id: "file_write",
-        rust_names: &["file_write", "update_memory_md"],
+        rust_names: &["file_write"],
         default_enabled: true,
     },
     ToolFamily {
@@ -81,18 +81,8 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
         default_enabled: true,
     },
     ToolFamily {
-        id: "memory_store",
-        rust_names: &["memory_store"],
-        default_enabled: true,
-    },
-    ToolFamily {
-        id: "memory_recall",
-        rust_names: &["memory_recall"],
-        default_enabled: true,
-    },
-    ToolFamily {
-        id: "memory_forget",
-        rust_names: &["memory_forget"],
+        id: "memory",
+        rust_names: &["memory"],
         default_enabled: true,
     },
     ToolFamily {

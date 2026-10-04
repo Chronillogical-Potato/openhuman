@@ -80,3 +80,10 @@ export function parsePositiveInt(raw: string): number | null {
   const n = Number.parseInt(raw, 10);
   return n > 0 ? n : null;
 }
+
+/** Parse an integer in `[min, max]` from a form field, or `null` when it is not one. */
+export function parseIntInRange(raw: string, min: number, max: number): number | null {
+  if (!/^\s*\d+\s*$/.test(raw)) return null;
+  const n = Number.parseInt(raw, 10);
+  return n >= min && n <= max ? n : null;
+}

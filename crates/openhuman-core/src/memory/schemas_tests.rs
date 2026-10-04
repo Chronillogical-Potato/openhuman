@@ -6,10 +6,13 @@ use crate::memory::test_fixtures::{bind_reference, config_in};
 use serde_json::{json, Map, Value};
 
 /// Every method of the spec's RPC table (`docs/specs/memory-v2.md`), exactly.
-const SPEC_METHODS: [&str; 24] = [
+const SPEC_METHODS: [&str; 29] = [
     "openhuman.memory_engines_list",
     "openhuman.memory_engine_get",
     "openhuman.memory_engine_set",
+    "openhuman.memory_policy_get",
+    "openhuman.memory_policy_set",
+    "openhuman.memory_pack_preview",
     "openhuman.memory_recall",
     "openhuman.memory_fetch",
     "openhuman.memory_learn",
@@ -17,17 +20,19 @@ const SPEC_METHODS: [&str; 24] = [
     "openhuman.memory_items_list",
     "openhuman.memory_explore",
     "openhuman.memory_items_get",
-    "openhuman.memory_conversations_get",
-    "openhuman.memory_conversations_set",
+    "openhuman.memory_agents_list",
     "openhuman.memory_conversations_backfill_status",
     "openhuman.memory_conversations_backfill_start",
+    "openhuman.memory_brain_sources",
+    "openhuman.memory_brain_search",
+    "openhuman.memory_brain_ingest",
+    "openhuman.memory_brain_forget",
     "openhuman.memory_sources_list",
     "openhuman.memory_sources_add",
     "openhuman.memory_sources_remove",
     "openhuman.memory_sources_sync",
-    "openhuman.memory_context_get",
-    "openhuman.memory_context_refresh",
-    "openhuman.memory_context_set",
+    "openhuman.memory_jobs_list",
+    "openhuman.memory_jobs_run",
     "openhuman.memory_import_scan",
     "openhuman.memory_import_start",
     "openhuman.memory_import_status",
@@ -97,21 +102,22 @@ fn required_inputs_match_the_spec() {
     assert_eq!(optional("sources_remove"), ["forget_items"]);
     assert_eq!(optional("sources_sync"), ["id"]);
     assert_eq!(required("import_start"), ["consent"]);
+    assert_eq!(optional("pack_preview"), ["query", "thread_id", "agent_id"]);
+    assert_eq!(required("brain_search"), ["query"]);
     assert_eq!(
-        optional("context_set"),
-        ["enabled", "interval_mins", "budget_tokens"]
+        optional("brain_ingest"),
+        ["path", "text", "source", "title"]
     );
-    for node in ["context_get", "context_refresh"] {
-        assert_eq!(optional(node), ["namespace"], "{node}");
-    }
-    assert_eq!(
-        optional("conversations_set"),
-        ["enabled", "batch_turns", "idle_secs"]
-    );
+    assert_eq!(required("brain_forget"), ["source"]);
+    assert_eq!(optional("jobs_run"), ["id"]);
+    assert!(required("policy_set").is_empty());
     for empty in [
         "engines_list",
         "engine_get",
-        "conversations_get",
+        "policy_get",
+        "agents_list",
+        "brain_sources",
+        "jobs_list",
         "sources_list",
         "import_scan",
         "import_status",
@@ -133,8 +139,10 @@ async fn invalid_params_are_rejected_as_invalid_request() {
         ("forget", json!({"ids": "not-a-list"})),
         ("sources_add", json!({"kind": "folder"})),
         ("sources_remove", json!({})),
-        ("conversations_set", json!({"batch_turns": "many"})),
-        ("context_set", json!({"enabled": "yes"})),
+        ("policy_set", json!({"budget_tokens": "many"})),
+        ("policy_set", json!({"no_such_setting": 1})),
+        ("brain_search", json!({})),
+        ("brain_forget", json!({})),
         ("import_start", json!({"consent": "true"})),
     ] {
         let error = call(&config, function, params.clone())
@@ -156,7 +164,13 @@ async fn memory_off_surfaces_the_memory_off_code() {
         ("items_list", json!({})),
         ("explore", json!({"facet": "kind"})),
         ("items_get", json!({"ids": ["a"]})),
-        ("context_refresh", json!({})),
+        ("pack_preview", json!({})),
+        ("agents_list", json!({})),
+        ("brain_sources", json!({})),
+        ("brain_search", json!({"query": "q"})),
+        ("brain_ingest", json!({"text": "t"})),
+        ("brain_forget", json!({"source": "pdf"})),
+        ("jobs_run", json!({})),
         ("sources_sync", json!({})),
     ] {
         let error = call(&config, function, params).await.unwrap_err();
@@ -215,54 +229,76 @@ async fn read_handlers_answer_over_a_bound_engine() {
 }
 
 #[tokio::test]
-async fn settings_handlers_validate_persist_and_report() {
+async fn policy_handlers_validate_persist_and_report() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
 
-    let conversations = call(
+    let policy = call(
         &config,
-        "conversations_set",
-        json!({"enabled": false, "batch_turns": 3, "idle_secs": 90}),
+        "policy_set",
+        json!({"log_conversations": false, "budget_tokens": 900, "team_limit": 0}),
     )
     .await
     .unwrap();
-    let conversations = conversations.get("result").unwrap_or(&conversations);
-    assert_eq!(conversations["enabled"], false);
-    assert_eq!(conversations["batch_turns"], 3);
-    assert_eq!(conversations["idle_secs"], 90);
+    let policy = policy.get("result").unwrap_or(&policy);
+    assert_eq!(policy["log_conversations"], false);
+    assert_eq!(policy["recall"]["budget_tokens"], 900);
+    assert_eq!(policy["recall"]["team_limit"], 0);
     let saved = std::fs::read_to_string(&config.config_path).expect("config persisted");
-    assert!(saved.contains("batch_turns"), "{saved}");
+    assert!(saved.contains("budget_tokens = 900"), "{saved}");
 
-    let bad = call(&config, "conversations_set", json!({"batch_turns": 0}))
+    let bad = call(&config, "policy_set", json!({"budget_tokens": 1}))
         .await
         .unwrap_err();
     assert!(bad.contains("INVALID_REQUEST"));
 
-    let context = call(
+    let got = call(&config, "policy_get", json!({})).await.unwrap();
+    assert_eq!(got.get("result").unwrap_or(&got)["root"], "root");
+    let jobs = call(&config, "jobs_list", json!({})).await.unwrap();
+    assert!(jobs.get("result").unwrap_or(&jobs)["pending"].is_array());
+}
+
+#[tokio::test]
+async fn lifecycle_handlers_answer_over_a_bound_engine() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+
+    let filed = call(
         &config,
-        "context_set",
-        json!({"interval_mins": 30, "budget_tokens": 500}),
+        "brain_ingest",
+        json!({"text": "Standups are at 9:30", "source": "notion", "title": "Rituals"}),
     )
     .await
     .unwrap();
-    let context = context.get("result").unwrap_or(&context);
-    assert_eq!(context["interval_mins"], 30);
-    assert_eq!(context["budget_tokens"], 500);
-    let jobs = crate::cron::list_jobs(&config).unwrap();
-    assert!(
-        jobs.iter()
-            .any(|job| job.command == "system:memory_context_refresh"),
-        "context_set (re)seeds the cron jobs"
+    assert_eq!(filed.get("result").unwrap_or(&filed)["source"], "notion");
+
+    let sources = call(&config, "brain_sources", json!({})).await.unwrap();
+    let sources = sources.get("result").unwrap_or(&sources);
+    assert_eq!(sources["sources"][0]["source"], "notion");
+
+    let preview = call(
+        &config,
+        "pack_preview",
+        json!({"query": "when are standups?"}),
+    )
+    .await
+    .unwrap();
+    let preview = preview.get("result").unwrap_or(&preview);
+    assert_eq!(preview["mode"], "turn");
+    assert!(preview["pack"]["markdown"]
+        .as_str()
+        .unwrap()
+        .contains("9:30"));
+
+    let ran = call(&config, "jobs_run", json!({})).await.unwrap();
+    assert_eq!(
+        ran.get("result").unwrap_or(&ran)["runs"][0]["outcome"],
+        "done"
     );
 
-    let got = call(&config, "context_get", json!({})).await.unwrap();
-    assert!(got.get("result").unwrap_or(&got).get("markdown").is_some());
-    let convo = call(&config, "conversations_get", json!({})).await.unwrap();
-    assert!(convo
-        .get("result")
-        .unwrap_or(&convo)
-        .get("recent")
-        .is_some());
+    let agents = call(&config, "agents_list", json!({})).await.unwrap();
+    assert!(agents.get("result").unwrap_or(&agents)["agents"].is_array());
 }
 
 #[tokio::test]

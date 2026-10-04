@@ -28,7 +28,6 @@ These never leave your computer as raw data:
 | Thing                         | Plain meaning                                                                                |
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
 | **Your memory engine**        | Where documents, conversations and learnings are stored (hosted TinyHumans or your CortexDB). Delete items any time. |
-| **`context.md`**              | The compiled brief about you, a Markdown file in your workspace.                              |
 | **Audio you speak**           | Captured to transcribe, then discarded.                                                      |
 | **Local model state**         | If you use [local AI](local-model.md), your own runtime and its models stay on-device.       |
 | **Your persona and settings** | The files that define how your assistant behaves and what it's allowed to do.                |

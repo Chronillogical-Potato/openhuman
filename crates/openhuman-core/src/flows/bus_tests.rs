@@ -5,14 +5,14 @@ use tinyflows::model::{Node, NodeKind, WorkflowGraph};
 
 /// Binds a fresh in-memory reference engine to `config`'s workspace and
 /// returns it, so the digest tests write and read back through one store.
-fn digest_test_engine(config: &Config) -> Arc<tinymemory::conformance::ReferenceEngine> {
-    let engine = Arc::new(tinymemory::conformance::ReferenceEngine::new());
+fn digest_test_engine(config: &Config) -> Arc<tinymemory_api::conformance::ReferenceEngine> {
+    let engine = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
     crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
     engine
 }
 
 /// The run digests stored for `flow_id`.
-async fn stored_digests(config: &Config, flow_id: &str) -> Vec<tinymemory::Hit> {
+async fn stored_digests(config: &Config, flow_id: &str) -> Vec<tinymemory_api::Hit> {
     crate::memory::ops::items_list(
         config,
         crate::memory::types::ItemsListParams {

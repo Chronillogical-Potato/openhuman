@@ -9,9 +9,9 @@ import {
 /**
  * Memory v2 page (`/connections?tab=brain`, docs/specs/memory-v2.md).
  *
- * Drives the real page in a browser through its chips — Engine, Ask,
- * Learnings, Documents, Context — plus the "import previous memory" consent
- * flow and the memory-off state.
+ * Drives the real page in a browser through its chips — Engine, Ask (with the
+ * memory pack preview), Learnings, Brain, Background — plus the "import
+ * previous memory" consent flow and the memory-off state.
  *
  * WHY THE MEMORY RPC IS MOCKED: the page only talks to the core through the
  * `openhuman.memory_*` v2 methods (services/api/memoryApi.ts), and the engines
@@ -50,8 +50,8 @@ const ENGINES = [
   },
 ];
 
-const CONTEXT_MARKDOWN =
-  '# What I know about you\n\n- Prefers concise answers\n- Working on project Atlas';
+const PACK_MARKDOWN =
+  '## What I know about you\n\n- Prefers concise answers\n- Working on project Atlas';
 
 interface FakeOptions {
   /** `memory_engine_get` reports TinyHumans as active (`ok`) when true, off when false. */
@@ -97,16 +97,35 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
   let nextId = 1;
   let importState = { phase: 'idle', imported: 0, total: 0, error: null as string | null };
 
-  const context = () => ({
-    markdown: CONTEXT_MARKDOWN,
-    tokens: 42,
-    generated_at: '2026-10-01T09:00:00Z',
-    interval_mins: 360,
-    budget_tokens: 1500,
-    enabled: true,
-  });
-
-  const conversations = { enabled: true, batch_turns: 4, idle_secs: 120, recent: [] as unknown[] };
+  const policy = {
+    log_conversations: true,
+    recall: {
+      enabled: true,
+      budget_tokens: 1500,
+      learnings_limit: 8,
+      brain_limit: 6,
+      history_limit: 6,
+      team_limit: 4,
+      build_beliefs_every: 20,
+      pre_turn_timeout_ms: 1500,
+      compaction_timeout_ms: 5000,
+      build_delay_secs: 30,
+    },
+    root: 'user:e2e',
+    agent_id: 'main',
+    host_bound: false,
+  };
+  const brain = [{ source: 'markdown', documents: 3 }];
+  const pendingJobs = [
+    {
+      id: 'job-1',
+      root: 'user:e2e',
+      job: { job: 'build_beliefs' },
+      queued_at: '2026-10-01T09:00:00Z',
+      attempts: 0,
+    },
+  ];
+  const jobHistory: Array<Record<string, unknown>> = [];
 
   /** The fake's answer per v2 method; `undefined` = not a v2 method, pass through. */
   const handle = (method: string, params: Record<string, unknown>): unknown => {
@@ -159,11 +178,62 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
       }
       case 'memory_items_list':
         return { items: [...learnings], next_cursor: null };
-      case 'memory_conversations_get':
-        return conversations;
-      case 'memory_conversations_set':
-        Object.assign(conversations, params);
-        return conversations;
+      case 'memory_policy_get':
+        return policy;
+      case 'memory_policy_set':
+        if (typeof params.log_conversations === 'boolean') {
+          policy.log_conversations = params.log_conversations;
+        }
+        return policy;
+      case 'memory_agents_list':
+        return { root: policy.root, agents: [{ agent_id: 'main', turns: 4 }] };
+      case 'memory_pack_preview':
+        return {
+          agent_id: (params.agent_id as string | undefined) ?? policy.agent_id,
+          root: policy.root,
+          mode: params.query ? 'turn' : 'session',
+          pack: {
+            markdown: PACK_MARKDOWN,
+            tokens: 42,
+            refs: ['learning-seed'],
+            sections: [{ heading: 'Learnings', hits: [learnings[0]] }],
+            skipped: [{ heading: 'Team', reason: 'no team memory' }],
+            engine: 'tinyhumans',
+          },
+        };
+      case 'memory_brain_sources':
+        return { root: policy.root, sources: [...brain], unfiled: 0 };
+      case 'memory_brain_search':
+        return { hits: [] };
+      case 'memory_brain_ingest':
+        return {
+          id: `doc-${nextId++}`,
+          source: (params.source as string) ?? 'markdown',
+          replayed: false,
+        };
+      case 'memory_brain_forget': {
+        const index = brain.findIndex(b => b.source === params.source);
+        const forgotten = index >= 0 ? brain[index].documents : 0;
+        if (index >= 0) brain.splice(index, 1);
+        return { forgotten };
+      }
+      case 'memory_jobs_list':
+        return { pending: [...pendingJobs], history: [...jobHistory] };
+      case 'memory_jobs_run': {
+        const runs = pendingJobs
+          .splice(0)
+          .map(job => ({
+            id: job.id,
+            job: job.job.job,
+            root: job.root,
+            ran_at: '2026-10-01T09:05:00Z',
+            outcome: 'done',
+            built: 2,
+            stored: 2,
+          }));
+        jobHistory.unshift(...runs);
+        return { runs };
+      }
       case 'memory_sources_list':
         return { sources: [...sources] };
       case 'memory_sources_add': {
@@ -188,10 +258,6 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
       }
       case 'memory_sources_sync':
         return { started: params.id ? [params.id] : sources.map(s => s.id) };
-      case 'memory_context_get':
-      case 'memory_context_refresh':
-      case 'memory_context_set':
-        return context();
       case 'memory_import_scan':
         return opts.importFound
           ? { found: true, counts: { documents: 12, conversations: 3, learnings: 5 } }
@@ -258,7 +324,7 @@ async function openMemory(page: Page, query = '') {
 const hash = (page: Page) => page.evaluate(() => window.location.hash);
 
 test.describe('Memory v2 — engine active', () => {
-  test('lands on Ask and drives engine, ask, learnings, documents and context', async ({
+  test('lands on Ask and drives engine, ask, pack preview, learnings, brain and background', async ({
     page,
   }) => {
     const fake = await installMemoryFake(page, { engineOn: true });
@@ -290,6 +356,16 @@ test.describe('Memory v2 — engine active', () => {
     );
     expect(fake.paramsOf('memory_recall')).toEqual([{ question: 'When does Atlas migrate?' }]);
 
+    // 2b. Pack preview: what a new session would start with.
+    await page.getByTestId('memory-ask-mode-pack').click();
+    await page.getByTestId('memory-pack-submit').click();
+    const markdown = page.getByTestId('memory-pack-markdown');
+    await expect(markdown).toContainText('What I know about you');
+    await expect(markdown).toContainText('Prefers concise answers');
+    await expect(page.getByTestId('memory-pack-tokens')).toContainText('42 of 1500');
+    await expect(page.getByTestId('memory-pack-skipped-Team')).toContainText('no team memory');
+    expect(fake.paramsOf('memory_pack_preview')).toEqual([{}]);
+
     // 3. Learnings: a new learning is stored and listed.
     await page.getByTestId('brain-tab-learnings').click();
     await expect(page.getByTestId('memory-learning-learning-seed')).toBeVisible();
@@ -303,8 +379,10 @@ test.describe('Memory v2 — engine active', () => {
       { text: 'Standups are at 9:30.', kind: 'fact' },
     ]);
 
-    // 4. Documents: register a folder source (folder is the default kind).
-    await page.getByTestId('brain-tab-documents').click();
+    // 4. Brain: per-source counts, then register a synced folder source
+    // (folder is the default kind).
+    await page.getByTestId('brain-tab-brain').click();
+    await expect(page.getByTestId('memory-brain-source-markdown')).toContainText('3 documents');
     await expect(page.getByTestId('memory-sources-empty')).toBeVisible();
     await page.getByTestId('memory-sources-add').click();
     await expect(page.getByTestId('memory-add-source')).toBeVisible();
@@ -318,11 +396,13 @@ test.describe('Memory v2 — engine active', () => {
       { kind: 'folder', target: '/Users/e2e/notes' },
     ]);
 
-    // 5. Context: the compiled context.md renders as markdown.
-    await page.getByTestId('brain-tab-context').click();
-    const markdown = page.getByTestId('memory-context-markdown');
-    await expect(markdown).toContainText('What I know about you');
-    await expect(markdown).toContainText('Prefers concise answers');
+    // 5. Background: the pending belief build runs on demand.
+    await page.getByTestId('brain-tab-background').click();
+    await expect(page.getByTestId('memory-job-job-1')).toBeVisible();
+    await page.getByTestId('memory-jobs-run-all').click();
+    await expect(page.getByTestId('memory-run-job-1-outcome')).toContainText('Done');
+    await expect(page.getByTestId('memory-jobs-empty')).toBeVisible();
+    expect(fake.paramsOf('memory_jobs_run')).toEqual([{}]);
   });
 
   test('importing previous memory needs explicit consent', async ({ page }) => {
@@ -359,10 +439,10 @@ test.describe('Memory v2 — engine active', () => {
 
     const cases: Array<[string, RegExp]> = [
       ['/#/brain?tab=graph', /^#\/connections\?tab=brain&brain=ask(?:&|$)/],
-      ['/#/brain?tab=sources', /^#\/connections\?tab=brain&brain=documents(?:&|$)/],
-      [`${MEMORY_URL}&brain=sync`, /^#\/connections\?tab=brain&brain=documents(?:&|$)/],
+      ['/#/brain?tab=sources', /^#\/connections\?tab=brain&brain=brain(?:&|$)/],
+      [`${MEMORY_URL}&brain=sync`, /^#\/connections\?tab=brain&brain=brain(?:&|$)/],
       ['/#/settings/memory-engine', /^#\/connections\?tab=brain&brain=engine(?:&|$)/],
-      ['/#/settings/memory-data', /^#\/connections\?tab=brain&brain=documents(?:&|$)/],
+      ['/#/settings/memory-data', /^#\/connections\?tab=brain&brain=brain(?:&|$)/],
       ['/#/settings/memory-debug', /^#\/connections\?tab=brain&brain=ask(?:&|$)/],
     ];
     for (const [from, to] of cases) {
@@ -388,9 +468,9 @@ test.describe('Memory v2 — memory off', () => {
     await expect(page.getByTestId('memory-engines')).toBeVisible();
 
     // A content chip explains memory is off and points back to Engine.
-    await page.goto(`${MEMORY_URL}&brain=documents`);
+    await page.goto(`${MEMORY_URL}&brain=brain`);
     await expect(page.getByTestId('memory-off-state')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByTestId('memory-documents-tab')).toHaveCount(0);
+    await expect(page.getByTestId('memory-brain-tab')).toHaveCount(0);
     await page.getByTestId('memory-off-open-engine').click();
     await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engine-tab')).toBeVisible();

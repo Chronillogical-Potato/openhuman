@@ -1,7 +1,7 @@
 ---
 description: >-
   How OpenHuman learns your preferences from everyday use: learnings in memory,
-  the context.md brief, and your persona files.
+  the memory pack recalled for each turn, and your persona files.
 icon: brain
 ---
 
@@ -15,9 +15,9 @@ A **learning** is one durable statement: a preference, fact, procedure or correc
 
 Learnings live in your selected memory engine, so memory has to be on (see [Engines](memory.md#engines)). Secrets and personal identifiers are scrubbed before storing.
 
-## The context.md brief
+## The memory pack
 
-Periodically (default every 6 hours) OpenHuman compiles a short brief from memory: who you are, active work, preferences and standing instructions, recent important events, plus your learnings. It is saved to `<workspace>/memory/context.md` and placed at the start of every **new** chat, so the agent defaults to your preferences without being asked. Resumed chats keep the prompt they started with and pick the brief up in the next new chat. Refresh it on demand from the **Context** tab.
+Before every turn, OpenHuman recalls a short, token-budgeted *memory pack* from memory: relevant learnings (and beliefs the engine has built from them), documents from your brain, this agent's earlier conversations and, briefly, other agents' turns. The pack is added to that turn's model request only and is never written into the chat, so the agent defaults to your preferences without being asked and the prompt cache is unaffected. Preview it on **Connections → Memory → Ask**. See [How the agent uses memory](memory.md#how-the-agent-uses-memory).
 
 ## Persona files
 

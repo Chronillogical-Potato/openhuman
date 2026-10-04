@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Hit } from '../../services/api/memoryApi';
@@ -34,6 +34,21 @@ describe('MemoryLearningsTab', () => {
       limit: 20,
       cursor: undefined,
     });
+  });
+
+  it('badges learnings the belief builder derived', async () => {
+    hoisted.list.mockResolvedValue({
+      items: [
+        { ...learning('b1', 'Works best in the morning'), meta: { tags: ['belief'] } },
+        { ...learning('l1', 'Prefers dark mode'), meta: { tags: ['ui'] } },
+      ],
+    });
+    renderWithProviders(<MemoryLearningsTab />);
+    const belief = await screen.findByTestId('memory-learning-b1');
+    expect(within(belief).getByTestId('memory-hit-belief')).toHaveTextContent('Built belief');
+    expect(
+      within(screen.getByTestId('memory-learning-l1')).queryByTestId('memory-hit-belief')
+    ).not.toBeInTheDocument();
   });
 
   it('shows the empty state', async () => {

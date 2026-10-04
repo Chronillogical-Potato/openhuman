@@ -294,6 +294,7 @@ async fn run_turn_via_tinyagents_inner(
             max_output_tokens,
         ),
         has_thread,
+        run_context.memory_turn.clone(),
     );
 
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).

@@ -51,7 +51,7 @@ use crate::security::approval::{
     redact_args, summarize_action, ApprovalGate, ExecutionOutcome, GateOutcome,
 };
 use crate::security::{CommandClass, SecurityPolicy};
-use tinymemory::{Hit, LearningKind, MemoryMeta, MetaFilter, SourceKind};
+use tinymemory_api::{Hit, LearningKind, MemoryMeta, MetaFilter, SourceKind};
 
 use super::caps::{enforce_node_tier_gate, gate_call_for_tier};
 

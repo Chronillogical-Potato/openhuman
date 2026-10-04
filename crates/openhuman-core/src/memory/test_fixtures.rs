@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use tinymemory::conformance::ReferenceEngine;
-use tinymemory::{ListRequest, MemoryEngine, MetaFilter};
+use tinymemory_api::conformance::ReferenceEngine;
+use tinymemory_api::{ListRequest, MemoryEngine, MetaFilter};
 
 use crate::config::Config;
 
@@ -30,7 +30,10 @@ pub(crate) fn bind_reference(config: &Config) -> Arc<ReferenceEngine> {
 }
 
 /// Every item `engine` holds that matches `filter`.
-pub(crate) async fn stored(engine: &ReferenceEngine, filter: MetaFilter) -> Vec<tinymemory::Hit> {
+pub(crate) async fn stored(
+    engine: &ReferenceEngine,
+    filter: MetaFilter,
+) -> Vec<tinymemory_api::Hit> {
     engine
         .list(ListRequest {
             filter,

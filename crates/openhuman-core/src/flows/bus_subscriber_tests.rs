@@ -359,7 +359,7 @@ async fn digest_writes_run_digest_entry_for_completed_run() {
         "completed run must produce one run digest"
     );
     let entry = &digests[0];
-    assert_eq!(entry.meta.source.kind, tinymemory::SourceKind::Agent);
+    assert_eq!(entry.meta.source.kind, tinymemory_api::SourceKind::Agent);
     assert!(entry.meta.tags.contains(&crate::flows::flow_tag("f-ok")));
     assert!(entry.text.contains("f-ok"));
     assert!(entry.text.contains("completed"));
@@ -436,7 +436,7 @@ async fn retention_cap_forgets_the_oldest_digests() {
         meta.observed_at = Some(base + chrono::Duration::seconds(i));
         crate::memory::ops::store_item(
             &config,
-            tinymemory::StoreItem::document(format!("digest {i}"), meta),
+            tinymemory_api::StoreItem::document(format!("digest {i}"), meta),
         )
         .await
         .unwrap();

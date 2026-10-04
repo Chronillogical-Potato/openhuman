@@ -218,16 +218,8 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
             "Write file contents. Use when: applying focused edits, scaffolding files, updating docs/code. Don't use when: side effects are unclear or file ownership is uncertain.",
         ),
         (
-            "memory_store",
-            "Save to memory. Use when: preserving durable preferences, decisions, key context. Don't use when: information is transient/noisy/sensitive without need.",
-        ),
-        (
-            "memory_recall",
-            "Search memory. Use when: retrieving prior decisions, user preferences, historical context. Don't use when: answer is already in current context.",
-        ),
-        (
-            "memory_forget",
-            "Delete a memory entry. Use when: memory is incorrect/stale or explicitly requested for removal. Don't use when: impact is uncertain.",
+            "memory",
+            "Long-term memory: recall, fetch, learn, forget. Use when: retrieving prior decisions, preferences or history beyond the <memory-context> each turn already carries, or preserving a durable fact. Don't use when: the answer is already in context or the information is transient.",
         ),
     ];
 

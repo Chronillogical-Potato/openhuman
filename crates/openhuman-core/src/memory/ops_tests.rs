@@ -2,7 +2,7 @@ use super::*;
 use crate::memory::error::{INVALID_REQUEST, MEMORY_OFF, UNSUPPORTED};
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use crate::memory::types::EngineStatus;
-use tinymemory::{FetchMode, ItemKind, MetaFilter, SourceKind, SourceRef, ToolCallRef};
+use tinymemory_api::{FetchMode, ItemKind, MetaFilter, SourceKind, SourceRef, ToolCallRef};
 
 fn learn_params(text: &str) -> LearnParams {
     LearnParams {

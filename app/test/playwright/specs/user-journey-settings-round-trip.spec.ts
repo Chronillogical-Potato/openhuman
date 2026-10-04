@@ -12,7 +12,7 @@ interface PanelCheck {
 const panels: PanelCheck[] = [
   { hash: '/settings', markers: ['Settings', 'Appearance', 'Notifications'] },
   // The v1 memory data panel is gone; this slug redirects to the Memory
-  // page's Documents chip (/connections?tab=brain&brain=documents).
+  // page's Brain chip (/connections?tab=brain&brain=brain).
   { hash: '/settings/memory-data', markers: ['Documents', 'Memory'] },
   { hash: '/settings/developer-options', markers: ['Developer', 'Debug', 'Advanced'] },
   { hash: '/settings/account', markers: ['Account', 'Billing'] },

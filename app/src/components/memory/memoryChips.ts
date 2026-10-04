@@ -1,6 +1,6 @@
 /**
  * The Memory page's chip ids (`?brain=<chip>`) and the mapping that keeps old
- * v1 deep links working. Shared by the page and the `/brain` redirect.
+ * deep links working. Shared by the page and the `/brain` redirect.
  */
 
 export type MemoryChip =
@@ -9,8 +9,9 @@ export type MemoryChip =
   | 'explorer'
   | 'learnings'
   | 'conversations'
-  | 'documents'
-  | 'context';
+  | 'brain'
+  | 'background'
+  | 'settings';
 
 export const MEMORY_CHIPS: readonly MemoryChip[] = [
   'engine',
@@ -18,20 +19,25 @@ export const MEMORY_CHIPS: readonly MemoryChip[] = [
   'explorer',
   'learnings',
   'conversations',
-  'documents',
-  'context',
+  'brain',
+  'background',
+  'settings',
 ];
 
 /**
- * v1 sub-tabs → their v2 home: the graph and goals were ways of asking what
- * memory knows; sources, sync and history were all about synced documents.
+ * Retired chips → their current home. v1's graph and goals were ways of
+ * asking what memory knows, and so was the context.md brief (its successor,
+ * the memory pack, is previewed on Ask); v1's sources, sync and history and
+ * v2's Documents chip all became the shared Brain.
  */
 const LEGACY_CHIPS: Record<string, MemoryChip> = {
   graph: 'ask',
   goals: 'ask',
-  sources: 'documents',
-  sync: 'documents',
-  history: 'documents',
+  context: 'ask',
+  documents: 'brain',
+  sources: 'brain',
+  sync: 'brain',
+  history: 'brain',
 };
 
 /** Resolve a raw `?brain=` value to a chip, or `null` when it names none. */

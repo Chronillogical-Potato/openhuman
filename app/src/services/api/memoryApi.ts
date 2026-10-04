@@ -62,6 +62,17 @@ export const LEARNING_KINDS: readonly LearningKind[] = [
   'other',
 ];
 
+/**
+ * The tag TinyMemory's belief builder stamps on the learnings it derives
+ * (`tinymemory_api::consolidate::BELIEF_TAG`).
+ */
+export const BELIEF_TAG = 'belief';
+
+/** True when a stored item is a belief the background builder derived. */
+export function isBuiltBelief(meta: { tags?: string[] | null } | null | undefined): boolean {
+  return Boolean(meta?.tags?.includes(BELIEF_TAG));
+}
+
 /** Engine health as `memory_engine_get` reports it. `off` = no usable engine. */
 export type EngineStatus = 'ok' | 'degraded' | 'down' | 'off';
 
@@ -281,25 +292,6 @@ export interface ItemsPage {
   next_cursor?: string | null;
 }
 
-export interface RecentConversation {
-  thread_id: string;
-  turns: number;
-  stored_at: string;
-}
-
-export interface ConversationsSettings {
-  enabled: boolean;
-  batch_turns: number;
-  idle_secs: number;
-  recent: RecentConversation[];
-}
-
-export interface ConversationsUpdate {
-  enabled?: boolean;
-  batch_turns?: number;
-  idle_secs?: number;
-}
-
 export type SourceStatus = 'idle' | 'syncing' | 'error';
 
 export interface Source {
@@ -319,23 +311,8 @@ export interface SourceAddRequest {
   target: string;
   label?: string;
   schedule_mins?: number;
-}
-
-export interface MemoryContext {
-  /** The memory node the brief is about; `root` is the one every agent shares. */
-  namespace: string;
-  markdown: string;
-  tokens: number;
-  generated_at: string | null;
-  interval_mins: number;
-  budget_tokens: number;
-  enabled: boolean;
-}
-
-export interface ContextUpdate {
-  enabled?: boolean;
-  interval_mins?: number;
-  budget_tokens?: number;
+  /** Layout root to file the documents under, e.g. `team:acme`. */
+  namespace?: string;
 }
 
 export interface ImportCounts {
@@ -375,6 +352,168 @@ export interface BackfillView {
   pending_threads: number;
   /** Turns still to store across them. */
   pending_turns: number;
+}
+
+// ─── Lifecycle policy ────────────────────────────────────────────────────────
+
+/** What the memory pack injected before every turn may hold, and when beliefs build. */
+export interface RecallPolicy {
+  enabled: boolean;
+  /** Token budget of one pack. */
+  budget_tokens: number;
+  learnings_limit: number;
+  brain_limit: number;
+  history_limit: number;
+  team_limit: number;
+  /** Build beliefs every N logged turns; `0` turns building off. */
+  build_beliefs_every: number;
+  pre_turn_timeout_ms: number;
+  compaction_timeout_ms: number;
+  build_delay_secs: number;
+}
+
+/** `memory_policy_get` / `memory_policy_set`. */
+export interface MemoryPolicy {
+  /** Log every turn (pre_turn / post_turn) to memory. */
+  log_conversations: boolean;
+  recall: RecallPolicy;
+  /** The layout root this identity's memory is filed under. */
+  root: string;
+  /** The memory agent id turns run as. */
+  agent_id: string;
+  /** The host pins the root/agent (e.g. an embedder), so they cannot change here. */
+  host_bound: boolean;
+}
+
+/** A partial policy update. Unknown keys are rejected by the core. */
+export interface PolicyUpdate {
+  log_conversations?: boolean;
+  recall_enabled?: boolean;
+  /** 100–16000. */
+  budget_tokens?: number;
+  /** 0–50 each. */
+  learnings_limit?: number;
+  brain_limit?: number;
+  history_limit?: number;
+  team_limit?: number;
+  /** 0–1000; 0 = off. */
+  build_beliefs_every?: number;
+  /** 100–30000. */
+  pre_turn_timeout_ms?: number;
+}
+
+// ─── Memory pack ─────────────────────────────────────────────────────────────
+
+export interface PackPreviewRequest {
+  /** A turn's text; without it the preview is a session start. */
+  query?: string;
+  thread_id?: string;
+  agent_id?: string;
+}
+
+export interface PackSection {
+  heading: string;
+  answer?: string | null;
+  hits: Hit[];
+}
+
+export interface PackSkipped {
+  heading: string;
+  reason: string;
+}
+
+export interface MemoryPack {
+  markdown: string;
+  tokens: number;
+  refs: string[];
+  sections: PackSection[];
+  skipped: PackSkipped[];
+  engine: string;
+}
+
+export interface PackPreview {
+  agent_id: string;
+  root: string;
+  mode: 'turn' | 'session';
+  pack: MemoryPack;
+}
+
+export interface MemoryAgent {
+  agent_id: string;
+  /** Turns logged for this agent. */
+  turns: number;
+}
+
+export interface AgentsList {
+  root: string;
+  agents: MemoryAgent[];
+}
+
+// ─── Brain (shared documents) ────────────────────────────────────────────────
+
+/** Documents filed under one source type (pdf, markdown, notion, github, web, gmail, …). */
+export interface BrainSource {
+  source: string;
+  documents: number;
+}
+
+export interface BrainSources {
+  root: string;
+  sources: BrainSource[];
+  /** Documents with no source type. */
+  unfiled: number;
+}
+
+export interface BrainSearchRequest {
+  query: string;
+  source?: string;
+  limit?: number;
+}
+
+/** Exactly one of `path` / `text`. */
+export interface BrainIngestRequest {
+  path?: string;
+  text?: string;
+  source?: string;
+  title?: string;
+}
+
+export interface BrainIngestResult {
+  id: string;
+  source: string;
+  /** The same document was already in the brain; nothing new was stored. */
+  replayed: boolean;
+}
+
+// ─── Background jobs ─────────────────────────────────────────────────────────
+
+export type MemoryJobKind = 'build_beliefs' | 'ingest_brain';
+
+export interface PendingJob {
+  id: string;
+  root: string;
+  job: { job: MemoryJobKind | string; [key: string]: unknown };
+  queued_at: string;
+  attempts: number;
+  last_error?: string | null;
+}
+
+export type JobOutcome = 'done' | 'started' | 'scheduled' | 'skipped' | 'failed';
+
+export interface JobRun {
+  id: string;
+  job: string;
+  root: string;
+  ran_at: string;
+  outcome: JobOutcome;
+  reason?: string | null;
+  built?: number | null;
+  stored: number;
+}
+
+export interface JobsList {
+  pending: PendingJob[];
+  history: JobRun[];
 }
 
 /** The structured error codes a memory RPC can fail with. */
@@ -513,18 +652,6 @@ export function memoryItemsGet(ids: string[]): Promise<{ items: Hit[] }> {
   return call<{ items: Hit[] }>(CORE_RPC_METHODS.memoryItemsGet, { ids });
 }
 
-// ─── Conversations ───────────────────────────────────────────────────────────
-
-export function memoryConversationsGet(): Promise<ConversationsSettings> {
-  return call<ConversationsSettings>(CORE_RPC_METHODS.memoryConversationsGet);
-}
-
-export function memoryConversationsSet(
-  update: ConversationsUpdate
-): Promise<ConversationsSettings> {
-  return call<ConversationsSettings>(CORE_RPC_METHODS.memoryConversationsSet, update);
-}
-
 // ─── Documents (sources) ─────────────────────────────────────────────────────
 
 export function memorySourcesList(): Promise<{ sources: Source[] }> {
@@ -550,22 +677,54 @@ export function memorySourcesSync(id?: string): Promise<{ started: string[] }> {
   return call<{ started: string[] }>(CORE_RPC_METHODS.memorySourcesSync, { id });
 }
 
-// ─── context.md ──────────────────────────────────────────────────────────────
+// ─── Lifecycle policy and the memory pack ────────────────────────────────────
 
-/** The memory node every agent shares. */
-export const ROOT_NAMESPACE = 'root';
-
-/** The brief of one memory node (`root` when omitted). */
-export function memoryContextGet(namespace?: string): Promise<MemoryContext> {
-  return call<MemoryContext>(CORE_RPC_METHODS.memoryContextGet, { namespace });
+export function memoryPolicyGet(): Promise<MemoryPolicy> {
+  return call<MemoryPolicy>(CORE_RPC_METHODS.memoryPolicyGet);
 }
 
-export function memoryContextRefresh(namespace?: string): Promise<MemoryContext> {
-  return call<MemoryContext>(CORE_RPC_METHODS.memoryContextRefresh, { namespace });
+export function memoryPolicySet(update: PolicyUpdate): Promise<MemoryPolicy> {
+  return call<MemoryPolicy>(CORE_RPC_METHODS.memoryPolicySet, update);
 }
 
-export function memoryContextSet(update: ContextUpdate): Promise<MemoryContext> {
-  return call<MemoryContext>(CORE_RPC_METHODS.memoryContextSet, update);
+/** The pack a turn would get (with `query`) or a session start (without). */
+export function memoryPackPreview(req: PackPreviewRequest = {}): Promise<PackPreview> {
+  return call<PackPreview>(CORE_RPC_METHODS.memoryPackPreview, req);
+}
+
+/** The agents with logged turns under this identity's root. */
+export function memoryAgentsList(): Promise<AgentsList> {
+  return call<AgentsList>(CORE_RPC_METHODS.memoryAgentsList);
+}
+
+// ─── Brain (shared documents) ────────────────────────────────────────────────
+
+export function memoryBrainSources(): Promise<BrainSources> {
+  return call<BrainSources>(CORE_RPC_METHODS.memoryBrainSources);
+}
+
+export function memoryBrainSearch(req: BrainSearchRequest): Promise<{ hits: Hit[] }> {
+  return call<{ hits: Hit[] }>(CORE_RPC_METHODS.memoryBrainSearch, req);
+}
+
+export function memoryBrainIngest(req: BrainIngestRequest): Promise<BrainIngestResult> {
+  return call<BrainIngestResult>(CORE_RPC_METHODS.memoryBrainIngest, req);
+}
+
+/** Forget every brain document filed under `source`. */
+export function memoryBrainForget(source: string): Promise<{ forgotten: number }> {
+  return call<{ forgotten: number }>(CORE_RPC_METHODS.memoryBrainForget, { source });
+}
+
+// ─── Background jobs ─────────────────────────────────────────────────────────
+
+export function memoryJobsList(): Promise<JobsList> {
+  return call<JobsList>(CORE_RPC_METHODS.memoryJobsList);
+}
+
+/** Run one pending job now, or every pending job when `id` is omitted. */
+export function memoryJobsRun(id?: string): Promise<{ runs: JobRun[] }> {
+  return call<{ runs: JobRun[] }>(CORE_RPC_METHODS.memoryJobsRun, { id });
 }
 
 // ─── Import of previous (v1) memory ──────────────────────────────────────────

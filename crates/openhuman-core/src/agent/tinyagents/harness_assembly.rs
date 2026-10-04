@@ -152,6 +152,10 @@ pub(super) fn assemble_turn_harness(
     // run's thread, so a thread-less turn (a headless `inference_agent_chat`
     // without a `thread_id`) is not offered them at all (issue #6956).
     has_thread: bool,
+    // This turn's memory binding (`OpenHumanRunContext::memory_turn`): the
+    // compaction summarizer recalls under it. `None` leaves compaction
+    // memory-free.
+    memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
 ) -> AssembledTurnHarness {
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     // Cross-route fallback ownership (issue #4249, Workstream 02.2): populate the
@@ -572,6 +576,7 @@ pub(super) fn assemble_turn_harness(
         summarizer_model,
         pause_at_cap && subagent_scope.is_none(),
         &tool_outcome_sink,
+        memory_turn,
     );
     verify_before_finish::install(
         &mut harness,
@@ -704,6 +709,10 @@ pub(super) fn assemble_turn_harness(
     if let Some(mw) = &repeated_failure {
         harness.push_middleware(Arc::new(mw.nudge_injector()));
     }
+    // The turn's memory pack rides every request of the turn, after every
+    // reduction step and after the transcript snapshot, so it is never
+    // compacted, trimmed or persisted (`memory::lifecycle::hooks::pre_turn`).
+    harness.push_middleware(Arc::new(middleware::MemoryPackMiddleware));
 
     AssembledTurnHarness {
         harness,

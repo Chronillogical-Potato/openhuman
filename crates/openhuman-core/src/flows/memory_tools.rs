@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
-use tinymemory::{
+use tinymemory_api::{
     Citation, ForgetTarget, LearningKind, MemoryMeta, MetaFilter, SourceKind, SourceRef,
 };
 use tinytools::{PermissionLevel, Tool, ToolResult};

@@ -23,7 +23,7 @@ pub(crate) mod spec;
 
 pub use definition::{AgentDefinitionSpec, SandboxModeSpec, ToolScopeSpec};
 pub use layout::AgentLayout;
-pub use spec::AgentSpec;
+pub use spec::{AgentSpec, MemoryBinding};
 
 use std::path::Path;
 use std::sync::Arc;

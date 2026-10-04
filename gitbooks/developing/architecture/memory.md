@@ -1,60 +1,77 @@
 ---
 description: >-
-  The Memory v2 host layer in crates/openhuman-core/src/memory/ and the
-  TinyMemory crates it sits on.
+  The memory host layer in crates/openhuman-core/src/memory/: TinyMemory's
+  agent lifecycle bound to OpenHuman's turns, RPC and UI.
 icon: diagram-project
 ---
 
 # Memory (`crates/openhuman-core/src/memory/`)
 
-Memory v2 is three operations (Recall, Fetch, Store) over a pluggable engine, plus an engine-neutral `context.md`. The contract lives in TinyMemory (`vendor/tinymemory/docs/specs/memory-v2.md`); the OpenHuman side is `docs/specs/memory-v2.md`. The user-facing feature is described in [Memory](../../features/memory.md).
+OpenHuman drives TinyMemory's agent memory lifecycle around every turn: a
+memory pack recalled before the model runs, the turn logged on both sides,
+memory recalled into compaction checkpoints, and belief builds run in the
+background. The behaviour is specified in `docs/specs/memory-v2.md`; the
+user-facing feature is [Memory](../../features/memory.md).
 
 ## TinyMemory crates (`vendor/tinymemory/crates/`)
 
 | Crate | Owns |
 | --- | --- |
-| `tinymemory-api` | `MemoryEngine`, request/response types, `MemoryMeta`, `MetaFilter`, `EngineDescriptor`, `Error`. No I/O. |
-| `tinymemory-cortex` | The CortexDB engine, registered as `cortexdb` (direct `/v1/*`) and `tinyhumans` (behind the backend `/memory/*`, host bearer). |
-| `tinymemory-documents` | Format sniffing and conversion to markdown. |
-| `tinymemory-sources` | Readers for folder, file, link, github, rss and composio payloads, with the SSRF guard. |
-| `tinymemory-safety` | Secret and PII scrubbing before every store. |
-| `tinymemory-context` | `ContextCompiler` for `context.md`. |
-| `tinymemory-import` | Reads a legacy v1 workspace and yields items. |
-| `tinymemory-conformance` | Behaviour suite every engine passes, plus a reference engine. |
-| `tinymemory` | Facade: engine registry, `MemoryConfig`, `build_engine`. |
+| `tinymemory-api` | The engine contract: `MemoryEngine` (recall, fetch, store, forget, list, consolidate, beliefs), `StoreItem`, `MemoryMeta`, `MetaFilter`, `Namespace`/`Reach`, `EngineDescriptor`, `Error`. No I/O. Its `conformance` feature adds the suite every engine passes and the in-memory `ReferenceEngine` the unit tests use. |
+| `tinymemory-tools` | The agent surface over any engine: `AgentMemory` (`start_session`, `pre_turn`, `post_turn`, `recall_for_compaction`, `recall`), `MemoryLayout`, `Brain`, holistic recall (`ContextPack`), `BackgroundJob`/`BackgroundRunner`. |
+| `tinymemory-integrations` | Everything that touches the outside world: the CortexDB engine on both wires (`cortexdb` direct, `tinyhumans` behind the backend), the registry, document conversion and the brain filer, source readers (SSRF-guarded), secret/PII scrubbing, the v1 importer. |
 
 ## Host modules
 
 | Module | Role |
 | --- | --- |
-| `engine` | Binds `[memory] engine`: `tinyhumans` over the host's backend credential (resolved per request), or `cortexdb` with the key stored as `memory-cortexdb`. Engines are cached per config fingerprint. Off when neither is usable. |
-| `ops` | Select engine, recall, fetch, learn, forget, list. `store_item` scrubs before storing. |
-| `tools` | The single `memory` agent tool (`recall`, `fetch`, `learn`, `forget`); not registered when memory is off. |
-| `conversations` | Per-thread buffering of committed turns; stores a `Conversation` item at `batch_turns` or `idle_secs`. Tool calls keep name and id only. |
-| `sources` | The `[[memory.sources]]` registry, on-demand and scheduled sync. |
-| `context` | Compiles, reads and injects `<workspace>/memory/context.md` (cron job `memory_context_refresh`, default every 360 minutes). |
-| `import` | Consent-gated, resumable import of a v1 store; state in `<workspace>/memory/import_state.json`. |
-| `exit` | Flushes buffered conversation turns on quit within a 2 second budget. |
-| `bus` | Turn-commit and cron subscribers, and the idle flusher. |
-| `schemas` | The `openhuman.memory_*` controllers (engines, recall, fetch, learn, forget, items, conversations, sources, context, import). |
-| `status`, `error`, `types` | Engine status, `MEMORY_OFF` / `UNSUPPORTED` / `INVALID_REQUEST` / `UNAUTHORIZED` / `ENGINE` errors, shared types. |
+| `engine` | Binds `[memory] engine`: `tinyhumans` over the host's backend credential (resolved per request) with the transport's attribution headers, or `cortexdb` with the key stored as `memory-cortexdb`. Off when neither is usable. |
+| `guard` | `ScrubbingEngine`: every write is scrubbed under the host policy, whichever path makes it. |
+| `scope` | `MemoryIdentity` scoped around every turn, resolved to a layout root and a memory agent id (host binding, definition pin, team, default). |
+| `lifecycle::hooks` | `pre_turn`, `post_turn`, `compaction`: bounded, never fail a turn. |
+| `lifecycle::jobs` | The persisted background queue and the `memory_background` cron job. |
+| `lifecycle::views` | Policy, pack preview, agents list, job views for the RPCs. |
+| `brain` | Brain source mapping for synced items and the `memory_brain_*` ops. |
+| `sources` | The `[[memory.sources]]` registry and sync into the brain. |
+| `channels` | Which channel each logged thread arrived on, for forgetting a channel. |
+| `backfill` | Consent-gated storing of past chats in the lifecycle's shape. |
+| `import` | Consent-gated, resumable v1 import. |
+| `tools` | The single `memory` agent tool (`recall`, `fetch`, `learn`, `forget`), confined to the identity's layout. |
+| `ops`, `explore` | Engine selection, recall, fetch, learn, forget, listing, the explorer. |
+| `bus` | The cron subscriber (`memory_sources_sync`, `memory_background`). |
+| `schemas` | The `openhuman.memory_*` controllers. |
+| `status`, `error`, `types` | Subsystem status, error codes, shared types. |
 
-The session host prepends `context.md`, wrapped in `<memory-context>`, as the first user message of a new session only; resumed sessions keep their frozen transcript.
+## Where the agent loop calls memory
 
-Chat thread persistence is not memory. The JSONL thread store (formerly `memory::conversations` over `tinymemory-conversations`) is now `tinyagents_session::threads` in `vendor/tinyagents`, wrapped by `crates/openhuman-core/src/threads/store`.
+| Hook | File |
+| --- | --- |
+| Pre-turn (log + recall), first turn after a compaction also `start_session` | `agent/session_host/runtime_session/memory_ingest.rs`, from `before_turn` in `runtime_session.rs` |
+| Pack injection, ephemeral, every model request of the turn | `agent/tinyagents/middleware/memory_pack.rs` |
+| Post-turn (log the reply, queue builds), after the durable commit | `memory_ingest.rs`, from `finalize_after_durable_commit` |
+| Compaction recall into the checkpoint | `agent/tinyagents/memory_summarizer.rs`, wrapped around the summarizer in `harness_context_ladder.rs` |
 
-The MCP server exposes `memory.recall`, `memory.fetch`, `memory.list`, `memory.learn` and `memory.forget` (`mcp/server/tools/specs.rs`).
+The turn's `MemoryTurn` (config, identity, thread, pack) rides
+`OpenHumanRunContext::memory_turn`; a child run has its own.
+
+Chat thread persistence is not memory: it is `tinyagents_session::threads`,
+wrapped by `crates/openhuman-core/src/threads/store`.
+
+The MCP server exposes `memory.recall`, `memory.fetch`, `memory.list`,
+`memory.learn` and `memory.forget` (`mcp/server/tools/specs.rs`).
 
 ## Tests
 
-`tests/memory_v2_e2e.rs` (JSON-RPC), `app/test/playwright/specs/memory-v2.spec.ts` (UI), and unit tests beside each module (`*_tests.rs`).
+- Unit tests beside each module (`*_tests.rs`), against `ReferenceEngine`.
+- `tests/memory_v2_e2e.rs`: every `memory_*` RPC against the mock backend, and
+  a web-chat turn whose inference request carries the pack, whose turns are
+  logged with `x-sdk-name`, and whose transcript holds no pack.
+- `crates/openhuman-embed/tests/runtime_agents.rs`: `AgentSpec::memory`.
+- `app/test/playwright/specs/memory-v2.spec.ts` (UI).
 
-Against a real CortexDB server, `scripts/test-memory-cortexdb-live.sh` boots the
-pinned harness in Docker (`vendor/tinymemory/integration/cortexdb/`, v0.10.4 by
-default, `CORTEXDB_VERSION=v0.9.9` for the older release) and runs
-`tests/memory_cortexdb_live.rs`. That test spawns the real `openhuman-core`
-binary with the `cortexdb` engine and checks learnings, a synced folder source,
-web-chat conversation ingestion, recall, and `context.md` (compiled by its cron
-job, written to disk, and injected into a new thread's first message). It skips
-unless `OPENHUMAN_LIVE_CORTEXDB_URL` is set, so plain test runs never need
-Docker.
+Against a real CortexDB server, `scripts/test-memory-cortexdb-live.sh` boots
+the pinned harness in Docker (`vendor/tinymemory/integration/cortexdb/`) and
+runs `tests/memory_cortexdb_live.rs`: learnings, a synced folder source,
+web-chat turn logging, recall, the pack preview, the pack injected into a
+turn's inference request, and belief builds. It skips unless
+`OPENHUMAN_LIVE_CORTEXDB_URL` is set.

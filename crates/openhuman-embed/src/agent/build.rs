@@ -2,7 +2,7 @@
 //!
 //! Order matters and is fixed here: validate the id, lay out directories,
 //! assemble the per-agent `Config` (base → access → provider → MCP →
-//! Composio → escape hatch), build the definition, copy skills, check the
+//! Composio → memory binding → escape hatch), build the definition, copy skills, check the
 //! narrowing rules, derive the context.
 
 use std::path::Path;
@@ -74,6 +74,22 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     if let Some(credential) = parts.composio {
         log::debug!("[embed][agent] id={id} pins its own composio credential");
         config.composio.pin_host_credential(credential);
+    }
+
+    if let Some(binding) = parts.memory {
+        let agent_id = binding.agent_id().trim();
+        if agent_id.is_empty() {
+            return Err(AgentError::Invalid(
+                "a memory binding needs an agent id".into(),
+            ));
+        }
+        if let Some(root) = binding.root_namespace() {
+            openhuman_core::memory::scope::validate_root(root)
+                .map_err(|reason| AgentError::Invalid(format!("memory root {root:?}: {reason}")))?;
+        }
+        log::debug!("[embed][agent] id={id} binds its memory agent_id={agent_id}");
+        config.memory.agent_id = Some(agent_id.to_string());
+        config.memory.root = binding.root_namespace().map(|root| root.trim().to_string());
     }
 
     if let Some(f) = parts.config_fn {

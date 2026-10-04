@@ -63,7 +63,7 @@ OpenHuman 是大多数助手所不具备的三样东西的集合：**一颗大�
 
 ### 🧠 大脑
 
-- **[记忆](../gitbooks/features/memory.md)**：基于可替换引擎（TinyHumans 托管或你自己的 CortexDB）的 Recall、Fetch、Store。存储文档、对话和学习内容，回答附带引用，并为每个新聊天提供 `context.md` 简报。
+- **[记忆](../gitbooks/features/memory.md)**：基于可替换引擎（TinyHumans 托管或你自己的 CortexDB）的 Recall、Fetch、Store。存储文档、对话和学习内容，回答附带引用，并在每一轮对话前召回相关的记忆包。
 - **[100+ OAuth 集成、5,000+ MCP 服务器、90,000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**：一键接入 Gmail、Notion、GitHub、Slack 以及你技术栈中的其他服务。[自动拉取](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)每 20 分钟为大脑输送养分，所以它在今天早上就已经拥有明天的上下文。
 - **[目标与待办](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**：持久化的会话级目标，以及在聊天中显示的智能体待办列表。
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**：工具输出在触达模型之前先被压缩：信息不变，token 最多减少 80%。没有它，这么大的一颗大脑将贵得用不起。
@@ -131,7 +131,7 @@ OpenHuman 跳过了等待期。添加来源（文件夹、文件、链接、GitH
 | **开源**       | 🚫 闭源          | ✅ MIT      | ✅ MIT       | ✅ GNU                                                                                      |
 | **易上手**     | ✅ 桌面 + CLI    | ⚠️ 终端优先 | ⚠️ 终端优先  | ✅ 清爽 UI，几分钟上手                                                                      |
 | **成本**       | ⚠️ 订阅 + 附加项 | ⚠️ 自带模型 | ⚠️ 自带模型  | ✅ 单一订阅 + TokenJuice                                                                    |
-| **记忆**       | ✅ 对话范围      | ⚠️ 依赖插件 | ✅ 自学习    | 🚀 可替换引擎（TinyHumans 或自有 CortexDB）、引用、`context.md` |
+| **记忆**       | ✅ 对话范围      | ⚠️ 依赖插件 | ✅ 自学习    | 🚀 可替换引擎（TinyHumans 或自有 CortexDB）、引用、每轮记忆包 |
 | **集成**       | ⚠️ 少量连接器    | ⚠️ 自行接入 | ⚠️ 自行接入  | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                       |
 | **来源同步**   | 🚫 无            | 🚫 无       | 🚫 无        | ✅ 按计划同步到记忆 |
 | **编排**       | ⚠️ 子任务        | ⚠️ 单循环   | ⚠️ 单循环    | 🚀 智能体图 + 检查点 + E2E 加密的 A2A                                                       |

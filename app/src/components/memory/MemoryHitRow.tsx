@@ -1,12 +1,13 @@
 /**
  * One stored item — a recall citation, a raw fetch hit, or a learning — as a
- * list row: kind badge, optional score, the text, and the metadata that says
+ * list row: kind badge (plus "Built belief" for a learning the background
+ * belief builder derived), optional score, the text, and the metadata that says
  * where it came from (file, folder, repo, thread, link).
  */
 import type { ReactNode } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import type { ItemKind, MemoryMeta } from '../../services/api/memoryApi';
+import { isBuiltBelief, type ItemKind, type MemoryMeta } from '../../services/api/memoryApi';
 import { Badge } from '../ui';
 import { formatScore, KIND_VARIANT, kindLabel, metaFacts } from './memoryFormat';
 
@@ -46,6 +47,11 @@ export default function MemoryHitRow({
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={KIND_VARIANT[kind] ?? 'neutral'}>{kindLabel(kind, t)}</Badge>
+          {isBuiltBelief(meta) && (
+            <Badge variant="primary" data-testid="memory-hit-belief">
+              {t('memoryPage.learnings.builtBelief')}
+            </Badge>
+          )}
           {scoreText !== null && (
             <span
               className="font-mono text-[11px] text-content-muted"

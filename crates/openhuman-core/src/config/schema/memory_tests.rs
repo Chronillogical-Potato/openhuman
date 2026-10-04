@@ -2,42 +2,44 @@ use super::*;
 use serde_json::json;
 
 #[test]
-fn defaults_select_tinyhumans_with_ingest_and_context_on() {
+fn defaults_select_tinyhumans_with_logging_and_recall_on() {
     let config = MemoryConfig::default();
     assert_eq!(config.engine, DEFAULT_MEMORY_ENGINE);
     assert!(config.engines.is_empty());
     assert!(config.sources.is_empty());
     assert!(config.conversations.enabled);
+    assert!(config.recall.enabled);
+    assert_eq!(config.recall.budget_tokens, DEFAULT_RECALL_BUDGET_TOKENS);
     assert_eq!(
-        config.conversations.batch_turns,
-        DEFAULT_CONVERSATION_BATCH_TURNS
+        config.recall.pre_turn_timeout_ms,
+        DEFAULT_PRE_TURN_TIMEOUT_MS
     );
-    assert_eq!(
-        config.conversations.idle_secs,
-        DEFAULT_CONVERSATION_IDLE_SECS
-    );
-    assert!(config.context.enabled);
-    assert_eq!(config.context.interval_mins, DEFAULT_CONTEXT_INTERVAL_MINS);
-    assert_eq!(config.context.budget_tokens, DEFAULT_CONTEXT_BUDGET_TOKENS);
+    assert_eq!(config.recall.build_delay_secs, DEFAULT_BUILD_DELAY_SECS);
+    assert_eq!(config.agent_id, None);
+    assert_eq!(config.root, None);
 }
 
 #[test]
-fn parses_a_full_v2_section() {
+fn parses_a_full_section() {
     let config: MemoryConfig = toml::from_str(
         r#"
 engine = "cortexdb"
+agent_id = "employee-7"
+root = "project:acme"
 
 [engines.cortexdb]
 endpoint = "https://cortex.example"
 
 [conversations]
 enabled = false
-batch_turns = 8
-idle_secs = 30
 
-[context]
-interval_mins = 60
+[recall]
 budget_tokens = 500
+team_limit = 0
+
+[agents.researcher]
+agent_id = "desk"
+recall = false
 
 [[sources]]
 id = "src-1"
@@ -47,19 +49,51 @@ label = "Notes"
 schedule_mins = 15
 "#,
     )
-    .expect("v2 section parses");
+    .expect("section parses");
     assert_eq!(config.engine, "cortexdb");
     assert_eq!(
         config.endpoint_for("cortexdb").as_deref(),
         Some("https://cortex.example")
     );
+    assert_eq!(config.agent_id.as_deref(), Some("employee-7"));
+    assert_eq!(config.root.as_deref(), Some("project:acme"));
     assert!(!config.conversations.enabled);
-    assert_eq!(config.conversations.batch_turns, 8);
-    assert_eq!(config.context.interval_mins, 60);
-    assert!(config.context.enabled, "unset fields keep their default");
+    assert_eq!(config.recall.budget_tokens, 500);
+    assert_eq!(config.recall.team_limit, 0);
+    assert!(config.recall.enabled, "unset fields keep their default");
+    assert_eq!(
+        config.agents["researcher"].agent_id.as_deref(),
+        Some("desk")
+    );
+    assert_eq!(config.agents["researcher"].recall, Some(false));
     assert_eq!(config.sources.len(), 1);
     assert_eq!(config.sources[0].kind, MemorySourceKind::Folder);
     assert_eq!(config.sources[0].schedule_mins, Some(15));
+}
+
+#[test]
+fn ignores_retired_lifecycle_keys() {
+    let config: MemoryConfig = toml::from_str(
+        r#"
+root_agents = ["orchestrator"]
+
+[conversations]
+enabled = true
+batch_turns = 8
+idle_secs = 30
+
+[context]
+interval_mins = 60
+
+[agents.analyst]
+namespace = "project:q4"
+inherit = false
+context = true
+"#,
+    )
+    .expect("retired keys are ignored");
+    assert!(config.conversations.enabled);
+    assert_eq!(config.agents["analyst"], MemoryAgentConfig::default());
 }
 
 #[test]

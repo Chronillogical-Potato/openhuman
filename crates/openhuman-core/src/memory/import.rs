@@ -15,8 +15,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tinymemory::import::{Checkpoint, ImportedItem, LegacyWorkspace};
-use tinymemory::ItemKind;
+use tinymemory_api::ItemKind;
+use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace};
 
 use crate::config::Config;
 

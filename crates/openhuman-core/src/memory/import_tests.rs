@@ -2,7 +2,7 @@ use super::*;
 use crate::memory::error::{INVALID_REQUEST, MEMORY_OFF};
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use rusqlite::{params, Connection};
-use tinymemory::MetaFilter;
+use tinymemory_api::MetaFilter;
 
 /// An early v1 `memory.db` (no optional columns), enough for the importer.
 const LEGACY_DDL: &str = "
@@ -147,7 +147,7 @@ async fn a_full_import_stores_every_item_and_finishes_done() {
     assert_eq!(items.len(), 5);
     assert!(items
         .iter()
-        .all(|item| item.meta.source.kind == tinymemory::SourceKind::Import));
+        .all(|item| item.meta.source.kind == tinymemory_api::SourceKind::Import));
     assert!(file_path(&config.workspace_dir).exists());
 }
 

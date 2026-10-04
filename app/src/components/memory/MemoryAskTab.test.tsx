@@ -4,18 +4,60 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/test-utils';
 import MemoryAskTab from './MemoryAskTab';
 
-const hoisted = vi.hoisted(() => ({ recall: vi.fn(), fetch: vi.fn() }));
+const hoisted = vi.hoisted(() => ({
+  recall: vi.fn(),
+  fetch: vi.fn(),
+  preview: vi.fn(),
+  agents: vi.fn(),
+  policy: vi.fn(),
+}));
 
 vi.mock('../../services/api/memoryApi', async importOriginal => ({
   ...(await importOriginal<typeof import('../../services/api/memoryApi')>()),
   memoryRecall: (...a: unknown[]) => hoisted.recall(...a),
   memoryFetch: (...a: unknown[]) => hoisted.fetch(...a),
+  memoryPackPreview: (...a: unknown[]) => hoisted.preview(...a),
+  memoryAgentsList: (...a: unknown[]) => hoisted.agents(...a),
+  memoryPolicyGet: (...a: unknown[]) => hoisted.policy(...a),
 }));
 
 beforeEach(() => {
   hoisted.recall.mockReset();
   hoisted.fetch.mockReset();
+  hoisted.preview.mockReset();
+  hoisted.agents
+    .mockReset()
+    .mockResolvedValue({ root: 'user:me', agents: [{ agent_id: 'researcher', turns: 12 }] });
+  hoisted.policy
+    .mockReset()
+    .mockResolvedValue({
+      log_conversations: true,
+      recall: { enabled: true, budget_tokens: 1500 },
+      root: 'user:me',
+      agent_id: 'main',
+      host_bound: false,
+    });
 });
+
+const PACK = {
+  agent_id: 'researcher',
+  root: 'user:me',
+  mode: 'turn',
+  pack: {
+    markdown: '## Learnings\n\n- Prefers tea',
+    tokens: 1800,
+    refs: ['l1'],
+    sections: [
+      {
+        heading: 'Learnings',
+        hits: [{ id: 'l1', kind: 'learning', text: 'Prefers tea', meta: {}, score: 1 }],
+      },
+      { heading: 'Brain', hits: [] },
+    ],
+    skipped: [{ heading: 'Team', reason: 'no team memory' }],
+    engine: 'tinyhumans',
+  },
+};
 
 function ask(text: string) {
   fireEvent.change(screen.getByTestId('memory-ask-input'), { target: { value: text } });
@@ -81,7 +123,7 @@ describe('MemoryAskTab', () => {
       ],
     });
     renderWithProviders(<MemoryAskTab fetchModes={['keyword', 'vector']} />);
-    fireEvent.click(screen.getByTestId('memory-ask-raw-toggle'));
+    fireEvent.click(screen.getByTestId('memory-ask-mode-raw'));
 
     const mode = screen.getByTestId('memory-ask-mode');
     expect(
@@ -104,14 +146,14 @@ describe('MemoryAskTab', () => {
 
   it('hides the mode picker when the engine lists no fetch modes', () => {
     renderWithProviders(<MemoryAskTab fetchModes={[]} />);
-    fireEvent.click(screen.getByTestId('memory-ask-raw-toggle'));
+    fireEvent.click(screen.getByTestId('memory-ask-mode-raw'));
     expect(screen.queryByTestId('memory-ask-mode')).not.toBeInTheDocument();
   });
 
   it('says so when a raw search finds nothing', async () => {
     hoisted.fetch.mockResolvedValue({ hits: [] });
     renderWithProviders(<MemoryAskTab fetchModes={['hybrid']} />);
-    fireEvent.click(screen.getByTestId('memory-ask-raw-toggle'));
+    fireEvent.click(screen.getByTestId('memory-ask-mode-raw'));
     ask('nothing');
     expect(await screen.findByTestId('memory-ask-hits')).toHaveTextContent(
       'Nothing in memory matches that search.'
@@ -123,5 +165,59 @@ describe('MemoryAskTab', () => {
     renderWithProviders(<MemoryAskTab fetchModes={['hybrid']} />);
     ask('anything');
     expect(await screen.findByTestId('memory-ask-error')).toHaveTextContent('upstream timeout');
+  });
+
+  it('previews the pack a turn would get for a chosen agent', async () => {
+    hoisted.preview.mockResolvedValue(PACK);
+    renderWithProviders(<MemoryAskTab fetchModes={['hybrid']} />);
+    fireEvent.click(screen.getByTestId('memory-ask-mode-pack'));
+
+    const agent = await screen.findByTestId('memory-pack-agent');
+    await waitFor(() =>
+      expect(within(agent).getByRole('option', { name: 'researcher' })).toBeInTheDocument()
+    );
+    fireEvent.change(agent, { target: { value: 'researcher' } });
+    fireEvent.change(screen.getByTestId('memory-pack-query'), { target: { value: 'tea?' } });
+    fireEvent.click(screen.getByTestId('memory-pack-submit'));
+
+    await waitFor(() =>
+      expect(hoisted.preview).toHaveBeenCalledWith({ query: 'tea?', agent_id: 'researcher' })
+    );
+    expect(await screen.findByTestId('memory-pack-markdown')).toHaveTextContent('Prefers tea');
+    expect(screen.getByTestId('memory-pack-tokens')).toHaveTextContent('1800 of 1500 tokens');
+    expect(screen.getByTestId('memory-pack-section-Learnings')).toHaveTextContent('1 hits');
+    expect(screen.getByTestId('memory-pack-section-Brain')).toHaveTextContent('0 hits');
+    expect(screen.getByTestId('memory-pack-skipped-Team')).toHaveTextContent('no team memory');
+    expect(hoisted.recall).not.toHaveBeenCalled();
+  });
+
+  it('previews a session start without a query and survives a failed agent list', async () => {
+    hoisted.agents.mockRejectedValue(new Error('MEMORY_OFF'));
+    hoisted.policy.mockRejectedValue(new Error('MEMORY_OFF'));
+    hoisted.preview.mockResolvedValue({
+      ...PACK,
+      mode: 'session',
+      pack: { ...PACK.pack, markdown: '', tokens: 0, sections: [], skipped: [] },
+    });
+    renderWithProviders(<MemoryAskTab fetchModes={['hybrid']} />);
+    fireEvent.click(screen.getByTestId('memory-ask-mode-pack'));
+    fireEvent.click(await screen.findByTestId('memory-pack-submit'));
+
+    await waitFor(() => expect(hoisted.preview).toHaveBeenCalledWith({}));
+    expect(await screen.findByTestId('memory-pack-result')).toHaveTextContent(
+      'Memory for a new session'
+    );
+    expect(screen.getByTestId('memory-pack-tokens')).toHaveTextContent('0 tokens');
+    expect(screen.getByTestId('memory-pack-markdown')).toHaveTextContent(
+      'Nothing in memory made it into this pack.'
+    );
+  });
+
+  it('shows a pack preview failure', async () => {
+    hoisted.preview.mockRejectedValue(new Error('ENGINE: down'));
+    renderWithProviders(<MemoryAskTab fetchModes={['hybrid']} />);
+    fireEvent.click(screen.getByTestId('memory-ask-mode-pack'));
+    fireEvent.click(await screen.findByTestId('memory-pack-submit'));
+    expect(await screen.findByTestId('memory-pack-error')).toHaveTextContent('ENGINE: down');
   });
 });

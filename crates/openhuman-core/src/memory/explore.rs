@@ -2,7 +2,7 @@
 //!
 //! An explorer walks what memory holds by TinyMemory's standard facets (kind,
 //! source, workspace, folder, file, thread, agent, tool call, tag, …; see
-//! `tinymemory::explore`). The client keeps only a breadcrumb [`PathStep`]
+//! `tinymemory_api::explore`). The client keeps only a breadcrumb [`PathStep`]
 //! list; the core turns it into a filter with `Facet::narrow`, so drilling
 //! down means exactly the same thing in every client and for every engine:
 //!
@@ -13,7 +13,7 @@
 //!    `memory_items_get {ids}` reads one whole.
 
 use serde::{Deserialize, Serialize};
-use tinymemory::{ExplorePage, ExploreRequest, Facet, GetRequest, Hit, ItemId, MetaFilter};
+use tinymemory_api::{ExplorePage, ExploreRequest, Facet, GetRequest, Hit, ItemId, MetaFilter};
 
 use crate::config::Config;
 
@@ -61,7 +61,7 @@ pub struct ItemsGetParams {
     pub ids: Vec<String>,
     /// Only items in this reach are returned; unset reads every namespace.
     #[serde(default)]
-    pub reach: Option<tinymemory::Reach>,
+    pub reach: Option<tinymemory_api::Reach>,
 }
 
 /// `memory_items_get` result.

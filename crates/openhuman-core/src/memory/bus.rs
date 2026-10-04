@@ -1,98 +1,32 @@
-//! Memory's event subscribers and background flusher.
+//! Memory's event subscriber.
 //!
-//! - `memory::conversation_ingest` buffers every
-//!   [`DomainEvent::ConversationTurnCommitted`] for conversation ingestion.
-//! - `memory::system_jobs` runs the `memory_context_refresh` and
-//!   `memory_sources_sync` cron jobs ([`DomainEvent::CronSystemJobDue`]).
-//! - A background task stores threads that went idle (`idle_secs`).
+//! `memory::system_jobs` runs memory's cron jobs
+//! ([`DomainEvent::CronSystemJobDue`]):
+//!
+//! - `memory_sources_sync` starts the due source syncs;
+//! - `memory_background` runs the queued belief builds and deferred ingests
+//!   (`lifecycle::jobs`).
+//!
+//! Turns are not ingested from the bus: the session host calls the lifecycle
+//! hooks itself, under the session's own config (`lifecycle::hooks`).
 
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
 
 use async_trait::async_trait;
 use chrono::Utc;
 use tinybus::{EventHandler, SubscriptionHandle};
-use tinymemory::ToolCallRef;
 
 use crate::core::events::DomainEvent;
 
-use super::conversations::buffer::CommittedTurn;
-
-/// Cron job that recompiles `context.md`.
-pub const CONTEXT_REFRESH_JOB: &str = "memory_context_refresh";
+use super::lifecycle::jobs::BACKGROUND_JOB;
 
 /// Cron job that starts due source syncs.
 pub const SOURCES_SYNC_JOB: &str = "memory_sources_sync";
 
-/// How often the idle flusher looks for quiet threads.
-const IDLE_SWEEP_INTERVAL: Duration = Duration::from_secs(15);
+/// The retired `context.md` refresh job; `cron::system_jobs` removes its row.
+pub const RETIRED_CONTEXT_REFRESH_JOB: &str = "memory_context_refresh";
 
-static INGEST_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 static JOBS_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
-static FLUSHER_STARTED: OnceLock<()> = OnceLock::new();
-
-/// The committed turn an event describes, or `None` for any other event.
-#[must_use]
-pub fn committed_turn(event: &DomainEvent) -> Option<CommittedTurn> {
-    let DomainEvent::ConversationTurnCommitted {
-        thread_id,
-        agent_id,
-        workspace,
-        channel,
-        user_text,
-        assistant_text,
-        tool_calls,
-        ..
-    } = event
-    else {
-        return None;
-    };
-    Some(CommittedTurn {
-        thread_id: thread_id.clone(),
-        agent_id: agent_id.clone(),
-        namespace: tinymemory::Namespace::ROOT,
-        workspace: workspace.clone(),
-        channel: channel.clone(),
-        user: user_text.clone(),
-        assistant: assistant_text.clone(),
-        tool_calls: tool_calls
-            .iter()
-            .map(|call| ToolCallRef {
-                name: call.name.clone(),
-                id: call.id.clone(),
-            })
-            .collect(),
-        at: Utc::now(),
-    })
-}
-
-struct ConversationIngestSubscriber;
-
-#[async_trait]
-impl EventHandler<DomainEvent> for ConversationIngestSubscriber {
-    fn name(&self) -> &str {
-        "memory::conversation_ingest"
-    }
-
-    fn domains(&self) -> Option<&[&str]> {
-        Some(&["agent"])
-    }
-
-    async fn handle(&self, event: &DomainEvent) {
-        let Some(turn) = committed_turn(event) else {
-            return;
-        };
-        let DomainEvent::ConversationTurnCommitted { workspace_dir, .. } = event else {
-            return;
-        };
-        match crate::config::rpc::load_config_for_workspace_with_timeout(workspace_dir).await {
-            Ok(config) => super::conversations::record_turn(&config, turn).await,
-            Err(error) => {
-                tracing::debug!(error = %error, "[memory:bus] config unavailable; turn dropped")
-            }
-        }
-    }
-}
 
 struct SystemJobsSubscriber;
 
@@ -110,7 +44,7 @@ impl EventHandler<DomainEvent> for SystemJobsSubscriber {
         let DomainEvent::CronSystemJobDue { job } = event else {
             return;
         };
-        if job != CONTEXT_REFRESH_JOB && job != SOURCES_SYNC_JOB {
+        if job != SOURCES_SYNC_JOB && job != BACKGROUND_JOB {
             return;
         }
         let config = match crate::config::rpc::load_config_with_timeout().await {
@@ -127,14 +61,6 @@ impl EventHandler<DomainEvent> for SystemJobsSubscriber {
 /// Runs one memory cron job against `config`.
 pub async fn run_system_job(config: &crate::config::Config, job: &str) {
     match job {
-        CONTEXT_REFRESH_JOB => {
-            if !config.memory.context.enabled {
-                tracing::debug!("[memory:bus] context disabled; refresh skipped");
-                return;
-            }
-            let compiled = super::context::refresh_all(config).await;
-            tracing::debug!(compiled, "[memory:bus] context documents refreshed");
-        }
         SOURCES_SYNC_JOB => {
             let started = super::sources::sync_due(config, Utc::now());
             tracing::debug!(
@@ -142,54 +68,21 @@ pub async fn run_system_job(config: &crate::config::Config, job: &str) {
                 "[memory:bus] due source syncs started"
             );
         }
+        BACKGROUND_JOB => super::lifecycle::jobs::run_due(config).await,
         _ => {}
     }
 }
 
-/// Registers memory's subscribers and starts the idle flusher. Idempotent.
+/// Registers memory's subscriber. Idempotent.
 pub fn register_memory_subscribers() {
-    if INGEST_HANDLE.get().is_none() {
-        match crate::core::bus::BUS.subscribe(Arc::new(ConversationIngestSubscriber)) {
-            Some(handle) => {
-                let _ = INGEST_HANDLE.set(handle);
-            }
-            None => tracing::warn!("[memory:bus] conversation ingest not registered: no bus"),
-        }
-    }
     if JOBS_HANDLE.get().is_none() {
         match crate::core::bus::BUS.subscribe(Arc::new(SystemJobsSubscriber)) {
             Some(handle) => {
                 let _ = JOBS_HANDLE.set(handle);
+                tracing::info!("[memory:bus] memory subscribers registered");
             }
             None => tracing::warn!("[memory:bus] system jobs not registered: no bus"),
         }
-    }
-    if FLUSHER_STARTED.set(()).is_ok() {
-        tokio::spawn(async {
-            let mut ticker = tokio::time::interval(IDLE_SWEEP_INTERVAL);
-            loop {
-                ticker.tick().await;
-                // Every workspace with buffered turns, each with its own
-                // config, so an agent with its own workspace is flushed too.
-                for workspace in super::conversations::buffered_workspaces() {
-                    let loaded =
-                        crate::config::rpc::load_config_for_workspace_with_timeout(&workspace)
-                            .await;
-                    let Ok(config) = loaded else {
-                        continue;
-                    };
-                    let flushed = super::conversations::flush_idle(&config, Utc::now()).await;
-                    if flushed > 0 {
-                        tracing::debug!(
-                            flushed,
-                            workspace = %workspace.display(),
-                            "[memory:bus] idle threads stored"
-                        );
-                    }
-                }
-            }
-        });
-        tracing::info!("[memory:bus] memory subscribers registered");
     }
 }
 

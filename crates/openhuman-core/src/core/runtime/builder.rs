@@ -769,17 +769,11 @@ impl CoreRuntime {
     /// Cleanup to run once a transport has stopped serving, whether it ended
     /// cleanly or with an error.
     ///
-    /// Memory goes first. The engine's queue worker holds leases on in-flight
-    /// jobs, and releasing them is a write to the store, so it has to happen
-    /// while the store is still open and before anything else on the way out
-    /// (tinymemory#133). Bounded inside, on one shared deadline: a wedged
-    /// store costs at most that budget, never the exit. There is no local
-    /// model runtime to stop: the user runs Ollama / LM Studio / MLX
-    /// themselves and OpenHuman never spawns it.
+    /// Memory holds nothing to flush: turns are logged as they happen and
+    /// queued background jobs are persisted. There is no local model runtime
+    /// to stop either: the user runs Ollama / LM Studio / MLX themselves and
+    /// OpenHuman never spawns it.
     pub async fn exit_cleanup(&self) {
-        if let Some(config) = &self.config {
-            let _ = crate::memory::exit::run(config).await;
-        }
         log::debug!("[core] shutdown: exit cleanup done (no owned local runtime to stop)");
     }
 

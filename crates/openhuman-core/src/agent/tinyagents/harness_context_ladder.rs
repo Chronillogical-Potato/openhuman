@@ -62,6 +62,7 @@ pub(super) fn install_context_ladder(
     summarizer_model: TurnChatModel,
     wrap_up_at_cap: bool,
     tool_outcome_sink: &ToolOutcomeSink,
+    memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
 ) -> (
     Option<Arc<ContextCompressionMiddleware>>,
     Option<Arc<FinalCallWrapUpMiddleware>>,
@@ -109,6 +110,7 @@ pub(super) fn install_context_ladder(
                 context_window,
                 summarizer_model,
                 model,
+                memory_turn,
             ));
             // Lifecycle `before_model` runs the threshold compaction; the
             // model wrap runs the provider-overflow → compact → retry-once
@@ -262,6 +264,7 @@ pub(super) fn compression_middleware(
     context_window: Option<u64>,
     summarizer_model: TurnChatModel,
     model: &str,
+    memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
 ) -> ContextCompressionMiddleware {
     use tinyagents_harness::summarization::{
         FaultTolerantCachingSummarizer, ModelSummarizer, TaskStateSummarizer,
@@ -289,8 +292,14 @@ pub(super) fn compression_middleware(
                 ),
                 &policy,
             );
-            ContextCompressionMiddleware::with_summarizer(policy, Box::new(summarizer))
-                .with_keep_recent_tokens(keep_recent)
+            ContextCompressionMiddleware::with_summarizer(
+                policy,
+                super::memory_summarizer::MemoryRecallSummarizer::wrap(
+                    Box::new(summarizer),
+                    memory_turn,
+                ),
+            )
+            .with_keep_recent_tokens(keep_recent)
         }
         crate::config::CompactionStrategy::Summary => {
             tracing::info!(model, "[context_compression] strategy=summary");
@@ -298,7 +307,13 @@ pub(super) fn compression_middleware(
                 Box::new(ModelSummarizer::new(summarizer_model, model)),
                 &policy,
             );
-            ContextCompressionMiddleware::with_summarizer(policy, Box::new(summarizer))
+            ContextCompressionMiddleware::with_summarizer(
+                policy,
+                super::memory_summarizer::MemoryRecallSummarizer::wrap(
+                    Box::new(summarizer),
+                    memory_turn,
+                ),
+            )
         }
     }
 }

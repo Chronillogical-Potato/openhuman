@@ -17,9 +17,9 @@ pub async fn subsystem_status(config: &Config) -> SubsystemStatus {
     match engine::resolve(config) {
         Binding::On(bound) => {
             let (health, reason) = match bound.engine.health().await {
-                tinymemory::EngineHealth::Ok => ("ready", None),
-                tinymemory::EngineHealth::Degraded(reason) => ("degraded", Some(reason)),
-                tinymemory::EngineHealth::Down(reason) => ("down", Some(reason)),
+                tinymemory_api::EngineHealth::Ok => ("ready", None),
+                tinymemory_api::EngineHealth::Degraded(reason) => ("degraded", Some(reason)),
+                tinymemory_api::EngineHealth::Down(reason) => ("down", Some(reason)),
             };
             SubsystemStatus {
                 slot: "memory".to_string(),

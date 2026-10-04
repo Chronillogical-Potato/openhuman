@@ -60,8 +60,8 @@ pub enum DomainEvent {
         text_chars: usize,
         iterations: usize,
     },
-    /// A threaded conversation turn was durably committed. Consumed by memory's
-    /// conversation ingestion (`memory::bus`). Carries the turn text, as
+    /// A threaded conversation turn was durably committed. Memory logs the
+    /// turn itself (`memory::lifecycle::hooks`); this is for observers. Carries the turn text, as
     /// `ChannelMessageProcessed` does; subscribers must never log it. Tool
     /// calls carry names and ids only — never arguments.
     ConversationTurnCommitted {

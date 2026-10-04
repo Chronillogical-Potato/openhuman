@@ -22,7 +22,7 @@ OpenHuman is a **React + Tauri v2 desktop app** with a **Rust core** doing the h
                      │ JSON-RPC (loopback HTTP) ↕
 ┌──────────────────────────────────────────────────────────────────┐
 │ Rust core (crates/openhuman-core/, binary `openhuman-core`)      │
-│ • Memory v2 (engine binding, recall/fetch/store, context.md)     │
+│ • Memory v2 (engine binding, recall/fetch/store, turn lifecycle) │
 │ • Integration adapters + memory source sync                      │
 │ • Provider router (model routing)                                │
 │ • TokenJuice compression                                         │
@@ -62,9 +62,9 @@ The full table is under "Repository layout" in the [deep architecture reference]
 2. **Sync**. A [memory source](../../features/memory.md) (folder, file, link, GitHub, RSS, or a connected Composio toolkit) syncs on demand and on its own schedule.
 3. **Read**. `tinymemory-sources` turns the source into documents, with an SSRF guard on links.
 4. **Scrub**. `tinymemory-safety` removes secrets and personal identifiers from every item.
-5. **Store**. The item goes to the selected engine (hosted TinyHumans or your CortexDB). Conversations are stored after every few turns, learnings when the agent or you add one.
+5. **Store**. The item goes to the selected engine (hosted TinyHumans or your CortexDB). Conversation turns are logged as they happen, learnings when the agent or you add one.
 6. **Recall / Fetch**. The agent's `memory` tool asks the engine a question (with citations) or runs a raw hybrid search.
-7. **Context**. `context.md` is compiled on a schedule and injected into new chats only.
+7. **Pack**. Before every turn, a token-budgeted memory pack is recalled and added to that turn's model request only, never to the transcript.
 8. **Forget**. Items are removed by id from the Memory page or the tool.
 9. **Compress**. Tool output and large source data go through [TokenJuice](../../features/token-compression.md) before entering LLM context.
 10. **Route**. The [router](../../features/model-routing/) picks the right provider and model for the task hint, one of several [pluggable engines](../engines.md) the core chooses at runtime.
@@ -73,7 +73,7 @@ The full table is under "Repository layout" in the [deep architecture reference]
 
 Stays on your machine:
 
-- Workspace config and `memory/context.md` (the compiled brief).
+- Workspace config and persona files.
 - Audio capture buffers and any local model state.
 
 Goes through the OpenHuman backend (under one subscription, and one TinyHumans API key for embedders):

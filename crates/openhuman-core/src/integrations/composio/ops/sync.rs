@@ -240,11 +240,12 @@ pub async fn run_sync_pass(
         0
     } else {
         store_records(
+            config,
             bound,
             toolkit,
             connection_id,
             source_id,
-            &crate::memory::sources::namespace_of(config, source_id),
+            &crate::memory::sources::layout_of(config, source_id),
             &response.batch.records,
         )
         .await

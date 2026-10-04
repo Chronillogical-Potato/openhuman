@@ -7,18 +7,22 @@
 //! instead of a flow tick, and the owning domain runs it. Cron stays agnostic
 //! of what the job does; the rows show up in the routines list like any other.
 //!
-//! Memory owns two (`memory::bus`): `memory_context_refresh`, every
-//! `[memory.context] interval_mins`, and `memory_sources_sync`, every
-//! [`SOURCES_SYNC_INTERVAL_MINS`]. [`ensure_memory_jobs`] is idempotent: it
-//! creates a missing row and reschedules one whose interval drifted.
+//! Memory owns two (`memory::bus`): `memory_background`, every
+//! [`BACKGROUND_INTERVAL_MINS`] (the queued belief builds and deferred
+//! ingests), and `memory_sources_sync`, every [`SOURCES_SYNC_INTERVAL_MINS`].
+//! [`ensure_memory_jobs`] is idempotent: it creates a missing row, reschedules
+//! one whose interval drifted, and removes the retired
+//! `memory_context_refresh` row.
 
 use anyhow::Result;
 
 use crate::config::Config;
-use crate::memory::bus::{CONTEXT_REFRESH_JOB, SOURCES_SYNC_JOB};
+use crate::memory::bus::{RETIRED_CONTEXT_REFRESH_JOB, SOURCES_SYNC_JOB};
+use crate::memory::lifecycle::jobs::{BACKGROUND_INTERVAL_MINS, BACKGROUND_JOB};
 
 use super::{
-    add_flow_schedule_job, list_jobs, update_job, CronJob, CronJobPatch, JobType, Schedule,
+    add_flow_schedule_job, list_jobs, remove_job, update_job, CronJob, CronJobPatch, JobType,
+    Schedule,
 };
 
 /// Command prefix that marks a `flow` row as a system job.
@@ -79,14 +83,18 @@ pub fn ensure_system_job(config: &Config, name: &str, schedule: Schedule) -> Res
     }
 }
 
-/// Seeds (or reschedules) memory's system jobs for `config`.
+/// Seeds (or reschedules) memory's system jobs for `config`, and removes
+/// the ones memory retired.
 pub fn ensure_memory_jobs(config: &Config) -> Result<()> {
-    ensure_system_job(
-        config,
-        CONTEXT_REFRESH_JOB,
-        every(config.memory.context.interval_mins),
-    )?;
+    let background_mins = u32::try_from(BACKGROUND_INTERVAL_MINS).unwrap_or(u32::MAX);
+    ensure_system_job(config, BACKGROUND_JOB, every(background_mins))?;
     ensure_system_job(config, SOURCES_SYNC_JOB, every(SOURCES_SYNC_INTERVAL_MINS))?;
+    for job in list_jobs(config)? {
+        if system_job_name(&job) == Some(RETIRED_CONTEXT_REFRESH_JOB) {
+            tracing::info!(id = %job.id, "[cron:system] removing the retired context refresh job");
+            remove_job(config, &job.id)?;
+        }
+    }
     Ok(())
 }
 

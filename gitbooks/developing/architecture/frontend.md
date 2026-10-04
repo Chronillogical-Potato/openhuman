@@ -549,7 +549,7 @@ components/
 ├── commands/                # CommandProvider (command palette)
 ├── Announcement/, upsell/, userErrors/, walkthrough/  # Shell-level overlays
 ├── keyring/, InitProgressScreen/                     # Consent + init overlays
-├── memory/                  # Memory v2 tabs (Engine, Ask, Learnings, Conversations, Documents, Context) and import banner
+├── memory/                  # Memory v2 tabs (Engine, Ask, Explorer, Learnings, Conversations, Brain, Background, Settings) and import banner
 └── intelligence/            # Shared intelligence UI (WorkflowsTab, Toast, ConfirmationModal)
 ```
 

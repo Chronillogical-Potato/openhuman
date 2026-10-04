@@ -46,7 +46,7 @@ OpenHuman is built as a native application rather than a web wrapper for three r
 
 **Fast startup.** No browser engine to initialize. Ready to accept requests immediately.
 
-**OS-level security.** Credentials live in your platform's secure keychain, macOS Keychain, Windows Credential Manager, Linux Secret Service. Sensitive data never sits in browser storage or plain text files. Memory items live in the engine you select; the compiled `context.md` lives in your workspace folder.
+**OS-level security.** Credentials live in your platform's secure keychain, macOS Keychain, Windows Credential Manager, Linux Secret Service. Sensitive data never sits in browser storage or plain text files. Memory items live in the engine you select.
 
 ---
 
@@ -96,7 +96,7 @@ The desktop app maintains a persistent connection to the OpenHuman backend. Resp
 
 ## Offline behavior
 
-Your local state persists on your device. Preferences, settings, and connected-source configurations remain available offline. Your workspace files, including the compiled `context.md`, stay readable without a network connection. The [memory engine](memory.md) itself needs connectivity unless you point CortexDB at a local endpoint.
+Your local state persists on your device. Preferences, settings, and connected-source configurations remain available offline. Your workspace files stay readable without a network connection. The [memory engine](memory.md) itself needs connectivity unless you point CortexDB at a local endpoint.
 
 Source sync and live LLM calls require connectivity. When the network returns, the next scheduled sync picks up where it left off.
 

@@ -210,7 +210,7 @@ fn catalog_includes_additional_user_facing_surfaces() {
         "memory.learnings",
         "memory.conversations",
         "memory.documents",
-        "memory.context",
+        "memory.turn_pack",
         "memory.import",
         "conversation.subagent_mascots",
     ] {
@@ -495,13 +495,9 @@ fn memory_v2_capabilities_cite_live_surface_and_rpcs() {
         ("memory.engine", "engine", "memory_engine_set"),
         ("memory.ask", "ask", "memory_recall"),
         ("memory.learnings", "learnings", "memory_learn"),
-        (
-            "memory.conversations",
-            "conversations",
-            "memory_conversations_set",
-        ),
-        ("memory.documents", "documents", "memory_sources_add"),
-        ("memory.context", "context", "memory_context_refresh"),
+        ("memory.conversations", "conversations", "memory_policy_set"),
+        ("memory.documents", "brain", "memory_brain_ingest"),
+        ("memory.turn_pack", "settings", "memory_pack_preview"),
     ] {
         let cap = lookup(id).unwrap_or_else(|| panic!("missing `{id}`"));
         assert!(
@@ -537,6 +533,7 @@ fn v1_memory_capabilities_are_not_advertised() {
         "intelligence.slack_memory_ingest",
         "intelligence.clickup_memory_ingest",
         "intelligence.remember_preferences",
+        "memory.context",
     ] {
         assert!(lookup(id).is_none(), "removed capability `{id}` is back");
     }

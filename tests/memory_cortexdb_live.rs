@@ -11,11 +11,12 @@
 //!
 //! - **learnings**: `memory_learn`, read back with its metadata;
 //! - **documents**: a folder source synced, its files listed and fetched;
-//! - **conversations**: a web-chat turn, ingested after the turn commits;
+//! - **conversations**: a web-chat turn, logged by the turn's pre- and
+//!   post-turn hooks;
 //! - **recall** over all three;
 //! - **explorer**: a source drilled down to its files and read whole by id;
-//! - **context.md**: compiled from the engine, written to disk, and injected
-//!   into the first message of the next new thread.
+//! - **the memory pack**: what memory holds, injected into the next turn's
+//!   inference request, and the belief build the run queues.
 
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
@@ -93,8 +94,9 @@ endpoint = "{cortex_url}"
 
 [memory.conversations]
 enabled = true
-batch_turns = 1
-idle_secs = 30
+
+[memory.recall]
+build_delay_secs = 0
 "#
     );
     let _: openhuman_core::config::Config =
@@ -503,35 +505,11 @@ async fn run(cortex_url: String, cortex_key: String) {
         conversation["meta"]["agent_id"].is_string(),
         "{conversation}"
     );
-    // The engine write lands before the batch is recorded as stored, so
-    // the listing can briefly lead `recent`.
-    let deadline = Instant::now() + PATIENCE;
-    loop {
-        let recent = stack
-            .ok("openhuman.memory_conversations_get", json!({}))
-            .await;
-        if recent["recent"]
-            .as_array()
-            .is_some_and(|r| r.iter().any(|c| c["thread_id"] == json!(thread_a)))
-        {
-            break;
-        }
-        let states: Vec<String> = find_files(stack.home.path(), "conversations_state.json")
-            .iter()
-            .map(|p| {
-                format!(
-                    "{}: {}",
-                    p.display(),
-                    std::fs::read_to_string(p).unwrap_or_default()
-                )
-            })
-            .collect();
-        assert!(
-            Instant::now() < deadline,
-            "the thread never shows as recently stored: {recent}\nstate files: {states:#?}"
-        );
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
+    let agents = stack.ok("openhuman.memory_agents_list", json!({})).await;
+    assert!(
+        agents["agents"].as_array().is_some_and(|a| !a.is_empty()),
+        "the answering agent is listed: {agents}"
+    );
 
     // ---- recall over everything -----------------------------------------------
     let recalled = stack
@@ -555,70 +533,23 @@ async fn run(cortex_url: String, cortex_key: String) {
         "recall cites what it used: {recalled}"
     );
 
-    // ---- context.md: compiled by its cron job, persisted, injected ------------
-    // The core seeds `memory_context_refresh` as a system cron job at boot;
-    // run it the way the scheduler would and wait for the file it writes.
-    let jobs = stack.ok("openhuman.cron_list", json!({})).await;
-    let jobs = jobs
-        .get("jobs")
-        .and_then(Value::as_array)
-        .or_else(|| jobs.as_array())
-        .cloned()
-        .unwrap_or_default();
-    let job = jobs
-        .iter()
-        .find(|job| job["name"] == json!("memory_context_refresh"))
-        .unwrap_or_else(|| panic!("memory_context_refresh is seeded: {jobs:?}"));
-    assert!(
-        jobs.iter()
-            .any(|job| job["name"] == json!("memory_sources_sync")),
-        "memory_sources_sync is seeded: {jobs:?}"
-    );
-    stack
-        .ok("openhuman.cron_run", json!({ "job_id": job["id"] }))
-        .await;
-    let deadline = Instant::now() + PATIENCE;
-    let context = loop {
-        let context = stack.ok("openhuman.memory_context_get", json!({})).await;
-        if context["generated_at"].is_string() {
-            break context;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "the cron job never compiled context.md: {context}\n--- core log tail ---\n{}",
-            stack.log_tail()
-        );
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    };
-    let markdown = context["markdown"].as_str().unwrap_or_default().to_string();
-    assert!(
-        markdown.contains("The user prefers launch events in Lisbon."),
-        "context.md lists the learning:\n{markdown}"
-    );
-    assert!(
-        markdown.contains("engine: cortexdb"),
-        "frontmatter names the engine:\n{markdown}"
-    );
-    assert!(context["tokens"].as_u64().unwrap_or(0) > 0, "{context}");
-    let on_disk = find_file(stack.home.path(), "context.md").expect("context.md is written");
-    assert_eq!(
-        std::fs::read_to_string(&on_disk).expect("read context.md"),
-        markdown,
-        "the file on disk is what context_get serves"
-    );
-
-    // The on-demand refresh compiles the same brief again.
-    let refreshed = stack
-        .ok("openhuman.memory_context_refresh", json!({}))
+    // ---- the memory pack: previewed, then injected into the next turn ---------
+    let preview = stack
+        .ok(
+            "openhuman.memory_pack_preview",
+            json!({ "query": "Where do we hold launch events?" }),
+        )
         .await;
     assert!(
-        refreshed["markdown"]
+        preview["pack"]["markdown"]
             .as_str()
-            .is_some_and(|m| m.contains("The user prefers launch events in Lisbon.")),
-        "{refreshed}"
+            .is_some_and(|m| m.contains("launch events in Lisbon")),
+        "the pack carries the learning: {preview}"
     );
 
-    stack.chat(&thread_b, "What should I plan next?").await;
+    stack
+        .chat(&thread_b, "Where do we hold launch events?")
+        .await;
     let deadline = Instant::now() + PATIENCE;
     loop {
         let injected = stack.mock_bodies().await.into_iter().any(|(url, body)| {
@@ -631,11 +562,20 @@ async fn run(cortex_url: String, cortex_key: String) {
         }
         assert!(
             Instant::now() < deadline,
-            "the new thread's first inference request never carried context.md\n--- core log tail ---\n{}",
+            "the turn's inference request never carried the memory pack\n--- core log tail ---\n{}",
             stack.log_tail()
         );
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
+
+    // ---- background: the queued belief builds run on demand -------------------
+    let jobs = stack.ok("openhuman.memory_jobs_run", json!({})).await;
+    assert!(
+        jobs["runs"]
+            .as_array()
+            .is_some_and(|runs| runs.iter().all(|run| run["outcome"] != json!("failed"))),
+        "belief builds run on CortexDB: {jobs}"
+    );
 
     // ---- forget ----------------------------------------------------------------
     let forgotten = stack
@@ -649,21 +589,4 @@ async fn run(cortex_url: String, cortex_key: String) {
             |items| !items.iter().any(|i| i["id"] == json!(learning_id)),
         )
         .await;
-}
-
-fn find_file(root: &Path, name: &str) -> Option<PathBuf> {
-    find_files(root, name).into_iter().next()
-}
-
-fn find_files(root: &Path, name: &str) -> Vec<PathBuf> {
-    let mut found = Vec::new();
-    for entry in std::fs::read_dir(root).into_iter().flatten().flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            found.extend(find_files(&path, name));
-        } else if path.file_name().is_some_and(|n| n == name) {
-            found.push(path);
-        }
-    }
-    found
 }

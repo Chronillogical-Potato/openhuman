@@ -123,7 +123,7 @@ behavior, not linked code size.
 | --- | --- |
 | `OPENHUMAN_PROFILE_TURNS` | Turn count for `long-agent` (default 25). |
 | `OPENHUMAN_PROFILE_PREWARM_SUBAGENTS=1` | Run one warm-up turn before measuring (`subagents`), isolating first-use cost from steady state. |
-| `OPENHUMAN_PROFILE_DISABLE_MEMORY_WRITES=1` | Disable conversation memory (`[memory.conversations]`) and the `context.md` brief (`[memory.context]`), isolating orchestration from persistence. |
+| `OPENHUMAN_PROFILE_DISABLE_MEMORY_WRITES=1` | Disable memory writes (conversation logging and the per-turn memory lifecycle), isolating orchestration from persistence. |
 | `OPENHUMAN_PROFILE_FORCE_UTC=1` | Skip `iana_time_zone`/CoreFoundation timezone resolution. |
 | `OPENHUMAN_PROFILE_HOLD_SECS` / `HOLD_BEFORE_SECS` | Pause the process at settled/baseline state for external inspection (`vmmap`, `heap`, `malloc_history`, Instruments). |
 | `OPENHUMAN_PROFILE_DHAT_OUT` | Output path for dhat JSON (set by `library-heap.sh`). |

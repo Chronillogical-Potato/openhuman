@@ -124,10 +124,10 @@ export function settingsRouteElements(): ReactNode {
       <Route path="approval-history" element={wrapSettingsPage(<ApprovalHistoryPanel />)} />
 
       {/* ── Data ────────────────────────────────────────────────── */}
-      {/* Data Sync is the Memory page's Documents chip now. */}
+      {/* Data Sync is the Memory page's Brain chip now. */}
       <Route
         path="memory-sync"
-        element={<Navigate to="/connections?tab=brain&brain=documents" replace />}
+        element={<Navigate to="/connections?tab=brain&brain=brain" replace />}
       />
       {/* Wallet balances moved to the Connections page (Integrations group). */}
       <Route path="wallet-balances" element={<Navigate to="/connections?tab=wallet" replace />} />
@@ -195,7 +195,7 @@ export function settingsRouteElements(): ReactNode {
       />
       <Route
         path="memory-data"
-        element={<Navigate to="/connections?tab=brain&brain=documents" replace />}
+        element={<Navigate to="/connections?tab=brain&brain=brain" replace />}
       />
       <Route
         path="memory-debug"

@@ -1,7 +1,7 @@
 use super::*;
 use crate::memory::types::ItemsListParams;
 use tempfile::TempDir;
-use tinymemory::conformance::ReferenceEngine;
+use tinymemory_api::conformance::ReferenceEngine;
 
 /// A config whose workspace is bound to a fresh in-memory reference engine.
 fn engine_config() -> (TempDir, Config) {
@@ -24,7 +24,7 @@ fn off_config() -> (TempDir, Config) {
     (tmp, config)
 }
 
-async fn list(config: &Config, filter: MetaFilter) -> Vec<tinymemory::Hit> {
+async fn list(config: &Config, filter: MetaFilter) -> Vec<tinymemory_api::Hit> {
     crate::memory::ops::items_list(
         config,
         ItemsListParams {

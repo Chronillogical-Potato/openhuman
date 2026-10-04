@@ -1,29 +1,34 @@
-//! Memory v2: recall, fetch and store over a pluggable engine
-//! (`docs/specs/memory-v2.md`; contract in `vendor/tinymemory`).
+//! Memory: TinyMemory's agent lifecycle, bound to OpenHuman
+//! (`docs/specs/memory-v2.md`; contract and lifecycle in `vendor/tinymemory`).
 //!
 //! | Module | Role |
 //! | --- | --- |
 //! | [`engine`] | Binds the `[memory]` engine (`tinyhumans` over the host's backend credential, or `cortexdb` with a stored key); memory is **off** without one |
-//! | [`ops`] | Engine selection, recall, fetch, learn, forget, list; [`ops::store_item`] scrubs before storing |
-//! | [`conversations`] | Per-thread batching of committed turns into `Conversation` items |
-//! | [`sources`] | The `[[memory.sources]]` registry and sync (folder, file, link, github, rss, composio) |
-//! | [`context`] | `context.md`: compile, read, and the new-session injection block |
+//! | [`guard`] | Scrubs secrets and PII from every write, whichever path it takes |
+//! | [`scope`] | Who is acting: the layout root and memory agent id a turn runs as |
+//! | [`lifecycle`] | The turn hooks (pre-turn pack, post-turn log, compaction recall) and the background job queue |
+//! | [`ops`] | Engine selection, recall, fetch, learn, forget, list, the pack preview |
+//! | [`brain`] | The shared brain: documents by source type |
+//! | [`sources`] | The `[[memory.sources]]` registry and sync into the brain (folder, file, link, github, rss, composio) |
+//! | [`channels`] | Which channel each logged thread arrived on, for forgetting a channel |
+//! | [`backfill`] | Consent-gated storing of chats from before turns were logged |
 //! | [`import`] | Consent-gated, resumable import of a v1 store |
-//! | [`scope`] | Agent namespaces: the acting agent's memory node and reach |
 //! | [`tools`] | The single `memory` agent tool |
-//! | [`bus`] | Ingest + cron subscribers and the idle flusher |
+//! | [`bus`] | The cron subscriber (source sync, background jobs) |
 //! | [`schemas`] | The `openhuman.memory_*` controllers |
 //!
 //! Chat thread persistence is not memory: it lives in [`crate::threads::store`].
 
+pub mod backfill;
+pub mod brain;
 pub mod bus;
-pub mod context;
-pub mod conversations;
+pub mod channels;
 pub mod engine;
 pub mod error;
-pub mod exit;
 pub mod explore;
+pub mod guard;
 pub mod import;
+pub mod lifecycle;
 pub mod ops;
 pub mod schemas;
 pub mod scope;

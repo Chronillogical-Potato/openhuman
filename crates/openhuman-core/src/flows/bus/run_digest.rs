@@ -12,7 +12,7 @@ use crate::memory::{MemoryError, MemoryResult};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tinybus::EventHandler;
-use tinymemory::{ItemKind, MetaFilter, StoreItem};
+use tinymemory_api::{ItemKind, MetaFilter, StoreItem};
 
 /// Bounds a post-run memory digest to a compact, LLM-cheap size — a single
 /// run's summary must never dominate a later `flow_memory_recall`.

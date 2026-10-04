@@ -1,50 +1,83 @@
-//! Whose memory a read or write belongs to: agent namespaces.
+//! Whose memory a turn reads and writes.
 //!
-//! Memory is a tree of nodes (`tinymemory::Namespace`). The root holds what
-//! every agent shares — the main chat agent's learnings, synced documents,
-//! imported and backfilled history. Every other agent has its own node,
-//! `agent:<id>`; a sub-agent's node nests under the agent that spawned it
-//! (`agent:researcher/agent:scout`), and a team member's under its team
-//! (`team:<id>/agent:<id>`). Inside each node, learnings, documents and
-//! conversations are kept as separate scopes by the engine.
+//! Memory follows TinyMemory's standard layout (`tinymemory_tools::MemoryLayout`):
+//! one tree per tenant, below a root —
 //!
-//! A [`MemoryIdentity`] is the acting agent, the agents that spawned it and
-//! its team. The host scopes one around every agent turn ([`within_agent`]):
-//! the session host and channel dispatch for top-level turns, the sub-agent
-//! runner for children (nested automatically), the team runtime for members.
-//! Memory then reads it ([`current`]) and resolves it against its config
-//! ([`MemoryIdentity::namespace`]) to stamp what an agent learns and to
-//! confine what it recalls to its [`Reach`]: its own node and, unless
-//! `[memory.agents.<id>] inherit = false`, the nodes above it. A sibling
-//! agent's memory is never in reach.
+//! ```text
+//! <root>                      shared learnings; holistic recall reads it all
+//! ├── source:<kind>           the brain: synced documents, no agent id
+//! └── agent:<memory agent>    one agent's conversations, a turn per item
+//! ```
+//!
+//! A [`MemoryIdentity`] is who is acting: an agent definition and, for a team
+//! member, its team. The host scopes one around every agent turn
+//! ([`within_agent`], [`within`]); memory resolves it against the config of
+//! whoever reads or writes ([`MemoryIdentity::resolve`]) into a
+//! [`ResolvedIdentity`]: the layout root and the memory agent id.
+//!
+//! Resolution, first match wins:
+//!
+//! | | memory agent id | layout root |
+//! | --- | --- | --- |
+//! | 1. host binding | `[memory] agent_id` | `[memory] root` |
+//! | 2. definition pin | `[memory.agents.<definition>] agent_id` | `[memory.agents.<definition>] root` |
+//! | 3. team member | the definition id | `team:<team>` |
+//! | 4. default | the definition id, else [`DEFAULT_AGENT_ID`] | the default root |
+//!
+//! The host binding is how a coordinating host (OpenCompany, an embedder via
+//! `openhuman_embed::AgentSpec::memory`) gives each OpenHuman agent it runs a
+//! memory of its own: it derives a per-agent config with those two keys set.
+//! Everything that agent runs — sub-agents included — then acts as that one
+//! memory agent.
 //!
 //! The identity is never taken from model arguments.
 
 use std::future::Future;
 
-use tinymemory::{Namespace, Reach, Segment, SegmentKind};
+use tinymemory_api::{Namespace, Segment, SegmentKind};
+use tinymemory_tools::MemoryLayout;
 
 use crate::config::Config;
+
+/// The memory agent id of work no agent is running (RPC, sync jobs, the UI).
+pub const DEFAULT_AGENT_ID: &str = "assistant";
 
 tokio::task_local! {
     static CURRENT: MemoryIdentity;
 }
 
-/// Who is acting on memory: the agent, the agents that spawned it, and its
-/// team. Scoping one needs no config; the node it maps to is resolved
-/// against the config of whoever reads or writes ([`Self::namespace`]).
+/// Who is acting on memory: the agent definition and its team. Scoping one
+/// needs no config; what it maps to is resolved against the config of
+/// whoever reads or writes ([`Self::resolve`]).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MemoryIdentity {
     /// The agent definition id; `None` outside any agent (RPC, sync jobs).
     pub agent_id: Option<String>,
-    /// The agents that spawned this one, outermost first.
-    pub lineage: Vec<String>,
     /// The team the agent works in.
     pub team: Option<String>,
 }
 
+/// An identity resolved against a config: where its memory lives.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ResolvedIdentity {
+    /// The layout below the identity's root.
+    pub layout: MemoryLayout,
+    /// The memory agent id its turns are logged under.
+    pub agent_id: String,
+    /// Whether its turns get a context pack.
+    pub recall: bool,
+}
+
+impl ResolvedIdentity {
+    /// The layout root.
+    #[must_use]
+    pub fn root(&self) -> &Namespace {
+        self.layout.root()
+    }
+}
+
 impl MemoryIdentity {
-    /// The root identity: no agent, the shared node.
+    /// No agent: work the host does on its own behalf.
     #[must_use]
     pub fn root() -> Self {
         Self::default()
@@ -54,8 +87,8 @@ impl MemoryIdentity {
     #[must_use]
     pub fn agent(agent_id: &str) -> Self {
         Self {
-            agent_id: Some(agent_id.to_string()).filter(|id| !id.trim().is_empty()),
-            ..Self::default()
+            agent_id: non_blank(agent_id),
+            team: None,
         }
     }
 
@@ -63,124 +96,112 @@ impl MemoryIdentity {
     #[must_use]
     pub fn team_member(team: &str, agent_id: &str) -> Self {
         Self {
-            team: Some(team.to_string()).filter(|team| !team.trim().is_empty()),
-            ..Self::agent(agent_id)
+            agent_id: non_blank(agent_id),
+            team: non_blank(team),
         }
     }
 
-    /// `agent_id` run by this agent: a sub-agent, nested under this agent.
+    /// `agent_id` run by this agent: a sub-agent, in the same team.
     #[must_use]
     pub fn child(&self, agent_id: &str) -> Self {
-        let mut lineage = self.lineage.clone();
-        lineage.extend(self.agent_id.clone());
         Self {
-            agent_id: Some(agent_id.to_string()).filter(|id| !id.trim().is_empty()),
-            lineage,
+            agent_id: non_blank(agent_id),
             team: self.team.clone(),
         }
     }
 
-    /// The node this agent writes to under `config`. Walking from the team's
-    /// node (or the root) down the lineage to the agent: an agent the config
-    /// pins (`[memory.agents.<id>] namespace`) moves to its pinned node, a
-    /// root agent stays where it is, and any other agent nests one level
-    /// (`agent:<id>`).
+    /// Where this identity's memory lives under `config`. See the module
+    /// docs for the resolution order.
     #[must_use]
-    pub fn namespace(&self, config: &Config) -> Namespace {
-        let mut node = self.team.as_deref().map_or(Namespace::ROOT, |team| {
-            nest(&Namespace::ROOT, SegmentKind::Team, team)
-        });
-        for agent in self.lineage.iter().chain(self.agent_id.iter()) {
-            node = step(config, &node, agent);
-        }
-        node
-    }
-
-    /// Whether this agent also reads the nodes above its own
-    /// (`[memory.agents.<id>] inherit`, on by default).
-    #[must_use]
-    pub fn inherit(&self, config: &Config) -> bool {
-        self.agent_id
+    pub fn resolve(&self, config: &Config) -> ResolvedIdentity {
+        let memory = &config.memory;
+        let pinned = self
+            .agent_id
             .as_deref()
-            .and_then(|id| config.memory.agents.get(id))
-            .is_none_or(|settings| settings.inherit)
-    }
-
-    /// What this agent reads: its node, and its ancestors when it inherits.
-    #[must_use]
-    pub fn reach(&self, config: &Config) -> Reach {
-        let node = self.namespace(config);
-        if self.inherit(config) {
-            Reach::of(node)
-        } else {
-            Reach::exact(node)
+            .and_then(|definition| memory.agents.get(definition));
+        let agent_id = non_blank_opt(memory.agent_id.as_deref())
+            .or_else(|| non_blank_opt(pinned.and_then(|pin| pin.agent_id.as_deref())))
+            .or_else(|| self.agent_id.clone())
+            .unwrap_or_else(|| DEFAULT_AGENT_ID.to_string());
+        let root = parse_root(memory.root.as_deref())
+            .or_else(|| parse_root(pinned.and_then(|pin| pin.root.as_deref())))
+            .or_else(|| self.team.as_deref().map(team_root))
+            .unwrap_or(Namespace::ROOT);
+        let layout = MemoryLayout::new(root).unwrap_or_else(|error| {
+            tracing::warn!(%error, "[memory:scope] root too deep; using the default root");
+            MemoryLayout::default()
+        });
+        let recall = pinned
+            .and_then(|pin| pin.recall)
+            .unwrap_or(memory.recall.enabled);
+        ResolvedIdentity {
+            layout,
+            agent_id,
+            recall,
         }
     }
 }
 
-/// One step down from `node` for `agent_id`.
-fn step(config: &Config, node: &Namespace, agent_id: &str) -> Namespace {
-    let pinned = config
-        .memory
-        .agents
-        .get(agent_id)
-        .and_then(|settings| parse_namespace(settings.namespace.as_deref()));
-    match pinned {
-        Some(pinned) => pinned,
-        None if agent_id.trim().is_empty() || is_root_agent(config, agent_id) => node.clone(),
-        None => nest(node, SegmentKind::Agent, agent_id),
-    }
+/// The layout `team`'s members share.
+fn team_root(team: &str) -> Namespace {
+    Namespace::ROOT
+        .child(Segment::sanitized(SegmentKind::Team, team))
+        .unwrap_or(Namespace::ROOT)
 }
 
-/// The node `agent_id` owns at the top level, optionally as a member of
-/// `team`: its pinned `[memory.agents.<id>] namespace`, the team's node (or
-/// the root) for a root agent (`[memory] root_agents`, the main chat agent
-/// by default), else `team:<team>/agent:<id>` or `agent:<id>`.
-#[must_use]
-pub fn namespace_for(config: &Config, agent_id: &str, team: Option<&str>) -> Namespace {
-    match team {
-        Some(team) => MemoryIdentity::team_member(team, agent_id),
-        None => MemoryIdentity::agent(agent_id),
-    }
-    .namespace(config)
+/// Checks that `root` names a usable layout root (`team:acme`,
+/// `project:q4/team:ops`), as a host binding is set.
+///
+/// # Errors
+///
+/// Why it is not one.
+pub fn validate_root(root: &str) -> Result<(), String> {
+    let root: Namespace = root
+        .trim()
+        .parse()
+        .map_err(|error: tinymemory_api::Error| error.to_string())?;
+    MemoryLayout::new(root)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
-/// Whether `agent_id` reads and writes the root node.
-#[must_use]
-pub fn is_root_agent(config: &Config, agent_id: &str) -> bool {
-    config
-        .memory
-        .root_agents
-        .iter()
-        .any(|root| root == agent_id)
-}
-
-/// `namespace` with a sanitized `kind:id` segment appended; past the depth
-/// limit the node itself is returned, so a runaway spawn chain shares its
-/// deepest node rather than failing.
-fn nest(namespace: &Namespace, kind: SegmentKind, id: &str) -> Namespace {
-    namespace
-        .child(Segment::sanitized(kind, id))
-        .unwrap_or_else(|_| namespace.clone())
-}
-
-/// A configured namespace; an invalid one is logged and ignored.
-fn parse_namespace(raw: Option<&str>) -> Option<Namespace> {
+/// A configured root; an invalid one is logged and ignored.
+fn parse_root(raw: Option<&str>) -> Option<Namespace> {
     let raw = raw?.trim();
+    if raw.is_empty() {
+        return None;
+    }
     match raw.parse::<Namespace>() {
-        Ok(namespace) => Some(namespace),
+        Ok(root) => Some(root),
         Err(error) => {
-            tracing::warn!(namespace = raw, %error, "[memory:scope] ignoring an invalid configured namespace");
+            tracing::warn!(root = raw, %error, "[memory:scope] ignoring an invalid configured root");
             None
         }
     }
+}
+
+fn non_blank(value: &str) -> Option<String> {
+    non_blank_opt(Some(value))
+}
+
+fn non_blank_opt(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+/// The identity in scope, or the root identity outside any agent, resolved
+/// against `config`.
+#[must_use]
+pub fn resolve_current(config: &Config) -> ResolvedIdentity {
+    current().unwrap_or_default().resolve(config)
 }
 
 /// Runs `fut` as `identity`.
 pub async fn within<F: Future>(identity: MemoryIdentity, fut: F) -> F::Output {
     tracing::debug!(
         agent_id = identity.agent_id.as_deref().unwrap_or("-"),
-        depth = identity.lineage.len(),
         team = identity.team.as_deref().unwrap_or("-"),
         "[memory:scope] acting as"
     );
@@ -193,9 +214,8 @@ pub fn current() -> Option<MemoryIdentity> {
     CURRENT.try_with(Clone::clone).ok()
 }
 
-/// Runs a turn of `agent_id`: as a sub-agent of the identity already in
-/// scope when another agent is running, otherwise as the agent itself. A
-/// turn of the agent already in scope keeps its identity.
+/// Runs a turn of `agent_id`: a turn of the agent already in scope keeps its
+/// identity; another agent runs as a child of it (same team).
 pub async fn within_agent<F: Future>(agent_id: &str, fut: F) -> F::Output {
     let identity = match current() {
         Some(outer) if outer.agent_id.as_deref() == Some(agent_id) => outer,

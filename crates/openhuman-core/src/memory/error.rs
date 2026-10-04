@@ -71,9 +71,9 @@ impl MemoryError {
     }
 }
 
-impl From<tinymemory::Error> for MemoryError {
-    fn from(error: tinymemory::Error) -> Self {
-        use tinymemory::Error as E;
+impl From<tinymemory_api::Error> for MemoryError {
+    fn from(error: tinymemory_api::Error) -> Self {
+        use tinymemory_api::Error as E;
         match error {
             E::Unsupported(message) => Self::Unsupported(message),
             E::InvalidRequest(message) | E::NotFound(message) => Self::InvalidRequest(message),

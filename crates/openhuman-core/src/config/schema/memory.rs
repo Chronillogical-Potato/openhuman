@@ -1,21 +1,33 @@
-//! `[memory]` — memory v2 configuration.
+//! `[memory]` — memory configuration.
 //!
 //! ```toml
 //! [memory]
 //! engine = "tinyhumans"            # "tinyhumans" | "cortexdb"
+//! # agent_id = "writer-7"          # host binding: every agent on this config is this memory agent
+//! # root = "team:acme"             # host binding: the layout root (one per tenant)
 //!
 //! [memory.engines.cortexdb]
 //! endpoint = "https://api-v1.cortexdb.ai"   # key in the keychain as "memory-cortexdb"
 //!
 //! [memory.conversations]
-//! enabled = true
-//! batch_turns = 4
-//! idle_secs = 120
+//! enabled = true                   # log every turn (pre_turn / post_turn)
 //!
-//! [memory.context]
-//! enabled = true
-//! interval_mins = 360
-//! budget_tokens = 2000
+//! [memory.recall]
+//! enabled = true                   # inject a context pack before every turn
+//! budget_tokens = 1200
+//! learnings_limit = 8
+//! brain_limit = 6
+//! history_limit = 6
+//! team_limit = 3
+//! build_beliefs_every = 10         # turns between belief builds; 0 turns them off
+//! pre_turn_timeout_ms = 1500
+//! compaction_timeout_ms = 8000
+//! build_delay_secs = 300           # how far belief builds run behind the writes
+//!
+//! [memory.agents.researcher]
+//! agent_id = "research-desk"       # this definition's memory agent id
+//! root = "team:acme"
+//! recall = false                   # no per-turn pack for this agent
 //!
 //! [[memory.sources]]
 //! id = "src-…"
@@ -26,16 +38,18 @@
 //! ```
 //!
 //! Every field defaults, and nothing here denies unknown fields, so a config
-//! written by the v1 memory system (`[memory] backend = …`, `auto_save`,
-//! embedding keys, `[subsystems.memory]`, `[memory_tree]`) still parses: those
-//! keys are ignored. Source entries are decoded one at a time
-//! ([`deserialize_sources`]) so a single entry this build does not understand
-//! is dropped with a warning instead of failing the whole config.
+//! written by an older memory system (`[memory] backend = …`, `auto_save`,
+//! `root_agents`, `[memory.context]`, `[memory.conversations] batch_turns`,
+//! `[memory.agents.<id>] namespace / inherit / context`, `[subsystems.memory]`,
+//! `[memory_tree]`) still parses: those keys are ignored. Source entries are
+//! decoded one at a time ([`deserialize_sources`]) so a single entry this
+//! build does not understand is dropped with a warning instead of failing the
+//! whole config.
 //!
-//! The `embedding_*` keys also live here. They are not memory v2 settings —
-//! v2 engines embed server-side — but the embedding host (tool discovery,
-//! voice, the `embeddings` RPC) has always read them from `[memory]`, and
-//! moving them would silently reset every user's embedding choice.
+//! The `embedding_*` keys also live here. They are not memory settings — the
+//! engines embed server-side — but the embedding host (tool discovery, voice,
+//! the `embeddings` RPC) has always read them from `[memory]`, and moving them
+//! would silently reset every user's embedding choice.
 //!
 //! The config holds no credential. The CortexDB key lives in the keychain under
 //! [`MEMORY_CORTEXDB_KEY_NAME`]; the TinyHumans engine borrows the host's
@@ -52,18 +66,6 @@ pub const MEMORY_CORTEXDB_KEY_NAME: &str = "memory-cortexdb";
 /// Engine a fresh config selects.
 pub const DEFAULT_MEMORY_ENGINE: &str = "tinyhumans";
 
-/// Default `[memory.conversations] batch_turns`.
-pub const DEFAULT_CONVERSATION_BATCH_TURNS: u32 = 4;
-
-/// Default `[memory.conversations] idle_secs`.
-pub const DEFAULT_CONVERSATION_IDLE_SECS: u64 = 120;
-
-/// Default `[memory.context] interval_mins`.
-pub const DEFAULT_CONTEXT_INTERVAL_MINS: u32 = 360;
-
-/// Default `[memory.context] budget_tokens`.
-pub const DEFAULT_CONTEXT_BUDGET_TOKENS: u32 = 2000;
-
 /// The `[memory]` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -73,11 +75,21 @@ pub struct MemoryConfig {
     /// Per-engine settings, keyed by engine id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub engines: BTreeMap<String, MemoryEngineSettings>,
-    /// Automatic conversation ingestion.
+    /// Host binding: the memory agent id every agent run on this config acts
+    /// as. A coordinating host (OpenCompany, an embedder) sets it per agent
+    /// so each reused OpenHuman agent gets memory of its own. Unset derives
+    /// the id from the acting agent definition.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    /// Host binding: the memory layout root (`team:acme`), one per tenant.
+    /// Unset is the default root.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
+    /// Turn logging.
     pub conversations: MemoryConversationsConfig,
-    /// The compiled `context.md` brief.
-    pub context: MemoryContextConfig,
-    /// Document sources that feed memory.
+    /// The per-turn context pack and the lifecycle's timings.
+    pub recall: MemoryRecallConfig,
+    /// Document sources that feed the brain.
     #[serde(
         deserialize_with = "deserialize_sources",
         skip_serializing_if = "Vec::is_empty"
@@ -92,42 +104,27 @@ pub struct MemoryConfig {
     /// Outbound embedding requests per minute for cloud providers; `0`
     /// disables throttling. Env override: `OPENHUMAN_MEMORY_EMBED_RATE_LIMIT`.
     pub embedding_rate_limit_per_min: u32,
-    /// Agents that read and write the root memory node, the memory every
-    /// agent shares. Every other agent gets its own node (`agent:<id>`).
-    pub root_agents: Vec<String>,
-    /// Per-agent memory settings, keyed by agent definition id.
+    /// Per-agent-definition memory settings, keyed by agent definition id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<String, MemoryAgentConfig>,
 }
 
-/// Default `root_agents`: the main chat agent.
-pub const DEFAULT_ROOT_AGENTS: [&str; 1] = ["orchestrator"];
-
-/// `[memory.agents.<id>]`: one agent's memory.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+/// `[memory.agents.<definition>]`: one agent definition's memory.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MemoryAgentConfig {
-    /// The agent's memory node (`team:acme/agent:writer`, `root`); unset
-    /// derives it from the agent id.
+    /// The memory agent id this definition acts as; unset is the definition
+    /// id itself.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub namespace: Option<String>,
-    /// Whether the agent also reads the nodes above its own (its team's and
-    /// the root's). Off isolates the agent entirely.
-    pub inherit: bool,
-    /// Whether the agent gets its own compiled `context.md`; unset follows
-    /// `[memory.context] enabled`.
+    pub agent_id: Option<String>,
+    /// The layout root this definition's memory lives under; unset is the
+    /// configured (or default) root.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub context: Option<bool>,
-}
-
-impl Default for MemoryAgentConfig {
-    fn default() -> Self {
-        Self {
-            namespace: None,
-            inherit: true,
-            context: None,
-        }
-    }
+    pub root: Option<String>,
+    /// Whether this definition's turns get a context pack; unset follows
+    /// `[memory.recall] enabled`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recall: Option<bool>,
 }
 
 /// Default `embedding_provider`: the OpenHuman backend (Voyage-backed).
@@ -146,14 +143,15 @@ impl Default for MemoryConfig {
         Self {
             engine: DEFAULT_MEMORY_ENGINE.to_string(),
             engines: BTreeMap::new(),
+            agent_id: None,
+            root: None,
             conversations: MemoryConversationsConfig::default(),
-            context: MemoryContextConfig::default(),
+            recall: MemoryRecallConfig::default(),
             sources: Vec::new(),
             embedding_provider: DEFAULT_EMBEDDING_PROVIDER.to_string(),
             embedding_model: DEFAULT_EMBEDDING_MODEL.to_string(),
             embedding_dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
             embedding_rate_limit_per_min: DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN,
-            root_agents: DEFAULT_ROOT_AGENTS.map(str::to_string).to_vec(),
             agents: BTreeMap::new(),
         }
     }
@@ -185,42 +183,67 @@ pub struct MemoryEngineSettings {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MemoryConversationsConfig {
-    /// Whether committed turns are stored at all.
+    /// Whether every turn is logged to the acting agent's conversations.
     pub enabled: bool,
-    /// Store a thread's buffer once it holds this many committed turns.
-    pub batch_turns: u32,
-    /// …or once the thread has been idle this long.
-    pub idle_secs: u64,
 }
 
 impl Default for MemoryConversationsConfig {
     fn default() -> Self {
-        Self {
-            enabled: true,
-            batch_turns: DEFAULT_CONVERSATION_BATCH_TURNS,
-            idle_secs: DEFAULT_CONVERSATION_IDLE_SECS,
-        }
+        Self { enabled: true }
     }
 }
 
-/// `[memory.context]`.
+/// Default `[memory.recall] budget_tokens`.
+pub const DEFAULT_RECALL_BUDGET_TOKENS: u32 = 1200;
+/// Default `[memory.recall] pre_turn_timeout_ms`.
+pub const DEFAULT_PRE_TURN_TIMEOUT_MS: u64 = 1500;
+/// Default `[memory.recall] compaction_timeout_ms`.
+pub const DEFAULT_COMPACTION_TIMEOUT_MS: u64 = 8000;
+/// Default `[memory.recall] build_delay_secs`.
+pub const DEFAULT_BUILD_DELAY_SECS: u64 = 300;
+
+/// `[memory.recall]`: the context pack injected before every turn, and the
+/// lifecycle's budgets. Mirrors `tinymemory_tools::RecallPolicy`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
-pub struct MemoryContextConfig {
-    /// Whether `context.md` is compiled and injected.
+pub struct MemoryRecallConfig {
+    /// Whether a pack is recalled and injected before every turn.
     pub enabled: bool,
-    /// Minutes between scheduled recompiles.
-    pub interval_mins: u32,
-    /// Token budget of the compiled document.
+    /// The pack's size in tokens.
     pub budget_tokens: u32,
+    /// Learnings and built beliefs, together.
+    pub learnings_limit: u32,
+    /// Brain documents.
+    pub brain_limit: u32,
+    /// This agent's earlier turns.
+    pub history_limit: u32,
+    /// Other agents' turns under the same root; `0` leaves the section out.
+    pub team_limit: u32,
+    /// Turns between belief builds of an agent's conversations; `0` turns
+    /// them off.
+    pub build_beliefs_every: u32,
+    /// How long a turn waits for its pack before running without one.
+    pub pre_turn_timeout_ms: u64,
+    /// How long a compaction waits for its recalled context.
+    pub compaction_timeout_ms: u64,
+    /// How long a queued belief build waits before it runs, so the engine's
+    /// fact extraction can catch up with the writes it builds from.
+    pub build_delay_secs: u64,
 }
 
-impl Default for MemoryContextConfig {
+impl Default for MemoryRecallConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            interval_mins: DEFAULT_CONTEXT_INTERVAL_MINS,
-            budget_tokens: DEFAULT_CONTEXT_BUDGET_TOKENS,
+            budget_tokens: DEFAULT_RECALL_BUDGET_TOKENS,
+            learnings_limit: 8,
+            brain_limit: 6,
+            history_limit: 6,
+            team_limit: 3,
+            build_beliefs_every: 10,
+            pre_turn_timeout_ms: DEFAULT_PRE_TURN_TIMEOUT_MS,
+            compaction_timeout_ms: DEFAULT_COMPACTION_TIMEOUT_MS,
+            build_delay_secs: DEFAULT_BUILD_DELAY_SECS,
         }
     }
 }
@@ -293,9 +316,9 @@ pub struct MemorySourceConfig {
     /// Minutes between scheduled syncs; unset means on demand only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub schedule_mins: Option<u32>,
-    /// The memory node the source's documents are stored at
-    /// (`agent:researcher`); unset stores them at the root, shared by every
-    /// agent.
+    /// The layout root the source's documents are filed under
+    /// (`team:acme`); unset files them under the configured root, shared by
+    /// every agent there.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub namespace: Option<String>,
 }

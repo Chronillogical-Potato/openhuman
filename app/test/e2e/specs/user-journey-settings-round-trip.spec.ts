@@ -92,7 +92,7 @@ describe('User journey — settings round-trip', () => {
 
   it('/settings/memory-data — redirects to the Memory page within 10s', async () => {
     // The v1 memory data panel is gone; the slug redirects to the Memory
-    // page's Documents chip (/connections?tab=brain&brain=documents).
+    // page's Brain chip (/connections?tab=brain&brain=brain).
     console.log(`${LOG_PREFIX} Navigating to /settings/memory-data`);
     await navigateViaHash('/settings/memory-data');
     await waitForPanelLoad('/settings/memory-data');

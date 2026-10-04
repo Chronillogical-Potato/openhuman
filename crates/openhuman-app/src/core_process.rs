@@ -700,16 +700,13 @@ impl CoreProcessHandle {
     /// Wait a bounded moment for the server task to finish on its own after
     /// its token was cancelled, so the teardown inside it runs.
     ///
-    /// The moment is sized from what that teardown is allowed to take, so the
-    /// abort below never lands in the middle of it: the memory exit budget
-    /// (`EXIT_BUDGET`, storing buffered conversation turns) plus half a second
-    /// for the drain itself. There is no local-runtime
-    /// cleanup after it: OpenHuman never spawns Ollama / LM Studio / MLX.
-    /// Typical quits finish in milliseconds; the budget is only what a wedged
-    /// store may cost.
+    /// Memory buffers nothing (turns are logged as they happen and queued
+    /// background jobs are persisted), so the teardown has nothing slow to
+    /// finish; half a second covers the drain itself. There is no
+    /// local-runtime cleanup after it: OpenHuman never spawns Ollama /
+    /// LM Studio / MLX. Typical quits finish in milliseconds.
     async fn drain_task_briefly(&self) {
-        const AFTER_MEMORY: Duration = Duration::from_millis(500);
-        let budget = openhuman_core::memory::exit::EXIT_BUDGET + AFTER_MEMORY;
+        let budget = Duration::from_millis(500);
         let mut task_guard = self.task.lock().await;
         let Some(task) = task_guard.as_mut() else {
             return;

@@ -31,7 +31,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::MutexGuard;
 
 use env_guard::{env_lock_with_file_keyring_async, EnvVarGuard};
 use rpc_harness::{rpc, serve_rpc};
@@ -100,6 +99,50 @@ impl MockBackend {
             .await
             .expect("set mock behaviour");
         assert!(response.status().is_success(), "mock behaviour accepted");
+    }
+
+    /// Every request the mock logged, whole (url, method, headers, body).
+    async fn request_rows(&self) -> Vec<Value> {
+        let body: Value = reqwest::get(format!("{}/__admin/requests", self.origin))
+            .await
+            .expect("read the mock request log")
+            .json()
+            .await
+            .expect("request log json");
+        body.get("data")
+            .or(Some(&body))
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Every request the mock logged, as `(url, body)` pairs.
+    async fn request_bodies(&self) -> Vec<(String, String)> {
+        let body: Value = reqwest::get(format!("{}/__admin/requests", self.origin))
+            .await
+            .expect("read the mock request log")
+            .json()
+            .await
+            .expect("request log json");
+        body.get("data")
+            .or(Some(&body))
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .map(|row| {
+                (
+                    row.get("url")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    row.get("body")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                )
+            })
+            .collect()
     }
 
     /// Every request the mock logged, as `"METHOD /path"` strings.
@@ -369,7 +412,14 @@ async fn memory_is_off_when_signed_out() {
             json!({ "consent": true }),
         ),
         ("openhuman.memory_sources_sync", json!({})),
-        ("openhuman.memory_context_refresh", json!({})),
+        (
+            "openhuman.memory_pack_preview",
+            json!({ "query": "anything" }),
+        ),
+        ("openhuman.memory_agents_list", json!({})),
+        ("openhuman.memory_brain_sources", json!({})),
+        ("openhuman.memory_brain_ingest", json!({ "text": "a doc" })),
+        ("openhuman.memory_jobs_run", json!({})),
         ("openhuman.memory_import_start", json!({ "consent": true })),
     ];
     for (method, params) in off_calls {
@@ -377,15 +427,15 @@ async fn memory_is_off_when_signed_out() {
     }
 
     // Local settings and state still answer while memory is off.
-    let conversations = f.ok("openhuman.memory_conversations_get", json!({})).await;
-    assert_eq!(conversations["enabled"], json!(true));
+    let policy = f.ok("openhuman.memory_policy_get", json!({})).await;
+    assert_eq!(policy["log_conversations"], json!(true));
     assert_eq!(
         f.ok("openhuman.memory_sources_list", json!({})).await["sources"],
         json!([])
     );
     assert_eq!(
-        f.ok("openhuman.memory_context_get", json!({})).await["markdown"],
-        json!("")
+        f.ok("openhuman.memory_jobs_list", json!({})).await["pending"],
+        json!([])
     );
     assert_eq!(
         f.ok("openhuman.memory_import_scan", json!({})).await["found"],
@@ -814,46 +864,46 @@ async fn memory_is_isolated_per_account() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn conversations_get_and_set_round_trip() {
+async fn policy_get_and_set_round_trip() {
     let f = Fixture::new(true).await;
 
-    let defaults = f.ok("openhuman.memory_conversations_get", json!({})).await;
-    assert_eq!(defaults["enabled"], json!(true));
-    assert_eq!(defaults["batch_turns"], json!(4));
-    assert_eq!(defaults["idle_secs"], json!(120));
-    assert_eq!(defaults["recent"], json!([]));
+    let defaults = f.ok("openhuman.memory_policy_get", json!({})).await;
+    assert_eq!(defaults["log_conversations"], json!(true));
+    assert_eq!(defaults["recall"]["enabled"], json!(true));
+    assert_eq!(defaults["recall"]["budget_tokens"], json!(1200));
+    assert_eq!(defaults["root"], json!("root"));
+    assert_eq!(defaults["host_bound"], json!(false));
 
     let updated = f
         .ok(
-            "openhuman.memory_conversations_set",
-            json!({ "enabled": false, "batch_turns": 2, "idle_secs": 30 }),
+            "openhuman.memory_policy_set",
+            json!({ "log_conversations": false, "budget_tokens": 600, "team_limit": 0 }),
         )
         .await;
-    assert_eq!(updated["enabled"], json!(false));
-    assert_eq!(updated["batch_turns"], json!(2));
-    assert_eq!(updated["idle_secs"], json!(30));
+    assert_eq!(updated["log_conversations"], json!(false));
+    assert_eq!(updated["recall"]["budget_tokens"], json!(600));
+    assert_eq!(updated["recall"]["team_limit"], json!(0));
 
     // Persisted: a fresh read sees it, and a partial set keeps the rest.
     let partial = f
         .ok(
-            "openhuman.memory_conversations_set",
-            json!({ "enabled": true }),
+            "openhuman.memory_policy_set",
+            json!({ "log_conversations": true }),
         )
         .await;
-    assert_eq!(partial["enabled"], json!(true));
-    assert_eq!(partial["batch_turns"], json!(2));
-    let again = f.ok("openhuman.memory_conversations_get", json!({})).await;
-    assert_eq!(again["idle_secs"], json!(30));
+    assert_eq!(partial["log_conversations"], json!(true));
+    assert_eq!(partial["recall"]["budget_tokens"], json!(600));
+    let again = f.ok("openhuman.memory_policy_get", json!({})).await;
+    assert_eq!(again["recall"]["team_limit"], json!(0));
 
     for bad in [
-        json!({ "batch_turns": 0 }),
-        json!({ "batch_turns": 1000 }),
-        json!({ "idle_secs": 0 }),
-        json!({ "idle_secs": 10_000_000 }),
+        json!({ "budget_tokens": 1 }),
+        json!({ "brain_limit": 1000 }),
+        json!({ "pre_turn_timeout_ms": 0 }),
+        json!({ "batch_turns": 4 }),
     ] {
         assert_eq!(
-            f.code("openhuman.memory_conversations_set", bad.clone())
-                .await,
+            f.code("openhuman.memory_policy_set", bad.clone()).await,
             "INVALID_REQUEST",
             "{bad}"
         );
@@ -1139,59 +1189,192 @@ async fn sources_add_sync_list_and_remove() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn context_get_set_and_refresh() {
+async fn brain_pack_preview_and_jobs_round_trip() {
     let f = Fixture::new(true).await;
 
-    let initial = f.ok("openhuman.memory_context_get", json!({})).await;
-    assert_eq!(initial["enabled"], json!(true));
-    assert_eq!(initial["interval_mins"], json!(360));
-    assert_eq!(initial["budget_tokens"], json!(2000));
-    assert_eq!(initial["markdown"], json!(""));
-    assert!(initial["generated_at"].is_null());
-
-    let set = f
+    let filed = f
         .ok(
-            "openhuman.memory_context_set",
-            json!({ "enabled": true, "interval_mins": 30, "budget_tokens": 500 }),
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "Standup is at nine every weekday", "source": "notion", "title": "Rituals" }),
         )
         .await;
-    assert_eq!(set["interval_mins"], json!(30));
-    assert_eq!(set["budget_tokens"], json!(500));
-    let partial = f
-        .ok("openhuman.memory_context_set", json!({ "enabled": false }))
-        .await;
-    assert_eq!(partial["enabled"], json!(false));
-    assert_eq!(partial["interval_mins"], json!(30));
-    f.ok("openhuman.memory_context_set", json!({ "enabled": true }))
-        .await;
+    assert_eq!(filed["source"], json!("notion"));
+    assert_eq!(
+        f.code(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "x", "path": "/also" })
+        )
+        .await,
+        "INVALID_REQUEST"
+    );
 
-    for bad in [
-        json!({ "interval_mins": 1 }),
-        json!({ "budget_tokens": 10 }),
-        json!({ "budget_tokens": 1_000_000 }),
-    ] {
-        assert_eq!(
-            f.code("openhuman.memory_context_set", bad.clone()).await,
-            "INVALID_REQUEST",
-            "{bad}"
+    let sources = f.ok("openhuman.memory_brain_sources", json!({})).await;
+    assert_eq!(
+        sources["sources"][0]["source"],
+        json!("notion"),
+        "{sources}"
+    );
+    let found = f
+        .ok(
+            "openhuman.memory_brain_search",
+            json!({ "query": "standup", "source": "notion" }),
+        )
+        .await;
+    assert_eq!(found["hits"].as_array().unwrap().len(), 1, "{found}");
+
+    // The pack a turn about standups would get carries the brain document.
+    f.learn("The user prefers short answers").await;
+    let preview = f
+        .ok(
+            "openhuman.memory_pack_preview",
+            json!({ "query": "when is standup?" }),
+        )
+        .await;
+    assert_eq!(preview["mode"], json!("turn"));
+    let markdown = preview["pack"]["markdown"].as_str().unwrap_or_default();
+    assert!(markdown.contains("nine"), "{preview}");
+    let session = f.ok("openhuman.memory_pack_preview", json!({})).await;
+    assert_eq!(session["mode"], json!("session"));
+
+    // The ingest queued its source's belief build; the hosted engine builds on
+    // its own schedule, so running it sends nothing and reports `scheduled`.
+    let jobs = f.ok("openhuman.memory_jobs_list", json!({})).await;
+    assert_eq!(jobs["pending"].as_array().unwrap().len(), 1, "{jobs}");
+    let ran = f.ok("openhuman.memory_jobs_run", json!({})).await;
+    assert_eq!(ran["runs"][0]["outcome"], json!("scheduled"), "{ran}");
+    let after = f.ok("openhuman.memory_jobs_list", json!({})).await;
+    assert_eq!(after["pending"], json!([]));
+    assert_eq!(after["history"][0]["outcome"], json!("scheduled"));
+    assert_eq!(
+        f.code("openhuman.memory_jobs_run", json!({ "id": "nope" }))
+            .await,
+        "INVALID_REQUEST"
+    );
+
+    let gone = f
+        .ok(
+            "openhuman.memory_brain_forget",
+            json!({ "source": "notion" }),
+        )
+        .await;
+    assert_eq!(gone["forgotten"], json!(1), "{gone}");
+    let agents = f.ok("openhuman.memory_agents_list", json!({})).await;
+    assert_eq!(agents["root"], json!("root"));
+}
+
+/// Waits until some logged mock request satisfies `found`.
+async fn wait_for_request(f: &Fixture, what: &str, found: impl Fn(&str, &str) -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    loop {
+        if f.mock
+            .request_bodies()
+            .await
+            .iter()
+            .any(|(url, body)| found(url, body))
+        {
+            return;
+        }
+        if Instant::now() >= deadline {
+            let log: Vec<String> = f
+                .mock
+                .request_bodies()
+                .await
+                .into_iter()
+                .map(|(url, body)| format!("{url} {}", body.chars().take(600).collect::<String>()))
+                .collect();
+            panic!("never saw {what}; mock log:\n{}", log.join("\n"));
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+}
+
+#[tokio::test]
+async fn a_chat_turn_carries_its_pack_and_is_logged() {
+    // Chat sessions resolve their hosted authority from the agent definition
+    // registry, which the full runtime initialises at startup.
+    openhuman_core::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins()
+        .expect("builtin agent definitions");
+    let f = Fixture::new(true).await;
+    f.learn("The user prefers launch events in Lisbon").await;
+
+    let accepted = f
+        .ok(
+            "openhuman.channel_web_chat",
+            json!({
+                "client_id": "memory-v2-e2e",
+                "thread_id": "launch-thread",
+                "message": "Where should the launch event be held?",
+                "model_override": "e2e-mock-model",
+            }),
+        )
+        .await;
+    assert_eq!(accepted["accepted"], json!(true), "{accepted}");
+
+    // Pre-turn: the model request carries the pack, recalled for the turn.
+    wait_for_request(
+        &f,
+        "an inference request carrying the memory pack",
+        |url, body| {
+            url.contains("chat/completions")
+                && body.contains("memory-context")
+                && body.contains("launch events in Lisbon")
+        },
+    )
+    .await;
+    // Pre-turn logs the user's message, post-turn the reply, each as one turn
+    // of the thread under the answering agent's node.
+    wait_for_request(&f, "the user turn logged", |url, body| {
+        url.contains("/memory/experience")
+            && body.contains("Where should the launch event be held?")
+            && body.contains("launch-thread")
+    })
+    .await;
+    wait_for_request(&f, "the reply logged", |url, body| {
+        url.contains("/memory/experience")
+            && body.contains("launch-thread")
+            && body.contains("\"assistant\"")
+    })
+    .await;
+
+    // Every memory call carries the host's attribution, as every other
+    // backend call does.
+    let memory_calls: Vec<Value> = f
+        .mock
+        .request_rows()
+        .await
+        .into_iter()
+        .filter(|row| {
+            row["url"]
+                .as_str()
+                .is_some_and(|url| url.starts_with("/memory/"))
+        })
+        .collect();
+    assert!(!memory_calls.is_empty());
+    for row in &memory_calls {
+        assert!(
+            row["headers"]["x-sdk-name"].is_string(),
+            "a memory call without x-sdk-name: {row}"
         );
     }
 
-    // refresh compiles a brief from what memory holds and persists it.
-    f.learn("The team standup is at nine every weekday").await;
-    let refreshed = f.ok("openhuman.memory_context_refresh", json!({})).await;
-    assert!(refreshed["generated_at"].is_string(), "{refreshed}");
-    assert!(refreshed["tokens"].as_u64().unwrap_or(0) > 0, "{refreshed}");
-    let markdown = refreshed["markdown"].as_str().unwrap_or_default();
+    // The pack is ephemeral: the committed transcript holds only what was
+    // said (the reply is logged after the durable commit, so it exists).
+    let transcript = f
+        .ok(
+            "openhuman.threads_transcript_get",
+            json!({ "thread_id": "launch-thread" }),
+        )
+        .await;
     assert!(
-        !markdown.trim().is_empty(),
-        "context.md has content: {refreshed}"
+        transcript
+            .to_string()
+            .contains("Where should the launch event be held?"),
+        "the turn was committed: {transcript}"
     );
-
-    let read_back = f.ok("openhuman.memory_context_get", json!({})).await;
-    assert_eq!(read_back["markdown"], refreshed["markdown"]);
-    assert_eq!(read_back["generated_at"], refreshed["generated_at"]);
-    assert_eq!(read_back["budget_tokens"], json!(500));
+    assert!(
+        !transcript.to_string().contains("memory-context"),
+        "the pack never reaches the transcript: {transcript}"
+    );
 }
 
 #[tokio::test]
@@ -1338,7 +1521,7 @@ async fn explore_drills_down_and_items_get_reads_whole() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn agent_namespaces_keep_memory_apart_over_rpc() {
+async fn memory_nodes_keep_memory_apart_over_rpc() {
     let f = Fixture::new(true).await;
     let learn_at = |text: &'static str, namespace: &'static str| {
         let f = &f;
@@ -1407,25 +1590,11 @@ async fn agent_namespaces_keep_memory_apart_over_rpc() {
     // A malformed node is refused.
     let refused = f
         .call(
-            "openhuman.memory_context_get",
-            json!({ "namespace": "not a node" }),
+            "openhuman.memory_items_list",
+            json!({ "filter": { "reach": { "at": "not a node" } } }),
         )
         .await;
     assert!(refused.get("error").is_some(), "{refused}");
-
-    // Each node compiles its own context.md.
-    let brief = f
-        .ok(
-            "openhuman.memory_context_refresh",
-            json!({ "namespace": "agent:researcher" }),
-        )
-        .await;
-    assert_eq!(brief["namespace"], json!("agent:researcher"));
-    let text = brief["markdown"].as_str().unwrap();
-    assert!(text.contains("arxiv") && text.contains("Sam"), "{brief}");
-    assert!(!text.contains("British"), "{brief}");
-    let root = f.ok("openhuman.memory_context_get", json!({})).await;
-    assert_eq!(root["namespace"], json!("root"));
 }
 
 #[tokio::test]
@@ -1434,7 +1603,7 @@ async fn import_scan_finds_nothing_and_start_needs_consent() {
 
     let scan = f.ok("openhuman.memory_import_scan", json!({})).await;
     assert_eq!(scan["found"], json!(false));
-    assert!(scan.get("counts").map_or(true, Value::is_null), "{scan}");
+    assert!(scan.get("counts").is_none_or(Value::is_null), "{scan}");
 
     let status = f.ok("openhuman.memory_import_status", json!({})).await;
     assert_eq!(status["state"]["phase"], json!("idle"));
@@ -1490,6 +1659,9 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "engines_list",
         "engine_get",
         "engine_set",
+        "policy_get",
+        "policy_set",
+        "pack_preview",
         "recall",
         "fetch",
         "learn",
@@ -1497,17 +1669,19 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "items_list",
         "explore",
         "items_get",
-        "conversations_get",
-        "conversations_set",
+        "agents_list",
         "conversations_backfill_status",
         "conversations_backfill_start",
+        "brain_sources",
+        "brain_search",
+        "brain_ingest",
+        "brain_forget",
         "sources_list",
         "sources_add",
         "sources_remove",
         "sources_sync",
-        "context_get",
-        "context_refresh",
-        "context_set",
+        "jobs_list",
+        "jobs_run",
         "import_scan",
         "import_start",
         "import_status",
@@ -1531,6 +1705,11 @@ async fn memory_v2_registers_exactly_the_documented_methods() {
         "openhuman.tree_summarizer_run",
         "openhuman.memory_sources_get",
         "openhuman.memory_sources_update",
+        "openhuman.memory_context_get",
+        "openhuman.memory_context_refresh",
+        "openhuman.memory_context_set",
+        "openhuman.memory_conversations_get",
+        "openhuman.memory_conversations_set",
     ] {
         let response = f.call(method, json!({})).await;
         let message = response["error"]["message"].as_str().unwrap_or_default();

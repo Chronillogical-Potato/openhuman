@@ -1,7 +1,8 @@
 /**
  * Memory → Learnings: the explicit facts, preferences and procedures memory
  * holds. Lists `memory_items_list` filtered to learnings (paged by cursor),
- * adds one with `memory_learn`, and deletes with `memory_forget`.
+ * adds one with `memory_learn`, and deletes with `memory_forget`. Beliefs the
+ * background builder distilled (tagged `belief`) carry a "Built belief" badge.
  *
  * debug logging: DEBUG=openhuman:memory:learnings
  */

@@ -97,7 +97,8 @@ mod turn;
 
 pub use agent::ToolAttachmentError;
 pub use agent::{
-    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, SandboxModeSpec, ToolScopeSpec,
+    Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, MemoryBinding, SandboxModeSpec,
+    ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
 pub use config::{Config, RuntimeFlags};

@@ -193,14 +193,21 @@ tinyruntime-bus = { path = "../../vendor/tinyruntime/crates/tinyruntime-bus" }
 # the crate itself; see `scripts/ci/module-pin-exemptions.json`.
 tinyruntime-pyserver = { path = "../../vendor/tinyruntime/crates/tinyruntime-pyserver" }
 
-# TinyMemory v2 (https://github.com/tinyhumansai/tinymemory): the memory
-# engine contract (`MemoryEngine`: recall / fetch / store / forget / list), the
-# CortexDB engines (`cortexdb` direct, `tinyhumans` hosted), and the optional
-# subsystems this host composes — document conversion, source readers (with the
-# SSRF-guarded network readers), secret/PII scrubbing, the `context.md`
-# compiler and the read-only v1 workspace importer. One facade, one feature per
-# subsystem; `memory::` is the only module that names it.
-tinymemory = { path = "../../vendor/tinymemory/crates/tinymemory", default-features = false, features = ["documents", "sources-network", "safety", "context", "legacy-import"] }
+# TinyMemory (https://github.com/tinyhumansai/tinymemory), three crates:
+# - `tinymemory-api`: the engine contract (`MemoryEngine`: recall / fetch /
+#   store / forget / list / consolidate) and its types. No I/O.
+# - `tinymemory-tools`: the agent surface over any engine — the lifecycle this
+#   host drives around every turn (`AgentMemory`: start_session, pre_turn,
+#   post_turn, recall_for_compaction), the standard `MemoryLayout`, the shared
+#   `Brain`, holistic recall (`ContextPack`) and `BackgroundJob`s.
+# - `tinymemory-integrations`: everything that touches the outside world — the
+#   CortexDB engines (`cortexdb` direct, `tinyhumans` hosted), document
+#   conversion and the brain filer, source readers (with the SSRF-guarded
+#   network readers), secret/PII scrubbing and the read-only v1 importer.
+# `memory::` is the only module that names the engine side.
+tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
+tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
+tinymemory-integrations = { path = "../../vendor/tinymemory/crates/tinymemory-integrations", default-features = false, features = ["cortex", "brain", "sources-network", "safety", "legacy-import"] }
 # tinyconnectors-bus — the OAuth connector wire contract
 # (https://github.com/tinyhumansai/tinyconnectors). Payload types and member
 # names for the connector surface, with no transport and no behaviour: this
@@ -605,7 +612,7 @@ tokio-tungstenite = { version = "0.29", default-features = false, features = ["c
 # The TinyMemory reference engine (an in-memory `MemoryEngine`) and the
 # behavioural suite every engine must pass. Memory unit tests bind it as the
 # engine instead of talking to CortexDB.
-tinymemory = { path = "../../vendor/tinymemory/crates/tinymemory", default-features = false, features = ["conformance"] }
+tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["conformance"] }
 # Turns on `tinyflows-sqlite`'s `test-fixtures` gate for test builds only: the
 # flows test suite stages a terminal run flipped back to `running` and a
 # `graph_json` column that does not deserialize, neither of which any production

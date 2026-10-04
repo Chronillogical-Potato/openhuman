@@ -160,7 +160,7 @@ Every turn - whether the user just typed a message, a Telegram webhook just fire
             │      Agent::turn()           │
             │  1. resume transcript        │
             │  2. build system prompt*     │
-            │  3. new session: context.md │
+            │  3. recall memory pack      │
             │  4. enter tool-call loop ────┼──► provider call
             │  5. dispatch tool calls  ────┼──► tool exec / sub-agent spawn
             │  6. context guard / compact  │
@@ -196,9 +196,9 @@ A **session** is the live conversation an `Agent` instance is running. The `Agen
 
 1. **Resumes the session transcript** if this is a fresh process - re-loading the exact provider messages from disk so the inference backend's KV-cache prefix still hits.
 2. **Builds the system prompt** (only on the first turn). This pulls in identity, soul, profile, memory, connected integrations, available tools, safety preamble - assembled by the prompt section builder.
-3. **Prepends the memory brief on a new session.** The session host adds `<workspace>/memory/context.md`, wrapped in `<memory-context>`, as the first user message of a NEW session only; a resumed session keeps its frozen transcript. Per-turn recall is not automatic: the model calls the `memory` tool, which returns an answer with citations (see [Memory architecture](memory.md)).
+3. **Recalls a memory pack.** TinyMemory's agent lifecycle logs the user turn and recalls a token-budgeted pack (learnings and beliefs, brain documents, this agent's history, other agents' turns), wrapped in `<memory-context>` and added to that turn's model requests ephemerally; it is never persisted in the transcript, so the prompt cache is unaffected. The model can still call the `memory` tool for a cited answer (see [Memory architecture](memory.md)).
 4. **Enters the tool-call loop** (next section).
-5. **Spawns post-turn hooks** in the background - the user gets their answer before cost logging and conversation buffering finish.
+5. **Spawns post-turn hooks** in the background - the user gets their answer before cost logging and conversation logging finish.
 
 The system prompt is **not** rebuilt on subsequent turns. Even cosmetic byte changes invalidate the KV-cache prefix and force a full re-prefill, so dynamic per-turn context (tool results, memory recall answers) is appended as user-visible message content rather than spliced into the system prompt.
 
@@ -513,7 +513,7 @@ A hook returning `Stop` aborts the loop with a clear reason the caller can surfa
 Post-turn hooks fire **after** the turn completes, in the background. They get a `TurnContext` snapshot - user message, assistant response, every tool call with arguments and outcome, total wall-clock, iteration count, session ID. Built-in consumers:
 
 - **Cost log** - final per-turn cost line.
-- **Conversation buffering** - the `memory` domain's bus subscriber buffers committed turns per thread and stores one `Conversation` item every `batch_turns` turns or after `idle_secs` of idle (tool call names and ids only, never arguments); see [Memory architecture](memory.md).
+- **Conversation logging** - the `memory` lifecycle logs the reply after the turn, with one-line tool results (never arguments); there is no batching or idle flush. See [Memory architecture](memory.md).
 
 Long-term facts are written explicitly: the agent calls the `memory` tool's `learn` action. There is no automatic archivist.
 
@@ -752,6 +752,6 @@ Goals and todos are crate-backed outright, with no shadow: thread goals live in 
 ## See also
 
 - [Architecture overview](README.md) - where the harness sits in the bigger picture.
-- [Memory](../../features/memory.md) and [Memory architecture](memory.md) - the `memory` tool, context.md and conversation buffering.
+- [Memory](../../features/memory.md) and [Memory architecture](memory.md) - the `memory` tool, the per-turn memory lifecycle and conversation logging.
 - [Automatic Model Routing](../../features/model-routing/) - how `model: "hint:reasoning"` resolves to a concrete provider+model.
 - [Native Tools - Agent Coordination](../../features/native-tools/agent-coordination.md) - the user-facing surface for `spawn_subagent`, `delegate_*`, `todo`.

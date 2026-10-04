@@ -71,8 +71,8 @@ struct OpenHumanTurnPrelude {
     action_dir: std::path::PathBuf,
     model_name: String,
     agent_definition_name: String,
-    /// Skip the `context.md` injection on new sessions (definition's
-    /// `omit_memory_context`).
+    /// No per-turn memory pack for this agent (definition's
+    /// `omit_memory_context`); its turns are still logged.
     omit_memory_context: bool,
     thread_id: Option<String>,
     agent_definition_id: String,
@@ -169,8 +169,11 @@ struct OpenHumanTurnPreludeMutable {
     composio_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     skill_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     /// The user-authored text of the in-flight turn, held until commit so the
-    /// committed turn can be handed to memory's conversation ingestion.
+    /// committed turn can be handed to memory.
     pending_user_text: Option<String>,
+    /// The in-flight turn's memory identity and index, from pre-turn to
+    /// commit (`memory_ingest`).
+    pending_memory_turn: Option<memory_ingest::PendingMemoryTurn>,
 }
 
 impl OpenHumanTurnPrelude {
@@ -544,7 +547,6 @@ impl OpenHumanTurnPrelude {
         original_user_message: &str,
         overrides: &super::types::TurnOverrides,
         run_context: &mut OpenHumanRunContext,
-        new_session: bool,
     ) -> String {
         let mut context = String::new();
 
@@ -628,9 +630,6 @@ impl OpenHumanTurnPrelude {
         }
         run_context.attach_parent(self.parent_context());
         self.apply_pending_announcements(&mut enriched);
-        if new_session {
-            enriched = self.prepend_memory_context(enriched);
-        }
 
         run_context.attachment_placeholders = Arc::new(
             crate::agent::multimodal::extract_image_placeholders_in_text(original_user_message),
@@ -654,19 +653,6 @@ impl OpenHumanTurnPrelude {
             "{}\n\n{enriched}",
             crate::agent::prompts::current_datetime_line()
         )
-    }
-
-    /// Prepends the compiled `context.md` (wrapped in `<memory-context>`) to a
-    /// new session's first user message. A resumed session never reaches
-    /// here: its transcript, first message included, is frozen.
-    fn prepend_memory_context(&self, enriched: String) -> String {
-        if self.omit_memory_context {
-            return enriched;
-        }
-        let Some(config) = self.runtime_config.as_deref() else {
-            return enriched;
-        };
-        crate::memory::context::prepend_to_first_message(config, &enriched)
     }
 
     fn parent_context(&self) -> crate::agent::harness::ParentExecutionContext {
@@ -738,7 +724,7 @@ impl OpenHumanTurnPrelude {
 
     async fn finalize_after_durable_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
         self.mirror_transcript_after_commit(receipt);
-        self.publish_committed_turn(receipt);
+        self.memory_post_turn(receipt);
     }
 
     fn mirror_transcript_after_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
@@ -1093,6 +1079,7 @@ impl OpenHumanSessionHost {
                     composio_events: None,
                     skill_events: None,
                     pending_user_text: None,
+                    pending_memory_turn: None,
                 })),
             });
         }
@@ -1165,14 +1152,24 @@ impl OpenHumanSessionHost {
                                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                                 .active_turn_overrides,
                         );
-                        let enriched = prelude
-                            .enrich_request(
+                        let current_input =
+                            view.history.last().filter(|last| **last == request.input);
+                        let (enriched, memory_turn) = futures::join!(
+                            prelude.enrich_request(
                                 &original_user_message,
                                 &overrides,
                                 &mut options.run_context.data,
-                                new_session,
-                            )
-                            .await;
+                            ),
+                            // Boxed: the hook's future (config load, engine
+                            // calls) would otherwise be inlined into this
+                            // already-large hook future.
+                            Box::pin(prelude.memory_pre_turn(
+                                view.history,
+                                view.committed_turns,
+                                current_input,
+                            )),
+                        );
+                        options.run_context.data.memory_turn = memory_turn;
                         request.input = user_message_from_text(&enriched);
                         let mut preparation =
                             prelude.prepare(new_session).await.map_err(|error| {

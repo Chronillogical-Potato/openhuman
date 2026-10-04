@@ -63,7 +63,7 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 
 ### 🧠 Das Gehirn
 
-- **[Memory](../gitbooks/features/memory.md)**: Recall, Fetch und Store über eine austauschbare Engine (gehostetes TinyHumans oder dein eigenes CortexDB). Dokumente, Konversationen und Learnings werden gespeichert, Antworten kommen mit Quellenangaben, und ein `context.md`-Briefing eröffnet jeden neuen Chat. Keine Vektor-Suppen-Blackbox.
+- **[Memory](../gitbooks/features/memory.md)**: Recall, Fetch und Store über eine austauschbare Engine (gehostetes TinyHumans oder dein eigenes CortexDB). Dokumente, Konversationen und Learnings werden gespeichert, Antworten kommen mit Quellenangaben, und vor jedem Zug wird ein passendes Memory-Paket abgerufen. Keine Vektor-Suppen-Blackbox.
 - **[100+ OAuth-Integrationen, 5.000+ MCP-Server, 90.000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: mit einem Klick in Gmail, Notion, GitHub, Slack und den Rest deines Stacks. [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) füttert das Gehirn alle 20 Minuten. So hat es den Kontext von morgen schon heute Früh.
 - **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: dauerhafte Ziele pro Thread und die im Chat sichtbare Todo-Liste des Agenten.
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: Tool-Ausgaben werden komprimiert, bevor sie das Modell erreichen: dieselbe Information, bis zu 80% weniger Tokens. Ein so großes Gehirn wäre ohne es unbezahlbar.
@@ -131,7 +131,7 @@ Gespeicherte Workflows sind dauerhaft und trigger-gesteuert: sie feuern auf Zeit
 | **Quelloffen**         | 🚫 Proprietär         | ✅ MIT             | ✅ MIT             | ✅ GNU                                                                                                   |
 | **Einfacher Einstieg** | ✅ Desktop + CLI      | ⚠️ Terminal zuerst | ⚠️ Terminal zuerst | ✅ Aufgeräumte UI, in Minuten                                                                            |
 | **Kosten**             | ⚠️ Abo + Zusatzkosten | ⚠️ BYO-Modelle     | ⚠️ BYO-Modelle     | ✅ Ein Abo + TokenJuice                                                                                  |
-| **Memory**             | ✅ chat-gebunden      | ⚠️ plugin-abhängig | ✅ selbstlernend   | 🚀 Austauschbare Engine (TinyHumans oder dein CortexDB), Quellenangaben, `context.md` |
+| **Memory**             | ✅ chat-gebunden      | ⚠️ plugin-abhängig | ✅ selbstlernend   | 🚀 Austauschbare Engine (TinyHumans oder dein CortexDB), Quellenangaben, Memory-Paket pro Zug |
 | **Integrationen**      | ⚠️ wenige Konnektoren | ⚠️ BYO             | ⚠️ BYO             | 🚀 100+ OAuth · 5k+ MCP · 90k+ Skills                                                                    |
 | **Quellen-Sync**       | 🚫 keiner             | 🚫 keiner          | 🚫 keiner          | ✅ Geplanter Sync ins Memory |
 | **Orchestrierung**     | ⚠️ Sub-Tasks          | ⚠️ eine Schleife   | ⚠️ eine Schleife   | 🚀 Agent-Graphen + Checkpoints + E2E-verschlüsseltes A2A                                                 |

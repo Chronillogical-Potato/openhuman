@@ -8,7 +8,7 @@ import { resolveMemoryChip } from '../memory/memoryChips';
  *
  * Brain used to own `?tab=` (graph|goals|sources|sync|welcome) and `?view=`.
  * Connections owns `?tab=` now, so the old sub-tab moves to `?brain=`, mapped
- * to its Memory v2 chip (graph|goals → ask, sources|sync|history → documents).
+ * to its Memory chip (graph|goals → ask, sources|sync|history → brain).
  * A value that names no chip is dropped so the page picks its own default.
  * v1's `view` param has no meaning any more and is dropped too; every other
  * param and the hash are carried over unchanged.

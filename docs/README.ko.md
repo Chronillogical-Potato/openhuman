@@ -63,7 +63,7 @@ OpenHuman은 대부분의 어시스턴트가 갖지 못한 세 가지입니다: 
 
 ### 🧠 두뇌
 
-- **[Memory](../gitbooks/features/memory.md)**: 교체 가능한 엔진(TinyHumans 호스팅 또는 직접 운영하는 CortexDB) 위의 Recall, Fetch, Store. 문서, 대화, 학습 내용을 저장하고 출처와 함께 답하며, 새 채팅마다 `context.md` 요약을 제공합니다.
+- **[Memory](../gitbooks/features/memory.md)**: 교체 가능한 엔진(TinyHumans 호스팅 또는 직접 운영하는 CortexDB) 위의 Recall, Fetch, Store. 문서, 대화, 학습 내용을 저장하고 출처와 함께 답하며, 매 턴마다 관련 메모리 팩을 불러옵니다.
 - **[100개 이상의 OAuth 통합, 5,000개 이상의 MCP 서버, 90,000개 이상의 Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: Gmail, Notion, GitHub, Slack 등 당신의 스택을 원클릭으로 연결하세요. [자동 가져오기(auto-fetch)](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)가 20분마다 두뇌에 데이터를 공급합니다. 덕분에 오늘 아침에 이미 내일의 컨텍스트를 가지고 있습니다.
 - **[목표 및 할 일(Goals & Todos)](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: 스레드별 지속 목표와 채팅에 표시되는 에이전트의 할 일 목록을 제공합니다.
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: 도구 출력은 모델에 닿기 전에 압축되어, 동일한 정보가 최대 80% 적은 토큰으로 전달됩니다. 이것 없이는 이만큼 큰 두뇌를 감당할 수 없을 것입니다.
@@ -131,7 +131,7 @@ n8n과 Zapier에서 깊은 영감을 받은 [워크플로우](https://tinyhumans
 | **오픈 소스**      | 🚫 독점 소스      | ✅ MIT            | ✅ MIT            | ✅ GNU                                                                                               |
 | **시작하기 쉬움**  | ✅ 데스크톱 + CLI | ⚠️ 터미널 우선    | ⚠️ 터미널 우선    | ✅ 깔끔한 UI, 단 몇 분                                                                               |
 | **비용**           | ⚠️ 구독 + 애드온  | ⚠️ 모델 직접 제공 | ⚠️ 모델 직접 제공 | ✅ 단일 구독 + TokenJuice                                                                            |
-| **메모리**         | ✅ 채팅 범위 한정 | ⚠️ 플러그인 의존  | ✅ 자기 학습      | 🚀 교체 가능한 엔진(TinyHumans 또는 직접 CortexDB), 출처 표시, `context.md` |
+| **메모리**         | ✅ 채팅 범위 한정 | ⚠️ 플러그인 의존  | ✅ 자기 학습      | 🚀 교체 가능한 엔진(TinyHumans 또는 직접 CortexDB), 출처 표시, 턴별 메모리 팩 |
 | **통합**           | ⚠️ 적은 커넥터    | ⚠️ 직접 구축      | ⚠️ 직접 구축      | 🚀 100개 이상 OAuth · 5천 개 이상 MCP · 9만 개 이상 Skills                                           |
 | **소스 동기화**    | 🚫 없음           | 🚫 없음           | 🚫 없음           | ✅ 일정에 따라 메모리로 동기화 |
 | **오케스트레이션** | ⚠️ 서브 태스크    | ⚠️ 단일 루프      | ⚠️ 단일 루프      | 🚀 에이전트 그래프 + 체크포인트 + E2E 암호화 A2A                                                     |

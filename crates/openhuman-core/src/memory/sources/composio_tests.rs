@@ -1,8 +1,8 @@
 use super::*;
 use crate::config::schema::MemorySourceKind;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
-use tinymemory::Namespace;
-use tinymemory::{ItemKind, MetaFilter};
+use tinymemory_api::{ItemKind, MetaFilter};
+use tinymemory_tools::MemoryLayout;
 
 fn record(id: &str, title: &str, content: &str) -> ConnectorRecord {
     ConnectorRecord {
@@ -80,11 +80,12 @@ async fn store_records_stores_the_non_empty_ones() {
         record("3", "Three", "third record"),
     ];
     let stored_count = store_records(
+        &config,
         &bound,
         "notion",
         "conn-1",
         "src-n",
-        &Namespace::ROOT,
+        &MemoryLayout::default(),
         &records,
     )
     .await
@@ -102,6 +103,18 @@ async fn store_records_stores_the_non_empty_ones() {
     assert!(docs
         .iter()
         .all(|d| d.meta.source.kind == SourceKind::Composio));
+    assert!(
+        docs.iter()
+            .all(|d| d.meta.namespace.to_string() == "source:notion"),
+        "filed under the toolkit's brain source"
+    );
+    assert_eq!(
+        crate::memory::lifecycle::jobs::snapshot(&config)
+            .await
+            .pending
+            .len(),
+        1
+    );
 }
 
 #[tokio::test]
@@ -111,9 +124,17 @@ async fn store_records_with_nothing_to_store_is_zero() {
     bind_reference(&config);
     let bound = crate::memory::engine::resolve(&config).engine().unwrap();
     assert_eq!(
-        store_records(&bound, "notion", "c", "s", &Namespace::ROOT, &[])
-            .await
-            .unwrap(),
+        store_records(
+            &config,
+            &bound,
+            "notion",
+            "c",
+            "s",
+            &MemoryLayout::default(),
+            &[]
+        )
+        .await
+        .unwrap(),
         0
     );
 }
@@ -156,21 +177,23 @@ async fn forget_connection_removes_only_that_connections_items() {
     let engine = bind_reference(&config);
     let bound = crate::memory::engine::resolve(&config).engine().unwrap();
     store_records(
+        &config,
         &bound,
         "gmail",
         "conn-a",
         "src",
-        &Namespace::ROOT,
+        &MemoryLayout::default(),
         &[record("1", "A", "from a")],
     )
     .await
     .unwrap();
     store_records(
+        &config,
         &bound,
         "gmail",
         "conn-b",
         "src",
-        &Namespace::ROOT,
+        &MemoryLayout::default(),
         &[record("2", "B", "from b")],
     )
     .await

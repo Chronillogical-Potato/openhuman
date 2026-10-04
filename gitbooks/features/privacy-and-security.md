@@ -26,7 +26,6 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 |                                 |                                                                 |
 | ------------------------------- | --------------------------------------------------------------- |
-| **Compiled `context.md`**       | Local - `<workspace>/memory/context.md`.                        |
 | **Memory items**                | In your selected engine (hosted TinyHumans or your CortexDB).   |
 | **Audio capture buffers**       | Local. Discarded after STT.                                     |
 | **Local model state**           | Local.                                                          |
