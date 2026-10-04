@@ -14,7 +14,7 @@ const ja: TranslationMap = {
   'nav.alerts': 'アラート',
   'nav.settings': '設定',
   'nav.activity': 'アクティビティ',
-  'nav.brain': 'Brain',
+  'nav.brain': 'メモリー',
   'nav.flows': 'ワークフロー',
   'nav.workflowRuns': 'ワークフロー実行',
   'nav.workflowDiscoveries': 'ワークフローを発見',
@@ -3960,8 +3960,7 @@ const ja: TranslationMap = {
   'settings.ai.routing.chatDesc':
     'ユーザーとの直接対話、返信、推論、エージェントループ、コーディング支援中に使用されるモデル。',
   'settings.ai.routing.backgroundTasks': 'バックグラウンドタスク',
-  'settings.ai.routing.bgTasksDesc':
-    'メインの会話フロー外で、メモリーの要約や学習に使用されるモデル。',
+  'settings.ai.routing.bgTasksDesc': 'メインの会話フロー外で、要約に使用されるモデル。',
   'settings.ai.routing.workload.chat.label': 'チャット',
   'settings.ai.routing.workload.chat.description':
     '直接的な会話のやり取り：会話の「クイック」モード',
@@ -3987,7 +3986,7 @@ const ja: TranslationMap = {
   'settings.ai.routing.workload.vision.hint':
     '推奨：画像入力を受け入れるマルチモーダルモデル。マネージドデフォルト（vision-v1）は画像対応です。ここにルーティングされるプロバイダーは常にビジョン対応として扱われます。',
   'settings.ai.routing.workload.memory.label': 'メモリーの要約',
-  'settings.ai.routing.workload.memory.description': 'ツリー抽出と統合',
+  'settings.ai.routing.workload.memory.description': '会話とドキュメントの要約',
   'settings.ai.routing.workload.memory.hint':
     '推奨：安価な要約モデル。一貫性がありコンパクトである必要がありますが、プレミアムなフロンティアレベルの推論は不要です。',
   'settings.ai.routing.addCustomProvider': 'カスタムプロバイダーを追加',
@@ -5204,7 +5203,8 @@ const ja: TranslationMap = {
   'memoryPage.tabs.conversations': '会話',
   'memoryPage.tabs.documents': 'ドキュメント',
   'memoryPage.tabs.context': 'コンテキスト',
-  'memoryPage.header.engine': 'メモリーを保存し、その内容についての質問に答えるエンジンを選択します。',
+  'memoryPage.header.engine':
+    'メモリーを保存し、その内容についての質問に答えるエンジンを選択します。',
   'memoryPage.header.ask': 'メモリーに質問し、回答の出典を確認できます。',
   'memoryPage.header.learnings': 'エージェントに常に覚えておいてほしい事実、好み、手順です。',
   'memoryPage.header.conversations': 'チャットをメモリーに保存するタイミングを設定します。',
@@ -5215,15 +5215,19 @@ const ja: TranslationMap = {
   'memoryPage.explorer.facet.namespace': 'メモリーノード',
   'memoryPage.explorer.namespace.root': '共有（ルート）',
   'memoryPage.context.node': 'メモリーノード',
-  'memoryPage.context.nodeHint': '各エージェントには、自身のメモリーと共有されたメモリーから作成された専用の要約があります。',
+  'memoryPage.context.nodeHint':
+    '各エージェントには、自身のメモリーと共有されたメモリーから作成された専用の要約があります。',
   'memoryPage.backfill.title': '過去の会話',
-  'memoryPage.backfill.description': '自動保存を有効にする前のチャットは、同期するまでメモリーに保存されません。',
-  'memoryPage.backfill.pending': '{threads}件のチャット（{turns}ターン）がまだメモリーに保存されていません。',
+  'memoryPage.backfill.description':
+    '自動保存を有効にする前のチャットは、同期するまでメモリーに保存されません。',
+  'memoryPage.backfill.pending':
+    '{threads}件のチャット（{turns}ターン）がまだメモリーに保存されていません。',
   'memoryPage.backfill.upToDate': '過去の会話はすべてメモリーに保存されています。',
   'memoryPage.backfill.action': '過去の会話を同期',
   'memoryPage.backfill.resume': '同期を再開',
   'memoryPage.backfill.running': '過去の会話を同期中',
-  'memoryPage.backfill.progress': '{total}件中{done}件のチャットを同期済み · {turns}ターンを保存済み',
+  'memoryPage.backfill.progress':
+    '{total}件中{done}件のチャットを同期済み · {turns}ターンを保存済み',
   'memoryPage.backfill.done': '{threads}件のチャットから{turns}ターンを保存しました。',
   'memoryPage.backfill.failed': '同期が完了する前に停止しました。',
   'memoryPage.backfill.consentTitle': '過去の会話を同期しますか？',
@@ -5231,7 +5235,8 @@ const ja: TranslationMap = {
     '過去のチャットがメモリーエンジンにアップロードされ、他の会話と同様に保存されます。ツールの引数は一切含まれません。後で再び同期する場合は、新しい内容のみが送信されます。',
   'memoryPage.backfill.consentConfirm': '今すぐ同期',
   'memoryPage.tabs.explorer': 'エクスプローラー',
-  'memoryPage.header.explorer': 'メモリーに保存されたすべての内容を、ソース、フォルダ、スレッド、タグ別に閲覧できます。',
+  'memoryPage.header.explorer':
+    'メモリーに保存されたすべての内容を、ソース、フォルダ、スレッド、タグ別に閲覧できます。',
   'memoryPage.explorer.pathLabel': 'エクスプローラーのパス',
   'memoryPage.explorer.root': 'すべてのメモリー',
   'memoryPage.explorer.groupTitle': 'グループ化',
@@ -5241,7 +5246,8 @@ const ja: TranslationMap = {
   'memoryPage.explorer.noValues': 'ここには{facet}を持つ項目がありません。',
   'memoryPage.explorer.missing': '{count}件の項目でこの値が未設定です。',
   'memoryPage.explorer.moreBuckets': '他に{count}個の値が表示されていません。',
-  'memoryPage.explorer.truncated': 'メモリーが大きいため、この件数は走査した項目のみを対象としています。',
+  'memoryPage.explorer.truncated':
+    'メモリーが大きいため、この件数は走査した項目のみを対象としています。',
   'memoryPage.explorer.itemsTitle': 'この場所の項目',
   'memoryPage.explorer.empty': 'ここには何も保存されていません。',
   'memoryPage.explorer.open': '開く',
@@ -5281,7 +5287,8 @@ const ja: TranslationMap = {
     '記憶を開始するにはメモリーエンジンを選択してください。TinyHumansのメモリーを使うにはサインインするか、ご自身のCortexDBに接続してください。',
   'memoryPage.off.action': 'エンジンを選択',
   'memoryPage.engine.listTitle': 'メモリーエンジン',
-  'memoryPage.engine.listDescription': '一度に有効にできるエンジンは1つです。メモリーのすべての内容を保存し、その内容についての質問に答えます。',
+  'memoryPage.engine.listDescription':
+    '一度に有効にできるエンジンは1つです。メモリーのすべての内容を保存し、その内容についての質問に答えます。',
   'memoryPage.engine.loadError': 'メモリーエンジンを読み込めませんでした',
   'memoryPage.engine.offExplanation':
     '現在利用できるメモリーエンジンがないため、保存も想起も行われません。TinyHumansのメモリーを使うにはサインインするか、エンドポイントとAPIキーを指定してご自身のCortexDBに接続してください。',
@@ -5299,7 +5306,8 @@ const ja: TranslationMap = {
   'memoryPage.engine.endpoint': 'エンドポイント',
   'memoryPage.engine.apiKey': 'APIキー',
   'memoryPage.engine.keySavedPlaceholder': '保存済み。変更するには新しいキーを入力',
-  'memoryPage.engine.keySavedHint': 'キーは保存済みです。変更しない場合は空欄のままにしてください。',
+  'memoryPage.engine.keySavedHint':
+    'キーは保存済みです。変更しない場合は空欄のままにしてください。',
   'memoryPage.ask.questionLabel': '質問',
   'memoryPage.ask.queryLabel': '検索クエリ',
   'memoryPage.ask.placeholder': 'リリース計画について何を決めましたか？',
@@ -5317,7 +5325,8 @@ const ja: TranslationMap = {
   'memoryPage.ask.rawTitle': '結果',
   'memoryPage.ask.noHits': '検索に一致する内容がメモリーにありません。',
   'memoryPage.learnings.addTitle': 'エージェントに教える',
-  'memoryPage.learnings.addDescription': 'エージェントに常に覚えておいてほしいことを記入してください。',
+  'memoryPage.learnings.addDescription':
+    'エージェントに常に覚えておいてほしいことを記入してください。',
   'memoryPage.learnings.textLabel': '学習内容',
   'memoryPage.learnings.placeholder': 'コード例を含む短い回答が好みです。',
   'memoryPage.learnings.kindLabel': '種類',
@@ -5328,7 +5337,8 @@ const ja: TranslationMap = {
   'memoryPage.learnings.kindOther': 'その他',
   'memoryPage.learnings.add': '学習内容を追加',
   'memoryPage.learnings.listTitle': '学習内容',
-  'memoryPage.learnings.empty': '学習内容はまだありません。上から追加するか、エージェントが一緒に作業する中で追加します。',
+  'memoryPage.learnings.empty':
+    '学習内容はまだありません。上から追加するか、エージェントが一緒に作業する中で追加します。',
   'memoryPage.learnings.delete': '学習内容を削除',
   'memoryPage.conversations.settingsTitle': '会話を保存',
   'memoryPage.conversations.settingsDescription':
@@ -5337,13 +5347,15 @@ const ja: TranslationMap = {
   'memoryPage.conversations.batchTurns': '1回に保存するターン数',
   'memoryPage.conversations.batchTurnsHelp': 'チャットの返信がこの回数に達すると保存します。',
   'memoryPage.conversations.idleSecs': 'やり取りがない場合に保存',
-  'memoryPage.conversations.idleSecsHelp': 'または、チャットでこの時間やり取りがなければ保存します。',
+  'memoryPage.conversations.idleSecsHelp':
+    'または、チャットでこの時間やり取りがなければ保存します。',
   'memoryPage.conversations.seconds': '秒',
   'memoryPage.conversations.recentTitle': '最近保存した会話',
   'memoryPage.conversations.recentEmpty': '保存された会話はまだありません。',
   'memoryPage.conversations.turns': '{count}ターン',
   'memoryPage.documents.listTitle': 'ソース',
-  'memoryPage.documents.listDescription': 'メモリーはこれらを同期し、その内容に基づいて回答します。',
+  'memoryPage.documents.listDescription':
+    'メモリーはこれらを同期し、その内容に基づいて回答します。',
   'memoryPage.documents.add': 'ソースを追加',
   'memoryPage.documents.syncAll': 'すべて同期',
   'memoryPage.documents.sync': '同期',
@@ -5355,7 +5367,8 @@ const ja: TranslationMap = {
   'memoryPage.documents.neverSynced': '未同期',
   'memoryPage.documents.every': '{mins}分ごと',
   'memoryPage.documents.addTitle': 'ソースを追加',
-  'memoryPage.documents.addSubtitle': 'メモリーは追加直後と、指定したスケジュールに従って同期します。',
+  'memoryPage.documents.addSubtitle':
+    'メモリーは追加直後と、指定したスケジュールに従って同期します。',
   'memoryPage.documents.kindLabel': '種類',
   'memoryPage.documents.targetLabel': '場所',
   'memoryPage.documents.labelLabel': '名前（任意）',
@@ -5387,7 +5400,8 @@ const ja: TranslationMap = {
   'memoryPage.context.regenerating': '再生成中…',
   'memoryPage.context.empty': '要約は空です。メモリーの内容が増えるにつれて作成されます。',
   'memoryPage.context.settingsTitle': '要約の設定',
-  'memoryPage.context.settingsDescription': '新しいチャットはこの要約で開始します。既存のチャットは開始時の要約を保持します。',
+  'memoryPage.context.settingsDescription':
+    '新しいチャットはこの要約で開始します。既存のチャットは開始時の要約を保持します。',
   'memoryPage.context.enabled': '新しいチャットを要約付きで開始',
   'memoryPage.context.interval': '再生成の間隔',
   'memoryPage.context.minutes': '分',
