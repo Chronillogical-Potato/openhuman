@@ -19,6 +19,7 @@ Canonical mapping of every product feature to its test source(s). Drives gap-fil
 | `RI` | Rust integration (`tests/*.rs`)                                                      |
 | `VU` | Vitest unit (`app/src/**/*.test.ts(x)`)                                              |
 | `WD` | WDIO E2E (`app/test/e2e/specs/*.spec.ts`) — Linux `tauri-driver` + macOS Appium Mac2 |
+| `PW` | Playwright browser E2E (`app/test/playwright/specs/*.spec.ts`) |
 | `MS` | Manual smoke (release-cut checklist)                                                 |
 
 **Update contract** — when a PR adds, removes, or changes a feature leaf, the matrix row must be updated in the same PR. Tracking guard: see #965.
@@ -615,7 +616,7 @@ The thread JSONL store moved to `tinyagents_session::threads` (`vendor/tinyagent
 
 | ID | Feature | Layer | Test path(s) | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 13.7.1 | Japanese UI locale | VU+MS | `app/src/components/LanguageSelect.test.tsx`, `app/src/components/settings/panels/__tests__/ComposioPanel.test.tsx`, `app/src/store/localeSlice.test.ts`, `app/src/lib/i18n/__tests__/I18nContext.test.tsx`, `app/src/lib/i18n/__tests__/{coverage,mascotDismissPath}.test.ts`, `docs/RELEASE-MANUAL-SMOKE.md` | ✅ | Native-script picker, Japanese browser-language detection, switching back to English, unknown-key fallback, complete dictionary, exact interpolation placeholders, and matching menu labels in mascot dismissal instructions |
+| 13.7.1 | Japanese UI locale | VU+PW+MS | `app/src/components/LanguageSelect.test.tsx`, `app/src/components/settings/panels/__tests__/ComposioPanel.test.tsx`, `app/src/store/localeSlice.test.ts`, `app/src/lib/i18n/__tests__/I18nContext.test.tsx`, `app/src/lib/i18n/__tests__/{coverage,mascotDismissPath}.test.ts`, `app/test/e2e/specs/japanese-locale.browser.ts` (discovered through `app/test/playwright/specs/japanese-locale.spec.ts`), `docs/RELEASE-MANUAL-SMOKE.md` | ✅ | Browser E2E asserts settings selection, reload persistence, fresh ja-JP detection, a saved English override, Memory v2 counts and model attribution at 1280x720. Native-script picker, Japanese browser-language detection, switching back to English, unknown-key fallback, complete dictionary, exact interpolation placeholders, and matching menu labels in mascot dismissal instructions |
 
 ---
 
