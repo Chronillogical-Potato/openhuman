@@ -377,6 +377,7 @@ impl TurnContextMiddleware {
         tool_policies: HashMap<String, TaToolPolicy>,
         summary_focus_tools: std::collections::HashSet<String>,
     ) {
+        harness.push_middleware(Arc::new(AttachmentRequestScopeMiddleware));
         // Transcript snapshot (#4466) runs first among before_model hooks so it
         // mirrors the *incoming* request transcript (every prior completed round)
         // before microcompact/summarization rewrite it — the caller's error path
@@ -414,6 +415,34 @@ impl TurnContextMiddleware {
                 file_reads: Default::default(),
             }));
         }
+    }
+}
+
+/// Carry attachment authority over the `ChatModel<()>` seam for this request.
+/// The OpenHuman provider wrapper consumes and removes the metadata before the
+/// request reaches any provider or transcript store.
+struct AttachmentRequestScopeMiddleware;
+
+#[async_trait]
+impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+    for AttachmentRequestScopeMiddleware
+{
+    fn name(&self) -> &str {
+        "attachment_request_scope"
+    }
+
+    fn is_observer(&self) -> bool {
+        true
+    }
+
+    async fn before_model(
+        &self,
+        context: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        _state: &(),
+        request: &mut ModelRequest,
+    ) -> TaResult<()> {
+        crate::agent::attachments::attach_request_scope(request, &context.data);
+        Ok(())
     }
 }
 

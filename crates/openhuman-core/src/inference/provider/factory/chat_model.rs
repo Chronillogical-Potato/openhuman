@@ -251,6 +251,15 @@ impl ChatModel<()> for DefaultTemperatureChatModel {
         self.inner.profile()
     }
 
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         self.inner.cache_identity()
     }

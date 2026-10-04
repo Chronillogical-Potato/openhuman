@@ -77,6 +77,16 @@ describe('User-message action bar — capability-gated Edit (#5897)', () => {
     ).toEqual([file]);
   });
 
+  it('extracts arbitrary clipboard files with empty item MIME', () => {
+    const file = new File(['original'], 'archive.zip');
+    expect(
+      extractComposerPasteFiles({
+        items: [{ kind: 'file', type: '', getAsFile: () => file }],
+        files: [],
+      } as unknown as DataTransfer)
+    ).toEqual([file]);
+  });
+
   it('renders the user message and its action bar', async () => {
     const { container } = renderThreadWithOneUserMessage();
 

@@ -219,7 +219,11 @@ async fn run_member_loop(
     run_id: &str,
     model_override: Option<String>,
 ) {
-    let outcome = with_root_parent(config, "agent_team_runtime", "team", "teamrun", async {
+    // The member acts on memory as itself within the team: its node is
+    // `team:<team>/agent:<agent>`, so members share the team's node and
+    // never read each other's.
+    let identity = crate::memory::scope::MemoryIdentity::team_member(team_id, agent_id);
+    let member_turn = with_root_parent(config, "agent_team_runtime", "team", "teamrun", async {
         drive_member(
             config,
             team_id,
@@ -230,10 +234,11 @@ async fn run_member_loop(
             model_override,
         )
         .await
-    })
-    .await
-    // Flatten: outer Err = root-parent build failure, inner = drive_member result.
-    .unwrap_or_else(Err);
+    });
+    let outcome = crate::memory::scope::within(identity, Box::pin(member_turn))
+        .await
+        // Flatten: outer Err = root-parent build failure, inner = drive_member result.
+        .unwrap_or_else(Err);
 
     if let Err(err) = outcome {
         log::error!(

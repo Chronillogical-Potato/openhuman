@@ -1,10 +1,8 @@
 //! `SessionHostBuilder` fluent setters. See `builder_build.rs` for the `build()`
 //! validator that assembles the final `OpenHumanSessionHost`.
 
-use crate::agent::harness::TriggerMemoryAgent;
 use crate::agent::session_host::types::SessionHostBuilder;
 use crate::config::ContextConfig;
-use crate::memory::Memory;
 use std::sync::Arc;
 use tinytools::Tool;
 
@@ -13,14 +11,14 @@ impl SessionHostBuilder {
     pub fn new() -> Self {
         Self {
             turn_model_source: None,
+            runtime_config: None,
             tools: None,
             synthesized_tools: None,
             visible_tool_names: None,
             withheld_tool_names: std::collections::HashSet::new(),
+            permanent_tool_names: std::collections::HashSet::new(),
             deferred_tools: Vec::new(),
             subagent_tool_ceiling_names: None,
-            memory: None,
-            auto_recall: None,
             prompt_builder: None,
             tool_dispatcher: None,
             config: None,
@@ -32,31 +30,43 @@ impl SessionHostBuilder {
             action_dir: None,
             workspace_descriptor: None,
             workflows: None,
-            auto_save: None,
             post_turn_hooks: Vec::new(),
-            learning_enabled: false,
-            explicit_preferences_enabled: true,
             event_session_id: None,
             event_channel: None,
             agent_definition_name: None,
             session_definition: None,
             session_parent_prefix: None,
             session_history_locator: None,
-            omit_profile: None,
-            omit_memory_md: None,
+            omit_memory_context: None,
             payload_summarizer: None,
-            trigger_memory_agent: None,
             tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Full,
             tool_policy: None,
-            archivist_hook: None,
         }
     }
 
     /// Sets an already-constructed TinyAgents chat model. This is the native
     /// injection seam for tests and embedders; no legacy `Provider` adapter is
-    /// constructed.
+    /// constructed. This method does not load operator config. Use
+    /// [`Self::chat_model_with_config`] when the session accepts attachments.
     pub fn chat_model(mut self, model: Arc<dyn tinyinference_llm::model::ChatModel<()>>) -> Self {
         self.turn_model_source = Some(crate::agent::tinyagents::TurnModelSource::from_model(model));
+        self
+    }
+
+    /// Set an injected model with explicit host attachment and runtime config.
+    ///
+    /// The supplied config governs staging and ephemeral provider resolution;
+    /// explicit builder workspace/action directories override its defaults.
+    pub fn chat_model_with_config(
+        mut self,
+        model: Arc<dyn tinyinference_llm::model::ChatModel<()>>,
+        config: Arc<crate::config::Config>,
+    ) -> Self {
+        self.turn_model_source = Some(
+            crate::agent::tinyagents::TurnModelSource::from_model(model)
+                .with_attachment_config(config.clone()),
+        );
+        self.runtime_config = Some(config);
         self
     }
 
@@ -100,6 +110,12 @@ impl SessionHostBuilder {
         self
     }
 
+    /// Pin these tools directly in the prompt and provider schema.
+    pub fn permanent_tool_names(mut self, names: std::collections::HashSet<String>) -> Self {
+        self.permanent_tool_names = names;
+        self
+    }
+
     /// Removes these names from the final provider-visible tool set after the
     /// agent's static scope and synthesized tools have been expanded.
     pub fn withheld_tool_names(mut self, names: std::collections::HashSet<String>) -> Self {
@@ -120,22 +136,6 @@ impl SessionHostBuilder {
     /// definition unless the channel policy adds a ceiling.
     pub fn subagent_tool_ceiling_names(mut self, names: std::collections::HashSet<String>) -> Self {
         self.subagent_tool_ceiling_names = Some(names);
-        self
-    }
-
-    /// Sets the memory system for the agent.
-    pub fn memory(mut self, memory: Arc<dyn Memory>) -> Self {
-        self.memory = Some(memory);
-        self
-    }
-
-    /// Binds Lane C, the gated pre-turn auto-recall of facts about the user
-    /// (#6040). `None` leaves the lane out of the turn entirely.
-    pub fn auto_recall(
-        mut self,
-        auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
-    ) -> Self {
-        self.auto_recall = auto_recall;
         self
     }
 
@@ -218,34 +218,12 @@ impl SessionHostBuilder {
         self
     }
 
-    /// Enables or disables automatic saving of conversation history to memory.
-    pub fn auto_save(mut self, auto_save: bool) -> Self {
-        self.auto_save = Some(auto_save);
-        self
-    }
-
     /// Sets the post-turn hooks to be executed after each turn.
     pub fn post_turn_hooks(
         mut self,
         hooks: Vec<Arc<dyn crate::agent::hooks::PostTurnHook>>,
     ) -> Self {
         self.post_turn_hooks = hooks;
-        self
-    }
-
-    /// Enables or disables learning features.
-    pub fn learning_enabled(mut self, enabled: bool) -> Self {
-        self.learning_enabled = enabled;
-        self
-    }
-
-    /// Enables or disables explicit-preference injection.
-    ///
-    /// When `true` (the default), preferences stored via `remember_preference`
-    /// are fetched from the `user_profile` namespace and injected into the
-    /// system prompt on every turn, independent of `learning_enabled`.
-    pub fn explicit_preferences_enabled(mut self, enabled: bool) -> Self {
-        self.explicit_preferences_enabled = enabled;
         self
     }
 
@@ -364,20 +342,11 @@ impl SessionHostBuilder {
         self
     }
 
-    /// Forward the target agent definition's `omit_profile` flag so
-    /// [`OpenHumanSessionHost::build_system_prompt`] can decide whether to inject
-    /// `PROFILE.md`. Only opt-in agents (welcome, orchestrator, the
-    /// trigger pair) should set this to `false`.
-    pub fn omit_profile(mut self, omit: bool) -> Self {
-        self.omit_profile = Some(omit);
-        self
-    }
-
-    /// Forward the target agent definition's `omit_memory_md` flag so
-    /// [`OpenHumanSessionHost::build_system_prompt`] can decide whether to inject
-    /// `MEMORY.md`. Same opt-in set as `omit_profile`.
-    pub fn omit_memory_md(mut self, omit: bool) -> Self {
-        self.omit_memory_md = Some(omit);
+    /// Forward the target agent definition's `omit_memory_context` flag: when
+    /// `true`, a new session does not get `context.md` prepended to its first
+    /// user message.
+    pub fn omit_memory_context(mut self, omit: bool) -> Self {
+        self.omit_memory_context = Some(omit);
         self
     }
 
@@ -395,36 +364,12 @@ impl SessionHostBuilder {
         self
     }
 
-    /// Forward the target agent definition's pre-turn memory policy.
-    pub fn trigger_memory_agent(mut self, policy: TriggerMemoryAgent) -> Self {
-        self.trigger_memory_agent = Some(policy);
-        self
-    }
-
     /// Installs pre-execution policy middleware for tool calls.
     ///
     /// The default policy allows all calls. Custom policies can deny a call
     /// before `Tool::execute_with_options` runs.
     pub fn tool_policy(mut self, policy: Arc<dyn crate::agent::tool_policy::ToolPolicy>) -> Self {
         self.tool_policy = Some(policy);
-        self
-    }
-
-    /// Attach the production [`ArchivistHook`] instance so the session
-    /// turn loop can call [`ArchivistHook::flush_open_segment`] at
-    /// session-wind-down time, guaranteeing the trailing open segment is
-    /// always finalized with an LLM recap + embedding.
-    ///
-    /// Set from `build_session_agent_inner` when
-    /// `config.learning.episodic_capture_enabled` is `true` and a
-    /// SQLite connection is available. Callers that construct an `OpenHumanSessionHost`
-    /// directly (tests, CLI) can leave this `None` — flush is a no-op
-    /// when the hook is absent.
-    pub fn archivist_hook(
-        mut self,
-        hook: Option<Arc<crate::agent::harness::archivist::ArchivistHook>>,
-    ) -> Self {
-        self.archivist_hook = hook;
         self
     }
 

@@ -21,6 +21,10 @@ use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::model::TurnChatModel;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 
+/// Fractions of a capped turn's model-call budget at which the model is told
+/// how many calls are left (#6958; `FinalCallWrapUpMiddleware::with_budget_notice`).
+const BUDGET_NOTICE_THRESHOLDS: [f64; 2] = [0.5, 0.8];
+
 /// Store `ToolResultArtifactIndexStore` is registered under on the run context.
 const ARTIFACT_INDEX_STORE: &str =
     crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE;
@@ -205,7 +209,11 @@ pub(super) fn install_context_ladder(
             // file tool; `apply_patch` has a create mode). `shell` is left out
             // on purpose: it can equally run a crawler.
             .with_deliverable_tools(["file_write", "apply_patch"])
-            .with_cleared_placeholder(crate::agent::context::CLEARED_PLACEHOLDER),
+            .with_cleared_placeholder(crate::agent::context::CLEARED_PLACEHOLDER)
+            // #6958: the model first heard about its budget on the
+            // penultimate call, too late for a multi-file change. Say how many
+            // calls are left at half and at 80% of the budget.
+            .with_budget_notice(BUDGET_NOTICE_THRESHOLDS),
         )
     });
     let wrap_up_fired = wrap_up_mw.clone();
@@ -328,6 +336,39 @@ pub(super) fn compression_policy(
         }
         None => window.map(summarization_policy),
     }
+    .map(|policy| with_turn_aware_tail(policy, window))
+}
+
+/// Share of the context window a compaction keeps verbatim as its tail.
+const COMPACTION_TAIL_WINDOW_FRACTION: f64 = 0.30;
+
+/// Size the kept tail in tokens and pin the turn's user message (#6960).
+///
+/// Split by count (the last eight messages), a long tool-driven turn that
+/// crosses the trigger mid-turn folds its only user message — the assignment
+/// being worked on — into the summary, and the agent loses the task. This
+/// keeps ~30% of the window verbatim instead, capped at half the trigger so a
+/// capped trigger (350k on a 1M window) still has room to fold, and pins the
+/// turn's user message to the front of that tail. With no known window the
+/// tail is 30% of the trigger.
+fn with_turn_aware_tail(
+    mut policy: tinyagents_harness::summarization::SummarizationPolicy,
+    window: Option<u64>,
+) -> tinyagents_harness::summarization::SummarizationPolicy {
+    let trigger = policy.trigger_budget();
+    let keep_tokens = match window {
+        Some(window) => ((window as f64 * COMPACTION_TAIL_WINDOW_FRACTION) as u64).min(trigger / 2),
+        None => (trigger as f64 * COMPACTION_TAIL_WINDOW_FRACTION) as u64,
+    };
+    tracing::debug!(
+        context_window = ?window,
+        trigger,
+        keep_tokens,
+        "[context_compression] token tail with the turn's user message pinned"
+    );
+    policy.keep_recent_tokens = Some(keep_tokens);
+    policy.pin_turn_user_message = true;
+    policy
 }
 
 #[cfg(test)]

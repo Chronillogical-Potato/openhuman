@@ -2,72 +2,72 @@
 
 use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 
-/// The `tinydocs` module: `.docx` / `.pptx` synthesis and `.pdf` extraction.
+/// The `tinydocs` module: document synthesis, bounded extraction, and PDF rendering.
 ///
 /// Lazy, because a user who never asks for a document should not pay a download,
 /// a `dlopen`, and the resident cost of a library that is never unloaded.
 pub(crate) const TINYDOCS: ModuleRecord = ModuleRecord {
     id: "tinydocs",
-    description: "Document synthesis (.docx, .pptx) and PDF text extraction",
+    description: "Document synthesis, Office/PDF extraction, and PDF rendering",
     bus_name: "ai.tinyhumans.tinydocs.Documents",
     object_path: "/ai/tinyhumans/tinydocs/Documents",
-    version: "0.1.20",
-    release_url: "https://github.com/tinyhumansai/tinydocs/releases/tag/v0.1.20",
+    version: "0.1.21",
+    release_url: "https://github.com/tinyhumansai/tinydocs/releases/tag/v0.1.21",
     assets: &[
         PlatformAsset {
             host_key: "ubuntu-24.04-x86_64",
-            archive: "tinydocs-module-0.1.20-ubuntu-24.04-x86_64.tar.gz",
-            sha256: "685885800efa9d378032dd868243adcd08110fa1040b3855393d68bb0d7a8474",
+            archive: "tinydocs-module-0.1.21-ubuntu-24.04-x86_64.tar.gz",
+            sha256: "2c8fef199f0eeaf127036f6f5612fe170792e6817f9ba2ef3d61d80488ae05b8",
         },
         PlatformAsset {
             host_key: "ubuntu-24.04-arm64",
-            archive: "tinydocs-module-0.1.20-ubuntu-24.04-arm64.tar.gz",
-            sha256: "af589669ea697585f7e815c59188c7c382173ffad9a37c4f7adf8641d3e13760",
+            archive: "tinydocs-module-0.1.21-ubuntu-24.04-arm64.tar.gz",
+            sha256: "0870f6cf81c86799a388c2426d7fdd2c4ec96139c970eae0d20a05eb3b9bd811",
         },
         PlatformAsset {
             host_key: "ubuntu-22.04-x86_64",
-            archive: "tinydocs-module-0.1.20-ubuntu-22.04-x86_64.tar.gz",
-            sha256: "86d358b2c497e92082e46a012bef6d09e9420a37347023bcfbe94bb25b6c4a45",
+            archive: "tinydocs-module-0.1.21-ubuntu-22.04-x86_64.tar.gz",
+            sha256: "ed7676ca4d4493fe859008a8de2a11e7eca6be53e5c62e733754bea301fef948",
         },
         PlatformAsset {
             host_key: "ubuntu-22.04-arm64",
-            archive: "tinydocs-module-0.1.20-ubuntu-22.04-arm64.tar.gz",
-            sha256: "1afe105f4c11992c0a2c2c1be314a7409964a319301a9ba9074bf5b14ae5bc72",
+            archive: "tinydocs-module-0.1.21-ubuntu-22.04-arm64.tar.gz",
+            sha256: "96978386c0493227056e17a14c6df4b140a7198ad5b3b7bed036c3a420eb3473",
         },
         PlatformAsset {
             host_key: "macos-26-arm64",
-            archive: "tinydocs-module-0.1.20-macos-26-arm64.tar.gz",
-            sha256: "c3984b10ccdfc2bd08a898da85c9a97a22dbaa70a7ead07ed69bea9322d9546d",
+            archive: "tinydocs-module-0.1.21-macos-26-arm64.tar.gz",
+            sha256: "39aecf4e47692c8174fcd84aeff5c722a39ca895152f7434609585d47a65ae39",
         },
         PlatformAsset {
             host_key: "macos-26-x86_64",
-            archive: "tinydocs-module-0.1.20-macos-26-x86_64.tar.gz",
-            sha256: "e5540064198d081d1b318cc77f4879dd082ac9aabcf5cf68513b782e2a9c6b4a",
+            archive: "tinydocs-module-0.1.21-macos-26-x86_64.tar.gz",
+            sha256: "6f31f6788c1935bf1c5119967c2e0fd1162069ea68b91408ec0eafd7c6443ecc",
         },
         PlatformAsset {
             host_key: "macos-15-arm64",
-            archive: "tinydocs-module-0.1.20-macos-15-arm64.tar.gz",
-            sha256: "dd919b6cfd5dc791807fef558cae2f10faa26f463d6f151b8a5c7578b6375a7b",
+            archive: "tinydocs-module-0.1.21-macos-15-arm64.tar.gz",
+            sha256: "1aa05dd7b93c48a44a0639fca5c37dfdce9eae7fe8e6258f0fb065aa3b487b88",
         },
         PlatformAsset {
             host_key: "macos-15-x86_64",
-            archive: "tinydocs-module-0.1.20-macos-15-x86_64.tar.gz",
-            sha256: "eeccb271aac7549c1b18ee8cfec8a3f78cdb5bd4363814d45f42d6a333db10f5",
+            archive: "tinydocs-module-0.1.21-macos-15-x86_64.tar.gz",
+            sha256: "6dc9c7c957333f32ccac0915b5c8a3858c09200cc86c38a43553f5d0568374d0",
         },
         PlatformAsset {
             host_key: "windows-2025-x86_64",
-            archive: "tinydocs-module-0.1.20-windows-2025-x86_64.zip",
-            sha256: "aaab0cb81ad847faa400091de586e007b3cd06b854c4d4059310f489383b5be1",
+            archive: "tinydocs-module-0.1.21-windows-2025-x86_64.zip",
+            sha256: "2bc315852500b9c29ffdb3be5165237efc88b3e72b5837c3a9461be482ed9b93",
         },
         PlatformAsset {
             host_key: "windows-2022-x86_64",
-            archive: "tinydocs-module-0.1.20-windows-2022-x86_64.zip",
-            sha256: "3b40bac38727ecddaee661914e23560ea04513ce4eec8d2aa95b595de35c51f7",
+            archive: "tinydocs-module-0.1.21-windows-2022-x86_64.zip",
+            sha256: "cdb8508bad98e4d4d9ea5679d23d2f7338074e8d43721f46d823703a0b563ea5",
         },
         PlatformAsset {
             host_key: "windows-11-arm64",
-            archive: "tinydocs-module-0.1.20-windows-11-arm64.zip",
-            sha256: "2829d11cdfbc790f9b45f6f5c7fd817a613080c3dca21aee27160afef455ddfb",
+            archive: "tinydocs-module-0.1.21-windows-11-arm64.zip",
+            sha256: "9f50540ff448715ece3592b203c4925319d9a8eed2c72aed9eb6797c0b89441b",
         },
     ],
     load: LoadPolicy::Lazy,

@@ -309,6 +309,13 @@ pub struct OpenHumanRunContext {
     pub(crate) tool_dialect: tinyagents_harness::config::ToolDispatcher,
 }
 
+/// Minimal immutable authority view exposed to shared tools through the
+/// harness's typed state-view seam.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct HostOperationContext {
+    pub(crate) origin: Option<AgentTurnOrigin>,
+}
+
 impl Default for OpenHumanRunContext {
     fn default() -> Self {
         Self::new()
@@ -473,8 +480,12 @@ impl OpenHumanRunContext {
         }
         let cancellation = self.cancellation.clone();
         let workspace = self.workspace.clone();
+        let host_operations = Arc::new(HostOperationContext {
+            origin: self.origin.clone(),
+        });
         let context = tinyagents_harness::context::RunContext::new(config, self)
-            .with_cancellation(cancellation);
+            .with_cancellation(cancellation)
+            .with_state_view(host_operations);
         match workspace {
             Some(workspace) => context.with_workspace(workspace),
             None => context,

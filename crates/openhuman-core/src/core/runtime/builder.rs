@@ -766,14 +766,6 @@ impl CoreRuntime {
         let _ = local_addr;
     }
 
-    /// Mark the start of serving. Arms memory's exit gate for the eventual
-    /// exit (and clears one a previous server in this process may have left):
-    /// from here on a memory binding built during exit is refused rather than
-    /// missed.
-    pub fn serving_started(&self) {
-        crate::memory::exit::server_starting();
-    }
-
     /// Cleanup to run once a transport has stopped serving, whether it ended
     /// cleanly or with an error.
     ///
@@ -785,7 +777,9 @@ impl CoreRuntime {
     /// model runtime to stop: the user runs Ollama / LM Studio / MLX
     /// themselves and OpenHuman never spawns it.
     pub async fn exit_cleanup(&self) {
-        crate::memory::exit::shutdown_for_exit().await;
+        if let Some(config) = &self.config {
+            let _ = crate::memory::exit::run(config).await;
+        }
         log::debug!("[core] shutdown: exit cleanup done (no owned local runtime to stop)");
     }
 

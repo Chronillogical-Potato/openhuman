@@ -1,46 +1,15 @@
 /**
- * Chat composer — the attachment gate on the composer the product ships.
+ * Browser coverage for the shipped chat composer's file picker and interaction
+ * gate. Six active cases cover named chips, archive/audio/unknown/original-video
+ * acceptance, removal, streaming lockout, recovery after Stop, and attachment-only
+ * Send. File acceptance does not depend on the selected model's vision support;
+ * the core chooses native input or fallback processing after saving the original.
  *
- * # Scope, and what was cut from it after probing
- *
- * The task framed this as a bypass risk: drag-drop and paste might skip the
- * gate the `[+]` button enforces. That framing belongs to the LEGACY composer
- * (`ChatComposer.tsx:288-317`), which implements `handleDrop` / `handlePaste`
- * and gates both on `attachDisabled`. `/chat` does not render that file
- * (`Conversations.tsx:2539`, default `composer = 'text'`).
- *
- * The live composer supplies only a `[+]` button and a hidden
- * `input[type=file]` (`AssistantUiChat.tsx:160-185`); neither it nor
- * `assistant-ui/thread.tsx` defines `onDrop`, `onPaste` or `onDragOver`.
- * Probed against the running app, dispatching `dragover` + `drop` with a
- * populated `DataTransfer` on **every ancestor** of the input — including the
- * element carrying `data-[dragging=true]:border-ring`, assistant-ui's own
- * `AttachmentDropzone` — attached nothing, while `setInputFiles` in the same
- * run attached fine.
- *
- * **That paragraph is now out of date, and the paste cases at the bottom of this
- * file are why.** `thread.tsx` has since grown a real host file path: drop
- * handlers at `:279-316` and an `onPasteCapture` at `:1085`, both gated on
- * `canAcceptComposerFiles`, which `AssistantUiChat.tsx:333-334` defines as
- * `!attachmentInteractionBlocked && attachments.length < maxAttachments` — the
- * same predicate as the `[+]` button. So the bypass question this file was
- * chartered to answer IS answerable now, at least for paste.
- *
- * It is answerable *without being vacuous* because the two paste cases come as
- * a pair: the first proves a pasted image DOES attach, which is what makes the
- * second ("...and does not, while a turn streams") a statement about the gate
- * rather than about a dead gesture. Neither alone would be worth writing.
- *
- * Drop is still not covered here. `handlePasteCapture` filters to
- * `image/`- and `video/`-typed clipboard items (`thread.tsx:970`), which a
- * spec can synthesise exactly; a trustworthy drop case needs a real drag, and
- * BUG-W2-UI-1 in `~/tinyhuman/bugs/W2-ui-bugs.md` is still open for a human.
- *
- * What was already real and falsifiable is the gate on the control that ingests:
- * `disabled={attachmentInteractionBlocked || attachments.length >= maxAttachments}`
- * (`AssistantUiChat.tsx:178`), where `attachmentInteractionBlocked` is
- * `composerInteractionBlocked || isSending` (`Conversations.tsx:2522`). This
- * file covers that, end to end, through the UI.
+ * The two synthetic clipboard cases remain explicitly skipped because this
+ * harness cannot expose their image DataTransfer to Lexical reliably. They do
+ * not prove clipboard behavior, and this file does not cover real drag-and-drop.
+ * The product paste path accepts file items of any type through the same host
+ * validator as the picker; ordinary text paste remains with the editor.
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
@@ -179,6 +148,21 @@ test.describe('Chat composer attachment gate', () => {
     await expect(page.getByText('picker-notes.txt')).toBeVisible();
   });
 
+  test('the picker accepts archive, audio, unknown and original video files', async ({ page }) => {
+    await openChat(page);
+    for (const [name, mimeType] of [
+      ['archive.zip', 'application/zip'],
+      ['voice.mp3', 'audio/mpeg'],
+      ['opaque.bin', ''],
+      ['undecodable.mp4', 'video/mp4'],
+    ]) {
+      await fileInput(page)
+        .first()
+        .setInputFiles({ name, mimeType, buffer: Buffer.from([0, 255, 128]) });
+      await expect(page.getByText(name)).toBeVisible();
+    }
+  });
+
   test('an attached file can be removed again', async ({ page }) => {
     await openChat(page);
     await attach(page, 'removable.txt');
@@ -236,20 +220,11 @@ test.describe('Chat composer attachment gate', () => {
   });
 
   /**
-   * Paste ingest — `handlePasteCapture` (`thread.tsx:963-980`).
-   *
-   * The handler runs in the capture phase so the media is pulled out before
-   * Lexical turns it into editor content, keeps only clipboard items whose
-   * `kind` is `file` and whose type matches `/^(image|video)\//`, and hands
-   * them to the host's `onComposerFiles` sink — the same validator the picker
-   * uses. A text paste is left alone, which is why these cases paste a PNG.
-   *
-   * Synthesising the event rather than using the OS clipboard: Playwright
-   * cannot put an image on the real clipboard portably, and the handler reads
-   * `event.clipboardData.items`, so a constructed `ClipboardEvent` with a
-   * populated `DataTransfer` exercises exactly the code under test. What it
-   * does NOT cover is the browser's own clipboard-to-event step; that is the
-   * same boundary `setInputFiles` leaves uncovered for the picker.
+   * Construct an image-bearing paste event for the two skipped clipboard cases.
+   * The product accepts any clipboard file item and falls back to clipboardData
+   * files when needed. This helper models the handler input, not the browser's
+   * native clipboard-to-event conversion; it cannot establish that conversion
+   * in this Playwright harness.
    */
   async function pasteImage(page: Page, name: string): Promise<void> {
     await composer(page).click();

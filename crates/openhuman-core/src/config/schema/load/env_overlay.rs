@@ -4,16 +4,15 @@
 //! config section's overrides live in a submodule below.
 
 mod dictation_context;
-mod learning_memory;
+mod embeddings;
 mod observability;
 mod proxy;
 mod runtime;
 mod search;
-mod subsystems_update;
+mod update;
 
 use super::super::proxy::{set_runtime_proxy_config, ProxyScope};
 use super::super::Config;
-use super::dirs::MEMORY_SYNC_INTERVAL_SECS_ENV_VAR;
 use std::path::PathBuf;
 
 /// Classification of an `OPENHUMAN_SHELL_HIDE_WINDOW` env value. Split out from
@@ -105,6 +104,29 @@ impl Config {
             }
         }
 
+        // Explicit tool-iteration cap that wins over every agent definition's
+        // (#6958; see `session_host::builder::iteration_cap`). A positive
+        // integer; anything else is ignored with a warning.
+        if let Some(raw) = env.get("OPENHUMAN_AGENT_MAX_TOOL_ITERATIONS") {
+            let trimmed = raw.trim();
+            if !trimmed.is_empty() {
+                match trimmed.parse::<usize>() {
+                    Ok(cap) if cap > 0 => {
+                        tracing::debug!(
+                            cap,
+                            "OPENHUMAN_AGENT_MAX_TOOL_ITERATIONS overrides \
+                             agent.max_tool_iterations_override"
+                        );
+                        self.agent.max_tool_iterations_override = Some(cap);
+                    }
+                    _ => tracing::warn!(
+                        value = trimmed,
+                        "OPENHUMAN_AGENT_MAX_TOOL_ITERATIONS is not a positive integer; ignored"
+                    ),
+                }
+            }
+        }
+
         // One-launch override of `composio.mode`: `backend | direct | disabled`.
         // The factory rejects an unknown spelling loudly, so no validation here.
         if let Some(raw) = env.get("OPENHUMAN_COMPOSIO_MODE") {
@@ -176,20 +198,6 @@ impl Config {
             }
         }
 
-        if let Some(raw) = env.get(MEMORY_SYNC_INTERVAL_SECS_ENV_VAR) {
-            let trimmed = raw.trim();
-            if !trimmed.is_empty() {
-                match trimmed.parse::<u64>() {
-                    Ok(secs) => self.memory_sync_interval_secs = Some(secs),
-                    Err(_) => tracing::warn!(
-                        env = %MEMORY_SYNC_INTERVAL_SECS_ENV_VAR,
-                        value = %raw,
-                        "invalid memory-sync interval ignored; expected an unsigned integer (0 = manual)"
-                    ),
-                }
-            }
-        }
-
         if let Some(language) = env.get("OPENHUMAN_OUTPUT_LANGUAGE") {
             let language = language.trim();
             if !language.is_empty() {
@@ -238,9 +246,7 @@ impl Config {
         self.apply_proxy_env(env);
         self.apply_runtime_env(env);
         self.apply_observability_env(env);
-        self.apply_learning_env(env);
-        self.apply_memory_tree_env(env);
-        self.apply_subsystems_env(env);
+        self.apply_embedding_env(env);
         self.apply_update_env(env);
         self.apply_dictation_env(env);
         self.apply_context_env(env);

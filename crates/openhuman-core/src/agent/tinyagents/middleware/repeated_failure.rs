@@ -14,15 +14,15 @@ use tinyagents_harness::no_progress::{
     ClassifiedFailure, ClassifiedFailureTracker, NoProgress, NoProgressTracker, ToolAttempt,
 };
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyinference_llm::message::Message as TaMessage;
-use tinyinference_llm::model::ModelRequest;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
+use super::fetched_site::{fetch_host_scope, fetched_site_policy, heuristic_text};
 use super::loop_guards::{
     is_repeat_call_exempt, RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD,
     RECOVERABLE_REPEAT_FAILURE_THRESHOLD,
 };
+use super::nudge_injector::PendingNudgeInjector;
 pub(crate) use crate::inference::failure_copy::user_actionable_escalation;
 use crate::inference::failure_copy::{
     recoverable_identical_halt_summary, recoverable_no_progress_halt_summary,
@@ -216,6 +216,10 @@ pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String
             Some(serde_json::Value::Number(value)) => value.to_string(),
             _ => continue,
         };
+        if let Some(host_scope) = fetch_host_scope(tool, field, &value) {
+            scope.push_str(&host_scope);
+            continue;
+        }
         scope.push(':');
         scope.push_str(field);
         scope.push('=');
@@ -305,6 +309,9 @@ fn classified_recovery_policy(
         && error.contains("restart the app to try again")
     {
         return Some(("unavailable", 1));
+    }
+    if let Some(policy) = fetched_site_policy(tool, error) {
+        return policy;
     }
     // A tool-owned JSON error contract is less ambiguous than rendered prose.
     // Read only explicit status/code fields; arbitrary response data is not a
@@ -412,6 +419,12 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         "repeated_tool_failure"
     }
 
+    // Failure accounting and corrective nudges must observe tool outcomes even
+    // when an earlier middleware has already requested a control action.
+    fn is_observer(&self) -> bool {
+        true
+    }
+
     async fn before_tool(
         &self,
         _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
@@ -467,6 +480,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             false if body_level_failure => content.clone(),
             false => String::new(),
         };
+        let heuristic_failure_text = heuristic_text(tool_name, &failure_text);
 
         if !result.is_error && !body_level_failure {
             // Only a successful observation against this operation and scope
@@ -474,6 +488,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             for class in [
                 "permission",
                 "authentication",
+                "site_refused",
                 "policy",
                 "unsupported",
                 "missing_window",
@@ -549,7 +564,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // a provider error (a script calling an API) without the agent's own
         // inference having failed.
         if result.is_error && !is_command_exit_report(&failure_text) {
-            if let Some(kind) = terminal_inference_failure_kind(&failure_text) {
+            if let Some(kind) = terminal_inference_failure_kind(heuristic_failure_text) {
                 tracing::warn!(
                     tool = tool_name,
                     kind = ?kind,
@@ -595,9 +610,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         let recoverable = result.is_error
             && !hard_reject
             && !is_command_exit_report(&failure_text)
-            && (is_recoverable_tool_failure(&failure_text)
+            && (is_recoverable_tool_failure(heuristic_failure_text)
                 || matches!(
-                    crate::tools::status::classify(&failure_text, false).class,
+                    crate::tools::status::classify(heuristic_failure_text, false).class,
                     crate::tools::status::ToolFailureClass::Timeout
                         | crate::tools::status::ToolFailureClass::ServiceUnavailable
                         | crate::tools::status::ToolFailureClass::ModelConnection
@@ -697,43 +712,6 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 self.handle.send(SteeringCommand::Pause);
                 self.tracker.reset();
             }
-        }
-        Ok(())
-    }
-}
-
-/// Appends queued [`RepeatedToolFailureMiddleware`] nudges to the next model
-/// request as system messages, then forgets them. The request is built from a
-/// copy of the working transcript, so nothing it adds is ever committed.
-pub(crate) struct PendingNudgeInjector {
-    pending: Arc<Mutex<Vec<String>>>,
-}
-
-#[async_trait]
-impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for PendingNudgeInjector {
-    fn name(&self) -> &str {
-        "pending_nudge_injector"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        let nudges = self
-            .pending
-            .lock()
-            .map(|mut pending| std::mem::take(&mut *pending))
-            .unwrap_or_default();
-        if !nudges.is_empty() {
-            tracing::debug!(
-                count = nudges.len(),
-                "[tinyagents::mw] request-scoped nudge(s) appended to the next model request"
-            );
-            request
-                .messages
-                .extend(nudges.into_iter().map(TaMessage::system));
         }
         Ok(())
     }

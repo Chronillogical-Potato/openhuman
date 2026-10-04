@@ -1,4 +1,43 @@
 use super::*;
+
+#[test]
+fn durable_upload_parts_survive_message_row_replay_without_inline_payloads() {
+    let mut text = String::from("Inspect these files");
+    for (name, mime) in [
+        ("image.png", "image/png"),
+        ("clip.mp3", "audio/mpeg"),
+        ("video.mp4", "video/mp4"),
+        ("archive.zip", "application/zip"),
+    ] {
+        let attachment = crate::agent::attachments::Attachment {
+            path: format!("uploads/thread/id/{name}"),
+            name: name.into(),
+            mime: mime.into(),
+            size_bytes: 10,
+        };
+        text.push_str(&attachment.marker());
+    }
+    let message = user_message_from_text(&text);
+    let row = message_to_native_chat_message(&message).unwrap();
+    let replay = chat_message_to_message(&row);
+    assert_eq!(message, replay);
+    let Message::User(user) = replay else {
+        panic!("user row expected")
+    };
+    assert!(user
+        .content
+        .iter()
+        .any(|part| matches!(part, ContentBlock::Audio(MediaRef::Path { .. }))));
+    assert!(user
+        .content
+        .iter()
+        .any(|part| matches!(part, ContentBlock::Video(MediaRef::Path { .. }))));
+    assert!(user
+        .content
+        .iter()
+        .any(|part| matches!(part, ContentBlock::Document(MediaRef::Path { .. }))));
+    assert!(!serde_json::to_string(&row).unwrap().contains("base64"));
+}
 use tinyinference_llm::model::ModelRequest;
 
 // #5359: a user turn whose text carries an inline `[IMAGE:data:…]` marker
@@ -104,22 +143,18 @@ fn image_only_and_multi_image_user_turns_map_to_image_blocks_only() {
     assert!(matches!(&multi.content[3], ContentBlock::Image(i) if i.url == gif));
 }
 
-// A marker whose payload is not a provider-ready reference (a bare path, an
-// un-normalized marker) must stay verbatim as text — never sent as an image
-// the provider would reject.
+// Legacy paths become typed references; the provider decorator applies policy
+// and reads bytes only on its ephemeral request copy.
 #[test]
-fn non_data_image_marker_is_kept_as_text() {
+fn local_image_marker_becomes_a_durable_path_reference() {
     let Message::User(user) = chat_message_to_message(&TranscriptMessage::user(
-        "see [IMAGE:/tmp/local/path.png] here".to_string(),
+        "see [IMAGE:/tmp/local/path.png] here",
     )) else {
-        panic!("user role must map to a user message");
+        panic!("user")
     };
-    assert_eq!(user.content.len(), 1);
+    assert_eq!(user.content.len(), 3);
     assert!(
-        matches!(&user.content[0], ContentBlock::Text(t)
-            if t == "see [IMAGE:/tmp/local/path.png] here"),
-        "a non-data/http marker stays literal text, got {:?}",
-        user.content
+        matches!(&user.content[1], ContentBlock::Image(image) if image.url == "/tmp/local/path.png")
     );
 }
 
@@ -220,23 +255,23 @@ fn user_text_with_ready_markers_is_stored_as_typed_image_parts() {
     let Message::User(user) = &msg else {
         panic!("user message");
     };
-    // The path marker is not provider-ready: it stays in the surrounding text.
-    assert_eq!(user.content.len(), 3);
+    assert_eq!(user.content.len(), 5);
     assert!(matches!(&user.content[0], ContentBlock::Text(t) if t == "look "));
     assert!(matches!(&user.content[1], ContentBlock::Image(i) if i.url == png));
+    assert!(matches!(&user.content[2], ContentBlock::Text(t) if t == " and "));
     assert!(
-        matches!(&user.content[2], ContentBlock::Text(t) if t == " and [IMAGE:/local/path.png] please")
+        matches!(&user.content[3], ContentBlock::Image(image) if image.url == "/local/path.png")
     );
     // The row keeps the parts; `content` is the text.
     let row = message_to_native_chat_message(&msg).expect("row");
-    assert_eq!(row.parts.as_ref().map(Vec::len), Some(3));
-    assert_eq!(row.content, "look  and [IMAGE:/local/path.png] please");
+    assert_eq!(row.parts.as_ref().map(Vec::len), Some(5));
+    assert_eq!(row.content, "look  and  please");
     // The text comes back exactly, markers in place.
     assert_eq!(user_text_with_markers(&msg), text);
     // A row round-trips to the same message.
     assert_eq!(chat_message_to_message(&row), msg);
     // Text without a ready marker is a plain text message.
-    for plain in ["hello", "see [IMAGE:/p.png]", "dangling [IMAGE:data:x"] {
+    for plain in ["hello", "dangling [IMAGE:data:x"] {
         assert_eq!(user_message_from_text(plain), Message::user(plain));
     }
 }

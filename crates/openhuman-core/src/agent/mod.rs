@@ -19,19 +19,18 @@
 //!   adapters for sub-agents driven by the neutral TinyAgents lifecycle.
 //!   within a parent agent's tool loop, enabling hierarchical delegation.
 pub mod artifacts;
+pub(crate) mod attachments;
 pub mod bus;
 pub mod context;
 pub mod context_breakdown;
 pub(crate) mod cost;
 pub mod debug;
 pub mod error;
-pub mod experience;
 pub mod goals;
 pub mod harness;
 pub mod harness_init;
 pub mod hooks;
 pub mod host_runtime;
-pub mod learning;
 pub mod library;
 pub(crate) mod message_convert;
 pub mod messages;

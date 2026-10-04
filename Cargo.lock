@@ -3166,6 +3166,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
+name = "libdeflate-sys"
+version = "1.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7870e5fbd2766179a937c725fb11f4ca0ef025d982beb61bd3ce755425bd19c"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "libdeflater"
+version = "1.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cbb8285d2e2bd4b8d4155840ae81929354b4ba0d7b3c272c84761ffa2141e1f"
+dependencies = [
+ "libdeflate-sys",
+]
+
+[[package]]
 name = "libm"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4022,6 +4040,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "starship-battery",
  "sysinfo",
  "tar",
  "tempfile",
@@ -4062,16 +4081,6 @@ dependencies = [
  "tinymcp",
  "tinymcp-bus",
  "tinymemory",
- "tinymemory-api",
- "tinymemory-bus",
- "tinymemory-conformance",
- "tinymemory-conversations",
- "tinymemory-gate",
- "tinymemory-guard",
- "tinymemory-import",
- "tinymemory-safety",
- "tinymemory-sources",
- "tinymemory-tools",
  "tinyruntime-bus",
  "tinyruntime-pyserver",
  "tinysearch-bus",
@@ -4150,7 +4159,6 @@ dependencies = [
  "tinyjevclient",
  "tinymcp",
  "tinymcp-bus",
- "tinymemory-api",
  "tinytools",
  "tinytools-agent",
  "tinytools-jev",
@@ -4183,6 +4191,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
+ "tinymcp-bus",
  "tokio",
  "tracing-subscriber",
  "url",
@@ -4348,6 +4357,20 @@ dependencies = [
  "objc2-ui-kit",
  "serde",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "oxipng"
+version = "9.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26c613f0f566526a647c7473f6a8556dbce22c91b13485ee4b4ec7ab648e4973"
+dependencies = [
+ "bitvec",
+ "indexmap",
+ "libdeflater",
+ "log",
+ "rgb",
+ "rustc-hash 2.1.3",
 ]
 
 [[package]]
@@ -5235,6 +5258,15 @@ checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
  "hmac 0.12.1",
  "subtle",
+]
+
+[[package]]
+name = "rgb"
+version = "0.8.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47b34b781b31e5d73e9fbc8689c70551fd1ade9a19e3e28cfec8580a79290cc4"
+dependencies = [
+ "bytemuck",
 ]
 
 [[package]]
@@ -6385,7 +6417,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents-definition"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "async-trait",
  "serde",
@@ -6393,7 +6425,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents-graph"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6410,7 +6442,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents-harness"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6420,6 +6452,7 @@ dependencies = [
  "dirs 6.0.0",
  "flate2",
  "futures",
+ "oxipng",
  "regex",
  "reqwest",
  "rusqlite",
@@ -6427,6 +6460,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "tar",
  "tempfile",
  "thiserror 2.0.20",
  "tinyagents-definition",
@@ -6441,11 +6475,12 @@ dependencies = [
  "tracing",
  "uuid",
  "wait-timeout",
+ "zip",
 ]
 
 [[package]]
 name = "tinyagents-orchestration"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6466,7 +6501,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents-registry"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6480,7 +6515,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents-runtime"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6498,7 +6533,7 @@ dependencies = [
 
 [[package]]
 name = "tinyagents-session"
-version = "2.1.2"
+version = "2.1.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6517,11 +6552,12 @@ dependencies = [
  "tinytools-agent",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
 name = "tinybox-core"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "async-trait",
  "serde",
@@ -6530,7 +6566,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-docker"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "async-trait",
  "tinybox-core",
@@ -6539,7 +6575,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-jail"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "landlock",
  "log",
@@ -6722,7 +6758,7 @@ dependencies = [
 
 [[package]]
 name = "tinydocs-bus"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -6879,6 +6915,7 @@ name = "tinyinference-llm"
 version = "0.3.0"
 dependencies = [
  "async-trait",
+ "base64 0.22.1",
  "bytes",
  "futures",
  "reqwest",
@@ -7041,113 +7078,83 @@ dependencies = [
 name = "tinymemory"
 version = "1.22.4"
 dependencies = [
- "anyhow",
- "async-trait",
  "serde",
- "serde_json",
  "tinymemory-api",
- "tinymemory-remote",
+ "tinymemory-conformance",
+ "tinymemory-context",
+ "tinymemory-cortex",
+ "tinymemory-documents",
+ "tinymemory-import",
+ "tinymemory-safety",
+ "tinymemory-sources",
 ]
 
 [[package]]
 name = "tinymemory-api"
-version = "0.1.1"
+version = "2.0.0"
 dependencies = [
- "anyhow",
  "async-trait",
- "log",
- "schemars",
- "serde",
- "serde_json",
- "tinymemory-bus",
-]
-
-[[package]]
-name = "tinymemory-bus"
-version = "0.1.0"
-dependencies = [
- "anyhow",
  "chrono",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.10.9",
  "thiserror 2.0.20",
- "uuid",
 ]
 
 [[package]]
 name = "tinymemory-conformance"
-version = "0.1.0"
+version = "2.0.0"
 dependencies = [
- "anyhow",
  "async-trait",
- "serde_json",
+ "thiserror 2.0.20",
  "tinymemory-api",
 ]
 
 [[package]]
-name = "tinymemory-conversations"
-version = "0.1.0"
+name = "tinymemory-context"
+version = "2.0.0"
 dependencies = [
- "async-trait",
  "chrono",
- "parking_lot",
+ "log",
  "serde",
- "serde_json",
- "sha2 0.10.9",
- "uuid",
+ "thiserror 2.0.20",
+ "tinymemory-api",
 ]
 
 [[package]]
-name = "tinymemory-gate"
-version = "0.1.0"
+name = "tinymemory-cortex"
+version = "2.0.0"
 dependencies = [
- "log",
- "parking_lot",
- "starship-battery",
- "sysinfo",
+ "async-trait",
+ "futures",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
  "tinymemory-api",
  "tokio",
 ]
 
 [[package]]
-name = "tinymemory-guard"
+name = "tinymemory-documents"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "chrono",
- "log",
+ "serde",
  "serde_json",
+ "thiserror 2.0.20",
  "tinymemory-api",
- "tracing",
 ]
 
 [[package]]
 name = "tinymemory-import"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "directories",
- "log",
  "rusqlite",
  "serde",
- "tinymemory-api",
-]
-
-[[package]]
-name = "tinymemory-remote"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "futures",
- "reqwest",
- "serde",
  "serde_json",
- "sha2 0.11.0",
+ "thiserror 2.0.20",
  "tinymemory-api",
- "tokio",
 ]
 
 [[package]]
@@ -7157,13 +7164,13 @@ dependencies = [
  "log",
  "regex",
  "serde_json",
+ "tinymemory-api",
 ]
 
 [[package]]
 name = "tinymemory-sources"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "chrono",
  "futures",
@@ -7173,27 +7180,14 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "thiserror 2.0.20",
  "tinymemory-api",
+ "tinymemory-documents",
  "tokio",
  "toml",
  "tracing",
  "uuid",
  "walkdir",
-]
-
-[[package]]
-name = "tinymemory-tools"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "log",
- "serde",
- "serde_json",
- "tinyinference-embeddings",
- "tinymemory-api",
- "tinytools",
 ]
 
 [[package]]

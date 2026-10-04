@@ -27,9 +27,9 @@
 use crate::tools::implementations::document::format::spec::{DocumentSpec, WirePresentationSpec};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
-use serde::Deserialize;
 use tinybus::stream::StreamRef;
 use tinydocs_bus::names::methods;
+use tinydocs_bus::OutputRef;
 
 use super::{host, ops, registry};
 use crate::config::Config;
@@ -77,14 +77,6 @@ impl std::fmt::Display for DocumentCallError {
             }
         }
     }
-}
-
-/// A handle to a document the module is holding for us.
-#[derive(Debug, Deserialize)]
-struct OutputRef {
-    output_id: String,
-    total_bytes: u64,
-    sha256: String,
 }
 
 /// Generate a `.docx` from `spec`.
@@ -243,12 +235,43 @@ fn member(name: &str) -> Result<tinybus::MemberName, DocumentCallError> {
     tinybus::MemberName::new(name).map_err(|error| DocumentCallError::Failed(error.to_string()))
 }
 
+/// Releases held outputs even when a caller drops a timed-out future.
+struct OutputReleaseGuard {
+    proxy: tinybus::Proxy,
+    ids: Vec<String>,
+}
+impl Drop for OutputReleaseGuard {
+    fn drop(&mut self) {
+        if self.ids.is_empty() {
+            return;
+        }
+        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        let proxy = self.proxy.clone();
+        let ids = std::mem::take(&mut self.ids);
+        runtime.spawn(async move {
+            for id in ids {
+                let _ = tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    proxy.call::<()>(methods::RELEASE_OUTPUT, (id,)),
+                )
+                .await;
+            }
+        });
+    }
+}
+
 /// Pull a held document, verify it, and release it.
 ///
 /// The release runs whether or not the read succeeded: a document left behind
 /// costs the module's budget until its TTL expires, and the next caller sees a
 /// full store rather than a slot.
 async fn collect(proxy: &tinybus::Proxy, handle: OutputRef) -> Result<Vec<u8>, DocumentCallError> {
+    let mut release = OutputReleaseGuard {
+        proxy: proxy.clone(),
+        ids: vec![handle.output_id.clone()],
+    };
     let result = read_all(proxy, &handle).await;
     if let Err(error) = proxy
         .call::<()>(methods::RELEASE_OUTPUT, (handle.output_id.clone(),))
@@ -259,6 +282,7 @@ async fn collect(proxy: &tinybus::Proxy, handle: OutputRef) -> Result<Vec<u8>, D
         // until they time out.
         log::debug!("[modules] releasing a read document failed: {error}");
     }
+    release.ids.clear();
     result
 }
 
@@ -339,3 +363,89 @@ fn classify(error: &tinybus::Error) -> DocumentCallError {
 #[cfg(test)]
 #[path = "documents_tests.rs"]
 mod tests;
+
+/// Extract structured document sections using the published intake contract.
+pub async fn extract_document(
+    config: &Config,
+    document: &[u8],
+    spec: &tinydocs_bus::ExtractDocumentSpec,
+) -> Result<tinydocs_bus::ExtractedDocument, DocumentCallError> {
+    intake_available()?;
+    let (runtime, record) = ready(config).await?;
+    let (destination, path, interface) = address(record)?;
+    runtime
+        .connection()
+        .call_with_stream(
+            destination,
+            path,
+            interface,
+            member(methods::EXTRACT_DOCUMENT)?,
+            |stream| serde_json::json!([spec, stream]),
+            document,
+        )
+        .await
+        .map_err(|e| classify(&e))
+}
+
+/// Render selected PDF pages and collect/release every held PNG output.
+pub async fn render_pdf(
+    config: &Config,
+    document: &[u8],
+    spec: &tinydocs_bus::RenderPdfSpec,
+) -> Result<Vec<(u32, Vec<u8>)>, DocumentCallError> {
+    intake_available()?;
+    let (runtime, record) = ready(config).await?;
+    let proxy = proxy(runtime, record)?;
+    let (destination, path, interface) = address(record)?;
+    let rendered: tinydocs_bus::RenderedPdf = runtime
+        .connection()
+        .call_with_stream(
+            destination,
+            path,
+            interface,
+            member(methods::RENDER_PDF)?,
+            |stream| serde_json::json!([spec, stream]),
+            document,
+        )
+        .await
+        .map_err(|e| classify(&e))?;
+    let mut pending = OutputReleaseGuard {
+        proxy: proxy.clone(),
+        ids: rendered
+            .pages
+            .iter()
+            .map(|page| page.output.output_id.clone())
+            .collect(),
+    };
+    let mut pages = Vec::new();
+    let mut error = None;
+    for page in rendered.pages {
+        let id = page.output.output_id.clone();
+        match collect(&proxy, page.output).await {
+            Ok(bytes) if error.is_none() => pages.push((page.page, bytes)),
+            Ok(_) => (),
+            Err(e) => {
+                error.get_or_insert(e);
+            }
+        }
+        pending.ids.retain(|pending_id| pending_id != &id);
+    }
+    if let Some(error) = error {
+        Err(error)
+    } else {
+        Ok(pages)
+    }
+}
+
+fn intake_available() -> Result<(), DocumentCallError> {
+    let record = registry::find(MODULE_ID).ok_or_else(|| {
+        DocumentCallError::Unavailable("document module is not registered".into())
+    })?;
+    // 0.1.20 predates the additive intake methods. Keep signed artifact admission intact.
+    if record.version == "0.1.20" {
+        return Err(DocumentCallError::Unavailable(
+            "the pinned TinyDocs release does not expose document intake or PDF rendering".into(),
+        ));
+    }
+    Ok(())
+}

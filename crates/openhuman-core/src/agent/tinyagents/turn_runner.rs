@@ -291,6 +291,7 @@ async fn run_turn_via_tinyagents_inner(
         crate::agent::tinyagents::reasoning::turn_reasoning_for(
             &run_context,
             hosted_root.as_ref().map(|(base, _)| base.config.as_ref()),
+            max_output_tokens,
         ),
         has_thread,
     );

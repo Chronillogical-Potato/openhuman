@@ -14,6 +14,8 @@
 //! loader, DomainSet gate, tool-group filter and skill discovery all read
 //! the ambient context.
 
+mod attachments;
+pub use attachments::ToolAttachmentError;
 pub(crate) mod build;
 mod definition;
 mod layout;
@@ -78,6 +80,8 @@ pub enum AgentError {
 /// by every [`Turn`] it issues.
 pub(crate) struct AgentInner {
     pub(crate) id: String,
+    pub(crate) runtime_id: String,
+    pub(crate) attachments: attachments::Attachments,
     /// Keeps the runtime's core and (for an ephemeral workspace) its
     /// directory alive for as long as this agent is, even after the host
     /// drops its `Runtime` handle. See
@@ -155,7 +159,7 @@ impl Agent {
         &self.inner.config.workspace_dir
     }
 
-    /// `<workspace>/agents/<id>/` — the agent's home (SOUL.md, MEMORY.md).
+    /// `<workspace>/agents/<id>/` — the agent's home (SOUL.md, skills/).
     pub fn home_dir(&self) -> &Path {
         &self.inner.layout.home
     }

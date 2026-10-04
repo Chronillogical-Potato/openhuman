@@ -119,7 +119,7 @@ pub(super) async fn finalize_turn_outcome(
         // signal: drop it and `parent_completed` stays false, so the bridge
         // marks a turn that actually finished as `interrupted` and never emits
         // `chat_done`. The turn's output still reaches the journal, session
-        // transcript and memory tree, so the agent "remembers" replying while
+        // transcript and memory, so the agent "remembers" replying while
         // the user's thread shows silence. A heavy turn (many tools + long
         // streaming) reliably fills the 256-slot channel, which is why only
         // tool-heavy turns were affected.
@@ -232,6 +232,18 @@ pub(super) async fn finalize_turn_outcome(
         text = summary.clone();
     }
 
+    // #6951: the run finished on a reply that spent the whole output budget
+    // reasoning. The closing call names that cause instead of "finished".
+    let truncated = super::turn_outcome::ended_out_of_output_budget(run.final_response.as_ref());
+    if truncated {
+        tracing::warn!(
+            model,
+            model_calls = run.model_calls,
+            tool_calls = run.tool_calls,
+            "[tinyagents] turn ended on a reply that ran out of output tokens while reasoning"
+        );
+    }
+
     let tool_outcomes = tool_outcome_sink
         .lock()
         .map(|guard| guard.clone())
@@ -301,6 +313,7 @@ pub(super) async fn finalize_turn_outcome(
         hit_cap,
         wrap_up_injected,
         breaker_halt,
+        truncated,
         tool_outcomes,
         compaction,
     }

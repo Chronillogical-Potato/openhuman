@@ -6,6 +6,28 @@ impl ChatModel<()> for OpenHumanBackendModel {
         Some(&self.profile)
     }
 
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        use tinyinference_llm::model::{InputModality, InputSource};
+        matches!(
+            (modality, source),
+            (InputModality::Image, InputSource::Base64 | InputSource::Url)
+        ) && matches!(
+            mime,
+            "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+        ) || matches!(
+            (modality, source),
+            (InputModality::Audio, InputSource::Base64)
+        ) && matches!(
+            mime,
+            "audio/wav" | "audio/x-wav" | "audio/mpeg" | "audio/mp3"
+        )
+    }
+
     /// Identity for harness response-cache scoping: the backend base URL and
     /// the default tier/model. The session JWT is deliberately absent — it
     /// rotates, and a key derived from it would never hit twice — and the

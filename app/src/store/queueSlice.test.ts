@@ -172,6 +172,42 @@ describe('queueSlice — chat runtime lifecycle', () => {
 });
 
 describe('clipQueuePreview', () => {
+  it('matches raw and staged file-only previews using decoded original filenames', () => {
+    const raw = '[FILE:data:application/zip;name=Archive%20%F0%9F%98%80.zip;base64,AQID]';
+    const staged = `[ATTACHMENT:${encodeURIComponent(JSON.stringify({ path: 'uploads/t/id/Archive.zip', name: 'Archive 😀.zip', mime: 'application/zip', size_bytes: 3 }))}]`;
+    expect(clipQueuePreview(raw)).toBe('Archive 😀.zip');
+    expect(clipQueuePreview(staged)).toBe(clipQueuePreview(raw));
+    expect(clipQueuePreview('[IMAGE:data:image/png;base64,AQID]')).toBe('attachment');
+  });
+
+  it('keeps short captions stable across staging and preserves intentional paragraph breaks', () => {
+    const raw = '[IMAGE:data:image/png;name=photo.png;base64,AQID]';
+    const staged = `[ATTACHMENT:${encodeURIComponent(JSON.stringify({ path: 'uploads/t/id/photo.png', name: 'photo.png', mime: 'image/png', size_bytes: 3 }))}]`;
+    expect(clipQueuePreview(`Look  here ${raw}`)).toBe('Look here');
+    expect(clipQueuePreview(`Look  here ${staged}`)).toBe('Look here');
+    expect(clipQueuePreview(`first\n\nsecond ${raw}`)).toBe('first\n\nsecond');
+  });
+
+  it('joins file-only names in source order without decoding payload bytes', () => {
+    const staged = `[ATTACHMENT:${encodeURIComponent(JSON.stringify({ path: 'uploads/t/id/a.zip', name: 'a.zip', mime: 'application/zip', size_bytes: 3 }))}]`;
+    expect(clipQueuePreview(`${staged} [IMAGE:data:image/png;name=b.png;base64,not-base64]`)).toBe(
+      'a.zip, b.png'
+    );
+  });
+
+  it('removes a pending raw upload when the core cancels its staged queue item', () => {
+    const raw = '[FILE:data:application/zip;name=archive.zip;base64,AQID]';
+    const staged = `[ATTACHMENT:${encodeURIComponent(JSON.stringify({ path: 'uploads/t/id/archive.zip', name: 'archive.zip', mime: 'application/zip', size_bytes: 3 }))}]`;
+    let state = reducer(
+      undefined,
+      pendingFollowupAdded({ threadId: 't-upload', message: message('m-upload', raw), text: raw })
+    );
+    state = reducer(state, queued('t-upload', 'q-upload', clipQueuePreview(staged)));
+    state = reducer(state, queueItemRemoved({ threadId: 't-upload', itemId: 'q-upload' }));
+    expect(state.pendingFollowupsByThread['t-upload']).toBeUndefined();
+    expect(state.itemsByThread['t-upload']).toBeUndefined();
+  });
+
   it('matches the core clip: 80 code points, then an ellipsis', () => {
     expect(clipQueuePreview('short')).toBe('short');
     expect(clipQueuePreview('x'.repeat(80))).toBe('x'.repeat(80));

@@ -145,9 +145,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             .iter()
             .filter_map(crate::agent::message_convert::message_to_native_chat_message)
             .collect();
-        if (turn_models.supports_vision() || self.model_vision)
-            && crate::agent::multimodal::has_image_placeholders(&messages)
-        {
+        if crate::agent::multimodal::has_image_placeholders(&messages) {
             messages = crate::agent::multimodal::rehydrate_image_placeholders(&messages);
         }
 

@@ -922,7 +922,7 @@ export function extractComposerPasteFiles(
   clipboardData: DataTransfer | null | undefined
 ): globalThis.File[] {
   const itemFiles = Array.from(clipboardData?.items ?? [])
-    .filter(item => item.kind === 'file' && /^(image|video)\//.test(item.type))
+    .filter(item => item.kind === 'file')
     .map(item => item.getAsFile())
     .filter((file): file is globalThis.File => file !== null);
   return itemFiles.length > 0 ? itemFiles : Array.from(clipboardData?.files ?? []);

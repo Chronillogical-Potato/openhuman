@@ -1,0 +1,143 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { MemoryContext } from '../../services/api/memoryApi';
+import { renderWithProviders } from '../../test/test-utils';
+import MemoryContextTab from './MemoryContextTab';
+
+const hoisted = vi.hoisted(() => ({
+  get: vi.fn(),
+  refresh: vi.fn(),
+  set: vi.fn(),
+  explore: vi.fn(),
+}));
+
+vi.mock('../../services/api/memoryApi', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../services/api/memoryApi')>()),
+  memoryContextGet: (...a: unknown[]) => hoisted.get(...a),
+  memoryContextRefresh: (...a: unknown[]) => hoisted.refresh(...a),
+  memoryContextSet: (...a: unknown[]) => hoisted.set(...a),
+  memoryExplore: (...a: unknown[]) => hoisted.explore(...a),
+}));
+
+const CTX: MemoryContext = {
+  namespace: 'root',
+  markdown: '# About you\n\n- Works on **OpenHuman**',
+  tokens: 321,
+  generated_at: '2026-10-01T09:00:00Z',
+  interval_mins: 360,
+  budget_tokens: 2000,
+  enabled: true,
+};
+
+beforeEach(() => {
+  hoisted.get.mockReset().mockResolvedValue(CTX);
+  hoisted.refresh.mockReset();
+  hoisted.set.mockReset();
+  hoisted.explore
+    .mockReset()
+    .mockResolvedValue({
+      facet: 'namespace',
+      buckets: [{ value: 'root', count: 3 }],
+      total: 3,
+      missing: 0,
+      more_buckets: 0,
+      truncated: false,
+    });
+});
+
+describe('MemoryContextTab', () => {
+  it('renders the brief as markdown with its token count', async () => {
+    renderWithProviders(<MemoryContextTab />);
+    const md = await screen.findByTestId('memory-context-markdown');
+    expect(md.querySelector('h1')).toHaveTextContent('About you');
+    expect(md.querySelector('strong')).toHaveTextContent('OpenHuman');
+    expect(screen.getByTestId('memory-context-brief')).toHaveTextContent('321 tokens');
+    expect(screen.getByLabelText('Regenerate every')).toHaveValue(360);
+    expect(screen.getByLabelText('Size limit')).toHaveValue(2000);
+  });
+
+  it('says when the brief has never been generated', async () => {
+    hoisted.get.mockResolvedValue({ ...CTX, markdown: '', generated_at: null, tokens: 0 });
+    renderWithProviders(<MemoryContextTab />);
+    expect(await screen.findByTestId('memory-context-brief')).toHaveTextContent(
+      'Not generated yet'
+    );
+    expect(screen.getByTestId('memory-context-markdown')).toHaveTextContent('The brief is empty.');
+  });
+
+  it('regenerates the brief', async () => {
+    hoisted.refresh.mockResolvedValue({ ...CTX, markdown: 'Fresh brief', tokens: 12 });
+    renderWithProviders(<MemoryContextTab />);
+    fireEvent.click(await screen.findByTestId('memory-context-regenerate'));
+    await waitFor(() => expect(hoisted.refresh).toHaveBeenCalled());
+    expect(await screen.findByText('Fresh brief')).toBeInTheDocument();
+  });
+
+  it('saves the schedule and budget', async () => {
+    hoisted.set.mockImplementation(async (u: Partial<MemoryContext>) => ({ ...CTX, ...u }));
+    renderWithProviders(<MemoryContextTab />);
+    const interval = await screen.findByLabelText('Regenerate every');
+    fireEvent.change(interval, { target: { value: '60' } });
+    fireEvent.blur(interval);
+    await waitFor(() => expect(hoisted.set).toHaveBeenCalledWith({ interval_mins: 60 }));
+
+    fireEvent.click(screen.getByTestId('memory-context-enabled'));
+    await waitFor(() => expect(hoisted.set).toHaveBeenCalledWith({ enabled: false }));
+  });
+
+  it('shows a regenerate failure', async () => {
+    hoisted.refresh.mockRejectedValue(new Error('ENGINE: answer route failed'));
+    renderWithProviders(<MemoryContextTab />);
+    fireEvent.click(await screen.findByTestId('memory-context-regenerate'));
+    expect(await screen.findByTestId('memory-context-error')).toHaveTextContent(
+      'answer route failed'
+    );
+  });
+
+  it('shows a load error', async () => {
+    hoisted.get.mockRejectedValue(new Error('MEMORY_OFF'));
+    renderWithProviders(<MemoryContextTab />);
+    expect(await screen.findByTestId('memory-context-error')).toHaveTextContent('MEMORY_OFF');
+  });
+
+  it('shows one brief per memory node and regenerates the selected one', async () => {
+    hoisted.explore.mockResolvedValue({
+      facet: 'namespace',
+      buckets: [
+        { value: 'agent:researcher', count: 2 },
+        { value: 'root', count: 5 },
+      ],
+      total: 7,
+      missing: 0,
+      more_buckets: 0,
+      truncated: false,
+    });
+    hoisted.get.mockImplementation(async (node: string) =>
+      node === 'agent:researcher' ? { ...CTX, namespace: node, markdown: 'Prefers **arxiv**' } : CTX
+    );
+    hoisted.refresh.mockImplementation(async (node: string) => ({
+      ...CTX,
+      namespace: node,
+      markdown: 'Fresh **brief**',
+    }));
+    renderWithProviders(<MemoryContextTab />);
+    const picker = await screen.findByTestId('memory-context-node');
+    expect(hoisted.get).toHaveBeenCalledWith('root');
+    expect(picker).toHaveTextContent('Shared (root)');
+    fireEvent.change(picker, { target: { value: 'agent:researcher' } });
+    await waitFor(() =>
+      expect(screen.getByTestId('memory-context-markdown')).toHaveTextContent('arxiv')
+    );
+    expect(hoisted.get).toHaveBeenLastCalledWith('agent:researcher');
+    fireEvent.click(screen.getByTestId('memory-context-regenerate'));
+    await waitFor(() => expect(hoisted.refresh).toHaveBeenCalledWith('agent:researcher'));
+  });
+
+  it('hides the node picker when only the shared node exists or exploring fails', async () => {
+    hoisted.explore.mockRejectedValue(new Error('engine busy'));
+    renderWithProviders(<MemoryContextTab />);
+    await screen.findByTestId('memory-context-markdown');
+    expect(screen.queryByTestId('memory-context-node')).not.toBeInTheDocument();
+  });
+});
