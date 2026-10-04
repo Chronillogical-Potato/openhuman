@@ -13,6 +13,13 @@
 //! the engine on the next call without any event plumbing, and repeated calls
 //! reuse one HTTP client.
 //!
+//! An embedding host can bring its own engine instead ([`install_host_engine`]):
+//! it then wins over the configured one for every config in the process — one
+//! OpenHuman runtime per process — so a host with its own store, or a test
+//! binary with an in-memory engine, runs the whole lifecycle without a
+//! TinyHumans credential or a CortexDB key. It is wrapped in the same
+//! scrubber as a configured engine.
+//!
 //! The core never holds a TinyHumans credential of its own: the bearer comes
 //! from the host's credential seam on every request, so a refreshed session is
 //! used at once and signing out turns memory off.
@@ -111,6 +118,45 @@ pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn M
         .insert(workspace.to_path_buf(), engine);
 }
 
+/// The engine an embedding host installed, if any ([`install_host_engine`]).
+static HOST_ENGINE: LazyLock<RwLock<Option<BoundEngine>>> = LazyLock::new(|| RwLock::new(None));
+
+/// Endpoint reported for a host-installed engine.
+pub const HOST_ENGINE_ENDPOINT: &str = "host://engine";
+
+/// Binds `engine` for every config in this process, ahead of the configured
+/// one. For an embedding host that owns its memory store; the engine's writes
+/// are scrubbed like any other's ([`super::guard`]). A later call replaces the
+/// earlier engine.
+pub fn install_host_engine(engine: Arc<dyn MemoryEngine>) {
+    let id = engine.descriptor().id.to_string();
+    tracing::info!(engine = %id, "[memory:engine] host engine installed");
+    *HOST_ENGINE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(BoundEngine {
+        id,
+        endpoint: HOST_ENGINE_ENDPOINT.to_string(),
+        engine: super::guard::ScrubbingEngine::wrap(engine),
+    });
+}
+
+/// Removes a host-installed engine; the configured engine applies again.
+/// Returns whether one was installed.
+pub fn clear_host_engine() -> bool {
+    HOST_ENGINE
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take()
+        .is_some()
+}
+
+fn host_engine() -> Option<BoundEngine> {
+    HOST_ENGINE
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone()
+}
+
 /// Resolves the configured engine.
 #[must_use]
 pub fn resolve(config: &Config) -> Binding {
@@ -128,6 +174,9 @@ pub fn resolve(config: &Config) -> Binding {
                 engine: super::guard::ScrubbingEngine::wrap(engine),
             });
         }
+    }
+    if let Some(bound) = host_engine() {
+        return Binding::On(bound);
     }
     let engine_id = config.memory.engine.trim().to_string();
     match engine_id.as_str() {

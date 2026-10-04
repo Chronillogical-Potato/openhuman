@@ -229,6 +229,15 @@ let runtime = tokio::runtime::Builder::new_multi_thread()
     .expect("tokio runtime");
 ```
 
+### Memory per tenant
+
+Bind each agent with `AgentSpec::memory(MemoryBinding::new(agent_id).root("team:acme"))`
+and its turns run TinyMemory's lifecycle under `team:acme/agent:<agent_id>`.
+`Runtime::memory("team:acme")` is the operator's view of that tenant: its
+agents, items, learnings and brain. Every call stays inside the root's subtree.
+`RuntimeBuilder::memory_engine` installs a host-supplied engine in place of the
+configured one. See `docs/specs/memory-v2.md`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They

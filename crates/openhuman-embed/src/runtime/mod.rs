@@ -260,6 +260,19 @@ impl Runtime {
         HarnessCore::new(self.core_ref())
     }
 
+    /// One tenant's memory: the agents, items, learnings and brain below the
+    /// layout root `root` (`team:acme`), every call confined to that subtree.
+    /// Bind agents to the same root ([`MemoryBinding::root`](crate::MemoryBinding::root))
+    /// and this is their memory as the operator sees it. See [`crate::memory`].
+    ///
+    /// # Errors
+    ///
+    /// [`MemoryError::InvalidRequest`](crate::memory::MemoryError::InvalidRequest)
+    /// when `root` is not a valid layout root, or is the store root itself.
+    pub fn memory(&self, root: &str) -> crate::memory::MemoryResult<crate::memory::Memory> {
+        crate::memory::Memory::bind(self.base_config.clone(), root)
+    }
+
     /// The directory holding `config.toml`, the credential store and, for
     /// runtime-owned workspaces, the `workspace/` and `agents/` trees.
     pub fn root_dir(&self) -> &Path {

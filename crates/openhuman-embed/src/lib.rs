@@ -92,6 +92,7 @@ mod config;
 mod core_agent;
 mod error;
 mod harness;
+pub mod memory;
 mod runtime;
 mod turn;
 

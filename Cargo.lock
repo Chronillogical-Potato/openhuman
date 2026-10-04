@@ -4194,6 +4194,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "tinymcp-bus",
+ "tinymemory-api",
+ "tinymemory-tools",
  "tokio",
  "tracing-subscriber",
  "url",

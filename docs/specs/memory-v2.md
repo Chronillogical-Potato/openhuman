@@ -54,6 +54,23 @@ sub-agents included, acts as that one memory agent. A sub-agent otherwise
 acts as its own definition id under its parent's root. The identity is never
 taken from model arguments.
 
+A host managing several tenants reads and manages each one's memory with
+`openhuman_embed::Runtime::memory(root)`. The facade (`openhuman_embed::memory`)
+is bound to one root, and every call it makes stays inside that root's subtree:
+- reads carry `Reach::subtree(root)`;
+- `forget` only removes ids found there;
+- `learn` writes at the root whatever metadata it is given.
+
+Its calls are `agents`, `list` (whole root or one agent's node), `get`,
+`recall`, `fetch`, `learn`, `forget`, `forget_agent` and the brain calls. It
+does not use the ambient-config RPCs.
+
+`RuntimeBuilder::memory_engine` (or `memory::engine::install_host_engine`)
+binds a host-supplied `MemoryEngine` for the whole process, ahead of the
+configured one. A host that owns its store, or a test using TinyMemory's
+in-memory `ReferenceEngine`, then runs the full lifecycle without a TinyHumans
+credential.
+
 ## The lifecycle
 
 | Hook | Where | What |
