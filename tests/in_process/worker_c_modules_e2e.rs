@@ -733,9 +733,9 @@ async fn memory_v2_controller_surface_is_reachable() {
         "openhuman.memory_engines_list",
         "openhuman.memory_engine_get",
         "openhuman.memory_items_list",
-        "openhuman.memory_conversations_get",
+        "openhuman.memory_policy_get",
         "openhuman.memory_sources_list",
-        "openhuman.memory_context_get",
+        "openhuman.memory_agents_list",
         "openhuman.memory_import_scan",
         "openhuman.memory_import_status",
     ];
@@ -743,6 +743,22 @@ async fn memory_v2_controller_surface_is_reachable() {
     for (offset, method) in methods.into_iter().enumerate() {
         let response = rpc(&harness.rpc_base, 100 + offset as i64, method, json!({})).await;
         assert_rpc_completed(&response, method);
+    }
+    for (offset, method) in [
+        "openhuman.memory_conversations_get",
+        "openhuman.memory_context_get",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let response = rpc(&harness.rpc_base, 200 + offset as i64, method, json!({})).await;
+        let message = response["error"]["message"]
+            .as_str()
+            .expect("retired memory method returns a dispatch error");
+        assert!(
+            message.starts_with(UNKNOWN_METHOD_PREFIX),
+            "{method}: {response}"
+        );
     }
 }
 

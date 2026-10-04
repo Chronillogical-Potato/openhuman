@@ -289,6 +289,13 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
       env: covEnv,
       checks: [
         {
+          name: "pnpm-install",
+          when: core,
+          // Memory integration tests launch the shared Node mock backend,
+          // which imports ws. Hosted Rust jobs do not share frontend installs.
+          run: "pnpm install --frozen-lockfile",
+        },
+        {
           name: "test-modules",
           when: core,
           env: ex63
@@ -303,7 +310,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
         {
           name: "rust-core-coverage",
           when: core,
-          needs: ["test-modules"],
+          needs: ["test-modules", "pnpm-install"],
           // Doctests and tui coverage run on pushes to main instead (see above).
           // ex63: the core's unit tests run under cargo-nextest, one process
           // per test and in parallel (the guest image ships cargo-nextest).

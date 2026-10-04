@@ -943,6 +943,9 @@ fn subagent_delegation_happy_path() {
     );
 }
 
+// A valid 1x1 RGB PNG: vision delegation requires an actual image reference.
+const VISION_FIXTURE_IMAGE: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
+
 async fn subagent_delegation_happy_path_inner() {
     let _lock = env_lock();
     reset_script(vec![
@@ -950,7 +953,7 @@ async fn subagent_delegation_happy_path_inner() {
         // (vision_agent's delegate_name).
         tool_call_completion(
             "analyze_image",
-            json!({ "prompt": "Find the marker phrase", "blocking": true }),
+            json!({ "prompt": format!("Find the marker phrase [IMAGE:{VISION_FIXTURE_IMAGE}]"), "blocking": true }),
         ),
         // request[1]: vision_agent subagent inner LLM call returns its canary.
         text_completion("MEMORY_CANARY_42 is the marker."),
@@ -2154,7 +2157,7 @@ async fn multi_hop_delegation_chain_inner() {
         // `analyze_image` (its delegate_name, agent/registry/agents/vision_agent/agent.toml:3).
         tool_call_completion(
             "analyze_image",
-            json!({ "prompt": "deep question", "blocking": true }),
+            json!({ "prompt": format!("deep question [IMAGE:{VISION_FIXTURE_IMAGE}]"), "blocking": true }),
         ),
         // request[1]: vision_agent first inner LLM call → scripts file_write.
         // file_write is NOT in vision_agent's read-only named tools
