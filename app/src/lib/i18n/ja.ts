@@ -26,49 +26,6 @@ const ja: TranslationMap = {
   'nav.avatarMenu.wallet': 'ウォレット',
   'nav.feedback': 'フィードバックを送信',
 
-  // Brain: full-page memory knowledge-graph surface
-  // Per-tab text headers (title reuses brain.tabs.*)
-  'brain.header.graph': '人物、トピック、メモリーのつながりを確認します。',
-  'brain.header.goals': 'エージェントの目標と、その理由を確認します。',
-  'brain.header.sources': 'エージェントが学習するデータを確認します。',
-  'brain.header.sync': 'メモリーを最新に保ち、変更内容を確認します。',
-  'brain.welcome.eyebrow': 'Brain',
-  'brain.welcome.title': 'エージェントのメモリーを可視化',
-  'brain.welcome.body':
-    'Brainには、人物、会話、ソース、目標など、エージェントが学んだ情報が保存されます。蓄積した情報をもとに、あなたをサポートします。',
-  'brain.welcome.ctaGraph': 'メモリーグラフを開く',
-  'brain.welcome.ctaGoals': '目標を設定',
-  'brain.welcome.ctaSources': 'ソースを接続',
-  'brain.welcome.featsLabel': 'Brainでできること',
-  'brain.welcome.feat1Title': 'メモリーグラフ',
-  'brain.welcome.feat1Body': '人物、トピック、メッセージの関連性を一目で確認できます。',
-  'brain.welcome.feat2Title': '目標とフォーカス',
-  'brain.welcome.feat2Body': 'エージェントに重要なことを伝え、適切な作業を優先させます。',
-  'brain.welcome.feat3Title': 'ソースと同期',
-  'brain.welcome.feat3Body': 'エージェントが学習するデータを接続し、最新の状態を保ちます。',
-  'brain.tabs.graph': 'グラフ',
-  'brain.tabs.goals': '目標',
-  'brain.tabs.sources': 'ソース',
-  'brain.tabs.sync': '同期',
-  'brain.sync.viewStatus': 'ステータス',
-  'brain.sync.viewHistory': '履歴',
-  'brain.empty': 'Brainは現在空です。ソースを接続してメモリーの構築を開始してください。',
-  'brain.error': 'Brainを読み込めませんでした。もう一度お試しください。',
-  'brain.refreshError': 'Brainを更新できませんでした。最後に読み込まれたデータを表示しています。',
-  'brain.goals.title': '長期目標',
-  'brain.goals.description':
-    'エージェントがあなたをサポートするための長期目標です。ここで編集するか、振り返り機能で更新できます。',
-  'brain.goals.reflect': '振り返る',
-  'brain.goals.reflecting': '振り返り中…',
-  'brain.goals.reflectDone': '目標を更新しました。',
-  'brain.goals.add': '追加',
-  'brain.goals.addPlaceholder': '長期目標を追加…',
-  'brain.goals.empty':
-    '目標はまだありません。目標を追加するか、振り返り機能で最近の情報から生成してください。',
-  'brain.goals.editGoal': '目標を編集',
-  'brain.goals.deleteGoal': '目標を削除',
-  'brain.goals.actionError': '問題が発生しました。もう一度お試しください。',
-
   // Feedback board
   'feedback.board': 'フィードバックボード',
   'feedback.header.desc': 'アイデアを共有し、次に開発する機能に投票してください。',
@@ -137,28 +94,6 @@ const ja: TranslationMap = {
   'dataTable.column.scope': 'スコープ',
   'dataTable.column.version': 'バージョン',
   'dataTable.column.source': 'ソース',
-  'sync.runs': '同期実行',
-  'sync.totalCost': '合計',
-  'sync.when': '日時',
-  'sync.source': 'ソース',
-  'sync.items': 'アイテム',
-  'sync.tokens': 'トークン',
-  'sync.cost': 'コスト',
-  'sync.duration': '期間',
-  'sync.noAuditEntries': '同期履歴はまだ記録されていません。',
-  'sync.timeAgo.justNow': 'たった今',
-  'sync.timeAgo.minutes': '{n}分前',
-  'sync.timeAgo.hours': '{n}時間前',
-  'sync.timeAgo.days': '{n}日前',
-  'sync.status.success': '成功',
-  'sync.status.failed': '失敗',
-  'sync.status.partial': '取得完了、メモリー取り込み失敗',
-  'sync.status.partialShort': '部分同期',
-  'sync.statusColumn': 'ステータス',
-  'sync.auditTitle': '同期履歴',
-  'sync.searchPlaceholder': 'ソースを検索…',
-  'sync.nowSyncing.title': '同期中',
-  'sync.nowSyncing.empty': '現在同期中の項目はありません。',
   'common.error': 'エラー',
   'common.success': '成功',
   'common.back': '戻る',
@@ -727,84 +662,6 @@ const ja: TranslationMap = {
   'memory.analyzeNow': '今すぐ分析',
   'namespaceOverview.entitiesShort': '{count} 件のエンティティ',
 
-  // Memory Tree status panel (#1856 Part 1)
-  'memoryTree.status.title': 'メモリーツリー',
-  'memoryTree.status.autoSyncLabel': '自動同期',
-  'memoryTree.status.autoSyncDescription':
-    '一時停止すると新しい取り込みが停止します。既存のウィキは引き続きクエリ可能です。',
-  'memoryTree.status.statusTile': 'ステータス',
-  'memoryTree.status.lastSyncTile': '最終同期',
-  'memoryTree.status.totalChunksTile': '要約ツリーのリーフ',
-  'memoryTree.status.storedItemsTile': '保存されたアイテム',
-  'memoryTree.status.wikiSizeTile': 'ウィキサイズ',
-  'memoryTree.status.statusRunning': '実行中',
-  'memoryTree.status.statusPaused': '一時停止中',
-  'memoryTree.status.statusSyncing': '同期中',
-  'memoryTree.status.statusError': 'エラー',
-  'memoryTree.status.statusIdle': 'アイドル',
-  'memoryTree.status.statusDegraded': '制限あり',
-  // #5324: a spent embedding budget is a distinct state from a generic error —
-  // memory is paused, not broken, and the fix is the user's to make.
-  'memoryTree.status.statusBudgetExhausted': '一時停止中: 埋め込み予算に達しました',
-  'memoryTree.status.never': 'なし',
-  // #002: degraded badges + typed remediation strings. The Rust core sends a
-  // `remediation_key` (one of memory.health.remediation.*) which the status
-  // panel resolves verbatim, so the cause + fix come from one source of truth.
-  'memoryTree.status.degradedRecall': 'セマンティックリコールが無効です',
-  'memoryTree.status.degradedStructure': 'ウィキ構造が不完全です',
-  'memoryTree.status.extractionCoverage': '抽出カバレッジ: チャンクの {pct}% に構造があります',
-  'memory.health.remediation.budget_exhausted':
-    'メモリー埋め込みが管理された予算に達しました。ローカル Ollama 埋め込み (接続 → API キー → 埋め込み) を設定するか、独自の埋め込み API キーを追加してメモリーの構築を続けてください。',
-  'memory.health.remediation.auth_missing':
-    '埋め込み認証情報が見つかりません。OpenHuman にログインするか、接続 → API キー → 埋め込み でローカル Ollama 埋め込みを設定してください。',
-  'memory.health.remediation.auth_invalid':
-    '埋め込み認証情報が拒否されました。再認証するか、接続 → API キー → 埋め込み でローカル Ollama 埋め込みに切り替えてください。',
-  'memory.health.remediation.embeddings_unconfigured':
-    '埋め込みプロバイダーが設定されていないため、セマンティックリコールは無効です。ローカル Ollama 埋め込み (推奨) を設定するか、接続 → API キー → 埋め込み で埋め込みキーを追加してください。',
-  'memory.health.remediation.embedding_dim_mismatch':
-    '埋め込みモデルが誤ったベクトルサイズを返しています (メモリーは 1024 次元を期待しています)。1024 次元のモデルを選択するか、プロバイダーで 1024 次元をリクエストしてください。',
-  'memory.health.remediation.local_model_unavailable':
-    '必要なローカルモデルが利用できません。独自の Ollama サーバーを起動してモデルを取得するか、接続 → API キー でこのワークロードをクラウドプロバイダーに切り替えてください。',
-  'memory.health.remediation.extraction_timeout':
-    'メモリー抽出モデルがタイムアウトしているため、ウィキの構造がほとんどありません。接続 → API キー → LLM でメモリー抽出モデルをより高速なものに切り替えてください。',
-  'memory.health.remediation.summarizer_unavailable':
-    '要約ツリーの構築に利用可能な要約プロバイダーがありません。接続 → API キー → LLM でワークロードを独自のローカルエンドポイント (Ollama など) に向けるか、memory_tree.cloud_summarization_opt_in=true を設定し、そこで LLM プロバイダーを設定してください。',
-  'memory.health.remediation.empty_input_refused':
-    'テキストが空だったため、メモリーアイテムがスキップされました。対応は不要です: 新しいアイテムは通常どおり埋め込みが続けられます。',
-  'memory.health.remediation.storage_unavailable':
-    'OpenHuman はメモリーストレージに書き込めません: ディスクまたは SD カードが故障しているか、容量不足、または読み取り専用になっている可能性があります。ドライブを確認し、空き容量を確保してください。ストレージが再び書き込み可能になると、メモリー処理は自動的に再開されます。',
-  'memory.health.remediation.transient':
-    '一時的なエラーによりメモリー処理が中断されました。自動的に再試行されます。',
-  'memory.health.remediation.unknown':
-    'メモリー処理で問題が発生しました。接続 → API キー で設定を確認してください。',
-  'memoryTree.status.fetchError': 'メモリーツリーのステータスを取得できませんでした',
-  'memoryTree.status.retry': '再試行',
-  'memoryTree.status.retryFailed': '失敗したジョブを再試行',
-  'memoryTree.status.retryFailedBusy': '再試行中...',
-  'memoryTree.status.retryFailedDone': '失敗したジョブを再キューしました',
-  'memoryTree.status.retryFailedCount': '再実行用にキューイングされたジョブ: {count}件',
-  'memoryTree.status.retryFailedError': '失敗したジョブを再キューできませんでした',
-  'memoryTree.status.jobQueue': 'メモリージョブ: 待機 {ready}、実行中 {running}、失敗 {failed}',
-  'memoryTree.status.toggleFailed': '自動同期の切り替えに失敗しました',
-  // Relative-time buckets surfaced by the last-sync tile. `{count}` is
-  // replaced client-side at the call site (the runtime `t()` does not
-  // interpolate: see I18nContext.tsx).
-  'memoryTree.status.justNow': 'たった今',
-  'memoryTree.status.secondsAgo': '{count}秒前',
-  'memoryTree.status.minuteAgo': '1分前',
-  'memoryTree.status.minutesAgo': '{count}分前',
-  'memoryTree.status.hourAgo': '1時間前',
-  'memoryTree.status.hoursAgo': '{count}時間前',
-  'memoryTree.status.dayAgo': '1日前',
-  'memoryTree.status.daysAgo': '{count}日前',
-  // Per-integration health strip (#2763): rendered between the 4-tile grid
-  // and the auto-sync toggle in MemoryTreeStatusPanel.
-  'memoryTree.status.integrationsTitle': '統合ごとの状態',
-  'memoryTree.status.integrationsEmpty': '接続された統合はありません',
-  'memoryTree.status.integrationActive': 'アクティブ',
-  'memoryTree.status.integrationStale': '古い',
-  'memoryTree.status.integrationChunks': 'チャンク数: {count}',
-
   // Notifications / Alerts
   'alerts.title': 'アラート',
   'alerts.header.desc': 'エージェントのアクティビティと、対応が必要な項目を表示します。',
@@ -1046,8 +903,6 @@ const ja: TranslationMap = {
   'devOptions.toolPolicyDiagnostics.recentBlocked.title': '最近ブロックされた呼び出し',
   'devOptions.toolPolicyDiagnostics.recentBlocked.empty':
     '最近ブロックされたツール呼び出しはありません',
-  'devOptions.debugPanelsDesc': '機能フラグ、状態確認、デバッグツール',
-  'devOptions.memoryInspectionDesc': 'メモリーエントリの閲覧、クエリ、管理',
 
   // Voice / Dictation
   'voice.pushToTalk': 'プッシュトゥトーク',
@@ -1835,36 +1690,7 @@ const ja: TranslationMap = {
   // Local Model
 
   // Memory
-  'memory.documents': 'ドキュメント',
-  'memory.column.document': 'ドキュメント',
-  'memory.filterByNamespace': '名前空間で絞り込み...',
-  'memory.refresh': '更新',
-  'memory.noDocumentsFound': 'ドキュメントが見つかりません。',
-  'memory.delete': '削除',
-  'memory.rawResponse': '生レスポンス',
-  'memory.namespaces': '名前空間',
-  'memory.noNamespacesFound': '名前空間が見つかりません。',
-  'memory.queryRecall': 'クエリとリコール',
-  'memory.namespace': '名前空間',
-  'memory.queryText': 'クエリテキスト...',
-  'memory.defaultMaxChunks': '10',
-  'memory.maxChunks': '最大チャンク数',
-  'memory.query': 'クエリ',
   'memory.recall': 'リコール',
-  'memory.queryLabel': 'クエリ',
-  'memory.recallLabel': 'リコール',
-  'memory.queryResult': 'クエリ結果',
-  'memory.recallResult': 'リコール結果',
-  'memory.clearNamespace': '名前空間をクリア',
-  'memory.clearNamespaceDescription': '名前空間内のすべてのドキュメントを完全に削除します。',
-  'memory.selectNamespace': '名前空間を選択...',
-  'memory.exampleNamespace': '例: skill:gmail:user@example.com',
-  'memory.clear': 'クリア',
-  'memory.deleteConfirm': '名前空間 "{namespace}" 内のドキュメント "{documentId}" を削除しますか？',
-  'memory.clearNamespaceConfirm':
-    '名前空間 "{namespace}" 内のすべてのドキュメントが完全に削除されます。続行しますか？',
-  'memory.clearNamespaceSuccess': '名前空間 "{namespace}" をクリアしました。',
-  'memory.clearNamespaceEmpty': '"{namespace}" にクリアする項目がありません。',
 
   // Webhooks
 
@@ -2029,272 +1855,12 @@ const ja: TranslationMap = {
 
   // Calls
 
-  // Workspace
-  'workspace.wipeConfirm': 'すべてのメモリーを消去してもよろしいですか？この操作は元に戻せません。',
-  'workspace.resetTreeConfirm': 'メモリーツリーを再構築してもよろしいですか？',
-  'workspace.wipeTitle': 'メモリーを消去',
-  'workspace.resetting': 'リセット中...',
-  'workspace.resetMemory': 'メモリーをリセット',
-  'workspace.resetTreeTitle': 'メモリーツリーの再構築',
-  'workspace.rebuilding': '再構築中...',
-  'workspace.resetMemoryTree': 'メモリーツリーをリセット',
-  'workspace.building': '構築中...',
-  'workspace.buildSummaryTrees': 'サマリーツリーの構築',
-  'workspace.wipeSuccessTitle': 'メモリーを消去しました',
-  'workspace.wipeSuccessMessage':
-    '{rows} 行と {dirs} 個のフォルダーを削除し、{cursors} 個の同期ステートカーソルをクリアしました。接続済みのソースで「同期」をクリックして再入力してください。',
-  'workspace.wipeFailedTitle': 'リセットに失敗しました',
-  'workspace.resetTreeSuccessTitle': 'メモリーツリーの再構築中',
-  'workspace.resetTreeSuccessMessage':
-    '{treeRows} 行のツリーデータをクリアし、{chunks} 個のチャンク（{jobs} 個の抽出ジョブ）を再キューに入れました。ワーカーが処理を進めるとグラフが再構築されます。',
-  'workspace.resetTreeFailedTitle': 'メモリーツリーをリセットできませんでした',
-  'workspace.buildTreesFailedTitle': 'サマリーツリーを構築できませんでした',
-  'workspace.viewVault': 'ボルトを表示',
-  'workspace.openingVaultTitle': 'Obsidian でボルトを開いています',
-  'workspace.openingVaultMessage':
-    'Obsidian が開かない場合は、obsidian.md からインストールするか、「フォルダーを表示」を使用してください。ボルトパス:',
-  'workspace.openVaultFailedTitle': 'Obsidian でボルトを開けませんでした',
-  'workspace.openVaultFailedMessage':
-    '「フォルダーを表示」を使用して、ボルトディレクトリを直接開いてください。ボルトパス:',
-  'workspace.revealVaultFailed': 'ボルトフォルダーを表示できませんでした',
-  'workspace.revealFolder': 'フォルダーを表示',
-  'workspace.checkingVault': '確認中…',
-  'workspace.vaultNotRegisteredHelp':
-    'Obsidian は、ボルトとして追加したフォルダーのみを開きます。Obsidian で「フォルダーをボルトとして開く」を選択し、以下のフォルダーを選択してください。これは一度だけ行えば大丈夫です。その後、再度「ボルトを表示」をクリックしてください。',
-  'workspace.obsidianNotFoundHelp':
-    'このデバイスで Obsidian が見つかりませんでした。インストールしてください。標準以外の場所にインストールされている場合は、[詳細設定] で設定フォルダーを指定してください。',
-  'workspace.openAnyway': 'それでも Obsidian で開く',
-  'workspace.installObsidian': 'Obsidian をインストール',
-  'workspace.obsidianAdvanced': 'Obsidian が別の場所にインストールされていますか？',
-  'workspace.obsidianConfigDirLabel': 'Obsidian 設定フォルダー',
-  'workspace.obsidianConfigDirHint':
-    'obsidian.json を含むフォルダーへのパス（例: ~/.config/obsidian）。空白のままにすると自動検出されます。',
-  'workspace.obsidianConfigDirPlaceholder': '~/.config/obsidian',
-  'workspace.graphLoadFailed': 'メモリーグラフの読み込みに失敗しました',
-  'workspace.loadingGraph': 'メモリーグラフを読み込み中...',
-  'workspace.graphViewMode': 'メモリーグラフの表示モード',
-  'workspace.trees': 'ツリー',
-  'workspace.contacts': '連絡先',
-
-  // Vault health checklist
-  'vaultHealth.title': 'Vault 健全性チェックリスト',
-  'vaultHealth.setupTitle': 'Vault 設定の健全性',
-  'vaultHealth.workspaceVault': 'ワークスペース Vault:',
-  'vaultHealth.refresh': '更新',
-  'vaultHealth.refreshing': '更新中…',
-  'vaultHealth.revealFolder': 'フォルダーを表示',
-  'vaultHealth.openInObsidian': 'Obsidian で開く',
-  'vaultHealth.installObsidian': 'Obsidian をインストール',
-  'vaultHealth.openObsidianError': 'Obsidian を開けませんでした',
-  'vaultHealth.revealError': 'Vault フォルダーを表示できませんでした',
-  'vaultHealth.downloadError': 'Obsidian のダウンロードページを開けませんでした',
-  'vaultHealth.loadError': 'Vault の健全性を読み込めませんでした:',
-  'vaultHealth.lastSync': '最終同期:',
-  'vaultHealth.passed': '合格',
-  'vaultHealth.needsAttention': '要確認',
-  'vaultHealth.existsLabel': 'ワークスペース Vault パスが存在します',
-  'vaultHealth.existsRecovery':
-    'Vault フォルダーがありません。同期を開始するか、このフォルダーを作成してから、このチェックリストを更新してください。',
-  'vaultHealth.writableLabel': 'OpenHuman による Vault への書き込みが可能です',
-  'vaultHealth.writableRecovery':
-    'OpenHuman はまだこの Vault に書き込めません。書き込み権限を付与して更新してください。',
-  'vaultHealth.obsidianLabel': 'Vault が Obsidian に登録されています',
-  'vaultHealth.obsidianRecovery':
-    'Obsidian でこのパスを「フォルダーを Vault として開く」で選択し、このチェックリストを更新してください。',
-  'vaultHealth.pipelineLabel': 'メモリーパイプラインは正常です',
-  'vaultHealth.pipelineRecovery':
-    'メモリーパイプラインが一時停止中またはエラーです。メモリーツリーのステータスで自動同期を有効にして再試行してください。',
-  'vaultHealth.timeNever': 'なし',
-  'vaultHealth.timeJustNow': 'たった今',
-  'vaultHealth.timeMinAgo': '{n} 分前',
-  'vaultHealth.timeHrAgo': '{n} 時間前',
-  'vaultHealth.timeDayAgo': '{n} 日前',
-  'vaultHealth.timeDaysAgo': '{n} 日前',
-
-  // Cross-host vault (#4278): shared by VaultHealthChecklist + ObsidianVaultSection
-  'crossHostVault.title': 'Vault はコアホスト上にあります。',
-  'crossHostVault.message':
-    'このメモリーボルトは openhuman-core ホスト ({os}) に保存されています。このデバイスからは開くことも表示することもできず、該当マシンでのみ操作可能です。',
-
-  // Memory data panel (storage explainer)
-  'memoryData.howItWorks': 'メモリーストレージの仕組み',
-  'memoryData.workspaceVault': 'ワークスペースボルト · 書き込み',
-  'memoryData.workspaceVaultDesc':
-    'OpenHuman は生成されたメモリーノートを memory_tree/content に書き込みます。',
-  'memoryData.connectedSources': '接続済みソース · 読み取り',
-  'memoryData.connectedSourcesDesc':
-    'フォルダー、メールボックス、チャット、リポジトリはメモリーインデックス用にインポートされますが、元のファイルが書き換えられることはありません。',
-  'memoryData.internalFiles': '内部メモリーツリーファイル',
-  'memoryData.internalFilesDesc':
-    'インデックス、キュー状態、要約は、リコールと同期の健全性を保つために OpenHuman によって管理されます。',
-  'memoryData.windowError': 'メモリーウィンドウ',
-  'memoryData.windowUpdated': 'メモリーウィンドウを更新しました',
-  'memoryData.windowUpdatedMsg': '{window} に設定しました。',
-
-  // Graph
-  'graph.noContactMentions': '連絡先の言及はありません',
-  'graph.noMemory': 'メモリーがありません',
-  'graph.source': 'ソース',
-  'graph.document': 'ドキュメント',
-  'graph.contact': '連絡先',
-  'graph.nodes': 'ノード',
-  'graph.parentChild': '親-子',
-  'graph.documentContact': 'ドキュメント-連絡先',
-  'graph.link': 'リンク',
-  'graph.links': 'リンク',
-  'graph.children': '子ノード',
-  'graph.person': '人物',
-  'graph.resetView': 'ビューをリセット',
-
   // Modal
   'modal.dontShowAgain': '同様の提案を表示しない',
 
   // Reflections
 
   // WhatsApp
-
-  // Sync
-  'sync.active': 'アクティブ',
-  'sync.recent': '最近',
-  'sync.idle': 'アイドル',
-  'sync.chunks': 'チャンク',
-  'sync.lastChunk': '最終チャンク:',
-  'sync.pending': '保留中',
-  'sync.syncing': '同期中…',
-  'sync.sync': '同期',
-
-  // Data Sync layered pipeline status (GH-4690) — raw sync ≠ retrieval-ready
-  'sync.pipeline.ingestedOnly': '取り込みのみ',
-  'sync.pipeline.storedWithoutVectors':
-    'ベクトルなしで保存されました。セマンティック検索は利用できません。',
-  'sync.pipeline.vectorsPending':
-    'ベクトル待ちのチャンク: {count} 件。セマンティック検索はまもなく対応します。',
-  'sync.pipeline.signInToEnable': '有効にするにはサインインしてください',
-  'sync.pipeline.extractionFailed':
-    'メモリー構造の抽出に失敗しました。Wiki が不完全な可能性があります。',
-  'sync.pipeline.treeDegraded': 'メモリーツリーが劣化しています。検索結果が古い可能性があります。',
-  'sync.pipeline.viewHealth': 'メモリーの健全性を表示',
-
-  // Memory Sync Schedule (global cadence)
-  'memorySyncInterval.title': '同期スケジュール',
-  'memorySyncInterval.lastSynced': '最終同期',
-  'memorySyncInterval.never': '未同期',
-  'memorySyncInterval.everyHours': '{h}時間ごと',
-  'memorySyncInterval.everyMinutes': '{m}分ごと',
-  'memorySyncInterval.manual': '手動のみ',
-  'memorySyncInterval.saveFailed': '同期スケジュールの更新に失敗しました',
-
-  // Memory Sources Registry
-  'memorySources.title': 'メモリーソース',
-  'memorySources.empty':
-    'メモリーソースがありません。追加してメモリーの取り込みを開始してください。',
-  'memorySources.addSource': 'ソースを追加',
-  'memorySources.loadingConnections': '接続を読み込み中…',
-  'memorySources.noConnections': '有効なComposio接続が見つかりません。まず統合を接続してください。',
-  'memorySources.pickConnection': '接続を選択',
-  'memorySources.selectConnection': '接続を選択',
-  'memorySources.comingSoon': '近日公開',
-  'memorySources.composioListFailed': 'Composio接続の読み込みに失敗しました。',
-  'memorySources.browse': '参照…',
-  'memorySources.folderPathUnavailable':
-    'フォルダーの場所を特定できませんでした。フルパスを入力してください。',
-  'memorySources.folderPathPlaceholder': '/Users/you/notes',
-  'memorySources.globPatternPlaceholder': '**/*.md',
-  'memorySources.repoUrlPlaceholder': 'https://github.com/org/repo',
-  'memorySources.branchPlaceholder': 'main',
-  'memorySources.feedUrlPlaceholder': 'https://example.com/feed.xml',
-  'memorySources.pageUrlPlaceholder': 'https://example.com/article',
-  'memorySources.cssSelectorPlaceholder': 'article',
-  'memorySources.searchQueryPlaceholder': 'from:user AI safety',
-  'memorySources.kind.composio': '統合',
-  'memorySources.kind.conversation': '会話',
-  'memorySources.kind.folder': 'ローカルフォルダー',
-  'memorySources.kind.github_repo': 'GitHubリポジトリ',
-  'memorySources.kind.twitter_query': 'Twitter検索',
-  'memorySources.kind.rss_feed': 'RSSフィード',
-  'memorySources.kind.web_page': 'Webページ',
-  'memorySources.sync.completeTitle': '同期完了',
-  'memorySources.sync.itemsSynced': '件同期済み',
-  'memorySources.sync.upToDate': '最新の状態',
-  'memorySources.sync.failedLabel': '失敗',
-  'memorySources.sync.morePending': '同期項目が残っています。もう一度同期をクリックしてください',
-  'memorySources.sync.budgetSpent': '本日のリクエスト上限に達しました。明日もう一度お試しください',
-  'memorySources.stage.requested': '開始中',
-  'memorySources.stage.running': '同期中',
-  'memorySources.stage.fetching': '取得中',
-  'memorySources.stage.stored': '保存中',
-  'memorySources.stage.queued': 'メモリーに処理中',
-  'memorySources.stage.ingesting': 'メモリーに処理中',
-  'memorySources.stage.unknown': '同期中',
-  'time.justNow': 'たった今',
-  'time.secondsAgoSuffix': '秒前',
-  'time.minutesAgoSuffix': '分前',
-  'time.hoursAgoSuffix': '時間前',
-  'time.daysAgoSuffix': '日前',
-  'memorySources.pickKind': '追加するソースの種類を選択してください',
-  'memorySources.backToKinds': 'ソースタイプに戻る',
-  'memorySources.label': 'ラベル',
-  'memorySources.labelPlaceholder': 'マイリサーチノート',
-  'memorySources.add': '追加',
-  'memorySources.adding': '追加中…',
-  'memorySources.added': 'ソースを追加しました',
-  'memorySources.removed': 'ソースを削除しました',
-  'memorySources.remove': '削除',
-  'memorySources.enable': '有効化',
-  'memorySources.disable': '無効化',
-  'memorySources.toggleFailed': '切り替えに失敗しました',
-  'memorySources.removeFailed': '削除に失敗しました',
-  'memorySources.folderPath': 'フォルダーパス',
-  'memorySources.globPattern': 'Globパターン',
-  'memorySources.repoUrl': 'リポジトリURL',
-  'memorySources.branch': 'ブランチ',
-  'memorySources.feedUrl': 'フィードURL',
-  'memorySources.pageUrl': 'ページURL',
-  'memorySources.cssSelector': 'CSSセレクター（任意）',
-  'memorySources.searchQuery': '検索クエリ',
-  'memorySources.build.title': 'ビルド',
-  'memorySources.build.building': 'ビルド中…',
-  'memorySources.build.successTitle': 'ツリーを構築しました',
-  'memorySources.build.failedTitle': 'ビルドに失敗しました',
-  'memorySources.build.sealsMessage': '件のシーリングが完了しました',
-  'memorySources.allIn.button': 'すべて有効',
-  'memorySources.allIn.title': 'すべて有効にしますか？',
-  'memorySources.allIn.message':
-    'すべてのメモリーソースを有効にし、同期制限をすべて解除します。最もリッチなメモリーグラフを構築できますが、クレジット消費量が増える可能性があります。',
-  'memorySources.allIn.confirm': 'はい',
-  'memorySources.allIn.cancel': 'いいえ',
-  'memorySources.allIn.success': 'すべてのソースを制限なしで有効化しました。同期を開始します。',
-  'memorySources.allIn.failed': '「すべて同期」を適用できませんでした。もう一度お試しください。',
-  'memorySources.allIn.allFailed': '同期を開始できませんでした。各ソースの原因を確認してください。',
-  'memorySources.allIn.partial': '同期開始: {triggered}。開始不可: {failed}。',
-  'memorySources.repair.button': '古いメモリーを修復',
-  'memorySources.repair.title': '古いメモリーを修復しますか？',
-  'memorySources.repair.message':
-    'メモリーツリーの整理が修正される前に同期されたドキュメントが最大 {scanned} 件保存されており、メモリーグラフに表示されていません。整理には埋め込みクレジットを使用します。既にツリー内のドキュメントはスキップされます。',
-  'memorySources.repair.confirm': '修復',
-  'memorySources.repair.cancel': '後で',
-  'memorySources.repair.nothing':
-    '修復対象はありません。整理待ちの同期済みドキュメントはありません。',
-  'memorySources.repair.success':
-    '{ingested} 件をメモリーツリーに整理しました（既存: {already} 件、スキップ: {skipped} 件）。',
-  'memorySources.repair.morePending':
-    'まだ残っています。再度「古いメモリーを修復」をクリックしてください。',
-  'memorySources.repair.failed': '古いメモリーを修復できませんでした。',
-  'memorySources.settings.button': '設定',
-  'memorySources.settings.title': '同期設定',
-  'memorySources.settings.maxPrs': 'プルリクエストの最大数',
-  'memorySources.settings.maxIssues': 'イシューの最大数',
-  'memorySources.settings.maxCommits': 'コミットの最大数',
-  'memorySources.settings.maxItems': 'アイテムの最大数',
-  'memorySources.settings.sinceDays': '遡及期間（日数）',
-  'memorySources.settings.syncDepthDays': '同期深度（日数）',
-  'memorySources.settings.unlimited': '無制限',
-  'memorySources.settings.unlimitedTooltip':
-    '{toolkit} の最大値まで同期する設定になっています。上限はここで変更できます。',
-  'memorySources.settings.save': '保存',
-  'memorySources.settings.saving': '保存中…',
-  'memorySources.settings.saved': '設定を保存しました',
-  'memorySources.settings.saveFailed': '設定を保存できませんでした',
 
   // Backend
 
@@ -2466,10 +2032,6 @@ const ja: TranslationMap = {
     '音声文字起こしはこのアプリのバージョンには含まれていません。有効にするには OpenHuman を更新してください。',
 
   // Reflections: kind labels
-
-  // Graph: tooltip keys
-  'graph.tooltip.summary': '要約',
-  'graph.tooltip.contact': '連絡先',
 
   // Local Model: usage labels
 
@@ -3407,7 +2969,6 @@ const ja: TranslationMap = {
   'intelligence.memoryChunk.scoreBars.heading': '保 持 理 由',
   'intelligence.memoryChunk.scoreBars.kept': '保持済み',
   'intelligence.diagram.skillInstallCommand': 'npx skills add yizhiyanhua-ai/fireworks-tech-graph',
-  'intelligence.memoryText.entityTypePrefix': 'エンティティタイプ',
   // Worktree manager (#3376): isolated worker git worktrees
   'worktree.label': 'ワークツリー',
   'worktree.dirty': '未コミットの変更',
@@ -4257,18 +3818,6 @@ const ja: TranslationMap = {
   'settings.ai.routeLabel': 'ルート: {route}',
   'settings.ai.on': 'オン',
   'settings.ai.off': 'オフ',
-  'settings.ai.loops.memoryTreeWorkers.name': 'メモリーツリーワーカー',
-  'settings.ai.loops.cadence.queue': 'キュー',
-  'settings.ai.loops.memoryTreeWorkers.work':
-    'チャンクの抽出、ブランチのシール、日次ダイジェストの実行、トピックのルーティングを行います。',
-  'settings.ai.loops.memoryTreeWorkers.risk':
-    '{workers} 個のワーカーが {seconds} 秒ごとにポーリングします。LLM呼び出しは、キューに抽出/シール/ダイジェスト/トピックジョブがある場合のみ実行されます。',
-  'settings.ai.loops.reflectionRebuild.name': '振り返り再構築',
-  'settings.ai.loops.cadence.thirtyMin': '30分',
-  'settings.ai.loops.reflectionRebuild.work':
-    'メモリーアクティビティ後に振り返り状態を更新します。',
-  'settings.ai.loops.reflectionRebuild.risk':
-    '週に {count} 回起動します。リビルドに振り返りが必要な場合のみLLM処理を実行します。',
   'settings.ai.loops.composioSync.name': 'Composio同期',
   'settings.ai.loops.cadence.twentyMin': '20分',
   'settings.ai.loops.composioSync.route': '統合API',
@@ -4346,9 +3895,6 @@ const ja: TranslationMap = {
   'settings.ai.openAiUrlLabel': 'OpenAI URL',
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': '既存のキーを保持するには空白のままにしてください',
-  'settings.ai.reindexingMemory': 'メモリーを再インデックス中',
-  'settings.ai.reindexingMemoryMessage':
-    '埋め込みを再処理しています。現在のモデルで {pending} 件のメモリー項目を再埋め込みしています。完了するまでセマンティックリコールは低下します。キーワード検索は引き続き動作し、これを閉じてもバックグラウンドで再埋め込みは継続されます。',
   'settings.ai.signInWithOpenRouter': 'OpenRouterでサインイン',
   'settings.ai.weekBudget': '週間の予算',
   'settings.ai.cycleRemaining': 'サイクルの残り',
@@ -4365,15 +3911,12 @@ const ja: TranslationMap = {
   'settings.ai.loopCallBudget': 'ループ呼び出し予算',
   'settings.ai.composioSyncScans': 'Composio同期スキャン',
   'settings.ai.totalBackgroundApiReadBudget': 'バックグラウンドAPI読み取り総予算',
-  'settings.ai.memoryWorkerPolls': 'メモリーワーカーポーリング',
   'settings.ai.resetsAt': '{time} にリセット',
   'settings.ai.usedAmount': '{amount} 使用済み',
   'settings.ai.inferenceIntegrationsBreakdown': '推論 {inference} + 統合 {integrations}',
   'settings.ai.recentSpendRowsCount': '最近の消費行 {count} 件',
   'settings.ai.perWeek': '{count}/週',
-  'settings.ai.perWeekMax': '最大 {count}/週',
   'settings.ai.perHour': '{amount}/時間',
-  'settings.ai.memoryPollsDetail': 'メモリーポーリング {count} 回',
   'settings.ai.connectionSyncBreakdown': '接続同期 {sync}',
   'settings.ai.rowsLeftFormula': '残り / 平均行 = {remaining} / {avgRow}',
   'settings.ai.needSpendRowsToEstimate': '推定には最近の消費行が必要です。',
@@ -4389,8 +3932,6 @@ const ja: TranslationMap = {
   'settings.ai.composioSyncScansDetail': 'アクティブな統合接続 {count} 件を20分ごとにスキャン',
   'settings.ai.totalApiReadBudgetDetail':
     'カレンダープランナーの読み取り + 定期的な統合スキャン（ユーザーが開始したチャットツールは除外）',
-  'settings.ai.memoryWorkerPollsDetail':
-    '4ワーカー * 5秒ポーリング。キュー内のジョブのみLLM呼び出し',
   'settings.ai.routing.managed': 'マネージド',
   'settings.ai.managedSourceLabel': 'OpenRouter',
   'settings.ai.managedSourceDetail': 'TinyHumansが管理',
@@ -4449,10 +3990,6 @@ const ja: TranslationMap = {
   'settings.ai.routing.workload.memory.description': 'ツリー抽出と統合',
   'settings.ai.routing.workload.memory.hint':
     '推奨：安価な要約モデル。一貫性がありコンパクトである必要がありますが、プレミアムなフロンティアレベルの推論は不要です。',
-  'settings.ai.routing.workload.learning.label': '学習・振り返り',
-  'settings.ai.routing.workload.learning.description': '最近の履歴に対する定期的な振り返り',
-  'settings.ai.routing.workload.learning.hint':
-    '推奨：より強力な振り返りモデル。最近の履歴に対するより良い統合が有益なため、中程度またはプレミアムコストでも構いません。',
   'settings.ai.routing.addCustomProvider': 'カスタムプロバイダーを追加',
   'settings.billing.autoRecharge.addAmount': 'この金額を追加',
   'settings.billing.autoRecharge.addCard': 'カードを追加',
@@ -5083,25 +4620,6 @@ const ja: TranslationMap = {
   'settings.persona.templates.student.desc': '励まし、クイズ形式、平易な言葉',
   'settings.persona.templates.family.label': 'ファミリーアシスタント',
   'settings.persona.templates.family.desc': '温かく、フレンドリーで、全世代に安全',
-  'settings.memoryWindow.balanced.badge': '推奨',
-  'settings.memoryWindow.balanced.hint':
-    '妥当なデフォルト: 各実行で余分なトークンを消費せずに、良好な連続性を維持します。',
-  'settings.memoryWindow.balanced.label': 'バランス',
-  'settings.memoryWindow.description':
-    'OpenHuman が新しいエージェント実行ごとに注入する記憶コンテキストの量。ウィンドウが大きいほど過去の会話をより認識しますが、各実行でより多くのトークンを消費し（コストも増加します）。',
-  'settings.memoryWindow.extended.badge': 'より多くのコンテキスト',
-  'settings.memoryWindow.extended.hint':
-    '各実行に注入される長期記憶を増やします。ターンあたりのトークンコストが高くなります。',
-  'settings.memoryWindow.extended.label': '拡張',
-  'settings.memoryWindow.maximum.badge': '最高コスト',
-  'settings.memoryWindow.maximum.hint':
-    '最大の安全なウィンドウ。連続性は最適ですが、実行ごとにトークンコストが大幅に増加します。',
-  'settings.memoryWindow.maximum.label': '最大',
-  'settings.memoryWindow.minimal.badge': '最安',
-  'settings.memoryWindow.minimal.hint':
-    '最小のメモリーウィンドウ。最も安価で高速ですが、実行間の連続性は最低です。',
-  'settings.memoryWindow.minimal.label': '最小',
-  'settings.memoryWindow.title': '長期メモリーウィンドウ',
   'skills.card.moreActions': 'その他の操作',
   'skills.channelIcon.discord': 'Discord',
   'skills.channelIcon.imessage': 'iMessage',
@@ -5275,9 +4793,6 @@ const ja: TranslationMap = {
   'walkthrough.steps.chatTab.title': 'チャットに戻る',
   'walkthrough.steps.chatTab.content':
     '会話に戻りたいときは、いつでもチャットタブを使用してください。',
-  'walkthrough.steps.brainTab.title': 'Brain を開く',
-  'walkthrough.steps.brainTab.content':
-    'Brain はメモリーグラフです。OpenHuman が何を知っているか、アイデアがどのように繋がっているかを確認する場所です。',
   'walkthrough.steps.connectionsTab.title': '接続を管理',
   'walkthrough.steps.connectionsTab.content':
     'サービスを追加または調整したいときは、メインナビゲーションから常に接続にアクセスできます。',
@@ -5440,7 +4955,6 @@ const ja: TranslationMap = {
   'announcement.gotIt': '了解',
   'harnessInit.subtitle': 'OpenHuman は初回起動時に必要なコンポーネントを準備しています。',
   'harnessInit.stepPython': 'Python ランタイム',
-  'harnessInit.stepSpacy': '言語モデル',
   'harnessInit.stepNode': 'Node.js ランタイム',
   'harnessInit.statePending': '待機中',
   'harnessInit.stateRunning': 'インストール中…',
@@ -5546,7 +5060,6 @@ const ja: TranslationMap = {
     '接続された統合がエラーを返しているため、アプリに表示されている接続状態が最新でない可能性があります。',
   'userErrors.action.openBilling': '請求を開く',
   'userErrors.action.openProviderSettings': 'プロバイダー設定',
-  'userErrors.action.openEmbeddingsSettings': '埋め込みの設定',
   'userErrors.budgetExceeded.title': '管理対象の予算に到達しました',
   'userErrors.budgetExceeded.body':
     '管理対象のAI予算を使い切りました。予算を追加するか、プランを変更して続行してください。',
@@ -5556,60 +5069,18 @@ const ja: TranslationMap = {
   'userErrors.apiKeyMissing.title': 'APIキーが必要です',
   'userErrors.apiKeyMissing.body':
     'AIプロバイダーにAPIキーが設定されていません。プロバイダー設定で追加して続行してください。',
-  'userErrors.memoryBudgetExhausted.title': 'メモリーの成長が停止しました',
-  'userErrors.memoryBudgetExhausted.body':
-    '埋め込み予算を使い切ったため、新しいコンテンツがメモリーに追加されなくなりました。ローカル埋め込みを設定するか、独自のAPIキーを追加して再開してください。',
   'userErrors.localModelUnavailable.title': 'ローカルモデルが利用できません',
   'userErrors.localModelUnavailable.body':
     '設定されたエンドポイントでOllamaに接続できないか、必要なモデルがインストールされていません。Ollamaを起動してそのエンドポイントでモデルを取得するか、このワークロードをクラウドプロバイダーに切り替えてください。',
   'userErrors.replyDeliveryFailed.title': '返信を表示できませんでした',
   'userErrors.replyDeliveryFailed.body':
     'エージェントはこのターンを完了しましたが、返信を保存または読み取ることができませんでした。もう一度質問して繰り返してもらってください。',
-  'userErrors.memoryStoreCorrupt.title': 'メモリーインデックスが破損しました',
-  'userErrors.memoryStoreCorrupt.body':
-    'メモリーツリーの背後にあるデータベースが破損しました。破損したファイルはメモリーデータの隣に保存され、空のインデックスが再構築されました。メモリーソースを再同期して再び埋めてください。',
-  'userErrors.action.openMemorySync': 'メモリーを再同期',
   'userErrors.scope.chat': 'チャット',
   'userErrors.scope.cron': 'スケジュールジョブ',
   'userErrors.scope.workspace': 'ワークスペース',
   'userErrors.scope.memory': 'メモリー',
 
   // Memory embedding budget banners (#5324)
-  'memoryBudget.approachingTitle': 'メモリーが埋め込みの上限に近づいています',
-  'memoryBudget.approachingMessage':
-    '埋め込み予算の{pct}%を使用しました。ローカル埋め込みを設定するか、独自のAPIキーを追加して、中断なくメモリーの構築を続けてください。',
-  'memoryBudget.exhaustedTitle': 'メモリーの成長が停止しました',
-  'memoryBudget.exhaustedMessage':
-    '埋め込み予算を使い切ったため、新しいコンテンツがメモリーに追加されなくなりました。ローカル埋め込みを設定するか、独自のAPIキーを追加して再開してください。',
-  'memoryBudget.cta': '埋め込みの設定',
-  'memorySources.codingSessions.title': 'コーディングエージェントのセッション',
-  'memorySources.codingSessions.description':
-    'CodexおよびClaude Codeの判断や修正を、プライベートなペルソナメモリーに変換します。',
-  'memorySources.codingSessions.importAll': 'すべてのセッションをインポート',
-  'memorySources.codingSessions.draining': 'インポート中… パス {passes}',
-  'memorySources.codingSessions.stop': '停止',
-  'memorySources.codingSessions.progress':
-    '{processed}件のセッションをインポート済み · {observations}件の観察結果',
-  'memorySources.codingSessions.remaining': '残り約{remaining}件',
-  'memorySources.codingSessions.stopped': 'インポートを一時停止しました',
-  'memorySources.codingSessions.stoppedMessage':
-    '{processed}件のセッションをインポートしました。残りの{remaining}件を続行するには、再度インポートを実行してください。',
-  'memorySources.codingSessions.claude': 'Claude Code',
-  'memorySources.codingSessions.codex': 'Codex',
-  'memorySources.codingSessions.counts': '{files}件のセッション · {evidence}件の人間のターン',
-  'memorySources.codingSessions.notFound': 'ローカル履歴が見つかりません',
-  'memorySources.codingSessions.scanning': 'ローカルセッション履歴をスキャン中…',
-  'memorySources.codingSessions.truncated':
-    'スキャンは最初の1,000セッションファイルに限定されています。',
-  'memorySources.codingSessions.complete': 'コーディングセッションを取り込みました',
-  'memorySources.codingSessions.completeMessage':
-    '{processed}件のセッションから{observations}件のペルソナ観察結果を生成しました。',
-  'memorySources.codingSessions.partialFailure':
-    '{processed}件を処理中に{failed}件のセッションが失敗しました。再試行するには取り込みを再度実行してください。',
-  'memorySources.codingSessions.stillRunning': 'インポートは実行中です',
-  'memorySources.codingSessions.stillRunningMessage':
-    'これまでにインポートされたセッション: {processed}件。インポートは時間制限内に完了しませんでしたが、バックグラウンドで実行中です。再度開始せず、1分後に確認してください。',
-  'memorySources.codingSessions.failed': 'コーディングセッションの取り込みに失敗しました',
   'notifications.configRecovered.title': '設定ファイルが復元されました',
   'notifications.configRecovered.body':
     '設定ファイルを読み取れなかったため、バックアップから復元するか、デフォルトにリセットしました。読み取れなかったファイルは、必要に応じて使用できるよう「.corrupted」サフィックスを付けて保持されています。',
@@ -5656,8 +5127,6 @@ const ja: TranslationMap = {
   'assistantUi.thread.exportAsMarkdown': 'Markdownとしてエクスポート',
 
   // i18n react-audit sweep: intelligence panels + ai routing
-  'graph.workspacePath': 'ワークスペース:{path}',
-  'sync.tokensInOut': '入力 {in} / 出力 {out}',
   'settings.ai.routing.providerAndModelLabel': 'プロバイダーとモデル',
   'settings.ai.routing.changeAction': '変更',
 
@@ -5667,91 +5136,6 @@ const ja: TranslationMap = {
   'walletSend.recipientInputPlaceholder': 'アドレスを入力または貼り付け',
   'webCallback.title': 'サインインを完了しています',
   'webCallback.description': 'OpenHumanがコールバックを処理しており、自動的に続行されます。',
-
-  // Memory engine settings panel
-  'memoryEngine.title': 'メモリーエンジン',
-  'memoryEngine.description':
-    'OpenHumanがメモリーの保存と検索を行う場所を選択します。一度に有効なエンジンは1つだけです。',
-  'memoryEngine.active': 'アクティブ',
-  'memoryEngine.hostedNote': 'OpenHumanのプランまたはクレジットを通じて請求されます。',
-  'memoryEngine.signInRequired': 'このエンジンを使用するにはサインインしてください。',
-  'memoryEngine.endpoint': 'エンドポイント',
-  'memoryEngine.deployment': 'デプロイメント',
-  'memoryEngine.deployment.cloud': 'クラウド',
-  'memoryEngine.deployment.self_hosted': 'セルフホスト',
-  'memoryEngine.apiKey': 'APIキー',
-  'memoryEngine.apiKeyOptional': 'APIキー (任意)',
-  'memoryEngine.keySaved': 'キーが保存されています。変更しない場合は空白のままにしてください。',
-  'memoryEngine.keySavedPlaceholder': '保存済み (非表示)',
-  'memoryEngine.fallback':
-    'メモリーは一時停止中です: {engine} が利用できないため、復旧するまで保存も検索もできません。{reason}',
-  'memoryEngine.paused': 'メモリーは一時停止中',
-  'memoryEngine.dialog.cancelMigration': 'コピーをキャンセル',
-  'memoryEngine.lastError':
-    '最後のメモリーエンジンリクエストが失敗しました。エンジン設定を確認してください。',
-  'memoryEngine.switch': '切り替え',
-  'memoryEngine.save': '変更を保存',
-  'memoryEngine.dialog.title': '{engine} に切り替えますか?',
-  'memoryEngine.dialog.body': '既存のメモリーを新しいエンジンにコピーしますか?',
-  'memoryEngine.dialog.copySwitch': 'コピーして切り替え',
-  'memoryEngine.dialog.switchOnly': 'コピーせずに切り替え',
-  'memoryEngine.dialog.copying': 'メモリーをコピーしています…',
-  'memoryEngine.dialog.progress': '{total}件中 {copied}件をコピーしました',
-  'memoryEngine.dialog.progressUnknown': 'これまでに {copied} 件のメモリーをコピーしました',
-  'memoryEngine.dialog.copies':
-    'メモリー、ドキュメントのタイトルとタグ、目標、学習済みプロファイル、会話履歴をコピーします。',
-  'memoryEngine.dialog.replayContent':
-    '同期済みコンテンツも再送信し、新しいエンジンで要約を再構築します',
-  'memoryEngine.dialog.replayContentHint':
-    'コンテンツの再読み込みには OpenHuman クレジットを使用します。',
-  'memoryEngine.dialog.stepProgress': '{step} をコピー中… これまでに {count} 件コピーしました',
-  'memoryEngine.step.records': 'メモリー',
-  'memoryEngine.step.documents': 'ドキュメントのタイトルとタグ',
-  'memoryEngine.step.goals': '目標',
-  'memoryEngine.step.profile': '学習済みプロファイル',
-  'memoryEngine.step.episodic': '会話履歴',
-  'memoryEngine.step.content': '同期済みコンテンツ',
-  'memoryEngine.notCopied':
-    '切り替えました。新しいエンジンではこれらをサポートしていないため、コピーされませんでした: {items}。',
-  'memoryEngine.contentRefused':
-    '新しいエンジンが一部の同期済みコンテンツを拒否しました ({count})。以前のエンジンには保持されており、次の同期で復元される可能性があります。',
-  'memoryEngine.dialog.lacking':
-    '新しいエンジンは、現在のエンジンの以下の機能をサポートしていません:',
-  'memoryEngine.error.insufficientCredits':
-    'OpenHuman クレジットが不足しています。このエンジンを使用するにはクレジットを追加してください。',
-  'memoryEngine.error.sessionExpired':
-    'セッションの有効期限が切れました。続行するには再度サインインしてください。',
-  'memoryEngine.error.backendUnavailable':
-    'メモリーサービスは現在利用できません。しばらくしてからもう一度お試しください。',
-  'memoryEngine.error.forbidden':
-    'メモリーがこのアカウントの認証情報を拒否しました。API キーを使用している場合は、メモリースコープを付与してください。',
-  'memoryEngine.error.generic':
-    'メモリーエンジンを変更できませんでした。設定を確認して再試行してください。',
-  'memoryEngine.error.openBilling': '請求を開く',
-  'memoryEngine.error.signIn': 'サインイン',
-  'memoryEngine.row.label': 'メモリーエンジン:',
-  'memoryEngine.row.change': '変更',
-  'memoryEngine.unavailable': '{engine} では利用できません',
-  'memoryEngine.unavailableHint': 'この機能を使用するにはメモリーエンジンを切り替えてください。',
-  'memoryEngine.engine.tinymemory.label': 'ローカル (TinyCortex)',
-  'memoryEngine.engine.tinymemory.description':
-    'TinyCortex を使用してこのデバイスに保存されます。プライベートで無料、デフォルトです。',
-  'memoryEngine.engine.tinyhumans.label': 'CortexDB (TinyHumans 経由)',
-  'memoryEngine.engine.tinyhumans.description':
-    'TinyHumans がホストする CortexDB。サインイン済みアカウントを使用し、キーは不要です。',
-  'memoryEngine.engine.cortex.label': 'CortexDB (独自キー)',
-  'memoryEngine.engine.cortex.description':
-    'API キーを使用して、独自の CortexDB アカウントまたはインスタンスを利用します。',
-  'memoryEngine.engine.supermemory.label': 'Supermemory',
-  'memoryEngine.engine.supermemory.description':
-    'API キーを使用して、Supermemory クラウドメモリーを利用します。',
-  'memoryEngine.engine.mem0.label': 'Mem0',
-  'memoryEngine.engine.mem0.description': 'Mem0 メモリーレイヤー、クラウドまたはセルフホスト。',
-  'memoryEngine.engine.cognee.label': 'Cognee',
-  'memoryEngine.engine.cognee.description':
-    'Cognee ナレッジグラフメモリー、クラウドまたはセルフホスト。',
-  'memoryEngine.engine.agentmemory.label': 'AgentMemory',
-  'memoryEngine.engine.agentmemory.description': '自分で実行する AgentMemory サーバー。',
 
   // Chat failure copy: localized render of chat_error.message, keyed by chat_error.copy_key
   'chat_error.codex_session_expired':
@@ -5811,6 +5195,216 @@ const ja: TranslationMap = {
   'chat_error.retryHint.seconds': '{n}秒後に再試行してください。',
   'chat_error.retryHint.aboutMinute': '約1分後に再試行してください。',
   'chat_error.retryHint.aboutMinutes': '約{n}分後に再試行してください。',
+
+  // Memory v2 page (Connections → Memory): engine, ask, learnings,
+  // conversations, documents and context chips.
+  'memoryPage.tabs.engine': 'エンジン',
+  'memoryPage.tabs.ask': '質問',
+  'memoryPage.tabs.learnings': '学習内容',
+  'memoryPage.tabs.conversations': '会話',
+  'memoryPage.tabs.documents': 'ドキュメント',
+  'memoryPage.tabs.context': 'コンテキスト',
+  'memoryPage.header.engine': 'メモリーを保存し、その内容についての質問に答えるエンジンを選択します。',
+  'memoryPage.header.ask': 'メモリーに質問し、回答の出典を確認できます。',
+  'memoryPage.header.learnings': 'エージェントに常に覚えておいてほしい事実、好み、手順です。',
+  'memoryPage.header.conversations': 'チャットをメモリーに保存するタイミングを設定します。',
+  'memoryPage.header.documents': 'メモリーが同期するフォルダ、ファイル、リンク、フィードです。',
+  'memoryPage.header.context': 'メモリーからまとめられ、新しいチャットの開始時に使われる要約です。',
+  'memoryPage.loading': 'メモリーを読み込み中…',
+  'memoryPage.loadMore': 'さらに読み込む',
+  'memoryPage.explorer.facet.namespace': 'メモリーノード',
+  'memoryPage.explorer.namespace.root': '共有（ルート）',
+  'memoryPage.context.node': 'メモリーノード',
+  'memoryPage.context.nodeHint': '各エージェントには、自身のメモリーと共有されたメモリーから作成された専用の要約があります。',
+  'memoryPage.backfill.title': '過去の会話',
+  'memoryPage.backfill.description': '自動保存を有効にする前のチャットは、同期するまでメモリーに保存されません。',
+  'memoryPage.backfill.pending': '{threads}件のチャット（{turns}ターン）がまだメモリーに保存されていません。',
+  'memoryPage.backfill.upToDate': '過去の会話はすべてメモリーに保存されています。',
+  'memoryPage.backfill.action': '過去の会話を同期',
+  'memoryPage.backfill.resume': '同期を再開',
+  'memoryPage.backfill.running': '過去の会話を同期中',
+  'memoryPage.backfill.progress': '{total}件中{done}件のチャットを同期済み · {turns}ターンを保存済み',
+  'memoryPage.backfill.done': '{threads}件のチャットから{turns}ターンを保存しました。',
+  'memoryPage.backfill.failed': '同期が完了する前に停止しました。',
+  'memoryPage.backfill.consentTitle': '過去の会話を同期しますか？',
+  'memoryPage.backfill.consentBody':
+    '過去のチャットがメモリーエンジンにアップロードされ、他の会話と同様に保存されます。ツールの引数は一切含まれません。後で再び同期する場合は、新しい内容のみが送信されます。',
+  'memoryPage.backfill.consentConfirm': '今すぐ同期',
+  'memoryPage.tabs.explorer': 'エクスプローラー',
+  'memoryPage.header.explorer': 'メモリーに保存されたすべての内容を、ソース、フォルダ、スレッド、タグ別に閲覧できます。',
+  'memoryPage.explorer.pathLabel': 'エクスプローラーのパス',
+  'memoryPage.explorer.root': 'すべてのメモリー',
+  'memoryPage.explorer.groupTitle': 'グループ化',
+  'memoryPage.explorer.groupDescription': 'ここにある項目を1つの属性ごとに集計します。',
+  'memoryPage.explorer.groupBy': 'グループ化の基準',
+  'memoryPage.explorer.total': 'ここには{count}件の項目があります',
+  'memoryPage.explorer.noValues': 'ここには{facet}を持つ項目がありません。',
+  'memoryPage.explorer.missing': '{count}件の項目でこの値が未設定です。',
+  'memoryPage.explorer.moreBuckets': '他に{count}個の値が表示されていません。',
+  'memoryPage.explorer.truncated': 'メモリーが大きいため、この件数は走査した項目のみを対象としています。',
+  'memoryPage.explorer.itemsTitle': 'この場所の項目',
+  'memoryPage.explorer.empty': 'ここには何も保存されていません。',
+  'memoryPage.explorer.open': '開く',
+  'memoryPage.explorer.itemTitle': '保存された項目',
+  'memoryPage.explorer.itemMissing': 'この項目はメモリーに存在しません。',
+  'memoryPage.explorer.forget': '忘れる',
+  'memoryPage.explorer.meta.commit': 'コミット',
+  'memoryPage.explorer.meta.turns': 'ターン数',
+  'memoryPage.explorer.meta.observedAt': '観測日時',
+  'memoryPage.explorer.source.conversation': '会話',
+  'memoryPage.explorer.source.agent': 'エージェント',
+  'memoryPage.explorer.source.import': 'インポート',
+  'memoryPage.explorer.facet.kind': '種類',
+  'memoryPage.explorer.facet.source': 'ソース',
+  'memoryPage.explorer.facet.sourceId': 'ソースID',
+  'memoryPage.explorer.facet.workspace': 'ワークスペース',
+  'memoryPage.explorer.facet.folder': 'フォルダ',
+  'memoryPage.explorer.facet.file': 'ファイル',
+  'memoryPage.explorer.facet.language': '言語',
+  'memoryPage.explorer.facet.repo': 'リポジトリ',
+  'memoryPage.explorer.facet.url': 'リンク',
+  'memoryPage.explorer.facet.thread': 'スレッド',
+  'memoryPage.explorer.facet.agent': 'エージェント',
+  'memoryPage.explorer.facet.toolCall': 'ツール',
+  'memoryPage.explorer.facet.tag': 'タグ',
+  'memoryPage.score': 'スコア',
+  'memoryPage.kind.document': 'ドキュメント',
+  'memoryPage.kind.conversation': '会話',
+  'memoryPage.kind.learning': '学習内容',
+  'memoryPage.meta.file': 'ファイル',
+  'memoryPage.meta.folder': 'フォルダ',
+  'memoryPage.meta.repo': 'リポジトリ',
+  'memoryPage.meta.thread': 'スレッド',
+  'memoryPage.meta.url': 'リンク',
+  'memoryPage.off.title': 'メモリーはオフです',
+  'memoryPage.off.description':
+    '記憶を開始するにはメモリーエンジンを選択してください。TinyHumansのメモリーを使うにはサインインするか、ご自身のCortexDBに接続してください。',
+  'memoryPage.off.action': 'エンジンを選択',
+  'memoryPage.engine.listTitle': 'メモリーエンジン',
+  'memoryPage.engine.listDescription': '一度に有効にできるエンジンは1つです。メモリーのすべての内容を保存し、その内容についての質問に答えます。',
+  'memoryPage.engine.loadError': 'メモリーエンジンを読み込めませんでした',
+  'memoryPage.engine.offExplanation':
+    '現在利用できるメモリーエンジンがないため、保存も想起も行われません。TinyHumansのメモリーを使うにはサインインするか、エンドポイントとAPIキーを指定してご自身のCortexDBに接続してください。',
+  'memoryPage.engine.statusDegraded': 'メモリーの一部の機能が低下しています',
+  'memoryPage.engine.statusDown': 'メモリーエンジンに接続できません',
+  'memoryPage.engine.statusOff': 'オフ',
+  'memoryPage.engine.active': '有効',
+  'memoryPage.engine.use': '使用',
+  'memoryPage.engine.edit': '編集',
+  'memoryPage.engine.signInRequired': 'サインインが必要です',
+  'memoryPage.engine.hostedDetail': 'TinyHumansがホスト',
+  'memoryPage.engine.selfHostedDetail': '独自のエンドポイントとAPIキー',
+  'memoryPage.engine.connectTitle': '{engine}に接続',
+  'memoryPage.engine.connect': '接続',
+  'memoryPage.engine.endpoint': 'エンドポイント',
+  'memoryPage.engine.apiKey': 'APIキー',
+  'memoryPage.engine.keySavedPlaceholder': '保存済み。変更するには新しいキーを入力',
+  'memoryPage.engine.keySavedHint': 'キーは保存済みです。変更しない場合は空欄のままにしてください。',
+  'memoryPage.ask.questionLabel': '質問',
+  'memoryPage.ask.queryLabel': '検索クエリ',
+  'memoryPage.ask.placeholder': 'リリース計画について何を決めましたか？',
+  'memoryPage.ask.rawToggle': '検索結果をそのまま表示',
+  'memoryPage.ask.modeLabel': '検索モード',
+  'memoryPage.ask.modeKeyword': 'キーワード',
+  'memoryPage.ask.modeVector': '意味検索',
+  'memoryPage.ask.modeHybrid': 'ハイブリッド',
+  'memoryPage.ask.ask': '質問',
+  'memoryPage.ask.search': '検索',
+  'memoryPage.ask.thinking': 'メモリーを検索中…',
+  'memoryPage.ask.answerTitle': '回答',
+  'memoryPage.ask.noAnswer': 'メモリーにはまだその質問への回答がありません。',
+  'memoryPage.ask.citations': '出典',
+  'memoryPage.ask.rawTitle': '結果',
+  'memoryPage.ask.noHits': '検索に一致する内容がメモリーにありません。',
+  'memoryPage.learnings.addTitle': 'エージェントに教える',
+  'memoryPage.learnings.addDescription': 'エージェントに常に覚えておいてほしいことを記入してください。',
+  'memoryPage.learnings.textLabel': '学習内容',
+  'memoryPage.learnings.placeholder': 'コード例を含む短い回答が好みです。',
+  'memoryPage.learnings.kindLabel': '種類',
+  'memoryPage.learnings.kindPreference': '好み',
+  'memoryPage.learnings.kindFact': '事実',
+  'memoryPage.learnings.kindProcedure': '手順',
+  'memoryPage.learnings.kindCorrection': '訂正',
+  'memoryPage.learnings.kindOther': 'その他',
+  'memoryPage.learnings.add': '学習内容を追加',
+  'memoryPage.learnings.listTitle': '学習内容',
+  'memoryPage.learnings.empty': '学習内容はまだありません。上から追加するか、エージェントが一緒に作業する中で追加します。',
+  'memoryPage.learnings.delete': '学習内容を削除',
+  'memoryPage.conversations.settingsTitle': '会話を保存',
+  'memoryPage.conversations.settingsDescription':
+    'チャットは一定のターン数に達するか、しばらくやり取りがなくなると、まとめてメモリーに保存されます。',
+  'memoryPage.conversations.enabled': '会話をメモリーに保存',
+  'memoryPage.conversations.batchTurns': '1回に保存するターン数',
+  'memoryPage.conversations.batchTurnsHelp': 'チャットの返信がこの回数に達すると保存します。',
+  'memoryPage.conversations.idleSecs': 'やり取りがない場合に保存',
+  'memoryPage.conversations.idleSecsHelp': 'または、チャットでこの時間やり取りがなければ保存します。',
+  'memoryPage.conversations.seconds': '秒',
+  'memoryPage.conversations.recentTitle': '最近保存した会話',
+  'memoryPage.conversations.recentEmpty': '保存された会話はまだありません。',
+  'memoryPage.conversations.turns': '{count}ターン',
+  'memoryPage.documents.listTitle': 'ソース',
+  'memoryPage.documents.listDescription': 'メモリーはこれらを同期し、その内容に基づいて回答します。',
+  'memoryPage.documents.add': 'ソースを追加',
+  'memoryPage.documents.syncAll': 'すべて同期',
+  'memoryPage.documents.sync': '同期',
+  'memoryPage.documents.remove': '削除',
+  'memoryPage.documents.empty':
+    'ソースはまだありません。フォルダ、ファイル、リンク、GitHubリポジトリ、RSSフィード、Composioアプリを追加してください。',
+  'memoryPage.documents.items': '{count}件',
+  'memoryPage.documents.lastSync': '最終同期: {when}',
+  'memoryPage.documents.neverSynced': '未同期',
+  'memoryPage.documents.every': '{mins}分ごと',
+  'memoryPage.documents.addTitle': 'ソースを追加',
+  'memoryPage.documents.addSubtitle': 'メモリーは追加直後と、指定したスケジュールに従って同期します。',
+  'memoryPage.documents.kindLabel': '種類',
+  'memoryPage.documents.targetLabel': '場所',
+  'memoryPage.documents.labelLabel': '名前（任意）',
+  'memoryPage.documents.scheduleLabel': '同期間隔（分、任意）',
+  'memoryPage.documents.schedulePlaceholder': '既定のスケジュール',
+  'memoryPage.documents.scheduleHelp': '既定のスケジュールを使う場合は空欄のままにしてください。',
+  'memoryPage.documents.removeTitle': 'ソースを削除しますか？',
+  'memoryPage.documents.removeBody': '{name}の同期を停止します。',
+  'memoryPage.documents.forgetItems': 'このソースから保存した内容もすべて削除する',
+  'memoryPage.sourceKind.folder': 'フォルダ',
+  'memoryPage.sourceKind.file': 'ファイル',
+  'memoryPage.sourceKind.link': 'リンク',
+  'memoryPage.sourceKind.github': 'GitHubリポジトリ',
+  'memoryPage.sourceKind.rss': 'RSSフィード',
+  'memoryPage.sourceKind.composio': 'Composioアプリ',
+  'memoryPage.sourceTarget.folder': '/path/to/folder',
+  'memoryPage.sourceTarget.file': '/path/to/file.md',
+  'memoryPage.sourceTarget.link': 'https://example.com/page',
+  'memoryPage.sourceTarget.github': 'owner/repo',
+  'memoryPage.sourceTarget.rss': 'https://example.com/feed.xml',
+  'memoryPage.sourceTarget.composio': 'Composioアプリ（例: notion）',
+  'memoryPage.sourceStatus.idle': '待機中',
+  'memoryPage.sourceStatus.syncing': '同期中',
+  'memoryPage.sourceStatus.error': 'エラー',
+  'memoryPage.context.briefTitle': 'コンテキスト要約',
+  'memoryPage.context.generatedAt': '生成日時: {when} · {tokens}トークン',
+  'memoryPage.context.neverGenerated': '未生成',
+  'memoryPage.context.regenerate': '再生成',
+  'memoryPage.context.regenerating': '再生成中…',
+  'memoryPage.context.empty': '要約は空です。メモリーの内容が増えるにつれて作成されます。',
+  'memoryPage.context.settingsTitle': '要約の設定',
+  'memoryPage.context.settingsDescription': '新しいチャットはこの要約で開始します。既存のチャットは開始時の要約を保持します。',
+  'memoryPage.context.enabled': '新しいチャットを要約付きで開始',
+  'memoryPage.context.interval': '再生成の間隔',
+  'memoryPage.context.minutes': '分',
+  'memoryPage.context.budget': 'サイズ上限',
+  'memoryPage.context.tokens': 'トークン',
+  'memoryPage.import.title': '以前のメモリーが見つかりました',
+  'memoryPage.import.counts':
+    '以前のメモリーから、{documents}件のドキュメント、{conversations}件の会話、{learnings}件の学習内容がこのデバイスに保存されています。',
+  'memoryPage.import.action': '以前のメモリーをインポート',
+  'memoryPage.import.consentTitle': '以前のメモリーをインポートしますか？',
+  'memoryPage.import.consentBody':
+    '以前のメモリーはこのデバイスにのみ保存されています。インポートすると、選択したメモリーエンジンの{engine}にアップロードされます。確認するまで何もアップロードされません。',
+  'memoryPage.import.consentConfirm': 'アップロードしてインポート',
+  'memoryPage.import.running': '以前のメモリーをインポート中…',
+  'memoryPage.import.done': '以前のメモリーをインポートしました',
+  'memoryPage.import.failed': 'インポートに失敗しました',
+  'memoryPage.import.progress': '{total}件中{imported}件をインポート済み',
 };
 
 export default ja;
