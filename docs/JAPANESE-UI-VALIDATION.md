@@ -1,9 +1,13 @@
 # Japanese UI validation
 
-Validation performed on 2026-10-04 after the locale refresh at
-`673e33a87f0936582173304818d4b84bef80ea1b`.
-The follow-up changes add tests and documentation; the application code in the
-native build is that exact revision.
+Validation performed on 2026-10-04, then repeated after merging upstream
+`9c475c174ca5506f67ed471ec34ef14617316122` and refreshing the Japanese memory
+lifecycle strings at `c261b29e6ac5eabb00c84fb7d87554632d0982d7`.
+The final locale has 4,541 keys, with no missing or extra keys and no English
+leak findings. The repeat native build and standalone remote Core use that
+application source; follow-up lockfile/documentation changes do not alter it.
+The remote Core binary's SHA-256 matched the local build:
+`fe82c895bb33d3e6b595345ee6c7284c0217a164c8b4ff48b4442c5d0466b6fb`.
 
 ## Automated browser E2E
 
@@ -17,7 +21,7 @@ pnpm --filter openhuman-app test:e2e:web:build
 bash app/scripts/e2e-web-session.sh test/playwright/specs/japanese-locale.spec.ts
 ```
 
-All three tests passed:
+All three tests passed again on the refreshed source (4.4 seconds):
 
 - Select 日本語 through Settings, verify Japanese Chat labels and `html[lang=ja]`,
   reload and verify persistence, then select English and reload again.
@@ -44,6 +48,8 @@ Observed:
 
 - Fresh first-run UI displayed 日本語 in the language/runtime picker.
 - Settings, Chat, Connections, Memory v2 and Gateway labels rendered in Japanese.
+- After the upstream refresh, the new Brain, Background and Memory Settings tabs
+  rendered their Japanese headings, descriptions, controls and empty states.
 - Settings switched Japanese → English → Japanese immediately.
 - Actual app quit/relaunch checks preserved English and Japanese.
 - The remote Core connection test succeeded over an SSH loopback tunnel.
@@ -54,7 +60,8 @@ Observed:
   a Japanese request for `17×19` and streamed the correct answer `323`.
   The UI → remote Core → actual router → model → UI path completed.
   After another quit/relaunch, both Japanese labels and that conversation
-  remained visible.
+  remained visible. The upstream-refresh repeat used a newly created conversation
+  and again returned `323`, then preserved that conversation after quit/relaunch.
 
 ## Integration limits
 
@@ -72,3 +79,15 @@ native chat E2E above; production routing was not changed. The isolated Memory
 service was not configured, so Memory Explorer
 showed its connection error; successful item/count rendering is covered by the
 browser fixture test above. No iOS or Android native smoke was performed.
+
+## Upstream integration checks
+
+The upstream memory lifecycle update added 111 English keys and removed 30;
+Japanese was refreshed to the same set rather than hiding coverage failures.
+The same update reduced the Linux `flows` dependency graph to 332 packages,
+311 names and 3 native dependencies. Both the kernel-floor ratchet and dep-sim
+calibration were tightened to that measured graph and passed with
+`CARGO_BUILD_TARGET=x86_64-unknown-linux-gnu`. The native app lockfile was aligned
+to the pinned tinymemory 1.23.1 path crates. A fresh build cache avoided stale
+Rust metadata from the earlier dependency graph; both the native bundle and
+standalone Core built successfully. Production data remained untouched.
