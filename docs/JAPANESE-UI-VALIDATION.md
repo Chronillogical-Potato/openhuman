@@ -91,3 +91,12 @@ calibration were tightened to that measured graph and passed with
 to the pinned tinymemory 1.23.1 path crates. A fresh build cache avoided stale
 Rust metadata from the earlier dependency graph; both the native bundle and
 standalone Core built successfully. Production data remained untouched.
+
+The enabled Rust lanes also exposed two stale upstream static baselines. The
+agent-runtime boundary inventory now contains 204 exact entries (previously
+205): seven obsolete fingerprints were removed and six were verified against
+unchanged upstream Core source. They reflect moved integration/builder code,
+a revised user-origin check, and two existing memory task-local accesses; no
+Core implementation or checker rule was changed. The ignored-test caps were
+tightened from 17 to 8 for Core and 15 to 14 for the top-level tests because
+upstream removed their old ignored tests. Both exact-inventory guards passed.
