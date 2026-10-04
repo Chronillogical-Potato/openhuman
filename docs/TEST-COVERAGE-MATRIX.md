@@ -626,6 +626,12 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 | 13.6.2 | Keyboard Shortcuts help directory (? / ⌘/)         | VU+WD | `app/src/components/shortcuts/__tests__/shortcutsView.test.tsx`, `app/src/components/commands/__tests__/CommandProvider.test.tsx`, `app/test/e2e/specs/command-palette.spec.ts` | ✅     | Registry-driven grouped list; opens via `?` and ⌘/ (mutually exclusive with palette); also reachable from the sidebar shortcut icon + Settings → Keyboard Shortcuts |
 | 13.6.3 | Global shortcut map (nav / chat / view) | VU    | `app/src/lib/commands/__tests__/globalActions.test.tsx`                                                                                                                         | ✅     | Control-based nav (`ctrl`/`mod` per-OS), New Chat / Toggle Sidebar handlers, and alias keys                                      |
 
+### 13.7 Language
+
+| ID | Feature | Layer | Test path(s) | Status | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 13.7.1 | Japanese UI locale | VU+MS | `app/src/components/LanguageSelect.test.tsx`, `app/src/store/localeSlice.test.ts`, `app/src/lib/i18n/__tests__/{I18nContext,coverage,mascotDismissPath}.test.ts`, `docs/RELEASE-MANUAL-SMOKE.md` | ✅ | Native-script picker, Japanese browser-language detection, switching back to English, unknown-key fallback, complete dictionary, exact interpolation placeholders, and matching menu labels in mascot dismissal instructions |
+
 ---
 
 ## 14. Tabbed Terminal UI (`openhuman-tui`)

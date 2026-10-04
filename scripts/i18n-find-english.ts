@@ -10,7 +10,7 @@
  * Detection strategy (per locale):
  *   - Technical literals are skipped (pure placeholders, URLs, single-token identifiers,
  *     file paths, commands, values with no real word).
- *   - Non-Latin-script locales (zh-CN, hi, bn, ar, ru, ko): a non-technical value that
+ *   - Non-Latin-script locales (zh-CN, hi, bn, ar, ru, ko, ja): a non-technical value that
  *     contains NO character of the locale's native script is treated as English.
  *     (High recall — vocabulary-independent.)
  *   - Latin-script locales (de, es, fr, it, pt, id, pl): a non-technical value is flagged
@@ -40,6 +40,7 @@ const NATIVE_SCRIPT: Record<string, RegExp> = {
   bn: /[ঀ-৿]/,
   ar: /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/,
   ru: /[Ѐ-ӿ]/,
+  ja: /[\u3040-\u30ff\u3400-\u9fff]/,
   ko: /[가-힯ᄀ-ᇿ㄰-㆏]/,
 };
 
@@ -64,6 +65,7 @@ const INTENTIONAL_ENGLISH = new Set([
   "intelligence.memoryChunk.detail.embeddingInfo",
   "mcp.playground.argsLabel",
   "mcp.tab.source.smithery",
+  "memorySources.codingSessions.claude", // Claude Code is a product name, also in the coding-session source picker
   "memorySources.globPatternPlaceholder",
   "rewards.community.discordDetails", // "Discord" — brand/product name, same in every locale
   "rewards.community.rewardTokens", // "+{tokens} tokens" — "tokens" is the technical unit, kept in every locale (the recurring "/mo" variant IS translated)
