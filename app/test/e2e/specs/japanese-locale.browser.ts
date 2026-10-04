@@ -1,20 +1,25 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
   dismissWalkthroughIfPresent,
 } from '../../playwright/helpers/core-rpc';
+import {
+  browserElements,
+  type BrowserPage,
+  persistedBrowserLocale,
+} from '../helpers/element-helpers';
 
-async function settings(page: Page, user: string) {
+async function settings(page: BrowserPage, user: string) {
   await bootAuthenticatedPage(page, user, '/settings/account');
   await dismissWalkthroughIfPresent(page);
 }
 
-async function expectJapanese(page: Page) {
-  await expect(page.getByRole('combobox', { name: '言語', exact: true })).toHaveValue('ja');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
-  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
-  await expect(page.locator('[data-walkthrough="tab-chat"]')).toContainText('チャット');
+async function expectJapanese(page: BrowserPage) {
+  await expect(browserElements(page).language('言語')).toHaveValue('ja');
+  await expect(browserElements(page).document).toHaveAttribute('lang', 'ja');
+  await expect(browserElements(page).document).toHaveAttribute('dir', 'ltr');
+  await expect(browserElements(page).chatTab).toContainText('チャット');
 }
 
 test.describe('Japanese UI locale', () => {
@@ -24,29 +29,19 @@ test.describe('Japanese UI locale', () => {
     page,
   }) => {
     await settings(page, 'pw-japanese-switch');
-    await page
-      .getByRole('combobox', { name: 'Language', exact: true })
-      .selectOption({ label: '🇯🇵 日本語' });
+    await browserElements(page).selectLanguage('Language', { label: '🇯🇵 日本語' });
     await expectJapanese(page);
     // Wait for redux-persist to write, rather than dispatching or seeding a locale.
-    await expect
-      .poll(() =>
-        page.evaluate(() => Object.values(localStorage).some(value => value.includes('\\"ja\\"')))
-      )
-      .toBe(true);
+    await expect.poll(() => persistedBrowserLocale(page)).toBe('ja');
     await page.reload();
     await expectJapanese(page);
-    await page.getByRole('combobox', { name: '言語', exact: true }).selectOption('en');
-    await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveValue('en');
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.locator('[data-walkthrough="tab-chat"]')).toContainText('Chat');
-    await expect
-      .poll(() =>
-        page.evaluate(() => Object.values(localStorage).some(value => value.includes('\\"en\\"')))
-      )
-      .toBe(true);
+    await browserElements(page).selectLanguage('言語', 'en');
+    await expect(browserElements(page).language('Language')).toHaveValue('en');
+    await expect(browserElements(page).document).toHaveAttribute('lang', 'en');
+    await expect(browserElements(page).chatTab).toContainText('Chat');
+    await expect.poll(() => persistedBrowserLocale(page)).toBe('en');
     await page.reload();
-    await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveValue('en');
+    await expect(browserElements(page).language('Language')).toHaveValue('en');
   });
 
   test('detects ja-JP on a fresh browser and preserves a manual English override', async ({
@@ -61,15 +56,11 @@ test.describe('Japanese UI locale', () => {
       await settings(page, 'pw-japanese-detect');
       expect(await page.evaluate(() => navigator.language)).toBe('ja-JP');
       await expectJapanese(page);
-      await expect(page.getByRole('combobox', { name: '言語', exact: true })).toBeInViewport();
-      await page.getByRole('combobox', { name: '言語', exact: true }).selectOption('en');
-      await expect
-        .poll(() =>
-          page.evaluate(() => Object.values(localStorage).some(value => value.includes('\\"en\\"')))
-        )
-        .toBe(true);
+      await expect(browserElements(page).language('言語')).toBeInViewport();
+      await browserElements(page).selectLanguage('言語', 'en');
+      await expect.poll(() => persistedBrowserLocale(page)).toBe('en');
       await page.reload();
-      await expect(page.getByRole('combobox', { name: 'Language', exact: true })).toHaveValue('en');
+      await expect(browserElements(page).language('Language')).toHaveValue('en');
       expect(await page.evaluate(() => navigator.language)).toBe('ja-JP');
     } finally {
       await context.close();
@@ -125,26 +116,22 @@ test.describe('Japanese UI locale', () => {
     });
     await page.setViewportSize({ width: 1280, height: 720 });
     await settings(page, 'pw-japanese-interpolation');
-    await page.getByRole('combobox', { name: 'Language', exact: true }).selectOption('ja');
-    await expect
-      .poll(() =>
-        page.evaluate(() => Object.values(localStorage).some(value => value.includes('\\"ja\\"')))
-      )
-      .toBe(true);
+    await browserElements(page).selectLanguage('Language', 'ja');
+    await expect.poll(() => persistedBrowserLocale(page)).toBe('ja');
     await page.goto('/#/connections?tab=brain&brain=explorer');
-    const count = page.getByText('この場所の項目: 7件', { exact: true });
+    const count = browserElements(page).text('この場所の項目: 7件');
     await expect(count).toBeVisible();
     await count.scrollIntoViewIfNeeded();
     await expect(count).toBeInViewport();
     expect(await count.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.goto('/#/connections?tab=usage#tokens');
-    const attribution = page.getByText('Qwen3.8-Flash-Next のコストで計算', { exact: true });
+    const attribution = browserElements(page).text('Qwen3.8-Flash-Next のコストで計算');
     await expect(attribution).toBeVisible();
     await attribution.scrollIntoViewIfNeeded();
     await expect(attribution).toBeInViewport();
     expect(await attribution.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(
       true
     );
-    await expect(page.getByText('3 回の圧縮で', { exact: true })).toBeVisible();
+    await expect(browserElements(page).text('3 回の圧縮で')).toBeVisible();
   });
 });
