@@ -375,6 +375,7 @@ different concepts.
 | --- | --- |
 | Memory / memory engine | メモリー / メモリーエンジン |
 | Learning / preference | 学習内容 / 好み |
+| Brain / belief / memory pack | ブレイン / 信念 / メモリーパック |
 | Source to sync / answer citation | ソース / 出典 |
 | Context brief | コンテキスト要約; 要約 when the context is clear |
 | Sync / import | 同期 / インポート |

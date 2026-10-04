@@ -95,6 +95,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-EXPECTED_NAMES=316
+# 316 -> 311 on 2026-10-04: the upstream Memory lifecycle refresh removed
+# five names from the Linux flows graph; native builds remain at three.
+EXPECTED_NAMES=311
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"
