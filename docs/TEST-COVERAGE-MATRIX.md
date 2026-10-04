@@ -630,7 +630,7 @@ End-to-end coverage of the agent harness via the web-chat RPC surface against an
 
 | ID | Feature | Layer | Test path(s) | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
-| 13.7.1 | Japanese UI locale | VU+MS | `app/src/components/LanguageSelect.test.tsx`, `app/src/store/localeSlice.test.ts`, `app/src/lib/i18n/__tests__/{I18nContext,coverage,mascotDismissPath}.test.ts`, `docs/RELEASE-MANUAL-SMOKE.md` | ✅ | Native-script picker, Japanese browser-language detection, switching back to English, unknown-key fallback, complete dictionary, exact interpolation placeholders, and matching menu labels in mascot dismissal instructions |
+| 13.7.1 | Japanese UI locale | VU+MS | `app/src/components/LanguageSelect.test.tsx`, `app/src/components/settings/panels/__tests__/ComposioPanel.test.tsx`, `app/src/store/localeSlice.test.ts`, `app/src/lib/i18n/__tests__/I18nContext.test.tsx`, `app/src/lib/i18n/__tests__/{coverage,mascotDismissPath}.test.ts`, `docs/RELEASE-MANUAL-SMOKE.md` | ✅ | Native-script picker, Japanese browser-language detection, switching back to English, unknown-key fallback, complete dictionary, exact interpolation placeholders, and matching menu labels in mascot dismissal instructions |
 
 ---
 

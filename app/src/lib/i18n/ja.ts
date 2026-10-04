@@ -1,5 +1,7 @@
 import type { TranslationMap } from './types';
 
+// Japanese (日本語) translations. Keys mirror en.ts.
+// Missing keys fall back to English via I18nContext.resolveEn().
 const ja: TranslationMap = {
   // Navigation
   'nav.home': 'ホーム',
@@ -415,8 +417,9 @@ const ja: TranslationMap = {
   'chat.welcomeSuggestion.unreadEmail': '未読メールを要約してください。',
   'chat.welcomeSuggestion.draftReply': '最後のメッセージへの返信を作成してください。',
   'chat.welcomeSuggestion.followUps': '今週フォローアップすると伝えた事項は何ですか？',
-  'chat.welcomeSuggestion.connectIntegration': '新しい統合を接続します。',
-  'chat.welcomeSuggestion.dailySummaryFlow': '毎日の要約をメールで送るワークフローを作成します。',
+  'chat.welcomeSuggestion.connectIntegration': '新しい連携を追加してください。',
+  'chat.welcomeSuggestion.dailySummaryFlow':
+    '毎日の要約をメールで送るワークフローを作成してください。',
   'chat.typeMessage': 'メッセージを送信...',
   'chat.send': 'メッセージを送信',
   'chat.stopGeneration': '生成を停止',
@@ -1719,10 +1722,10 @@ const ja: TranslationMap = {
   'voice.providers.mascotVoiceCardDesc': 'マスコットの声を「顔」設定で選択します。',
   'voice.providers.sttProvider': '音声認識プロバイダー',
   'voice.providers.sttProviderAria': 'STTプロバイダー',
-  'voice.providers.backendSttProxy': 'OpenHuman（管理型）',
+  'voice.providers.backendSttProxy': 'OpenHuman（マネージド）',
   'voice.providers.ttsProvider': '音声合成プロバイダー',
   'voice.providers.ttsProviderAria': 'TTSプロバイダー',
-  'voice.providers.cloudElevenLabsProxy': 'OpenHuman（管理型）',
+  'voice.providers.cloudElevenLabsProxy': 'OpenHuman（マネージド）',
   'voice.providers.localPiper': 'ローカル Piper',
   'voice.providers.piperVoice': 'Piper 音声',
   'voice.providers.piperVoiceAria': 'Piper 音声',
@@ -4138,7 +4141,7 @@ const ja: TranslationMap = {
   'settings.ai.providers.customDetail': '独自のOpenAI互換エンドポイント',
   'settings.ai.providers.groupConnected': '接続済み',
   'settings.ai.providers.connectedDesc':
-    'Managedはフォールバックとして常に有効です。ルーティングタブで各タスクに使用するプロバイダーを選択してください。',
+    'マネージドはフォールバックとして常に有効です。ルーティングタブで各タスクに使用するプロバイダーを選択してください。',
   'settings.ai.providers.catalogTitle': 'プロバイダーを追加',
   'settings.ai.providers.localDetail': 'このマシンで実行',
   'settings.ai.localOllama': 'ローカル (Ollama)',
@@ -4498,17 +4501,19 @@ const ja: TranslationMap = {
   'settings.composio.confirmItem2':
     '個人の Composio アカウントを通じて各統合を再リンクする必要があります',
   'settings.composio.confirmItem3':
-    '注意: Composio トリガー (リアルタイム Webhook) は Direct モードではまだ動作しません。同期ツール呼び出しのみがサポートされています',
+    '注意: Composio トリガー (リアルタイム Webhook) は 直接接続モードではまだ動作しません。同期ツール呼び出しのみがサポートされています',
   'settings.composio.confirmNeedItems': '必要なもの:',
-  'settings.composio.confirmSwitch': '理解しました。Direct に切り替えます',
-  'settings.composio.confirmTitle': '⚠️ Direct モードへの切り替え',
+  'settings.composio.confirmSwitch': '理解しました。直接接続に切り替えます',
+  'settings.composio.confirmTitle': '⚠️ 直接接続モードへの切り替え',
   'settings.composio.confirmWarning':
     '既存の統合 (OpenHuman 経由でリンクされた Gmail、Slack、GitHub など) は表示されません。これらは OpenHuman が管理する Composio テナントに存在します。',
   'settings.composio.intro':
     'Composio は 250 以上の外部アプリを、エージェントが呼び出せるツールとして統合します。これらのツール呼び出しのルーティング方法を選択してください。',
-  'settings.composio.modeDirect': 'Direct (自分の API キーを使用)',
+  'settings.composio.directOnlyDesc':
+    'この環境ではComposioのマネージド認証を利用できません。独自のComposio APIキーを入力するか、設定を後回しにしてください。',
+  'settings.composio.modeDirect': '直接接続（独自のAPIキーを使用）',
   'settings.composio.modeDirectDesc':
-    '呼び出しは backend.composio.dev に直接送信されます。主権的 / オフライン対応。ツール実行は同期的に動作しますが、リアルトリガーの Webhook は Direct モードではまだルーティングされません (今後の対応)。',
+    '呼び出しは backend.composio.dev に直接送信されます。自分の環境で管理でき、オフラインにも対応します。ツール実行は同期的に動作しますが、リアルトリガーの Webhook は 直接接続モードではまだルーティングされません (今後の対応)。',
   'settings.composio.modeManaged': 'Managed (OpenHuman が処理)',
   'settings.composio.modeManagedDesc':
     'OpenHuman がバックエンド経由でツール呼び出しをプロキシします (推奨)。認証は仲介され、Composio API キーを貼り付ける必要はありません。Webhook は完全にルーティングされます。',
@@ -4517,7 +4522,7 @@ const ja: TranslationMap = {
   'settings.composio.statusDirect': '直接接続',
   'settings.composio.statusNoKey': 'API キーなし',
   'settings.composio.saveErrorNoKey':
-    '保存に失敗しました。Direct モードでは空でない API キーが必要です。',
+    '保存に失敗しました。直接接続モードでは空でない API キーが必要です。',
   'settings.composio.invalidApiKey': '無効な Composio API キーです。',
   'settings.composio.saving': '保存中…',
   'settings.composio.switching': '切り替え中…',

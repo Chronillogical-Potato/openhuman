@@ -4434,6 +4434,8 @@ const en: TranslationMap = {
     "Your existing integrations (Gmail, Slack, GitHub, etc. linked through OpenHuman) won't be visible: they live in the OpenHuman-managed Composio tenant.",
   'settings.composio.intro':
     'Composio integrates 250+ external apps as tools your agent can call. Choose how those tool calls are routed.',
+  'settings.composio.directOnlyDesc':
+    'Managed Composio auth is unavailable here. Enter your own Composio API key or skip this for now.',
   'settings.composio.modeDirect': 'Direct (bring your own API key)',
   'settings.composio.modeDirectDesc':
     'Calls go to backend.composio.dev directly. Sovereign / offline-friendly. Tool execution works synchronously; real-time trigger webhooks are not yet routed in direct mode (follow-up issue).',

@@ -3644,6 +3644,8 @@ const messages: TranslationMap = {
     'تكاملاتك الحالية (Gmail، Slack، GitHub، إلخ المرتبطة عبر OpenHuman) لن تكون مرئية: فهي موجودة في مستأجر Composio المُدار من OpenHuman.',
   'settings.composio.intro':
     'يُدمج Composio أكثر من 250 تطبيقًا خارجيًا كأدوات يمكن للوكيل استدعاؤها. اختر كيفية توجيه هذه الاستدعاءات.',
+  'settings.composio.directOnlyDesc':
+    'المصادقة المُدارة لـ Composio غير متاحة هنا. أدخل مفتاح API الخاص بك لـ Composio أو تخطَّ هذه الخطوة الآن.',
   'settings.composio.modeDirect': 'مباشر (استخدم مفتاح API الخاص بك)',
   'settings.composio.modeDirectDesc':
     'تذهب الاستدعاءات إلى backend.composio.dev مباشرةً. سيادي / مناسب للعمل دون اتصال. تنفيذ الأدوات يعمل بشكل متزامن؛ مشغّلات الـ webhooks الفورية لم تُوجَّه بعد في الوضع المباشر (مشكلة متابعة).',

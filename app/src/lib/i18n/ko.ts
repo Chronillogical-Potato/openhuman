@@ -3686,6 +3686,8 @@ const messages: TranslationMap = {
     '기존 통합(Gmail, Slack, GitHub 등 OpenHuman을 통해 연결된 통합)은 표시되지 않습니다: OpenHuman 관리형 Composio 테넌트에 있습니다.',
   'settings.composio.intro':
     'Composio는 에이전트가 호출할 수 있는 도구로 250개 이상의 외부 앱을 통합합니다. 이러한 도구 호출이 라우팅되는 방식을 선택하세요.',
+  'settings.composio.directOnlyDesc':
+    '이 환경에서는 Composio 관리형 인증을 사용할 수 없습니다. 자신의 Composio API 키를 입력하거나 이 단계는 나중에 설정하세요.',
   'settings.composio.modeDirect': 'Direct(직접 API 키 사용)',
   'settings.composio.modeDirectDesc':
     '호출이 backend.composio.dev로 직접 이동합니다. 독립적이고 오프라인 친화적입니다. 도구 실행은 동기식으로 작동하지만, 실시간 트리거 웹훅은 아직 Direct 모드에서 라우팅되지 않습니다(후속 이슈).',

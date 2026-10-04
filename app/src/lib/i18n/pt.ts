@@ -3767,6 +3767,8 @@ const messages: TranslationMap = {
     'Suas integrações existentes (Gmail, Slack, GitHub, etc. conectadas via OpenHuman) não ficarão visíveis: elas vivem no tenant do Composio gerenciado pelo OpenHuman.',
   'settings.composio.intro':
     'O Composio integra mais de 250 apps externos como ferramentas que seu agente pode chamar. Escolha como essas chamadas são roteadas.',
+  'settings.composio.directOnlyDesc':
+    'A autenticação gerenciada do Composio não está disponível aqui. Insira sua própria chave de API do Composio ou pule esta etapa por enquanto.',
   'settings.composio.modeDirect': 'Direto (traga sua própria chave de API)',
   'settings.composio.modeDirectDesc':
     'As chamadas vão direto para backend.composio.dev. Soberano / amigável para offline. A execução de ferramentas funciona de forma síncrona; webhooks de gatilhos em tempo real ainda não são roteados no modo direto (issue de acompanhamento).',
