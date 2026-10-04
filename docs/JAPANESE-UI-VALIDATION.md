@@ -45,12 +45,16 @@ Observed:
 - Fresh first-run UI displayed 日本語 in the language/runtime picker.
 - Settings, Chat, Connections, Memory v2 and Gateway labels rendered in Japanese.
 - Settings switched Japanese → English → Japanese immediately.
-- An actual app quit/relaunch preserved English; a previous reconnect/relaunch
-  preserved Japanese.
+- Actual app quit/relaunch checks preserved English and Japanese.
 - The remote Core connection test succeeded over an SSH loopback tunnel.
 - The Japanese routing dialog tested a custom OpenAI-compatible provider through
   the real model router and received `Hello! How can I help you today?` from
   Qwen3.8-Flash-Next. The provider and model name were visible in the response.
+- After assigning that custom provider to Chat, a new native conversation sent
+  a Japanese request for `17×19` and streamed the correct answer `323`.
+  The UI → remote Core → actual router → model → UI path completed.
+  After another quit/relaunch, both Japanese labels and that conversation
+  remained visible.
 
 ## Integration limits
 
@@ -62,7 +66,9 @@ Production Core and memory were not upgraded or migrated.
 The legacy `local-openai` agent path reached the actual model but did not complete
 a simple arithmetic request: its main wire request contained a synthetic
 `Continue with the task described above.` user turn and the model attempted
-unrelated tools. This is an integration finding, not a successful chat-answer
-E2E result. The isolated Memory service was not configured, so Memory Explorer
+unrelated tools. That legacy-path run was unsuccessful. The same real
+endpoint configured through the current custom-provider UI did complete the
+native chat E2E above; production routing was not changed. The isolated Memory
+service was not configured, so Memory Explorer
 showed its connection error; successful item/count rendering is covered by the
 browser fixture test above. No iOS or Android native smoke was performed.
