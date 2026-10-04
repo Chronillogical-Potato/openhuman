@@ -351,7 +351,9 @@ async fn handle_agent_run_turn_on_large_stack(
     let (tx, rx) = tokio::sync::oneshot::channel();
     let handle = std::thread::Builder::new()
         .name("agent-run-turn-test".to_string())
-        .stack_size(8 * 1024 * 1024)
+        // Match the CI test runtime's stack: LLVM instrumentation expands
+        // this full-pipeline future beyond the production worker's stack.
+        .stack_size(64 * 1024 * 1024)
         .spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()

@@ -5,7 +5,8 @@ Validation performed on 2026-10-04, then repeated after merging upstream
 lifecycle strings at `c261b29e6ac5eabb00c84fb7d87554632d0982d7`.
 The final locale has 4,541 keys, with no missing or extra keys and no English
 leak findings. The repeat native build and standalone remote Core use that
-application source; follow-up lockfile/documentation changes do not alter it.
+application source. Later CI repairs also change Core behavior as described
+below; the native observations above belong to the recorded application revision.
 The remote Core binary's SHA-256 matched the local build:
 `fe82c895bb33d3e6b595345ee6c7284c0217a164c8b4ff48b4442c5d0466b6fb`.
 
@@ -100,3 +101,38 @@ a revised user-origin check, and two existing memory task-local accesses; no
 Core implementation or checker rule was changed. The ignored-test caps were
 tightened from 17 to 8 for Core and 15 to 14 for the top-level tests because
 upstream removed their old ignored tests. Both exact-inventory guards passed.
+
+## Repairs for the latest upstream CI failures
+
+The hosted run on `8fae68aa6156457ec440ac5e373b3452566f194f` passed
+frontend/static, Rust lint and Tauri, but failed seven Core coverage suites.
+The following repairs preserve the original test assertions:
+
+- Install the pinned pnpm workspace dependencies in the independent Rust
+  coverage job. Its Memory integration fixture imports `ws`; without the
+  install, the backend exits before its health endpoint starts.
+- Update the Memory RPC catalogue and reachability tests to the current
+  controller contract; explicitly assert that retired read methods are unknown.
+- Give vision-delegation fixtures an actual inline PNG, as required by the
+  production dispatcher. Request-count and child-response assertions remain.
+- Point the Composio fixture at the resolved workspace directory and continue
+  checking that its scope file exists.
+- Align the test-only agent handler's stack with CI's 64 MiB test stack;
+  its instrumented Discord full-pipeline test overflowed at both 8 and 16 MiB.
+- Wire the existing iteration-cap resolver into the factory so explicit
+  overrides are honored. Both cap-reporting/error integration tests pass.
+- Preserve permanent attachments during tool-surface refresh and add their
+  names to the session definition's extra tool scope. This fixes their omission
+  from the native provider wire for named scopes. All three attached-tool
+  integration tests pass, including clones and session resume.
+
+These repairs were verified in an isolated x86_64 Ubuntu 22.04 container on
+an Apple Silicon Mac Studio using the exact hosted CI image digest
+`sha256:c3c20d625bcc9f75e50c3c2c2b75c88d3e60a3f4352b0f19f5327b490438722d`.
+The VM has no host mounts and the container has no published ports or production
+credentials. Node 24.21.0, pnpm 10.10.0 and Rust 1.96.1 were used. The complete
+Node script suite passes (471 passed, one existing skip), as do the targeted
+Memory, Composio, delegation, attached-tools and Discord coverage tests.
+MacBook Core/CLI/Tauri Clippy passes with warnings denied. Full Rust coverage
+and the new GitHub run are being checked separately; targeted passes do not
+establish a green final CI gate.

@@ -751,30 +751,10 @@ impl OpenHumanSessionHost {
         // `agent_harness_e2e` mock now serves SSE for streaming, so the crate-native
         // streaming path is exercised end-to-end.
         //
-        // Issue #4868 — resolve the per-agent iteration cap. When a named
-        // definition is present, its `effective_max_iterations()` (which honors
-        // `iteration_policy = "extended"` -> 50, and the declared `max_iterations`
-        // for strict agents) takes priority over the global
-        // `config.agent.max_tool_iterations` (default 10). This is the single
-        // shared resolution point that closes #4868 for every direct-invocation
-        // path: flows_build, flows_discover, agent-node runtime, cron, MCP
-        // server, etc. Falls back to the global default when there is no
-        // definition for this agent_id.
+        // Resolve explicit overrides before the agent definition's default.
         let mut effective_agent_config = config.agent.clone();
-        if let Some(def) = target_def {
-            let def_cap = def.effective_max_iterations();
-            log::info!(
-                "[agent::builder] applying definition iteration cap for agent_id={}: \
-                 definition.max_iterations={} iteration_policy={:?} -> effective={} \
-                 (was global default {})",
-                agent_id,
-                def.max_iterations,
-                def.iteration_policy,
-                def_cap,
-                config.agent.max_tool_iterations,
-            );
-            effective_agent_config.max_tool_iterations = def_cap;
-        }
+        effective_agent_config.max_tool_iterations =
+            super::iteration_cap::resolve_max_tool_iterations(&config.agent, target_def);
         // Host-first, so a host tool wins a name collision -- see
         // `HostTurnTools::merge_into`, which owns that rule and why.
         let merged_host_tools = super::host_tools::merge_for_turn(
@@ -845,7 +825,14 @@ impl OpenHumanSessionHost {
                 // names no registry holds; without handing the definition over
                 // here the lookup misses and the turn is rejected as a policy
                 // failure before any provider call (#6404/#6392/#6393).
-                session_definition: target_def.cloned().map(Arc::new),
+                session_definition: target_def.cloned().map(|mut definition| {
+                    // Explicit host attachments belong to this session's belt,
+                    // including when the definition uses a named tool scope.
+                    definition
+                        .extra_tools
+                        .extend(agent.permanent_tool_names.iter().cloned());
+                    Arc::new(definition)
+                }),
             })
         });
         if agent.hosted_base.is_none() {
