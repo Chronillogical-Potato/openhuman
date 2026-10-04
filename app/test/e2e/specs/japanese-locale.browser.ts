@@ -131,11 +131,15 @@ test.describe('Japanese UI locale', () => {
     await expect(count).toBeVisible();
     await count.scrollIntoViewIfNeeded();
     await expect(count).toBeInViewport();
+    expect(await count.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.goto('/#/connections?tab=usage#tokens');
     const attribution = page.getByText('Qwen3.8-Flash-Next のコストで計算', { exact: true });
     await expect(attribution).toBeVisible();
     await attribution.scrollIntoViewIfNeeded();
     await expect(attribution).toBeInViewport();
+    expect(await attribution.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(
+      true
+    );
     await expect(page.getByText('3 回の圧縮で', { exact: true })).toBeVisible();
   });
 });
