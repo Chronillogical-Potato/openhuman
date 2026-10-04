@@ -242,3 +242,59 @@ fn selected_ollama_route_constructs_the_selected_model_without_network() {
         assert_eq!(resolved_model, model);
     }
 }
+
+#[test]
+fn empty_picker_values_preserve_persisted_selection_and_temperature() {
+    let mut config = Config::default();
+    config.default_model = Some("ollama:qwen3:4b-instruct".to_string());
+    config.chat_provider = Some("openhuman".to_string());
+    config.default_temperature = 0.42;
+    let snapshot = serde_json::to_value(&config).unwrap();
+
+    for selection in [None, Some(""), Some("  \t ")] {
+        let effective = effective_session_config(&config, selection, None);
+        assert_eq!(effective.default_model, config.default_model);
+        assert_eq!(
+            provider_for_role("chat", &effective),
+            "ollama:qwen3:4b-instruct"
+        );
+        assert_eq!(effective.default_temperature, 0.42);
+    }
+    assert_eq!(serde_json::to_value(&config).unwrap(), snapshot);
+}
+
+#[test]
+fn temperature_override_is_turn_local_and_changes_the_cache_fingerprint() {
+    let mut config = Config::default();
+    config.default_temperature = 0.42;
+    config.chat_provider = Some("openhuman".to_string());
+    let snapshot = serde_json::to_value(&config).unwrap();
+    let selection = Some("  ollama:qwen3:4b-instruct  ");
+    let effective = effective_session_config(&config, selection, Some(0.0));
+    assert_eq!(effective.default_temperature, 0.0);
+    assert_eq!(
+        effective.default_model.as_deref(),
+        Some("ollama:qwen3:4b-instruct")
+    );
+    assert_eq!(
+        provider_for_role("chat", &effective),
+        "ollama:qwen3:4b-instruct"
+    );
+
+    let fingerprint = |temperature| {
+        super::build_session_fingerprint(
+            &config,
+            Some("ollama:qwen3:4b-instruct".to_string()),
+            Some(temperature),
+            "orchestrator".to_string(),
+            "chat",
+        )
+    };
+    let cold = fingerprint(0.0);
+    let warm = fingerprint(0.7);
+    assert_eq!(cold.temperature, Some(0.0));
+    assert_eq!(warm.temperature, Some(0.7));
+    assert_eq!(cold.provider_binding, warm.provider_binding);
+    assert_ne!(cold, warm);
+    assert_eq!(serde_json::to_value(&config).unwrap(), snapshot);
+}
