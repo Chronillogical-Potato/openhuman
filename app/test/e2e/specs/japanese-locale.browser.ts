@@ -126,6 +126,11 @@ test.describe('Japanese UI locale', () => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await settings(page, 'pw-japanese-interpolation');
     await page.getByRole('combobox', { name: 'Language', exact: true }).selectOption('ja');
+    await expect
+      .poll(() =>
+        page.evaluate(() => Object.values(localStorage).some(value => value.includes('\\"ja\\"')))
+      )
+      .toBe(true);
     await page.goto('/#/connections?tab=brain&brain=explorer');
     const count = page.getByText('この場所の項目: 7件', { exact: true });
     await expect(count).toBeVisible();
