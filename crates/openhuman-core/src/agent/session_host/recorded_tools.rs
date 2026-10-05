@@ -135,21 +135,24 @@ pub(super) fn rehydrate_search_tools(
         .flat_map(|tools| tools.iter().map(|tool| tool.name()))
         .collect();
     let mut seen = HashSet::new();
-    let rebuilt: Vec<Box<dyn Tool>> = recorded
-        .iter()
-        .filter(|spec| is_search_role_tool(&spec.name))
-        .filter(|spec| !live_names.contains(spec.name.as_str()))
-        .filter(|spec| seen.insert(spec.name.clone()))
-        .map(|spec| {
-            Box::new(crate::search::TinySearchTool::recorded(
-                tinysearch_bus::ToolSpec {
-                    name: spec.name.clone(),
-                    description: spec.description.clone(),
-                    parameters: spec.parameters.clone(),
-                },
-            )) as Box<dyn Tool>
-        })
-        .collect();
+    // One batch, so the rebuilt roles share the "no provider answered" latch
+    // the live surface gives its own search tools (#6991).
+    let rebuilt: Vec<Box<dyn Tool>> = crate::search::TinySearchTool::recorded_batch(
+        recorded
+            .iter()
+            .filter(|spec| is_search_role_tool(&spec.name))
+            .filter(|spec| !live_names.contains(spec.name.as_str()))
+            .filter(|spec| seen.insert(spec.name.clone()))
+            .map(|spec| tinysearch_bus::ToolSpec {
+                name: spec.name.clone(),
+                description: spec.description.clone(),
+                parameters: spec.parameters.clone(),
+            })
+            .collect::<Vec<_>>(),
+    )
+    .into_iter()
+    .map(|tool| Box::new(tool) as Box<dyn Tool>)
+    .collect();
     if !rebuilt.is_empty() {
         log::info!(
             "[session] rebuilt {} recorded search tool(s) the live surface did not supply agent={agent_id}",
