@@ -33,7 +33,7 @@ use super::error::HarnessError;
 const MANIFESTS: [&str; 3] = ["WORKFLOW.md", "SKILL.md", "skill.json"];
 
 /// Copy every skill bundle in `source` into `dest_root` — the workspace's
-/// `skills/` for the one-agent harness, `personalities/<id>/skills/` for a
+/// `skills/` for the one-agent harness, `agents/<id>/skills/` for a
 /// runtime agent.
 ///
 /// A "bundle" is an immediate subdirectory carrying one of [`MANIFESTS`]. If

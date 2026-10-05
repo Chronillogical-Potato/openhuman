@@ -77,14 +77,20 @@ pub(crate) fn apply_requested_effort(thread_id: &str, raw: Option<&str>) -> Resu
 /// sub-agent runs at its provider default, since the user picked a level for
 /// the conversation, not for every delegated helper. `config` is the session
 /// config a hosted root turn carries (`OpenHumanHostBase::config`).
+///
+/// `max_output_tokens` is the turn's per-call output cap. When reasoning is
+/// on and the turn is capped, the config also carries a thinking budget
+/// ([`with_output_room`]) so the visible reply always has room left.
 pub(crate) fn turn_reasoning_for(
     ctx: &crate::agent::tinyagents::host::OpenHumanRunContext,
     config: Option<&Config>,
+    max_output_tokens: Option<u32>,
 ) -> Option<ReasoningConfig> {
     if ctx.spawn_depth > 0 {
         return None;
     }
-    let reasoning = turn_reasoning(ctx.thread_id.as_deref(), config);
+    let reasoning = turn_reasoning(ctx.thread_id.as_deref(), config)
+        .map(|reasoning| with_output_room(reasoning, max_output_tokens));
     if let Some(reasoning) = reasoning.as_ref() {
         log::debug!(
             "[agent][reasoning] turn reasoning effort={:?} budget_tokens={:?} thread_id={:?}",
@@ -106,6 +112,52 @@ pub(crate) fn turn_reasoning(
         return Some(ReasoningConfig::effort(effort));
     }
     config.and_then(reasoning_for_config)
+}
+
+/// Share of a turn's output cap a reasoning model may spend thinking. The rest
+/// is left for the visible reply — in an agent turn usually a tool call whose
+/// arguments can be a whole file. Without a budget only an effort level is
+/// sent, and a high-effort model can think through the entire cap and return
+/// `finish_reason = length` with no tool call (#6951).
+const REASONING_BUDGET_PERCENT: u32 = 55;
+
+/// Smallest thinking budget worth sending. Anthropic models (reached through
+/// OpenRouter or the managed backend, which pass `reasoning.max_tokens` on as
+/// a thinking budget) reject budgets under 1024; below it the effort level
+/// alone is sent.
+const MIN_REASONING_BUDGET_TOKENS: u32 = 1024;
+
+/// Adds a thinking budget of [`REASONING_BUDGET_PERCENT`] of the turn's output
+/// cap to an *enabled* reasoning config that has none.
+///
+/// Left unchanged: reasoning switched off (`effort = none`), no effort chosen
+/// (a bare budget would turn reasoning on where the provider default is off),
+/// an uncapped turn, a config that already names a budget, and a cap too small
+/// for [`MIN_REASONING_BUDGET_TOKENS`]. Only OpenRouter and the managed
+/// backend consume the budget, sending it as `reasoning.max_tokens`. Every
+/// other route sends what it sent before: native Anthropic keeps adaptive
+/// thinking with the effort (the budget applies there only with no effort),
+/// and plain OpenAI-compatible endpoints and the Responses API drop it.
+pub(crate) fn with_output_room(
+    mut reasoning: ReasoningConfig,
+    max_output_tokens: Option<u32>,
+) -> ReasoningConfig {
+    let enabled = matches!(reasoning.effort, Some(effort) if effort != ReasoningEffort::None);
+    if !enabled || reasoning.budget_tokens.is_some() {
+        return reasoning;
+    }
+    let Some(cap) = max_output_tokens else {
+        return reasoning;
+    };
+    let budget = (u64::from(cap) * u64::from(REASONING_BUDGET_PERCENT) / 100) as u32;
+    if budget < MIN_REASONING_BUDGET_TOKENS {
+        log::debug!(
+            "[agent][reasoning] output cap {cap} too small for a thinking budget; effort only"
+        );
+        return reasoning;
+    }
+    reasoning.budget_tokens = Some(budget);
+    reasoning
 }
 
 /// Parses a user-facing effort name. Accepts the wire tokens plus the aliases

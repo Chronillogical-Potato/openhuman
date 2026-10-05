@@ -29,6 +29,7 @@ pub(crate) mod harness_tool_registration;
 pub mod host;
 pub(crate) mod hosted_error;
 pub(crate) mod journal;
+mod memory_summarizer;
 pub(crate) mod middleware;
 pub(crate) mod model;
 pub(crate) mod observability;
@@ -49,7 +50,6 @@ mod policy_denial;
 pub(crate) mod reaper;
 pub(crate) mod reasoning;
 pub(crate) mod replay;
-pub(crate) mod retriever;
 mod routes;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
@@ -63,6 +63,7 @@ mod turn_run_error;
 mod turn_run_finalize;
 mod turn_runner;
 mod use_skill_dispatch;
+mod verify_before_finish;
 
 pub(crate) use crate::agent::message_convert::chat_message_to_message;
 #[cfg(feature = "flows")]

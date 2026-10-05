@@ -1,31 +1,8 @@
-//! OpenHuman's half of attachment handling.
+//! Legacy attachment marker compatibility and configuration adapters.
 //!
-//! The pipeline itself — marker parsing, `data:` URI decoding, MIME detection,
-//! size and count limits, the rendered payload — lives in
-//! [`tinyagents_harness::multimodal`]. What is left here is everything that
-//! depends on *this* host rather than on any host:
-//!
-//! | Kept here | Why it cannot be generic |
-//! | --- | --- |
-//! | [`TranscriptMessage`] adapters | the durable transcript record is OpenHuman's |
-//! | Config mapping | `MultimodalConfig` is a `config.toml` schema type |
-//! | The `reqwest::Client` | the runtime proxy and its timeouts are host policy |
-//! | [`DocumentsTextExtractor`] | PDF text comes from the `tinydocs` module, behind the `documents` gate and a host-chosen deadline |
-//! | The attachments stash | `<workspace>/attachments`, its size cap, and its TTL |
-//!
-//! The stash is the least obvious of these and the most load-bearing. A
-//! persisted message must never carry a raw `[IMAGE:data:…]` URI: a multi-MB
-//! base64 blob floods the prompt-injection scan, the memory auto-save (N chunks
-//! to embed), and the cross-thread JSONL index. So at ingress
-//! [`stash_image_attachments`] replaces each image marker with a compact
-//! `[Image: image #att:<id>]` placeholder and writes the bytes to disk, and at
-//! dispatch [`rehydrate_image_placeholders`] puts them back — but only for a
-//! vision-capable model, since a text-only one gains nothing from an image it
-//! cannot see.
-//!
-//! Disk-backed rather than an in-memory FIFO so attachments survive process
-//! restarts and long delegation chains: a sub-agent spawned several hops after
-//! ingress still resolves the image by id.
+//! New uploads are handled by `agent::attachments`: originals live beneath
+//! the acting workspace and provider bytes are prepared only on request copies.
+//! The older stash remains readable so existing conversations can resume.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -120,11 +97,8 @@ fn remote_client() -> Client {
     doc = "bounded by the module's own deadline."
 )]
 ///
-/// Claims `application/pdf` and nothing else. Every other binary format
-/// surfaces as a [`FilePayload::Reference`] without the module ever seeing the
-/// bytes — which matters more than it looks, because the module runs
-/// out-of-process and a speculative call would cost a bus round trip and a copy
-/// of the file per attachment.
+/// Claims `application/pdf` and nothing else. The native module runs in the
+/// core process; a wait deadline does not cancel its blocking parser work.
 pub struct DocumentsTextExtractor;
 
 #[async_trait]
@@ -544,11 +518,12 @@ fn row_has_image_placeholders(row: &TranscriptMessage) -> bool {
         })
 }
 
-/// Rehydrate `[Image: … #att:<id>]` placeholders back into inline
+/// Rehydrate `[Image: … #att:<id>]` placeholders back into local
 /// `[IMAGE:<path>]` markers pointing at the on-disk attachment, returning a
 /// provider-only copy. Resolution re-reads the file at dispatch. Placeholders
 /// whose id is absent (file evicted/swept, or written by a different workspace)
-/// keep their text. Call ONLY for vision-capable models.
+/// keep their text. The attachment host migrates managed sidecars into acting
+/// workspace originals before provider resolution, including text fallbacks.
 pub fn rehydrate_image_placeholders(messages: &[TranscriptMessage]) -> Vec<TranscriptMessage> {
     let index = build_attachment_index();
     messages
@@ -579,36 +554,26 @@ pub fn rehydrate_image_placeholders(messages: &[TranscriptMessage]) -> Vec<Trans
 
 // ── The on-disk attachment stash ─────────────────────────────────────────
 
-/// Soft cap on the on-disk attachments directory. After each write, oldest
-/// files (by mtime) are evicted until the total is back under this bound.
-const ATTACHMENTS_MAX_BYTES: u64 = 256 * 1024 * 1024;
-/// Age after which an attachment is considered stale and removed by the startup
-/// sweep ([`sweep_stale_attachments`]).
-const ATTACHMENTS_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+/// Preserve legacy conversation attachments without size-based eviction.
+const ATTACHMENTS_MAX_BYTES: u64 = u64::MAX;
+/// Legacy stash references remain durable alongside new workspace uploads.
+const ATTACHMENTS_TTL: Duration = Duration::MAX;
 
 /// Process-global on-disk attachments directory. Installed once at core startup
 /// via [`init_attachments_dir`].
 static ATTACHMENTS_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// Install the on-disk attachments directory (`<workspace>/attachments`). Call
-/// once at core startup. Idempotent — first writer wins. Best-effort fires a
-/// stale-file sweep when called inside a Tokio runtime.
+/// once at core startup. Idempotent — first writer wins.
 pub fn init_attachments_dir(dir: PathBuf) {
-    if ATTACHMENTS_DIR.set(dir).is_err() {
-        return;
-    }
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        handle.spawn(async {
-            sweep_stale_attachments().await;
-        });
-    }
+    let _ = ATTACHMENTS_DIR.set(dir);
 }
 
 /// Resolve the attachments dir, falling back to a **per-user private** dir when
 /// unset (CLI / direct invocation / tests that never called
 /// [`init_attachments_dir`]). The persistence-pollution fix and rehydration
 /// both hold either way.
-fn attachments_dir() -> PathBuf {
+pub(crate) fn attachments_dir() -> PathBuf {
     ATTACHMENTS_DIR
         .get()
         .cloned()
@@ -639,10 +604,9 @@ fn build_attachment_index() -> HashMap<String, PathBuf> {
     stash().build_index()
 }
 
-/// Delete attachments older than [`ATTACHMENTS_TTL`]. Best-effort startup sweep
-/// fired by [`init_attachments_dir`].
+/// Compatibility no-op: durable conversation attachments are not swept.
 pub async fn sweep_stale_attachments() {
-    stash().sweep_stale().await;
+    // Retained compatibility API. Conversation references do not expire.
 }
 
 #[cfg(test)]

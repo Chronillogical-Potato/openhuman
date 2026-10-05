@@ -16,13 +16,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/shell/SidebarSlot';
 import { registry } from '../../lib/commands/registry';
+import { threadApi } from '../../services/api/threadApi';
+import { chatSend } from '../../services/chatService';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
+import queueReducer from '../../store/queueSlice';
 import runModeReducer from '../../store/runModeSlice';
 import socketReducer from '../../store/socketSlice';
 import themeReducer from '../../store/themeSlice';
 import threadGoalReducer from '../../store/threadGoalSlice';
-import threadReducer from '../../store/threadSlice';
+import threadReducer, { markThreadInferenceActive } from '../../store/threadSlice';
 import threadTodosReducer from '../../store/threadTodosSlice';
 import type { Thread } from '../../types/thread';
 import Conversations from './Conversations';
@@ -154,6 +157,7 @@ function buildStore(preload: Record<string, unknown>) {
       layout: layoutReducer,
       socket: socketReducer,
       chatRuntime: chatRuntimeReducer,
+      queue: queueReducer,
       theme: themeReducer,
       threadTodos: threadTodosReducer,
       threadGoal: threadGoalReducer,
@@ -205,6 +209,7 @@ async function renderChat(
       </Provider>
     );
   });
+  return store;
 }
 
 async function submitComposerText(text: string) {
@@ -234,6 +239,63 @@ describe('the agent-process-source command follows the panel that hosts it', () 
   afterEach(() => {
     cleanup();
     registry.reset();
+  });
+
+  it('persists raw uploads once and sends the core returned durable reference', async () => {
+    const staged =
+      '[ATTACHMENT:%7B%22path%22%3A%22uploads%2Ft%2Fa%2Fphoto.png%22%2C%22name%22%3A%22photo.png%22%2C%22mime%22%3A%22image%2Fpng%22%2C%22size_bytes%22%3A3%7D]';
+    vi.mocked(threadApi.appendMessage).mockImplementationOnce(async (_id, message) => ({
+      ...message,
+      content: staged,
+    }));
+    await renderChat('text');
+    const picker = document.querySelector('input[type="file"]');
+    expect(picker).not.toBeNull();
+    fireEvent.change(picker!, {
+      target: { files: [new File([Uint8Array.of(1, 2, 3)], 'photo.png', { type: 'image/png' })] },
+    });
+    await waitFor(() => expect(screen.getByText('photo.png')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('send-message-button'));
+    await waitFor(() => expect(chatSend).toHaveBeenCalled());
+    const uploaded = vi.mocked(threadApi.appendMessage).mock.calls.at(-1)![1];
+    expect(uploaded.content).toContain('[IMAGE:data:image/png;name=photo.png;base64,AQID]');
+    expect(JSON.stringify(uploaded.extraMetadata)).not.toContain('base64');
+    expect(uploaded.extraMetadata).not.toHaveProperty('attachmentDataUris');
+    expect(chatSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({ threadId: THREAD_ID, message: staged })
+    );
+  });
+
+  it('keeps queued raw upload content only in memory until the core append flush', async () => {
+    vi.mocked(threadApi.appendMessage).mockClear();
+    vi.mocked(chatSend).mockClear();
+    const store = await renderChat('text');
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: {
+        files: [new File([Uint8Array.of(1, 2, 3)], 'archive.zip', { type: 'application/zip' })],
+      },
+    });
+    await waitFor(() => expect(screen.getByText('archive.zip')).toBeInTheDocument());
+    await act(async () => {
+      store.dispatch(markThreadInferenceActive(THREAD_ID));
+    });
+    fireEvent.click(screen.getByTestId('send-message-button'));
+    await waitFor(() => expect(chatSend).toHaveBeenCalled());
+    expect(chatSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        queueMode: 'followup',
+        message: '[FILE:data:application/zip;name=archive.zip;base64,AQID]',
+      })
+    );
+    expect(threadApi.appendMessage).not.toHaveBeenCalled();
+    const pending = store.getState().queue.pendingFollowupsByThread[THREAD_ID][0].message;
+    expect(pending.content).toBe('[FILE:data:application/zip;name=archive.zip;base64,AQID]');
+    expect(pending.extraMetadata).toEqual({
+      attachmentCount: 1,
+      attachmentNames: ['archive.zip'],
+      attachmentKinds: ['file'],
+      attachmentCompressed: [false],
+    });
   });
 
   it('is disabled when the assistant-ui surface has no process data to show', async () => {

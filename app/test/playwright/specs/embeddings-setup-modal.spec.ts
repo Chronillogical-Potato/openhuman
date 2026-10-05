@@ -37,7 +37,7 @@ const TEST_CONNECTION = /Test connection/i;
 
 async function openEmbeddingsTab(page: import('@playwright/test').Page, userId: string) {
   await bootRuntimeReadyGuestPage(page);
-  await signInViaBypassUser(page, userId);
+  await signInViaBypassUser(page, userId, { waitForInitialThread: true });
   await page.evaluate(() => {
     try {
       localStorage.setItem('openhuman:walkthrough_completed', 'true');
@@ -117,7 +117,6 @@ test.describe('Embeddings setup — Test connection for a custom endpoint', () =
       custom_endpoint: endpoint,
       model: 'e2e-custom-embedding',
       dimensions: 1024,
-      confirm_wipe: true,
     });
 
     await page.reload();

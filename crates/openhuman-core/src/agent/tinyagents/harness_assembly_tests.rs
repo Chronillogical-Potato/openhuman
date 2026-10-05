@@ -85,6 +85,7 @@ fn registered_tool_names(has_thread: bool) -> Vec<String> {
         None,
         None,
         has_thread,
+        None,
     );
     assembled.harness.tools().names()
 }

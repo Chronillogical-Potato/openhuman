@@ -149,7 +149,11 @@ export async function signInViaCallbackToken(page: Page, token: string): Promise
   await waitForAppReady(page);
 }
 
-export async function signInViaBypassUser(page: Page, userId: string): Promise<void> {
+export async function signInViaBypassUser(
+  page: Page,
+  userId: string,
+  options: { waitForInitialThread?: boolean } = {}
+): Promise<void> {
   await resetCoreForWebUser(userId);
   await applyBrowserCoreModeInPage(page);
   await page.goto('/#/home');
@@ -160,6 +164,36 @@ export async function signInViaBypassUser(page: Page, userId: string): Promise<v
     })
     .toMatch(/^#\/chat/);
   await waitForAppReady(page);
+  if (options.waitForInitialThread) {
+    // Some fresh profiles create an initial thread asynchronously; others
+    // leave the valid `/chat` landing route without one. Route-only tests need
+    // a settled thread route before setting another hash, so select the chat
+    // Select the current row explicitly: Redux can restore a selected ID while
+    // the URL remains at `/chat`, and clicking New Conversation in that gap can
+    // race with the pending route update.
+    const selectedThreadId = await page.evaluate(() => {
+      const store = (
+        window as unknown as {
+          __OPENHUMAN_STORE__?: {
+            getState?: () => { thread?: { selectedThreadId?: string | null } };
+          };
+        }
+      ).__OPENHUMAN_STORE__;
+      return store?.getState?.().thread?.selectedThreadId ?? null;
+    });
+    if (selectedThreadId) {
+      const selectedRow = page.getByTestId(`thread-row-${selectedThreadId}`);
+      await expect(selectedRow).toBeVisible();
+      await selectedRow.click();
+    } else {
+      await page.getByTestId('new-thread-button').click({ force: true });
+    }
+    await expect
+      .poll(async () => page.evaluate(() => window.location.hash), {
+        timeout: AUTH_CALLBACK_HOME_TIMEOUT_MS,
+      })
+      .toMatch(/^#\/chat\/thread-[^/?]+/);
+  }
 }
 
 export async function bootAuthenticatedPage(

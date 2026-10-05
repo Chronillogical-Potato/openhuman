@@ -274,7 +274,7 @@ async fn unknown_method_severity_split_by_probe_allow_list() {
 
 #[cfg(feature = "crash-reporting")]
 #[tokio::test(flavor = "current_thread")]
-async fn invalid_ingest_payload_is_captured_at_warn_not_error() {
+async fn invalid_memory_ingest_is_not_reported_to_sentry() {
     // #5169 (CORE-RUST-1P0): a caller submitting an ingest payload that does
     // not match the canonicaliser schema is a *caller* error — the handler
     // already names the offending field and no core change can fix a producer
@@ -321,18 +321,14 @@ async fn invalid_ingest_payload_is_captured_at_warn_not_error() {
     );
     let _subscriber_guard = tracing::subscriber::set_default(subscriber);
 
-    // `platform` is genuinely required by `ChatBatch` (unlike `timestamp`,
-    // which now defaults — see `chat_payload_without_timestamp_is_accepted`),
-    // so this reaches the invalid-payload branch rather than succeeding.
+    // A missing file is an expected input error for the current memory v2
+    // ingest endpoint, so it should be returned to the caller without a
+    // Sentry event.
     let request = crate::RpcRequest {
         jsonrpc: "2.0".to_string(),
         id: json!(1),
-        method: "openhuman.memory_tree_ingest".to_string(),
-        params: json!({
-            "source_kind": "chat",
-            "source_id": "#general",
-            "payload": { "messages": [] },
-        }),
+        method: "openhuman.memory_brain_ingest".to_string(),
+        params: json!({ "path": "/openhuman-test/missing-memory-ingest-file" }),
     };
     let response = rpc_handler(State(default_state()), Json(request)).await;
     let body = to_bytes(response.into_body(), usize::MAX)
@@ -340,29 +336,19 @@ async fn invalid_ingest_payload_is_captured_at_warn_not_error() {
         .expect("response body");
     let body: serde_json::Value = serde_json::from_slice(&body).expect("json response");
 
-    // The caller still gets the precise, unchanged validation error.
+    // The caller still gets the validation error.
     assert_eq!(body["error"]["code"], json!(-32000));
     let message = body["error"]["message"]
         .as_str()
         .expect("error message string");
     assert!(
-        message.starts_with("invalid chat payload: "),
-        "expected an invalid-chat-payload error, got {message:?}"
+        message.contains("cannot read the file:"),
+        "expected a missing-file validation error, got {message:?}"
     );
 
     let events = transport.fetch_and_clear_events();
-    assert_eq!(
-        events.len(),
-        1,
-        "invalid ingest payloads should still be captured for triage"
-    );
-    assert_eq!(
-        events[0].level,
-        sentry::Level::Warning,
-        "caller payload errors must be warn-level (triage, not paging)"
-    );
-    assert_eq!(
-        events[0].tags.get("method").map(String::as_str),
-        Some("openhuman.memory_tree_ingest")
+    assert!(
+        events.is_empty(),
+        "expected user input errors should not be reported to Sentry"
     );
 }

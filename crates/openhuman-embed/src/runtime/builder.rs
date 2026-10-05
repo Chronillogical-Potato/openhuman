@@ -32,6 +32,7 @@ pub struct RuntimeBuilder {
     backend_url: Option<String>,
     api_key: Option<ApiKey>,
     backend_transport: Option<Arc<dyn BackendTransport>>,
+    memory_engine: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
 }
 
 impl Default for RuntimeBuilder {
@@ -58,6 +59,7 @@ impl RuntimeBuilder {
             backend_url: None,
             api_key: None,
             backend_transport: None,
+            memory_engine: None,
         }
     }
 
@@ -72,6 +74,19 @@ impl RuntimeBuilder {
     /// and a builder that installs it for you.
     pub fn backend_transport(mut self, transport: Arc<dyn BackendTransport>) -> Self {
         self.backend_transport = Some(transport);
+        self
+    }
+
+    /// The memory engine every agent and [`Runtime::memory`] use, in place of
+    /// the configured `[memory]` engine (TinyHumans over the backend
+    /// credential, or CortexDB with a stored key).
+    ///
+    /// For a host that owns its memory store, or a test that wants
+    /// TinyMemory's in-memory reference engine: memory then runs without a
+    /// TinyHumans credential. The engine's writes are scrubbed like any
+    /// other's. It is process-wide, as the runtime is.
+    pub fn memory_engine(mut self, engine: Arc<dyn tinymemory_api::MemoryEngine>) -> Self {
+        self.memory_engine = Some(engine);
         self
     }
 
@@ -203,6 +218,9 @@ impl RuntimeBuilder {
     async fn build_inner(self) -> Result<Runtime, RuntimeError> {
         if self.api_key.as_ref().is_some_and(ApiKey::is_blank) {
             return Err(RuntimeError::BlankApiKey);
+        }
+        if let Some(engine) = self.memory_engine.clone() {
+            openhuman_core::memory::engine::install_host_engine(engine);
         }
         let inherit = self.workspace.is_operator_owned();
         let resolved = ResolvedWorkspace::resolve(&self.workspace, None).map_err(map_ws)?;

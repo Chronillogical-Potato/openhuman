@@ -198,7 +198,7 @@ fn build_turn_models_crate(
     primary_override: Option<&str>,
     provider_id: String,
     native_tools: bool,
-    supports_vision: bool,
+    _supports_vision: bool,
     thread_id: Option<&str>,
 ) -> anyhow::Result<TurnModels> {
     use crate::inference::provider::factory;
@@ -216,7 +216,12 @@ fn build_turn_models_crate(
             let (backend, _) =
                 factory::make_openhuman_backend_model_for_thread(role, config, m, true, thread_id)?;
             return Ok(Arc::new(RouteRecordingModel::new(
-                backend,
+                crate::agent::attachments::provider::wrap(
+                    backend,
+                    Arc::new(config.clone()),
+                    m,
+                    "openhuman",
+                ),
                 ResolvedModelRoute::new("openhuman", m, m),
             )));
         }
@@ -238,7 +243,12 @@ fn build_turn_models_crate(
             ),
         }?;
         Ok(Arc::new(RouteRecordingModel::new(
-            model,
+            crate::agent::attachments::provider::wrap(
+                model,
+                Arc::new(config.clone()),
+                &resolved_model,
+                &provider,
+            ),
             ResolvedModelRoute::new(provider, resolved_model, m),
         )))
     };
@@ -280,7 +290,12 @@ fn build_turn_models_crate(
                     Ok((route_model, provider, resolved_model)) => routes.push((
                         tier.to_string(),
                         Arc::new(RouteRecordingModel::new(
-                            route_model,
+                            crate::agent::attachments::provider::wrap(
+                                route_model,
+                                Arc::new(config.clone()),
+                                &resolved_model,
+                                &provider,
+                            ),
                             ResolvedModelRoute::new(provider, resolved_model, tier),
                         )),
                     )),
@@ -303,6 +318,7 @@ fn build_turn_models_crate(
             anyhow::Ok((primary, routes, summarizer))
         })?;
 
+    let supports_vision = primary.profile().is_some_and(|p| p.modalities.image_in);
     Ok(TurnModels {
         primary,
         routes,
@@ -330,6 +346,8 @@ pub struct TurnModelSource {
     /// A directly injected crate model. This is the replacement test seam for
     /// provider-backed mocks while WP-1 removes `native model adapter`.
     pub(crate) direct_model: Option<TurnChatModel>,
+    /// Acting-workspace config for injected models that resolve attachments.
+    attachment_config: Option<Arc<crate::config::Config>>,
     /// When set, [`build`](Self::build) / [`build_summarizer`](Self::build_summarizer)
     /// construct **crate-native** models from `(role, config)` (Phase 3 P3-B) via
     /// [`build_turn_models_crate`]. Crate-native sources keep `provider` as
@@ -359,8 +377,16 @@ impl TurnModelSource {
     pub fn from_model(model: TurnChatModel) -> Self {
         Self {
             direct_model: Some(model),
+            attachment_config: None,
             crate_native: None,
         }
+    }
+
+    /// Bind acting-workspace attachment policy to an injected model source.
+    /// Factory-backed sources already carry their own scoped config.
+    pub(crate) fn with_attachment_config(mut self, config: Arc<crate::config::Config>) -> Self {
+        self.attachment_config = Some(config);
+        self
     }
 
     /// Inject a model while supplying capability metadata that the model itself
@@ -383,6 +409,7 @@ impl TurnModelSource {
     ) -> Self {
         Self {
             direct_model: None,
+            attachment_config: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
@@ -403,6 +430,7 @@ impl TurnModelSource {
     ) -> Self {
         Self {
             direct_model: None,
+            attachment_config: None,
             crate_native: Some(CrateNativeSource {
                 role: role.into(),
                 config,
@@ -466,10 +494,20 @@ impl TurnModelSource {
                     .with_request_model(model)
                     .with_request_temperature(temperature),
             );
+            let (primary, summarizer) = match &self.attachment_config {
+                Some(config) => (
+                    crate::agent::attachments::provider::wrap_injected(primary, config.clone()),
+                    crate::agent::attachments::provider::wrap_injected(
+                        direct.clone(),
+                        config.clone(),
+                    ),
+                ),
+                None => (primary, direct.clone()),
+            };
             return Ok(TurnModels {
                 primary,
                 routes: Vec::new(),
-                summarizer: direct.clone(),
+                summarizer,
                 error_slot: Arc::new(std::sync::Mutex::new(None)),
                 provider_id,
                 context_window,
@@ -523,11 +561,17 @@ impl TurnModelSource {
     ) -> anyhow::Result<Arc<dyn tinyinference_llm::model::ChatModel<()>>> {
         if let Some(direct) = &self.direct_model {
             let profile = direct.profile().cloned().unwrap_or_default();
-            return Ok(Arc::new(
+            let summarizer: TurnChatModel = Arc::new(
                 ProfileOverrideModel::new(direct.clone(), profile)
                     .with_request_model(model)
                     .with_request_temperature(temperature),
-            ));
+            );
+            return Ok(match &self.attachment_config {
+                Some(config) => {
+                    crate::agent::attachments::provider::wrap_injected(summarizer, config.clone())
+                }
+                None => summarizer,
+            });
         }
         if let Some(cn) = &self.crate_native {
             let managed = cn
@@ -550,7 +594,7 @@ impl TurnModelSource {
                     true,
                     thread_id,
                 )
-                .map(|(model, _)| model);
+                .map(|(inner, _)| crate::agent::attachments::provider::wrap(inner, cn.config.clone(), model, "openhuman"));
             }
             let built = match cn.primary_override.as_deref() {
                 Some(ps) => {
@@ -569,7 +613,24 @@ impl TurnModelSource {
                     temperature,
                 ),
             };
-            return built;
+            return built.map(|inner| {
+                let provider = inner
+                    .profile()
+                    .and_then(|p| p.provider.as_deref())
+                    .unwrap_or("unknown")
+                    .to_owned();
+                let resolved = inner
+                    .profile()
+                    .and_then(|p| p.model.as_deref())
+                    .unwrap_or(model)
+                    .to_owned();
+                crate::agent::attachments::provider::wrap(
+                    inner,
+                    cn.config.clone(),
+                    &resolved,
+                    &provider,
+                )
+            });
         }
         Err(anyhow::anyhow!("turn model source is missing a model"))
     }

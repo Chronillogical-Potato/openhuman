@@ -52,7 +52,7 @@ export const TOOL_CATALOG: ToolDefinition[] = [
     description: 'Create or modify files on disk.',
     category: 'Files',
     defaultEnabled: true,
-    rustToolNames: ['file_write', 'update_memory_md'],
+    rustToolNames: ['file_write'],
   },
 
   // Vision
@@ -101,28 +101,12 @@ export const TOOL_CATALOG: ToolDefinition[] = [
 
   // Memory
   {
-    id: 'memory_store',
-    displayName: 'Store Memory',
-    description: 'Save information for later recall.',
+    id: 'memory',
+    displayName: 'Memory',
+    description: 'Recall, search, learn and forget long-term memory.',
     category: 'Memory',
     defaultEnabled: true,
-    rustToolNames: ['memory_store'],
-  },
-  {
-    id: 'memory_recall',
-    displayName: 'Recall Memory',
-    description: 'Retrieve previously stored information.',
-    category: 'Memory',
-    defaultEnabled: true,
-    rustToolNames: ['memory_recall'],
-  },
-  {
-    id: 'memory_forget',
-    displayName: 'Forget Memory',
-    description: 'Remove stored information.',
-    category: 'Memory',
-    defaultEnabled: true,
-    rustToolNames: ['memory_forget'],
+    rustToolNames: ['memory'],
   },
 
   // Automation
@@ -190,11 +174,23 @@ export function getEnabledRustToolNames(enabledIds: string[]): string[] {
  * Handles three cases:
  *   - Entry is already a UI toggle ID  → kept as-is
  *   - Entry is a Rust tool name        → converted to its UI toggle ID
+ *   - Entry is a retired ID or name    → converted to its successor toggle
  *   - Entry is unknown                 → dropped
  *
  * Multiple Rust names that belong to the same UI toggle (e.g. "cron_add",
  * "cron_list" both map to "cron") are deduplicated in the output.
  */
+/**
+ * Retired toggle IDs / Rust tool names → the toggle that replaced them, so a
+ * persisted list written before the rename keeps the tool on. The three memory
+ * tools became the single `memory` tool (recall | fetch | learn | forget).
+ */
+const RETIRED_TOOL_IDS: Record<string, string> = {
+  memory_store: 'memory',
+  memory_recall: 'memory',
+  memory_forget: 'memory',
+};
+
 export function normalizeEnabledToolList(raw: string[]): string[] {
   const rustToUiId = new Map<string, string>();
   for (const tool of TOOL_CATALOG) {
@@ -208,7 +204,7 @@ export function normalizeEnabledToolList(raw: string[]): string[] {
     if (allUiIds.has(entry)) {
       result.add(entry);
     } else {
-      const uiId = rustToUiId.get(entry);
+      const uiId = rustToUiId.get(entry) ?? RETIRED_TOOL_IDS[entry];
       if (uiId !== undefined) result.add(uiId);
     }
   }

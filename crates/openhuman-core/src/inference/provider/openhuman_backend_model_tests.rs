@@ -42,6 +42,52 @@ fn managed_model_advertises_tool_and_vision_capabilities() {
 }
 
 #[test]
+fn managed_model_supports_only_serializable_native_media_inputs() {
+    use tinyinference_llm::model::{InputModality, InputSource};
+
+    let model = backend();
+    for mime in ["image/png", "image/jpeg", "image/webp", "image/gif"] {
+        for source in [InputSource::Base64, InputSource::Url] {
+            assert!(
+                model.supports_input(InputModality::Image, mime, source),
+                "managed transport should serialize {mime} from {source:?}"
+            );
+        }
+    }
+
+    for mime in ["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp3"] {
+        assert!(
+            model.supports_input(InputModality::Audio, mime, InputSource::Base64),
+            "managed transport should serialize inline {mime}"
+        );
+        assert!(
+            !model.supports_input(InputModality::Audio, mime, InputSource::Url),
+            "managed transport must not advertise URL serialization for {mime}"
+        );
+    }
+
+    for modality in [InputModality::Image, InputModality::Audio] {
+        for source in [InputSource::Base64, InputSource::Url, InputSource::Path] {
+            assert!(
+                !model.supports_input(modality, "application/pdf", source),
+                "managed transport must reject PDF as {modality:?}/{source:?}"
+            );
+        }
+    }
+    for modality in [InputModality::Video, InputModality::Document] {
+        for source in [InputSource::Base64, InputSource::Url, InputSource::Path] {
+            assert!(
+                !model.supports_input(modality, "application/octet-stream", source),
+                "managed transport must reject {modality:?}/{source:?}"
+            );
+        }
+    }
+    assert!(!model.supports_input(InputModality::Image, "image/tiff", InputSource::Base64));
+    assert!(!model.supports_input(InputModality::Audio, "audio/ogg", InputSource::Base64));
+    assert!(!model.supports_input(InputModality::Image, "image/png", InputSource::Path));
+}
+
+#[test]
 fn resolve_model_normalizes_blank_and_trims_non_empty_values() {
     assert_eq!(resolve_model(""), crate::config::MODEL_MANAGED_DEFAULT);
     assert_eq!(resolve_model(" \t\n"), crate::config::MODEL_MANAGED_DEFAULT);

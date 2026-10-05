@@ -144,9 +144,7 @@ pub(in super::super) async fn run_subagent_via_graph(
     // advertises vision or the sub-agent model is user-flagged as vision-capable
     // (BYOK/custom). The expanded copy is provider-only — the persisted `history`
     // written back below keeps the original markers.
-    let dispatch_history = if (turn_models.supports_vision() || model_vision)
-        && crate::agent::multimodal::has_image_placeholders(history)
-    {
+    let dispatch_history = if crate::agent::multimodal::has_image_placeholders(history) {
         crate::agent::multimodal::rehydrate_image_placeholders(history)
     } else {
         history.clone()

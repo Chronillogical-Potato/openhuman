@@ -36,6 +36,49 @@ fn definition() -> crate::agent::harness::definition::AgentDefinition {
     super::wildcard_probe_def()
 }
 
+#[test]
+fn host_scope_additions_respect_named_and_withheld_tools() {
+    let mut definition = definition();
+    definition.tools = crate::agent::harness::definition::ToolScope::Named(vec![
+        "base".into(),
+        "already_withheld".into(),
+    ]);
+    definition.extra_tools = vec!["already_withheld".into(), "base".into()];
+    let host_tools = super::super::host_tools::MergedHostTurnTools {
+        policy: None,
+        withheld: std::collections::HashSet::from(["already_withheld".into(), "hidden".into()]),
+        permanent: std::collections::HashSet::new(),
+        scope_additions: std::collections::HashSet::from(["host_visible".into()]),
+    };
+
+    let resolved = super::super::host_tools::scope_def(Some(&definition), &host_tools).unwrap();
+    assert!(matches!(
+        &resolved.tools,
+        crate::agent::harness::definition::ToolScope::Named(names)
+            if names.len() == 1 && names[0] == "base"
+    ));
+    assert_eq!(resolved.extra_tools, vec!["base", "host_visible"]);
+}
+
+#[test]
+fn host_scope_additions_leave_wildcard_definitions_unchanged() {
+    let mut definition = definition();
+    definition.extra_tools = vec!["existing".into()];
+    let host_tools = super::super::host_tools::MergedHostTurnTools {
+        policy: None,
+        withheld: std::collections::HashSet::from(["existing".into()]),
+        permanent: std::collections::HashSet::new(),
+        scope_additions: std::collections::HashSet::from(["host_visible".into()]),
+    };
+
+    let resolved = super::super::host_tools::scope_def(Some(&definition), &host_tools).unwrap();
+    assert_eq!(resolved.extra_tools, vec!["existing"]);
+    assert!(matches!(
+        resolved.tools,
+        crate::agent::harness::definition::ToolScope::Wildcard
+    ));
+}
+
 /// The whole point: a name the host supplied is callable, and the model is
 /// told about it. Advertised-but-absent is a call that fails; present-but-
 /// unadvertised is a tool the model never reaches for.
@@ -340,4 +383,67 @@ fn a_host_tool_overrides_a_config_tool_of_the_same_name() {
         executable, "a test marker",
         "the tool that runs must be the host's, matching the spec advertised for it"
     );
+}
+
+/// Attaching a permanent tool before turn one must retain the original wildcard
+/// native surface; the empty visible set is its builder sentinel.
+#[test]
+fn permanent_attachment_preserves_a_fresh_wildcard_belt() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let definition = definition();
+    let baseline =
+        crate::agent::OpenHumanSessionHost::from_config_with_definition(&config, &definition)
+            .unwrap();
+    let original: std::collections::HashSet<_> = baseline
+        .visible_tool_specs_arc()
+        .iter()
+        .map(|spec| spec.name.clone())
+        .collect();
+    assert!(!original.is_empty());
+    let host: crate::agent::HostTools = Arc::new(|_| {
+        let mut tools =
+            crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("attached_marker"))]);
+        tools.permanent.insert("attached_marker".into());
+        tools
+    });
+    let attached = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
+        &config,
+        &definition,
+        &host,
+        None,
+    )
+    .unwrap();
+    let names: std::collections::HashSet<_> = attached
+        .visible_tool_specs_arc()
+        .iter()
+        .map(|spec| spec.name.clone())
+        .collect();
+    assert!(
+        original.is_subset(&names),
+        "native names lost: {:?}",
+        original.difference(&names).collect::<Vec<_>>()
+    );
+    assert!(names.contains("attached_marker"));
+}
+
+#[test]
+fn permanent_metadata_without_a_source_is_rejected_before_build() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let host: crate::agent::HostTools = Arc::new(|_| crate::agent::HostTurnTools {
+        permanent: std::collections::HashSet::from(["missing_source".into()]),
+        ..Default::default()
+    });
+    let error = crate::agent::OpenHumanSessionHost::from_config_with_host_tools(
+        &config,
+        &definition(),
+        &host,
+        None,
+    )
+    .err()
+    .expect("inconsistent permanent metadata must be rejected");
+    assert!(error
+        .to_string()
+        .contains("permanent tool must have exactly one source: missing_source"));
 }

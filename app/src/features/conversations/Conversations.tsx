@@ -50,6 +50,7 @@ import {
   type Attachment,
   ATTACHMENT_MAX_FILES,
   ATTACHMENT_MAX_IMAGES,
+  attachmentMetadata,
   buildMessageWithAttachments,
   imageMarkerCost,
   parseMessageImages,
@@ -505,48 +506,21 @@ const Conversations = ({
       });
   }, []);
 
-  // Whether the resolved model accepts image input.
-  // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
-  // the composer's image-attachment affordance (docs flow regardless). Resolved
-  // against the non-attachment hint so the affordance is stable as you attach.
-  const [modelSupportsVision, setModelSupportsVision] = useState(false);
-  // Whether a vision-capable delegate (the `vision` sub-agent) is reachable.
-  // When it is, an image may be attached and routed to that sub-agent even if
-  // the active orchestrator model is non-vision — the orchestrator sees a text
-  // placeholder and delegates the image to the vision sub-agent. Resolved from
-  // the `vision` workload route (the managed default on the managed backend, or the BYOK
-  // model routed to the Vision workload).
-  const [visionDelegateAvailable, setVisionDelegateAvailable] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // Resolve the standard chat model so `modelSupportsVision` reflects the
-        // normal agent path, AND the vision workload so we know whether a
-        // vision sub-agent can take the image. Documents are text-extracted so
-        // any model handles them.
         const hint = composerModelOverride ?? CHAT_MODEL_HINT;
-        const [res, visionRes] = await Promise.all([
-          callCoreRpc<{ model: string; vision?: boolean }>({
-            method: 'openhuman.inference_resolve_model',
-            params: { hint },
-          }),
-          callCoreRpc<{ model: string; vision?: boolean }>({
-            method: 'openhuman.inference_resolve_model',
-            params: { hint: 'hint:vision' },
-          }).catch(() => ({ model: '', vision: false })),
-        ]);
+        const res = await callCoreRpc<{ model: string }>({
+          method: 'openhuman.inference_resolve_model',
+          params: { hint },
+        });
         if (!cancelled) {
           setResolvedModel(res.model);
-          setModelSupportsVision(res.vision === true);
-          setVisionDelegateAvailable(visionRes.vision === true);
         }
       } catch {
         if (!cancelled) {
           setResolvedModel(null);
-          setModelSupportsVision(false);
-          setVisionDelegateAvailable(false);
         }
       }
     })();
@@ -1061,35 +1035,17 @@ const Conversations = ({
     // can fire before React re-renders. Both would then seed their budget from
     // the same snapshot and each admit a full quota.
     const admitted = attachmentsRef.current;
-    let acceptedFileCount = admitted.filter(attachment => attachment.kind === 'file').length;
-    // Images and videos share one image-marker budget (video = its frames), so
-    // track consumed markers rather than per-kind counts.
+    let acceptedFileCount = admitted.filter(attachment => attachment.kind !== 'image').length;
+    // Only original images consume image markers; videos consume file slots.
     let acceptedImageMarkers = admitted.reduce(
       (sum, attachment) => sum + imageMarkerCost(attachment.kind),
       0
     );
     for (const file of Array.from(files)) {
-      const result = await validateAndReadFile(
-        file,
-        acceptedImageMarkers,
-        acceptedFileCount,
-        // Allow images AND video when the active model is vision-capable OR a
-        // vision sub-agent can take it (orchestrator delegates the image/frames
-        // onward). Video is sampled into still frames that ride the same path.
-        modelSupportsVision || visionDelegateAvailable
-      );
+      const result = await validateAndReadFile(file, acceptedImageMarkers, acceptedFileCount);
       if ('error' in result) {
         const { error } = result;
-        if (error.code === 'image_not_supported') {
-          setAttachError(
-            chatSendError('attachment_invalid', t('chat.attachment.imageNotSupported'))
-          );
-        } else if (error.code === 'video_not_supported') {
-          setAttachError(
-            chatSendError('attachment_invalid', t('chat.attachment.videoNotSupported'))
-          );
-        } else if (error.code === 'too_many') {
-          // image/video share the image-marker budget → tooMany; files separate.
+        if (error.code === 'too_many') {
           const key =
             error.kind === 'file' ? 'chat.attachment.tooManyFiles' : 'chat.attachment.tooMany';
           setAttachError(
@@ -1103,14 +1059,12 @@ const Conversations = ({
               t('chat.attachment.tooLarge').replace('{max}', `${maxMb} MB`)
             )
           );
-        } else if (error.code === 'unsupported_type') {
-          setAttachError(chatSendError('attachment_invalid', t('chat.attachment.unsupportedType')));
         } else {
           setAttachError(chatSendError('attachment_invalid', t('chat.attachment.readFailed')));
         }
         return;
       }
-      if (result.attachment.kind === 'file') {
+      if (result.attachment.kind !== 'image') {
         acceptedFileCount++;
       } else {
         acceptedImageMarkers += imageMarkerCost(result.attachment.kind);
@@ -1199,34 +1153,22 @@ const Conversations = ({
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? undefined;
-    const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
+    let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
-      content: trimmed,
+      content: messageText,
       type: 'text',
-      extraMetadata:
-        pendingAttachments.length > 0
-          ? {
-              attachmentCount: pendingAttachments.length,
-              attachmentNames: pendingAttachments.map(a => a.file.name),
-              attachmentKinds: pendingAttachments.map(a => a.kind),
-              attachmentDataUris: pendingAttachments
-                .filter(a => a.kind === 'image')
-                .map(a => a.previewUri ?? a.dataUri),
-              // Poster (first frame) per attachment, index-aligned with
-              // attachmentKinds — only video entries carry one; others null.
-              attachmentPosters: pendingAttachments.map(a =>
-                a.kind === 'video' ? (a.previewUri ?? a.dataUri) : null
-              ),
-              attachmentCompressed: pendingAttachments.map(a => a.compressed),
-            }
-          : {},
+      extraMetadata: attachmentMetadata(pendingAttachments),
       sender: 'user',
       createdAt: new Date().toISOString(),
     };
 
     try {
-      await dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage })).unwrap();
+      const persisted = await dispatch(
+        addMessageLocal({ threadId: sendingThreadId, message: userMessage })
+      ).unwrap();
+      // The core saved the originals before returning this durable reference.
+      messageText = persisted.message.content;
     } catch (error) {
       // RTK's unwrap() re-throws the rejectWithValue payload directly (a plain
       // string, not an Error). Check for the stale-thread sentinel before
@@ -1341,25 +1283,9 @@ const Conversations = ({
     }`;
     const followupMessage: ThreadMessage = {
       id: messageId,
-      content: normalized,
+      content: messageText,
       type: 'text',
-      extraMetadata:
-        pendingAttachments.length > 0
-          ? {
-              attachmentCount: pendingAttachments.length,
-              attachmentNames: pendingAttachments.map(a => a.file.name),
-              attachmentKinds: pendingAttachments.map(a => a.kind),
-              attachmentDataUris: pendingAttachments
-                .filter(a => a.kind === 'image')
-                .map(a => a.previewUri ?? a.dataUri),
-              // Poster (first frame) per attachment, index-aligned with
-              // attachmentKinds — only video entries carry one; others null.
-              attachmentPosters: pendingAttachments.map(a =>
-                a.kind === 'video' ? (a.previewUri ?? a.dataUri) : null
-              ),
-              attachmentCompressed: pendingAttachments.map(a => a.compressed),
-            }
-          : {},
+      extraMetadata: attachmentMetadata(pendingAttachments),
       sender: 'user',
       createdAt: new Date().toISOString(),
     };

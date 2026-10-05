@@ -34,6 +34,19 @@ describe('normalizeEnabledToolList', () => {
     expect(result).toEqual(['cron']);
   });
 
+  it('maps the retired memory_store / memory_recall / memory_forget toggles to memory', () => {
+    expect(normalizeEnabledToolList(['memory_store', 'memory_recall', 'memory_forget'])).toEqual([
+      'memory',
+    ]);
+  });
+
+  it('exposes one memory toggle backed by the single memory tool', () => {
+    const memory = TOOL_CATALOG.filter(tool => tool.category === 'Memory');
+    expect(memory.map(tool => tool.id)).toEqual(['memory']);
+    expect(memory[0].rustToolNames).toEqual(['memory']);
+    expect(TOOL_CATALOG.flatMap(tool => tool.rustToolNames)).not.toContain('update_memory_md');
+  });
+
   it('drops unknown entries', () => {
     const result = normalizeEnabledToolList(['shell', 'totally_unknown_tool']);
     expect(result).toEqual(['shell']);

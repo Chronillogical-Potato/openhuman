@@ -1,0 +1,219 @@
+use super::*;
+
+use tinymemory_api::{
+    ItemKind, LearningKind, MemoryEngine, MemoryMeta, MetaFilter, Role, StoreItem,
+};
+
+use crate::memory::scope::MemoryIdentity;
+use crate::memory::test_fixtures::{bind_reference, config_in, stored};
+
+fn input(thread: &str, index: u32, text: &str) -> PreTurnInput {
+    PreTurnInput {
+        thread_id: thread.to_string(),
+        turn_index: index,
+        user_text: text.to_string(),
+        in_prompt_from: 0,
+        at: Utc::now(),
+        resumed_after_compaction: false,
+    }
+}
+
+fn reply(thread: &str, index: u32, text: &str) -> PostTurnInput {
+    PostTurnInput {
+        thread_id: thread.to_string(),
+        turn_index: index,
+        assistant_text: text.to_string(),
+        tool_calls: Vec::new(),
+        at: Utc::now(),
+    }
+}
+
+#[test]
+fn turn_indices_follow_the_committed_transcript() {
+    assert_eq!(user_turn_index(0), 0);
+    assert_eq!(user_turn_index(3), 6);
+}
+
+#[test]
+fn a_logged_reply_keeps_one_line_per_tool_result() {
+    let calls = vec![
+        ToolCallSummary {
+            name: "web_search".into(),
+            id: Some("c1".into()),
+            result: Some("  Rust 1.90\n released   today ".into()),
+        },
+        ToolCallSummary {
+            name: "noop".into(),
+            id: None,
+            result: None,
+        },
+        ToolCallSummary {
+            name: "huge".into(),
+            id: None,
+            result: Some("x".repeat(5000)),
+        },
+    ];
+    let text = logged_reply(" Done. ", &calls);
+    assert!(text.starts_with("Done.\n\nTools:\n- web_search → Rust 1.90 released today"));
+    assert!(!text.contains("noop"));
+    let huge = text.lines().last().unwrap();
+    assert!(huge.chars().count() <= MAX_TOOL_LINE_CHARS + "- huge → ".chars().count());
+    assert_eq!(logged_reply("plain", &[]), "plain");
+}
+
+#[tokio::test]
+async fn pre_turn_logs_the_user_turn_and_injects_what_memory_holds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    engine
+        .store(StoreItem::learning(
+            "The user's favourite colour is teal",
+            LearningKind::Preference,
+            0.9,
+            MemoryMeta::default(),
+        ))
+        .await
+        .unwrap();
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(&config, &identity, input("t1", 0, "what colour do I like?"))
+        .await
+        .expect("a pack");
+    assert!(pack.markdown.contains("teal"), "{}", pack.markdown);
+    assert!(!pack.refs.is_empty());
+    let chips = crate::memory::tools::take_turn_citations("t1");
+    assert!(
+        chips.iter().any(|chip| chip.snippet.contains("teal")),
+        "the pack's citations reach the chat: {chips:?}"
+    );
+    assert!(pack.injection().starts_with(OPEN_TAG));
+    assert!(pack.injection().ends_with(CLOSE_TAG));
+
+    let turns = stored(&engine, MetaFilter::kinds([ItemKind::Conversation])).await;
+    assert_eq!(turns.len(), 1, "the user turn was logged");
+    assert_eq!(turns[0].meta.agent_id.as_deref(), Some("orchestrator"));
+    assert_eq!(turns[0].meta.namespace.to_string(), "agent:orchestrator");
+}
+
+#[tokio::test]
+async fn recall_off_still_logs_and_logging_off_still_recalls() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    engine
+        .store(StoreItem::learning(
+            "Deploys happen on Fridays",
+            LearningKind::Fact,
+            0.9,
+            MemoryMeta::default(),
+        ))
+        .await
+        .unwrap();
+
+    config.memory.recall.enabled = false;
+    let quiet = MemoryIdentity::agent("a").resolve(&config);
+    assert!(
+        pre_turn(&config, &quiet, input("t", 0, "when do deploys happen?"))
+            .await
+            .is_none()
+    );
+    assert_eq!(
+        stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
+            .await
+            .len(),
+        1
+    );
+
+    config.memory.recall.enabled = true;
+    config.memory.conversations.enabled = false;
+    let reader = MemoryIdentity::agent("a").resolve(&config);
+    let pack = pre_turn(&config, &reader, input("t", 2, "when do deploys happen?")).await;
+    assert!(pack.expect("a pack").markdown.contains("Fridays"));
+    assert_eq!(
+        stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
+            .await
+            .len(),
+        1,
+        "nothing new was logged"
+    );
+
+    config.memory.recall.enabled = false;
+    let none = MemoryIdentity::agent("a").resolve(&config);
+    assert!(pre_turn(&config, &none, input("t", 4, "hi"))
+        .await
+        .is_none());
+}
+
+#[tokio::test]
+async fn pre_turn_without_an_engine_runs_the_turn_without_a_pack() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let identity = MemoryIdentity::agent("a").resolve(&config);
+    assert!(pre_turn(&config, &identity, input("t", 0, "hello"))
+        .await
+        .is_none());
+    post_turn(&config, &identity, reply("t", 1, "hi")).await;
+}
+
+#[tokio::test]
+async fn post_turn_logs_the_reply_and_queues_belief_builds() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.memory.recall.build_beliefs_every = 2;
+    let engine = bind_reference(&config);
+    let identity = MemoryIdentity::agent("writer").resolve(&config);
+
+    let mut first = reply("t", 1, "Here is the draft.");
+    first.tool_calls.push(ToolCallSummary {
+        name: "read_file".into(),
+        id: Some("call-1".into()),
+        result: Some("outline.md: three sections".into()),
+    });
+    post_turn(&config, &identity, first).await;
+
+    let turns = stored(&engine, MetaFilter::kinds([ItemKind::Conversation])).await;
+    assert_eq!(turns.len(), 1);
+    assert!(turns[0].text.contains("read_file → outline.md"));
+    assert_eq!(turns[0].meta.agent_id.as_deref(), Some("writer"));
+    let pending = jobs::snapshot(&config).await.pending;
+    assert_eq!(
+        pending.len(),
+        1,
+        "turn index 1 is the 2nd turn: a build is due"
+    );
+
+    config.memory.conversations.enabled = false;
+    post_turn(&config, &identity, reply("t", 3, "Again.")).await;
+    assert_eq!(
+        stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
+            .await
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn compaction_recalls_from_the_dropped_turns() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    let identity = MemoryIdentity::agent("a").resolve(&config);
+    let _ = pre_turn(
+        &config,
+        &identity,
+        input("t", 0, "the project codename is Heron"),
+    )
+    .await;
+    post_turn(&config, &identity, reply("t", 1, "Noted: Heron.")).await;
+
+    let dropped = vec![
+        Turn::new(Role::User, "the project codename is Heron"),
+        Turn::new(Role::Assistant, "Noted: Heron."),
+    ];
+    let pack = compaction(&config, &identity, "t", dropped).await;
+    assert!(pack.expect("a pack").markdown.contains("Heron"));
+    assert!(compaction(&config, &identity, "t", Vec::new())
+        .await
+        .is_none());
+}

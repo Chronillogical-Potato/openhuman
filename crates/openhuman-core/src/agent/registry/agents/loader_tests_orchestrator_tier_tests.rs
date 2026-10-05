@@ -127,19 +127,19 @@ fn orchestrator_subagents_include_control_specialists() {
         })
         .collect();
 
-    for expected in ["task_manager_agent", "profile_memory_agent"] {
-        assert!(
-            subagents.contains(expected),
-            "orchestrator.subagents must list `{expected}` so the routing layer can synthesize its delegate tool"
-        );
-    }
+    let expected = "task_manager_agent";
+    assert!(
+        subagents.contains(expected),
+        "orchestrator.subagents must list `{expected}` so the routing layer can synthesize its delegate tool"
+    );
 }
 
 #[test]
 fn control_specialists_have_named_tools_and_are_worker_leaves() {
     use crate::agent::harness::definition::SubagentEntry;
 
-    for expected in ["task_manager_agent", "profile_memory_agent"] {
+    {
+        let expected = "task_manager_agent";
         let def = find(expected);
         assert_eq!(def.agent_tier, AgentTier::Worker);
         let visible_subagents: Vec<&str> = def
@@ -252,7 +252,7 @@ fn rejects_reasoning_to_reasoning_delegation() {
 #[test]
 fn rejects_worker_with_subagents() {
     let mut defs = load_builtins().unwrap();
-    let worker = defs.iter_mut().find(|d| d.id == "archivist").unwrap();
+    let worker = defs.iter_mut().find(|d| d.id == "summarizer").unwrap();
     worker
         .subagents
         .push(SubagentEntry::AgentId("critic".into()));

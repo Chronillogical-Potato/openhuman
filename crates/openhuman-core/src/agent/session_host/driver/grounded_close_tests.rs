@@ -24,6 +24,7 @@ fn classified_halt_returns_partial_work_without_provider_usage() {
         early_exit_tool: None,
         hit_cap: false,
         wrap_up_injected: false,
+        truncated: false,
         breaker_halt: Some("Stopping after 1 attempt(s): failure class `permission` still blocks operation `search` on `catalog`. Resolve this blocker before retrying.".into()),
         tool_outcomes: vec![
             ToolCallOutcome { call_id: "a".into(), name: "list".into(), arguments: serde_json::json!({}), success: true, content: "three items".into(), duration_ms: 1 },
@@ -54,7 +55,7 @@ fn leaking_reply() -> String {
 /// returning the shipped message, the prompts each attempt was given, the
 /// candidates that reached the verifier, and the usage recorded.
 async fn run(candidates: Vec<String>, verdicts: Vec<Option<CloseViolation>>) -> Shipped {
-    let instruction = final_answer_instruction(None, RECORDS);
+    let instruction = final_answer_instruction(None, false, RECORDS);
     let prompts = RefCell::new(Vec::<String>::new());
     let verified = RefCell::new(Vec::<String>::new());
     let remaining = RefCell::new(candidates);
@@ -183,4 +184,57 @@ async fn an_empty_candidate_is_re_asked_before_the_fallback() {
         vec![CLEAN_REPLY.to_string()],
         "an empty candidate is not sent to the checker"
     );
+}
+
+fn blank_outcome(truncated: bool) -> TinyagentsTurnOutcome {
+    TinyagentsTurnOutcome {
+        text: String::new(),
+        resolved_route: None,
+        history: Vec::new(),
+        conversation: Vec::new(),
+        model_calls: 3,
+        tool_calls: 1,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
+        charged_amount_usd: 0.0,
+        early_exit_tool: None,
+        hit_cap: false,
+        wrap_up_injected: false,
+        breaker_halt: None,
+        truncated,
+        compaction: None,
+        tool_outcomes: Vec::new(),
+    }
+}
+
+/// #6951: a turn that ended because the model ran out of output tokens while
+/// reasoning is closed with that cause named, not with "you have finished
+/// using tools" — which told the model its unfinished work was done.
+#[test]
+fn a_truncated_turn_is_closed_with_the_output_budget_named() {
+    let truncated = close_instruction(&blank_outcome(true), false, RECORDS);
+    assert!(
+        truncated.contains("ran out of output tokens"),
+        "{truncated}"
+    );
+    assert!(
+        !truncated.contains("You have finished using tools"),
+        "{truncated}"
+    );
+    assert!(truncated.contains("<tool_records>"), "{truncated}");
+
+    let finished = close_instruction(&blank_outcome(false), false, RECORDS);
+    assert!(
+        finished.contains("You have finished using tools"),
+        "{finished}"
+    );
+}
+
+/// The cap checkpoint still wins when the run also hit its call cap.
+#[test]
+fn a_capped_truncated_turn_gets_the_cap_checkpoint() {
+    let out = close_instruction(&blank_outcome(true), true, RECORDS);
+    assert!(!out.contains("ran out of output tokens"), "{out}");
+    assert!(out.contains("<tool_records>"), "{out}");
 }

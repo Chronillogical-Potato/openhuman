@@ -13,8 +13,8 @@ mod common;
 
 use common::{chat_completion, offline_config, runtime, stub_backend};
 use openhuman_embed::{
-    Access, AgentDefinitionSpec, AgentError, AgentSpec, HostTurnTools, Provider, Runtime,
-    SandboxModeSpec, ToolScopeSpec, Workspace,
+    Access, AgentDefinitionSpec, AgentError, AgentSpec, HostTurnTools, MemoryBinding, Provider,
+    Runtime, SandboxModeSpec, ToolScopeSpec, Workspace,
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, ResponseTemplate};
@@ -519,6 +519,34 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .agent(AgentSpec::new("wide").domains(openhuman_embed::DomainSet::full()))
                 .expect_err("widening the runtime");
             assert!(matches!(err, AgentError::WidensRuntime(_)), "{err:?}");
+
+            // A memory binding gives an agent memory of its own: its turns
+            // are logged under the bound id, below the bound root. An
+            // unbound agent keeps the runtime's defaults.
+            let bound = runtime
+                .agent(
+                    AgentSpec::new("employee")
+                        .memory(MemoryBinding::new("employee-7").root("team:acme")),
+                )
+                .expect("a bound agent instantiates");
+            assert_eq!(
+                bound.config().memory.agent_id.as_deref(),
+                Some("employee-7")
+            );
+            assert_eq!(bound.config().memory.root.as_deref(), Some("team:acme"));
+            assert_eq!(beta.config().memory.agent_id, None);
+            let err = runtime
+                .agent(
+                    AgentSpec::new("misbound")
+                        .memory(MemoryBinding::new("x").root("not a namespace")),
+                )
+                .expect_err("an invalid memory root");
+            assert!(matches!(err, AgentError::Invalid(_)), "{err:?}");
+            let err = runtime
+                .agent(AgentSpec::new("unnamed").memory(MemoryBinding::new("  ")))
+                .expect_err("a blank memory agent id");
+            assert!(matches!(err, AgentError::Invalid(_)), "{err:?}");
+            drop(bound);
 
             // Dropping every handle releases the id.
             drop(withholding_agent);

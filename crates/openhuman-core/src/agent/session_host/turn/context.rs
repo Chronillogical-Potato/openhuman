@@ -1,17 +1,15 @@
 //! History, context, and system prompt management.
 
 use super::super::types::OpenHumanSessionHost;
-use crate::agent::prompts::{
-    tool_call_format_from_dialect, LearnedContextData, PromptContext, PromptTool,
-};
+use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
 use crate::tools::agent_policy::render_tool_policy_boundary;
 
 use anyhow::Result;
 
 impl OpenHumanSessionHost {
     /// Builds the system prompt for the current turn, including tool
-    /// instructions and learned context.
-    pub fn build_system_prompt(&self, learned: LearnedContextData) -> Result<String> {
+    /// instructions.
+    pub fn build_system_prompt(&self) -> Result<String> {
         // `visible_tool_specs` holds shared `Arc<ToolSpec>` leaves. Materialise
         // the canonical dialect input for this prompt build.
         let visible_specs_owned: Vec<tinytools::ToolSpec> = self
@@ -29,6 +27,7 @@ impl OpenHumanSessionHost {
         // this renders is what tells the model a `delegate_*` tool exists.
         let all_tools = self.all_tool_refs();
         let mut prompt_tools = PromptTool::from_tool_refs(all_tools.iter().copied());
+        prompt_tools.retain(|tool| !self.permanent_tool_names.contains(tool.name.as_ref()));
         let mut prompt_visible_tool_names =
             self.tool_policy_session.visible_tool_names_for_prompt();
         crate::agent::prompts::swap_deferred_for_discovery_bridge(
@@ -56,16 +55,12 @@ impl OpenHumanSessionHost {
             tools: &prompt_tools,
             workflows: &self.workflows,
             dispatcher_instructions: &instructions,
-            learned,
             visible_tool_names: &prompt_visible_tool_names,
             tool_call_format: tool_call_format_from_dialect(
                 self.tool_dispatcher.tool_call_format(),
             ),
             connected_integrations: &self.connected_integrations,
             connected_identities_md: crate::agent::prompts::render_connected_identities(),
-            include_profile: !self.omit_profile,
-            include_memory_md: !self.omit_memory_md,
-            curated_snapshot: None,
             user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
             personality_roster: vec![], // TODO: build_personality_roster(&workspace_dir)
             agents_md_global: agents_md.global,
