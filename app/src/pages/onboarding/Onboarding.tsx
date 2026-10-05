@@ -3,16 +3,19 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import OnboardingLayout from './OnboardingLayout';
 import CustomInferencePage from './pages/CustomInferencePage';
 import CustomSearchPage from './pages/CustomSearchPage';
-import RuntimeChoicePage from './pages/RuntimeChoicePage';
 import VaultSetupStep from './pages/VaultSetupStep';
 import WelcomePage from './pages/WelcomePage';
 
 /**
  * Routed onboarding flow.
  *
- *   welcome → runtime-choice
- *     ├── cloud  → /chat
- *     └── custom → /custom/inference → search → vault → /chat
+ *   welcome ─┬─ TinyHumans session → completeAndExit → /chat
+ *            └─ local session      → /custom/inference → search → vault → /chat
+ *
+ * `runtime-choice` is gone: the identity question is asked once on the
+ * Welcome screen (`pages/Welcome.tsx`) as two cards, so asking it again three
+ * screens later was the same question twice. Its page and step files stay on
+ * disk, unrouted.
  *
  * Each custom step asks Default (let OpenHuman manage it) vs Configure
  * (let me pick). Default is a one-click pick; Configure renders inline
@@ -32,7 +35,6 @@ const Onboarding = () => {
       <Route element={<OnboardingLayout />}>
         <Route index element={<Navigate to="welcome" replace />} />
         <Route path="welcome" element={<WelcomePage />} />
-        <Route path="runtime-choice" element={<RuntimeChoicePage />} />
         <Route path="custom/inference" element={<CustomInferencePage />} />
         <Route path="custom/search" element={<CustomSearchPage />} />
         <Route path="custom/vault" element={<VaultSetupStep />} />

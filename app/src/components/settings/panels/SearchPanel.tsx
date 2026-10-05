@@ -180,6 +180,7 @@ const SearchPanel = ({
           saving={saving}
           managedUnavailable={managedUnavailable}
           updateProvider={updateProvider}
+          hideTabChrome={hideTabChrome}
           t={t}
         />
       )}

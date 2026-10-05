@@ -107,6 +107,7 @@ export const ProviderAuthSection = ({
   onEditCustomProvider,
   addOpen: controlledAddOpen,
   onAddOpenChange,
+  hideAddButton = false,
 }: {
   draft: AISettings;
   persist: (next: AISettings) => Promise<void>;
@@ -140,6 +141,14 @@ export const ProviderAuthSection = ({
    */
   addOpen?: boolean;
   onAddOpenChange?: (open: boolean) => void;
+  /**
+   * Hide the standalone "Add a provider" button.
+   *
+   * The onboarding wizard renders the provider catalog inline, so the button
+   * opened a dialog onto a list already on screen — two ways to do one thing,
+   * and the loudest control on a step whose primary action is Continue.
+   */
+  hideAddButton?: boolean;
 }) => {
   const { t } = useT();
   const managedAvailable = useManagedInferenceAvailable();
@@ -270,7 +279,7 @@ export const ProviderAuthSection = ({
         )}
         {codexAuthError ? <ProviderSetupErrorNotice error={codexAuthError} /> : null}
 
-        {!hostControlsAdd && (
+        {!hostControlsAdd && !hideAddButton && (
           <div className="flex justify-end">
             <AddProviderButton onClick={() => setAddOpen(true)} />
           </div>
@@ -292,7 +301,12 @@ export const ProviderAuthSection = ({
           win. */}
         <ProviderGroup
           title={t('settings.ai.providers.groupConnected')}
-          description={t('settings.ai.providers.connectedDesc')}
+          /* The description says "Managed is always on as a fallback. Choose
+             which provider each task uses on the Routing tab." Both halves are
+             wrong without a managed session: there is no managed fallback, and
+             the onboarding wizard hides the Routing tab. Shown only where both
+             are true. */
+          description={managedAvailable ? t('settings.ai.providers.connectedDesc') : undefined}
           card
           data-testid="provider-group-connected">
           {managedAvailable && (

@@ -162,43 +162,59 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
           description={t('memoryPage.engine.listDescription')}
           card
           data-testid="memory-engines">
-          {engines.map(engine => {
-            const isActive = engine.id === activeId;
-            const blocked = engine.hosted && !signedIn;
-            const testId = `memory-engine-${engine.id}`;
-            const configurable = engine.needs_endpoint || engine.needs_key;
-            return (
-              <ProviderListRow
-                key={engine.id}
-                slug={engine.id}
-                label={engine.label}
-                tone=""
-                detail={<span data-testid={`${testId}-detail`}>{rowDetail(engine)}</span>}
-                detailMono={!blocked && !engine.hosted}
-                badge={
-                  isActive ? (
-                    <Badge variant={on ? 'success' : 'warning'} data-testid={`${testId}-active`}>
-                      {on ? t('memoryPage.engine.active') : t('memoryPage.engine.statusOff')}
-                    </Badge>
-                  ) : null
-                }
-                control={
-                  isActive && !configurable ? null : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={isActive ? 'secondary' : 'primary'}
-                      disabled={saving || blocked}
-                      data-testid={`${testId}-use`}
-                      onClick={() => choose(engine)}>
-                      {isActive ? t('memoryPage.engine.edit') : t('memoryPage.engine.use')}
-                    </Button>
-                  )
-                }
-                data-testid={testId}
-              />
-            );
-          })}
+          {/* A hosted engine needs a TinyHumans account. Without one it used to
+              render anyway — and because the core still names it as the active
+              engine, the row claimed "Active" and "Sign in required" at the
+              same time, for something the user cannot reach. Signed out, the
+              list is the engines that are actually usable. */}
+          {engines
+            .filter(engine => signedIn || !engine.hosted)
+            .map(engine => {
+              const isActive = engine.id === activeId;
+              const blocked = engine.hosted && !signedIn;
+              const testId = `memory-engine-${engine.id}`;
+              const configurable = engine.needs_endpoint || engine.needs_key;
+              // "On this Mac": runs here, needs no account and no credentials.
+              // With nothing active the picker was simply empty, leaving the
+              // onboarding step with no answer to "which should I pick?".
+              const recommend =
+                !activeId && !engine.hosted && !engine.needs_endpoint && !engine.needs_key;
+              return (
+                <ProviderListRow
+                  key={engine.id}
+                  slug={engine.id}
+                  label={engine.label}
+                  tone=""
+                  detail={<span data-testid={`${testId}-detail`}>{rowDetail(engine)}</span>}
+                  detailMono={!blocked && !engine.hosted}
+                  badge={
+                    isActive ? (
+                      <Badge variant={on ? 'success' : 'warning'} data-testid={`${testId}-active`}>
+                        {on ? t('memoryPage.engine.active') : t('memoryPage.engine.statusOff')}
+                      </Badge>
+                    ) : recommend ? (
+                      <Badge variant="primary" dot={false} data-testid={`${testId}-recommended`}>
+                        {t('memoryPage.engine.recommended')}
+                      </Badge>
+                    ) : null
+                  }
+                  control={
+                    isActive && !configurable ? null : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isActive ? 'secondary' : 'primary'}
+                        disabled={saving || blocked}
+                        data-testid={`${testId}-use`}
+                        onClick={() => choose(engine)}>
+                        {isActive ? t('memoryPage.engine.edit') : t('memoryPage.engine.use')}
+                      </Button>
+                    )
+                  }
+                  data-testid={testId}
+                />
+              );
+            })}
         </ProviderGroup>
       )}
 

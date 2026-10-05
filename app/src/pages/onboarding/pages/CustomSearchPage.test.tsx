@@ -60,7 +60,7 @@ describe('CustomSearchPage', () => {
     setDraftMock.mockReset();
   });
 
-  it('forces configure mode and hides the default/configure chooser for local sessions', () => {
+  it('renders the configuration panel directly with no default/configure chooser', () => {
     renderPage();
 
     expect(screen.getByTestId('search-panel')).toBeInTheDocument();

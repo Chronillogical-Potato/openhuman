@@ -1,5 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -64,7 +64,7 @@ describe('VaultSetupStep', () => {
     sessionToken = 'header.payload.local';
   });
 
-  it('forces configure mode and hides chooser cards for local sessions', () => {
+  it('renders the memory engine setup directly with no default/configure chooser', () => {
     renderPage();
 
     expect(screen.getByTestId('memory-engine-setup')).toBeInTheDocument();
@@ -72,11 +72,20 @@ describe('VaultSetupStep', () => {
     expect(screen.queryByTestId('onboarding-custom-vault-step-configure')).not.toBeInTheDocument();
   });
 
-  it('shows default/configure chooser cards for managed sessions', () => {
+  it('does the same for managed sessions (the choice fork no longer depends on session)', () => {
     sessionToken = 'header.payload.remote';
     renderPage();
 
-    expect(screen.getByTestId('onboarding-custom-vault-step-default')).toBeInTheDocument();
-    expect(screen.getByTestId('onboarding-custom-vault-step-configure')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-engine-setup')).toBeInTheDocument();
+    expect(screen.queryByTestId('onboarding-custom-vault-step-default')).not.toBeInTheDocument();
+  });
+
+  it('finishes setup via completeAndExit on Continue', async () => {
+    completeAndExitMock.mockResolvedValue(undefined);
+    renderPage();
+
+    fireEvent.click(screen.getByTestId('onboarding-next-button'));
+
+    await waitFor(() => expect(completeAndExitMock).toHaveBeenCalledTimes(1));
   });
 });

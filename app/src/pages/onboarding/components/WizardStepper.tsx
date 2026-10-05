@@ -1,4 +1,4 @@
-import { CheckIcon } from '../../../components/ui';
+import { Stepper } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
 
 interface WizardStepperProps {
@@ -9,66 +9,18 @@ interface WizardStepperProps {
 }
 
 /**
- * Horizontal step indicator rendered above the body of each custom-wizard
- * step. Renders a dot per step, connected by lines, with three visual
- * states: completed (filled sage with a check), active (filled primary),
- * and upcoming (outlined stone).
+ * Thin wrapper over the shared `Stepper` primitive that supplies the
+ * onboarding copy and the E2E test id.
  */
 const WizardStepper = ({ labels, activeIndex }: WizardStepperProps) => {
   const { t } = useT();
   return (
-    <ol
-      role="list"
-      aria-label={t('onboarding.custom.progressAriaLabel')}
-      className="flex w-full items-start justify-between"
-      data-testid="onboarding-wizard-stepper">
-      {labels.map((label, idx) => {
-        const completed = idx < activeIndex;
-        const active = idx === activeIndex;
-        const isLast = idx === labels.length - 1;
-
-        const dotClasses = completed
-          ? 'bg-sage-500 border-sage-500 text-content-inverted'
-          : active
-            ? 'bg-primary-500 border-primary-500 text-content-inverted'
-            : 'bg-surface border-line-strong text-content-faint';
-
-        const labelClasses = completed
-          ? 'text-sage-700 dark:text-sage-300'
-          : active
-            ? 'text-content font-semibold'
-            : 'text-content-faint';
-
-        const connectorClasses = completed ? 'bg-sage-500' : 'bg-surface-strong';
-
-        return (
-          <li
-            key={label}
-            aria-current={active ? 'step' : undefined}
-            className="relative flex flex-1 flex-col items-center">
-            <div className="flex w-full items-center">
-              {/* Left spacer / connector */}
-              <div
-                aria-hidden
-                className={`h-0.5 flex-1 ${idx === 0 ? 'opacity-0' : connectorClasses}`}
-              />
-              <div
-                className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[10px] font-semibold ${dotClasses}`}>
-                {completed ? <CheckIcon className="h-3 w-3" aria-hidden /> : idx + 1}
-              </div>
-              {/* Right connector */}
-              <div
-                aria-hidden
-                className={`h-0.5 flex-1 ${isLast ? 'opacity-0' : connectorClasses}`}
-              />
-            </div>
-            <span className={`mt-2 text-[11px] leading-tight text-center ${labelClasses}`}>
-              {label}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
+    <Stepper
+      labels={labels}
+      activeIndex={activeIndex}
+      ariaLabel={t('onboarding.custom.progressAriaLabel')}
+      data-testid="onboarding-wizard-stepper"
+    />
   );
 };
 

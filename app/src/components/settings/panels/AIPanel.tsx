@@ -223,6 +223,7 @@ const AIPanel = ({
             content: (
               <div className="flex w-full flex-col gap-4">
                 <ProviderAuthSection
+                  hideAddButton={hideTabChrome}
                   draft={draft}
                   persist={persist}
                   loading={loading}

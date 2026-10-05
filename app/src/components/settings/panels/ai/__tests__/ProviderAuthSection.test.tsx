@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { Provider } from 'react-redux';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -11,7 +12,10 @@ import { createLocalSessionToken } from '../../../../../utils/localSession';
 import { EMPTY_SETTINGS } from '../aiPanelTypes';
 import { ProviderAuthSection } from '../ProviderAuthSection';
 
-function renderSection(sessionToken: string | null) {
+function renderSection(
+  sessionToken: string | null,
+  extra: Partial<ComponentProps<typeof ProviderAuthSection>> = {}
+) {
   const store = configureStore({
     reducer: { locale: localeReducer },
     preloadedState: { locale: { current: 'en' as Locale } },
@@ -36,6 +40,7 @@ function renderSection(sessionToken: string | null) {
             onOpenKeyDialog={vi.fn()}
             onAddCustomProvider={vi.fn()}
             onEditCustomProvider={vi.fn()}
+            {...extra}
           />
         </CoreStateContext.Provider>
       </I18nProvider>
@@ -58,5 +63,32 @@ describe('ProviderAuthSection managed row', () => {
   it('hides the managed row when signed out', () => {
     renderSection(null);
     expect(screen.queryByTestId('provider-row-openhuman')).not.toBeInTheDocument();
+  });
+});
+
+describe('ProviderAuthSection wizard affordances', () => {
+  it('shows the standalone "Add a provider" button by default', () => {
+    renderSection('header.payload.signature');
+    expect(screen.getByTestId('add-provider-open')).toBeInTheDocument();
+  });
+
+  it('hides the standalone "Add a provider" button when hideAddButton is set', () => {
+    renderSection('header.payload.signature', { hideAddButton: true });
+    expect(screen.queryByTestId('add-provider-open')).not.toBeInTheDocument();
+  });
+
+  // The description promises a managed fallback and cites the Routing tab; both
+  // are false without a managed session.
+  it('describes the Connected group only when a managed session exists', () => {
+    const managed = renderSection('header.payload.signature');
+    expect(screen.getByTestId('provider-group-connected')).toHaveTextContent(
+      'Managed is always on as a fallback'
+    );
+    managed.unmount();
+
+    renderSection(createLocalSessionToken());
+    expect(screen.getByTestId('provider-group-connected')).not.toHaveTextContent(
+      'Managed is always on as a fallback'
+    );
   });
 });

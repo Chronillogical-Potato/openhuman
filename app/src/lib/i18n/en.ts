@@ -313,6 +313,35 @@ const en: TranslationMap = {
   'welcome.privacyPolicy': 'Privacy Policy',
   'welcome.termsOutro': '.',
   'welcome.connect': 'Test',
+  'welcome.hero.subtitle': 'Your AI, with memory, voice, and the whole web.',
+  'welcome.th.title': 'Continue with TinyHumans',
+  'welcome.th.promise': 'One account. Everything included. Nothing to configure.',
+  'welcome.th.featureInference': 'Inference',
+  'welcome.th.featureSearch': 'Web search',
+  'welcome.th.featureVoice': 'Voice',
+  'welcome.th.featureMemory': 'Memory',
+  'welcome.th.featureEmbeddings': 'Embeddings',
+  'welcome.th.featureBilling': 'Billing',
+  'welcome.th.credit': '$5 of credit to start',
+  'welcome.th.cta': 'Continue with TinyHumans',
+  'welcome.th.providers': 'Sign in with Google, GitHub or X',
+  'welcome.self.title': 'Set it up myself',
+  'welcome.self.promise': 'Bring your own API keys and endpoints.',
+  'welcome.self.listLabel': "You'll set up:",
+  'welcome.self.step1': 'Inference',
+  'welcome.self.step2': 'Web search',
+  'welcome.self.step3': 'Memory',
+  'welcome.self.time': 'About 3 minutes. Change anything later in Settings.',
+  'welcome.self.cta': 'Set it up myself',
+  'welcome.serverPrompt': 'Already running OpenHuman on a server?',
+  'welcome.serverCta': 'Connect to it.',
+  'welcome.handoff.title': 'Finishing sign-in in your browser',
+  'welcome.handoff.body': "We opened tinyhumans.ai — come back when you're done.",
+  'welcome.handoff.reopen': 'Open the page again',
+  'welcome.handoff.failedTitle': "Sign-in didn't come back",
+  'welcome.handoff.failedBody': 'The browser may have blocked the return to OpenHuman.',
+  'welcome.handoff.retry': 'Try again',
+  'welcome.handoff.fallbackSelf': 'Set it up myself instead',
 
   // Home page
   'home.askAssistant': 'Ask your assistant anything...',
@@ -756,9 +785,9 @@ const en: TranslationMap = {
   'onboarding.custom.openSettings': 'Open in Settings',
 
   // Onboarding: Custom > Inference (text)
-  'onboarding.custom.inference.title': 'Inference (Text)',
+  'onboarding.custom.inference.title': 'Choose a model provider',
   'onboarding.custom.inference.subtitle':
-    'Which language model should answer your questions and run your agents?',
+    'OpenHuman needs a model to think with. Add a key for a provider you already use, or point at one running locally.',
   'onboarding.custom.inference.defaultDesc':
     'OpenHuman routes workloads through its managed backend by default. No keys, no setup.',
   'onboarding.custom.inference.configureDesc':
@@ -782,8 +811,8 @@ const en: TranslationMap = {
     'Bring your own Composio account / API key. Configure in Settings › Connections.',
 
   // Onboarding: Custom > Search
-  'onboarding.custom.search.title': 'Web Search',
-  'onboarding.custom.search.subtitle': 'How OpenHuman searches the web on your behalf.',
+  'onboarding.custom.search.title': 'Let OpenHuman search the web',
+  'onboarding.custom.search.subtitle': 'Without this, OpenHuman only knows what it was trained on.',
   'onboarding.custom.search.defaultDesc':
     'Web search works out of the box: Exa and Gemini are included with TinyHumans, no API key needed.',
   'onboarding.custom.search.configureDesc':
@@ -802,9 +831,9 @@ const en: TranslationMap = {
     'Bring your own embedding provider (OpenAI, Voyage, Ollama, etc.).',
 
   // Onboarding: Custom > Vault
-  'onboarding.custom.vault.title': 'Memory & Vault Setup',
+  'onboarding.custom.vault.title': 'Give OpenHuman a memory',
   'onboarding.custom.vault.subtitle':
-    'Confirm where memory notes are written, how source data is read, and whether your vault pipeline is healthy.',
+    'Where what you tell it gets stored, so it carries across chats.',
   'onboarding.custom.vault.defaultDesc':
     'Use OpenHuman-managed memory defaults. Vault path and sync health can still be reviewed later.',
   'onboarding.custom.vault.configureDesc':
@@ -1856,61 +1885,59 @@ const en: TranslationMap = {
   'stats.tokens': 'tokens',
 
   // Boot Check Gate
-  'bootCheck.invalidUrl': 'Please enter a runtime URL.',
+  'bootCheck.invalidUrl': 'Please enter an address.',
   'bootCheck.urlMustStartWith': 'The URL needs to start with http:// or https://',
   'bootCheck.validUrlRequired':
     "That doesn't look like a valid URL (try https://core.example.com/rpc)",
   'bootCheck.tokenRequired': "We'll need an auth token to connect.",
   'bootCheck.httpPublicWarning':
     'This is a plain HTTP URL on a public host: traffic will not be encrypted. Use HTTPS unless you trust this network.',
-  'bootCheck.chooseCoreMode': 'Select a Runtime',
-  'bootCheck.connectToCore': 'Connect to Your Runtime',
-  'bootCheck.desktopDescription': 'OpenHuman needs a runtime to think. Pick where it should live.',
+  'bootCheck.chooseCoreMode': 'Where should OpenHuman run?',
+  'bootCheck.connectToCore': 'Connect to OpenHuman',
+  'bootCheck.desktopDescription': "OpenHuman couldn't start on this Mac. Pick where it should run.",
   'bootCheck.webDescription':
-    'On the web, OpenHuman connects to a runtime you control. Drop in its URL and auth token below, or grab the desktop app to run one right on your machine.',
+    'On the web, OpenHuman connects to a server you control. Drop in its address and token below, or grab the desktop app to run it right on your machine.',
   'bootCheck.preferDesktop': 'Rather keep everything on your own device?',
   'bootCheck.downloadDesktop': 'Get the Desktop App',
-  'bootCheck.localRecommended': 'Run Locally (Recommended)',
-  'bootCheck.localDescription':
-    'Runs right here on your computer. Fastest, fully private, nothing to set up.',
-  'bootCheck.cloudMode': 'Run on the Cloud (Complex)',
-  'bootCheck.cloudDescription':
-    "Connect to a runtime you're hosting elsewhere. Stays online 24×7 so you don't need to keep this device running.",
-  'bootCheck.coreRpcUrl': 'Runtime URL',
+  'bootCheck.localRecommended': 'On this Mac',
+  'bootCheck.localDescription': 'Fastest, fully private, nothing to set up.',
+  'bootCheck.cloudMode': 'On a server I host',
+  'bootCheck.cloudDescription': "Stays online 24×7 so you don't need to keep this Mac running.",
+  'bootCheck.coreRpcUrl': 'Address',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
-  'bootCheck.authToken': 'Auth Token',
-  'bootCheck.bearerTokenPlaceholder': 'The bearer token from your remote runtime',
+  'bootCheck.authToken': 'Token',
+  'bootCheck.bearerTokenPlaceholder': 'The token from your server',
   'bootCheck.storedLocally': 'Kept on this device only. Sent as ',
   'bootCheck.testing': 'Testing…',
   'bootCheck.testConnection': 'Test Connection',
   'bootCheck.connectedOk': "Connected. You're good to go.",
   'bootCheck.authFailed': "That token didn't work. Double-check it and try again.",
   'bootCheck.unreachablePrefix': "Couldn't reach it:",
-  'bootCheck.checkingCore': 'Waking up your runtime…',
-  'bootCheck.cannotReach': "Can't Reach the Runtime",
-  'bootCheck.cannotReachDesc': "We couldn't connect to your runtime. Want to try a different one?",
-  'bootCheck.switchMode': 'Pick a Different Runtime',
+  'bootCheck.checkingCore': 'Starting OpenHuman…',
+  'bootCheck.cannotReach': "Can't reach it",
+  'bootCheck.cannotReachDesc': "We couldn't connect. Want to try somewhere else?",
+  'bootCheck.switchMode': 'Change where it runs',
   'bootCheck.quit': 'Quit',
-  'bootCheck.legacyDetected': 'Legacy Background Runtime Detected',
+  'bootCheck.legacyDetected': 'Old background service found',
   'bootCheck.legacyDescription':
-    'A separately-installed OpenHuman daemon is already running on this device. We need to clear it out before the built-in runtime can take over.',
+    'A separately-installed OpenHuman daemon is already running on this device. We need to clear it out before the built-in one can take over.',
   'bootCheck.removing': 'Removing…',
   'bootCheck.removeContinue': 'Remove and Continue',
-  'bootCheck.localNeedsRestart': 'Local Runtime Needs a Restart',
+  'bootCheck.localNeedsRestart': 'OpenHuman needs a restart',
   'bootCheck.localNeedsRestartDesc':
-    'Your local runtime is on a different version than this app. A quick restart will get them back in sync.',
+    'OpenHuman on this Mac is a different version than this app. A quick restart will get them back in sync.',
   'bootCheck.restarting': 'Restarting…',
-  'bootCheck.restartCore': 'Restart Runtime',
-  'bootCheck.cloudNeedsUpdate': 'Cloud Runtime Needs an Update',
+  'bootCheck.restartCore': 'Restart',
+  'bootCheck.cloudNeedsUpdate': 'Your server needs an update',
   'bootCheck.cloudNeedsUpdateDesc':
-    'Your cloud runtime is on a different version than this app. Run the updater to bring them back in sync.',
+    'Your server is on a different version than this app. Run the updater to bring them back in sync.',
   'bootCheck.updating': 'Updating…',
-  'bootCheck.updateCloudCore': 'Update Cloud Runtime',
-  'bootCheck.versionCheckFailed': 'Runtime Version Check Failed',
+  'bootCheck.updateCloudCore': 'Update server',
+  'bootCheck.versionCheckFailed': 'Version check failed',
   'bootCheck.versionCheckFailedDesc':
-    "Your runtime is up but isn't reporting its version. It may be outdated. Restart or update it to continue.",
+    "Your server is up but isn't reporting its version. It may be outdated. Restart or update it to continue.",
   'bootCheck.working': 'Working…',
-  'bootCheck.restartUpdateCore': 'Restart / Update Runtime',
+  'bootCheck.restartUpdateCore': 'Restart / Update',
   'bootCheck.unexpectedError': 'Unexpected Boot-Check Error',
   'bootCheck.actionFailed': 'Something went wrong. Please try again.',
   'bootCheck.portConflictTitle': "Couldn't Start the App Engine",
@@ -5210,6 +5237,7 @@ const en: TranslationMap = {
   'memoryPage.engine.statusDown': 'Memory engine is unreachable',
   'memoryPage.engine.statusOff': 'Off',
   'memoryPage.engine.active': 'Active',
+  'memoryPage.engine.recommended': 'Recommended',
   'memoryPage.engine.use': 'Use',
   'memoryPage.engine.edit': 'Edit',
   'memoryPage.engine.signInRequired': 'Sign in required',
