@@ -112,8 +112,15 @@ const OnboardingLayout = () => {
     }
 
     // The run is finished; drop the resumable draft so a later visit to
-    // onboarding does not inherit stale choices.
-    await userScopedStorage.removeItem(DRAFT_STORAGE_KEY);
+    // onboarding does not inherit stale choices. Deliberately NOT awaited:
+    // `userScopedStorage` blocks on the boot-time `primeActiveUserId()`, so
+    // awaiting it would put a storage handshake on the critical path to /chat
+    // and hang the final step if that prime never happened. A stale draft is
+    // harmless — the onboarding gate will not route back here once
+    // `onboarding_completed` is set — so cleanup is best-effort.
+    void userScopedStorage
+      .removeItem(DRAFT_STORAGE_KEY)
+      .catch(e => console.warn('[onboarding:layout] could not clear the saved draft', e));
 
     navigate('/chat', { replace: true });
   }, [draft.connectedSources, navigate, setOnboardingCompletedFlag, setOnboardingTasks, snapshot]);
