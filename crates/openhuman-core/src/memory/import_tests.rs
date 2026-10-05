@@ -451,3 +451,90 @@ async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
     }
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
 }
+
+/// A persisted `Running` import with no live run: what the app leaves behind
+/// when it quits mid-import after storing d1.
+fn quit_mid_import(config: &Config) {
+    write_file(
+        &config.workspace_dir,
+        &ImportFile {
+            state: ImportState {
+                phase: ImportPhase::Running,
+                imported: 1,
+                total: 5,
+                error: None,
+            },
+            checkpoint: Checkpoint {
+                documents: Some("d1".into()),
+                ..Checkpoint::default()
+            },
+        },
+    );
+}
+
+#[tokio::test]
+async fn the_background_job_resumes_an_interrupted_import() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_import(&config);
+
+    crate::memory::bus::run_system_job(&config, crate::memory::lifecycle::jobs::BACKGROUND_JOB)
+        .await;
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn nothing_resumes_while_background_work_is_paused() {
+    use crate::cron::scheduler_gate::{PauseReason, Policy};
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_import(&config);
+
+    let paused = Policy::Paused {
+        reason: PauseReason::UserDisabled,
+    };
+    assert!(!resume_interrupted_with(&config, paused).await);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    assert_eq!(
+        read_file(&config.workspace_dir).state.phase,
+        ImportPhase::Running,
+        "left resumable for a later, unpaused tick"
+    );
+
+    assert!(resume_interrupted_with(&config, Policy::Normal).await);
+    assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
+}
+
+#[tokio::test]
+async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // No engine bound: memory is off, so `start` fails before any run.
+    quit_mid_import(&config);
+
+    let policy = crate::cron::scheduler_gate::Policy::Normal;
+    assert!(!resume_interrupted_with(&config, policy).await);
+    let state = read_file(&config.workspace_dir).state;
+    assert_eq!(state.phase, ImportPhase::Error);
+    assert_eq!(state.imported, 1, "progress is kept");
+    assert!(
+        state.error.as_deref().unwrap().contains("could not resume"),
+        "{state:?}"
+    );
+    // The next tick does not try again; the user resumes it.
+    assert!(!resume_interrupted_with(&config, policy).await);
+    assert_eq!(
+        read_file(&config.workspace_dir)
+            .checkpoint
+            .documents
+            .as_deref(),
+        Some("d1")
+    );
+}

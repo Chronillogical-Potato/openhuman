@@ -224,15 +224,30 @@ pub fn status(config: &Config) -> ImportState {
     state
 }
 
-/// Resumes an import the app quit in the middle of, if there is one.
+/// Resumes an import the app quit in the middle of, if there is one, under
+/// the scheduler's current policy ([`resume_interrupted_with`]). Called from
+/// memory's background job.
+pub async fn resume_interrupted(config: &Config) -> bool {
+    resume_interrupted_with(config, crate::cron::scheduler_gate::current_policy()).await
+}
+
+/// Resumes an interrupted import under `policy`.
 ///
 /// Only a `Running` state with no live run counts: the user consented when
-/// it started, and quitting the app is not a decision to stop. An import that
-/// stopped on an error (credits exhausted, signed out) stays stopped until the
-/// user starts it again, so a failure that would recur does not loop. Returns
-/// whether a run was started. Called from memory's background job.
-pub async fn resume_interrupted(config: &Config) -> bool {
-    if read_file(&config.workspace_dir).state.phase != ImportPhase::Running {
+/// it started, and quitting the app is not a decision to stop. Nothing
+/// resumes while background work is paused (which includes being signed
+/// out); the state stays `Running`, so a later tick resumes it. An import
+/// that stopped on an error (credits exhausted, engine unreachable) stays
+/// stopped until the user starts it again, and so does one whose automatic
+/// resume could not start: that failure is persisted as `Error`, so a
+/// failure that would recur does not loop. Returns whether a run was
+/// started.
+pub(crate) async fn resume_interrupted_with(
+    config: &Config,
+    policy: crate::cron::scheduler_gate::Policy,
+) -> bool {
+    let mut file = read_file(&config.workspace_dir);
+    if file.state.phase != ImportPhase::Running {
         return false;
     }
     let live = RUNNING
@@ -240,6 +255,13 @@ pub async fn resume_interrupted(config: &Config) -> bool {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .contains(&config.workspace_dir);
     if live {
+        return false;
+    }
+    if let crate::cron::scheduler_gate::Policy::Paused { reason } = policy {
+        tracing::debug!(
+            ?reason,
+            "[memory:import] background paused; interrupted import left for later"
+        );
         return false;
     }
     match start(config, true).await {
@@ -252,10 +274,13 @@ pub async fn resume_interrupted(config: &Config) -> bool {
             true
         }
         Err(error) => {
-            tracing::debug!(
+            tracing::warn!(
                 code = error.code(),
-                "[memory:import] interrupted import not resumed"
+                "[memory:import] interrupted import could not resume; stopped"
             );
+            file.state.phase = ImportPhase::Error;
+            file.state.error = Some(format!("the import could not resume: {error}"));
+            write_file(&config.workspace_dir, &file);
             false
         }
     }
