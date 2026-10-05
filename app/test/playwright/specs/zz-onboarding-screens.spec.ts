@@ -8,12 +8,36 @@ import { type Page, test } from '@playwright/test';
 
 import { bootAuthenticatedPage, callCoreRpc, waitForAppReady } from '../helpers/core-rpc';
 
+/**
+ * A local ("Continue Locally") session token: three segments whose last is
+ * literally `local`. See app/src/utils/localSession.ts.
+ *
+ * The capture has to use one. An authenticated managed session now completes
+ * onboarding on sight -- `WelcomePage` calls completeAndExit() and the gate
+ * routes to /chat -- so the three self-hosted steps are only reachable from a
+ * local session.
+ */
+function localSessionToken(): string {
+  const enc = (o: object) =>
+    Buffer.from(JSON.stringify(o)).toString('base64url').replace(/=+$/, '');
+  const now = Math.floor(Date.now() / 1000);
+  return [
+    enc({ alg: 'none', typ: 'JWT' }),
+    enc({ sub: 'local', user_id: 'local', iat: now, exp: now + 31536000 }),
+    'local',
+  ].join('.');
+}
+
 const OUT = 'test-results/onboarding-screens';
 
 async function bootIntoOnboarding(page: Page, userId: string): Promise<void> {
   await bootAuthenticatedPage(page, userId, '/home');
   await callCoreRpc('openhuman.config_set_onboarding_completed', { value: false });
-  await page.goto('/#/onboarding/welcome');
+  const token = localSessionToken();
+  await page.evaluate(t => {
+    window.localStorage.setItem('openhuman_session_token', t);
+  }, token);
+  await page.goto('/#/onboarding/custom/inference');
   await waitForAppReady(page);
 }
 
@@ -45,36 +69,28 @@ test.describe('Onboarding screens', () => {
     for (const dark of [false, true]) {
       const mode = dark ? 'dark' : 'light';
 
-      await go(page, '/onboarding/welcome', 'onboarding-welcome-step');
-      await setTheme(page, dark);
-      await shoot(page, `01-welcome-${mode}`);
-
-      await go(page, '/onboarding/runtime-choice', 'onboarding-runtime-choice-step');
-      await setTheme(page, dark);
-      await shoot(page, `02-runtime-choice-${mode}`);
-
       await go(page, '/onboarding/custom/inference', 'onboarding-custom-inference-step');
       await setTheme(page, dark);
-      await shoot(page, `03-inference-${mode}`);
-      await shoot(page, `04-inference-configure-${mode}`);
+      await shoot(page, `01-inference-${mode}`);
+      await shoot(page, `02-inference-detail-${mode}`);
 
       await go(page, '/onboarding/custom/search', 'onboarding-custom-search-step');
       await setTheme(page, dark);
-      await shoot(page, `05-search-${mode}`);
-      await shoot(page, `06-search-configure-${mode}`);
+      await shoot(page, `03-search-${mode}`);
+      await shoot(page, `04-search-detail-${mode}`);
 
       await go(page, '/onboarding/custom/vault', 'onboarding-custom-vault-step');
       await setTheme(page, dark);
-      await shoot(page, `07-vault-${mode}`);
-      await shoot(page, `08-vault-configure-${mode}`);
+      await shoot(page, `05-vault-${mode}`);
+      await shoot(page, `06-vault-detail-${mode}`);
     }
 
     // Narrow viewport — the p-10 -> p-6 sm:p-8 change targeted row wrapping.
     await page.setViewportSize({ width: 400, height: 900 });
     await go(page, '/onboarding/custom/inference', 'onboarding-custom-inference-step');
     await setTheme(page, false);
-    await shoot(page, '09-inference-narrow-400px');
+    await shoot(page, '07-inference-narrow-400px');
     await go(page, '/onboarding/custom/search', 'onboarding-custom-search-step');
-    await shoot(page, '10-search-narrow-400px');
+    await shoot(page, '08-search-narrow-400px');
   });
 });

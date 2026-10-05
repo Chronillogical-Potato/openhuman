@@ -1652,16 +1652,16 @@ const messages: TranslationMap = {
   'bootCheck.chooseCoreMode': 'Di mana OpenHuman harus berjalan?',
   'bootCheck.connectToCore': 'Hubungkan ke OpenHuman',
   'bootCheck.desktopDescription':
-    'OpenHuman tidak dapat dimulai di Mac ini. Pilih di mana ia harus berjalan.',
+    'OpenHuman tidak dapat dimulai di komputer ini. Pilih di mana ia harus berjalan.',
   'bootCheck.webDescription':
     'Di web, OpenHuman terhubung ke server yang Anda kendalikan. Masukkan alamat dan token-nya di bawah, atau unduh aplikasi desktop untuk menjalankannya langsung di perangkat Anda.',
   'bootCheck.preferDesktop': 'Lebih suka menyimpan semuanya di perangkat Anda sendiri?',
   'bootCheck.downloadDesktop': 'Dapatkan Aplikasi Desktop',
-  'bootCheck.localRecommended': 'Di Mac ini',
+  'bootCheck.localRecommended': 'Di komputer ini',
   'bootCheck.localDescription': 'Paling cepat, sepenuhnya privat, tanpa perlu pengaturan.',
   'bootCheck.cloudMode': 'Di server yang saya kelola',
   'bootCheck.cloudDescription':
-    'Tetap online 24 jam sehari, jadi Mac ini tidak perlu terus menyala.',
+    'Tetap online 24 jam sehari, jadi komputer ini tidak perlu terus menyala.',
   'bootCheck.coreRpcUrl': 'Alamat',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Token',
@@ -1684,7 +1684,7 @@ const messages: TranslationMap = {
   'bootCheck.removeContinue': 'Hapus dan Lanjutkan',
   'bootCheck.localNeedsRestart': 'OpenHuman perlu dimulai ulang',
   'bootCheck.localNeedsRestartDesc':
-    'OpenHuman di Mac ini memiliki versi yang berbeda dari aplikasi ini. Mulai ulang singkat akan menyinkronkannya kembali.',
+    'OpenHuman di komputer ini memiliki versi yang berbeda dari aplikasi ini. Mulai ulang singkat akan menyinkronkannya kembali.',
   'bootCheck.restarting': 'Memulai ulang...',
   'bootCheck.restartCore': 'Mulai ulang',
   'bootCheck.cloudNeedsUpdate': 'Server Anda perlu diperbarui',

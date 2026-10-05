@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Alert, AlertDescription } from '../../../components/ui';
+import { Alert, AlertDescription, Button } from '../../../components/ui';
 import { useIsLocalSession } from '../../../hooks/useLocalSession';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { trackEvent } from '../../../services/analytics';
@@ -28,7 +28,21 @@ const WelcomePage = () => {
   const isLocalSession = useIsLocalSession();
   const { completeAndExit } = useOnboardingContext();
   const [exitError, setExitError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const handled = useRef(false);
+
+  const finishManaged = useCallback(async () => {
+    setExitError(null);
+    setRetrying(true);
+    try {
+      await completeAndExit();
+    } catch (err) {
+      console.error('[onboarding:welcome] completeAndExit failed', err);
+      setExitError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRetrying(false);
+    }
+  }, [completeAndExit]);
 
   useEffect(() => {
     if (handled.current) return;
@@ -41,20 +55,28 @@ const WelcomePage = () => {
     }
 
     trackEvent('onboarding_step_complete', { step_name: 'managed' });
-    void completeAndExit().catch(err => {
-      // Leave the user here with a retry rather than on a blank page: the
-      // flag write is the only thing between them and chat.
-      handled.current = false;
-      console.error('[onboarding:welcome] completeAndExit failed', err);
-      setExitError(err instanceof Error ? err.message : String(err));
-    });
-  }, [isLocalSession, navigate, completeAndExit]);
+    void finishManaged();
+  }, [isLocalSession, navigate, finishManaged]);
 
   if (!exitError) return null;
 
+  // The flag write is the only thing between a managed user and chat, so a
+  // failure needs a control. Resetting a ref does not re-render, so the effect
+  // alone could never retry -- this page would have been a dead end.
   return (
     <Alert variant="destructive" data-testid="onboarding-welcome-exit-error">
-      <AlertDescription>{t('onboarding.custom.vault.exitError')}</AlertDescription>
+      <AlertDescription>
+        <p>{t('onboarding.custom.vault.exitError')}</p>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-3"
+          disabled={retrying}
+          onClick={() => void finishManaged()}
+          data-testid="onboarding-welcome-retry">
+          {t('welcome.handoff.retry')}
+        </Button>
+      </AlertDescription>
     </Alert>
   );
 };

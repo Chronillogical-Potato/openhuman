@@ -1894,15 +1894,17 @@ const en: TranslationMap = {
     'This is a plain HTTP URL on a public host: traffic will not be encrypted. Use HTTPS unless you trust this network.',
   'bootCheck.chooseCoreMode': 'Where should OpenHuman run?',
   'bootCheck.connectToCore': 'Connect to OpenHuman',
-  'bootCheck.desktopDescription': "OpenHuman couldn't start on this Mac. Pick where it should run.",
+  'bootCheck.desktopDescription':
+    "OpenHuman couldn't start on this computer. Pick where it should run.",
   'bootCheck.webDescription':
     'On the web, OpenHuman connects to a server you control. Drop in its address and token below, or grab the desktop app to run it right on your machine.',
   'bootCheck.preferDesktop': 'Rather keep everything on your own device?',
   'bootCheck.downloadDesktop': 'Get the Desktop App',
-  'bootCheck.localRecommended': 'On this Mac',
+  'bootCheck.localRecommended': 'On this computer',
   'bootCheck.localDescription': 'Fastest, fully private, nothing to set up.',
   'bootCheck.cloudMode': 'On a server I host',
-  'bootCheck.cloudDescription': "Stays online 24×7 so you don't need to keep this Mac running.",
+  'bootCheck.cloudDescription':
+    "Stays online 24×7 so you don't need to keep this computer running.",
   'bootCheck.coreRpcUrl': 'Address',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Token',
@@ -1925,7 +1927,7 @@ const en: TranslationMap = {
   'bootCheck.removeContinue': 'Remove and Continue',
   'bootCheck.localNeedsRestart': 'OpenHuman needs a restart',
   'bootCheck.localNeedsRestartDesc':
-    'OpenHuman on this Mac is a different version than this app. A quick restart will get them back in sync.',
+    'OpenHuman on this computer is a different version than this app. A quick restart will get them back in sync.',
   'bootCheck.restarting': 'Restarting…',
   'bootCheck.restartCore': 'Restart',
   'bootCheck.cloudNeedsUpdate': 'Your server needs an update',

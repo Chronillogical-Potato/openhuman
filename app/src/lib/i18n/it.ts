@@ -1671,16 +1671,16 @@ const messages: TranslationMap = {
   'bootCheck.chooseCoreMode': 'Dove deve funzionare OpenHuman?',
   'bootCheck.connectToCore': 'Connettiti a OpenHuman',
   'bootCheck.desktopDescription':
-    'OpenHuman non è riuscito ad avviarsi su questo Mac. Scegli dove deve funzionare.',
+    'OpenHuman non è riuscito ad avviarsi su questo computer. Scegli dove deve funzionare.',
   'bootCheck.webDescription':
     "Sul web, OpenHuman si connette a un server che controlli tu. Inserisci qui sotto il suo indirizzo e il token, oppure scarica l'app desktop per eseguirlo direttamente sul tuo computer.",
   'bootCheck.preferDesktop': 'Preferisci tenere tutto sul tuo dispositivo?',
   'bootCheck.downloadDesktop': "Scarica l'app desktop",
-  'bootCheck.localRecommended': 'Su questo Mac',
+  'bootCheck.localRecommended': 'Su questo computer',
   'bootCheck.localDescription': 'Il più veloce, completamente privato, niente da configurare.',
   'bootCheck.cloudMode': 'Su un server che gestisco io',
   'bootCheck.cloudDescription':
-    'Resta online 24 ore su 24, così non devi tenere acceso questo Mac.',
+    'Resta online 24 ore su 24, così non devi tenere acceso questo computer.',
   'bootCheck.coreRpcUrl': 'Indirizzo',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': 'Token',
@@ -1703,7 +1703,7 @@ const messages: TranslationMap = {
   'bootCheck.removeContinue': 'Rimuovi e continua',
   'bootCheck.localNeedsRestart': 'OpenHuman deve essere riavviato',
   'bootCheck.localNeedsRestartDesc':
-    'OpenHuman su questo Mac ha una versione diversa da questa app. Un rapido riavvio li riallineerà.',
+    'OpenHuman su questo computer ha una versione diversa da questa app. Un rapido riavvio li riallineerà.',
   'bootCheck.restarting': 'Riavvio…',
   'bootCheck.restartCore': 'Riavvia',
   'bootCheck.cloudNeedsUpdate': 'Il tuo server richiede un aggiornamento',

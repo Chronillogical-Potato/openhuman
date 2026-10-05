@@ -1626,16 +1626,16 @@ const messages: TranslationMap = {
   'bootCheck.chooseCoreMode': 'OpenHuman을 어디에서 실행할까요?',
   'bootCheck.connectToCore': 'OpenHuman에 연결',
   'bootCheck.desktopDescription':
-    '이 Mac에서 OpenHuman을 시작하지 못했습니다. 실행할 위치를 선택하세요.',
+    '이 컴퓨터에서 OpenHuman을 시작하지 못했습니다. 실행할 위치를 선택하세요.',
   'bootCheck.webDescription':
     '웹에서 OpenHuman은 직접 관리하는 서버에 연결합니다. 아래에 서버 주소와 토큰을 입력하거나, 데스크톱 앱을 받아 내 컴퓨터에서 바로 실행하세요.',
   'bootCheck.preferDesktop': '모든 것을 자신의 기기에 보관하고 싶으신가요?',
   'bootCheck.downloadDesktop': '데스크톱 앱 받기',
-  'bootCheck.localRecommended': '이 Mac에서',
+  'bootCheck.localRecommended': '이 컴퓨터에서',
   'bootCheck.localDescription': '가장 빠르고 완전히 비공개이며, 설정할 것이 없습니다.',
   'bootCheck.cloudMode': '내가 운영하는 서버에서',
   'bootCheck.cloudDescription':
-    '24시간 온라인 상태를 유지하므로 이 Mac을 계속 켜 둘 필요가 없습니다.',
+    '24시간 온라인 상태를 유지하므로 이 컴퓨터을 계속 켜 둘 필요가 없습니다.',
   'bootCheck.coreRpcUrl': '주소',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
   'bootCheck.authToken': '토큰',
@@ -1658,7 +1658,7 @@ const messages: TranslationMap = {
   'bootCheck.removeContinue': '제거하고 계속',
   'bootCheck.localNeedsRestart': 'OpenHuman을 다시 시작해야 합니다',
   'bootCheck.localNeedsRestartDesc':
-    '이 Mac의 OpenHuman 버전이 이 앱과 다릅니다. 잠깐 다시 시작하면 다시 맞춰집니다.',
+    '이 컴퓨터의 OpenHuman 버전이 이 앱과 다릅니다. 잠깐 다시 시작하면 다시 맞춰집니다.',
   'bootCheck.restarting': '다시 시작 중…',
   'bootCheck.restartCore': '다시 시작',
   'bootCheck.cloudNeedsUpdate': '서버를 업데이트해야 합니다',
