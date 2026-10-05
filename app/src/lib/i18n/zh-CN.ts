@@ -4073,7 +4073,8 @@ const messages: TranslationMap = {
     '使用 OpenHuman 托管的记忆默认设置。保险库路径和同步健康状态仍可稍后查看。',
   'onboarding.custom.vault.configureDesc': '立即查看保险库所有权、运行健康检查并调整记忆控制。',
   'onboarding.custom.vault.localDisabledReason': '托管设置需要登录 OpenHuman，在本地模式下不可用。',
-  'onboarding.custom.localDefaultDisabledReason': '托管设置需要 OpenHuman 账户。在本地会话中，你需要自行配置每项服务。',
+  'onboarding.custom.localDefaultDisabledReason':
+    '托管设置需要 OpenHuman 账户。在本地会话中，你需要自行配置每项服务。',
   'onboarding.custom.unsavedChanges': '继续之前请先保存更改。',
   'onboarding.custom.vault.exitError': '无法完成引导流程，请重试。',
 

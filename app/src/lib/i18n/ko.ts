@@ -755,7 +755,8 @@ const messages: TranslationMap = {
     'Exa와 Gemini가 포함되어 있습니다. 설정 › 도구에서 본인 API 키로 검색 제공자를 더 추가하세요.',
   'onboarding.custom.search.skipForNow': '나중에 하기',
   'onboarding.custom.search.ready': '웹 검색이 준비되었습니다.',
-  'onboarding.custom.search.notReady': 'OpenHuman이 웹을 검색할 수 있도록 아래에 제공자를 추가하세요.',
+  'onboarding.custom.search.notReady':
+    'OpenHuman이 웹을 검색할 수 있도록 아래에 제공자를 추가하세요.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman이 시맨틱 메모리 검색을 위한 벡터 임베딩을 생성하는 방식입니다.',
