@@ -474,7 +474,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'Vous exécutez déjà OpenHuman sur un serveur ?',
   'welcome.serverCta': 'Connectez-vous-y.',
   'welcome.handoff.title': 'Finalisation de la connexion dans votre navigateur',
-  'welcome.handoff.body': 'Nous avons ouvert tinyhumans.ai — revenez une fois terminé.',
+  'welcome.handoff.body': 'Nous avons ouvert tinyhumans.ai. Revenez une fois terminé.',
   'welcome.handoff.reopen': 'Rouvrir la page',
   'welcome.handoff.failedTitle': "La connexion n'est pas revenue",
   'welcome.handoff.failedBody': 'Le navigateur a peut-être bloqué le retour vers OpenHuman.',

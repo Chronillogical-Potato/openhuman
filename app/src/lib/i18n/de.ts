@@ -477,7 +477,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'Du betreibst OpenHuman schon auf einem Server?',
   'welcome.serverCta': 'Verbinde dich damit.',
   'welcome.handoff.title': 'Anmeldung im Browser wird abgeschlossen',
-  'welcome.handoff.body': 'Wir haben tinyhumans.ai geöffnet — komm zurück, wenn du fertig bist.',
+  'welcome.handoff.body': 'Wir haben tinyhumans.ai geöffnet. Komm zurück, wenn du fertig bist.',
   'welcome.handoff.reopen': 'Seite erneut öffnen',
   'welcome.handoff.failedTitle': 'Anmeldung nicht zurückgekehrt',
   'welcome.handoff.failedBody':

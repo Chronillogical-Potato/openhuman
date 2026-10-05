@@ -467,7 +467,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'Masz już OpenHuman uruchomiony na serwerze?',
   'welcome.serverCta': 'Połącz się z nim.',
   'welcome.handoff.title': 'Kończenie logowania w przeglądarce',
-  'welcome.handoff.body': 'Otworzyliśmy tinyhumans.ai — wróć, gdy skończysz.',
+  'welcome.handoff.body': 'Otworzyliśmy tinyhumans.ai. Wróć, gdy skończysz.',
   'welcome.handoff.reopen': 'Otwórz stronę ponownie',
   'welcome.handoff.failedTitle': 'Logowanie nie wróciło',
   'welcome.handoff.failedBody': 'Przeglądarka mogła zablokować powrót do OpenHuman.',

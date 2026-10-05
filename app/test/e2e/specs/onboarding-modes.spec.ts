@@ -7,9 +7,9 @@
  *     (Cloud) → /home. `onboarding_completed = true` lands in
  *     `${OPENHUMAN_WORKSPACE}/config.toml` immediately.
  *
- *   - Phase B — Advanced/Custom path (Default on every wizard step):
+ *   - Phase B — Advanced/Custom path:
  *     reset onboarding flag → Welcome → Runtime choice (Custom) →
- *     Inference (Default) → Search (Default) → Vault (Finish).
+ *     Inference → Search → Vault (Finish).
  *     The custom wizard is exactly three steps; Voice, OAuth and Embeddings
  *     are no longer part of it (they stay configurable from Settings).
  *     Asserts each of the three step containers renders with the expected
@@ -17,7 +17,7 @@
  *     that the retired steps are never mounted.
  *
  *   - Phase C — Advanced/Custom path using "Skip for now" on the optional
- *     Search step: Inference (Default) → Search (skip, no key configured) →
+ *     Search step: Inference → Search (skip, no key configured) →
  *     Vault (Finish), and `onboarding_completed = true` lands in config.toml.
  *
  * Auth is the bypass deep-link path. The mock API server runs on the same
@@ -350,32 +350,22 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', function ()
 
     await advanceFromWelcomeToCustomInference('Phase B');
 
-    // Step 1 of 3 — Custom Inference (Default). The stepper must list exactly
+    // Step 1 of 3 — Custom Inference. The stepper must list exactly
     // the three live steps, in order.
     expect(await testIdExists('onboarding-custom-inference-step', 10_000)).toBe(true);
     expect(await stepperLabels()).toEqual(['Inference', 'Search', 'Vault']);
-    expect(await clickTestId('onboarding-custom-inference-step-default')).toBe(true);
     await pause(400);
     await clickOnboardingNext();
 
-    // Step 2 of 3 — Custom Search (Default).
+    // Step 2 of 3 — Custom Search.
     expect(await testIdExists('onboarding-custom-search-step', 10_000)).toBe(true);
     expect(await stepperLabels()).toEqual(['Inference', 'Search', 'Vault']);
-    expect(await clickTestId('onboarding-custom-search-step-default')).toBe(true);
     await pause(400);
     await clickOnboardingNext();
 
-    // Step 3 of 3 — Custom Vault. Final step → Finish. VaultSetupStep hides the
-    // choice cards and auto-selects "configure" only for LOCAL sessions
-    // (`defaultDisabled={isLocalSession}`); the E2E logs in via the cloud-auth
-    // deep link, so the session is non-local — the choice cards ARE shown with
-    // an enabled default, and the Finish button stays disabled (`choice === null`)
-    // until one is picked. Select the default when the card is present; a local
-    // session (cards hidden) just advances.
+    // Step 3 of 3 — Custom Vault. Final step → Finish. There is no
+    // Default/Configure fork any more, so Continue is enabled straight away.
     expect(await testIdExists('onboarding-custom-vault-step', 10_000)).toBe(true);
-    if (await testIdExists('onboarding-custom-vault-step-default', 2_000)) {
-      await clickTestId('onboarding-custom-vault-step-default');
-    }
     await pause(400);
     await clickOnboardingNext();
 
@@ -408,10 +398,9 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', function ()
     this.timeout(90_000);
     await resetOnboardingFlagAndReload();
 
-    // Welcome → Runtime choice (Custom) → Inference (Default).
+    // Welcome → Runtime choice (Custom) → Inference.
     await advanceFromWelcomeToCustomInference('Phase C');
 
-    expect(await clickTestId('onboarding-custom-inference-step-default')).toBe(true);
     await pause(400);
     await clickOnboardingNext();
 
@@ -422,9 +411,6 @@ describe('Onboarding modes — Simple (Cloud) vs Advanced (Custom)', function ()
     expect(await clickTestId('onboarding-search-skip')).toBe(true);
 
     expect(await testIdExists('onboarding-custom-vault-step', 10_000)).toBe(true);
-    if (await testIdExists('onboarding-custom-vault-step-default', 2_000)) {
-      await clickTestId('onboarding-custom-vault-step-default');
-    }
     await pause(400);
     await clickOnboardingNext();
 

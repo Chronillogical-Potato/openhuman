@@ -17,17 +17,8 @@ async function resetOnboarding(userId: string): Promise<void> {
   });
 }
 
-async function chooseConfigure(page: Page): Promise<void> {
-  const configure = page.getByRole('radio', { name: /Configure/ }).first();
-  if (await configure.isVisible().catch(() => false)) {
-    await configure.click();
-  }
-}
-
 test.describe('Onboarding custom configuration flow', () => {
-  test('advanced path supports configure choices and back navigation through final setup', async ({
-    page,
-  }) => {
+  test('advanced path supports back navigation through final setup', async ({ page }) => {
     await resetOnboarding('pw-onboarding-config');
     await seedBrowserCoreMode(page);
     await page.goto('/#/onboarding/welcome');
@@ -41,11 +32,9 @@ test.describe('Onboarding custom configuration flow', () => {
     await page.getByTestId('onboarding-next-button').click();
 
     await expect(page.getByTestId('onboarding-custom-inference-step')).toBeVisible();
-    await chooseConfigure(page);
     await page.getByTestId('onboarding-next-button').click();
 
     await expect(page.getByTestId('onboarding-custom-search-step')).toBeVisible();
-    await chooseConfigure(page);
     await page.getByRole('button', { name: /Back/ }).click();
     await expect(page.getByTestId('onboarding-custom-inference-step')).toBeVisible();
     await page.getByTestId('onboarding-next-button').click();
@@ -57,7 +46,6 @@ test.describe('Onboarding custom configuration flow', () => {
     await page.getByTestId('onboarding-search-skip').click();
 
     await expect(page.getByTestId('onboarding-custom-vault-step')).toBeVisible({ timeout: 20_000 });
-    await chooseConfigure(page);
     await expect(page.getByTestId('onboarding-next-button')).toBeEnabled();
   });
 });

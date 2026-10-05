@@ -464,7 +464,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'Sudah menjalankan OpenHuman di server?',
   'welcome.serverCta': 'Hubungkan ke sana.',
   'welcome.handoff.title': 'Menyelesaikan proses masuk di browser Anda',
-  'welcome.handoff.body': 'Kami membuka tinyhumans.ai — kembali setelah selesai.',
+  'welcome.handoff.body': 'Kami membuka tinyhumans.ai. Kembali setelah selesai.',
   'welcome.handoff.reopen': 'Buka halaman lagi',
   'welcome.handoff.failedTitle': 'Proses masuk tidak kembali',
   'welcome.handoff.failedBody': 'Browser mungkin memblokir kembalinya ke OpenHuman.',

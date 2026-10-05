@@ -467,7 +467,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'Já executa o OpenHuman em um servidor?',
   'welcome.serverCta': 'Conecte-se a ele.',
   'welcome.handoff.title': 'Concluindo o login no seu navegador',
-  'welcome.handoff.body': 'Abrimos o tinyhumans.ai — volte quando terminar.',
+  'welcome.handoff.body': 'Abrimos o tinyhumans.ai. Volte quando terminar.',
   'welcome.handoff.reopen': 'Abrir a página novamente',
   'welcome.handoff.failedTitle': 'O login não voltou',
   'welcome.handoff.failedBody': 'O navegador pode ter bloqueado o retorno ao OpenHuman.',

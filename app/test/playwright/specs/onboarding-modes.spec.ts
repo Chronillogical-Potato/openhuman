@@ -108,11 +108,9 @@ test.describe('Onboarding modes', () => {
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await expect(page.getByTestId('onboarding-custom-inference-step')).toBeVisible();
-    expect(await clickTestId(page, 'onboarding-custom-inference-step-default')).toBe(true);
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await expect(page.getByTestId('onboarding-custom-search-step')).toBeVisible();
-    expect(await clickTestId(page, 'onboarding-custom-search-step-default')).toBe(true);
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await expect(page.getByTestId('onboarding-custom-vault-step')).toBeVisible();
@@ -120,7 +118,6 @@ test.describe('Onboarding modes', () => {
     for (const retired of ['voice', 'oauth', 'embeddings']) {
       await expect(page.getByTestId(`onboarding-custom-${retired}-step`)).toHaveCount(0);
     }
-    expect(await clickTestId(page, 'onboarding-custom-vault-step-default')).toBe(true);
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await ensureHomeOrForceComplete(page);

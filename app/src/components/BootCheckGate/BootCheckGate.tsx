@@ -238,6 +238,10 @@ function ModePicker({ onConfirm }: PickerProps) {
 
   return (
     <Panel>
+      {/* A stable hook for the E2E readiness helper. It used to match the
+          picker by its heading text, so renaming the copy made the wait pass
+          vacuously for every spec. */}
+      <div data-testid="boot-check-picker" hidden />
       <BootCheckLanguageSelect />
       <h2 className="text-xl font-semibold text-content">
         {isDesktop ? t('bootCheck.chooseCoreMode') : t('bootCheck.connectToCore')}

@@ -445,7 +445,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'هل تشغّل OpenHuman على خادم بالفعل؟',
   'welcome.serverCta': 'اتصل به.',
   'welcome.handoff.title': 'إنهاء تسجيل الدخول في متصفحك',
-  'welcome.handoff.body': 'فتحنا tinyhumans.ai — عُد عندما تنتهي.',
+  'welcome.handoff.body': 'فتحنا tinyhumans.ai. عُد عندما تنتهي.',
   'welcome.handoff.reopen': 'افتح الصفحة مرة أخرى',
   'welcome.handoff.failedTitle': 'لم يكتمل تسجيل الدخول',
   'welcome.handoff.failedBody': 'ربما حظر المتصفح العودة إلى OpenHuman.',

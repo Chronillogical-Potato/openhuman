@@ -336,7 +336,7 @@ const en: TranslationMap = {
   'welcome.serverPrompt': 'Already running OpenHuman on a server?',
   'welcome.serverCta': 'Connect to it.',
   'welcome.handoff.title': 'Finishing sign-in in your browser',
-  'welcome.handoff.body': "We opened tinyhumans.ai — come back when you're done.",
+  'welcome.handoff.body': "We opened tinyhumans.ai. Come back when you're done.",
   'welcome.handoff.reopen': 'Open the page again',
   'welcome.handoff.failedTitle': "Sign-in didn't come back",
   'welcome.handoff.failedBody': 'The browser may have blocked the return to OpenHuman.',

@@ -460,7 +460,7 @@ const messages: TranslationMap = {
   'welcome.serverPrompt': 'क्या आप पहले से किसी सर्वर पर OpenHuman चला रहे हैं?',
   'welcome.serverCta': 'उससे कनेक्ट करें।',
   'welcome.handoff.title': 'आपके ब्राउज़र में साइन-इन पूरा हो रहा है',
-  'welcome.handoff.body': 'हमने tinyhumans.ai खोला है — पूरा होने पर वापस आएँ।',
+  'welcome.handoff.body': 'हमने tinyhumans.ai खोला है। पूरा होने पर वापस आएँ।',
   'welcome.handoff.reopen': 'पेज दोबारा खोलें',
   'welcome.handoff.failedTitle': 'साइन-इन वापस नहीं आया',
   'welcome.handoff.failedBody': 'हो सकता है ब्राउज़र ने OpenHuman पर वापसी को रोक दिया हो।',
