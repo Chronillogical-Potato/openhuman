@@ -298,3 +298,65 @@ fn temperature_override_is_turn_local_and_changes_the_cache_fingerprint() {
     assert_ne!(cold, warm);
     assert_eq!(serde_json::to_value(&config).unwrap(), snapshot);
 }
+
+/// Settings changes must invalidate a warm managed chat even when the caller
+/// sends no model override and the provider binding stays managed.
+#[test]
+fn persisted_managed_model_changes_invalidate_the_session_fingerprint() {
+    let mut config = Config::default();
+    config.chat_provider = Some("openhuman".to_string());
+    config.default_model = Some("openrouter/author/first-model:free".to_string());
+    let fingerprint = |config: &Config, selection: Option<String>| {
+        super::build_session_fingerprint(
+            config,
+            selection,
+            None,
+            "orchestrator".to_string(),
+            "chat",
+        )
+    };
+    let first = fingerprint(&config, None);
+    config.default_model = Some("openrouter/author/second-model:free".to_string());
+    let second = fingerprint(&config, None);
+    assert_eq!(first.provider_binding, second.provider_binding);
+    assert_eq!(first.model_override, second.model_override);
+    assert_ne!(
+        first, second,
+        "the old cached agent must not survive a saved model change"
+    );
+    assert!(super::fingerprint_diff(&first, &second)
+        .iter()
+        .any(|field| field.starts_with("effective_model:")));
+    config.default_model = None;
+    assert_ne!(
+        second,
+        fingerprint(&config, None),
+        "clearing the pin restores the managed fallback"
+    );
+}
+
+/// A concrete picker choice still wins over a changing saved default; changing
+/// that unrelated default must not evict the agent built for the explicit pick.
+#[test]
+fn explicit_picker_model_keeps_its_fingerprint_when_saved_default_changes() {
+    let mut config = Config::default();
+    config.chat_provider = Some("openhuman".to_string());
+    config.default_model = Some("openrouter/author/first-model:free".to_string());
+    let selected = Some("openrouter/author/picked-model:free".to_string());
+    let first = super::build_session_fingerprint(
+        &config,
+        selected.clone(),
+        None,
+        "orchestrator".to_string(),
+        "chat",
+    );
+    config.default_model = Some("openrouter/author/second-model:free".to_string());
+    let second = super::build_session_fingerprint(
+        &config,
+        selected,
+        None,
+        "orchestrator".to_string(),
+        "chat",
+    );
+    assert_eq!(first, second);
+}

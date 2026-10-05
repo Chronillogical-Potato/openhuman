@@ -263,6 +263,12 @@ pub(super) fn fingerprint_diff(
             prior.model_override, next.model_override
         ));
     }
+    if prior.effective_model != next.effective_model {
+        diff.push(format!(
+            "effective_model: {} -> {}",
+            prior.effective_model, next.effective_model
+        ));
+    }
     if prior.temperature != next.temperature {
         diff.push(format!(
             "temperature: {:?} -> {:?}",
@@ -308,6 +314,10 @@ pub(super) fn build_session_fingerprint(
     let effective = effective_session_config(config, model_override.as_deref(), temperature);
     SessionCacheFingerprint {
         model_override,
+        effective_model: crate::inference::provider::factory::resolve_model_for_hint(
+            &format!("hint:{provider_role}"),
+            &effective,
+        ),
         temperature,
         provider_binding: crate::inference::provider::provider_for_role(provider_role, &effective),
         target_agent_id,

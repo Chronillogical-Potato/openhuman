@@ -27,7 +27,8 @@ runner behind both surfaces.
    `APPROVAL_CHAT_CONTEXT` task-local scope all wrap the same future.
 4. `run_chat_task` checks the session `Agent` out of the per-thread cache
    (`session.rs::checkout_session_agent`), reusing the `THREAD_SESSIONS` entry
-   when its `SessionCacheFingerprint` still matches and otherwise building one
+   when its `SessionCacheFingerprint` (including the resolved effective model,
+   even without a picker override) still matches and otherwise building one
    and cold-boot resuming it from the thread's `session_raw` transcript (or
    the conversation log). A `Parallel` fork always builds a fresh agent and
    never touches the cache. It then spawns [`spawn_progress_bridge`]

@@ -322,6 +322,7 @@ const Conversations = ({
   // that contributes to "Maximum update depth exceeded" (TAURI-REACT-2G).
   const sendErrorRef = useRef(sendError);
   sendErrorRef.current = sendError;
+  const preserveSendErrorForRestoredDraftRef = useRef(false);
   const createThreadErrorRef = useRef(createThreadError);
   createThreadErrorRef.current = createThreadError;
   const displayedSendError = deriveChatErrorBanner(
@@ -446,6 +447,8 @@ const Conversations = ({
   // (the same field Settings → Routing → "Default model" edits). `null` clears
   // the pin back to the managed default.
   const [composerModelOverride, setComposerModelOverride] = useState<string | null>(null);
+  const modelSettingsWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const composerModelClearBarrierRef = useRef<Promise<void> | null>(null);
   // `undefined` means no explicit picker selection, so usage-reported context
   // remains authoritative. `null` means the selected model did not report a
   // window, and the meter deliberately shows an unknown limit.
@@ -491,19 +494,38 @@ const Conversations = ({
   const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
     setComposerModelOverride(value);
     setComposerModelContextWindow(contextWindow ?? null);
-    void callCoreRpc({
-      method: 'openhuman.inference_update_model_settings',
-      params: { default_model: value ?? '' },
-    })
-      .then(() => {
+    const write = modelSettingsWriteQueueRef.current
+      .catch(() => undefined)
+      .then(() =>
+        callCoreRpc({
+          method: 'openhuman.inference_update_model_settings',
+          params: { default_model: value ?? '' },
+        })
+      );
+    modelSettingsWriteQueueRef.current = write.then(
+      () => undefined,
+      () => undefined
+    );
+    void write.then(
+      () => {
         console.debug('[chat][composer-model] persisted default_model', { pinned: value !== null });
-      })
-      .catch((err: unknown) => {
+      },
+      (err: unknown) => {
         // The in-session override still applies; only persistence failed.
         console.warn('[chat][composer-model] failed to persist default_model', {
           message: err instanceof Error ? err.message : String(err),
         });
-      });
+      }
+    );
+    if (value === null) {
+      const clearBarrier = write.then(() => undefined);
+      composerModelClearBarrierRef.current = clearBarrier;
+      // Keep the rejected promise available to a default send while marking it
+      // handled immediately, even if the user never submits another message.
+      void clearBarrier.catch(() => undefined);
+    } else {
+      composerModelClearBarrierRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -786,7 +808,9 @@ const Conversations = ({
   }, []);
 
   useEffect(() => {
-    if (sendErrorRef.current && inputValue.length > 0) {
+    if (preserveSendErrorForRestoredDraftRef.current) {
+      preserveSendErrorForRestoredDraftRef.current = false;
+    } else if (sendErrorRef.current && inputValue.length > 0) {
       setSendError(null);
     }
     // The store-recorded create failure (#5156) dismisses on the same signal:
@@ -1153,6 +1177,8 @@ const Conversations = ({
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? undefined;
+    const modelClearBarrier =
+      modelOverride === undefined ? composerModelClearBarrierRef.current : null;
     let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1164,6 +1190,17 @@ const Conversations = ({
     };
 
     try {
+      if (modelClearBarrier) {
+        try {
+          await modelClearBarrier;
+        } catch (error) {
+          // assistant-ui clears its composer when `onNew` resolves, so restore
+          // this draft when the clear barrier prevents the send from starting.
+          preserveSendErrorForRestoredDraftRef.current = true;
+          setInputValue(normalized);
+          throw error;
+        }
+      }
       const persisted = await dispatch(
         addMessageLocal({ threadId: sendingThreadId, message: userMessage })
       ).unwrap();
@@ -1271,6 +1308,8 @@ const Conversations = ({
     if (!normalized && pendingAttachments.length === 0) return;
 
     const modelOverride = composerModelOverride ?? undefined;
+    const modelClearBarrier =
+      modelOverride === undefined ? composerModelClearBarrierRef.current : null;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     // Build the full user message exactly like a normal send (content +
     // attachment metadata) so the follow-up persists identically when it is
@@ -1293,6 +1332,14 @@ const Conversations = ({
     setAttachError(null);
 
     try {
+      if (modelClearBarrier) {
+        try {
+          await modelClearBarrier;
+        } catch (error) {
+          preserveSendErrorForRestoredDraftRef.current = true;
+          throw error;
+        }
+      }
       await chatSend({
         threadId,
         message: messageText,

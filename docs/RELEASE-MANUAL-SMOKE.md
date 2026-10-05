@@ -90,6 +90,8 @@ Applies to every release, all platforms.
 
 ### Cross-platform
 
+- [ ] **Chat model picker selects the provider as well as the model (#6938)** — In an isolated test profile, switch the same thread from managed to Ollama, then to a configured BYOK provider, and back to a managed catalog model (including a `:free` variant). Verify the actual request endpoint and model match each selection, configured background routes stay unchanged, and reopening the app restores the selected provider/model. Selecting a workload hint must retain its configured route.
+
 - [ ] **Agent files land in a visible folder** — Ask the agent for a short document or deck. Expected: the file appears in `~/OpenHuman/projects/Files` under its title (not in `~/.openhuman`); **Show in folder** in the chat Files panel opens the file manager at it; Settings → Agent OS access → **Files folder** shows that path, **Show in folder** opens it, and choosing another folder sends the next file there while the earlier file still opens. On an upgraded install, files from before the upgrade have moved into the folder.
 - [ ] **Caller-owned inference works without an OpenHuman session** — In a local workspace without an OpenHuman login, configure Ollama/LM Studio/MLX/oMLX/local-openai or an independently authenticated Claude Code/Agent SDK provider. Run chat and an agent flow routed entirely to that provider. For a named harness agent, also configure the summarization route to managed inference and verify that the agent still uses its local route; reversing those routes must retain the managed agent's session requirement. Expected: no OpenHuman session requirement. Select managed inference instead: it must still require a backend session. With LocalOnly privacy enabled, local runtimes remain allowed and Claude subprocesses remain blocked as external inference.
 - [ ] **LocalOnly blocks remote search** — Configure a remote search provider and enable LocalOnly privacy. Invoke `web_search_tool` with a harmless query. Expected: the tool returns a policy-blocked result and does not dispatch to the provider. Switch privacy to Standard and confirm the same tool can complete.
@@ -129,5 +131,3 @@ Notes:
 ```
 
 Paste the filled block as a commit comment on the `v<version>-staging` tagged commit before promoting to production.
-
-- [ ] **Chat model picker selects the provider as well as the model (#6938)** — In an isolated test profile, switch the same thread from managed to Ollama, then to a configured BYOK provider, and back to a managed catalog model (including a `:free` variant). Verify the actual request endpoint and model match each selection, configured background routes stay unchanged, and reopening the app restores the selected provider/model. Selecting a workload hint must retain its configured route.

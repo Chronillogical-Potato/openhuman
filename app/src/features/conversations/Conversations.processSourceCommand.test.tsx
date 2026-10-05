@@ -18,6 +18,7 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 import { registry } from '../../lib/commands/registry';
 import { threadApi } from '../../services/api/threadApi';
 import { chatSend } from '../../services/chatService';
+import { callCoreRpc } from '../../services/coreRpcClient';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
 import queueReducer from '../../store/queueSlice';
@@ -51,6 +52,8 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState, mockChatSend }
   })
 );
 
+vi.mock('../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn().mockResolvedValue({}) }));
+
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
   chatClearQueue: vi.fn().mockResolvedValue(0),
@@ -69,7 +72,7 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
     onSelect,
   }: {
     onSelect: (selection: {
-      source: { kind: 'cloud'; providerSlug: string };
+      source: { kind: 'cloud'; providerSlug: string } | { kind: 'managed' };
       model: string;
     }) => void;
   }) => (
@@ -80,6 +83,9 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
           onSelect({ source: { kind: 'cloud', providerSlug: 'huggingface' }, model: 'org/model' })
         }>
         Pick Hugging Face model
+      </button>
+      <button type="button" onClick={() => onSelect({ source: { kind: 'managed' }, model: '' })}>
+        Clear model
       </button>
     </div>
   ),
@@ -226,9 +232,47 @@ async function submitComposerText(text: string) {
   await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
 }
 
+async function clickSendButtonWithDraft(text: string) {
+  const input = screen.getByRole('textbox');
+  await act(async () => {
+    input.textContent = text;
+    fireEvent.input(input, { data: text, inputType: 'insertText' });
+  });
+  const sendButton = screen.getByTestId('send-message-button');
+  await waitFor(() => expect(sendButton).not.toBeDisabled());
+  await act(async () => {
+    fireEvent.click(sendButton);
+  });
+}
+
 async function selectPickerModel() {
   fireEvent.click(screen.getByTestId('composer-chat-settings'));
   fireEvent.click(await screen.findByRole('button', { name: 'Pick Hugging Face model' }));
+}
+
+async function clearPickerModel() {
+  fireEvent.click(screen.getByTestId('composer-chat-settings'));
+  fireEvent.click(await screen.findByRole('button', { name: 'Clear model' }));
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function mockModelSettingsWrites(writes: Record<string, Promise<unknown>>) {
+  vi.mocked(callCoreRpc).mockImplementation(({ method, params }) => {
+    if (method === 'openhuman.inference_update_model_settings') {
+      const defaultModel = (params as { default_model: string }).default_model;
+      return (writes[defaultModel] ?? Promise.resolve({})) as ReturnType<typeof callCoreRpc>;
+    }
+    return Promise.resolve({}) as ReturnType<typeof callCoreRpc>;
+  });
 }
 
 // The predicate's other half (`selectedThreadId !== null`) is deliberately not
@@ -330,6 +374,142 @@ describe('composer model routing', () => {
   afterEach(() => {
     cleanup();
     registry.reset();
+  });
+
+  it('waits for a successful model clear before sending a normal default turn', async () => {
+    const clear = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
+    await renderChat('text');
+    await selectPickerModel();
+    await clearPickerModel();
+
+    await clickSendButtonWithDraft('wait for clear');
+    expect(mockChatSend).not.toHaveBeenCalled();
+    expect(threadApi.appendMessage).not.toHaveBeenCalled();
+
+    await act(async () => clear.resolve({}));
+    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
+    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
+  });
+
+  it('waits for a successful model clear before sending a follow-up', async () => {
+    const clear = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
+    await renderChat('text', false, true);
+    await selectPickerModel();
+    await clearPickerModel();
+
+    await clickSendButtonWithDraft('wait for follow-up clear');
+    expect(mockChatSend).not.toHaveBeenCalled();
+
+    await act(async () => clear.resolve({}));
+    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
+    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ queueMode: 'followup' });
+    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
+  });
+
+  it('blocks a normal send after a rejected clear and keeps the draft', async () => {
+    const clear = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
+    await renderChat('text');
+    await selectPickerModel();
+    await clearPickerModel();
+
+    await clickSendButtonWithDraft('retry this draft');
+    await act(async () => clear.reject(new Error('clear failed')));
+
+    expect(mockChatSend).not.toHaveBeenCalled();
+    expect(threadApi.appendMessage).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveTextContent('retry this draft');
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-send-error')).toHaveAttribute(
+        'data-chat-send-error-code',
+        'cloud_send_failed'
+      )
+    );
+
+    const input = screen.getByRole('textbox');
+    await act(async () => {
+      input.textContent = 'retry this draft edited';
+      fireEvent.input(input, { data: 'retry this draft edited', inputType: 'insertText' });
+    });
+    await waitFor(() => expect(screen.queryByTestId('chat-send-error')).not.toBeInTheDocument());
+    expect(mockChatSend).not.toHaveBeenCalled();
+  });
+
+  it('blocks a follow-up after a rejected clear and keeps the draft', async () => {
+    const clear = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
+    await renderChat('text', false, true);
+    await selectPickerModel();
+    await clearPickerModel();
+
+    await clickSendButtonWithDraft('retry this follow-up');
+    await act(async () => clear.reject(new Error('clear failed')));
+
+    expect(mockChatSend).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveTextContent('retry this follow-up');
+    await waitFor(() =>
+      expect(screen.getByTestId('chat-send-error')).toHaveAttribute(
+        'data-chat-send-error-code',
+        'cloud_send_failed'
+      )
+    );
+
+    const input = screen.getByRole('textbox');
+    await act(async () => {
+      input.textContent = 'retry this follow-up edited';
+      fireEvent.input(input, { data: 'retry this follow-up edited', inputType: 'insertText' });
+    });
+    await waitFor(() => expect(screen.queryByTestId('chat-send-error')).not.toBeInTheDocument());
+    expect(mockChatSend).not.toHaveBeenCalled();
+  });
+
+  it('does not wait for selected-model persistence before an explicit-model send', async () => {
+    const persist = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': persist.promise });
+    await renderChat('text');
+
+    await selectPickerModel();
+    await submitComposerText('explicit while persistence is pending');
+
+    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model: 'huggingface:org/model' });
+    expect(persist.promise).toBeInstanceOf(Promise);
+    await act(async () => persist.resolve({}));
+  });
+
+  it('lets a newly selected explicit model send after an earlier clear fails', async () => {
+    const clear = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
+    await renderChat('text');
+    await selectPickerModel();
+    await clearPickerModel();
+    await clickSendButtonWithDraft('blocked default draft');
+    await act(async () => clear.reject(new Error('clear failed')));
+    expect(mockChatSend).not.toHaveBeenCalled();
+
+    await selectPickerModel();
+    await submitComposerText('new explicit route');
+
+    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model: 'huggingface:org/model' });
+  });
+
+  it('serializes a pending selection before a later clear', async () => {
+    const selection = deferred<unknown>();
+    const clear = deferred<unknown>();
+    mockModelSettingsWrites({ 'huggingface:org/model': selection.promise, '': clear.promise });
+    await renderChat('text');
+    await selectPickerModel();
+    await clearPickerModel();
+
+    await clickSendButtonWithDraft('clear wins');
+    expect(mockChatSend).not.toHaveBeenCalled();
+
+    await act(async () => selection.resolve({}));
+    expect(mockChatSend).not.toHaveBeenCalled();
+    await act(async () => clear.resolve({}));
+    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
+    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
   });
 
   it('leaves the persisted model to the core for a normal send by default', async () => {
