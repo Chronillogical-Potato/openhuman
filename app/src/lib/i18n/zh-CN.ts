@@ -4898,6 +4898,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': '正在导入旧版记忆…',
   'memoryPage.import.done': '旧版记忆已导入',
   'memoryPage.import.failed': '导入失败',
+  'memoryPage.import.resume': '继续导入',
   'memoryPage.import.progress': '已导入 {imported} / {total} 项',
 };
 

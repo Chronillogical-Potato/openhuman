@@ -5459,6 +5459,7 @@ const en: TranslationMap = {
   'memoryPage.import.running': 'Importing previous memory…',
   'memoryPage.import.done': 'Previous memory imported',
   'memoryPage.import.failed': 'Import failed',
+  'memoryPage.import.resume': 'Resume import',
   'memoryPage.import.progress': '{imported} of {total} items imported',
 };
 
