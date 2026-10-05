@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
+import { CoreStateContext } from '../../../providers/coreStateContext';
 import localeReducer from '../../../store/localeSlice';
 import CustomInferencePage from './CustomInferencePage';
 
@@ -19,7 +20,12 @@ vi.mock('react-router-dom', async importOriginal => {
 });
 
 vi.mock('../../../components/settings/panels/AIPanel', () => ({
-  default: () => <div data-testid="ai-panel">AI Panel</div>,
+  default: ({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) => (
+    <div data-testid="ai-panel">
+      <button onClick={() => onDirtyChange?.(true)}>make-dirty</button>
+      <button onClick={() => onDirtyChange?.(false)}>make-clean</button>
+    </div>
+  ),
 }));
 
 vi.mock('../../../providers/CoreStateProvider', () => ({
@@ -46,9 +52,12 @@ function renderPage() {
   return render(
     <Provider store={store}>
       <MemoryRouter>
-        <I18nProvider>
-          <CustomInferencePage />
-        </I18nProvider>
+        <CoreStateContext.Provider
+          value={{ snapshot: { sessionToken: 'header.payload.local' } } as never}>
+          <I18nProvider>
+            <CustomInferencePage />
+          </I18nProvider>
+        </CoreStateContext.Provider>
       </MemoryRouter>
     </Provider>
   );
@@ -106,5 +115,26 @@ describe('CustomInferencePage', () => {
     // navigate to "/" with a still-active session.
     await Promise.resolve();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks Continue and shows the hint while the AI panel reports unsaved edits', () => {
+    renderPage();
+
+    const next = screen.getByTestId('onboarding-next-button');
+    expect(next).toBeEnabled();
+    expect(screen.queryByTestId('onboarding-continue-hint')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('make-dirty'));
+    expect(next).toBeDisabled();
+    expect(screen.getByTestId('onboarding-continue-hint')).toHaveTextContent(
+      'Save your changes before continuing.'
+    );
+
+    fireEvent.click(next);
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('make-clean'));
+    expect(next).toBeEnabled();
+    expect(screen.queryByTestId('onboarding-continue-hint')).not.toBeInTheDocument();
   });
 });

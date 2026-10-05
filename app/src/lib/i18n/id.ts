@@ -771,6 +771,10 @@ const messages: TranslationMap = {
     'Pencarian web langsung berfungsi: Exa dan Gemini sudah termasuk dalam TinyHumans, tanpa kunci API.',
   'onboarding.custom.search.configureDesc':
     'Exa dan Gemini sudah termasuk. Tambahkan penyedia pencarian lain dengan kunci API milik Anda di Pengaturan › Alat.',
+  'onboarding.custom.search.skipForNow': 'Lewati untuk saat ini',
+  'onboarding.custom.search.ready': 'Pencarian web sudah siap.',
+  'onboarding.custom.search.notReady':
+    'Tambahkan penyedia di bawah agar OpenHuman dapat mencari di web.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Cara OpenHuman menghasilkan embedding vektor untuk pencarian memori semantik.',
@@ -4339,6 +4343,9 @@ const messages: TranslationMap = {
     'Tinjau kepemilikan vault, jalankan pemeriksaan kesehatan, dan sesuaikan kontrol memori sekarang.',
   'onboarding.custom.vault.localDisabledReason':
     'Pengaturan terkelola memerlukan masuk OpenHuman dan tidak tersedia dalam mode lokal.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'Pengaturan terkelola memerlukan akun OpenHuman. Dalam sesi lokal, Anda mengonfigurasi setiap layanan sendiri.',
+  'onboarding.custom.unsavedChanges': 'Simpan perubahan Anda sebelum melanjutkan.',
   'onboarding.custom.vault.exitError': 'Tidak dapat menyelesaikan orientasi. Silakan coba lagi.',
   'skills.create.whenToUse': 'Kapan digunakan',
   'skills.create.whenToUsePlaceholder': 'mis. saat pengguna meminta untuk memilah kotak masuk',

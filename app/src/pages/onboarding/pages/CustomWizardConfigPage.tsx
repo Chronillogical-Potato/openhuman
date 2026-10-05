@@ -2,10 +2,10 @@ import createDebug from 'debug';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { useIsLocalSession } from '../../../hooks/useLocalSession';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
 import { trackEvent } from '../../../services/analytics';
-import { isLocalSessionToken } from '../../../utils/localSession';
 import { CUSTOM_WIZARD_ROUTES, CUSTOM_WIZARD_STEPS } from '../customWizardSteps';
 import {
   type CustomStepChoice,
@@ -18,25 +18,31 @@ const log = createDebug('app:onboarding:custom');
 
 const describeError = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
-const LOCAL_DEFAULT_DISABLED_REASON =
-  'Managed setup requires OpenHuman sign-in and is unavailable in local mode.';
-
 interface CustomWizardConfigPageProps {
   stepKey: CustomStepKey;
   configureContent: ReactNode;
   backRoute?: string;
+  /** Block Continue while the embedded panel holds unsaved edits. */
+  continueDisabled?: boolean;
+  /** Shown under the footer to explain why Continue is blocked. */
+  continueHint?: string;
+  /** Rendered under the footer — the search step's "Skip for now". */
+  secondaryAction?: ReactNode;
 }
 
 export default function CustomWizardConfigPage({
   stepKey,
   configureContent,
   backRoute,
+  continueDisabled,
+  continueHint,
+  secondaryAction,
 }: CustomWizardConfigPageProps) {
   const { t } = useT();
   const navigate = useNavigate();
-  const { snapshot, clearSession } = useCoreState();
+  const { clearSession } = useCoreState();
   const { draft, setDraft, completeAndExit } = useOnboardingContext();
-  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
+  const isLocalSession = useIsLocalSession();
   const stepIndex = CUSTOM_WIZARD_STEPS.indexOf(stepKey);
   const [choice, setChoice] = useState<CustomStepChoice | null>(
     draft.customChoices?.[stepKey] ?? (isLocalSession ? 'configure' : null)
@@ -88,10 +94,15 @@ export default function CustomWizardConfigPage({
       configureDescription={t(`${namespace}.configureDesc`)}
       configureContent={configureContent}
       defaultDisabled={isLocalSession}
-      defaultDisabledReason={isLocalSession ? LOCAL_DEFAULT_DISABLED_REASON : undefined}
+      defaultDisabledReason={
+        isLocalSession ? t('onboarding.custom.localDefaultDisabledReason') : undefined
+      }
       hideChoiceCards={isLocalSession}
       choice={choice}
       onChoiceChange={persistChoice}
+      continueDisabled={continueDisabled}
+      continueHint={continueHint}
+      secondaryAction={secondaryAction}
       onBack={() => void handleBack()}
       onContinue={async () => {
         trackEvent('onboarding_step_complete', {

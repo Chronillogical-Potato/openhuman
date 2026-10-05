@@ -11,7 +11,7 @@
  *
  * This file is a thin composition — every section lives in `./ai/*`.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -62,6 +62,16 @@ interface AIPanelProps {
   onTabChange?: (tab: AIPanelTab) => void;
   /** Suppress PanelPage's internal tab chrome for a host-rendered chip row. */
   hideTabChrome?: boolean;
+  /**
+   * Reports whether the panel holds unsaved edits.
+   *
+   * The onboarding wizard needs this: the panel keeps its own `SaveBar`, so a
+   * host with its own Continue button offers two competing ways to commit, and
+   * Continue used to navigate away and drop the edits silently. The wizard
+   * subscribes and disables Continue while dirty. Undefined for Settings,
+   * which has no second commit control.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   /** Host-owned "Add provider" dialog state (the host renders the button in
    *  its header). Undefined lets the providers section keep its own button. */
   addProviderOpen?: boolean;
@@ -75,10 +85,17 @@ const AIPanel = ({
   hideTabChrome = false,
   addProviderOpen,
   onAddProviderOpenChange,
+  onDirtyChange,
 }: AIPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack } = useSettingsNavigation();
   const { saved, draft, isDirty, save, persist, discard, loading, error, reload } = useAISettings();
+
+  // Let a host with its own commit control know there are unsaved edits. See
+  // the prop's note: without this the wizard's Continue silently discarded them.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
   // #1574 §4b: advisory re-embed modal, driven by the backend status RPC.
   const ollama = useOllamaStatus();
   const installed = useInstalledModels(ollama.snapshot);

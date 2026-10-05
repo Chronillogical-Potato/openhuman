@@ -787,6 +787,10 @@ const messages: TranslationMap = {
     'La recherche web fonctionne immédiatement : Exa et Gemini sont inclus avec TinyHumans, sans clé API.',
   'onboarding.custom.search.configureDesc':
     "Exa et Gemini sont inclus. Ajoutez d'autres fournisseurs de recherche avec votre propre clé API dans Paramètres › Outils.",
+  'onboarding.custom.search.skipForNow': "Passer pour l'instant",
+  'onboarding.custom.search.ready': 'La recherche web est prête.',
+  'onboarding.custom.search.notReady':
+    'Ajoutez un fournisseur ci-dessous pour que OpenHuman puisse effectuer des recherches sur le web.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Comment OpenHuman génère des embeddings vectoriels pour la recherche sémantique en mémoire.',
@@ -4403,6 +4407,9 @@ const messages: TranslationMap = {
     'Vérifiez la propriété du coffre, exécutez des contrôles de santé et affinez les contrôles de mémoire maintenant.',
   'onboarding.custom.vault.localDisabledReason':
     "La configuration gérée nécessite une connexion à OpenHuman et n'est pas disponible en mode local.",
+  'onboarding.custom.localDefaultDisabledReason':
+    'La configuration gérée nécessite un compte OpenHuman. Dans une session locale, vous configurez chaque service vous-même.',
+  'onboarding.custom.unsavedChanges': 'Enregistrez vos modifications avant de continuer.',
   'onboarding.custom.vault.exitError': "Impossible de terminer l'intégration. Veuillez réessayer.",
 
   // Memory Data

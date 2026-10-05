@@ -1,3 +1,4 @@
+import { CheckIcon } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
 
 interface WizardStepperProps {
@@ -53,24 +54,7 @@ const WizardStepper = ({ labels, activeIndex }: WizardStepperProps) => {
               />
               <div
                 className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 text-[10px] font-semibold ${dotClasses}`}>
-                {completed ? (
-                  <svg
-                    viewBox="0 0 12 12"
-                    className="h-3 w-3"
-                    fill="none"
-                    aria-hidden
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      d="M2 6.5L5 9.5L10 3.5"
-                      stroke="currentColor"
-                      strokeWidth="1.75"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : (
-                  idx + 1
-                )}
+                {completed ? <CheckIcon className="h-3 w-3" aria-hidden /> : idx + 1}
               </div>
               {/* Right connector */}
               <div

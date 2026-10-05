@@ -757,6 +757,10 @@ const messages: TranslationMap = {
     'ওয়েব সার্চ সঙ্গে সঙ্গে কাজ করে: Exa ও Gemini, TinyHumans-এ অন্তর্ভুক্ত, কোনো API কী লাগে না।',
   'onboarding.custom.search.configureDesc':
     'Exa ও Gemini অন্তর্ভুক্ত। সেটিংস › টুলস-এ নিজের API কী দিয়ে আরও সার্চ প্রদানকারী যোগ করুন।',
+  'onboarding.custom.search.skipForNow': 'আপাতত এড়িয়ে যান',
+  'onboarding.custom.search.ready': 'ওয়েব সার্চ প্রস্তুত।',
+  'onboarding.custom.search.notReady':
+    'নিচে একটি প্রদানকারী যোগ করুন, যাতে OpenHuman ওয়েবে সার্চ করতে পারে।',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman কীভাবে সিমান্টিক মেমোরি অনুসন্ধানের জন্য ভেক্টর এম্বেডিং তৈরি করে।',
@@ -4312,6 +4316,9 @@ const messages: TranslationMap = {
     'ভল্টের মালিকানা পর্যালোচনা করুন, স্বাস্থ্য পরীক্ষা চালান এবং এখনই মেমোরি নিয়ন্ত্রণ সামঞ্জস্য করুন।',
   'onboarding.custom.vault.localDisabledReason':
     'পরিচালিত সেটআপের জন্য OpenHuman সাইন-ইন প্রয়োজন এবং লোকাল মোডে উপলব্ধ নয়।',
+  'onboarding.custom.localDefaultDisabledReason':
+    'পরিচালিত সেটআপের জন্য একটি OpenHuman অ্যাকাউন্ট প্রয়োজন। লোকাল সেশনে আপনাকে প্রতিটি সার্ভিস নিজে কনফিগার করতে হবে।',
+  'onboarding.custom.unsavedChanges': 'চালিয়ে যাওয়ার আগে আপনার পরিবর্তনগুলো সংরক্ষণ করুন।',
   'onboarding.custom.vault.exitError': 'অনবোর্ডিং শেষ করা যায়নি। আবার চেষ্টা করুন।',
   'skills.create.whenToUse': 'কখন ব্যবহার করবেন',
   'skills.create.whenToUsePlaceholder': 'যেমন, যখন ব্যবহারকারী তাদের ইনবক্স গোছাতে বলেন',

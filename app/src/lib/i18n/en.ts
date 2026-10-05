@@ -788,6 +788,9 @@ const en: TranslationMap = {
     'Web search works out of the box: Exa and Gemini are included with TinyHumans, no API key needed.',
   'onboarding.custom.search.configureDesc':
     'Exa and Gemini are included. Add more search providers with your own API key in Settings › Tools.',
+  'onboarding.custom.search.skipForNow': 'Skip for now',
+  'onboarding.custom.search.ready': 'Web search is ready.',
+  'onboarding.custom.search.notReady': 'Add a provider below so OpenHuman can search the web.',
 
   // Onboarding: Custom > Embeddings
   'onboarding.custom.embeddings.title': 'Embeddings',
@@ -808,6 +811,9 @@ const en: TranslationMap = {
     'Review vault ownership, run health checks, and tune memory controls now.',
   'onboarding.custom.vault.localDisabledReason':
     'Managed setup requires OpenHuman sign-in and is unavailable in local mode.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'Managed setup needs an OpenHuman account. In a local session you configure each service yourself.',
+  'onboarding.custom.unsavedChanges': 'Save your changes before continuing.',
   'onboarding.custom.vault.exitError': 'Could not finish onboarding. Please try again.',
 
   // Onboarding: Custom > Memory

@@ -697,6 +697,9 @@ const messages: TranslationMap = {
     '网页搜索开箱即用：Exa 和 Gemini 已包含在 TinyHumans 中，无需 API 密钥。',
   'onboarding.custom.search.configureDesc':
     '已包含 Exa 和 Gemini。可在 设置 › 工具 中使用你自己的 API 密钥添加更多搜索提供商。',
+  'onboarding.custom.search.skipForNow': '暂时跳过',
+  'onboarding.custom.search.ready': '网络搜索已就绪。',
+  'onboarding.custom.search.notReady': '请在下方添加提供商，以便 OpenHuman 搜索网络。',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle': 'OpenHuman 生成向量嵌入以实现语义记忆搜索的方式。',
   'onboarding.custom.embeddings.defaultDesc': 'OpenHuman 使用托管嵌入服务，无需 API 密钥。',
@@ -4070,6 +4073,8 @@ const messages: TranslationMap = {
     '使用 OpenHuman 托管的记忆默认设置。保险库路径和同步健康状态仍可稍后查看。',
   'onboarding.custom.vault.configureDesc': '立即查看保险库所有权、运行健康检查并调整记忆控制。',
   'onboarding.custom.vault.localDisabledReason': '托管设置需要登录 OpenHuman，在本地模式下不可用。',
+  'onboarding.custom.localDefaultDisabledReason': '托管设置需要 OpenHuman 账户。在本地会话中，你需要自行配置每项服务。',
+  'onboarding.custom.unsavedChanges': '继续之前请先保存更改。',
   'onboarding.custom.vault.exitError': '无法完成引导流程，请重试。',
 
   // Memory Data

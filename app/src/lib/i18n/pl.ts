@@ -778,6 +778,10 @@ const messages: TranslationMap = {
     'Wyszukiwanie w sieci działa od razu: Exa i Gemini są wliczone w TinyHumans, bez klucza API.',
   'onboarding.custom.search.configureDesc':
     'Exa i Gemini są wliczone. Dodaj kolejnych dostawców wyszukiwania z własnym kluczem API w Ustawienia › Narzędzia.',
+  'onboarding.custom.search.skipForNow': 'Pomiń na razie',
+  'onboarding.custom.search.ready': 'Wyszukiwanie w sieci jest gotowe.',
+  'onboarding.custom.search.notReady':
+    'Dodaj poniżej dostawcę, aby OpenHuman mógł wyszukiwać w sieci.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Jak OpenHuman generuje wektory embeddings na potrzeby wyszukiwania semantycznego.',
@@ -4367,6 +4371,9 @@ const messages: TranslationMap = {
     'Sprawdź właściciela skarbca, uruchom kontrole stanu i dostosuj teraz ustawienia pamięci.',
   'onboarding.custom.vault.localDisabledReason':
     'Konfiguracja zarządzana wymaga logowania do OpenHuman i jest niedostępna w trybie lokalnym.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'Konfiguracja zarządzana wymaga konta OpenHuman. W sesji lokalnej każdą usługę konfigurujesz samodzielnie.',
+  'onboarding.custom.unsavedChanges': 'Zapisz zmiany, zanim przejdziesz dalej.',
   'onboarding.custom.vault.exitError': 'Nie udało się zakończyć wdrożenia. Spróbuj ponownie.',
   'skills.create.whenToUse': 'Kiedy używać',
   'skills.create.whenToUsePlaceholder':

@@ -1,11 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import MemoryEngineSetup from '../../../components/memory/MemoryEngineSetup';
+import { Alert, AlertDescription } from '../../../components/ui';
+import { useIsLocalSession } from '../../../hooks/useLocalSession';
 import { useT } from '../../../lib/i18n/I18nContext';
-import { useCoreState } from '../../../providers/CoreStateProvider';
 import { trackEvent } from '../../../services/analytics';
-import { isLocalSessionToken } from '../../../utils/localSession';
 import { CUSTOM_WIZARD_ROUTES, CUSTOM_WIZARD_STEPS } from '../customWizardSteps';
 import { type CustomStepChoice, useOnboardingContext } from '../OnboardingContext';
 import CustomWizardStep from '../steps/CustomWizardStep';
@@ -15,26 +15,26 @@ const STEP_KEY = 'vault' as const;
 export default function VaultSetupStep() {
   const { t } = useT();
   const navigate = useNavigate();
-  const { snapshot } = useCoreState();
   const { draft, setDraft, completeAndExit } = useOnboardingContext();
   const stepIndex = CUSTOM_WIZARD_STEPS.indexOf(STEP_KEY);
-  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
+  const isLocalSession = useIsLocalSession();
 
-  const appliedLocalRef = useRef(false);
   const initialChoice = isLocalSession ? 'configure' : (draft.customChoices?.[STEP_KEY] ?? null);
   const [choice, setChoice] = useState<CustomStepChoice | null>(initialChoice);
   const [exitError, setExitError] = useState<string | null>(null);
 
-  if (isLocalSession && !appliedLocalRef.current) {
-    appliedLocalRef.current = true;
-    if (choice !== 'configure') {
-      setChoice('configure');
-    }
+  // A local session has no managed option to choose between, so the step is
+  // pinned to `configure`. This runs as an effect, matching every other step
+  // (`CustomWizardConfigPage`); it used to be a ref-guarded setState during
+  // render, which is the same intent written a second, riskier way.
+  useEffect(() => {
+    if (!isLocalSession) return;
+    setChoice('configure');
     setDraft(prev => ({
       ...prev,
       customChoices: { ...prev.customChoices, [STEP_KEY]: 'configure' },
     }));
-  }
+  }, [isLocalSession, setDraft]);
 
   const persistChoice = useCallback(
     (next: CustomStepChoice) => {
@@ -82,11 +82,9 @@ export default function VaultSetupStep() {
         continueLabel={t('onboarding.custom.finish')}
       />
       {exitError ? (
-        <div
-          className="mt-3 rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-4 py-3 text-sm text-coral-700 dark:text-coral-300"
-          data-testid="onboarding-vault-exit-error">
-          {t('onboarding.custom.vault.exitError')}
-        </div>
+        <Alert variant="destructive" className="mt-3" data-testid="onboarding-vault-exit-error">
+          <AlertDescription>{t('onboarding.custom.vault.exitError')}</AlertDescription>
+        </Alert>
       ) : null}
     </>
   );

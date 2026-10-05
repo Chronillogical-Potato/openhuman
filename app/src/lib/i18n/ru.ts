@@ -770,6 +770,10 @@ const messages: TranslationMap = {
     'Веб-поиск работает сразу: Exa и Gemini включены в TinyHumans, API-ключ не нужен.',
   'onboarding.custom.search.configureDesc':
     'Exa и Gemini уже включены. Добавьте других поисковых провайдеров со своим API-ключом в Настройки › Инструменты.',
+  'onboarding.custom.search.skipForNow': 'Пропустить пока',
+  'onboarding.custom.search.ready': 'Веб-поиск готов.',
+  'onboarding.custom.search.notReady':
+    'Добавьте провайдера ниже, чтобы OpenHuman мог искать в интернете.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Как OpenHuman создаёт векторные эмбеддинги для семантического поиска в памяти.',
@@ -4353,6 +4357,9 @@ const messages: TranslationMap = {
     'Проверьте владельца хранилища, выполните проверки состояния и настройте параметры памяти прямо сейчас.',
   'onboarding.custom.vault.localDisabledReason':
     'Управляемая настройка требует входа в OpenHuman и недоступна в локальном режиме.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'Управляемая настройка требует аккаунта OpenHuman. В локальной сессии вы настраиваете каждый сервис самостоятельно.',
+  'onboarding.custom.unsavedChanges': 'Сохраните изменения, прежде чем продолжить.',
   'onboarding.custom.vault.exitError':
     'Не удалось завершить настройку. Пожалуйста, попробуйте ещё раз.',
   'skills.create.whenToUse': 'Когда использовать',

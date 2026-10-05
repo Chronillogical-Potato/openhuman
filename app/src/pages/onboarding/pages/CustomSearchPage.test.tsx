@@ -1,11 +1,12 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
+import { CoreStateContext } from '../../../providers/coreStateContext';
 import localeReducer from '../../../store/localeSlice';
 import CustomSearchPage from './CustomSearchPage';
 
@@ -42,9 +43,12 @@ function renderPage() {
   return render(
     <Provider store={store}>
       <MemoryRouter>
-        <I18nProvider>
-          <CustomSearchPage />
-        </I18nProvider>
+        <CoreStateContext.Provider
+          value={{ snapshot: { sessionToken: 'header.payload.local' } } as never}>
+          <I18nProvider>
+            <CustomSearchPage />
+          </I18nProvider>
+        </CoreStateContext.Provider>
       </MemoryRouter>
     </Provider>
   );
@@ -62,5 +66,13 @@ describe('CustomSearchPage', () => {
     expect(screen.getByTestId('search-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('onboarding-custom-search-step-default')).not.toBeInTheDocument();
     expect(screen.queryByTestId('onboarding-custom-search-step-configure')).not.toBeInTheDocument();
+  });
+
+  it('skip navigates to the vault step without requiring a key', () => {
+    renderPage();
+
+    fireEvent.click(screen.getByTestId('onboarding-search-skip'));
+
+    expect(navigateMock).toHaveBeenCalledWith('/onboarding/custom/vault');
   });
 });

@@ -759,6 +759,9 @@ const messages: TranslationMap = {
     'वेब सर्च तुरंत काम करता है: Exa और Gemini, TinyHumans में शामिल हैं, कोई API कुंजी नहीं चाहिए।',
   'onboarding.custom.search.configureDesc':
     'Exa और Gemini शामिल हैं। सेटिंग्स › टूल्स में अपनी API कुंजी से और सर्च प्रदाता जोड़ें।',
+  'onboarding.custom.search.skipForNow': 'अभी के लिए छोड़ें',
+  'onboarding.custom.search.ready': 'वेब सर्च तैयार है।',
+  'onboarding.custom.search.notReady': 'नीचे कोई प्रदाता जोड़ें ताकि OpenHuman वेब पर सर्च कर सके।',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman सिमेंटिक मेमोरी खोज के लिए वेक्टर एम्बेडिंग कैसे बनाता है।',
@@ -4311,6 +4314,9 @@ const messages: TranslationMap = {
     'वॉल्ट स्वामित्व की समीक्षा करें, स्वास्थ्य जाँच चलाएँ और अभी मेमोरी नियंत्रण ठीक करें।',
   'onboarding.custom.vault.localDisabledReason':
     'प्रबंधित सेटअप के लिए OpenHuman साइन-इन आवश्यक है और लोकल मोड में उपलब्ध नहीं है।',
+  'onboarding.custom.localDefaultDisabledReason':
+    'प्रबंधित सेटअप के लिए OpenHuman खाता आवश्यक है। लोकल सेशन में आपको हर सेवा खुद कॉन्फ़िगर करनी होती है।',
+  'onboarding.custom.unsavedChanges': 'आगे बढ़ने से पहले अपने बदलाव सहेजें।',
   'onboarding.custom.vault.exitError': 'ऑनबोर्डिंग पूरी नहीं हो सकी। कृपया पुनः प्रयास करें।',
   'skills.create.whenToUse': 'कब उपयोग करें',
   'skills.create.whenToUsePlaceholder': 'उदा. जब उपयोगकर्ता अपना इनबॉक्स व्यवस्थित करने को कहे',

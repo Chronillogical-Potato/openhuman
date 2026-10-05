@@ -1,51 +1,11 @@
 import { type ReactNode, useState } from 'react';
 
-import Button from '../../../components/ui/Button';
+import { Button, Card, Tile, TileGrid } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
 import OnboardingNextButton from '../components/OnboardingNextButton';
 import WizardStepper from '../components/WizardStepper';
+import { CUSTOM_WIZARD_STEPS, STEP_LABEL_KEYS } from '../customWizardSteps';
 import type { CustomStepChoice } from '../OnboardingContext';
-
-interface ChoiceCardProps {
-  selected: boolean;
-  onClick: () => void;
-  accent: 'sage' | 'primary';
-  title: string;
-  description: string;
-  testId: string;
-  disabled?: boolean;
-}
-
-const ChoiceCard = ({
-  selected,
-  onClick,
-  accent,
-  title,
-  description,
-  testId,
-  disabled = false,
-}: ChoiceCardProps) => {
-  const selectedClasses =
-    accent === 'sage'
-      ? 'border-sage-500! bg-sage-50 dark:bg-sage-500/10 shadow-xs'
-      : 'border-primary-500! bg-primary-50 dark:bg-primary-500/15 shadow-xs';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={selected}
-      data-testid={testId}
-      className={`flex h-full w-full flex-col rounded-2xl border-2 p-5 text-left transition-colors focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60 ${
-        selected
-          ? selectedClasses
-          : 'border-line! bg-surface hover:border-line-strong! dark:hover:border-line-strong! hover:bg-surface-hover'
-      }`}>
-      <h3 className="text-base font-semibold text-content">{title}</h3>
-      <p className="mt-1 text-xs text-content-secondary leading-relaxed">{description}</p>
-    </button>
-  );
-};
 
 interface CustomWizardStepProps {
   stepIndex: number;
@@ -71,6 +31,10 @@ interface CustomWizardStepProps {
   defaultDisabled?: boolean;
   defaultDisabledReason?: string;
   hideChoiceCards?: boolean;
+  /** Explains a blocked Continue (e.g. the panel has unsaved edits). */
+  continueHint?: string;
+  /** Rendered beneath the footer — the search step's "Skip for now". */
+  secondaryAction?: ReactNode;
 }
 
 const CustomWizardStep = ({
@@ -93,6 +57,8 @@ const CustomWizardStep = ({
   defaultDisabled = false,
   defaultDisabledReason,
   hideChoiceCards = false,
+  continueHint,
+  secondaryAction,
 }: CustomWizardStepProps) => {
   const { t } = useT();
   const [isContinuing, setIsContinuing] = useState(false);
@@ -107,46 +73,77 @@ const CustomWizardStep = ({
     }
   };
 
-  const stepperLabels = [
-    t('onboarding.custom.stepperInference'),
-    t('onboarding.custom.stepperVoice'),
-    t('onboarding.custom.stepperOAuth'),
-    t('onboarding.custom.stepperSearch'),
-    t('onboarding.custom.stepperEmbeddings'),
-    t('onboarding.custom.stepperVault'),
-    t('onboarding.custom.stepperMemory'),
-  ].slice(0, stepCount);
+  // Derived from the step list itself rather than a parallel hand-ordered
+  // array, which could be — and was — sliced into labels belonging to steps
+  // that are no longer rendered. See STEP_LABEL_KEYS.
+  const stepperLabels = CUSTOM_WIZARD_STEPS.map(key => t(STEP_LABEL_KEYS[key]));
+
+  const rootTestId = testId ?? 'onboarding-custom-wizard-step';
+  const choiceGroupName = `${rootTestId}-choice`;
+  const defaultRadioId = `${rootTestId}-choice-default`;
+  const configureRadioId = `${rootTestId}-choice-configure`;
 
   return (
-    <div
-      data-testid={testId ?? 'onboarding-custom-wizard-step'}
-      className="rounded-2xl bg-surface p-10 shadow-soft animate-fade-up">
+    <Card
+      padded
+      divided={false}
+      data-testid={rootTestId}
+      className="animate-fade-up p-6 shadow-soft sm:p-8">
       <WizardStepper labels={stepperLabels} activeIndex={stepIndex} />
 
-      <h1 className="mt-8 text-2xl font-title text-content leading-tight">{title}</h1>
+      <p
+        className="mt-8 text-[11px] font-medium uppercase tracking-wide text-content-faint"
+        data-testid="onboarding-step-counter">
+        {t('onboarding.custom.stepCounter')
+          .replace('{n}', String(stepIndex + 1))
+          .replace('{total}', String(stepCount))}
+      </p>
+      <h1 className="mt-1 text-2xl font-title text-content leading-tight">{title}</h1>
       <p className="mt-2 text-sm text-content-muted leading-relaxed">{subtitle}</p>
 
       {!hideChoiceCards ? (
         <>
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">
-            <ChoiceCard
-              testId={`${testId ?? 'onboarding-custom-wizard-step'}-default`}
-              accent="sage"
-              selected={choice === 'default'}
-              onClick={() => onChoiceChange('default')}
-              disabled={defaultDisabled}
+          {/* `Tile` carries the selected/muted states the two hand-rolled
+              choice buttons used to reimplement with `border-2` and `!`
+              important overrides. */}
+          <TileGrid columns={2} className="mt-6">
+            <Tile
+              data-testid={`${rootTestId}-default`}
+              htmlFor={defaultRadioId}
               title={t('onboarding.custom.defaultTitle')}
               description={defaultDescription || t('onboarding.custom.defaultSubtitle')}
+              selected={choice === 'default'}
+              muted={defaultDisabled}
+              control={
+                <input
+                  id={defaultRadioId}
+                  type="radio"
+                  name={choiceGroupName}
+                  className="mt-0.5 size-4 accent-primary-500"
+                  checked={choice === 'default'}
+                  disabled={defaultDisabled}
+                  onChange={() => onChoiceChange('default')}
+                />
+              }
             />
-            <ChoiceCard
-              testId={`${testId ?? 'onboarding-custom-wizard-step'}-configure`}
-              accent="primary"
-              selected={choice === 'configure'}
-              onClick={() => onChoiceChange('configure')}
+            <Tile
+              data-testid={`${rootTestId}-configure`}
+              htmlFor={configureRadioId}
               title={t('onboarding.custom.configureTitle')}
               description={configureDescription || t('onboarding.custom.configureSubtitle')}
+              selected={choice === 'configure'}
+              control={
+                <input
+                  id={configureRadioId}
+                  type="radio"
+                  name={choiceGroupName}
+                  className="mt-0.5 size-4 accent-primary-500"
+                  checked={choice === 'configure'}
+                  onChange={() => onChoiceChange('configure')}
+                />
+              }
             />
-          </div>
+          </TileGrid>
 
           {defaultDisabled && defaultDisabledReason ? (
             <p className="mt-3 text-xs text-content-muted leading-relaxed">
@@ -156,17 +153,21 @@ const CustomWizardStep = ({
         </>
       ) : null}
 
+      {/* No wrapper card here: the embedded panels are themselves `Card`s, and
+          nesting one in another produced a card-in-a-card. */}
       {(choice === 'configure' || hideChoiceCards) && configureContent ? (
-        <div className="mt-6 rounded-2xl border border-line bg-surface-muted p-5">
-          {configureContent}
-        </div>
+        <div className="mt-6">{configureContent}</div>
       ) : null}
 
-      <div className="mt-8 flex items-center gap-3">
-        <Button variant="secondary" onClick={onBack}>
+      {/* Back and Continue carry equal width. Continue used to sit in a
+          `flex-1` wrapper beside an intrinsically-sized Back, so the primary
+          action ran the width of the card while Back shrank to its label —
+          a hierarchy nobody chose. */}
+      <div className="mt-8 flex items-stretch gap-3">
+        <Button variant="secondary" onClick={onBack} className="flex-1 basis-0">
           {t('onboarding.custom.back')}
         </Button>
-        <div className="flex-1">
+        <div className="flex-1 basis-0">
           <OnboardingNextButton
             label={continueLabel ?? t('onboarding.custom.continue')}
             onClick={() => void handleContinue()}
@@ -176,7 +177,17 @@ const CustomWizardStep = ({
           />
         </div>
       </div>
-    </div>
+
+      {continueHint ? (
+        <p
+          className="mt-3 text-center text-xs text-amber-700 dark:text-amber-300"
+          data-testid="onboarding-continue-hint">
+          {continueHint}
+        </p>
+      ) : null}
+
+      {secondaryAction ? <div className="mt-3 flex justify-center">{secondaryAction}</div> : null}
+    </Card>
   );
 };
 

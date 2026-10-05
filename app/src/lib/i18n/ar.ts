@@ -741,6 +741,9 @@ const messages: TranslationMap = {
     'يعمل البحث على الويب فورًا: Exa وGemini مضمّنان مع TinyHumans، دون الحاجة إلى مفتاح API.',
   'onboarding.custom.search.configureDesc':
     'Exa وGemini مضمّنان. أضف مزوّدي بحث آخرين بمفتاح API الخاص بك من الإعدادات › الأدوات.',
+  'onboarding.custom.search.skipForNow': 'تخطَّ الآن',
+  'onboarding.custom.search.ready': 'البحث على الويب جاهز.',
+  'onboarding.custom.search.notReady': 'أضف مزوّدًا أدناه ليتمكن OpenHuman من البحث على الويب.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'كيف يُولِّد OpenHuman تضمينات المتجهات للبحث الدلالي في الذاكرة.',
@@ -4230,6 +4233,9 @@ const messages: TranslationMap = {
     'راجع ملكية الخزينة، وشغّل فحوصات الصحة، واضبط عناصر التحكم في الذاكرة الآن.',
   'onboarding.custom.vault.localDisabledReason':
     'يتطلب الإعداد المُدار تسجيل الدخول إلى OpenHuman وغير متاح في الوضع المحلي.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'يتطلب الإعداد المُدار حساب OpenHuman. في الجلسة المحلية تقوم بإعداد كل خدمة بنفسك.',
+  'onboarding.custom.unsavedChanges': 'احفظ تغييراتك قبل المتابعة.',
   'onboarding.custom.vault.exitError': 'تعذّر إتمام الإعداد. يُرجى المحاولة مجددًا.',
   'skills.create.whenToUse': 'متى يُستخدم',
   'skills.create.whenToUsePlaceholder': 'مثال: عندما يطلب المستخدم تنظيم صندوق الوارد',

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { I18nProvider } from '../../../lib/i18n/I18nContext';
 import type { Locale } from '../../../lib/i18n/types';
+import { CoreStateContext } from '../../../providers/coreStateContext';
 import localeReducer from '../../../store/localeSlice';
 import VaultSetupStep from './VaultSetupStep';
 
@@ -45,9 +46,11 @@ function renderPage() {
   return render(
     <Provider store={store}>
       <MemoryRouter>
-        <I18nProvider>
-          <VaultSetupStep />
-        </I18nProvider>
+        <CoreStateContext.Provider value={{ snapshot: { sessionToken } } as never}>
+          <I18nProvider>
+            <VaultSetupStep />
+          </I18nProvider>
+        </CoreStateContext.Provider>
       </MemoryRouter>
     </Provider>
   );

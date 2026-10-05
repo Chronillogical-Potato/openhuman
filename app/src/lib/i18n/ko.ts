@@ -753,6 +753,9 @@ const messages: TranslationMap = {
     '웹 검색은 바로 작동합니다. Exa와 Gemini가 TinyHumans에 포함되어 있어 API 키가 필요 없습니다.',
   'onboarding.custom.search.configureDesc':
     'Exa와 Gemini가 포함되어 있습니다. 설정 › 도구에서 본인 API 키로 검색 제공자를 더 추가하세요.',
+  'onboarding.custom.search.skipForNow': '나중에 하기',
+  'onboarding.custom.search.ready': '웹 검색이 준비되었습니다.',
+  'onboarding.custom.search.notReady': 'OpenHuman이 웹을 검색할 수 있도록 아래에 제공자를 추가하세요.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman이 시맨틱 메모리 검색을 위한 벡터 임베딩을 생성하는 방식입니다.',
@@ -4275,6 +4278,9 @@ const messages: TranslationMap = {
     '볼트 소유권을 검토하고 상태 검사를 실행하며 메모리 컨트롤을 지금 조정하세요.',
   'onboarding.custom.vault.localDisabledReason':
     '관리형 설정은 OpenHuman 로그인이 필요하며 로컬 모드에서는 사용할 수 없습니다.',
+  'onboarding.custom.localDefaultDisabledReason':
+    '관리형 설정에는 OpenHuman 계정이 필요합니다. 로컬 세션에서는 각 서비스를 직접 설정해야 합니다.',
+  'onboarding.custom.unsavedChanges': '계속하기 전에 변경 사항을 저장하세요.',
   'onboarding.custom.vault.exitError': '온보딩을 완료할 수 없습니다. 다시 시도해 주세요.',
   'skills.create.whenToUse': '사용 시점',
   'skills.create.whenToUsePlaceholder': '예: 사용자가 받은 편지함 정리를 요청할 때',
