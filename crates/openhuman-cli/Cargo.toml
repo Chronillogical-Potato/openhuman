@@ -210,6 +210,10 @@ name = "cwd_jail_e2e"
 path = "../../tests/cwd_jail_e2e.rs"
 
 [[test]]
+name = "windows_sandbox_env_e2e"
+path = "../../tests/windows_sandbox_env_e2e.rs"
+
+[[test]]
 name = "domain_modules_e2e"
 path = "../../tests/domain_modules_e2e.rs"
 

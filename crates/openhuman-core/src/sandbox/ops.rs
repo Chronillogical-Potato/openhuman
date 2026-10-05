@@ -16,8 +16,51 @@ use std::path::Path;
 use std::time::Duration;
 
 /// Safe environment variables forwarded into sandboxed execution.
+///
+/// This list is the *entire* environment a sandboxed child gets: both
+/// [`execute_unsandboxed`] and [`execute_local_jail`] call `env_clear()` and
+/// re-forward only what is named here. The `WINDOWS_PROCESS_ENV_VARS` entries
+/// are therefore not decoration — without them a Windows child cannot
+/// initialise the OS crypto provider, and it fails in a way that looks nothing
+/// like a missing environment variable (`node` aborts with the
+/// `ncrypto::CSPRNG` assertion, `powershell` with `8009001d`).
+///
+/// They were missing when this defect was found, and it survived the first
+/// round of fixes because the four tool launchers (`shell`, `node_exec`,
+/// `npm_exec`, `python_exec`) each carry their own copy of the allow-list and
+/// had already been patched: the built-in `orchestrator` runs with
+/// `sandbox_mode = "sandboxed"`, and all four tools divert to
+/// [`crate::sandbox`] *before* reaching those lists, so this was the only list
+/// that mattered for the main agent. Keep it a superset of
+/// [`crate::agent::platform_shell::WINDOWS_PROCESS_ENV_VARS`] —
+/// `sandbox_env_forwards_windows_bootstrap_vars` and
+/// `tests/windows_sandbox_env_e2e.rs` enforce that.
+///
+/// On Linux and macOS these names simply do not resolve in the parent
+/// environment, so forwarding them is a no-op there.
 pub const SANDBOX_ENV_PASSTHROUGH: &[&str] = &[
-    "PATH", "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
+    "PATH",
+    "HOME",
+    "TERM",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "USER",
+    "SHELL",
+    "TMPDIR",
+    // Windows process bootstrap — see `crate::agent::platform_shell`.
+    "SystemRoot",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
 ];
 
 /// Resolve a `SandboxPolicy` from the agent's `SandboxMode`, the

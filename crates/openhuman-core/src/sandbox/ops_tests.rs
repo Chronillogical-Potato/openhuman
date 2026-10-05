@@ -308,3 +308,29 @@ fn local_status_is_ready_for_a_real_jail() {
         );
     }
 }
+
+// ── Windows child environment ────────────────────────────────────────────────
+//
+// `execute_unsandboxed` and `execute_local_jail` both call `env_clear()` and
+// re-forward only `SANDBOX_ENV_PASSTHROUGH`. On Windows that list has to carry
+// the process-bootstrap variables or the child cannot initialise the OS crypto
+// provider — `node` dies with `Assertion failed: ncrypto::CSPRNG(nullptr, 0)`
+// (exit 134) and `powershell` with `8009001d`. Both read as opaque failures to
+// the agent, which is how the original defect shipped: the four tool launchers'
+// allow-lists were fixed, the sandbox allow-list — the one the `sandboxed`
+// orchestrator actually routes through — was not.
+
+#[test]
+fn sandbox_env_forwards_windows_bootstrap_vars() {
+    crate::agent::platform_shell::assert_forwards_windows_bootstrap(
+        SANDBOX_ENV_PASSTHROUGH,
+        "sandbox::ops::SANDBOX_ENV_PASSTHROUGH",
+    );
+}
+
+// What a real child actually receives is covered end-to-end in
+// `tests/windows_sandbox_env_e2e.rs`, which spawns through `execute_in_sandbox`
+// and asserts on the child's own environment. It lives there because the probe
+// has to be a Rust `CreateProcess` spawn: `node`'s own `child_process.spawn`
+// silently injects `SystemRoot`, so a JavaScript probe reports a stripped
+// environment as healthy.
