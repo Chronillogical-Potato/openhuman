@@ -246,8 +246,7 @@ pub(crate) async fn resume_interrupted_with(
     config: &Config,
     policy: crate::cron::scheduler_gate::Policy,
 ) -> bool {
-    let mut file = read_file(&config.workspace_dir);
-    if file.state.phase != ImportPhase::Running {
+    if read_file(&config.workspace_dir).state.phase != ImportPhase::Running {
         return false;
     }
     let live = RUNNING
@@ -278,6 +277,10 @@ pub(crate) async fn resume_interrupted_with(
                 code = error.code(),
                 "[memory:import] interrupted import could not resume; stopped"
             );
+            // Re-read so only the phase and reason change: the progress and
+            // the checkpoint stay exactly as persisted, and the user's Resume
+            // continues from there.
+            let mut file = read_file(&config.workspace_dir);
             file.state.phase = ImportPhase::Error;
             file.state.error = Some(format!("the import could not resume: {error}"));
             write_file(&config.workspace_dir, &file);

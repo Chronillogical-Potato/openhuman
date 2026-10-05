@@ -535,6 +535,19 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
             .checkpoint
             .documents
             .as_deref(),
-        Some("d1")
+        Some("d1"),
+        "the checkpoint read back from disk survives the failure"
+    );
+
+    // And the user's Resume continues from that checkpoint, not the start.
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 5);
+    assert_eq!(
+        stored(&engine, MetaFilter::default()).await.len(),
+        4,
+        "d1 is not re-sent"
     );
 }
