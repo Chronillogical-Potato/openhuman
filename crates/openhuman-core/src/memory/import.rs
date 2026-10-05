@@ -15,7 +15,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tinymemory_api::ItemKind;
@@ -224,28 +224,40 @@ pub fn status(config: &Config) -> ImportState {
     state
 }
 
-/// Resumes an import the app quit in the middle of, if there is one, under
-/// the scheduler's current policy ([`resume_interrupted_with`]). Called from
-/// memory's background job.
-pub async fn resume_interrupted(config: &Config) -> bool {
-    resume_interrupted_with(config, crate::cron::scheduler_gate::current_policy()).await
+/// Whether background work is paused right now. An automatic resume asks
+/// before it starts and again before every batch it stores.
+pub(crate) type PauseCheck = Arc<dyn Fn() -> bool + Send + Sync>;
+
+/// The scheduler's pause, which includes being signed out.
+fn scheduler_paused() -> bool {
+    matches!(
+        crate::cron::scheduler_gate::current_policy(),
+        crate::cron::scheduler_gate::Policy::Paused { .. }
+    )
 }
 
-/// Resumes an interrupted import under `policy`.
+/// Resumes an import the app quit in the middle of, if there is one, under
+/// the scheduler's pause ([`resume_interrupted_with`]). Called from memory's
+/// background job.
+pub async fn resume_interrupted(config: &Config) -> bool {
+    resume_interrupted_with(config, Arc::new(scheduler_paused)).await
+}
+
+/// Resumes an interrupted import unless `paused` says background work is
+/// paused.
 ///
 /// Only a `Running` state with no live run counts: the user consented when
 /// it started, and quitting the app is not a decision to stop. Nothing
 /// resumes while background work is paused (which includes being signed
-/// out); the state stays `Running`, so a later tick resumes it. An import
+/// out), and a resumed run asks `paused` again before every batch, so a pause
+/// that lands after the check stops it at the next batch. Either way the state
+/// stays `Running` with its checkpoint, so a later tick resumes it. An import
 /// that stopped on an error (credits exhausted, engine unreachable) stays
 /// stopped until the user starts it again, and so does one whose automatic
 /// resume could not start: that failure is persisted as `Error`, so a
 /// failure that would recur does not loop. Returns whether a run was
 /// started.
-pub(crate) async fn resume_interrupted_with(
-    config: &Config,
-    policy: crate::cron::scheduler_gate::Policy,
-) -> bool {
+pub(crate) async fn resume_interrupted_with(config: &Config, paused: PauseCheck) -> bool {
     if read_file(&config.workspace_dir).state.phase != ImportPhase::Running {
         return false;
     }
@@ -256,14 +268,11 @@ pub(crate) async fn resume_interrupted_with(
     if live {
         return false;
     }
-    if let crate::cron::scheduler_gate::Policy::Paused { reason } = policy {
-        tracing::debug!(
-            ?reason,
-            "[memory:import] background paused; interrupted import left for later"
-        );
+    if paused() {
+        tracing::debug!("[memory:import] background paused; interrupted import left for later");
         return false;
     }
-    match start(config, true).await {
+    match start_with(config, true, Some(paused)).await {
         Ok(state) => {
             tracing::info!(
                 imported = state.imported,
@@ -291,6 +300,16 @@ pub(crate) async fn resume_interrupted_with(
 
 /// `memory_import_start`: requires `consent`, memory on, and a legacy store.
 pub async fn start(config: &Config, consent: bool) -> MemoryResult<ImportState> {
+    start_with(config, consent, None).await
+}
+
+/// [`start`], with the pause an automatic resume honors (`None` for an import
+/// the user started, which runs to the end).
+async fn start_with(
+    config: &Config,
+    consent: bool,
+    paused: Option<PauseCheck>,
+) -> MemoryResult<ImportState> {
     if !consent {
         return Err(MemoryError::invalid(
             "importing uploads local memory to the selected engine; pass consent: true",
@@ -328,7 +347,7 @@ pub async fn start(config: &Config, consent: bool) -> MemoryResult<ImportState> 
     let state = file.state.clone();
     tracing::info!(total = state.total, "[memory:import] import started");
     tokio::spawn(async move {
-        run(&workspace_dir, &bound, file).await;
+        run(&workspace_dir, &bound, file, paused).await;
         RUNNING
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -337,7 +356,12 @@ pub async fn start(config: &Config, consent: bool) -> MemoryResult<ImportState> 
     Ok(state)
 }
 
-async fn run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
+async fn run(
+    workspace_dir: &Path,
+    bound: &BoundEngine,
+    mut file: ImportFile,
+    paused: Option<PauseCheck>,
+) {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<ImportedItem, String>>(16);
     let reader_dir = workspace_dir.to_path_buf();
     let checkpoint = file.checkpoint.clone();
@@ -359,6 +383,7 @@ async fn run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
     });
     let mut since_checkpoint = 0u64;
     let mut failure = None;
+    let mut pausing = false;
     let mut batch: Vec<ImportedItem> = Vec::with_capacity(STORE_BATCH);
     let mut reading = true;
     while reading || !batch.is_empty() {
@@ -377,6 +402,10 @@ async fn run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
                 None => reading = false,
             }
         }
+        if paused.as_ref().is_some_and(|paused| paused()) {
+            pausing = true;
+            break;
+        }
         let outcome = store_batch(bound, std::mem::take(&mut batch)).await;
         file.state.imported += outcome.stored;
         if let Some(checkpoint) = outcome.checkpoint {
@@ -394,6 +423,15 @@ async fn run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
     }
     drop(rx);
     let _ = reader.await;
+    if pausing {
+        // Left `Running` with its checkpoint: the next unpaused tick resumes it.
+        tracing::info!(
+            imported = file.state.imported,
+            "[memory:import] background paused; import left to resume"
+        );
+        write_file(workspace_dir, &file);
+        return;
+    }
     match failure {
         Some(error) => {
             tracing::warn!(

@@ -382,8 +382,7 @@ async fn an_item_the_engine_refuses_is_skipped_and_the_rest_imported() {
     legacy_workspace(&config.workspace_dir);
     // Refuses the "Ideas" document (d2) as malformed, stores the rest.
     let engine = bind_failing(&config, |item| {
-        format!("{item:?}")
-            .contains("oolong")
+        matches!(item, tinymemory_api::StoreItem::Document { title: Some(title), .. } if title == "Ideas")
             .then(|| tinymemory_api::Error::InvalidRequest("item too large".into()))
     });
 
@@ -489,17 +488,13 @@ async fn the_background_job_resumes_an_interrupted_import() {
 
 #[tokio::test]
 async fn nothing_resumes_while_background_work_is_paused() {
-    use crate::cron::scheduler_gate::{PauseReason, Policy};
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     legacy_workspace(&config.workspace_dir);
     let engine = bind_reference(&config);
     quit_mid_import(&config);
 
-    let paused = Policy::Paused {
-        reason: PauseReason::UserDisabled,
-    };
-    assert!(!resume_interrupted_with(&config, paused).await);
+    assert!(!resume_interrupted_with(&config, always(true)).await);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
     assert_eq!(
         read_file(&config.workspace_dir).state.phase,
@@ -507,8 +502,56 @@ async fn nothing_resumes_while_background_work_is_paused() {
         "left resumable for a later, unpaused tick"
     );
 
-    assert!(resume_interrupted_with(&config, Policy::Normal).await);
+    assert!(resume_interrupted_with(&config, always(false)).await);
     assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
+}
+
+/// A pause check that always answers `paused`.
+fn always(paused: bool) -> PauseCheck {
+    Arc::new(move || paused)
+}
+
+/// Waits until no import run is live for `config`'s workspace.
+async fn wait_until_no_live_run(config: &Config) {
+    for _ in 0..400 {
+        let live = RUNNING.lock().unwrap().contains(&config.workspace_dir);
+        if !live {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    panic!("the import run never ended");
+}
+
+#[tokio::test]
+async fn a_pause_that_lands_after_the_check_stops_the_run_at_the_next_batch() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_import(&config);
+
+    // Not paused when the resume checks, paused by the time the run asks.
+    let asked = Arc::new(AtomicUsize::new(0));
+    let counter = asked.clone();
+    let paused: PauseCheck = Arc::new(move || counter.fetch_add(1, Ordering::SeqCst) > 0);
+
+    assert!(resume_interrupted_with(&config, paused).await);
+    wait_until_no_live_run(&config).await;
+    assert!(asked.load(Ordering::SeqCst) >= 2, "the run asked again");
+    assert!(
+        stored(&engine, MetaFilter::default()).await.is_empty(),
+        "nothing uploaded once paused"
+    );
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(file.state.phase, ImportPhase::Running, "left resumable");
+    assert_eq!(file.checkpoint.documents.as_deref(), Some("d1"));
+
+    // Unpaused, the next tick finishes it from the checkpoint.
+    assert!(resume_interrupted_with(&config, always(false)).await);
+    assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
 }
 
 #[tokio::test]
@@ -519,8 +562,7 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
     // No engine bound: memory is off, so `start` fails before any run.
     quit_mid_import(&config);
 
-    let policy = crate::cron::scheduler_gate::Policy::Normal;
-    assert!(!resume_interrupted_with(&config, policy).await);
+    assert!(!resume_interrupted_with(&config, always(false)).await);
     let state = read_file(&config.workspace_dir).state;
     assert_eq!(state.phase, ImportPhase::Error);
     assert_eq!(state.imported, 1, "progress is kept");
@@ -529,7 +571,7 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
         "{state:?}"
     );
     // The next tick does not try again; the user resumes it.
-    assert!(!resume_interrupted_with(&config, policy).await);
+    assert!(!resume_interrupted_with(&config, always(false)).await);
     assert_eq!(
         read_file(&config.workspace_dir)
             .checkpoint
