@@ -3,9 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EngineDescriptor, EngineState } from '../../services/api/memoryApi';
 import { renderWithProviders } from '../../test/test-utils';
+import { createLocalSessionToken } from '../../utils/localSession';
 import MemoryEngineTab from './MemoryEngineTab';
 
-const hoisted = vi.hoisted(() => ({ enginesList: vi.fn(), engineSet: vi.fn(), signedIn: true }));
+const hoisted = vi.hoisted(() => ({
+  enginesList: vi.fn(),
+  engineSet: vi.fn(),
+  signedIn: true,
+  token: 'header.payload.sig',
+}));
 
 vi.mock('../../services/api/memoryApi', async importOriginal => ({
   ...(await importOriginal<typeof import('../../services/api/memoryApi')>()),
@@ -17,12 +23,10 @@ vi.mock('../../providers/CoreStateProvider', () => ({
   useCoreState: () => ({
     snapshot: {
       auth: { isAuthenticated: hoisted.signedIn, userId: hoisted.signedIn ? 'u1' : null },
-      sessionToken: hoisted.signedIn ? 'header.payload.sig' : null,
+      sessionToken: hoisted.signedIn ? hoisted.token : null,
     },
   }),
 }));
-
-vi.mock('../../utils/localSession', () => ({ isLocalSessionToken: () => false }));
 
 const TINYHUMANS: EngineDescriptor = {
   id: 'tinyhumans',
@@ -60,6 +64,7 @@ beforeEach(() => {
     .mockResolvedValue({ engines: [TINYHUMANS, CORTEXDB], active: null });
   hoisted.engineSet.mockReset();
   hoisted.signedIn = true;
+  hoisted.token = 'header.payload.sig';
 });
 
 describe('MemoryEngineTab', () => {
@@ -91,14 +96,29 @@ describe('MemoryEngineTab', () => {
     expect(onStateChange).toHaveBeenCalledWith(next);
   });
 
-  it('disables TinyHumans with an explanation when signed out', async () => {
+  // A hosted engine used to render "Active" and "Sign in required" at once when
+  // signed out. It is now not offered at all.
+  it('hides hosted engines when signed out', async () => {
     hoisted.signedIn = false;
     renderTab();
-    const use = await screen.findByTestId('memory-engine-tinyhumans-use');
-    expect(use).toBeDisabled();
-    expect(screen.getByTestId('memory-engine-tinyhumans-detail')).toHaveTextContent(
-      'Sign in required'
-    );
+    expect(await screen.findByTestId('memory-engine-cortexdb')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-engine-tinyhumans')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign in required')).not.toBeInTheDocument();
+  });
+
+  it('hides hosted engines for a local (self-hosted) session token', async () => {
+    hoisted.token = createLocalSessionToken();
+    expect(hoisted.token.split('.')).toHaveLength(3);
+    expect(hoisted.token.endsWith('.local')).toBe(true);
+    renderTab();
+    expect(await screen.findByTestId('memory-engine-cortexdb')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-engine-tinyhumans')).not.toBeInTheDocument();
+  });
+
+  it('shows hosted engines when signed in', async () => {
+    renderTab();
+    expect(await screen.findByTestId('memory-engine-tinyhumans')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-engine-cortexdb')).toBeInTheDocument();
   });
 
   it('connects CortexDB with the default endpoint and a key', async () => {

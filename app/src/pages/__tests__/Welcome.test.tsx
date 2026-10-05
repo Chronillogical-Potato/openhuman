@@ -106,6 +106,49 @@ vi.mock('../../utils/configPersistence', () => ({
   normalizeRpcUrl: vi.fn((url: string) => url.trim().replace(/\/+$/, '')),
 }));
 
+/** The TinyHumans CTA reveals the provider buttons inline; they are not there before. */
+function revealProviders() {
+  fireEvent.click(screen.getByTestId('welcome-cta-tinyhumans'));
+}
+
+describe('Welcome — two-card layout', () => {
+  beforeEach(() => {
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      errorMessage: null,
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+  });
+
+  it('renders both cards with their CTAs and the server link', () => {
+    renderWithProviders(<Welcome />);
+
+    expect(screen.getByTestId('welcome-card-tinyhumans')).toBeInTheDocument();
+    expect(screen.getByTestId('welcome-card-self')).toBeInTheDocument();
+    expect(screen.getByTestId('welcome-cta-tinyhumans')).toHaveTextContent(
+      'Continue with TinyHumans'
+    );
+    expect(screen.getByTestId('welcome-cta-self')).toHaveTextContent('Set it up myself');
+    expect(screen.getByTestId('welcome-server-link')).toHaveTextContent('Connect to it.');
+  });
+
+  it('keeps provider buttons hidden until the TinyHumans CTA is clicked', () => {
+    renderWithProviders(<Welcome />);
+
+    expect(screen.queryByRole('button', { name: 'google' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('welcome-cta-tinyhumans')).toHaveAttribute('aria-expanded', 'false');
+
+    revealProviders();
+
+    expect(screen.getByTestId('welcome-cta-tinyhumans')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'google' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'github' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'twitter' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'discord' })).not.toBeInTheDocument();
+  });
+});
+
 describe('Welcome auth entrypoint', () => {
   beforeEach(() => {
     oauthButtonSpy.mockReset();
@@ -121,6 +164,7 @@ describe('Welcome auth entrypoint', () => {
 
   it('renders only the OAuth buttons when auth is idle', () => {
     renderWithProviders(<Welcome />);
+    revealProviders();
 
     expect(screen.queryByLabelText('Email address')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue with email' })).not.toBeInTheDocument();
@@ -148,6 +192,7 @@ describe('Welcome auth entrypoint', () => {
 
   it('delegates OAuth clicks to OAuthProviderButton without an override', () => {
     renderWithProviders(<Welcome />);
+    revealProviders();
 
     fireEvent.click(screen.getByRole('button', { name: 'google' }));
     fireEvent.click(screen.getByRole('button', { name: 'github' }));
@@ -169,7 +214,30 @@ describe('Welcome auth entrypoint', () => {
 
     renderWithProviders(<Welcome />);
 
-    expect(screen.getByRole('status')).toHaveTextContent('Signing you in...');
+    expect(screen.getByTestId('welcome-handoff')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Finishing sign-in in your browser');
+    expect(screen.getByTestId('welcome-handoff-reopen')).toBeInTheDocument();
+    // The two cards are replaced by the hand-off screen while auth is in flight.
+    expect(screen.queryByTestId('welcome-card-tinyhumans')).not.toBeInTheDocument();
+  });
+
+  it('offers retry and a self-hosted fallback when the browser hand-off fails', async () => {
+    vi.mocked(useDeepLinkAuthState).mockReturnValue({
+      isProcessing: false,
+      errorMessage: 'OAuth failed',
+      errorMessageKey: null,
+      requiresAppDataReset: false,
+    });
+
+    renderWithProviders(<Welcome />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent("Sign-in didn't come back");
+    fireEvent.click(screen.getByTestId('welcome-handoff-retry'));
+    expect(screen.getByRole('button', { name: 'google' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('welcome-handoff-fallback-self'));
+    await waitFor(() => expect(mockStoreSessionToken).toHaveBeenCalledTimes(1));
+    expect(mockNavigate).toHaveBeenCalledWith('/onboarding/custom/inference', { replace: true });
   });
 
   it('renders deep-link auth errors', () => {
@@ -242,7 +310,7 @@ describe('Welcome — decryption-failure recovery action', () => {
   });
 });
 
-describe('Welcome — Select runtime button', () => {
+describe('Welcome — server link (Connect to it.)', () => {
   beforeEach(() => {
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: false,
@@ -258,10 +326,10 @@ describe('Welcome — Select runtime button', () => {
     vi.mocked(clearStoredCoreMode).mockReset();
   });
 
-  it('renders the "Select a Runtime" button below the card', () => {
+  it('renders the "Connect to it." link below the cards', () => {
     renderWithProviders(<Welcome />);
 
-    expect(screen.getByRole('button', { name: 'Select a Runtime' })).toBeInTheDocument();
+    expect(screen.getByTestId('welcome-server-link')).toBeInTheDocument();
   });
 
   it('does not render the legacy "Configure RPC URL (Advanced)" toggle', () => {
@@ -272,12 +340,12 @@ describe('Welcome — Select runtime button', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('clicking "Select a Runtime" clears persisted core-mode state and resets caches', () => {
+  it('clicking "Connect to it." clears persisted core-mode state and resets caches', () => {
     const { store } = renderWithProviders(<Welcome />, {
       preloadedState: { coreMode: { mode: { kind: 'cloud', url: 'http://x', token: 't' } } },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select a Runtime' }));
+    fireEvent.click(screen.getByTestId('welcome-server-link'));
 
     expect(storeRpcUrl).toHaveBeenCalledWith('');
     expect(clearStoredCoreToken).toHaveBeenCalledTimes(1);
@@ -304,6 +372,7 @@ describe('Welcome — OAuth buttons presence', () => {
 
   it('renders all providers with showOnWelcome=true', () => {
     renderWithProviders(<Welcome />);
+    revealProviders();
 
     expect(screen.getByRole('button', { name: 'google' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'github' })).toBeInTheDocument();
@@ -312,11 +381,12 @@ describe('Welcome — OAuth buttons presence', () => {
 
   it('does not render providers with showOnWelcome=false', () => {
     renderWithProviders(<Welcome />);
+    revealProviders();
 
     expect(screen.queryByRole('button', { name: 'discord' })).not.toBeInTheDocument();
   });
 
-  it('hides OAuth buttons while auth is processing', () => {
+  it('swaps the cards for the hand-off panel while auth is processing', () => {
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: true,
       errorMessage: null,
@@ -325,7 +395,15 @@ describe('Welcome — OAuth buttons presence', () => {
     });
     renderWithProviders(<Welcome />);
 
-    expect(screen.queryByRole('button', { name: 'google' })).not.toBeInTheDocument();
+    // The two choice cards give way to the hand-off panel...
+    expect(screen.queryByTestId('welcome-card-tinyhumans')).not.toBeInTheDocument();
+    expect(screen.getByTestId('welcome-handoff')).toBeInTheDocument();
+
+    // ...which keeps the sign-in buttons reachable on purpose. Sign-in happens
+    // in another window, so a user who closed it or never saw it open needs a
+    // way to reopen it. A control that cannot do that is a dead end.
+    expect(screen.getByTestId('welcome-handoff-reopen')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'google' })).toBeInTheDocument();
   });
 });
 
@@ -341,31 +419,33 @@ describe('Welcome — local login', () => {
     });
   });
 
-  it('renders the "Continue locally" button regardless of runtime mode', () => {
+  it('renders the "Set it up myself" button regardless of runtime mode', () => {
     renderWithProviders(<Welcome />);
 
-    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
+    expect(screen.getByTestId('welcome-cta-self')).toBeInTheDocument();
   });
 
-  it('renders the "Continue locally" button in cloud mode too', () => {
+  it('renders the "Set it up myself" button in cloud mode too', () => {
     renderWithProviders(<Welcome />, {
       preloadedState: { coreMode: { mode: { kind: 'cloud', url: 'http://x', token: 't' } } },
     });
 
-    expect(screen.getByRole('button', { name: /Continue locally/i })).toBeInTheDocument();
+    expect(screen.getByTestId('welcome-cta-self')).toBeInTheDocument();
   });
 
-  it('calls storeSessionToken with a local session token and navigates to /home', async () => {
+  it('"Set it up myself" starts a local session and goes to the custom wizard', async () => {
     renderWithProviders(<Welcome />);
 
-    const localBtn = screen.getByRole('button', { name: /Continue locally/i });
+    const localBtn = screen.getByTestId('welcome-cta-self');
     fireEvent.click(localBtn);
 
     await waitFor(() => {
       expect(mockStoreSessionToken).toHaveBeenCalledTimes(1);
     });
     const [tokenArg, userArg] = mockStoreSessionToken.mock.calls[0];
-    expect(tokenArg).toContain('local');
+    // A local session token is a 3-part JWT whose signature segment is "local".
+    expect(tokenArg.split('.')).toHaveLength(3);
+    expect(tokenArg.split('.')[2]).toBe('local');
     expect(userArg).toEqual(expect.objectContaining({ id: 'local' }));
     expect(mockNavigate).toHaveBeenCalledWith('/onboarding/custom/inference', { replace: true });
   });
@@ -375,7 +455,7 @@ describe('Welcome — local login', () => {
 
     renderWithProviders(<Welcome />);
 
-    const localBtn = screen.getByRole('button', { name: /Continue locally/i });
+    const localBtn = screen.getByTestId('welcome-cta-self');
     fireEvent.click(localBtn);
 
     await waitFor(() => {
@@ -397,7 +477,7 @@ describe('Welcome — local login', () => {
     );
 
     renderWithProviders(<Welcome />);
-    fireEvent.click(screen.getByRole('button', { name: /Continue locally/i }));
+    fireEvent.click(screen.getByTestId('welcome-cta-self'));
 
     await waitFor(() => {
       expect(screen.getByText(/could not read its configuration file/i)).toBeInTheDocument();

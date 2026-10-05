@@ -238,6 +238,10 @@ function ModePicker({ onConfirm }: PickerProps) {
 
   return (
     <Panel>
+      {/* A stable hook for the E2E readiness helper. It used to match the
+          picker by its heading text, so renaming the copy made the wait pass
+          vacuously for every spec. */}
+      <div data-testid="boot-check-picker" hidden />
       <BootCheckLanguageSelect />
       <h2 className="text-xl font-semibold text-content">
         {isDesktop ? t('bootCheck.chooseCoreMode') : t('bootCheck.connectToCore')}
@@ -325,8 +329,7 @@ function ModePicker({ onConfirm }: PickerProps) {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-content-secondary">
-                {t('bootCheck.authToken')} (
-                <code className="text-[10px]">OPENHUMAN_CORE_TOKEN</code>)
+                {t('bootCheck.authToken')}
               </label>
               <input
                 type="text"
@@ -577,8 +580,24 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
   const dispatch = useAppDispatch();
   const coreMode = useAppSelector(state => state.coreMode.mode);
 
+  /**
+   * A first launch boots local without asking.
+   *
+   * The picker used to greet every new user with an infrastructure question
+   * before the app had shown them anything. It cannot be answered on a first
+   * run either: the cloud branch needs a URL and a bearer for a core the user
+   * must already have deployed, so anyone able to answer it has by definition
+   * been here before. Local is right for essentially everyone, and when it is
+   * not — a port conflict, a core that will not start — the boot check already
+   * surfaces a typed failure with a targeted recovery, which is a far better
+   * moment to ask than a cold start.
+   *
+   * The web build is the exception: it cannot spawn a local core, so cloud is
+   * its only option and the picker stays its first screen.
+   */
+  const canBootLocal = isTauri();
   const [phase, setPhase] = useState<Phase>(() =>
-    coreMode.kind === 'unset' ? 'picker' : 'checking'
+    coreMode.kind === 'unset' && !canBootLocal ? 'picker' : 'checking'
   );
   const [result, setResult] = useState<BootCheckResult | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -629,10 +648,23 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
   // do not synchronously cascade — suppress the linter warning here.
 
   useEffect(() => {
+    if (coreMode.kind === 'unset' && canBootLocal && phase === 'checking') {
+      // Adopt local the same way the picker's Continue would, so the
+      // synchronous localStorage marker is written before any reload can
+      // race the persisted slice (see `deriveInitialMode`).
+      log('[boot-check] gate — first launch, booting local without asking');
+      storeRpcUrl('');
+      clearStoredCoreToken();
+      storeCoreMode('local');
+      clearCoreRpcUrlCache();
+      clearCoreRpcTokenCache();
+      dispatch(setCoreMode({ kind: 'local' }));
+      return;
+    }
     if (coreMode.kind !== 'unset' && phase === 'checking') {
       void runCheck(coreMode);
     }
-  }, [coreMode, phase, runCheck]);
+  }, [coreMode, phase, runCheck, canBootLocal, dispatch]);
 
   // ------------------------------------------------------------------
   // Picker confirm — dispatches setCoreMode and kicks off check.
@@ -794,6 +826,14 @@ export default function BootCheckGate({ children }: BootCheckGateProps) {
   // ------------------------------------------------------------------
   // Render
   // ------------------------------------------------------------------
+
+  // A desktop first launch is on its way to local: the effect above dispatches
+  // the mode, but it runs AFTER this render, so the unset mode would fall into
+  // the picker branch below and flash the very screen the demotion removes.
+  // Show the checking screen instead and let the effect catch up.
+  if (canBootLocal && coreMode.kind === 'unset' && phase === 'checking') {
+    return <CheckingScreen />;
+  }
 
   // Unset — show picker (even if Redux persisted something; phase reflects truth).
   if (phase === 'picker' || coreMode.kind === 'unset') {

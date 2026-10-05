@@ -19,6 +19,7 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { useManagedInferenceAvailable } from '../../../../hooks/useLocalSession';
 import { useT } from '../../../../lib/i18n/I18nContext';
 import type { ProviderAuthError } from '../../../../services/api/aiSettingsApi';
 import Alert, { AlertDescription } from '../../../ui/Alert';
@@ -106,6 +107,7 @@ export const ProviderAuthSection = ({
   onEditCustomProvider,
   addOpen: controlledAddOpen,
   onAddOpenChange,
+  hideAddButton = false,
 }: {
   draft: AISettings;
   persist: (next: AISettings) => Promise<void>;
@@ -139,8 +141,17 @@ export const ProviderAuthSection = ({
    */
   addOpen?: boolean;
   onAddOpenChange?: (open: boolean) => void;
+  /**
+   * Hide the standalone "Add a provider" button.
+   *
+   * The onboarding wizard renders the provider catalog inline, so the button
+   * opened a dialog onto a list already on screen — two ways to do one thing,
+   * and the loudest control on a step whose primary action is Continue.
+   */
+  hideAddButton?: boolean;
 }) => {
   const { t } = useT();
+  const managedAvailable = useManagedInferenceAvailable();
   const [localAddOpen, setLocalAddOpen] = useState(false);
   const hostControlsAdd = controlledAddOpen !== undefined;
   const addOpen = controlledAddOpen ?? localAddOpen;
@@ -268,7 +279,7 @@ export const ProviderAuthSection = ({
         )}
         {codexAuthError ? <ProviderSetupErrorNotice error={codexAuthError} /> : null}
 
-        {!hostControlsAdd && (
+        {!hostControlsAdd && !hideAddButton && (
           <div className="flex justify-end">
             <AddProviderButton onClick={() => setAddOpen(true)} />
           </div>
@@ -277,22 +288,37 @@ export const ProviderAuthSection = ({
         {loading && <CenteredLoadingState label={t('common.loading')} />}
 
         {/* ─── Connected ────────────────────────────────────────────────────
-          Managed leads and is always present. #3760: it renders a badge, not a
-          disabled toggle — a locked switch reads as switchable-but-broken and
-          invites a fight the user cannot win. */}
+          Managed leads WHEN IT EXISTS. It used to render unconditionally, so a
+          self-hosting user — signed in with "Continue Locally", no TinyHumans
+          account behind the session — was told OpenHuman "chooses a model for
+          each task" and shown an "Always on" badge for a service they do not
+          have. That is the first thing the inference step shows them, and it
+          is false. The row now follows the same rule the search and embeddings
+          panels already apply.
+
+          #3760: it renders a badge, not a disabled toggle — a locked switch
+          reads as switchable-but-broken and invites a fight the user cannot
+          win. */}
         <ProviderGroup
           title={t('settings.ai.providers.groupConnected')}
-          description={t('settings.ai.providers.connectedDesc')}
+          /* The description says "Managed is always on as a fallback. Choose
+             which provider each task uses on the Routing tab." Both halves are
+             wrong without a managed session: there is no managed fallback, and
+             the onboarding wizard hides the Routing tab. Shown only where both
+             are true. */
+          description={managedAvailable ? t('settings.ai.providers.connectedDesc') : undefined}
           card
           data-testid="provider-group-connected">
-          <ProviderListRow
-            slug="openhuman"
-            label={t('settings.ai.routing.managed')}
-            tone={BUILTIN_PROVIDER_META.openhuman?.tone ?? ''}
-            detail={t('settings.ai.providers.managedDetail')}
-            control={<Badge variant="success">{t('settings.ai.routing.managedAlwaysOn')}</Badge>}
-            data-testid="provider-row-openhuman"
-          />
+          {managedAvailable && (
+            <ProviderListRow
+              slug="openhuman"
+              label={t('settings.ai.routing.managed')}
+              tone={BUILTIN_PROVIDER_META.openhuman?.tone ?? ''}
+              detail={t('settings.ai.providers.managedDetail')}
+              control={<Badge variant="success">{t('settings.ai.routing.managedAlwaysOn')}</Badge>}
+              data-testid="provider-row-openhuman"
+            />
+          )}
 
           {connectedCloud.map(slug => {
             const existing = bySlug(slug)!;

@@ -52,6 +52,8 @@ interface Props {
   managedUnavailable: boolean;
   updateProvider: (id: string, patch: SearchProviderUpdate) => Promise<boolean>;
   t: Translate;
+  /** Wizard mode: the Routing/Websites tabs are hidden, so do not cite them. */
+  hideTabChrome?: boolean;
 }
 
 /** The secondary line under a connected provider's name. */
@@ -70,6 +72,7 @@ const SearchPanelProviders = ({
   saving,
   managedUnavailable,
   updateProvider,
+  hideTabChrome = false,
   t,
 }: Props) => {
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -177,7 +180,10 @@ const SearchPanelProviders = ({
     <div className="flex w-full flex-col gap-4">
       <ProviderGroup
         title={t('settings.search.connectedTitle')}
-        description={t('settings.search.connectedDesc')}
+        /* The copy ends "the Routing tab decides which one is tried first".
+           The onboarding wizard hides that tab, so it points at something the
+           reader cannot see. */
+        description={hideTabChrome ? undefined : t('settings.search.connectedDesc')}
         card
         data-testid="search-providers">
         {connected.length === 0 && (

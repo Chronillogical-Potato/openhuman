@@ -448,6 +448,35 @@ const messages: TranslationMap = {
   'welcome.privacyPolicy': 'Política de privacidad',
   'welcome.termsOutro': '.',
   'welcome.connect': 'Probar',
+  'welcome.hero.subtitle': 'Tu IA, con memoria, voz y toda la web.',
+  'welcome.th.title': 'Continuar con TinyHumans',
+  'welcome.th.promise': 'Una cuenta. Todo incluido. Nada que configurar.',
+  'welcome.th.featureInference': 'Inferencia',
+  'welcome.th.featureSearch': 'Búsqueda web',
+  'welcome.th.featureVoice': 'Voz',
+  'welcome.th.featureMemory': 'Memoria',
+  'welcome.th.featureEmbeddings': 'Embeddings',
+  'welcome.th.featureBilling': 'Facturación',
+  'welcome.th.credit': '5 $ de crédito para empezar',
+  'welcome.th.cta': 'Continuar con TinyHumans',
+  'welcome.th.providers': 'Inicia sesión con Google, GitHub o X',
+  'welcome.self.title': 'Configurarlo yo mismo',
+  'welcome.self.promise': 'Trae tus propias claves de API y endpoints.',
+  'welcome.self.listLabel': 'Configurarás:',
+  'welcome.self.step1': 'Inferencia',
+  'welcome.self.step2': 'Búsqueda web',
+  'welcome.self.step3': 'Memoria',
+  'welcome.self.time': 'Unos 3 minutos. Cambia lo que quieras más tarde en Ajustes.',
+  'welcome.self.cta': 'Configurarlo yo mismo',
+  'welcome.serverPrompt': '¿Ya ejecutas OpenHuman en un servidor?',
+  'welcome.serverCta': 'Conéctate a él.',
+  'welcome.handoff.title': 'Terminando el inicio de sesión en tu navegador',
+  'welcome.handoff.body': 'Abrimos tinyhumans.ai: vuelve cuando termines.',
+  'welcome.handoff.reopen': 'Abrir la página de nuevo',
+  'welcome.handoff.failedTitle': 'El inicio de sesión no regresó',
+  'welcome.handoff.failedBody': 'Puede que el navegador haya bloqueado el regreso a OpenHuman.',
+  'welcome.handoff.retry': 'Intentar de nuevo',
+  'welcome.handoff.fallbackSelf': 'Configurarlo yo mismo en su lugar',
   'home.askAssistant': 'Pregúntale lo que quieras a tu asistente...',
   'home.statusOk': 'Tu asistente está listo cuando tú lo estés. Escribe algo abajo para empezar.',
   'home.statusBackendOnly':
@@ -754,9 +783,9 @@ const messages: TranslationMap = {
   'onboarding.custom.configureLater':
     'Puedes terminar de configurar esto después del onboarding. Te llevaremos a la página de configuración correspondiente cuando termines.',
   'onboarding.custom.openSettings': 'Abrir en Configuración',
-  'onboarding.custom.inference.title': 'Inferencia (Texto)',
+  'onboarding.custom.inference.title': 'Elige un proveedor de modelos',
   'onboarding.custom.inference.subtitle':
-    '¿Qué modelo de lenguaje debe responder tus preguntas y ejecutar tus agentes?',
+    'OpenHuman necesita un modelo con el que pensar. Añade una clave de un proveedor que ya uses, o apunta a uno que se ejecute en local.',
   'onboarding.custom.inference.defaultDesc':
     'OpenHuman dirige cada carga de trabajo a un modelo predeterminado adecuado. Sin claves, sin configuración.',
   'onboarding.custom.inference.configureDesc':
@@ -774,12 +803,17 @@ const messages: TranslationMap = {
     'OpenHuman ejecuta un espacio de trabajo de Composio gestionado. Un clic para conectar cada servicio más tarde.',
   'onboarding.custom.oauth.configureDesc':
     'Usa tu propia cuenta / clave API de Composio. Configura en Configuración › Conexiones.',
-  'onboarding.custom.search.title': 'Búsqueda web',
-  'onboarding.custom.search.subtitle': 'Cómo OpenHuman busca en la web en tu nombre.',
+  'onboarding.custom.search.title': 'Deja que OpenHuman busque en la web',
+  'onboarding.custom.search.subtitle':
+    'Sin esto, OpenHuman solo sabe aquello con lo que fue entrenado.',
   'onboarding.custom.search.defaultDesc':
     'La búsqueda web funciona desde el principio: Exa y Gemini están incluidos con TinyHumans, sin clave de API.',
   'onboarding.custom.search.configureDesc':
     'Exa y Gemini están incluidos. Añade más proveedores de búsqueda con tu propia clave de API en Ajustes › Herramientas.',
+  'onboarding.custom.search.skipForNow': 'Omitir por ahora',
+  'onboarding.custom.search.ready': 'La búsqueda web está lista.',
+  'onboarding.custom.search.notReady':
+    'Añade un proveedor abajo para que OpenHuman pueda buscar en la web.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Cómo OpenHuman genera embeddings vectoriales para la búsqueda semántica en memoria.',
@@ -1629,63 +1663,61 @@ const messages: TranslationMap = {
   'stats.latest': 'Más reciente',
   'stats.sessions': 'Sesiones',
   'stats.tokens': 'fichas',
-  'bootCheck.invalidUrl': 'Ingresa una URL de runtime.',
+  'bootCheck.invalidUrl': 'Introduce una dirección.',
   'bootCheck.urlMustStartWith': 'La URL debe comenzar con http:// o https://',
   'bootCheck.validUrlRequired':
     'Eso no parece una URL válida (prueba con https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'Necesitaremos un token de autenticación para conectarnos.',
   'bootCheck.httpPublicWarning':
     'Esta es una URL HTTP sin cifrar en un host público: el tráfico no estará cifrado. Usa HTTPS a menos que confíes en esta red.',
-  'bootCheck.chooseCoreMode': 'Seleccionar un runtime',
-  'bootCheck.connectToCore': 'Conectar a tu runtime',
+  'bootCheck.chooseCoreMode': '¿Dónde quieres que se ejecute OpenHuman?',
+  'bootCheck.connectToCore': 'Conectar con OpenHuman',
   'bootCheck.desktopDescription':
-    'OpenHuman necesita un runtime para funcionar. Elige dónde debe vivir.',
+    'OpenHuman no pudo iniciarse en este equipo. Elige dónde debe ejecutarse.',
   'bootCheck.webDescription':
-    'En la web, OpenHuman se conecta a un runtime que tú controlas. Ingresa su URL y token de autenticación abajo, o descarga la app de escritorio para ejecutar uno en tu máquina.',
+    'En la web, OpenHuman se conecta a un servidor que tú controlas. Introduce abajo su dirección y su token, o descarga la app de escritorio para ejecutarlo directamente en tu equipo.',
   'bootCheck.preferDesktop': '¿Prefieres tener todo en tu propio dispositivo?',
   'bootCheck.downloadDesktop': 'Obtener la app de escritorio',
-  'bootCheck.localRecommended': 'Ejecutar localmente (Recomendado)',
-  'bootCheck.localDescription':
-    'Corre directamente en tu computadora. El más rápido, completamente privado, sin nada que configurar.',
-  'bootCheck.cloudMode': 'Ejecutar en la nube (Complejo)',
+  'bootCheck.localRecommended': 'En este equipo',
+  'bootCheck.localDescription': 'Lo más rápido, totalmente privado y sin nada que configurar.',
+  'bootCheck.cloudMode': 'En un servidor propio',
   'bootCheck.cloudDescription':
-    'Conéctate a un runtime que estás alojando en otro lugar. Permanece en línea 24×7 para que no necesites mantener este dispositivo encendido.',
-  'bootCheck.coreRpcUrl': 'URL del runtime',
+    'Se mantiene en línea las 24 horas, así no necesitas dejar este equipo encendido.',
+  'bootCheck.coreRpcUrl': 'Dirección',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
-  'bootCheck.authToken': 'Token de autenticación',
-  'bootCheck.bearerTokenPlaceholder': 'El bearer token de tu runtime remoto',
+  'bootCheck.authToken': 'Token',
+  'bootCheck.bearerTokenPlaceholder': 'El token de tu servidor',
   'bootCheck.storedLocally': 'Solo guardado en este dispositivo. Enviado como ',
   'bootCheck.testing': 'Probando…',
   'bootCheck.testConnection': 'Probar conexión',
   'bootCheck.connectedOk': 'Conectado. Todo listo.',
   'bootCheck.authFailed': 'Ese token no funcionó. Verifícalo e inténtalo de nuevo.',
   'bootCheck.unreachablePrefix': 'No se pudo alcanzar:',
-  'bootCheck.checkingCore': 'Activando tu runtime…',
-  'bootCheck.cannotReach': 'No se puede alcanzar el runtime',
-  'bootCheck.cannotReachDesc':
-    'No pudimos conectarnos a tu runtime. ¿Quieres probar con uno diferente?',
-  'bootCheck.switchMode': 'Elegir un runtime diferente',
+  'bootCheck.checkingCore': 'Iniciando OpenHuman…',
+  'bootCheck.cannotReach': 'No se puede conectar',
+  'bootCheck.cannotReachDesc': 'No pudimos conectarnos. ¿Quieres probar en otro lugar?',
+  'bootCheck.switchMode': 'Cambiar dónde se ejecuta',
   'bootCheck.quit': 'Salir',
-  'bootCheck.legacyDetected': 'Runtime en segundo plano legacy detectado',
+  'bootCheck.legacyDetected': 'Se encontró un servicio antiguo en segundo plano',
   'bootCheck.legacyDescription':
-    'Un daemon de OpenHuman instalado por separado ya está corriendo en este dispositivo. Necesitamos eliminarlo antes de que el runtime integrado pueda tomar el control.',
+    'Ya hay un daemon de OpenHuman instalado por separado en este dispositivo. Tenemos que eliminarlo antes de que el integrado pueda encargarse.',
   'bootCheck.removing': 'Eliminando…',
   'bootCheck.removeContinue': 'Eliminar y continuar',
-  'bootCheck.localNeedsRestart': 'El runtime local necesita reiniciarse',
+  'bootCheck.localNeedsRestart': 'OpenHuman necesita reiniciarse',
   'bootCheck.localNeedsRestartDesc':
-    'Tu runtime local tiene una versión diferente a la de esta app. Un reinicio rápido los sincronizará.',
+    'OpenHuman en este equipo tiene una versión distinta a la de esta app. Un reinicio rápido los volverá a sincronizar.',
   'bootCheck.restarting': 'Reiniciando…',
-  'bootCheck.restartCore': 'Reiniciar runtime',
-  'bootCheck.cloudNeedsUpdate': 'El runtime en la nube necesita actualizarse',
+  'bootCheck.restartCore': 'Reiniciar',
+  'bootCheck.cloudNeedsUpdate': 'Tu servidor necesita una actualización',
   'bootCheck.cloudNeedsUpdateDesc':
-    'Tu runtime en la nube tiene una versión diferente a la de esta app. Ejecuta el actualizador para sincronizarlos.',
+    'Tu servidor tiene una versión distinta a la de esta app. Ejecuta el actualizador para volver a sincronizarlos.',
   'bootCheck.updating': 'Actualizando…',
-  'bootCheck.updateCloudCore': 'Actualizar runtime en la nube',
-  'bootCheck.versionCheckFailed': 'Verificación de versión del runtime fallida',
+  'bootCheck.updateCloudCore': 'Actualizar servidor',
+  'bootCheck.versionCheckFailed': 'Falló la comprobación de versión',
   'bootCheck.versionCheckFailedDesc':
-    'Tu runtime está activo pero no reporta su versión. Puede estar desactualizado. Reinícialo o actualízalo para continuar.',
+    'Tu servidor está activo pero no informa de su versión. Puede estar desactualizado. Reinícialo o actualízalo para continuar.',
   'bootCheck.working': 'Trabajando…',
-  'bootCheck.restartUpdateCore': 'Reiniciar / Actualizar runtime',
+  'bootCheck.restartUpdateCore': 'Reiniciar / Actualizar',
   'bootCheck.unexpectedError': 'Error inesperado en verificación de arranque',
   'bootCheck.actionFailed': 'Algo salió mal. Inténtalo de nuevo.',
   'bootCheck.portConflictTitle': 'No se pudo iniciar el motor de la aplicación',
@@ -4376,15 +4408,18 @@ const messages: TranslationMap = {
   // Monthly cost badge
 
   // Onboarding: Custom > Vault
-  'onboarding.custom.vault.title': 'Configuración de memoria y bóveda',
+  'onboarding.custom.vault.title': 'Dale una memoria a OpenHuman',
   'onboarding.custom.vault.subtitle':
-    'Confirma dónde se escriben las notas de memoria, cómo se leen los datos de origen y si el flujo de bóveda está en buen estado.',
+    'Donde se guarda lo que le cuentas, para que se mantenga entre chats.',
   'onboarding.custom.vault.defaultDesc':
     'Usa los valores predeterminados de memoria administrada por OpenHuman. La ruta de la bóveda y el estado de sincronización se pueden revisar más adelante.',
   'onboarding.custom.vault.configureDesc':
     'Revisa la propiedad de la bóveda, ejecuta comprobaciones de estado y ajusta los controles de memoria ahora.',
   'onboarding.custom.vault.localDisabledReason':
     'La configuración administrada requiere inicio de sesión en OpenHuman y no está disponible en modo local.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'La configuración administrada requiere una cuenta de OpenHuman. En una sesión local configuras cada servicio tú mismo.',
+  'onboarding.custom.unsavedChanges': 'Guarda tus cambios antes de continuar.',
   'onboarding.custom.vault.exitError':
     'No se pudo completar el proceso de incorporación. Por favor, inténtalo de nuevo.',
 
@@ -5019,6 +5054,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.statusDown': 'No se puede acceder al motor de memoria',
   'memoryPage.engine.statusOff': 'Desactivado',
   'memoryPage.engine.active': 'Activo',
+  'memoryPage.engine.recommended': 'Recomendado',
   'memoryPage.engine.use': 'Usar',
   'memoryPage.engine.edit': 'Editar',
   'memoryPage.engine.signInRequired': 'Requiere iniciar sesión',
