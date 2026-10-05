@@ -5285,6 +5285,8 @@ const en: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Learnings',
   'memoryPage.learnings.empty':
     'No learnings yet. Add one above, or your agent will add them as it works with you.',
+  'memoryPage.learnings.deriving':
+    'Nothing here yet. Memory is still building beliefs from your recent conversations; they appear here after the next background run.',
   'memoryPage.learnings.delete': 'Delete learning',
   'memoryPage.conversations.turns': '{count} turns',
   'memoryPage.documents.listDescription':

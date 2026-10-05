@@ -5125,6 +5125,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Acquis',
   'memoryPage.learnings.empty':
     "Aucun acquis pour l'instant. Ajoutez-en un ci-dessus, ou votre agent en ajoutera au fil de votre travail commun.",
+  'memoryPage.learnings.deriving':
+    "Rien pour l'instant. La mémoire construit encore des croyances à partir de vos conversations récentes ; elles apparaîtront ici après la prochaine exécution en arrière-plan.",
   'memoryPage.learnings.delete': "Supprimer l'acquis",
   'memoryPage.conversations.turns': '{count} échanges',
   'memoryPage.documents.listDescription':

@@ -5047,6 +5047,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Pembelajaran',
   'memoryPage.learnings.empty':
     'Belum ada pembelajaran. Tambahkan satu di atas, atau agen Anda akan menambahkannya saat bekerja bersama Anda.',
+  'memoryPage.learnings.deriving':
+    'Belum ada apa-apa. Memori masih membangun keyakinan dari percakapan terbaru Anda; keyakinan akan muncul di sini setelah proses latar belakang berikutnya.',
   'memoryPage.learnings.delete': 'Hapus pembelajaran',
   'memoryPage.conversations.turns': '{count} giliran',
   'memoryPage.documents.listDescription':

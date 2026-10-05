@@ -4961,6 +4961,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': '학습 내용',
   'memoryPage.learnings.empty':
     '아직 학습 내용이 없습니다. 위에서 추가하거나, 에이전트가 함께 일하면서 직접 추가합니다.',
+  'memoryPage.learnings.deriving':
+    '아직 아무것도 없습니다. 메모리가 최근 대화에서 신념을 만드는 중이며, 다음 백그라운드 실행 후 여기에 표시됩니다.',
   'memoryPage.learnings.delete': '학습 내용 삭제',
   'memoryPage.conversations.turns': '{count}턴',
   'memoryPage.documents.listDescription':

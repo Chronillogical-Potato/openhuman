@@ -247,3 +247,8 @@ and the pack preview), `explorer`, `learnings` (built beliefs marked),
 search, ingest, synced sources), `background` (the job queue) and `settings`
 (the recall policy). Legacy `?brain=context` maps to `ask`, `documents`,
 `sources`, `sync` and `history` to `brain`, `graph` and `goals` to `ask`.
+
+Writes are visible as soon as they return (`WaitFor::Visible`); only beliefs
+lag, built by a queued job at least `build_delay_secs` behind the writes. So
+an empty `learnings` list while a `build_beliefs` job is pending says beliefs
+are still being built, never that memory is empty.

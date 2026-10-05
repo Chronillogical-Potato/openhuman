@@ -5057,6 +5057,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Знания',
   'memoryPage.learnings.empty':
     'Пока нет знаний. Добавьте их выше, или агент будет добавлять их сам по ходу работы с вами.',
+  'memoryPage.learnings.deriving':
+    'Пока здесь пусто. Память ещё формирует убеждения из ваших недавних разговоров; они появятся здесь после следующего фонового запуска.',
   'memoryPage.learnings.delete': 'Удалить знание',
   'memoryPage.conversations.turns': 'Реплик: {count}',
   'memoryPage.documents.listDescription':

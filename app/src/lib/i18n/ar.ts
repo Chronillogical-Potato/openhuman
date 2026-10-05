@@ -4914,6 +4914,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'المعلومات المكتسبة',
   'memoryPage.learnings.empty':
     'لا توجد معلومات مكتسبة بعد. أضف واحدة أعلاه، أو سيضيفها وكيلك أثناء عمله معك.',
+  'memoryPage.learnings.deriving':
+    'لا شيء هنا بعد. لا تزال الذاكرة تبني المعتقدات من محادثاتك الأخيرة؛ ستظهر هنا بعد التشغيل التالي في الخلفية.',
   'memoryPage.learnings.delete': 'حذف المعلومة',
   'memoryPage.conversations.turns': '{count} أدوار',
   'memoryPage.documents.listDescription': 'تُبقيها الذاكرة متزامنة وتجيب اعتمادًا على محتواها.',
