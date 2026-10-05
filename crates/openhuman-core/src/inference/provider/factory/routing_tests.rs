@@ -169,3 +169,78 @@ fn default_model_does_not_disturb_configured_sibling_routes() {
         "the unset reasoning route falls back to the default_model pick, not the sibling's route"
     );
 }
+
+/// tinysweeper review on #6996: a bare `claude_agent_sdk` default names the
+/// provider with no `:model` part. The old `split_once(':')?` rejected it
+/// before the explicit `CLAUDE_AGENT_SDK_PROVIDER` check could run, silently
+/// falling back to the managed backend.
+#[test]
+fn default_model_with_bare_claude_agent_sdk_routes_chat() {
+    let mut config = Config::default();
+    config.default_model = Some("claude_agent_sdk".to_string());
+
+    assert_eq!(
+        provider_for_role("chat", &config),
+        "claude_agent_sdk",
+        "a bare claude_agent_sdk pick must route the chat turn"
+    );
+    assert!(
+        !resolves_to_managed_backend("chat", &config),
+        "a bare claude_agent_sdk pick must not resolve to the managed backend"
+    );
+}
+
+/// Bare local provider names (`ollama` with no `:model` part) are explicit
+/// routes too — the egress gate treats a bare `ollama` slug as a provider
+/// string, so routing must agree.
+#[test]
+fn default_model_with_bare_local_provider_routes_chat_locally() {
+    let mut config = Config::default();
+    config.default_model = Some("ollama".to_string());
+
+    assert_eq!(
+        provider_for_role("chat", &config),
+        "ollama",
+        "a bare ollama pick must route the chat turn locally"
+    );
+    assert!(
+        !resolves_to_managed_backend("chat", &config),
+        "a bare ollama pick must not resolve to the managed backend"
+    );
+}
+
+/// A bare configured cloud slug is an explicit route as well.
+#[test]
+fn default_model_with_bare_cloud_slug_routes_chat() {
+    let mut config = config_with_byok_provider();
+    config.default_model = Some("my-openai".to_string());
+
+    assert_eq!(
+        provider_for_role("chat", &config),
+        "my-openai",
+        "a bare configured cloud slug must route the chat turn"
+    );
+    assert!(
+        !resolves_to_managed_backend("chat", &config),
+        "a bare configured cloud slug must not resolve to the managed backend"
+    );
+}
+
+/// Bare `openai` is deliberately NOT rerouted: the `openai` slug names the
+/// cloud provider elsewhere in the factory, so it keeps the managed fallback
+/// rather than being misread as a local runtime.
+#[test]
+fn default_model_with_bare_openai_keeps_managed_fallback() {
+    let mut config = Config::default();
+    config.default_model = Some("openai".to_string());
+
+    assert_eq!(
+        provider_for_role("chat", &config),
+        "openhuman",
+        "bare openai must keep the managed fallback"
+    );
+    assert!(
+        resolves_to_managed_backend("chat", &config),
+        "bare openai must resolve to the managed backend"
+    );
+}

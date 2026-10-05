@@ -145,7 +145,9 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
 /// explicit route: tier hints (`hint:chat`), the AI settings row's managed
 /// catalog pin (`openrouter/<author>/<slug>[:tag]` — a model name for the
 /// managed backend, see `DefaultModelRow.tsx`), bare model ids, and slugs
-/// that name no configured provider.
+/// that name no configured provider. Bare provider names (`claude_agent_sdk`,
+/// `ollama`, a configured cloud slug) carry no `:model` part but are explicit
+/// routes, so they are honoured.
 fn default_model_route_for_role(role: &str, config: &Config) -> Option<String> {
     match role {
         "chat" | "reasoning" | "agentic" | "coding" | "burst" => {}
@@ -155,6 +157,19 @@ fn default_model_route_for_role(role: &str, config: &Config) -> Option<String> {
     if dm.is_empty() || dm.starts_with("hint:") || dm.starts_with("openrouter/") {
         return None;
     }
+    // Bare provider names carry no `:model` part — the Chat UI picker records
+    // provider-level picks like `claude_agent_sdk` or `ollama` verbatim.
+    // Check them before the slug:model split below, which would otherwise
+    // reject them outright (tinysweeper review on #6996).
+    if !dm.contains(':') {
+        // Bare `openai` keeps the managed fallback: the `openai` slug names
+        // the cloud provider elsewhere in the factory (see `cloud_slug.rs`),
+        // so it is not read as a local runtime despite `from_str_loose`.
+        let bare_known = dm == CLAUDE_AGENT_SDK_PROVIDER
+            || config.cloud_providers.iter().any(|e| e.slug == dm)
+            || (dm != "openai" && tinyinference_local::profile::is_local_provider_string(dm));
+        return bare_known.then(|| dm.to_string());
+    }
     let (slug, rest) = dm.split_once(':')?;
     let slug = slug.trim();
     if slug.is_empty() || slug == PROVIDER_OPENHUMAN || rest.trim().is_empty() {
@@ -163,7 +178,6 @@ fn default_model_route_for_role(role: &str, config: &Config) -> Option<String> {
     let known = config.cloud_providers.iter().any(|e| e.slug == slug)
         || tinyinference_local::profile::is_local_provider_string(dm)
         || dm.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
-        || dm == CLAUDE_AGENT_SDK_PROVIDER
         || dm.starts_with(CLAUDE_AGENT_SDK_PREFIX);
     known.then(|| dm.to_string())
 }
