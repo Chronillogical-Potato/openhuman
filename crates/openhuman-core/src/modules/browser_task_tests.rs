@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 use tinycomputer_bus::agent::AgentError;
 
 fn task() -> BrowserTask {
@@ -28,6 +29,13 @@ fn start_request_confines_the_task_to_the_browser_under_host_policy() {
     assert_eq!(request.budget.max_actions, Some(12));
     assert_eq!(request.budget.max_elapsed_ms, Some(90_000));
     assert_eq!(request.budget.max_rescues, Some(2));
+}
+
+#[test]
+fn a_traced_host_asks_the_module_to_record_every_decision() {
+    let mut config = Config::default();
+    config.computer.trace = true;
+    assert!(start_request(&config, &task()).trace);
 }
 
 #[tokio::test]
@@ -80,4 +88,22 @@ fn a_saved_flow_is_run_instead_of_planned() {
     let request = start_request(&Config::default(), &saved);
     assert_eq!(request.flow, Some(flow));
     assert_eq!(request.task.as_deref(), Some("Find the opening hours"));
+}
+
+#[tokio::test]
+async fn a_task_that_already_stopped_settles_without_calling_the_module() {
+    // Not running, so no `AwaitTask`; finished and untraced, so no report is
+    // fetched either.
+    let mut config = Config::default();
+    config.computer.trace = false;
+    let view: TaskView = serde_json::from_value(json!({
+        "id": "t-settled",
+        "status": {"state": "done", "answer": "found", "records": {}},
+        "summary": "found it",
+        "progress": 1.0,
+        "next": []
+    }))
+    .unwrap();
+    let settled = settle(&config, view.clone()).await.unwrap();
+    assert_eq!(settled, view);
 }
