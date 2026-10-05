@@ -134,3 +134,35 @@ fn chrome_path_is_the_module_browser_executable() {
         json!({"executable": "/Applications/Chrome.app"})
     );
 }
+
+#[test]
+fn a_trace_directory_that_cannot_be_made_still_leaves_the_module_configured() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = config_in(dir.path());
+    config.computer.trace = true;
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    // `state` is a file, so the trace directory cannot be made.
+    std::fs::write(config.workspace_dir.join("state"), b"not a directory").unwrap();
+    let value = module_config(&config);
+    assert!(value["trace_path"].is_string());
+    assert!(!trace_dir(&config).is_dir());
+}
+
+#[cfg(unix)]
+#[test]
+fn the_trace_directory_is_readable_by_its_owner_alone() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = config_in(dir.path());
+    config.computer.trace = true;
+    // A directory left open by an earlier run is narrowed too.
+    std::fs::create_dir_all(trace_dir(&config)).unwrap();
+    std::fs::set_permissions(trace_dir(&config), std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _ = module_config(&config);
+    let mode = std::fs::metadata(trace_dir(&config))
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(mode, 0o700);
+}

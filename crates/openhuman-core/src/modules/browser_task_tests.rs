@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 use tinycomputer_bus::agent::AgentError;
 
 fn task() -> BrowserTask {
@@ -87,4 +88,22 @@ fn a_saved_flow_is_run_instead_of_planned() {
     let request = start_request(&Config::default(), &saved);
     assert_eq!(request.flow, Some(flow));
     assert_eq!(request.task.as_deref(), Some("Find the opening hours"));
+}
+
+#[tokio::test]
+async fn a_task_that_already_stopped_settles_without_calling_the_module() {
+    // Not running, so no `AwaitTask`; finished and untraced, so no report is
+    // fetched either.
+    let mut config = Config::default();
+    config.computer.trace = false;
+    let view: TaskView = serde_json::from_value(json!({
+        "id": "t-settled",
+        "status": {"state": "done", "answer": "found", "records": {}},
+        "summary": "found it",
+        "progress": 1.0,
+        "next": []
+    }))
+    .unwrap();
+    let settled = settle(&config, view.clone()).await.unwrap();
+    assert_eq!(settled, view);
 }

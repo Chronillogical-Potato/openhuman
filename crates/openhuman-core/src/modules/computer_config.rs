@@ -11,7 +11,9 @@
 //! - `browser` — the Chrome executable the user picked, if any.
 //! - `trace_path` — where desktop commands are traced, when tracing is on.
 
-use std::path::PathBuf;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
 
@@ -68,6 +70,9 @@ fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
 /// module's defaults.
 pub const HOSTED_REASONING_MODEL: &str = "agentic-v1";
 
+/// The `planner` configuration: the hosted route with the session's bearer
+/// when signed in, else the user's OpenRouter key; the user's chosen models,
+/// with [`HOSTED_REASONING_MODEL`] for any unchosen role on the hosted route.
 fn planner(config: &Config, hosted: Option<&str>) -> Option<Value> {
     let mut planner = match hosted {
         Some(api_key) => json!({
@@ -105,6 +110,7 @@ pub fn tracing_enabled(config: &Config) -> bool {
     tracing_enabled_with(config, std::env::var(TRACE_ENV).ok().as_deref())
 }
 
+/// [`tracing_enabled`] with the environment switch's value passed in.
 fn tracing_enabled_with(config: &Config, env: Option<&str>) -> bool {
     config.computer.trace
         || matches!(
@@ -117,6 +123,15 @@ fn tracing_enabled_with(config: &Config, env: Option<&str>) -> bool {
 #[must_use]
 pub fn trace_dir(config: &Config) -> PathBuf {
     config.workspace_dir.join("state").join("computer")
+}
+
+/// Creates `dir` for traces, readable by its owner alone, also when it
+/// already existed: a trace holds what the screen showed.
+fn create_trace_dir(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+    Ok(())
 }
 
 /// Build the module configuration for `config`.
@@ -136,7 +151,7 @@ pub fn module_config(config: &Config) -> Value {
     let traced = tracing_enabled(config);
     if traced {
         let dir = trace_dir(config);
-        if let Err(error) = std::fs::create_dir_all(&dir) {
+        if let Err(error) = create_trace_dir(&dir) {
             tracing::warn!(%error, "[computer] trace directory unavailable");
         }
         out.insert(
