@@ -870,7 +870,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         reasoningEffort: 'default',
       })
     );
-    expect(chatSend.mock.calls[0][0]).not.toHaveProperty('model');
+    expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
   });
 
   it('auto-sends a dictation transcript (autoSend) straight to chat without the composer', async () => {
@@ -896,7 +896,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           reasoningEffort: 'default',
         })
       );
-      expect(chatSend.mock.calls[0][0]).not.toHaveProperty('model');
+      expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     });
   });
 
@@ -950,7 +950,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         reasoningEffort: 'default',
       })
     );
-    expect(chatSend.mock.calls[0][0]).not.toHaveProperty('model');
+    expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     // The send cleared the composer; with an empty composer mid-send the Send
     // button morphs into the Stop button, so there is no Send affordance left
     // to fire a duplicate send.
@@ -2042,7 +2042,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           reasoningEffort: 'default',
         })
       );
-      expect(chatSend.mock.calls[0][0]).not.toHaveProperty('model');
+      expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     });
   });
 
@@ -2119,7 +2119,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
           reasoningEffort: 'default',
         })
       );
-      expect(chatSend.mock.calls[0][0]).not.toHaveProperty('model');
+      expect(vi.mocked(chatSend).mock.calls[0][0]).not.toHaveProperty('model');
     });
   });
 
