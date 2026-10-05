@@ -606,6 +606,10 @@ const en: TranslationMap = {
   'memory.search': 'Search memories...',
   'memory.noResults': 'No memories found',
   'memory.empty': 'No memories yet. Memories are created automatically as you interact.',
+  'memory.error.insufficientCredits':
+    'Memory is unavailable: your account is out of credits. Top up to restore it; nothing stored has been lost.',
+  'memory.error.unavailable':
+    "Memory can't be reached right now. Nothing stored has been lost; try again in a moment.",
   'memory.tab.memory': 'Memory',
   'memory.tab.agents': 'Library',
 

@@ -653,6 +653,10 @@ const messages: TranslationMap = {
   'memory.search': 'मेमोरी सर्च करें...',
   'memory.noResults': 'कोई मेमोरी नहीं मिली',
   'memory.empty': 'अभी कोई मेमोरी नहीं है। बातचीत के दौरान मेमोरी अपने आप बनती है।',
+  'memory.error.insufficientCredits':
+    'मेमोरी उपलब्ध नहीं है: आपके खाते के क्रेडिट खत्म हो गए हैं। इसे बहाल करने के लिए टॉप अप करें; संग्रहीत कुछ भी खोया नहीं है।',
+  'memory.error.unavailable':
+    'अभी मेमोरी तक नहीं पहुँचा जा सकता। संग्रहीत कुछ भी खोया नहीं है; थोड़ी देर में फिर से कोशिश करें।',
   'memory.tab.memory': 'मेमोरी',
   'memory.tab.agents': 'लाइब्रेरी',
   'memory.analyzeNow': 'अभी एनालाइज़ करें',

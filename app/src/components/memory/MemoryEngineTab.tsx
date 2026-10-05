@@ -64,12 +64,12 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
       .catch(err => {
         if (cancelled) return;
         log('engines list failed: %o', err);
-        setLoadError(memoryErrorMessage(err));
+        setLoadError(memoryErrorMessage(err, t));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const select = useCallback(
     async (req: EngineSetRequest): Promise<boolean> => {
@@ -82,13 +82,13 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
         return true;
       } catch (err) {
         log('engine set failed: %o', err);
-        setSaveError(memoryErrorMessage(err));
+        setSaveError(memoryErrorMessage(err, t));
         return false;
       } finally {
         setSaving(false);
       }
     },
-    [onStateChange]
+    [onStateChange, t]
   );
 
   const activeId = state?.engine ?? null;

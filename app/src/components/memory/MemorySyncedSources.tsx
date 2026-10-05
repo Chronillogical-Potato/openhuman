@@ -49,10 +49,10 @@ export default function MemorySyncedSources() {
       setError(null);
     } catch (err) {
       log('list failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setSources(prev => prev ?? []);
     }
-  }, []);
+  }, [t]);
 
   // Initial load. `reload` re-reads on demand (polling); the effect awaits
   // before touching state so the first render is never re-rendered in place.
@@ -67,13 +67,13 @@ export default function MemorySyncedSources() {
       .catch(err => {
         if (cancelled) return;
         log('list failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
         setSources([]);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   // While anything is syncing, re-read the registry so status, item counts and
   // errors move on their own; idle registries are not polled.
@@ -94,7 +94,7 @@ export default function MemorySyncedSources() {
       return true;
     } catch (err) {
       log('add failed: %o', err);
-      setAddError(memoryErrorMessage(err));
+      setAddError(memoryErrorMessage(err, t));
       return false;
     } finally {
       setSaving(false);
@@ -114,7 +114,7 @@ export default function MemorySyncedSources() {
       );
     } catch (err) {
       log('sync failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setSyncing(prev => {
         const next = new Set(prev);
@@ -136,7 +136,7 @@ export default function MemorySyncedSources() {
       setRemoveTarget(null);
     } catch (err) {
       log('remove failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setRemoveTarget(null);
     } finally {
       setSaving(false);

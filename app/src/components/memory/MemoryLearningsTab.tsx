@@ -72,10 +72,10 @@ export default function MemoryLearningsTab() {
       setCursor(page.next_cursor ?? null);
     } catch (err) {
       log('list failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setItems(prev => prev ?? []);
     }
-  }, [loadPage]);
+  }, [loadPage, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,13 +88,13 @@ export default function MemoryLearningsTab() {
       .catch(err => {
         if (cancelled) return;
         log('list failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
         setItems([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadPage]);
+  }, [loadPage, t]);
 
   const loadMore = async () => {
     if (!cursor) return;
@@ -104,7 +104,7 @@ export default function MemoryLearningsTab() {
       setItems(prev => [...(prev ?? []), ...(page.items ?? [])]);
       setCursor(page.next_cursor ?? null);
     } catch (err) {
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setLoadingMore(false);
     }
@@ -123,7 +123,7 @@ export default function MemoryLearningsTab() {
       await reload();
     } catch (err) {
       log('learn failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setAdding(false);
     }
@@ -137,7 +137,7 @@ export default function MemoryLearningsTab() {
       setItems(prev => (prev ?? []).filter(item => item.id !== id));
     } catch (err) {
       log('forget failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setDeleting(null);
     }

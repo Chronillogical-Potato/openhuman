@@ -678,6 +678,10 @@ const messages: TranslationMap = {
   'memory.noResults': 'Keine Erinnerungen gefunden',
   'memory.empty':
     'Noch keine Erinnerungen. Erinnerungen werden automatisch erstellt, während du interagierst.',
+  'memory.error.insufficientCredits':
+    'Gedächtnis nicht verfügbar: Dein Konto hat kein Guthaben mehr. Lade es auf, um es wiederherzustellen; nichts Gespeichertes ist verloren.',
+  'memory.error.unavailable':
+    'Das Gedächtnis ist gerade nicht erreichbar. Nichts Gespeichertes ist verloren; versuche es gleich noch einmal.',
   'memory.tab.memory': 'Erinnerung',
   'memory.tab.agents': 'Bibliothek',
   'memory.analyzeNow': 'Jetzt analysieren',

@@ -678,6 +678,10 @@ const messages: TranslationMap = {
   'memory.noResults': 'Aucun souvenir trouvé',
   'memory.empty':
     "Aucun souvenir pour l'instant. Les souvenirs sont créés automatiquement au fil de tes interactions.",
+  'memory.error.insufficientCredits':
+    "La mémoire est indisponible : votre compte n'a plus de crédits. Rechargez-le pour la rétablir ; rien de ce qui est stocké n'a été perdu.",
+  'memory.error.unavailable':
+    "La mémoire est injoignable pour le moment. Rien de ce qui est stocké n'a été perdu ; réessayez dans un instant.",
   'memory.tab.memory': 'Mémoire',
   'memory.tab.agents': 'Bibliothèque',
   'memory.analyzeNow': 'Analyser maintenant',
