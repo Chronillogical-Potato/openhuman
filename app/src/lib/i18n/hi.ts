@@ -5143,6 +5143,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'पिछली मेमोरी इंपोर्ट हो रही है…',
   'memoryPage.import.done': 'पिछली मेमोरी इंपोर्ट हो गई',
   'memoryPage.import.failed': 'इंपोर्ट विफल रहा',
+  'memoryPage.import.resume': 'इंपोर्ट फिर से शुरू करें',
   'memoryPage.import.progress': '{total} में से {imported} आइटम इंपोर्ट हुए',
 };
 

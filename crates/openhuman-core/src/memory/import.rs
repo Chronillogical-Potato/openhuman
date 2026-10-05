@@ -8,7 +8,10 @@
 //! the resumable [`Checkpoint`]. Progress and the checkpoint persist in
 //! `<workspace>/memory/import_state.json`, so a restarted import resumes where
 //! the last one stopped (an item stored but not yet checkpointed is re-sent,
-//! and the engine treats it as a replay).
+//! and the engine treats it as a replay). An import the app quit in the middle
+//! of resumes on its own ([`resume_interrupted`]); one stopped by a failure
+//! that is not about a single item (credits exhausted, signed out, engine
+//! unreachable) waits for the user to start it again.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -16,13 +19,13 @@ use std::sync::{LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tinymemory_api::ItemKind;
+use tinymemory_integrations::cortex::is_insufficient_credits;
 use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace};
 
 use crate::config::Config;
 
 use super::engine::{self, BoundEngine};
 use super::error::{MemoryError, MemoryResult};
-use super::ops::{store_many_on, store_on};
 use super::types::{ImportCounts, ImportPhase, ImportScanView, ImportState};
 
 /// Items stored between two checkpoint writes.
@@ -38,54 +41,88 @@ struct BatchOutcome {
     stored: u64,
     /// The checkpoint after the last item handled, stored or skipped.
     checkpoint: Option<Checkpoint>,
-    /// Why the import must stop (memory off, credential rejected).
+    /// Why the import must stop (credential rejected, credits exhausted,
+    /// engine unreachable).
     fatal: Option<String>,
 }
 
-fn is_fatal(error: &MemoryError) -> bool {
-    matches!(error, MemoryError::Unauthorized(_) | MemoryError::Off(_))
+/// Whether a store failure is about the item (skip it and go on) rather than
+/// the engine or the account (stop, so a resume retries from here).
+///
+/// Only a refusal of the item itself is skippable: malformed or too large
+/// (`InvalidRequest`), not storable here (`Unsupported`, `NotFound`), or a
+/// replay key already bound to a different body (`Conflict`). Everything else
+/// would fail the next item the same way: a rejected credential, an exhausted
+/// credit balance (an `Engine` error), an unreachable or overloaded engine
+/// (`Unavailable`). Skipping those would advance the checkpoint past items
+/// that were never stored and finish `Done` with nothing imported.
+fn skips_item(error: &tinymemory_api::Error) -> bool {
+    use tinymemory_api::Error as E;
+    matches!(
+        error,
+        E::InvalidRequest(_) | E::Unsupported(_) | E::NotFound(_) | E::Conflict(_)
+    )
 }
 
-/// Stores `batch` in one bulk call. If the engine refuses the batch for a
-/// reason that is not fatal (one unstorable item), the items are stored one
-/// at a time instead so only the bad ones are skipped.
+/// The message an import stopped by `error` reports.
+fn fatal_message(error: tinymemory_api::Error) -> String {
+    if is_insufficient_credits(&error) {
+        return "not enough credits to import your memory; top up, then resume the import to \
+                continue where it stopped"
+            .to_string();
+    }
+    MemoryError::from(error).to_string()
+}
+
+/// Stores `batch` in one bulk call. If the engine refuses the batch because
+/// of an item (see [`skips_item`]), the items are stored one at a time instead
+/// so only the bad ones are skipped. Any other failure stops the import
+/// without advancing the checkpoint past what was stored.
 async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutcome {
     let Some(last) = batch.last() else {
         return BatchOutcome::default();
     };
     let last_checkpoint = last.checkpoint.clone();
     let items: Vec<_> = batch.iter().map(|imported| imported.item.clone()).collect();
-    match store_many_on(bound, items).await {
+    match bound.engine.store_many(items).await {
         Ok(receipts) => {
+            tracing::debug!(
+                engine = %bound.id,
+                count = receipts.len(),
+                "[memory:import] batch stored"
+            );
             return BatchOutcome {
                 stored: receipts.len() as u64,
                 checkpoint: Some(last_checkpoint),
                 fatal: None,
             };
         }
-        Err(error) if is_fatal(&error) => {
+        Err(error) if !skips_item(&error) => {
             return BatchOutcome {
-                fatal: Some(error.to_string()),
+                fatal: Some(fatal_message(error)),
                 ..BatchOutcome::default()
             };
         }
         Err(error) => {
             tracing::debug!(
-                code = error.code(),
+                code = MemoryError::from(error).code(),
                 "[memory:import] batch refused; storing one by one"
             );
         }
     }
     let mut outcome = BatchOutcome::default();
     for imported in batch {
-        match store_on(bound, imported.item).await {
+        match bound.engine.store(imported.item).await {
             Ok(_) => outcome.stored += 1,
-            Err(error) if is_fatal(&error) => {
-                outcome.fatal = Some(error.to_string());
+            Err(error) if !skips_item(&error) => {
+                outcome.fatal = Some(fatal_message(error));
                 return outcome;
             }
             Err(error) => {
-                tracing::debug!(code = error.code(), "[memory:import] item skipped");
+                tracing::debug!(
+                    code = MemoryError::from(error).code(),
+                    "[memory:import] item skipped"
+                );
             }
         }
         outcome.checkpoint = Some(imported.checkpoint);
@@ -178,9 +215,50 @@ pub fn status(config: &Config) -> ImportState {
         .contains(&config.workspace_dir);
     if state.phase == ImportPhase::Running && !running {
         state.phase = ImportPhase::Error;
-        state.error = Some("the import was interrupted; start it again to resume".to_string());
+        state.error = Some(
+            "the import was interrupted; it resumes on its own within a few minutes, or resume \
+             it now"
+                .to_string(),
+        );
     }
     state
+}
+
+/// Resumes an import the app quit in the middle of, if there is one.
+///
+/// Only a `Running` state with no live run counts: the user consented when
+/// it started, and quitting the app is not a decision to stop. An import that
+/// stopped on an error (credits exhausted, signed out) stays stopped until the
+/// user starts it again, so a failure that would recur does not loop. Returns
+/// whether a run was started. Called from memory's background job.
+pub async fn resume_interrupted(config: &Config) -> bool {
+    if read_file(&config.workspace_dir).state.phase != ImportPhase::Running {
+        return false;
+    }
+    let live = RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(&config.workspace_dir);
+    if live {
+        return false;
+    }
+    match start(config, true).await {
+        Ok(state) => {
+            tracing::info!(
+                imported = state.imported,
+                total = state.total,
+                "[memory:import] resuming an interrupted import"
+            );
+            true
+        }
+        Err(error) => {
+            tracing::debug!(
+                code = error.code(),
+                "[memory:import] interrupted import not resumed"
+            );
+            false
+        }
+    }
 }
 
 /// `memory_import_start`: requires `consent`, memory on, and a legacy store.

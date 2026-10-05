@@ -5184,6 +5184,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'Mengimpor memori sebelumnya…',
   'memoryPage.import.done': 'Memori sebelumnya telah diimpor',
   'memoryPage.import.failed': 'Impor gagal',
+  'memoryPage.import.resume': 'Lanjutkan impor',
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
 };
 

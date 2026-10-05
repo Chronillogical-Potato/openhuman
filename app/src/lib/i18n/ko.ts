@@ -5094,6 +5094,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': '이전 메모리를 가져오는 중…',
   'memoryPage.import.done': '이전 메모리를 가져왔습니다',
   'memoryPage.import.failed': '가져오기에 실패했습니다',
+  'memoryPage.import.resume': '가져오기 재개',
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
 };
 

@@ -1,6 +1,8 @@
 use super::*;
 use crate::memory::error::{INVALID_REQUEST, MEMORY_OFF};
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
+use std::sync::Arc;
+
 use rusqlite::{params, Connection};
 use tinymemory_api::MetaFilter;
 
@@ -209,7 +211,11 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
     let state = status(&config);
     assert_eq!(state.phase, ImportPhase::Error);
     assert_eq!(state.imported, 3);
-    assert!(state.error.as_deref().unwrap().contains("start it again"));
+    assert!(state
+        .error
+        .as_deref()
+        .unwrap()
+        .contains("resumes on its own"));
 }
 
 #[tokio::test]
@@ -244,4 +250,204 @@ fn a_corrupt_import_file_reads_as_idle() {
     std::fs::create_dir_all(tmp.path().join("memory")).unwrap();
     std::fs::write(file_path(tmp.path()), "garbage").unwrap();
     assert_eq!(read_file(tmp.path()).state, ImportState::default());
+}
+
+/// A reference engine that refuses a write with whatever `refuse` returns for
+/// its item, and stores it otherwise.
+struct FailingEngine {
+    inner: Arc<tinymemory_api::conformance::ReferenceEngine>,
+    refuse: fn(&tinymemory_api::StoreItem) -> Option<tinymemory_api::Error>,
+}
+
+#[async_trait::async_trait]
+impl tinymemory_api::MemoryEngine for FailingEngine {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+    async fn recall(
+        &self,
+        req: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        self.inner.recall(req).await
+    }
+    async fn fetch(
+        &self,
+        req: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        self.inner.fetch(req).await
+    }
+    async fn store(
+        &self,
+        item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        if let Some(error) = (self.refuse)(&item) {
+            return Err(error);
+        }
+        self.inner.store(item).await
+    }
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        self.inner.forget(target).await
+    }
+    async fn list(
+        &self,
+        req: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        self.inner.list(req).await
+    }
+}
+
+/// Binds a [`FailingEngine`] and returns the engine behind it.
+fn bind_failing(
+    config: &Config,
+    refuse: fn(&tinymemory_api::StoreItem) -> Option<tinymemory_api::Error>,
+) -> Arc<tinymemory_api::conformance::ReferenceEngine> {
+    let inner = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+    crate::memory::engine::install_test_engine(
+        &config.workspace_dir,
+        Arc::new(FailingEngine {
+            inner: inner.clone(),
+            refuse,
+        }),
+    );
+    inner
+}
+
+fn out_of_credits(_: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
+    Some(tinymemory_api::Error::Engine(
+        "[USER_INSUFFICIENT_CREDITS] insufficient credits (HTTP 402)".into(),
+    ))
+}
+
+#[tokio::test]
+async fn exhausted_credits_stop_the_import_instead_of_skipping_everything() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_failing(&config, out_of_credits);
+
+    start(&config, true).await.unwrap();
+    let state = wait_until_settled(&config).await;
+    assert_eq!(state.phase, ImportPhase::Error, "{state:?}");
+    assert_eq!(state.imported, 0);
+    assert!(
+        state
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("not enough credits"),
+        "{state:?}"
+    );
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    assert_eq!(
+        read_file(&config.workspace_dir).checkpoint,
+        Checkpoint::default(),
+        "the checkpoint does not move past items that were never stored"
+    );
+}
+
+#[tokio::test]
+async fn an_unreachable_engine_stops_the_import_and_a_retry_resumes_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_failing(&config, |_| {
+        Some(tinymemory_api::Error::Unavailable(
+            "connection refused".into(),
+        ))
+    });
+
+    start(&config, true).await.unwrap();
+    let state = wait_until_settled(&config).await;
+    assert_eq!(state.phase, ImportPhase::Error, "{state:?}");
+    assert_eq!(state.imported, 0);
+
+    // The engine is back: starting again imports everything, nothing skipped.
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 5);
+}
+
+#[tokio::test]
+async fn an_item_the_engine_refuses_is_skipped_and_the_rest_imported() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Refuses the "Ideas" document (d2) as malformed, stores the rest.
+    let engine = bind_failing(&config, |item| {
+        format!("{item:?}")
+            .contains("oolong")
+            .then(|| tinymemory_api::Error::InvalidRequest("item too large".into()))
+    });
+
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 4);
+    let items = stored(&engine, MetaFilter::default()).await;
+    assert_eq!(items.len(), 4);
+    assert!(!items.iter().any(|item| item.text.contains("oolong")));
+}
+
+#[tokio::test]
+async fn an_import_the_app_quit_during_resumes_on_its_own() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    // The app quit while the import was running, after d1 was stored.
+    write_file(
+        &config.workspace_dir,
+        &ImportFile {
+            state: ImportState {
+                phase: ImportPhase::Running,
+                imported: 1,
+                total: 5,
+                error: None,
+            },
+            checkpoint: Checkpoint {
+                documents: Some("d1".into()),
+                ..Checkpoint::default()
+            },
+        },
+    );
+
+    assert!(resume_interrupted(&config).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(done.imported, 5);
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    assert!(!resume_interrupted(&config).await, "never started");
+
+    for phase in [ImportPhase::Error, ImportPhase::Done] {
+        write_file(
+            &config.workspace_dir,
+            &ImportFile {
+                state: ImportState {
+                    phase,
+                    imported: 0,
+                    total: 5,
+                    error: None,
+                },
+                checkpoint: Checkpoint::default(),
+            },
+        );
+        assert!(!resume_interrupted(&config).await, "{phase:?}");
+    }
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
 }

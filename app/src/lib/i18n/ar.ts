@@ -5044,6 +5044,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'جارٍ استيراد الذاكرة السابقة…',
   'memoryPage.import.done': 'تم استيراد الذاكرة السابقة',
   'memoryPage.import.failed': 'فشل الاستيراد',
+  'memoryPage.import.resume': 'استئناف الاستيراد',
   'memoryPage.import.progress': 'تم استيراد {imported} من {total} عنصر',
 };
 

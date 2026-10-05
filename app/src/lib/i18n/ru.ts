@@ -5192,6 +5192,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'Импорт прежней памяти…',
   'memoryPage.import.done': 'Прежняя память импортирована',
   'memoryPage.import.failed': 'Не удалось выполнить импорт',
+  'memoryPage.import.resume': 'Возобновить импорт',
   'memoryPage.import.progress': 'Импортировано {imported} из {total}',
 };
 
