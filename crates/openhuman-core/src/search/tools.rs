@@ -6,8 +6,9 @@
 //! through `modules::search::execute_tool`, so a provider or login change is
 //! honoured on the next call without rebuilding the session.
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -22,8 +23,8 @@ use crate::config::Config;
 /// "unavailable" in this session. It tells the model to stop rather than to
 /// wait, because nothing about the session will change the answer (#6991).
 pub const SEARCH_EXHAUSTED_MESSAGE: &str =
-    "Web search is not available in this session. Do not call it again \u{2014} \
-     answer from the material you already have.";
+    "Web search is not available with this setup: no provider could answer. Do not call \
+     it again \u{2014} answer from the material you already have.";
 
 pub struct TinySearchTool {
     spec: ToolSpec,
@@ -31,16 +32,22 @@ pub struct TinySearchTool {
     /// recorded transcript, which resolves the live config per call.
     config: Option<Arc<Config>>,
     exposure: ToolExposure,
-    /// Latched when a call reports that no provider could answer. Shared by
-    /// the search tools built for one session instance, so the model is told
-    /// once and the later calls cost no module round-trip.
+    /// The provider configuration a call last found nothing usable under.
     ///
     /// A credential alone makes the managed route look reachable
     /// (`providers::backend_credential_available`), so a deployment that is
-    /// offline, firewalled, out of balance or holding a dead key offers these
-    /// tools on every turn and fails every call. The agent then spends turns
-    /// on a tool that cannot work, at the moment it is least sure what to do.
-    exhausted: Arc<AtomicBool>,
+    /// offline, firewalled, out of balance or holding a dead key offers this
+    /// tool on every turn and fails every call. The agent then spends turns on
+    /// a tool that cannot work, at the moment it is least sure what to do.
+    ///
+    /// Keyed by configuration rather than latched outright, because this
+    /// module's contract is that every call re-reads the live config so a
+    /// provider or login change is honoured without rebuilding the session. A
+    /// call whose signature differs from the recorded one tries again; only a
+    /// repeat under the same configuration is refused. The signature is this
+    /// tool's own view — its role order and the resolved providers — so one
+    /// tool's dead providers never answer for another's.
+    exhausted_for: Mutex<Option<u64>>,
 }
 
 impl TinySearchTool {
@@ -49,7 +56,7 @@ impl TinySearchTool {
             spec,
             config: Some(config),
             exposure: ToolExposure::Direct,
-            exhausted: Arc::new(AtomicBool::new(false)),
+            exhausted_for: Mutex::new(None),
         }
     }
 
@@ -60,34 +67,46 @@ impl TinySearchTool {
             spec,
             config: None,
             exposure: ToolExposure::Direct,
-            exhausted: Arc::new(AtomicBool::new(false)),
+            exhausted_for: Mutex::new(None),
         }
     }
 
-    /// Recorded tools that share one exhaustion latch, the way the tools of a
-    /// live session do: the roles are three declarations over the same
-    /// providers, so one of them finding nothing settles it for all three.
-    pub fn recorded_batch(specs: impl IntoIterator<Item = ToolSpec>) -> Vec<Self> {
-        let exhausted = Arc::new(AtomicBool::new(false));
-        specs
-            .into_iter()
-            .map(|spec| Self {
-                spec,
-                config: None,
-                exposure: ToolExposure::Direct,
-                exhausted: exhausted.clone(),
-            })
-            .collect()
+    /// Whether this tool already found nothing usable under `signature`.
+    pub(crate) fn is_exhausted_for(&self, signature: u64) -> bool {
+        self.exhausted_for
+            .lock()
+            .map(|recorded| *recorded == Some(signature))
+            .unwrap_or(false)
     }
 
-    /// Whether this session already learned that no provider can answer.
-    pub(crate) fn is_exhausted(&self) -> bool {
-        self.exhausted.load(Ordering::Relaxed)
+    /// Record that no provider could answer under `signature`. Replaces any
+    /// earlier one, so the refusal always describes the current configuration.
+    pub(crate) fn mark_exhausted_for(&self, signature: u64) {
+        if let Ok(mut recorded) = self.exhausted_for.lock() {
+            *recorded = Some(signature);
+        }
     }
 
-    /// Record that no provider could answer, for the tools sharing this latch.
-    pub(crate) fn mark_exhausted(&self) {
-        self.exhausted.store(true, Ordering::Relaxed);
+    /// What this tool's providers look like right now: the order its role
+    /// draws from, and every provider's resolved reachability. Two calls agree
+    /// only while nothing a user could change — a key, a route, a provider
+    /// selection, a login — has moved.
+    pub(crate) fn provider_signature(&self, config: &Config) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        if let Some(role) = tinysearch_bus::role_for_tool(&self.spec.name) {
+            for provider in super::providers::role_order(config, role) {
+                provider.hash(&mut hasher);
+            }
+        }
+        for provider in super::providers::resolve(config) {
+            provider.id.hash(&mut hasher);
+            provider.enabled.hash(&mut hasher);
+            provider.usable.hash(&mut hasher);
+            provider.key_configured.hash(&mut hasher);
+            provider.managed_available.hash(&mut hasher);
+            matches!(provider.route, crate::config::SearchRoute::Managed).hash(&mut hasher);
+        }
+        hasher.finish()
     }
 
     pub fn spec(&self) -> &ToolSpec {
@@ -185,14 +204,17 @@ impl Tool for TinySearchTool {
         args: Value,
         options: ToolCallOptions,
     ) -> anyhow::Result<ToolResult> {
-        if self.is_exhausted() {
+        let config = self.live_config().await?;
+        // Re-read per call, so a key added or a provider switched mid-session
+        // clears an earlier refusal instead of outliving it.
+        let signature = self.provider_signature(&config);
+        if self.is_exhausted_for(signature) {
             tracing::debug!(
                 tool = %self.spec.name,
-                "[search][tool] refused: no provider answered earlier in this session"
+                "[search][tool] refused: no provider answered under this configuration"
             );
             return Ok(ToolResult::failed(SEARCH_EXHAUSTED_MESSAGE.to_string()));
         }
-        let config = self.live_config().await?;
         let subject = super::render::subject(&args);
         let max_results = args
             .get("max_results")
@@ -230,12 +252,12 @@ impl Tool for TinySearchTool {
             }
             Err(error) => {
                 if exhausts_providers(&error) {
-                    self.mark_exhausted();
+                    self.mark_exhausted_for(signature);
                 }
                 tracing::warn!(
                     tool = %self.spec.name,
                     code = error_code(&error).unwrap_or("unclassified"),
-                    exhausted = self.is_exhausted(),
+                    exhausted = self.is_exhausted_for(signature),
                     "[search][tool] failed"
                 );
                 Ok(if exhausts_providers(&error) {
@@ -267,17 +289,9 @@ pub fn build_search_tools(config: &Config) -> Vec<Box<dyn Tool>> {
         "[search][tool] registered search tools"
     );
     let shared = Arc::new(config.clone());
-    let exhausted = Arc::new(AtomicBool::new(false));
     specs
         .into_iter()
-        .map(|spec| {
-            Box::new(TinySearchTool {
-                spec,
-                config: Some(shared.clone()),
-                exposure: ToolExposure::Direct,
-                exhausted: exhausted.clone(),
-            }) as Box<dyn Tool>
-        })
+        .map(|spec| Box::new(TinySearchTool::new(shared.clone(), spec)) as Box<dyn Tool>)
         .collect()
 }
 

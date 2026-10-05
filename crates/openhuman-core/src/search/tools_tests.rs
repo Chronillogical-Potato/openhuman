@@ -113,15 +113,22 @@ fn standard_privacy_mode_allows_search_tool_dispatch() {
 // was what the hidden test rejected.
 // ---------------------------------------------------------------------------
 
-fn role_specs() -> Vec<ToolSpec> {
-    ["web_search_tool", "web_answer_tool", "web_contents_tool"]
+fn spec(name: &str) -> ToolSpec {
+    ToolSpec {
+        name: name.to_string(),
+        description: "search".into(),
+        parameters: serde_json::json!({"type": "object"}),
+    }
+}
+
+/// A config whose managed providers are selected but whose direct keys are
+/// absent, which is the shape that offers the tools and cannot serve them.
+fn nothing_usable_config() -> Config {
+    let mut config = Config::default();
+    config.search.providers = [("brave".to_string(), SearchProviderSettings::direct())]
         .into_iter()
-        .map(|name| ToolSpec {
-            name: name.to_string(),
-            description: "search".into(),
-            parameters: serde_json::json!({"type": "object"}),
-        })
-        .collect()
+        .collect();
+    config
 }
 
 #[test]
@@ -134,7 +141,7 @@ fn the_unavailable_verdict_tells_the_model_to_stop_rather_than_wait() {
     );
     assert!(
         !message.contains("right now"),
-        "nothing in the session will change the answer, so it must not read as a retry hint: {message}"
+        "nothing the model can do will change the answer, so it must not read as a retry hint: {message}"
     );
 }
 
@@ -154,37 +161,64 @@ fn only_the_exhaustion_verdict_is_treated_as_final() {
 }
 
 #[test]
-fn a_session_starts_unlatched() {
-    for tool in TinySearchTool::recorded_batch(role_specs()) {
-        assert!(!tool.is_exhausted(), "{} started latched", tool.name());
-    }
+fn a_tool_starts_with_nothing_recorded() {
+    let config = nothing_usable_config();
+    let tool = TinySearchTool::recorded(spec("web_search_tool"));
+
+    assert!(!tool.is_exhausted_for(tool.provider_signature(&config)));
 }
 
 #[test]
-fn one_role_finding_nothing_settles_it_for_the_others() {
-    // The three roles are declarations over the same providers, so dropping
-    // only the role that failed would still leave two tools that cannot work.
-    let tools = TinySearchTool::recorded_batch(role_specs());
+fn the_refusal_answers_only_for_the_configuration_that_failed() {
+    // The contract this module documents is that every call re-reads the live
+    // config, so a provider or login change is honoured without rebuilding the
+    // session. A refusal that outlived a config change would break it: the user
+    // adds a key and search stays dead until the thread is abandoned.
+    let dead = nothing_usable_config();
+    let tool = TinySearchTool::recorded(spec("web_search_tool"));
+    let dead_signature = tool.provider_signature(&dead);
 
-    tools[0].mark_exhausted();
+    tool.mark_exhausted_for(dead_signature);
+    assert!(tool.is_exhausted_for(dead_signature));
 
-    for tool in &tools {
-        assert!(
-            tool.is_exhausted(),
-            "{} did not share the latch",
-            tool.name()
-        );
-    }
+    let mut fixed = dead.clone();
+    fixed.search.brave.api_key = Some("added-after-the-failure".into());
+
+    assert_ne!(
+        tool.provider_signature(&fixed),
+        dead_signature,
+        "adding a provider key must change what the tool sees"
+    );
+    assert!(
+        !tool.is_exhausted_for(tool.provider_signature(&fixed)),
+        "adding a key must clear the refusal"
+    );
+}
+
+#[test]
+fn one_tools_dead_providers_do_not_answer_for_another() {
+    // `build_search_tools` can offer provider-specific tools beside the role
+    // tools, and the roles draw on different provider orders, so a shared
+    // verdict would let one provider's outage disable unrelated ones.
+    let config = nothing_usable_config();
+    let failed = TinySearchTool::recorded(spec("web_search_tool"));
+    let other = TinySearchTool::recorded(spec("web_answer_tool"));
+
+    failed.mark_exhausted_for(failed.provider_signature(&config));
+
+    assert!(!other.is_exhausted_for(other.provider_signature(&config)));
 }
 
 #[tokio::test]
-async fn a_latched_tool_refuses_before_reaching_the_module() {
-    // The refusal is returned without loading config or calling the module, so
-    // a dead search costs the session one round trip rather than one per call.
-    let tools = TinySearchTool::recorded_batch(role_specs());
-    tools[1].mark_exhausted();
+async fn a_refused_call_does_not_reach_the_module() {
+    // The second call under the same configuration is answered from the
+    // recorded verdict, so a dead search costs one module round trip per
+    // configuration rather than one per call.
+    let config = nothing_usable_config();
+    let tool = TinySearchTool::new(std::sync::Arc::new(config.clone()), spec("web_search_tool"));
+    tool.mark_exhausted_for(tool.provider_signature(&config));
 
-    let result = tools[0]
+    let result = tool
         .execute(serde_json::json!({"query": "anything"}))
         .await
         .expect("a refusal is a reported failure, not a tool error");
@@ -193,7 +227,7 @@ async fn a_latched_tool_refuses_before_reaching_the_module() {
     assert_eq!(
         result.error_kind,
         Some(tinytools::ToolErrorKind::Failed),
-        "the failure is permanent, so it must not be tagged retryable"
+        "the failure is permanent for this configuration, so it must not be tagged retryable"
     );
     assert!(
         result.text().contains("Do not call it again"),
