@@ -190,39 +190,43 @@ fn default_model_with_bare_claude_agent_sdk_routes_chat() {
     );
 }
 
-/// Bare local provider names (`ollama` with no `:model` part) are explicit
-/// routes too — the egress gate treats a bare `ollama` slug as a provider
-/// string, so routing must agree.
+/// Bare local provider names (`ollama` with no `:model` part) keep the managed
+/// fallback: the local runtime constructor rejects an empty model
+/// (`empty_model_err` in `local_runtime.rs`), so routing there would only
+/// trade the managed backend for a build-time error (CodeRabbit review on
+/// #6996).
 #[test]
-fn default_model_with_bare_local_provider_routes_chat_locally() {
+fn default_model_with_bare_local_provider_keeps_managed_fallback() {
     let mut config = Config::default();
     config.default_model = Some("ollama".to_string());
 
     assert_eq!(
         provider_for_role("chat", &config),
-        "ollama",
-        "a bare ollama pick must route the chat turn locally"
+        "openhuman",
+        "a bare ollama pick has no model id and must keep the managed fallback"
     );
     assert!(
-        !resolves_to_managed_backend("chat", &config),
-        "a bare ollama pick must not resolve to the managed backend"
+        resolves_to_managed_backend("chat", &config),
+        "a bare ollama pick must resolve to the managed backend"
     );
 }
 
-/// A bare configured cloud slug is an explicit route as well.
+/// A bare cloud slug (`my-openai` with no `:model` part) is not constructible
+/// either — the cloud-slug path requires the `<slug>:<model>` form — so it
+/// keeps the managed fallback as well.
 #[test]
-fn default_model_with_bare_cloud_slug_routes_chat() {
+fn default_model_with_bare_cloud_slug_keeps_managed_fallback() {
     let mut config = config_with_byok_provider();
     config.default_model = Some("my-openai".to_string());
 
     assert_eq!(
         provider_for_role("chat", &config),
-        "my-openai",
-        "a bare configured cloud slug must route the chat turn"
+        "openhuman",
+        "a bare cloud slug has no model id and must keep the managed fallback"
     );
     assert!(
-        !resolves_to_managed_backend("chat", &config),
-        "a bare configured cloud slug must not resolve to the managed backend"
+        resolves_to_managed_backend("chat", &config),
+        "a bare cloud slug must resolve to the managed backend"
     );
 }
 
