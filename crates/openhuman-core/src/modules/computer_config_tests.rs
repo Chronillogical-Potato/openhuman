@@ -37,7 +37,22 @@ fn signed_in_host_routes_jev_and_planner_through_tinyhumans() {
     assert!(value["planner"]["sdk_name"].is_string());
     assert_eq!(value["planner"]["rescue_model"], "openai/gpt-6-luna-pro");
     assert_eq!(value["planner"]["model"], "anthropic/claude-sonnet-5");
+    // The output shaper has no setting; the gateway runs it on its own model.
+    assert_eq!(value["planner"]["output_model"], HOSTED_REASONING_MODEL);
     assert_eq!(billing_route(&config), "hosted");
+}
+
+#[test]
+fn signed_in_host_runs_unchosen_roles_on_a_model_the_gateway_serves() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = config_in(dir.path());
+    api_key::store_api_key(&config, "th_test_backend").unwrap();
+    // A blank choice is no choice.
+    config.computer.rescue_model = Some("  ".into());
+    let value = module_config(&config);
+    for role in ["model", "rescue_model", "output_model"] {
+        assert_eq!(value["planner"][role], HOSTED_REASONING_MODEL, "{role}");
+    }
 }
 
 #[test]
@@ -49,7 +64,10 @@ fn byok_host_uses_openrouter_for_both() {
     assert_eq!(value["jev"]["provider"], "open_router");
     assert_eq!(value["planner"]["provider"], "open_router");
     assert_eq!(value["planner"]["api_key"], "or_test_direct");
-    assert!(value["planner"].get("rescue_model").is_none());
+    // OpenRouter serves the module's own defaults, so none is sent.
+    for role in ["model", "rescue_model", "output_model"] {
+        assert!(value["planner"].get(role).is_none(), "{role}");
+    }
     assert_eq!(billing_route(&config), "direct_openrouter");
 }
 
@@ -76,6 +94,33 @@ fn open_jev_and_sage_use_their_own_keys() {
         json!({"api_key": "sage_test", "provider": "sage", "fast": true})
     );
     assert_eq!(billing_route(&config), "sage");
+}
+
+#[test]
+fn tracing_is_off_unless_the_config_or_the_environment_turns_it_on() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = config_in(dir.path());
+    assert!(!tracing_enabled_with(&config, None));
+    assert!(!tracing_enabled_with(&config, Some("0")));
+    assert!(tracing_enabled_with(&config, Some("1")));
+    assert!(tracing_enabled_with(&config, Some(" true ")));
+    config.computer.trace = true;
+    assert!(tracing_enabled_with(&config, None));
+}
+
+#[test]
+fn a_traced_host_gives_the_module_a_desktop_trace_path_in_the_workspace() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = config_in(dir.path());
+    config.computer.trace = true;
+    let value = module_config(&config);
+    let expected = trace_dir(&config).join("desktop-trace.jsonl");
+    assert_eq!(value["trace_path"], json!(expected.to_string_lossy()));
+    assert!(
+        trace_dir(&config).is_dir(),
+        "the trace directory is created"
+    );
+    assert!(expected.starts_with(&config.workspace_dir));
 }
 
 #[test]

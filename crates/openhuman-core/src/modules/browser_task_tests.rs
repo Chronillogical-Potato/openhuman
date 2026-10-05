@@ -30,6 +30,13 @@ fn start_request_confines_the_task_to_the_browser_under_host_policy() {
     assert_eq!(request.budget.max_rescues, Some(2));
 }
 
+#[test]
+fn a_traced_host_asks_the_module_to_record_every_decision() {
+    let mut config = Config::default();
+    config.computer.trace = true;
+    assert!(start_request(&config, &task()).trace);
+}
+
 #[tokio::test]
 async fn start_refuses_a_task_without_origins() {
     let mut empty = task();

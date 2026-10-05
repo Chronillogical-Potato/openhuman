@@ -45,6 +45,11 @@ pub struct ComputerConfig {
     /// How many times one task may be rescued; `0` turns rescue off and
     /// `None` keeps the module's default (5, also its maximum).
     pub max_rescues: Option<u32>,
+    /// Record every decision of a browser task and keep each task's full
+    /// report, and trace desktop commands, under `<workspace>/state/computer/`.
+    /// Off by default: reports hold page text. `OPENHUMAN_COMPUTER_TRACE=1`
+    /// turns it on for one run without editing the config.
+    pub trace: bool,
 }
 
 #[cfg(test)]

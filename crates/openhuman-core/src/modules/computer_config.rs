@@ -9,6 +9,9 @@
 //! - `planner` — the planner, rescue and output models: through the
 //!   TinyHumans proxy when signed in, else the user's OpenRouter key.
 //! - `browser` — the Chrome executable the user picked, if any.
+//! - `trace_path` — where desktop commands are traced, when tracing is on.
+
+use std::path::PathBuf;
 
 use serde_json::{json, Map, Value};
 
@@ -56,6 +59,15 @@ fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
     }
 }
 
+/// The model the TinyHumans gateway runs the planner, rescue and output
+/// roles on when the user picked none. The module's own defaults are
+/// OpenRouter ids (`anthropic/claude-sonnet-5`, `openai/gpt-6-luna`) that the
+/// gateway refuses ("Model … is not available"), so a signed-in task failed
+/// before its first step; the gateway's reasoning tier can outlast its
+/// request timeout on a rescue (HTTP 504). A direct OpenRouter key keeps the
+/// module's defaults.
+pub const HOSTED_REASONING_MODEL: &str = "agentic-v1";
+
 fn planner(config: &Config, hosted: Option<&str>) -> Option<Value> {
     let mut planner = match hosted {
         Some(api_key) => json!({
@@ -69,15 +81,42 @@ fn planner(config: &Config, hosted: Option<&str>) -> Option<Value> {
         }
     };
     let computer = &config.computer;
-    for (key, value) in [
-        ("model", &computer.planner_model),
-        ("rescue_model", &computer.rescue_model),
+    let fallback = hosted.map(|_| HOSTED_REASONING_MODEL);
+    for (key, chosen) in [
+        ("model", computer.planner_model.as_deref()),
+        ("rescue_model", computer.rescue_model.as_deref()),
+        ("output_model", None),
     ] {
-        if let Some(model) = value {
+        let chosen = chosen.map(str::trim).filter(|model| !model.is_empty());
+        if let Some(model) = chosen.or(fallback) {
             planner[key] = json!(model);
         }
     }
     Some(planner)
+}
+
+/// The environment switch that turns tracing on for one run.
+pub const TRACE_ENV: &str = "OPENHUMAN_COMPUTER_TRACE";
+
+/// Whether TinyComputer runs are traced: `[computer] trace`, or
+/// `OPENHUMAN_COMPUTER_TRACE=1` in the environment.
+#[must_use]
+pub fn tracing_enabled(config: &Config) -> bool {
+    tracing_enabled_with(config, std::env::var(TRACE_ENV).ok().as_deref())
+}
+
+fn tracing_enabled_with(config: &Config, env: Option<&str>) -> bool {
+    config.computer.trace
+        || matches!(
+            env.map(str::trim),
+            Some("1" | "true" | "TRUE" | "yes" | "YES")
+        )
+}
+
+/// Where traces and task reports are written: `<workspace>/state/computer`.
+#[must_use]
+pub fn trace_dir(config: &Config) -> PathBuf {
+    config.workspace_dir.join("state").join("computer")
 }
 
 /// Build the module configuration for `config`.
@@ -94,11 +133,23 @@ pub fn module_config(config: &Config) -> Value {
     if let Some(executable) = config.browser.chrome_path.as_ref() {
         out.insert("browser".into(), json!({ "executable": executable }));
     }
+    let traced = tracing_enabled(config);
+    if traced {
+        let dir = trace_dir(config);
+        if let Err(error) = std::fs::create_dir_all(&dir) {
+            tracing::warn!(%error, "[computer] trace directory unavailable");
+        }
+        out.insert(
+            "trace_path".into(),
+            json!(dir.join("desktop-trace.jsonl").to_string_lossy()),
+        );
+    }
     tracing::debug!(
         decision_model = config.computer.decision_model.as_str(),
         jev = out.contains_key("jev"),
         planner = out.contains_key("planner"),
         hosted = hosted.is_some(),
+        traced,
         "[computer] module config built"
     );
     Value::Object(out)
