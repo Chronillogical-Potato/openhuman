@@ -701,6 +701,10 @@ const messages: TranslationMap = {
   'memory.noResults': 'Nessuna memoria trovata',
   'memory.empty':
     'Nessuna memoria ancora. Le memorie vengono create automaticamente mentre interagisci.',
+  'memory.error.insufficientCredits':
+    'La memoria non è disponibile: il tuo account ha esaurito i crediti. Ricarica per ripristinarla; nulla di quanto salvato è andato perso.',
+  'memory.error.unavailable':
+    'Al momento la memoria non è raggiungibile. Nulla di quanto salvato è andato perso; riprova tra poco.',
   'memory.tab.memory': 'Memoria',
   'memory.tab.agents': 'Libreria',
   'memory.analyzeNow': 'Analizza ora',

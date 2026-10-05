@@ -90,6 +90,12 @@ credential.
   the turn after the last compaction checkpoint) is left out of the pack.
 - **No hook fails a turn.** Each is bounded and logs instead of raising; a
   timed-out pre-turn still finishes logging in the background.
+- **A refused recall is not an empty one.** When nothing was recalled because
+  the engine refused the account (`INSUFFICIENT_CREDITS`, `UNAUTHORIZED`,
+  `UNAVAILABLE`), the turn is given a short notice saying memory is
+  unavailable and why, so the model does not tell the user nothing is stored.
+  TinyMemory's holistic recall reports a section's failure as a skip reason,
+  so the hook reads the refusal back from there too.
 - **Every write is scrubbed.** The bound engine is wrapped in
   `memory::guard::ScrubbingEngine`, so turns, documents and learnings are
   scrubbed of secrets and PII whichever path writes them.
@@ -105,7 +111,10 @@ in `<workspace>/memory/jobs.json`, merged when identical, and run by the
 `memory_background` system cron job (every 5 minutes) once they are
 `[memory.recall] build_delay_secs` old, since a build reads the facts the
 engine extracts from the writes. Background work pauses with the scheduler
-gate. A failing job is retried up to five times. The hosted engine builds on
+gate. A failing job is retried up to five times; an account-wide refusal
+(no credits, a rejected credential, an unreachable engine) does not count as
+an attempt, so the job waits instead of being dropped. The run that drops a
+job records why. The hosted engine builds on
 its own schedule (`scheduled`); an engine that cannot consolidate answers
 `skipped`.
 
@@ -178,7 +187,11 @@ subtree); a `reach` in the model's filter is overwritten.
 ## RPC (`openhuman.memory_*`)
 
 Errors use the standard structured error; `code` is one of `MEMORY_OFF`,
-`UNSUPPORTED`, `INVALID_REQUEST`, `UNAUTHORIZED` or `ENGINE`.
+`UNSUPPORTED`, `INVALID_REQUEST`, `UNAUTHORIZED`, `INSUFFICIENT_CREDITS` (the
+hosted engine's 402), `UNAVAILABLE` (unreachable, timed out or overloaded) or
+`ENGINE`. The two account-wide refusals have their own codes so the UI can
+say "top up" or "try again" instead of showing an engine fault or an empty
+memory.
 
 | Method | Params | Result |
 | --- | --- | --- |

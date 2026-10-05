@@ -522,6 +522,8 @@ export type MemoryErrorCode =
   | 'UNSUPPORTED'
   | 'INVALID_REQUEST'
   | 'UNAUTHORIZED'
+  | 'INSUFFICIENT_CREDITS'
+  | 'UNAVAILABLE'
   | 'ENGINE';
 
 const MEMORY_ERROR_CODES: readonly MemoryErrorCode[] = [
@@ -529,6 +531,8 @@ const MEMORY_ERROR_CODES: readonly MemoryErrorCode[] = [
   'UNSUPPORTED',
   'INVALID_REQUEST',
   'UNAUTHORIZED',
+  'INSUFFICIENT_CREDITS',
+  'UNAVAILABLE',
   'ENGINE',
 ];
 
@@ -587,16 +591,37 @@ export function memoryErrorCode(err: unknown): MemoryErrorCode | null {
   }
   const message = (err as { message?: unknown }).message;
   if (typeof message === 'string') {
-    const match = /^\s*(MEMORY_OFF|UNSUPPORTED|INVALID_REQUEST|UNAUTHORIZED|ENGINE)\b/.exec(
-      message
-    );
+    const match =
+      /^\s*(MEMORY_OFF|UNSUPPORTED|INVALID_REQUEST|UNAUTHORIZED|INSUFFICIENT_CREDITS|UNAVAILABLE|ENGINE)\b/.exec(
+        message
+      );
     if (match) return match[1] as MemoryErrorCode;
   }
   return null;
 }
 
-/** Human-readable text of any thrown value. */
-export function memoryErrorMessage(err: unknown): string {
+/**
+ * The account-wide refusals whose raw message is engine detail, each told
+ * apart from an engine fault and from an empty memory: out of credits means
+ * "top up", unreachable means "try again". `UNAUTHORIZED` keeps its own
+ * message, which names the rejected key or session.
+ */
+const REFUSAL_KEYS: Partial<Record<MemoryErrorCode, string>> = {
+  INSUFFICIENT_CREDITS: 'memory.error.insufficientCredits',
+  UNAVAILABLE: 'memory.error.unavailable',
+};
+
+/**
+ * Human-readable text of any thrown value. Given `t`, an account-wide refusal
+ * reads as its translated explanation instead of the engine's raw message.
+ */
+export function memoryErrorMessage(
+  err: unknown,
+  t?: (key: string, fallback?: string) => string
+): string {
+  const code = memoryErrorCode(err);
+  const key = code ? REFUSAL_KEYS[code] : undefined;
+  if (t && key) return t(key);
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object' && 'message' in err) return String(err.message);
   return String(err);

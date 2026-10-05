@@ -700,6 +700,10 @@ const messages: TranslationMap = {
   'memory.search': 'Buscar recuerdos...',
   'memory.noResults': 'No se encontraron recuerdos',
   'memory.empty': 'Sin recuerdos aún. Los recuerdos se crean automáticamente mientras interactúas.',
+  'memory.error.insufficientCredits':
+    'La memoria no está disponible: tu cuenta se quedó sin créditos. Recarga para restaurarla; no se ha perdido nada guardado.',
+  'memory.error.unavailable':
+    'No se puede acceder a la memoria ahora mismo. No se ha perdido nada guardado; inténtalo de nuevo en un momento.',
   'memory.tab.memory': 'Memoria',
   'memory.tab.agents': 'Biblioteca',
   'memory.analyzeNow': 'Analizar ahora',

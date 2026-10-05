@@ -674,6 +674,10 @@ const messages: TranslationMap = {
   'memory.search': '메모리 검색...',
   'memory.noResults': '메모리를 찾을 수 없습니다',
   'memory.empty': '아직 메모리가 없습니다. 메모리는 상호작용하면서 자동으로 생성됩니다.',
+  'memory.error.insufficientCredits':
+    '메모리를 사용할 수 없습니다: 계정의 크레딧이 모두 소진되었습니다. 충전하면 복구되며, 저장된 내용은 사라지지 않았습니다.',
+  'memory.error.unavailable':
+    '지금은 메모리에 연결할 수 없습니다. 저장된 내용은 사라지지 않았습니다. 잠시 후 다시 시도하세요.',
   'memory.tab.memory': '메모리',
   'memory.tab.agents': '라이브러리',
   'memory.analyzeNow': '지금 분석',

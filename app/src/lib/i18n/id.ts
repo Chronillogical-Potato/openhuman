@@ -692,6 +692,10 @@ const messages: TranslationMap = {
   'memory.search': 'Cari memori...',
   'memory.noResults': 'Memori tidak ditemukan',
   'memory.empty': 'Belum ada memori. Memori dibuat otomatis saat Anda berinteraksi.',
+  'memory.error.insufficientCredits':
+    'Memori tidak tersedia: kredit akun Anda habis. Isi ulang untuk memulihkannya; tidak ada data tersimpan yang hilang.',
+  'memory.error.unavailable':
+    'Memori tidak dapat dijangkau saat ini. Tidak ada data tersimpan yang hilang; coba lagi sebentar lagi.',
   'memory.tab.memory': 'Memori',
   'memory.tab.agents': 'Perpustakaan',
   'memory.analyzeNow': 'Analisis Sekarang',

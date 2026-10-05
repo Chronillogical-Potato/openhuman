@@ -217,3 +217,98 @@ async fn compaction_recalls_from_the_dropped_turns() {
         .await
         .is_none());
 }
+
+#[tokio::test]
+async fn an_out_of_credits_recall_tells_the_turn_memory_is_unavailable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::out_of_credits().bind(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(&config, &identity, input("t", 0, "what colour do I like?"))
+        .await
+        .expect("a refused recall still gives the turn a notice");
+
+    assert_eq!(
+        pack.refusal,
+        Some(crate::memory::error::INSUFFICIENT_CREDITS)
+    );
+    assert!(
+        pack.markdown.contains("out of credits"),
+        "{}",
+        pack.markdown
+    );
+    assert!(pack.markdown.contains("does not mean nothing is stored"));
+    assert!(pack.refs.is_empty() && pack.citations.is_empty());
+    assert!(pack.tokens > 0);
+}
+
+#[tokio::test]
+async fn an_unreachable_engine_is_named_as_unreachable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::with(tinymemory_api::Error::Unavailable(
+        "connection refused".into(),
+    ))
+    .bind(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(&config, &identity, input("t", 0, "hello"))
+        .await
+        .expect("notice");
+
+    assert_eq!(pack.refusal, Some(crate::memory::error::UNAVAILABLE));
+    assert!(
+        pack.markdown.contains("could not be reached"),
+        "{}",
+        pack.markdown
+    );
+}
+
+#[tokio::test]
+async fn an_engine_fault_that_is_not_account_wide_injects_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::with(tinymemory_api::Error::Engine(
+        "index corrupt".into(),
+    ))
+    .bind(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    assert!(pre_turn(&config, &identity, input("t", 0, "hello"))
+        .await
+        .is_none());
+}
+
+#[test]
+fn a_refusal_is_read_back_from_a_skipped_section() {
+    let outcomes = vec![Ok(ContextPack {
+        markdown: String::new(),
+        tokens: 0,
+        refs: Vec::new(),
+        sections: Vec::new(),
+        skipped: vec![
+            tinymemory_tools::recall::SkippedSection {
+                heading: "Learnings".into(),
+                reason: "empty".into(),
+            },
+            tinymemory_tools::recall::SkippedSection {
+                heading: "History".into(),
+                reason: "unauthorized: [UNAUTHORIZED] memory API fetch (HTTP 401)".into(),
+            },
+        ],
+        engine: "tinyhumans".into(),
+    })];
+    let refusal = refusal_of(&outcomes).expect("refusal");
+    assert_eq!(refusal.code(), crate::memory::error::UNAUTHORIZED);
+
+    let quiet = vec![Ok(ContextPack {
+        markdown: String::new(),
+        tokens: 0,
+        refs: Vec::new(),
+        sections: Vec::new(),
+        skipped: Vec::new(),
+        engine: "tinyhumans".into(),
+    })];
+    assert!(refusal_of(&quiet).is_none());
+}

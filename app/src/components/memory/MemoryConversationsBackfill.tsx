@@ -47,9 +47,9 @@ export default function MemoryConversationsBackfill() {
       setView(next);
     } catch (err) {
       log('status failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,12 +60,12 @@ export default function MemoryConversationsBackfill() {
       .catch(err => {
         if (cancelled) return;
         log('status failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const running = view?.state.phase === 'running';
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function MemoryConversationsBackfill() {
       setView(next);
     } catch (err) {
       log('start failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setStarting(false);
       setConsentOpen(false);

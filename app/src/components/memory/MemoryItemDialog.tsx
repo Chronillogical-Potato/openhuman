@@ -84,12 +84,12 @@ export default function MemoryItemDialog({ id, onClose, onForgotten }: MemoryIte
       .catch(err => {
         if (cancelled) return;
         log('read failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
       });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, t]);
 
   const forget = async () => {
     setForgetting(true);
@@ -101,7 +101,7 @@ export default function MemoryItemDialog({ id, onClose, onForgotten }: MemoryIte
       onClose();
     } catch (err) {
       log('forget failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setForgetting(false);
     }

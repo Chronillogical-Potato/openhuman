@@ -696,6 +696,10 @@ const messages: TranslationMap = {
   'memory.noResults': 'Nie znaleziono wspomnień',
   'memory.empty':
     'Brak wspomnień. Wspomnienia powstają automatycznie podczas korzystania z aplikacji.',
+  'memory.error.insufficientCredits':
+    'Pamięć jest niedostępna: na koncie skończyły się kredyty. Doładuj konto, aby ją przywrócić; nic z zapisanych danych nie zostało utracone.',
+  'memory.error.unavailable':
+    'Nie można teraz połączyć się z pamięcią. Nic z zapisanych danych nie zostało utracone; spróbuj ponownie za chwilę.',
   'memory.tab.memory': 'Pamięć',
   'memory.tab.agents': 'Biblioteka',
   'memory.analyzeNow': 'Analizuj teraz',

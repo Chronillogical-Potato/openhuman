@@ -666,6 +666,10 @@ const messages: TranslationMap = {
   'memory.search': 'البحث في الذكريات...',
   'memory.noResults': 'لم يتم العثور على ذكريات',
   'memory.empty': 'لا توجد ذكريات بعد. تُنشأ الذكريات تلقائيًا أثناء تفاعلك.',
+  'memory.error.insufficientCredits':
+    'الذاكرة غير متاحة: نفد رصيد حسابك. أعد الشحن لاستعادتها؛ لم يُفقد أي شيء مخزّن.',
+  'memory.error.unavailable':
+    'تعذّر الوصول إلى الذاكرة حاليًا. لم يُفقد أي شيء مخزّن؛ حاول مرة أخرى بعد قليل.',
   'memory.tab.memory': 'الذاكرة',
   'memory.tab.agents': 'المكتبة',
   'memory.analyzeNow': 'تحليل الآن',
