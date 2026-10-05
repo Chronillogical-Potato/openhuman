@@ -25,6 +25,17 @@ import { openUrl } from '../utils/openUrl';
 
 const log = createDebug('app:welcome');
 
+/** The sign-in buttons, shared by the TinyHumans card and the hand-off panel. */
+const ProviderButtons = () => (
+  <div className="flex flex-wrap items-center justify-center gap-3">
+    {oauthProviderConfigs
+      .filter(provider => provider.showOnWelcome)
+      .map(provider => (
+        <OAuthProviderButton key={provider.id} provider={provider} className="rounded-full!" />
+      ))}
+  </div>
+);
+
 const Welcome = () => {
   const { t } = useT();
   const navigate = useNavigate();
@@ -190,13 +201,9 @@ const Welcome = () => {
                   take the self-hosted path instead. */}
               {!requiresAppDataReset ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowProviders(true)}
-                    data-testid="welcome-handoff-retry">
-                    {t('welcome.handoff.retry')}
-                  </Button>
+                  <div data-testid="welcome-handoff-retry">
+                    <ProviderButtons />
+                  </div>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -250,13 +257,13 @@ const Welcome = () => {
                 <p className="text-base font-semibold text-content">{t('welcome.handoff.title')}</p>
                 <p className="mt-1 text-sm text-content-muted">{t('welcome.handoff.body')}</p>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowProviders(true)}
-                data-testid="welcome-handoff-reopen">
-                {t('welcome.handoff.reopen')}
-              </Button>
+              {/* The real action, not a button that sets state nothing reads:
+                  the provider buttons only render in the non-processing branch,
+                  so toggling `showProviders` from here did nothing at all. */}
+              <div data-testid="welcome-handoff-reopen">
+                <p className="mb-2 text-xs text-content-muted">{t('welcome.handoff.reopen')}</p>
+                <ProviderButtons />
+              </div>
             </div>
           </Card>
         ) : (

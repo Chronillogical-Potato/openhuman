@@ -386,7 +386,7 @@ describe('Welcome — OAuth buttons presence', () => {
     expect(screen.queryByRole('button', { name: 'discord' })).not.toBeInTheDocument();
   });
 
-  it('hides OAuth buttons while auth is processing', () => {
+  it('swaps the cards for the hand-off panel while auth is processing', () => {
     vi.mocked(useDeepLinkAuthState).mockReturnValue({
       isProcessing: true,
       errorMessage: null,
@@ -395,7 +395,15 @@ describe('Welcome — OAuth buttons presence', () => {
     });
     renderWithProviders(<Welcome />);
 
-    expect(screen.queryByRole('button', { name: 'google' })).not.toBeInTheDocument();
+    // The two choice cards give way to the hand-off panel...
+    expect(screen.queryByTestId('welcome-card-tinyhumans')).not.toBeInTheDocument();
+    expect(screen.getByTestId('welcome-handoff')).toBeInTheDocument();
+
+    // ...which keeps the sign-in buttons reachable on purpose. Sign-in happens
+    // in another window, so a user who closed it or never saw it open needs a
+    // way to reopen it. A control that cannot do that is a dead end.
+    expect(screen.getByTestId('welcome-handoff-reopen')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'google' })).toBeInTheDocument();
   });
 });
 
