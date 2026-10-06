@@ -13,6 +13,8 @@ interface ThreadListProps {
   onSelectThread: (threadId: string) => void;
   /** Stable, human-readable title for a thread id. */
   resolveTitle: (threadId: string) => string;
+  /** Whether a thread has an agent turn in flight; its title shimmers while true. */
+  isThreadRunning?: (threadId: string) => boolean;
   onRequestDelete: (thread: Thread) => void;
   // Inline title rename — controlled by the parent so the edit state stays
   // co-located with the rest of the panel's thread state.
@@ -38,6 +40,7 @@ export function ThreadList({
   onCreateThread,
   onSelectThread,
   resolveTitle,
+  isThreadRunning,
   onRequestDelete,
   editingThreadId,
   editTitleValue,
@@ -236,11 +239,13 @@ export function ThreadList({
                   />
                 ) : (
                   <p
+                    data-running={isThreadRunning?.(thread.id) ? 'true' : undefined}
+                    aria-busy={isThreadRunning?.(thread.id) || undefined}
                     className={`truncate flex-1 text-[14px] ${
                       selectedThreadId === thread.id
                         ? 'font-semibold text-content'
                         : 'text-content-muted'
-                    }`}>
+                    } ${isThreadRunning?.(thread.id) ? 'shimmer motion-reduce:animate-none' : ''}`}>
                     {resolveTitle(thread.id)}
                   </p>
                 )}

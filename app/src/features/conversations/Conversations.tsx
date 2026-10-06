@@ -1551,6 +1551,18 @@ const Conversations = ({
       : { id: parentId, title: t('chat.parentThread') };
   }, [threads, selectedThreadId, t]);
 
+  // A thread is "running" for the sidebar while its send is pending, the core
+  // has marked it active, or its inference turn is started/streaming. Covers
+  // background threads too, so a row keeps shimmering after you switch away.
+  const isThreadRunning = useCallback(
+    (threadId: string): boolean => {
+      if (pendingSendingThreadIds.has(threadId) || activeThreadIds[threadId]) return true;
+      const lifecycle = inferenceTurnLifecycleByThread[threadId];
+      return lifecycle === 'started' || lifecycle === 'streaming';
+    },
+    [pendingSendingThreadIds, activeThreadIds, inferenceTurnLifecycleByThread]
+  );
+
   // Thread list (left pane). Rendered through `TwoPanelLayout` below in page
   // mode; the embedded `variant="sidebar"` mode shows no thread list at all.
   const threadSidebar = (
