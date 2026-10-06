@@ -682,6 +682,13 @@ describe('composer model routing', () => {
       method: 'openhuman.channel_web_chat',
       params: { model_override: 'huggingface:org/model' },
     });
+    const resolverCalls = vi.mocked(callCoreRpc).mock.calls.filter(
+      ([request]) => request.method === 'openhuman.inference_resolve_model'
+    );
+    expect(resolverCalls.at(-1)?.[0]).toMatchObject({
+      method: 'openhuman.inference_resolve_model',
+      params: { hint: 'huggingface:org/model' },
+    });
   });
 
   it('forwards the concrete provider/model chosen in the picker for a follow-up send', async () => {
@@ -701,7 +708,6 @@ describe('composer model routing', () => {
   it.each([
     ['managed', 'openrouter/author/model'],
     ['local', 'ollama:qwen3:4b-instruct'],
-    ['unknown provider', 'unknown-provider:model'],
   ] as const)('serializes the %s picker route at the core boundary', async (route, model) => {
     mockChatSend.mockClear();
     await useRealChatSend();
@@ -714,5 +720,31 @@ describe('composer model routing', () => {
       method: 'openhuman.channel_web_chat',
       params: { model_override: model },
     });
+  });
+
+  it('keeps an unknown provider route rejected at the core boundary', async () => {
+    vi.mocked(callCoreRpc).mockImplementation(({ method, params }) => {
+      if (
+        method === 'openhuman.channel_web_chat' &&
+        (params as { model_override?: string }).model_override === 'unknown-provider:model'
+      ) {
+        return Promise.reject(new Error('unsupported provider route')) as ReturnType<
+          typeof callCoreRpc
+        >;
+      }
+      return Promise.resolve({}) as ReturnType<typeof callCoreRpc>;
+    });
+    await useRealChatSend();
+    await renderChat('text');
+
+    await selectPickerRoute('unknown provider');
+    await clickSendButtonWithDraft('unknown provider route');
+
+    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
+    expect(latestChatRpc()).toMatchObject({
+      method: 'openhuman.channel_web_chat',
+      params: { model_override: 'unknown-provider:model' },
+    });
+    expect(screen.getByRole('textbox')).toHaveTextContent('unknown provider route');
   });
 });
