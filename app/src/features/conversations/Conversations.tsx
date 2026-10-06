@@ -1169,6 +1169,9 @@ const Conversations = ({
     if (!sendingThreadId) return;
     pendingSendsRef.current.add(sendingThreadId);
     addPendingSendingThread(sendingThreadId);
+    // A new turn starts here: a Stop aimed at the previous one must not reach it.
+    stopRequestedDuringSendRef.current.delete(sendingThreadId);
+    clearStopSettleTimer(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
