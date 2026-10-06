@@ -1380,17 +1380,43 @@ const ComposerAction: FC<{
             </ComposerPrimitive.Send>
           )}
         </AuiIf>
-        <AuiIf condition={s => s.thread.isRunning}>
+        {/*
+          While a turn runs, typed text is a queued follow-up (the runtime's
+          `queue` capability keeps Send enabled), so the primary slot offers to
+          queue it; Stop takes the slot only when there is nothing to send —
+          OpenClaw's rule, and the one that keeps a half-typed follow-up one
+          Enter away instead of behind a Stop button.
+        */}
+        <AuiIf condition={s => s.thread.isRunning && s.composer.text.trim().length > 0}>
+          <ComposerPrimitive.Send asChild>
+            <TooltipIconButton
+              tooltip={t('composer.queueSend')}
+              side="bottom"
+              type="button"
+              variant="default"
+              size="icon"
+              className="aui-composer-send size-7 rounded-full bg-primary-500 text-content-inverted hover:bg-primary-600"
+              data-testid="queue-message-button"
+              data-analytics-id="chat-composer-queue-send"
+              aria-label={t('composer.queueSend')}>
+              <ArrowUpIcon className="aui-composer-send-icon size-4" />
+            </TooltipIconButton>
+          </ComposerPrimitive.Send>
+        </AuiIf>
+        <AuiIf condition={s => s.thread.isRunning && s.composer.text.trim().length === 0}>
           <ComposerPrimitive.Cancel asChild>
-            <Button
+            <TooltipIconButton
+              tooltip={t('composer.stopEsc')}
+              side="bottom"
               type="button"
               variant="default"
               size="icon"
               className="aui-composer-cancel size-7 rounded-full bg-primary-500 text-content-inverted hover:bg-primary-600"
               data-testid="stop-generation-button"
+              data-analytics-id="chat-composer-stop"
               aria-label={t('chat.stopGeneration', 'Stop generating')}>
               <SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" />
-            </Button>
+            </TooltipIconButton>
           </ComposerPrimitive.Cancel>
         </AuiIf>
       </div>
@@ -1663,7 +1689,7 @@ const AssistantActionBar: FC = () => {
   const reloadAction =
     canReload && !isFailedTurn ? (
       <ActionBarPrimitive.Reload asChild>
-        <TooltipIconButton tooltip="Refresh">
+        <TooltipIconButton tooltip={t('chat.message.refresh')}>
           <RefreshCwIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Reload>
@@ -1675,7 +1701,7 @@ const AssistantActionBar: FC = () => {
       autohide="not-last"
       className="aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex gap-1 duration-200">
       <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton tooltip="Copy">
+        <TooltipIconButton tooltip={t('chat.message.copy')}>
           <AuiIf condition={s => s.message.isCopied}>
             <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
           </AuiIf>
@@ -1701,7 +1727,7 @@ const AssistantActionBar: FC = () => {
           unconditionally, so they are always live here. */}
       <ActionBarPrimitive.FeedbackPositive asChild>
         <TooltipIconButton
-          tooltip="Good response"
+          tooltip={t('chat.message.goodResponse')}
           data-testid="assistant-feedback-positive"
           className="data-[submitted=true]:text-primary-600 dark:data-[submitted=true]:text-primary-400">
           <ThumbsUpIcon />
@@ -1709,7 +1735,7 @@ const AssistantActionBar: FC = () => {
       </ActionBarPrimitive.FeedbackPositive>
       <ActionBarPrimitive.FeedbackNegative asChild>
         <TooltipIconButton
-          tooltip="Bad response"
+          tooltip={t('chat.message.badResponse')}
           data-testid="assistant-feedback-negative"
           className="data-[submitted=true]:text-coral-600 dark:data-[submitted=true]:text-coral-400">
           <ThumbsDownIcon />
@@ -1727,14 +1753,14 @@ const AssistantActionBar: FC = () => {
       <AuiIf condition={s => s.thread.capabilities.speech}>
         <AuiIf condition={s => s.message.speech == null}>
           <ActionBarPrimitive.Speak asChild>
-            <TooltipIconButton tooltip="Read aloud">
+            <TooltipIconButton tooltip={t('chat.message.readAloud')}>
               <Volume2Icon />
             </TooltipIconButton>
           </ActionBarPrimitive.Speak>
         </AuiIf>
         <AuiIf condition={s => s.message.speech != null}>
           <ActionBarPrimitive.StopSpeaking asChild>
-            <TooltipIconButton tooltip="Stop reading">
+            <TooltipIconButton tooltip={t('chat.message.stopReading')}>
               <VolumeXIcon className="text-destructive" />
             </TooltipIconButton>
           </ActionBarPrimitive.StopSpeaking>
@@ -1742,7 +1768,9 @@ const AssistantActionBar: FC = () => {
       </AuiIf>
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
-          <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">
+          <TooltipIconButton
+            tooltip={t('chat.message.more')}
+            className="data-[state=open]:bg-accent">
             <MoreHorizontalIcon />
           </TooltipIconButton>
         </ActionBarMorePrimitive.Trigger>
@@ -1837,7 +1865,7 @@ const UserActionBar: FC = () => {
   // is an ordinary statement, instrumented like any other.
   const editAction = canEdit ? (
     <ActionBarPrimitive.Edit asChild>
-      <TooltipIconButton tooltip="Edit" className="aui-user-action-edit">
+      <TooltipIconButton tooltip={t('chat.message.edit')} className="aui-user-action-edit">
         <PencilIcon />
       </TooltipIconButton>
     </ActionBarPrimitive.Edit>
@@ -1850,8 +1878,8 @@ const UserActionBar: FC = () => {
       className="aui-user-action-bar-root flex flex-col items-end">
       <ActionBarPrimitive.Copy asChild>
         <TooltipIconButton
-          tooltip={t('chat.copyResponse', 'Copy response')}
-          title={t('chat.copyResponse', 'Copy response')}>
+          tooltip={t('chat.message.copyMessage')}
+          title={t('chat.message.copyMessage')}>
           <CopyIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>
