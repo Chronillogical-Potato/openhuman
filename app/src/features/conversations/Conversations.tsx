@@ -107,6 +107,8 @@ import {
 } from './aui/ReasoningEffortPicker';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
+import { useThreadPins } from './threadList/useThreadPins';
+import { useUnreadThreads } from './threadList/useUnreadThreads';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 const debug = debugFactory('conversations');
@@ -1562,6 +1564,12 @@ const Conversations = ({
     },
     [pendingSendingThreadIds, activeThreadIds, inferenceTurnLifecycleByThread]
   );
+  const runningThreadIds = useMemo(
+    () => threads.filter(thread => isThreadRunning(thread.id)).map(thread => thread.id),
+    [threads, isThreadRunning]
+  );
+  const unreadThreadIds = useUnreadThreads(runningThreadIds, selectedThreadId ?? null);
+  const { isPinned: isThreadPinnedNow, togglePin: toggleThreadPin } = useThreadPins();
 
   // Thread list (left pane). Rendered through `TwoPanelLayout` below in page
   // mode; the embedded `variant="sidebar"` mode shows no thread list at all.
@@ -1579,6 +1587,9 @@ const Conversations = ({
       }}
       resolveTitle={resolveThreadDisplayTitle}
       isThreadRunning={isThreadRunning}
+      unreadThreadIds={unreadThreadIds}
+      isPinned={isThreadPinnedNow}
+      onTogglePin={toggleThreadPin}
       onRequestDelete={thread =>
         setDeleteModal({
           isOpen: true,
