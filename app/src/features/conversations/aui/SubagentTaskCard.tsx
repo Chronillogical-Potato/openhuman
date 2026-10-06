@@ -35,7 +35,7 @@ import { subagentApi } from '../../../services/api/subagentApi';
 import { type SubagentActivity, subagentCancelResolved } from '../../../store/chatRuntimeSlice';
 import { useAppDispatch } from '../../../store/hooks';
 import { basename } from '../../../utils/pathUtils';
-import { useLiveElapsed } from './useLiveElapsed';
+import { useSubagentElapsed } from './useSubagentElapsed';
 
 function asSubagentActivity(value: unknown): SubagentActivity | undefined {
   if (!value || typeof value !== 'object') return undefined;
@@ -237,7 +237,7 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
   const running = state === 'working' || state === 'waiting';
   // Ticks every second while the delegation works; the core's settled
   // wall-clock replaces it once the run finishes ("Ran for 1m 4s").
-  const elapsedMs = useLiveElapsed(
+  const elapsedMs = useSubagentElapsed(
     resolved.taskId !== 'pending-subagent' ? resolved.taskId : undefined,
     running,
     resolved.elapsedMs
