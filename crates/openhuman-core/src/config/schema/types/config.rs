@@ -444,6 +444,11 @@ pub struct Config {
     #[serde(default)]
     pub tts_provider: Option<String>,
 
+    /// Live voice agent settings: the default live provider and each
+    /// provider's model / voice / language (`voice::live`).
+    #[serde(default)]
+    pub voice_live: crate::config::schema::voice_live::LiveVoiceConfig,
+
     #[serde(default)]
     pub integrations: IntegrationsConfig,
 

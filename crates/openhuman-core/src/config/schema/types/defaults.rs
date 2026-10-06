@@ -105,6 +105,7 @@ impl Default for Config {
             hosting: HostingConfig::default(),
             voice_server: VoiceServerConfig::default(),
             voice_providers: Vec::new(),
+            voice_live: crate::config::schema::voice_live::LiveVoiceConfig::default(),
             stt_provider: None,
             tts_provider: None,
             integrations: IntegrationsConfig::default(),

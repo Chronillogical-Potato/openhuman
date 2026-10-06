@@ -132,6 +132,8 @@ pub use web_chat_config::WebChatConfig;
 mod voice_server;
 pub use voice_server::{SttEngine, VoiceActivationMode, VoiceServerConfig};
 pub mod voice_providers;
+pub mod voice_live;
+pub use voice_live::LiveVoiceConfig;
 pub use voice_providers::{
     generate_voice_provider_id, is_voice_slug_reserved, BuiltinVoiceProvider, VoiceCapability,
     VoiceProviderCreds, BUILTIN_VOICE_PROVIDERS,
