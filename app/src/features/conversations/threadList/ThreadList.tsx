@@ -166,6 +166,49 @@ export function ThreadList({
               {resolveTitle(thread.id)}
             </p>
           )}
+          {/* Unread only while idle: a running row already says "something is
+              happening" through its shimmer, and a dot beside it would claim a
+              finished reply that does not exist yet. Hidden on hover so the
+              trailing actions take its slot instead of crowding it. */}
+          {unread && (
+            <span
+              data-testid={`thread-unread-${thread.id}`}
+              role="img"
+              aria-label={t('chat.sidebar.unread')}
+              title={t('chat.sidebar.unread')}
+              className="h-1.5 w-1.5 flex-none rounded-full bg-primary-500 group-hover:hidden"
+            />
+          )}
+          {onTogglePin && (
+            <button
+              type="button"
+              data-testid={`thread-pin-${thread.id}`}
+              data-analytics-id={pinned ? 'chat-sidebar-unpin-thread' : 'chat-sidebar-pin-thread'}
+              onClick={e => {
+                e.stopPropagation();
+                onTogglePin(thread, !pinned);
+              }}
+              aria-label={pinned ? t('chat.sidebar.unpinThread') : t('chat.sidebar.pinThread')}
+              aria-pressed={pinned}
+              title={pinned ? t('chat.sidebar.unpinThread') : t('chat.sidebar.pinThread')}
+              className={`hidden h-5 w-5 flex-none items-center justify-center rounded transition-colors hover:bg-surface/60 group-hover:inline-flex ${
+                pinned ? 'text-primary-500' : 'text-content-faint hover:text-primary-500'
+              }`}>
+              <svg
+                className="h-3 w-3"
+                fill={pinned ? 'currentColor' : 'none'}
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 3l5 5-3 1-4 4 1 5-2 2-4-4-5 5v-1l4-5-4-4 2-2 5 1 4-4z"
+                />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             data-analytics-id="chat-sidebar-edit-thread-title"
