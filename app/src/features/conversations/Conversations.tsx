@@ -267,7 +267,9 @@ const Conversations = ({
     : false;
   const firstActiveThreadId = Object.keys(activeThreadIds)[0] ?? null;
 
-  const [inputValue, setInputValue] = useState('');
+  // Per-thread, reload-surviving draft (`useThreadDraft`): switching threads
+  // swaps it instead of carrying half-typed text into the next conversation.
+  const [inputValue, setInputValue] = useThreadDraft(selectedThreadId ?? null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   // What ingest counts its budget against. Tracks state on every render (so a
   // removal or a send's clear is picked up) and is written synchronously as each
@@ -589,19 +591,24 @@ const Conversations = ({
   // Threads whose turn has gone quiet past the silence window while the core
   // still reports it running (or cannot say). Drives a warning only — the turn
   // is never torn down client-side; the Stop button is how the user ends it.
-  const [stalledThreadIds, setStalledThreadIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Value: epoch ms the thread last showed any inference signal (the stall
+  // moment minus the silence window), so the warning can say how long it has
+  // been quiet.
+  const [stalledThreadIds, setStalledThreadIds] = useState<ReadonlyMap<string, number>>(
+    () => new Map()
+  );
   const markThreadStalled = useCallback((threadId: string) => {
     setStalledThreadIds(prev => {
       if (prev.has(threadId)) return prev;
-      const next = new Set(prev);
-      next.add(threadId);
+      const next = new Map(prev);
+      next.set(threadId, Date.now() - SILENCE_WARNING_MS);
       return next;
     });
   }, []);
   const clearThreadStalled = useCallback((threadId: string) => {
     setStalledThreadIds(prev => {
       if (!prev.has(threadId)) return prev;
-      const next = new Set(prev);
+      const next = new Map(prev);
       next.delete(threadId);
       return next;
     });
