@@ -1276,6 +1276,9 @@ const Conversations = ({
       dispatch(clearThreadInferenceActive(sendingThreadId));
       pendingSendsRef.current.delete(sendingThreadId);
       removePendingSendingThread(sendingThreadId);
+      // No turn was started, so a Stop pressed meanwhile has nothing to stop.
+      stopRequestedDuringSendRef.current.delete(sendingThreadId);
+      clearStopSettleTimer(sendingThreadId);
     }
   };
 
