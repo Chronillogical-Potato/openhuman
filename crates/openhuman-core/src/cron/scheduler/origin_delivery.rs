@@ -36,34 +36,85 @@ pub(crate) fn origin_request_id(job_id: &str, run_id: &str) -> String {
 /// Everything the web agent-transcript append needs about one delivered reply.
 pub(crate) struct TranscriptAppend<'a> {
     pub thread_id: &'a str,
-    pub agent_id: Option<&'a str>,
+    /// The agent that owns the thread's session (its transcript is keyed by
+    /// thread id and agent id).
+    pub agent_id: &'a str,
     pub text: &'a str,
-    /// `cron:<job_id>:<run_id>`; the append must be idempotent on it.
+    /// `cron:<job_id>:<run_id>`; the append is idempotent on it.
     pub idempotency_key: &'a str,
     pub job_id: &'a str,
     pub run_id: &'a str,
 }
 
-/// SEAM: append the delivered reply to the origin thread's **agent transcript**
-/// (the model-facing `SessionRef` transcript), so the next live turn in that
-/// thread sees the reminder as an assistant message.
+/// How long a delivery waits for a live turn of the same session to finish
+/// before giving up on the transcript append (the thread row is already stored).
+const TRANSCRIPT_APPEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// Append the delivered reply to the origin thread's **agent transcript** (the
+/// model-facing `SessionRef` transcript) as an assistant message, so the next
+/// live turn in that thread sees the reminder.
 ///
-/// A no-op until tinyagents exposes a background-append API
-/// (`append_background_message(session_ref, msg, idempotency_key, provenance)`:
-/// serialized behind an active turn, generation-checked, deduped on the key,
-/// provenance `{kind: "cron", job_id, run_id}`). The thread-store row the UI
-/// reads is written separately by [`deliver_to_origin`].
+/// Uses `tinyagents_session::transcript::append_background_message`: it waits
+/// for any live turn of the session (the per-session turn lock), dedupes on the
+/// idempotency key and records `{kind: "cron", job_id, run_id}` provenance.
+/// The session is addressed exactly as the session host does it
+/// (`SessionRef::scoped(thread_id, agent_id)` over the workspace path). A
+/// thread that never had an agent turn has no transcript (`NoSession`) and is
+/// skipped. Must never be called from inside a turn of the same session.
 pub(crate) async fn append_to_origin_transcript(
-    _workspace_dir: &Path,
+    workspace_dir: &Path,
     append: &TranscriptAppend<'_>,
 ) -> Result<(), String> {
-    tracing::debug!(
-        job_id = %append.job_id,
-        run_id = %append.run_id,
-        has_agent_id = append.agent_id.is_some(),
-        text_len = append.text.len(),
-        "[cron] append_to_origin_transcript is a no-op until the tinyagents background-append API lands"
+    use tinyagents_session::transcript::{
+        append_background_message, BackgroundAppend, BackgroundAppendOutcome,
+        FileTranscriptLocator, SessionRef, TranscriptMessage,
+    };
+    let locator = FileTranscriptLocator::new(workspace_dir.to_path_buf());
+    let session = SessionRef::scoped(append.thread_id.to_string(), append.agent_id.to_string());
+    let options = BackgroundAppend::new(
+        append.idempotency_key,
+        serde_json::json!({
+            "kind": "cron",
+            "job_id": append.job_id,
+            "run_id": append.run_id,
+        }),
     );
+    let outcome = tokio::time::timeout(
+        TRANSCRIPT_APPEND_TIMEOUT,
+        append_background_message(
+            &locator,
+            &session,
+            TranscriptMessage::assistant(append.text),
+            options,
+        ),
+    )
+    .await
+    .map_err(|_| "timed out waiting for the thread's live turn".to_string())?
+    .map_err(|e| e.to_string())?;
+    match outcome {
+        BackgroundAppendOutcome::Appended { generation } => tracing::debug!(
+            job_id = %append.job_id,
+            run_id = %append.run_id,
+            generation,
+            "[cron] appended reply to origin agent transcript"
+        ),
+        BackgroundAppendOutcome::Duplicate { generation } => tracing::debug!(
+            job_id = %append.job_id,
+            run_id = %append.run_id,
+            generation,
+            "[cron] origin agent transcript already holds this run's reply"
+        ),
+        BackgroundAppendOutcome::StaleGeneration { expected, head } => tracing::debug!(
+            job_id = %append.job_id,
+            expected,
+            head,
+            "[cron] origin agent transcript generation moved; append skipped"
+        ),
+        BackgroundAppendOutcome::NoSession => tracing::debug!(
+            job_id = %append.job_id,
+            "[cron] origin thread has no agent transcript yet; append skipped"
+        ),
+    }
     Ok(())
 }
 
@@ -129,6 +180,9 @@ async fn deliver_to_web_thread(
     text: &str,
 ) -> Result<DeliveryStatus> {
     let request_id = origin_request_id(&job.id, run_id);
+    let agent_id = agent_id
+        .map(str::to_string)
+        .unwrap_or_else(|| crate::web_chat::pick_target_agent_id(config));
 
     // Store first: a reply that reached the announcement must already be on
     // disk, and a missing thread (deleted since the job was created) fails here
@@ -154,7 +208,7 @@ async fn deliver_to_web_thread(
         &config.workspace_dir,
         &TranscriptAppend {
             thread_id,
-            agent_id,
+            agent_id: &agent_id,
             text,
             idempotency_key: &request_id,
             job_id: &job.id,
