@@ -406,6 +406,10 @@ const Conversations = ({
   const pendingPlanReviewByThread = useAppSelector(
     state => state.chatRuntime.pendingPlanReviewByThread
   );
+  // Optional-chain + default: narrow test stores may omit the field.
+  const pendingApprovalByThread = useAppSelector(
+    state => state.chatRuntime.pendingApprovalByThread ?? EMPTY_PENDING_APPROVALS
+  );
   const pendingWorkflowProposalsByThread = useAppSelector(
     state => state.chatRuntime.pendingWorkflowProposalsByThread
   );
