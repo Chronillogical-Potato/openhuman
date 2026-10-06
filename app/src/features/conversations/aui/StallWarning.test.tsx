@@ -36,8 +36,6 @@ describe('StallWarning', () => {
 
   it('uses the working copy for a tool phase', () => {
     render(<StallWarning phase="tool_use" quietSince={Date.now()} onStop={vi.fn()} />);
-    expect(screen.getByTestId('chat-stall-warning')).toHaveTextContent(
-      'chat.stallWarning.working'
-    );
+    expect(screen.getByTestId('chat-stall-warning')).toHaveTextContent('chat.stallWarning.working');
   });
 });
