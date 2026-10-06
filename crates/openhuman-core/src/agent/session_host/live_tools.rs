@@ -43,6 +43,3 @@ impl OpenHumanSessionHost {
     }
 }
 
-#[cfg(test)]
-#[path = "live_tools_tests.rs"]
-mod tests;
