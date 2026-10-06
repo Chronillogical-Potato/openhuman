@@ -533,12 +533,13 @@ Restrict the mode where the mount is declared:
   ```
 
   Set the `emptyDir` medium and the core UID/GID to match the ownership applied
-  by the init container. The `defaultMode: 0400` setting is important: it
-  gives the non-root core access through its matching UID while keeping group
-  and other permissions clear. Do not use `fsGroup` to grant access: kubelet
-  can turn the projected file into `0440`, which the core rejects. An
-  equivalent setup is a secret volume whose `defaultMode` is `0400` and whose
-  file is mounted with ownership matching the core's `runAsUser`/`runAsGroup`.
+  by the init container. The `defaultMode: 0400` setting is important. For a
+  direct non-root mount, also provide `fsGroup` (or equivalent group access)
+  matching the core's group so kubelet can make the file readable; the resulting
+  read-only `0440` mode is accepted. The init-container recipe above instead
+  grants access by changing the copied file's owner. An equivalent setup is a
+  secret volume whose `defaultMode` is `0400` and whose file is mounted with
+  ownership matching the core's `runAsUser`/`runAsGroup`.
 - Docker Swarm: set `mode: 0400` (with `uid`/`gid` for a non-root user) on the
   service's secret.
 - A plain file: `chmod 600` it, owned by the user the core runs as.

@@ -256,10 +256,9 @@ fn master_key_from_env(
 
 /// Reads the file named by [`MASTER_KEY_FILE_ENV`].
 ///
-/// On Unix a key file must be owner-only readable (`0400` or `0600`). Any
-/// group/other permission can expose the key that decrypts the whole store,
-/// so it is rejected before the file is read. Container secret mounts must be
-/// configured with an owner-only mode and matching uid/gid for the core.
+/// On Unix a key file must not be writable by other users. Read-only group or
+/// other permissions are supported for container secret mounts, where the
+/// runtime may add group-read access for a non-root core.
 fn read_master_key_file(path: &Path) -> Result<String, String> {
     #[cfg(unix)]
     {
@@ -268,12 +267,6 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
             format!("cannot inspect master key file permissions ({MASTER_KEY_FILE_ENV}): {e}")
         })?;
         let mode = metadata.permissions().mode() & 0o777;
-        if key_file_mode_is_private(mode) {
-            return Err(format!(
-                "master key file ({MASTER_KEY_FILE_ENV}) has insecure permissions \
-                 {mode:04o}; restrict it to owner-readable 0400 or 0600"
-            ));
-        }
         if key_file_mode_is_other_writable(mode) {
             return Err(format!(
                 "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; \
@@ -282,12 +275,6 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
         }
     }
     std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
-}
-
-/// Whether a master-key file has any group/other permission bits.
-#[cfg(unix)]
-fn key_file_mode_is_private(mode: u32) -> bool {
-    mode & 0o077 != 0
 }
 
 #[cfg(unix)]

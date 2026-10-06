@@ -263,15 +263,14 @@ fn read_master_key_file_returns_contents_and_reports_a_missing_file() {
 
 #[cfg(unix)]
 #[test]
-fn read_master_key_file_rejects_a_world_readable_secret_mount() {
+fn read_master_key_file_accepts_read_only_secret_mounts() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = tempfile::TempDir::new().unwrap();
     let path = tmp.path().join("master.key");
     std::fs::write(&path, hex_key(0x44)).unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-    let err = read_master_key_file(&path).expect_err("world-readable key files are unsafe");
-    assert!(err.contains("insecure permissions"), "{err}");
+    read_master_key_file(&path).expect("read-only secret mounts are supported");
 }
 
 #[cfg(unix)]
@@ -284,20 +283,18 @@ fn read_master_key_file_rejects_other_writable_files() {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o602)).unwrap();
 
     let err = read_master_key_file(&path).expect_err("other-writable key files are unsafe");
-    assert!(err.contains("insecure permissions"), "{err}");
+    assert!(err.contains("writable by other users"), "{err}");
 }
 
 #[cfg(unix)]
 #[test]
-fn key_file_permissions_require_owner_only_access() {
-    for mode in [0o644, 0o444, 0o604, 0o666, 0o602, 0o440, 0o640] {
-        assert!(key_file_mode_is_private(mode), "{mode:04o}");
+fn key_file_permissions_reject_other_writes_but_allow_read_only_access() {
+    for mode in [0o400, 0o600, 0o644, 0o444, 0o604, 0o440, 0o640] {
+        assert!(!key_file_mode_is_other_writable(mode), "{mode:04o}");
     }
-    for mode in [0o400, 0o600] {
-        assert!(!key_file_mode_is_private(mode), "{mode:04o}");
+    for mode in [0o602, 0o666] {
+        assert!(key_file_mode_is_other_writable(mode), "{mode:04o}");
     }
-    assert!(key_file_mode_is_other_writable(0o602));
-    assert!(!key_file_mode_is_other_writable(0o644));
 }
 
 #[test]
