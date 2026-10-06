@@ -71,8 +71,8 @@ pub(crate) fn resolve_provider(
 pub(crate) fn system_prompt(recent: &[ConversationMessage]) -> String {
     let mut prompt = BASE_PROMPT.trim().to_string();
     prompt.push_str(&format!(
-        "\n\nCurrent date and time: {}.",
-        chrono::Local::now().format("%A, %B %-d, %Y, %H:%M (%Z)")
+        "\n\nThe user's local date and time now: {}.",
+        chrono::Local::now().format("%A, %B %-d, %Y, %-I:%M %p")
     ));
     let start = recent.len().saturating_sub(CONTEXT_MESSAGES);
     let lines: Vec<String> = recent[start..]

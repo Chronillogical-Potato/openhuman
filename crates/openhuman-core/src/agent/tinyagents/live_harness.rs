@@ -67,7 +67,7 @@ pub(crate) fn assemble_live_tool_harness(
     harness.with_policy(run_policy_for(LIVE_MAX_TOOL_CALLS, false));
 
     let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
-    let (tool_count, _names, diagnostics, _snapshot) = register_turn_tools_and_agents(
+    let (tool_count, names, diagnostics, _snapshot) = register_turn_tools_and_agents(
         &mut harness,
         &mut capability_registry,
         &tool_sets,
@@ -86,7 +86,7 @@ pub(crate) fn assemble_live_tool_harness(
             diagnostic.message
         );
     }
-    tracing::debug!(tool_count, "[voice-live] assembled live tool harness");
+    tracing::debug!(tool_count, tools = ?names, "[voice-live] assembled live tool harness");
 
     harness.push_middleware(Arc::new(
         TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),

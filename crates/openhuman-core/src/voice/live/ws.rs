@@ -230,7 +230,10 @@ pub async fn handle_live_voice_ws(socket: WebSocket, config: Arc<Config>) {
                 let result = match message {
                     Message::Binary(pcm) => sender.send_audio(pcm).await,
                     Message::Text(text) => match serde_json::from_str::<ClientFrame>(&text) {
-                        Ok(ClientFrame::Text { text }) => sender.send_text(text).await,
+                        Ok(ClientFrame::Text { text }) => {
+                            persister.save(TranscriptRole::User, &text).await;
+                            sender.send_text(text).await
+                        }
                         Ok(ClientFrame::Interrupt) => sender.interrupt().await,
                         Ok(ClientFrame::Stop) => {
                             let _ = sender.close().await;
