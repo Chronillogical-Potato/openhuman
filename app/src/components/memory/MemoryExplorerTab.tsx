@@ -160,19 +160,14 @@ export default function MemoryExplorerTab() {
       </nav>
 
       {error !== null && (
-        <MemoryErrorAlert message={error} data-testid="memory-explorer-error">
-          <span>{error}</span>{' '}
-          <Button
-            type="button"
-            variant="tertiary"
-            size="xs"
-            onClick={() => {
-              setError(null);
-              setReloadKey(k => k + 1);
-            }}>
-            {t('common.retry')}
-          </Button>
-        </MemoryErrorAlert>
+        <MemoryErrorAlert
+          message={error}
+          data-testid="memory-explorer-error"
+          onRetry={() => {
+            setError(null);
+            setReloadKey(k => k + 1);
+          }}
+        />
       )}
 
       <Card

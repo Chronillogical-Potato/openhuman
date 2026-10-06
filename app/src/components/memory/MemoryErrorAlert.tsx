@@ -4,7 +4,6 @@
  * that nothing stored was lost and links to billing. Every other failure keeps
  * the destructive alert.
  */
-import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -17,6 +16,8 @@ const BILLING_ROUTE = '/settings/account';
 interface MemoryCreditsPromptProps {
   /** The out-of-credits explanation. */
   message: string;
+  /** Retries the failed action (e.g. after a top-up), shown beside Top up. */
+  onRetry?: () => void;
   className?: string;
   'data-testid'?: string;
 }
@@ -24,6 +25,7 @@ interface MemoryCreditsPromptProps {
 /** "Out of credits: top up", with a button to billing. */
 export function MemoryCreditsPrompt({
   message,
+  onRetry,
   className,
   'data-testid': testId,
 }: MemoryCreditsPromptProps) {
@@ -42,6 +44,7 @@ export function MemoryCreditsPrompt({
           onClick={() => navigate(BILLING_ROUTE)}>
           {t('memory.outOfCredits.action')}
         </Button>
+        {onRetry && <RetryButton onRetry={onRetry} />}
       </AlertDescription>
     </Alert>
   );
@@ -52,8 +55,17 @@ interface MemoryErrorAlertProps {
   message: string;
   className?: string;
   'data-testid'?: string;
-  /** Replaces the message inside the error alert (e.g. message + retry). */
-  children?: ReactNode;
+  /** Retries the failed action; shown in both the prompt and the error alert. */
+  onRetry?: () => void;
+}
+
+function RetryButton({ onRetry }: { onRetry: () => void }) {
+  const { t } = useT();
+  return (
+    <Button type="button" variant="tertiary" size="xs" onClick={onRetry}>
+      {t('common.retry')}
+    </Button>
+  );
 }
 
 /** The credits prompt for an exhausted balance, else the error alert. */
@@ -61,15 +73,30 @@ export default function MemoryErrorAlert({
   message,
   className,
   'data-testid': testId,
-  children,
+  onRetry,
 }: MemoryErrorAlertProps) {
   const { t } = useT();
   if (isOutOfCreditsMessage(message, t)) {
-    return <MemoryCreditsPrompt message={message} className={className} data-testid={testId} />;
+    return (
+      <MemoryCreditsPrompt
+        message={message}
+        onRetry={onRetry}
+        className={className}
+        data-testid={testId}
+      />
+    );
   }
   return (
     <Alert variant="destructive" className={className} data-testid={testId}>
-      <AlertDescription>{children ?? message}</AlertDescription>
+      <AlertDescription>
+        {message}
+        {onRetry && (
+          <>
+            {' '}
+            <RetryButton onRetry={onRetry} />
+          </>
+        )}
+      </AlertDescription>
     </Alert>
   );
 }
