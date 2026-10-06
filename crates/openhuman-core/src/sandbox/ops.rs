@@ -279,10 +279,10 @@ async fn execute_unsandboxed(
             cmd.env(var, val);
         }
     }
+    platform_shell::forward_windows_bootstrap_env(&mut cmd)?;
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    platform_shell::forward_windows_bootstrap_env(&mut cmd)?;
 
     let result = tokio::time::timeout(timeout, cmd.output()).await;
     match result {
@@ -396,6 +396,9 @@ async fn execute_local_jail(
     jail = jail.add_read_write(&scratch.path);
     let stdout_file = capture.stdout();
     let stderr_file = capture.stderr();
+    let caller_sets_tmpdir = extra_env.contains_key(std::ffi::OsStr::new("TMPDIR"));
+    let caller_sets_temp = extra_env.contains_key(std::ffi::OsStr::new("TEMP"));
+    let caller_sets_tmp = extra_env.contains_key(std::ffi::OsStr::new("TMP"));
     // Platform-aware output-capture wrap: `{ … ; } > … 2> …` on sh/bash,
     // trailing `> … 2> …` on cmd.exe (no brace grouping). Shell binary is
     // picked by `platform_shell` so this path is Windows-safe (#4705).
@@ -411,16 +414,22 @@ async fn execute_local_jail(
             cmd.env(var, val);
         }
     }
+    platform_shell::forward_windows_bootstrap_env_std(&mut cmd)?;
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
-    platform_shell::forward_windows_bootstrap_env_std(&mut cmd)?;
     // Keep every Windows spelling of the temporary directory inside this
     // per-call grant. `TEMP`/`TMP` are the variables used by Windows tools;
     // `TMPDIR` covers Unix-oriented tools running on the same host.
-    cmd.env("TMPDIR", &scratch.path);
-    cmd.env("TEMP", &scratch.path);
-    cmd.env("TMP", &scratch.path);
+    if !caller_sets_tmpdir {
+        cmd.env("TMPDIR", &scratch.path);
+    }
+    if !caller_sets_temp {
+        cmd.env("TEMP", &scratch.path);
+    }
+    if !caller_sets_tmp {
+        cmd.env("TMP", &scratch.path);
+    }
 
     let os_backend = cwd_jail::default_backend();
     let spawn_result = if os_backend.is_available() {

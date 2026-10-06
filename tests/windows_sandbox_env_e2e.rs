@@ -41,6 +41,18 @@ async fn run_in_sandbox(
     openhuman_core::sandbox::types::SandboxExecResult,
     std::path::PathBuf,
 ) {
+    run_in_sandbox_with_env(mode, command, HashMap::new()).await
+}
+
+#[cfg(windows)]
+async fn run_in_sandbox_with_env(
+    mode: SandboxMode,
+    command: &str,
+    extra_env: HashMap<String, String>,
+) -> (
+    openhuman_core::sandbox::types::SandboxExecResult,
+    std::path::PathBuf,
+) {
     let tempdir = tempfile::tempdir().expect("tempdir");
     let root = tempdir.path().to_path_buf();
     let policy = resolve_sandbox_policy(
@@ -54,7 +66,10 @@ async fn run_in_sandbox(
         &policy,
         command,
         tempdir.path(),
-        HashMap::new(),
+        extra_env
+            .into_iter()
+            .map(|(key, value)| (key.into(), value.into()))
+            .collect(),
         Duration::from_secs(120),
     )
     .await
@@ -150,6 +165,35 @@ async fn sandboxed_child_receives_windows_bootstrap_env() {
     let (result, root) = run_in_sandbox(SandboxMode::Sandboxed, env_probe_command()).await;
     assert_bootstrap_env_resolved(&result);
     assert_temp_is_in_scratch(&result, &root);
+}
+
+/// Caller-provided temporary-directory values remain effective on both host
+/// spawn paths; the local jail must not silently replace per-call overrides.
+#[cfg(windows)]
+#[tokio::test]
+async fn caller_temp_overrides_survive_sandbox_paths() {
+    let expected = r"C:\openhuman-test-temp";
+    for mode in [SandboxMode::None, SandboxMode::Sandboxed] {
+        let (result, _) = run_in_sandbox_with_env(
+            mode,
+            "echo TEMP=[%TEMP%] TMP=[%TMP%] TMPDIR=[%TMPDIR%]",
+            HashMap::from([
+                ("TEMP".to_string(), expected.to_string()),
+                ("TMP".to_string(), expected.to_string()),
+                ("TMPDIR".to_string(), expected.to_string()),
+            ]),
+        )
+        .await;
+        assert!(result.success(), "child failed: {:?}", result.stderr);
+        for name in ["TEMP", "TMP", "TMPDIR"] {
+            assert_eq!(
+                bracketed(&result.stdout, &format!("{name}=")).as_deref(),
+                Some(expected),
+                "caller override for {name} was replaced; stdout {:?}",
+                result.stdout
+            );
+        }
+    }
 }
 
 /// The reported Node failure, end to end through OpenHuman's spawn code:
