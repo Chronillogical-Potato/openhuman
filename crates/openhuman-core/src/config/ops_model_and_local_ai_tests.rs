@@ -365,6 +365,7 @@ async fn apply_runtime_settings_updates_kind_and_reasoning() {
         kind: Some("desktop".into()),
         reasoning_enabled: Some(true),
         reasoning_effort: Some("max".into()),
+        ..RuntimeSettingsPatch::default()
     };
     let _ = apply_runtime_settings(&mut cfg, patch)
         .await
@@ -388,6 +389,41 @@ async fn apply_runtime_settings_updates_kind_and_reasoning() {
         ..RuntimeSettingsPatch::default()
     };
     assert!(apply_runtime_settings(&mut cfg, bogus).await.is_err());
+}
+
+#[tokio::test]
+async fn apply_runtime_settings_keeps_a_level_per_model() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.runtime.reasoning_effort = Some("low".into());
+    let per_model = RuntimeSettingsPatch {
+        reasoning_effort: Some("max".into()),
+        reasoning_effort_model: Some("anthropic/claude-opus".into()),
+        ..RuntimeSettingsPatch::default()
+    };
+    let _ = apply_runtime_settings(&mut cfg, per_model)
+        .await
+        .expect("apply per-model");
+    assert_eq!(
+        cfg.runtime
+            .reasoning_effort_by_model
+            .get("anthropic/claude-opus")
+            .map(String::as_str),
+        Some("xhigh")
+    );
+    // The global level is untouched by a per-model write.
+    assert_eq!(cfg.runtime.reasoning_effort.as_deref(), Some("low"));
+
+    let cleared = RuntimeSettingsPatch {
+        reasoning_effort: Some(String::new()),
+        reasoning_effort_model: Some("anthropic/claude-opus".into()),
+        ..RuntimeSettingsPatch::default()
+    };
+    let _ = apply_runtime_settings(&mut cfg, cleared)
+        .await
+        .expect("clear per-model");
+    assert!(cfg.runtime.reasoning_effort_by_model.is_empty());
+    assert_eq!(cfg.runtime.reasoning_effort.as_deref(), Some("low"));
 }
 
 #[tokio::test]
