@@ -854,6 +854,18 @@ async fn memory_requests_since(f: &Fixture, skip: usize) -> Vec<String> {
         .collect()
 }
 
+/// The memory calls made after the one experience write in `calls`.
+fn after_the_write(calls: &[String]) -> &[String] {
+    let writes: Vec<usize> = calls
+        .iter()
+        .enumerate()
+        .filter(|(_, call)| call.as_str() == "POST /memory/experience")
+        .map(|(index, _)| index)
+        .collect();
+    assert_eq!(writes.len(), 1, "exactly one experience write: {calls:?}");
+    &calls[writes[0] + 1..]
+}
+
 #[tokio::test]
 async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
     let f = Fixture::new(true).await;
@@ -872,14 +884,15 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
         .await;
     let rpc_calls = memory_requests_since(&f, before).await;
     assert!(
-        rpc_calls
-            .last()
-            .is_some_and(|last| !last.starts_with("POST /memory/experience")),
+        after_the_write(&rpc_calls)
+            .iter()
+            .any(|call| call == "GET /memory/events"),
         "the RPC learn must read its write back before returning: {rpc_calls:?}"
     );
 
-    // The agent's tool returns on accept: its write is the last memory call
-    // the turn waits on, and the model is told recall may lag.
+    // The agent's tool returns on accept: nothing follows its one write (the
+    // read before it is the engine's replay lookup), and the model is told
+    // recall may lag.
     let before = f.mock.request_rows().await.len();
     let learned = openhuman_core::memory::tools::run_action(
         &config,
@@ -890,9 +903,7 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
     assert!(!learned.is_error, "{}", learned.text());
     let tool_calls = memory_requests_since(&f, before).await;
     assert!(
-        tool_calls
-            .last()
-            .is_some_and(|last| last.starts_with("POST /memory/experience")),
+        after_the_write(&tool_calls).is_empty(),
         "the agent learn must return right after its write, with no visibility reads: {tool_calls:?}"
     );
     let view: Value = serde_json::from_str(&learned.text()).expect("learn result json");
