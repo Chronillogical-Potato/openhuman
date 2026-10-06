@@ -632,6 +632,10 @@ export function memoryErrorMessage(
  * produced (with `t`). That translated text is returned for
  * `INSUFFICIENT_CREDITS` and for nothing else, so the views that keep only the
  * message can still offer a top-up instead of an error.
+ *
+ * Known edge: a message produced in one language no longer matches after the
+ * user switches language, so that stale message falls back to the error alert
+ * (it still explains the top-up). The next failed action re-derives it.
  */
 export function isOutOfCreditsMessage(
   message: string | null,

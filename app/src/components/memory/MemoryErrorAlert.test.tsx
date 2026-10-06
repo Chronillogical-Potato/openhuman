@@ -1,9 +1,11 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { useT } from '../../lib/i18n/I18nContext';
+import { I18nProvider, useT } from '../../lib/i18n/I18nContext';
 import { memoryErrorMessage } from '../../services/api/memoryApi';
+import { setLocale } from '../../store/localeSlice';
 import { renderWithProviders } from '../../test/test-utils';
 import MemoryErrorAlert from './MemoryErrorAlert';
 
@@ -79,5 +81,31 @@ describe('MemoryErrorAlert', () => {
     renderAt(coded('INSUFFICIENT_CREDITS'), true);
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     expect(screen.getByTestId('memory-top-up')).toBeInTheDocument();
+  });
+
+  // Accepted edge of matching on the message: views keep the text they made
+  // when the action failed, so after a language switch it no longer matches
+  // the new language's text and falls back to the error alert.
+  it('falls back to the error alert for a message made before a language switch', () => {
+    function Frozen() {
+      const { t } = useT();
+      const [message] = useState(() => memoryErrorMessage(coded('INSUFFICIENT_CREDITS'), t));
+      return <MemoryErrorAlert message={message} data-testid="alert" />;
+    }
+    const { store } = renderWithProviders(
+      <I18nProvider>
+        <Frozen />
+      </I18nProvider>
+    );
+    expect(screen.getByTestId('alert')).toHaveAttribute('data-kind', 'out-of-credits');
+
+    act(() => {
+      store.dispatch(setLocale('fr'));
+    });
+    const alert = screen.getByTestId('alert');
+    expect(alert).toHaveAttribute('data-variant', 'destructive');
+    expect(alert).not.toHaveAttribute('data-kind');
+    expect(alert).toHaveTextContent('Top up to restore it');
+    expect(screen.queryByTestId('memory-top-up')).not.toBeInTheDocument();
   });
 });
