@@ -271,6 +271,9 @@ async fn execute_unsandboxed(
     let mut cmd = platform_shell::build_tokio_command(command);
     cmd.current_dir(working_dir);
     cmd.env_clear();
+    for (k, v) in extra_env {
+        cmd.env(k, v);
+    }
     for var in SANDBOX_ENV_PASSTHROUGH {
         if let Ok(val) = std::env::var(var) {
             if val.is_empty() {
@@ -280,9 +283,6 @@ async fn execute_unsandboxed(
         }
     }
     platform_shell::forward_windows_bootstrap_env(&mut cmd)?;
-    for (k, v) in extra_env {
-        cmd.env(k, v);
-    }
 
     let result = tokio::time::timeout(timeout, cmd.output()).await;
     match result {
@@ -403,6 +403,9 @@ async fn execute_local_jail(
     let mut cmd = platform_shell::build_std_command(&wrapped);
     cmd.current_dir(working_dir);
     cmd.env_clear();
+    for (k, v) in extra_env {
+        cmd.env(k, v);
+    }
     for var in SANDBOX_ENV_PASSTHROUGH {
         if let Ok(val) = std::env::var(var) {
             if val.is_empty() {
@@ -412,9 +415,6 @@ async fn execute_local_jail(
         }
     }
     platform_shell::forward_windows_bootstrap_env_std(&mut cmd)?;
-    for (k, v) in extra_env {
-        cmd.env(k, v);
-    }
     // Keep every Windows spelling of the temporary directory inside this
     // per-call grant. `TEMP`/`TMP` are the variables used by Windows tools;
     // `TMPDIR` covers Unix-oriented tools running on the same host.
