@@ -1566,6 +1566,7 @@ const Conversations = ({
         }
       }}
       resolveTitle={resolveThreadDisplayTitle}
+      isThreadRunning={isThreadRunning}
       onRequestDelete={thread =>
         setDeleteModal({
           isOpen: true,
