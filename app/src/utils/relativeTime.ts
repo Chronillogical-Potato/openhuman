@@ -37,9 +37,14 @@ export function relativeTime(at: Date, now: Date, locale?: string): RelativeTime
 /** Full local date and time with the zone, for a tooltip. */
 export function fullTimestamp(at: Date, locale?: string): string {
   if (Number.isNaN(at.getTime())) return '';
+  // Explicit fields: `dateStyle`/`timeStyle` cannot be combined with
+  // `timeZoneName`, and the zone is the point of the tooltip.
   return new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
     timeZoneName: 'short',
-  } as Intl.DateTimeFormatOptions).format(at);
+  }).format(at);
 }
