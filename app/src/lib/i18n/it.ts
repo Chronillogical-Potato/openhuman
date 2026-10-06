@@ -4896,6 +4896,8 @@ const messages: TranslationMap = {
     'La tua sessione Codex è scaduta. Ricollegala in Impostazioni → Integrazioni.',
   'chat_error.session_expired':
     'La tua sessione OpenHuman è scaduta. Accedi di nuovo per continuare.',
+  'chat_error.local_session_managed_unavailable':
+    'Sei nel profilo locale offline, che non ha alcun account OpenHuman alle spalle, quindi il modello gestito (cloud) non può essere eseguito. Accedi per usare i modelli gestiti, oppure imposta l\'instradamento su "Utilizza i tuoi modelli" in Connessioni → Chiavi API → LLM e aggiungi il tuo provider.',
   'chat_error.action_budget':
     'Hai raggiunto il limite orario di azioni di OpenHuman. È un tetto di sicurezza locale, non del tuo provider di IA. La finestra si libera gradualmente; puoi continuare a chattare in questo thread e i passaggi che usano molti strumenti riprenderanno man mano che il limite si ricarica.',
   'chat_error.max_iterations':

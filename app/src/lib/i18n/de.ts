@@ -4950,6 +4950,8 @@ const messages: TranslationMap = {
     'Deine Codex-Sitzung ist abgelaufen. Verbinde sie bitte erneut unter Einstellungen → Integrationen.',
   'chat_error.session_expired':
     'Deine OpenHuman-Sitzung ist abgelaufen. Bitte melde dich erneut an, um fortzufahren.',
+  'chat_error.local_session_managed_unavailable':
+    'Du bist im lokalen Offline-Profil, hinter dem kein OpenHuman-Konto steht, deshalb kann das verwaltete (Cloud-)Modell nicht ausgeführt werden. Melde dich an, um verwaltete Modelle zu nutzen, oder stelle das Routing unter Verbindungen → API-Schlüssel → LLM auf „Verwenden Sie Ihre eigenen Modelle“ um und füge einen eigenen Anbieter hinzu.',
   'chat_error.action_budget':
     'Du hast das stündliche Aktionslimit von OpenHuman erreicht. Das ist eine lokale Sicherheitsgrenze, nicht die deines KI-Anbieters. Das Limit baut sich allmählich ab; du kannst in diesem Thread weiterchatten, und werkzeugintensive Schritte laufen wieder an, sobald sich das Limit auffüllt.',
   'chat_error.max_iterations':

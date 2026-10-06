@@ -4773,6 +4773,8 @@ const messages: TranslationMap = {
   'chat_error.codex_session_expired':
     'Codex 세션이 만료되었습니다. 설정 → 통합에서 다시 연결해 주세요.',
   'chat_error.session_expired': 'OpenHuman 세션이 만료되었습니다. 계속하려면 다시 로그인해 주세요.',
+  'chat_error.local_session_managed_unavailable':
+    '로컬 오프라인 프로필을 사용 중이며 연결된 OpenHuman 계정이 없어 관리형(클라우드) 모델을 실행할 수 없습니다. 관리형 모델을 사용하려면 로그인하거나, 연결 → API 키 → LLM에서 라우팅을 "자체 모델 사용"(으)로 바꾸고 직접 사용할 제공업체를 추가하세요.',
   'chat_error.action_budget':
     'OpenHuman의 시간당 작업 한도에 도달했습니다. 이는 AI 제공업체가 아니라 로컬 안전 한도입니다. 한도는 서서히 회복되므로 이 스레드에서 계속 대화할 수 있으며, 도구를 많이 쓰는 단계는 한도가 채워지는 대로 재개됩니다.',
   'chat_error.max_iterations':

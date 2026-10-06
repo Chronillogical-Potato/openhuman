@@ -4885,6 +4885,8 @@ const messages: TranslationMap = {
     'Twoja sesja Codex wygasła. Połącz ją ponownie w Ustawienia → Integracje.',
   'chat_error.session_expired':
     'Twoja sesja OpenHuman wygasła. Zaloguj się ponownie, aby kontynuować.',
+  'chat_error.local_session_managed_unavailable':
+    'Korzystasz z lokalnego profilu offline, za którym nie stoi żadne konto OpenHuman, więc zarządzany model (w chmurze) nie może zostać uruchomiony. Zaloguj się, aby używać modeli zarządzanych, albo przełącz routing na „Użyj własnych modeli” w Połączenia → Klucze API → LLM i dodaj własnego dostawcę.',
   'chat_error.action_budget':
     'Osiągnięto godzinny limit akcji OpenHuman. To lokalny limit bezpieczeństwa, a nie limit Twojego dostawcy AI. Limit odnawia się stopniowo; możesz dalej rozmawiać w tym wątku, a kroki intensywnie korzystające z narzędzi wznowią się w miarę odnawiania limitu.',
   'chat_error.max_iterations':

@@ -359,6 +359,16 @@ impl BackendCredential {
 pub const LOCAL_SESSION_BACKEND_UNAVAILABLE: &str =
     "BACKEND_UNAVAILABLE: hosted account data is unavailable for the offline local session";
 
+/// Error [`OpenHumanBackendModel::resolve_bearer`](crate::inference::provider::OpenHumanBackendModel)
+/// returns for the offline local session. The local credential authenticates
+/// no TinyHumans account, so managed inference has nothing to bill or route;
+/// sending the token anyway earned a backend `401` that read to the user as an
+/// expired session (#6932). Distinct from
+/// [`LOCAL_SESSION_BACKEND_UNAVAILABLE`] because the chat surface renders this
+/// one as its own failure class.
+pub const LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE: &str =
+    "BACKEND_UNAVAILABLE: managed inference is unavailable for the offline local session";
+
 /// Resolve the backend credential for `config`: the API key when one is
 /// stored, else the live app-session token with exactly the classification
 /// [`require_live_session_token`] has always applied.

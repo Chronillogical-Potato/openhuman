@@ -4909,6 +4909,8 @@ const messages: TranslationMap = {
     'Tu sesión de Codex ha caducado. Vuelve a conectarla en Configuración → Integraciones.',
   'chat_error.session_expired':
     'Tu sesión de OpenHuman ha caducado. Inicia sesión de nuevo para continuar.',
+  'chat_error.local_session_managed_unavailable':
+    'Estás en el perfil local sin conexión, que no tiene ninguna cuenta de OpenHuman detrás, así que no se puede ejecutar el modelo administrado (en la nube). Inicia sesión para usar los modelos administrados o cambia el enrutamiento a "Utilice sus propios modelos" en Conexiones → Claves de API → LLM y añade tu propio proveedor.',
   'chat_error.action_budget':
     'Has alcanzado el límite de acciones por hora de OpenHuman. Es un tope de seguridad local, no de tu proveedor de IA. La ventana se recupera poco a poco; puedes seguir chateando en este hilo y los pasos que usan muchas herramientas se reanudarán a medida que se reponga el límite.',
   'chat_error.max_iterations':

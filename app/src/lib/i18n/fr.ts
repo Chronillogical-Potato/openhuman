@@ -4928,6 +4928,8 @@ const messages: TranslationMap = {
     'Votre session Codex a expiré. Reconnectez-la dans Paramètres → Intégrations.',
   'chat_error.session_expired':
     'Votre session OpenHuman a expiré. Veuillez vous reconnecter pour continuer.',
+  'chat_error.local_session_managed_unavailable':
+    'Vous utilisez le profil local hors ligne, qui n’est associé à aucun compte OpenHuman : le modèle géré (cloud) ne peut donc pas être exécuté. Connectez-vous pour utiliser les modèles gérés, ou basculez le routage sur « Utilisez vos propres modèles » dans Connexions → Clés API → LLM et ajoutez votre propre fournisseur.',
   'chat_error.action_budget':
     "Vous avez atteint le quota horaire d'actions d'OpenHuman. C'est une limite de sécurité locale, pas celle de votre fournisseur d'IA. La fenêtre se libère progressivement ; vous pouvez continuer à discuter dans ce fil et les étapes riches en outils reprendront à mesure que le quota se reconstitue.",
   'chat_error.max_iterations':
