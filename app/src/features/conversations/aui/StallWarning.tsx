@@ -12,8 +12,8 @@ import { useLiveElapsed } from './useLiveElapsed';
 export interface StallWarningProps {
   /** `inferenceStatusByThread.phase` of the quiet turn. */
   phase: string;
-  /** Epoch ms of the turn's last inference signal. */
-  quietSince: number;
+  /** Epoch ms of the turn's last inference signal; unknown hides the duration. */
+  quietSince: number | undefined;
   onStop: () => void;
 }
 
@@ -24,17 +24,22 @@ function formatQuiet(ms: number): string {
 
 export function StallWarning({ phase, quietSince, onStop }: StallWarningProps) {
   const { t } = useT();
-  const quietMs = useLiveElapsed(quietSince, true) ?? 0;
+  const quietMs = useLiveElapsed(quietSince, true);
   return (
     <div className="mb-2 flex items-start justify-between gap-3" role="status">
       <p
         className="text-xs text-amber-700"
         data-testid="chat-stall-warning"
         data-chat-stall-phase={phase}>
-        {t(phase === 'thinking' ? 'chat.stallWarning.thinking' : 'chat.stallWarning.working')}{' '}
-        <span data-testid="chat-stall-quiet" className="tabular-nums font-medium">
-          {t('chat.status.quietFor').replace('{duration}', formatQuiet(quietMs))}
-        </span>
+        {t(phase === 'thinking' ? 'chat.stallWarning.thinking' : 'chat.stallWarning.working')}
+        {quietMs !== undefined && (
+          <>
+            {' '}
+            <span data-testid="chat-stall-quiet" className="tabular-nums font-medium">
+              {t('chat.status.quietFor').replace('{duration}', formatQuiet(quietMs))}
+            </span>
+          </>
+        )}
       </p>
       <button
         type="button"
