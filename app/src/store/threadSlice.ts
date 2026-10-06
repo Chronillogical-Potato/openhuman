@@ -444,6 +444,19 @@ export const updateThreadTitle = createAsyncThunk(
   }
 );
 
+export const updateThreadWorkingDir = createAsyncThunk(
+  'thread/updateThreadWorkingDir',
+  async (payload: { threadId: string; actionDir: string | null }, { rejectWithValue }) => {
+    try {
+      return await threadApi.updateWorkingDir(payload.threadId, payload.actionDir ?? '');
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error ? error.message : 'Failed to update the working folder'
+      );
+    }
+  }
+);
+
 // ── Slice ─────────────────────────────────────────────────────────
 
 const threadSlice = createSlice({
@@ -662,6 +675,12 @@ const threadSlice = createSlice({
         delete state.messagesByThreadId[action.payload.threadId];
       })
       .addCase(updateThreadTitle.fulfilled, (state, action) => {
+        const idx = state.threads.findIndex(t => t.id === action.payload.id);
+        if (idx >= 0) {
+          state.threads[idx] = action.payload;
+        }
+      })
+      .addCase(updateThreadWorkingDir.fulfilled, (state, action) => {
         const idx = state.threads.findIndex(t => t.id === action.payload.id);
         if (idx >= 0) {
           state.threads[idx] = action.payload;
