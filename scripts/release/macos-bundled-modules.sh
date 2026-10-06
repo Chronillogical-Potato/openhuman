@@ -12,13 +12,36 @@
 #   tinybus pins the module *archive* digest, and on macOS stage-modules.mjs
 #   replaces that archive with its `.sha256` marker, so signing the extracted
 #   files in place does not break admission. Every Mach-O, not only the dylib:
-#   tinycomputer ships helper executables beside its library.
+#   tinycomputer ships helper executables beside its library. A release's
+#   modules.toml pins its library's sha256, which tinybus re-checks on every
+#   load, and signing rewrites the file; so each entry naming a file signed
+#   here is rewritten to the signed hash. The installer vouches for it under
+#   the app's seal, as it does for the archive marker. Nothing else changes.
 #
 # check: fail when any Mach-O under the directory — loose, or inside a shipped
 #   .tar.gz — lacks what notarization demands: a Developer ID signature,
 #   hardened runtime and a secure timestamp. Apple's notary service unpacks
-#   nested archives, so archive members count too.
+#   nested archives, so archive members count too. Also fail when a
+#   modules.toml entry is not the sha256 of the file it names: a sign without
+#   the rewrite, or a rewrite without a sign, is refused by tinybus at load.
 set -euo pipefail
+
+# Rewrite the `"<name>" = "<sha256>"` entry for <file> in its sibling
+# modules.toml, if it has one, to the file's current sha256.
+repin_allowlist() { # <file>
+  local toml name sha tmp
+  toml="$(dirname "$1")/modules.toml"
+  [ -f "$toml" ] || return 0
+  name="$(basename "$1")"
+  grep -qF "\"$name\" = " "$toml" || return 0
+  sha="$(shasum -a 256 "$1" | cut -d' ' -f1)"
+  tmp="$(mktemp)"
+  awk -v key="\"$name\"" -v sha="$sha" -F ' = ' \
+    '$1 == key { print key " = \"" sha "\""; next } { print }' "$toml" > "$tmp"
+  cat "$tmp" > "$toml"
+  rm -f "$tmp"
+  echo "[sign]     modules.toml: $name = $sha"
+}
 
 cmd="${1:-}"
 case "$cmd" in
@@ -34,6 +57,7 @@ case "$cmd" in
         --sign "$IDENTITY" \
         --timestamp \
         "$bin"
+      repin_allowlist "$bin"
     done < <(find "$APP_PATH/Contents/Resources/bundled-modules" -type f -print0 2>/dev/null)
     ;;
   check)
@@ -57,6 +81,17 @@ case "$cmd" in
       done < <(find "$1" -type f -print0)
     }
     check_tree "$ROOT" ""
+    while IFS= read -r -d '' toml; do
+      while IFS= read -r line; do
+        [[ "$line" =~ ^\"([^\"]+)\"\ =\ \"([0-9a-f]{64})\"$ ]] || continue
+        file="$(dirname "$toml")/${BASH_REMATCH[1]}"
+        actual="$( [ -f "$file" ] && shasum -a 256 "$file" | cut -d' ' -f1 || echo missing)"
+        if [ "$actual" != "${BASH_REMATCH[2]}" ]; then
+          echo "[sign-check] modules.toml does not match its file ($actual): ${file#"$ROOT"/}"
+          BAD=1
+        fi
+      done < "$toml"
+    done < <(find "$ROOT" -name modules.toml -type f -print0)
     while IFS= read -r -d '' archive; do
       dest="$SCRATCH/$(basename "$archive")"
       mkdir -p "$dest"
@@ -64,7 +99,7 @@ case "$cmd" in
       check_tree "$dest" "${archive#"$ROOT"/}/"
     done < <(find "$ROOT" -name '*.tar.gz' -type f -print0)
     if [ "$BAD" -ne 0 ]; then
-      echo "[sign-check] ERROR: notarization would reject the Mach-O files above" >&2
+      echo "[sign-check] ERROR: notarization or tinybus would reject the files above" >&2
       exit 1
     fi
     echo "[sign-check] every Mach-O under $ROOT is notarization-ready"
