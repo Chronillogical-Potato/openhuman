@@ -101,19 +101,21 @@ fn effective_session_config(
             // The managed backend accepts catalog ids verbatim. This also
             // clears a stale local/BYOK chat route from the effective clone.
             effective.chat_provider = Some("openhuman".to_string());
-        } else if let Some((provider, _)) = model.split_once(':') {
+        } else if let Some((provider, model_suffix)) = model.split_once(':') {
             let provider = provider.trim();
             let local_route = tinyinference_local::profile::is_local_provider_string(model);
             let built_in_route = matches!(provider, "claude-code" | "claude_agent_sdk");
-            let configured_cloud_provider = effective
+            if local_route || built_in_route {
+                // Keep the complete selected value for local and built-in routes.
+                effective.chat_provider = Some(model.to_string());
+            } else if let Some(entry) = effective
                 .cloud_providers
                 .iter()
-                .any(|entry| entry.slug.eq_ignore_ascii_case(provider));
-            if local_route || built_in_route || configured_cloud_provider {
-                // Provider strings use the same `<slug>:<model>` grammar as
-                // the normal inference factory; keep the full selection so
-                // model ids containing additional colons remain intact.
-                effective.chat_provider = Some(model.to_string());
+                .find(|entry| entry.slug.eq_ignore_ascii_case(provider))
+            {
+                // The factory matches configured slugs exactly; preserve its canonical slug
+                // while keeping the full selected model suffix, including extra colons.
+                effective.chat_provider = Some(format!("{}:{model_suffix}", entry.slug));
             }
         }
     }

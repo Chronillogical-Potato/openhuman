@@ -265,11 +265,13 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function mockModelSettingsWrites(writes: Record<string, Promise<unknown>>) {
+function mockModelSettingsWrites(writes: Record<string, Promise<unknown> | Promise<unknown>[]>) {
   vi.mocked(callCoreRpc).mockImplementation(({ method, params }) => {
     if (method === 'openhuman.inference_update_model_settings') {
       const defaultModel = (params as { default_model: string }).default_model;
-      return (writes[defaultModel] ?? Promise.resolve({})) as ReturnType<typeof callCoreRpc>;
+      const writesForValue = writes[defaultModel];
+      const write = Array.isArray(writesForValue) ? writesForValue.shift() : writesForValue;
+      return (write ?? Promise.resolve({})) as ReturnType<typeof callCoreRpc>;
     }
     return Promise.resolve({}) as ReturnType<typeof callCoreRpc>;
   });
@@ -463,6 +465,96 @@ describe('composer model routing', () => {
     });
     await waitFor(() => expect(screen.queryByTestId('chat-send-error')).not.toBeInTheDocument());
     expect(mockChatSend).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'normal send', followup: false },
+    { label: 'follow-up send', followup: true },
+  ])(
+    'retries a rejected clear on later default $label attempts until one succeeds',
+    async ({ followup }) => {
+      const firstClear = deferred<unknown>();
+      const secondClear = deferred<unknown>();
+      const thirdClear = deferred<unknown>();
+      mockModelSettingsWrites({
+        'huggingface:org/model': Promise.resolve({}),
+        '': [firstClear.promise, secondClear.promise, thirdClear.promise],
+      });
+      await renderChat('text', false, followup);
+      await selectPickerModel();
+      await clearPickerModel();
+
+      const clearCalls = () =>
+        vi.mocked(callCoreRpc).mock.calls.filter(([request]) => {
+          const params = request.params as { default_model?: string };
+          return (
+            request.method === 'openhuman.inference_update_model_settings' &&
+            params.default_model === ''
+          );
+        });
+
+      await clickSendButtonWithDraft('first blocked attempt');
+      expect(clearCalls()).toHaveLength(1);
+      await act(async () => firstClear.reject(new Error('clear unavailable')));
+      expect(mockChatSend).not.toHaveBeenCalled();
+      expect(screen.getByRole('textbox')).toHaveTextContent('first blocked attempt');
+
+      await clickSendButtonWithDraft('second blocked attempt');
+      await waitFor(() => expect(clearCalls()).toHaveLength(2));
+      expect(mockChatSend).not.toHaveBeenCalled();
+      expect(threadApi.appendMessage).not.toHaveBeenCalled();
+      await act(async () => secondClear.reject(new Error('clear still unavailable')));
+      expect(mockChatSend).not.toHaveBeenCalled();
+      expect(screen.getByRole('textbox')).toHaveTextContent('second blocked attempt');
+
+      await clickSendButtonWithDraft('third attempt');
+      await waitFor(() => expect(clearCalls()).toHaveLength(3));
+      expect(mockChatSend).not.toHaveBeenCalled();
+      expect(threadApi.appendMessage).not.toHaveBeenCalled();
+      await act(async () => thirdClear.resolve({}));
+
+      await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
+      expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
+      if (followup) {
+        expect(mockChatSend.mock.calls[0][0]).toMatchObject({ queueMode: 'followup' });
+      } else {
+        expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('queueMode');
+      }
+    }
+  );
+
+  it('waits on the newer clear when an older clear fails late', async () => {
+    const olderClear = deferred<unknown>();
+    const newerClear = deferred<unknown>();
+    mockModelSettingsWrites({
+      'huggingface:org/model': Promise.resolve({}),
+      '': [olderClear.promise, newerClear.promise],
+    });
+    await renderChat('text');
+    await selectPickerModel();
+    await clearPickerModel();
+    await clearPickerModel();
+
+    const clearCalls = () =>
+      vi.mocked(callCoreRpc).mock.calls.filter(([request]) => {
+        const params = request.params as { default_model?: string };
+        return (
+          request.method === 'openhuman.inference_update_model_settings' &&
+          params.default_model === ''
+        );
+      });
+
+    await clickSendButtonWithDraft('wait for latest clear');
+    expect(clearCalls()).toHaveLength(1);
+    expect(mockChatSend).not.toHaveBeenCalled();
+
+    await act(async () => olderClear.reject(new Error('older clear failed late')));
+    await waitFor(() => expect(clearCalls()).toHaveLength(2));
+    expect(mockChatSend).not.toHaveBeenCalled();
+
+    await act(async () => newerClear.resolve({}));
+    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
+    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
   });
 
   it('does not wait for selected-model persistence before an explicit-model send', async () => {

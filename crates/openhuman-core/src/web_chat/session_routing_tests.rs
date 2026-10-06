@@ -360,3 +360,69 @@ fn explicit_picker_model_keeps_its_fingerprint_when_saved_default_changes() {
     );
     assert_eq!(first, second);
 }
+
+fn configured_huggingface_route() -> Config {
+    let mut config = Config::default();
+    config.chat_provider = Some("openai:gpt-4o".to_string());
+    config
+        .cloud_providers
+        .push(crate::config::schema::CloudProviderCreds {
+            id: "p_huggingface".to_string(),
+            slug: "huggingface".to_string(),
+            label: "Hugging Face".to_string(),
+            endpoint: "http://127.0.0.1:1/v1".to_string(),
+            auth_style: crate::config::schema::cloud_providers::AuthStyle::None,
+            ..Default::default()
+        });
+    config
+}
+
+fn assert_huggingface_model_builds(config: &Config, expected_model: &str) {
+    let (_, resolved_model) =
+        crate::inference::provider::factory::create_chat_model_with_model_id("chat", config, 0.0)
+            .expect("case-insensitive cloud selection should resolve through its configured slug");
+    assert_eq!(resolved_model, expected_model);
+}
+
+#[test]
+fn mixed_case_cloud_picker_uses_configured_slug_and_preserves_colon_suffix() {
+    let _guard = crate::inference::inference_test_guard();
+    let config = configured_huggingface_route();
+    let original = serde_json::to_value(&config).expect("config serializes");
+    let selected = "HuggingFace:org/model:version:variant";
+    let effective = effective_session_config(&config, Some(selected), None);
+
+    assert_eq!(
+        effective.chat_provider.as_deref(),
+        Some("huggingface:org/model:version:variant")
+    );
+    assert_eq!(effective.default_model.as_deref(), Some(selected));
+    assert_huggingface_model_builds(&effective, "org/model:version:variant");
+    assert_eq!(
+        serde_json::to_value(&config).expect("config serializes"),
+        original,
+        "picker selection must remain turn-local"
+    );
+}
+
+#[test]
+fn persisted_mixed_case_cloud_default_uses_configured_slug_after_restart() {
+    let _guard = crate::inference::inference_test_guard();
+    let mut config = configured_huggingface_route();
+    let selected = "HUGGINGFACE:org/model:version:variant";
+    config.default_model = Some(selected.to_string());
+    let original = serde_json::to_value(&config).expect("config serializes");
+    let effective = effective_session_config(&config, None, None);
+
+    assert_eq!(
+        effective.chat_provider.as_deref(),
+        Some("huggingface:org/model:version:variant")
+    );
+    assert_eq!(effective.default_model.as_deref(), Some(selected));
+    assert_huggingface_model_builds(&effective, "org/model:version:variant");
+    assert_eq!(
+        serde_json::to_value(&config).expect("config serializes"),
+        original,
+        "restoring a persisted picker default must remain turn-local"
+    );
+}

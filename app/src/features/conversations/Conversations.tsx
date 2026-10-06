@@ -155,6 +155,11 @@ interface ConversationsProps {
   projectThreadList?: boolean;
 }
 
+type ComposerModelClearBarrier = {
+  promise: Promise<void>;
+  status: 'pending' | 'resolved' | 'rejected';
+};
+
 // Stable empty reference so the `activeThreadIds` selector returns the same
 // object identity when the slice field is absent (narrow test stores),
 // avoiding spurious re-renders.
@@ -448,7 +453,7 @@ const Conversations = ({
   // the pin back to the managed default.
   const [composerModelOverride, setComposerModelOverride] = useState<string | null>(null);
   const modelSettingsWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const composerModelClearBarrierRef = useRef<Promise<void> | null>(null);
+  const composerModelClearBarrierRef = useRef<ComposerModelClearBarrier | null>(null);
   // `undefined` means no explicit picker selection, so usage-reported context
   // remains authoritative. `null` means the selected model did not report a
   // window, and the meter deliberately shows an unknown limit.
@@ -491,9 +496,7 @@ const Conversations = ({
         });
       });
   }, []);
-  const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
-    setComposerModelOverride(value);
-    setComposerModelContextWindow(contextWindow ?? null);
+  const persistComposerModelSettings = useCallback((value: string | null) => {
     const write = modelSettingsWriteQueueRef.current
       .catch(() => undefined)
       .then(() =>
@@ -517,16 +520,48 @@ const Conversations = ({
         });
       }
     );
-    if (value === null) {
-      const clearBarrier = write.then(() => undefined);
-      composerModelClearBarrierRef.current = clearBarrier;
-      // Keep the rejected promise available to a default send while marking it
-      // handled immediately, even if the user never submits another message.
-      void clearBarrier.catch(() => undefined);
-    } else {
-      composerModelClearBarrierRef.current = null;
-    }
+    return write;
   }, []);
+
+  const startComposerModelClear = useCallback(() => {
+    let barrier!: ComposerModelClearBarrier;
+    const promise = persistComposerModelSettings(null).then(
+      () => {
+        barrier.status = 'resolved';
+      },
+      error => {
+        barrier.status = 'rejected';
+        throw error;
+      }
+    );
+    barrier = { promise, status: 'pending' };
+    composerModelClearBarrierRef.current = barrier;
+    // Keep a failed clear available for the next explicit send retry while
+    // marking the rejection handled if the user does not submit again.
+    void promise.catch(() => undefined);
+    return promise;
+  }, [persistComposerModelSettings]);
+
+  const waitForComposerModelClear = useCallback(() => {
+    const barrier = composerModelClearBarrierRef.current;
+    if (!barrier) return null;
+    if (barrier.status === 'rejected') return startComposerModelClear();
+    return barrier.promise;
+  }, [startComposerModelClear]);
+
+  const applyComposerModel = useCallback(
+    (value: string | null, contextWindow?: number | null) => {
+      setComposerModelOverride(value);
+      setComposerModelContextWindow(contextWindow ?? null);
+      if (value === null) {
+        void startComposerModelClear();
+      } else {
+        composerModelClearBarrierRef.current = null;
+        void persistComposerModelSettings(value);
+      }
+    },
+    [persistComposerModelSettings, startComposerModelClear]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1177,8 +1212,7 @@ const Conversations = ({
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? undefined;
-    const modelClearBarrier =
-      modelOverride === undefined ? composerModelClearBarrierRef.current : null;
+    const modelClearBarrier = modelOverride === undefined ? waitForComposerModelClear() : null;
     let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
@@ -1308,8 +1342,7 @@ const Conversations = ({
     if (!normalized && pendingAttachments.length === 0) return;
 
     const modelOverride = composerModelOverride ?? undefined;
-    const modelClearBarrier =
-      modelOverride === undefined ? composerModelClearBarrierRef.current : null;
+    const modelClearBarrier = modelOverride === undefined ? waitForComposerModelClear() : null;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     // Build the full user message exactly like a normal send (content +
     // attachment metadata) so the follow-up persists identically when it is
