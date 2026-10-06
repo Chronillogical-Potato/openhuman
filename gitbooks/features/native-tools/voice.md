@@ -23,6 +23,21 @@ Dictation can replace the active text input on your desktop, or be sent straight
 
 Reply speech routes through a hosted TTS model. The agent's responses can be spoken back in a voice you pick, with natural timing and prosody. Voice selection is configurable per user, and the mascot avatar lip-syncs to the audio stream via a viseme map.
 
+## Talk to Tiny live
+
+Click Tiny, the mascot in the chat composer, and just talk. Tiny listens and answers out loud in real time, and you can cut in mid-sentence. It uses the same tools as typed chat, under the same tool policy, and anything that needs your approval asks in the conversation. What you both say is saved to the conversation you have open, and Tiny knows what you were just typing about.
+
+Choose how Tiny's voice runs under **Connections → Voice agents**:
+
+| Provider | Setup | Notes |
+| --- | --- | --- |
+| Gemini Live (TinyHumans) | None (default) | One model that hears and speaks. Billed through your TinyHumans balance. |
+| ElevenLabs Agent (TinyHumans) | None | Hosted ElevenLabs voice with OpenHuman as its brain. |
+| Gemini Live (Google API key) | Your Google AI Studio key | Talks to Google directly. |
+| Sarvam AI | Your Sarvam key | Indian languages (Hindi, Tamil, Bengali and more, or automatic detection). Sarvam's speech recognition, chat model and voices work together. |
+
+Each card has a **Test** button that opens a short session to check the provider. You can also pick the voice, and the language where the provider supports it.
+
 ## Live Google Meet agent
 
 OpenHuman's flagship voice integration:
