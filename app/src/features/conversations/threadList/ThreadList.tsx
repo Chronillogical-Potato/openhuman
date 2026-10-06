@@ -158,8 +158,8 @@ export function ThreadList({
             />
           ) : (
             <p
-              data-running={isThreadRunning?.(thread.id) ? 'true' : undefined}
-              aria-busy={isThreadRunning?.(thread.id) || undefined}
+              data-running={running ? 'true' : undefined}
+              aria-busy={running || undefined}
               className={`truncate flex-1 text-[14px] ${
                 selectedThreadId === thread.id ? 'font-semibold text-content' : 'text-content-muted'
               } ${running ? 'shimmer motion-reduce:animate-none' : ''}`}>
