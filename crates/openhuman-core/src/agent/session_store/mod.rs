@@ -1,0 +1,79 @@
+//! The host-installed session store.
+//!
+//! A host that keeps conversations in its own database (a cloud deployment
+//! serving many users from one process) installs a
+//! [`SessionStoreProvider`] here once, before agents run. From then on every
+//! agent's transcripts, turn journal, run status, goals and todos go through
+//! that agent's [`AgentStores`] instead of files under `workspace_dir`, and
+//! the file-era mirrors (the session dual-write and its shadow reads) stand
+//! down: the host store is the only record.
+//!
+//! Like the memory engine's host binding
+//! ([`crate::memory::engine::install_host_engine`]), this is process-wide:
+//! OpenHuman runs one runtime per process. With nothing installed, the core
+//! keeps today's on-disk layout.
+
+use std::sync::{Arc, LazyLock, PoisonError, RwLock};
+
+pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};
+
+static PROVIDER: LazyLock<RwLock<Option<Arc<dyn SessionStoreProvider>>>> =
+    LazyLock::new(|| RwLock::new(None));
+
+/// Routes every agent's session state through `provider`, replacing any
+/// earlier one.
+pub fn install(provider: Arc<dyn SessionStoreProvider>) {
+    tracing::info!(
+        destination = ?provider.destination_key(),
+        "[session_store] host session store installed"
+    );
+    *PROVIDER.write().unwrap_or_else(PoisonError::into_inner) = Some(provider);
+}
+
+/// Removes the installed provider; the on-disk layout applies again. Returns
+/// whether one was installed.
+pub fn clear() -> bool {
+    let had = PROVIDER
+        .write()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take()
+        .is_some();
+    if had {
+        tracing::info!("[session_store] host session store removed");
+    }
+    had
+}
+
+/// The installed provider, if any.
+#[must_use]
+pub fn installed() -> Option<Arc<dyn SessionStoreProvider>> {
+    PROVIDER
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone()
+}
+
+/// Whether a host session store is installed.
+#[must_use]
+pub fn is_installed() -> bool {
+    PROVIDER
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .is_some()
+}
+
+/// `agent_id`'s stores from the installed provider, or `None` when the core
+/// keeps the on-disk layout.
+#[must_use]
+pub fn for_agent(agent_id: &str) -> Option<AgentStores> {
+    installed().map(|provider| provider.for_agent(agent_id))
+}
+
+/// The agent whose stores a turn without a definition id uses. Root turns of
+/// the desktop app have no per-user agent; a single shared bucket keeps them
+/// together, as the shared workspace always did.
+pub const DEFAULT_AGENT: &str = "default";
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod tests;
