@@ -1416,9 +1416,11 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     const expandWithVoice = vi.fn();
     mascotContext.current = { expandWithVoice };
     try {
-      await renderSelectedConversation();
       await act(async () => {
-        fireEvent.click(screen.getByTestId('composer-human-mode'));
+        await renderConversationsRoute('/chat', { thread: emptyThreadState });
+      });
+      await act(async () => {
+        fireEvent.click(await screen.findByTestId('composer-human-mode'));
       });
       expect(expandWithVoice).toHaveBeenCalledTimes(1);
       // It stays on the chat route: the stage opens beside the conversation.
@@ -1430,9 +1432,12 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
 
   it('clicking Tiny without a mascot stage falls back to the Human page', async () => {
     mascotContext.current = undefined;
-    await renderSelectedConversation();
     await act(async () => {
-      fireEvent.click(screen.getByTestId('composer-human-mode'));
+      await renderConversationsRoute('/chat', { thread: emptyThreadState });
+    });
+    expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('composer-human-mode'));
     });
     // `/human` is not routed in this harness, so the chat route's probe unmounts.
     await waitFor(() => {
