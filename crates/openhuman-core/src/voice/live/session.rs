@@ -182,6 +182,11 @@ pub(crate) async fn start(
             .unwrap_or_else(|| format!("voice-live-{session_id}")),
         request_id: None,
     };
+    // The approval gate still reads the turn origin and chat context from
+    // task-locals (an unlabelled call is treated as `Unknown` and denied), so
+    // the tool worker — a spawned task — must be scoped explicitly. Baselined
+    // in `agent-runtime-boundary-baseline.json` with the other entry points
+    // until the gate reads the origin from the run context.
     let scope: TaskScope = Arc::new(move |task| {
         let origin = origin.clone();
         let approval = approval.clone();
