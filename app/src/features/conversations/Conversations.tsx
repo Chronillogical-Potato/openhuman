@@ -12,8 +12,8 @@ import { ConfirmationModal } from '../../components/intelligence/ConfirmationMod
 import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import { ContextUsage } from '../../features/conversations/aui/ContextUsage';
-import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { PinnedTodoCard } from '../../features/conversations/aui/PinnedTodoCard';
+import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
 import { useRunMode } from '../../features/conversations/aui/useRunMode';
 import {
@@ -99,13 +99,13 @@ import {
   openhumanUpdateRuntimeSettings,
 } from '../../utils/tauriCommands/config';
 import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
-import { StallWarning } from './aui/StallWarning';
 import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
 import {
   type ReasoningEffortChoice,
   ReasoningEffortPicker,
   toReasoningEffortChoice,
 } from './aui/ReasoningEffortPicker';
+import { StallWarning } from './aui/StallWarning';
 import { ThreadWorkspaceChip } from './aui/ThreadWorkspaceChip';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { useThreadDraft } from './hooks/useThreadDraft';
@@ -1510,8 +1510,8 @@ const Conversations = ({
   const selectedThreadWaitingOnUser = selectedThreadId
     ? Boolean(
         pendingApprovalByThread[selectedThreadId] ||
-          pendingPlanReviewByThread[selectedThreadId] ||
-          pendingWorkflowProposalsByThread[selectedThreadId]
+        pendingPlanReviewByThread[selectedThreadId] ||
+        pendingWorkflowProposalsByThread[selectedThreadId]
       )
     : false;
   const composerPlaceholder = selectedThreadWaitingOnUser

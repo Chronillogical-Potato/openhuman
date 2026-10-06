@@ -11,8 +11,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import {
   type TodoItem,
-  TodoProgressCard,
   todoProgress,
+  TodoProgressCard,
 } from '../../../components/assistant-ui/elements/todo-list';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { userScopedStorage } from '../../../store/userScopedStorage';
