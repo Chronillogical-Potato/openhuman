@@ -376,6 +376,9 @@ describe('composer model routing', () => {
   afterEach(() => {
     cleanup();
     registry.reset();
+    vi.mocked(threadApi.appendMessage)
+      .mockReset()
+      .mockImplementation(async (_threadId: string, message: unknown) => message);
     vi.mocked(callCoreRpc).mockReset().mockResolvedValue({});
     mockChatSend.mockReset().mockResolvedValue(undefined);
   });
