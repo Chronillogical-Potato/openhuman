@@ -89,7 +89,7 @@
 إذا كنت تبني وكيلاً يعمل على خادم بدون واجهة رسومية، ثبّت النواة مباشرة:
 
 ```bash
-cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman-cli --bin openhuman-core
+cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman --bin openhuman-core
 ```
 
 أو شغّلها عبر حاوية Docker:

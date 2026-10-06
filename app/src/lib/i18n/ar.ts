@@ -868,7 +868,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.title': 'لوحة بيانات التكاليف',
   'settings.costDashboard.sevenDayCost': 'التكلفة اليومية',
   'settings.costDashboard.sevenDayTokens': '7 أيام',
-  'settings.costDashboard.totalSpend': 'المجموع 7 أيام',
+  'settings.costDashboard.totalSpend': 'إجمالي الإنفاق',
   'settings.costDashboard.monthlyPace': 'الوتيرة الشهرية',
   'settings.costDashboard.modelBreakdown': 'التوزيع حسب النموذج',
   'settings.costDashboard.model': 'النموذج',
