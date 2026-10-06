@@ -78,6 +78,12 @@ export function keepsArchive(hostKey) {
   return !hostKey.startsWith("macos-");
 }
 
+/** Replace a verified `archive` with `<archive>.sha256` holding `sha256`. */
+export function replaceArchiveWithMarker(archive, sha256) {
+  writeFileSync(`${archive}.sha256`, `${sha256}\n`);
+  rmSync(archive);
+}
+
 export function bundledAssets(source, hostKey) {
   const names = parseAllList(source);
   const records = parseRecords(source);
@@ -200,10 +206,7 @@ export async function stageModules({ hostKey = defaultHostKey(), output = OUTPUT
     if (librariesUnder(dir).length !== 1) {
       throw new Error(`${asset.id}: expected exactly one native library in the release archive`);
     }
-    if (!keepsArchive(asset.hostKey)) {
-      writeFileSync(`${archive}.sha256`, `${actual}\n`);
-      rmSync(archive);
-    }
+    if (!keepsArchive(asset.hostKey)) replaceArchiveWithMarker(archive, actual);
     console.log(`[bundled-modules] staged ${asset.id} ${asset.version} (${asset.hostKey})`);
   }
   console.log(`[bundled-modules] staged ${assets.length} verified releases for ${hostKey}`);

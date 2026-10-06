@@ -62,7 +62,9 @@ case "$cmd" in
     ;;
   check)
     ROOT="${2:?check needs <bundled-modules dir>}"
-    [ -d "$ROOT" ] || { echo "[sign-check] no bundled modules at $ROOT"; exit 0; }
+    # Every caller stages modules before building the app, and tauri.conf.json
+    # bundles the directory, so its absence is a packaging failure.
+    [ -d "$ROOT" ] || { echo "[sign-check] no bundled modules at $ROOT" >&2; exit 1; }
     SCRATCH="$(mktemp -d)"
     trap 'rm -rf "$SCRATCH"' EXIT
     BAD=0
@@ -95,7 +97,11 @@ case "$cmd" in
     while IFS= read -r -d '' archive; do
       dest="$SCRATCH/$(basename "$archive")"
       mkdir -p "$dest"
-      tar -xzf "$archive" -C "$dest"
+      if ! tar -xzf "$archive" -C "$dest"; then
+        echo "[sign-check] cannot extract archive: ${archive#"$ROOT"/}"
+        BAD=1
+        continue
+      fi
       check_tree "$dest" "${archive#"$ROOT"/}/"
     done < <(find "$ROOT" -name '*.tar.gz' -type f -print0)
     if [ "$BAD" -ne 0 ]; then
