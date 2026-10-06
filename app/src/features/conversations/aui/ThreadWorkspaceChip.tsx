@@ -23,7 +23,8 @@ export function ThreadWorkspaceChip({ threadId }: { threadId: string | null }) {
   const thread = threadId ? threads.find(candidate => candidate.id === threadId) : undefined;
   const [defaultDir, setDefaultDir] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Keyed by thread so a failure on one thread never shows on the next.
+  const [failure, setFailure] = useState<{ threadId: string; message: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,9 +40,6 @@ export function ThreadWorkspaceChip({ threadId }: { threadId: string | null }) {
     };
   }, []);
 
-  // A new thread starts with no error from the previous one.
-  useEffect(() => setError(null), [threadId]);
-
   const value = thread?.actionDir ?? null;
   const recent = useMemo(
     () => recentWorkingFolders(threads, [value, defaultDir]),
@@ -49,17 +47,21 @@ export function ThreadWorkspaceChip({ threadId }: { threadId: string | null }) {
   );
 
   if (!thread || thread.messageCount > 0) return null;
+  const error = failure?.threadId === thread.id ? failure.message : null;
 
   const bind = (dir: string | null) => {
     if (dir === value) return;
     setSaving(true);
-    setError(null);
+    setFailure(null);
     debug('[chat][workspace] bind thread=%s default=%s', thread.id, dir === null);
     void dispatch(updateThreadWorkingDir({ threadId: thread.id, actionDir: dir }))
       .unwrap()
       .catch((err: unknown) => {
         debug('[chat][workspace] bind failed thread=%s', thread.id);
-        setError(typeof err === 'string' && err ? err : t('composer.workspace.error'));
+        setFailure({
+          threadId: thread.id,
+          message: typeof err === 'string' && err ? err : t('composer.workspace.error'),
+        });
       })
       .finally(() => setSaving(false));
   };
@@ -69,7 +71,7 @@ export function ThreadWorkspaceChip({ threadId }: { threadId: string | null }) {
     if (picked.ok) {
       bind(picked.path);
     } else if (picked.reason === 'failed') {
-      setError(t('composer.workspace.error'));
+      setFailure({ threadId: thread.id, message: t('composer.workspace.error') });
     }
   };
 
