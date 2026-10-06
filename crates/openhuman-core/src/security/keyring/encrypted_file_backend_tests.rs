@@ -245,6 +245,11 @@ fn read_master_key_file_returns_contents_and_reports_a_missing_file() {
     let tmp = tempfile::TempDir::new().unwrap();
     let path = tmp.path().join("master.key");
     std::fs::write(&path, format!("{}\n", hex_key(0x33))).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
 
     let contents = read_master_key_file(&path).expect("readable file");
     assert_eq!(contents.trim(), hex_key(0x33));
@@ -255,17 +260,15 @@ fn read_master_key_file_returns_contents_and_reports_a_missing_file() {
 
 #[cfg(unix)]
 #[test]
-fn read_master_key_file_accepts_a_world_readable_secret_mount() {
-    // Docker secrets are mounted 0444 and Kubernetes secret volumes 0644 by
-    // default, read-only: permissive modes are warned about, never refused.
+fn read_master_key_file_rejects_a_world_readable_secret_mount() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = tempfile::TempDir::new().unwrap();
     let path = tmp.path().join("master.key");
     std::fs::write(&path, hex_key(0x44)).unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-    let contents = read_master_key_file(&path).expect("permissive mode is accepted");
-    assert_eq!(contents, hex_key(0x44));
+    let err = read_master_key_file(&path).expect_err("world-readable key files are unsafe");
+    assert!(err.contains("insecure permissions"), "{err}");
 }
 
 #[cfg(unix)]
@@ -278,20 +281,17 @@ fn read_master_key_file_rejects_other_writable_files() {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o602)).unwrap();
 
     let err = read_master_key_file(&path).expect_err("other-writable key files are unsafe");
-    assert!(err.contains("writable by other users"), "{err}");
+    assert!(err.contains("insecure permissions"), "{err}");
 }
 
 #[cfg(unix)]
 #[test]
-fn key_file_warning_covers_default_mounts_but_not_owner_or_fsgroup_modes() {
-    // Warned: the Kubernetes and Docker defaults, and anything world-accessible.
-    for mode in [0o644, 0o444, 0o604, 0o666, 0o602] {
-        assert!(key_file_mode_is_world_accessible(mode), "{mode:04o}");
+fn key_file_permissions_require_owner_only_access() {
+    for mode in [0o644, 0o444, 0o604, 0o666, 0o602, 0o440, 0o640] {
+        assert!(key_file_mode_is_private(mode), "{mode:04o}");
     }
-    // Not warned: owner-only, and `defaultMode: 0400` under a pod `fsGroup`,
-    // which kubelet turns into 0440.
-    for mode in [0o400, 0o600, 0o440, 0o640] {
-        assert!(!key_file_mode_is_world_accessible(mode), "{mode:04o}");
+    for mode in [0o400, 0o600] {
+        assert!(!key_file_mode_is_private(mode), "{mode:04o}");
     }
     assert!(key_file_mode_is_other_writable(0o602));
     assert!(!key_file_mode_is_other_writable(0o644));
@@ -360,6 +360,11 @@ fn try_load_master_key_reads_the_file_source_and_is_stable_across_restarts() {
     let tmp = tempfile::TempDir::new().unwrap();
     let path = tmp.path().join("master.key");
     std::fs::write(&path, format!("{}\n", hex_key(0x66))).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
     let _env = crate::config::test_env::EnvVarGuard::locked()
         .without(MASTER_KEY_ENV)
         .with(MASTER_KEY_FILE_ENV, &path);
@@ -400,6 +405,11 @@ fn a_secret_written_under_a_configured_key_reads_back_after_a_restart() {
     let key_dir = tempfile::TempDir::new().unwrap();
     let key_path = key_dir.path().join("master.key");
     std::fs::write(&key_path, format!("{}\n", hex_key(0x88))).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
     let _env = crate::config::test_env::EnvVarGuard::locked()
         .without(MASTER_KEY_ENV)
         .with(MASTER_KEY_FILE_ENV, &key_path);

@@ -256,35 +256,26 @@ fn master_key_from_env(
 
 /// Reads the file named by [`MASTER_KEY_FILE_ENV`].
 ///
-/// On Unix a file readable by any user on the host is accepted but logged at
-/// `warn`, with how to tighten it. It is not refused: the deployments this
-/// path exists for mount secrets read-only with modes the process cannot
-/// change — Docker secrets `0444`, Kubernetes secret volumes `0644` unless
-/// `defaultMode` is set — so refusing would break them out of the box.
-/// Files writable by other users are refused because another local user could
-/// replace the key and orphan the encrypted keyring on the next restart.
-/// Group access alone is not warned about: a non-root pod reads a root-owned
-/// secret through its `fsGroup`, and kubelet then grants group read, so
-/// `defaultMode: 0400` lands as `0440` — the tightest mode that deployment
-/// can have. The config loader treats a foreign-owned `0644` config the same
-/// way (`config::schema::load`).
+/// On Unix a key file must be owner-only readable (`0400` or `0600`). Any
+/// group/other permission can expose the key that decrypts the whole store,
+/// so it is rejected before the file is read. Container secret mounts must be
+/// configured with an owner-only mode and matching uid/gid for the core.
 fn read_master_key_file(path: &Path) -> Result<String, String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         if let Ok(metadata) = std::fs::metadata(path) {
             let mode = metadata.permissions().mode() & 0o777;
-            if key_file_mode_is_world_accessible(mode) {
-                log::warn!(
-                    "[keyring:encrypted_file] master key file ({MASTER_KEY_FILE_ENV}) has \
-                     mode {mode:04o}, so every user on the host can read it; restrict it to \
-                     0400 or 0600 (Kubernetes: `defaultMode: 0400` on the secret volume; \
-                     Docker Swarm: `mode: 0400` on the secret)"
-                );
+            if key_file_mode_is_private(mode) {
+                return Err(format!(
+                    "master key file ({MASTER_KEY_FILE_ENV}) has insecure permissions \
+                     {mode:04o}; restrict it to owner-readable 0400 or 0600"
+                ));
             }
             if key_file_mode_is_other_writable(mode) {
                 return Err(format!(
-                    "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; +                     restrict it to a read-only secret mount"
+                    "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; \
+                     restrict it to a read-only secret mount"
                 ));
             }
         }
@@ -292,11 +283,10 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
     std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
 }
 
-/// Whether a master-key file's permission bits grant anything to "other"
-/// users. See [`read_master_key_file`] for why group access is not counted.
+/// Whether a master-key file has any group/other permission bits.
 #[cfg(unix)]
-fn key_file_mode_is_world_accessible(mode: u32) -> bool {
-    mode & 0o007 != 0
+fn key_file_mode_is_private(mode: u32) -> bool {
+    mode & 0o077 != 0
 }
 
 #[cfg(unix)]
