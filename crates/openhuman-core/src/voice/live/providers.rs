@@ -64,7 +64,7 @@ pub(crate) fn key_slug(provider: &str) -> Option<&'static str> {
 
 /// The stored key for `slug`, or `None` when none is stored.
 pub(crate) fn stored_key(slug: &str, config: &Config) -> Option<String> {
-    crate::inference::provider::factory::credentials::lookup_key_for_slug(slug, config)
+    crate::inference::provider::factory::lookup_key_for_slug(slug, config)
         .ok()
         .filter(|key| !key.trim().is_empty())
 }
