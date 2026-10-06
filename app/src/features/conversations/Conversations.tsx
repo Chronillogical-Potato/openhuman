@@ -1831,7 +1831,7 @@ const Conversations = ({
     selectedStalledPhase && selectedThreadId ? (
       <StallWarning
         phase={selectedStalledPhase}
-        quietSince={stalledThreadIds.get(selectedThreadId) ?? Date.now()}
+        quietSince={stalledThreadIds.get(selectedThreadId)}
         onStop={handleStopGeneration}
       />
     ) : null;
