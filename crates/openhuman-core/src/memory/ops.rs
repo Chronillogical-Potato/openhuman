@@ -9,7 +9,7 @@
 use chrono::Utc;
 use tinymemory_api::{
     FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, RecallRequest,
-    StoreItem, StoreReceipt,
+    StoreItem, StoreReceipt, WriteOptions,
 };
 
 use crate::config::Config;
@@ -259,14 +259,27 @@ fn merge_meta(meta: &mut MemoryMeta, host: MemoryMeta) {
     }
 }
 
-/// `memory_learn`.
+/// `memory_learn`: returns once the learning is readable.
 pub async fn learn(
     config: &Config,
     params: LearnParams,
     host_meta: Option<MemoryMeta>,
 ) -> MemoryResult<LearnView> {
+    learn_with(config, params, host_meta, WriteOptions::visible()).await
+}
+
+/// [`learn`], returning as soon as `options` allows. The agent's `memory`
+/// tool passes [`WriteOptions::accepted`] so a turn never waits on the
+/// engine indexing the learning.
+pub async fn learn_with(
+    config: &Config,
+    params: LearnParams,
+    host_meta: Option<MemoryMeta>,
+    options: WriteOptions,
+) -> MemoryResult<LearnView> {
     let item = learning_item(params, host_meta)?;
-    let receipt = store_item(config, item).await?;
+    let bound = bound(config)?;
+    let receipt = store_on_with(&bound, item, options).await?;
     Ok(LearnView { id: receipt.id.0 })
 }
 
@@ -278,11 +291,21 @@ pub async fn store_item(config: &Config, item: StoreItem) -> MemoryResult<StoreR
 
 /// Stores `item` on `bound`; the bound engine scrubs it ([`super::guard`]).
 pub async fn store_on(bound: &BoundEngine, item: StoreItem) -> MemoryResult<StoreReceipt> {
+    store_on_with(bound, item, WriteOptions::visible()).await
+}
+
+/// [`store_on`], returning as soon as `options` allows.
+pub async fn store_on_with(
+    bound: &BoundEngine,
+    item: StoreItem,
+    options: WriteOptions,
+) -> MemoryResult<StoreReceipt> {
     let kind = item.kind();
-    let receipt = bound.engine.store(item).await?;
+    let receipt = bound.engine.store_with(item, options).await?;
     tracing::debug!(
         engine = %bound.id,
         kind = kind.as_str(),
+        wait = ?options.wait,
         replayed = receipt.replayed,
         "[memory:ops] item stored"
     );

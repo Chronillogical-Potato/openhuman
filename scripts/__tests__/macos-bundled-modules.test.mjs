@@ -6,13 +6,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
@@ -29,6 +23,15 @@ const sha = (path) =>
 const run = (...args) =>
   spawnSync("bash", [SCRIPT, ...args], { encoding: "utf8" });
 
+/** The first architecture of a universal (fat) Mach-O, or the file if thin. */
+function firstSlice(bytes) {
+  if (bytes.readUInt32BE(0) !== 0xcafebabe) return bytes; // fat_header magic
+  // fat_arch[0]: cputype, cpusubtype, offset, size, align (big-endian u32s).
+  const offset = bytes.readUInt32BE(8 + 8);
+  const size = bytes.readUInt32BE(8 + 12);
+  return bytes.subarray(offset, offset + size);
+}
+
 /** An app whose bundle holds one module in the macOS layout: library, allowlist, marker. */
 function stagedApp() {
   const app = join(
@@ -39,7 +42,10 @@ function stagedApp() {
   const dir = join(modules, "demo/1.0.0/macos-15-arm64");
   mkdirSync(dir, { recursive: true });
   const library = join(dir, "libdemo.dylib");
-  copyFileSync("/usr/bin/true", library); // any Mach-O will do
+  // Any thin Mach-O will do. Thinning matters: in a universal binary the bytes
+  // between slices are padding no signature hashes. The first slice is cut out
+  // here rather than with `lipo`, which needs the Xcode command-line tools.
+  writeFileSync(library, firstSlice(readFileSync("/usr/bin/true")));
   writeFileSync(
     join(dir, "modules.toml"),
     `"libdemo.dylib" = "${sha(library)}"\n`,
@@ -87,11 +93,30 @@ test(
       "[sign-check] UNSIGNED for notarization: no-developer-id no-timestamp: demo/1.0.0/macos-15-arm64/libdemo.dylib\n",
     );
 
-    // One changed byte inside the signed code pages (the tail is unhashed
-    // padding): the signature no longer verifies and the pin no longer matches.
+    // One changed byte in the second page. In a thin Mach-O every page before
+    // the signature is hashed; the fixture is asserted rather than assumed, so a
+    // byte that missed the hashed region fails here, not as a check bug.
     const bytes = readFileSync(library);
-    bytes[20000] ^= 0xff;
+    const offset = 4096 + 16;
+    assert.ok(
+      bytes.length > 3 * 4096,
+      "fixture is large enough to have a hashed second page",
+    );
+    assert.equal(
+      spawnSync("codesign", ["--verify", "--strict", library]).status,
+      0,
+    );
+    bytes[offset] ^= 0xff;
     writeFileSync(library, bytes);
+    assert.match(
+      spawnSync("file", ["-b", library], { encoding: "utf8" }).stdout,
+      /^Mach-O/,
+    );
+    assert.notEqual(
+      spawnSync("codesign", ["--verify", "--strict", library]).status,
+      0,
+      "the tampered byte is inside the hashed code",
+    );
     const tampered = run("check", modules);
     assert.equal(tampered.status, 1);
     assert.match(tampered.stdout, /invalid-signature/);
