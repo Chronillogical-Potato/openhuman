@@ -1706,10 +1706,9 @@ const Conversations = ({
         />
       )}
       {selectedThreadId && liveTodos && liveTodos.length > 0 && (
-        <TodoList
-          data-testid="todo-checklist"
+        <PinnedTodoCard
+          threadId={selectedThreadId}
           items={toAuiTodoItems(liveTodos)}
-          title={t('conversations.todos.title')}
           className="mb-2"
         />
       )}
