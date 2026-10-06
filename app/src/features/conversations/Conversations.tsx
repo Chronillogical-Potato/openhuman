@@ -1250,7 +1250,10 @@ const Conversations = ({
       // Stop was pressed while this RPC was in flight, before the core had a
       // turn to cancel. The turn is registered now, so cancel it for real.
       if (stopRequestedDuringSendRef.current.delete(sendingThreadId)) {
-        debug('[chat] stop generation: re-issuing Stop pressed during send thread=%s', sendingThreadId);
+        debug(
+          '[chat] stop generation: re-issuing Stop pressed during send thread=%s',
+          sendingThreadId
+        );
         stopThreadTurn(sendingThreadId);
       }
 
