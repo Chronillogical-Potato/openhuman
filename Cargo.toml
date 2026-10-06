@@ -16,6 +16,7 @@ members = [
     "crates/openhuman-core",
     "crates/openhuman-embed",
     "crates/openhuman-rpc",
+    "crates/openhuman-store-sqlite",
     "crates/openhuman-tinyhumans",
     "crates/openhuman-tui",
 ]
@@ -36,6 +37,7 @@ repository = "https://github.com/tinyhumansai/openhuman"
 [workspace.dependencies]
 openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
+openhuman-store-sqlite = { path = "crates/openhuman-store-sqlite" }
 openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
 openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
 

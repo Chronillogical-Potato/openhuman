@@ -4236,6 +4236,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "openhuman-store-sqlite"
+version = "0.64.10"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "log",
+ "tempfile",
+ "tinyagents-harness",
+ "tinyagents-session",
+ "tokio",
+]
+
+[[package]]
 name = "openhuman-tinyhumans"
 version = "0.64.10"
 dependencies = [
