@@ -42,3 +42,7 @@ impl OpenHumanSessionHost {
         self.workspace_descriptor.clone()
     }
 }
+
+#[cfg(test)]
+#[path = "live_tools_tests.rs"]
+mod tests;

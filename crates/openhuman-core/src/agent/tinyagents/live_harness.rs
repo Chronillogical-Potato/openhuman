@@ -128,3 +128,7 @@ pub(crate) fn assemble_live_tool_harness(
     }
     harness
 }
+
+#[cfg(test)]
+#[path = "live_harness_tests.rs"]
+mod tests;
