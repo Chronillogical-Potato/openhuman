@@ -22,6 +22,7 @@ import SettingsTabbedPage from '../components/settings/layout/SettingsTabbedPage
 import ComposioPanel from '../components/settings/panels/ComposioPanel';
 import ComputerPanel, { type ComputerSection } from '../components/settings/panels/ComputerPanel';
 import EmbeddingsPanel from '../components/settings/panels/EmbeddingsPanel';
+import LiveVoicePanel from '../components/settings/panels/LiveVoicePanel';
 import LlmConnectionsPanel from '../components/settings/panels/LlmConnectionsPanel';
 import SearchPanel from '../components/settings/panels/SearchPanel';
 import ToolsPanel from '../components/settings/panels/ToolsPanel';
@@ -484,6 +485,7 @@ type ConnectionsTab =
   | 'agent-tools'
   | 'llm'
   | 'voice'
+  | 'voice-agents'
   | 'embeddings'
   | 'search'
   | 'computer'
@@ -526,6 +528,7 @@ const SELF_HEADER_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'agent-tools',
   'llm',
   'voice',
+  'voice-agents',
   'embeddings',
   'search',
   'computer',
@@ -538,6 +541,7 @@ const INTELLIGENCE_TABS: ReadonlySet<ConnectionsTab> = new Set<ConnectionsTab>([
   'agent-tools',
   'llm',
   'voice',
+  'voice-agents',
   'embeddings',
   'search',
   'computer',
@@ -569,6 +573,7 @@ export default function Skills() {
       raw === 'agent-tools' ||
       raw === 'llm' ||
       raw === 'voice' ||
+      raw === 'voice-agents' ||
       raw === 'embeddings' ||
       raw === 'search' ||
       raw === 'computer' ||
@@ -582,6 +587,8 @@ export default function Skills() {
     if (raw === 'messaging') return 'channels';
     if (raw === 'tools') return 'mcp';
     if (raw === 'explorer') return 'skills';
+    // Live voice agents: singular and feature-name spellings.
+    if (raw === 'voice-agent' || raw === 'live-voice') return 'voice-agents';
     // Browser and Desktop are sub-tabs of Computer now.
     if (raw === 'browser' || raw === 'desktop') return 'computer';
     // Default landing is the Welcome overview for the Connections page.
@@ -1091,6 +1098,13 @@ export default function Skills() {
                     ),
                   },
                   {
+                    value: 'voice-agents',
+                    label: t('connections.tabs.voiceAgents'),
+                    icon: navIcon(
+                      'M3 18v-6a9 9 0 0118 0v6M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z'
+                    ),
+                  },
+                  {
                     value: 'embeddings',
                     label: t('pages.settings.ai.embeddings'),
                     icon: navIcon(
@@ -1198,6 +1212,7 @@ export default function Skills() {
               <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
                 {activeTab === 'llm' && <LlmConnectionsPanel />}
                 {activeTab === 'voice' && <VoiceConnectionsPanel />}
+                {activeTab === 'voice-agents' && <LiveVoicePanel />}
                 {activeTab === 'embeddings' && (
                   <SettingsTabbedPage
                     title={t('pages.settings.ai.embeddings')}
