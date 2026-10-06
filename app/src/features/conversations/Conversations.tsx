@@ -466,8 +466,13 @@ const Conversations = ({
   const [reasoningEffortByModel, setReasoningEffortByModel] = useState<
     Record<string, ReasoningEffortChoice>
   >({});
+  // The model a turn runs on: this session's pick, else the persisted
+  // `default_model` (the core keys per-model levels by it after a restart,
+  // before anything is picked here).
+  const [persistedDefaultModel, setPersistedDefaultModel] = useState<string | null>(null);
+  const reasoningModel = composerModelOverride ?? persistedDefaultModel;
   const composerReasoningEffort: ReasoningEffortChoice =
-    (composerModelOverride ? reasoningEffortByModel[composerModelOverride] : undefined) ??
+    (reasoningModel ? reasoningEffortByModel[reasoningModel] : undefined) ??
     globalReasoningEffort;
   useEffect(() => {
     let cancelled = false;
@@ -475,6 +480,7 @@ const Conversations = ({
       .then(res => {
         if (!cancelled) {
           setGlobalReasoningEffort(toReasoningEffortChoice(res.result?.reasoning_effort));
+          setPersistedDefaultModel(res.result?.default_model?.trim() || null);
           const byModel: Record<string, ReasoningEffortChoice> = {};
           for (const [model, effort] of Object.entries(
             res.result?.reasoning_effort_by_model ?? {}
@@ -495,7 +501,7 @@ const Conversations = ({
   }, []);
   const applyComposerReasoningEffort = useCallback(
     (value: ReasoningEffortChoice) => {
-      const model = composerModelOverride;
+      const model = reasoningModel;
       if (model) {
         // `default` on a model drops its own level, falling back to the global one.
         setReasoningEffortByModel(prev => {
@@ -524,10 +530,11 @@ const Conversations = ({
         });
       });
     },
-    [composerModelOverride]
+    [reasoningModel]
   );
   const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
     setComposerModelOverride(value);
+    setPersistedDefaultModel(value);
     setComposerModelContextWindow(contextWindow ?? null);
     void callCoreRpc({
       method: 'openhuman.inference_update_model_settings',
@@ -1982,6 +1989,7 @@ const Conversations = ({
       <ReasoningEffortPicker
         value={composerReasoningEffort}
         onChange={applyComposerReasoningEffort}
+        modelLabel={reasoningModel}
       />
       {chatFilesChip}
     </>
