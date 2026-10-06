@@ -524,7 +524,6 @@ const Conversations = ({
   }, []);
 
   const startComposerModelClear = useCallback(() => {
-    let barrier!: ComposerModelClearBarrier;
     const promise = persistComposerModelSettings(null).then(
       () => {
         barrier.status = 'resolved';
@@ -534,7 +533,7 @@ const Conversations = ({
         throw error;
       }
     );
-    barrier = { promise, status: 'pending' };
+    const barrier: ComposerModelClearBarrier = { promise, status: 'pending' };
     composerModelClearBarrierRef.current = barrier;
     // Keep a failed clear available for the next explicit send retry while
     // marking the rejection handled if the user does not submit again.
