@@ -371,6 +371,14 @@ async fn a_turn_pack_stays_within_its_budget_against_a_large_store() {
         budget(&config),
         pack.refs.len()
     );
+    // The budget check only means something if real learnings were recalled.
+    assert!(
+        pack.refusal.is_none(),
+        "not a refusal notice: {}",
+        pack.markdown
+    );
+    assert!(!pack.refs.is_empty(), "the pack recalled something");
+    assert!(pack.markdown.contains("Project note"), "{}", pack.markdown);
     assert!(
         pack.tokens <= budget(&config),
         "{} > {}",
