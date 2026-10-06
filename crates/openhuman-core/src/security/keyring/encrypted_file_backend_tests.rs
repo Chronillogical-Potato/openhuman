@@ -146,7 +146,7 @@ fn env_inline_key_tolerates_surrounding_whitespace_and_uppercase_hex() {
 }
 
 #[test]
-fn env_file_key_is_read_trimmed_and_names_the_path() {
+fn env_file_key_is_read_trimmed_and_names_the_variable() {
     let hex = hex_key(0x11);
     let (key, source) =
         master_key_from_env(None, Some("/run/secrets/openhuman_master_key"), |path| {
@@ -156,22 +156,33 @@ fn env_file_key_is_read_trimmed_and_names_the_path() {
         .expect("file key is valid")
         .expect("supplied");
     assert_eq!(key, [0x11u8; KEY_LEN]);
-    assert!(source.starts_with(MASTER_KEY_FILE_ENV), "{source}");
-    assert!(
-        source.contains("/run/secrets/openhuman_master_key"),
-        "{source}"
-    );
+    assert_eq!(source, MASTER_KEY_FILE_ENV);
 }
 
 #[test]
-fn unreadable_env_file_is_an_error_that_names_the_path() {
+fn unreadable_env_file_is_an_error_that_names_the_variable_not_the_path() {
     let err = master_key_from_env(None, Some("/nonexistent/master.key"), |_| {
         Err("cannot read master key file: boom".to_string())
     })
     .expect_err("unreadable file must not fall through to the keychain");
     assert!(err.contains(MASTER_KEY_FILE_ENV), "{err}");
-    assert!(err.contains("/nonexistent/master.key"), "{err}");
     assert!(err.contains("cannot read"), "{err}");
+    assert!(!err.contains("/nonexistent/master.key"), "{err}");
+}
+
+#[test]
+fn a_key_pasted_into_the_file_variable_is_not_echoed() {
+    // The operator meant `MASTER_KEY=<hex>` but set `MASTER_KEY_FILE=<hex>`:
+    // the "path" is the secret, so the read error must not carry it into the
+    // startup log.
+    let pasted_key = hex_key(0x77);
+    let err = master_key_from_env(None, Some(&pasted_key), read_master_key_file)
+        .expect_err("a key is not a readable path");
+    assert!(err.contains(MASTER_KEY_FILE_ENV), "{err}");
+    assert!(
+        !err.contains(&pasted_key),
+        "error must not echo the key: {err}"
+    );
 }
 
 #[test]
@@ -322,7 +333,7 @@ fn try_load_master_key_reads_the_file_source_and_is_stable_across_restarts() {
     let (second, _) = try_load_master_key().expect("file key loads again");
     assert_eq!(first, [0x66u8; KEY_LEN]);
     assert_eq!(first, second);
-    assert!(source.contains(&path.display().to_string()), "{source}");
+    assert_eq!(source, MASTER_KEY_FILE_ENV);
 
     let blob = crypto::chacha20_encrypt(&first, b"sk-live-secret").expect("encrypt");
     assert_eq!(
@@ -344,4 +355,84 @@ fn try_load_master_key_reports_a_configured_source_error_as_configured() {
         }
         other => panic!("expected a configuration error, got {other:?}"),
     }
+}
+
+#[test]
+fn a_secret_written_under_a_configured_key_reads_back_after_a_restart() {
+    let workspace = tempfile::TempDir::new().unwrap();
+    let key_dir = tempfile::TempDir::new().unwrap();
+    let key_path = key_dir.path().join("master.key");
+    std::fs::write(&key_path, format!("{}\n", hex_key(0x88))).unwrap();
+    let _env = crate::config::test_env::EnvVarGuard::locked()
+        .without(MASTER_KEY_ENV)
+        .with(MASTER_KEY_FILE_ENV, &key_path);
+
+    // First "process": load the configured key and store a secret through the
+    // same lock → read → encrypt → write path `KeyringBackend::set` uses.
+    // `MASTER_KEY` is a process-wide `OnceLock` that cannot be reset, so the
+    // key is passed explicitly instead of going through it.
+    {
+        let (key, _) = try_load_master_key().expect("configured key loads");
+        let backend = EncryptedFileBackend::new(workspace.path());
+        backend
+            .set_with_key(&key, "provider:openai", "sk-live-secret")
+            .expect("store under the configured key");
+    }
+    let on_disk = std::fs::read(workspace.path().join(SECRETS_FILENAME)).unwrap();
+    assert!(
+        !on_disk
+            .windows(b"sk-live-secret".len())
+            .any(|w| w == b"sk-live-secret"),
+        "secrets.enc must not hold the plaintext"
+    );
+
+    // Second "process": a fresh key load and a fresh backend over the same
+    // workspace read the secret back.
+    let (key, _) = try_load_master_key().expect("configured key loads after restart");
+    let backend = EncryptedFileBackend::new(workspace.path());
+    assert_eq!(
+        backend
+            .get_with_key(&key, "provider:openai")
+            .expect("read after restart")
+            .as_deref(),
+        Some("sk-live-secret")
+    );
+}
+
+// ── One-time init keeps a configuration error ───────────────────────────────
+
+#[test]
+fn init_once_returns_the_configuration_error_on_every_call() {
+    let cell = OnceLock::new();
+    let first = init_once(&cell, || {
+        Err(format!(
+            "{MASTER_KEY_ENV}: expected 64 hex characters, got 4"
+        ))
+    });
+    assert!(first.is_err(), "first call reports the error");
+
+    // `OnceLock` does not rerun the closure; the cached error must still
+    // surface rather than a silent `Ok` with no key loaded.
+    let second = init_once(&cell, || panic!("init must run at most once"));
+    assert_eq!(second, first);
+}
+
+#[test]
+fn init_once_caches_a_loaded_key_and_a_keychain_outage_as_ok() {
+    let loaded = OnceLock::new();
+    assert_eq!(init_once(&loaded, || Ok(Some([0x99u8; KEY_LEN]))), Ok(()));
+    assert_eq!(
+        init_once(&loaded, || panic!("init must run at most once")),
+        Ok(())
+    );
+    assert_eq!(loaded.get(), Some(&Ok(Some([0x99u8; KEY_LEN]))));
+
+    // No key (non-encrypted backend, or the #3311 keychain outage) is not a
+    // startup error.
+    let unavailable = OnceLock::new();
+    assert_eq!(init_once(&unavailable, || Ok(None)), Ok(()));
+    assert_eq!(
+        init_once(&unavailable, || panic!("init must run at most once")),
+        Ok(())
+    );
 }

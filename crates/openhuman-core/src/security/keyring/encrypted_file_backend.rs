@@ -37,8 +37,13 @@ pub const MASTER_KEY_FILE_ENV: &str = "OPENHUMAN_KEYRING_MASTER_KEY_FILE";
 const SECRETS_FILENAME: &str = "secrets.enc";
 const LEGACY_DEV_KEYCHAIN: &str = "dev-keychain.json";
 
-/// Process-wide master key, set once by [`init_master_key`].
-static MASTER_KEY: OnceLock<Option<[u8; KEY_LEN]>> = OnceLock::new();
+/// Outcome of the one-time master-key initialization: the key (`None` when
+/// the backend needs none or the OS keychain could not provide it), or the
+/// configuration error that rejected an operator-supplied source.
+type MasterKeyInit = Result<Option<[u8; KEY_LEN]>, String>;
+
+/// Process-wide master-key outcome, set once by [`init_master_key`].
+static MASTER_KEY: OnceLock<MasterKeyInit> = OnceLock::new();
 
 // ── Public API for core startup ──────────────────────────────────────────────
 
@@ -62,8 +67,8 @@ static MASTER_KEY: OnceLock<Option<[u8; KEY_LEN]>> = OnceLock::new();
 /// later, on the first store, with a less specific message. An OS-keychain
 /// failure is **not** an error here: it keeps the #3311 behaviour (log,
 /// notify the frontend, run with secrets inaccessible until keychain access
-/// is restored). The outcome is cached process-wide, so a second call after
-/// a configuration error returns `Ok` with no master key loaded.
+/// is restored). The outcome, error included, is cached process-wide, so
+/// every later call after a configuration error returns the same `Err`.
 pub fn init_master_key() -> Result<(), String> {
     // Ensure workspace dir is set for the backend before anything else.
     let dir = crate::security::keyring::store::workspace_dir_for_file_backend();
@@ -73,28 +78,26 @@ pub fn init_master_key() -> Result<(), String> {
     );
     crate::security::keyring::init_workspace(&dir);
 
-    let mut configuration_error: Option<String> = None;
-    MASTER_KEY.get_or_init(|| {
+    init_once(&MASTER_KEY, || {
         let backend_kind = crate::security::keyring::store::effective_backend_kind();
         if backend_kind != BackendKind::EncryptedFile {
             log::debug!(
                 "[keyring:encrypted_file] skipping master key init backend={backend_kind:?}"
             );
-            return None;
+            return Ok(None);
         }
 
         match try_load_master_key() {
             Ok((key, source)) => {
                 log::info!("[keyring:encrypted_file] master key loaded from {source}");
-                Some(key)
+                Ok(Some(key))
             }
             Err(MasterKeyError::Configured(e)) => {
                 log::error!(
                     "[keyring:encrypted_file] operator-supplied master key rejected; refusing \
                      to start with secrets unreadable. Cause: {e}"
                 );
-                configuration_error = Some(e);
-                None
+                Err(e)
             }
             Err(MasterKeyError::Keychain(e)) => {
                 log::error!(
@@ -106,13 +109,25 @@ pub fn init_master_key() -> Result<(), String> {
                 // Surface the denied state to the frontend instead of silently
                 // resetting — this is the "warn before reset" the issue asks for.
                 crate::security::keyring_consent::policy::notify_master_key_unavailable(&e);
-                None
+                Ok(None)
             }
         }
-    });
-    match configuration_error {
-        Some(e) => Err(e),
-        None => Ok(()),
+    })
+}
+
+/// Runs `init` at most once per `cell` and reports its outcome on every call.
+///
+/// A configuration error is stored in the cell rather than leaving it empty
+/// or storing `None`: `OnceLock::get_or_init` never reruns its closure, so a
+/// later call (a second embedded boot in the same process) must still see the
+/// error instead of a silent `Ok` with no key loaded.
+fn init_once(
+    cell: &OnceLock<MasterKeyInit>,
+    init: impl FnOnce() -> MasterKeyInit,
+) -> Result<(), String> {
+    match cell.get_or_init(init) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.clone()),
     }
 }
 
@@ -202,8 +217,9 @@ fn env_value(
 /// as unset, matching how Compose passes an undefined `${VAR}`), so the
 /// caller falls through to the OS keychain. `Err` when a source is set but
 /// unusable: both set at once, an unreadable file, or a value that is not
-/// exactly `2 * KEY_LEN` hex characters. Error messages name the source and
-/// the problem but never include the value.
+/// exactly `2 * KEY_LEN` hex characters. Error messages and the returned
+/// source label name the variable and the problem but never include its
+/// value — not even the file path, which may be a mistakenly pasted key.
 ///
 /// `read_file` is injected so the decision logic is testable without touching
 /// the filesystem; production passes [`read_master_key_file`].
@@ -223,12 +239,14 @@ fn master_key_from_env(
             .map(|key| Some((key, MASTER_KEY_ENV.to_string())))
             .map_err(|e| format!("{MASTER_KEY_ENV}: {e}")),
         (None, Some(path)) => {
-            let path = Path::new(path);
-            let source = format!("{MASTER_KEY_FILE_ENV} ({})", path.display());
-            let contents = read_file(path).map_err(|e| format!("{source}: {e}"))?;
+            // Named by the variable, never by its value: an operator who puts
+            // the key itself in the `_FILE` variable would otherwise have it
+            // copied into the error and the startup log.
+            let contents =
+                read_file(Path::new(path)).map_err(|e| format!("{MASTER_KEY_FILE_ENV}: {e}"))?;
             parse_master_key_hex(contents.trim())
-                .map(|key| Some((key, source.clone())))
-                .map_err(|e| format!("{source}: {e}"))
+                .map(|key| Some((key, MASTER_KEY_FILE_ENV.to_string())))
+                .map_err(|e| format!("{MASTER_KEY_FILE_ENV}: {e}"))
         }
     }
 }
@@ -245,9 +263,8 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
             let mode = metadata.permissions().mode() & 0o777;
             if mode & 0o077 != 0 {
                 log::warn!(
-                    "[keyring:encrypted_file] master key file {} has mode {mode:04o}; \
-                     0600 is recommended",
-                    path.display()
+                    "[keyring:encrypted_file] master key file ({MASTER_KEY_FILE_ENV}) has \
+                     mode {mode:04o}; 0600 is recommended"
                 );
             }
         }
@@ -333,7 +350,10 @@ fn load_or_mint_master_key<E: MasterKeyEntry>(entry: &E) -> Result<[u8; KEY_LEN]
 
 /// Get a reference to the cached master key, if available.
 fn master_key() -> Option<&'static [u8; KEY_LEN]> {
-    MASTER_KEY.get().and_then(|k| k.as_ref())
+    MASTER_KEY
+        .get()
+        .and_then(|init| init.as_ref().ok())
+        .and_then(Option::as_ref)
 }
 
 // ── Backend ──────────────────────────────────────────────────────────────────
@@ -466,13 +486,13 @@ impl EncryptedFileBackend {
     fn handle_corruption(&self) {
         file_store::quarantine_corrupt(&self.path, "enc");
     }
-}
 
-impl KeyringBackend for EncryptedFileBackend {
-    fn get(&self, namespaced_key: &str) -> Result<Option<String>, KeyringError> {
-        let Some(key) = master_key() else {
-            return Ok(None);
-        };
+    /// [`KeyringBackend::get`] under an explicit master key.
+    fn get_with_key(
+        &self,
+        key: &[u8; KEY_LEN],
+        namespaced_key: &str,
+    ) -> Result<Option<String>, KeyringError> {
         // `read_map` can mutate the filesystem: it migrates a missing file and
         // quarantines corrupt ciphertext. Hold the same lock as writers for
         // either case so a delayed quarantine cannot rename a replacement a
@@ -482,18 +502,37 @@ impl KeyringBackend for EncryptedFileBackend {
         Ok(map.get(namespaced_key).cloned())
     }
 
-    fn set(&self, namespaced_key: &str, value: &str) -> Result<(), KeyringError> {
-        let Some(key) = master_key() else {
-            return Err(KeyringError::Backend(
-                "master key unavailable — cannot store secrets".to_string(),
-            ));
-        };
+    /// [`KeyringBackend::set`] under an explicit master key.
+    fn set_with_key(
+        &self,
+        key: &[u8; KEY_LEN],
+        namespaced_key: &str,
+        value: &str,
+    ) -> Result<(), KeyringError> {
         // Held across the read as well as the write: taking it around the write
         // alone would still let a stale map overwrite a concurrent one.
         let _guard = file_store::lock_for_write(&self.path)?;
         let mut map = self.read_map(key)?;
         map.insert(namespaced_key.to_string(), value.to_string());
         self.write_map(key, &map)
+    }
+}
+
+impl KeyringBackend for EncryptedFileBackend {
+    fn get(&self, namespaced_key: &str) -> Result<Option<String>, KeyringError> {
+        let Some(key) = master_key() else {
+            return Ok(None);
+        };
+        self.get_with_key(key, namespaced_key)
+    }
+
+    fn set(&self, namespaced_key: &str, value: &str) -> Result<(), KeyringError> {
+        let Some(key) = master_key() else {
+            return Err(KeyringError::Backend(
+                "master key unavailable — cannot store secrets".to_string(),
+            ));
+        };
+        self.set_with_key(key, namespaced_key, value)
     }
 
     fn delete(&self, namespaced_key: &str) -> Result<(), KeyringError> {
