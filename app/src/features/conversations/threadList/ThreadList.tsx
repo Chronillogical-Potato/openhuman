@@ -1,8 +1,25 @@
-import type { RefObject } from 'react';
+import { type RefObject, useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import type { Thread } from '../../../types/thread';
 import { isImeCompositionKeyEvent } from '../Conversations';
+import {
+  folderBasename,
+  groupThreads,
+  isThreadPinned,
+  type ThreadGroupKey,
+  threadMatchesQuery,
+} from './groupThreads';
+
+/** i18n key for each section header. */
+const GROUP_LABEL_KEYS: Record<ThreadGroupKey, string> = {
+  pinned: 'chat.sidebar.group.pinned',
+  today: 'chat.sidebar.group.today',
+  yesterday: 'chat.sidebar.group.yesterday',
+  previous7Days: 'chat.sidebar.group.previous7Days',
+  previous30Days: 'chat.sidebar.group.previous30Days',
+  older: 'chat.sidebar.group.older',
+};
 
 interface ThreadListProps {
   /** Threads visible after the sidebar's search/tab filtering. */
@@ -15,6 +32,15 @@ interface ThreadListProps {
   resolveTitle: (threadId: string) => string;
   /** Whether a thread has an agent turn in flight; its title shimmers while true. */
   isThreadRunning?: (threadId: string) => boolean;
+  /** Threads whose reply finished while another thread was selected. */
+  unreadThreadIds?: ReadonlySet<string>;
+  /**
+   * Pin state per thread. Defaults to the persisted `pinned` label; the parent
+   * passes its own when it applies a pin optimistically ahead of the reload.
+   */
+  isPinned?: (thread: Thread) => boolean;
+  /** Pin or unpin a thread. The pin action is hidden when omitted. */
+  onTogglePin?: (thread: Thread, pinned: boolean) => void;
   onRequestDelete: (thread: Thread) => void;
   // Inline title rename — controlled by the parent so the edit state stays
   // co-located with the rest of the panel's thread state.
@@ -41,6 +67,9 @@ export function ThreadList({
   onSelectThread,
   resolveTitle,
   isThreadRunning,
+  unreadThreadIds,
+  isPinned = isThreadPinned,
+  onTogglePin,
   onRequestDelete,
   editingThreadId,
   editTitleValue,
@@ -52,6 +81,14 @@ export function ThreadList({
   onBlurTitle,
 }: ThreadListProps) {
   const { t } = useT();
+  const [query, setQuery] = useState('');
+  const visibleThreads = useMemo(
+    () => threads.filter(thread => threadMatchesQuery(resolveTitle(thread.id), query)),
+    [threads, query, resolveTitle]
+  );
+  // Recomputed per render on purpose: a list left open overnight should move
+  // yesterday's rows out of "Today" on the next update without a timer.
+  const groups = groupThreads(visibleThreads, new Date(), isPinned);
   return (
     // Card background / rounded corners come from TwoPanelLayout's pane styling.
     <div className="h-full flex flex-col">
