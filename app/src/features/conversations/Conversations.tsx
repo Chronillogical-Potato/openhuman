@@ -896,10 +896,13 @@ const Conversations = ({
   useEffect(() => {
     isMountedRef.current = true;
     const timers = sendingTimeoutsRef.current;
+    const stopTimers = stopSettleTimersRef.current;
     return () => {
       isMountedRef.current = false;
       for (const timeout of timers.values()) clearTimeout(timeout);
       timers.clear();
+      for (const timeout of stopTimers.values()) clearTimeout(timeout);
+      stopTimers.clear();
     };
   }, []);
 
