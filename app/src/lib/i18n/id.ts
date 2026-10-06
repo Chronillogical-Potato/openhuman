@@ -4856,6 +4856,8 @@ const messages: TranslationMap = {
     'Sesi Codex Anda telah kedaluwarsa. Hubungkan kembali di Pengaturan → Integrasi.',
   'chat_error.session_expired':
     'Sesi OpenHuman Anda telah kedaluwarsa. Silakan masuk lagi untuk melanjutkan.',
+  'chat_error.local_session_managed_unavailable':
+    'Anda berada di profil lokal offline, yang tidak memiliki akun OpenHuman di belakangnya, jadi model terkelola (cloud) tidak dapat dijalankan. Masuk untuk memakai model terkelola, atau ubah perutean ke "Gunakan Model Anda Sendiri" di Koneksi → Kunci API → LLM lalu tambahkan penyedia Anda sendiri.',
   'chat_error.action_budget':
     'Anda telah mencapai batas aksi per jam OpenHuman. Ini adalah batas keamanan lokal, bukan dari penyedia AI Anda. Batas ini pulih secara bertahap; Anda tetap bisa mengobrol di utas ini dan langkah yang banyak memakai alat akan berlanjut seiring batas terisi kembali.',
   'chat_error.max_iterations':
@@ -4993,30 +4995,50 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'Tautan',
   'memoryPage.off.title': 'Memori nonaktif',
   'memoryPage.off.description':
-    'Pilih mesin memori untuk mulai mengingat. Masuk untuk menggunakan memori TinyHumans, atau hubungkan CortexDB Anda sendiri.',
+    'Hubungkan CortexDB untuk mulai mengingat. Masuk untuk memakai CortexDB bawaan, atau hubungkan dengan kunci API Anda sendiri atau server di komputer ini.',
   'memoryPage.off.action': 'Pilih mesin',
-  'memoryPage.engine.listTitle': 'Mesin memori',
+  'memoryPage.engine.listTitle': 'Memori CortexDB',
   'memoryPage.engine.listDescription':
-    'Satu mesin aktif dalam satu waktu. Mesin ini menyimpan semua yang diingat memori dan menjawab pertanyaan tentangnya.',
-  'memoryPage.engine.loadError': 'Tidak dapat memuat mesin memori',
+    'Memori berjalan di CortexDB. Pilih cara aplikasi ini terhubung ke sana. Hanya satu koneksi yang aktif pada satu waktu.',
   'memoryPage.engine.offExplanation':
-    'Saat ini tidak ada mesin memori yang dapat digunakan, jadi tidak ada yang disimpan atau diingat. Masuk untuk menggunakan memori TinyHumans, atau hubungkan CortexDB Anda sendiri dengan endpoint dan API key.',
+    'Saat ini tidak ada koneksi memori yang bisa dipakai, jadi tidak ada yang disimpan atau diingat. Masuk untuk memakai CortexDB bawaan, atau hubungkan CortexDB dengan kunci API Anda atau di komputer ini.',
   'memoryPage.engine.statusDegraded': 'Memori mengalami gangguan',
   'memoryPage.engine.statusDown': 'Mesin memori tidak dapat dijangkau',
   'memoryPage.engine.statusOff': 'Nonaktif',
   'memoryPage.engine.active': 'Aktif',
-  'memoryPage.engine.recommended': 'Direkomendasikan',
   'memoryPage.engine.use': 'Gunakan',
-  'memoryPage.engine.edit': 'Ubah',
-  'memoryPage.engine.signInRequired': 'Perlu masuk',
-  'memoryPage.engine.hostedDetail': 'Dihosting oleh TinyHumans',
-  'memoryPage.engine.selfHostedDetail': 'Endpoint dan API key milik Anda sendiri',
-  'memoryPage.engine.connectTitle': 'Hubungkan {engine}',
   'memoryPage.engine.connect': 'Hubungkan',
   'memoryPage.engine.endpoint': 'Endpoint',
   'memoryPage.engine.apiKey': 'Kunci API',
   'memoryPage.engine.keySavedPlaceholder': 'Tersimpan. Masukkan kunci baru untuk menggantinya',
   'memoryPage.engine.keySavedHint': 'Kunci sudah tersimpan. Biarkan kosong untuk tetap memakainya.',
+  'memoryPage.engine.badgeDegraded': 'Menurun',
+  'memoryPage.engine.badgeDown': 'Tidak terjangkau',
+  'memoryPage.engine.connecting': 'Menghubungkan…',
+  'memoryPage.engine.save': 'Simpan',
+  'memoryPage.engine.builtin.title': 'CortexDB bawaan',
+  'memoryPage.engine.builtin.detail': 'Termasuk dalam akun TinyHumans Anda',
+  'memoryPage.engine.builtin.signInRequired': 'Masuk untuk memakai',
+  'memoryPage.engine.builtin.description':
+    'CortexDB yang di-host oleh TinyHumans dan sudah termasuk dalam akun Anda. Masuk untuk memakainya; tidak ada yang perlu disiapkan.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'Memori baru langsung disimpan. Fakta dan keyakinan yang diambil darinya terisi dalam beberapa menit berikutnya.',
+  'memoryPage.engine.builtin.signInHint':
+    'Masuk ke akun TinyHumans Anda untuk memakai CortexDB bawaan.',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB dengan kunci API Anda',
+  'memoryPage.engine.apiKeyOption.description':
+    'Gunakan akun CortexDB Anda sendiri. Kunci disimpan dengan aman di komputer ini, tidak pernah di file konfigurasi.',
+  'memoryPage.engine.selfHost.title': 'Host CortexDB sendiri',
+  'memoryPage.engine.selfHost.detail': 'Server CortexDB di komputer ini',
+  'memoryPage.engine.selfHost.step1':
+    'Jalankan server CortexDB di komputer ini dengan mengikuti panduan:',
+  'memoryPage.engine.selfHost.docsLink': 'Panduan self-hosting CortexDB',
+  'memoryPage.engine.selfHost.step2':
+    'Jalankan server dengan kunci API (CORTEX_API_KEY). Aplikasi terhubung dengan kunci itu.',
+  'memoryPage.engine.selfHost.step3':
+    'Masukkan alamat lokal server dan kuncinya di bawah, lalu hubungkan.',
+  'memoryPage.engine.selfHost.notLocal':
+    'Self-hosting hanya lokal. Gunakan alamat di komputer ini, seperti http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Pertanyaan Anda',
   'memoryPage.ask.queryLabel': 'Kueri pencarian',
   'memoryPage.ask.placeholder': 'Apa yang kita putuskan tentang rencana peluncuran?',

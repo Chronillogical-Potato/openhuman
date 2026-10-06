@@ -4868,6 +4868,8 @@ const messages: TranslationMap = {
     'Срок действия вашей сессии Codex истёк. Подключите её заново в разделе Настройки → Интеграции.',
   'chat_error.session_expired':
     'Срок действия вашей сессии OpenHuman истёк. Войдите снова, чтобы продолжить.',
+  'chat_error.local_session_managed_unavailable':
+    'Вы используете локальный автономный профиль, за которым нет аккаунта OpenHuman, поэтому управляемую (облачную) модель запустить нельзя. Войдите, чтобы использовать управляемые модели, или переключите маршрутизацию на «Используйте свои собственные модели» в разделе Подключения → API-ключи → LLM и добавьте своего провайдера.',
   'chat_error.action_budget':
     'Вы достигли почасового лимита действий OpenHuman. Это локальное ограничение безопасности, а не лимит вашего ИИ-провайдера. Лимит восстанавливается постепенно: вы можете продолжать общаться в этой теме, а шаги с активным использованием инструментов возобновятся по мере восстановления лимита.',
   'chat_error.max_iterations':
@@ -5003,30 +5005,50 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'Ссылка',
   'memoryPage.off.title': 'Память выключена',
   'memoryPage.off.description':
-    'Выберите движок памяти, чтобы начать запоминать. Войдите, чтобы использовать память TinyHumans, или подключите собственный CortexDB.',
+    'Подключите CortexDB, чтобы начать запоминать. Войдите, чтобы использовать встроенную CortexDB, или подключитесь со своим API-ключом или к серверу на этом компьютере.',
   'memoryPage.off.action': 'Выбрать движок',
-  'memoryPage.engine.listTitle': 'Движки памяти',
+  'memoryPage.engine.listTitle': 'Память CortexDB',
   'memoryPage.engine.listDescription':
-    'Одновременно активен один движок. Он хранит всё, что запоминает память, и отвечает на вопросы о нём.',
-  'memoryPage.engine.loadError': 'Не удалось загрузить движки памяти',
+    'Память работает на CortexDB. Выберите, как это приложение к ней подключается. Одновременно активно только одно подключение.',
   'memoryPage.engine.offExplanation':
-    'Сейчас нет доступного движка памяти, поэтому ничего не сохраняется и не вспоминается. Войдите, чтобы использовать память TinyHumans, или подключите собственный CortexDB, указав endpoint и API-ключ.',
+    'Сейчас нет доступного подключения к памяти, поэтому ничего не сохраняется и не извлекается. Войдите, чтобы использовать встроенную CortexDB, или подключите CortexDB со своим API-ключом или на этом компьютере.',
   'memoryPage.engine.statusDegraded': 'Память работает со сбоями',
   'memoryPage.engine.statusDown': 'Движок памяти недоступен',
   'memoryPage.engine.statusOff': 'Выкл.',
   'memoryPage.engine.active': 'Активен',
-  'memoryPage.engine.recommended': 'Рекомендуется',
   'memoryPage.engine.use': 'Использовать',
-  'memoryPage.engine.edit': 'Изменить',
-  'memoryPage.engine.signInRequired': 'Требуется вход',
-  'memoryPage.engine.hostedDetail': 'Размещён в TinyHumans',
-  'memoryPage.engine.selfHostedDetail': 'Ваш собственный endpoint и API-ключ',
-  'memoryPage.engine.connectTitle': 'Подключить {engine}',
   'memoryPage.engine.connect': 'Подключить',
   'memoryPage.engine.endpoint': 'Endpoint',
   'memoryPage.engine.apiKey': 'API-ключ',
   'memoryPage.engine.keySavedPlaceholder': 'Сохранён. Введите новый ключ, чтобы заменить его',
   'memoryPage.engine.keySavedHint': 'Ключ уже сохранён. Оставьте поле пустым, чтобы сохранить его.',
+  'memoryPage.engine.badgeDegraded': 'Работает с перебоями',
+  'memoryPage.engine.badgeDown': 'Недоступна',
+  'memoryPage.engine.connecting': 'Подключение…',
+  'memoryPage.engine.save': 'Сохранить',
+  'memoryPage.engine.builtin.title': 'Встроенная CortexDB',
+  'memoryPage.engine.builtin.detail': 'Входит в ваш аккаунт TinyHumans',
+  'memoryPage.engine.builtin.signInRequired': 'Войдите, чтобы использовать',
+  'memoryPage.engine.builtin.description':
+    'CortexDB, размещённая TinyHumans и входящая в ваш аккаунт. Войдите, чтобы пользоваться ею; настраивать ничего не нужно.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'Новые воспоминания сохраняются сразу. Факты и убеждения, извлечённые из них, появляются в течение следующих минут.',
+  'memoryPage.engine.builtin.signInHint':
+    'Войдите в аккаунт TinyHumans, чтобы использовать встроенную CortexDB.',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB с вашим API-ключом',
+  'memoryPage.engine.apiKeyOption.description':
+    'Используйте свой аккаунт CortexDB. Ключ надёжно хранится на этом компьютере и никогда не попадает в файл конфигурации.',
+  'memoryPage.engine.selfHost.title': 'Собственный сервер CortexDB',
+  'memoryPage.engine.selfHost.detail': 'Сервер CortexDB на этом компьютере',
+  'memoryPage.engine.selfHost.step1':
+    'Запустите сервер CortexDB на этом компьютере по руководству:',
+  'memoryPage.engine.selfHost.docsLink': 'Руководство по самостоятельному размещению CortexDB',
+  'memoryPage.engine.selfHost.step2':
+    'Запустите сервер с API-ключом (CORTEX_API_KEY). Приложение подключается с этим ключом.',
+  'memoryPage.engine.selfHost.step3':
+    'Введите ниже локальный адрес сервера и ключ, затем подключитесь.',
+  'memoryPage.engine.selfHost.notLocal':
+    'Собственный сервер поддерживается только локально. Используйте адрес на этом компьютере, например http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Ваш вопрос',
   'memoryPage.ask.queryLabel': 'Поисковый запрос',
   'memoryPage.ask.placeholder': 'Что мы решили насчёт плана запуска?',

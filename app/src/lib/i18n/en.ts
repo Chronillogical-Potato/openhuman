@@ -5098,6 +5098,8 @@ const en: TranslationMap = {
     'Your Codex session has expired. Please reconnect it in Settings → Integrations.',
   'chat_error.session_expired':
     'Your OpenHuman session has expired. Please sign in again to continue.',
+  'chat_error.local_session_managed_unavailable':
+    'You\'re on the local offline profile, which has no OpenHuman account behind it, so the managed (cloud) model can\'t run. Sign in to use managed models, or switch routing to "Use Your Own Models" in Connections → API keys → LLM and add your own provider.',
   'chat_error.action_budget':
     "You've hit OpenHuman's per-hour action budget. This is a local safety cap, not your AI provider. The window decays gradually; you can keep chatting in this thread and tool-heavy steps will resume as the budget refills.",
   'chat_error.max_iterations':
@@ -5231,30 +5233,50 @@ const en: TranslationMap = {
   'memoryPage.meta.url': 'Link',
   'memoryPage.off.title': 'Memory is off',
   'memoryPage.off.description':
-    'Choose a memory engine to start remembering. Sign in to use TinyHumans memory, or connect your own CortexDB.',
+    'Connect CortexDB to start remembering. Sign in to use built-in CortexDB, or connect with your own API key or a server on this computer.',
   'memoryPage.off.action': 'Choose an engine',
-  'memoryPage.engine.listTitle': 'Memory engines',
+  'memoryPage.engine.listTitle': 'CortexDB memory',
   'memoryPage.engine.listDescription':
-    'One engine is active at a time. It stores everything memory keeps and answers questions about it.',
-  'memoryPage.engine.loadError': 'Could not load the memory engines',
+    'Memory runs on CortexDB. Choose how this app connects to it. One connection is active at a time.',
   'memoryPage.engine.offExplanation':
-    'No memory engine is usable right now, so nothing is stored or recalled. Sign in to use TinyHumans memory, or connect your own CortexDB with an endpoint and API key.',
+    'No memory connection is usable right now, so nothing is stored or recalled. Sign in to use built-in CortexDB, or connect CortexDB with your API key or on this computer.',
   'memoryPage.engine.statusDegraded': 'Memory is degraded',
   'memoryPage.engine.statusDown': 'Memory engine is unreachable',
   'memoryPage.engine.statusOff': 'Off',
   'memoryPage.engine.active': 'Active',
-  'memoryPage.engine.recommended': 'Recommended',
   'memoryPage.engine.use': 'Use',
-  'memoryPage.engine.edit': 'Edit',
-  'memoryPage.engine.signInRequired': 'Sign in required',
-  'memoryPage.engine.hostedDetail': 'Hosted by TinyHumans',
-  'memoryPage.engine.selfHostedDetail': 'Your own endpoint and API key',
-  'memoryPage.engine.connectTitle': 'Connect {engine}',
   'memoryPage.engine.connect': 'Connect',
   'memoryPage.engine.endpoint': 'Endpoint',
   'memoryPage.engine.apiKey': 'API key',
   'memoryPage.engine.keySavedPlaceholder': 'Saved. Enter a new key to replace it',
   'memoryPage.engine.keySavedHint': 'A key is already saved. Leave this empty to keep it.',
+  'memoryPage.engine.badgeDegraded': 'Degraded',
+  'memoryPage.engine.badgeDown': 'Unreachable',
+  'memoryPage.engine.connecting': 'Connecting…',
+  'memoryPage.engine.save': 'Save',
+  'memoryPage.engine.builtin.title': 'Built-in CortexDB',
+  'memoryPage.engine.builtin.detail': 'Included with your TinyHumans account',
+  'memoryPage.engine.builtin.signInRequired': 'Sign in to use',
+  'memoryPage.engine.builtin.description':
+    'CortexDB hosted by TinyHumans and included with your account. Sign in to use it; there is nothing to set up.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'New memories are saved right away. Facts and beliefs drawn from them fill in over the following minutes.',
+  'memoryPage.engine.builtin.signInHint':
+    'Sign in to your TinyHumans account to use built-in CortexDB.',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB with your API key',
+  'memoryPage.engine.apiKeyOption.description':
+    'Use your own CortexDB account. The key is stored securely on this computer, never in the config file.',
+  'memoryPage.engine.selfHost.title': 'Self-host CortexDB',
+  'memoryPage.engine.selfHost.detail': 'A CortexDB server on this computer',
+  'memoryPage.engine.selfHost.step1':
+    'Run a CortexDB server on this computer by following the guide:',
+  'memoryPage.engine.selfHost.docsLink': 'CortexDB self-hosting guide',
+  'memoryPage.engine.selfHost.step2':
+    'Start the server with an API key (CORTEX_API_KEY). The app connects with that key.',
+  'memoryPage.engine.selfHost.step3':
+    "Enter the server's local address and the key below, then connect.",
+  'memoryPage.engine.selfHost.notLocal':
+    'Self-hosting is local only. Use an address on this computer, such as http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Your question',
   'memoryPage.ask.queryLabel': 'Search query',
   'memoryPage.ask.placeholder': 'What did we decide about the launch plan?',
