@@ -56,8 +56,8 @@ use std::path::Path;
 /// installers and SDK locators probe them.
 ///
 /// Single source of truth: keep every launcher's allow-list a superset of this
-/// (enforced by `windows_bootstrap_vars_are_forwarded_everywhere`), and add a
-/// launcher to that test rather than inventing a sixth list.
+/// (enforced by the launcher unit tests), and add a launcher to those tests
+/// rather than inventing a sixth list.
 pub const WINDOWS_PROCESS_ENV_VARS: &[&str] = &[
     "SystemRoot",
     "WINDIR",
@@ -96,6 +96,7 @@ pub fn assert_forwards_windows_bootstrap(allowlist: &[&str], launcher: &str) {
 
 /// Add Windows bootstrap variables to a host child. Keep these out of the
 /// sandbox policy because that policy is also forwarded into Linux containers.
+#[cfg(windows)]
 pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) {
     for var in WINDOWS_PROCESS_ENV_VARS {
         if let Ok(val) = std::env::var(var) {
@@ -103,6 +104,21 @@ pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) {
         }
     }
 }
+
+#[cfg(not(windows))]
+pub fn forward_windows_bootstrap_env(_cmd: &mut tokio::process::Command) {}
+
+#[cfg(windows)]
+pub fn forward_windows_bootstrap_env_std(cmd: &mut std::process::Command) {
+    for var in WINDOWS_PROCESS_ENV_VARS {
+        if let Ok(val) = std::env::var(var) {
+            cmd.env(var, val);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub fn forward_windows_bootstrap_env_std(_cmd: &mut std::process::Command) {}
 
 /// Whether the Unix arm prefixes `set -o pipefail`.
 #[derive(Clone, Copy, PartialEq, Eq)]

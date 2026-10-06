@@ -25,11 +25,10 @@ use std::time::Duration;
 
 use openhuman_core::agent::harness::definition::SandboxMode;
 use openhuman_core::config::RuntimeConfig;
-use openhuman_core::sandbox::ops::{
-    execute_in_sandbox, resolve_sandbox_policy, SANDBOX_ENV_PASSTHROUGH,
-};
+use openhuman_core::sandbox::ops::{execute_in_sandbox, resolve_sandbox_policy};
 
 /// Run `command` through OpenHuman's sandbox execution path under `mode`.
+#[cfg(windows)]
 async fn run_in_sandbox(
     mode: SandboxMode,
     command: &str,
@@ -51,17 +50,6 @@ async fn run_in_sandbox(
     )
     .await
     .unwrap_or_else(|e| panic!("execute_in_sandbox({mode:?}) failed to run the command: {e}"))
-}
-
-/// Every allow-list that clears the child environment must cover the Windows
-/// bootstrap set. Runs on every OS: the list is platform-independent by design,
-/// and on Unix the extra names simply never resolve in the parent environment.
-#[test]
-fn sandbox_allowlist_covers_windows_bootstrap() {
-    openhuman_core::agent::platform_shell::assert_forwards_windows_bootstrap(
-        SANDBOX_ENV_PASSTHROUGH,
-        "sandbox::ops::SANDBOX_ENV_PASSTHROUGH",
-    );
 }
 
 #[cfg(windows)]
@@ -172,14 +160,14 @@ async fn node_crypto_runs_through_sandbox_path() {
 #[cfg(windows)]
 #[tokio::test]
 async fn powershell_runs_through_sandbox_path() {
-    if !tool_available("powershell") {
-        eprintln!("skipping powershell_runs_through_sandbox_path: `powershell` is not on PATH");
+    if !tool_available("powershell.exe") {
+        eprintln!("skipping powershell_runs_through_sandbox_path: `powershell.exe` is not on PATH");
         return;
     }
 
     let result = run_in_sandbox(
         SandboxMode::None,
-        "powershell -NoProfile -Command [guid]::NewGuid().ToString()",
+        "powershell.exe -NoProfile -Command [guid]::NewGuid().ToString()",
     )
     .await;
 
@@ -210,7 +198,7 @@ async fn powershell_runs_through_sandbox_path() {
 
 #[cfg(windows)]
 fn tool_available(program: &str) -> bool {
-    let args = if program.eq_ignore_ascii_case("powershell") {
+    let args = if program.eq_ignore_ascii_case("powershell.exe") {
         vec![
             "-NoProfile",
             "-NonInteractive",

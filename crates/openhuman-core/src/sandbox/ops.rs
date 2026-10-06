@@ -29,14 +29,8 @@ use std::time::Duration;
 /// `npm_exec`, `python_exec`) each carry their own copy of the allow-list and
 /// had already been patched: the built-in `orchestrator` runs with
 /// `sandbox_mode = "sandboxed"`, and all four tools divert to
-/// [`crate::sandbox`] *before* reaching those lists, so this was the only list
-/// that mattered for the main agent. Keep it a superset of
-/// [`crate::agent::platform_shell::WINDOWS_PROCESS_ENV_VARS`] —
-/// `sandbox_env_forwards_windows_bootstrap_vars` and
-/// `tests/windows_sandbox_env_e2e.rs` enforce that.
-///
-/// On Linux and macOS these names simply do not resolve in the parent
-/// environment, so forwarding them is a no-op there.
+/// [`crate::sandbox`] *before* reaching those lists, so the host spawn paths
+/// below are the ones that must add the Windows-only bootstrap set.
 pub const SANDBOX_ENV_PASSTHROUGH: &[&str] = &[
     "PATH", "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
 ];
@@ -411,7 +405,7 @@ async fn execute_local_jail(
             cmd.env(var, val);
         }
     }
-    platform_shell::forward_windows_bootstrap_env(&mut cmd);
+    platform_shell::forward_windows_bootstrap_env_std(&mut cmd);
     cmd.env("TMPDIR", &scratch.path);
     for (k, v) in extra_env {
         cmd.env(k, v);
