@@ -62,7 +62,24 @@ interface FakeOptions {
   importFound?: boolean;
   /** An earlier import stopped with this error (e.g. credits ran out) after 7 of 20 items. */
   importStoppedWith?: string;
+  /**
+   * Methods (without `openhuman.`) answered with a JSON-RPC error instead,
+   * shaped like the core's memory error (`data.code` / `data.kind`).
+   */
+  failWith?: Record<string, RpcFailure>;
 }
+
+interface RpcFailure {
+  code: string;
+  message: string;
+}
+
+/** The core's refusal for an exhausted credit balance (memory/error.rs). */
+const OUT_OF_CREDITS: RpcFailure = {
+  code: 'INSUFFICIENT_CREDITS',
+  message:
+    'insufficient credits: [USER_INSUFFICIENT_CREDITS] memory API recall: the account has insufficient credits (HTTP 402)',
+};
 
 interface RpcCall {
   method: string;
@@ -304,6 +321,24 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
     }
     const method = full.slice('openhuman.'.length);
     const params = body.params ?? {};
+    const failure = opts.failWith?.[method];
+    if (failure) {
+      calls.push({ method, params });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: body.id,
+          error: {
+            code: -32000,
+            message: failure.message,
+            data: { code: failure.code, kind: failure.code },
+          },
+        }),
+      });
+      return;
+    }
     const result = handle(method, params);
     if (result === undefined) {
       // Not part of the v2 surface: let the real core answer it.
@@ -640,5 +675,57 @@ test.describe('Memory v2 — Engine tab connect flows', () => {
     await expect(page.getByTestId('memory-engine-builtin-sign-in')).toBeVisible();
     await expect(page.getByTestId('memory-engine-builtin-use')).toBeDisabled();
     expect(fake.paramsOf('memory_engine_set')).toEqual([]);
+  });
+});
+
+test.describe('Memory v2 — out of credits', () => {
+  test('a recall out of credits prompts a top-up that lands on billing', async ({ page }) => {
+    const fake = await installMemoryFake(page, {
+      engineOn: true,
+      failWith: { memory_recall: OUT_OF_CREDITS },
+    });
+    await bootAuthenticatedPage(page, 'pw-memory-v2-credits-ask');
+    await openMemory(page);
+
+    await page.getByTestId('brain-tab-ask').click();
+    await page.getByTestId('memory-ask-input').fill('When does Atlas migrate?');
+    await page.getByTestId('memory-ask-submit').click();
+
+    // A prompt, not an error: warning variant, the top-up explanation, no raw 402.
+    const prompt = page.getByTestId('memory-ask-error');
+    await expect(prompt).toHaveAttribute('data-kind', 'out-of-credits', { timeout: 20_000 });
+    await expect(prompt).toHaveAttribute('data-variant', 'warning');
+    await expect(prompt).toContainText('Out of credits');
+    await expect(prompt).toContainText('nothing stored has been lost');
+    await expect(prompt).not.toContainText('HTTP 402');
+    expect(fake.paramsOf('memory_recall')).toEqual([{ question: 'When does Atlas migrate?' }]);
+
+    // Top up goes to the billing page.
+    await page.getByTestId('memory-top-up').click();
+    await expect.poll(() => hash(page)).toContain('#/settings/account');
+  });
+
+  test('the Explorer keeps Try again beside Top up', async ({ page }) => {
+    const fake = await installMemoryFake(page, {
+      engineOn: true,
+      failWith: { memory_explore: OUT_OF_CREDITS },
+    });
+    await bootAuthenticatedPage(page, 'pw-memory-v2-credits-explorer');
+    await openMemory(page, '&brain=explorer');
+
+    const prompt = page.getByTestId('memory-explorer-error');
+    await expect(prompt).toHaveAttribute('data-kind', 'out-of-credits', { timeout: 20_000 });
+    await expect(prompt.getByTestId('memory-top-up')).toBeVisible();
+    const retry = prompt.getByRole('button', { name: 'Try again' });
+    await expect(retry).toBeVisible();
+
+    // Try again re-runs the load (it fails again here: still out of credits).
+    const before = fake.paramsOf('memory_explore').length;
+    await retry.click();
+    await expect.poll(() => fake.paramsOf('memory_explore').length).toBeGreaterThan(before);
+    await expect(page.getByTestId('memory-explorer-error')).toHaveAttribute(
+      'data-kind',
+      'out-of-credits'
+    );
   });
 });
