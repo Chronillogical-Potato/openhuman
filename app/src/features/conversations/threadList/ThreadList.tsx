@@ -239,7 +239,7 @@ export function ThreadList({
           `pb-2` makes the 8px gap below the button match the chat separator's
           8px lower margin above it, so the action is optically centred between
           the primary navigation and the first conversation. */}
-      <div className="flex-none overflow-hidden px-2 pb-2 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
+      <div className="flex flex-none flex-col gap-1.5 overflow-hidden px-2 pb-2 [scrollbar-gutter:stable_both-edges] [scrollbar-width:thin]">
         {/* "New conversation" as a row, not a header icon. It is the same
           affordance as a thread row — pick a conversation to work in — so it
           takes the same shape: `h-8` pill, same radius, same hover fill, same
@@ -299,6 +299,56 @@ export function ThreadList({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
         </button>
+        {/* Title filter. Same pill geometry as the rows so it sits in their
+            column; a bare input with no border until focus, because at rest it
+            is the least important control here. Escape clears it — the one
+            keystroke anyone tries first to get the full list back. Filtering
+            is title-only: message search is the command palette's job. */}
+        <div className="relative flex h-8 items-center">
+          <svg
+            className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-content-faint"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z"
+            />
+          </svg>
+          <input
+            type="search"
+            data-testid="thread-search-input"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape' && query) {
+                e.preventDefault();
+                e.stopPropagation();
+                setQuery('');
+              }
+            }}
+            placeholder={t('chat.sidebar.searchPlaceholder')}
+            aria-label={t('chat.sidebar.searchPlaceholder')}
+            className="h-8 w-full rounded-md border border-transparent bg-surface/40 pl-8 pr-7 text-[13px] text-content placeholder:text-content-faint outline-hidden transition-colors focus:border-content-faint/35 dark:bg-surface/60 [&::-webkit-search-cancel-button]:hidden"
+          />
+          {query && (
+            <button
+              type="button"
+              data-testid="thread-search-clear"
+              data-analytics-id="chat-sidebar-clear-search"
+              onClick={() => setQuery('')}
+              aria-label={t('chat.sidebar.clearSearch')}
+              title={t('chat.sidebar.clearSearch')}
+              className="absolute right-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-content-secondary">
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       {/* Rows carry no padding gutter of their own — a thread pill spans the
           full width the scroll container gives it, so its hover/selected fill
