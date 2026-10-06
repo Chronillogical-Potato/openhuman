@@ -51,10 +51,10 @@ export default function MemoryBrainTab() {
       setError(null);
     } catch (err) {
       log('brain_sources failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setBrain(prev => prev ?? { root: '', sources: [], unfiled: 0 });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,13 +67,13 @@ export default function MemoryBrainTab() {
       .catch(err => {
         if (cancelled) return;
         log('brain_sources failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
         setBrain({ root: '', sources: [], unfiled: 0 });
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const ingest = async (req: BrainIngestRequest): Promise<boolean> => {
     setSaving(true);
@@ -91,7 +91,7 @@ export default function MemoryBrainTab() {
       return true;
     } catch (err) {
       log('brain_ingest failed: %o', err);
-      setAddError(memoryErrorMessage(err));
+      setAddError(memoryErrorMessage(err, t));
       return false;
     } finally {
       setSaving(false);
@@ -117,7 +117,7 @@ export default function MemoryBrainTab() {
       await reload();
     } catch (err) {
       log('brain_forget failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setForgetTarget(null);
     } finally {
       setSaving(false);

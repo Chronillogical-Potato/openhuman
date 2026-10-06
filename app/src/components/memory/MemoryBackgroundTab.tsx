@@ -44,12 +44,12 @@ export default function MemoryBackgroundTab() {
       setError(null);
     } catch (err) {
       log('jobs_list failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setJobs(prev => prev ?? { pending: [], history: [] });
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,13 +60,13 @@ export default function MemoryBackgroundTab() {
       .catch(err => {
         if (cancelled) return;
         log('jobs_list failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
         setJobs({ pending: [], history: [] });
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const run = async (id?: string) => {
     const key = id ?? '*';
@@ -80,7 +80,7 @@ export default function MemoryBackgroundTab() {
       await reload();
     } catch (err) {
       log('jobs_run failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setRunning(prev => {
         const next = new Set(prev);

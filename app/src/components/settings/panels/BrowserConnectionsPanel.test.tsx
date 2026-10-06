@@ -64,7 +64,7 @@ describe('BrowserConnectionsPanel', () => {
       )
     );
     await waitFor(() => expect(screen.getByText('connections.browser.testBrowser')).toBeEnabled());
-    mocks.rpc.mockResolvedValueOnce({ result: { module_ready: true, chrome_ready: true } });
+    mocks.rpc.mockResolvedValueOnce({ module_ready: true, chrome_ready: true });
     fireEvent.click(screen.getByText('connections.browser.testBrowser'));
     await waitFor(() =>
       expect(mocks.rpc).toHaveBeenCalledWith({
@@ -131,10 +131,58 @@ describe('BrowserConnectionsPanel', () => {
     );
   });
 
+  it('sends only the accepted fields when the config carries legacy browser keys', async () => {
+    mocks.getConfig.mockResolvedValue({
+      result: {
+        config: {
+          browser: {
+            enabled: false,
+            headless: true,
+            viewport_width: 1280,
+            viewport_height: 800,
+            profile_mode: 'fresh',
+            max_task_steps: 20,
+            task_timeout_secs: 120,
+            chrome_path: null,
+            allowed_domains: [],
+            session_name: null,
+            backend: 'auto',
+            native_headless: true,
+            native_webdriver_url: 'http://127.0.0.1:9515',
+            native_chrome_path: null,
+            computer_use: { endpoint: 'http://127.0.0.1:8787/v1/actions', timeout_ms: 15000 },
+          },
+          http_request: { allowed_domains: ['selenium.dev'] },
+        },
+      },
+    });
+    renderWithProviders(<BrowserConnectionsPanel />);
+    await screen.findByText('selenium.dev');
+    fireEvent.click(screen.getByLabelText('connections.browser.enabled'));
+    fireEvent.click(screen.getByText('connections.browser.save'));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1));
+    const sent = mocks.update.mock.calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(sent).sort()).toEqual(
+      [
+        'chrome_path',
+        'download_dir',
+        'enabled',
+        'headless',
+        'max_task_steps',
+        'profile_mode',
+        'profile_path',
+        'task_timeout_secs',
+        'viewport_height',
+        'viewport_width',
+      ].sort()
+    );
+    expect(sent).toMatchObject({ enabled: true, viewport_height: 800 });
+  });
+
   it('checks Chrome by opening and closing a core browser session', async () => {
     renderWithProviders(<BrowserConnectionsPanel />);
     await screen.findByText('selenium.dev');
-    mocks.rpc.mockResolvedValueOnce({ result: { module_ready: true, chrome_ready: true } });
+    mocks.rpc.mockResolvedValueOnce({ module_ready: true, chrome_ready: true, error: null });
     fireEvent.click(screen.getByText('connections.browser.testBrowser'));
     await waitFor(() =>
       expect(mocks.rpc).toHaveBeenCalledWith({
@@ -148,7 +196,9 @@ describe('BrowserConnectionsPanel', () => {
     renderWithProviders(<BrowserConnectionsPanel />);
     await screen.findByText('selenium.dev');
     mocks.rpc.mockResolvedValueOnce({
-      result: { module_ready: true, chrome_ready: false, error: 'Chrome unavailable' },
+      module_ready: true,
+      chrome_ready: false,
+      error: 'Chrome unavailable',
     });
     fireEvent.click(screen.getByText('connections.browser.testBrowser'));
     expect(await screen.findByText('connections.browser.chromeNotReady')).toBeInTheDocument();

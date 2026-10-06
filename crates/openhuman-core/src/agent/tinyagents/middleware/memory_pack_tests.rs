@@ -27,6 +27,7 @@ fn pack() -> TurnPack {
         refs: vec!["id-1".into()],
         engine: "reference".into(),
         citations: Vec::new(),
+        refusal: None,
     }
 }
 

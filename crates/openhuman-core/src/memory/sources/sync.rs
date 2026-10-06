@@ -124,7 +124,9 @@ pub(crate) async fn store_all(
                 stored += 1;
                 touched.insert(brain_source);
             }
-            Err(error @ (MemoryError::Unauthorized(_) | MemoryError::Off(_))) => return Err(error),
+            // Out of credits or unreachable refuses every item, so stop
+            // rather than fail each one in turn.
+            Err(error) if error.is_account_wide() => return Err(error),
             Err(error) => {
                 tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
                 last_error = Some(error);

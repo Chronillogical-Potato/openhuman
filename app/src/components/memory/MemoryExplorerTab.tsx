@@ -72,12 +72,12 @@ export default function MemoryExplorerTab() {
       .catch(err => {
         if (cancelled) return;
         log('explore failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
       });
     return () => {
       cancelled = true;
     };
-  }, [facet, path, reloadKey]);
+  }, [facet, path, reloadKey, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,13 +90,13 @@ export default function MemoryExplorerTab() {
       .catch(err => {
         if (cancelled) return;
         log('list failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
         setItems([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [path, reloadKey]);
+  }, [path, reloadKey, t]);
 
   const goTo = useCallback((next: PathStep[]) => {
     setError(null);
@@ -114,7 +114,7 @@ export default function MemoryExplorerTab() {
       setItems(prev => [...(prev ?? []), ...(next.items ?? [])]);
       setCursor(next.next_cursor ?? null);
     } catch (err) {
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setLoadingMore(false);
     }
