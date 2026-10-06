@@ -44,7 +44,8 @@ describe('TodoProgressCard', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(toggle).toHaveTextContent('Write the code');
     expect(screen.getByTestId('todo-progress-count')).toHaveTextContent('2/3');
-    expect(screen.queryByText('Ship it')).toBeNull();
+    // The steps stay mounted but hidden, so they take no space and are not visible.
+    expect(screen.getByText('Ship it')).not.toBeVisible();
   });
 
   it('expanded shows the count label and every step', () => {
