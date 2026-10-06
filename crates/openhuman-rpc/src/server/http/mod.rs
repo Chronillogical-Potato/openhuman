@@ -16,6 +16,7 @@ use openhuman_core::core::types::AppState;
 
 pub(crate) mod cors;
 mod dictation;
+mod live_voice;
 mod events;
 mod health;
 mod oauth_mcp;
@@ -65,6 +66,7 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
             post(rpc_handler::rpc_handler).route_layer(DefaultBodyLimit::max(MAX_RPC_BODY_BYTES)),
         )
         .route("/ws/dictation", get(dictation::dictation_ws_handler))
+        .route("/ws/live-voice", get(live_voice::live_voice_ws_handler))
         .route(
             "/oauth/mcp/callback",
             get(oauth_mcp::oauth_mcp_callback_handler),

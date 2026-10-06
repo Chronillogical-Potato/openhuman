@@ -21,7 +21,7 @@ import {
   RiveMascot,
 } from './Mascot';
 import { useMascotManifest } from './Mascot/manifest/useMascotManifest';
-import LiveVoiceControls from './LiveVoiceControls';
+import LiveVoiceControls, { type LiveVoicePhase } from './LiveVoiceControls';
 import { useHumanMascot } from './useHumanMascot';
 import { IDLE_REALTIME_VOICE_AUDIO, type RealtimeVoiceAudio } from './voice/amplitudeLipsync';
 import { useAmplitudeLipsync } from './voice/useAmplitudeLipsync';
@@ -37,7 +37,13 @@ const HumanPage = () => {
   // same setting — and would silently drop whatever the user had chosen before.
   const speakReplies = useAppSelector(selectSpeakReplies);
 
-  const { face, visemeCode } = useHumanMascot({ speakReplies });
+  // While a live voice session runs it owns the audio: the transcript turns it
+  // persists into the thread must not also be read out by speak-replies TTS.
+  const [livePhase, setLivePhase] = useState<LiveVoicePhase>('off');
+  const { face, visemeCode } = useHumanMascot({
+    speakReplies: speakReplies && livePhase === 'off',
+    listening: livePhase === 'listening',
+  });
 
   // Lip-sync for the live voice session. The session lives inside
   // LiveVoiceControls, so it publishes its output-loudness accessor into this
@@ -150,6 +156,7 @@ const HumanPage = () => {
             threadId={selectedThreadId}
             audioRef={realtimeAudioRef}
             onSpeakingChange={setRealtimeSpeaking}
+            onPhaseChange={setLivePhase}
           />
         </div>
       )}

@@ -94,7 +94,7 @@ pub(super) fn authorize_dictation_request(
 }
 
 #[derive(Clone, Copy, Debug)]
-enum DictationAuthError {
+pub(super) enum DictationAuthError {
     Forbidden,
     Unauthorized,
 }
