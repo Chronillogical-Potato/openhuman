@@ -29,6 +29,7 @@ import {
   canUseManaged,
   directNeedsSetup,
   hasBaseUrl,
+  isStrandedManaged,
   rolesSummary,
   SearchProviderSwatch,
   STATUS_VARIANT,
@@ -76,8 +77,14 @@ const SearchPanelProviders = ({
   t,
 }: Props) => {
   const [dialog, setDialog] = useState<DialogState | null>(null);
-  const connected = settings.providers.filter(p => p.enabled);
-  const available = settings.providers.filter(p => !p.enabled);
+  // A provider enabled only over the managed route is not connected when this
+  // session has no account behind that route — see `isStrandedManaged`.
+  const connected = settings.providers.filter(
+    p => p.enabled && !isStrandedManaged(p, managedUnavailable)
+  );
+  const available = settings.providers.filter(
+    p => !p.enabled || isStrandedManaged(p, managedUnavailable)
+  );
   const viaTinyHumans = available.filter(p => canUseManaged(p, managedUnavailable));
   const ownKey = available.filter(p => !canUseManaged(p, managedUnavailable));
   const dialogProvider = dialog ? settings.providers.find(p => p.id === dialog.id) : undefined;

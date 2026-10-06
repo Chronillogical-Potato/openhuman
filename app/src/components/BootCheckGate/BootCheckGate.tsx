@@ -37,7 +37,6 @@ import {
 } from '../../utils/configPersistence';
 import { isTauri } from '../../utils/tauriCommands/common';
 import AppBackground from '../AppBackground';
-import LanguageSelect from '../LanguageSelect';
 import Button from '../ui/Button';
 
 const log = debug('boot-check');
@@ -92,15 +91,6 @@ function Panel({ children }: PanelProps) {
       <div className="relative z-10 w-full max-w-xl rounded-2xl border border-line bg-surface p-6 shadow-soft animate-fade-up">
         {children}
       </div>
-    </div>
-  );
-}
-
-function BootCheckLanguageSelect() {
-  const { t } = useT();
-  return (
-    <div className="absolute right-5 top-5">
-      <LanguageSelect id="boot-check-language" ariaLabel={t('settings.language')} />
     </div>
   );
 }
@@ -242,7 +232,6 @@ function ModePicker({ onConfirm }: PickerProps) {
           picker by its heading text, so renaming the copy made the wait pass
           vacuously for every spec. */}
       <div data-testid="boot-check-picker" hidden />
-      <BootCheckLanguageSelect />
       <h2 className="text-xl font-semibold text-content">
         {isDesktop ? t('bootCheck.chooseCoreMode') : t('bootCheck.connectToCore')}
       </h2>
