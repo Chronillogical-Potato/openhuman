@@ -23,6 +23,15 @@ const sha = (path) =>
 const run = (...args) =>
   spawnSync("bash", [SCRIPT, ...args], { encoding: "utf8" });
 
+/** The first architecture of a universal (fat) Mach-O, or the file if thin. */
+function firstSlice(bytes) {
+  if (bytes.readUInt32BE(0) !== 0xcafebabe) return bytes; // fat_header magic
+  // fat_arch[0]: cputype, cpusubtype, offset, size, align (big-endian u32s).
+  const offset = bytes.readUInt32BE(8 + 8);
+  const size = bytes.readUInt32BE(8 + 12);
+  return bytes.subarray(offset, offset + size);
+}
+
 /** An app whose bundle holds one module in the macOS layout: library, allowlist, marker. */
 function stagedApp() {
   const app = join(
@@ -34,13 +43,9 @@ function stagedApp() {
   mkdirSync(dir, { recursive: true });
   const library = join(dir, "libdemo.dylib");
   // Any thin Mach-O will do. Thinning matters: in a universal binary the bytes
-  // between slices are padding no signature hashes.
-  const arch = spawnSync("lipo", ["-archs", "/usr/bin/true"], {
-    encoding: "utf8",
-  })
-    .stdout.trim()
-    .split(/\s+/)[0];
-  spawnSync("lipo", ["/usr/bin/true", "-thin", arch, "-output", library]);
+  // between slices are padding no signature hashes. The first slice is cut out
+  // here rather than with `lipo`, which needs the Xcode command-line tools.
+  writeFileSync(library, firstSlice(readFileSync("/usr/bin/true")));
   writeFileSync(
     join(dir, "modules.toml"),
     `"libdemo.dylib" = "${sha(library)}"\n`,
