@@ -76,7 +76,7 @@ pub(super) fn thread_to_summary(thread: ConversationThread) -> ConversationThrea
         parent_thread_id: thread.parent_thread_id,
         labels: thread.labels,
         personality_id: thread.personality_id,
-        working_dir: None,
+        action_dir: thread.working_dir,
     }
 }
 
