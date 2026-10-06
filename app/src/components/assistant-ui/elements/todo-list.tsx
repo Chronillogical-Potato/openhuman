@@ -70,6 +70,8 @@ export function TodoItems({ items }: { items: readonly TodoItem[] }) {
       {items.map(item => (
         <li
           key={item.id}
+          data-testid="todo-item"
+          data-status={item.status}
           className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex items-start gap-2.5 py-0.5 text-[13.5px] duration-300">
           <span aria-hidden className="flex size-4 h-5 shrink-0 items-center justify-center">
             {item.status === 'done' ? (
@@ -186,6 +188,8 @@ export function TodoProgressCard({
     <div
       data-slot="todo-progress-card"
       data-open={open ? 'true' : 'false'}
+      data-todo-completed={progress.done}
+      data-todo-total={progress.total}
       className={cn(
         'border-border/60 bg-background/60 flex w-full max-w-md flex-col overflow-hidden rounded-xl border',
         className
