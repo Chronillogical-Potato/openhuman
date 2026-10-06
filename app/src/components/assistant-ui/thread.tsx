@@ -12,6 +12,7 @@ import { EditMessage } from '@/components/assistant-ui/elements/edit-message';
 import { ErrorState } from '@/components/assistant-ui/elements/error-state';
 import { Image } from '@/components/assistant-ui/elements/image';
 import { MessageTiming } from '@/components/assistant-ui/elements/message-timing.aui';
+import { fullTimestamp, relativeTime } from '@/utils/relativeTime';
 import { StoppedRun } from '@/components/assistant-ui/elements/stopped-run';
 import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
 import { File } from '@/components/assistant-ui/file';
@@ -1794,7 +1795,40 @@ const AssistantActionBar: FC = () => {
        * that element's own docstring for why it belongs inside this root.
        */}
       <MessageTiming />
+      <MessageTimestamp />
     </ActionBarPrimitive.Root>
+  );
+};
+
+/**
+ * Muted relative send time beside the message actions ("5m ago"), with the
+ * full local date, time and zone in its tooltip. The action bar mounts on
+ * hover (and for the last message), so "now" is taken when it mounts rather
+ * than ticking on every message in a long transcript.
+ */
+const MessageTimestamp: FC = () => {
+  const { t, locale } = useT();
+  const createdAt = useAuiState(s => s.message.createdAt);
+  const [now] = useState(() => new Date());
+  if (!(createdAt instanceof Date)) return null;
+  const relative = relativeTime(createdAt, now, locale);
+  if (!relative) return null;
+  const label =
+    relative.kind === 'justNow'
+      ? t('chat.message.justNow')
+      : relative.kind === 'minutes'
+        ? t('chat.message.minutesAgo').replace('{count}', String(relative.count))
+        : relative.kind === 'hours'
+          ? t('chat.message.hoursAgo').replace('{count}', String(relative.count))
+          : relative.label;
+  return (
+    <time
+      data-testid="message-timestamp"
+      dateTime={createdAt.toISOString()}
+      title={fullTimestamp(createdAt, locale)}
+      className="text-muted-foreground/80 ms-1 self-center text-xs tabular-nums">
+      {label}
+    </time>
   );
 };
 
