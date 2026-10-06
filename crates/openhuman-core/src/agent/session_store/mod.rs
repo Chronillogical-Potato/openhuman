@@ -93,6 +93,17 @@ pub fn for_agent(agent_id: &str) -> Option<AgentStores> {
     installed().map(|provider| provider.for_agent(agent_id))
 }
 
+/// `agent_id`'s transcripts from the store in effect, or `None` when the core
+/// keeps them as workspace files.
+#[must_use]
+pub fn transcripts_for(
+    agent_id: &str,
+) -> Option<Arc<dyn tinyagents_session::transcript::TranscriptLocator>> {
+    let stores = for_agent(agent_id)?;
+    log::debug!("[session_store] transcripts via the host store agent={agent_id}");
+    Some(stores.transcripts)
+}
+
 /// The stores of the agent the current [`CoreContext`] works for — the one
 /// it was derived for ([`CoreContext::session_agent`]), else
 /// [`DEFAULT_AGENT`] — or `None` when the core keeps the on-disk layout.

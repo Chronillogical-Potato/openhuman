@@ -738,9 +738,7 @@ impl OpenHumanTurnPrelude {
         if !crate::agent::session_import::live::dual_write_enabled(self.config.session_dual_write) {
             return;
         }
-        // The dual write mirrors transcript *files* into the session store; a
-        // host store that is not file-backed is already the only record, and
-        // there is no file to read.
+        // A host store that is not file-backed is the only record: no file to mirror.
         if crate::agent::session_store::replaces_files() {
             return;
         }
@@ -1447,20 +1445,12 @@ impl OpenHumanSessionHost {
         }
         self.session_history_locator_memo
             .get_or_init(|| {
-                // A host session store owns this agent's transcripts; the
-                // workspace files are only the fallback when none is installed.
-                if let Some(stores) =
-                    crate::agent::session_store::for_agent(&self.agent_definition_id)
-                {
-                    log::debug!(
-                        "[session-store] transcripts via host store agent={}",
-                        self.agent_definition_id
-                    );
-                    return stores.transcripts;
-                }
-                Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
-                    self.workspace_dir.clone(),
-                ))
+                crate::agent::session_store::transcripts_for(&self.agent_definition_id)
+                    .unwrap_or_else(|| {
+                        Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
+                            self.workspace_dir.clone(),
+                        ))
+                    })
             })
             .clone()
     }

@@ -41,3 +41,15 @@ async fn only_a_store_without_files_replaces_them() {
     let memory: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
     assert!(scope(memory, async { replaces_files() }).await);
 }
+
+#[tokio::test]
+async fn transcripts_come_from_the_store_only_when_one_is_in_effect() {
+    assert!(transcripts_for("u1").is_none());
+    let provider: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
+    let expected = provider.for_agent("u1").transcripts.destination_key();
+    let found = scope(provider, async {
+        transcripts_for("u1").map(|locator| locator.destination_key())
+    })
+    .await;
+    assert_eq!(found, Some(expected));
+}
