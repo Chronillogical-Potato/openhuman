@@ -5090,25 +5090,18 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'Link',
   'memoryPage.off.title': 'Gedächtnis ist aus',
   'memoryPage.off.description':
-    'Wähle eine Gedächtnis-Engine, damit sich dein Agent Dinge merken kann. Melde dich an, um das TinyHumans-Gedächtnis zu nutzen, oder verbinde deine eigene CortexDB.',
+    'Verbinde CortexDB, um mit dem Erinnern zu beginnen. Melde dich an, um das integrierte CortexDB zu nutzen, oder verbinde dich mit deinem eigenen API-Schlüssel oder einem Server auf diesem Computer.',
   'memoryPage.off.action': 'Engine auswählen',
-  'memoryPage.engine.listTitle': 'Gedächtnis-Engines',
+  'memoryPage.engine.listTitle': 'CortexDB-Gedächtnis',
   'memoryPage.engine.listDescription':
-    'Es ist immer nur eine Engine aktiv. Sie speichert alles, was das Gedächtnis behält, und beantwortet Fragen dazu.',
-  'memoryPage.engine.loadError': 'Die Gedächtnis-Engines konnten nicht geladen werden',
+    'Das Gedächtnis läuft auf CortexDB. Wähle, wie sich diese App damit verbindet. Es ist immer nur eine Verbindung aktiv.',
   'memoryPage.engine.offExplanation':
-    'Zurzeit ist keine Gedächtnis-Engine verfügbar, daher wird nichts gespeichert oder abgerufen. Melde dich an, um das TinyHumans-Gedächtnis zu nutzen, oder verbinde deine eigene CortexDB mit einem Endpunkt und einem API-Schlüssel.',
+    'Gerade ist keine Gedächtnisverbindung nutzbar, daher wird nichts gespeichert oder abgerufen. Melde dich an, um das integrierte CortexDB zu nutzen, oder verbinde CortexDB mit deinem API-Schlüssel oder auf diesem Computer.',
   'memoryPage.engine.statusDegraded': 'Gedächtnis ist eingeschränkt',
   'memoryPage.engine.statusDown': 'Gedächtnis-Engine ist nicht erreichbar',
   'memoryPage.engine.statusOff': 'Aus',
   'memoryPage.engine.active': 'Aktiv',
-  'memoryPage.engine.recommended': 'Empfohlen',
   'memoryPage.engine.use': 'Verwenden',
-  'memoryPage.engine.edit': 'Bearbeiten',
-  'memoryPage.engine.signInRequired': 'Anmeldung erforderlich',
-  'memoryPage.engine.hostedDetail': 'Gehostet von TinyHumans',
-  'memoryPage.engine.selfHostedDetail': 'Dein eigener Endpunkt und API-Schlüssel',
-  'memoryPage.engine.connectTitle': '{engine} verbinden',
   'memoryPage.engine.connect': 'Verbinden',
   'memoryPage.engine.endpoint': 'Endpunkt',
   'memoryPage.engine.apiKey': 'API-Schlüssel',
@@ -5116,6 +5109,31 @@ const messages: TranslationMap = {
     'Gespeichert. Gib einen neuen Schlüssel ein, um ihn zu ersetzen',
   'memoryPage.engine.keySavedHint':
     'Ein Schlüssel ist bereits gespeichert. Lass das Feld leer, um ihn zu behalten.',
+  'memoryPage.engine.badgeDegraded': 'Eingeschränkt',
+  'memoryPage.engine.badgeDown': 'Nicht erreichbar',
+  'memoryPage.engine.connecting': 'Verbinde…',
+  'memoryPage.engine.save': 'Speichern',
+  'memoryPage.engine.builtin.title': 'Integriertes CortexDB',
+  'memoryPage.engine.builtin.detail': 'In deinem TinyHumans-Konto enthalten',
+  'memoryPage.engine.builtin.signInRequired': 'Zum Nutzen anmelden',
+  'memoryPage.engine.builtin.description':
+    'CortexDB, für dich von TinyHumans gehostet. Es gibt nichts einzurichten: Es nutzt deine Anmeldung.',
+  'memoryPage.engine.builtin.signInHint':
+    'Melde dich bei deinem TinyHumans-Konto an, um das integrierte CortexDB zu nutzen.',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB mit deinem API-Schlüssel',
+  'memoryPage.engine.apiKeyOption.description':
+    'Nutze dein eigenes CortexDB-Konto. Der Schlüssel wird im Schlüsselbund dieses Computers gespeichert.',
+  'memoryPage.engine.selfHost.title': 'CortexDB selbst hosten',
+  'memoryPage.engine.selfHost.detail': 'Ein CortexDB-Server auf diesem Computer',
+  'memoryPage.engine.selfHost.step1':
+    'Starte einen CortexDB-Server auf diesem Computer anhand der Anleitung:',
+  'memoryPage.engine.selfHost.docsLink': 'CortexDB-Anleitung zum Selbsthosten',
+  'memoryPage.engine.selfHost.step2':
+    'Starte den Server mit einem API-Schlüssel (CORTEX_API_KEY). Die App verbindet sich mit diesem Schlüssel.',
+  'memoryPage.engine.selfHost.step3':
+    'Gib unten die lokale Adresse des Servers und den Schlüssel ein und verbinde dich dann.',
+  'memoryPage.engine.selfHost.notLocal':
+    'Selbsthosten ist nur lokal möglich. Verwende eine Adresse auf diesem Computer, z. B. http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Deine Frage',
   'memoryPage.ask.queryLabel': 'Suchanfrage',
   'memoryPage.ask.placeholder': 'Was haben wir zum Launch-Plan entschieden?',

@@ -342,13 +342,14 @@ test.describe('Memory v2 — engine active', () => {
     });
     await expect(page.getByTestId('memory-ask-tab')).toBeVisible();
 
-    // Engine chip lists both engines from memory_engines_list.
+    // Engine chip: the three CortexDB options, Built-in (tinyhumans) active.
     await page.getByTestId('brain-tab-engine').click();
     await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engines')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-tinyhumans')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-cortexdb')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-tinyhumans-active')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-builtin')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-apikey')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-selfhost')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-builtin-active')).toBeVisible();
 
     // 2. Ask: the recall answer and its citation render.
     await page.getByTestId('brain-tab-ask').click();
