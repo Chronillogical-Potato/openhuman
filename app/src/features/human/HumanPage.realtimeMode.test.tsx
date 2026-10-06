@@ -4,9 +4,8 @@
  * one the classic push-to-talk mic used to own — and which of the two renders is
  * decided by two build flags. This pins the wiring from those flags through to
  * the props HumanPage hands Conversations; the controls themselves and the
- * precedence rule are covered separately (RealtimeVoiceControls.test.tsx,
- * voiceEntry.test.ts). RealtimeVoiceControls is stubbed so the ElevenLabs SDK
- * never loads.
+ * precedence rule are covered separately (LiveVoiceControls.test.tsx,
+ * voiceEntry.test.ts). LiveVoiceControls is stubbed so no socket or mic opens.
  */
 import { configureStore } from '@reduxjs/toolkit';
 import { render, screen } from '@testing-library/react';
@@ -36,8 +35,8 @@ vi.mock('../../utils/config', async importOriginal => {
   };
 });
 
-vi.mock('./RealtimeVoiceControls', () => ({
-  default: () => <div data-testid="realtime-voice-controls-stub" />,
+vi.mock('./LiveVoiceControls', () => ({
+  default: () => <div data-testid="live-voice-controls-stub" />,
 }));
 
 // Render the slot props so the test observes what the card would actually show,
@@ -96,7 +95,7 @@ describe('HumanPage — voice entry point', () => {
 
   it('shows the realtime control in place of the mic composer by default', async () => {
     await renderPage();
-    expect(screen.getByTestId('realtime-voice-controls-stub')).toBeInTheDocument();
+    expect(screen.getByTestId('live-voice-controls-stub')).toBeInTheDocument();
     expect(screen.queryByTestId('mic-composer-stub')).not.toBeInTheDocument();
   });
 
@@ -109,7 +108,7 @@ describe('HumanPage — voice entry point', () => {
   it('shows a mascot-only stage with no voice control when realtime is off', async () => {
     flags.realtimeEnabled = false;
     await renderPage();
-    expect(screen.queryByTestId('realtime-voice-controls-stub')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('live-voice-controls-stub')).not.toBeInTheDocument();
     expect(screen.queryByTestId('mic-composer-stub')).not.toBeInTheDocument();
   });
 
@@ -119,7 +118,7 @@ describe('HumanPage — voice entry point', () => {
   it('still shows a single realtime control when the show-both flag is on', async () => {
     flags.showBoth = true;
     await renderPage();
-    expect(screen.getAllByTestId('realtime-voice-controls-stub')).toHaveLength(1);
+    expect(screen.getAllByTestId('live-voice-controls-stub')).toHaveLength(1);
     expect(screen.queryByTestId('mic-composer-stub')).not.toBeInTheDocument();
   });
 
@@ -131,6 +130,6 @@ describe('HumanPage — voice entry point', () => {
   ])('renders the realtime control exactly once in %s mode', async (_label, next) => {
     Object.assign(flags, next);
     await renderPage();
-    expect(screen.getAllByTestId('realtime-voice-controls-stub')).toHaveLength(1);
+    expect(screen.getAllByTestId('live-voice-controls-stub')).toHaveLength(1);
   });
 });
