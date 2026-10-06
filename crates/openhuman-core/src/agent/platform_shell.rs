@@ -97,32 +97,40 @@ pub fn assert_forwards_windows_bootstrap(allowlist: &[&str], launcher: &str) {
 /// Add Windows bootstrap variables to a host child. Keep these out of the
 /// sandbox policy because that policy is also forwarded into Linux containers.
 #[cfg(windows)]
-pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) {
+pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) -> anyhow::Result<()> {
     for var in WINDOWS_PROCESS_ENV_VARS {
         if let Ok(val) = std::env::var(var) {
-            if !val.is_empty() {
-                cmd.env(var, val);
+            if val.is_empty() {
+                anyhow::bail!("Windows bootstrap environment variable {var} is empty");
             }
+            cmd.env(var, val);
         }
     }
+    Ok(())
 }
 
 #[cfg(not(windows))]
-pub fn forward_windows_bootstrap_env(_cmd: &mut tokio::process::Command) {}
+pub fn forward_windows_bootstrap_env(_cmd: &mut tokio::process::Command) -> anyhow::Result<()> {
+    Ok(())
+}
 
 #[cfg(windows)]
-pub fn forward_windows_bootstrap_env_std(cmd: &mut std::process::Command) {
+pub fn forward_windows_bootstrap_env_std(cmd: &mut std::process::Command) -> anyhow::Result<()> {
     for var in WINDOWS_PROCESS_ENV_VARS {
         if let Ok(val) = std::env::var(var) {
-            if !val.is_empty() {
-                cmd.env(var, val);
+            if val.is_empty() {
+                anyhow::bail!("Windows bootstrap environment variable {var} is empty");
             }
+            cmd.env(var, val);
         }
     }
+    Ok(())
 }
 
 #[cfg(not(windows))]
-pub fn forward_windows_bootstrap_env_std(_cmd: &mut std::process::Command) {}
+pub fn forward_windows_bootstrap_env_std(_cmd: &mut std::process::Command) -> anyhow::Result<()> {
+    Ok(())
+}
 
 /// Whether the Unix arm prefixes `set -o pipefail`.
 #[derive(Clone, Copy, PartialEq, Eq)]

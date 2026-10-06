@@ -273,12 +273,13 @@ async fn execute_unsandboxed(
     cmd.env_clear();
     for var in SANDBOX_ENV_PASSTHROUGH {
         if let Ok(val) = std::env::var(var) {
-            if !val.is_empty() {
-                cmd.env(var, val);
+            if val.is_empty() {
+                anyhow::bail!("sandbox passthrough environment variable {var} is empty");
             }
+            cmd.env(var, val);
         }
     }
-    platform_shell::forward_windows_bootstrap_env(&mut cmd);
+    platform_shell::forward_windows_bootstrap_env(&mut cmd)?;
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
@@ -404,12 +405,13 @@ async fn execute_local_jail(
     cmd.env_clear();
     for var in SANDBOX_ENV_PASSTHROUGH {
         if let Ok(val) = std::env::var(var) {
-            if !val.is_empty() {
-                cmd.env(var, val);
+            if val.is_empty() {
+                anyhow::bail!("sandbox passthrough environment variable {var} is empty");
             }
+            cmd.env(var, val);
         }
     }
-    platform_shell::forward_windows_bootstrap_env_std(&mut cmd);
+    platform_shell::forward_windows_bootstrap_env_std(&mut cmd)?;
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
