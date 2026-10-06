@@ -111,6 +111,22 @@ pub use harness::{
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
 pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
+
+/// The session store port: what a host implements to keep every agent's
+/// conversations in its own database ([`RuntimeBuilder::session_store`]),
+/// with the in-memory provider and the conformance suites a host's provider
+/// is held to.
+pub mod session_store {
+    pub use openhuman_core::agent::session_store::{AgentStores, SessionStoreProvider};
+    pub use tinyagents_session::port::{
+        AppendStore, InMemorySessionStores, InMemoryTranscriptLocator, InMemoryTurnStates, Store,
+        TurnStates,
+    };
+    pub use tinyagents_session::testkit::conformance::{
+        session_store_conformance, session_store_isolation_conformance,
+    };
+}
+pub use session_store::{InMemorySessionStores, SessionStoreProvider};
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 
 use std::sync::Arc;
