@@ -842,7 +842,8 @@ const Conversations = ({
     window.addEventListener('dictation://insert-text', onDictationInsert as EventListener);
     return () =>
       window.removeEventListener('dictation://insert-text', onDictationInsert as EventListener);
-  }, []);
+    // `setInputValue` is `useThreadDraft`'s stable setter.
+  }, [setInputValue]);
 
   useEffect(() => {
     if (sendErrorRef.current && inputValue.length > 0) {
