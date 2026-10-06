@@ -364,7 +364,6 @@ impl Runtime {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         core: Core,
         workspace: ResolvedWorkspace,
