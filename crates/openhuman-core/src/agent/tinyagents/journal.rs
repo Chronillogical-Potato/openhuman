@@ -56,6 +56,7 @@ use tinyagents_harness::observability::{
     HarnessStatusStore, JournalSink, RedactingSink, StoreEventJournal,
 };
 
+use tinyagents_harness::store::{AppendStore, Store};
 use tinyagents_session::transcript::import::ops::open_session_stores;
 
 /// Best-effort live request → durable tinyagents journal stream map. The web
