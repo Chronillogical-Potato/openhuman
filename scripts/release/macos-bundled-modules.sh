@@ -19,7 +19,7 @@
 #   the app's seal, as it does for the archive marker. Nothing else changes.
 #
 # check: fail when any Mach-O under the directory — loose, or inside a shipped
-#   .tar.gz — lacks what notarization demands: a Developer ID signature,
+#   .tar.gz — lacks what notarization demands: a valid Developer ID signature,
 #   hardened runtime and a secure timestamp. Apple's notary service unpacks
 #   nested archives, so archive members count too. Also fail when a
 #   modules.toml entry is not the sha256 of the file it names: a sign without
@@ -49,6 +49,15 @@ case "$cmd" in
     APP_PATH="${2:?sign needs <app_path>}"
     ENTITLEMENTS="${3:?sign needs <entitlements_plist>}"
     IDENTITY="${4:?sign needs <identity>}"
+    # A pinned archive cannot be signed without changing the pinned bytes, and
+    # notarization unpacks it; on macOS stage-modules.mjs replaces each one
+    # with its `.sha256` marker. One here means staging went wrong.
+    archives="$(find "$APP_PATH/Contents/Resources/bundled-modules" -name '*.tar.gz' -type f 2>/dev/null)"
+    if [ -n "$archives" ]; then
+      echo "[sign] ERROR: module archives in the macOS bundle (stage-modules.mjs should have replaced them):" >&2
+      echo "$archives" >&2
+      exit 1
+    fi
     while IFS= read -r -d '' bin; do
       file -b "$bin" | grep -q '^Mach-O' || continue
       echo "[sign]   Signing bundled module: ${bin#"$APP_PATH/Contents/Resources/"}"
@@ -73,6 +82,9 @@ case "$cmd" in
         file -b "$f" | grep -q '^Mach-O' || continue
         info="$(codesign -dvv "$f" 2>&1 || true)"
         problems=""
+        # -dvv only reads the signature's metadata; this checks it still
+        # matches the file.
+        codesign --verify --strict "$f" >/dev/null 2>&1 || problems+=" invalid-signature"
         grep -q '^Authority=Developer ID Application' <<<"$info" || problems+=" no-developer-id"
         grep -q '^Timestamp=' <<<"$info" || problems+=" no-timestamp"
         grep -q '^CodeDirectory.*flags=.*runtime' <<<"$info" || problems+=" no-hardened-runtime"
