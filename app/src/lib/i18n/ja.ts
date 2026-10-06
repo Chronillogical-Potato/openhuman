@@ -5280,7 +5280,6 @@ const ja: TranslationMap = {
   'memoryPage.engine.listTitle': 'メモリーエンジン',
   'memoryPage.engine.listDescription':
     '一度に使えるエンジンは1つです。メモリーのすべての内容を保存し、質問に答えます。',
-  'memoryPage.engine.loadError': 'メモリーエンジンを読み込めませんでした',
   'memoryPage.engine.offExplanation':
     '現在使えるメモリーエンジンがないため、保存や呼び出しができません。TinyHumansにサインインするか、接続先URLとAPIキーを入力してお使いのCortexDBに接続してください。',
   'memoryPage.engine.statusDegraded': 'メモリーの一部の機能が低下しています',
@@ -5288,11 +5287,6 @@ const ja: TranslationMap = {
   'memoryPage.engine.statusOff': 'オフ',
   'memoryPage.engine.active': '有効',
   'memoryPage.engine.use': '使用',
-  'memoryPage.engine.edit': '編集',
-  'memoryPage.engine.signInRequired': 'サインインが必要です',
-  'memoryPage.engine.hostedDetail': 'TinyHumansが提供',
-  'memoryPage.engine.selfHostedDetail': '接続先URLとAPIキーを指定',
-  'memoryPage.engine.connectTitle': '{engine}に接続',
   'memoryPage.engine.connect': '接続',
   'memoryPage.engine.endpoint': '接続先URL',
   'memoryPage.engine.apiKey': 'APIキー',
@@ -5506,6 +5500,79 @@ const ja: TranslationMap = {
   'memoryPage.import.done': '以前のメモリーをインポートしました',
   'memoryPage.import.failed': 'インポートできませんでした',
   'memoryPage.import.progress': '{total}件中{imported}件をインポート済み',
+  // First-run and memory controls added upstream.
+  'welcome.hero.subtitle': 'メモリー、音声、Web検索を備えた、あなたのAI。',
+  'welcome.th.title': 'TinyHumansで続ける',
+  'welcome.th.promise': '1つのアカウントですべて使えます。設定は不要です。',
+  'welcome.th.featureInference': '推論',
+  'welcome.th.featureSearch': 'Web検索',
+  'welcome.th.featureVoice': '音声',
+  'welcome.th.featureMemory': 'メモリー',
+  'welcome.th.featureEmbeddings': '埋め込み',
+  'welcome.th.featureBilling': '請求',
+  'welcome.th.credit': '最初に使える5ドル分のクレジット',
+  'welcome.th.cta': 'TinyHumansで続ける',
+  'welcome.th.providers': 'Google、GitHub、Xでサインイン',
+  'welcome.self.title': '自分で設定する',
+  'welcome.self.promise': 'お持ちのAPIキーと接続先を使います。',
+  'welcome.self.listLabel': '設定する項目：',
+  'welcome.self.step1': '推論',
+  'welcome.self.step2': 'Web検索',
+  'welcome.self.step3': 'メモリー',
+  'welcome.self.time': '約3分で設定できます。後から設定画面で変更できます。',
+  'welcome.self.cta': '自分で設定する',
+  'welcome.serverPrompt': 'すでにサーバーでOpenHumanを実行していますか？',
+  'welcome.serverCta': 'サーバーに接続',
+  'welcome.handoff.title': 'ブラウザーでサインインを完了してください',
+  'welcome.handoff.body': 'tinyhumans.aiを開きました。サインインが終わったら戻ってください。',
+  'welcome.handoff.reopen': 'ページをもう一度開く',
+  'welcome.handoff.failedTitle': 'サインイン後にアプリへ戻れませんでした',
+  'welcome.handoff.failedBody': 'ブラウザーがOpenHumanへの移動をブロックした可能性があります。',
+  'welcome.handoff.retry': '再試行',
+  'welcome.handoff.fallbackSelf': '代わりに自分で設定する',
+  'memory.error.insufficientCredits':
+    'クレジットが足りないため、メモリーを使えません。補充すると再び使えます。保存済みの内容は失われていません。',
+  'memory.error.unavailable':
+    '現在、メモリーに接続できません。保存済みの内容は失われていません。少し待ってから再試行してください。',
+  'onboarding.custom.search.skipForNow': '今はスキップ',
+  'onboarding.custom.search.ready': 'Web検索の準備ができました。',
+  'onboarding.custom.search.notReady':
+    'OpenHumanでWeb検索を使うには、下のプロバイダーを追加してください。',
+  'onboarding.custom.localDefaultDisabledReason':
+    'マネージド設定にはOpenHumanアカウントが必要です。ローカルセッションでは、各サービスを自分で設定します。',
+  'onboarding.custom.unsavedChanges': '変更を保存してから続けてください。',
+  'chat_error.local_session_managed_unavailable':
+    '現在のローカルオフラインプロファイルにはOpenHumanアカウントがないため、マネージド（クラウド）モデルを実行できません。マネージドモデルを使うにはサインインしてください。お持ちのモデルを使う場合は、接続 → APIキー → LLMで「独自のモデルを使う」に切り替え、プロバイダーを追加してください。',
+  'memoryPage.engine.badgeDegraded': '一部機能が低下',
+  'memoryPage.engine.badgeDown': '接続できません',
+  'memoryPage.engine.connecting': '接続中…',
+  'memoryPage.engine.save': '保存',
+  'memoryPage.engine.builtin.title': '標準のCortexDB',
+  'memoryPage.engine.builtin.detail': 'TinyHumansアカウントに含まれます',
+  'memoryPage.engine.builtin.signInRequired': 'サインインして使用',
+  'memoryPage.engine.builtin.description':
+    'TinyHumansが提供するCortexDBです。アカウントに含まれているため、サインインするだけで使えます。設定は不要です。',
+  'memoryPage.engine.builtin.enrichmentNote':
+    '新しいメモリーはすぐに保存されます。そこから抽出した事実や考察は、その後数分かけて反映されます。',
+  'memoryPage.engine.builtin.signInHint':
+    '標準のCortexDBを使うには、TinyHumansアカウントにサインインしてください。',
+  'memoryPage.engine.apiKeyOption.title': 'APIキーでCortexDBを使用',
+  'memoryPage.engine.apiKeyOption.description':
+    'お持ちのCortexDBアカウントを使います。キーはこのコンピューターに安全に保存され、設定ファイルには書き込まれません。',
+  'memoryPage.engine.selfHost.title': 'CortexDBを自分でホスト',
+  'memoryPage.engine.selfHost.detail': 'このコンピューター上のCortexDBサーバー',
+  'memoryPage.engine.selfHost.step1':
+    '次のガイドに従って、このコンピューターでCortexDBサーバーを実行してください：',
+  'memoryPage.engine.selfHost.docsLink': 'CortexDBのセルフホストガイド',
+  'memoryPage.engine.selfHost.step2':
+    'APIキー（CORTEX_API_KEY）を指定してサーバーを起動してください。アプリはそのキーで接続します。',
+  'memoryPage.engine.selfHost.step3':
+    '下にサーバーのローカルアドレスとキーを入力して接続してください。',
+  'memoryPage.engine.selfHost.notLocal':
+    'セルフホストでは、このコンピューターのアドレスだけを使えます。例：http://localhost:3141。',
+  'memoryPage.learnings.deriving':
+    'まだ表示する内容はありません。最近の会話から考察を生成しています。次のバックグラウンド処理が終わると、ここに表示されます。',
+  'memoryPage.import.resume': 'インポートを再開',
 };
 
 export default ja;
