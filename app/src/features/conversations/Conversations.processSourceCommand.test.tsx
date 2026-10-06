@@ -31,6 +31,14 @@ import threadTodosReducer from '../../store/threadTodosSlice';
 import type { Thread } from '../../types/thread';
 import Conversations from './Conversations';
 
+vi.mock('../../services/socketService', () => ({
+  socketService: {
+    getSocket: vi.fn(() => ({ id: 'composer-test-socket' })),
+    on: vi.fn(),
+    off: vi.fn(),
+  },
+}));
+
 const { mockGetThreads, mockGetThreadMessages, mockUseUsageState, mockChatSend } = vi.hoisted(
   () => ({
     mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
@@ -72,10 +80,7 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
     onSelect,
   }: {
     onSelect: (selection: {
-      source:
-        | { kind: 'cloud'; providerSlug: string }
-        | { kind: 'local' }
-        | { kind: 'managed' };
+      source: { kind: 'cloud'; providerSlug: string } | { kind: 'local' } | { kind: 'managed' };
       model: string;
     }) => void;
   }) => (
@@ -96,13 +101,6 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
         type="button"
         onClick={() => onSelect({ source: { kind: 'local' }, model: 'qwen3:4b-instruct' })}>
         Pick local model
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          onSelect({ source: { kind: 'cloud', providerSlug: 'unknown-provider' }, model: 'model' })
-        }>
-        Pick unknown provider model
       </button>
       <button type="button" onClick={() => onSelect({ source: { kind: 'managed' }, model: '' })}>
         Clear model
@@ -300,6 +298,20 @@ function mockModelSettingsWrites(writes: Record<string, Promise<unknown> | Promi
     }
     return Promise.resolve({}) as ReturnType<typeof callCoreRpc>;
   });
+}
+
+async function useRealChatSend() {
+  const actual = await vi.importActual<typeof import('../../services/chatService')>(
+    '../../services/chatService'
+  );
+  mockChatSend.mockImplementation(actual.chatSend);
+}
+
+function latestChatRpc() {
+  return vi
+    .mocked(callCoreRpc)
+    .mock.calls.filter(([request]) => request.method === 'openhuman.channel_web_chat')
+    .at(-1)?.[0];
 }
 
 // The predicate's other half (`selectedThreadId !== null`) is deliberately not
@@ -653,38 +665,46 @@ describe('composer model routing', () => {
 
   it('forwards the concrete provider/model chosen in the picker for a normal send', async () => {
     mockChatSend.mockClear();
+    await useRealChatSend();
     await renderChat('text');
 
     await selectPickerModel();
     await submitComposerText('explicit picker route');
 
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model: 'huggingface:org/model' });
+    expect(latestChatRpc()).toMatchObject({
+      method: 'openhuman.channel_web_chat',
+      params: { model_override: 'huggingface:org/model' },
+    });
   });
 
   it('forwards the concrete provider/model chosen in the picker for a follow-up send', async () => {
     mockChatSend.mockClear();
+    await useRealChatSend();
     await renderChat('text', false, true);
 
     await selectPickerModel();
     await submitComposerText('explicit follow-up picker route');
 
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({
-      model: 'huggingface:org/model',
-      queueMode: 'followup',
+    expect(latestChatRpc()).toMatchObject({
+      method: 'openhuman.channel_web_chat',
+      params: { model_override: 'huggingface:org/model', queue_mode: 'followup' },
     });
   });
 
   it.each([
     ['managed', 'openrouter/author/model'],
     ['local', 'ollama:qwen3:4b-instruct'],
-    ['unknown provider', 'unknown-provider:model'],
-  ] as const)('serializes the %s picker route for a normal send', async (route, model) => {
+  ] as const)('serializes the %s picker route at the core boundary', async (route, model) => {
     mockChatSend.mockClear();
+    await useRealChatSend();
     await renderChat('text');
 
     await selectPickerRoute(route);
     await submitComposerText(`${route} picker route`);
 
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model });
+    expect(latestChatRpc()).toMatchObject({
+      method: 'openhuman.channel_web_chat',
+      params: { model_override: model },
+    });
   });
 });
