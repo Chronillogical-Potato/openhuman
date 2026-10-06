@@ -312,3 +312,70 @@ fn a_refusal_is_read_back_from_a_skipped_section() {
     })];
     assert!(refusal_of(&quiet).is_none());
 }
+
+// ── the pack's token budget against a large store (#6718, #7023) ────────────
+
+async fn fill_with_learnings(engine: &tinymemory_api::conformance::ReferenceEngine, count: usize) {
+    for i in 0..count {
+        engine
+            .store(StoreItem::learning(
+                format!(
+                    "Project note {i}: the Lisbon office ships release {i} on a Thursday, \
+                     reviewed by team {} with a rollback window of {} hours.",
+                    i % 17,
+                    i % 9 + 1
+                ),
+                LearningKind::Fact,
+                0.8,
+                MemoryMeta::default(),
+            ))
+            .await
+            .unwrap();
+    }
+}
+
+fn budget(config: &crate::config::Config) -> usize {
+    config.memory.recall.budget_tokens as usize
+}
+
+/// Lines that appear more than once in a rendered pack (headings aside).
+fn repeated_lines(markdown: &str) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    markdown
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("- "))
+        .filter(|line| !seen.insert(line.to_string()))
+        .map(str::to_string)
+        .collect()
+}
+
+#[tokio::test]
+async fn a_turn_pack_stays_within_its_budget_against_a_large_store() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    fill_with_learnings(&engine, 1500).await;
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(
+        &config,
+        &identity,
+        input("t-large", 0, "when does the Lisbon release ship?"),
+    )
+    .await
+    .expect("a pack");
+    eprintln!(
+        "large store: 1500 learnings -> pack {} tokens (budget {}), {} refs",
+        pack.tokens,
+        budget(&config),
+        pack.refs.len()
+    );
+    assert!(
+        pack.tokens <= budget(&config),
+        "{} > {}",
+        pack.tokens,
+        budget(&config)
+    );
+    assert!(repeated_lines(&pack.markdown).is_empty());
+}
