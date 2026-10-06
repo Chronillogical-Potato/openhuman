@@ -12,6 +12,7 @@ import { useT } from '../../../lib/i18n/I18nContext';
 import { AssistantUiRuntimeProvider } from '../../../providers/AssistantUiRuntimeProvider';
 import { useAppSelector } from '../../../store/hooks';
 import { InterruptedTurnNotice } from '../aui/InterruptedTurnNotice';
+import { InterruptedTurnNotice } from '../aui/InterruptedTurnNotice';
 import { AgentRunningStatus } from '../aui/AgentRunningStatus';
 import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ComposerTriggers } from '../aui/ComposerTriggers';
