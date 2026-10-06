@@ -126,11 +126,6 @@ tinyflows-copilot = { path = "../../vendor/tinyflows/crates/tinyflows-copilot", 
 # below as its own path dependency for the same "one checkout, one type
 # identity" reason `tinytools` is.
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = [
-# Live (realtime voice) agent sessions: `tinyagents-live` runs a
-# `tinyliveagents` provider session (Gemini Live direct/relayed, ElevenLabs
-# Agents, the Sarvam cascade) and executes its tool calls through the turn
-# harness pipeline. Only the `voice` feature's `voice::live` uses it.
-tinyagents-live = { path = "../../vendor/tinyagents/crates/tinyagents-live", optional = true }
     "sqlite",
     "multimodal",
     "builtin-tools",
@@ -145,6 +140,11 @@ tinybox-docker = { path = "../../vendor/tinybox/crates/tinybox-docker" }
 # classification policy built on them stays in `security::policy`.
 tinybox-core = { path = "../../vendor/tinybox/crates/tinybox-core" }
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
+# Live (realtime voice) agent sessions: `tinyagents-live` runs a
+# `tinyliveagents` provider session (Gemini Live direct/relayed, ElevenLabs
+# Agents, the Sarvam cascade) and executes its tool calls through the turn
+# harness pipeline. Only the `voice` feature's `voice::live` uses it.
+tinyagents-live = { path = "../../vendor/tinyagents/crates/tinyagents-live", optional = true }
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = [
     "sqlite",
 ] }
