@@ -12,7 +12,6 @@ import { EditMessage } from '@/components/assistant-ui/elements/edit-message';
 import { ErrorState } from '@/components/assistant-ui/elements/error-state';
 import { Image } from '@/components/assistant-ui/elements/image';
 import { MessageTiming } from '@/components/assistant-ui/elements/message-timing.aui';
-import { fullTimestamp, relativeTime } from '@/utils/relativeTime';
 import { StoppedRun } from '@/components/assistant-ui/elements/stopped-run';
 import { ToolFallback } from '@/components/assistant-ui/elements/tool-fallback';
 import { File } from '@/components/assistant-ui/file';
@@ -34,6 +33,7 @@ import {
 import { useT } from '@/lib/i18n/I18nContext';
 import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
 import { CHAT_ERROR_METADATA_KEY } from '@/store/threadSlice';
+import { fullTimestamp, relativeTime } from '@/utils/relativeTime';
 import { useActionBarReload, useMessageError } from '@assistant-ui/core/react';
 import {
   ActionBarMorePrimitive,

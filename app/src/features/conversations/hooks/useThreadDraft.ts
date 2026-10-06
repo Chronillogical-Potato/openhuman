@@ -82,19 +82,16 @@ export function useThreadDraft(
 
   useEffect(() => flush, [flush]);
 
-  const setDraft = useCallback(
-    (action: SetStateAction<string>) => {
-      const current = threadIdRef.current;
-      setState(prev => {
-        const base = prev.threadId === current ? prev.text : '';
-        const text = typeof action === 'function' ? action(base) : action;
-        return text === base && prev.threadId === current
-          ? prev
-          : { threadId: current, text, edited: true };
-      });
-    },
-    []
-  );
+  const setDraft = useCallback((action: SetStateAction<string>) => {
+    const current = threadIdRef.current;
+    setState(prev => {
+      const base = prev.threadId === current ? prev.text : '';
+      const text = typeof action === 'function' ? action(base) : action;
+      return text === base && prev.threadId === current
+        ? prev
+        : { threadId: current, text, edited: true };
+    });
+  }, []);
 
   // Schedule the write for whatever the draft became.
   useEffect(() => {
