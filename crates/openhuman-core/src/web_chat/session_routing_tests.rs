@@ -228,13 +228,12 @@ fn selected_managed_route_constructs_with_the_picker_model() {
     let config = Config::default();
     let selection = "openrouter/author/picked-model:free";
     let effective = effective_session_config(&config, Some(selection), None);
-    let (_, resolved_model) =
-        crate::inference::provider::factory::create_chat_model_with_model_id(
-            "chat",
-            &effective,
-            effective.default_temperature,
-        )
-        .expect("managed picker selection should construct without network access");
+    let (_, resolved_model) = crate::inference::provider::factory::create_chat_model_with_model_id(
+        "chat",
+        &effective,
+        effective.default_temperature,
+    )
+    .expect("managed picker selection should construct without network access");
     assert_eq!(resolved_model, selection);
 }
 
