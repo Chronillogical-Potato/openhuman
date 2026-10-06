@@ -3938,6 +3938,49 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
         );
     }
 
+    // An unknown qualified provider must fail during the real core turn
+    // setup, rather than silently reusing a previously configured provider.
+    with_chat_completion_requests(|requests| requests.clear());
+    let unknown_client_id = "routing-unknown-provider-client";
+    let unknown_thread_id = "routing-unknown-provider-thread";
+    let unknown_events_url = format!("{rpc_base}/events?client_id={unknown_client_id}");
+    let unknown_sse_task =
+        tokio::spawn(async move { read_terminal_web_chat_event(&unknown_events_url).await });
+    let unknown_web_chat = post_json_rpc(
+        &rpc_base,
+        200,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": unknown_client_id,
+            "thread_id": unknown_thread_id,
+            "message": "unknown provider route",
+            "model_override": "unknown-provider:model",
+        }),
+    )
+    .await;
+    let unknown_result = assert_no_jsonrpc_error(&unknown_web_chat, "unknown provider turn");
+    assert_eq!(
+        unknown_result
+            .get("result")
+            .and_then(|value| value.get("accepted")),
+        Some(&json!(true))
+    );
+
+    let unknown_event = tokio::time::timeout(Duration::from_secs(12), unknown_sse_task)
+        .await
+        .expect("timed out waiting for unknown-provider chat_error")
+        .expect("unknown-provider SSE task join should succeed");
+    assert_eq!(
+        unknown_event.get("event").and_then(Value::as_str),
+        Some("chat_error"),
+        "unknown provider route should fail at the core boundary: {unknown_event}"
+    );
+    assert_eq!(
+        with_chat_completion_requests(|requests| requests.len()),
+        0,
+        "unknown provider route must not fall back to the configured backend"
+    );
+
     mock_join.abort();
     rpc_join.abort();
 }
