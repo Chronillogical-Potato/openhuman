@@ -9,7 +9,9 @@ fn builds_deterministic_messages_and_skips_blank_text() {
     let dir = tempfile::tempdir().unwrap();
     let mut p = persister(dir.path());
     assert!(p.message(TranscriptRole::User, "   ").is_none());
-    let user = p.message(TranscriptRole::User, " what time is it ").unwrap();
+    let user = p
+        .message(TranscriptRole::User, " what time is it ")
+        .unwrap();
     assert_eq!(user.id, "voice-s1-1-user");
     assert_eq!(user.sender, "user");
     assert_eq!(user.content, "what time is it");
@@ -44,7 +46,10 @@ async fn saves_into_the_thread_store() {
         crate::threads::store::blocking::get_messages(dir.path().to_path_buf(), "t1".into())
             .await
             .unwrap();
-    let texts: Vec<_> = messages.iter().map(|m| (m.sender.as_str(), m.content.as_str())).collect();
+    let texts: Vec<_> = messages
+        .iter()
+        .map(|m| (m.sender.as_str(), m.content.as_str()))
+        .collect();
     assert_eq!(texts, vec![("user", "hello"), ("agent", "hi there")]);
 }
 

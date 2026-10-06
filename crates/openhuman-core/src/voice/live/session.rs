@@ -49,7 +49,10 @@ pub(crate) struct StartedLiveSession {
 }
 
 /// The provider a request resolves to.
-pub(crate) fn resolve_provider(config: &Config, requested: Option<&str>) -> Result<String, LiveVoiceError> {
+pub(crate) fn resolve_provider(
+    config: &Config,
+    requested: Option<&str>,
+) -> Result<String, LiveVoiceError> {
     let provider = requested
         .filter(|p| !p.trim().is_empty())
         .unwrap_or(config.voice_live.default_provider.as_str())
@@ -90,7 +93,10 @@ pub(crate) fn system_prompt(recent: &[ConversationMessage]) -> String {
 
 /// Makes sure the session's thread exists, creating a voice thread when the
 /// client is not on one.
-async fn ensure_thread(config: &Config, thread_id: Option<String>) -> Result<String, LiveVoiceError> {
+async fn ensure_thread(
+    config: &Config,
+    thread_id: Option<String>,
+) -> Result<String, LiveVoiceError> {
     let id = thread_id
         .filter(|t| !t.trim().is_empty())
         .unwrap_or_else(|| format!("voice-{}", uuid::Uuid::new_v4()));
@@ -172,7 +178,10 @@ pub(crate) async fn start(
     let scope: TaskScope = Arc::new(move |task| {
         let origin = origin.clone();
         let approval = approval.clone();
-        Box::pin(with_origin(origin, APPROVAL_CHAT_CONTEXT.scope(approval, task)))
+        Box::pin(with_origin(
+            origin,
+            APPROVAL_CHAT_CONTEXT.scope(approval, task),
+        ))
     });
     let agent = LiveAgent::new(Arc::new(harness), Arc::new(())).with_task_scope(scope);
     let session = agent

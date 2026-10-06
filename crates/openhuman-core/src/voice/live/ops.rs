@@ -81,7 +81,11 @@ pub async fn live_test_provider(config: &Config, provider: &str) -> Outcome<Live
             error: Some(error.to_string()),
         },
     };
-    tracing::debug!(provider, ok = value.ok, "[voice-live] provider test finished");
+    tracing::debug!(
+        provider,
+        ok = value.ok,
+        "[voice-live] provider test finished"
+    );
     Outcome::new(value, Vec::new())
 }
 
@@ -92,13 +96,19 @@ async fn test_connect(config: &Config, provider: &str) -> Result<(), LiveVoiceEr
     let mut live_session = prepared.provider.connect(prepared.config).await?;
     let sender = live_session.sender();
     let outcome = match tokio::time::timeout(TEST_TIMEOUT, live_session.recv()).await {
-        Err(_) => Err(LiveVoiceError::new("timeout", "the provider did not become ready")),
+        Err(_) => Err(LiveVoiceError::new(
+            "timeout",
+            "the provider did not become ready",
+        )),
         Ok(Some(LiveEvent::Ready(_))) => Ok(()),
         Ok(Some(LiveEvent::Error { error, .. })) => Err(error.into()),
         Ok(Some(LiveEvent::Closed(tinyagents_live::tinyliveagents::CloseReason::Error(error)))) => {
             Err(error.into())
         }
-        Ok(_) => Err(LiveVoiceError::new("provider", "the provider closed before it was ready")),
+        Ok(_) => Err(LiveVoiceError::new(
+            "provider",
+            "the provider closed before it was ready",
+        )),
     };
     let _ = sender.close().await;
     outcome

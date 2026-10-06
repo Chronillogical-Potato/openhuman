@@ -5,7 +5,10 @@ use crate::config::schema::voice_live::{SarvamLiveSettings, LIVE_PROVIDER_SARVAM
 fn providers_and_settings_reflect_the_config() {
     let config = Config::default();
     let providers = live_providers(&config).value;
-    assert_eq!(providers.default_provider, config.voice_live.default_provider);
+    assert_eq!(
+        providers.default_provider,
+        config.voice_live.default_provider
+    );
     assert_eq!(providers.providers.len(), 4);
     assert_eq!(live_settings_get(&config).value, config.voice_live);
 }
@@ -77,7 +80,9 @@ async fn testing_an_unconfigured_provider_reports_why() {
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
     config.config_path = dir.path().join("config.toml");
-    let result = live_test_provider(&config, LIVE_PROVIDER_SARVAM).await.value;
+    let result = live_test_provider(&config, LIVE_PROVIDER_SARVAM)
+        .await
+        .value;
     assert!(!result.ok);
     assert!(result.error.unwrap().contains("not_configured"));
     let result = live_test_provider(&config, "nope").await.value;

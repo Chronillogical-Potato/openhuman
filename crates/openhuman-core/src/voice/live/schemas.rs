@@ -36,11 +36,15 @@ pub fn live_schemas(function: &str) -> ControllerSchema {
         "voice_live_providers" => ControllerSchema {
             namespace: "voice",
             function: "live_providers",
-            description: "List live voice agent providers, whether each is usable, and the default.",
+            description:
+                "List live voice agent providers, whether each is usable, and the default.",
             inputs: vec![],
             outputs: vec![
                 json_output("default_provider", "The provider Tiny uses by default."),
-                json_output("providers", "Every live provider with readiness, voices and languages."),
+                json_output(
+                    "providers",
+                    "Every live provider with readiness, voices and languages.",
+                ),
             ],
         },
         "voice_live_settings_get" => ControllerSchema {
@@ -48,24 +52,44 @@ pub fn live_schemas(function: &str) -> ControllerSchema {
             function: "live_settings_get",
             description: "Read the live voice agent settings.",
             inputs: vec![],
-            outputs: vec![json_output("settings", "Default provider and per-provider options.")],
+            outputs: vec![json_output(
+                "settings",
+                "Default provider and per-provider options.",
+            )],
         },
         "voice_live_settings_set" => ControllerSchema {
             namespace: "voice",
             function: "live_settings_set",
             description: "Update the live voice agent settings; omitted fields are kept.",
             inputs: vec![
-                optional("default_provider", TypeSchema::String, "Provider id to use by default."),
-                optional("gemini", TypeSchema::Json, "Gemini options: model, voice, language."),
-                optional("sarvam", TypeSchema::Json, "Sarvam options: language, speaker, model."),
-                optional("elevenlabs", TypeSchema::Json, "ElevenLabs options: voice_id."),
+                optional(
+                    "default_provider",
+                    TypeSchema::String,
+                    "Provider id to use by default.",
+                ),
+                optional(
+                    "gemini",
+                    TypeSchema::Json,
+                    "Gemini options: model, voice, language.",
+                ),
+                optional(
+                    "sarvam",
+                    TypeSchema::Json,
+                    "Sarvam options: language, speaker, model.",
+                ),
+                optional(
+                    "elevenlabs",
+                    TypeSchema::Json,
+                    "ElevenLabs options: voice_id.",
+                ),
             ],
             outputs: vec![json_output("settings", "The settings after the update.")],
         },
         "voice_live_test_provider" => ControllerSchema {
             namespace: "voice",
             function: "live_test_provider",
-            description: "Open a live session on a provider, wait until it is ready, then close it.",
+            description:
+                "Open a live session on a provider, wait until it is ready, then close it.",
             inputs: vec![FieldSchema {
                 name: "provider",
                 ty: TypeSchema::String,
@@ -121,7 +145,11 @@ fn handle_live_test_provider(params: Map<String, Value>) -> ControllerFuture {
         let params: TestParams = serde_json::from_value(Value::Object(params))
             .map_err(|e| format!("invalid params: {e}"))?;
         let config = config_rpc::load_config_with_timeout().await?;
-        to_value(ops::live_test_provider(&config, &params.provider).await.value)
+        to_value(
+            ops::live_test_provider(&config, &params.provider)
+                .await
+                .value,
+        )
     })
 }
 

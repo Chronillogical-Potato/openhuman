@@ -39,7 +39,11 @@ impl TranscriptPersister {
     }
 
     /// The message a final utterance becomes, or `None` for blank text.
-    pub(crate) fn message(&mut self, role: TranscriptRole, text: &str) -> Option<ConversationMessage> {
+    pub(crate) fn message(
+        &mut self,
+        role: TranscriptRole,
+        text: &str,
+    ) -> Option<ConversationMessage> {
         let content = text.trim();
         if content.is_empty() {
             return None;

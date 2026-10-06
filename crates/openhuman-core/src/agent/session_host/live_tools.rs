@@ -42,4 +42,3 @@ impl OpenHumanSessionHost {
         self.workspace_descriptor.clone()
     }
 }
-

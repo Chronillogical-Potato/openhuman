@@ -23,7 +23,8 @@ fn ready_uses_the_provider_session_id_or_ours() {
             thread_id: Some("thread".into())
         })]
     );
-    let Outbound::Json(ServerFrame::Ready { session_id, .. }) = &map(LiveEvent::Ready(info(Some("p"))))[0]
+    let Outbound::Json(ServerFrame::Ready { session_id, .. }) =
+        &map(LiveEvent::Ready(info(Some("p"))))[0]
     else {
         panic!("expected ready")
     };
@@ -48,7 +49,10 @@ fn finals_are_persisted_partials_are_not() {
         is_final: true,
     });
     assert_eq!(out.len(), 2);
-    assert_eq!(out[1], Outbound::Persist(TranscriptRole::Agent, "noon".into()));
+    assert_eq!(
+        out[1],
+        Outbound::Persist(TranscriptRole::Agent, "noon".into())
+    );
 }
 
 #[test]
@@ -57,7 +61,10 @@ fn maps_audio_turns_errors_and_closes() {
         map(LiveEvent::Audio(Bytes::from_static(&[1, 2]))),
         vec![Outbound::Audio(Bytes::from_static(&[1, 2]))]
     );
-    assert_eq!(map(LiveEvent::Interrupted), vec![Outbound::Json(ServerFrame::Interrupted)]);
+    assert_eq!(
+        map(LiveEvent::Interrupted),
+        vec![Outbound::Json(ServerFrame::Interrupted)]
+    );
     assert_eq!(
         map(LiveEvent::TurnComplete { usage: None }),
         vec![Outbound::Json(ServerFrame::TurnComplete)]
@@ -75,7 +82,9 @@ fn maps_audio_turns_errors_and_closes() {
     );
     assert_eq!(
         map(LiveEvent::Closed(CloseReason::Client)),
-        vec![Outbound::Json(ServerFrame::Closed { reason: "client".into() })]
+        vec![Outbound::Json(ServerFrame::Closed {
+            reason: "client".into()
+        })]
     );
     assert_eq!(
         map(LiveEvent::Closed(CloseReason::Remote {
@@ -91,11 +100,17 @@ fn maps_audio_turns_errors_and_closes() {
             code: None,
             reason: String::new()
         })),
-        vec![Outbound::Json(ServerFrame::Closed { reason: "remote".into() })]
+        vec![Outbound::Json(ServerFrame::Closed {
+            reason: "remote".into()
+        })]
     );
-    let out = map(LiveEvent::Closed(CloseReason::Error(LiveError::Unauthorized)));
+    let out = map(LiveEvent::Closed(CloseReason::Error(
+        LiveError::Unauthorized,
+    )));
     assert_eq!(out.len(), 2);
-    assert!(matches!(&out[0], Outbound::Json(ServerFrame::Error { code, fatal: true, .. }) if code == "unauthorized"));
+    assert!(
+        matches!(&out[0], Outbound::Json(ServerFrame::Error { code, fatal: true, .. }) if code == "unauthorized")
+    );
     // Tool calls surface through ToolStarted/ToolFinished instead.
     assert!(map(LiveEvent::ToolCall(ToolCall {
         call_id: "c".into(),

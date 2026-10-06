@@ -140,7 +140,9 @@ fn error_frame(error: &LiveVoiceError) -> ServerFrame {
 /// Waits for and parses the `start` frame.
 pub(crate) fn parse_start(message: &Message) -> Result<LiveStartRequest, LiveVoiceError> {
     let Message::Text(text) = message else {
-        return Err(LiveVoiceError::invalid("the first frame must be a start frame"));
+        return Err(LiveVoiceError::invalid(
+            "the first frame must be a start frame",
+        ));
     };
     match serde_json::from_str::<ClientFrame>(text) {
         Ok(ClientFrame::Start {
@@ -154,7 +156,9 @@ pub(crate) fn parse_start(message: &Message) -> Result<LiveStartRequest, LiveVoi
             client_id,
             input_sample_rate,
         }),
-        Ok(_) => Err(LiveVoiceError::invalid("the first frame must be a start frame")),
+        Ok(_) => Err(LiveVoiceError::invalid(
+            "the first frame must be a start frame",
+        )),
         Err(error) => Err(LiveVoiceError::invalid(format!("bad start frame: {error}"))),
     }
 }
@@ -184,7 +188,11 @@ pub async fn handle_live_voice_ws(socket: WebSocket, config: Arc<Config>) {
     let started = match session::start(config.clone(), request, &session_id).await {
         Ok(started) => started,
         Err(error) => {
-            tracing::warn!(session_id, code = error.code, "{LOG_PREFIX} session failed to start");
+            tracing::warn!(
+                session_id,
+                code = error.code,
+                "{LOG_PREFIX} session failed to start"
+            );
             let _ = sink.send(json_message(&error_frame(&error))).await;
             let _ = sink
                 .send(json_message(&ServerFrame::Closed {

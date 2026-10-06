@@ -16,9 +16,9 @@ use openhuman_core::core::types::AppState;
 
 pub(crate) mod cors;
 mod dictation;
-mod live_voice;
 mod events;
 mod health;
+mod live_voice;
 mod oauth_mcp;
 mod pages;
 mod rpc_handler;

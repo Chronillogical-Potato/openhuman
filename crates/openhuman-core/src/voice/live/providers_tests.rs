@@ -20,7 +20,10 @@ fn catalogue_lists_every_provider_in_order() {
     assert_eq!(sarvam.key_slug.as_deref(), Some("sarvam"));
     assert!(sarvam.languages.contains(&"hi-IN".to_string()));
     assert!(sarvam.voices.contains(&"shubh".to_string()));
-    let hosted = infos.iter().find(|i| i.id == LIVE_PROVIDER_GEMINI_HOSTED).unwrap();
+    let hosted = infos
+        .iter()
+        .find(|i| i.id == LIVE_PROVIDER_GEMINI_HOSTED)
+        .unwrap();
     assert_eq!(hosted.kind, LiveProviderKind::Hosted);
     assert!(hosted.voices.contains(&"Puck".to_string()));
 }
@@ -37,7 +40,10 @@ fn live_config_follows_the_settings_per_provider() {
     assert_eq!(gemini.system_instruction.as_deref(), Some("prompt"));
     assert_eq!(gemini.voice.as_deref(), Some("Kore"));
     assert_eq!(gemini.model.as_deref(), Some("gemini-x"));
-    assert!(gemini.provider_options.get("context_window_compression").is_some());
+    assert!(gemini
+        .provider_options
+        .get("context_window_compression")
+        .is_some());
 
     let sarvam = live_config(&config, LIVE_PROVIDER_SARVAM, "prompt", 8_000);
     assert_eq!(sarvam.voice.as_deref(), Some("priya"));
@@ -49,7 +55,10 @@ fn live_config_follows_the_settings_per_provider() {
     assert_eq!(auto.provider_options["auto_language"], true);
 
     let eleven = live_config(&config, LIVE_PROVIDER_ELEVENLABS_HOSTED, "prompt", 16_000);
-    assert_eq!(eleven.system_instruction, None, "the hosted agent owns its prompt");
+    assert_eq!(
+        eleven.system_instruction, None,
+        "the hosted agent owns its prompt"
+    );
     assert_eq!(eleven.voice, None, "blank voice ids are ignored");
     config.voice_live.elevenlabs.voice_id = Some("v1".into());
     let eleven = live_config(&config, LIVE_PROVIDER_ELEVENLABS_HOSTED, "prompt", 16_000);
@@ -72,7 +81,10 @@ fn parses_wrapped_and_bare_tickets() {
     );
     let bare = json!({"wsUrl": "wss://y"});
     assert_eq!(parse_ticket(&bare).unwrap().session_id, "");
-    assert_eq!(parse_ticket(&json!({"data": {}})).unwrap_err().code, "backend");
+    assert_eq!(
+        parse_ticket(&json!({"data": {}})).unwrap_err().code,
+        "backend"
+    );
 }
 
 #[tokio::test]
@@ -85,6 +97,9 @@ async fn byok_providers_need_a_stored_key() {
         let err = prepare(&config, id, LiveConfig::new()).await.err().unwrap();
         assert_eq!(err.code, "not_configured", "{id}");
     }
-    let err = prepare(&config, "nope", LiveConfig::new()).await.err().unwrap();
+    let err = prepare(&config, "nope", LiveConfig::new())
+        .await
+        .err()
+        .unwrap();
     assert_eq!(err.code, "invalid_request");
 }

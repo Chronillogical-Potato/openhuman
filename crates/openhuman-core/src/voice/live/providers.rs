@@ -145,7 +145,8 @@ pub(crate) fn live_config(
             live.voice = settings.gemini.voice.clone();
             live.language = settings.gemini.language.clone();
             // Keep long conversations inside the context window.
-            live.provider_options = json!({ "context_window_compression": { "slidingWindow": {} } });
+            live.provider_options =
+                json!({ "context_window_compression": { "slidingWindow": {} } });
         }
         LIVE_PROVIDER_SARVAM => {
             live.system_instruction = Some(system_instruction.to_string());
@@ -191,8 +192,8 @@ pub(crate) async fn prepare(
                 ticket.session_id,
                 ticket.model
             );
-            let relay =
-                GeminiRelay::connect_url(ticket.ws_url).with_session(ticket.session_id, ticket.model);
+            let relay = GeminiRelay::connect_url(ticket.ws_url)
+                .with_session(ticket.session_id, ticket.model);
             Ok(PreparedProvider {
                 provider: Box::new(relay),
                 config: live,
@@ -215,8 +216,9 @@ pub(crate) async fn prepare(
             })
         }
         LIVE_PROVIDER_GEMINI => {
-            let key = stored_key("google", config)
-                .ok_or_else(|| LiveVoiceError::not_configured("add a Google API key for Gemini Live"))?;
+            let key = stored_key("google", config).ok_or_else(|| {
+                LiveVoiceError::not_configured("add a Google API key for Gemini Live")
+            })?;
             Ok(PreparedProvider {
                 provider: Box::new(GeminiLive::new(key)),
                 config: live,
@@ -230,7 +232,9 @@ pub(crate) async fn prepare(
                 config: live,
             })
         }
-        other => Err(LiveVoiceError::invalid(format!("unknown live provider `{other}`"))),
+        other => Err(LiveVoiceError::invalid(format!(
+            "unknown live provider `{other}`"
+        ))),
     }
 }
 
@@ -268,9 +272,11 @@ async fn mint_gemini_ticket(
     let credential =
         crate::security::credentials::session_support::resolve_backend_credential(config)
             .map_err(LiveVoiceError::not_configured)?;
-    let api_url = crate::backend::require_base_url(&config.api_url).map_err(LiveVoiceError::backend)?;
+    let api_url =
+        crate::backend::require_base_url(&config.api_url).map_err(LiveVoiceError::backend)?;
     crate::voice::realtime::ensure_secure_backend_url(&api_url).map_err(LiveVoiceError::backend)?;
-    let client = BackendClient::new(&api_url).map_err(|e| LiveVoiceError::backend(e.to_string()))?;
+    let client =
+        BackendClient::new(&api_url).map_err(|e| LiveVoiceError::backend(e.to_string()))?;
     let body = gemini::ticket_request(live);
     let raw = client
         .authed_json(

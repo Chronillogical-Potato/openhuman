@@ -128,4 +128,3 @@ pub(crate) fn assemble_live_tool_harness(
     }
     harness
 }
-
