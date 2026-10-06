@@ -851,6 +851,41 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(mockUpdateRuntimeSettings).toHaveBeenLastCalledWith({ reasoning_effort: '' });
   });
 
+  it('remembers the thinking level per model and sends that model its own level', async () => {
+    mockGetClientConfig.mockResolvedValue({
+      result: {
+        reasoning_effort: 'low',
+        default_model: 'deep-model',
+        reasoning_effort_by_model: { 'deep-model': 'xhigh' },
+      },
+    });
+    const { textarea, thread } = await renderSelectedConversation();
+
+    const picker = (await screen.findByTestId('composer-reasoning-effort')) as HTMLSelectElement;
+    await waitFor(() => expect(picker.value).toBe('xhigh'));
+
+    fireEvent.change(picker, { target: { value: 'medium' } });
+    expect(mockUpdateRuntimeSettings).toHaveBeenCalledWith({
+      reasoning_effort: 'medium',
+      reasoning_effort_model: 'deep-model',
+    });
+
+    await submitComposerText(textarea, 'think a bit');
+    await waitFor(() => {
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({ threadId: thread.id, reasoningEffort: 'medium' })
+      );
+    });
+
+    // Dropping the model's own level falls back to the global one.
+    fireEvent.change(picker, { target: { value: 'default' } });
+    expect(mockUpdateRuntimeSettings).toHaveBeenLastCalledWith({
+      reasoning_effort: '',
+      reasoning_effort_model: 'deep-model',
+    });
+    await waitFor(() => expect(picker.value).toBe('low'));
+  });
+
   it('persists a local user message and sends through chat service for valid input', async () => {
     const { textarea, thread } = await renderSelectedConversation();
 
