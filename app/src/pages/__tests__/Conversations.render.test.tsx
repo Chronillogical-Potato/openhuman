@@ -72,7 +72,6 @@ vi.mock('../../features/human/chatMascot', async importOriginal => ({
   useChatMascotOptional: () => mascotContext.current,
 }));
 
-
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
   chatClearQueue: vi.fn().mockResolvedValue(0),

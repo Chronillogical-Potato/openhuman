@@ -43,7 +43,6 @@ import {
   useChatMascotSendBinding,
 } from '../../features/human/chatMascot';
 import MicComposer from '../../features/human/MicComposer';
-import { openTinyVoice } from './utils/openTinyVoice';
 import { useFlowApprovalRequests } from '../../hooks/useFlowApprovalRequests';
 import { useUnroutedApprovals } from '../../hooks/useUnroutedApprovals';
 import { useUsageState } from '../../hooks/useUsageState';
@@ -108,6 +107,7 @@ import {
 } from './aui/ReasoningEffortPicker';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
+import { openTinyVoice } from './utils/openTinyVoice';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 const debug = debugFactory('conversations');
