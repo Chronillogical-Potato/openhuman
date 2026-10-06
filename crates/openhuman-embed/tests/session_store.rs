@@ -157,6 +157,7 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
 
             // Nothing durable reached the scratch workspace.
             let written = files_under(&scratch);
+            eprintln!("SCRATCH_FILES {written:?}");
             for durable in ["session_raw", "session_db", "tinyagents_store", "turn_states"] {
                 assert!(
                     !written.iter().any(|path| path.contains(durable)),
