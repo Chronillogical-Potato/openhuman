@@ -107,6 +107,7 @@ import {
 } from './aui/ReasoningEffortPicker';
 import { ThreadWorkspaceChip } from './aui/ThreadWorkspaceChip';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
+import { useThreadDraft } from './hooks/useThreadDraft';
 import { ThreadList } from './threadList/ThreadList';
 import { useThreadPins } from './threadList/useThreadPins';
 import { useUnreadThreads } from './threadList/useUnreadThreads';
@@ -1779,20 +1780,14 @@ const Conversations = ({
       inferenceTurnLifecycleByThread[selectedThreadId] === 'streaming')
       ? (inferenceStatusByThread[selectedThreadId]?.phase ?? 'thinking')
       : null;
-  const stallWarningBanner = selectedStalledPhase ? (
-    <div className="mb-2" role="status">
-      <p
-        className="text-xs text-amber-700"
-        data-testid="chat-stall-warning"
-        data-chat-stall-phase={selectedStalledPhase}>
-        {t(
-          selectedStalledPhase === 'thinking'
-            ? 'chat.stallWarning.thinking'
-            : 'chat.stallWarning.working'
-        )}
-      </p>
-    </div>
-  ) : null;
+  const stallWarningBanner =
+    selectedStalledPhase && selectedThreadId ? (
+      <StallWarning
+        phase={selectedStalledPhase}
+        quietSince={stalledThreadIds.get(selectedThreadId) ?? Date.now()}
+        onStop={handleStopGeneration}
+      />
+    ) : null;
 
   const sendAdvisoryBanner = sendAdvisory ? (
     <div className="flex items-center justify-between mb-2">
