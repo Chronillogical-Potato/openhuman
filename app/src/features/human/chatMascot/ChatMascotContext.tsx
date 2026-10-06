@@ -48,6 +48,7 @@ export interface ChatMascotContextValue {
   /** How the stage reaches the chat's send path. */
   sendStore: ChatMascotSendStore;
   expand: () => void;
+  collapse: () => void;
   /**
    * Expand the stage AND ask it to start a live voice session as soon as it
    * mounts — what clicking the docked mascot does.
