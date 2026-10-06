@@ -683,6 +683,8 @@ const messages: TranslationMap = {
     'মেমরি উপলব্ধ নয়: আপনার অ্যাকাউন্টের ক্রেডিট শেষ। ফিরিয়ে আনতে টপ আপ করুন; সংরক্ষিত কিছুই হারায়নি।',
   'memory.error.unavailable':
     'এই মুহূর্তে মেমরিতে পৌঁছানো যাচ্ছে না। সংরক্ষিত কিছুই হারায়নি; একটু পরে আবার চেষ্টা করুন।',
+  'memory.outOfCredits.title': 'ক্রেডিট শেষ',
+  'memory.outOfCredits.action': 'টপ আপ করুন',
   'memory.tab.memory': 'মেমোরি',
   'memory.tab.agents': 'লাইব্রেরি',
   'memory.analyzeNow': 'এখনই বিশ্লেষণ করুন',
