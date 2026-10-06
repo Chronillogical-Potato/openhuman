@@ -5263,7 +5263,7 @@ const en: TranslationMap = {
     'Sign in to your TinyHumans account to use built-in CortexDB.',
   'memoryPage.engine.apiKeyOption.title': 'CortexDB with your API key',
   'memoryPage.engine.apiKeyOption.description':
-    "Use your own CortexDB account. The key is stored in this computer's keychain.",
+    'Use your own CortexDB account. The key is stored securely on this computer, never in the config file.',
   'memoryPage.engine.selfHost.title': 'Self-host CortexDB',
   'memoryPage.engine.selfHost.detail': 'A CortexDB server on this computer',
   'memoryPage.engine.selfHost.step1':

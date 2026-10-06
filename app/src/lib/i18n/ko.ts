@@ -4939,7 +4939,7 @@ const messages: TranslationMap = {
     '내장 CortexDB를 사용하려면 TinyHumans 계정에 로그인하세요.',
   'memoryPage.engine.apiKeyOption.title': 'API 키로 CortexDB 사용',
   'memoryPage.engine.apiKeyOption.description':
-    '자신의 CortexDB 계정을 사용합니다. 키는 이 컴퓨터의 키체인에 저장됩니다.',
+    '자신의 CortexDB 계정을 사용합니다. 키는 이 컴퓨터에 안전하게 저장되며 설정 파일에는 저장되지 않습니다.',
   'memoryPage.engine.selfHost.title': 'CortexDB 직접 호스팅',
   'memoryPage.engine.selfHost.detail': '이 컴퓨터의 CortexDB 서버',
   'memoryPage.engine.selfHost.step1': '안내서에 따라 이 컴퓨터에서 CortexDB 서버를 실행하세요:',

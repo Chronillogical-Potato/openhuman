@@ -5053,7 +5053,7 @@ const messages: TranslationMap = {
     'Entre na sua conta TinyHumans para usar o CortexDB integrado.',
   'memoryPage.engine.apiKeyOption.title': 'CortexDB com sua chave de API',
   'memoryPage.engine.apiKeyOption.description':
-    'Use sua própria conta do CortexDB. A chave fica guardada no chaveiro deste computador.',
+    'Use sua própria conta do CortexDB. A chave fica guardada com segurança neste computador, nunca no arquivo de configuração.',
   'memoryPage.engine.selfHost.title': 'Hospedar o CortexDB você mesmo',
   'memoryPage.engine.selfHost.detail': 'Um servidor CortexDB neste computador',
   'memoryPage.engine.selfHost.step1':

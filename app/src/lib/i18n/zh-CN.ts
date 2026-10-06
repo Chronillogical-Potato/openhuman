@@ -4710,7 +4710,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.signInHint': '登录你的 TinyHumans 账户以使用内置 CortexDB。',
   'memoryPage.engine.apiKeyOption.title': '使用你的 API 密钥连接 CortexDB',
   'memoryPage.engine.apiKeyOption.description':
-    '使用你自己的 CortexDB 账户。密钥存储在本机的钥匙串中。',
+    '使用你自己的 CortexDB 账户。密钥安全地存储在本机上，绝不会写入配置文件。',
   'memoryPage.engine.selfHost.title': '自托管 CortexDB',
   'memoryPage.engine.selfHost.detail': '本机上的 CortexDB 服务器',
   'memoryPage.engine.selfHost.step1': '按照指南在本机上运行 CortexDB 服务器：',

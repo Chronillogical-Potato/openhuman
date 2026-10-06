@@ -4892,7 +4892,7 @@ const messages: TranslationMap = {
     'سجّل الدخول إلى حساب TinyHumans لاستخدام CortexDB المدمج.',
   'memoryPage.engine.apiKeyOption.title': 'CortexDB بمفتاح API الخاص بك',
   'memoryPage.engine.apiKeyOption.description':
-    'استخدم حساب CortexDB الخاص بك. يُخزَّن المفتاح في سلسلة مفاتيح هذا الكمبيوتر.',
+    'استخدم حساب CortexDB الخاص بك. يُخزَّن المفتاح بأمان على هذا الكمبيوتر، ولا يُحفظ أبدًا في ملف الإعدادات.',
   'memoryPage.engine.selfHost.title': 'استضافة CortexDB بنفسك',
   'memoryPage.engine.selfHost.detail': 'خادم CortexDB على هذا الكمبيوتر',
   'memoryPage.engine.selfHost.step1': 'شغّل خادم CortexDB على هذا الكمبيوتر باتباع الدليل:',

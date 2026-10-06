@@ -4984,7 +4984,7 @@ const messages: TranslationMap = {
     'बिल्ट-इन CortexDB इस्तेमाल करने के लिए अपने TinyHumans खाते में साइन इन करें।',
   'memoryPage.engine.apiKeyOption.title': 'आपकी API कुंजी के साथ CortexDB',
   'memoryPage.engine.apiKeyOption.description':
-    'अपना CortexDB खाता इस्तेमाल करें। कुंजी इस कंप्यूटर के कीचेन में सहेजी जाती है।',
+    'अपना CortexDB खाता इस्तेमाल करें। कुंजी इस कंप्यूटर पर सुरक्षित रूप से सहेजी जाती है, कॉन्फ़िग फ़ाइल में कभी नहीं।',
   'memoryPage.engine.selfHost.title': 'CortexDB खुद होस्ट करें',
   'memoryPage.engine.selfHost.detail': 'इस कंप्यूटर पर CortexDB सर्वर',
   'memoryPage.engine.selfHost.step1': 'गाइड का पालन करके इस कंप्यूटर पर CortexDB सर्वर चलाएं:',
