@@ -270,6 +270,19 @@ fn read_master_key_file_accepts_a_world_readable_secret_mount() {
 
 #[cfg(unix)]
 #[test]
+fn read_master_key_file_rejects_other_writable_files() {
+    use std::os::unix::fs::PermissionsExt;
+    let tmp = tempfile::TempDir::new().unwrap();
+    let path = tmp.path().join("master.key");
+    std::fs::write(&path, hex_key(0x45)).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o602)).unwrap();
+
+    let err = read_master_key_file(&path).expect_err("other-writable key files are unsafe");
+    assert!(err.contains("writable by other users"), "{err}");
+}
+
+#[cfg(unix)]
+#[test]
 fn key_file_warning_covers_default_mounts_but_not_owner_or_fsgroup_modes() {
     // Warned: the Kubernetes and Docker defaults, and anything world-accessible.
     for mode in [0o644, 0o444, 0o604, 0o666, 0o602] {
@@ -280,6 +293,8 @@ fn key_file_warning_covers_default_mounts_but_not_owner_or_fsgroup_modes() {
     for mode in [0o400, 0o600, 0o440, 0o640] {
         assert!(!key_file_mode_is_world_accessible(mode), "{mode:04o}");
     }
+    assert!(key_file_mode_is_other_writable(0o602));
+    assert!(!key_file_mode_is_other_writable(0o644));
 }
 
 #[test]

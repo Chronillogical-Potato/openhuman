@@ -495,8 +495,10 @@ read-only and it cannot fix the mode, but it logs a warning at every start.
 Restrict it where the mount is declared:
 
 - Kubernetes: set `defaultMode: 0400` on the secret volume (or `mode: 0400` on
-  the item). A pod with `fsGroup` set gets `0440` instead, since kubelet adds
-  group read so the non-root user can open it. That mode does not warn.
+  the item) and set `fsGroup` for the non-root core. Kubelet adds group read,
+  so the file is `0440` and the core can open it. Without `fsGroup` or
+  equivalent ownership/group access, the root-owned `0400` file is unreadable
+  by the core and key loading can fail at startup. This mode does not warn.
 - Docker Swarm: set `mode: 0400` (with `uid`/`gid` for a non-root user) on the
   service's secret.
 - A plain file: `chmod 600` it, owned by the user the core runs as.

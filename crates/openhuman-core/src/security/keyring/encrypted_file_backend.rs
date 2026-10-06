@@ -256,11 +256,13 @@ fn master_key_from_env(
 
 /// Reads the file named by [`MASTER_KEY_FILE_ENV`].
 ///
-/// On Unix a file any user on the host can access is accepted but logged at
+/// On Unix a file readable by any user on the host is accepted but logged at
 /// `warn`, with how to tighten it. It is not refused: the deployments this
 /// path exists for mount secrets read-only with modes the process cannot
 /// change — Docker secrets `0444`, Kubernetes secret volumes `0644` unless
 /// `defaultMode` is set — so refusing would break them out of the box.
+/// Files writable by other users are refused because another local user could
+/// replace the key and orphan the encrypted keyring on the next restart.
 /// Group access alone is not warned about: a non-root pod reads a root-owned
 /// secret through its `fsGroup`, and kubelet then grants group read, so
 /// `defaultMode: 0400` lands as `0440` — the tightest mode that deployment
@@ -280,6 +282,11 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
                      Docker Swarm: `mode: 0400` on the secret)"
                 );
             }
+            if key_file_mode_is_other_writable(mode) {
+                return Err(format!(
+                    "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; +                     restrict it to a read-only secret mount"
+                ));
+            }
         }
     }
     std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
@@ -290,6 +297,11 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
 #[cfg(unix)]
 fn key_file_mode_is_world_accessible(mode: u32) -> bool {
     mode & 0o007 != 0
+}
+
+#[cfg(unix)]
+fn key_file_mode_is_other_writable(mode: u32) -> bool {
+    mode & 0o002 != 0
 }
 
 /// Decodes a master key supplied as exactly `2 * KEY_LEN` hex characters.
