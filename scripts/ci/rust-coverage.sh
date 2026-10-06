@@ -15,8 +15,9 @@ PRODUCT_FEATURES="$(bash scripts/ci/product-features.sh)"
 # toolchain binaries first; cargo --version then needs no rustup home writes.
 # Keep cargo-installed subcommands on PATH after the toolchain directory.
 if command -v rustup >/dev/null 2>&1; then
-  COV_TOOLCHAIN_CARGO="$(rustup which cargo)"
-  export PATH="$(dirname "$COV_TOOLCHAIN_CARGO"):$PATH"
+  if COV_TOOLCHAIN_CARGO="$(rustup which cargo 2>/dev/null)"; then
+    export PATH="$(dirname "$COV_TOOLCHAIN_CARGO"):$PATH"
+  fi
 fi
 
 log() { echo "[ci][rust-cov] $*"; }

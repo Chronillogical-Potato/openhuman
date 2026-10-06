@@ -92,7 +92,7 @@ export default function MemoryAskTab({ fetchModes }: MemoryAskTabProps) {
       }
     } catch (err) {
       log('%s failed: %o', raw ? 'fetch' : 'recall', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setBusy(false);
     }

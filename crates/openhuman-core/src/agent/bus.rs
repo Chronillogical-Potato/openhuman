@@ -353,7 +353,7 @@ async fn handle_agent_run_turn_on_large_stack(
         .name("agent-run-turn-test".to_string())
         // Match the CI test runtime's stack: LLVM instrumentation expands
         // this full-pipeline future beyond the production worker's stack.
-        .stack_size(64 * 1024 * 1024)
+        .stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
         .spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()

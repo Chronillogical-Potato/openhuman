@@ -58,6 +58,8 @@ interface FakeOptions {
   engineOn: boolean;
   /** `memory_import_scan` finds v1 data to import. */
   importFound?: boolean;
+  /** An earlier import stopped with this error (e.g. credits ran out) after 7 of 20 items. */
+  importStoppedWith?: string;
 }
 
 interface RpcCall {
@@ -95,7 +97,9 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
   ];
   const sources: Array<Record<string, unknown>> = [];
   let nextId = 1;
-  let importState = { phase: 'idle', imported: 0, total: 0, error: null as string | null };
+  let importState = opts.importStoppedWith
+    ? { phase: 'error', imported: 7, total: 20, error: opts.importStoppedWith as string | null }
+    : { phase: 'idle', imported: 0, total: 0, error: null as string | null };
 
   const policy = {
     log_conversations: true,
@@ -263,7 +267,8 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
           ? { found: true, counts: { documents: 12, conversations: 3, learnings: 5 } }
           : { found: false, counts: null };
       case 'memory_import_start':
-        importState = { phase: 'running', imported: 0, total: 20, error: null };
+        // A restart resumes from the persisted progress.
+        importState = { phase: 'running', imported: importState.imported, total: 20, error: null };
         return { state: importState };
       case 'memory_import_status': {
         const current = importState;
@@ -337,13 +342,14 @@ test.describe('Memory v2 — engine active', () => {
     });
     await expect(page.getByTestId('memory-ask-tab')).toBeVisible();
 
-    // Engine chip lists both engines from memory_engines_list.
+    // Engine chip: the three CortexDB options, Built-in (tinyhumans) active.
     await page.getByTestId('brain-tab-engine').click();
     await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engines')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-tinyhumans')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-cortexdb')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-tinyhumans-active')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-builtin')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-apikey')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-selfhost')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-builtin-active')).toBeVisible();
 
     // 2. Ask: the recall answer and its citation render.
     await page.getByTestId('brain-tab-ask').click();
@@ -431,6 +437,41 @@ test.describe('Memory v2 — engine active', () => {
       page.getByTestId('memory-import-running').or(page.getByTestId('memory-import-done'))
     ).toBeVisible();
     await expect(page.getByTestId('memory-import-done')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('a stopped import resumes only after consent', async ({ page }) => {
+    const stopped =
+      'not enough credits to import your memory; top up, then resume the import to continue where it stopped';
+    const fake = await installMemoryFake(page, {
+      engineOn: true,
+      importFound: true,
+      importStoppedWith: stopped,
+    });
+    await bootAuthenticatedPage(page, 'pw-memory-v2-import-resume');
+    await openMemory(page, '&brain=ask');
+
+    // The stopped import shows its reason and a Resume control, not the fresh offer.
+    const failed = page.getByTestId('memory-import-error');
+    await expect(failed).toBeVisible({ timeout: 20_000 });
+    await expect(failed).toContainText('not enough credits');
+    await expect(page.getByTestId('memory-import-open')).toHaveCount(0);
+
+    // Resume asks again; nothing restarts until the user confirms.
+    await page.getByTestId('memory-import-resume').click();
+    const consent = page.getByTestId('memory-import-consent');
+    await expect(consent).toBeVisible();
+    expect(fake.paramsOf('memory_import_start')).toEqual([]);
+
+    await page.getByTestId('memory-import-confirm').click();
+    await expect(consent).toBeHidden();
+    expect(fake.paramsOf('memory_import_start')).toEqual([{ consent: true }]);
+
+    // It picks up from the stored progress and finishes.
+    await expect(
+      page.getByTestId('memory-import-running').or(page.getByTestId('memory-import-done'))
+    ).toBeVisible();
+    await expect(page.getByTestId('memory-import-done')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('memory-import-resume')).toHaveCount(0);
   });
 
   test('legacy Brain and settings links land on their v2 chips', async ({ page }) => {

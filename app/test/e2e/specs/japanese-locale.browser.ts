@@ -89,17 +89,20 @@ test.describe('Japanese UI locale', () => {
       },
       'openhuman.memory_items_list': { result: { items: [] }, logs: [] },
       'openhuman.tokenjuice_savings_stats': {
-        attributionModel: 'Qwen3.8-Flash-Next',
-        total: {
-          events: 3,
-          originalTokens: 1000,
-          compactedTokens: 500,
-          tokensSaved: 500,
-          costSavedUsd: 0,
+        result: {
+          attributionModel: 'Qwen3.8-Flash-Next',
+          total: {
+            events: 3,
+            originalTokens: 1000,
+            compactedTokens: 500,
+            tokensSaved: 500,
+            costSavedUsd: 0,
+          },
+          byModel: {},
+          byCompressor: {},
+          cache: { entries: 0, bytes: 0 },
         },
-        byModel: {},
-        byCompressor: {},
-        cache: { entries: 0, bytes: 0 },
+        logs: [],
       },
     };
     // Only data-dependent read results are fixtures; authentication, locale

@@ -67,3 +67,16 @@ async fn computer_status_handler_returns_serialized_status() {
 
     assert!(status.get("decision_model").is_some());
 }
+
+#[test]
+fn the_chrome_check_says_where_to_fix_a_missing_chrome() {
+    let missing = super::readiness_error(
+        "BrowserUnavailable: browser unavailable: Chrome not found. Checked: …",
+    );
+    assert!(missing.starts_with("Chrome was not found."), "{missing}");
+    assert!(missing.contains("Chrome path"), "{missing}");
+    assert_eq!(
+        super::readiness_error("Bus: launch timed out"),
+        "Chrome could not start: Bus: launch timed out"
+    );
+}

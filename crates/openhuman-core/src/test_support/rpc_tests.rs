@@ -1,6 +1,5 @@
 use super::*;
 use std::sync::{Mutex, OnceLock};
-use tempfile::TempDir;
 
 static E2E_MODE_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 

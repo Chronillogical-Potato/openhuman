@@ -22,11 +22,15 @@ async fn full_registration_is_byte_identical() {
     // explicitly so parallel test order cannot change the registry surface.
     let ctx = CoreContext::for_test(DomainSet::full(), None);
     let (filtered_methods, raw_methods) = CoreContext::scope(ctx, async {
-        let filtered = all_registered_controllers()
+        // Capture extensions once: other registry tests may append extensions
+        // concurrently, and each public lookup intentionally takes a fresh
+        // snapshot.
+        let view = registry_view();
+        let filtered = registered_controllers(&view)
             .iter()
             .map(|c| c.rpc_method_name())
             .collect::<Vec<_>>();
-        let raw = registry_view()
+        let raw = view
             .iter()
             .map(|g| g.controller.rpc_method_name())
             .collect::<Vec<_>>();

@@ -720,7 +720,8 @@ export async function persistedBrowserLocale(page: BrowserPage): Promise<string 
       // Redux Persist JSON-encodes each reducer property inside its outer JSON.
       const persisted = JSON.parse(raw) as { current?: string };
       if (!persisted.current) return null;
-      return JSON.parse(persisted.current) as string;
+      const locale = JSON.parse(persisted.current);
+      return typeof locale === 'string' ? locale : null;
     } catch {
       return null;
     }

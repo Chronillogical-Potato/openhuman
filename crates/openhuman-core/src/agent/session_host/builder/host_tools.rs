@@ -109,6 +109,7 @@ impl HostTurnTools {
                 policy: None,
                 withheld: HashSet::new(),
                 permanent: HashSet::new(),
+                scope_additions: HashSet::new(),
             });
         }
         log::debug!(
@@ -144,12 +145,14 @@ impl HostTurnTools {
         // Filling it with an attached source's names would turn it into a
         // literal allowlist and silently discard the native registry.
         if !visible.is_empty() {
-            visible.extend(self.visible);
+            visible.extend(self.visible.iter().cloned());
         }
+        let scope_additions = self.visible.difference(&self.withheld).cloned().collect();
         Ok(MergedHostTurnTools {
             policy: self.policy,
             withheld: self.withheld,
             permanent: self.permanent,
+            scope_additions,
         })
     }
 
@@ -190,6 +193,26 @@ pub(super) struct MergedHostTurnTools {
     pub policy: Option<Arc<dyn ToolPolicy>>,
     pub withheld: HashSet<String>,
     pub permanent: HashSet<String>,
+    pub scope_additions: HashSet<String>,
+}
+
+pub(super) fn scope_def(
+    definition: Option<&crate::agent::harness::definition::AgentDefinition>,
+    host_tools: &MergedHostTurnTools,
+) -> Option<crate::agent::harness::definition::AgentDefinition> {
+    let mut definition = definition.cloned()?;
+    if let crate::agent::harness::definition::ToolScope::Named(names) = &mut definition.tools {
+        names.retain(|name| !host_tools.withheld.contains(name));
+        definition
+            .extra_tools
+            .retain(|name| !host_tools.withheld.contains(name));
+        definition
+            .extra_tools
+            .extend(host_tools.scope_additions.iter().cloned());
+        definition.extra_tools.sort();
+        definition.extra_tools.dedup();
+    }
+    Some(definition)
 }
 
 pub(super) fn merge_for_turn(
@@ -208,6 +231,7 @@ pub(super) fn merge_for_turn(
             policy: None,
             withheld: HashSet::new(),
             permanent: HashSet::new(),
+            scope_additions: HashSet::new(),
         }),
     }
 }

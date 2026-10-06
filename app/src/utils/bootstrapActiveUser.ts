@@ -1,3 +1,5 @@
+import { consumeIdentityFlipSeed, markIdentityFlipSeed } from '../store/userScopedStorage';
+
 /**
  * Decide which async source seeds `userScopedStorage`'s active-user id at
  * boot, before `primeActiveUserId(...)` runs.
@@ -21,6 +23,12 @@
  * `userScopedStorage.ts::primeActiveUserId` and the "cloud-mode reload
  * survival" test.
  */
+// The marker itself lives with `OPENHUMAN_ACTIVE_USER_ID` in
+// `userScopedStorage.ts`: both are unscoped by necessity because they are read
+// to *decide* the active user. Re-exported here because this is where the
+// bootstrap reads it.
+export { consumeIdentityFlipSeed, markIdentityFlipSeed };
+
 /** Every core mode the picker and the gateway section can persist. */
 type StoredCoreMode = 'local' | 'cloud' | 'gateway' | null;
 
@@ -28,6 +36,8 @@ interface BootstrapContext {
   isStandaloneNativeWindow: boolean;
   coreMode: StoredCoreMode;
   getActiveUserIdFromCore: () => Promise<string | null>;
+  /** Injectable for tests; defaults to the module-level reader. */
+  consumeIdentityFlipSeed?: () => string | null;
 }
 
 export function shouldSkipLocalActiveUserRead(opts: {
@@ -43,6 +53,17 @@ export function shouldSkipLocalActiveUserRead(opts: {
 }
 
 export function resolveActiveUserBootstrap(ctx: BootstrapContext): Promise<string | null> {
+  // A pending flip outranks every other source: it is the id this process was
+  // restarted in order to adopt.
+  // `?? consumeIdentityFlipSeed()` would fall through to the module reader
+  // whenever an injected one returned null, so a test that deliberately says
+  // "no flip pending" still hit real storage.
+  const readFlipSeed = ctx.consumeIdentityFlipSeed ?? consumeIdentityFlipSeed;
+  const flipped = readFlipSeed();
+  if (flipped) {
+    return Promise.resolve<string | null>(flipped);
+  }
+
   if (
     shouldSkipLocalActiveUserRead({
       isStandaloneNativeWindow: ctx.isStandaloneNativeWindow,

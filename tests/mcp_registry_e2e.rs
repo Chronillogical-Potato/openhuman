@@ -26,8 +26,10 @@ fn host(config: &Config) -> std::sync::Arc<openhuman_core::mcp::host::McpHost> {
 
 fn fresh_workspace_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut cfg = Config::default();
-    cfg.workspace_dir = tmp.path().to_path_buf();
+    let cfg = Config {
+        workspace_dir: tmp.path().to_path_buf(),
+        ..Config::default()
+    };
     (tmp, cfg)
 }
 
@@ -65,8 +67,7 @@ async fn unknown_tool_call_returns_error() {
     h.dynamic()
         .connect(&server.server_id)
         .await
-        .expect("connect")
-        .tools;
+        .expect("connect");
 
     let err = h
         .dynamic()
@@ -153,8 +154,7 @@ async fn set_enabled_false_disconnects_running_server() {
     h.dynamic()
         .connect(&server.server_id)
         .await
-        .expect("connect")
-        .tools;
+        .expect("connect");
 
     let outcome = ops::mcp_clients_set_enabled(&cfg, server.server_id.clone(), false)
         .await

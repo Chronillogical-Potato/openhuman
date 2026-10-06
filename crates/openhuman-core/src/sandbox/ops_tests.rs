@@ -508,12 +508,17 @@ async fn landlock_jail_runs_cargo_and_mktemp_but_blocks_writes_outside() {
     let outside = tempfile::tempdir().unwrap();
     let policy = local_policy(action.path(), state.path());
 
-    if host_has("cargo") {
-        let r = run_local(&policy, "cargo --version").await;
+    // Cargo records the executable for the active build toolchain. Use it
+    // directly so this check exercises Cargo inside the jail: a rustup proxy
+    // on PATH can try to initialize a different HOME in a CI container.
+    let cargo = Path::new(env!("CARGO"));
+    if cargo.is_file() {
+        let quoted_cargo = format!("'{}'", cargo.to_string_lossy().replace('\'', "'\\''"));
+        let r = run_local(&policy, &format!("{quoted_cargo} --version")).await;
         assert!(r.success(), "cargo failed under the jail: {}", r.stderr);
         assert!(r.stdout.starts_with("cargo "), "stdout: {}", r.stdout);
     } else {
-        eprintln!("SKIP cargo: not installed on this host");
+        eprintln!("SKIP cargo: build toolchain executable is absent on this host");
     }
 
     // `/tmp` is not granted; `mktemp` lands in the per-call TMPDIR scratch dir.

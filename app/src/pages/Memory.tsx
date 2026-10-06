@@ -70,7 +70,7 @@ export default function Memory() {
         setLoadError(null);
       } else {
         log('engine_get failed: %o', state.reason);
-        setLoadError(memoryErrorMessage(state.reason));
+        setLoadError(memoryErrorMessage(state.reason, t));
         // Treat an unreadable engine as off so the page still has a chip to show.
         setEngine({ engine: null, has_key: false, status: 'off', fetch_modes: [] });
       }
@@ -79,7 +79,7 @@ export default function Memory() {
     return () => {
       cancelled = true;
     };
-  }, [authUserId, reloadKey]);
+  }, [authUserId, reloadKey, t]);
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const rawChip = params.get('brain');

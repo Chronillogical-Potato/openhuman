@@ -751,12 +751,26 @@ impl OpenHumanSessionHost {
         // `agent_harness_e2e` mock now serves SSE for streaming, so the crate-native
         // streaming path is exercised end-to-end.
         //
-        // Resolve explicit overrides before the agent definition's default.
+        // Resolve the per-turn iteration cap in one place so an explicit
+        // operator override takes precedence over the selected definition,
+        // while definitions still take precedence over the global default.
         let mut effective_agent_config = config.agent.clone();
-        effective_agent_config.max_tool_iterations =
+        let effective_cap =
             super::iteration_cap::resolve_max_tool_iterations(&config.agent, target_def);
-        // Host-first, so a host tool wins a name collision -- see
-        // `HostTurnTools::merge_into`, which owns that rule and why.
+        if let Some(def) = target_def {
+            log::info!(
+                "[agent::builder] resolved iteration cap for agent_id={}: \
+                 definition.max_iterations={} iteration_policy={:?} -> effective={} \
+                 (global default {}, explicit override {:?})",
+                agent_id,
+                def.max_iterations,
+                def.iteration_policy,
+                effective_cap,
+                config.agent.max_tool_iterations,
+                config.agent.max_tool_iterations_override,
+            );
+        }
+        effective_agent_config.max_tool_iterations = effective_cap;
         let merged_host_tools = super::host_tools::merge_for_turn(
             host,
             agent_id,
@@ -764,6 +778,7 @@ impl OpenHumanSessionHost {
             &mut tools,
             &mut visible,
         )?;
+        let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
         let host_policy = merged_host_tools.policy;
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()
@@ -825,12 +840,14 @@ impl OpenHumanSessionHost {
                 // names no registry holds; without handing the definition over
                 // here the lookup misses and the turn is rejected as a policy
                 // failure before any provider call (#6404/#6392/#6393).
-                session_definition: target_def.cloned().map(|mut definition| {
+                session_definition: session_definition.clone().map(|mut definition| {
                     // Explicit host attachments belong to this session's belt,
                     // including when the definition uses a named tool scope.
                     definition
                         .extra_tools
                         .extend(agent.permanent_tool_names.iter().cloned());
+                    definition.extra_tools.sort();
+                    definition.extra_tools.dedup();
                     Arc::new(definition)
                 }),
             })
@@ -840,7 +857,7 @@ impl OpenHumanSessionHost {
                 "[tinyagents] hosted invocation base unavailable: agent definition registry was not initialized"
             );
         }
-        agent.definition = target_def.cloned().map(Arc::new);
+        agent.definition = session_definition.map(Arc::new);
         agent.last_seen_integrations_hash =
             crate::integrations::composio::connected_set_hash(&agent.connected_integrations);
         Ok(agent)

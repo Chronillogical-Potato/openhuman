@@ -47,7 +47,7 @@
 <div dir="ltr">
 
 <p align="center">
-  🇺🇸 <a href="../README.md">English</a> | 🇨🇳 <a href="./README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./README.ko.md">한국어</a> | 🇩🇪 <a href="./README.de.md">Deutsch</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
+  🇺🇸 <a href="../README.md">English</a> | 🇸🇦 <a href="./README.ar.md">العربية</a> | 🇨🇳 <a href="./README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./README.ko.md">한국어</a> | 🇩🇪 <a href="./README.de.md">Deutsch</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
 </p>
 
 <p align="center">
@@ -78,7 +78,7 @@ OpenHuman تین چیزیں ہے جو زیادہ تر اسسٹنٹس نہیں ہ
 ### 🧠 دماغ
 
 - **[میموری](../gitbooks/features/memory.md)**: تبدیل ہونے والے انجن (ہوسٹڈ TinyHumans یا آپ کا اپنا CortexDB) پر Recall، Fetch اور Store۔ دستاویزات، گفتگو اور سیکھی ہوئی باتیں محفوظ ہوتی ہیں، جواب حوالوں کے ساتھ ملتے ہیں، اور ہر دور سے پہلے متعلقہ میموری پیک بازیافت کیا جاتا ہے۔
-- **[100+ OAuth انضمام، 5,000+ MCP سرورز، 90,000+ سکلز](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: ایک کلک سے Gmail، Notion، GitHub، Slack اور اپنے باقی اسٹیک میں پلگ ان کریں۔ [خودکار لانا](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) ہر 20 منٹ میں دماغ کو خوراک دیتا ہے۔ اس کے پاس آج صبح ہی کل کا سیاق و سباق ہوتا ہے۔
+- **[100+ OAuth انضمام، 5,000+ MCP سرورز، 90,000+ سکلز](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: ایک کلک سے Gmail، Notion، GitHub، Slack اور اپنے باقی اسٹیک میں پلگ ان کریں۔ [خودکار لانا](https://tinyhumans.gitbook.io/openhuman/features/memory) ہر 20 منٹ میں دماغ کو خوراک دیتا ہے۔ اس کے پاس آج صبح ہی کل کا سیاق و سباق ہوتا ہے۔
 - **[اہداف اور ٹوڈوز](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: فی تھریڈ پائیدار اہداف اور چیٹ میں دکھائی جانے والی ایجنٹ کی ٹوڈو فہرست۔
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: ٹول آؤٹ پٹ ماڈل تک پہنچنے سے پہلے کمپریس ہوتا ہے: وہی معلومات، 80% تک کم ٹوکنز۔ اتنا بڑا دماغ اس کے بغیر ناقابلِ برداشت مہنگا ہوتا۔
 

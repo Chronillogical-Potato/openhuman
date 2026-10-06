@@ -50,6 +50,24 @@ const defaults: BrowserSettings = {
   task_timeout_secs: 120,
 };
 
+/** The fields this panel edits, all accepted by `config.update_browser_settings`. */
+const SETTING_KEYS = Object.keys(defaults) as (keyof BrowserSettings)[];
+
+/**
+ * Keep only the panel's own fields. The `[browser]` config block also carries
+ * legacy keys (`allowed_domains`, `native_*`, `computer_use`, ...), and the
+ * core rejects any unknown param, so sending the whole block fails every save.
+ */
+function pickSettings(source: Partial<Record<keyof BrowserSettings, unknown>>): BrowserSettings {
+  const picked: Partial<Record<keyof BrowserSettings, unknown>> = {};
+  for (const key of SETTING_KEYS) {
+    if (source[key] !== undefined) picked[key] = source[key];
+  }
+  return { ...defaults, ...(picked as Partial<BrowserSettings>) };
+}
+
+type BrowserReadiness = { module_ready: boolean; chrome_ready: boolean; error?: string | null };
+
 export interface BrowserConnectionsPanelProps {
   /** Render only the body, for hosting inside the Computer panel's chip tabs. */
   embedded?: boolean;
@@ -68,8 +86,7 @@ export default function BrowserConnectionsPanel({
   const refresh = useCallback(async () => {
     const configResponse = await openhumanGetConfig();
     const config = configResponse.result.config;
-    const browser = (config.browser ?? {}) as Partial<BrowserSettings>;
-    setSettings({ ...defaults, ...browser });
+    setSettings(pickSettings((config.browser ?? {}) as Partial<BrowserSettings>));
     const httpRequest = (config.http_request ?? {}) as { allowed_domains?: string[] };
     setAllowedDomains(httpRequest.allowed_domains ?? []);
   }, []);
@@ -100,7 +117,7 @@ export default function BrowserConnectionsPanel({
         setMessage(t('connections.browser.boundsRequired'));
         return;
       }
-      await openhumanUpdateBrowserSettings(settings);
+      await openhumanUpdateBrowserSettings(pickSettings(settings));
       setChromeReady(null);
       await refresh();
       setMessage(t('connections.browser.saved'));
@@ -115,11 +132,12 @@ export default function BrowserConnectionsPanel({
     setBusy(true);
     setMessage('');
     try {
-      const response = await callCoreRpc<{
-        result: { module_ready: boolean; chrome_ready: boolean; error?: string };
-      }>({ method: 'openhuman.modules_browser_check_readiness' });
-      setChromeReady(response.result.chrome_ready);
-      setMessage(response.result.error ?? t('connections.browser.readinessChecked'));
+      // callCoreRpc already unwraps the JSON-RPC `result`.
+      const response = await callCoreRpc<BrowserReadiness>({
+        method: 'openhuman.modules_browser_check_readiness',
+      });
+      setChromeReady(response.chrome_ready);
+      setMessage(response.error ?? t('connections.browser.readinessChecked'));
     } catch (error) {
       setChromeReady(false);
       setMessage(error instanceof Error ? error.message : String(error));

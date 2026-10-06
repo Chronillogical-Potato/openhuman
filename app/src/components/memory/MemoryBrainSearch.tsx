@@ -47,7 +47,7 @@ export default function MemoryBrainSearch({ sources }: MemoryBrainSearchProps) {
       setHits(res.hits ?? []);
     } catch (err) {
       log('search failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setBusy(false);
     }

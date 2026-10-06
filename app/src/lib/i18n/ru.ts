@@ -441,6 +441,35 @@ const messages: TranslationMap = {
   'welcome.privacyPolicy': 'Политикой конфиденциальности.',
   'welcome.termsOutro': '.',
   'welcome.connect': 'Проверить',
+  'welcome.hero.subtitle': 'Ваш ИИ с памятью, голосом и всем интернетом.',
+  'welcome.th.title': 'Продолжить с TinyHumans',
+  'welcome.th.promise': 'Один аккаунт. Всё включено. Ничего настраивать не нужно.',
+  'welcome.th.featureInference': 'Инференс',
+  'welcome.th.featureSearch': 'Поиск в интернете',
+  'welcome.th.featureVoice': 'Голос',
+  'welcome.th.featureMemory': 'Память',
+  'welcome.th.featureEmbeddings': 'Эмбеддинги',
+  'welcome.th.featureBilling': 'Оплата',
+  'welcome.th.credit': '5 $ кредита для начала',
+  'welcome.th.cta': 'Продолжить с TinyHumans',
+  'welcome.th.providers': 'Войдите через Google, GitHub или X',
+  'welcome.self.title': 'Настрою сам',
+  'welcome.self.promise': 'Используйте собственные API-ключи и конечные точки.',
+  'welcome.self.listLabel': 'Вы настроите:',
+  'welcome.self.step1': 'Инференс',
+  'welcome.self.step2': 'Поиск в интернете',
+  'welcome.self.step3': 'Память',
+  'welcome.self.time': 'Около 3 минут. Всё можно изменить позже в Настройках.',
+  'welcome.self.cta': 'Настрою сам',
+  'welcome.serverPrompt': 'Уже запустили OpenHuman на сервере?',
+  'welcome.serverCta': 'Подключитесь к нему.',
+  'welcome.handoff.title': 'Завершаем вход в вашем браузере',
+  'welcome.handoff.body': 'Мы открыли tinyhumans.ai. Вернитесь, когда закончите.',
+  'welcome.handoff.reopen': 'Открыть страницу снова',
+  'welcome.handoff.failedTitle': 'Вход не вернулся',
+  'welcome.handoff.failedBody': 'Возможно, браузер заблокировал возврат в OpenHuman.',
+  'welcome.handoff.retry': 'Повторить',
+  'welcome.handoff.fallbackSelf': 'Лучше настрою сам',
   'home.askAssistant': 'Спроси ассистента о чём угодно...',
   'home.statusOk':
     'Ваш ассистент готов, когда вы будете готовы. Напишите что-нибудь ниже, чтобы начать.',
@@ -662,6 +691,10 @@ const messages: TranslationMap = {
   'memory.search': 'Поиск воспоминаний...',
   'memory.noResults': 'Воспоминания не найдены',
   'memory.empty': 'Воспоминаний пока нет. Они создаются автоматически в процессе общения.',
+  'memory.error.insufficientCredits':
+    'Память недоступна: на счёте закончились кредиты. Пополните баланс, чтобы восстановить её; ничего из сохранённого не потеряно.',
+  'memory.error.unavailable':
+    'Сейчас не удаётся связаться с памятью. Ничего из сохранённого не потеряно; повторите попытку чуть позже.',
   'memory.tab.memory': 'Память',
   'memory.tab.agents': 'Библиотека',
   'memory.analyzeNow': 'Анализировать сейчас',
@@ -745,9 +778,9 @@ const messages: TranslationMap = {
   'onboarding.custom.configureLater':
     'Можно завершить настройку после онбординга. Мы откроем нужную страницу настроек.',
   'onboarding.custom.openSettings': 'Открыть в настройках',
-  'onboarding.custom.inference.title': 'Инференс (текст)',
+  'onboarding.custom.inference.title': 'Выберите поставщика моделей',
   'onboarding.custom.inference.subtitle':
-    'Какая языковая модель будет отвечать на вопросы и запускать агентов?',
+    'OpenHuman нужна модель, чтобы думать. Добавьте ключ поставщика, которым вы уже пользуетесь, или укажите модель, работающую локально.',
   'onboarding.custom.inference.defaultDesc':
     'OpenHuman автоматически выбирает подходящую модель. Без ключей и настроек.',
   'onboarding.custom.inference.configureDesc':
@@ -764,12 +797,16 @@ const messages: TranslationMap = {
     'OpenHuman использует управляемое рабочее пространство Composio. Один клик для подключения каждого сервиса.',
   'onboarding.custom.oauth.configureDesc':
     'Используй свой аккаунт Composio / API-ключ. Настрой в Настройки › Подключения.',
-  'onboarding.custom.search.title': 'Поиск в интернете',
-  'onboarding.custom.search.subtitle': 'Как OpenHuman ищет информацию в интернете.',
+  'onboarding.custom.search.title': 'Позвольте OpenHuman искать в интернете',
+  'onboarding.custom.search.subtitle': 'Без этого OpenHuman знает только то, чему его обучили.',
   'onboarding.custom.search.defaultDesc':
     'Веб-поиск работает сразу: Exa и Gemini включены в TinyHumans, API-ключ не нужен.',
   'onboarding.custom.search.configureDesc':
     'Exa и Gemini уже включены. Добавьте других поисковых провайдеров со своим API-ключом в Настройки › Инструменты.',
+  'onboarding.custom.search.skipForNow': 'Пропустить пока',
+  'onboarding.custom.search.ready': 'Веб-поиск готов.',
+  'onboarding.custom.search.notReady':
+    'Добавьте провайдера ниже, чтобы OpenHuman мог искать в интернете.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Как OpenHuman создаёт векторные эмбеддинги для семантического поиска в памяти.',
@@ -860,7 +897,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.title': 'Панель затрат',
   'settings.costDashboard.sevenDayCost': '7-дневная ежедневная стоимость',
   'settings.costDashboard.sevenDayTokens': '7-дневное использование токена',
-  'settings.costDashboard.totalSpend': 'всего 7 дней',
+  'settings.costDashboard.totalSpend': 'всего 7 дней',
   'settings.costDashboard.monthlyPace': 'Ежемесячный темп',
   'settings.costDashboard.modelBreakdown': 'Разбивка по моделям',
   'settings.costDashboard.model': 'Модель',
@@ -871,8 +908,8 @@ const messages: TranslationMap = {
   'settings.costDashboard.percentOfTotal': '% от общего количества',
   'settings.costDashboard.inputTokens': 'Вход',
   'settings.costDashboard.outputTokens': 'Выход',
-  'settings.costDashboard.noData': 'За последние 7 дней стоимость еще не зафиксирована.',
-  'settings.costDashboard.noModels': 'Никакой активности модели за последние 7 дней.',
+  'settings.costDashboard.noData': 'За последние 7 дней стоимость еще не зафиксирована.',
+  'settings.costDashboard.noModels': 'Никакой активности модели за последние 7 дней.',
   'settings.costDashboard.loading': 'Загрузка сводки расходов…',
   'settings.costDashboard.disabledHint':
     'Панель затрат отключена в конфигурации. Установите [cost.dashboard] Enabled = True в config.toml, чтобы повторно включить.',
@@ -893,7 +930,7 @@ const messages: TranslationMap = {
   'settings.costDashboard.refresh': 'Обновить',
   'settings.costDashboard.utcNote': 'Дни, разбитые по UTC',
   'settings.costDashboard.stackedNote': 'Вход + выход сложены',
-  'settings.costDashboard.modelBreakdownHint': 'Совокупно за последние 7 дней.',
+  'settings.costDashboard.modelBreakdownHint': 'Совокупно за последние 7 дней.',
   'settings.costDashboard.usageLog': 'Журнал использования',
   'settings.costDashboard.usageLogHint':
     'Новые записи за последние {days} дней, не более {limit} строк.',
@@ -1609,62 +1646,61 @@ const messages: TranslationMap = {
   'stats.latest': 'Последнее',
   'stats.sessions': 'Сессии',
   'stats.tokens': 'токенов',
-  'bootCheck.invalidUrl': 'Введи URL среды выполнения.',
+  'bootCheck.invalidUrl': 'Введите адрес.',
   'bootCheck.urlMustStartWith': 'URL должен начинаться с http:// или https://',
   'bootCheck.validUrlRequired':
     'Похоже, это не корректный URL (попробуй https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'Для подключения нужен токен авторизации.',
   'bootCheck.httpPublicWarning':
     'Это обычный HTTP-адрес на публичном хосте: трафик не будет зашифрован. Используйте HTTPS, если вы не доверяете этой сети.',
-  'bootCheck.chooseCoreMode': 'Выбрать среду выполнения',
-  'bootCheck.connectToCore': 'Подключиться к среде выполнения',
+  'bootCheck.chooseCoreMode': 'Где запускать OpenHuman?',
+  'bootCheck.connectToCore': 'Подключение к OpenHuman',
   'bootCheck.desktopDescription':
-    'OpenHuman нужна среда выполнения для работы. Выбери, где она должна находиться.',
+    'OpenHuman не удалось запустить на этом компьютере. Выберите, где он должен работать.',
   'bootCheck.webDescription':
-    'В браузере OpenHuman подключается к среде выполнения под твоим управлением. Введи URL и токен авторизации, или скачай настольное приложение для локального запуска.',
+    'В вебе OpenHuman подключается к серверу, которым управляете вы. Введите ниже его адрес и токен или скачайте приложение для компьютера, чтобы запустить его прямо у себя.',
   'bootCheck.preferDesktop': 'Хочешь держать всё на своём устройстве?',
   'bootCheck.downloadDesktop': 'Скачать настольное приложение',
-  'bootCheck.localRecommended': 'Запустить локально (рекомендуется)',
-  'bootCheck.localDescription':
-    'Работает прямо на твоём компьютере. Быстро, полностью приватно, ничего настраивать не нужно.',
-  'bootCheck.cloudMode': 'Запустить в облаке (сложно)',
+  'bootCheck.localRecommended': 'На этом компьютере',
+  'bootCheck.localDescription': 'Быстрее всего, полностью приватно, ничего настраивать не нужно.',
+  'bootCheck.cloudMode': 'На моём сервере',
   'bootCheck.cloudDescription':
-    'Подключись к среде выполнения, которую ты размещаешь в другом месте. Работает 24×7, не нужно держать это устройство включённым.',
-  'bootCheck.coreRpcUrl': 'URL среды выполнения',
+    'Работает круглосуточно, так что этот компьютер не нужно держать включённым.',
+  'bootCheck.coreRpcUrl': 'Адрес',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
-  'bootCheck.authToken': 'Токен авторизации',
-  'bootCheck.bearerTokenPlaceholder': 'Bearer-токен от твоей удалённой среды выполнения',
+  'bootCheck.authToken': 'Токен',
+  'bootCheck.bearerTokenPlaceholder': 'Токен с вашего сервера',
   'bootCheck.storedLocally': 'Хранится только на этом устройстве. Отправляется как ',
   'bootCheck.testing': 'Проверка…',
   'bootCheck.testConnection': 'Проверить соединение',
   'bootCheck.connectedOk': 'Подключено. Всё готово.',
   'bootCheck.authFailed': 'Токен не подошёл. Проверь его и попробуй снова.',
   'bootCheck.unreachablePrefix': 'Не удалось достучаться:',
-  'bootCheck.checkingCore': 'Пробуждение среды выполнения…',
-  'bootCheck.cannotReach': 'Нет доступа к среде выполнения',
-  'bootCheck.cannotReachDesc': 'Не удалось подключиться к среде выполнения. Попробовать другую?',
-  'bootCheck.switchMode': 'Выбрать другую среду',
+  'bootCheck.checkingCore': 'Запускаем OpenHuman…',
+  'bootCheck.cannotReach': 'Не удаётся подключиться',
+  'bootCheck.cannotReachDesc': 'Нам не удалось подключиться. Попробовать другой вариант?',
+  'bootCheck.switchMode': 'Изменить, где он работает',
   'bootCheck.quit': 'Выйти',
-  'bootCheck.legacyDetected': 'Обнаружена устаревшая фоновая среда',
+  'bootCheck.legacyDetected': 'Найдена старая фоновая служба',
   'bootCheck.legacyDescription':
-    'На этом устройстве уже запущен отдельно установленный демон OpenHuman. Нужно его убрать, прежде чем встроенная среда сможет взять управление.',
+    'На этом устройстве уже работает отдельно установленный демон OpenHuman. Его нужно удалить, прежде чем встроенный сможет начать работу.',
   'bootCheck.removing': 'Удаление…',
   'bootCheck.removeContinue': 'Удалить и продолжить',
-  'bootCheck.localNeedsRestart': 'Требуется перезапуск локальной среды',
+  'bootCheck.localNeedsRestart': 'OpenHuman нужно перезапустить',
   'bootCheck.localNeedsRestartDesc':
-    'Локальная среда выполнения и приложение используют разные версии. Быстрый перезапуск синхронизирует их.',
+    'Версия OpenHuman на этом компьютере отличается от версии этого приложения. Быстрый перезапуск снова их синхронизирует.',
   'bootCheck.restarting': 'Перезапуск…',
-  'bootCheck.restartCore': 'Перезапустить среду',
-  'bootCheck.cloudNeedsUpdate': 'Требуется обновление облачной среды',
+  'bootCheck.restartCore': 'Перезапустить',
+  'bootCheck.cloudNeedsUpdate': 'Вашему серверу нужно обновление',
   'bootCheck.cloudNeedsUpdateDesc':
-    'Облачная среда и приложение используют разные версии. Запусти обновление для синхронизации.',
+    'Версия вашего сервера отличается от версии этого приложения. Запустите обновление, чтобы снова их синхронизировать.',
   'bootCheck.updating': 'Обновление…',
-  'bootCheck.updateCloudCore': 'Обновить облачную среду',
-  'bootCheck.versionCheckFailed': 'Проверка версии среды не удалась',
+  'bootCheck.updateCloudCore': 'Обновить сервер',
+  'bootCheck.versionCheckFailed': 'Не удалось проверить версию',
   'bootCheck.versionCheckFailedDesc':
-    'Среда работает, но не сообщает свою версию. Возможно, она устарела. Перезапусти или обнови её для продолжения.',
+    'Ваш сервер работает, но не сообщает свою версию. Возможно, она устарела. Перезапустите или обновите его, чтобы продолжить.',
   'bootCheck.working': 'Работаю…',
-  'bootCheck.restartUpdateCore': 'Перезапустить / обновить среду',
+  'bootCheck.restartUpdateCore': 'Перезапустить / Обновить',
   'bootCheck.unexpectedError': 'Неожиданная ошибка при загрузке',
   'bootCheck.actionFailed': 'Что-то пошло не так. Попробуй ещё раз.',
   'bootCheck.portConflictTitle': 'Не удалось запустить движок приложения',
@@ -4346,15 +4382,18 @@ const messages: TranslationMap = {
 
   // Monthly cost badge
 
-  'onboarding.custom.vault.title': 'Настройка памяти и хранилища',
+  'onboarding.custom.vault.title': 'Дайте OpenHuman память',
   'onboarding.custom.vault.subtitle':
-    'Подтвердите, куда записываются заметки памяти, как считываются исходные данные и исправно ли работает конвейер хранилища.',
+    'Место, где хранится то, что вы ему рассказываете, чтобы это сохранялось между чатами.',
   'onboarding.custom.vault.defaultDesc':
     'Использовать настройки памяти по умолчанию, управляемые OpenHuman. Путь к хранилищу и состояние синхронизации можно проверить позже.',
   'onboarding.custom.vault.configureDesc':
     'Проверьте владельца хранилища, выполните проверки состояния и настройте параметры памяти прямо сейчас.',
   'onboarding.custom.vault.localDisabledReason':
     'Управляемая настройка требует входа в OpenHuman и недоступна в локальном режиме.',
+  'onboarding.custom.localDefaultDisabledReason':
+    'Управляемая настройка требует аккаунта OpenHuman. В локальной сессии вы настраиваете каждый сервис самостоятельно.',
+  'onboarding.custom.unsavedChanges': 'Сохраните изменения, прежде чем продолжить.',
   'onboarding.custom.vault.exitError':
     'Не удалось завершить настройку. Пожалуйста, попробуйте ещё раз.',
   'skills.create.whenToUse': 'Когда использовать',
@@ -4831,6 +4870,8 @@ const messages: TranslationMap = {
     'Срок действия вашей сессии Codex истёк. Подключите её заново в разделе Настройки → Интеграции.',
   'chat_error.session_expired':
     'Срок действия вашей сессии OpenHuman истёк. Войдите снова, чтобы продолжить.',
+  'chat_error.local_session_managed_unavailable':
+    'Вы используете локальный автономный профиль, за которым нет аккаунта OpenHuman, поэтому управляемую (облачную) модель запустить нельзя. Войдите, чтобы использовать управляемые модели, или переключите маршрутизацию на «Используйте свои собственные модели» в разделе Подключения → API-ключи → LLM и добавьте своего провайдера.',
   'chat_error.action_budget':
     'Вы достигли почасового лимита действий OpenHuman. Это локальное ограничение безопасности, а не лимит вашего ИИ-провайдера. Лимит восстанавливается постепенно: вы можете продолжать общаться в этой теме, а шаги с активным использованием инструментов возобновятся по мере восстановления лимита.',
   'chat_error.max_iterations':
@@ -4966,29 +5007,50 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'Ссылка',
   'memoryPage.off.title': 'Память выключена',
   'memoryPage.off.description':
-    'Выберите движок памяти, чтобы начать запоминать. Войдите, чтобы использовать память TinyHumans, или подключите собственный CortexDB.',
+    'Подключите CortexDB, чтобы начать запоминать. Войдите, чтобы использовать встроенную CortexDB, или подключитесь со своим API-ключом или к серверу на этом компьютере.',
   'memoryPage.off.action': 'Выбрать движок',
-  'memoryPage.engine.listTitle': 'Движки памяти',
+  'memoryPage.engine.listTitle': 'Память CortexDB',
   'memoryPage.engine.listDescription':
-    'Одновременно активен один движок. Он хранит всё, что запоминает память, и отвечает на вопросы о нём.',
-  'memoryPage.engine.loadError': 'Не удалось загрузить движки памяти',
+    'Память работает на CortexDB. Выберите, как это приложение к ней подключается. Одновременно активно только одно подключение.',
   'memoryPage.engine.offExplanation':
-    'Сейчас нет доступного движка памяти, поэтому ничего не сохраняется и не вспоминается. Войдите, чтобы использовать память TinyHumans, или подключите собственный CortexDB, указав endpoint и API-ключ.',
+    'Сейчас нет доступного подключения к памяти, поэтому ничего не сохраняется и не извлекается. Войдите, чтобы использовать встроенную CortexDB, или подключите CortexDB со своим API-ключом или на этом компьютере.',
   'memoryPage.engine.statusDegraded': 'Память работает со сбоями',
   'memoryPage.engine.statusDown': 'Движок памяти недоступен',
   'memoryPage.engine.statusOff': 'Выкл.',
   'memoryPage.engine.active': 'Активен',
   'memoryPage.engine.use': 'Использовать',
-  'memoryPage.engine.edit': 'Изменить',
-  'memoryPage.engine.signInRequired': 'Требуется вход',
-  'memoryPage.engine.hostedDetail': 'Размещён в TinyHumans',
-  'memoryPage.engine.selfHostedDetail': 'Ваш собственный endpoint и API-ключ',
-  'memoryPage.engine.connectTitle': 'Подключить {engine}',
   'memoryPage.engine.connect': 'Подключить',
   'memoryPage.engine.endpoint': 'Endpoint',
   'memoryPage.engine.apiKey': 'API-ключ',
   'memoryPage.engine.keySavedPlaceholder': 'Сохранён. Введите новый ключ, чтобы заменить его',
   'memoryPage.engine.keySavedHint': 'Ключ уже сохранён. Оставьте поле пустым, чтобы сохранить его.',
+  'memoryPage.engine.badgeDegraded': 'Работает с перебоями',
+  'memoryPage.engine.badgeDown': 'Недоступна',
+  'memoryPage.engine.connecting': 'Подключение…',
+  'memoryPage.engine.save': 'Сохранить',
+  'memoryPage.engine.builtin.title': 'Встроенная CortexDB',
+  'memoryPage.engine.builtin.detail': 'Входит в ваш аккаунт TinyHumans',
+  'memoryPage.engine.builtin.signInRequired': 'Войдите, чтобы использовать',
+  'memoryPage.engine.builtin.description':
+    'CortexDB, размещённая TinyHumans и входящая в ваш аккаунт. Войдите, чтобы пользоваться ею; настраивать ничего не нужно.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'Новые воспоминания сохраняются сразу. Факты и убеждения, извлечённые из них, появляются в течение следующих минут.',
+  'memoryPage.engine.builtin.signInHint':
+    'Войдите в аккаунт TinyHumans, чтобы использовать встроенную CortexDB.',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB с вашим API-ключом',
+  'memoryPage.engine.apiKeyOption.description':
+    'Используйте свой аккаунт CortexDB. Ключ надёжно хранится на этом компьютере и никогда не попадает в файл конфигурации.',
+  'memoryPage.engine.selfHost.title': 'Собственный сервер CortexDB',
+  'memoryPage.engine.selfHost.detail': 'Сервер CortexDB на этом компьютере',
+  'memoryPage.engine.selfHost.step1':
+    'Запустите сервер CortexDB на этом компьютере по руководству:',
+  'memoryPage.engine.selfHost.docsLink': 'Руководство по самостоятельному размещению CortexDB',
+  'memoryPage.engine.selfHost.step2':
+    'Запустите сервер с API-ключом (CORTEX_API_KEY). Приложение подключается с этим ключом.',
+  'memoryPage.engine.selfHost.step3':
+    'Введите ниже локальный адрес сервера и ключ, затем подключитесь.',
+  'memoryPage.engine.selfHost.notLocal':
+    'Собственный сервер поддерживается только локально. Используйте адрес на этом компьютере, например http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Ваш вопрос',
   'memoryPage.ask.queryLabel': 'Поисковый запрос',
   'memoryPage.ask.placeholder': 'Что мы решили насчёт плана запуска?',
@@ -5019,6 +5081,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Знания',
   'memoryPage.learnings.empty':
     'Пока нет знаний. Добавьте их выше, или агент будет добавлять их сам по ходу работы с вами.',
+  'memoryPage.learnings.deriving':
+    'Пока здесь пусто. Память ещё формирует убеждения из ваших недавних разговоров; они появятся здесь после следующего фонового запуска.',
   'memoryPage.learnings.delete': 'Удалить знание',
   'memoryPage.conversations.turns': 'Реплик: {count}',
   'memoryPage.documents.listDescription':
@@ -5194,6 +5258,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'Импорт прежней памяти…',
   'memoryPage.import.done': 'Прежняя память импортирована',
   'memoryPage.import.failed': 'Не удалось выполнить импорт',
+  'memoryPage.import.resume': 'Возобновить импорт',
   'memoryPage.import.progress': 'Импортировано {imported} из {total}',
 };
 

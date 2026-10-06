@@ -215,6 +215,7 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     // a developer's local config.
     let workspace = tempdir().expect("isolated workspace");
     let workspace_dir = workspace.path().join("workspace");
+    std::fs::create_dir_all(&workspace_dir).expect("create isolated workspace");
     let _workspace = WorkspaceEnvGuard::set(&workspace_dir);
     let schemas = all_composio_controller_schemas();
     let registered = all_composio_registered_controllers();

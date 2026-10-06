@@ -37,7 +37,7 @@
 </p>
 
 <p align="center">
-  🇺🇸 <a href="../README.md">English</a> | 🇨🇳 <a href="./README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./README.ko.md">한국어</a> | 🇩🇪 <a href="./README.de.md">Deutsch</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
+  🇺🇸 <a href="../README.md">English</a> | 🇸🇦 <a href="./README.ar.md">العربية</a> | 🇨🇳 <a href="./README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./README.ko.md">한국어</a> | 🇩🇪 <a href="./README.de.md">Deutsch</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
 </p>
 
 <p align="center">
@@ -64,7 +64,7 @@ OpenHuman ist drei Dinge, die die meisten Assistenten nicht sind: **ein Gehirn**
 ### 🧠 Das Gehirn
 
 - **[Memory](../gitbooks/features/memory.md)**: Recall, Fetch und Store über eine austauschbare Engine (gehostetes TinyHumans oder dein eigenes CortexDB). Dokumente, Konversationen und Learnings werden gespeichert, Antworten kommen mit Quellenangaben, und vor jedem Zug wird ein passendes Memory-Paket abgerufen. Keine Vektor-Suppen-Blackbox.
-- **[100+ OAuth-Integrationen, 5.000+ MCP-Server, 90.000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: mit einem Klick in Gmail, Notion, GitHub, Slack und den Rest deines Stacks. [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch) füttert das Gehirn alle 20 Minuten. So hat es den Kontext von morgen schon heute Früh.
+- **[100+ OAuth-Integrationen, 5.000+ MCP-Server, 90.000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**: mit einem Klick in Gmail, Notion, GitHub, Slack und den Rest deines Stacks. [Auto-Fetch](https://tinyhumans.gitbook.io/openhuman/features/memory) füttert das Gehirn alle 20 Minuten. So hat es den Kontext von morgen schon heute Früh.
 - **[Goals & Todos](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**: dauerhafte Ziele pro Thread und die im Chat sichtbare Todo-Liste des Agenten.
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**: Tool-Ausgaben werden komprimiert, bevor sie das Modell erreichen: dieselbe Information, bis zu 80% weniger Tokens. Ein so großes Gehirn wäre ohne es unbezahlbar.
 

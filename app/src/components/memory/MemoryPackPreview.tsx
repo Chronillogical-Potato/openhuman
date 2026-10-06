@@ -73,7 +73,7 @@ export default function MemoryPackPreview() {
       setPreview(res);
     } catch (err) {
       log('preview failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setBusy(false);
     }

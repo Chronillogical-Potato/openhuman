@@ -159,6 +159,18 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
+/// What the settings page's Chrome check shows when Chrome would not start:
+/// where to fix a missing Chrome, or else the module's own reason.
+fn readiness_error(detail: &str) -> String {
+    if super::browser::chrome_not_found(detail) {
+        "Chrome was not found. Set Chrome path below to the Chrome program (for example \
+         /Applications/Google Chrome.app/Contents/MacOS/Google Chrome), save, and test again."
+            .to_owned()
+    } else {
+        format!("Chrome could not start: {detail}")
+    }
+}
+
 fn handle_browser_check_readiness(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mut config = config_rpc::load_config_with_timeout().await?;
@@ -185,9 +197,9 @@ fn handle_browser_check_readiness(_params: Map<String, Value>) -> ControllerFutu
                     "error": if closed { None } else { Some("Chrome session could not close cleanly") }}),
                 )
             }
-            Ok(Err(_)) => Ok(
+            Ok(Err(error)) => Ok(
                 serde_json::json!({"module_ready": true, "chrome_ready": false,
-                "error": "Chrome could not start; check browser settings and allowed websites"}),
+                "error": readiness_error(&error.to_string())}),
             ),
             Err(_) => Ok(
                 serde_json::json!({"module_ready": true, "chrome_ready": false,

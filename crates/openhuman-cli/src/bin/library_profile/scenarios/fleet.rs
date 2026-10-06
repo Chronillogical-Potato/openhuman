@@ -87,7 +87,7 @@ fn percentile(sorted: &[u128], p: u128) -> u128 {
     if sorted.is_empty() {
         return 0;
     }
-    let rank = ((p * sorted.len() as u128) + 99) / 100; // ceil(p% * n)
+    let rank = (p * sorted.len() as u128).div_ceil(100);
     let idx = rank.saturating_sub(1).min(sorted.len() as u128 - 1) as usize;
     sorted[idx]
 }

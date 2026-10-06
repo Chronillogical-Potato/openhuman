@@ -36,6 +36,49 @@ fn definition() -> crate::agent::harness::definition::AgentDefinition {
     super::wildcard_probe_def()
 }
 
+#[test]
+fn host_scope_additions_respect_named_and_withheld_tools() {
+    let mut definition = definition();
+    definition.tools = crate::agent::harness::definition::ToolScope::Named(vec![
+        "base".into(),
+        "already_withheld".into(),
+    ]);
+    definition.extra_tools = vec!["already_withheld".into(), "base".into()];
+    let host_tools = super::super::host_tools::MergedHostTurnTools {
+        policy: None,
+        withheld: std::collections::HashSet::from(["already_withheld".into(), "hidden".into()]),
+        permanent: std::collections::HashSet::new(),
+        scope_additions: std::collections::HashSet::from(["host_visible".into()]),
+    };
+
+    let resolved = super::super::host_tools::scope_def(Some(&definition), &host_tools).unwrap();
+    assert!(matches!(
+        &resolved.tools,
+        crate::agent::harness::definition::ToolScope::Named(names)
+            if names.len() == 1 && names[0] == "base"
+    ));
+    assert_eq!(resolved.extra_tools, vec!["base", "host_visible"]);
+}
+
+#[test]
+fn host_scope_additions_leave_wildcard_definitions_unchanged() {
+    let mut definition = definition();
+    definition.extra_tools = vec!["existing".into()];
+    let host_tools = super::super::host_tools::MergedHostTurnTools {
+        policy: None,
+        withheld: std::collections::HashSet::from(["existing".into()]),
+        permanent: std::collections::HashSet::new(),
+        scope_additions: std::collections::HashSet::from(["host_visible".into()]),
+    };
+
+    let resolved = super::super::host_tools::scope_def(Some(&definition), &host_tools).unwrap();
+    assert_eq!(resolved.extra_tools, vec!["existing"]);
+    assert!(matches!(
+        resolved.tools,
+        crate::agent::harness::definition::ToolScope::Wildcard
+    ));
+}
+
 /// The whole point: a name the host supplied is callable, and the model is
 /// told about it. Advertised-but-absent is a call that fails; present-but-
 /// unadvertised is a tool the model never reaches for.

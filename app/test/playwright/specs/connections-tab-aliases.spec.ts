@@ -72,7 +72,7 @@ async function openConnections(
   route: string
 ) {
   await bootRuntimeReadyGuestPage(page);
-  await signInViaBypassUser(page, userId);
+  await signInViaBypassUser(page, userId, { waitForInitialThread: true });
   await page.evaluate(target => {
     try {
       localStorage.setItem('openhuman:walkthrough_completed', 'true');
