@@ -2129,6 +2129,8 @@ const Conversations = ({
         inputValue={inputValue}
         onInputValueChange={setInputValue}
         onEscape={handleComposerEscape}
+        onRecallLastPrompt={handleRecallLastPrompt}
+        composerPlaceholder={composerPlaceholder}
         attachments={attachments}
         onAttachFiles={handleAttachFiles}
         onRemoveAttachment={id => setAttachments(previous => previous.filter(a => a.id !== id))}
