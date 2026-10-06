@@ -2212,7 +2212,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': 'Tâches',
   'chat.todos.completed': 'Terminé',
   'chat.todos.ofTotal': '{done} sur {total}',
-  'chat.todos.receipt': 'Progression mise à jour — {done}/{total}',
+  'chat.todos.receipt': 'Progression mise à jour · {done}/{total}',
   'chat.subagents.ranFor': 'A duré {duration}',
   'chat.subagents.ofTotal': '{complete} sur {total}',
   'chat.subagents.runningCount': '{count} en cours',

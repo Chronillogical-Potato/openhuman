@@ -2017,7 +2017,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': '待办',
   'chat.todos.completed': '已完成',
   'chat.todos.ofTotal': '已完成 {done}，共 {total}',
-  'chat.todos.receipt': '进度已更新 — {done}/{total}',
+  'chat.todos.receipt': '进度已更新 · {done}/{total}',
   'chat.subagents.ranFor': '运行了 {duration}',
   'chat.subagents.ofTotal': '已完成 {complete}，共 {total}',
   'chat.subagents.runningCount': '{count} 个运行中',

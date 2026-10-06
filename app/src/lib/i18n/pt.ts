@@ -2196,7 +2196,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': 'Tarefas',
   'chat.todos.completed': 'Concluído',
   'chat.todos.ofTotal': '{done} de {total}',
-  'chat.todos.receipt': 'Progresso atualizado — {done}/{total}',
+  'chat.todos.receipt': 'Progresso atualizado · {done}/{total}',
   'chat.subagents.ranFor': 'Durou {duration}',
   'chat.subagents.ofTotal': '{complete} de {total}',
   'chat.subagents.runningCount': '{count} em execução',

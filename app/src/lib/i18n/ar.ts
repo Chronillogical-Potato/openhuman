@@ -2117,7 +2117,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': 'المهام',
   'chat.todos.completed': 'مكتمل',
   'chat.todos.ofTotal': '{done} من {total}',
-  'chat.todos.receipt': 'تم تحديث التقدم — {done}/{total}',
+  'chat.todos.receipt': 'تم تحديث التقدم · {done}/{total}',
   'chat.subagents.ranFor': 'استغرق {duration}',
   'chat.subagents.ofTotal': '{complete} من {total}',
   'chat.subagents.runningCount': '{count} قيد التشغيل',

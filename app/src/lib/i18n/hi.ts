@@ -2161,7 +2161,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': 'कार्य सूची',
   'chat.todos.completed': 'पूरा हुआ',
   'chat.todos.ofTotal': '{total} में से {done}',
-  'chat.todos.receipt': 'प्रगति अपडेट हुई — {done}/{total}',
+  'chat.todos.receipt': 'प्रगति अपडेट हुई · {done}/{total}',
   'chat.subagents.ranFor': '{duration} तक चला',
   'chat.subagents.ofTotal': '{total} में से {complete}',
   'chat.subagents.runningCount': '{count} चल रहे हैं',

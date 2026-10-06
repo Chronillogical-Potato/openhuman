@@ -2148,7 +2148,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': '할 일',
   'chat.todos.completed': '완료됨',
   'chat.todos.ofTotal': '{total}개 중 {done}개',
-  'chat.todos.receipt': '진행 상황 업데이트 — {done}/{total}',
+  'chat.todos.receipt': '진행 상황 업데이트 · {done}/{total}',
   'chat.subagents.ranFor': '{duration} 동안 실행됨',
   'chat.subagents.ofTotal': '{total}개 중 {complete}개',
   'chat.subagents.runningCount': '{count}개 실행 중',

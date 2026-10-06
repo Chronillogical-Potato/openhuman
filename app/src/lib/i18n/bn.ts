@@ -2159,7 +2159,7 @@ const messages: TranslationMap = {
   'conversations.todos.title': 'কাজের তালিকা',
   'chat.todos.completed': 'সম্পন্ন',
   'chat.todos.ofTotal': '{total}-এর মধ্যে {done}',
-  'chat.todos.receipt': 'অগ্রগতি হালনাগাদ — {done}/{total}',
+  'chat.todos.receipt': 'অগ্রগতি হালনাগাদ · {done}/{total}',
   'chat.subagents.ranFor': '{duration} ধরে চলেছে',
   'chat.subagents.ofTotal': '{total}-এর মধ্যে {complete}',
   'chat.subagents.runningCount': '{count}টি চলছে',
