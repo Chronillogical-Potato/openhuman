@@ -334,7 +334,7 @@ const LiveVoicePanel = () => {
       headerAction={defaultSelect}>
       <div className="flex w-full flex-col gap-4" data-testid="live-voice-panel">
         {loadError && (
-          <Alert variant="error">
+          <Alert variant="destructive">
             <AlertDescription>
               {t('connections.voiceAgents.loadFailed')}: {loadError}
             </AlertDescription>
