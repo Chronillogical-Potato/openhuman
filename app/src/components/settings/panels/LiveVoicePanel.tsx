@@ -42,6 +42,14 @@ const PROVIDER_ICON: Record<string, LucideIcon> = {
   sarvam: Languages,
 };
 
+/** Description key per known provider (explicit so the i18n audit sees them). */
+const PROVIDER_DESC_KEY: Record<string, string> = {
+  'gemini-hosted': 'connections.voiceAgents.descGeminiHosted',
+  'elevenlabs-hosted': 'connections.voiceAgents.descElevenlabsHosted',
+  gemini: 'connections.voiceAgents.descGemini',
+  sarvam: 'connections.voiceAgents.descSarvam',
+};
+
 /**
  * Which settings block a provider's voice/language pickers write to, and the
  * field names inside it. Hosted and BYOK Gemini share the `gemini` block.
@@ -348,7 +356,9 @@ const LiveVoicePanel = () => {
                   iconActive={provider.configured}
                   selected={isDefault}
                   title={provider.label}
-                  description={t(`connections.voiceAgents.desc.${provider.id}`, '')}
+                  description={
+                    PROVIDER_DESC_KEY[provider.id] ? t(PROVIDER_DESC_KEY[provider.id]) : undefined
+                  }
                   control={
                     <Button
                       size="sm"

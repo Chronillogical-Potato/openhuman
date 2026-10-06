@@ -51,6 +51,13 @@ const TOOL_VARIANT: Record<LiveVoiceToolCall['status'], 'primary' | 'success' | 
     cancelled: 'neutral',
   };
 
+const TOOL_LABEL_KEY: Record<LiveVoiceToolCall['status'], string> = {
+  running: 'voice.live.toolRunning',
+  ok: 'voice.live.toolOk',
+  failed: 'voice.live.toolFailed',
+  cancelled: 'voice.live.toolCancelled',
+};
+
 function errorText(t: (key: string) => string, error: LiveVoiceError): string {
   switch (error.code) {
     case 'mic_denied':
@@ -203,7 +210,7 @@ export default function LiveVoiceControls({
                 variant={TOOL_VARIANT[call.status]}
                 data-testid="live-voice-tool-chip"
                 data-status={call.status}
-                aria-label={t(`voice.live.tool.${call.status}`).replace('{name}', call.name)}>
+                aria-label={t(TOOL_LABEL_KEY[call.status]).replace('{name}', call.name)}>
                 {call.name}
               </Badge>
             </li>
