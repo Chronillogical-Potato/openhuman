@@ -105,6 +105,7 @@ import {
   ReasoningEffortPicker,
   toReasoningEffortChoice,
 } from './aui/ReasoningEffortPicker';
+import { ThreadWorkspaceChip } from './aui/ThreadWorkspaceChip';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
 import { useThreadPins } from './threadList/useThreadPins';
@@ -1980,6 +1981,10 @@ const Conversations = ({
       {liveArtifactDeck}
       {/* The core's run queue for this thread; renders nothing while empty. */}
       <ComposerMessageQueue />
+      {/* Where this conversation works. Last, so it sits directly on the
+          input; renders only while the thread has no messages, since the
+          core fixes the folder at the first send. */}
+      <ThreadWorkspaceChip threadId={selectedThreadId ?? null} />
     </>
   );
 
