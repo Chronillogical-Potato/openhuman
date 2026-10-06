@@ -7162,6 +7162,87 @@ async fn voice_status_returns_availability() {
 }
 
 #[tokio::test]
+async fn voice_live_settings_round_trip_over_json_rpc() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let providers = post_json_rpc(&rpc_base, 1, "openhuman.voice_live_providers", json!({})).await;
+    let providers = assert_no_jsonrpc_error(&providers, "voice_live_providers");
+    assert_eq!(providers["default_provider"], "gemini-hosted");
+    let ids: Vec<&str> = providers["providers"]
+        .as_array()
+        .expect("providers array")
+        .iter()
+        .filter_map(|p| p["id"].as_str())
+        .collect();
+    assert_eq!(ids, vec!["gemini-hosted", "elevenlabs-hosted", "gemini", "sarvam"]);
+    let sarvam = providers["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "sarvam")
+        .unwrap();
+    assert_eq!(sarvam["kind"], "byok");
+    assert_eq!(sarvam["configured"], false);
+    assert_eq!(sarvam["key_slug"], "sarvam");
+
+    let set = post_json_rpc(
+        &rpc_base,
+        2,
+        "openhuman.voice_live_settings_set",
+        json!({ "default_provider": "sarvam", "sarvam": { "language": "hi-IN", "speaker": "priya" } }),
+    )
+    .await;
+    let set = assert_no_jsonrpc_error(&set, "voice_live_settings_set");
+    assert_eq!(set["default_provider"], "sarvam");
+
+    let got = post_json_rpc(&rpc_base, 3, "openhuman.voice_live_settings_get", json!({})).await;
+    let got = assert_no_jsonrpc_error(&got, "voice_live_settings_get");
+    assert_eq!(got["default_provider"], "sarvam");
+    assert_eq!(got["sarvam"]["language"], "hi-IN");
+    assert_eq!(got["sarvam"]["speaker"], "priya");
+
+    let bad = post_json_rpc(
+        &rpc_base,
+        4,
+        "openhuman.voice_live_settings_set",
+        json!({ "default_provider": "nope" }),
+    )
+    .await;
+    assert!(bad.get("error").is_some(), "unknown provider must be rejected: {bad}");
+
+    // No Sarvam key is stored, so a test reports why without touching the network.
+    let tested = post_json_rpc(
+        &rpc_base,
+        5,
+        "openhuman.voice_live_test_provider",
+        json!({ "provider": "sarvam" }),
+    )
+    .await;
+    let tested = assert_no_jsonrpc_error(&tested, "voice_live_test_provider");
+    assert_eq!(tested["ok"], false);
+    assert!(tested["error"].as_str().unwrap_or_default().contains("not_configured"));
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn notification_settings_roundtrip_and_disabled_ingest_skip() {
     let _env_lock = json_rpc_e2e_env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
