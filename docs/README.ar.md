@@ -72,32 +72,6 @@
 
 للتثبيت عبر سطر الأوامر (Homebrew و Debian/Ubuntu `.deb` و AUR ونصوص التثبيت وملاحظات المنصات)، راجع **[INSTALL.md](../INSTALL.md)**.
 
-## تثبيت تطبيق سطح المكتب
-
-- **macOS** (Apple Silicon و Intel): نزّل ملف `.dmg` أو ثبّته عبر Homebrew:
-  ```bash
-  brew install --cask openhuman
-  ```
-- **Windows**: نزّل المثبت أو ثبّته عبر winget:
-  ```powershell
-  winget install TinyHumans.OpenHuman
-  ```
-- **Linux**: حمّل حزمة `.deb` أو ملف `.AppImage`، أو ثبّت عبر AUR (`openhuman-bin`).
-
-## التثبيت كأداة سطر أوامر / خادم مستقل (Headless)
-
-إذا كنت تبني وكيلاً يعمل على خادم بدون واجهة رسومية، ثبّت النواة مباشرة:
-
-```bash
-cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman-cli --bin openhuman-core
-```
-
-أو شغّلها عبر حاوية Docker:
-
-```bash
-docker run -d -p 8080:8080 -v ~/.openhuman:/root/.openhuman tinyhumansai/openhuman:latest
-```
-
 ---
 
 # الميزات الرئيسية
