@@ -13,6 +13,7 @@ import { SidebarContent } from '../../components/layout/shell/SidebarSlot';
 import { ArtifactCardAdapter } from '../../features/conversations/aui/ArtifactCardAdapter';
 import { ContextUsage } from '../../features/conversations/aui/ContextUsage';
 import { PlanReviewCardCore } from '../../features/conversations/aui/PlanReviewPart';
+import { PinnedTodoCard } from '../../features/conversations/aui/PinnedTodoCard';
 import { toAuiTodoItems } from '../../features/conversations/aui/TodoListPart';
 import { useRunMode } from '../../features/conversations/aui/useRunMode';
 import {
