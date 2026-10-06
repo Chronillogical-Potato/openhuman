@@ -886,6 +886,21 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await waitFor(() => expect(picker.value).toBe('low'));
   });
 
+  it('recalls the last prompt with ArrowUp and switches the placeholder while running', async () => {
+    const { textarea } = await renderSelectedConversation();
+
+    await submitComposerText(textarea, 'recall me later');
+    await waitFor(() => expect(chatSend).toHaveBeenCalled());
+
+    // The turn is in flight: typed text would queue, and the placeholder says so.
+    await waitFor(() => expect(screen.getByText('Queue a follow-up…')).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.keyDown(textarea, { key: 'ArrowUp' });
+    });
+    await waitFor(() => expect(textarea.textContent).toBe('recall me later'));
+  });
+
   it('persists a local user message and sends through chat service for valid input', async () => {
     const { textarea, thread } = await renderSelectedConversation();
 
