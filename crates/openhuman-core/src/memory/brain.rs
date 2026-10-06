@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 use tinymemory_api::{ExploreRequest, Facet, Hit, Namespace, StoreItem, WriteOptions};
-use tinymemory_integrations::documents::{NativeConverter, RawDocument};
+use tinymemory_integrations::documents::RawDocument;
 use tinymemory_tools::{Brain, BrainSource, MemoryLayout};
 
 use crate::config::schema::MemorySourceKind;
@@ -230,11 +230,14 @@ pub async fn ingest(config: &Config, params: BrainIngestParams) -> MemoryResult<
             }
             let mut meta = tinymemory_api::MemoryMeta::default();
             meta.file_path = Some(path.display().to_string());
-            tinymemory_integrations::brain::brain_document(&NativeConverter, &raw, source, meta)
-                .await
-                .map_err(|error| {
-                    MemoryError::invalid(format!("cannot convert the file: {error}"))
-                })?
+            tinymemory_integrations::brain::brain_document(
+                super::convert::converter(),
+                &raw,
+                source,
+                meta,
+            )
+            .await
+            .map_err(|error| MemoryError::invalid(format!("cannot convert the file: {error}")))?
         }
         (None, Some(text)) => {
             tinymemory_tools::BrainDocument::new(source.unwrap_or(BrainSource::Markdown), text)

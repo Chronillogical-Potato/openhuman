@@ -700,6 +700,8 @@ const messages: TranslationMap = {
     'Pamięć jest niedostępna: na koncie skończyły się kredyty. Doładuj konto, aby ją przywrócić; nic z zapisanych danych nie zostało utracone.',
   'memory.error.unavailable':
     'Nie można teraz połączyć się z pamięcią. Nic z zapisanych danych nie zostało utracone; spróbuj ponownie za chwilę.',
+  'memory.outOfCredits.title': 'Brak kredytów',
+  'memory.outOfCredits.action': 'Doładuj',
   'memory.tab.memory': 'Pamięć',
   'memory.tab.agents': 'Biblioteka',
   'memory.analyzeNow': 'Analizuj teraz',

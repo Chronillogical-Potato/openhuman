@@ -711,6 +711,8 @@ const messages: TranslationMap = {
     "La mémoire est indisponible : votre compte n'a plus de crédits. Rechargez-le pour la rétablir ; rien de ce qui est stocké n'a été perdu.",
   'memory.error.unavailable':
     "La mémoire est injoignable pour le moment. Rien de ce qui est stocké n'a été perdu ; réessayez dans un instant.",
+  'memory.outOfCredits.title': 'Crédits épuisés',
+  'memory.outOfCredits.action': 'Recharger',
   'memory.tab.memory': 'Mémoire',
   'memory.tab.agents': 'Bibliothèque',
   'memory.analyzeNow': 'Analyser maintenant',

@@ -701,6 +701,8 @@ const messages: TranslationMap = {
     'A memória está indisponível: sua conta ficou sem créditos. Recarregue para restaurá-la; nada do que foi guardado se perdeu.',
   'memory.error.unavailable':
     'Não é possível acessar a memória agora. Nada do que foi guardado se perdeu; tente novamente em instantes.',
+  'memory.outOfCredits.title': 'Sem créditos',
+  'memory.outOfCredits.action': 'Recarregar',
   'memory.tab.memory': 'Memória',
   'memory.tab.agents': 'Biblioteca',
   'memory.analyzeNow': 'Analisar Agora',
