@@ -90,25 +90,15 @@
 # native accounting now includes libdeflate-sys (three native builds).
 #
 # Called by ci-lite.yml's feature-gate smoke lane and by the lane runner, so the
-# expected count is read from scripts/kernel-floor.limits so both gates use
-# the same measured baseline.
+# expected count lives here once (plus scripts/kernel-floor.limits).
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-EXPECTED_NAMES="$(python3 - <<'PY'
-from pathlib import Path
-
-rows = [line.split("#", 1)[0].strip().split(":")
-        for line in Path("scripts/kernel-floor.limits").read_text().splitlines()]
-flows = [row for row in rows if row[0].strip() == "flows"]
-if len(flows) != 1 or len(flows[0]) != 4:
-    raise SystemExit("dep-sim: expected exactly one flows kernel-floor limit")
-counts = [value.strip() for value in flows[0][1:]]
-if any(not value.isdecimal() or int(value) <= 0 for value in counts):
-    raise SystemExit("dep-sim: invalid flows kernel-floor limits")
-print(int(counts[1]))
-PY
-)"
+# 316 -> 311 on 2026-10-05: the upstream Memory lifecycle refresh removed
+# five names from the Linux flows graph; native builds remain at three.
+# This matches the current `flows:332:311:3` entry in
+# scripts/kernel-floor.limits; its preceding 316-name entry is historical.
+EXPECTED_NAMES=311
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"
