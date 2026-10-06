@@ -127,8 +127,17 @@ its own schedule (`scheduled`); an engine that cannot consolidate answers
   `markdown`). A source's `namespace` names the layout root it files under.
 - **Ingest** (`memory_brain_ingest`) files a local file (converted, its
   source picked from its format) or text, accepted without waiting for
-  indexing.
-- Each ingest or sync queues one belief build per brain source it touched.
+  indexing. Files are capped at 25 MB (`MAX_INGEST_BYTES`).
+- **A long document is several writes.** CortexDB refuses an event over
+  1 MiB, so tinymemory writes a document whose text is over about 256 KiB as
+  pieces of about 256 KiB each, cut at page breaks and headings (PDF pages
+  are joined with a form feed, U+000C, which the scrubber keeps). Each piece
+  is one write, and the hosted engine bills per write: a 25 MB text file is
+  about 100 billed writes. It still reads back as one item, and a search hit
+  on it is the matching piece, tagged `page:`/`section:`.
+- Each ingest or sync queues one belief build per brain source it touched,
+  unless the engine rebuilds beliefs on its own (`Consolidation::Automatic`),
+  which needs none.
 
 ## Config (`config.toml`)
 

@@ -639,6 +639,8 @@ const en: TranslationMap = {
     'Memory is unavailable: your account is out of credits. Top up to restore it; nothing stored has been lost.',
   'memory.error.unavailable':
     "Memory can't be reached right now. Nothing stored has been lost; try again in a moment.",
+  'memory.outOfCredits.title': 'Out of credits',
+  'memory.outOfCredits.action': 'Top up',
   'memory.tab.memory': 'Memory',
   'memory.tab.agents': 'Library',
 

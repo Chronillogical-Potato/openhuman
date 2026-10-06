@@ -712,6 +712,8 @@ const messages: TranslationMap = {
     'Gedächtnis nicht verfügbar: Dein Konto hat kein Guthaben mehr. Lade es auf, um es wiederherzustellen; nichts Gespeichertes ist verloren.',
   'memory.error.unavailable':
     'Das Gedächtnis ist gerade nicht erreichbar. Nichts Gespeichertes ist verloren; versuche es gleich noch einmal.',
+  'memory.outOfCredits.title': 'Kein Guthaben mehr',
+  'memory.outOfCredits.action': 'Aufladen',
   'memory.tab.memory': 'Erinnerung',
   'memory.tab.agents': 'Bibliothek',
   'memory.analyzeNow': 'Jetzt analysieren',

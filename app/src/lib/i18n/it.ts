@@ -705,6 +705,8 @@ const messages: TranslationMap = {
     'La memoria non è disponibile: il tuo account ha esaurito i crediti. Ricarica per ripristinarla; nulla di quanto salvato è andato perso.',
   'memory.error.unavailable':
     'Al momento la memoria non è raggiungibile. Nulla di quanto salvato è andato perso; riprova tra poco.',
+  'memory.outOfCredits.title': 'Crediti esauriti',
+  'memory.outOfCredits.action': 'Ricarica',
   'memory.tab.memory': 'Memoria',
   'memory.tab.agents': 'Libreria',
   'memory.analyzeNow': 'Analizza ora',

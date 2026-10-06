@@ -704,6 +704,8 @@ const messages: TranslationMap = {
     'La memoria no está disponible: tu cuenta se quedó sin créditos. Recarga para restaurarla; no se ha perdido nada guardado.',
   'memory.error.unavailable':
     'No se puede acceder a la memoria ahora mismo. No se ha perdido nada guardado; inténtalo de nuevo en un momento.',
+  'memory.outOfCredits.title': 'Sin créditos',
+  'memory.outOfCredits.action': 'Recargar',
   'memory.tab.memory': 'Memoria',
   'memory.tab.agents': 'Biblioteca',
   'memory.analyzeNow': 'Analizar ahora',

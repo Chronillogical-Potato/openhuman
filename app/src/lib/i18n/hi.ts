@@ -686,6 +686,8 @@ const messages: TranslationMap = {
     'मेमोरी उपलब्ध नहीं है: आपके खाते के क्रेडिट खत्म हो गए हैं। इसे बहाल करने के लिए टॉप अप करें; संग्रहीत कुछ भी खोया नहीं है।',
   'memory.error.unavailable':
     'अभी मेमोरी तक नहीं पहुँचा जा सकता। संग्रहीत कुछ भी खोया नहीं है; थोड़ी देर में फिर से कोशिश करें।',
+  'memory.outOfCredits.title': 'क्रेडिट खत्म हो गए',
+  'memory.outOfCredits.action': 'टॉप अप करें',
   'memory.tab.memory': 'मेमोरी',
   'memory.tab.agents': 'लाइब्रेरी',
   'memory.analyzeNow': 'अभी एनालाइज़ करें',

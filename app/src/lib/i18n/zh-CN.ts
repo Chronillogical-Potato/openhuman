@@ -630,6 +630,8 @@ const messages: TranslationMap = {
   'memory.error.insufficientCredits':
     '记忆不可用：你的账户额度已用完。充值即可恢复，已存储的内容不会丢失。',
   'memory.error.unavailable': '暂时无法连接记忆服务。已存储的内容不会丢失，请稍后重试。',
+  'memory.outOfCredits.title': '额度已用完',
+  'memory.outOfCredits.action': '充值',
   'memory.tab.memory': '记忆',
   'memory.tab.agents': '资料库',
   'memory.analyzeNow': '立即分析',

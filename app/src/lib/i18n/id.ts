@@ -696,6 +696,8 @@ const messages: TranslationMap = {
     'Memori tidak tersedia: kredit akun Anda habis. Isi ulang untuk memulihkannya; tidak ada data tersimpan yang hilang.',
   'memory.error.unavailable':
     'Memori tidak dapat dijangkau saat ini. Tidak ada data tersimpan yang hilang; coba lagi sebentar lagi.',
+  'memory.outOfCredits.title': 'Kredit habis',
+  'memory.outOfCredits.action': 'Isi ulang',
   'memory.tab.memory': 'Memori',
   'memory.tab.agents': 'Perpustakaan',
   'memory.analyzeNow': 'Analisis Sekarang',

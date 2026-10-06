@@ -338,7 +338,7 @@ Capability {
         name: "Brain",
         domain: "memory",
         category: CapabilityCategory::Intelligence,
-        description: "Documents every agent shares, filed by source type (pdf, markdown, notion, github, web, and one per other source). Add a document from text or a file, search it, forget a whole source, or keep it synced from a folder, a single file, a link, a GitHub repository, an RSS feed or a connected Composio toolkit, on demand and on a schedule.",
+        description: "Documents every agent shares, filed by source type (pdf, markdown, notion, github, web, and one per other source). Add a document from text or a file (text, markdown, HTML, code, PDF, Word, PowerPoint or Excel; images are not read yet), search it, forget a whole source, or keep it synced from a folder, a single file, a link, a GitHub repository, an RSS feed or a connected Composio toolkit, on demand and on a schedule.",
         how_to: "Connections > Memory > Brain (/connections?tab=brain&brain=brain). Programmatic: openhuman.memory_brain_sources, memory_brain_search, memory_brain_ingest, memory_brain_forget, memory_sources_add, memory_sources_sync (RPC).",
         status: CapabilityStatus::Beta,
         privacy: MEMORY_TO_REMOTE_ENGINE,
