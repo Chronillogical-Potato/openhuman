@@ -138,6 +138,12 @@ export type ThreadComponents = {
    * component returns `null` when it has nothing to say.
    */
   RunningStatus?: ComponentType | undefined;
+  /**
+   * Host-owned content under the last message while no turn is running — e.g.
+   * an "Interrupted" marker for a turn the host knows was cut off. Returns
+   * `null` when there is nothing to show.
+   */
+  TranscriptFooter?: ComponentType | undefined;
   /** Host-owned attachment previews rendered above the editor. */
   ComposerAttachments?: ComponentType | undefined;
   /** Host-owned attachment picker rendered in the action row. */
@@ -199,8 +205,19 @@ export type ThreadProps = {
   onModelChange?: ((value: string | null, contextWindow?: number | null) => void) | undefined;
   /** Host transport error shown in place of an empty welcome state. */
   loadError?: string | null | undefined;
-  /** Host-specific Escape behavior (for example cancel + restore prompt). */
-  onEscape?: (() => void) | undefined;
+  /**
+   * Host-specific Escape behavior (for example cancel + restore prompt).
+   * Returning `false` means it did nothing, and the key is left to anything
+   * else listening (an open popover); any other return swallows it.
+   */
+  onEscape?: (() => boolean | void) | undefined;
+  /**
+   * ArrowUp in an EMPTY composer (no modifiers, no IME): recall the last
+   * prompt. Returns whether it did; only then is the key consumed.
+   */
+  onRecallLastPrompt?: (() => boolean) | undefined;
+  /** Placeholder override for the composer input (run / waiting states). */
+  composerPlaceholder?: string | undefined;
   /**
    * Commands offered when the composer input starts with `/`. Supplied by the
    * host because a command's `execute` is host behaviour (`/clear` has to
@@ -367,6 +384,8 @@ export const Thread: FC<ThreadProps> = ({
   onModelChange,
   loadError = null,
   onEscape,
+  onRecallLastPrompt,
+  composerPlaceholder,
   slashCommands = NO_SLASH_COMMANDS,
 }) => {
   const isEmpty = useAuiState(isNewChatView);
@@ -380,6 +399,8 @@ export const Thread: FC<ThreadProps> = ({
           onModelChange={onModelChange}
           loadError={loadError}
           onEscape={onEscape}
+          onRecallLastPrompt={onRecallLastPrompt}
+          composerPlaceholder={composerPlaceholder}
         />
       </SlashCommandsContext.Provider>
     </ThreadComponentsContext.Provider>
@@ -391,8 +412,18 @@ const ThreadRoot: FC<{
   model: string | null;
   onModelChange?: (value: string | null, contextWindow?: number | null) => void;
   loadError: string | null;
-  onEscape?: () => void;
-}> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
+  onEscape?: () => boolean | void;
+  onRecallLastPrompt?: () => boolean;
+  composerPlaceholder?: string;
+}> = ({
+  isEmpty,
+  model,
+  onModelChange,
+  loadError,
+  onEscape,
+  onRecallLastPrompt,
+  composerPlaceholder,
+}) => {
   const { t } = useT();
   const {
     Welcome = ThreadWelcome,
@@ -461,6 +492,7 @@ const ThreadRoot: FC<{
             className="mb-14 flex flex-col gap-y-6 empty:hidden">
             <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
             <RunningStatusSlot />
+            <TranscriptFooterSlot />
           </div>
           <ThreadBottomFollower
             viewportRef={viewportRef}
@@ -484,6 +516,8 @@ const ThreadRoot: FC<{
                   model={model}
                   onModelChange={onModelChange}
                   onEscape={onEscape}
+                  onRecallLastPrompt={onRecallLastPrompt}
+                  placeholder={composerPlaceholder}
                   isDraggingFiles={isDraggingFiles}
                 />
                 <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
@@ -931,10 +965,12 @@ export function extractComposerPasteFiles(
 const Composer: FC<{
   model: string | null;
   onModelChange?: (value: string | null, contextWindow?: number | null) => void;
-  onEscape?: () => void;
+  onEscape?: () => boolean | void;
+  onRecallLastPrompt?: () => boolean;
+  placeholder?: string;
   /** A file drag is over the thread and will land here; see `useThreadFileDrop`. */
   isDraggingFiles: boolean;
-}> = ({ model, onModelChange, onEscape, isDraggingFiles }) => {
+}> = ({ model, onModelChange, onEscape, onRecallLastPrompt, placeholder, isDraggingFiles }) => {
   const { t } = useT();
   const messageInputLabel = t('assistantUi.thread.messageInputLabel', 'Message input');
   const aui = useAui();
@@ -1101,7 +1137,7 @@ const Composer: FC<{
              */}
             <LexicalComposerInput
               ref={inputWrapperRef}
-              placeholder={t('chat.typeMessage', 'Send a message...')}
+              placeholder={placeholder ?? t('chat.typeMessage', 'Send a message...')}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
               }}
@@ -1135,13 +1171,33 @@ const Composer: FC<{
                 syncComposerFromDom(event.target);
               }}
               onKeyDownCapture={event => {
+                const native = event.nativeEvent;
                 if (event.key === 'Escape' && onEscape) {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onEscape();
+                  // Only swallow the key when the host acted; otherwise an open
+                  // `/` or `@` popover still gets to close on it.
+                  if (onEscape() !== false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
                   return;
                 }
-                const native = event.nativeEvent;
+                if (
+                  event.key === 'ArrowUp' &&
+                  onRecallLastPrompt &&
+                  !event.shiftKey &&
+                  !event.altKey &&
+                  !event.metaKey &&
+                  !event.ctrlKey &&
+                  !isComposingTextRef.current &&
+                  !native.isComposing &&
+                  aui.composer().getState().text.length === 0
+                ) {
+                  if (onRecallLastPrompt()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
+                  return;
+                }
                 if (
                   isComposingTextRef.current ||
                   native.isComposing ||
