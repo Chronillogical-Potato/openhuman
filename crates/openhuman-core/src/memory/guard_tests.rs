@@ -45,3 +45,10 @@ async fn every_write_path_is_scrubbed() {
     );
     assert_eq!(guarded.descriptor().id, reference.descriptor().id);
 }
+
+#[test]
+fn a_timed_call_reports_ok_or_the_error_code() {
+    assert_eq!(outcome(&Ok::<(), _>(())), "ok");
+    let refused: Result<()> = Err(tinymemory_api::Error::Unauthorized("bad key".into()));
+    assert_eq!(outcome(&refused), "UNAUTHORIZED");
+}

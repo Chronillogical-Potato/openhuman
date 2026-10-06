@@ -412,6 +412,7 @@ pub async fn post_turn(config: &Config, identity: &ResolvedIdentity, input: Post
             id: call.id.clone(),
         })
         .collect();
+    let started = std::time::Instant::now();
     match memory.post_turn(post).await {
         Ok(report) => {
             tracing::debug!(
@@ -419,6 +420,7 @@ pub async fn post_turn(config: &Config, identity: &ResolvedIdentity, input: Post
                 agent_id = %identity.agent_id,
                 turn = input.turn_index,
                 jobs = report.jobs.len(),
+                elapsed_ms = started.elapsed().as_millis() as u64,
                 "[memory:hooks] reply logged"
             );
             jobs::enqueue(config, identity.root(), report.jobs).await;
@@ -427,6 +429,7 @@ pub async fn post_turn(config: &Config, identity: &ResolvedIdentity, input: Post
             tracing::warn!(
                 thread_id = %input.thread_id,
                 %error,
+                elapsed_ms = started.elapsed().as_millis() as u64,
                 "[memory:hooks] reply not logged"
             );
         }

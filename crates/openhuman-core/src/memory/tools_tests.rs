@@ -426,3 +426,131 @@ async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
         .iter()
         .all(|hit| hit.meta.namespace != Namespace::agent("nobody")));
 }
+
+/// The reference engine, recording how far each single store waited.
+struct WaitRecorder {
+    inner: tinymemory_api::conformance::ReferenceEngine,
+    waits: std::sync::Mutex<Vec<tinymemory_api::WaitFor>>,
+}
+
+#[async_trait]
+impl tinymemory_api::MemoryEngine for WaitRecorder {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+    async fn recall(
+        &self,
+        req: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        self.inner.recall(req).await
+    }
+    async fn fetch(
+        &self,
+        req: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        self.inner.fetch(req).await
+    }
+    async fn store(
+        &self,
+        item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        self.store_with(item, tinymemory_api::WriteOptions::visible())
+            .await
+    }
+    async fn store_with(
+        &self,
+        item: tinymemory_api::StoreItem,
+        options: tinymemory_api::WriteOptions,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        self.waits.lock().unwrap().push(options.wait);
+        self.inner.store(item).await
+    }
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        self.inner.forget(target).await
+    }
+    async fn list(
+        &self,
+        req: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        self.inner.list(req).await
+    }
+    async fn consolidate(
+        &self,
+        req: tinymemory_api::ConsolidateRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ConsolidateReceipt> {
+        self.inner.consolidate(req).await
+    }
+}
+
+#[tokio::test]
+async fn learn_returns_on_accept_and_says_recall_may_lag() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = Arc::new(WaitRecorder {
+        inner: tinymemory_api::conformance::ReferenceEngine::new(),
+        waits: std::sync::Mutex::new(Vec::new()),
+    });
+    crate::memory::engine::install_test_engine(&config.workspace_dir, engine.clone());
+
+    let learned = run_action(
+        &config,
+        &json!({"action": "learn", "text": "The user drinks oolong"}),
+        &facts(),
+    )
+    .await;
+
+    assert!(!learned.is_error, "{}", text(&learned));
+    // A turn must never wait on the engine indexing a learning.
+    assert_eq!(
+        *engine.waits.lock().unwrap(),
+        vec![tinymemory_api::WaitFor::Accepted]
+    );
+    let view = serde_json::from_str::<Value>(&text(&learned)).unwrap();
+    assert!(!view["id"].as_str().unwrap().is_empty(), "{view}");
+    assert_eq!(view["status"], LEARN_STATUS);
+
+    // The RPC path still reads its own write.
+    crate::memory::ops::learn(
+        &config,
+        LearnParams {
+            text: "The user drinks puerh".into(),
+            kind: None,
+            confidence: None,
+            meta: None,
+        },
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        engine.waits.lock().unwrap().last(),
+        Some(&tinymemory_api::WaitFor::Visible)
+    );
+}
+
+#[tokio::test]
+async fn a_failed_learn_is_reported_to_the_model() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::out_of_credits().bind(&config);
+
+    let learned = run_action(
+        &config,
+        &json!({"action": "learn", "text": "The user drinks oolong"}),
+        &facts(),
+    )
+    .await;
+
+    assert!(learned.is_error, "{}", text(&learned));
+    assert!(
+        text(&learned).contains("INSUFFICIENT_CREDITS"),
+        "{}",
+        text(&learned)
+    );
+}
