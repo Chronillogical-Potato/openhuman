@@ -521,6 +521,8 @@ Restrict the mode where the mount is declared:
     - name: openhuman
       securityContext:
         runAsUser: 10001
+        runAsGroup: 10001
+        runAsNonRoot: true
       env:
         - name: OPENHUMAN_KEYRING_MASTER_KEY_FILE
           value: /run/openhuman-master-key/master.key
@@ -530,9 +532,13 @@ Restrict the mode where the mount is declared:
           readOnly: true
   ```
 
-  Set the `emptyDir` medium and the core UID to match the deployment's
-  security policy. Do not use `fsGroup` to grant access: kubelet can turn the
-  projected file into `0440`, which the core rejects.
+  Set the `emptyDir` medium and the core UID/GID to match the ownership applied
+  by the init container. The `defaultMode: 0400` setting is important: it
+  gives the non-root core access through its matching UID while keeping group
+  and other permissions clear. Do not use `fsGroup` to grant access: kubelet
+  can turn the projected file into `0440`, which the core rejects. An
+  equivalent setup is a secret volume whose `defaultMode` is `0400` and whose
+  file is mounted with ownership matching the core's `runAsUser`/`runAsGroup`.
 - Docker Swarm: set `mode: 0400` (with `uid`/`gid` for a non-root user) on the
   service's secret.
 - A plain file: `chmod 600` it, owned by the user the core runs as.
