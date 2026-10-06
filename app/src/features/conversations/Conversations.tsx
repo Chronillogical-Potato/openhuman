@@ -1471,7 +1471,7 @@ const Conversations = ({
       selectedThreadId ?? 'none',
       composerEmpty
     );
-    handleStopGeneration();
+    handleStopGenerationRef.current?.();
     if (composerEmpty) {
       // Restore the last *visible* user prompt (hidden system/injected
       // messages are excluded here to match how the transcript is rendered).
@@ -1486,7 +1486,7 @@ const Conversations = ({
         setInputValue(restored);
       }
     }
-  }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
+  }, [inputValue, messages, selectedThreadActive, selectedThreadId]);
 
   // The transcript itself renders from the assistant-ui runtime
   // (`AssistantUiChat`). What remains here is what the composer footer and the
