@@ -50,12 +50,14 @@ impl ScrubbingEngine {
         let started = Instant::now();
         let result = call.await;
         let elapsed_ms = started.elapsed().as_millis() as u64;
+        let outcome = outcome(&result);
+        let count = result.as_ref().map_or(0, count);
         tracing::debug!(
             op,
             engine = %self.id,
             elapsed_ms,
-            outcome = outcome(&result),
-            count = result.as_ref().map_or(0, count),
+            outcome,
+            count,
             "[memory:timing]"
         );
         result
