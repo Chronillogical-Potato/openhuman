@@ -10,8 +10,7 @@ use super::handlers::{
     handle_regenerate, handle_todos_get, handle_token_usage, handle_transcript_get,
     handle_turn_state_clear, handle_turn_state_get, handle_turn_state_get_turn,
     handle_turn_state_history, handle_turn_state_list, handle_update_labels, handle_update_title,
-    handle_update_working_dir,
-    handle_upsert,
+    handle_update_working_dir, handle_upsert,
 };
 use super::schema_defs::schemas;
 
