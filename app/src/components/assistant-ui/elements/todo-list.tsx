@@ -223,13 +223,15 @@ export function TodoProgressCard({
           )}
         />
       </button>
-      {open && (
-        <div
-          data-slot="todo-progress-steps"
-          className="border-border/60 max-h-[min(300px,48dvh)] overflow-y-auto border-t px-3 py-2">
-          <TodoItems items={items} />
-        </div>
-      )}
+      {/* Mounted while collapsed, only `hidden`: the steps stay in the DOM so
+          the pinned card's state is still readable (desktop E2E reads the
+          `todo-item` rows) without taking any space. */}
+      <div
+        data-slot="todo-progress-steps"
+        hidden={!open}
+        className="border-border/60 max-h-[min(300px,48dvh)] overflow-y-auto border-t px-3 py-2">
+        <TodoItems items={items} />
+      </div>
     </div>
   );
 }
