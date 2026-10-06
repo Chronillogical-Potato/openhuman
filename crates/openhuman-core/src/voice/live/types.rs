@@ -75,6 +75,9 @@ pub enum ClientFrame {
         provider: Option<String>,
         #[serde(default)]
         thread_id: Option<String>,
+        /// The UI client approval prompts should be routed to.
+        #[serde(default)]
+        client_id: Option<String>,
         #[serde(default = "default_input_rate")]
         input_sample_rate: u32,
     },

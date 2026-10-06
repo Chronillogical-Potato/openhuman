@@ -9,6 +9,7 @@ fn client_frames_use_snake_case_tags_and_defaults() {
         ClientFrame::Start {
             provider: None,
             thread_id: None,
+            client_id: None,
             input_sample_rate: 16_000
         }
     );
