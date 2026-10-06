@@ -325,6 +325,7 @@ impl CoreContext {
             user_skill_roots: true,
             backend_transport,
             turn_origin: None,
+            session_agent: None,
         });
 
         // Register the process default context (first build wins). Dispatch
@@ -575,6 +576,7 @@ impl CoreContext {
             user_skill_roots: true,
             backend_transport: None,
             turn_origin: None,
+            session_agent: None,
         })
     }
 
@@ -604,6 +606,7 @@ impl CoreContext {
             user_skill_roots: true,
             backend_transport: None,
             turn_origin: None,
+            session_agent: None,
         })
     }
 }
