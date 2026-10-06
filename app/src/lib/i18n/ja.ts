@@ -1,8 +1,8 @@
 import type { TranslationMap } from './types';
 
-// Japanese (日本語) translations. Keys mirror en.ts.
-// Missing keys fall back to English via I18nContext.resolveEn().
-const ja: TranslationMap = {
+// Japanese (日本語) translations. Keys mirror en.ts; missing/
+// English-identical values fall back to English via I18nContext.resolveEn().
+const messages: TranslationMap = {
   // Navigation
   'nav.home': 'ホーム',
   'nav.chat': 'チャット',
@@ -5575,4 +5575,4 @@ const ja: TranslationMap = {
   'memoryPage.import.resume': 'インポートを再開',
 };
 
-export default ja;
+export default messages;
