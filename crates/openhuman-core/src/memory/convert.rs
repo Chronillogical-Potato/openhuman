@@ -1,6 +1,8 @@
 //! The document converter memory files with: PDF, DOCX, PPTX and XLSX through
-//! TinyMemory's `OfficeConverter`, then its `NativeConverter` for text,
-//! markdown, HTML and code.
+//! TinyMemory's `OfficeConverter` (with the `documents` feature, which the
+//! shipped product enables), then its `NativeConverter` for text, markdown,
+//! HTML and code. Without `documents` the chain is native only, and an office
+//! file is refused as before; the parsers stay off the always-on path.
 //!
 //! Brain ingest (`memory_brain_ingest` with a `path`) and file-backed sources
 //! (folder, file) both convert through [`converter`], so a PDF filed by hand
@@ -15,15 +17,21 @@
 
 use std::sync::LazyLock;
 
-use async_trait::async_trait;
-use tinymemory_integrations::documents::{
-    ConvertedDocument, ConverterChain, DocumentConverter, DocumentFormat, Error, OfficeConverter,
-    RawDocument, Result,
+use tinymemory_integrations::documents::ConverterChain;
+#[cfg(feature = "documents")]
+use {
+    async_trait::async_trait,
+    tinymemory_integrations::documents::{
+        ConvertedDocument, DocumentConverter, DocumentFormat, Error, OfficeConverter, RawDocument,
+        Result,
+    },
 };
 
 /// [`OfficeConverter`] on the blocking pool.
+#[cfg(feature = "documents")]
 struct BlockingOffice;
 
+#[cfg(feature = "documents")]
 #[async_trait]
 impl DocumentConverter for BlockingOffice {
     fn name(&self) -> &str {
@@ -45,8 +53,12 @@ impl DocumentConverter for BlockingOffice {
     }
 }
 
-static CHAIN: LazyLock<ConverterChain> =
-    LazyLock::new(|| ConverterChain::default().prepend(Box::new(BlockingOffice)));
+static CHAIN: LazyLock<ConverterChain> = LazyLock::new(|| {
+    let chain = ConverterChain::default();
+    #[cfg(feature = "documents")]
+    let chain = chain.prepend(Box::new(BlockingOffice));
+    chain
+});
 
 /// The converter every memory write of a file goes through.
 pub(crate) fn converter() -> &'static ConverterChain {

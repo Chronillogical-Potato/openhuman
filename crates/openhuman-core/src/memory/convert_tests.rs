@@ -1,9 +1,12 @@
 use super::*;
 
-use tinymemory_api::{ItemKind, MetaFilter};
-
-use crate::memory::brain::{ingest, BrainIngestParams};
-use crate::memory::test_fixtures::{bind_reference, config_in, stored};
+use tinymemory_integrations::documents::{DocumentConverter, Error, RawDocument};
+#[cfg(feature = "documents")]
+use {
+    crate::memory::brain::{ingest, BrainIngestParams},
+    crate::memory::test_fixtures::{bind_reference, config_in, stored},
+    tinymemory_api::{ItemKind, MetaFilter},
+};
 
 /// A one-page PDF whose only text is `text` (Helvetica, no compression).
 fn pdf_saying(text: &str) -> Vec<u8> {
@@ -41,6 +44,7 @@ fn pdf_saying(text: &str) -> Vec<u8> {
     out.into_bytes()
 }
 
+#[cfg(feature = "documents")]
 #[tokio::test]
 async fn a_pdf_converts_to_its_text() {
     let raw = RawDocument::new(pdf_saying("The vendor code is PV-7023")).with_filename("brief.pdf");
@@ -72,6 +76,7 @@ async fn an_unknown_binary_is_still_refused_with_a_clear_error() {
     assert!(matches!(error, Error::UnsupportedFormat(_)), "{error}");
 }
 
+#[cfg(feature = "documents")]
 #[tokio::test]
 async fn brain_ingest_files_a_pdf_by_path() {
     let tmp = tempfile::tempdir().unwrap();
@@ -96,4 +101,14 @@ async fn brain_ingest_files_a_pdf_by_path() {
     let docs = stored(&engine, MetaFilter::kinds([ItemKind::Document])).await;
     assert_eq!(docs.len(), 1);
     assert!(docs[0].text.contains("PV-7023"), "{}", docs[0].text);
+}
+
+/// Without `documents` the office parsers are not linked: a PDF is refused
+/// as unsupported, never mis-read as text.
+#[cfg(not(feature = "documents"))]
+#[tokio::test]
+async fn without_the_documents_feature_a_pdf_is_refused_cleanly() {
+    let raw = RawDocument::new(pdf_saying("The vendor code is PV-7023")).with_filename("brief.pdf");
+    let error = converter().convert(&raw).await.unwrap_err();
+    assert!(matches!(error, Error::UnsupportedFormat(_)), "{error}");
 }

@@ -13,6 +13,12 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   328/307/3  2026-10-07  Ratchet only: origin/main already resolves 328
+#                      packages / 307 names (measured on main's own manifests
+#                      and lockfile), below the 332/311 limit, so every Rust PR
+#                      failed "IMPROVED but was not ratcheted". #7034 adds
+#                      nothing to this profile: memory's office parsers sit
+#                      behind the `documents` feature.
 #   337/316/3  2026-10-04  Merge upstream/main file-intake and module updates.
 #                      The merged flows profile measures 337 packages / 316
 #                      names / 3 native builds (including libdeflate-sys).
@@ -650,4 +656,4 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-flows:332:311:3
+flows:328:307:3
