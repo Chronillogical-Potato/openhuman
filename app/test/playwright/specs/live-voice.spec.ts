@@ -160,7 +160,7 @@ test.describe('Live voice agent', () => {
     await bootAuthenticatedPage(page, 'pw-live-voice-session', '/chat');
     await dismissWalkthroughIfPresent(page);
 
-    await page.getByTestId('chat-mascot-dock').click();
+    await page.getByTestId('composer-human-mode').click();
     await expect(page.getByTestId('chat-mascot-stage')).toBeVisible();
 
     // The start frame comes first and carries the open thread.
@@ -216,7 +216,7 @@ test.describe('Live voice agent', () => {
     await bootAuthenticatedPage(page, 'pw-live-voice-error', '/chat');
     await dismissWalkthroughIfPresent(page);
 
-    await page.getByTestId('chat-mascot-dock').click();
+    await page.getByTestId('composer-human-mode').click();
     await expect.poll(() => core.frames[0]?.type).toBe('start');
     core
       .socket()!
