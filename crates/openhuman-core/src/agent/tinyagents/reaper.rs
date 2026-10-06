@@ -18,6 +18,12 @@ pub(crate) async fn reap_orphaned_runs(workspace: &Path) -> usize {
         "[agent] startup run sweep workspace={}",
         workspace.display()
     );
+    // A host session store repairs its own runs (`SessionStoreProvider::recover`,
+    // run at boot): its status records are per agent, not in this workspace.
+    if crate::agent::session_store::is_installed() {
+        log::debug!("[agent] startup run sweep skipped: the host session store recovers its runs");
+        return 0;
+    }
     let store = FileStatusStore::new(open_session_stores(workspace).kv);
     tinyagents_harness::observability::reap_orphaned_runs(&store).await
 }
