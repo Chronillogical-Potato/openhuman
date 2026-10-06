@@ -711,6 +711,8 @@ fn resolve_bearer_returns_token_for_exp_less_offline_session() {
         .expect("an exp-less offline session must resolve (presence-only)");
     assert_eq!(token, "test.session.jwt");
 }
+#[path = "openhuman_backend_model_auth_tests.rs"]
+mod auth_tests;
 #[path = "openhuman_backend_model_endpoint_tests.rs"]
 mod endpoint_tests;
 
