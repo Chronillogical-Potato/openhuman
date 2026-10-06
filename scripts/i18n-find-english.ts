@@ -107,7 +107,7 @@ const INTENTIONAL_ENGLISH = new Set([
   "workspace.obsidianConfigDirPlaceholder",
 ]);
 
-// Distinctly-English function words that do NOT occur in es/fr/pt/de/id/it/pl/tr. A Latin-script
+// Distinctly-English function words that do NOT occur in es/fr/pt/de/id/it/pl. A Latin-script
 // value carrying >= 2 of these is almost certainly English. Deliberately excludes ambiguous
 // short words shared with those languages (a, in, is, no, to, or, of, on, as, by, an, so…).
 const ENGLISH_FN = new Set(
@@ -119,6 +119,12 @@ const ENGLISH_FN = new Set(
     "because however therefore otherwise whether doesn isn aren don won enabled disabled"
   ).split(" "),
 );
+
+// Words in ENGLISH_FN that are also ordinary words in a specific locale, so they say nothing
+// about English there. Turkish: "can" (life/soul), "not" (note, as in "Not: …"), "may" (yeast).
+const LOCALE_SHARED_WORDS: Readonly<Record<string, ReadonlySet<string>>> = {
+  tr: new Set(["can", "not", "may"]),
+};
 
 interface CliOptions {
   json: boolean;
@@ -200,9 +206,10 @@ function isTechnical(value: string): boolean {
   return false;
 }
 
-function looksEnglish(value: string): boolean {
+export function looksEnglish(value: string, locale?: string): boolean {
+  const shared = (locale && LOCALE_SHARED_WORDS[locale]) || undefined;
   const distinct = new Set(
-    contentWords(value).filter((w) => ENGLISH_FN.has(w)),
+    contentWords(value).filter((w) => ENGLISH_FN.has(w) && !shared?.has(w)),
   );
   return distinct.size >= 2;
 }
@@ -224,7 +231,7 @@ async function main() {
       if (INTENTIONAL_ENGLISH.has(k)) continue;
       const flagged = native
         ? !native.test(v) // non-Latin: no native char ⇒ English
-        : v === en[k] || looksEnglish(v); // Latin: identical or >=2 English-only function words
+        : v === en[k] || looksEnglish(v, locale); // Latin: identical or >=2 English-only function words
       if (flagged) items.push({ key: k, en: en[k], current: v });
     }
     items.sort((a, b) => a.key.localeCompare(b.key));
@@ -269,7 +276,13 @@ async function main() {
   process.exit(total > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(2);
-});
+// Run only as a CLI so tests can import `looksEnglish` without scanning the locales.
+if (
+  process.argv[1] &&
+  pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url
+) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(2);
+  });
+}
