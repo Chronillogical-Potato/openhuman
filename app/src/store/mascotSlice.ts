@@ -278,13 +278,10 @@ interface MascotState {
    */
   chatMascotDismissed: boolean;
   /**
-   * Which voice-chat implementation the mascot's voice stage uses (#5399).
-   * `classic` is
-   * today's turn-based record → transcribe → reply → TTS pipeline; `realtime`
-   * is the streaming ElevenLabs Agents session. Defaults to `classic` and is
-   * no longer read by any surface: the mascot stage now always uses the live
-   * voice agent. Kept so persisted blobs still rehydrate cleanly; the realtime path
-   * ships dark until it is ready.
+   * Legacy voice-chat selector from the ElevenLabs browser path (#5399):
+   * `classic` or `realtime`. No surface reads it any more — the mascot stage
+   * always runs the core-hosted live voice agent — but it stays in the slice so
+   * persisted blobs keep rehydrating cleanly.
    */
   voiceMode: VoiceMode;
 }
