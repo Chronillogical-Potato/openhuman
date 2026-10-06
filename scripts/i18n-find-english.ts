@@ -121,9 +121,11 @@ const ENGLISH_FN = new Set(
 );
 
 // Words in ENGLISH_FN that are also ordinary words in a specific locale, so they say nothing
-// about English there. Turkish: "can" (life/soul), "not" (note, as in "Not: …"), "may" (yeast).
+// about English there. Turkish (checked against the whole list): "can" (life/soul), "not"
+// (note, as in "Not: …"), "may" (yeast), "must" (grape must), "has" (pure), "had" (limit),
+// "don" (frost). "and" (oath) stays: it is archaic in UI copy and English's strongest signal.
 const LOCALE_SHARED_WORDS: Readonly<Record<string, ReadonlySet<string>>> = {
-  tr: new Set(["can", "not", "may"]),
+  tr: new Set(["can", "not", "may", "must", "has", "had", "don"]),
 };
 
 interface CliOptions {

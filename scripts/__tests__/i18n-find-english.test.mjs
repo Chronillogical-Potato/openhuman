@@ -11,6 +11,8 @@ test('looksEnglish flags a value with two English-only function words', () => {
 test('looksEnglish ignores English-list words that are ordinary Turkish words', () => {
   assert.equal(looksEnglish('Not: can sıkıcı olabilir', 'tr'), false);
   assert.equal(looksEnglish('Not: may ekleyin', 'tr'), false);
+  assert.equal(looksEnglish('Has üzüm must', 'tr'), false);
+  assert.equal(looksEnglish('Had aşıldı, don uyarısı', 'tr'), false);
 });
 
 test('looksEnglish still flags real English left in a Turkish value', () => {
