@@ -38,7 +38,7 @@ function loadProcessor(contextRate: number) {
   class AudioWorkletProcessor {
     port = { postMessage: vi.fn() };
   }
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- evaluates the shipped asset in a fake worklet scope
+  // Evaluates the shipped asset in a fake AudioWorkletGlobalScope.
   new Function('AudioWorkletProcessor', 'registerProcessor', 'sampleRate', source)(
     AudioWorkletProcessor,
     (name: string, ctor: new (opts: unknown) => ProcessorInstance) => {

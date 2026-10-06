@@ -141,14 +141,20 @@ describe('PcmPlayer', () => {
 
   it('uses window.AudioContext by default', () => {
     const ctx = new FakeAudioContext();
-    const Ctor = vi.fn(function () {
-      return ctx;
-    });
-    vi.stubGlobal('AudioContext', Ctor);
+    const constructed = vi.fn();
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        constructor() {
+          constructed();
+          return ctx;
+        }
+      }
+    );
     try {
       const player = new PcmPlayer({ sampleRate: 16_000 });
       player.enqueue(pcmBytes(16));
-      expect(Ctor).toHaveBeenCalled();
+      expect(constructed).toHaveBeenCalled();
       expect(ctx.sources).toHaveLength(1);
     } finally {
       vi.unstubAllGlobals();

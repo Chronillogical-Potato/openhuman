@@ -86,11 +86,13 @@ describe('useLiveVoiceSession', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket);
     vi.stubGlobal(
       'AudioContext',
-      vi.fn(function () {
-        const ctx = new FakeAudioContext();
-        audioContexts.push(ctx);
-        return ctx;
-      })
+      class {
+        constructor() {
+          const ctx = new FakeAudioContext();
+          audioContexts.push(ctx);
+          return ctx;
+        }
+      }
     );
     mocks.socketHandlers.clear();
     mocks.socketId = 'sock-1';
