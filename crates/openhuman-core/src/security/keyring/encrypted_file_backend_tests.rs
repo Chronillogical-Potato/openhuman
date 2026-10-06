@@ -255,7 +255,10 @@ fn read_master_key_file_returns_contents_and_reports_a_missing_file() {
     assert_eq!(contents.trim(), hex_key(0x33));
 
     let err = read_master_key_file(&tmp.path().join("missing.key")).expect_err("missing file");
-    assert!(err.contains("cannot read master key file"), "{err}");
+    assert!(
+        err.contains("cannot inspect master key file permissions"),
+        "{err}"
+    );
 }
 
 #[cfg(unix)]

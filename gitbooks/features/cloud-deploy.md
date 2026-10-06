@@ -492,10 +492,47 @@ Mount the key file owner-only. The core rejects group- or world-readable files
 because any process able to read the file can decrypt the entire keyring.
 Restrict the mode where the mount is declared:
 
-- Kubernetes: set `defaultMode: 0400` on the secret volume (or `mode: 0400` on
-  the item), and set the secret item's `runAsUser`/`uid` to the core's user.
-  Do not use `fsGroup` to grant access: kubelet can turn the file into `0440`,
-  which the core rejects.
+- Kubernetes: Secret volumes are root-owned, and `runAsUser` does not change
+  the owner of a projected Secret. For a non-root core, use an init container
+  running as root to copy the Secret into an `emptyDir`, `chown` the copy to
+  the core UID, and `chmod 0400` it before the core starts. Mount the original
+  Secret read-only in the init container and the `emptyDir` read-only in the
+  core container. For example:
+
+  ```yaml
+  volumes:
+    - name: master-key-secret
+      secret:
+        secretName: openhuman-master-key
+        defaultMode: 0400
+    - name: master-key
+      emptyDir: {}
+  initContainers:
+    - name: prepare-master-key
+      image: busybox:1.36
+      command: ["sh", "-c", "cp /source/master.key /target/master.key && chown 10001:10001 /target/master.key && chmod 0400 /target/master.key"]
+      volumeMounts:
+        - name: master-key-secret
+          mountPath: /source
+          readOnly: true
+        - name: master-key
+          mountPath: /target
+  containers:
+    - name: openhuman
+      securityContext:
+        runAsUser: 10001
+      env:
+        - name: OPENHUMAN_KEYRING_MASTER_KEY_FILE
+          value: /run/openhuman-master-key/master.key
+      volumeMounts:
+        - name: master-key
+          mountPath: /run/openhuman-master-key
+          readOnly: true
+  ```
+
+  Set the `emptyDir` medium and the core UID to match the deployment's
+  security policy. Do not use `fsGroup` to grant access: kubelet can turn the
+  projected file into `0440`, which the core rejects.
 - Docker Swarm: set `mode: 0400` (with `uid`/`gid` for a non-root user) on the
   service's secret.
 - A plain file: `chmod 600` it, owned by the user the core runs as.

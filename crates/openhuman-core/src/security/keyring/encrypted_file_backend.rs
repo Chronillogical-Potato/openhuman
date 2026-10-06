@@ -264,20 +264,21 @@ fn read_master_key_file(path: &Path) -> Result<String, String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Ok(metadata) = std::fs::metadata(path) {
-            let mode = metadata.permissions().mode() & 0o777;
-            if key_file_mode_is_private(mode) {
-                return Err(format!(
-                    "master key file ({MASTER_KEY_FILE_ENV}) has insecure permissions \
-                     {mode:04o}; restrict it to owner-readable 0400 or 0600"
-                ));
-            }
-            if key_file_mode_is_other_writable(mode) {
-                return Err(format!(
-                    "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; \
-                     restrict it to a read-only secret mount"
-                ));
-            }
+        let metadata = std::fs::metadata(path).map_err(|e| {
+            format!("cannot inspect master key file permissions ({MASTER_KEY_FILE_ENV}): {e}")
+        })?;
+        let mode = metadata.permissions().mode() & 0o777;
+        if key_file_mode_is_private(mode) {
+            return Err(format!(
+                "master key file ({MASTER_KEY_FILE_ENV}) has insecure permissions \
+                 {mode:04o}; restrict it to owner-readable 0400 or 0600"
+            ));
+        }
+        if key_file_mode_is_other_writable(mode) {
+            return Err(format!(
+                "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; \
+                 restrict it to a read-only secret mount"
+            ));
         }
     }
     std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
