@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 
 import {
   bootAuthenticatedPage,
+  callCoreRpc,
   dismissWalkthroughIfPresent,
+  waitForAppReady,
 } from '../../playwright/helpers/core-rpc';
 import {
   browserElements,
@@ -12,6 +14,18 @@ import {
 
 async function settings(page: BrowserPage, user: string) {
   await bootAuthenticatedPage(page, user, '/settings/account');
+  await dismissWalkthroughIfPresent(page);
+}
+
+async function localSettings(page: BrowserPage, user: string) {
+  await bootAuthenticatedPage(page, user, '/settings/account');
+  await callCoreRpc('openhuman.auth_store_session', {
+    token: 'header.payload.local',
+    userId: 'local',
+    user: { _id: 'local', id: 'local', name: 'Local User', email: 'local@openhuman.local' },
+  });
+  await page.reload();
+  await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
 }
 
@@ -136,5 +150,18 @@ test.describe('Japanese UI locale', () => {
       true
     );
     await expect(browserElements(page).text('3 回の圧縮で')).toBeVisible();
+  });
+
+  test('renders the Japanese Composio direct-only explanation for a local session', async ({
+    page,
+  }) => {
+    await localSettings(page, 'pw-japanese-composio-local');
+    await browserElements(page).selectLanguage('Language', 'ja');
+    await page.goto('/#/connections?tab=composio-key');
+    await expect(
+      browserElements(page).text(
+        'この環境ではComposioのマネージド認証を利用できません。独自のComposio APIキーを入力するか、設定を後回しにしてください。'
+      )
+    ).toBeVisible();
   });
 });

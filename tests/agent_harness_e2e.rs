@@ -943,9 +943,6 @@ fn subagent_delegation_happy_path() {
     );
 }
 
-// A valid 1x1 RGB PNG: vision delegation requires an actual image reference.
-const VISION_FIXTURE_IMAGE: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
-
 async fn subagent_delegation_happy_path_inner() {
     let _lock = env_lock();
     let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))

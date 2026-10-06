@@ -65,7 +65,6 @@ const INTENTIONAL_ENGLISH = new Set([
   "intelligence.memoryChunk.detail.embeddingInfo",
   "mcp.playground.argsLabel",
   "mcp.tab.source.smithery",
-  "memorySources.codingSessions.claude", // Claude Code is a product name, also in the coding-session source picker
   "memorySources.globPatternPlaceholder",
   "rewards.community.discordDetails", // "Discord" — brand/product name, same in every locale
   "rewards.community.rewardTokens", // "+{tokens} tokens" — "tokens" is the technical unit, kept in every locale (the recurring "/mo" variant IS translated)
