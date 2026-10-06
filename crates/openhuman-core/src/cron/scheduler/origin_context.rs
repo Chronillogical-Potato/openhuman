@@ -2,7 +2,6 @@
 //! a bounded tail of the conversation that created the job, plus a fixed
 //! preamble saying the run is unattended.
 
-use super::origin_delivery::NO_REPLY;
 use crate::config::Config;
 use crate::cron::{channel_bridge, CronJob, JobOrigin};
 
@@ -13,12 +12,6 @@ pub(crate) const CONTEXT_MAX_CHARS: usize = 1400;
 
 /// Fixed preamble for an unattended scheduled run.
 pub(crate) const UNATTENDED_PREAMBLE: &str = "This is a scheduled run, not a live chat. Your final reply is delivered to the user as-is. If there is nothing worth sending, reply exactly NO_REPLY.";
-
-// Keep the sentinel in the preamble tied to the delivery side's constant.
-const _: () = {
-    let (a, b) = (UNATTENDED_PREAMBLE.as_bytes(), NO_REPLY.as_bytes());
-    assert!(b.len() < a.len());
-};
 
 /// Render the newest messages that fit within `max_messages` / `max_chars` as
 /// `role: text` lines, oldest first. A message that does not fit whole is cut
