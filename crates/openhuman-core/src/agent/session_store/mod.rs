@@ -104,6 +104,20 @@ pub fn transcripts_for(
     Some(stores.transcripts)
 }
 
+/// [`transcripts_for`] `agent_id`, or the transcript files under
+/// `workspace_dir` when no store is in effect — the session host's resolution.
+#[must_use]
+pub fn transcripts_or_files(
+    agent_id: &str,
+    workspace_dir: &std::path::Path,
+) -> Arc<dyn tinyagents_session::transcript::TranscriptLocator> {
+    transcripts_for(agent_id).unwrap_or_else(|| {
+        Arc::new(tinyagents_session::transcript::FileTranscriptLocator::new(
+            workspace_dir,
+        ))
+    })
+}
+
 /// The stores of the agent the current [`CoreContext`] works for — the one
 /// it was derived for ([`CoreContext::session_agent`]), else
 /// [`DEFAULT_AGENT`] — or `None` when the core keeps the on-disk layout.

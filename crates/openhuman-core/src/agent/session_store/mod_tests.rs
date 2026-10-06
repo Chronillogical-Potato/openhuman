@@ -53,3 +53,19 @@ async fn transcripts_come_from_the_store_only_when_one_is_in_effect() {
     .await;
     assert_eq!(found, Some(expected));
 }
+
+#[tokio::test]
+async fn without_a_store_transcripts_are_workspace_files() {
+    let dir = std::path::Path::new("/nonexistent-openhuman-workspace");
+    assert_eq!(
+        transcripts_or_files("u1", dir).destination_key(),
+        Some(dir.to_string_lossy().into_owned())
+    );
+    let provider: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
+    let expected = provider.for_agent("u1").transcripts.destination_key();
+    let found = scope(provider, async {
+        transcripts_or_files("u1", dir).destination_key()
+    })
+    .await;
+    assert_eq!(found, expected);
+}
