@@ -14,3 +14,18 @@ async fn a_scoped_provider_serves_only_its_own_task() {
         Some(provider.for_agent("u1").transcripts.destination_key())
     );
 }
+
+#[tokio::test]
+async fn work_outside_an_agent_context_uses_the_default_agent() {
+    let provider: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
+    let key = scope(provider.clone(), async {
+        current().map(|stores| stores.transcripts.destination_key())
+    })
+    .await;
+    // No agent context in a unit test: the shared default bucket.
+    assert_eq!(
+        key,
+        Some(provider.for_agent(DEFAULT_AGENT).transcripts.destination_key())
+    );
+    assert!(current().is_none() || is_installed());
+}

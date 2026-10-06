@@ -84,6 +84,25 @@ pub fn for_agent(agent_id: &str) -> Option<AgentStores> {
     installed().map(|provider| provider.for_agent(agent_id))
 }
 
+/// The stores of the agent the current [`CoreContext`] works for — the one
+/// it was derived for ([`CoreContext::session_agent`]), else
+/// [`DEFAULT_AGENT`] — or `None` when the core keeps the on-disk layout.
+///
+/// For code that has a workspace path but no agent id of its own (goals,
+/// todos, the turn journal): under an embedded agent's context it lands in
+/// that agent's stores.
+///
+/// [`CoreContext`]: crate::core::runtime::CoreContext
+/// [`CoreContext::session_agent`]: crate::core::runtime::CoreContext::session_agent
+#[must_use]
+pub fn current() -> Option<AgentStores> {
+    let provider = installed()?;
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned))
+        .unwrap_or_else(|| DEFAULT_AGENT.to_string());
+    Some(provider.for_agent(&agent))
+}
+
 /// The agent whose stores a turn without a definition id uses. Root turns of
 /// the desktop app have no per-user agent; a single shared bucket keeps them
 /// together, as the shared workspace always did.
