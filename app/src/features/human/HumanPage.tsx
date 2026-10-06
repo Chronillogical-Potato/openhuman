@@ -21,7 +21,7 @@ import {
   RiveMascot,
 } from './Mascot';
 import { useMascotManifest } from './Mascot/manifest/useMascotManifest';
-import RealtimeVoiceControls from './RealtimeVoiceControls';
+import LiveVoiceControls from './LiveVoiceControls';
 import { useHumanMascot } from './useHumanMascot';
 import { IDLE_REALTIME_VOICE_AUDIO, type RealtimeVoiceAudio } from './voice/amplitudeLipsync';
 import { useAmplitudeLipsync } from './voice/useAmplitudeLipsync';
@@ -39,12 +39,12 @@ const HumanPage = () => {
 
   const { face, visemeCode } = useHumanMascot({ speakReplies });
 
-  // Lip-sync for the realtime voice session. The session lives inside
-  // RealtimeVoiceControls (which owns its own ConversationProvider), so it
-  // publishes its output-loudness accessor into this ref and the mascot samples
-  // it per frame — a 60fps signal must not travel through React state.
+  // Lip-sync for the live voice session. The session lives inside
+  // LiveVoiceControls, so it publishes its output-loudness accessor into this
+  // ref and the mascot samples it per frame — a 60fps signal must not travel
+  // through React state.
   const realtimeAudioRef = useRef<RealtimeVoiceAudio>({ ...IDLE_REALTIME_VOICE_AUDIO });
-  // The agent's speaking edge, lifted out of RealtimeVoiceControls so it can gate
+  // The agent's speaking edge, lifted out of LiveVoiceControls so it can gate
   // the lip-sync loop below. Flips a couple of times per turn, so it is cheap as
   // state (the 60fps amplitude stays in the ref). While it is false — an idle
   // realtime session, or the classic voice path that never mounts the control —
@@ -56,6 +56,8 @@ const HumanPage = () => {
   // classic path keeps ownership, so the two never fight over the same frame.
   const mascotFace = realtimeLipsync.active ? 'speaking' : face;
   const mascotVisemeCode = realtimeLipsync.active ? realtimeLipsync.visemeCode : visemeCode;
+  // The live agent talks into the conversation last opened in chat, if any.
+  const selectedThreadId = useAppSelector(state => state.thread.selectedThreadId);
   const mascotColor = useAppSelector(selectMascotColor);
   const customPrimary = useAppSelector(selectCustomPrimaryColor);
   const customSecondary = useAppSelector(selectCustomSecondaryColor);
@@ -144,8 +146,8 @@ const HumanPage = () => {
           and falls back to a mascot-only stage. */}
       {voiceEntry !== 'push-to-talk' && (
         <div className="absolute inset-x-0 bottom-10 z-10 flex justify-center">
-          <RealtimeVoiceControls
-            appearance="icon"
+          <LiveVoiceControls
+            threadId={selectedThreadId}
             audioRef={realtimeAudioRef}
             onSpeakingChange={setRealtimeSpeaking}
           />
