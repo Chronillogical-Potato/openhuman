@@ -10,7 +10,9 @@
 pub mod scheduler_gate;
 
 pub mod bus;
+pub mod job_builder;
 pub mod ops;
+pub mod origin;
 mod schemas;
 pub mod seed;
 mod store;
@@ -30,9 +32,9 @@ pub use schemas::{
 };
 #[allow(unused_imports)]
 pub use store::{
-    add_agent_job, add_agent_job_with_definition, add_flow_schedule_job, add_job, add_shell_job,
+    add_agent_job, add_agent_job_from_spec, add_agent_job_with_definition, add_flow_schedule_job, add_job, add_shell_job,
     clear_all_jobs, dedup_named_jobs, delete_queued_runs, due_jobs, find_flow_schedule_job,
-    get_job, list_jobs, list_runs, record_last_run, record_run, remove_job, reschedule_after_run,
+    get_job, list_jobs, list_runs, record_last_run, record_run, record_run_with_delivery, remove_job, reschedule_after_run,
     update_job,
 };
 #[allow(unused_imports)]
@@ -41,5 +43,8 @@ pub use tinyflows_schedule::schedule::{
     validate_agent_schedule, validate_schedule, TooFrequent, MIN_AGENT_JOB_INTERVAL,
 };
 pub use tinyflows_schedule::types::{
-    ActiveHours, CronJob, CronJobPatch, CronRun, DeliveryConfig, JobType, Schedule, SessionTarget,
+    ActiveHours, CronJob, CronJobPatch, CronRun, DeliveryConfig, DeliveryStatus, JobOrigin,
+    JobType, Schedule, SessionTarget,
 };
+pub use tinyflows_schedule::types::delivery_mode;
+pub use tinyflows_sqlite::schedule::AgentJobSpec;
