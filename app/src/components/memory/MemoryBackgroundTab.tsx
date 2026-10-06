@@ -19,6 +19,7 @@ import {
 } from '../../services/api/memoryApi';
 import { Alert, AlertDescription, Badge, Button, Card } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill, formatTimestamp } from './memoryFormat';
 import { JOB_OUTCOME_VARIANT, jobKindLabel, jobOutcomeLabel } from './memoryLifecycleLabels';
 
@@ -94,11 +95,7 @@ export default function MemoryBackgroundTab() {
 
   return (
     <div className="space-y-4 animate-fade-up" data-testid="memory-background-tab">
-      {error !== null && (
-        <Alert variant="destructive" data-testid="memory-background-error">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {error !== null && <MemoryErrorAlert message={error} data-testid="memory-background-error" />}
       {notice !== null && (
         <Alert variant="success" data-testid="memory-background-notice">
           <AlertDescription>{notice}</AlertDescription>

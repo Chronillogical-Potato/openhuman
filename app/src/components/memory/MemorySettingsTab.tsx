@@ -22,8 +22,9 @@ import {
   memoryPolicySet,
   type PolicyUpdate,
 } from '../../services/api/memoryApi';
-import { Alert, AlertDescription, Card, NumberField, Switch } from '../ui';
+import { Card, NumberField, Switch } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import { parseIntInRange } from './memoryFormat';
 
 const log = debug('openhuman:memory:settings');
@@ -175,9 +176,7 @@ export default function MemorySettingsTab() {
 
   if (policy === null || drafts === null) {
     return error !== null ? (
-      <Alert variant="destructive" data-testid="memory-settings-error">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <MemoryErrorAlert message={error} data-testid="memory-settings-error" />
     ) : (
       <CenteredLoadingState label={t('memoryPage.loading')} />
     );
@@ -187,11 +186,7 @@ export default function MemorySettingsTab() {
 
   return (
     <div className="space-y-4 animate-fade-up" data-testid="memory-settings-tab">
-      {error !== null && (
-        <Alert variant="destructive" data-testid="memory-settings-error">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {error !== null && <MemoryErrorAlert message={error} data-testid="memory-settings-error" />}
 
       <Card
         title={t('memoryPage.settings.recallTitle')}

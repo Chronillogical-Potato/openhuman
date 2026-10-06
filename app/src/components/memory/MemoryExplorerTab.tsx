@@ -30,8 +30,9 @@ import {
   memoryItemsList,
   type PathStep,
 } from '../../services/api/memoryApi';
-import { Alert, AlertDescription, Button, Card, NativeSelect } from '../ui';
+import { Button, Card, NativeSelect } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import { facetLabel, facetValueLabel, isMonoFacet, nextFacet } from './memoryFacetLabels';
 import { fill } from './memoryFormat';
 import MemoryHitRow from './MemoryHitRow';
@@ -159,21 +160,19 @@ export default function MemoryExplorerTab() {
       </nav>
 
       {error !== null && (
-        <Alert variant="destructive" data-testid="memory-explorer-error">
-          <AlertDescription>
-            <span>{error}</span>{' '}
-            <Button
-              type="button"
-              variant="tertiary"
-              size="xs"
-              onClick={() => {
-                setError(null);
-                setReloadKey(k => k + 1);
-              }}>
-              {t('common.retry')}
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <MemoryErrorAlert message={error} data-testid="memory-explorer-error">
+          <span>{error}</span>{' '}
+          <Button
+            type="button"
+            variant="tertiary"
+            size="xs"
+            onClick={() => {
+              setError(null);
+              setReloadKey(k => k + 1);
+            }}>
+            {t('common.retry')}
+          </Button>
+        </MemoryErrorAlert>
       )}
 
       <Card

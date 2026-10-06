@@ -678,6 +678,8 @@ const messages: TranslationMap = {
     '메모리를 사용할 수 없습니다: 계정의 크레딧이 모두 소진되었습니다. 충전하면 복구되며, 저장된 내용은 사라지지 않았습니다.',
   'memory.error.unavailable':
     '지금은 메모리에 연결할 수 없습니다. 저장된 내용은 사라지지 않았습니다. 잠시 후 다시 시도하세요.',
+  'memory.outOfCredits.title': '크레딧 소진',
+  'memory.outOfCredits.action': '충전하기',
   'memory.tab.memory': '메모리',
   'memory.tab.agents': '라이브러리',
   'memory.analyzeNow': '지금 분석',

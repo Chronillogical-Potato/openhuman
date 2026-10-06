@@ -670,6 +670,8 @@ const messages: TranslationMap = {
     'الذاكرة غير متاحة: نفد رصيد حسابك. أعد الشحن لاستعادتها؛ لم يُفقد أي شيء مخزّن.',
   'memory.error.unavailable':
     'تعذّر الوصول إلى الذاكرة حاليًا. لم يُفقد أي شيء مخزّن؛ حاول مرة أخرى بعد قليل.',
+  'memory.outOfCredits.title': 'نفد الرصيد',
+  'memory.outOfCredits.action': 'اشحن الرصيد',
   'memory.tab.memory': 'الذاكرة',
   'memory.tab.agents': 'المكتبة',
   'memory.analyzeNow': 'تحليل الآن',
