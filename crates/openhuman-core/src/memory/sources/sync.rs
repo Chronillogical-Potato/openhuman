@@ -132,8 +132,13 @@ pub(crate) async fn store_all(
             }
         }
     }
+    // An engine that rebuilds beliefs on its own needs no build job, as
+    // `Brain::ingest` hands back none for it.
+    let automatic =
+        bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
     let jobs = touched
         .iter()
+        .filter(|_| !automatic)
         .filter_map(|source| layout.brain(source).ok())
         .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
             request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))
