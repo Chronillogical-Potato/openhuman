@@ -89,7 +89,7 @@
 إذا كنت تبني وكيلاً يعمل على خادم بدون واجهة رسومية، ثبّت النواة مباشرة:
 
 ```bash
-cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman --bin openhuman-core
+cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman-cli --bin openhuman-core
 ```
 
 أو شغّلها عبر حاوية Docker:
@@ -140,20 +140,21 @@ docker run -d -p 8080:8080 -v ~/.openhuman:/root/.openhuman tinyhumansai/openhum
 
 مسارات العمل المحفوظة دائمة وتعمل بالمحفزات: تُطلق بمهام Cron المجدولة، أو الـ Webhooks، أو أحداث القنوات، وتستمر عبر عمليات إعادة التشغيل، وتضع الإجراءات المؤثرة خلف بوابات موافقة صريحة.
 
-## التضمين في تطبيقات Rust
+## مكتبة بلغة Rust
 
-يمكنك تضمين نواة OpenHuman كمكتبة في تطبيقات Rust الخاصة بك:
+تعتبر حزمة `openhuman-embed` الواجهة المكتوبة لتضمين النواة مباشرة داخل عملية Rust أخرى: نسخة `Runtime` واحدة لكل عملية، ثم أي عدد من وكلاء `Agent` المستقلين، لكل منهم المزود ومستوى الوصول ودليل العمل وخوادم MCP والمهارات والموجه وبيئة العزل الخاصة به (فعّل ميزة `mcp` في `openhuman-embed` لاستخدام `McpServer`). الكود أدناه مأخوذ مباشرة من [`crates/openhuman-embed/README.md`](../crates/openhuman-embed/README.md):
 
 </div>
 
 <div dir="ltr">
 
 ```rust
-use openhuman::{Access, AgentSpec, McpServer, Provider, Runtime};
+use openhuman_embed::{Access, AgentSpec, McpServer, Provider, Runtime, Workspace};
 
 let runtime = Runtime::builder()
-    .local_cortex("./cortex.db")
-    .spawn()
+    .workspace(Workspace::dir("/var/lib/my-product/openhuman"))
+    .api_key("th_live_…")                     // the only credential in library mode
+    .build()
     .await?;
 
 let reviewer = runtime.agent(
@@ -167,7 +168,7 @@ let reviewer = runtime.agent(
 let fixer = runtime.agent(
     AgentSpec::new("fixer")
         .provider(Provider::openai_compatible("https://api.example/v1", "sk-…").model("gpt-5"))
-        .access(Access::full())
+        .access(Access::supervised())
         .mcp(McpServer::stdio("github", "gh-mcp", ["stdio"]))
         .action_dir("/srv/checkouts/pr-42"),
 )?;
