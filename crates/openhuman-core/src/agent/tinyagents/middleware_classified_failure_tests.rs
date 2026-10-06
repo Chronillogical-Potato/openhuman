@@ -31,11 +31,15 @@ async fn varied_queries_against_one_forbidden_endpoint_stop_on_first_failure() {
 }
 
 #[tokio::test]
-async fn schema_repair_gets_one_attempt_even_when_arguments_change() {
+async fn schema_repair_gets_three_attempts_before_stopping() {
+    // A tool rejecting its own arguments is a typo the refusal already explains,
+    // so it is not held to the one retry the `validation` bucket allows: two
+    // consecutive `apply_patch` arguments without `edits[0].path` ended
+    // terminal-bench 4.0 `vf2-speedup-networkx` at 51/60 tests.
     let handle = SteeringHandle::allow_all();
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
-    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
-    for (id, value) in [("schema-1", 1), ("schema-2", 2)] {
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 8, slot.clone());
+    for (id, value) in [("schema-1", 1), ("schema-2", 2), ("schema-3", 3)] {
         let mut call = TaToolCall::new(
             id,
             "search",
@@ -48,10 +52,73 @@ async fn schema_repair_gets_one_attempt_even_when_arguments_change() {
             .await
             .unwrap();
     }
-    assert_eq!(drain_pause_count(&handle), 1);
+    assert_eq!(
+        drain_pause_count(&handle),
+        0,
+        "three schema rejections stay inside the budget"
+    );
+    assert!(slot.lock().unwrap().is_none(), "no halt summary yet");
+
+    let mut call = TaToolCall::new(
+        "schema-4",
+        "search",
+        serde_json::json!({"query": 4, "endpoint": "catalog"}),
+    );
+    mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+    let mut result = failing_result("search", "schema validation failed: query must be a string");
+    mw.after_tool(
+        &mut ctx(),
+        &(),
+        &invocation("schema-4", "search"),
+        &mut result,
+    )
+    .await
+    .unwrap();
+    assert_eq!(drain_pause_count(&handle), 1, "the fourth stops");
     let summary = slot.lock().unwrap().clone().unwrap();
-    assert!(summary.contains("validation"), "{summary}");
-    assert!(summary.contains("2 attempt(s)"), "{summary}");
+    assert!(summary.contains("invalid_arguments"), "{summary}");
+    assert!(summary.contains("4 attempt(s)"), "{summary}");
+}
+
+#[test]
+fn a_rejected_tool_argument_is_its_own_class_with_a_larger_budget() {
+    // The message `tinyagents` renders for a schema rejection (agent_loop/tools.rs).
+    assert_eq!(
+        super::super::repeated_failure::recovery_policy(
+            "apply_patch",
+            "invalid arguments for tool `apply_patch`: validation error: tool `apply_patch` \
+             arguments.edits[0].path is required; expected schema: {\"properties\":{}}",
+            false
+        ),
+        Some(("invalid_arguments", 3))
+    );
+    // The classes it must NOT be pooled with: a wrong tool name does not become
+    // right, a remote service's rejection is not the model's schema mistake,
+    // and an invalid workflow graph should still stop.
+    assert_eq!(
+        super::super::repeated_failure::recovery_policy(
+            "forbidden_tool",
+            "unknown tool `ranges` (arguments: {}); valid tools: [file_write]",
+            false
+        ),
+        Some(("validation", 1))
+    );
+    assert_eq!(
+        super::super::repeated_failure::recovery_policy(
+            "search",
+            r#"{"error":{"code":"INVALID_ARGUMENT"}}"#,
+            false
+        ),
+        Some(("validation", 1))
+    );
+    assert_eq!(
+        super::super::repeated_failure::recovery_policy(
+            "validate_workflow",
+            "{\"ok\":false}",
+            true
+        ),
+        Some(("validation", 1))
+    );
 }
 
 #[tokio::test]

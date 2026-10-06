@@ -254,6 +254,25 @@ pub(super) fn recovery_policy(
     Some((class, budget))
 }
 
+/// Recovery budget for a tool rejecting its own arguments against its schema.
+///
+/// This is the most recoverable failure in the table: nothing ran, so there is
+/// no side effect to reconcile, and the refusal hands the model the complete
+/// expected schema (`tinyagents` `agent_loop/tools.rs`: "invalid arguments for
+/// tool `X`: {detail}; expected schema: {…}"). It is a typo in one call, not a
+/// broken world — unlike `not_found` or `unavailable`, which need the world to
+/// change, and unlike a remote service's 400/422, which rejects a request the
+/// model may have had every reason to send.
+///
+/// At a budget of 1 it ended terminal-bench 4.0 `vf2-speedup-networkx` at
+/// 51/60 tests: the model omitted `edits[0].path` on two consecutive
+/// `apply_patch` calls, while five others in the same run carried all three
+/// fields — one of them 16,370 characters, seventeen times the size of the one
+/// that failed. The omission was intermittent, not a size limit, so a further
+/// attempt would most likely have landed. Three keeps it bounded; a call
+/// repeated unchanged is still caught by the generic no-progress ladder.
+const ARGUMENT_SCHEMA_RECOVERY: usize = 3;
+
 /// Prefix of `tinytools::render_command_failure`, the one renderer every
 /// shell-family tool uses for a command that ran and did not exit 0: an
 /// exit-code (or signal) line, then the program's own stdout and stderr.
@@ -376,11 +395,16 @@ fn classified_recovery_policy(
         Class::Timeout if tool == "shell" => ("uncertain_side_effect", 1),
         Class::Timeout => ("uncertain_side_effect", 0),
         Class::Unknown if is_recoverable_tool_failure(error) => ("transient", 2),
+        // Its own class, not the `validation` bucket: the ledger keys on
+        // (class, operation, scope), so pooling this with `unknown tool` and
+        // `validate_workflow`'s invalid graphs would hand those a budget they
+        // should not have. A wrong tool name does not become right, and a graph
+        // the model cannot fix should still stop.
         Class::Unknown
             if error.to_ascii_lowercase().contains("schema validation")
                 || error.to_ascii_lowercase().contains("invalid arguments") =>
         {
-            ("validation", 1)
+            ("invalid_arguments", ARGUMENT_SCHEMA_RECOVERY)
         }
         Class::Unknown => return None,
     })
