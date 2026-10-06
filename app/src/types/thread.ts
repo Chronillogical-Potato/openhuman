@@ -9,6 +9,8 @@ export interface Thread {
   parentThreadId?: string;
   labels: string[];
   personalityId?: string | null;
+  /** Working folder the thread's agent acts in; absent means the global default. */
+  actionDir?: string | null;
 }
 
 export interface ThreadMessage {
