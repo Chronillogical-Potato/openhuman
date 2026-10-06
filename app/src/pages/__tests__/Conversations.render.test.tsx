@@ -62,6 +62,16 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
   })),
 }));
 // ── Module mocks ───────────────────────────────────────────────────────────
+// The chat mascot context is absent in this harness (no provider) unless a test
+// installs one, which is how the Tiny-click → live voice path is exercised.
+const { mascotContext } = vi.hoisted(() => ({
+  mascotContext: { current: undefined as undefined | { expandWithVoice: () => void } },
+}));
+vi.mock('../../features/human/chatMascot', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../features/human/chatMascot')>()),
+  useChatMascotOptional: () => mascotContext.current,
+}));
+
 
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
@@ -1400,6 +1410,34 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     // pins here is the absence of Stop.
     expect(screen.getByTestId('composer-human-mode')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument();
+  });
+
+  it('clicking Tiny in the idle composer starts live voice on the mascot stage', async () => {
+    const expandWithVoice = vi.fn();
+    mascotContext.current = { expandWithVoice };
+    try {
+      await renderSelectedConversation();
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('composer-human-mode'));
+      });
+      expect(expandWithVoice).toHaveBeenCalledTimes(1);
+      // It stays on the chat route: the stage opens beside the conversation.
+      expect(screen.getByTestId('route-path').textContent).toMatch(/^\/chat/);
+    } finally {
+      mascotContext.current = undefined;
+    }
+  });
+
+  it('clicking Tiny without a mascot stage falls back to the Human page', async () => {
+    mascotContext.current = undefined;
+    await renderSelectedConversation();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('composer-human-mode'));
+    });
+    // `/human` is not routed in this harness, so the chat route's probe unmounts.
+    await waitFor(() => {
+      expect(screen.queryByTestId('route-path')).not.toBeInTheDocument();
+    });
   });
 
   it('releases the pending-send lock when appendMessage rejects with a generic error', async () => {
