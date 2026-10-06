@@ -23,15 +23,23 @@ use tinyagents_harness::title::{
 /// is written the moment the user sends — before any reply exists to summarize
 /// — so without this the real summary that runs on the finished reply found a
 /// non-placeholder title and never ran. Anything else was typed by the user
-/// and is left alone. A user who renames a thread to exactly the interim title
-/// gets it summarized once more, which is harmless.
-pub(crate) fn is_replaceable_title(title: &str, first_user_message: Option<&str>) -> bool {
+/// and is left alone.
+///
+/// The interim title is only replaceable during the first exchange
+/// (`agent_replies <= 1`). A summary that happens to equal the interim title
+/// would otherwise look interim forever and be re-summarized on every turn.
+pub(crate) fn is_replaceable_title(
+    title: &str,
+    first_user_message: Option<&str>,
+    agent_replies: usize,
+) -> bool {
     if is_auto_generated_thread_title(title) {
         return true;
     }
-    first_user_message
-        .and_then(title_from_user_message)
-        .is_some_and(|interim| interim == title.trim())
+    agent_replies <= 1
+        && first_user_message
+            .and_then(title_from_user_message)
+            .is_some_and(|interim| interim == title.trim())
 }
 
 /// Generates a durable thread title from the first user message and assistant reply.
@@ -57,7 +65,11 @@ pub async fn thread_generate_title(
         .find(|message| message.sender == "user" && !message.content.trim().is_empty())
         .map(|message| message.content.trim().to_string());
 
-    if !is_replaceable_title(&thread.title, first_user_message.as_deref()) {
+    let agent_replies = messages
+        .iter()
+        .filter(|message| message.sender == "agent")
+        .count();
+    if !is_replaceable_title(&thread.title, first_user_message.as_deref(), agent_replies) {
         tracing::debug!(
             thread_id = %request.thread_id,
             title_len = thread.title.chars().count(),
@@ -208,3 +220,7 @@ pub async fn thread_generate_title(
         None,
     ))
 }
+
+#[cfg(test)]
+#[path = "title_generation_tests.rs"]
+mod tests;
