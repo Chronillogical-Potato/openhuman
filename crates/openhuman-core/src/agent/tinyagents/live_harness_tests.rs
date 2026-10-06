@@ -59,8 +59,9 @@ fn installs_the_tool_boundary_middleware() {
 async fn runs_an_allowed_call_through_the_pipeline() {
     use tinyagents_harness::agent_loop::phases::execute_tool_batch;
     let harness = assemble_live_tool_harness(surface(&["alpha"]));
-    let mut ctx = OpenHumanRunContext::new()
-        .into_tinyagents(tinyagents_harness::context::RunConfig::new("live-harness-test"));
+    let mut ctx = OpenHumanRunContext::new().into_tinyagents(
+        tinyagents_harness::context::RunConfig::new("live-harness-test"),
+    );
     let mut run = tinyagents_harness::middleware::AgentRun::new();
     let mut status = tinyagents_harness::events::HarnessRunStatus::new(
         ctx.run_id().clone(),

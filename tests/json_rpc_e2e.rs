@@ -7190,7 +7190,10 @@ async fn voice_live_settings_round_trip_over_json_rpc() {
         .iter()
         .filter_map(|p| p["id"].as_str())
         .collect();
-    assert_eq!(ids, vec!["gemini-hosted", "elevenlabs-hosted", "gemini", "sarvam"]);
+    assert_eq!(
+        ids,
+        vec!["gemini-hosted", "elevenlabs-hosted", "gemini", "sarvam"]
+    );
     let sarvam = providers["providers"]
         .as_array()
         .unwrap()
@@ -7224,7 +7227,10 @@ async fn voice_live_settings_round_trip_over_json_rpc() {
         json!({ "default_provider": "nope" }),
     )
     .await;
-    assert!(bad.get("error").is_some(), "unknown provider must be rejected: {bad}");
+    assert!(
+        bad.get("error").is_some(),
+        "unknown provider must be rejected: {bad}"
+    );
 
     // No Sarvam key is stored, so a test reports why without touching the network.
     let tested = post_json_rpc(
@@ -7236,7 +7242,10 @@ async fn voice_live_settings_round_trip_over_json_rpc() {
     .await;
     let tested = assert_no_jsonrpc_error(&tested, "voice_live_test_provider");
     assert_eq!(tested["ok"], false);
-    assert!(tested["error"].as_str().unwrap_or_default().contains("not_configured"));
+    assert!(tested["error"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("not_configured"));
 
     mock_join.abort();
     rpc_join.abort();

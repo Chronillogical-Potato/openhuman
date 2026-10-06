@@ -3,7 +3,9 @@ use super::*;
 #[test]
 fn exposes_durable_visible_tools_and_policy() {
     let root = tempfile::tempdir().unwrap();
-    let model = Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec!["ok"]));
+    let model = Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
+        "ok",
+    ]));
     let chat_model: Arc<dyn tinyinference_llm::model::ChatModel<()>> = model;
     let mut host = crate::agent::SessionHostBuilder::new()
         .chat_model(chat_model)
