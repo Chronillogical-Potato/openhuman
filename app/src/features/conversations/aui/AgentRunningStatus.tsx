@@ -15,10 +15,20 @@
  * component at all; assistant-ui's own running-message indicator already
  * signals "something is happening" for those, same as before.
  *
- * With no task running, this falls back to assistant-ui's vendored
- * `GenerationLoader`, with a shimmering Thinking label, so a turn that has not
- * yet spawned a sub-agent still shows one coherent running signal.
+ * Three states, highest priority first (after OpenClaw's working row):
+ *
+ * 1. **Waiting on you.** A parked tool approval, a plan review gate, or an
+ *    unanswered top-level `ask_user_clarification` means the run cannot move
+ *    until the user acts. Saying "Thinking…" there is wrong, so the slot shows
+ *    a still (non-shimmering) attention line naming what it waits for.
+ * 2. **Waiting on sub-agents.** While delegations run, the `TaskTray`, led by
+ *    "Waiting on {name}" / "Waiting on {count} subagents" when the parent
+ *    itself is parked on them (`inferenceStatusByThread.phase === 'subagent'`).
+ * 3. **Thinking.** The vendored `GenerationLoader`, with "Thinking · {elapsed}"
+ *    once a second has passed. The clock starts when this slot mounts, which is
+ *    when the turn starts running: the runtime keeps no turn-start timestamp.
  */
+import { useAuiState } from '@assistant-ui/react';
 import { useEffect, useState } from 'react';
 
 import {
@@ -26,7 +36,10 @@ import {
   useTaskSummary,
 } from '../../../components/assistant-ui/elements/agent-status.aui';
 import { GenerationLoader } from '../../../components/assistant-ui/elements/loading-state';
+import { formatElapsed, useTaskElapsed } from '../../../components/assistant-ui/utils/task';
 import { useT } from '../../../lib/i18n/I18nContext';
+import { useAuiThreadId } from '../../../providers/AssistantUiRuntimeProvider';
+import { useAppSelector } from '../../../store/hooks';
 
 /** English defaults mapped onto `AgentStatusStrings` via `useT()`. */
 function useAgentStatusStrings() {
@@ -42,30 +55,145 @@ function useAgentStatusStrings() {
   };
 }
 
+/** What the run is blocked on, if it is blocked on the user. */
+export type WaitingOnUser = 'approval' | 'review' | 'answer';
+
+/** The top-level clarification tool (`ChatToolParts.tsx`'s `ElicitationCall`). */
+const ASK_USER_CLARIFICATION_TOOL = 'ask_user_clarification';
+
+interface MessageLike {
+  readonly role: string;
+  readonly content: ReadonlyArray<{
+    readonly type: string;
+    readonly toolName?: string;
+    readonly result?: unknown;
+  }>;
+}
+
+/** Whether the newest assistant message carries an unanswered clarification. */
+export function hasPendingClarification(messages: ReadonlyArray<MessageLike>): boolean {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== 'assistant') continue;
+    return message.content.some(
+      part =>
+        part.type === 'tool-call' &&
+        part.toolName === ASK_USER_CLARIFICATION_TOOL &&
+        part.result === undefined
+    );
+  }
+  return false;
+}
+
+/** Approval outranks review outranks answer: the most blocking gate first. */
+export function waitingOnUser(args: {
+  approval: boolean;
+  review: boolean;
+  answer: boolean;
+}): WaitingOnUser | null {
+  if (args.approval) return 'approval';
+  if (args.review) return 'review';
+  if (args.answer) return 'answer';
+  return null;
+}
+
+const WAITING_KEYS: Record<WaitingOnUser, string> = {
+  approval: 'chat.status.waitingApproval',
+  review: 'chat.status.waitingReview',
+  answer: 'chat.status.waitingAnswer',
+};
+
+function useWaitingOnUser(): WaitingOnUser | null {
+  const threadId = useAuiThreadId();
+  const approval = useAppSelector(state =>
+    threadId ? Boolean(state.chatRuntime.pendingApprovalByThread?.[threadId]) : false
+  );
+  const review = useAppSelector(state =>
+    threadId ? Boolean(state.chatRuntime.pendingPlanReviewByThread?.[threadId]) : false
+  );
+  const answer = useAuiState(s => hasPendingClarification(s.thread.messages));
+  return waitingOnUser({ approval, review, answer });
+}
+
+/** Whether the parent turn is itself parked waiting on its delegations. */
+function useParentWaitsOnSubagents(): boolean {
+  const threadId = useAuiThreadId();
+  return useAppSelector(state =>
+    threadId ? state.chatRuntime.inferenceStatusByThread?.[threadId]?.phase === 'subagent' : false
+  );
+}
+
+function WaitingLine({ kind }: { kind: WaitingOnUser }) {
+  const { t } = useT();
+  return (
+    <div
+      data-testid="agent-running-status-waiting"
+      data-waiting={kind}
+      role="status"
+      className="flex items-center gap-2 px-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+      <span aria-hidden className="relative flex size-2">
+        <span className="absolute inline-flex size-full rounded-full bg-amber-500/40 motion-safe:animate-ping" />
+        <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
+      </span>
+      {t(WAITING_KEYS[kind])}
+    </div>
+  );
+}
+
 export function AgentRunningStatus() {
   const { t } = useT();
   const summary = useTaskSummary();
   const strings = useAgentStatusStrings();
+  const waiting = useWaitingOnUser();
+  const parentWaits = useParentWaitsOnSubagents();
   const [tick, setTick] = useState(0);
+  const [startedAt] = useState(() => Date.now());
+  const thinking = summary.total === 0 && waiting === null;
+  const elapsedMs = useTaskElapsed({ startedAt }, thinking);
 
   useEffect(() => {
-    if (summary.total > 0) return undefined;
+    if (!thinking) return undefined;
     const timer = window.setInterval(() => setTick(value => value + 1), 120);
     return () => window.clearInterval(timer);
-  }, [summary.total]);
+  }, [thinking]);
+
+  if (waiting !== null) return <WaitingLine kind={waiting} />;
 
   if (summary.total === 0) {
+    const label =
+      elapsedMs !== undefined && elapsedMs >= 1000
+        ? t('chat.status.thinkingElapsed').replace('{elapsed}', formatElapsed(elapsedMs))
+        : t('chat.thinkingDots');
     return (
       <GenerationLoader
         data-testid="agent-running-status-thinking"
-        label={t('chat.thinkingDots')}
+        label={label}
         tick={tick}
         variant="rounded"
         className="flex-row justify-start gap-2.5 px-2 [&>div]:gap-0.5 [&>div>span]:size-1"
       />
     );
   }
-  return <TaskTray data-testid="agent-running-status-tasks" strings={strings} />;
+
+  const waitingOnSubagents =
+    parentWaits && summary.running > 0
+      ? summary.running === 1 && summary.runningLabel
+        ? t('chat.status.waitingOnSubagent').replace('{name}', summary.runningLabel)
+        : t('chat.status.waitingOnSubagents').replace('{count}', String(summary.running))
+      : null;
+
+  return (
+    <div className="flex items-center gap-2">
+      {waitingOnSubagents && (
+        <span
+          data-testid="agent-running-status-subagents"
+          className="px-2 text-sm text-content-muted">
+          {waitingOnSubagents}
+        </span>
+      )}
+      <TaskTray data-testid="agent-running-status-tasks" strings={strings} />
+    </div>
+  );
 }
 
 export default AgentRunningStatus;
