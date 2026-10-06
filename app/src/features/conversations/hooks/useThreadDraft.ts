@@ -32,6 +32,8 @@ function persistDraft(threadId: string, text: string): void {
 interface DraftState {
   threadId: string | null;
   text: string;
+  /** Set by an edit; a load or the initial state never writes back. */
+  edited: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ interface DraftState {
 export function useThreadDraft(
   threadId: string | null
 ): [string, (action: SetStateAction<string>) => void] {
-  const [state, setState] = useState<DraftState>({ threadId, text: '' });
+  const [state, setState] = useState<DraftState>({ threadId, text: '', edited: false });
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
   // The newest edit not yet written, so a thread switch or unmount inside the
@@ -70,7 +72,7 @@ export function useThreadDraft(
         // Typing that landed before the read finished wins over the stored copy.
         if (prev.threadId === threadId && prev.text.length > 0) return prev;
         debug('[chat][draft] restored thread=%s len=%d', threadId, stored.length);
-        return { threadId, text: stored };
+        return { threadId, text: stored, edited: false };
       });
     });
     return () => {
@@ -86,7 +88,9 @@ export function useThreadDraft(
       setState(prev => {
         const base = prev.threadId === current ? prev.text : '';
         const text = typeof action === 'function' ? action(base) : action;
-        return text === base && prev.threadId === current ? prev : { threadId: current, text };
+        return text === base && prev.threadId === current
+          ? prev
+          : { threadId: current, text, edited: true };
       });
     },
     []
@@ -94,7 +98,7 @@ export function useThreadDraft(
 
   // Schedule the write for whatever the draft became.
   useEffect(() => {
-    if (!state.threadId || state.threadId !== threadIdRef.current) return;
+    if (!state.edited || !state.threadId || state.threadId !== threadIdRef.current) return;
     pendingRef.current = state;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
