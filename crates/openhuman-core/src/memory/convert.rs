@@ -46,10 +46,17 @@ impl DocumentConverter for BlockingOffice {
         let document = document.clone();
         tokio::task::spawn_blocking(move || OfficeConverter.convert_blocking(&document))
             .await
-            .map_err(|error| Error::Converter {
-                converter: "office".to_string(),
-                message: format!("the conversion task did not finish: {error}"),
-            })?
+            .map_err(task_failed)?
+    }
+}
+
+/// The error for a conversion task that never finished (it panicked or was
+/// cancelled): a converter failure, never a crash of the caller.
+#[cfg(feature = "documents")]
+fn task_failed(error: impl std::fmt::Display) -> Error {
+    Error::Converter {
+        converter: "office".to_string(),
+        message: format!("the conversion task did not finish: {error}"),
     }
 }
 

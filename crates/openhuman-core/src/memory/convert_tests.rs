@@ -112,3 +112,25 @@ async fn without_the_documents_feature_a_pdf_is_refused_cleanly() {
     let error = converter().convert(&raw).await.unwrap_err();
     assert!(matches!(error, Error::UnsupportedFormat(_)), "{error}");
 }
+
+#[cfg(feature = "documents")]
+#[test]
+fn the_office_converter_names_itself_and_claims_only_office_formats() {
+    use tinymemory_integrations::documents::DocumentFormat;
+    assert_eq!(BlockingOffice.name(), "office");
+    assert!(BlockingOffice.supports(DocumentFormat::Pdf));
+    assert!(BlockingOffice.supports(DocumentFormat::Docx));
+    assert!(!BlockingOffice.supports(DocumentFormat::Markdown));
+}
+
+#[cfg(feature = "documents")]
+#[test]
+fn a_conversion_task_that_dies_is_a_converter_error_not_a_crash() {
+    match task_failed("task panicked") {
+        Error::Converter { converter, message } => {
+            assert_eq!(converter, "office");
+            assert!(message.contains("task panicked"), "{message}");
+        }
+        other => panic!("expected a converter error, got {other:?}"),
+    }
+}
