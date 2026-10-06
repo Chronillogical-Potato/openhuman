@@ -53,6 +53,7 @@ pub async fn thread_upsert(
             parent_thread_id: request.parent_thread_id,
             labels: request.labels,
             personality_id: request.personality_id,
+            working_dir: None,
         },
     )
     .await?;
@@ -84,6 +85,7 @@ pub async fn thread_create_new(
             // of truth for default labels.
             labels: request.labels,
             personality_id: request.personality_id,
+            working_dir: None,
         },
     )
     .await?;

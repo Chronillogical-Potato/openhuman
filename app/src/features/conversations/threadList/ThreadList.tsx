@@ -161,9 +161,7 @@ export function ThreadList({
               data-running={isThreadRunning?.(thread.id) ? 'true' : undefined}
               aria-busy={isThreadRunning?.(thread.id) || undefined}
               className={`truncate flex-1 text-[14px] ${
-                selectedThreadId === thread.id
-                  ? 'font-semibold text-content'
-                  : 'text-content-muted'
+                selectedThreadId === thread.id ? 'font-semibold text-content' : 'text-content-muted'
               } ${running ? 'shimmer motion-reduce:animate-none' : ''}`}>
               {resolveTitle(thread.id)}
             </p>
@@ -343,8 +341,18 @@ export function ThreadList({
               aria-label={t('chat.sidebar.clearSearch')}
               title={t('chat.sidebar.clearSearch')}
               className="absolute right-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-content-faint transition-colors hover:bg-surface/60 hover:text-content-secondary">
-              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-3 w-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           )}

@@ -507,7 +507,7 @@ const messages: TranslationMap = {
   'chat.sidebar.clearSearch': 'Effacer la recherche',
   'chat.sidebar.noMatches': 'Aucune conversation correspondante',
   'chat.sidebar.group.pinned': 'Épinglées',
-  'chat.sidebar.group.today': 'Aujourd\'hui',
+  'chat.sidebar.group.today': "Aujourd'hui",
   'chat.sidebar.group.yesterday': 'Hier',
   'chat.sidebar.group.previous7Days': '7 derniers jours',
   'chat.sidebar.group.previous30Days': '30 derniers jours',
