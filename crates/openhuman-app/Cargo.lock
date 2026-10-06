@@ -4431,12 +4431,13 @@ dependencies = [
  "log",
  "once_cell",
  "openhuman",
- "openhuman-store-sqlite",
  "rand 0.10.2",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
  "socketioxide",
+ "tinyagents-harness",
+ "tinyagents-session",
  "tinyinference-core",
  "tokio",
  "tokio-stream",
@@ -4445,17 +4446,6 @@ dependencies = [
  "url",
  "urlencoding",
  "uuid",
-]
-
-[[package]]
-name = "openhuman-store-sqlite"
-version = "0.64.10"
-dependencies = [
- "anyhow",
- "chrono",
- "log",
- "tinyagents-harness",
- "tinyagents-session",
 ]
 
 [[package]]
