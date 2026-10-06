@@ -85,6 +85,7 @@ async fn inherited_origin_preserves_a_non_cli_origin_verbatim() {
             sender,
             reply_target,
             message_id,
+            ..
         }) => {
             assert_eq!(channel, "telegram");
             assert_eq!(sender.as_deref(), Some("u-42"));
