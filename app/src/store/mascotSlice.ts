@@ -282,7 +282,8 @@ interface MascotState {
    * `classic` is
    * today's turn-based record → transcribe → reply → TTS pipeline; `realtime`
    * is the streaming ElevenLabs Agents session. Defaults to `classic` and is
-   * only togglable when `VOICE_MODE_FLAG_ENABLED` is on, so the realtime path
+   * no longer read by any surface: the mascot stage now always uses the live
+   * voice agent. Kept so persisted blobs still rehydrate cleanly; the realtime path
    * ships dark until it is ready.
    */
   voiceMode: VoiceMode;
