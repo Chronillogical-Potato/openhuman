@@ -273,12 +273,12 @@ are documented rather than hidden; each is a candidate follow-up in the core.
   `include_user_skills(false)` (the default) an agent does not _discover_ the
   operator's skills, but an install by the agent lands there.
 - One API key (or session) is shared by all agents.
-- `IntegrationClient` (backend-proxied Composio/search/media tools) only
-  ever reads the app-session JWT
-  (`security::credentials::session_support::get_session_token`), never the
-  runtime's API key. A library runtime that authenticates with only
-  `.api_key(...)` gets no integration tools at all rather than the key
-  being sent as the wrong header.
+- `IntegrationClient` (backend-proxied Composio/search/media tools) accepts
+  the runtime's TinyHumans API key or an app-session JWT through
+  `security::credentials::session_support::resolve_backend_credential`.
+  API keys use `x-api-key`; session JWTs use `Authorization: Bearer`.
+  With the backend transport installed and the integration feature and runtime
+  gates enabled, an API-key-only runtime can register integration tools.
 
 Other invariants worth knowing before wiring any entry point:
 
