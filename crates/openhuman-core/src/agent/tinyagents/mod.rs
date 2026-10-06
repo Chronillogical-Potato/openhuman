@@ -29,6 +29,9 @@ pub(crate) mod harness_tool_registration;
 pub mod host;
 pub(crate) mod hosted_error;
 pub(crate) mod journal;
+// The tool harness behind a live voice session (`voice::live`).
+#[cfg(feature = "voice")]
+pub(crate) mod live_harness;
 mod memory_summarizer;
 pub(crate) mod middleware;
 pub(crate) mod model;
