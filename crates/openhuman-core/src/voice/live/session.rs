@@ -152,6 +152,13 @@ pub(crate) async fn start(
     // Hosted Gemini fixes its tools when the ticket is minted, so they must be
     // in the configuration before `prepare`.
     live.tools = tinyagents_live::tool_declarations(&harness, false);
+    tracing::debug!(
+        session_id,
+        direct = live.tools.len(),
+        deferred = harness.tools().deferred_schemas().len(),
+        tools = ?live.tools.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(),
+        "[voice-live] tools declared to the live model"
+    );
     let prepared = providers::prepare(&config, &provider, live).await?;
 
     let origin = AgentTurnOrigin::ExternalChannel {
