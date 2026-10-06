@@ -5534,6 +5534,8 @@ const messages: TranslationMap = {
     'クレジットが足りないため、メモリーを使えません。補充すると再び使えます。保存済みの内容は失われていません。',
   'memory.error.unavailable':
     '現在、メモリーに接続できません。保存済みの内容は失われていません。少し待ってから再試行してください。',
+  'memory.outOfCredits.title': 'クレジット不足',
+  'memory.outOfCredits.action': 'チャージする',
   'onboarding.custom.search.skipForNow': '今はスキップ',
   'onboarding.custom.search.ready': 'Web検索の準備ができました。',
   'onboarding.custom.search.notReady':
