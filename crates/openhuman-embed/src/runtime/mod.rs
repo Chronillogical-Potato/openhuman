@@ -126,6 +126,13 @@ pub enum RuntimeError {
     /// [`RuntimeBuilder::api_key`] was given a blank key.
     #[error("the TinyHumans API key is blank")]
     BlankApiKey,
+
+    /// [`Workspace::Stateless`](crate::Workspace::Stateless) was asked for
+    /// without a [`RuntimeBuilder::session_store`] to keep conversations in.
+    #[error(
+        "a stateless workspace keeps no conversations on disk;          give the runtime a session store"
+    )]
+    NoSessionStore,
 }
 
 /// The process-scoped state a [`Runtime`] and every [`Agent`](crate::Agent)
@@ -146,6 +153,9 @@ pub(crate) struct CoreGuard {
     /// Held for its `Drop`: an ephemeral workspace lives exactly as long as
     /// the last owner of this guard.
     workspace: ResolvedWorkspace,
+    /// Whether this runtime installed the process's session store, which is
+    /// removed with it.
+    session_store: bool,
 }
 
 impl Drop for CoreGuard {
@@ -154,6 +164,9 @@ impl Drop for CoreGuard {
         // first lets another builder initialize process-scoped state while
         // this runtime's keyring, bearer, event bus and subscribers are live.
         drop(self.core.take());
+        if self.session_store {
+            openhuman_core::agent::session_store::clear();
+        }
         // For an ephemeral workspace, take ownership of the temp path and
         // remove it with a short retry. The core's memory/session writers keep
         // running a moment after a turn returns and can recreate workspace
@@ -351,9 +364,11 @@ impl Runtime {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         core: Core,
         workspace: ResolvedWorkspace,
+        session_store: bool,
         base_config: Config,
         inherited: bool,
         domains: DomainSet,
@@ -366,6 +381,7 @@ impl Runtime {
             guard: Arc::new(CoreGuard {
                 core: Some(core),
                 workspace,
+                session_store,
             }),
             base_config,
             inherited,
