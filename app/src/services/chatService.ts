@@ -1659,6 +1659,9 @@ export async function chatSend(params: ChatSendParams): Promise<string | undefin
   return typeof requestId === 'string' ? requestId : undefined;
 }
 
+/** `client_id` sent with a Stop issued while the socket has no id. */
+export const NO_SOCKET_CANCEL_CLIENT_ID = 'web-cancel-no-socket';
+
 /** Result of a Stop request. */
 export interface ChatCancelOutcome {
   /** The core received and processed the cancel. */
