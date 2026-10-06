@@ -4,9 +4,10 @@
 //! serving many users from one process) installs a
 //! [`SessionStoreProvider`] here once, before agents run. From then on every
 //! agent's transcripts, turn journal, run status, goals and todos go through
-//! that agent's [`AgentStores`] instead of files under `workspace_dir`, and
-//! the file-era mirrors (the session dual-write and its shadow reads) stand
-//! down: the host store is the only record.
+//! that agent's [`AgentStores`] instead of files under `workspace_dir`. For a
+//! store that is not file-backed ([`replaces_files`]) the file-era mirrors
+//! (the session dual-write and its shadow reads) stand down: the host store
+//! is the only record.
 //!
 //! Like the memory engine's host binding
 //! ([`crate::memory::engine::install_host_engine`]), this is process-wide:
@@ -75,6 +76,14 @@ pub fn installed() -> Option<Arc<dyn SessionStoreProvider>> {
 #[must_use]
 pub fn is_installed() -> bool {
     installed().is_some()
+}
+
+/// Whether the store in effect keeps conversations somewhere other than the
+/// classic workspace files ([`SessionStoreProvider::workspace_dir`] is
+/// `None`), so companions that read those files back have nothing to read.
+#[must_use]
+pub fn replaces_files() -> bool {
+    installed().is_some_and(|provider| provider.workspace_dir().is_none())
 }
 
 /// `agent_id`'s stores from the installed provider, or `None` when the core

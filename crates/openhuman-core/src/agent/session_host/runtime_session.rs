@@ -739,8 +739,9 @@ impl OpenHumanTurnPrelude {
             return;
         }
         // The dual write mirrors transcript *files* into the session store; a
-        // host store is already the only record, and there is no file to read.
-        if crate::agent::session_store::is_installed() {
+        // host store that is not file-backed is already the only record, and
+        // there is no file to read.
+        if crate::agent::session_store::replaces_files() {
             return;
         }
         let Some(stem) = path

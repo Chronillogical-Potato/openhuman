@@ -29,3 +29,10 @@ async fn work_outside_an_agent_context_uses_the_default_agent() {
     );
     assert!(current().is_none() || is_installed());
 }
+
+#[tokio::test]
+async fn only_a_store_without_files_replaces_them() {
+    assert!(!replaces_files(), "no store: the files are the record");
+    let memory: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());
+    assert!(scope(memory, async { replaces_files() }).await);
+}

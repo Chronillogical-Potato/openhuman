@@ -86,12 +86,17 @@ pub fn dual_write_enabled(config_enabled: bool) -> bool {
 /// journal (`JsonlAppendStore`, an `AppendStore` rather than a `Store`) is not
 /// registrable on the `StoreRegistry`; the dual-write opens it directly.
 ///
-/// With a host session store installed it is the current agent's key-value
-/// store, whatever the dual-write flag says: there are no files to mirror.
+/// With a host session store that is not file-backed it is the current
+/// agent's key-value store, whatever the dual-write flag says: there are no
+/// files to mirror.
 pub async fn session_kv_store() -> Option<Arc<dyn Store>> {
-    if let Some(stores) = crate::agent::session_store::current() {
-        log::debug!("[session-store] registering the host session store's kv on RunContext.stores");
-        return Some(stores.kv);
+    if crate::agent::session_store::replaces_files() {
+        if let Some(stores) = crate::agent::session_store::current() {
+            log::debug!(
+                "[session-store] registering the host session store's kv on RunContext.stores"
+            );
+            return Some(stores.kv);
+        }
     }
     let cfg = match crate::config::Config::load_or_init().await {
         Ok(cfg) => cfg,
