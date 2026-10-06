@@ -2019,7 +2019,7 @@ const messages: TranslationMap = {
   'chat.todos.ofTotal': '已完成 {done}，共 {total}',
   'chat.todos.receipt': '进度已更新 — {done}/{total}',
   'chat.subagents.ranFor': '运行了 {duration}',
-  'chat.subagents.ofTotal': '{complete} / {total}',
+  'chat.subagents.ofTotal': '已完成 {complete}，共 {total}',
   'chat.subagents.runningCount': '{count} 个运行中',
   'chat.subagents.failedCount': '{count} 个失败',
   'chat.subagents.settled': '子任务已完成，正在处理结果。',
