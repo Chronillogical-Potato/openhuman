@@ -2016,7 +2016,7 @@ const messages: TranslationMap = {
   'conversations.composer.mention.files': '文件',
   'conversations.todos.title': '待办',
   'chat.todos.completed': '已完成',
-  'chat.todos.ofTotal': '{done} / {total}',
+  'chat.todos.ofTotal': '已完成 {done}，共 {total}',
   'chat.todos.receipt': '进度已更新 — {done}/{total}',
   'chat.subagents.ranFor': '运行了 {duration}',
   'chat.subagents.ofTotal': '{complete} / {total}',
