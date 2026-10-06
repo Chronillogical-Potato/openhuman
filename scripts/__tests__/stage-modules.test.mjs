@@ -14,6 +14,7 @@ import {
   download,
   hostKeyForTarget,
   extractWindowsZip,
+  keepsArchive,
 } from "../release/stage-modules.mjs";
 
 const HOST_KEYS = [
@@ -104,6 +105,12 @@ test("host keys follow the Rust target triple, not the runner", () => {
   assert.equal(hostKeyForTarget("x86_64-pc-windows-msvc"), "windows-2022-x86_64");
   assert.equal(hostKeyForTarget("aarch64-pc-windows-msvc"), "windows-11-arm64");
   assert.throws(() => hostKeyForTarget("wasm32-unknown-unknown"), /no bundled modules/);
+});
+
+test("only macOS bundles replace the archive with its digest marker", () => {
+  for (const hostKey of HOST_KEYS) {
+    assert.equal(keepsArchive(hostKey), !hostKey.startsWith("macos-"), hostKey);
+  }
 });
 
 async function withServer(handler, run) {

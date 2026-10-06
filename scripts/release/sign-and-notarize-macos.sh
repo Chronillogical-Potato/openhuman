@@ -123,15 +123,8 @@ for bin in "$APP_PATH/Contents/Resources/"openhuman-core-*; do
   codesign_hardened "$bin"
 done
 
-# Bundled native modules: notarization rejects unsigned Mach-O under Resources/.
-# tinybus pins the module *archive* digest, not the extracted files, so signing
-# them in place does not break admission. Every Mach-O, not only the dylib:
-# tinycomputer ships helper executables beside its library.
-while IFS= read -r -d '' bin; do
-  file -b "$bin" | grep -q '^Mach-O' || continue
-  echo "[sign]   Signing bundled module: ${bin#"$APP_PATH/Contents/Resources/"}"
-  codesign_hardened "$bin"
-done < <(find "$APP_PATH/Contents/Resources/bundled-modules" -type f -print0 2>/dev/null)
+# Bundled native modules (shared with build-macos-signed.sh).
+bash "$(dirname "$0")/macos-bundled-modules.sh" sign "$APP_PATH" "$ENTITLEMENTS" "$APPLE_SIGNING_IDENTITY"
 
 # ── Outer .app bundle ───────────────────────────────────────────────────────
 echo "[sign]   Signing .app bundle..."
@@ -143,7 +136,7 @@ codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 # Fail here, with every offending path, rather than after a notarization
 # round trip. This includes Mach-O inside the pinned release archives.
-bash "$(dirname "$0")/check-macos-bundled-signatures.sh" "$APP_PATH/Contents/Resources/bundled-modules"
+bash "$(dirname "$0")/macos-bundled-modules.sh" check "$APP_PATH/Contents/Resources/bundled-modules"
 
 # ── Notarize ─────────────────────────────────────────────────────────────────
 echo "[sign] Notarizing..."

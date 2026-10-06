@@ -4,7 +4,8 @@
 // installer, release tarball or bench image needs no GitHub access to load a
 // module. The output layout is `<id>/<version>/<host_key>/<archive>` plus the
 // extracted library, which is what `modules::ops::set_bundled_releases_dir`
-// (or `OPENHUMAN_BUNDLED_MODULES`) points at.
+// (or `OPENHUMAN_BUNDLED_MODULES`) points at. On macOS the archive is replaced
+// by `<archive>.sha256` holding its verified pin (see `keepsArchive`).
 //
 // Usage: node scripts/release/stage-modules.mjs [--target TRIPLE | --host-key KEY] [--output DIR]
 //
@@ -64,6 +65,17 @@ export function hostKeyForTarget(triple) {
     return archKey === "arm64" ? "windows-11-arm64" : "windows-2022-x86_64";
   }
   throw new Error(`no bundled modules for target ${triple}`);
+}
+
+/**
+ * Whether the staged entry keeps its release archive. A notarized macOS app
+ * cannot: Apple's notary service unpacks it and rejects the unsigned Mach-O
+ * inside, and signing them would change the pinned bytes. There the archive is
+ * replaced by its verified digest, which tinybus admits from the installer
+ * bundle only; the extracted files are signed and sealed with the app.
+ */
+export function keepsArchive(hostKey) {
+  return !hostKey.startsWith("macos-");
 }
 
 export function bundledAssets(source, hostKey) {
@@ -187,6 +199,10 @@ export async function stageModules({ hostKey = defaultHostKey(), output = OUTPUT
     extractArchive(archive, dir);
     if (librariesUnder(dir).length !== 1) {
       throw new Error(`${asset.id}: expected exactly one native library in the release archive`);
+    }
+    if (!keepsArchive(asset.hostKey)) {
+      writeFileSync(`${archive}.sha256`, `${actual}\n`);
+      rmSync(archive);
     }
     console.log(`[bundled-modules] staged ${asset.id} ${asset.version} (${asset.hostKey})`);
   }
