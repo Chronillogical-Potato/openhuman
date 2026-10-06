@@ -12,8 +12,8 @@
 //!                                                         todos, turn journal
 //! ```
 //!
-//! The desktop app, the CLI and the TUI install it, so the core and the embed
-//! facade carry no storage of their own. It serves one operator: every agent
+//! The desktop app, the CLI and the TUI install it; the core and the embed
+//! facade reach session state only through the port. It serves one operator: every agent
 //! shares the workspace, as it always has, so it does not claim the
 //! per-agent isolation a multi-user host's store must provide.
 //!
