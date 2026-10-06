@@ -84,7 +84,7 @@ impl SessionStoreProvider for SqliteSessionStores {
     fn for_agent(&self, agent_id: &str) -> AgentStores {
         let workspace = self.current();
         log::trace!(
-            "[store-sqlite] stores for agent={agent_id} workspace={}",
+            "[rpc:session_store] stores for agent={agent_id} workspace={}",
             workspace.display()
         );
         stores_at(&workspace)
@@ -101,7 +101,7 @@ impl SessionStoreProvider for SqliteSessionStores {
                 .map_err(anyhow::Error::msg)?;
         let runs = tinyagents_session::run_ledger::interrupt_orphaned_agent_runs(&workspace)?;
         log::info!(
-            "[store-sqlite] recovered workspace={} interrupted_turns={turns} settled_runs={runs}",
+            "[rpc:session_store] recovered workspace={} interrupted_turns={turns} settled_runs={runs}",
             workspace.display()
         );
         Ok(())

@@ -261,7 +261,7 @@ reopened agent resumes its thread from the store, in any process.
 `Workspace::stateless()` refuses to build without a store, and a private
 scratch directory, removed with the runtime, still holds process-local
 caches (cost log, prompt templates, migration markers). The desktop app, CLI
-and TUI install `openhuman-store-sqlite`, the classic on-disk layout behind
+and TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
 the same port. See `tests/session_store.rs`.
 
 ### Still runtime-wide
