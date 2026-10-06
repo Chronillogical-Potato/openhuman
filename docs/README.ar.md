@@ -127,7 +127,7 @@ use openhuman_embed::{Access, AgentSpec, McpServer, Provider, Runtime, Workspace
 
 let runtime = Runtime::builder()
     .workspace(Workspace::dir("/var/lib/my-product/openhuman"))
-    .api_key("th_live_…")                     // the only credential in library mode
+    .api_key("th_live_…")                     // runtime/backend credential for hosted services
     .build()
     .await?;
 
