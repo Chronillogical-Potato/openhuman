@@ -585,3 +585,28 @@ fn classify_inference_error_in_stream_tool_history_rejection_uses_malformed_hist
         classified.message
     );
 }
+
+#[test]
+fn classify_inference_error_local_offline_profile_is_not_an_expired_session() {
+    // #6932: the refusal travels wrapped in the turn driver's context, so the
+    // arm matches the sentinel anywhere in the chain.
+    let raw = format!(
+        "run_chat_task failed client_id=abc thread_id=t-1 error={}",
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+    let classified = classify_inference_error(&raw);
+
+    assert_eq!(classified.error_type, "auth_error");
+    assert_eq!(classified.source, "config");
+    assert!(!classified.retryable);
+    assert!(
+        classified.message.contains("Use Your Own Models"),
+        "must route the user to the setting that fixes it: {}",
+        classified.message
+    );
+    assert!(
+        !classified.message.contains("session has expired"),
+        "must not claim an expired session: {}",
+        classified.message
+    );
+}

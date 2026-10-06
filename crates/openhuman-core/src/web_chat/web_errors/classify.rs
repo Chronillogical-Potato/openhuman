@@ -184,7 +184,17 @@ pub(crate) fn classify_inference_error(err: &str) -> ClassifiedError {
     // "iteration", so they MUST be checked before the generic provider-429
     // branch — otherwise users see a confusing "your AI provider is
     // rate-limiting you" message for limits OpenHuman itself enforced (#2364).
-    let classified = if is_codex_token_expired_text(&err.to_ascii_lowercase()) {
+    let classified = if err.contains(
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+    ) {
+        // #6932: the offline local profile cannot run the managed model, and
+        // `resolve_bearer` now refuses before the request instead of letting
+        // the backend's `401 "Invalid token"` come back — that envelope is
+        // claimed by `is_session_expired_message` below, which told a locally
+        // signed-in user their session had expired. An exact-sentinel match,
+        // so it leads the ladder.
+        classified_plain(C::LocalSessionManagedUnavailable, None, None)
+    } else if is_codex_token_expired_text(&err.to_ascii_lowercase()) {
         // Codex OAuth refresh failed (#5869): the user must reconnect Codex in
         // Settings → Integrations, NOT sign into OpenHuman. Checked before
         // `is_session_expired_message` because the sentinel contains
