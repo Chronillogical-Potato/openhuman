@@ -72,7 +72,10 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
     onSelect,
   }: {
     onSelect: (selection: {
-      source: { kind: 'cloud'; providerSlug: string } | { kind: 'managed' };
+      source:
+        | { kind: 'cloud'; providerSlug: string }
+        | { kind: 'local' }
+        | { kind: 'managed' };
       model: string;
     }) => void;
   }) => (
@@ -83,6 +86,23 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
           onSelect({ source: { kind: 'cloud', providerSlug: 'huggingface' }, model: 'org/model' })
         }>
         Pick Hugging Face model
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect({ source: { kind: 'managed' }, model: 'openrouter/author/model' })}>
+        Pick managed model
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect({ source: { kind: 'local' }, model: 'qwen3:4b-instruct' })}>
+        Pick local model
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onSelect({ source: { kind: 'cloud', providerSlug: 'unknown-provider' }, model: 'model' })
+        }>
+        Pick unknown provider model
       </button>
       <button type="button" onClick={() => onSelect({ source: { kind: 'managed' }, model: '' })}>
         Clear model
@@ -248,6 +268,11 @@ async function clickSendButtonWithDraft(text: string) {
 async function selectPickerModel() {
   fireEvent.click(screen.getByTestId('composer-chat-settings'));
   fireEvent.click(await screen.findByRole('button', { name: 'Pick Hugging Face model' }));
+}
+
+async function selectPickerRoute(name: 'managed' | 'local' | 'unknown provider') {
+  fireEvent.click(screen.getByTestId('composer-chat-settings'));
+  fireEvent.click(await screen.findByRole('button', { name: `Pick ${name} model` }));
 }
 
 async function clearPickerModel() {
@@ -647,5 +672,19 @@ describe('composer model routing', () => {
       model: 'huggingface:org/model',
       queueMode: 'followup',
     });
+  });
+
+  it.each([
+    ['managed', 'openrouter/author/model'],
+    ['local', 'ollama:qwen3:4b-instruct'],
+    ['unknown provider', 'unknown-provider:model'],
+  ] as const)('serializes the %s picker route for a normal send', async (route, model) => {
+    mockChatSend.mockClear();
+    await renderChat('text');
+
+    await selectPickerRoute(route);
+    await submitComposerText(`${route} picker route`);
+
+    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model });
   });
 });
