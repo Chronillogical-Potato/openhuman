@@ -1,6 +1,6 @@
 use super::*;
-use crate::cron::job_builder::validate_delivery;
 use crate::config::Config;
+use crate::cron::job_builder::validate_delivery;
 use crate::cron::ActiveHours;
 use crate::security::AutonomyLevel;
 use tempfile::TempDir;

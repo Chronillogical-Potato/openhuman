@@ -3,10 +3,10 @@
 
 use super::agent_run::EMPTY_AGENT_OUTPUT;
 use super::failure_classification::AGENT_JOB_USER_FAILURE_MESSAGE;
+use super::origin_delivery::{deliver_to_origin, is_suppressed_output};
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use super::origin_delivery::{deliver_to_origin, is_suppressed_output};
 use crate::cron::{delivery_mode, CronJob, DeliveryConfig, DeliveryStatus, JobType};
 use anyhow::Result;
 use chrono::Utc;

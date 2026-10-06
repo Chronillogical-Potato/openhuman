@@ -140,8 +140,7 @@ pub(crate) fn is_self_scoped_agent_job(args: &Value, turn: Option<&AgentTurnOrig
     match mode.as_str() {
         delivery_mode::ORIGIN => true,
         delivery_mode::ANNOUNCE => {
-            non_empty_str(delivery, "channel")
-                .is_some_and(|c| c.eq_ignore_ascii_case(&channel))
+            non_empty_str(delivery, "channel").is_some_and(|c| c.eq_ignore_ascii_case(&channel))
                 && non_empty_str(delivery, "to") == Some(reply_target.as_str())
         }
         _ => false,

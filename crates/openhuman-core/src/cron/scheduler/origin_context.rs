@@ -36,10 +36,7 @@ pub(crate) fn bounded_tail(
             continue;
         }
         if remaining >= 80 {
-            let cut: String = line
-                .chars()
-                .skip(len - (remaining - 1))
-                .collect::<String>();
+            let cut: String = line.chars().skip(len - (remaining - 1)).collect::<String>();
             picked.push(format!("…{cut}"));
         }
         break;
@@ -61,7 +58,11 @@ async fn origin_messages(config: &Config, origin: &JobOrigin) -> Vec<(String, St
                 Ok(messages) => messages
                     .into_iter()
                     .map(|m| {
-                        let role = if m.sender == "user" { "user" } else { "assistant" };
+                        let role = if m.sender == "user" {
+                            "user"
+                        } else {
+                            "assistant"
+                        };
                         (role.to_string(), m.content)
                     })
                     .collect(),
@@ -77,12 +78,7 @@ async fn origin_messages(config: &Config, origin: &JobOrigin) -> Vec<(String, St
 
 /// Prompt for a `current` run: tagged task, unattended preamble, the bounded
 /// context tail (when there is one), then the task itself.
-pub(crate) fn compose_current_prompt(
-    job_id: &str,
-    name: &str,
-    prompt: &str,
-    tail: &str,
-) -> String {
+pub(crate) fn compose_current_prompt(job_id: &str, name: &str, prompt: &str, tail: &str) -> String {
     let mut out = format!("[cron:{job_id} {name}] {UNATTENDED_PREAMBLE}\n\n");
     if !tail.is_empty() {
         out.push_str("Recent conversation this task was created in (context only):\n");

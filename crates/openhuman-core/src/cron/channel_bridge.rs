@@ -10,8 +10,8 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
-use tinychannels_bus::{Channel, SendMessage};
 use tinyagents_session::transcript::TranscriptMessage;
+use tinychannels_bus::{Channel, SendMessage};
 
 /// Same shape as `channels::context::ConversationHistoryMap`, spelled out so
 /// cron does not depend on the feature-gated `channels` module.
@@ -63,10 +63,7 @@ pub fn history_messages(history_key: &str) -> Vec<(String, String)> {
         tracing::debug!("[cron] channel history requested but no channel bridge registered");
         return Vec::new();
     };
-    let histories = bridge
-        .histories
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let histories = bridge.histories.lock().unwrap_or_else(|e| e.into_inner());
     histories
         .get(history_key)
         .map(|turns| {
@@ -87,10 +84,7 @@ pub fn append_assistant_message(history_key: &str, text: &str) -> bool {
         return false;
     };
     let max = MAX_HISTORY.load(std::sync::atomic::Ordering::Relaxed);
-    let mut histories = bridge
-        .histories
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let mut histories = bridge.histories.lock().unwrap_or_else(|e| e.into_inner());
     let turns = histories.entry(history_key.to_string()).or_default();
     turns.push(TranscriptMessage::assistant(text));
     while turns.len() > max {

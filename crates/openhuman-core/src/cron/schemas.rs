@@ -362,7 +362,9 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
                     origin
                         .is_none()
                         .then(crate::cron::DeliveryConfig::default)
-                        .or_else(|| Some(crate::cron::job_builder::default_delivery(origin.as_ref())))
+                        .or_else(|| {
+                            Some(crate::cron::job_builder::default_delivery(origin.as_ref()))
+                        })
                 });
                 let delivery_cfg = delivery.clone().unwrap_or_default();
                 crate::cron::job_builder::check_origin_requirements(

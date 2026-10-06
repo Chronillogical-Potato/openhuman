@@ -77,7 +77,10 @@ fn explicit_delivery_and_target_win_and_drop_the_unused_origin() {
     let job = create_agent_job(&config(&tmp), i, Some(web())).unwrap();
     assert_eq!(job.session_target, SessionTarget::Isolated);
     assert_eq!(job.delivery.mode, "none");
-    assert_eq!(job.origin, None, "nothing uses the origin, so it is not kept");
+    assert_eq!(
+        job.origin, None,
+        "nothing uses the origin, so it is not kept"
+    );
 }
 
 #[test]

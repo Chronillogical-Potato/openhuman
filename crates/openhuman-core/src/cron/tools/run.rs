@@ -90,8 +90,7 @@ impl Tool for CronRunTool {
 
         let started_at = Utc::now();
         let run_id = uuid::Uuid::new_v4().to_string();
-        let (success, output) =
-            cron::scheduler::execute_job_now(&self.config, &job, &run_id).await;
+        let (success, output) = cron::scheduler::execute_job_now(&self.config, &job, &run_id).await;
         let finished_at = Utc::now();
         let duration_ms = (finished_at - started_at).num_milliseconds();
         let status = if success { "ok" } else { "error" };

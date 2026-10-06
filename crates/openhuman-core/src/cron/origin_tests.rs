@@ -1,6 +1,6 @@
 use super::*;
-use crate::cron::Schedule;
 use crate::agent::turn_origin::{with_origin, TrustedAutomationSource};
+use crate::cron::Schedule;
 use serde_json::json;
 
 fn channel_turn(history_key: Option<&str>) -> AgentTurnOrigin {
@@ -162,7 +162,8 @@ fn gate_skipped_for_default_origin_delivery() {
 fn gate_skipped_for_explicit_origin_mode_and_matching_announce() {
     let origin_mode = json!({"job_type": "agent", "prompt": "p", "delivery": {"mode": "origin"}});
     assert!(is_self_scoped_agent_job(&origin_mode, Some(&ch())));
-    let announce = json!({"prompt": "p", "delivery": {"mode": "announce", "channel": "Telegram", "to": "42"}});
+    let announce =
+        json!({"prompt": "p", "delivery": {"mode": "announce", "channel": "Telegram", "to": "42"}});
     assert!(is_self_scoped_agent_job(&announce, Some(&ch())));
 }
 
@@ -195,7 +196,10 @@ fn gate_kept_for_non_channel_turns() {
     assert!(!is_self_scoped_agent_job(&args, None));
     assert!(!is_self_scoped_agent_job(&args, Some(&web_turn("t"))));
     assert!(!is_self_scoped_agent_job(&args, Some(&channel_turn(None))));
-    assert!(!is_self_scoped_agent_job(&args, Some(&AgentTurnOrigin::Cli)));
+    assert!(!is_self_scoped_agent_job(
+        &args,
+        Some(&AgentTurnOrigin::Cli)
+    ));
 }
 
 #[tokio::test]

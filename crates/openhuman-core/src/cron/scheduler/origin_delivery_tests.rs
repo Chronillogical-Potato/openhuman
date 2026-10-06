@@ -87,9 +87,11 @@ async fn no_reply_is_suppressed_without_writing_anything() {
         .await
         .unwrap();
     assert_eq!(status, DeliveryStatus::Suppressed);
-    assert!(conversations::get_messages(cfg.workspace_dir.clone(), "t-1")
-        .unwrap()
-        .is_empty());
+    assert!(
+        conversations::get_messages(cfg.workspace_dir.clone(), "t-1")
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -114,7 +116,9 @@ async fn web_delivery_stores_one_row_under_the_run_reply_id_and_is_idempotent() 
     assert_eq!(messages[0].content, "Drink water!");
     assert_eq!(messages[0].sender, "agent");
 
-    deliver_to_origin(&cfg, &j, "run-2", "Again!").await.unwrap();
+    deliver_to_origin(&cfg, &j, "run-2", "Again!")
+        .await
+        .unwrap();
     assert_eq!(
         conversations::get_messages(cfg.workspace_dir.clone(), "t-1")
             .unwrap()

@@ -8,8 +8,8 @@
 use crate::config::Config;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use tinyflows_schedule::{CronJob, CronJobPatch, CronRun, DeliveryConfig, Schedule, SessionTarget};
 use tinyflows_schedule::DeliveryStatus;
+use tinyflows_schedule::{CronJob, CronJobPatch, CronRun, DeliveryConfig, Schedule, SessionTarget};
 use tinyflows_sqlite::schedule::{self as upstream, AgentJobSpec, CronStoreOptions};
 
 /// Builds the store options from the host config: `<workspace>/cron/jobs.db`,

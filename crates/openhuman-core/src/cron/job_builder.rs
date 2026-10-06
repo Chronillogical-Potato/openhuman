@@ -68,7 +68,11 @@ pub fn check_origin_requirements(
     if origin.is_some() {
         return Ok(());
     }
-    if delivery.mode.trim().eq_ignore_ascii_case(delivery_mode::ORIGIN) {
+    if delivery
+        .mode
+        .trim()
+        .eq_ignore_ascii_case(delivery_mode::ORIGIN)
+    {
         return Err(
             "delivery mode 'origin' needs the conversation the job is created from; this \
              job has none (use 'proactive' or 'announce')"
@@ -180,7 +184,10 @@ pub fn create_agent_job(
     check_origin_requirements(&session_target, &delivery, origin.as_ref())?;
 
     let uses_origin = matches!(session_target, SessionTarget::Current)
-        || delivery.mode.trim().eq_ignore_ascii_case(delivery_mode::ORIGIN);
+        || delivery
+            .mode
+            .trim()
+            .eq_ignore_ascii_case(delivery_mode::ORIGIN);
     let origin = origin.filter(|_| uses_origin);
 
     tracing::debug!(

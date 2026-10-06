@@ -5,7 +5,8 @@ use super::delivery::deliver_run;
 use crate::config::Config;
 use crate::cron::{
     record_last_run, record_run_with_delivery, remove_job, reschedule_after_run, runs_closer_than,
-    update_job, CronJob, DeliveryStatus, CronJobPatch, JobType, Schedule, TooFrequent, MIN_AGENT_JOB_INTERVAL,
+    update_job, CronJob, CronJobPatch, DeliveryStatus, JobType, Schedule, TooFrequent,
+    MIN_AGENT_JOB_INTERVAL,
 };
 use chrono::{DateTime, Utc};
 
@@ -20,8 +21,16 @@ pub(super) async fn persist_job_result(
     finished_at: DateTime<Utc>,
 ) -> bool {
     let run_id = uuid::Uuid::new_v4().to_string();
-    persist_job_result_for_run(config, job, &run_id, success, output, started_at, finished_at)
-        .await
+    persist_job_result_for_run(
+        config,
+        job,
+        &run_id,
+        success,
+        output,
+        started_at,
+        finished_at,
+    )
+    .await
 }
 
 pub(super) async fn persist_job_result_for_run(

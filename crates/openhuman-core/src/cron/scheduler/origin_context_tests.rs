@@ -7,7 +7,12 @@ fn m(role: &str, text: &str) -> (String, String) {
 #[test]
 fn tail_keeps_the_newest_messages_in_order() {
     let msgs: Vec<_> = (0..15)
-        .map(|i| m(if i % 2 == 0 { "user" } else { "assistant" }, &format!("msg{i}")))
+        .map(|i| {
+            m(
+                if i % 2 == 0 { "user" } else { "assistant" },
+                &format!("msg{i}"),
+            )
+        })
         .collect();
     let tail = bounded_tail(&msgs, 10, 1400);
     let lines: Vec<_> = tail.lines().collect();
@@ -19,9 +24,17 @@ fn tail_keeps_the_newest_messages_in_order() {
 #[test]
 fn tail_is_bounded_by_characters_and_keeps_the_newest() {
     let long = "x".repeat(1000);
-    let msgs = vec![m("user", "old one"), m("user", &long), m("assistant", &long)];
+    let msgs = vec![
+        m("user", "old one"),
+        m("user", &long),
+        m("assistant", &long),
+    ];
     let tail = bounded_tail(&msgs, 10, 1400);
-    assert!(tail.chars().count() <= 1400 + 1, "len {}", tail.chars().count());
+    assert!(
+        tail.chars().count() <= 1400 + 1,
+        "len {}",
+        tail.chars().count()
+    );
     assert!(tail.ends_with(&"x".repeat(100)));
     assert!(tail.lines().last().unwrap().starts_with("assistant: "));
     assert!(!tail.contains("old one"));
