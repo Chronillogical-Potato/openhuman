@@ -33,6 +33,9 @@ pub fn all_voice_controller_schemas() -> Vec<ControllerSchema> {
         voice_schemas("voice_server_status"),
         voice_schemas("overlay_stt_notify"),
     ]
+    .into_iter()
+    .chain(crate::voice::live::live_controller_schemas())
+    .collect()
 }
 
 pub fn all_voice_registered_controllers() -> Vec<RegisteredController> {
