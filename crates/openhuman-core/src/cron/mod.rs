@@ -10,6 +10,7 @@
 pub mod scheduler_gate;
 
 pub mod bus;
+pub mod channel_bridge;
 pub mod job_builder;
 pub mod ops;
 pub mod origin;

@@ -6,6 +6,8 @@
 mod agent_run;
 mod delivery;
 mod failure_classification;
+mod origin_context;
+mod origin_delivery;
 mod retry;
 mod run_record;
 mod shell_job;
