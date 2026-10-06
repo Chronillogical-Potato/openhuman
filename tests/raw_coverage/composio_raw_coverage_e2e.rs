@@ -271,6 +271,7 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     assert!(
         workspace
             .path()
+            .join("workspace")
             .join("integrations")
             .join("composio_user_scopes.json")
             .exists(),

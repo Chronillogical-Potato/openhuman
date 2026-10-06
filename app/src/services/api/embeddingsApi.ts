@@ -90,9 +90,14 @@ export async function updateEmbeddingsSettings(params: {
   rate_limit_per_min?: number;
   confirm_wipe?: boolean;
 }): Promise<EmbeddingsUpdateResult> {
+  // Memory v2 no longer ties stored vectors to this provider signature, so the
+  // core RPC removed `confirm_wipe`. Keep accepting the UI's legacy flag while
+  // its confirmation flow is retired, but never send the unsupported field.
+  const rpcParams = { ...params };
+  delete rpcParams.confirm_wipe;
   const raw = await callCoreRpc<EmbeddingsUpdateResult | { result: EmbeddingsUpdateResult }>({
     method: CORE_RPC_METHODS.embeddingsUpdateSettings,
-    params,
+    params: rpcParams,
   });
   return 'result' in raw ? raw.result : raw;
 }

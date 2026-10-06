@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { Alert, AlertDescription, Button, CloseIcon } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { DISCORD_INVITE_URL } from '../../../utils/links';
 
@@ -27,40 +28,27 @@ const BetaBanner = () => {
   };
 
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
-      {/* Message */}
-      <p className="flex-1 text-xs leading-relaxed text-content-secondary">
+    <Alert variant="warning" role={undefined} className="mb-4 items-start">
+      <AlertDescription className="flex-1 text-xs">
         {t('misc.beta')}{' '}
         <a
           href={DISCORD_INVITE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-amber-800 dark:text-amber-300 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200">
+          className="font-medium underline underline-offset-2 hover:opacity-80">
           {t('misc.betaFeedback')}
         </a>
-      </p>
-
-      {/* Dismiss */}
-      <button
-        type="button"
+      </AlertDescription>
+      <Button
+        variant="tertiary"
+        size="xs"
+        iconOnly
         aria-label={t('common.dismiss')}
         onClick={handleDismiss}
-        className="mt-0.5 shrink-0 text-content-faint hover:text-content-secondary dark:text-content-secondary transition-colors">
-        <svg
-          className="h-3.5 w-3.5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
-    </div>
+        className="shrink-0">
+        <CloseIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      </Button>
+    </Alert>
   );
 };
 

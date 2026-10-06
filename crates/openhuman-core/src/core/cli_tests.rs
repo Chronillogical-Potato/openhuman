@@ -325,9 +325,10 @@ fn unknown_function_in_a_live_namespace_still_reports_unknown_function() {
 #[test]
 fn default_build_leaves_the_generic_namespace_path_unchanged() {
     let grouped = grouped_schemas();
-    for ns in ["memory"] {
-        assert!(grouped.contains_key(ns), "`{ns}` must still be listed");
-    }
+    assert!(
+        grouped.contains_key("memory"),
+        "`memory` must still be listed"
+    );
     // `memory_diff` was removed with the `memory-git` gate; it must not come
     // back as a listed namespace.
     assert!(

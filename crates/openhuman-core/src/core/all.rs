@@ -906,14 +906,13 @@ fn build_internal_only_controllers() -> Vec<GroupedController> {
     controllers
 }
 
-/// Returns a vector of all currently registered controllers.
-///
-/// Filtered by the ambient [`crate::core::runtime::DomainSet`] (#4796): a
-/// controller whose [`DomainGroup`] is disabled under the active context is
-/// omitted. With no active context, or under `DomainSet::full()`, this returns
-/// the complete set (byte-identical to pre-#4796).
+/// Returns registered controllers filtered by the ambient [`crate::core::runtime::DomainSet`].
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     let view = registry_view();
+    registered_controllers(&view)
+}
+
+fn registered_controllers(view: &RegistryView) -> Vec<RegisteredController> {
     let found = view
         .iter()
         .filter(|g| group_allowed(g.group))
@@ -930,13 +929,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 /// [`all_registered_controllers`], so `/schema` omits gated namespaces
 /// automatically under `harness()`.
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    let view = registry_view();
-    let found = view
-        .iter()
+    controller_schemas(&registry_view())
+}
+
+fn controller_schemas(view: &RegistryView) -> Vec<ControllerSchema> {
+    view.iter()
         .filter(|g| group_allowed(g.group))
         .map(|g| g.controller.schema.clone())
-        .collect();
-    found
+        .collect()
 }
 
 /// Generates a standardized RPC method name from a controller schema.
@@ -1350,10 +1350,8 @@ pub async fn try_invoke_registered_rpc(
 /// Validates the consistency of the controller registry.
 ///
 /// The registry is the single source of truth: each [`RegisteredController`]
-/// carries its own schema, and the public schema list is *derived* from it
-/// (see [`all_controller_schemas`]). There is therefore no separate "declared"
-/// list to drift from — the previous declared-vs-registered cross-check is
-/// impossible by construction and has been removed (Phase 2 registry collapse).
+/// carries its own schema, and [`all_controller_schemas`] derives the public
+/// list. No separate declaration can drift from handlers (Phase 2).
 ///
 /// Ensures that:
 /// - There are no duplicate controllers or RPC methods.

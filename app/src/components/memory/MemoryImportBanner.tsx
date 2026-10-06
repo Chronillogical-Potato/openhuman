@@ -153,6 +153,18 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
                     total: state.total,
                   })}
             </AlertDescription>
+            {state.phase === 'error' && (
+              // The core keeps the checkpoint, so starting again resumes where
+              // the import stopped; it still goes through the consent dialog.
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                data-testid="memory-import-resume"
+                onClick={() => setConsentOpen(true)}>
+                {t('memoryPage.import.resume')}
+              </Button>
+            )}
           </div>
         </Alert>
       )}

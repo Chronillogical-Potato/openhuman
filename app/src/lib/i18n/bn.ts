@@ -433,6 +433,35 @@ const messages: TranslationMap = {
   'welcome.privacyPolicy': 'গোপনীয়তা নীতি',
   'welcome.termsOutro': '.',
   'welcome.connect': 'পরীক্ষা করুন',
+  'welcome.hero.subtitle': 'আপনার AI, স্মৃতি, কণ্ঠস্বর আর পুরো ওয়েব নিয়ে।',
+  'welcome.th.title': 'TinyHumans দিয়ে চালিয়ে যান',
+  'welcome.th.promise': 'একটি অ্যাকাউন্ট। সবকিছু অন্তর্ভুক্ত। কনফিগার করার কিছু নেই।',
+  'welcome.th.featureInference': 'ইনফারেন্স',
+  'welcome.th.featureSearch': 'ওয়েব সার্চ',
+  'welcome.th.featureVoice': 'ভয়েস',
+  'welcome.th.featureMemory': 'মেমরি',
+  'welcome.th.featureEmbeddings': 'এমবেডিং',
+  'welcome.th.featureBilling': 'বিলিং',
+  'welcome.th.credit': 'শুরুতে $5 ক্রেডিট',
+  'welcome.th.cta': 'TinyHumans দিয়ে চালিয়ে যান',
+  'welcome.th.providers': 'Google, GitHub বা X দিয়ে সাইন ইন করুন',
+  'welcome.self.title': 'আমি নিজেই সেট আপ করব',
+  'welcome.self.promise': 'নিজের API কী ও এন্ডপয়েন্ট নিয়ে আসুন।',
+  'welcome.self.listLabel': 'আপনি সেট আপ করবেন:',
+  'welcome.self.step1': 'ইনফারেন্স',
+  'welcome.self.step2': 'ওয়েব সার্চ',
+  'welcome.self.step3': 'মেমরি',
+  'welcome.self.time': 'প্রায় ৩ মিনিট। পরে সেটিংসে গিয়ে যেকোনো কিছু বদলাতে পারবেন।',
+  'welcome.self.cta': 'আমি নিজেই সেট আপ করব',
+  'welcome.serverPrompt': 'ইতিমধ্যে কোনো সার্ভারে OpenHuman চালাচ্ছেন?',
+  'welcome.serverCta': 'সেটির সাথে সংযুক্ত হন।',
+  'welcome.handoff.title': 'আপনার ব্রাউজারে সাইন-ইন শেষ হচ্ছে',
+  'welcome.handoff.body': 'আমরা tinyhumans.ai খুলেছি। শেষ হলে ফিরে আসুন।',
+  'welcome.handoff.reopen': 'পেজটি আবার খুলুন',
+  'welcome.handoff.failedTitle': 'সাইন-ইন ফিরে আসেনি',
+  'welcome.handoff.failedBody': 'ব্রাউজার হয়তো OpenHuman-এ ফেরা আটকে দিয়েছে।',
+  'welcome.handoff.retry': 'আবার চেষ্টা করুন',
+  'welcome.handoff.fallbackSelf': 'বরং আমি নিজেই সেট আপ করব',
   'home.askAssistant': 'আপনার অ্যাসিস্ট্যান্টকে যেকোনো কিছু জিজ্ঞেস করুন...',
   'home.statusOk': 'আপনার সহকারী প্রস্তুত। শুরু করতে নিচে কিছু লিখুন।',
   'home.statusBackendOnly': 'ব্যাকএন্ডে পুনরায় সংযোগ হচ্ছে… আপনার এজেন্ট শীঘ্রই আবার পাওয়া যাবে।',
@@ -650,6 +679,10 @@ const messages: TranslationMap = {
   'memory.noResults': 'কোনো মেমোরি পাওয়া যায়নি',
   'memory.empty':
     'এখনো কোনো মেমোরি নেই। আপনি যত ইন্টারঅ্যাক্ট করবেন, মেমোরি স্বয়ংক্রিয়ভাবে তৈরি হবে।',
+  'memory.error.insufficientCredits':
+    'মেমরি উপলব্ধ নয়: আপনার অ্যাকাউন্টের ক্রেডিট শেষ। ফিরিয়ে আনতে টপ আপ করুন; সংরক্ষিত কিছুই হারায়নি।',
+  'memory.error.unavailable':
+    'এই মুহূর্তে মেমরিতে পৌঁছানো যাচ্ছে না। সংরক্ষিত কিছুই হারায়নি; একটু পরে আবার চেষ্টা করুন।',
   'memory.tab.memory': 'মেমোরি',
   'memory.tab.agents': 'লাইব্রেরি',
   'memory.analyzeNow': 'এখনই বিশ্লেষণ করুন',
@@ -731,9 +764,9 @@ const messages: TranslationMap = {
   'onboarding.custom.configureLater':
     'অনবোর্ডিং শেষে এটি কনফিগার করতে পারবেন। সম্পন্ন হলে সংশ্লিষ্ট সেটিংস পেজে নিয়ে যাওয়া হবে।',
   'onboarding.custom.openSettings': 'সেটিংসে খুলুন',
-  'onboarding.custom.inference.title': 'ইনফারেন্স (টেক্সট)',
+  'onboarding.custom.inference.title': 'একটি মডেল প্রোভাইডার বেছে নিন',
   'onboarding.custom.inference.subtitle':
-    'কোন ল্যাঙ্গুয়েজ মডেল আপনার প্রশ্নের উত্তর দেবে এবং এজেন্ট চালাবে?',
+    'OpenHuman-এর চিন্তা করতে একটি মডেল দরকার। আপনি ইতিমধ্যে যে প্রোভাইডার ব্যবহার করেন তার একটি কী যোগ করুন, অথবা লোকালি চলা কোনো মডেলের দিকে নির্দেশ করুন।',
   'onboarding.custom.inference.defaultDesc':
     'OpenHuman প্রতিটি ওয়ার্কলোড একটি সেন্সিবল ডিফল্ট মডেলে রুট করে। কোনো কী বা সেটআপ নেই।',
   'onboarding.custom.inference.configureDesc':
@@ -751,12 +784,17 @@ const messages: TranslationMap = {
     'OpenHuman একটি ম্যানেজড Composio ওয়ার্কস্পেস চালায়। পরে প্রতিটি সার্ভিস সংযুক্ত করতে এক ক্লিক।',
   'onboarding.custom.oauth.configureDesc':
     'নিজের Composio অ্যাকাউন্ট / API কী আনুন। Settings › Connections-এ কনফিগার করুন।',
-  'onboarding.custom.search.title': 'ওয়েব সার্চ',
-  'onboarding.custom.search.subtitle': 'OpenHuman আপনার হয়ে কীভাবে ওয়েব সার্চ করে।',
+  'onboarding.custom.search.title': 'OpenHuman-কে ওয়েব সার্চ করতে দিন',
+  'onboarding.custom.search.subtitle':
+    'এটি ছাড়া OpenHuman শুধু তাই জানে যা দিয়ে তাকে প্রশিক্ষণ দেওয়া হয়েছে।',
   'onboarding.custom.search.defaultDesc':
     'ওয়েব সার্চ সঙ্গে সঙ্গে কাজ করে: Exa ও Gemini, TinyHumans-এ অন্তর্ভুক্ত, কোনো API কী লাগে না।',
   'onboarding.custom.search.configureDesc':
     'Exa ও Gemini অন্তর্ভুক্ত। সেটিংস › টুলস-এ নিজের API কী দিয়ে আরও সার্চ প্রদানকারী যোগ করুন।',
+  'onboarding.custom.search.skipForNow': 'আপাতত এড়িয়ে যান',
+  'onboarding.custom.search.ready': 'ওয়েব সার্চ প্রস্তুত।',
+  'onboarding.custom.search.notReady':
+    'নিচে একটি প্রদানকারী যোগ করুন, যাতে OpenHuman ওয়েবে সার্চ করতে পারে।',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman কীভাবে সিমান্টিক মেমোরি অনুসন্ধানের জন্য ভেক্টর এম্বেডিং তৈরি করে।',
@@ -1593,62 +1631,60 @@ const messages: TranslationMap = {
   'stats.latest': 'সর্বশেষ',
   'stats.sessions': 'সেশন',
   'stats.tokens': 'টোকেন',
-  'bootCheck.invalidUrl': 'একটি রানটাইম URL দিন।',
+  'bootCheck.invalidUrl': 'অনুগ্রহ করে একটি ঠিকানা লিখুন।',
   'bootCheck.urlMustStartWith': 'URL-টি http:// বা https:// দিয়ে শুরু হতে হবে',
   'bootCheck.validUrlRequired':
     'এটি বৈধ URL মনে হচ্ছে না (চেষ্টা করুন https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'সংযোগ করতে একটি অথ টোকেন প্রয়োজন।',
   'bootCheck.httpPublicWarning':
     'এটি একটি পাবলিক হোস্টে সাধারণ HTTP URL: ট্রাফিক এনক্রিপ্ট করা হবে না। এই নেটওয়ার্কে আস্থা না থাকলে HTTPS ব্যবহার করুন।',
-  'bootCheck.chooseCoreMode': 'একটি রানটাইম বেছে নিন',
-  'bootCheck.connectToCore': 'আপনার রানটাইমে সংযুক্ত হন',
+  'bootCheck.chooseCoreMode': 'OpenHuman কোথায় চলবে?',
+  'bootCheck.connectToCore': 'OpenHuman-এর সাথে সংযুক্ত হন',
   'bootCheck.desktopDescription':
-    'OpenHuman চিন্তা করতে একটি রানটাইম প্রয়োজন। এটি কোথায় থাকবে তা বেছে নিন।',
+    'এই কম্পিউটারে OpenHuman চালু করা যায়নি। এটি কোথায় চলবে তা বেছে নিন।',
   'bootCheck.webDescription':
-    'ওয়েবে, OpenHuman আপনার নিয়ন্ত্রণে একটি রানটাইমে সংযুক্ত হয়। নিচে এর URL ও অথ টোকেন দিন, অথবা সরাসরি আপনার মেশিনে চালাতে ডেস্কটপ অ্যাপ নিন।',
+    'ওয়েবে OpenHuman আপনার নিয়ন্ত্রণে থাকা একটি সার্ভারের সাথে সংযুক্ত হয়। নিচে তার ঠিকানা ও টোকেন দিন, অথবা সরাসরি আপনার কম্পিউটারে চালাতে ডেস্কটপ অ্যাপ নামিয়ে নিন।',
   'bootCheck.preferDesktop': 'সব নিজের ডিভাইসে রাখতে চান?',
   'bootCheck.downloadDesktop': 'ডেস্কটপ অ্যাপ নিন',
-  'bootCheck.localRecommended': 'লোকালি চালান (প্রস্তাবিত)',
-  'bootCheck.localDescription':
-    'সরাসরি আপনার কম্পিউটারে চলে। সবচেয়ে দ্রুত, সম্পূর্ণ ব্যক্তিগত, কিছু সেটআপ করতে হবে না।',
-  'bootCheck.cloudMode': 'ক্লাউডে চালান (জটিল)',
-  'bootCheck.cloudDescription':
-    'অন্য কোথাও হোস্ট করা রানটাইমে সংযুক্ত হন। ২৪×৭ অনলাইন থাকে, এই ডিভাইস চালু রাখতে হয় না।',
-  'bootCheck.coreRpcUrl': 'রানটাইম URL',
+  'bootCheck.localRecommended': 'এই কম্পিউটারে',
+  'bootCheck.localDescription': 'সবচেয়ে দ্রুত, সম্পূর্ণ ব্যক্তিগত, কিছুই সেট আপ করতে হবে না।',
+  'bootCheck.cloudMode': 'আমার নিজের সার্ভারে',
+  'bootCheck.cloudDescription': '২৪ ঘণ্টা অনলাইনে থাকে, তাই এই কম্পিউটার চালু রাখতে হবে না।',
+  'bootCheck.coreRpcUrl': 'ঠিকানা',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
-  'bootCheck.authToken': 'অথ টোকেন',
-  'bootCheck.bearerTokenPlaceholder': 'আপনার রিমোট রানটাইম থেকে বেয়ারার টোকেন',
+  'bootCheck.authToken': 'টোকেন',
+  'bootCheck.bearerTokenPlaceholder': 'আপনার সার্ভারের টোকেন',
   'bootCheck.storedLocally': 'শুধু এই ডিভাইসে রাখা। পাঠানো হয় ',
   'bootCheck.testing': 'পরীক্ষা হচ্ছে…',
   'bootCheck.testConnection': 'সংযোগ পরীক্ষা করুন',
   'bootCheck.connectedOk': 'সংযুক্ত। সব ঠিকঠাক।',
   'bootCheck.authFailed': 'টোকেনটি কাজ করেনি। আবার পরীক্ষা করুন।',
   'bootCheck.unreachablePrefix': 'পৌঁছানো যায়নি:',
-  'bootCheck.checkingCore': 'আপনার রানটাইম জাগানো হচ্ছে…',
-  'bootCheck.cannotReach': 'রানটাইমে পৌঁছানো যাচ্ছে না',
-  'bootCheck.cannotReachDesc': 'আপনার রানটাইমে সংযোগ করা যায়নি। অন্য একটি চেষ্টা করবেন?',
-  'bootCheck.switchMode': 'ভিন্ন রানটাইম বেছে নিন',
+  'bootCheck.checkingCore': 'OpenHuman চালু হচ্ছে…',
+  'bootCheck.cannotReach': 'পৌঁছানো যাচ্ছে না',
+  'bootCheck.cannotReachDesc': 'আমরা সংযোগ করতে পারিনি। অন্য কোথাও চেষ্টা করতে চান?',
+  'bootCheck.switchMode': 'কোথায় চলবে তা বদলান',
   'bootCheck.quit': 'প্রস্থান',
-  'bootCheck.legacyDetected': 'লেগ্যাসি ব্যাকগ্রাউন্ড রানটাইম শনাক্ত হয়েছে',
+  'bootCheck.legacyDetected': 'পুরনো ব্যাকগ্রাউন্ড সার্ভিস পাওয়া গেছে',
   'bootCheck.legacyDescription':
-    'এই ডিভাইসে আলাদাভাবে ইনস্টল করা একটি OpenHuman ডেমন ইতিমধ্যে চলছে। বিল্ট-ইন রানটাইম নিয়ন্ত্রণ নেওয়ার আগে এটি সরাতে হবে।',
+    'এই ডিভাইসে আলাদাভাবে ইনস্টল করা একটি OpenHuman ডেমন আগে থেকেই চলছে। বিল্ট-ইনটি দায়িত্ব নেওয়ার আগে আমাদের এটি সরাতে হবে।',
   'bootCheck.removing': 'সরানো হচ্ছে…',
   'bootCheck.removeContinue': 'সরান ও চালিয়ে যান',
-  'bootCheck.localNeedsRestart': 'লোকাল রানটাইম রিস্টার্ট প্রয়োজন',
+  'bootCheck.localNeedsRestart': 'OpenHuman রিস্টার্ট করতে হবে',
   'bootCheck.localNeedsRestartDesc':
-    'আপনার লোকাল রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। দ্রুত রিস্টার্ট তাদের আবার সমন্বয় করবে।',
+    'এই কম্পিউটারের OpenHuman-এর সংস্করণ এই অ্যাপের থেকে আলাদা। একটি দ্রুত রিস্টার্টেই আবার মিলে যাবে।',
   'bootCheck.restarting': 'রিস্টার্ট হচ্ছে…',
-  'bootCheck.restartCore': 'রানটাইম রিস্টার্ট করুন',
-  'bootCheck.cloudNeedsUpdate': 'ক্লাউড রানটাইম আপডেট প্রয়োজন',
+  'bootCheck.restartCore': 'রিস্টার্ট',
+  'bootCheck.cloudNeedsUpdate': 'আপনার সার্ভার আপডেট করতে হবে',
   'bootCheck.cloudNeedsUpdateDesc':
-    'আপনার ক্লাউড রানটাইম এই অ্যাপের চেয়ে ভিন্ন ভার্সনে আছে। আপডেটার চালান।',
+    'আপনার সার্ভারের সংস্করণ এই অ্যাপের থেকে আলাদা। আবার মিলিয়ে নিতে আপডেটার চালান।',
   'bootCheck.updating': 'আপডেট হচ্ছে…',
-  'bootCheck.updateCloudCore': 'ক্লাউড রানটাইম আপডেট করুন',
-  'bootCheck.versionCheckFailed': 'রানটাইম ভার্সন পরীক্ষা ব্যর্থ',
+  'bootCheck.updateCloudCore': 'সার্ভার আপডেট করুন',
+  'bootCheck.versionCheckFailed': 'সংস্করণ যাচাই ব্যর্থ হয়েছে',
   'bootCheck.versionCheckFailedDesc':
-    'আপনার রানটাইম চলছে কিন্তু ভার্সন জানাচ্ছে না। পুরনো হতে পারে। চালিয়ে যেতে রিস্টার্ট বা আপডেট করুন।',
+    'আপনার সার্ভার চালু আছে, কিন্তু তার সংস্করণ জানাচ্ছে না। এটি পুরনো হতে পারে। চালিয়ে যেতে রিস্টার্ট বা আপডেট করুন।',
   'bootCheck.working': 'কাজ হচ্ছে…',
-  'bootCheck.restartUpdateCore': 'রানটাইম রিস্টার্ট / আপডেট করুন',
+  'bootCheck.restartUpdateCore': 'রিস্টার্ট / আপডেট',
   'bootCheck.unexpectedError': 'অপ্রত্যাশিত বুট-চেক ত্রুটি',
   'bootCheck.actionFailed': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
   'bootCheck.portConflictTitle': 'অ্যাপ ইঞ্জিন চালু করা যায়নি',
@@ -4303,15 +4339,18 @@ const messages: TranslationMap = {
 
   // Monthly cost badge
 
-  'onboarding.custom.vault.title': 'মেমোরি ও ভল্ট সেটআপ',
+  'onboarding.custom.vault.title': 'OpenHuman-কে একটি স্মৃতি দিন',
   'onboarding.custom.vault.subtitle':
-    'নিশ্চিত করুন মেমোরি নোট কোথায় লেখা হয়, উৎস ডেটা কীভাবে পড়া হয় এবং আপনার ভল্ট পাইপলাইন সুস্থ কিনা।',
+    'আপনি তাকে যা বলেন তা যেখানে জমা থাকে, যাতে এক চ্যাট থেকে আরেক চ্যাটে তা বজায় থাকে।',
   'onboarding.custom.vault.defaultDesc':
     'OpenHuman-পরিচালিত মেমোরির ডিফল্ট ব্যবহার করুন। ভল্ট পাথ এবং সিঙ্ক স্বাস্থ্য পরে পর্যালোচনা করা যাবে।',
   'onboarding.custom.vault.configureDesc':
     'ভল্টের মালিকানা পর্যালোচনা করুন, স্বাস্থ্য পরীক্ষা চালান এবং এখনই মেমোরি নিয়ন্ত্রণ সামঞ্জস্য করুন।',
   'onboarding.custom.vault.localDisabledReason':
     'পরিচালিত সেটআপের জন্য OpenHuman সাইন-ইন প্রয়োজন এবং লোকাল মোডে উপলব্ধ নয়।',
+  'onboarding.custom.localDefaultDisabledReason':
+    'পরিচালিত সেটআপের জন্য একটি OpenHuman অ্যাকাউন্ট প্রয়োজন। লোকাল সেশনে আপনাকে প্রতিটি সার্ভিস নিজে কনফিগার করতে হবে।',
+  'onboarding.custom.unsavedChanges': 'চালিয়ে যাওয়ার আগে আপনার পরিবর্তনগুলো সংরক্ষণ করুন।',
   'onboarding.custom.vault.exitError': 'অনবোর্ডিং শেষ করা যায়নি। আবার চেষ্টা করুন।',
   'skills.create.whenToUse': 'কখন ব্যবহার করবেন',
   'skills.create.whenToUsePlaceholder': 'যেমন, যখন ব্যবহারকারী তাদের ইনবক্স গোছাতে বলেন',
@@ -4777,6 +4816,8 @@ const messages: TranslationMap = {
     'আপনার Codex সেশনের মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে সেটিংস → ইন্টিগ্রেশন থেকে আবার সংযুক্ত করুন।',
   'chat_error.session_expired':
     'আপনার OpenHuman সেশনের মেয়াদ শেষ হয়ে গেছে। চালিয়ে যেতে আবার সাইন ইন করুন।',
+  'chat_error.local_session_managed_unavailable':
+    'আপনি স্থানীয় অফলাইন প্রোফাইলে আছেন, যার পেছনে কোনো OpenHuman অ্যাকাউন্ট নেই, তাই ম্যানেজড (ক্লাউড) মডেল চালানো যাবে না। ম্যানেজড মডেল ব্যবহার করতে সাইন ইন করুন, অথবা সংযোগ → API কী → LLM-এ রাউটিং "আপনার নিজের মডেলগুলি ব্যবহার করুন"-এ বদলে নিয়ে নিজের প্রোভাইডার যোগ করুন।',
   'chat_error.action_budget':
     'আপনি OpenHuman-এর ঘণ্টাপ্রতি অ্যাকশন সীমায় পৌঁছে গেছেন। এটি একটি স্থানীয় নিরাপত্তা সীমা, আপনার AI প্রদানকারীর নয়। সীমাটি ধীরে ধীরে ফিরে আসে; আপনি এই থ্রেডে চ্যাট চালিয়ে যেতে পারেন এবং সীমা পূরণ হলে টুল-নির্ভর ধাপগুলো আবার শুরু হবে।',
   'chat_error.max_iterations':
@@ -4914,29 +4955,48 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'লিঙ্ক',
   'memoryPage.off.title': 'মেমোরি বন্ধ আছে',
   'memoryPage.off.description':
-    'মনে রাখা শুরু করতে একটি মেমোরি ইঞ্জিন বেছে নিন। TinyHumans মেমোরি ব্যবহার করতে সাইন ইন করুন, অথবা আপনার নিজের CortexDB সংযুক্ত করুন।',
+    'মনে রাখা শুরু করতে CortexDB সংযুক্ত করুন। বিল্ট-ইন CortexDB ব্যবহার করতে সাইন ইন করুন, অথবা নিজের API কী বা এই কম্পিউটারের সার্ভার দিয়ে সংযুক্ত করুন।',
   'memoryPage.off.action': 'একটি ইঞ্জিন বেছে নিন',
-  'memoryPage.engine.listTitle': 'মেমোরি ইঞ্জিন',
+  'memoryPage.engine.listTitle': 'CortexDB মেমরি',
   'memoryPage.engine.listDescription':
-    'একসময়ে একটিই ইঞ্জিন সক্রিয় থাকে। মেমোরি যা কিছু রাখে সেটি তা সংরক্ষণ করে এবং এ নিয়ে প্রশ্নের উত্তর দেয়।',
-  'memoryPage.engine.loadError': 'মেমোরি ইঞ্জিন লোড করা যায়নি',
+    'মেমরি CortexDB-তে চলে। এই অ্যাপ কীভাবে এর সাথে সংযুক্ত হবে তা বেছে নিন। একবারে একটিই সংযোগ সক্রিয় থাকে।',
   'memoryPage.engine.offExplanation':
-    'এই মুহূর্তে কোনো মেমোরি ইঞ্জিন ব্যবহারযোগ্য নয়, তাই কিছুই সংরক্ষিত বা মনে করা হচ্ছে না। TinyHumans মেমোরি ব্যবহার করতে সাইন ইন করুন, অথবা এন্ডপয়েন্ট ও API কী দিয়ে আপনার নিজের CortexDB সংযুক্ত করুন।',
+    'এখন কোনো মেমরি সংযোগ ব্যবহারযোগ্য নয়, তাই কিছুই সংরক্ষণ বা স্মরণ করা হয় না। বিল্ট-ইন CortexDB ব্যবহার করতে সাইন ইন করুন, অথবা আপনার API কী দিয়ে বা এই কম্পিউটারে CortexDB সংযুক্ত করুন।',
   'memoryPage.engine.statusDegraded': 'মেমোরির কার্যক্ষমতা কমে গেছে',
   'memoryPage.engine.statusDown': 'মেমোরি ইঞ্জিনে পৌঁছানো যাচ্ছে না',
   'memoryPage.engine.statusOff': 'বন্ধ',
   'memoryPage.engine.active': 'সক্রিয়',
   'memoryPage.engine.use': 'ব্যবহার করুন',
-  'memoryPage.engine.edit': 'সম্পাদনা',
-  'memoryPage.engine.signInRequired': 'সাইন ইন প্রয়োজন',
-  'memoryPage.engine.hostedDetail': 'TinyHumans দ্বারা হোস্ট করা',
-  'memoryPage.engine.selfHostedDetail': 'আপনার নিজের এন্ডপয়েন্ট ও API কী',
-  'memoryPage.engine.connectTitle': '{engine} সংযুক্ত করুন',
   'memoryPage.engine.connect': 'সংযুক্ত করুন',
   'memoryPage.engine.endpoint': 'এন্ডপয়েন্ট',
   'memoryPage.engine.apiKey': 'API কী',
   'memoryPage.engine.keySavedPlaceholder': 'সংরক্ষিত আছে। বদলাতে নতুন কী লিখুন',
   'memoryPage.engine.keySavedHint': 'একটি কী আগে থেকেই সংরক্ষিত আছে। রাখতে চাইলে এটি খালি রাখুন।',
+  'memoryPage.engine.badgeDegraded': 'ধীরগতি',
+  'memoryPage.engine.badgeDown': 'পৌঁছানো যাচ্ছে না',
+  'memoryPage.engine.connecting': 'সংযোগ হচ্ছে…',
+  'memoryPage.engine.save': 'সংরক্ষণ করুন',
+  'memoryPage.engine.builtin.title': 'বিল্ট-ইন CortexDB',
+  'memoryPage.engine.builtin.detail': 'আপনার TinyHumans অ্যাকাউন্টের সাথে অন্তর্ভুক্ত',
+  'memoryPage.engine.builtin.signInRequired': 'ব্যবহার করতে সাইন ইন করুন',
+  'memoryPage.engine.builtin.description':
+    'TinyHumans হোস্ট করা এবং আপনার অ্যাকাউন্টের সাথে অন্তর্ভুক্ত CortexDB। ব্যবহার করতে সাইন ইন করুন; কিছুই সেট আপ করতে হবে না।',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'নতুন স্মৃতি সঙ্গে সঙ্গে সংরক্ষিত হয়। সেগুলো থেকে পাওয়া তথ্য ও বিশ্বাস পরের কয়েক মিনিটে যুক্ত হয়।',
+  'memoryPage.engine.builtin.signInHint':
+    'বিল্ট-ইন CortexDB ব্যবহার করতে আপনার TinyHumans অ্যাকাউন্টে সাইন ইন করুন।',
+  'memoryPage.engine.apiKeyOption.title': 'আপনার API কী দিয়ে CortexDB',
+  'memoryPage.engine.apiKeyOption.description':
+    'নিজের CortexDB অ্যাকাউন্ট ব্যবহার করুন। কীটি এই কম্পিউটারে নিরাপদে সংরক্ষিত থাকে, কখনো কনফিগ ফাইলে নয়।',
+  'memoryPage.engine.selfHost.title': 'নিজে CortexDB হোস্ট করুন',
+  'memoryPage.engine.selfHost.detail': 'এই কম্পিউটারে একটি CortexDB সার্ভার',
+  'memoryPage.engine.selfHost.step1': 'গাইড অনুসরণ করে এই কম্পিউটারে একটি CortexDB সার্ভার চালান:',
+  'memoryPage.engine.selfHost.docsLink': 'CortexDB সেলফ-হোস্টিং গাইড',
+  'memoryPage.engine.selfHost.step2':
+    'একটি API কী (CORTEX_API_KEY) দিয়ে সার্ভার চালু করুন। অ্যাপ সেই কী দিয়ে সংযুক্ত হয়।',
+  'memoryPage.engine.selfHost.step3': 'নিচে সার্ভারের লোকাল ঠিকানা ও কী লিখুন, তারপর সংযুক্ত করুন।',
+  'memoryPage.engine.selfHost.notLocal':
+    'সেলফ-হোস্টিং শুধু লোকাল। এই কম্পিউটারের একটি ঠিকানা ব্যবহার করুন, যেমন http://localhost:3141।',
   'memoryPage.ask.questionLabel': 'আপনার প্রশ্ন',
   'memoryPage.ask.queryLabel': 'অনুসন্ধানের কোয়েরি',
   'memoryPage.ask.placeholder': 'লঞ্চ প্ল্যান নিয়ে আমরা কী সিদ্ধান্ত নিয়েছিলাম?',
@@ -4967,6 +5027,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'শেখা বিষয়',
   'memoryPage.learnings.empty':
     'এখনও কোনো শেখা বিষয় নেই। উপরে একটি যোগ করুন, অথবা আপনার সঙ্গে কাজ করতে করতে আপনার এজেন্ট নিজেই যোগ করবে।',
+  'memoryPage.learnings.deriving':
+    'এখনও এখানে কিছু নেই। মেমরি এখনও আপনার সাম্প্রতিক কথোপকথন থেকে ধারণা তৈরি করছে; পরবর্তী ব্যাকগ্রাউন্ড রানের পরে সেগুলো এখানে দেখা যাবে।',
   'memoryPage.learnings.delete': 'শেখা বিষয় মুছুন',
   'memoryPage.conversations.turns': '{count}টি টার্ন',
   'memoryPage.documents.listDescription':
@@ -5142,6 +5204,7 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'আগের মেমোরি ইমপোর্ট হচ্ছে…',
   'memoryPage.import.done': 'আগের মেমোরি ইমপোর্ট হয়েছে',
   'memoryPage.import.failed': 'ইমপোর্ট ব্যর্থ হয়েছে',
+  'memoryPage.import.resume': 'ইমপোর্ট আবার চালু করুন',
   'memoryPage.import.progress': '{total}টির মধ্যে {imported}টি আইটেম ইমপোর্ট হয়েছে',
 };
 

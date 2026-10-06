@@ -50,21 +50,21 @@ export default function MemoryConversationsTab() {
         setPolicy(got.value);
       } else {
         log('policy_get failed: %o', got.reason);
-        setError(memoryErrorMessage(got.reason));
+        setError(memoryErrorMessage(got.reason, t));
       }
       if (list.status === 'fulfilled') {
         log('agents: %d', list.value.agents?.length ?? 0);
         setAgents(list.value.agents ?? []);
       } else {
         log('agents_list failed: %o', list.reason);
-        setError(prev => prev ?? memoryErrorMessage(list.reason));
+        setError(prev => prev ?? memoryErrorMessage(list.reason, t));
         setAgents([]);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const setLogging = async (next: boolean) => {
     setSaving(true);
@@ -74,31 +74,34 @@ export default function MemoryConversationsTab() {
       setPolicy(await memoryPolicySet({ log_conversations: next }));
     } catch (err) {
       log('policy_set failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     } finally {
       setSaving(false);
     }
   };
 
-  const loadItems = useCallback(async (agentId: string, after: string | null) => {
-    setLoadingItems(true);
-    try {
-      const page = await memoryItemsList({
-        filter: { kinds: ['conversation'], agent_id: agentId },
-        limit: PAGE_SIZE,
-        cursor: after ?? undefined,
-      });
-      log('items: agent=%s n=%d more=%s', agentId, page.items?.length ?? 0, !!page.next_cursor);
-      setItems(prev => [...(after ? (prev ?? []) : []), ...(page.items ?? [])]);
-      setCursor(page.next_cursor ?? null);
-    } catch (err) {
-      log('items_list failed: %o', err);
-      setError(memoryErrorMessage(err));
-      setItems(prev => prev ?? []);
-    } finally {
-      setLoadingItems(false);
-    }
-  }, []);
+  const loadItems = useCallback(
+    async (agentId: string, after: string | null) => {
+      setLoadingItems(true);
+      try {
+        const page = await memoryItemsList({
+          filter: { kinds: ['conversation'], agent_id: agentId },
+          limit: PAGE_SIZE,
+          cursor: after ?? undefined,
+        });
+        log('items: agent=%s n=%d more=%s', agentId, page.items?.length ?? 0, !!page.next_cursor);
+        setItems(prev => [...(after ? (prev ?? []) : []), ...(page.items ?? [])]);
+        setCursor(page.next_cursor ?? null);
+      } catch (err) {
+        log('items_list failed: %o', err);
+        setError(memoryErrorMessage(err, t));
+        setItems(prev => prev ?? []);
+      } finally {
+        setLoadingItems(false);
+      }
+    },
+    [t]
+  );
 
   const toggleAgent = (agentId: string) => {
     if (openAgent === agentId) {

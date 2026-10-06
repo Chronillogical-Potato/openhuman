@@ -70,6 +70,30 @@ export function statusLabel(status: SearchProviderStatus, t: Translate): string 
 export const canUseManaged = (provider: SearchProviderInfo, managedUnavailable: boolean) =>
   !managedUnavailable && provider.routes.includes('managed') && provider.managed_available;
 
+/**
+ * Enabled, but only over the managed route, with no account behind this
+ * session.
+ *
+ * The core reports providers like Exa and Gemini as `enabled` with
+ * `route: 'managed'` because they are on by default via TinyHumans. In a local
+ * session that route is unreachable, so rendering them under "Connected" with
+ * an on-toggle claimed a working provider the agent cannot actually call --
+ * the row said "Connected", "via TinyHumans" and "Sign in required" all at
+ * once. They belong with the providers you could connect with your own key.
+ */
+export const isStrandedManaged = (
+  provider: SearchProviderInfo,
+  managedUnavailable: boolean
+): boolean =>
+  managedUnavailable &&
+  provider.enabled &&
+  provider.route === 'managed' &&
+  // Only move it if the catalogue can actually offer something: a provider
+  // with no direct route would land in a blocked tile with no switch and no
+  // action, leaving it enabled in core settings and uncontrollable from here.
+  // Those keep their Connected row, where the toggle can still turn them off.
+  provider.routes.includes('direct');
+
 /** A provider that can be reached with the user's own key or instance. */
 export const canUseDirect = (provider: SearchProviderInfo) => provider.routes.includes('direct');
 

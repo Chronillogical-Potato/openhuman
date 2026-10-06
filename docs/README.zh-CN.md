@@ -37,7 +37,7 @@
 </p>
 
 <p align="center">
-  🇺🇸 <a href="../README.md">English</a> | 🇨🇳 <a href="./README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./README.ko.md">한국어</a> | 🇩🇪 <a href="./README.de.md">Deutsch</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
+  🇺🇸 <a href="../README.md">English</a> | 🇸🇦 <a href="./README.ar.md">العربية</a> | 🇨🇳 <a href="./README.zh-CN.md">简体中文</a> | 🇯🇵 <a href="./README.ja-JP.md">日本語</a> | 🇰🇷 <a href="./README.ko.md">한국어</a> | 🇩🇪 <a href="./README.de.md">Deutsch</a> | 🇵🇰 <a href="./README.ur-pk.md">اردو</a>
 </p>
 
 <p align="center">
@@ -64,7 +64,7 @@ OpenHuman 是大多数助手所不具备的三样东西的集合：**一颗大�
 ### 🧠 大脑
 
 - **[记忆](../gitbooks/features/memory.md)**：基于可替换引擎（TinyHumans 托管或你自己的 CortexDB）的 Recall、Fetch、Store。存储文档、对话和学习内容，回答附带引用，并在每一轮对话前召回相关的记忆包。
-- **[100+ OAuth 集成、5,000+ MCP 服务器、90,000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**：一键接入 Gmail、Notion、GitHub、Slack 以及你技术栈中的其他服务。[自动拉取](https://tinyhumans.gitbook.io/openhuman/features/obsidian-wiki/auto-fetch)每 20 分钟为大脑输送养分，所以它在今天早上就已经拥有明天的上下文。
+- **[100+ OAuth 集成、5,000+ MCP 服务器、90,000+ Skills](https://tinyhumans.gitbook.io/openhuman/features/integrations)**：一键接入 Gmail、Notion、GitHub、Slack 以及你技术栈中的其他服务。[自动拉取](https://tinyhumans.gitbook.io/openhuman/features/memory)每 20 分钟为大脑输送养分，所以它在今天早上就已经拥有明天的上下文。
 - **[目标与待办](https://tinyhumans.gitbook.io/openhuman/features/goals-and-todos)**：持久化的会话级目标，以及在聊天中显示的智能体待办列表。
 - **[TokenJuice](https://tinyhumans.gitbook.io/openhuman/features/token-compression)**：工具输出在触达模型之前先被压缩：信息不变，token 最多减少 80%。没有它，这么大的一颗大脑将贵得用不起。
 

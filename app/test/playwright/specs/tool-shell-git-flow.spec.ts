@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 
 import { bootAuthenticatedPage, callCoreRpc } from '../helpers/core-rpc';
@@ -121,17 +122,28 @@ test.describe('System tools - Shell + Git', () => {
     expect(defs.find(def => def?.id === 'tools_agent')).toBeUndefined();
   });
 
-  test('denial envelope is structurally consistent for invalid write args', async () => {
-    await expect(
-      callCoreRpc('openhuman.memory_write_file', { content: 'no path provided' })
-    ).rejects.toThrow();
+  test('memory brain ingest rejects missing and conflicting inputs', async () => {
+    await expect(callCoreRpc('openhuman.memory_brain_ingest', {})).rejects.toThrow(
+      /exactly one of `path` or `text`/i
+    );
 
     await expect(
-      callCoreRpc('openhuman.memory_write_file', {
-        relative_path: '../shell-restriction-967.txt',
-        content: 'should not be written',
-      })
-    ).rejects.toThrow();
+      callCoreRpc('openhuman.memory_brain_ingest', { path: 'README.md', text: 'conflicting input' })
+    ).rejects.toThrow(/exactly one of `path` or `text`/i);
+  });
+
+  test('workspace file writes reject traversal and absolute paths without writing outside the workspace', async () => {
+    const escapedFile = path.resolve(workspaceDir(), '..', `e2e-escape-967-${randomUUID()}.txt`);
+    const traversalName = path.relative(workspaceDir(), escapedFile);
+    for (const filename of [traversalName, escapedFile]) {
+      await expect(
+        callCoreRpc('openhuman.workspace_file_write', {
+          filename,
+          contents: 'must stay inside the workspace',
+        })
+      ).rejects.toThrow();
+    }
+    await expect(fs.readFile(escapedFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   test('fixture git repo inside OPENHUMAN_WORKSPACE supports read ops', async () => {

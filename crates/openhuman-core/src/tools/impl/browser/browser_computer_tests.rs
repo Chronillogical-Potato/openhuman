@@ -413,3 +413,24 @@ async fn task_rejects_a_malformed_flow_before_the_module() {
         .unwrap_err();
     assert!(error.to_string().contains("Invalid flow"), "{error}");
 }
+
+#[test]
+fn a_task_that_found_no_chrome_tells_the_agent_to_ask_for_its_path() {
+    let failed = |reason: &str| -> TaskView {
+        serde_json::from_value(json!({
+            "id": "t-1",
+            "status": {"state": "failed", "step": null, "reason": reason,
+                       "hint": "", "recoverable": true},
+            "summary": "failed",
+            "progress": 0.0,
+            "next": []
+        }))
+        .unwrap()
+    };
+    let hint = host_hint(&failed("browser unavailable: Chrome not found. Checked: …"));
+    assert_eq!(hint, Some(crate::modules::browser::CHROME_NOT_FOUND_HINT));
+    assert_eq!(
+        host_hint(&failed("the last three actions changed nothing")),
+        None
+    );
+}

@@ -945,20 +945,30 @@ fn subagent_delegation_happy_path() {
 
 async fn subagent_delegation_happy_path_inner() {
     let _lock = env_lock();
+    let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/life-scenarios/fixtures/drafts/images/handoff-hero.png");
+    let stack = boot_stack().await;
+    let image_path = Path::new(&std::env::var("HOME").expect("test HOME"))
+        .join("OpenHuman/projects/delegation-vision.png");
+    std::fs::create_dir_all(image_path.parent().expect("action directory"))
+        .expect("create action directory");
+    std::fs::copy(&fixture_path, &image_path).expect("copy vision fixture");
     reset_script(vec![
         // request[0]: Orchestrator calls the `analyze_image` tool
         // (vision_agent's delegate_name).
         tool_call_completion(
             "analyze_image",
-            json!({ "prompt": "Find the marker phrase", "blocking": true }),
+            json!({
+                "prompt": "Find the marker phrase",
+                "image_paths": [image_path.to_string_lossy()],
+                "blocking": true
+            }),
         ),
         // request[1]: vision_agent subagent inner LLM call returns its canary.
         text_completion("MEMORY_CANARY_42 is the marker."),
         // request[2]: Orchestrator receives the subagent result and synthesizes.
         text_completion("Done. The result is: MEMORY_CANARY_42"),
     ]);
-    let stack = boot_stack().await;
-
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-subagent",
         stack.rpc_base
@@ -2149,12 +2159,24 @@ fn multi_hop_delegation_chain() {
 
 async fn multi_hop_delegation_chain_inner() {
     let _lock = env_lock();
+    let fixture_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/life-scenarios/fixtures/drafts/images/handoff-hero.png");
+    let stack = boot_stack().await;
+    let image_path = Path::new(&std::env::var("HOME").expect("test HOME"))
+        .join("OpenHuman/projects/delegation-vision.png");
+    std::fs::create_dir_all(image_path.parent().expect("action directory"))
+        .expect("create action directory");
+    std::fs::copy(&fixture_path, &image_path).expect("copy vision fixture");
     reset_script(vec![
         // request[0]: Orchestrator delegates to vision_agent via
         // `analyze_image` (its delegate_name, agent/registry/agents/vision_agent/agent.toml:3).
         tool_call_completion(
             "analyze_image",
-            json!({ "prompt": "deep question", "blocking": true }),
+            json!({
+                "prompt": "deep question",
+                "image_paths": [image_path.to_string_lossy()],
+                "blocking": true
+            }),
         ),
         // request[1]: vision_agent first inner LLM call → scripts file_write.
         // file_write is NOT in vision_agent's read-only named tools
@@ -2171,8 +2193,6 @@ async fn multi_hop_delegation_chain_inner() {
         // request[3]: Orchestrator receives the analyze_image result and synthesizes.
         text_completion("Final answer: DEPTH2_CANARY"),
     ]);
-    let stack = boot_stack().await;
-
     let mut events = spawn_sse_collector(format!(
         "{}/events?client_id=harness-multihop",
         stack.rpc_base
@@ -3289,11 +3309,11 @@ async fn agent_installs_a_registry_skill_then_runs_it_inner() {
     let cache_dir = tempdir().expect("catalog cache tempdir");
     let _catalog = EnvVarGuard::set(
         "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL",
-        &format!("{registry}/skills.json"),
+        format!("{registry}/skills.json"),
     );
     let _download = EnvVarGuard::set(
         "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL",
-        &format!("{registry}/skills"),
+        format!("{registry}/skills"),
     );
     let _local_http = EnvVarGuard::set("OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP", "1");
     let _cache = EnvVarGuard::set_to_path("OPENHUMAN_SKILL_REGISTRY_CACHE_DIR", cache_dir.path());
@@ -3710,11 +3730,11 @@ async fn orchestrator_raw_skill_install_through_use_skill_needs_approval_inner()
     let cache_dir = tempdir().expect("catalog cache tempdir");
     let _catalog = EnvVarGuard::set(
         "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL",
-        &format!("{registry}/skills.json"),
+        format!("{registry}/skills.json"),
     );
     let _download = EnvVarGuard::set(
         "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL",
-        &format!("{registry}/skills"),
+        format!("{registry}/skills"),
     );
     let _local_http = EnvVarGuard::set("OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP", "1");
     let _cache = EnvVarGuard::set_to_path("OPENHUMAN_SKILL_REGISTRY_CACHE_DIR", cache_dir.path());
@@ -3858,7 +3878,7 @@ async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner()
     let (registry_addr, registry_join) = serve_mcp_registry_fixture().await;
     let _registry = EnvVarGuard::set(
         "MCP_OFFICIAL_REGISTRY_BASE",
-        &format!("http://{registry_addr}"),
+        format!("http://{registry_addr}"),
     );
     reset_script(Vec::new());
     let stack = boot_stack().await;
@@ -4094,7 +4114,7 @@ async fn orchestrator_calls_a_connected_mcp_tool_directly_inner() {
     let (registry_addr, registry_join) = serve_mcp_registry_fixture().await;
     let _registry = EnvVarGuard::set(
         "MCP_OFFICIAL_REGISTRY_BASE",
-        &format!("http://{registry_addr}"),
+        format!("http://{registry_addr}"),
     );
     reset_script(Vec::new());
     let stack = boot_stack().await;

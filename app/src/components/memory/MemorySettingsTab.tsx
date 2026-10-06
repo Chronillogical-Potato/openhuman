@@ -138,12 +138,12 @@ export default function MemorySettingsTab() {
       .catch(err => {
         if (cancelled) return;
         log('policy_get failed: %o', err);
-        setError(memoryErrorMessage(err));
+        setError(memoryErrorMessage(err, t));
       });
     return () => {
       cancelled = true;
     };
-  }, [apply]);
+  }, [apply, t]);
 
   const save = async (update: PolicyUpdate) => {
     setSaving(true);
@@ -153,7 +153,7 @@ export default function MemorySettingsTab() {
       apply(await memoryPolicySet(update));
     } catch (err) {
       log('policy_set failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       // Show the stored values again, not the rejected entry.
       setDrafts(prev => (policy ? draftsFrom(policy) : prev));
     } finally {
