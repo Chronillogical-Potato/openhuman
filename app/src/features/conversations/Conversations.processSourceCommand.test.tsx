@@ -376,6 +376,8 @@ describe('composer model routing', () => {
   afterEach(() => {
     cleanup();
     registry.reset();
+    vi.mocked(callCoreRpc).mockReset().mockResolvedValue({});
+    mockChatSend.mockReset().mockResolvedValue(undefined);
   });
 
   it('waits for a successful model clear before sending a normal default turn', async () => {

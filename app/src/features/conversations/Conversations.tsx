@@ -1231,6 +1231,7 @@ const Conversations = ({
           // this draft when the clear barrier prevents the send from starting.
           preserveSendErrorForRestoredDraftRef.current = true;
           setInputValue(normalized);
+          setAttachments(pendingAttachments);
           throw error;
         }
       }
@@ -1396,6 +1397,7 @@ const Conversations = ({
       // handles the transport error locally, so restore the rejected follow-up
       // explicitly instead of letting the user's draft disappear.
       setInputValue(normalized);
+      setAttachments(pendingAttachments);
     }
   };
 

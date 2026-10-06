@@ -213,14 +213,29 @@ fn unknown_qualified_models_keep_the_existing_route() {
     let effective = effective_session_config(&config, Some("unknown-provider:some-model"), None);
     assert_eq!(
         provider_for_role("chat", &effective),
-        "openai:gpt-4o",
-        "an unrecognized provider slug is not adopted as a picker route"
+        "unknown-provider:some-model",
+        "an unrecognized provider slug must remain invalid instead of falling back"
     );
     assert_eq!(
         effective.default_model.as_deref(),
         Some("unknown-provider:some-model"),
         "unknown legacy model values still pass through as the model override"
     );
+}
+
+#[test]
+fn selected_managed_route_constructs_with_the_picker_model() {
+    let config = Config::default();
+    let selection = "openrouter/author/picked-model:free";
+    let effective = effective_session_config(&config, Some(selection), None);
+    let (_, resolved_model) =
+        crate::inference::provider::factory::create_chat_model_with_model_id(
+            "chat",
+            &effective,
+            effective.default_temperature,
+        )
+        .expect("managed picker selection should construct without network access");
+    assert_eq!(resolved_model, selection);
 }
 
 #[test]

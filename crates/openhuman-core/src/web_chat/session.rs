@@ -116,6 +116,11 @@ fn effective_session_config(
                 // The factory matches configured slugs exactly; preserve its canonical slug
                 // while keeping the full selected model suffix, including extra colons.
                 effective.chat_provider = Some(format!("{}:{model_suffix}", entry.slug));
+            } else {
+                // Keep an unknown qualified selection on an invalid route so
+                // factory construction fails explicitly instead of silently
+                // using the previous chat provider.
+                effective.chat_provider = Some(model.to_string());
             }
         }
     }
