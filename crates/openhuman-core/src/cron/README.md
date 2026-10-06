@@ -52,7 +52,7 @@ Cron publishes through `core/bus.rs` using variants declared in `core/events.rs`
 
 ## Delivery modes
 
-A cron job's `DeliveryConfig.mode` decides where its output ends up. `DeliveryConfig::default()` is `none`; the `cron_add` tool substitutes `proactive` when an agent job is created without a `delivery` block.
+A cron job's `DeliveryConfig.mode` decides where its output ends up. `DeliveryConfig::default()` is `none`; the `cron` / `schedule` tools substitute `origin` when an agent job is created inside a conversation and `proactive` otherwise.
 
 - `proactive`: `deliver_if_configured` publishes
   `DomainEvent::ProactiveMessageRequested`. The proactive subscriber
@@ -65,8 +65,6 @@ A cron job's `DeliveryConfig.mode` decides where its output ends up. `DeliveryCo
   non-web channel (Telegram, Discord, Slack, …) so the reminder ends up where
   the user asked for it. The `cron_add` tool validates `to` against the
   channel's `allowed_users` to reject cross-tenant targets.
-- `none`: silent; output is stored in `last_output` only.
-
 - `origin`: commit the run's reply into the conversation that created the job
   and send it there once (`scheduler/origin_delivery.rs`). Requires
   `CronJob.origin`. Output that is blank or exactly `NO_REPLY` is
