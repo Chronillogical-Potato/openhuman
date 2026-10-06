@@ -114,8 +114,8 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
                 .await
                 .expect("resumed turn");
             let requests = chat_requests(&model).await;
-            let resumed = String::from_utf8_lossy(&requests.last().expect("a request").body)
-                .into_owned();
+            let resumed =
+                String::from_utf8_lossy(&requests.last().expect("a request").body).into_owned();
             assert!(
                 resumed.contains("remember the table is for two")
                     && resumed.contains("and at eight"),
@@ -157,7 +157,12 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
 
             // Nothing durable reached the scratch workspace.
             let written = files_under(&scratch);
-            for durable in ["session_raw", "session_db", "tinyagents_store", "turn_states"] {
+            for durable in [
+                "session_raw",
+                "session_db",
+                "tinyagents_store",
+                "turn_states",
+            ] {
                 assert!(
                     !written.iter().any(|path| path.contains(durable)),
                     "{durable} must not be written with a host store: {written:?}"

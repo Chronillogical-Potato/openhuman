@@ -95,11 +95,9 @@ impl SessionStoreProvider for SqliteSessionStores {
     fn recover(&self) -> anyhow::Result<()> {
         let workspace = self.current();
         let now = chrono::Utc::now().to_rfc3339();
-        let turns = tinyagents_session::turn_state::store::mark_all_interrupted(
-            workspace.clone(),
-            &now,
-        )
-        .map_err(anyhow::Error::msg)?;
+        let turns =
+            tinyagents_session::turn_state::store::mark_all_interrupted(workspace.clone(), &now)
+                .map_err(anyhow::Error::msg)?;
         let runs = tinyagents_session::run_ledger::interrupt_orphaned_agent_runs(&workspace)?;
         log::info!(
             "[store-sqlite] recovered workspace={} interrupted_turns={turns} settled_runs={runs}",

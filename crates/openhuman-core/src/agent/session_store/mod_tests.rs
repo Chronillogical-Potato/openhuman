@@ -25,7 +25,12 @@ async fn work_outside_an_agent_context_uses_the_default_agent() {
     // No agent context in a unit test: the shared default bucket.
     assert_eq!(
         key,
-        Some(provider.for_agent(DEFAULT_AGENT).transcripts.destination_key())
+        Some(
+            provider
+                .for_agent(DEFAULT_AGENT)
+                .transcripts
+                .destination_key()
+        )
     );
     assert!(current().is_none() || is_installed());
 }

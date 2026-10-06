@@ -40,7 +40,11 @@ fn recovery_interrupts_turns_left_in_flight() {
         .unwrap();
     stores.recover().unwrap();
     assert_eq!(
-        agent.turn_states.get("t").unwrap().map(|turn| turn.lifecycle),
+        agent
+            .turn_states
+            .get("t")
+            .unwrap()
+            .map(|turn| turn.lifecycle),
         Some(TurnLifecycle::Interrupted)
     );
 }
