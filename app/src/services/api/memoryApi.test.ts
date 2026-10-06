@@ -211,9 +211,7 @@ describe('helpers', () => {
     );
     // A rejected key and an engine fault keep their own message, and without
     // `t` nothing changes.
-    expect(memoryErrorMessage(new Error('UNAUTHORIZED: bad key'), t)).toBe(
-      'UNAUTHORIZED: bad key'
-    );
+    expect(memoryErrorMessage(new Error('UNAUTHORIZED: bad key'), t)).toBe('UNAUTHORIZED: bad key');
     expect(memoryErrorMessage({ message: 'boom', data: { code: 'ENGINE' } }, t)).toBe('boom');
     expect(memoryErrorMessage(credits)).toBe(credits.message);
   });

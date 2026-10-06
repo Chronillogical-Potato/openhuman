@@ -4733,6 +4733,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': '学习内容',
   'memoryPage.learnings.empty':
     '还没有学习内容。请在上方添加，或者让你的智能体在与你协作的过程中自动添加。',
+  'memoryPage.learnings.deriving':
+    '这里还没有内容。记忆仍在根据你最近的对话构建信念，下一次后台运行后会显示在这里。',
   'memoryPage.learnings.delete': '删除学习内容',
   'memoryPage.conversations.turns': '{count} 轮',
   'memoryPage.documents.listDescription': '记忆会保持这些内容同步，并根据其中的内容作答。',

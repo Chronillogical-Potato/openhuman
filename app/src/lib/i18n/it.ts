@@ -5085,6 +5085,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Apprendimenti',
   'memoryPage.learnings.empty':
     'Ancora nessun apprendimento. Aggiungine uno qui sopra, oppure il tuo agente li aggiungerà mentre lavora con te.',
+  'memoryPage.learnings.deriving':
+    'Ancora niente qui. La memoria sta ancora costruendo convinzioni dalle tue conversazioni recenti; compariranno qui dopo la prossima esecuzione in background.',
   'memoryPage.learnings.delete': 'Elimina apprendimento',
   'memoryPage.conversations.turns': '{count} scambi',
   'memoryPage.documents.listDescription':

@@ -5006,6 +5006,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'सीखी बातें',
   'memoryPage.learnings.empty':
     'अभी कोई सीखी बात नहीं है। ऊपर एक जोड़ें, या आपका एजेंट आपके साथ काम करते हुए खुद जोड़ देगा।',
+  'memoryPage.learnings.deriving':
+    'यहाँ अभी कुछ नहीं है। मेमोरी अभी भी आपकी हाल की बातचीत से धारणाएँ बना रही है; अगली बैकग्राउंड रन के बाद वे यहाँ दिखेंगी।',
   'memoryPage.learnings.delete': 'सीखी बात हटाएँ',
   'memoryPage.conversations.turns': '{count} टर्न',
   'memoryPage.documents.listDescription':

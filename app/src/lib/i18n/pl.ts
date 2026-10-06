@@ -5074,6 +5074,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Wnioski',
   'memoryPage.learnings.empty':
     'Brak wniosków. Dodaj pierwszy powyżej albo agent będzie je dodawać w trakcie pracy z Tobą.',
+  'memoryPage.learnings.deriving':
+    'Na razie nic tu nie ma. Pamięć wciąż buduje przekonania z Twoich ostatnich rozmów; pojawią się tutaj po następnym uruchomieniu w tle.',
   'memoryPage.learnings.delete': 'Usuń wniosek',
   'memoryPage.conversations.turns': 'Wymian: {count}',
   'memoryPage.documents.listDescription':

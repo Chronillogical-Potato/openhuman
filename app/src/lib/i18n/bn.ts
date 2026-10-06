@@ -5007,6 +5007,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'শেখা বিষয়',
   'memoryPage.learnings.empty':
     'এখনও কোনো শেখা বিষয় নেই। উপরে একটি যোগ করুন, অথবা আপনার সঙ্গে কাজ করতে করতে আপনার এজেন্ট নিজেই যোগ করবে।',
+  'memoryPage.learnings.deriving':
+    'এখনও এখানে কিছু নেই। মেমরি এখনও আপনার সাম্প্রতিক কথোপকথন থেকে ধারণা তৈরি করছে; পরবর্তী ব্যাকগ্রাউন্ড রানের পরে সেগুলো এখানে দেখা যাবে।',
   'memoryPage.learnings.delete': 'শেখা বিষয় মুছুন',
   'memoryPage.conversations.turns': '{count}টি টার্ন',
   'memoryPage.documents.listDescription':

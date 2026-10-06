@@ -4,6 +4,10 @@
  * adds one with `memory_learn`, and deletes with `memory_forget`. Beliefs the
  * background builder distilled (tagged `belief`) carry a "Built belief" badge.
  *
+ * Beliefs are built by a queued background job minutes behind the writes, so
+ * an empty list while a build is pending reads as "still building", never as
+ * "no memory" (#6718).
+ *
  * debug logging: DEBUG=openhuman:memory:learnings
  */
 import debug from 'debug';
@@ -18,6 +22,7 @@ import {
   memoryErrorMessage,
   memoryForget,
   memoryItemsList,
+  memoryJobsList,
   memoryLearn,
 } from '../../services/api/memoryApi';
 import { Alert, AlertDescription, Button, Card, Label, NativeSelect, TextArea } from '../ui';
@@ -38,6 +43,7 @@ export default function MemoryLearningsTab() {
   const [kind, setKind] = useState<LearningKind>('fact');
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [buildsPending, setBuildsPending] = useState(false);
 
   const kindLabel = (k: LearningKind): string => {
     switch (k) {
@@ -63,6 +69,28 @@ export default function MemoryLearningsTab() {
     log('page: %d item(s) more=%s', page.items?.length ?? 0, Boolean(page.next_cursor));
     return page;
   }, []);
+
+  // Only asked when the list is empty; a failure leaves the plain empty state.
+  const empty = items !== null && items.length === 0;
+  useEffect(() => {
+    if (!empty) return;
+    let cancelled = false;
+    memoryJobsList()
+      .then(jobs => {
+        if (cancelled) return;
+        const pending = (jobs.pending ?? []).filter(job => job.job?.job === 'build_beliefs');
+        log('empty list: %d belief build(s) pending', pending.length);
+        setBuildsPending(pending.length > 0);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        log('jobs list failed: %o', err);
+        setBuildsPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [empty]);
 
   const reload = useCallback(async () => {
     setError(null);
@@ -196,7 +224,13 @@ export default function MemoryLearningsTab() {
         <CenteredLoadingState label={t('memoryPage.loading')} />
       ) : (
         <Card title={t('memoryPage.learnings.listTitle')} data-testid="memory-learnings-list">
-          {items.length === 0 ? (
+          {items.length === 0 && buildsPending ? (
+            <p
+              className="px-4 py-3 text-sm text-content-muted"
+              data-testid="memory-learnings-deriving">
+              {t('memoryPage.learnings.deriving')}
+            </p>
+          ) : items.length === 0 ? (
             <p
               className="px-4 py-3 text-sm text-content-muted"
               data-testid="memory-learnings-empty">

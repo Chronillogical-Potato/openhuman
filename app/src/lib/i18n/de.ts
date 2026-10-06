@@ -5147,6 +5147,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Erkenntnisse',
   'memoryPage.learnings.empty':
     'Noch keine Erkenntnisse. Füge oben eine hinzu, oder dein Agent ergänzt sie bei der Zusammenarbeit mit dir.',
+  'memoryPage.learnings.deriving':
+    'Noch nichts da. Das Gedächtnis baut noch Überzeugungen aus deinen letzten Unterhaltungen auf; sie erscheinen hier nach dem nächsten Hintergrundlauf.',
   'memoryPage.learnings.delete': 'Erkenntnis löschen',
   'memoryPage.conversations.turns': '{count} Runden',
   'memoryPage.documents.listDescription':
