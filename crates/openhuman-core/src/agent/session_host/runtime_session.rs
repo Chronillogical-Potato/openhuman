@@ -1449,8 +1449,7 @@ impl OpenHumanSessionHost {
                 // A host session store owns this agent's transcripts; the
                 // workspace files are only the fallback when none is installed.
                 if let Some(stores) =
-                    None::<tinyagents_session::port::AgentStores> // PROBE
-
+                    crate::agent::session_store::for_agent(&self.agent_definition_id)
                 {
                     log::debug!(
                         "[session-store] transcripts via host store agent={}",
