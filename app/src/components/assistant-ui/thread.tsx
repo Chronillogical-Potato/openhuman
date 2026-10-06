@@ -894,6 +894,17 @@ const RunningStatusSlot: FC = () => {
   );
 };
 
+/** Host footer under the last message, shown only while nothing is running. */
+const TranscriptFooterSlot: FC = () => {
+  const { TranscriptFooter } = useContext(ThreadComponentsContext);
+  if (!TranscriptFooter) return null;
+  return (
+    <AuiIf condition={s => !s.thread.isRunning}>
+      <TranscriptFooter />
+    </AuiIf>
+  );
+};
+
 const ThreadMessage: FC = () => {
   const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
     useContext(ThreadComponentsContext);
@@ -1007,6 +1018,9 @@ const Composer: FC<{
   // composition before it runs. That stale write would rebuild the editor
   // mid-composition and cancel it -- #5763 again, one composition later.
   const isComposingTextRef = useRef(false);
+  // ArrowUp recall only fires on an empty composer, so a caret move inside a
+  // multi-line draft is never hijacked.
+  const composerIsEmpty = useAuiState(state => state.composer.text.length === 0);
 
   // DOM text -> composer store. The text is read at event time; only the write
   // is deferred by a microtask, so the editor has finished applying the event
@@ -1190,7 +1204,7 @@ const Composer: FC<{
                   !event.ctrlKey &&
                   !isComposingTextRef.current &&
                   !native.isComposing &&
-                  aui.composer().getState().text.length === 0
+                  composerIsEmpty
                 ) {
                   if (onRecallLastPrompt()) {
                     event.preventDefault();
