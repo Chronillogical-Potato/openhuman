@@ -69,6 +69,7 @@ pub async fn thread_create_new(
     request: CreateConversationThreadRequest,
 ) -> Result<Outcome<ApiEnvelope<ConversationThreadSummary>>, String> {
     let dir = workspace_dir().await?;
+    let working_dir = super::working_dir::validate_working_dir(request.action_dir.as_deref())?;
     let id = format!("thread-{}", uuid::Uuid::new_v4());
     let now = chrono::Local::now();
     let title = format!("Chat {} {}", now.format("%b %-d"), now.format("%-I:%M %p"));
@@ -85,13 +86,14 @@ pub async fn thread_create_new(
             // of truth for default labels.
             labels: request.labels,
             personality_id: request.personality_id,
-            working_dir: None,
+            working_dir,
         },
     )
     .await?;
     tracing::debug!(
         thread_id = %thread.id,
         labels = ?thread.labels,
+        working_dir_bound = thread.working_dir.is_some(),
         "[threads] created new thread"
     );
     Ok(envelope(

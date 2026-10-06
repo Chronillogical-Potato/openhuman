@@ -13,6 +13,7 @@ mod title_generation;
 mod transcript;
 mod turn_state_ops;
 mod usage;
+mod working_dir;
 
 pub use crud::{
     delete_after, message_append, message_update, messages_list, thread_create_new, thread_delete,
@@ -26,6 +27,8 @@ pub use live_state::{
 };
 pub use purge::threads_purge;
 pub use title_generation::thread_generate_title;
+pub use working_dir::thread_update_working_dir;
+pub(crate) use working_dir::thread_working_dir;
 pub use transcript::{transcript_get, TranscriptGetRequest};
 pub use turn_state_ops::{
     turn_state_clear, turn_state_get, turn_state_get_turn, turn_state_history, turn_state_list,
