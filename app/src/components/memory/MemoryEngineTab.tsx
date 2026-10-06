@@ -8,8 +8,10 @@
  *   on a local session), it says so and cannot be selected.
  * - Your API key: the `cortexdb` engine on CortexDB's managed API. The endpoint
  *   is fixed; only the key is entered.
- * - Self-host: the `cortexdb` engine on a server on this computer. The core only
- *   allows cleartext http to loopback, so the endpoint is checked here first.
+ * - Self-host: the `cortexdb` engine on a server on this computer. Self-host is
+ *   local only (a product rule), so the endpoint's host must be loopback; either
+ *   scheme is fine there. The core itself allows https to any host and
+ *   cleartext http only to loopback, so this check is the stricter of the two.
  *
  * Which item is active is derived from `memory_engine_get`: `tinyhumans` is
  * Built-in, and `cortexdb` is Self-host when its endpoint is loopback, else
@@ -60,7 +62,10 @@ const SELF_HOST_EXAMPLE_ENDPOINT = 'http://localhost:3141';
 
 type EngineOption = 'builtin' | 'apikey' | 'selfhost';
 
-/** True for an http(s) URL whose host is this computer (localhost, 127.x, ::1). */
+/**
+ * True for an http(s) URL whose host is this computer (localhost, 127.x, ::1).
+ * Both schemes are accepted: the core refuses only cleartext http off loopback.
+ */
 export function isLoopbackEndpoint(raw: string): boolean {
   let url: URL;
   try {
