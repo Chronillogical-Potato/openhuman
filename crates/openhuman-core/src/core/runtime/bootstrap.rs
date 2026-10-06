@@ -79,7 +79,17 @@ pub(crate) async fn bootstrap_core_runtime(
     // are stale by definition — there is no live driver to resume them.
     // Stamp them as `Interrupted` so the UI can offer a retry without
     // confusing a stale `Streaming` lifecycle for an in-flight turn.
-    {
+    //
+    // A host session store holds turn snapshots and runs per agent, not under
+    // this workspace, so it does its own repair, once, instead of both sweeps.
+    let host_store = crate::agent::session_store::installed();
+    if let Some(provider) = &host_store {
+        match provider.recover() {
+            Ok(()) => log::info!("[runtime] host session store recovered"),
+            Err(err) => log::warn!("[runtime] host session store recovery failed: {err:#}"),
+        }
+    }
+    if host_store.is_none() {
         let now = chrono::Utc::now().to_rfc3339();
         match tinyagents_session::turn_state::store::mark_all_interrupted(
             workspace_dir.clone(),
@@ -102,10 +112,15 @@ pub(crate) async fn bootstrap_core_runtime(
     // the finalizer never settled it. Stamp such rows `interrupted` so they stop
     // rendering as perpetual "running" timeline entries on thread reopen.
     if agent_enabled {
-        match tinyagents_session::run_ledger::interrupt_orphaned_agent_runs(&cfg.workspace_dir) {
-            Ok(0) => {}
-            Ok(count) => log::info!("[runtime] settled {count} orphaned agent run(s) on startup"),
-            Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
+        if host_store.is_none() {
+            match tinyagents_session::run_ledger::interrupt_orphaned_agent_runs(&cfg.workspace_dir)
+            {
+                Ok(0) => {}
+                Ok(count) => {
+                    log::info!("[runtime] settled {count} orphaned agent run(s) on startup")
+                }
+                Err(err) => log::warn!("[runtime] failed to settle orphaned agent runs: {err}"),
+            }
         }
 
         // --- Detached sub-agent TaskStore reconciliation -------------------
