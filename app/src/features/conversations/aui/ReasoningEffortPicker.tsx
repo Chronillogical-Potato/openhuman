@@ -89,19 +89,19 @@ export function ReasoningEffortPicker({
     <span className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md pl-2 text-content-muted transition-colors hover:bg-surface-hover hover:text-content">
       <ThinkingGauge value={value} />
       <select
-      data-testid="composer-reasoning-effort"
-      data-analytics-id="chat-reasoning-effort"
-      aria-label={label}
-      title={title}
-      value={value}
-      disabled={disabled}
-      onChange={event => onChange(toReasoningEffortChoice(event.target.value))}
-      className="h-7 min-w-0 cursor-pointer rounded-md border-none bg-transparent pr-2 text-xs font-medium text-inherit focus:outline-none focus-visible:ring-1 focus-visible:ring-line disabled:opacity-50">
-      {REASONING_EFFORTS.map(effort => (
-        <option key={effort} value={effort}>
-          {t(`composer.reasoning.${effort}`)}
-        </option>
-      ))}
+        data-testid="composer-reasoning-effort"
+        data-analytics-id="chat-reasoning-effort"
+        aria-label={label}
+        title={title}
+        value={value}
+        disabled={disabled}
+        onChange={event => onChange(toReasoningEffortChoice(event.target.value))}
+        className="h-7 min-w-0 cursor-pointer rounded-md border-none bg-transparent pr-2 text-xs font-medium text-inherit focus:outline-none focus-visible:ring-1 focus-visible:ring-line disabled:opacity-50">
+        {REASONING_EFFORTS.map(effort => (
+          <option key={effort} value={effort}>
+            {t(`composer.reasoning.${effort}`)}
+          </option>
+        ))}
       </select>
     </span>
   );

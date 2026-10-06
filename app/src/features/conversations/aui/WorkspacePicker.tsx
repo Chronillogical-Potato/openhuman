@@ -8,13 +8,13 @@
  * chip disappears with the empty state rather than offering a change the core
  * would refuse.
  */
-import { useT } from '../../../lib/i18n/I18nContext';
 import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from '../../../components/ui/DropdownMenu';
+import { useT } from '../../../lib/i18n/I18nContext';
 import { folderBasename } from '../threadList/groupThreads';
 
 /** How many recently used folders the menu offers. */
@@ -113,7 +113,12 @@ export function WorkspacePicker({
               stroke="currentColor"
               viewBox="0 0 24 24"
               aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
         </DropdownMenuTrigger>
@@ -164,9 +169,7 @@ export function WorkspacePicker({
           {error}
         </span>
       ) : (
-        <span className="truncate text-xs text-content-faint">
-          {t('composer.workspace.hint')}
-        </span>
+        <span className="truncate text-xs text-content-faint">{t('composer.workspace.hint')}</span>
       )}
     </div>
   );

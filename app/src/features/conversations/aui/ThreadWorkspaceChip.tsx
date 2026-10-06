@@ -9,9 +9,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { updateThreadWorkingDir } from '../../../store/threadSlice';
+import { isTauri } from '../../../utils/tauriCommands/common';
 import { openhumanGetAgentPaths } from '../../../utils/tauriCommands/config';
 import { pickDirectoryNatively } from '../../../utils/tauriCommands/directoryPicker';
-import { isTauri } from '../../../utils/tauriCommands/common';
 import { recentWorkingFolders, WorkspacePicker } from './WorkspacePicker';
 
 const debug = debugFactory('conversations:workspace');

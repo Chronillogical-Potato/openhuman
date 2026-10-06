@@ -473,8 +473,7 @@ const Conversations = ({
   const [persistedDefaultModel, setPersistedDefaultModel] = useState<string | null>(null);
   const reasoningModel = composerModelOverride ?? persistedDefaultModel;
   const composerReasoningEffort: ReasoningEffortChoice =
-    (reasoningModel ? reasoningEffortByModel[reasoningModel] : undefined) ??
-    globalReasoningEffort;
+    (reasoningModel ? reasoningEffortByModel[reasoningModel] : undefined) ?? globalReasoningEffort;
   useEffect(() => {
     let cancelled = false;
     void openhumanGetClientConfig()
@@ -524,12 +523,12 @@ const Conversations = ({
             perModel: Boolean(model),
           });
         })
-      .catch((err: unknown) => {
-        // The per-send value still applies; only persistence failed.
-        console.warn('[chat][composer-reasoning] failed to persist reasoning_effort', {
-          message: err instanceof Error ? err.message : String(err),
+        .catch((err: unknown) => {
+          // The per-send value still applies; only persistence failed.
+          console.warn('[chat][composer-reasoning] failed to persist reasoning_effort', {
+            message: err instanceof Error ? err.message : String(err),
+          });
         });
-      });
     },
     [reasoningModel]
   );
