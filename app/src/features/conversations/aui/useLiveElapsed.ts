@@ -1,55 +1,38 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Elapsed time for a sub-agent delegation that ticks every second while it
- * works, after OpenClaw's live subagent timers.
- *
- * The core reports a delegation's wall-clock `elapsedMs` only once it settles;
- * a running row carries no start time. So the clock is anchored the first time
- * this session sees the task running, in a module-scoped map that outlives
- * assistant-ui's remounts (virtualised history, thread switches). After a
- * reload mid-run the anchor is the reload, so the count restarts — the settled
- * duration from the core replaces it as soon as the run finishes.
+ * Milliseconds since `since` (epoch ms), re-rendering once a second while
+ * `active`. Returns `undefined` when inactive or when `since` is unknown, so a
+ * caller never shows a frozen clock.
  */
-const MAX_ANCHORS = 500;
-const anchors = new Map<string, number>();
-
-function anchorFor(key: string): number {
-  const existing = anchors.get(key);
-  if (existing !== undefined) return existing;
-  const now = Date.now();
-  anchors.set(key, now);
-  if (anchors.size > MAX_ANCHORS) {
-    const oldest = anchors.keys().next().value;
-    if (oldest !== undefined) anchors.delete(oldest);
+export function useLiveElapsed(since: number | undefined, active: boolean): number | undefined {
+  const ticking = active && since !== undefined;
+  const [now, setNow] = useState(() => Date.now());
+  const [wasTicking, setWasTicking] = useState(ticking);
+  if (wasTicking !== ticking) {
+    setWasTicking(ticking);
+    if (ticking) setNow(Date.now());
   }
-  return now;
-}
-
-/** Forget every anchor. Exposed for tests. */
-export function resetLiveElapsedAnchors(): void {
-  anchors.clear();
+  useEffect(() => {
+    if (!ticking) return undefined;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [ticking]);
+  if (!ticking || since === undefined) return undefined;
+  return Math.max(0, now - since);
 }
 
 /**
- * `settledMs` once the run has finished, else live milliseconds since the run
- * was first seen; `undefined` when neither is known (no key while running).
+ * Epoch ms at which `running` last became true (or the component mounted
+ * running), cleared when it stops. For live timers on rows that carry no
+ * start timestamp of their own.
  */
-export function useLiveElapsed(
-  key: string | undefined,
-  running: boolean,
-  settledMs: number | undefined
-): number | undefined {
-  const ticking = running && key !== undefined;
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!ticking) return undefined;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [ticking]);
-
-  if (!running) return settledMs;
-  if (key === undefined) return undefined;
-  return Math.max(0, now - anchorFor(key));
+export function useRunningSince(running: boolean): number | undefined {
+  const [since, setSince] = useState<number | undefined>(() => (running ? Date.now() : undefined));
+  const [wasRunning, setWasRunning] = useState(running);
+  if (wasRunning !== running) {
+    setWasRunning(running);
+    setSince(running ? Date.now() : undefined);
+  }
+  return since;
 }
