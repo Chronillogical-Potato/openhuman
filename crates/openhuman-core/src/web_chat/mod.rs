@@ -35,6 +35,7 @@ mod ops;
 pub mod presentation;
 pub(crate) mod progress_bridge;
 mod reply_persistence;
+pub(crate) use reply_persistence::persist_delivered_reply;
 mod run_task;
 mod schemas;
 mod session;
