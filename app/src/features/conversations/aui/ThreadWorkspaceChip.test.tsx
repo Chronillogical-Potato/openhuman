@@ -40,7 +40,7 @@ function thread(id: string, extra: Partial<Thread> = {}): Thread {
 }
 
 function renderChip(threads: Thread[], threadId: string | null) {
-  const base = createTestStore().getState() as { thread: Record<string, unknown> };
+  const base = createTestStore().getState() as unknown as { thread: Record<string, unknown> };
   const store = createTestStore({
     thread: { ...base.thread, threads, selectedThreadId: threadId },
   });
