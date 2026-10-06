@@ -610,3 +610,41 @@ fn classify_inference_error_local_offline_profile_is_not_an_expired_session() {
         classified.message
     );
 }
+
+#[test]
+fn classify_inference_error_a_mixed_fallback_chain_reports_the_provider_that_failed() {
+    // #6932 review: a fallback aggregate carries every attempt's text. A chain
+    // that refused managed for the local profile and then failed a BYO
+    // provider on its own key must report the key, not blame the profile for
+    // someone else's failure — so the sentinel sits with the catch-alls rather
+    // than at the head of the ladder.
+    let raw = format!(
+        "All providers/models failed. Attempts: {}; openai API error (401 Unauthorized): invalid api key",
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+    let classified = classify_inference_error(&raw);
+
+    assert_eq!(classified.error_type, "auth_error");
+    assert!(
+        !classified.message.contains("local offline profile"),
+        "must not blame the local profile for the BYO provider's key: {}",
+        classified.message
+    );
+}
+
+#[test]
+fn classify_inference_error_the_refusal_alone_keeps_the_exhausted_chain_flag() {
+    // The same refusal with nothing else in the chain is still ours, and the
+    // aggregate metadata rides along instead of being dropped.
+    let raw = format!(
+        "All providers/models failed. Attempts: {}",
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+    let classified = classify_inference_error(&raw);
+
+    assert_eq!(
+        classified.copy_key,
+        "chat_error.local_session_managed_unavailable"
+    );
+    assert_eq!(classified.fallback_available, Some(false));
+}
