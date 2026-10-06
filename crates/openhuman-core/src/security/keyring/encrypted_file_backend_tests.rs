@@ -255,9 +255,9 @@ fn read_master_key_file_returns_contents_and_reports_a_missing_file() {
 
 #[cfg(unix)]
 #[test]
-fn read_master_key_file_accepts_a_group_readable_secret_mount() {
-    // Docker secrets are mounted 0444 and Kubernetes secret volumes 0644:
-    // permissive modes are warned about, never refused.
+fn read_master_key_file_accepts_a_world_readable_secret_mount() {
+    // Docker secrets are mounted 0444 and Kubernetes secret volumes 0644 by
+    // default, read-only: permissive modes are warned about, never refused.
     use std::os::unix::fs::PermissionsExt;
     let tmp = tempfile::TempDir::new().unwrap();
     let path = tmp.path().join("master.key");
@@ -266,6 +266,20 @@ fn read_master_key_file_accepts_a_group_readable_secret_mount() {
 
     let contents = read_master_key_file(&path).expect("permissive mode is accepted");
     assert_eq!(contents, hex_key(0x44));
+}
+
+#[cfg(unix)]
+#[test]
+fn key_file_warning_covers_default_mounts_but_not_owner_or_fsgroup_modes() {
+    // Warned: the Kubernetes and Docker defaults, and anything world-accessible.
+    for mode in [0o644, 0o444, 0o604, 0o666, 0o602] {
+        assert!(key_file_mode_is_world_accessible(mode), "{mode:04o}");
+    }
+    // Not warned: owner-only, and `defaultMode: 0400` under a pod `fsGroup`,
+    // which kubelet turns into 0440.
+    for mode in [0o400, 0o600, 0o440, 0o640] {
+        assert!(!key_file_mode_is_world_accessible(mode), "{mode:04o}");
+    }
 }
 
 #[test]
@@ -302,6 +316,14 @@ fn env_value_distinguishes_unset_from_invalid_unicode() {
 }
 
 // ── Wiring: the real env → `try_load_master_key` → key, no keychain ─────────
+//
+// `try_load_master_key` is uncached: it reads the environment on every call
+// and never touches the process-wide `MASTER_KEY` (only `init_master_key`
+// does, and no test here calls it; the one-time logic is tested through
+// `init_once` with a local `OnceLock` below). Each test mutates the env only
+// under `EnvVarGuard::locked()`, which serializes on the crate's shared
+// `TEST_ENV_LOCK` and restores the previous values before releasing it, so
+// the tests cannot observe each other's values in any order.
 
 #[test]
 fn try_load_master_key_prefers_the_inline_env_key_and_never_touches_the_keychain() {
@@ -369,8 +391,8 @@ fn a_secret_written_under_a_configured_key_reads_back_after_a_restart() {
 
     // First "process": load the configured key and store a secret through the
     // same lock → read → encrypt → write path `KeyringBackend::set` uses.
-    // `MASTER_KEY` is a process-wide `OnceLock` that cannot be reset, so the
-    // key is passed explicitly instead of going through it.
+    // `get`/`set` read the key from the process-wide `MASTER_KEY`, which
+    // this test must not populate, so the key is passed explicitly.
     {
         let (key, _) = try_load_master_key().expect("configured key loads");
         let backend = EncryptedFileBackend::new(workspace.path());

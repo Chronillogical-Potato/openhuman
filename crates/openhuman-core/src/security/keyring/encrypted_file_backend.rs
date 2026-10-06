@@ -166,6 +166,9 @@ impl MasterKeyEntry for keyring::Entry {
 /// Loads the master key, returning it with a human-readable description of
 /// the source it came from (for the startup log; never the value).
 ///
+/// Uncached: every call reads the environment (and the key file) afresh.
+/// Only [`init_master_key`] stores an outcome in [`MASTER_KEY`].
+///
 /// The environment is consulted first so a headless deployment never touches
 /// the OS keychain. An environment variable that is set but unusable is an
 /// error, not a fall-through: silently continuing to the keychain would mask
@@ -251,25 +254,42 @@ fn master_key_from_env(
     }
 }
 
-/// Reads the file named by [`MASTER_KEY_FILE_ENV`]. On Unix a file readable
-/// by group or others is accepted but logged at `warn`: Docker secrets mount
-/// `0444` and Kubernetes secret volumes default to `0644`, so refusing would
-/// break the very deployments this path exists for.
+/// Reads the file named by [`MASTER_KEY_FILE_ENV`].
+///
+/// On Unix a file any user on the host can access is accepted but logged at
+/// `warn`, with how to tighten it. It is not refused: the deployments this
+/// path exists for mount secrets read-only with modes the process cannot
+/// change — Docker secrets `0444`, Kubernetes secret volumes `0644` unless
+/// `defaultMode` is set — so refusing would break them out of the box.
+/// Group access alone is not warned about: a non-root pod reads a root-owned
+/// secret through its `fsGroup`, and kubelet then grants group read, so
+/// `defaultMode: 0400` lands as `0440` — the tightest mode that deployment
+/// can have. The config loader treats a foreign-owned `0644` config the same
+/// way (`config::schema::load`).
 fn read_master_key_file(path: &Path) -> Result<String, String> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         if let Ok(metadata) = std::fs::metadata(path) {
             let mode = metadata.permissions().mode() & 0o777;
-            if mode & 0o077 != 0 {
+            if key_file_mode_is_world_accessible(mode) {
                 log::warn!(
                     "[keyring:encrypted_file] master key file ({MASTER_KEY_FILE_ENV}) has \
-                     mode {mode:04o}; 0600 is recommended"
+                     mode {mode:04o}, so every user on the host can read it; restrict it to \
+                     0400 or 0600 (Kubernetes: `defaultMode: 0400` on the secret volume; \
+                     Docker Swarm: `mode: 0400` on the secret)"
                 );
             }
         }
     }
     std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
+}
+
+/// Whether a master-key file's permission bits grant anything to "other"
+/// users. See [`read_master_key_file`] for why group access is not counted.
+#[cfg(unix)]
+fn key_file_mode_is_world_accessible(mode: u32) -> bool {
+    mode & 0o007 != 0
 }
 
 /// Decodes a master key supplied as exactly `2 * KEY_LEN` hex characters.

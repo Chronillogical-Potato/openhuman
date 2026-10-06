@@ -488,6 +488,19 @@ need before you start" (#6926). On a release that predates those variables, set
 `$OPENHUMAN_WORKSPACE/dev-keychain.json` (plaintext, `0600`); put the workspace
 volume on encrypted storage and treat the host as the secret boundary.
 
+Mount the key file owner-only. The usual secret mounts are readable by every
+user in the container: Kubernetes secret volumes default to `0644` and Docker
+secrets to `0444`. The core still loads such a file, because the mount is
+read-only and it cannot fix the mode, but it logs a warning at every start.
+Restrict it where the mount is declared:
+
+- Kubernetes: set `defaultMode: 0400` on the secret volume (or `mode: 0400` on
+  the item). A pod with `fsGroup` set gets `0440` instead, since kubelet adds
+  group read so the non-root user can open it. That mode does not warn.
+- Docker Swarm: set `mode: 0400` (with `uid`/`gid` for a non-root user) on the
+  service's secret.
+- A plain file: `chmod 600` it, owned by the user the core runs as.
+
 ---
 
 ## Named-volume ownership and the Docker entrypoint
