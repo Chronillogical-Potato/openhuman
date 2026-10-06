@@ -20,12 +20,12 @@
  *   (`chat.tools.callOne` / `chat.tools.callOther`).
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
-import { useT } from '@/lib/i18n/I18nContext';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/assistant-ui/ui/collapsible';
+import { useT } from '@/lib/i18n/I18nContext';
 import { useScrollLock } from '@assistant-ui/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronDownIcon, LoaderIcon } from 'lucide-react';
@@ -111,7 +111,10 @@ function ToolGroupTrigger({
   const { t } = useT();
   const label =
     labelOverride ??
-    t(count === 1 ? 'chat.tools.callOne' : 'chat.tools.callOther').replace('{count}', String(count));
+    t(count === 1 ? 'chat.tools.callOne' : 'chat.tools.callOther').replace(
+      '{count}',
+      String(count)
+    );
 
   return (
     <CollapsibleTrigger

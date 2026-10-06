@@ -53,7 +53,8 @@ export function activityGroupLabel(
       .replace('{duration}', formatElapsed(workedMs))
       .replace('{calls}', tools);
   }
-  if (reasoningCount > 0 && tools) return t('chat.tools.reasoningWithCalls').replace('{calls}', tools);
+  if (reasoningCount > 0 && tools)
+    return t('chat.tools.reasoningWithCalls').replace('{calls}', tools);
   if (reasoningCount > 0) return t('chat.tools.reasoning');
   return tools ?? t('chat.tools.activity');
 }
@@ -103,8 +104,9 @@ export const ActivityGroup: FC<PropsWithChildren<{ group: ActivityGroupPart }>> 
     s => s.message.parts.filter(part => part?.type === 'tool-call').length
   );
   const totalStreamTime = useAuiState(
-    s => (s.message.metadata as { timing?: { totalStreamTime?: number } } | undefined)?.timing
-      ?.totalStreamTime
+    s =>
+      (s.message.metadata as { timing?: { totalStreamTime?: number } } | undefined)?.timing
+        ?.totalStreamTime
   );
   const { t } = useT();
   const [userOpen, setUserOpen] = useState<boolean | null>(null);

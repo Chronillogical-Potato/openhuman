@@ -1586,7 +1586,8 @@ const messages: TranslationMap = {
   'chat.tools.reasoning': 'Überlegung',
   'chat.tools.activity': 'Aktivität',
   'chat.tools.workedFor': 'Gearbeitet für {duration} · {calls}',
-  'chat.elicitation.declineReply': 'Das möchte ich lieber nicht beantworten. Bitte mach ohne weiter.',
+  'chat.elicitation.declineReply':
+    'Das möchte ich lieber nicht beantworten. Bitte mach ohne weiter.',
   'chat.upgrade': 'Upgrade',
   'chat.weeklyLimitHit': 'Du hast dein enthaltenes Zyklusbudget aufgebraucht.',
   'chat.resets': 'Zurücksetzen',
