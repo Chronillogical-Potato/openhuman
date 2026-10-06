@@ -4704,7 +4704,9 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.detail': '包含在你的 TinyHumans 账户中',
   'memoryPage.engine.builtin.signInRequired': '登录后使用',
   'memoryPage.engine.builtin.description':
-    '由 TinyHumans 为你托管的 CortexDB。无需任何设置：使用你的登录信息。',
+    '由 TinyHumans 托管、包含在你账户中的 CortexDB。登录即可使用，无需任何设置。',
+  'memoryPage.engine.builtin.enrichmentNote':
+    '新的记忆会立即保存。从中提炼的事实和信念会在接下来的几分钟内补充完成。',
   'memoryPage.engine.builtin.signInHint': '登录你的 TinyHumans 账户以使用内置 CortexDB。',
   'memoryPage.engine.apiKeyOption.title': '使用你的 API 密钥连接 CortexDB',
   'memoryPage.engine.apiKeyOption.description':

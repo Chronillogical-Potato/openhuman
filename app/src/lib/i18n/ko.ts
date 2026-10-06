@@ -4932,7 +4932,9 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.detail': 'TinyHumans 계정에 포함',
   'memoryPage.engine.builtin.signInRequired': '로그인 후 사용',
   'memoryPage.engine.builtin.description':
-    'TinyHumans가 호스팅하는 CortexDB입니다. 설정할 것이 없으며 로그인 정보를 사용합니다.',
+    'TinyHumans가 호스팅하며 계정에 포함된 CortexDB입니다. 로그인하면 사용할 수 있으며 설정할 것이 없습니다.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    '새 기억은 바로 저장됩니다. 여기서 도출된 사실과 신념은 이후 몇 분에 걸쳐 채워집니다.',
   'memoryPage.engine.builtin.signInHint':
     '내장 CortexDB를 사용하려면 TinyHumans 계정에 로그인하세요.',
   'memoryPage.engine.apiKeyOption.title': 'API 키로 CortexDB 사용',

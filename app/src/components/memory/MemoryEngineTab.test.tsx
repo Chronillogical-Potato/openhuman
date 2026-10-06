@@ -144,9 +144,35 @@ describe('MemoryEngineTab', () => {
 
     it('shows Off on the configured Built-in engine while signed out', () => {
       hoisted.signedIn = false;
-      renderTab({ ...OFF, engine: 'tinyhumans', reason: 'sign in to use TinyHumans memory' });
+      renderTab({
+        ...OFF,
+        engine: 'tinyhumans',
+        endpoint: 'https://api.tinyhumans.ai',
+        reason: 'sign in to use TinyHumans memory',
+      });
       expect(screen.getByTestId('memory-engine-builtin-active')).toHaveTextContent('Off');
       expect(screen.getByTestId('memory-engine-builtin-use')).toBeDisabled();
+      expect(screen.getByTestId('memory-engine-builtin-sign-in')).toBeInTheDocument();
+      expect(screen.getByTestId('memory-engine-builtin-endpoint')).toHaveTextContent(
+        'https://api.tinyhumans.ai'
+      );
+    });
+
+    it('shows the backend origin the core reports, read-only', () => {
+      renderTab({ ...BUILTIN_ON, endpoint: 'https://staging-api.example.test' });
+      const endpoint = screen.getByTestId('memory-engine-builtin-endpoint');
+      expect(endpoint).toHaveTextContent('https://staging-api.example.test');
+      expect(endpoint.tagName).not.toBe('INPUT');
+      expect(
+        screen.getByText(/Facts and beliefs drawn from them fill in over the following minutes/)
+      ).toBeInTheDocument();
+    });
+
+    it('shows no Built-in origin while another option is configured', () => {
+      renderTab(CLOUD_ON);
+      open('builtin');
+      expect(screen.getByTestId('memory-engine-builtin-use')).toBeInTheDocument();
+      expect(screen.queryByTestId('memory-engine-builtin-endpoint')).not.toBeInTheDocument();
     });
 
     it('shows a failed switch inside the item and stays open', async () => {

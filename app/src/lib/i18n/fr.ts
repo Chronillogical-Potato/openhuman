@@ -5095,7 +5095,9 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.detail': 'Inclus avec votre compte TinyHumans',
   'memoryPage.engine.builtin.signInRequired': "Connectez-vous pour l'utiliser",
   'memoryPage.engine.builtin.description':
-    'CortexDB hébergé pour vous par TinyHumans. Rien à configurer : il utilise votre connexion.',
+    "CortexDB hébergé par TinyHumans et inclus avec votre compte. Connectez-vous pour l'utiliser ; rien à configurer.",
+  'memoryPage.engine.builtin.enrichmentNote':
+    'Les nouveaux souvenirs sont enregistrés immédiatement. Les faits et croyances qui en sont tirés se complètent dans les minutes qui suivent.',
   'memoryPage.engine.builtin.signInHint':
     'Connectez-vous à votre compte TinyHumans pour utiliser CortexDB intégré.',
   'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre clé API',

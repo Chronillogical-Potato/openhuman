@@ -2,9 +2,10 @@
  * Memory → Engine: memory runs on CortexDB, reached one of three ways, shown as
  * a single-open accordion (#7025):
  *
- * - Built-in: the `tinyhumans` engine, CortexDB behind the TinyHumans backend,
- *   authenticated by sign-in. Signed out (or on a local session), it says so
- *   and cannot be selected.
+ * - Built-in: the `tinyhumans` engine, the TinyHumans backend's `/memory/*`
+ *   API (CortexDB hosted per account), authenticated by sign-in. The backend
+ *   origin it uses is shown read-only from `memory_engine_get`. Signed out (or
+ *   on a local session), it says so and cannot be selected.
  * - Your API key: the `cortexdb` engine on CortexDB's managed API. The endpoint
  *   is fixed; only the key is entered.
  * - Self-host: the `cortexdb` engine on a server on this computer. The core only
@@ -294,6 +295,19 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
             )}
             <AccordionContent className="space-y-3">
               <p>{t('memoryPage.engine.builtin.description')}</p>
+              <p className="text-xs text-content-muted">
+                {t('memoryPage.engine.builtin.enrichmentNote')}
+              </p>
+              {/* The backend origin the core resolved, read-only: never a
+                  hard-coded URL, and only known while Built-in is configured. */}
+              {active === 'builtin' && state.endpoint && (
+                <p className="text-xs text-content-muted">
+                  {t('memoryPage.engine.endpoint')}:{' '}
+                  <span className="font-mono" data-testid="memory-engine-builtin-endpoint">
+                    {state.endpoint}
+                  </span>
+                </p>
+              )}
               {builtinBlocked && (
                 <p
                   className="text-xs text-content-muted"

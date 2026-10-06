@@ -4978,7 +4978,9 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.detail': 'আপনার TinyHumans অ্যাকাউন্টের সাথে অন্তর্ভুক্ত',
   'memoryPage.engine.builtin.signInRequired': 'ব্যবহার করতে সাইন ইন করুন',
   'memoryPage.engine.builtin.description':
-    'TinyHumans আপনার জন্য হোস্ট করা CortexDB। কিছুই সেট আপ করতে হবে না: এটি আপনার সাইন-ইন ব্যবহার করে।',
+    'TinyHumans হোস্ট করা এবং আপনার অ্যাকাউন্টের সাথে অন্তর্ভুক্ত CortexDB। ব্যবহার করতে সাইন ইন করুন; কিছুই সেট আপ করতে হবে না।',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'নতুন স্মৃতি সঙ্গে সঙ্গে সংরক্ষিত হয়। সেগুলো থেকে পাওয়া তথ্য ও বিশ্বাস পরের কয়েক মিনিটে যুক্ত হয়।',
   'memoryPage.engine.builtin.signInHint':
     'বিল্ট-ইন CortexDB ব্যবহার করতে আপনার TinyHumans অ্যাকাউন্টে সাইন ইন করুন।',
   'memoryPage.engine.apiKeyOption.title': 'আপনার API কী দিয়ে CortexDB',

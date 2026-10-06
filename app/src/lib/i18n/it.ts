@@ -5056,7 +5056,9 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.detail': 'Incluso nel tuo account TinyHumans',
   'memoryPage.engine.builtin.signInRequired': 'Accedi per usarlo',
   'memoryPage.engine.builtin.description':
-    "CortexDB ospitato per te da TinyHumans. Non c'è nulla da configurare: usa il tuo accesso.",
+    "CortexDB ospitato da TinyHumans e incluso nel tuo account. Accedi per usarlo; non c'è nulla da configurare.",
+  'memoryPage.engine.builtin.enrichmentNote':
+    'I nuovi ricordi vengono salvati subito. I fatti e le convinzioni ricavati da essi si completano nei minuti successivi.',
   'memoryPage.engine.builtin.signInHint':
     'Accedi al tuo account TinyHumans per usare CortexDB integrato.',
   'memoryPage.engine.apiKeyOption.title': 'CortexDB con la tua chiave API',
