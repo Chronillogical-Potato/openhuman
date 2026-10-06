@@ -8,7 +8,7 @@
  * voiceEntry.test.ts). LiveVoiceControls is stubbed so no socket or mic opens.
  */
 import { configureStore } from '@reduxjs/toolkit';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,7 +36,9 @@ vi.mock('../../utils/config', async importOriginal => {
 });
 
 vi.mock('./LiveVoiceControls', () => ({
-  default: () => <div data-testid="live-voice-controls-stub" />,
+  default: ({ onPhaseChange }: { onPhaseChange?: (phase: string) => void }) => (
+    <button data-testid="live-voice-controls-stub" onClick={() => onPhaseChange?.('listening')} />
+  ),
 }));
 
 // Render the slot props so the test observes what the card would actually show,
@@ -65,7 +67,8 @@ vi.mock('./Mascot', async importOriginal => {
   };
 });
 
-vi.mock('./useHumanMascot', () => ({ useHumanMascot: () => ({ face: 'idle', visemes: [] }) }));
+const useHumanMascot = vi.fn((_opts: unknown) => ({ face: 'idle', visemes: [] }));
+vi.mock('./useHumanMascot', () => ({ useHumanMascot: (opts: unknown) => useHumanMascot(opts) }));
 vi.mock('./Mascot/manifest/useMascotManifest', () => ({
   useMascotManifest: () => ({ manifest: null, entry: null, loading: false, error: null }),
 }));
@@ -131,5 +134,12 @@ describe('HumanPage — voice entry point', () => {
     Object.assign(flags, next);
     await renderPage();
     expect(screen.getAllByTestId('live-voice-controls-stub')).toHaveLength(1);
+  });
+
+  it('silences speak-replies and shows the listening pose while a live session runs', async () => {
+    await renderPage();
+    expect(useHumanMascot).toHaveBeenLastCalledWith({ speakReplies: true, listening: false });
+    fireEvent.click(screen.getByTestId('live-voice-controls-stub'));
+    expect(useHumanMascot).toHaveBeenLastCalledWith({ speakReplies: false, listening: true });
   });
 });
