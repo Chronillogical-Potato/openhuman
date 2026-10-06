@@ -313,7 +313,9 @@ impl Tool for CronAddTool {
                     "job_type": job.job_type,
                     "schedule": job.schedule,
                     "next_run": job.next_run,
-                    "enabled": job.enabled
+                    "enabled": job.enabled,
+                    "session_target": job.session_target,
+                    "delivery_mode": job.delivery.mode
                 });
                 let mut tr = ToolResult::success(serde_json::to_string_pretty(&payload)?);
                 if options.prefer_markdown {
