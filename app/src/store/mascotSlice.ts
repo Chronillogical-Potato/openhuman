@@ -674,6 +674,7 @@ export const {
   setChatMascotDismissed,
   setSpeakReplies,
   setChatMascotListening,
+  setChatMascotLiveVoicePhase,
   setVoiceMode,
 } = mascotSlice.actions;
 
