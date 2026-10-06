@@ -488,9 +488,10 @@ need before you start" (#6926). On a release that predates those variables, set
 `$OPENHUMAN_WORKSPACE/dev-keychain.json` (plaintext, `0600`); put the workspace
 volume on encrypted storage and treat the host as the secret boundary.
 
-Mount the key file owner-only. The core rejects group- or world-readable files
-because any process able to read the file can decrypt the entire keyring.
-Restrict the mode where the mount is declared:
+Mount the key file without group- or world-write permissions. The core rejects
+group- or world-writable files, while read-only group/world access may be
+accepted for container secret mounts; any process able to read the file can
+decrypt the entire keyring. Restrict the mode where the mount is declared:
 
 - Kubernetes: Secret volumes are root-owned, and `runAsUser` does not change
   the owner of a projected Secret. For a non-root core, use an init container

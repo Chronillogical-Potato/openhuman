@@ -36,7 +36,7 @@ Re-exported from `mod.rs`:
 - `KeyringBackend`: backend trait (`get`/`set`/`delete`/`name`).
 - `SecretStore`: config-field encrypt/decrypt; `encrypt`/`decrypt`/`decrypt_and_migrate`/`needs_migration`/`is_encrypted`/`new`.
 - `KeyringError`: error enum with `diagnostic()`.
-- `init_master_key`: load the app master key at startup (staging/prod only) — from the environment (`OPENHUMAN_KEYRING_MASTER_KEY` inline, or `OPENHUMAN_KEYRING_MASTER_KEY_FILE` naming a file; 64 hex characters, exactly one of the two) when set, otherwise from the OS keychain. A set-but-malformed variable is a boot error, not a fall-through; the source is logged at `info`, the value never. Key files must be owner-readable only (`0400` or `0600`); group/other permissions are rejected.
+- `init_master_key`: load the app master key at startup (staging/prod only) — from the environment (`OPENHUMAN_KEYRING_MASTER_KEY` inline, or `OPENHUMAN_KEYRING_MASTER_KEY_FILE` naming a file; 64 hex characters, exactly one of the two) when set, otherwise from the OS keychain. A set-but-malformed variable is a boot error, not a fall-through; the source is logged at `info`, the value never. Key files must not be group- or world-writable; read-only group/world access is supported for secret mounts, but any principal able to read the file can decrypt the keyring.
 - `init_workspace`: register the workspace dir for file and encrypted-file backends.
 - `get`, `set`, `delete`, `get_or_create_random`, `is_available`, `migrate_from_file`, `MigrationOutcome`.
 - `force_backend_for_test`: `pub(crate)`, test-only.
