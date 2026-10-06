@@ -99,6 +99,7 @@ import {
   openhumanUpdateRuntimeSettings,
 } from '../../utils/tauriCommands/config';
 import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
+import { StallWarning } from './aui/StallWarning';
 import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
 import {
   type ReasoningEffortChoice,
@@ -1448,8 +1449,19 @@ const Conversations = ({
     true
   );
 
-  const handleComposerEscape = useCallback(() => {
-    if (!selectedThreadActive) return;
+  // The last *visible* user prompt (hidden system/injected messages are
+  // excluded to match how the transcript is rendered), as composer text.
+  const lastVisibleUserPrompt = useCallback((): string => {
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find(m => m.sender === 'user' && !m.extraMetadata?.hidden);
+    return lastUserMessage ? parseMessageImages(lastUserMessage.content ?? '').text : '';
+  }, [messages]);
+
+  // Returns whether Escape did anything, so the composer only swallows the key
+  // when it acted and an open popover can still close on it.
+  const handleComposerEscape = useCallback((): boolean => {
+    if (!selectedThreadActive) return false;
     const composerEmpty = inputValue.trim().length === 0;
     debug(
       '[chat] esc interrupt: thread=%s composerEmpty=%s',
@@ -1458,20 +1470,49 @@ const Conversations = ({
     );
     handleStopGeneration();
     if (composerEmpty) {
-      // Restore the last *visible* user prompt (hidden system/injected
-      // messages are excluded here to match how the transcript is rendered).
-      const lastUserMessage = [...messages]
-        .reverse()
-        .find(m => m.sender === 'user' && !m.extraMetadata?.hidden);
-      const restored = lastUserMessage
-        ? parseMessageImages(lastUserMessage.content ?? '').text
-        : '';
+      const restored = lastVisibleUserPrompt();
       if (restored.length > 0) {
         debug('[chat] esc interrupt: restored prompt len=%d', restored.length);
         setInputValue(restored);
       }
     }
-  }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
+    return true;
+  }, [
+    handleStopGeneration,
+    inputValue,
+    lastVisibleUserPrompt,
+    selectedThreadActive,
+    selectedThreadId,
+    setInputValue,
+  ]);
+
+  // ArrowUp in an empty composer recalls this thread's last prompt for a
+  // quick resend or tweak. Returns whether it did, so the caret key otherwise
+  // behaves normally.
+  const handleRecallLastPrompt = useCallback((): boolean => {
+    if (inputValue.length > 0) return false;
+    const restored = lastVisibleUserPrompt();
+    if (restored.length === 0) return false;
+    debug('[chat] arrow-up recall: thread=%s len=%d', selectedThreadId ?? 'none', restored.length);
+    setInputValue(restored);
+    return true;
+  }, [inputValue, lastVisibleUserPrompt, selectedThreadId, setInputValue]);
+
+  // The composer's placeholder follows the thread: a turn parked on the user
+  // (approval, plan review, drafted workflow) asks for that answer first; a
+  // turn in flight takes the text as a queued follow-up.
+  const selectedThreadWaitingOnUser = selectedThreadId
+    ? Boolean(
+        pendingApprovalByThread[selectedThreadId] ||
+          pendingPlanReviewByThread[selectedThreadId] ||
+          pendingWorkflowProposalsByThread[selectedThreadId]
+      )
+    : false;
+  const composerPlaceholder = selectedThreadWaitingOnUser
+    ? t('composer.placeholder.waiting')
+    : selectedThreadActive
+      ? t('composer.placeholder.running')
+      : undefined;
 
   // The transcript itself renders from the assistant-ui runtime
   // (`AssistantUiChat`). What remains here is what the composer footer and the
