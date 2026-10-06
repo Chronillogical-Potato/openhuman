@@ -1683,11 +1683,14 @@ export interface ChatCancelOutcome {
  * callers.
  */
 export async function chatCancel(threadId: string, requestId?: string): Promise<ChatCancelOutcome> {
-  const socket = socketService.getSocket();
-  const clientId = socket?.id;
-  if (!clientId) {
-    chatLog('chat_cancel: no socket id thread=%s — cancel not sent', threadId);
-    return { accepted: false, turnCancelled: false };
+  // The cancel itself is an HTTP RPC; the client id only routes the
+  // `chat_cancelled` event that follows (which also goes to the thread room).
+  // A socket that is down or mid-reconnect — exactly when a turn is most
+  // likely to look stuck — must not swallow the Stop, so fall back to a
+  // placeholder id rather than refusing to send.
+  const clientId = socketService.getSocket()?.id || NO_SOCKET_CANCEL_CLIENT_ID;
+  if (clientId === NO_SOCKET_CANCEL_CLIENT_ID) {
+    chatLog('chat_cancel: no socket id thread=%s — sending cancel without one', threadId);
   }
 
   try {
