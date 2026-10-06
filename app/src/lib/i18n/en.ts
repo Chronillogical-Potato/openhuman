@@ -5098,6 +5098,8 @@ const en: TranslationMap = {
     'Your Codex session has expired. Please reconnect it in Settings → Integrations.',
   'chat_error.session_expired':
     'Your OpenHuman session has expired. Please sign in again to continue.',
+  'chat_error.local_session_managed_unavailable':
+    'You\'re on the local offline profile, which has no OpenHuman account behind it, so the managed (cloud) model can\'t run. Sign in to use managed models, or switch routing to "Use Your Own Models" in Connections → API keys → LLM and add your own provider.',
   'chat_error.action_budget':
     "You've hit OpenHuman's per-hour action budget. This is a local safety cap, not your AI provider. The window decays gradually; you can keep chatting in this thread and tool-heavy steps will resume as the budget refills.",
   'chat_error.max_iterations':

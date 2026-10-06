@@ -4856,6 +4856,8 @@ const messages: TranslationMap = {
     'Sesi Codex Anda telah kedaluwarsa. Hubungkan kembali di Pengaturan → Integrasi.',
   'chat_error.session_expired':
     'Sesi OpenHuman Anda telah kedaluwarsa. Silakan masuk lagi untuk melanjutkan.',
+  'chat_error.local_session_managed_unavailable':
+    'Anda berada di profil lokal offline, yang tidak memiliki akun OpenHuman di belakangnya, jadi model terkelola (cloud) tidak dapat dijalankan. Masuk untuk memakai model terkelola, atau ubah perutean ke "Gunakan Model Anda Sendiri" di Koneksi → Kunci API → LLM lalu tambahkan penyedia Anda sendiri.',
   'chat_error.action_budget':
     'Anda telah mencapai batas aksi per jam OpenHuman. Ini adalah batas keamanan lokal, bukan dari penyedia AI Anda. Batas ini pulih secara bertahap; Anda tetap bisa mengobrol di utas ini dan langkah yang banyak memakai alat akan berlanjut seiring batas terisi kembali.',
   'chat_error.max_iterations':

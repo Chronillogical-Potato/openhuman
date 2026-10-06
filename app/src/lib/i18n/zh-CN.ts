@@ -4555,6 +4555,8 @@ const messages: TranslationMap = {
   // Chat failure copy: localized render of chat_error.message, keyed by chat_error.copy_key
   'chat_error.codex_session_expired': '你的 Codex 会话已过期。请在 设置 → 集成 中重新连接。',
   'chat_error.session_expired': '你的 OpenHuman 会话已过期。请重新登录以继续。',
+  'chat_error.local_session_managed_unavailable':
+    '你正在使用本地离线配置，其背后没有 OpenHuman 账号，因此无法运行托管（云端）模型。请登录以使用托管模型，或在 连接 → API 密钥 → 语言模型 中将路由切换为“使用您自己的模型”并添加你自己的提供方。',
   'chat_error.action_budget':
     '你已达到 OpenHuman 的每小时操作上限。这是本地安全限制，并非来自你的 AI 提供商。额度会逐步恢复；你可以继续在此对话中聊天，大量使用工具的步骤会随着额度恢复而继续。',
   'chat_error.max_iterations':
