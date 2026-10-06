@@ -14,6 +14,7 @@ import ko from './ko';
 import pl from './pl';
 import pt from './pt';
 import ru from './ru';
+import tr from './tr';
 import type { Locale } from './types';
 import zhCN from './zh-CN';
 
@@ -41,6 +42,7 @@ const translations: Record<Locale, Record<string, string>> = {
   id,
   it,
   pl,
+  tr,
 };
 
 // Locales rendered right-to-left.

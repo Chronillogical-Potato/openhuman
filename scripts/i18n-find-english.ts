@@ -13,7 +13,7 @@
  *   - Non-Latin-script locales (zh-CN, hi, bn, ar, ru, ko): a non-technical value that
  *     contains NO character of the locale's native script is treated as English.
  *     (High recall — vocabulary-independent.)
- *   - Latin-script locales (de, es, fr, it, pt, id, pl): a non-technical value is flagged
+ *   - Latin-script locales (de, es, fr, it, pt, id, pl, tr): a non-technical value is flagged
  *     when it is identical to the current English value, OR when it contains >= 2 distinct
  *     English-only function words (the/and/while/may/your/…) that do not exist in any of
  *     these languages. (A vocabulary-ratio test is unreliable here because French/Spanish/
@@ -43,7 +43,7 @@ const NATIVE_SCRIPT: Record<string, RegExp> = {
   ko: /[가-힯ᄀ-ᇿ㄰-㆏]/,
 };
 
-const LATIN_LOCALES = ["es", "fr", "pt", "de", "id", "it", "pl"] as const;
+const LATIN_LOCALES = ["es", "fr", "pt", "de", "id", "it", "pl", "tr"] as const;
 const ALL_LOCALES = [...Object.keys(NATIVE_SCRIPT), ...LATIN_LOCALES];
 
 // Keys whose values are intentionally English in every locale: brand/product names,
@@ -107,7 +107,7 @@ const INTENTIONAL_ENGLISH = new Set([
   "workspace.obsidianConfigDirPlaceholder",
 ]);
 
-// Distinctly-English function words that do NOT occur in es/fr/pt/de/id/it/pl. A Latin-script
+// Distinctly-English function words that do NOT occur in es/fr/pt/de/id/it/pl/tr. A Latin-script
 // value carrying >= 2 of these is almost certainly English. Deliberately excludes ambiguous
 // short words shared with those languages (a, in, is, no, to, or, of, on, as, by, an, so…).
 const ENGLISH_FN = new Set(
