@@ -20,11 +20,16 @@
 //! probe driven through `cmd.exe` from JavaScript reports it as present, so a
 //! JS harness cannot observe the stripping at all.
 
+#[cfg(windows)]
 use std::collections::HashMap;
+#[cfg(windows)]
 use std::time::Duration;
 
+#[cfg(windows)]
 use openhuman_core::agent::harness::definition::SandboxMode;
+#[cfg(windows)]
 use openhuman_core::config::RuntimeConfig;
+#[cfg(windows)]
 use openhuman_core::sandbox::ops::{execute_in_sandbox, resolve_sandbox_policy};
 
 /// Run `command` through OpenHuman's sandbox execution path under `mode`.
@@ -32,8 +37,12 @@ use openhuman_core::sandbox::ops::{execute_in_sandbox, resolve_sandbox_policy};
 async fn run_in_sandbox(
     mode: SandboxMode,
     command: &str,
-) -> openhuman_core::sandbox::types::SandboxExecResult {
+) -> (
+    openhuman_core::sandbox::types::SandboxExecResult,
+    std::path::PathBuf,
+) {
     let tempdir = tempfile::tempdir().expect("tempdir");
+    let root = tempdir.path().to_path_buf();
     let policy = resolve_sandbox_policy(
         mode,
         tempdir.path(),
@@ -41,7 +50,7 @@ async fn run_in_sandbox(
         &RuntimeConfig::default(),
         false,
     );
-    execute_in_sandbox(
+    let result = execute_in_sandbox(
         &policy,
         command,
         tempdir.path(),
@@ -49,7 +58,8 @@ async fn run_in_sandbox(
         Duration::from_secs(120),
     )
     .await
-    .unwrap_or_else(|e| panic!("execute_in_sandbox({mode:?}) failed to run the command: {e}"))
+    .unwrap_or_else(|e| panic!("execute_in_sandbox({mode:?}) failed to run the command: {e}"));
+    (result, root)
 }
 
 #[cfg(windows)]
@@ -101,6 +111,22 @@ fn assert_bootstrap_env_resolved(result: &openhuman_core::sandbox::types::Sandbo
 }
 
 #[cfg(windows)]
+fn assert_temp_is_in_scratch(
+    result: &openhuman_core::sandbox::types::SandboxExecResult,
+    root: &std::path::Path,
+) {
+    let temp = bracketed(&result.stdout, "TEMP=").unwrap_or_default();
+    let expected_prefix = root.join("artifacts").join("sandbox-scratch");
+    let normalize = |path: &str| path.replace('/', "\\").to_ascii_lowercase();
+    assert!(
+        normalize(&temp).starts_with(&normalize(&expected_prefix.to_string_lossy())),
+        "local-jail TEMP escaped its per-test scratch tree: TEMP={temp:?}, expected under {:?}; stdout {:?}",
+        expected_prefix,
+        result.stdout
+    );
+}
+
+#[cfg(windows)]
 fn bracketed(stdout: &str, prefix: &str) -> Option<String> {
     let tail = stdout.split(prefix).nth(1)?;
     Some(tail.split(']').next()?.trim().to_string())
@@ -111,7 +137,7 @@ fn bracketed(stdout: &str, prefix: &str) -> Option<String> {
 #[cfg(windows)]
 #[tokio::test]
 async fn unsandboxed_child_receives_windows_bootstrap_env() {
-    let result = run_in_sandbox(SandboxMode::None, env_probe_command()).await;
+    let (result, _) = run_in_sandbox(SandboxMode::None, env_probe_command()).await;
     assert_bootstrap_env_resolved(&result);
 }
 
@@ -121,8 +147,9 @@ async fn unsandboxed_child_receives_windows_bootstrap_env() {
 #[cfg(windows)]
 #[tokio::test]
 async fn sandboxed_child_receives_windows_bootstrap_env() {
-    let result = run_in_sandbox(SandboxMode::Sandboxed, env_probe_command()).await;
+    let (result, root) = run_in_sandbox(SandboxMode::Sandboxed, env_probe_command()).await;
     assert_bootstrap_env_resolved(&result);
+    assert_temp_is_in_scratch(&result, &root);
 }
 
 /// The reported Node failure, end to end through OpenHuman's spawn code:
@@ -135,7 +162,7 @@ async fn node_crypto_runs_through_sandbox_path() {
         "node is required for node_crypto_runs_through_sandbox_path; missing tooling must not silently pass"
     );
 
-    let result = run_in_sandbox(
+    let (result, _) = run_in_sandbox(
         SandboxMode::None,
         r#"node -e "console.log('SR=' + process.env.SystemRoot); console.log(require('crypto').randomBytes(8).toString('hex'))""#,
     )
@@ -174,7 +201,7 @@ async fn powershell_runs_through_sandbox_path() {
         "powershell.exe is required for powershell_runs_through_sandbox_path; missing tooling must not silently pass"
     );
 
-    let result = run_in_sandbox(
+    let (result, _) = run_in_sandbox(
         SandboxMode::None,
         "powershell.exe -NoProfile -Command [guid]::NewGuid().ToString()",
     )
