@@ -3071,7 +3071,7 @@ const messages: TranslationMap = {
   'settings.ai.apiKeyFieldLabel': 'تسمية حقل مفتاح API',
   'settings.ai.apiKeyRequired': 'يرجى لصق مفتاح API للمتابعة.',
   'settings.ai.apiKeyStoredEncrypted': 'مفتاح API محفوظ مشفّرًا',
-  'settings.ai.apiKeysEncrypted': 'مفاتيح API مشفّرة في auth-profiles.json',
+  'settings.ai.apiKeysEncrypted': 'مفاتيح API مشفّرة',
   'settings.ai.clearStoredKey': 'مسح المفتاح المحفوظ',
   'settings.ai.connectProvider': 'ربط مزود',
   'settings.ai.customRouting': 'توجيه مخصص',

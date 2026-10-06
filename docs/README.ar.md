@@ -89,7 +89,7 @@
 إذا كنت تبني وكيلاً يعمل على خادم بدون واجهة رسومية، ثبّت النواة مباشرة:
 
 ```bash
-cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman-core
+cargo install --git https://github.com/tinyhumansai/openhuman --package openhuman
 ```
 
 أو شغّلها عبر حاوية Docker:
@@ -230,7 +230,7 @@ println!("{}", again.reply);
 
 ## المساهمة البرمجية من المصدر
 
-مساهم جديد؟ ابدأ بـ [`CONTRIBUTING.md`](../CONTRIBUTING.md) للتعرف على مسار عمل التفريع (Fork) وطلبات الدمج (PR) وأوامر التحقق المحلية، أو استخدم موجه وكيل الذكاء الاصطناعي الجاهز في [`CONTRIBUTING-BEGINNERS.md`](../docs/CONTRIBUTING-BEGINNERS.md#optional--let-an-ai-coding-agent-guide-you). الخطوات المختصرة:
+مساهم جديد؟ ابدأ بـ [`CONTRIBUTING.md`](../CONTRIBUTING.md) للتعرف على مسار عمل التفريع (Fork) وطلبات الدمج (PR) وأوامر التحقق المحلية، أو استخدم موجه وكيل الذكاء الاصطناعي الجاهز في [`CONTRIBUTING-BEGINNERS.md`](./CONTRIBUTING-BEGINNERS.md#optional--let-an-ai-coding-agent-guide-you). الخطوات المختصرة:
 
 1. ثبّت Git و Node.js 24+ و pnpm 10.10.0 و Rust 1.96.1 (`rustfmt` + `clippy`) و CMake و Ninja و ripgrep والمتطلبات الأساسية لبناء سطح المكتب لمنصتك.
 2. قم بعمل Fork واستنسخ المستودع، ثم شغّل `git submodule update --init --recursive` قبل `pnpm install` حتى يتم حل اعتماديات Rust الداخلية ضمن `vendor/` (مثل tinyagents و tinyflows و tinychannels و tinymemory وغيرها).
