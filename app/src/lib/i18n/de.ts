@@ -5096,7 +5096,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.listDescription':
     'Das Gedächtnis läuft auf CortexDB. Wähle, wie sich diese App damit verbindet. Es ist immer nur eine Verbindung aktiv.',
   'memoryPage.engine.offExplanation':
-    'Gerade ist keine Gedächtnisverbindung nutzbar, daher wird nichts gespeichert oder abgerufen. Melde dich an, um das integrierte CortexDB zu nutzen, oder verbinde CortexDB mit deinem API-Schlüssel oder auf diesem Computer.',
+    'Gerade ist keine Gedächtnisverbindung nutzbar, daher wird nichts gespeichert oder abgerufen. Melde dich an, um das integrierte CortexDB zu nutzen, verbinde dich mit deinem API-Schlüssel oder hoste CortexDB auf diesem Computer.',
   'memoryPage.engine.statusDegraded': 'Gedächtnis ist eingeschränkt',
   'memoryPage.engine.statusDown': 'Gedächtnis-Engine ist nicht erreichbar',
   'memoryPage.engine.statusOff': 'Aus',

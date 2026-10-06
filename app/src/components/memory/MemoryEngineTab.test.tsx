@@ -76,6 +76,9 @@ describe('isLoopbackEndpoint', () => {
     ['https://localhost', true],
     [' http://localhost:3141 ', true],
     ['http://192.168.1.10:3141', false],
+    // The URL parser rejects out-of-range octets before the host check runs.
+    ['http://127.999.1.1:3141', false],
+    ['http://127.256.0.1:3141', false],
     ['http://memory.example.internal:3141/', false],
     ['https://api-v1.cortexdb.ai', false],
     ['http://localhost.evil.com', false],
