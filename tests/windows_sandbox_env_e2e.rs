@@ -89,6 +89,15 @@ fn assert_bootstrap_env_resolved(result: &openhuman_core::sandbox::types::Sandbo
         "`USERPROFILE` resolved to nothing; stdout {:?}",
         result.stdout
     );
+    for name in ["TEMP", "PATH"] {
+        assert!(
+            !bracketed(&result.stdout, &format!("{name}="))
+                .unwrap_or_default()
+                .is_empty(),
+            "`{name}` resolved to nothing; stdout {:?}",
+            result.stdout
+        );
+    }
 }
 
 #[cfg(windows)]
@@ -122,7 +131,7 @@ async fn sandboxed_child_receives_windows_bootstrap_env() {
 #[tokio::test]
 async fn node_crypto_runs_through_sandbox_path() {
     if !tool_available("node") {
-        eprintln!("skipping node_crypto_runs_through_sandbox_path: `node` is not on PATH");
+        eprintln!("test skipped: node_crypto_runs_through_sandbox_path (`node` is not on PATH)");
         return;
     }
 
@@ -161,7 +170,9 @@ async fn node_crypto_runs_through_sandbox_path() {
 #[tokio::test]
 async fn powershell_runs_through_sandbox_path() {
     if !tool_available("powershell.exe") {
-        eprintln!("skipping powershell_runs_through_sandbox_path: `powershell.exe` is not on PATH");
+        eprintln!(
+            "test skipped: powershell_runs_through_sandbox_path (`powershell.exe` is not on PATH)"
+        );
         return;
     }
 

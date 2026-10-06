@@ -406,10 +406,15 @@ async fn execute_local_jail(
         }
     }
     platform_shell::forward_windows_bootstrap_env_std(&mut cmd);
-    cmd.env("TMPDIR", &scratch.path);
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
+    // Keep every Windows spelling of the temporary directory inside this
+    // per-call grant. `TEMP`/`TMP` are the variables used by Windows tools;
+    // `TMPDIR` covers Unix-oriented tools running on the same host.
+    cmd.env("TMPDIR", &scratch.path);
+    cmd.env("TEMP", &scratch.path);
+    cmd.env("TMP", &scratch.path);
 
     let os_backend = cwd_jail::default_backend();
     let spawn_result = if os_backend.is_available() {
