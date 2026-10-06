@@ -245,6 +245,7 @@ if should_run_suite "navigation"; then
   run "test/e2e/specs/command-palette.spec.ts"                "command-palette"           "navigation"
   run "test/e2e/specs/channels-smoke.spec.ts"                 "channels-smoke"            "navigation"
   run "test/e2e/specs/guided-tour-gates.spec.ts"              "guided-tour-gates"         "navigation"
+  run "test/e2e/specs/chip-tabs-keyboard.spec.ts"              "chip-tabs-keyboard"        "navigation"
   _mini_summary "navigation"
 fi
 

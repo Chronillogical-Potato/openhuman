@@ -76,16 +76,21 @@ test("Rust coverage installs the mock backend dependencies without a frontend ar
       areas: { ...NONE, rustCore: true },
       env: profile === "ex63" ? EX63_ENV : {},
     });
-    const selected = selectLanes(plan, ["rust-cov"]);
+    const selected = selectLanes(
+      plan,
+      profile === "ex63" ? ["frontend", "rust-cov"] : ["rust-cov"],
+    );
     assert.deepEqual(validatePlan(selected), []);
-    const checks = selected.lanes[0].checks;
+    const checks = selected.lanes.flatMap((lane) => lane.checks);
     const install = checks.find((c) => c.name === "pnpm-install");
     assert.equal(install.when, true);
     assert.equal(install.run, "pnpm install --frozen-lockfile");
     assert.ok(
       checks
         .find((c) => c.name === "rust-core-coverage")
-        .needs.includes("pnpm-install"),
+        .needs.includes(
+          profile === "ex63" ? "frontend:pnpm-install" : "pnpm-install",
+        ),
     );
   }
 });

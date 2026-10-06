@@ -833,22 +833,11 @@ impl OpenHumanSessionHost {
                 definitions,
                 security_policy: security,
                 post_turn_hooks: agent.post_turn_hooks.clone(),
-                // The caller's own definition, when this session was built from
-                // one rather than from a registry id. `AgentSpec::into_core`
-                // re-stamps the built-in orchestrator under the caller's id, so
-                // ids like `harness`/`alpha`/`beta` reach hosted resolution as
-                // names no registry holds; without handing the definition over
-                // here the lookup misses and the turn is rejected as a policy
-                // failure before any provider call (#6404/#6392/#6393).
-                session_definition: session_definition.clone().map(|mut definition| {
-                    // Explicit host attachments belong to this session's belt,
-                    // including when the definition uses a named tool scope.
-                    definition
-                        .extra_tools
-                        .extend(agent.permanent_tool_names.iter().cloned());
-                    definition.extra_tools.sort();
-                    definition.extra_tools.dedup();
-                    Arc::new(definition)
+                session_definition: session_definition.clone().map(|definition| {
+                    Arc::new(super::host_tools::add_permanent_tools(
+                        definition,
+                        &agent.permanent_tool_names,
+                    ))
                 }),
             })
         });
