@@ -20,6 +20,21 @@ pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};
 static PROVIDER: LazyLock<RwLock<Option<Arc<dyn SessionStoreProvider>>>> =
     LazyLock::new(|| RwLock::new(None));
 
+tokio::task_local! {
+    /// A provider for one task tree only, ahead of the process-wide one; how
+    /// tests in a shared binary use a store without touching each other.
+    static SCOPED: Arc<dyn SessionStoreProvider>;
+}
+
+/// Runs `future` with `provider` as the session store, for that task only.
+/// Tasks it spawns do not inherit it.
+pub async fn scope<F: std::future::Future>(
+    provider: Arc<dyn SessionStoreProvider>,
+    future: F,
+) -> F::Output {
+    SCOPED.scope(provider, future).await
+}
+
 /// Routes every agent's session state through `provider`, replacing any
 /// earlier one.
 pub fn install(provider: Arc<dyn SessionStoreProvider>) {
@@ -44,22 +59,22 @@ pub fn clear() -> bool {
     had
 }
 
-/// The installed provider, if any.
+/// The provider in effect: the task's [`scope`]d one, else the installed
+/// one, if any.
 #[must_use]
 pub fn installed() -> Option<Arc<dyn SessionStoreProvider>> {
-    PROVIDER
-        .read()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clone()
+    SCOPED.try_with(Arc::clone).ok().or_else(|| {
+        PROVIDER
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    })
 }
 
-/// Whether a host session store is installed.
+/// Whether a host session store is in effect.
 #[must_use]
 pub fn is_installed() -> bool {
-    PROVIDER
-        .read()
-        .unwrap_or_else(PoisonError::into_inner)
-        .is_some()
+    installed().is_some()
 }
 
 /// `agent_id`'s stores from the installed provider, or `None` when the core
