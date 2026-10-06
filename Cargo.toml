@@ -1,7 +1,7 @@
 # Virtual workspace root. Members: `crates/openhuman-core` (package `openhuman`,
 # the core library), `crates/openhuman-embed` (library facade),
-# `crates/openhuman-rpc` (JSON-RPC envelopes, client and server, above the core),
-# `crates/openhuman-store-sqlite` (the on-disk session store hosts install), `crates/openhuman-tinyhumans`
+# `crates/openhuman-rpc` (JSON-RPC envelopes, client and server, and the on-disk
+# session store hosts install, above the core), `crates/openhuman-tinyhumans`
 # (SDK-backed backend transport + login/session ownership for hosts),
 # `crates/openhuman-cli` (the `openhuman-core` binary, developer bins and the
 # root integration tests), and `crates/openhuman-tui` (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
@@ -17,7 +17,6 @@ members = [
     "crates/openhuman-core",
     "crates/openhuman-embed",
     "crates/openhuman-rpc",
-    "crates/openhuman-store-sqlite",
     "crates/openhuman-tinyhumans",
     "crates/openhuman-tui",
 ]
@@ -38,7 +37,6 @@ repository = "https://github.com/tinyhumansai/openhuman"
 [workspace.dependencies]
 openhuman-core = { path = "crates/openhuman-core", package = "openhuman" }
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
-openhuman-store-sqlite = { path = "crates/openhuman-store-sqlite" }
 openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
 openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
 

@@ -153,20 +153,10 @@ async fn run_server_with_services(
 
     // The desktop app and the CLI keep conversations in the classic on-disk
     // layout; the core itself carries no storage. Installed before boot so
-    // its recovery sweep runs, and resolved per call because the desktop
-    // rebinds its workspace when a different user signs in.
-    install_session_store();
+    // its recovery sweep runs.
+    crate::session_store::install();
     let runtime = builder.build().await?;
     super::serve::serve(&runtime, ready_tx, shutdown_token).await
-}
-
-/// Installs the on-disk session store over the current workspace.
-pub fn install_session_store() {
-    openhuman_core::agent::session_store::install(std::sync::Arc::new(
-        openhuman_store_sqlite::SqliteSessionStores::resolving(
-            openhuman_core::agent::session_store::context_workspace_dir,
-        ),
-    ));
 }
 
 fn apply_e2e_tool_groups(

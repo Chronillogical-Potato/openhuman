@@ -1,4 +1,4 @@
-//! The desktop session store.
+//! The on-disk session store the app, the CLI and the TUI install.
 //!
 //! [`SqliteSessionStores`] is a
 //! [`SessionStoreProvider`](tinyagents_session::port::SessionStoreProvider)
@@ -24,7 +24,7 @@
 //!
 //! ```
 //! use std::sync::Arc;
-//! use openhuman_store_sqlite::SqliteSessionStores;
+//! use openhuman_rpc::session_store::SqliteSessionStores;
 //! use tinyagents_session::port::SessionStoreProvider;
 //!
 //! let dir = tempfile::tempdir().unwrap();
@@ -127,6 +127,16 @@ fn stores_at(workspace: &Path) -> AgentStores {
     }
 }
 
+/// Installs [`SqliteSessionStores`] over the current workspace as the
+/// process's session store. Call it before the core boots, so its recovery
+/// sweep runs; the workspace is resolved per call because the desktop rebinds
+/// it when a different user signs in.
+pub fn install() {
+    openhuman_core::agent::session_store::install(Arc::new(SqliteSessionStores::resolving(
+        openhuman_core::agent::session_store::context_workspace_dir,
+    )));
+}
+
 #[cfg(test)]
-#[path = "lib_tests.rs"]
+#[path = "mod_tests.rs"]
 mod tests;
