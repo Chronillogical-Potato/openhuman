@@ -4410,6 +4410,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
+ "tinyagents-session",
  "tinymcp-bus",
  "tinymemory-api",
  "tinymemory-tools",
@@ -4430,6 +4431,7 @@ dependencies = [
  "log",
  "once_cell",
  "openhuman",
+ "openhuman-store-sqlite",
  "rand 0.10.2",
  "reqwest 0.12.28",
  "serde",
@@ -4443,6 +4445,17 @@ dependencies = [
  "url",
  "urlencoding",
  "uuid",
+]
+
+[[package]]
+name = "openhuman-store-sqlite"
+version = "0.64.10"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "log",
+ "tinyagents-harness",
+ "tinyagents-session",
 ]
 
 [[package]]
