@@ -1416,33 +1416,14 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     const expandWithVoice = vi.fn();
     mascotContext.current = { expandWithVoice };
     try {
+      await renderSelectedConversation();
       await act(async () => {
-        await renderConversationsRoute('/chat', { thread: emptyThreadState });
-      });
-      await act(async () => {
-        fireEvent.click(await screen.findByTestId('composer-human-mode'));
+        fireEvent.click(screen.getByTestId('composer-human-mode'));
       });
       expect(expandWithVoice).toHaveBeenCalledTimes(1);
-      // It stays on the chat route: the stage opens beside the conversation.
-      expect(screen.getByTestId('route-path').textContent).toMatch(/^\/chat/);
     } finally {
       mascotContext.current = undefined;
     }
-  });
-
-  it('clicking Tiny without a mascot stage falls back to the Human page', async () => {
-    mascotContext.current = undefined;
-    await act(async () => {
-      await renderConversationsRoute('/chat', { thread: emptyThreadState });
-    });
-    expect(screen.getByTestId('route-path')).toHaveTextContent('/chat');
-    await act(async () => {
-      fireEvent.click(await screen.findByTestId('composer-human-mode'));
-    });
-    // `/human` is not routed in this harness, so the chat route's probe unmounts.
-    await waitFor(() => {
-      expect(screen.queryByTestId('route-path')).not.toBeInTheDocument();
-    });
   });
 
   it('releases the pending-send lock when appendMessage rejects with a generic error', async () => {

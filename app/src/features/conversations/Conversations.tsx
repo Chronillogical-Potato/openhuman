@@ -43,6 +43,7 @@ import {
   useChatMascotSendBinding,
 } from '../../features/human/chatMascot';
 import MicComposer from '../../features/human/MicComposer';
+import { openTinyVoice } from './utils/openTinyVoice';
 import { useFlowApprovalRequests } from '../../hooks/useFlowApprovalRequests';
 import { useUnroutedApprovals } from '../../hooks/useUnroutedApprovals';
 import { useUsageState } from '../../hooks/useUsageState';
@@ -2022,7 +2023,7 @@ const Conversations = ({
         // the stage's live voice control connects. Outside the chat page (no
         // mascot provider) it falls back to the full-bleed Human page. Chat and
         // Human share one mascot (mascotSlice), so either is the same partner.
-        onOpenHumanMode={() => (chatMascot ? chatMascot.expandWithVoice() : navigate('/human'))}
+        onOpenHumanMode={() => openTinyVoice(chatMascot, navigate)}
         onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
         onModelChange={applyComposerModel}
       />
