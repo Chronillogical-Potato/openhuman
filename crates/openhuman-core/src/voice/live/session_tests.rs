@@ -39,7 +39,7 @@ fn resolves_the_requested_or_default_provider() {
 fn the_prompt_carries_voice_guidance_time_and_recent_messages() {
     let bare = system_prompt(&[]);
     assert!(bare.contains("You are Tiny"));
-    assert!(bare.contains("Current date and time"));
+    assert!(bare.contains("local date and time now"));
     assert!(!bare.contains("conversation so far"));
 
     let mut recent: Vec<_> = (0..20)
