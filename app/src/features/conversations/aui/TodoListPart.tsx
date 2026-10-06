@@ -2,9 +2,9 @@ import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 
 import {
   type TodoItem,
+  todoProgress,
   TodoReceipt,
   type TodoStatus,
-  todoProgress,
 } from '../../../components/assistant-ui/elements/todo-list';
 import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
 import { useT } from '../../../lib/i18n/I18nContext';
