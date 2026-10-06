@@ -15,9 +15,7 @@ import { bootAuthenticatedPage, dismissWalkthroughIfPresent } from '../helpers/c
  * Chromium runs with a fake microphone so the AudioWorklet uplink really runs.
  */
 test.use({
-  launchOptions: {
-    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
-  },
+  launchOptions: { args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] },
   permissions: ['microphone'],
 });
 
@@ -173,7 +171,10 @@ test.describe('Live voice agent', () => {
 
     // The fake mic streams PCM16 frames once the core is ready.
     await expect.poll(() => core.audioBytes(), { timeout: 15_000 }).toBeGreaterThan(3200);
-    await expect(page.getByTestId('live-voice-controls')).toHaveAttribute('data-state', 'listening');
+    await expect(page.getByTestId('live-voice-controls')).toHaveAttribute(
+      'data-state',
+      'listening'
+    );
     await expect(page.getByTestId('live-voice-provider')).toHaveText('Gemini');
 
     const ws = core.socket()!;
@@ -185,7 +186,10 @@ test.describe('Live voice agent', () => {
     await expect(page.getByTestId('live-voice-captions')).toContainText('What is on today?');
 
     ws.send(JSON.stringify({ type: 'tool_started', call_id: 'c1', name: 'calendar' }));
-    await expect(page.getByTestId('live-voice-tool-chip')).toHaveAttribute('data-status', 'running');
+    await expect(page.getByTestId('live-voice-tool-chip')).toHaveAttribute(
+      'data-status',
+      'running'
+    );
     ws.send(
       JSON.stringify({
         type: 'tool_finished',
@@ -217,7 +221,12 @@ test.describe('Live voice agent', () => {
     core
       .socket()!
       .send(
-        JSON.stringify({ type: 'error', code: 'provider_down', message: 'Provider down', fatal: true })
+        JSON.stringify({
+          type: 'error',
+          code: 'provider_down',
+          message: 'Provider down',
+          fatal: true,
+        })
       );
     await expect(page.getByTestId('live-voice-error')).toContainText('Provider down');
     await expect(page.getByTestId('live-voice-retry')).toBeVisible();
