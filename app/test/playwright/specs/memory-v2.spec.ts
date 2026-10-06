@@ -325,8 +325,15 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
 }
 
 async function openMemory(page: Page, query = '') {
-  await page.goto(`${MEMORY_URL}${query}`);
+  const url = `${MEMORY_URL}${query}`;
+  await page.goto(url);
   await waitForAppReady(page);
+  // The shell can restore its persisted chat route once it is ready (the race
+  // bootAuthenticatedPage also handles); reapply the Memory route if it did.
+  if (!(await page.evaluate(() => window.location.hash)).startsWith('#/connections')) {
+    await page.goto(url);
+    await waitForAppReady(page);
+  }
   await dismissWalkthroughIfPresent(page);
   await expect(page.getByTestId('memory-page')).toBeVisible({ timeout: 30_000 });
 }
