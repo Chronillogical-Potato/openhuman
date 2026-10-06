@@ -130,10 +130,10 @@ async fn sandboxed_child_receives_windows_bootstrap_env() {
 #[cfg(windows)]
 #[tokio::test]
 async fn node_crypto_runs_through_sandbox_path() {
-    if !tool_available("node") {
-        eprintln!("test skipped: node_crypto_runs_through_sandbox_path (`node` is not on PATH)");
-        return;
-    }
+    assert!(
+        tool_available("node"),
+        "node is required for node_crypto_runs_through_sandbox_path; missing tooling must not silently pass"
+    );
 
     let result = run_in_sandbox(
         SandboxMode::None,
@@ -169,12 +169,10 @@ async fn node_crypto_runs_through_sandbox_path() {
 #[cfg(windows)]
 #[tokio::test]
 async fn powershell_runs_through_sandbox_path() {
-    if !tool_available("powershell.exe") {
-        eprintln!(
-            "test skipped: powershell_runs_through_sandbox_path (`powershell.exe` is not on PATH)"
-        );
-        return;
-    }
+    assert!(
+        tool_available("powershell.exe"),
+        "powershell.exe is required for powershell_runs_through_sandbox_path; missing tooling must not silently pass"
+    );
 
     let result = run_in_sandbox(
         SandboxMode::None,

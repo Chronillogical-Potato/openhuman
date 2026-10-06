@@ -100,7 +100,9 @@ pub fn assert_forwards_windows_bootstrap(allowlist: &[&str], launcher: &str) {
 pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) {
     for var in WINDOWS_PROCESS_ENV_VARS {
         if let Ok(val) = std::env::var(var) {
-            cmd.env(var, val);
+            if !val.is_empty() {
+                cmd.env(var, val);
+            }
         }
     }
 }
@@ -112,7 +114,9 @@ pub fn forward_windows_bootstrap_env(_cmd: &mut tokio::process::Command) {}
 pub fn forward_windows_bootstrap_env_std(cmd: &mut std::process::Command) {
     for var in WINDOWS_PROCESS_ENV_VARS {
         if let Ok(val) = std::env::var(var) {
-            cmd.env(var, val);
+            if !val.is_empty() {
+                cmd.env(var, val);
+            }
         }
     }
 }
