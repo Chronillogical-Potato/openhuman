@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
+import { execFileSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
 import { test } from "node:test";
 
@@ -17,6 +18,7 @@ import {
   extractWindowsZip,
   keepsArchive,
   replaceArchiveWithMarker,
+  stageModules,
 } from "../release/stage-modules.mjs";
 
 const HOST_KEYS = [
@@ -171,3 +173,37 @@ test("a stalled download times out instead of hanging", async () => {
     },
   );
 });
+
+for (const hostKey of ["macos-15-arm64", "ubuntu-22.04-x86_64"]) {
+  test(`stageModules on ${hostKey} ${keepsArchive(hostKey) ? "keeps the archive" : "replaces the archive with its verified digest"}`, async () => {
+    const root = mkdtempSync(join(tmpdir(), "openhuman-stage-"));
+    const source = join(root, "src");
+    mkdirSync(source);
+    const library = hostKey.startsWith("macos-") ? "libdemo.dylib" : "libdemo.so";
+    writeFileSync(join(source, library), "library bytes");
+    const archiveName = `demo-1.0.0-${hostKey}.tar.gz`;
+    const built = join(root, archiveName);
+    execFileSync("tar", ["-czf", built, "-C", source, library]);
+    const bytes = readFileSync(built);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const output = join(root, "out");
+
+    await withServer((req, res) => res.end(bytes), async (url) => {
+      await stageModules({
+        hostKey,
+        output,
+        assets: [{ id: "demo", version: "1.0.0", hostKey, archive: archiveName, url, sha256 }],
+      });
+    });
+
+    const dir = join(output, "demo", "1.0.0", hostKey);
+    assert.equal(readFileSync(join(dir, library), "utf8"), "library bytes");
+    if (keepsArchive(hostKey)) {
+      assert.deepEqual(readFileSync(join(dir, archiveName)), bytes);
+      assert.equal(existsSync(join(dir, `${archiveName}.sha256`)), false);
+    } else {
+      assert.equal(existsSync(join(dir, archiveName)), false, "the archive must not ship");
+      assert.equal(readFileSync(join(dir, `${archiveName}.sha256`), "utf8"), `${sha256}\n`);
+    }
+  });
+}

@@ -188,8 +188,11 @@ export async function download(url, destination, timeoutMs = DOWNLOAD_TIMEOUT_MS
   throw new Error(`download of ${url} failed: ${lastError}`);
 }
 
-export async function stageModules({ hostKey = defaultHostKey(), output = OUTPUT } = {}) {
-  const assets = bundledAssets(readRegistrySource(), hostKey);
+export async function stageModules({
+  hostKey = defaultHostKey(),
+  output = OUTPUT,
+  assets = bundledAssets(readRegistrySource(), hostKey),
+} = {}) {
   rmSync(output, { recursive: true, force: true });
   mkdirSync(output, { recursive: true });
   writeFileSync(join(output, ".gitkeep"), "");
