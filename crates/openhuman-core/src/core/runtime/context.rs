@@ -103,6 +103,10 @@ pub struct CoreContext {
     backend_transport: Option<Arc<dyn crate::backend::transport::BackendTransport>>,
     /// Explicit authority on this derived turn context.
     turn_origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
+    /// The agent whose stores a host-installed session store
+    /// ([`crate::agent::session_store`]) hands out to work under this
+    /// context. `None` for booted contexts, which use the shared default.
+    session_agent: Option<String>,
 }
 
 /// Per-agent overrides layered onto a booted context by
@@ -130,6 +134,9 @@ pub struct ContextOverlay {
     pub tool_groups: crate::tools::toolpacks::ToolGroups,
     /// Scan the operator's user-scope skill roots (`true` = today's behaviour).
     pub user_skill_roots: bool,
+    /// The agent a host session store scopes this context's transcripts,
+    /// journal, goals and todos to. `None` keeps the parent's.
+    pub session_agent: Option<String>,
 }
 
 impl ContextOverlay {
@@ -144,6 +151,7 @@ impl ContextOverlay {
             domains,
             tool_groups,
             user_skill_roots: true,
+            session_agent: None,
         }
     }
 
@@ -151,6 +159,12 @@ impl ContextOverlay {
     /// skill discovery under the derived context.
     pub fn without_user_skill_roots(mut self) -> Self {
         self.user_skill_roots = false;
+        self
+    }
+
+    /// Scope a host session store to `agent_id` under the derived context.
+    pub fn session_agent(mut self, agent_id: impl Into<String>) -> Self {
+        self.session_agent = Some(agent_id.into());
         self
     }
 }
@@ -420,7 +434,14 @@ impl CoreContext {
             user_skill_roots: overlay.user_skill_roots,
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
+            session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
         })
+    }
+
+    /// The agent a host session store scopes work under this context to, if
+    /// this context was derived for one.
+    pub fn session_agent(&self) -> Option<&str> {
+        self.session_agent.as_deref()
     }
 
     /// The backend transport bound to this context, if the host supplied one.
