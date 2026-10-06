@@ -62,9 +62,7 @@ describe('pcm-capture-processor asset', () => {
 
   it('downsamples 48 kHz to 16 kHz PCM16 in 100 ms frames', () => {
     const Ctor = loadProcessor(48_000)[PCM_CAPTURE_PROCESSOR_NAME];
-    const proc = new Ctor({
-      processorOptions: { targetSampleRate: 16_000, frameSamples: 1_600 },
-    });
+    const proc = new Ctor({ processorOptions: { targetSampleRate: 16_000, frameSamples: 1_600 } });
     // 100 ms of 48 kHz audio in 128-sample render quanta, constant 0.5.
     const quantum = new Float32Array(128).fill(0.5);
     for (let i = 0; i < Math.ceil(4_800 / 128); i += 1) {

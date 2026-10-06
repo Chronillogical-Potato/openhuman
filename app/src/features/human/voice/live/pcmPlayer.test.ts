@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { FakeAudioContext, pcmBytes } from '../../../../test/liveVoiceFakes';
-import { PcmPlayer, pcm16ToFloat32, rms } from './pcmPlayer';
+import { pcm16ToFloat32, PcmPlayer, rms } from './pcmPlayer';
 
 function makePlayer(onPlayingChange = vi.fn()) {
   const ctx = new FakeAudioContext();

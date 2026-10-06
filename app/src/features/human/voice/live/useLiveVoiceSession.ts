@@ -20,8 +20,12 @@ import { trackAnalyticsEvent } from '../../../../components/analytics';
 import { socketService } from '../../../../services/socketService';
 import { useAppDispatch } from '../../../../store/hooks';
 import { loadThreadMessages } from '../../../../store/threadSlice';
-import { LiveVoiceSocket, type LiveVoiceEvent, resolveLiveVoiceUrl } from './liveVoiceSocket';
-import { LIVE_VOICE_INPUT_SAMPLE_RATE, type PcmCapture, startPcmCapture } from './pcmCaptureWorklet';
+import { type LiveVoiceEvent, LiveVoiceSocket, resolveLiveVoiceUrl } from './liveVoiceSocket';
+import {
+  LIVE_VOICE_INPUT_SAMPLE_RATE,
+  type PcmCapture,
+  startPcmCapture,
+} from './pcmCaptureWorklet';
 import { PcmPlayer } from './pcmPlayer';
 import { READBACK_PREFIX } from './readbackPrefix';
 
@@ -305,7 +309,11 @@ export function useLiveVoiceSession(): LiveVoiceSession {
       spokenRef.current.clear();
       resRef.current.threadId = opts?.threadId ?? null;
       setThreadId(opts?.threadId ?? null);
-      log('[session] start provider=%s has_thread=%s', opts?.provider ?? 'default', !!opts?.threadId);
+      log(
+        '[session] start provider=%s has_thread=%s',
+        opts?.provider ?? 'default',
+        !!opts?.threadId
+      );
 
       let url: string;
       try {

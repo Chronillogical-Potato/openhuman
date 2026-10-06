@@ -45,12 +45,9 @@ describe('parseLiveVoiceEvent', () => {
     expect(parseLiveVoiceEvent('{"type":"turn_complete"}')).toEqual({ type: 'turn_complete' });
   });
 
-  it.each(['not json', '42', 'null', '{"type":"bogus"}', '{"kind":"ready"}'])(
-    'rejects %s',
-    raw => {
-      expect(parseLiveVoiceEvent(raw)).toBeNull();
-    }
-  );
+  it.each(['not json', '42', 'null', '{"type":"bogus"}', '{"kind":"ready"}'])('rejects %s', raw => {
+    expect(parseLiveVoiceEvent(raw)).toBeNull();
+  });
 });
 
 describe('LiveVoiceSocket', () => {
@@ -101,10 +98,7 @@ describe('LiveVoiceSocket', () => {
     socket.sendText('hi');
     socket.interrupt();
     expect(ws.sent[1]).toBe(frame);
-    expect(ws.jsonFrames().slice(1)).toEqual([
-      { type: 'text', text: 'hi' },
-      { type: 'interrupt' },
-    ]);
+    expect(ws.jsonFrames().slice(1)).toEqual([{ type: 'text', text: 'hi' }, { type: 'interrupt' }]);
 
     socket.stop();
     expect(ws.jsonFrames().at(-1)).toEqual({ type: 'stop' });

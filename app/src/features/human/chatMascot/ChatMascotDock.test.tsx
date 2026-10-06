@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 
 import { selectChatMascotDismissed, selectChatMascotExpanded } from '../../../store/mascotSlice';
 import { renderWithProviders } from '../../../test/test-utils';
-import { type ChatMascotContextValue, ChatMascotProvider, useChatMascot } from './ChatMascotContext';
+import {
+  type ChatMascotContextValue,
+  ChatMascotProvider,
+  useChatMascot,
+} from './ChatMascotContext';
 import ChatMascotDock from './ChatMascotDock';
 
 const renderDock = (expanded = false, dismissed = false) =>

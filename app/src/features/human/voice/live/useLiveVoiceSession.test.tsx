@@ -242,7 +242,13 @@ describe('useLiveVoiceSession', () => {
     expect(result.current.toolCalls.map(c => c.status)).toEqual(['running', 'running', 'running']);
 
     act(() => {
-      ws.emit({ type: 'tool_finished', call_id: 'c1', name: 'web_search', ok: true, cancelled: false });
+      ws.emit({
+        type: 'tool_finished',
+        call_id: 'c1',
+        name: 'web_search',
+        ok: true,
+        cancelled: false,
+      });
       ws.emit({ type: 'tool_finished', call_id: 'c2', name: 'gmail', ok: false, cancelled: false });
       ws.emit({ type: 'tool_finished', call_id: 'zz', name: 'late', ok: false, cancelled: true });
     });

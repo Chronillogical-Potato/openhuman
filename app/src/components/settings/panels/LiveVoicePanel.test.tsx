@@ -110,7 +110,9 @@ describe('LiveVoicePanel', () => {
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ default_provider: 'gemini' })
     );
     await screen.findByText('Saved.');
-    expect(within(screen.getByTestId('live-voice-provider-gemini')).getByText('Default')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('live-voice-provider-gemini')).getByText('Default')
+    ).toBeTruthy();
   });
 
   it('saves a BYOK key and re-fetches providers', async () => {
@@ -168,7 +170,11 @@ describe('LiveVoicePanel', () => {
     fireEvent.click(screen.getByTestId('live-voice-test-button-elevenlabs-hosted'));
     await screen.findByText('Working');
 
-    api.testLiveVoiceProvider.mockResolvedValueOnce({ ok: false, latency_ms: null, error: 'bad key' });
+    api.testLiveVoiceProvider.mockResolvedValueOnce({
+      ok: false,
+      latency_ms: null,
+      error: 'bad key',
+    });
     fireEvent.click(screen.getByTestId('live-voice-test-button-gemini'));
     await screen.findByText('Test failed: bad key');
 

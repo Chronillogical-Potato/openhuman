@@ -13,6 +13,7 @@ import {
   selectSpeakReplies,
 } from '../../store/mascotSlice';
 import { HUMAN_VOICE_REALTIME_ENABLED, HUMAN_VOICE_SHOW_BOTH } from '../../utils/config';
+import LiveVoiceControls, { type LiveVoicePhase } from './LiveVoiceControls';
 import {
   CustomGifMascot,
   getMascotPalette,
@@ -21,7 +22,6 @@ import {
   RiveMascot,
 } from './Mascot';
 import { useMascotManifest } from './Mascot/manifest/useMascotManifest';
-import LiveVoiceControls, { type LiveVoicePhase } from './LiveVoiceControls';
 import { useHumanMascot } from './useHumanMascot';
 import { IDLE_REALTIME_VOICE_AUDIO, type RealtimeVoiceAudio } from './voice/amplitudeLipsync';
 import { useAmplitudeLipsync } from './voice/useAmplitudeLipsync';

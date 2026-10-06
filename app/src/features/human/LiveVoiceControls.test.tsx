@@ -8,9 +8,7 @@ import type { LiveVoiceSession } from './voice/live/useLiveVoiceSession';
 
 const session = vi.hoisted(() => ({ current: null as unknown as LiveVoiceSession }));
 
-vi.mock('./voice/live/useLiveVoiceSession', () => ({
-  useLiveVoiceSession: () => session.current,
-}));
+vi.mock('./voice/live/useLiveVoiceSession', () => ({ useLiveVoiceSession: () => session.current }));
 
 function makeSession(over: Partial<LiveVoiceSession> = {}): LiveVoiceSession {
   return {

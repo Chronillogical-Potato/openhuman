@@ -56,7 +56,10 @@ describe('liveVoiceApi', () => {
   });
 
   it('normalises settings with null blocks', async () => {
-    mocks.callCoreRpc.mockResolvedValueOnce({ default_provider: 'sarvam', sarvam: { speaker: 'x' } });
+    mocks.callCoreRpc.mockResolvedValueOnce({
+      default_provider: 'sarvam',
+      sarvam: { speaker: 'x' },
+    });
     await expect(fetchLiveVoiceSettings()).resolves.toEqual({
       default_provider: 'sarvam',
       gemini: { model: null, voice: null, language: null },

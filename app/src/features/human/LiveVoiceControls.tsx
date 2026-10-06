@@ -43,13 +43,10 @@ export interface LiveVoiceControlsProps {
   onPhaseChange?: (phase: LiveVoicePhase) => void;
 }
 
-const TOOL_VARIANT: Record<LiveVoiceToolCall['status'], 'primary' | 'success' | 'danger' | 'neutral'> =
-  {
-    running: 'primary',
-    ok: 'success',
-    failed: 'danger',
-    cancelled: 'neutral',
-  };
+const TOOL_VARIANT: Record<
+  LiveVoiceToolCall['status'],
+  'primary' | 'success' | 'danger' | 'neutral'
+> = { running: 'primary', ok: 'success', failed: 'danger', cancelled: 'neutral' };
 
 const TOOL_LABEL_KEY: Record<LiveVoiceToolCall['status'], string> = {
   running: 'voice.live.toolRunning',
@@ -182,9 +179,7 @@ export default function LiveVoiceControls({
           {recent.map((line, index) => (
             <p
               key={`${index}-${line.role}`}
-              className={
-                line.role === 'user' ? 'text-content-muted' : 'font-medium text-content'
-              }
+              className={line.role === 'user' ? 'text-content-muted' : 'font-medium text-content'}
               data-role={line.role}>
               {line.text}
             </p>
