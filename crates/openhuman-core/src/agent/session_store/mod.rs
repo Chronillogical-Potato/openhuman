@@ -112,6 +112,20 @@ pub fn current() -> Option<AgentStores> {
     Some(provider.for_agent(&agent))
 }
 
+/// The workspace the current [`CoreContext`](crate::core::runtime::CoreContext)
+/// is bound to, for a file-backed store that must follow it (the desktop
+/// rebinds it when a different user signs in). Before the core has booted —
+/// when no store is asked for anything — the default config's workspace.
+#[must_use]
+pub fn context_workspace_dir() -> std::path::PathBuf {
+    crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.workspace_dir().ok())
+        .unwrap_or_else(|| {
+            log::warn!("[session_store] no booted context; using the default workspace");
+            crate::config::Config::default().workspace_dir
+        })
+}
+
 /// The agent whose stores a turn without a definition id uses. Root turns of
 /// the desktop app have no per-user agent; a single shared bucket keeps them
 /// together, as the shared workspace always did.

@@ -32,6 +32,7 @@ server = [
     "dep:rand",
     "dep:uuid",
     "dep:urlencoding",
+    "dep:openhuman-store-sqlite",
 ]
 # Forwarded so the server's Sentry-routing tests run against a core that
 # reports to Sentry.
@@ -39,6 +40,8 @@ crash-reporting = ["openhuman-core/crash-reporting"]
 
 [dependencies]
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
+# The on-disk session store the app and CLI install (`install_session_store`).
+openhuman-store-sqlite = { workspace = true, optional = true }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

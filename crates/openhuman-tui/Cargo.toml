@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 openhuman-core.workspace = true
+openhuman-store-sqlite.workspace = true
 openhuman-rpc.workspace = true
 openhuman-tinyhumans.workspace = true
 anyhow = "1"

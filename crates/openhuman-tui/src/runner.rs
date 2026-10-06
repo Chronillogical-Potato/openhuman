@@ -174,6 +174,12 @@ async fn async_main(
 
     // In-process core: full domains (channel.web_chat needs DomainGroup::Channels,
     // so harness() is not enough), no RPC transport, no background services.
+    // Conversations in the classic on-disk layout, as the desktop keeps them.
+    openhuman_core::agent::session_store::install(Arc::new(
+        openhuman_store_sqlite::SqliteSessionStores::resolving(
+            openhuman_core::agent::session_store::context_workspace_dir,
+        ),
+    ));
     let runtime = Arc::new(
         CoreBuilder::new(HostKind::detect_standalone())
             .domains(DomainSet::full())

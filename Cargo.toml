@@ -1,6 +1,7 @@
 # Virtual workspace root. Members: `crates/openhuman-core` (package `openhuman`,
 # the core library), `crates/openhuman-embed` (library facade),
-# `crates/openhuman-rpc` (JSON-RPC envelopes, client and server, above the core), `crates/openhuman-tinyhumans`
+# `crates/openhuman-rpc` (JSON-RPC envelopes, client and server, above the core),
+# `crates/openhuman-store-sqlite` (the on-disk session store hosts install), `crates/openhuman-tinyhumans`
 # (SDK-backed backend transport + login/session ownership for hosts),
 # `crates/openhuman-cli` (the `openhuman-core` binary, developer bins and the
 # root integration tests), and `crates/openhuman-tui` (terminal client). `crates/openhuman-app` is deliberately excluded: it is its
