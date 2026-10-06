@@ -172,3 +172,99 @@ fn parses_only_a_start_frame_first() {
     assert!(parse_start(&Message::Text("nope".into())).is_err());
     assert!(parse_start(&Message::Binary(Bytes::new())).is_err());
 }
+
+mod socket {
+    use super::super::*;
+    use futures::{SinkExt as _, StreamExt as _};
+    use tokio_tungstenite::tungstenite::Message as WsMessage;
+
+    /// Serves `handle_live_voice_ws` on a loopback port with `config`.
+    async fn serve(config: Config) -> String {
+        let config = Arc::new(config);
+        let app = axum::Router::new().route(
+            "/ws",
+            axum::routing::get(move |ws: axum::extract::WebSocketUpgrade| {
+                let config = config.clone();
+                async move { ws.on_upgrade(move |socket| handle_live_voice_ws(socket, config)) }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        format!("ws://{addr}/ws")
+    }
+
+    async fn frames(url: &str, first: Option<WsMessage>) -> Vec<serde_json::Value> {
+        let (mut ws, _) = tokio_tungstenite::connect_async(url).await.unwrap();
+        if let Some(first) = first {
+            ws.send(first).await.unwrap();
+        }
+        let mut out = Vec::new();
+        while let Ok(Some(Ok(message))) =
+            tokio::time::timeout(Duration::from_secs(10), ws.next()).await
+        {
+            match message {
+                WsMessage::Text(text) => out.push(serde_json::from_str(&text).unwrap()),
+                WsMessage::Close(_) => break,
+                _ => {}
+            }
+        }
+        out
+    }
+
+    fn config() -> (tempfile::TempDir, Config) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = dir.path().to_path_buf();
+        config.config_path = dir.path().join("config.toml");
+        (dir, config)
+    }
+
+    #[tokio::test]
+    async fn a_bad_first_frame_is_answered_with_an_error() {
+        let (_dir, config) = config();
+        let url = serve(config).await;
+        let out = frames(&url, Some(WsMessage::Text(r#"{"type":"stop"}"#.into()))).await;
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0]["type"], "error");
+        assert_eq!(out[0]["code"], "invalid_request");
+        assert_eq!(out[0]["fatal"], true);
+    }
+
+    #[tokio::test]
+    async fn an_unknown_provider_fails_to_start_and_closes() {
+        let (_dir, config) = config();
+        let url = serve(config).await;
+        let out = frames(
+            &url,
+            Some(WsMessage::Text(
+                r#"{"type":"start","provider":"nope"}"#.into(),
+            )),
+        )
+        .await;
+        let kinds: Vec<_> = out.iter().map(|f| f["type"].as_str().unwrap()).collect();
+        assert_eq!(kinds, vec!["error", "closed"]);
+        assert_eq!(out[0]["code"], "invalid_request");
+    }
+
+    #[tokio::test]
+    async fn an_unconfigured_byok_provider_reports_not_configured() {
+        let (_dir, config) = config();
+        let url = serve(config).await;
+        let out = frames(
+            &url,
+            Some(WsMessage::Text(
+                r#"{"type":"start","provider":"sarvam"}"#.into(),
+            )),
+        )
+        .await;
+        assert_eq!(out.first().map(|f| f["type"].clone()), Some("error".into()));
+        assert!(
+            matches!(
+                out[0]["code"].as_str(),
+                Some("not_configured") | Some("internal")
+            ),
+            "{out:?}"
+        );
+    }
+}
