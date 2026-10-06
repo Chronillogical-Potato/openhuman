@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:http";
@@ -14,6 +15,8 @@ import {
   download,
   hostKeyForTarget,
   extractWindowsZip,
+  keepsArchive,
+  replaceArchiveWithMarker,
 } from "../release/stage-modules.mjs";
 
 const HOST_KEYS = [
@@ -104,6 +107,27 @@ test("host keys follow the Rust target triple, not the runner", () => {
   assert.equal(hostKeyForTarget("x86_64-pc-windows-msvc"), "windows-2022-x86_64");
   assert.equal(hostKeyForTarget("aarch64-pc-windows-msvc"), "windows-11-arm64");
   assert.throws(() => hostKeyForTarget("wasm32-unknown-unknown"), /no bundled modules/);
+});
+
+test("only macOS bundles replace the archive with its digest marker", () => {
+  for (const hostKey of HOST_KEYS) {
+    assert.equal(keepsArchive(hostKey), !hostKey.startsWith("macos-"), hostKey);
+  }
+});
+
+test("a macOS entry keeps only the archive's verified digest, in tinybus's marker format", () => {
+  const dir = mkdtempSync(join(tmpdir(), "openhuman-marker-"));
+  const archive = join(dir, "demo-1.0.0-macos-15-arm64.tar.gz");
+  writeFileSync(archive, "archive bytes");
+  writeFileSync(join(dir, "libdemo.dylib"), "library bytes");
+  const sha = createHash("sha256").update(readFileSync(archive)).digest("hex");
+
+  replaceArchiveWithMarker(archive, sha);
+
+  assert.equal(existsSync(archive), false, "the archive must not ship");
+  // tinybus reads `<archive>.sha256`, trims it and compares it to the pin.
+  assert.equal(readFileSync(`${archive}.sha256`, "utf8"), `${sha}\n`);
+  assert.equal(readFileSync(join(dir, "libdemo.dylib"), "utf8"), "library bytes");
 });
 
 async function withServer(handler, run) {
