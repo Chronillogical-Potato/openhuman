@@ -206,6 +206,11 @@ pub(crate) struct ToolOutputMiddleware {
     /// `after_tool`, where they are not — the same seam `artifact_reads` uses,
     /// and for the same reason. See [`is_raw_fetch`].
     pub(crate) raw_fetches: Mutex<std::collections::HashSet<String>>,
+    /// Calls that only print files the agent can read again (`cat`, `sed -n`,
+    /// `file_read`, ...), keyed by call id; the same `before_tool` →
+    /// `after_tool` seam. Their results skip the LLM summary. See
+    /// [`super::tool_output_file_read`].
+    pub(crate) file_reads: Mutex<std::collections::HashSet<String>>,
 }
 
 impl ToolOutputMiddleware {
@@ -285,7 +290,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 by_call.insert(call.id.clone(), focus);
             }
         }
-        if let Some(read) = artifact_read_target(&call.name, &call.arguments) {
+        if let Some(read) =
+            artifact_read_target(self.artifact_store.as_ref(), &call.name, &call.arguments)
+        {
             tracing::debug!(
                 tool = %call.name,
                 call_id = %call.id,
@@ -295,6 +302,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             );
             if let Ok(mut reads) = self.artifact_reads.lock() {
                 reads.insert(call.id.clone(), read);
+            }
+        }
+        if super::tool_output_file_read::is_file_read_call(&call.name, &call.arguments) {
+            tracing::debug!(
+                tool = %call.name,
+                call_id = %call.id,
+                "[tinyagents::mw] file read: its result skips the payload summarizer"
+            );
+            if let Ok(mut reads) = self.file_reads.lock() {
+                reads.insert(call.id.clone());
             }
         }
         if is_raw_fetch(&call.name, &call.arguments) {
@@ -333,6 +350,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             .lock()
             .ok()
             .is_some_and(|mut raw| raw.remove(&call_id));
+        let file_read = self
+            .file_reads
+            .lock()
+            .ok()
+            .is_some_and(|mut reads| reads.remove(&call_id));
         let artifact_read = self
             .artifact_reads
             .lock()
@@ -468,15 +490,35 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                  capping and spilling to an artifact instead"
             );
         }
+        //      A file read is the agent asking for a file's exact text. Within
+        //      the result budget it goes in verbatim: no summary, no
+        //      compaction. Past the budget it never gets an LLM summary (a
+        //      paraphrase of code it is about to edit, which it would only
+        //      fetch back): TinyJuice's deterministic handle and preview, then
+        //      step 3's bound, apply. See [`super::tool_output_file_read`].
+        let verbatim_file_read = file_read && (budget_bytes == 0 || content.len() <= budget_bytes);
+        if file_read {
+            tracing::info!(
+                tool = tool_name,
+                bytes = content.len(),
+                budget_bytes,
+                verbatim = verbatim_file_read,
+                "[tinyagents::mw] file read: no payload summary"
+            );
+        }
         if !raw_fetch
+            && !verbatim_file_read
             && !compaction_exempt
             && wants_tinyjuice
             && (tool_cap.is_none() || focus.is_some())
         {
             // Bind a summary call to this turn only when the result is big
             // enough for TinyJuice to want one; building the child context for
-            // every small result would be waste.
-            let (ticket, unprepared) = match self.summary_ticket(ctx, tool_name, &content) {
+            // every small result would be waste. Never for a file read.
+            let (ticket, unprepared) = match (!file_read)
+                .then(|| self.summary_ticket(ctx, tool_name, &content))
+                .flatten()
+            {
                 Some(Ok(ticket)) => (Some(ticket), false),
                 Some(Err(())) => (None, true),
                 None => (None, false),

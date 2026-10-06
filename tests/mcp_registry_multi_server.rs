@@ -35,8 +35,10 @@ fn host(config: &Config) -> std::sync::Arc<openhuman_core::mcp::host::McpHost> {
 
 fn fresh_workspace_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut cfg = Config::default();
-    cfg.workspace_dir = tmp.path().to_path_buf();
+    let cfg = Config {
+        workspace_dir: tmp.path().to_path_buf(),
+        ..Config::default()
+    };
     (tmp, cfg)
 }
 
@@ -203,13 +205,11 @@ async fn tool_calls_route_to_the_correct_server() {
     h.dynamic()
         .connect(&server_a.server_id)
         .await
-        .expect("connect server_a")
-        .tools;
+        .expect("connect server_a");
     h.dynamic()
         .connect(&server_b.server_id)
         .await
-        .expect("connect server_b")
-        .tools;
+        .expect("connect server_b");
 
     // Send distinct payloads to each server; verify each echoes its own input.
     let result_a = h
@@ -394,8 +394,7 @@ async fn disabled_server_contributes_no_tools_to_agent_surface() {
     h.dynamic()
         .connect(&live.server_id)
         .await
-        .expect("connect live server")
-        .tools;
+        .expect("connect live server");
 
     // Attempting to connect the disabled server via ops must fail with
     // a clear "disabled" message (matches mcp_registry_e2e::connect_refuses_disabled_server).

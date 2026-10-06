@@ -83,7 +83,7 @@ async fn list_tools_in_direct_mode_returns_empty_without_hitting_backend() {
     // call which reads from disk — see the matching note on
     // `execute_tool_per_call_factory_means_no_baked_client`.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
@@ -140,7 +140,7 @@ async fn execute_tool_per_call_factory_means_no_baked_client() {
     // `OPENHUMAN_WORKSPACE` at a tempdir, and persist the test's
     // `Config` to that tempdir's `config.toml` before invoking the tool.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().unwrap();
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
@@ -188,7 +188,7 @@ async fn list_toolkits_in_direct_mode_returns_empty_without_hitting_backend() {
     // call which reads from disk — see the matching note on
     // `execute_tool_per_call_factory_means_no_baked_client`.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
@@ -260,8 +260,9 @@ async fn authorize_in_direct_mode_refuses_with_app_composio_dev_hint() {
     // Also hold the composio cache lock so we don't race against ops_tests
     // that mutate INTEGRATIONS_CACHE at the same time as we reload config.
     let _cache_guard =
-        crate::integrations::composio::connected_integrations::composio_cache_test_lock();
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        crate::integrations::composio::connected_integrations::composio_cache_test_lock_async()
+            .await;
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());

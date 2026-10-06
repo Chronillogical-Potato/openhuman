@@ -2,6 +2,7 @@
 //! routed execution.
 
 use super::docker;
+use super::grants::{resolve_local_jail_grants, JailGrants};
 use super::types::{
     ElevatedOp, SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest, SandboxExecResult,
     SandboxPolicy, SandboxStatus, ELEVATED_TOOLS,
@@ -12,7 +13,7 @@ use crate::config::RuntimeConfig;
 use crate::sandbox::cwd_jail::{self, Jail, NoopBackend};
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// Safe environment variables forwarded into sandboxed execution.
@@ -20,21 +21,53 @@ pub const SANDBOX_ENV_PASSTHROUGH: &[&str] = &[
     "PATH", "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
 ];
 
+/// Host switch that turns the agent sandbox off for the whole process.
+///
+/// For hosts that already isolate the core (a container, a CI or benchmark
+/// task image, a VM): the OS jail confines commands to the action dir, which
+/// breaks work such as installing packages or editing `/etc` that the outer
+/// isolation already permits. `off`, `none`, `0`, `false` or `disabled`
+/// (case-insensitive) disable it; anything else, or unset, leaves it on.
+pub const SANDBOX_OFF_ENV: &str = "OPENHUMAN_SANDBOX";
+
+/// Whether `value` (the `OPENHUMAN_SANDBOX` setting) disables the sandbox.
+pub fn sandbox_off_value(value: Option<&str>) -> bool {
+    matches!(
+        value.map(|v| v.trim().to_ascii_lowercase()).as_deref(),
+        Some("off" | "none" | "0" | "false" | "disabled")
+    )
+}
+
+fn sandbox_disabled_by_host() -> bool {
+    sandbox_off_value(std::env::var(SANDBOX_OFF_ENV).ok().as_deref())
+}
+
 /// Resolve a `SandboxPolicy` from the agent's `SandboxMode`, the
 /// session origin, and the global runtime config.
 ///
 /// Non-main sessions (channel, cron, remote) default to `Docker` when
 /// the mode is `Sandboxed` and Docker is configured. Local interactive
 /// sessions default to `Local` (OS-level jail via `cwd_jail`).
+///
+/// `state_dir` is the core's internal `workspace_dir`; host-side scratch such
+/// as output capture goes there instead of into `action_dir`.
 pub fn resolve_sandbox_policy(
     mode: SandboxMode,
     action_dir: &Path,
+    state_dir: &Path,
     runtime_config: &RuntimeConfig,
     is_remote_session: bool,
 ) -> SandboxPolicy {
     let backend = match mode {
         SandboxMode::None => SandboxBackendKind::None,
         SandboxMode::ReadOnly => SandboxBackendKind::None,
+        SandboxMode::Sandboxed if sandbox_disabled_by_host() => {
+            tracing::debug!(
+                env = SANDBOX_OFF_ENV,
+                "[sandbox] host disabled the sandbox; running sandboxed mode unconfined"
+            );
+            SandboxBackendKind::None
+        }
         SandboxMode::Sandboxed => {
             if runtime_config.kind == "docker" || is_remote_session {
                 SandboxBackendKind::Docker
@@ -63,18 +96,30 @@ pub fn resolve_sandbox_policy(
         _ => true,
     };
 
+    // The jail denies whatever it is not told about, so a local policy carries
+    // the toolchain/git grants everyday commands need (see `sandbox::grants`).
+    let grants = if backend == SandboxBackendKind::Local {
+        resolve_local_jail_grants(dirs::home_dir().as_deref(), &runtime_config.local_jail)
+    } else {
+        JailGrants::default()
+    };
+
     tracing::debug!(
         mode = ?mode,
         backend = ?backend,
         is_remote = is_remote_session,
         action_dir = %action_dir.display(),
+        read_only_grants = grants.read_only.len(),
+        read_write_grants = grants.read_write.len(),
         "[sandbox] resolved policy"
     );
 
     SandboxPolicy {
         backend,
         workspace_root: action_dir.to_path_buf(),
-        read_only_mounts: vec![],
+        state_dir: state_dir.to_path_buf(),
+        read_only_mounts: grants.read_only,
+        read_write_mounts: grants.read_write,
         allow_network,
         env_passthrough: SANDBOX_ENV_PASSTHROUGH
             .iter()
@@ -95,10 +140,16 @@ pub fn resolve_sandbox_policy(
 /// Landlock the noop path is never reached and a regression to "always Ready"
 /// passes unnoticed. That is exactly how the original defect survived.
 pub(crate) fn local_status_for_backend(backend_name: &str) -> SandboxStatus {
-    if backend_name == cwd_jail::NOOP_BACKEND_NAME {
-        // The noop backend enforces nothing — it spawns the command as-is. It is
-        // a documented passthrough rather than a failure, so `Inactive`
-        // ("backend not initialized") is the honest report, not `Error`.
+    if backend_name == cwd_jail::NOOP_BACKEND_NAME
+        || backend_name == cwd_jail::detect::UNSUPPORTED_BACKEND_NAME
+    {
+        // The noop backend enforces nothing — it spawns the command as-is. The
+        // `unsupported` backend is what `pick_backend` answers when no OS jail
+        // is usable (no Landlock in the kernel, Windows, ...); it refuses to
+        // spawn, and `execute_local_jail` then falls back to the noop backend,
+        // so commands still run unconfined. Both are a documented passthrough
+        // rather than a failure, so `Inactive` ("backend not initialized") is
+        // the honest report, not `Error`.
         SandboxStatus::Inactive
     } else {
         SandboxStatus::Ready
@@ -233,12 +284,74 @@ async fn execute_unsandboxed(
     }
 }
 
+/// Where the local jail captures command output:
+/// `<state_dir>/artifacts/sandbox-capture`. One directory per call lives under
+/// it and is removed once the output has been read.
+pub fn sandbox_capture_root(state_dir: &Path) -> PathBuf {
+    state_dir.join("artifacts").join("sandbox-capture")
+}
+
+/// Where the local jail's per-call writable scratch lives (`TMPDIR` points
+/// here): `<state_dir>/artifacts/sandbox-scratch`.
+pub fn sandbox_scratch_root(state_dir: &Path) -> PathBuf {
+    state_dir.join("artifacts").join("sandbox-scratch")
+}
+
+/// A fresh per-call directory, `<root>/<uuid>`, removed with its contents on
+/// drop so every exit path (spawn failure, wait error, timeout) cleans up.
+struct CallDir {
+    path: PathBuf,
+    kind: &'static str,
+}
+
+impl CallDir {
+    fn create(root: PathBuf, kind: &'static str) -> anyhow::Result<Self> {
+        let path = root.join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&path).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to create sandbox {kind} dir {}: {e}",
+                path.display()
+            )
+        })?;
+        tracing::debug!(dir = %path.display(), kind, "[sandbox:local] created per-call dir");
+        Ok(Self { path, kind })
+    }
+
+    fn stdout(&self) -> PathBuf {
+        self.path.join("stdout")
+    }
+
+    fn stderr(&self) -> PathBuf {
+        self.path.join("stderr")
+    }
+}
+
+impl Drop for CallDir {
+    fn drop(&mut self) {
+        match std::fs::remove_dir_all(&self.path) {
+            Ok(()) => tracing::debug!(
+                dir = %self.path.display(),
+                kind = self.kind,
+                "[sandbox:local] removed per-call dir"
+            ),
+            Err(e) => tracing::warn!(
+                dir = %self.path.display(),
+                kind = self.kind,
+                error = %e,
+                "[sandbox:local] failed to remove per-call dir"
+            ),
+        }
+    }
+}
+
 /// Execute via the OS-level `cwd_jail` backend (Landlock/Seatbelt/AppContainer).
 ///
 /// Output capture: some OS backends (macOS Seatbelt) rebuild the command
 /// internally and don't forward piped stdio settings. We capture output
-/// by wrapping the command to redirect stdout/stderr to temp files inside
-/// the jail root, then reading them back after exit.
+/// by wrapping the command to redirect stdout/stderr into a fresh per-call
+/// directory under the core's state dir (never the user's project, #6961),
+/// grant the jail write access to that directory for this spawn only, and
+/// read the files back after exit.
 async fn execute_local_jail(
     policy: &SandboxPolicy,
     command: &str,
@@ -253,9 +366,18 @@ async fn execute_local_jail(
     for ro in &policy.read_only_mounts {
         jail = jail.add_read_only(ro);
     }
+    for rw in &policy.read_write_mounts {
+        jail = jail.add_read_write(rw);
+    }
 
-    let stdout_file = policy.workspace_root.join(".sandbox_stdout");
-    let stderr_file = policy.workspace_root.join(".sandbox_stderr");
+    let capture = CallDir::create(sandbox_capture_root(&policy.state_dir), "capture")?;
+    jail = jail.add_read_write(&capture.path);
+    // `/tmp` is not granted, so `mktemp`, compilers and package managers get a
+    // private writable TMPDIR instead; it is removed when the call ends.
+    let scratch = CallDir::create(sandbox_scratch_root(&policy.state_dir), "scratch")?;
+    jail = jail.add_read_write(&scratch.path);
+    let stdout_file = capture.stdout();
+    let stderr_file = capture.stderr();
     // Platform-aware output-capture wrap: `{ … ; } > … 2> …` on sh/bash,
     // trailing `> … 2> …` on cmd.exe (no brace grouping). Shell binary is
     // picked by `platform_shell` so this path is Windows-safe (#4705).
@@ -268,6 +390,7 @@ async fn execute_local_jail(
             cmd.env(var, val);
         }
     }
+    cmd.env("TMPDIR", &scratch.path);
     for (k, v) in extra_env {
         cmd.env(k, v);
     }
@@ -279,9 +402,6 @@ async fn execute_local_jail(
         tracing::debug!("[sandbox:local] OS backend unavailable, using noop");
         cwd_jail::spawn_with(&NoopBackend, &jail, cmd)
     };
-
-    let stdout_path = stdout_file.clone();
-    let stderr_path = stderr_file.clone();
 
     match spawn_result {
         Ok(child) => {
@@ -306,10 +426,10 @@ async fn execute_local_jail(
             })
             .await??;
 
-            let stdout = std::fs::read_to_string(&stdout_path).unwrap_or_default();
-            let stderr_content = std::fs::read_to_string(&stderr_path).unwrap_or_default();
-            let _ = std::fs::remove_file(&stdout_path);
-            let _ = std::fs::remove_file(&stderr_path);
+            let stdout = std::fs::read_to_string(&stdout_file).unwrap_or_default();
+            let stderr_content = std::fs::read_to_string(&stderr_file).unwrap_or_default();
+            drop(capture);
+            drop(scratch);
 
             Ok(SandboxExecResult {
                 exit_code: wait_result.0,
@@ -322,11 +442,7 @@ async fn execute_local_jail(
                 timed_out: wait_result.1,
             })
         }
-        Err(e) => {
-            let _ = std::fs::remove_file(&stdout_path);
-            let _ = std::fs::remove_file(&stderr_path);
-            anyhow::bail!("Failed to spawn jailed process: {e}")
-        }
+        Err(e) => anyhow::bail!("Failed to spawn jailed process: {e}"),
     }
 }
 

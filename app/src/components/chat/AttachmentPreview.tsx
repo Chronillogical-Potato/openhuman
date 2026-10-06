@@ -31,11 +31,13 @@ export default function AttachmentPreview({
             />
           ) : attachment.kind === 'video' ? (
             <div className="relative w-8 h-8 shrink-0">
-              <img
-                src={attachment.previewUri ?? attachment.dataUri}
-                alt={attachment.file.name}
-                className="w-8 h-8 rounded object-cover"
-              />
+              {attachment.previewUri && (
+                <img
+                  src={attachment.previewUri}
+                  alt={attachment.file.name}
+                  className="w-8 h-8 rounded object-cover"
+                />
+              )}
               <span className="absolute inset-0 flex items-center justify-center">
                 <svg
                   className="w-3.5 h-3.5 text-content-inverted drop-shadow-sm"

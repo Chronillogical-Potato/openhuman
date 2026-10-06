@@ -72,7 +72,7 @@ fn bootstrap_files_contain_soul_and_identity() {
 
 #[tokio::test]
 async fn init_workspace_creates_dirs_and_files_in_fresh_workspace() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let _env = EnvVarGuard::workspace_unlocked(tmp.path());
 
@@ -112,7 +112,7 @@ async fn init_workspace_creates_dirs_and_files_in_fresh_workspace() {
 
 #[tokio::test]
 async fn init_workspace_reports_existing_entries_on_second_call_without_force() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let _env = EnvVarGuard::workspace_unlocked(tmp.path());
 
@@ -146,7 +146,7 @@ async fn init_workspace_reports_existing_entries_on_second_call_without_force() 
 
 #[tokio::test]
 async fn init_workspace_with_force_overwrites_existing_bootstrap_files() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let _env = EnvVarGuard::workspace_unlocked(tmp.path());
 

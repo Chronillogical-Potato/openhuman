@@ -39,7 +39,6 @@ async fn config_secrets_roundtrip_via_keyring_backed_master_key_migration() {
         search: openhuman_core::config::schema::SearchConfig {
             brave: openhuman_core::config::schema::SearchEngineCredentials {
                 api_key: Some("brave-secret".into()),
-                ..Default::default()
             },
             ..Default::default()
         },

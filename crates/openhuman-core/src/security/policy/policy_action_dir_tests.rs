@@ -6,7 +6,6 @@
 
 use super::*;
 use std::fs;
-use std::path::Path as StdPath;
 
 /// The configured `action_dir` must be a read-write trusted root.
 ///
@@ -81,4 +80,48 @@ fn from_config_does_not_grant_an_action_dir_covering_the_workspace() {
         "an action dir above the workspace must not be granted; got: {:?}",
         policy.trusted_roots
     );
+}
+
+/// Oversized tool outputs are saved under `<workspace>/artifacts/tool-results`
+/// and pointed at by absolute path. Under `workspace_only` an absolute path is
+/// refused unless a trusted root covers it, so `from_config` grants that one
+/// directory — read-only — and nothing else under the workspace.
+#[tokio::test]
+async fn tool_result_artifacts_are_readable_by_absolute_path_under_workspace_only() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let workspace = tmp.path().join("workspace");
+    let action = tmp.path().join("project");
+    let artifacts = super::tool_result_artifacts_dir(&workspace).join("s1/shell");
+    fs::create_dir_all(&artifacts).unwrap();
+    fs::create_dir_all(&action).unwrap();
+    fs::write(artifacts.join("call.txt"), "output").unwrap();
+    let record = workspace.join("artifacts/abc");
+    fs::create_dir_all(&record).unwrap();
+    fs::write(record.join("meta.json"), "{}").unwrap();
+
+    let cfg = crate::config::AutonomyConfig {
+        enabled: true,
+        workspace_only: true,
+        ..crate::config::AutonomyConfig::default()
+    };
+    let policy = SecurityPolicy::from_config(&cfg, &workspace, &action);
+
+    let grant = super::tool_result_artifacts_dir(&workspace)
+        .to_string_lossy()
+        .to_string();
+    assert!(policy
+        .trusted_roots
+        .iter()
+        .any(|r| r.path == grant && r.access == TrustedAccess::Read));
+
+    let result = artifacts.join("call.txt");
+    policy
+        .validate_path(&result.to_string_lossy())
+        .await
+        .expect("a tool-result artifact must be readable by absolute path");
+    // The grant is that directory only: internal artifact records stay closed.
+    assert!(policy
+        .validate_path(&record.join("meta.json").to_string_lossy())
+        .await
+        .is_err());
 }

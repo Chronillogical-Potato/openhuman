@@ -21,6 +21,7 @@
 //! [`BackendApiError::BackendUnavailable`] / `BACKEND_UNAVAILABLE:`, and the
 //! URL helpers here return [`BackendTransportError::Unavailable`].
 
+pub mod classify;
 pub mod client;
 pub mod transport;
 

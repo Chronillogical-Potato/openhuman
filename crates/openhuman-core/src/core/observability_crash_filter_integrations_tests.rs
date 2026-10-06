@@ -75,7 +75,6 @@ fn integrations_filter_keeps_non_transient_failures() {
 /// `SKILL.md`) is expected user-input state — the before_send net must drop
 /// it, while a genuine 5xx remote failure and unrelated domains stay
 /// reportable.
-
 #[cfg(feature = "crash-reporting")]
 #[test]
 fn skills_install_client_error_filter_drops_4xx_keeps_5xx() {

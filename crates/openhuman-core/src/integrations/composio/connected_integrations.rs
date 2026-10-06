@@ -15,13 +15,13 @@ mod connectable_slug_tests;
 #[path = "connected_integrations_catalog_description_tests_tests.rs"]
 mod catalog_description_tests;
 
-#[cfg(test)]
-pub(crate) use cache::composio_cache_test_lock;
 pub(crate) use cache::sync_cache_with_connections;
 pub use cache::{
     cached_active_integrations, cached_active_integrations_including_expired, connected_set_hash,
     invalidate_connected_integrations_cache,
 };
+#[cfg(test)]
+pub(crate) use cache::{composio_cache_test_lock, composio_cache_test_lock_async};
 pub use fetch::{
     fetch_connected_integrations, fetch_connected_integrations_status,
     FetchConnectedIntegrationsStatus,
@@ -34,6 +34,8 @@ pub use fetch::{
 // these via a plain `use super::<name>;`, exactly as when this was one
 // un-split file. See each item's `pub(super)` in its owning submodule.
 #[cfg(test)]
-pub(crate) use cache::{cache_key, CachedIntegrations, INTEGRATIONS_CACHE};
+pub(crate) use cache::{
+    cache_key, read_cached_integrations_from, CachedIntegrations, INTEGRATIONS_CACHE,
+};
 #[cfg(test)]
 pub(crate) use fetch::{connectable_toolkit_slugs, resolve_toolkit_description};

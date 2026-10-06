@@ -102,8 +102,8 @@ fn shell_program() -> &'static str {
 /// `\"`. But `cmd.exe` does not understand `\"` — it only toggles quote state
 /// on a bare `"`. Handed to `cmd /C` via `arg`, the `>` / `2>` operators in a
 /// redirect wrap (see [`wrap_with_output_redirection`]) land inside a cmd
-/// quote-span, so no redirection happens and the `.sandbox_stdout` /
-/// `.sandbox_stderr` capture files are never written. `raw_arg` passes the
+/// quote-span, so no redirection happens and the sandbox's `stdout` /
+/// `stderr` capture files are never written. `raw_arg` passes the
 /// string to cmd verbatim, which is exactly the byte-transparent contract this
 /// module promises. `/C` itself has no special characters.
 #[cfg(windows)]

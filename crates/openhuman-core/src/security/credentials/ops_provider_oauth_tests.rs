@@ -10,9 +10,7 @@ async fn clear_session_on_empty_store_reports_removed_false() {
     // lock) it deletes whichever concurrently-running test currently owns HOME —
     // e.g. `deferred_session_without_user_id_does_not_replace_active_user_profile`,
     // whose active-session guard then silently stops firing.
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
@@ -370,9 +368,7 @@ async fn credentials_stored_under_one_workspace_dir_invisible_to_another() {
 async fn clear_session_on_one_account_does_not_affect_another() {
     // See `clear_session_on_empty_store_reports_removed_false`: `clear_session`
     // reaches the HOME-derived root, so this test must own HOME while it runs.
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp_a = TempDir::new().unwrap();
     let tmp_b = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp_a.path());
@@ -485,9 +481,7 @@ async fn start_login_gated_services_completes_with_all_services_disabled() {
     // concurrently-running `store_session` test that would then start real
     // background services. (These are the same semantics `TEST_ENV_LOCK` gives
     // the HOME-mutating tests.)
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
     // Under `#[cfg(test)]` `start_login_gated_services` skips the real services
     // by default (they leak across the parallel test run); opt this one test

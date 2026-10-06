@@ -6,7 +6,7 @@
 //! The test uses a local fixture catalog and local SKILL.md download URL so CI
 //! does not depend on the live Hermes API.
 
-use crate::env_guard::env_lock_with_file_keyring as env_lock;
+use crate::env_guard::env_lock_with_file_keyring_async as env_lock_async;
 use crate::env_guard::EnvVarGuard;
 use crate::rpc_auth::{ensure_rpc_auth, rpc_token};
 use openhuman_core::core::auth::CORE_TOKEN_ENV_VAR;
@@ -163,7 +163,7 @@ fn assert_no_jsonrpc_error<'a>(v: &'a Value, context: &str) -> &'a Value {
 /// 7. `uninstall` — removes the installed skill.
 #[tokio::test]
 async fn skill_registry_e2e_sources_browse_search_install() {
-    let _env_lock = env_lock();
+    let _env_lock = env_lock_async().await;
 
     let tmp = tempdir().expect("create tempdir");
     let home = tmp.path();
@@ -204,11 +204,11 @@ encrypt = false
     let fixture_base = format!("http://{fixture_addr}");
     let _catalog_guard = EnvVarGuard::set(
         "OPENHUMAN_SKILL_REGISTRY_CATALOG_URL",
-        &format!("{fixture_base}/skills.json"),
+        format!("{fixture_base}/skills.json"),
     );
     let _download_guard = EnvVarGuard::set(
         "OPENHUMAN_SKILL_REGISTRY_DOWNLOAD_BASE_URL",
-        &format!("{fixture_base}/skills"),
+        format!("{fixture_base}/skills"),
     );
     let _local_http_guard = EnvVarGuard::set("OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP", "1");
 

@@ -313,16 +313,14 @@ async fn regenerate_reruns_producer_and_reuses_id() {
 /// Points the default files folder (`OPENHUMAN_PROJECTS_DIR/Files`) at a temp
 /// dir for one test, holding the shared env lock, and restores it on drop.
 struct DefaultFilesDir {
-    _lock: std::sync::MutexGuard<'static, ()>,
+    _lock: tokio::sync::MutexGuard<'static, ()>,
     previous: Option<std::ffi::OsString>,
     files_dir: std::path::PathBuf,
 }
 
 impl DefaultFilesDir {
-    fn under(tmp: &TempDir) -> Self {
-        let lock = crate::config::TEST_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
+    async fn under(tmp: &TempDir) -> Self {
+        let lock = crate::config::TEST_ENV_LOCK.lock().await;
         let previous = std::env::var_os("OPENHUMAN_PROJECTS_DIR");
         let projects = tmp.path().join("projects");
         unsafe {
@@ -353,7 +351,7 @@ async fn get_returns_the_files_folder_path() {
     use crate::agent::artifacts::types::ArtifactKind;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let default = DefaultFilesDir::under(&tmp);
+    let default = DefaultFilesDir::under(&tmp).await;
     let files_dir = default.files_dir.clone();
     let (meta, path) = create_artifact(
         tmp.path(),
@@ -385,7 +383,7 @@ async fn get_reports_a_ready_file_removed_outside_openhuman() {
     use crate::agent::artifacts::types::ArtifactKind;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let default = DefaultFilesDir::under(&tmp);
+    let default = DefaultFilesDir::under(&tmp).await;
     let (meta, path) = create_artifact(
         tmp.path(),
         &default.files_dir,
@@ -411,7 +409,7 @@ async fn get_and_delete_refuse_a_record_rooted_outside_the_files_folder() {
     use crate::agent::artifacts::types::{ArtifactKind, ArtifactMeta, ArtifactStatus};
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let _default = DefaultFilesDir::under(&tmp);
+    let _default = DefaultFilesDir::under(&tmp).await;
     let home = tmp.path().join("home");
     let private = home.join("private.pdf");
     std::fs::create_dir_all(&home).unwrap();

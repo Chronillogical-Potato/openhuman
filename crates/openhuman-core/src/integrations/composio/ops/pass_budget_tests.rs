@@ -72,7 +72,7 @@ async fn stops_when_the_budget_is_spent_and_says_more_is_pending() {
     .await;
     let out = out.expect("all passes succeed");
     assert_eq!(asked, vec![SYNC_PASS_MAX_ITEMS, SYNC_PASS_MAX_ITEMS, 100]);
-    assert_eq!(out.written, u32::try_from(SINGLE_CALL_ITEM_BUDGET).unwrap());
+    assert_eq!(out.written, SINGLE_CALL_ITEM_BUDGET);
     assert!(
         out.more_pending,
         "the caller must learn the account is not drained"

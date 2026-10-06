@@ -859,6 +859,52 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(store.getState().chatRuntime.pendingPlanReviewByThread['t-plan']).toBeUndefined();
     });
 
+    it('flushes queued upload originals through core staging and caches only returned references', async () => {
+      const listeners = renderProvider();
+      const raw = '[FILE:data:application/zip;name=archive.zip;base64,AQID]';
+      const durable =
+        '[ATTACHMENT:%7B%22path%22%3A%22uploads%2Ft%2Fa%2Farchive.zip%22%2C%22name%22%3A%22archive.zip%22%2C%22mime%22%3A%22application%2Fzip%22%2C%22size_bytes%22%3A3%7D]';
+      vi.mocked(threadApi.appendMessage).mockImplementation(async (_tid, message) =>
+        message.sender === 'user' ? { ...message, content: durable } : message
+      );
+      store.dispatch(
+        pendingFollowupAdded({
+          threadId: 't-upload',
+          message: {
+            id: 'queued-upload',
+            content: raw,
+            type: 'text',
+            extraMetadata: { attachmentNames: ['archive.zip'], attachmentKinds: ['file'] },
+            sender: 'user',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+          text: raw,
+        })
+      );
+      await act(async () => {
+        listeners.onDone?.({
+          thread_id: 't-upload',
+          request_id: 'r-upload',
+          full_response: 'done',
+          rounds_used: 1,
+          total_input_tokens: 1,
+          total_output_tokens: 1,
+        });
+      });
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          't-upload',
+          expect.objectContaining({ content: raw, sender: 'user' })
+        )
+      );
+      const row = store
+        .getState()
+        .thread.messagesByThreadId['t-upload'].find(message => message.id === 'queued-upload');
+      expect(row?.content).toBe(durable);
+      expect(JSON.stringify(row?.extraMetadata)).not.toContain('base64');
+      expect(store.getState().queue.pendingFollowupsByThread['t-upload']).toBeUndefined();
+    });
+
     it('flushes queued follow-ups into the transcript when a turn ends', async () => {
       const listeners = renderProvider();
       store.dispatch(

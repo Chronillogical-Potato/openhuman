@@ -48,9 +48,11 @@ const PLAN: &str = include_str!("fixtures/computer/bali/plan.json");
 const DEFAULT_CHROME: &str = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 fn config(workspace: &std::path::Path) -> Config {
-    let mut config = Config::default();
-    config.config_path = workspace.join("config.toml");
-    config.workspace_dir = workspace.join("workspace");
+    let mut config = Config {
+        config_path: workspace.join("config.toml"),
+        workspace_dir: workspace.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.modules.enabled = true;
     config.browser.enabled = true;

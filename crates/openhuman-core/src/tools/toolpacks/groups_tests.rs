@@ -100,3 +100,39 @@ fn with_neither_set_the_floor_is_still_fail_closed() {
     assert_eq!(super::resolve(None, None), ToolGroups::default());
     assert_eq!(super::resolve(None, None), ToolGroups::packed());
 }
+
+#[test]
+fn process_default_affects_registered_tools_without_a_core_context() {
+    const CHILD: &str = "OPENHUMAN_PROCESS_TOOL_GROUP_TEST_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        let config = crate::config::Config::default();
+        let security = std::sync::Arc::new(crate::security::SecurityPolicy::default());
+        let browser = crate::config::BrowserConfig::default();
+        let http = crate::config::HttpRequestConfig::default();
+        let tools = || {
+            crate::tools::ops::all_tools(
+                std::sync::Arc::new(config.clone()),
+                &security,
+                crate::security::AuditLogger::disabled(),
+                &browser,
+                &http,
+                std::path::Path::new("/tmp/openhuman-tool-groups"),
+                &std::collections::HashMap::new(),
+                &config,
+            )
+        };
+
+        assert!(tools().iter().any(|tool| tool.name() == "doctor_health"));
+        set_process_default(ToolGroups::none());
+        assert!(!tools().iter().any(|tool| tool.name() == "doctor_health"));
+        return;
+    }
+
+    let status = std::process::Command::new(std::env::current_exe().expect("test executable"))
+        .arg("--exact")
+        .arg("tools::toolpacks::groups::tests::process_default_affects_registered_tools_without_a_core_context")
+        .env(CHILD, "1")
+        .status()
+        .expect("run isolated process-default test");
+    assert!(status.success(), "child test process failed: {status}");
+}

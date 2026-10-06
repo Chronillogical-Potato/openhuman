@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { listConnections as listComposioConnections } from '../../../../lib/composio/composioApi';
+import { getCoreStateSnapshot, setCoreStateSnapshot } from '../../../../lib/coreState/store';
 import { I18nProvider } from '../../../../lib/i18n/I18nContext';
 import {
   clearCloudProviderKey,
@@ -22,6 +23,7 @@ import {
 import { creditsApi } from '../../../../services/api/creditsApi';
 import { callCoreRpc } from '../../../../services/coreRpcClient';
 import { renderWithProviders } from '../../../../test/test-utils';
+import { createLocalSessionToken } from '../../../../utils/localSession';
 import { connectOpenRouterViaOAuth } from '../../../../utils/openrouterOAuth';
 import { openUrl } from '../../../../utils/openUrl';
 import { isTauri } from '../../../../utils/tauriCommands/common';
@@ -36,7 +38,7 @@ import AIPanel, {
 vi.mock('../../../../services/api/aiSettingsApi', async importOriginal => {
   const actual = await importOriginal<typeof import('../../../../services/api/aiSettingsApi')>();
   return {
-    ALL_WORKLOADS: ['chat', 'reasoning', 'agentic', 'coding', 'memory', 'embeddings', 'learning'],
+    ALL_WORKLOADS: ['chat', 'reasoning', 'agentic', 'coding', 'memory', 'embeddings'],
     loadAISettings: vi.fn(),
     saveAISettings: vi.fn(),
     loadLocalProviderSnapshot: vi.fn(),
@@ -129,7 +131,6 @@ const baseSettings = {
     vision: { kind: 'openhuman' as const },
     memory: { kind: 'openhuman' as const },
     embeddings: { kind: 'openhuman' as const },
-    learning: { kind: 'openhuman' as const },
   },
   modelRegistry: [],
 };
@@ -242,9 +243,23 @@ const baseConnections = [
   { id: 'pending-cal', toolkit: 'googlecalendar', status: 'PENDING' },
 ];
 
+// AIPanel tests mount no CoreStateProvider, so the session hooks read the
+// module-level snapshot store. Seed it with a real (non-local) session so the
+// managed OpenHuman row — which only exists for real sessions — is available.
+const originalCoreState = getCoreStateSnapshot();
+function seedSessionToken(sessionToken: string | null) {
+  setCoreStateSnapshot({
+    ...originalCoreState,
+    snapshot: { ...originalCoreState.snapshot, sessionToken },
+  });
+}
+
 describe('AIPanel', () => {
+  afterEach(() => setCoreStateSnapshot(originalCoreState));
+
   beforeEach(() => {
     vi.clearAllMocks();
+    seedSessionToken('header.payload.signature');
     vi.mocked(isTauri).mockReturnValue(false);
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
     vi.mocked(loadLocalProviderSnapshot).mockResolvedValue(baseLocalSnapshot);
@@ -320,6 +335,14 @@ describe('AIPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('omits the managed OpenHuman row for a local ("Continue Locally") session', async () => {
+    seedSessionToken(createLocalSessionToken());
+    renderWithProviders(<AIPanel />);
+    await waitFor(() => expect(screen.getAllByText(/^LLM Providers$/).length).toBeGreaterThan(0));
+    expect(screen.queryByTestId('provider-row-openhuman')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Always on$/i)).not.toBeInTheDocument();
+  });
+
   it('shows the per-workload routing tables directly, with no mode selector', async () => {
     renderWithProviders(<AIPanel />);
     fireEvent.click(await screen.findByRole('tab', { name: /^Routing$/i }));
@@ -371,7 +394,6 @@ describe('AIPanel', () => {
       'Coding',
       'Vision',
       'Memory summarization',
-      /Learning/,
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
@@ -887,7 +909,6 @@ describe('AIPanel', () => {
         vision: { kind: 'openhuman' as const },
         memory: { kind: 'openhuman' as const },
         embeddings: { kind: 'openhuman' as const },
-        learning: { kind: 'openhuman' as const },
       },
       modelRegistry: [],
     };
@@ -1513,7 +1534,6 @@ describe('AIPanel', () => {
         vision: { kind: 'openhuman' as const },
         memory: { kind: 'openhuman' as const },
         embeddings: { kind: 'openhuman' as const },
-        learning: { kind: 'openhuman' as const },
       },
       modelRegistry: [],
     };
@@ -1568,7 +1588,6 @@ describe('AIPanel', () => {
         vision: { kind: 'openhuman' as const },
         memory: { kind: 'openhuman' as const },
         embeddings: { kind: 'openhuman' as const },
-        learning: { kind: 'openhuman' as const },
       },
       modelRegistry: [],
     };
@@ -2167,20 +2186,12 @@ describe('AIPanel', () => {
 
   it('renders background loop diagnostics with newest spend row and budget math', async () => {
     // BackgroundLoopControls was moved out of AIPanel into standalone panels.
-    renderWithProviders(
-      <BackgroundLoopControls
-        view="all"
-        routing={baseSettings.routing}
-        cloudProviders={baseSettings.cloudProviders}
-      />
-    );
+    renderWithProviders(<BackgroundLoopControls view="all" />);
 
     await waitFor(() => expect(screen.getByText('Background loops')).toBeInTheDocument());
 
     expect(screen.getByText('Recent usage ledger')).toBeInTheDocument();
     expect(screen.getByText('Loop map')).toBeInTheDocument();
-    expect(screen.getByText('Memory tree workers')).toBeInTheDocument();
-    expect(screen.getByText('Reflection rebuild')).toBeInTheDocument();
     expect(screen.getByText('Composio sync')).toBeInTheDocument();
 
     expect(screen.getByText('Week budget')).toBeInTheDocument();
@@ -2198,7 +2209,6 @@ describe('AIPanel', () => {
     expect(screen.getByText('API reads per $ remaining')).toBeInTheDocument();
     expect(screen.getByText('Loop call budget')).toBeInTheDocument();
     expect(screen.getByText('Composio sync scans')).toBeInTheDocument();
-    expect(screen.getByText('Memory worker polls')).toBeInTheDocument();
 
     expect(screen.getByText('MEMORY_SUMMARY')).toBeInTheDocument();
     expect(screen.getByText('SPEND:USAGE_DEDUCTION:USER')).toBeInTheDocument();
@@ -2214,7 +2224,6 @@ describe('buildRoutingDiffSummary', () => {
     coding: { kind: 'default' },
     vision: { kind: 'default' },
     memory: { kind: 'default' },
-    learning: { kind: 'default' },
   });
 
   it('emits one "<label> → <target>" entry per changed workload and skips unchanged ones', () => {

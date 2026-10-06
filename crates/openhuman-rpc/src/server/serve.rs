@@ -169,8 +169,6 @@ pub async fn serve(
         });
     }
 
-    runtime.serving_started();
-
     // The serve result is held, not propagated, until the exit work below
     // has run. A `?` here on a server error would skip the memory teardown
     // on exactly the exits where a wedged store is likeliest, and the

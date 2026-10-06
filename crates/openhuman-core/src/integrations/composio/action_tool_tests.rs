@@ -171,7 +171,7 @@ fn sandbox_unset_leaves_per_action_execute_to_downstream() {
         use crate::config::TEST_ENV_LOCK;
         // Lock order module -> env, matching the ops tests (no inversion).
         let _serialised = super::super::module_client::module_guard().await;
-        let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = TEST_ENV_LOCK.lock().await;
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
@@ -206,7 +206,7 @@ fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
         // the network.
         use crate::config::TEST_ENV_LOCK;
         use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
-        let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = TEST_ENV_LOCK.lock().await;
 
         let toolkit = "cgateexec";
         let slug = "CGATEEXEC_FETCH_ITEMS";
@@ -359,7 +359,7 @@ fn mode_toggle_between_calls_is_observed() {
         // that also points it somewhere. Taken before `TEST_ENV_LOCK`, the
         // order the ops tests use, so the two never deadlock.
         let _serialised = super::super::module_client::module_guard().await;
-        let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = TEST_ENV_LOCK.lock().await;
 
         // ── Backend half ────────────────────────────────────────────
         let tmp_backend = tempfile::tempdir().expect("tempdir backend");
@@ -439,7 +439,7 @@ fn deferred_instance_returns_live_config_for_redaction() {
         use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
         // Lock order module -> env, matching the ops tests (no inversion).
         let _serialised = super::super::module_client::module_guard().await;
-        let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = TEST_ENV_LOCK.lock().await;
 
         let toolkit = "deferredredact";
         let slug = "DEFERREDREDACT_FETCH_ITEMS";
@@ -507,7 +507,7 @@ fn configured_instance_resolves_live_config_not_the_stale_snapshot() {
         // `Some(snapshot)` branch, which reloads from `config_path` rather than
         // trusting the captured snapshot.
         use crate::config::TEST_ENV_LOCK;
-        let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let _env_guard = TEST_ENV_LOCK.lock().await;
 
         let tmp = tempfile::tempdir().expect("tempdir");
 

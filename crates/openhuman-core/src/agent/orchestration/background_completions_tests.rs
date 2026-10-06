@@ -1,14 +1,12 @@
 use super::*;
-use std::sync::MutexGuard;
+use tokio::sync::MutexGuard;
 
 /// Serializes every test that touches the global [`QUEUE`]. We reuse the
 /// crate-wide `TEST_ENV_LOCK` because `clear_all` is also reachable from the
 /// `threads::ops` purge test (which holds the same lock); a module-local
 /// mutex wouldn't prevent that cross-module race.
 fn test_guard() -> MutexGuard<'static, ()> {
-    crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+    crate::config::TEST_ENV_LOCK.blocking_lock()
 }
 
 fn c(task: &str, agent: &str, summary: &str) -> CompletedBackgroundAgent {

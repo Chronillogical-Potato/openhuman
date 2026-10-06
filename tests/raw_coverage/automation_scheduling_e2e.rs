@@ -15,7 +15,7 @@
 use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -37,13 +37,18 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 /// The crate-wide env lock, not a private one. Every aggregated suite in
 /// `raw_coverage_all` shares one process, so libtest runs them concurrently
 /// and a lock local to this file would isolate nothing.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// Initialise the process RPC token (idempotent) and return the bearer the
@@ -98,15 +103,7 @@ enabled = false
 [runtime_python]
 enabled = false
 
-[memory]
-provider = "none"
-embedding_provider = "none"
-embedding_model = "none"
-embedding_dimensions = 0
 
-[memory_tree]
-embedding_strict = false
-spacy_enabled = false
 "#;
 
 /// Prove the disable switches actually bound to the fields harness-init reads,
@@ -121,10 +118,6 @@ fn assert_provisioning_is_disabled() -> openhuman_core::config::Config {
     assert!(
         !parsed.runtime_python.enabled,
         "[runtime_python] enabled=false must bind — otherwise harness_init downloads CPython"
-    );
-    assert!(
-        !parsed.memory_tree.spacy_enabled,
-        "[memory_tree] spacy_enabled=false must bind — otherwise harness_init provisions spaCy"
     );
     parsed
 }
@@ -259,7 +252,7 @@ fn str_at<'a>(value: &'a Value, pointer: &str) -> &'a str {
 /// that completes without a model.
 #[tokio::test]
 async fn cron_run_records_history_and_remove_is_not_idempotent() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let job = h
@@ -404,7 +397,7 @@ async fn cron_run_records_history_and_remove_is_not_idempotent() {
 /// `~/tinyhuman/bugs/e2e-wave-task_sources-fetch-pipeline-unavailable.md`.
 #[tokio::test]
 async fn task_sources_sync_reports_one_outcome_per_enabled_source() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let empty = h.ok(2201, "openhuman.task_sources_sync", json!({})).await;
@@ -498,7 +491,7 @@ async fn task_sources_sync_reports_one_outcome_per_enabled_source() {
 /// `~/tinyhuman/bugs/e2e-wave-task_sources-fetch-pipeline-unavailable.md`.
 #[tokio::test]
 async fn task_sources_list_databases_is_unavailable_for_every_provider() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     for (id, provider) in [
@@ -575,7 +568,7 @@ fn write_user_hooks(home: &Path) {
 /// real moment.
 #[tokio::test]
 async fn hooks_reload_list_and_test_round_trip_a_deny_rule() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     // Before the file exists, reload must produce an empty, warning-free config
@@ -759,7 +752,7 @@ async fn hooks_reload_list_and_test_round_trip_a_deny_rule() {
 /// does — the endpoint exists so an author never has to guess.
 #[tokio::test]
 async fn hooks_test_rejects_unknown_events_and_malformed_payloads() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let unknown = h
@@ -805,7 +798,7 @@ async fn hooks_test_rejects_unknown_events_and_malformed_payloads() {
 /// believes that file is running, so `list` must say why it is not.
 #[tokio::test]
 async fn hooks_reload_surfaces_a_malformed_file_as_a_warning() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let dir = h.home().join(".openhuman");
@@ -845,7 +838,7 @@ async fn hooks_reload_surfaces_a_malformed_file_as_a_warning() {
 /// not.
 #[tokio::test]
 async fn harness_init_run_completes_offline_and_force_bypasses_the_probes() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let snapshot = h.ok(2701, "openhuman.harness_init_run", json!({})).await;
@@ -864,7 +857,6 @@ async fn harness_init_run_completes_offline_and_force_bypasses_the_probes() {
     let step_ids: Vec<&str> = steps.iter().map(|step| str_at(step, "/id")).collect();
     for expected in [
         "python_runtime",
-        "spacy",
         "kompress",
         "runtime_python_server",
     ] {

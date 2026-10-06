@@ -42,7 +42,7 @@ fn desktop_external_effect_keeps_metadata_but_skips_approval_when_disabled() {
 
 #[cfg(feature = "modules")]
 async fn desktop_external_effect_inner() {
-    let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
     let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
     let temp = tempfile::tempdir().unwrap();
     std::fs::write(

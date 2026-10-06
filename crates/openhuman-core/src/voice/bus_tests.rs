@@ -42,21 +42,24 @@ async fn publishing_a_ptt_commit_reaches_a_subscriber() {
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 
     let got = events.lock().await;
-    let found = got.iter().find_map(|e| match e {
-        VoiceEvent::PttTranscriptCommitted {
-            thread_id,
-            session_id,
-            text_len,
-            held_ms,
-            finalized_by_watchdog,
-        } => Some((
-            thread_id.clone(),
-            *session_id,
-            *text_len,
-            *held_ms,
-            *finalized_by_watchdog,
-        )),
-    });
+    let found = got
+        .iter()
+        .map(|e| match e {
+            VoiceEvent::PttTranscriptCommitted {
+                thread_id,
+                session_id,
+                text_len,
+                held_ms,
+                finalized_by_watchdog,
+            } => (
+                thread_id.clone(),
+                *session_id,
+                *text_len,
+                *held_ms,
+                *finalized_by_watchdog,
+            ),
+        })
+        .next();
     assert_eq!(
         found,
         Some(("thread-1".to_string(), 42, 17, 850, false)),

@@ -1,9 +1,8 @@
 //! iMessage local-database scanner.
 //!
-//! Reads `~/Library/Messages/chat.db` on macOS (read-only) and emits one
-//! `openhuman.memory_doc_ingest` JSON-RPC call per `(chat_identifier, day)`
-//! group — matching the convention codified in
-//! `gitbooks/developing/webview-integration.md` and used by the WhatsApp scanner.
+//! Reads `~/Library/Messages/chat.db` on macOS (read-only) and files one
+//! document per `(chat_identifier, day)` group in memory's brain, under the
+//! `imessage` source, with an `openhuman.memory_brain_ingest` JSON-RPC call.
 //!
 //! Unlike the webview scanners this needs no CEF / CDP / DOM / IDB — iMessage
 //! persists everything in a local SQLite file. One tick is enough; no
@@ -421,27 +420,18 @@ fn message_body(m: &chatdb::Message) -> String {
 }
 
 #[cfg(target_os = "macos")]
-async fn ingest_group(account_id: &str, key: &str, transcript: String) -> anyhow::Result<()> {
+async fn ingest_group(_account_id: &str, key: &str, transcript: String) -> anyhow::Result<()> {
     let (chat_id, day) = key.split_once(':').unwrap_or((key, ""));
     let url = crate::core_rpc::core_rpc_url_value();
 
     let body = json!({
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "openhuman.memory_doc_ingest",
+        "method": "openhuman.memory_brain_ingest",
         "params": {
-            "namespace": format!("imessage:{}", account_id),
-            "key": key,
+            "text": transcript,
+            "source": "imessage",
             "title": format!("Messages — {} — {}", chat_id, day),
-            "content": transcript,
-            "source_type": "imessage",
-            "tags": ["chat", "imessage"],
-            "metadata": {
-                "chat_identifier": chat_id,
-                "day": day,
-                "source": "imessage"
-            },
-            "category": "chat"
         }
     });
 
@@ -450,6 +440,15 @@ async fn ingest_group(account_id: &str, key: &str, transcript: String) -> anyhow
 
     if !res.status().is_success() {
         anyhow::bail!("core rpc {}: {}", res.status(), res.text().await?);
+    }
+    // A JSON-RPC failure (memory off, an unknown method) arrives as a 200.
+    let reply: serde_json::Value = res.json().await?;
+    if let Some(error) = reply.get("error") {
+        let message = error
+            .get("message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown error");
+        anyhow::bail!("memory_brain_ingest failed: {message}");
     }
 
     log::info!("[imessage] memory upsert ok key={}", key);

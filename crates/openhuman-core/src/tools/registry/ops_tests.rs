@@ -13,13 +13,13 @@ fn registry_entries_include_mcp_and_controller_tools() {
     // controller half below must keep its coverage in BOTH builds.
     #[cfg(feature = "mcp")]
     {
-        let memory_search = entries
+        let memory_recall = entries
             .iter()
-            .find(|entry| entry.tool_id == "memory.search")
-            .expect("memory.search mcp tool");
-        assert_eq!(memory_search.transport, ToolRegistryTransport::McpStdio);
-        assert_eq!(memory_search.route["method"], json!("tools/call"));
-        assert_eq!(memory_search.health, ToolRegistryHealth::Available);
+            .find(|entry| entry.tool_id == "memory.recall")
+            .expect("memory.recall mcp tool");
+        assert_eq!(memory_recall.transport, ToolRegistryTransport::McpStdio);
+        assert_eq!(memory_recall.route["method"], json!("tools/call"));
+        assert_eq!(memory_recall.health, ToolRegistryHealth::Available);
     }
 
     // With `mcp` compiled out the registry must contain NO MCP-transport
@@ -88,9 +88,7 @@ fn diagnostics_reports_inventory_and_policy_surfaces() {
 
 #[tokio::test]
 async fn diagnostics_loads_active_capability_provider_config() {
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let _env = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path());
     std::fs::write(
@@ -228,12 +226,12 @@ fn insert_registry_entry_skips_duplicate_tool_id() {
 
 #[test]
 fn get_tool_trims_and_returns_exact_entry() {
-    // `memory.search` is an MCP-transport entry, so it is absent when the `mcp`
+    // `memory.recall` is an MCP-transport entry, so it is absent when the `mcp`
     // feature is compiled out. The behaviour under test here is id *trimming*,
     // not MCP — so fall back to a controller-transport entry rather than gating
     // the whole test away and losing that coverage in slim builds.
     #[cfg(feature = "mcp")]
-    let tool_id = "memory.search";
+    let tool_id = "memory.recall";
     #[cfg(not(feature = "mcp"))]
     let tool_id = "tools.web_search";
 

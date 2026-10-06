@@ -26,6 +26,32 @@ function toolCallProps(toolName: string, args: unknown, result: unknown): ToolCa
 }
 
 describe('memoryToolChips', () => {
+  it('builds an "added" chip for a memory learn call', () => {
+    expect(
+      memoryToolChips('memory', { action: 'learn', text: 'Prefers tea' }, '{"id":"l1"}')
+    ).toEqual([{ id: 'learn:Prefers tea', text: 'Prefers tea', change: 'added' }]);
+  });
+
+  it('builds "existing" chips from memory recall citations and fetch hits', () => {
+    const recall = memoryToolChips(
+      'memory',
+      { action: 'recall', question: 'q' },
+      JSON.stringify({ answer: 'a', citations: [{ id: 'c1', snippet: 'Launch is Friday' }] })
+    );
+    expect(recall.map(c => c.text)).toEqual(['Launch is Friday']);
+    const fetch = memoryToolChips(
+      'memory',
+      { action: 'fetch', query: 'q' },
+      { hits: [{ id: 'h1', text: 'Atlas notes' }] }
+    );
+    expect(fetch.map(c => c.change)).toEqual(['existing']);
+  });
+
+  it('shows nothing for a memory forget call or an unparsable result', () => {
+    expect(memoryToolChips('memory', { action: 'forget', ids: ['a'] }, '{}')).toEqual([]);
+    expect(memoryToolChips('memory', { action: 'recall' }, 'not json')).toEqual([]);
+  });
+
   it('builds one "added" chip for a memory_store call, keyed by its key', () => {
     const chips = memoryToolChips(
       'memory_store',

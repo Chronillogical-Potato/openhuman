@@ -19,15 +19,17 @@
 //! `ask_user_clarification` early-exit pause are all re-wired onto the
 //! tinyagents harness.
 
+mod compaction_carry;
 pub mod config;
 pub mod discovery;
 mod embeddings;
 mod harness_assembly;
 mod harness_context_ladder;
-mod harness_tool_registration;
+pub(crate) mod harness_tool_registration;
 pub mod host;
 pub(crate) mod hosted_error;
 pub(crate) mod journal;
+mod memory_summarizer;
 pub(crate) mod middleware;
 pub(crate) mod model;
 pub(crate) mod observability;
@@ -48,7 +50,6 @@ mod policy_denial;
 pub(crate) mod reaper;
 pub(crate) mod reasoning;
 pub(crate) mod replay;
-pub(crate) mod retriever;
 mod routes;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
@@ -62,11 +63,13 @@ mod turn_run_error;
 mod turn_run_finalize;
 mod turn_runner;
 mod use_skill_dispatch;
+mod verify_before_finish;
 
 pub(crate) use crate::agent::message_convert::chat_message_to_message;
 #[cfg(feature = "flows")]
 pub(crate) use crate::agent::message_convert::{reasoning_from_content, ta_call_to_oh_call};
 
+pub(crate) use compaction_carry::{last_user_message, CompactionCarry};
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{

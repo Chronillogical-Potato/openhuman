@@ -27,9 +27,7 @@ fn require_str_rejects_blank_and_missing() {
 
 #[tokio::test]
 async fn cancel_unknown_task_is_a_noop_false() {
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let mut params = Map::new();
     params.insert("taskId".into(), json!("sub-does-not-exist"));
     let out = handle_subagent_cancel(params).await.expect("handler ok");
@@ -62,9 +60,7 @@ async fn cancel_of_a_finished_run_reports_its_outcome_and_rewrites_nothing() {
     use tinyagents_harness::run_queue::RunQueue;
     use tinyagents_orchestration::subagent::DetachedSubagentStatus;
 
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("tempdir");
     // Snapshot the durable session store before and after: a real cancel
     // would `mark_failed` the session and rewrite this file.
@@ -119,9 +115,7 @@ async fn cancel_of_a_finished_run_reports_its_outcome_and_rewrites_nothing() {
 
 #[tokio::test]
 async fn steer_unknown_task_is_a_noop_false() {
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let mut params = Map::new();
     params.insert("taskId".into(), json!("sub-does-not-exist"));
     params.insert("message".into(), json!("redirect"));

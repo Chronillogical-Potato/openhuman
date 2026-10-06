@@ -160,7 +160,7 @@ fn empty_channel_permissions_with_existing_channels_migrates_to_execute() {
     let mut cfg = AgentConfig::default();
     assert!(cfg.channel_permissions.is_empty());
 
-    let known = vec!["telegram".to_string(), "discord".to_string()];
+    let known = ["telegram".to_string(), "discord".to_string()];
     let migrated = cfg.migrate_channel_permissions_if_legacy(known.iter());
 
     assert!(migrated, "legacy install must migrate");
@@ -177,8 +177,8 @@ fn empty_channel_permissions_with_existing_channels_migrates_to_execute() {
 #[test]
 fn migrate_channel_permissions_idempotent() {
     let mut cfg = AgentConfig::default();
-    cfg.migrate_channel_permissions_if_legacy(vec!["telegram".to_string()].iter());
-    let again = cfg.migrate_channel_permissions_if_legacy(vec!["telegram".to_string()].iter());
+    cfg.migrate_channel_permissions_if_legacy(["telegram".to_string()].iter());
+    let again = cfg.migrate_channel_permissions_if_legacy(["telegram".to_string()].iter());
     assert!(!again, "second migration call must be a no-op");
 }
 

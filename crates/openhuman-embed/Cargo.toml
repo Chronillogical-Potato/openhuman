@@ -17,21 +17,19 @@ hosting = ["openhuman-core/hosting"]
 modules = ["openhuman-core/modules"]
 voice = ["openhuman-core/voice"]
 web3 = ["openhuman-core/web3"]
-memory-remote = ["openhuman-core/memory-remote"]
 runtime-node = ["openhuman-core/runtime-node"]
-contacts = ["openhuman-core/contacts"]
 media = ["openhuman-core/media"]
 flows = ["openhuman-core/flows"]
 skills = ["openhuman-core/skills"]
 mcp = ["openhuman-core/mcp"]
 crash-reporting = ["openhuman-core/crash-reporting"]
 channels = ["openhuman-core/channels"]
-sandbox-landlock = ["openhuman-core/sandbox-landlock"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate"]
 
 [dependencies]
+async-trait = "0.1"
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 anyhow = "1"
 log = "0.4"
@@ -39,11 +37,19 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 thiserror = "2"
+# The memory facade (`memory`) speaks TinyMemory's contract types; same path as
+# the core's so one copy resolves.
+tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
+tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
+# Construct the owned wire config directly; core adds host disclosure policy.
+tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+async-trait = "0.1"
+tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["conformance"] }
 dirs = "6"
 env_logger = "0.11"
 wiremock = "0.6"

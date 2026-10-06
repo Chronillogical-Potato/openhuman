@@ -28,7 +28,6 @@ fn registry_with(endpoint: &str, auth: crate::config::McpAuthConfig) -> Arc<McpS
             disallowed_tools: Vec::new(),
             timeout_secs: 30,
             auth,
-            ..Default::default()
         },
         ..Default::default()
     });

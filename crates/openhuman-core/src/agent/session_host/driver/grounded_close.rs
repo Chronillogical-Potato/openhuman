@@ -142,6 +142,36 @@ pub(super) async fn repair_required_output(
     })
 }
 
+/// The tool-less closing instruction for `outcome`: the cap checkpoint when the
+/// run stopped at its call cap, otherwise the final-answer directive — which
+/// names the run's real stop cause (a breaker halt, or a reply that ran out of
+/// output tokens while reasoning) rather than claiming the model finished.
+fn close_instruction(
+    outcome: &TinyagentsTurnOutcome,
+    needs_cap_close: bool,
+    rendered: &str,
+) -> String {
+    if needs_cap_close {
+        return format!(
+            "{}\n\n<tool_records>\n{}\n</tool_records>",
+            wrap_harness_instruction(turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION),
+            if rendered.is_empty() {
+                "(no tool calls completed)"
+            } else {
+                rendered
+            }
+        );
+    }
+    if outcome.truncated {
+        tracing::info!(
+            model_calls = outcome.model_calls,
+            tool_calls = outcome.tool_calls,
+            "[session-runtime] closing a turn whose last reply ran out of output tokens"
+        );
+    }
+    final_answer_instruction(outcome.breaker_halt.as_deref(), outcome.truncated, rendered)
+}
+
 /// Return `None` when the loop's terminal text is already usable.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn close_if_needed(
@@ -165,19 +195,7 @@ pub(super) async fn close_if_needed(
     }
     let records = results_from_tool_outcomes(&outcome.tool_outcomes);
     let rendered = render_tool_results(&records, turn_checkpoint::GROUNDING_TOTAL_CHARS);
-    let instruction = if needs_cap_close {
-        format!(
-            "{}\n\n<tool_records>\n{}\n</tool_records>",
-            wrap_harness_instruction(turn_checkpoint::MAX_ITER_CHECKPOINT_INSTRUCTION),
-            if rendered.is_empty() {
-                "(no tool calls completed)"
-            } else {
-                &rendered
-            }
-        )
-    } else {
-        final_answer_instruction(outcome.breaker_halt.as_deref(), &rendered)
-    };
+    let instruction = close_instruction(outcome, needs_cap_close, &rendered);
     let base: Vec<TranscriptMessage> = base_history
         .iter()
         .filter_map(message_to_native_chat_message)

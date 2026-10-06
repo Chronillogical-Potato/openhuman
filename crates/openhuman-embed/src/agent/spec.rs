@@ -51,6 +51,49 @@ pub struct AgentSpec {
     composio: Option<ComposioHostCredential>,
     config_fn: Option<ConfigEdit>,
     host_tools: Option<openhuman_core::agent::HostTools>,
+    memory: Option<MemoryBinding>,
+}
+
+/// Whose memory an agent reads and writes: the memory agent id its turns are
+/// logged under, and the layout root (tenant) its memory lives below.
+///
+/// Without one, an agent's memory agent id is its definition id and its
+/// root is the runtime's default — every agent on the runtime shares
+/// learnings and the brain, and keeps its own conversations. A coordinating
+/// host that reuses OpenHuman agents as, say, employees of a company binds
+/// each to its own id (and, per tenant, its own root).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemoryBinding {
+    agent_id: String,
+    root: Option<String>,
+}
+
+impl MemoryBinding {
+    /// Memory under `agent_id`, at the runtime's default root.
+    pub fn new(agent_id: impl Into<String>) -> Self {
+        Self {
+            agent_id: agent_id.into(),
+            root: None,
+        }
+    }
+
+    /// The layout root (`team:acme`, `project:q4`): memory below it is
+    /// shared by every agent bound there, and invisible to other roots.
+    #[must_use]
+    pub fn root(mut self, root: impl Into<String>) -> Self {
+        self.root = Some(root.into());
+        self
+    }
+
+    /// The memory agent id.
+    pub fn agent_id(&self) -> &str {
+        &self.agent_id
+    }
+
+    /// The layout root, when one is set.
+    pub fn root_namespace(&self) -> Option<&str> {
+        self.root.as_deref()
+    }
 }
 
 impl AgentSpec {
@@ -81,6 +124,7 @@ impl AgentSpec {
             composio: None,
             config_fn: None,
             host_tools: None,
+            memory: None,
         }
     }
 
@@ -202,6 +246,14 @@ impl AgentSpec {
         self
     }
 
+    /// Binds the agent's memory: the memory agent id its turns are logged
+    /// under and, optionally, its layout root. See [`MemoryBinding`].
+    #[must_use]
+    pub fn memory(mut self, binding: MemoryBinding) -> Self {
+        self.memory = Some(binding);
+        self
+    }
+
     /// Arbitrary edits to the agent's config, applied last.
     ///
     /// The escape hatch for the config fields the spec does not model — not
@@ -306,6 +358,7 @@ impl AgentSpec {
             composio: self.composio,
             config_fn: self.config_fn,
             host_tools: self.host_tools,
+            memory: self.memory,
         }
     }
 }
@@ -330,6 +383,7 @@ pub(crate) struct AgentSpecParts {
     pub(crate) composio: Option<ComposioHostCredential>,
     pub(crate) config_fn: Option<ConfigEdit>,
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
+    pub(crate) memory: Option<MemoryBinding>,
 }
 
 impl std::fmt::Debug for AgentSpec {
@@ -340,6 +394,7 @@ impl std::fmt::Debug for AgentSpec {
             .field("access", &self.access)
             .field("action_dir", &self.action_dir)
             .field("composio", &self.composio)
+            .field("memory", &self.memory)
             .finish_non_exhaustive()
     }
 }

@@ -413,7 +413,7 @@ bot_token = "{stale_ciphertext}"
         .as_ref()
         .map(|d| d.bot_token.as_str());
     assert!(
-        discord_token.map_or(true, |t| t.is_empty()),
+        discord_token.is_none_or(|t| t.is_empty()),
         "Expected discord.bot_token to be cleared after decryption failure, got: {discord_token:?}"
     );
 }
@@ -459,7 +459,7 @@ allowed_users = ["@admin"]
 
 #[test]
 fn resolve_action_dir_env_beats_override_and_default() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::set_var(ACTION_DIR_ENV_VAR, "/tmp/env-action-dir");
     }
@@ -476,7 +476,7 @@ fn resolve_action_dir_env_beats_override_and_default() {
 
 #[test]
 fn resolve_action_dir_override_beats_default_when_no_env() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::remove_var(ACTION_DIR_ENV_VAR);
     }
@@ -490,7 +490,7 @@ fn resolve_action_dir_override_beats_default_when_no_env() {
 
 #[test]
 fn resolve_action_dir_falls_back_to_default_when_none() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::remove_var(ACTION_DIR_ENV_VAR);
     }
@@ -503,7 +503,7 @@ fn resolve_action_dir_falls_back_to_default_when_none() {
 
 #[test]
 fn resolve_action_dir_blank_env_does_not_pin() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::set_var(ACTION_DIR_ENV_VAR, "   ");
     }
@@ -520,7 +520,7 @@ fn resolve_action_dir_blank_env_does_not_pin() {
 
 #[test]
 fn resolve_action_dir_rejects_relative_override() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::remove_var(ACTION_DIR_ENV_VAR);
     }
@@ -534,7 +534,7 @@ fn resolve_action_dir_rejects_relative_override() {
 
 #[test]
 fn resolve_action_dir_rejects_empty_override() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::remove_var(ACTION_DIR_ENV_VAR);
     }

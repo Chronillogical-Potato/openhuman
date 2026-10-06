@@ -94,9 +94,7 @@ fn direct_mode_hands_the_module_the_hosts_proxy_policy() {
     use crate::config::schema::{ProxyConfig, ProxyScope};
     use crate::config::{runtime_proxy_config, set_runtime_proxy_config};
 
-    let _env = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env = crate::config::TEST_ENV_LOCK.blocking_lock();
     let mut config = bare_config();
     config.composio.mode = COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("sk-from-file".to_string());

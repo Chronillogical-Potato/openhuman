@@ -11,7 +11,7 @@
  *
  * This file is a thin composition — every section lives in `./ai/*`.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -20,8 +20,6 @@ import {
 } from '../../../services/api/aiSettingsApi';
 import { connectOpenRouterViaOAuth } from '../../../utils/openrouterOAuth';
 import PanelPage from '../../layout/PanelPage';
-import Button from '../../ui/Button';
-import { ModalShell } from '../../ui/ModalShell';
 import SettingsBackButton from '../components/SettingsBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import {
@@ -29,7 +27,6 @@ import {
   BUILTIN_PROVIDER_META,
   type CloudProvider,
   defaultEndpointFor,
-  formatI18n,
   inferRoutingMode,
   ROUTING_WORKLOAD_IDS,
   type WorkloadId,
@@ -48,7 +45,6 @@ import { useProviderConnect } from './ai/useProviderConnect';
 import { WorkloadRow } from './ai/WorkloadRow';
 import { WorkloadTable } from './ai/WorkloadTable';
 import { routingWithProviderRemoved } from './aiRouting';
-import { useReembedBackfillModal } from './useReembedBackfillModal';
 
 export type { CloudProvider, ProviderRef, RoutingMap } from './ai/aiPanelTypes';
 export { buildRoutingDiffSummary, BackgroundLoopControls };
@@ -66,6 +62,16 @@ interface AIPanelProps {
   onTabChange?: (tab: AIPanelTab) => void;
   /** Suppress PanelPage's internal tab chrome for a host-rendered chip row. */
   hideTabChrome?: boolean;
+  /**
+   * Reports whether the panel holds unsaved edits.
+   *
+   * The onboarding wizard needs this: the panel keeps its own `SaveBar`, so a
+   * host with its own Continue button offers two competing ways to commit, and
+   * Continue used to navigate away and drop the edits silently. The wizard
+   * subscribes and disables Continue while dirty. Undefined for Settings,
+   * which has no second commit control.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   /** Host-owned "Add provider" dialog state (the host renders the button in
    *  its header). Undefined lets the providers section keep its own button. */
   addProviderOpen?: boolean;
@@ -79,12 +85,18 @@ const AIPanel = ({
   hideTabChrome = false,
   addProviderOpen,
   onAddProviderOpenChange,
+  onDirtyChange,
 }: AIPanelProps = {}) => {
   const { t } = useT();
   const { navigateBack } = useSettingsNavigation();
   const { saved, draft, isDirty, save, persist, discard, loading, error, reload } = useAISettings();
+
+  // Let a host with its own commit control know there are unsaved edits. See
+  // the prop's note: without this the wizard's Continue silently discarded them.
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
   // #1574 §4b: advisory re-embed modal, driven by the backend status RPC.
-  const { reembed, handleSave, dismissReembed } = useReembedBackfillModal(save);
   const ollama = useOllamaStatus();
   const installed = useInstalledModels(ollama.snapshot);
   const [editing, setEditing] = useState<CloudProvider | 'new' | null>(null);
@@ -211,6 +223,7 @@ const AIPanel = ({
             content: (
               <div className="flex w-full flex-col gap-4">
                 <ProviderAuthSection
+                  hideAddButton={hideTabChrome}
                   draft={draft}
                   persist={persist}
                   loading={loading}
@@ -238,7 +251,7 @@ const AIPanel = ({
                   <SaveBar
                     diffSummary={diffSummary}
                     changeCount={diffSummary.length}
-                    onSave={() => void handleSave()}
+                    onSave={() => void save()}
                     onDiscard={discard}
                   />
                 )}
@@ -293,7 +306,7 @@ const AIPanel = ({
                   <SaveBar
                     diffSummary={diffSummary}
                     changeCount={diffSummary.length}
-                    onSave={() => void handleSave()}
+                    onSave={() => void save()}
                     onDiscard={discard}
                   />
                 )}
@@ -302,31 +315,6 @@ const AIPanel = ({
           },
         ]}
       />
-      {/* Informational, not a decision: one acknowledging action and no
-        second choice. That rules out `AlertDialog`, whose own contract
-        requires rendering a Cancel — offering "Cancel" for a notice the user
-        can only acknowledge invents a branch that does not exist. `Dialog`
-        via `ModalShell` is the right primitive, and it still brings the focus
-        trap, scroll lock and Escape handling. */}
-      {reembed.open && (
-        <ModalShell
-          title={t('settings.ai.reindexingMemory')}
-          titleId="ai-reembed-dialog-title"
-          onClose={dismissReembed}
-          maxWidthClassName="max-w-sm"
-          footer={
-            <div className="flex justify-end">
-              <Button variant="primary" size="sm" onClick={dismissReembed}>
-                {t('common.ok')}
-              </Button>
-            </div>
-          }>
-          <div className="text-sm text-content-secondary">
-            {formatI18n(t('settings.ai.reindexingMemoryMessage'), { pending: reembed.pending })}
-          </div>
-        </ModalShell>
-      )}
-
       {editing && (
         <CloudProviderEditor
           initial={editing === 'new' ? null : editing}

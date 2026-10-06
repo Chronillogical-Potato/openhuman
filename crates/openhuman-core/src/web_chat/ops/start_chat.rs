@@ -155,56 +155,25 @@ pub async fn start_chat(
         return Err(StartChatError::Other("message is required".to_string()));
     }
 
-    // [pdf/image-attach fix] Process attachments at ingress, BEFORE the message is
-    // injection-scanned, persisted to history/JSONL, or auto-saved to the memory
-    // store. Otherwise a multi-MB base64 data URI floods every upstream stage
-    // (N-chunk embed → Voyage 400, cross-thread index) and stalls the turn.
-    //   [FILE:data:…]  → [FILE-EXTRACTED]text (or [FILE-ATTACHED] placeholder)
-    //   [IMAGE:data:…] → [Image: … #att:<id>] placeholder + out-of-band stash
-    // Images are rehydrated to a data URI at provider dispatch for vision-capable
-    // models only.
+    // Save originals before scanning, history, memory, or queue persistence.
+    // A missing config/root cannot safely accept an upload.
     let mut message = if message.contains("[FILE:") || message.contains("[IMAGE:") {
-        let before_chars = message.chars().count();
-        log::debug!(
-            "[web-channel][ingress] preprocessing attachment markers thread_id={} client_id={} chars={}",
-            thread_id,
-            client_id,
-            before_chars
-        );
-        // Fail CLOSED on a config-load error: process with default limits rather
-        // than passing the raw `[FILE:data:…]`/`[IMAGE:data:…]` blob through —
-        // otherwise the injection scan, history/JSONL persistence, and memory
-        // autosave all see the multi-MB data URI again, reopening the flood path.
-        let (file_cfg, image_cfg) = match crate::config::rpc::load_config_with_timeout().await {
-            Ok(cfg) => {
-                log::debug!(
-                    "[web-channel][ingress] using configured multimodal limits thread_id={}",
-                    thread_id
-                );
-                (cfg.multimodal_files, cfg.multimodal)
-            }
-            Err(err) => {
-                log::warn!(
-                    "[web-channel][ingress] config load failed; using default limits (fail-closed) thread_id={} err={err}",
-                    thread_id
-                );
-                (
-                    crate::config::MultimodalFileConfig::default(),
-                    crate::config::MultimodalConfig::default(),
-                )
-            }
-        };
-        let extracted =
-            crate::agent::multimodal::inline_file_attachments(&message, &file_cfg).await;
-        let processed =
-            crate::agent::multimodal::stash_image_attachments(&extracted, &image_cfg).await;
-        log::debug!(
-            "[web-channel][ingress] attachment preprocessing complete thread_id={} before_chars={} after_chars={}",
-            thread_id,
-            before_chars,
-            processed.chars().count()
-        );
-        processed
+        let config = crate::config::rpc::load_config_with_timeout()
+            .await
+            .map_err(|error| {
+                StartChatError::Other(format!("upload configuration unavailable: {error}"))
+            })?;
+        crate::agent::attachments::stage(
+            &message,
+            &thread_id,
+            &config,
+            &crate::agent::attachments::AttachmentAccessScope {
+                external_channel: false,
+                workspace: Some(config.action_dir.clone()),
+            },
+        )
+        .await
+        .map_err(|error| StartChatError::Other(format!("upload could not be saved: {error}")))?
     } else {
         message
     };
@@ -498,7 +467,7 @@ pub async fn start_chat(
             // user-facing `chat_error`, so we just unwind quietly here.
             let result = run_turn_under_cancel_and_deadline(
                 task_cancel_token,
-                origin,
+                origin.clone(),
                 approval_ctx,
                 run_chat_task(
                     &client_id_task,
@@ -510,6 +479,7 @@ pub async fn start_chat(
                     locale,
                     turn_run_queue_task,
                     metadata,
+                    origin.clone(),
                     /* fork */ false,
                 ),
             )

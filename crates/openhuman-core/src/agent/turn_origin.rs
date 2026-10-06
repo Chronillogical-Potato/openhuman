@@ -191,6 +191,18 @@ tokio::task_local! {
 /// covers every caller (web channel, channel runtime, cron, background
 /// jobs, CLI).
 pub async fn with_origin<F: std::future::Future>(origin: AgentTurnOrigin, fut: F) -> F::Output {
+    let scoped = scope_origin(origin.clone(), fut);
+    let context = crate::core::runtime::CoreContext::current()
+        .or_else(crate::core::runtime::CoreContext::default_context);
+    if let Some(context) = context {
+        crate::core::runtime::CoreContext::scope_with_turn_origin(context, Some(origin), scoped)
+            .await
+    } else {
+        scoped.await
+    }
+}
+
+async fn scope_origin<F: std::future::Future>(origin: AgentTurnOrigin, fut: F) -> F::Output {
     AGENT_TURN_ORIGIN.scope(origin, Box::pin(fut)).await
 }
 

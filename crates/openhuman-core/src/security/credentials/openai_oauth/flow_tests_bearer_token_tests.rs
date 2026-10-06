@@ -100,9 +100,7 @@ fn lookup_openai_bearer_token_returns_ok_when_nearly_expiring_and_refresh_fails(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn lookup_openai_bearer_token_does_not_persist_blank_refreshed_access_token() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let store = AuthProfilesStore::new(tmp.path(), false);

@@ -65,12 +65,36 @@ pub(crate) struct TinyagentsTurnOutcome {
     /// `text` already carries this same summary; the flag lets the status mapper
     /// distinguish a breaker halt from a genuine final answer.
     pub breaker_halt: Option<String>,
+    /// `true` when the run ended on a reply that ran out of output tokens
+    /// (`finish_reason = length`) with no visible text and no tool call — the
+    /// model spent its whole output budget reasoning, even after the harness's
+    /// truncated-empty retries and nudge (#6951). `text` is then blank, and
+    /// the closing call must say the budget ran out rather than claim the
+    /// model finished using tools.
+    pub truncated: bool,
     /// Per-tool-call execution outcomes (success + raw result content), keyed by
     /// provider call id, captured at the tool boundary. The harness folds a tool
     /// result into a `Message::tool` that drops its `error` flag, so this is the
     /// only place the caller can recover whether each call actually failed — used
     /// to build honest `ToolCallRecord`s for post-turn hooks + the cap checkpoint.
     pub tool_outcomes: Vec<ToolCallOutcome>,
+    /// The run's context compaction, when it compacted: re-applied by the
+    /// session driver to the history it persists, so the next turn starts
+    /// from the checkpoint. `None` when the run did not compact.
+    pub compaction: Option<super::CompactionCarry>,
+}
+
+/// Whether a run's final response is a reply that ran out of output tokens
+/// before producing anything: `finish_reason = length`, no visible text and no
+/// tool call. See [`TinyagentsTurnOutcome::truncated`].
+pub(crate) fn ended_out_of_output_budget(
+    final_response: Option<&tinyinference_llm::model::ModelResponse>,
+) -> bool {
+    final_response.is_some_and(|response| {
+        response.finish_reason.as_deref() == Some("length")
+            && response.message.tool_calls.is_empty()
+            && response.text().trim().is_empty()
+    })
 }
 
 /// One tool call's execution outcome, captured at the tool boundary before the
@@ -141,3 +165,7 @@ pub(crate) fn record_unobserved_turn_usage(
     );
     true
 }
+
+#[cfg(test)]
+#[path = "turn_outcome_tests.rs"]
+mod tests;

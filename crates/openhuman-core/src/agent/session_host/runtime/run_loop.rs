@@ -22,6 +22,16 @@ impl OpenHumanSessionHost {
     /// It wraps the core `turn` logic with telemetry events (`AgentTurnStarted`,
     /// `AgentTurnCompleted`) and error sanitization.
     pub async fn run_single(&mut self, message: &str) -> Result<String> {
+        self.run_single_with_origin(message, None).await
+    }
+
+    /// Runs a single turn with authority supplied explicitly by its entry point.
+    pub async fn run_single_with_origin(
+        &mut self,
+        message: &str,
+        origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
+    ) -> Result<String> {
+        let origin = origin.or_else(crate::core::runtime::CoreContext::current_turn_origin);
         let guard = enforce_prompt_input(
             message,
             PromptEnforcementContext {
@@ -68,7 +78,7 @@ impl OpenHumanSessionHost {
             channel: self.event_channel().to_string(),
         });
 
-        match self.turn(message).await {
+        match self.turn_with_origin(message, origin.as_ref()).await {
             Ok(response) => {
                 let history = self.history();
                 let new_entries = Self::new_entries_for_turn(&history_snapshot, &history);

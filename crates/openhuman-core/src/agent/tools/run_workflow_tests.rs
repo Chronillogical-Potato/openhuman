@@ -75,14 +75,14 @@ fn reentrancy_key_distinguishes_inputs() {
 // under cargo's parallel runner. The RAII `AwaitGuard` frees its slot + key
 // on drop, so these leave no residue (unlike the spawn backstop, which is
 // monotonic by design — see its test).
-fn guard_serial() -> &'static std::sync::Mutex<()> {
-    static L: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    L.get_or_init(|| std::sync::Mutex::new(()))
+fn guard_serial() -> &'static tokio::sync::Mutex<()> {
+    static L: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    L.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
 #[test]
 fn acquire_await_rejects_the_same_key_reentrantly() {
-    let _s = guard_serial().lock().unwrap();
+    let _s = guard_serial().blocking_lock();
     let key = "reentry-test\u{1}null".to_string();
     let held = super::guard::acquire_await(key.clone()).expect("first acquire");
     let again = super::guard::acquire_await(key.clone());
@@ -94,7 +94,7 @@ fn acquire_await_rejects_the_same_key_reentrantly() {
 
 #[test]
 fn acquire_await_caps_concurrent_awaits() {
-    let _s = guard_serial().lock().unwrap();
+    let _s = guard_serial().blocking_lock();
     // MAX_ACTIVE_AWAITS is 8; hold 8 distinct keys, then the 9th must reject.
     let mut held = Vec::new();
     for i in 0..8 {
@@ -118,7 +118,7 @@ async fn unknown_workflow_id_does_not_burn_a_spawn_slot() {
     // exhaust the 500-spawn budget for legitimate runs. Asserts the counter
     // DELTA is zero (the counter is global + monotonic, so absolute value is
     // shared with the backstop test — hence the serial lock + delta check).
-    let _s = guard_serial().lock().unwrap();
+    let _s = guard_serial().lock().await;
     let before = super::guard::total_spawns();
     let t = RunWorkflowTool::new();
     // wait_seconds: 0 → fire-and-forget path (no await slot taken); the
@@ -145,7 +145,7 @@ async fn unknown_workflow_id_does_not_burn_a_spawn_slot() {
 
 #[test]
 fn account_spawn_trips_the_process_backstop() {
-    let _s = guard_serial().lock().unwrap();
+    let _s = guard_serial().blocking_lock();
     // TOTAL_SPAWN_BACKSTOP is 500 and the counter is process-global +
     // monotonic (no reset by design — it's a runaway-loop backstop). Drive
     // well past it and assert it trips. NOTE: this permanently trips the

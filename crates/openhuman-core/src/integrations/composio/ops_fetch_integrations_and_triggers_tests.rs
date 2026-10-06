@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn offline_local_session_never_fetches_hosted_integrations() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let tmp = tempfile::tempdir().unwrap();
     let mut config = Config::default();
     config.workspace_dir = tmp.path().join("workspace");
@@ -27,7 +27,7 @@ async fn offline_local_session_never_fetches_hosted_integrations() {
 
 #[tokio::test]
 async fn fetch_connected_integrations_via_mock_aggregates_tools() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     // Connections: gmail + notion. Tools: filtered to those toolkits
     // and prefixed with the uppercased slug. The toolkits route
     // backs the `list_toolkits()` allowlist gate that
@@ -90,7 +90,7 @@ async fn fetch_connected_integrations_via_mock_aggregates_tools() {
 
 #[tokio::test]
 async fn fetch_connected_integrations_treats_slack_and_telegram_status_like_ui() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let app = Router::new()
         .route(
             "/agent-integrations/composio/toolkits",
@@ -161,7 +161,7 @@ async fn fetch_connected_integrations_treats_slack_and_telegram_status_like_ui()
 
 #[tokio::test]
 async fn fetch_connected_integrations_via_mock_returns_empty_with_no_active() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let app = Router::new().route(
         "/agent-integrations/composio/connections",
         get(|| async {
@@ -302,7 +302,7 @@ fn sync_cache_treats_connected_status_equivalent_to_active() {
 
 #[tokio::test]
 async fn cache_entries_survive_idle_time_until_connection_change() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
     let key = crate::integrations::composio::connected_integrations::cache_key(&config);
@@ -393,7 +393,7 @@ async fn composio_list_available_triggers_omits_connection_when_none() {
         "/agent-integrations/composio/triggers/available",
         get(|Query(q): Query<HashMap<String, String>>| async move {
             assert!(
-                q.get("connectionId").is_none(),
+                !q.contains_key("connectionId"),
                 "should not forward connectionId"
             );
             Json(json!({"success": true, "data": {"triggers": []}}))
@@ -555,7 +555,7 @@ async fn composio_list_toolkits_returns_empty_in_direct_mode() {
 #[tokio::test]
 async fn composio_list_connections_routes_through_direct_mode() {
     let _serialised = module_guard().await;
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let tmp = tempfile::tempdir().unwrap();
     let config = direct_mode_config(&tmp);
     // [composio-direct] After commit 2 of #1710, direct mode actually
@@ -646,27 +646,7 @@ async fn composio_list_connections_returns_empty_when_direct_mode_no_key() {
     );
 }
 
-// ── sync stage-event contracts (#5932) ───────────────────────────────────────
-
-/// The completed-stage detail is a parse contract with the Sources UI, which
-/// extracts the count via `/ingested\s+(\d+)\s+item/i` and shows a generic
-/// "up to date" when the pattern misses (#3295). This is the exact regex,
-/// ported, against the exact producer.
-#[test]
-fn completed_sync_detail_matches_the_ui_parse_contract() {
-    let re = regex::Regex::new(r"(?i)ingested\s+(\d+)\s+item").expect("ui parse regex");
-    for count in [0u64, 1, 200, 25_000] {
-        let detail = crate::integrations::composio::ops::completed_sync_detail(count, false, None);
-        let caps = re
-            .captures(&detail)
-            .unwrap_or_else(|| panic!("detail must parse: {detail}"));
-        assert_eq!(
-            caps[1].parse::<u64>().unwrap(),
-            count,
-            "count survives: {detail}"
-        );
-    }
-}
+// ── sync reasons ─────────────────────────────────────────────────────────────
 
 /// Every parsed sync reason is a distinct event trigger — the stage events
 /// must not collapse periodic and connection-created syncs into "manual"
@@ -687,39 +667,4 @@ fn sync_reasons_map_to_distinct_triggers() {
         );
     }
     assert_eq!(seen.len(), 3);
-}
-
-/// The budgeted loop's arithmetic, held still: unlimited slices at the pass
-/// ceiling, a cap slices to min(remaining, ceiling), a spent cap ends the run
-/// (review finding on #5932 — this is the PR's core behavioural change).
-#[test]
-fn next_pass_budget_slices_and_exhausts_the_configured_cap() {
-    use crate::integrations::composio::ops::{next_pass_budget, SYNC_PASS_MAX_ITEMS};
-    // Unlimited: every pass gets the ceiling.
-    assert_eq!(next_pass_budget(None, 0), Some(SYNC_PASS_MAX_ITEMS));
-    assert_eq!(next_pass_budget(None, 1_000_000), Some(SYNC_PASS_MAX_ITEMS));
-    // A cap below the ceiling (200 since openhuman#6025) is one exact slice,
-    // then exhaustion.
-    assert_eq!(next_pass_budget(Some(50), 0), Some(50));
-    assert_eq!(next_pass_budget(Some(50), 50), None);
-    // A cap above the ceiling slices pass by pass and ends on the remainder —
-    // a remainder smaller than the ceiling, so the two cannot be confused.
-    assert_eq!(next_pass_budget(Some(1_100), 0), Some(SYNC_PASS_MAX_ITEMS));
-    assert_eq!(next_pass_budget(Some(1_100), 1_000), Some(100));
-    assert_eq!(next_pass_budget(Some(1_100), 1_100), None);
-    // Over-written past the cap (dedupe drift) still ends, never underflows.
-    assert_eq!(next_pass_budget(Some(100), 150), None);
-}
-
-/// Both detail variants keep the UI parse contract; the remainder text rides
-/// after the count, never inside it.
-#[test]
-fn completed_detail_keeps_the_contract_with_a_remainder() {
-    let re = regex::Regex::new(r"(?i)ingested\s+(\d+)\s+item").expect("ui parse regex");
-    let capped = crate::integrations::composio::ops::completed_sync_detail_for_test(7, true);
-    assert!(
-        re.captures(&capped).is_some(),
-        "capped detail parses: {capped}"
-    );
-    assert!(capped.contains("more pending"));
 }

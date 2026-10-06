@@ -6,8 +6,6 @@ use crate::cron::SessionTarget;
 use crate::cron::{self, ActiveHours, DeliveryConfig};
 use crate::security::SecurityPolicy;
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
-#[cfg(not(windows))]
-use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
 use tempfile::TempDir;
 

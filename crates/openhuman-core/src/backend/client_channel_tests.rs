@@ -59,7 +59,7 @@ async fn channel_routes_build_expected_requests_and_validate_inputs() {
         .await
         .unwrap();
 
-    let requests = seen.lock().unwrap();
+    let requests = seen.lock().unwrap().clone();
     assert_eq!(
         requests[0],
         (

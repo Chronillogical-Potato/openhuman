@@ -44,7 +44,9 @@ fn profile_md_and_memory_md_are_capped_at_user_file_max_chars() {
          USER_FILE_MAX_CHARS — found:\n{rendered}"
     );
     // Sanity-check the cap is genuinely tighter than the bootstrap cap.
-    assert!(USER_FILE_MAX_CHARS < BOOTSTRAP_MAX_CHARS);
+    const {
+        assert!(USER_FILE_MAX_CHARS < BOOTSTRAP_MAX_CHARS);
+    }
 
     let _ = std::fs::remove_dir_all(workspace);
 }

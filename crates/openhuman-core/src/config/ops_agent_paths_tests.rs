@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn apply_agent_settings_rejects_out_of_range_timeout() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     let original = cfg.agent.agent_timeout_secs;
@@ -37,7 +37,7 @@ async fn apply_agent_settings_rejects_out_of_range_timeout() {
 
 #[tokio::test]
 async fn apply_agent_settings_none_leaves_timeout_unchanged() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     cfg.agent.agent_timeout_secs = 250;
@@ -51,7 +51,7 @@ async fn apply_agent_settings_none_leaves_timeout_unchanged() {
 
 #[tokio::test]
 async fn apply_agent_settings_rejects_unknown_chat_agent_id() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
 
@@ -71,7 +71,7 @@ async fn apply_agent_settings_rejects_unknown_chat_agent_id() {
 
 #[tokio::test]
 async fn apply_agent_settings_blank_chat_agent_id_clears_and_persists_override() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     cfg.agent.chat_agent_id = Some("researcher".into());
@@ -103,7 +103,7 @@ async fn apply_agent_settings_blank_chat_agent_id_clears_and_persists_override()
 
 #[tokio::test]
 async fn apply_agent_settings_rejects_a_mixed_patch_without_mutating_config() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     let original_timeout = cfg.agent.agent_timeout_secs;
@@ -128,7 +128,7 @@ async fn apply_agent_settings_rejects_a_mixed_patch_without_mutating_config() {
 
 #[tokio::test]
 async fn apply_agent_paths_valid_abs_path_persists_override_and_recomputes() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     // Ensure no env override is interfering.
     unsafe {
         std::env::remove_var("OPENHUMAN_ACTION_DIR");
@@ -162,7 +162,7 @@ async fn apply_agent_paths_valid_abs_path_persists_override_and_recomputes() {
 
 #[tokio::test]
 async fn apply_agent_paths_rejects_relative_path() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     unsafe {
         std::env::remove_var("OPENHUMAN_ACTION_DIR");
     }
@@ -185,7 +185,7 @@ async fn apply_agent_paths_rejects_relative_path() {
 
 #[tokio::test]
 async fn apply_agent_paths_rejects_action_dir_equal_to_workspace() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     unsafe {
         std::env::remove_var("OPENHUMAN_ACTION_DIR");
     }
@@ -209,7 +209,7 @@ async fn apply_agent_paths_rejects_action_dir_equal_to_workspace() {
 
 #[tokio::test]
 async fn apply_agent_paths_empty_input_clears_override() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     unsafe {
         std::env::remove_var("OPENHUMAN_ACTION_DIR");
     }
@@ -241,7 +241,7 @@ async fn apply_agent_paths_empty_input_clears_override() {
 
 #[tokio::test]
 async fn apply_agent_paths_auto_creates_missing_directory() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     unsafe {
         std::env::remove_var("OPENHUMAN_ACTION_DIR");
     }
@@ -266,7 +266,7 @@ async fn apply_agent_paths_auto_creates_missing_directory() {
 
 #[tokio::test]
 async fn apply_agent_paths_rejects_existing_file() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     unsafe {
         std::env::remove_var("OPENHUMAN_ACTION_DIR");
     }
@@ -291,7 +291,7 @@ async fn apply_agent_paths_rejects_existing_file() {
 
 #[tokio::test]
 async fn apply_agent_paths_env_set_reports_source_env() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let env_dir = tmp.path().join("env-pinned");
     std::fs::create_dir_all(&env_dir).unwrap();
@@ -389,7 +389,7 @@ fn redact_home_replaces_home_prefix_and_passes_through_others() {
 async fn ensure_agent_dirs_creates_missing_action_dir_and_trusted_root() {
     use crate::security::TrustedAccess;
 
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     // Point the default projects home at the tempdir so the helper doesn't touch
     // the real `~/OpenHuman/projects`.
@@ -484,7 +484,7 @@ fn ensure_usable_cwd_errors_when_uncreatable() {
 
 #[tokio::test]
 async fn apply_agent_settings_sets_and_normalizes_tool_dispatcher() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     assert_eq!(
@@ -512,7 +512,7 @@ async fn apply_agent_settings_sets_and_normalizes_tool_dispatcher() {
 
 #[tokio::test]
 async fn apply_agent_settings_rejects_unknown_tool_dispatcher_without_mutating() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
 

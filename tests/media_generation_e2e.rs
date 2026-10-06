@@ -154,10 +154,12 @@ async fn start_backend() -> (String, Backend) {
 }
 
 fn config(root: &Path, api_url: &str) -> Config {
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
-    config.api_url = Some(api_url.to_owned());
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        api_url: Some(api_url.to_owned()),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     openhuman_core::security::credentials::api_key::store_api_key(&config, API_KEY)

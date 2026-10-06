@@ -30,7 +30,7 @@ fn spec(id: &str, parent: &str, session: Option<&str>) -> OrchestrationTaskSpec 
 
 #[tokio::test]
 async fn roster_status_labels_are_literal() {
-    let _guard = super::test_guard();
+    let _guard = super::test_guard_async().await;
     let mut senders = Vec::new();
     for id in ["wire-run", "wire-done", "wire-await", "wire-fail"] {
         let (tx, rx) = status_channel();
@@ -159,7 +159,7 @@ async fn durable_fallback_maps_every_store_status_to_literal_wait_outcome() {
 
 #[tokio::test]
 async fn spawn_ledger_record_has_literal_persisted_shape() {
-    let _guard = super::test_guard();
+    let _guard = super::test_guard_async().await;
     let ws = tempfile::tempdir().unwrap();
     let (_tx, rx) = status_channel();
     register(

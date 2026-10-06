@@ -29,25 +29,33 @@ use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 
+/// One captured mock request: method/path, optional auth header, JSON body.
+type RecordedRequest = (String, Option<String>, Value);
+
 #[derive(Clone, Default)]
 struct MockState {
-    requests: Arc<Mutex<Vec<(String, Option<String>, Value)>>>,
+    requests: Arc<Mutex<Vec<RecordedRequest>>>,
 }
 
 // Serialize env mutation against every other aggregated suite via the
 // single crate-wide SHARED_ENV_LOCK (these tests use an `EnvVarGuard` struct
 // that does not itself hold a lock). Poison is recovered so a panic
 // elsewhere cannot wedge the suite.
-fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn __shared_env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     crate::SHARED_ENV_LOCK
-        .get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn __shared_env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 #[tokio::test]
 async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes() {
-    let _env_lock = __shared_env_lock();
+    let _env_lock = __shared_env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -207,7 +215,7 @@ async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes
 
 #[tokio::test]
 async fn local_service_public_inference_and_diagnostics_use_loopback_ollama() {
-    let _env_lock = __shared_env_lock();
+    let _env_lock = __shared_env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let _ollama_env = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", &base);
     let tmp = tempdir().expect("tempdir");
@@ -268,9 +276,11 @@ async fn local_service_public_inference_and_diagnostics_use_loopback_ollama() {
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.api_url = Some("http://127.0.0.1:9".to_string());
     config

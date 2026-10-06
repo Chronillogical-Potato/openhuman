@@ -165,6 +165,11 @@ impl ToolGroups {
 /// [`CoreContext`]: crate::core::runtime::context::CoreContext
 static PROCESS_GROUPS: std::sync::OnceLock<ToolGroups> = std::sync::OnceLock::new();
 
+/// Set the process-wide group posture for hosts that do not establish a core context.
+pub fn set_process_default(groups: ToolGroups) {
+    let _ = PROCESS_GROUPS.set(groups);
+}
+
 /// The ambient groups for the running core.
 ///
 /// Resolution order: the scoped [`CoreContext`], then the process default from

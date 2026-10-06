@@ -35,7 +35,7 @@ fn init(temp: &tempfile::TempDir) {
 /// payment counts toward `session_total` once it settles, and the chat thread.
 #[tokio::test]
 async fn a_fallback_payment_counts_in_the_session_total_and_names_its_thread() {
-    let _lock = TEST_LOCK.lock();
+    let _lock = TEST_LOCK.lock().await;
     let temp = tempfile::tempdir().unwrap();
     init(&temp);
     let payment = payment();
@@ -61,7 +61,7 @@ async fn a_fallback_payment_counts_in_the_session_total_and_names_its_thread() {
 
 #[tokio::test]
 async fn a_payment_outside_a_chat_turn_has_no_thread_but_the_same_session() {
-    let _lock = TEST_LOCK.lock();
+    let _lock = TEST_LOCK.lock().await;
     let temp = tempfile::tempdir().unwrap();
     init(&temp);
 
@@ -73,7 +73,7 @@ async fn a_payment_outside_a_chat_turn_has_no_thread_but_the_same_session() {
 
 #[tokio::test]
 async fn every_payment_gets_its_own_record_id() {
-    let _lock = TEST_LOCK.lock();
+    let _lock = TEST_LOCK.lock().await;
     let temp = tempfile::tempdir().unwrap();
     init(&temp);
 

@@ -27,7 +27,7 @@ use openhuman_core::integrations::composio::{
 use openhuman_core::tools::ComposioListToolsTool;
 use tinytools::{Tool, ToolCallOptions};
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {
@@ -49,11 +49,16 @@ struct Harness {
     _guards: Vec<EnvVarGuard>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 async fn setup_direct_config(base: &str) -> Harness {
@@ -108,7 +113,7 @@ async fn setup_direct_config(base: &str) -> Harness {
 
 #[tokio::test]
 async fn round25_direct_mode_ops_use_loopback_factory_for_tools_connections_and_execute() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     invalidate_connected_integrations_cache();
 
     let state = MockState::default();
@@ -278,7 +283,7 @@ async fn composio_direct_handler(State(state): State<MockState>, request: Reques
     let body_json = if body_bytes.is_empty() {
         Value::Null
     } else {
-        serde_json::from_slice(&body_bytes).unwrap_or_else(|_| Value::Null)
+        serde_json::from_slice(&body_bytes).unwrap_or(Value::Null)
     };
 
     state

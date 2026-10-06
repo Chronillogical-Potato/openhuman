@@ -14,7 +14,8 @@
 
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::OnceLock;
+use tokio::sync::MutexGuard;
 
 /// Sets or unsets one env var for the guard's lifetime and restores the value
 /// that was there before when dropped.
@@ -58,24 +59,39 @@ impl Drop for EnvVarGuard {
     }
 }
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static FILE_KEYRING_INIT: OnceLock<()> = OnceLock::new();
 
-/// The process-wide env lock for this target. Poison is recovered so one
-/// panicking test cannot wedge the rest of the binary.
+/// The process-wide env lock for this target, taken from a synchronous test.
+/// It is a `tokio::sync::Mutex` (never poisoned, so one panicking test cannot
+/// wedge the rest of the binary), which makes this blocking form panic inside
+/// a tokio runtime: `#[tokio::test]` bodies use [`env_lock_async`] so the guard
+/// can be held across `.await`.
 pub fn env_lock() -> MutexGuard<'static, ()> {
-    ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    ENV_LOCK.blocking_lock()
+}
+
+/// Async form of [`env_lock`] for `#[tokio::test]` bodies.
+pub async fn env_lock_async() -> MutexGuard<'static, ()> {
+    ENV_LOCK.lock().await
+}
+
+fn init_file_keyring() {
+    FILE_KEYRING_INIT.get_or_init(|| {
+        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+    });
 }
 
 /// [`env_lock`] after pinning `OPENHUMAN_KEYRING_BACKEND=file` once per
 /// process (the suites that read or write secrets need the file keyring so
 /// they never touch the host's real one).
 pub fn env_lock_with_file_keyring() -> MutexGuard<'static, ()> {
-    FILE_KEYRING_INIT.get_or_init(|| {
-        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
-    });
+    init_file_keyring();
     env_lock()
+}
+
+/// Async form of [`env_lock_with_file_keyring`] for `#[tokio::test]` bodies.
+pub async fn env_lock_with_file_keyring_async() -> MutexGuard<'static, ()> {
+    init_file_keyring();
+    env_lock_async().await
 }

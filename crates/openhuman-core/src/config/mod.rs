@@ -9,7 +9,6 @@
 
 pub mod app_env;
 pub mod daemon;
-pub mod migration_helpers;
 pub mod migrations;
 pub mod ops;
 pub mod schema;
@@ -42,25 +41,23 @@ pub use schema::{
     build_runtime_proxy_client_with_timeouts, output_language_directive, runtime_proxy_config,
     set_runtime_proxy_config, AgentConfig, AuditConfig, AutonomyConfig, BrowserComputerUseConfig,
     BrowserConfig, CapabilityProviderConfig, CapabilityProviderTrustState, ChannelsConfig,
-    ComposioConfig, ComposioDirectBaseUrls, ComposioHostCredential, ComputerConfig, Config,
-    ContextConfig, CostConfig, CronConfig, CurlConfig, DashboardConfig, DecisionModel,
-    DelegateAgentConfig, DiagramViewerConfig, DictationActivationMode, DictationConfig,
-    DiscordConfig, DockerRuntimeConfig, EmailConfig, EmbeddingRouteConfig, GitbooksConfig,
-    HttpHeader, HttpRequestConfig, IMessageConfig, IntegrationToggle, IntegrationsConfig,
-    LarkConfig, LearningConfig, LegacySearchInputs, LinqConfig, LlmBackend, LocalAiConfig,
-    MatrixConfig, McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig,
-    McpToolExposure, MemoryConfig, MemoryTreeConfig, ModelRouteConfig, MultimodalConfig,
-    MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig, PrivacyConfig, PrivacyMode,
-    ProxyConfig, ProxyScope, ReflectionSource, ReliabilityConfig, ResourceLimitsConfig,
+    CompactionSettings, CompactionStrategy, ComposioConfig, ComposioDirectBaseUrls,
+    ComposioHostCredential, ComputerConfig, Config, ContextConfig, CostConfig, CronConfig,
+    CurlConfig, DashboardConfig, DecisionModel, DelegateAgentConfig, DiagramViewerConfig,
+    DictationActivationMode, DictationConfig, DiscordConfig, DockerRuntimeConfig, EmailConfig,
+    EmbeddingRouteConfig, GitbooksConfig, HttpHeader, HttpRequestConfig, IMessageConfig,
+    IntegrationToggle, IntegrationsConfig, LarkConfig, LegacySearchInputs, LinqConfig,
+    LocalAiConfig, LocalJailConfig, MatrixConfig, McpAuthConfig, McpClientConfig,
+    McpClientIdentityConfig, McpServerConfig, McpToolExposure, MemoryConfig, ModelRouteConfig,
+    MultimodalConfig, MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig,
+    PrivacyConfig, PrivacyMode, ProxyConfig, ProxyScope, ReliabilityConfig, ResourceLimitsConfig,
     RuntimeConfig, RuntimePoolConfig, RuntimePoolLangConfig, SandboxBackend, SandboxConfig,
     SchedulerConfig, SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngineCredentials,
     SearchPresentation, SearchProviderSettings, SearchRoute, SearxngConfig, SecretsConfig,
-    SecurityConfig, ShellConfig, SlackConfig, StorageConfig, StorageProviderConfig,
-    StorageProviderSection, StreamMode, SttEngine, TeamModelConfig, TelegramConfig,
-    TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode, VoiceServerConfig,
-    WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_CLOUD_LLM_MODEL,
-    DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL, LEGACY_TIER_MODELS,
-    MANAGED_MULTIMODAL_MODELS, MANAGED_SEARCH_PROVIDERS, MEMORY_SYNC_INTERVAL_PRESETS_SECS,
+    SecurityConfig, ShellConfig, SlackConfig, StreamMode, SttEngine, TeamModelConfig,
+    TelegramConfig, TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode,
+    VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_MODEL,
+    LEGACY_TIER_MODELS, MANAGED_MULTIMODAL_MODELS, MANAGED_SEARCH_PROVIDERS,
     MODEL_IMAGE_GENERATION_AGENT, MODEL_MANAGED_DEFAULT, MODEL_MEDIA_UNDERSTANDING,
     MODEL_VIDEO_GENERATION_AGENT, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA,
     SEARCH_ENGINE_MANAGED, SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY,
@@ -80,7 +77,7 @@ pub use schemas::{
 /// `schema::load::tests`, etc. — can grab the same lock and avoid
 /// interleaved mutations.
 #[cfg(test)]
-pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(crate) static TEST_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[cfg(test)]
 pub(crate) mod test_env;

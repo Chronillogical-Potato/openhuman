@@ -26,13 +26,13 @@ pub(super) fn awaiting_outcome_to_tool_result(
 }
 
 pub(super) fn format_subagent_failure(tool_name: &str, message: &str) -> String {
-    format!("{tool_name} failed and did not complete — no work was performed and no results were produced. Do NOT treat this as success or fabricate an output; report the failure to the user. Error: {message}")
+    format!(
+        "{tool_name} failed and did not complete — no work was performed and no results were produced. Do NOT treat this as success or fabricate an output; report the failure to the user. Error: {message}"
+    )
 }
 
 pub(crate) fn is_unexecuted_tool_call_stub(output: &str) -> bool {
-    use crate::agent::harness::archivist::helpers::{
-        contains_tool_call_payload, strip_tool_calls_from_response,
-    };
+    use super::tool_call_text::{contains_tool_call_payload, strip_tool_calls_from_response};
     if !contains_tool_call_payload(output) {
         return false;
     }
@@ -65,7 +65,9 @@ pub(crate) fn incomplete_envelope(
     output: &str,
     mode: DispatchMode,
 ) -> String {
-    let envelope = format!("[SUBAGENT_INCOMPLETE] the {tool_name} sub-agent {reason} and did not finish. Below is partial progress only — do NOT report it as done or re-run the identical delegation unchanged.\n\nPartial progress:\n{output}");
+    let envelope = format!(
+        "[SUBAGENT_INCOMPLETE] the {tool_name} sub-agent {reason} and did not finish. Below is partial progress only — do NOT report it as done or re-run the identical delegation unchanged.\n\nPartial progress:\n{output}"
+    );
     if mode == DispatchMode::Blocking {
         format!("{envelope}{NO_WORKER_NOTE}")
     } else {

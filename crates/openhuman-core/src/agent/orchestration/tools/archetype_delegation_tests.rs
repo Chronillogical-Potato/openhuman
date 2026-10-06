@@ -63,7 +63,7 @@ fn parameters_schema_requires_prompt_only() {
     assert_eq!(schema["required"], json!(["prompt"]));
     assert_eq!(schema["properties"]["prompt"]["type"], "string");
 
-    // Only `prompt` and `blocking` are advertised: the structured hand-off
+    // Only `prompt`, `blocking`, and explicit `image_paths` are advertised: the structured hand-off
     // fields cost ~150 tokens per delegate on every request, and a
     // self-contained `prompt` carries the same content. They are still
     // parsed (see `structured_handoff_renders_compact_child_prompt`), so a
@@ -73,7 +73,7 @@ fn parameters_schema_requires_prompt_only() {
         .expect("properties is an object");
     let mut present: Vec<&str> = props.keys().map(String::as_str).collect();
     present.sort_unstable();
-    assert_eq!(present, vec!["blocking", "prompt"]);
+    assert_eq!(present, vec!["blocking", "image_paths", "prompt"]);
 }
 
 /// Every `description` in the envelope, as `(json-pointer-ish path, text)`.
@@ -103,9 +103,9 @@ fn collect_descriptions(node: &Value, path: &str, out: &mut Vec<(String, String)
 fn envelope_descriptions_stay_within_budget() {
     // This schema is emitted once per synthesised `delegate_*` tool, so prose
     // here is billed per delegate per turn. Fully described it was 356 tokens
-    // each; it is now two fields. Only `prompt` (which must say the worker has
+    // each; the envelope keeps three short fields. `prompt` (which says the worker has
     // no memory of this chat) and `blocking` (whose default is not in its
-    // name) carry a description, each under the ~50-token cap.
+    // name), and explicit image forwarding stay under the ~50-token cap.
     let schema = sample_tool().parameters_schema();
     let mut found = Vec::new();
     collect_descriptions(&schema, "", &mut found);
@@ -114,7 +114,11 @@ fn envelope_descriptions_stay_within_budget() {
     fields.sort_unstable();
     assert_eq!(
         fields,
-        vec!["/properties/blocking", "/properties/prompt"],
+        vec![
+            "/properties/blocking",
+            "/properties/image_paths",
+            "/properties/prompt"
+        ],
         "a field or description came back into the delegation envelope; \
          every word here is paid per delegate on every request"
     );

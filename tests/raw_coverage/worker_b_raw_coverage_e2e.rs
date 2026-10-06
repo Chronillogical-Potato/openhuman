@@ -36,7 +36,7 @@ use openhuman_rpc::server::build_core_http_router;
 const TEST_RPC_TOKEN: &str = "worker-b-raw-coverage-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Default)]
 struct MockState {
@@ -56,12 +56,14 @@ struct MockHarness {
     join: tokio::task::JoinHandle<Result<(), std::io::Error>>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let mutex = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    match mutex.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    let mutex = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    mutex.blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let mutex = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    mutex.lock().await
 }
 
 fn ensure_rpc_auth() {
@@ -361,7 +363,7 @@ async fn seed_session_token() {
 
 #[tokio::test]
 async fn inference_provider_success_paths_use_mock_models_and_chat() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let mock = serve_mock().await;
     let harness = setup().await;
     configure_mock_provider(&harness.rpc_base, &mock.base).await;
@@ -439,7 +441,7 @@ async fn tools_web_answer_uses_managed_gemini_grounding_and_returns_citations() 
         );
         return;
     }
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let mock = serve_mock().await;
     let harness = setup().await;
     configure_mock_provider(&harness.rpc_base, &mock.base).await;
@@ -518,7 +520,7 @@ async fn tools_web_search_success_path_uses_backend_session_and_shapes_results()
         );
         return;
     }
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let mock = serve_mock().await;
     let harness = setup().await;
     configure_mock_provider(&harness.rpc_base, &mock.base).await;
@@ -588,7 +590,7 @@ async fn tools_web_search_success_path_uses_backend_session_and_shapes_results()
 
 #[tokio::test]
 async fn approval_gate_rpc_decision_resumes_parked_tool_and_records_execution() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
     let config = Config::load_or_init()
         .await

@@ -145,10 +145,7 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
             );
 
             // The turn went to the endpoint we named, not to the account's route.
-            let requests = provider_server
-                .received_requests()
-                .await
-                .expect("mock recorded requests");
+            let requests = common::chat_requests(&provider_server).await;
             assert!(
                 !requests.is_empty(),
                 "the provider endpoint received nothing — the per-call route was ignored"
@@ -207,10 +204,7 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
             }
             assert_eq!(session_ids.len(), 100);
 
-            let requests = provider_server
-                .received_requests()
-                .await
-                .expect("mock recorded concurrent requests");
+            let requests = common::chat_requests(&provider_server).await;
             assert_eq!(requests.len(), 102, "two serial + 100 concurrent turns");
 
             // The session database landed in the harness's workspace.

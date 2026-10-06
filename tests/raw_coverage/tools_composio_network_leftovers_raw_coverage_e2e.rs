@@ -24,7 +24,7 @@ use openhuman_core::tools::{
 };
 use tinytools::{Tool, ToolCallOptions};
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {
@@ -47,11 +47,16 @@ struct Harness {
     _guards: Vec<EnvVarGuard>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 fn tempdir() -> TempDir {
@@ -111,7 +116,7 @@ fn store_session_token(config: &Config) {
 
 #[tokio::test]
 async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let state = MockState::default();
     let base = start_loopback(
         Router::new()
@@ -212,7 +217,7 @@ async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
 
 #[tokio::test]
 async fn round20_composio_ops_cover_authorize_scopes() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let state = MockState::default();
     let base = start_loopback(
         Router::new()

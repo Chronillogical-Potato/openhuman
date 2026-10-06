@@ -102,7 +102,7 @@ fn non_owner_middleware_at(allowed: PermissionLevel) -> ToolPolicyMiddleware {
     };
 
     ToolPolicyMiddleware::new(
-        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy::default()),
+        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy),
         session,
         vec![tools],
         "sess".to_string(),
@@ -140,7 +140,7 @@ fn desktop_approval_bypass_skips_only_require_approval_channel_verdict() {
             .collect(),
         };
         ToolPolicyMiddleware::new(
-            Arc::new(crate::agent::tool_policy::AllowAllToolPolicy::default()),
+            Arc::new(crate::agent::tool_policy::AllowAllToolPolicy),
             session,
             vec![Arc::new(vec![Box::new(RoutingFakeTool(name))])],
             "sess".to_owned(),
@@ -288,7 +288,7 @@ async fn a_session_without_the_delegate_is_not_told_to_call_it() {
         decisions: [allow(USE_SKILL)].into_iter().collect(),
     };
     let mw = ToolPolicyMiddleware::new(
-        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy::default()),
+        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy),
         session,
         vec![tools],
         "sess".to_string(),
@@ -349,7 +349,7 @@ async fn use_skill_reaches_a_withheld_packed_tool() {
     );
 
     let mw = ToolPolicyMiddleware::new(
-        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy::default()),
+        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy),
         session,
         vec![tools],
         "sess".to_string(),
@@ -411,7 +411,7 @@ async fn a_prompt_hidden_delegate_is_not_offered_as_a_direct_route() {
         &visible,
     );
     let mw = ToolPolicyMiddleware::new(
-        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy::default()),
+        Arc::new(crate::agent::tool_policy::AllowAllToolPolicy),
         session,
         vec![tools],
         "sess".to_string(),

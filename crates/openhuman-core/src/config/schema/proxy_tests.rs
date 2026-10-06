@@ -422,9 +422,7 @@ fn supported_service_selectors_is_nonempty() {
 
 #[test]
 fn apply_and_clear_process_env_follow_the_proxy_scope() {
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.blocking_lock();
     let keys = [
         "HTTP_PROXY",
         "HTTPS_PROXY",

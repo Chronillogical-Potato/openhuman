@@ -9,7 +9,7 @@ import {
 } from '@assistant-ui/react';
 
 import { parseBubbleSegments } from '../features/conversations/utils/format';
-import { parseMessageImages } from '../lib/attachments';
+import { parseAttachmentReferences, parseMessageImages } from '../lib/attachments';
 import { unwrapToolCallEnvelope } from '../lib/chat/toolCallEnvelope';
 import type { ChatCitation } from '../services/chatService';
 import {
@@ -780,7 +780,8 @@ function mimeTypeFromDataUri(dataUri: string): string {
 }
 
 function userParts(msg: ThreadMessage): ThreadUserMessagePart[] {
-  const parsed = parseMessageImages(msg.content ?? '');
+  const references = parseAttachmentReferences(msg.content ?? '');
+  const parsed = parseMessageImages(references.text);
   const metadata = msg.extraMetadata ?? {};
   const kinds = stringArray(metadata.attachmentKinds);
   const names = stringArray(metadata.attachmentNames);
@@ -790,6 +791,16 @@ function userParts(msg: ThreadMessage): ThreadUserMessagePart[] {
   const parts: ThreadUserMessagePart[] = [];
 
   if (parsed.text.length > 0) parts.push({ type: 'text', text: parsed.text });
+
+  if (references.attachments.length > 0) {
+    // Workspace paths cannot be loaded as browser images. A file chip restores
+    // the attachment's identity without storing preview bytes in the message log.
+    for (const file of references.attachments) {
+      parts.push({ type: 'file', filename: file.name, data: '', mimeType: file.mime });
+    }
+    for (const image of parsed.dataUris) parts.push({ type: 'image', image });
+    return parts;
+  }
 
   if (kinds.length === 0) {
     for (const [index, image] of dataUris.entries()) {

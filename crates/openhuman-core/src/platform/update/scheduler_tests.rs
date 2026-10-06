@@ -6,7 +6,9 @@ fn min_interval_is_at_least_ten_minutes() {
     // shorter than ~10 minutes will trip the rate limit on a busy
     // machine. Lock in the floor so a future "let users tick every
     // minute" change doesn't silently break update visibility.
-    assert!(MIN_INTERVAL_MINUTES >= 10);
+    const {
+        assert!(MIN_INTERVAL_MINUTES >= 10);
+    }
 }
 
 #[tokio::test]

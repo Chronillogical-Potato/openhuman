@@ -20,19 +20,25 @@
 
 use std::ffi::{OsStr, OsString};
 use std::path::Path;
-use std::sync::MutexGuard;
+use tokio::sync::MutexGuard;
 
 use super::TEST_ENV_LOCK;
 
 /// The workspace override most tests pin.
 pub(crate) const WORKSPACE: &str = "OPENHUMAN_WORKSPACE";
 
-/// Take the shared env lock, recovering from poison so one panicking test
-/// cannot wedge the rest of the binary.
+/// Take the shared env lock from a synchronous test. The lock is a
+/// `tokio::sync::Mutex` (never poisoned, safe to hold across `.await`), so this
+/// blocking form panics inside a tokio runtime: `#[tokio::test]` bodies use
+/// [`lock_env_async`] instead.
 pub(crate) fn lock_env() -> MutexGuard<'static, ()> {
-    TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+    TEST_ENV_LOCK.blocking_lock()
+}
+
+/// Take the shared env lock from an async test; the guard may be held across
+/// `.await`.
+pub(crate) async fn lock_env_async() -> MutexGuard<'static, ()> {
+    TEST_ENV_LOCK.lock().await
 }
 
 /// Sets or removes env vars and restores each previous value on drop, in
@@ -59,6 +65,14 @@ impl EnvVarGuard {
         Self {
             saved: Vec::new(),
             _lock: Some(lock_env()),
+        }
+    }
+
+    /// Async form of [`Self::locked`] for `#[tokio::test]` bodies.
+    pub(crate) async fn locked_async() -> Self {
+        Self {
+            saved: Vec::new(),
+            _lock: Some(lock_env_async().await),
         }
     }
 
@@ -97,6 +111,27 @@ impl EnvVarGuard {
     pub(crate) fn locked_unset_many(keys: &[&'static str]) -> Self {
         keys.iter()
             .fold(Self::locked(), |guard, key| guard.without(key))
+    }
+
+    /// Async form of [`Self::locked_set`].
+    pub(crate) async fn locked_set_async(key: &'static str, value: impl AsRef<OsStr>) -> Self {
+        Self::locked_async().await.with(key, value)
+    }
+
+    /// Async form of [`Self::locked_unset`].
+    pub(crate) async fn locked_unset_async(key: &'static str) -> Self {
+        Self::locked_async().await.without(key)
+    }
+
+    /// Async form of [`Self::locked_unset_many`].
+    pub(crate) async fn locked_unset_many_async(keys: &[&'static str]) -> Self {
+        keys.iter()
+            .fold(Self::locked_async().await, |guard, key| guard.without(key))
+    }
+
+    /// Async form of [`Self::workspace`].
+    pub(crate) async fn workspace_async(path: impl AsRef<Path>) -> Self {
+        Self::locked_set_async(WORKSPACE, path.as_ref()).await
     }
 
     /// Take the env lock, then pin `OPENHUMAN_WORKSPACE` to `path`.

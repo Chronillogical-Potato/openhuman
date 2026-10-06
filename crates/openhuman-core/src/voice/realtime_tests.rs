@@ -73,7 +73,8 @@ async fn mint_signed_url_authenticates_with_the_api_key() {
     use axum::{http::HeaderMap, routing::get, Json, Router};
     use std::sync::{Arc, Mutex};
 
-    let seen: Arc<Mutex<Option<(Option<String>, Option<String>)>>> = Arc::default();
+    type SeenHeaders = Option<(Option<String>, Option<String>)>;
+    let seen: Arc<Mutex<SeenHeaders>> = Arc::default();
     let app = Router::new().route(
         "/voice-agent/get-signed-url",
         get({

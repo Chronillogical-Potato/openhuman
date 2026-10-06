@@ -67,7 +67,7 @@ async fn dispatch_delegates_to_tier2_for_domain_method() {
     // Tier 2 dispatcher handles `openhuman.security_policy_info`, so
     // it must succeed and return a policy object.
     let workspace = tempfile::tempdir().expect("temporary workspace");
-    let _workspace_env = EnvVarGuard::workspace(workspace.path());
+    let _workspace_env = EnvVarGuard::workspace_async(workspace.path()).await;
     let out = dispatch(test_state(), "openhuman.security_policy_info", json!({}))
         .await
         .expect("security_policy_info should route via tier 2");

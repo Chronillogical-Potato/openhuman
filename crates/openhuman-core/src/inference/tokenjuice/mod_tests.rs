@@ -7,12 +7,12 @@ fn recovery_tool_aliases_remain_stable() {
     assert!(!is_recovery_tool("shell"));
 }
 
-/// The whole summary path over the real bus: `CompactWith` into the module,
-/// `MlHost.Generate` back out to a registered call, the summary back in.
-/// Runs where CI builds the module (`TINYJUICE_TEST_MODULE`); skipped
-/// otherwise, since the pinned release may predate `CompactWith`.
+/// Exercise the configured on-demand mode through the real module bus. Even
+/// with a registered model callback and a result above the summary threshold,
+/// ingest must return a recovery handle without calling the model.
+/// Runs where CI builds the module (`TINYJUICE_TEST_MODULE`).
 #[tokio::test]
-async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
+async fn the_module_defers_a_summary_until_requested() {
     if std::env::var_os("TINYJUICE_TEST_MODULE").is_none() {
         eprintln!(
             "SKIPPED (not run, not asserted): TINYJUICE_TEST_MODULE is not set. Build \
@@ -33,7 +33,7 @@ async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
     let output = compact_tool_output(ToolOutputCompaction {
         content: content.clone(),
         tool_name: "web_fetch",
-        enabled: false,
+        enabled: true,
         profile: AgentTokenjuiceCompression::Full,
         runtime_config: None,
         arguments: None,
@@ -43,22 +43,19 @@ async fn the_module_calls_back_for_a_summary_written_for_the_focus() {
     })
     .await;
 
-    assert_eq!(output.summarized_from_bytes, Some(content.len()));
-    assert!(output
+    assert_eq!(output.summarized_from_bytes, None);
+    assert!(!output
         .text
-        .starts_with("the rate limit is 60 requests a minute"));
+        .contains("the rate limit is 60 requests a minute"));
     assert!(
         output.text.contains(RETRIEVE_TOOL_NAME),
         "the original stays retrievable: {}",
         output.text
     );
-    let request = seen
-        .lock()
-        .unwrap()
-        .clone()
-        .expect("the module called back");
-    assert!(request.prompt.contains("Caller focus: the rate limits"));
-    assert!(request.system.contains("caller focus"));
+    assert!(
+        seen.lock().unwrap().is_none(),
+        "ingest called the summary model"
+    );
 }
 
 /// A result that was registered for a summary and never reached the module
@@ -138,9 +135,7 @@ async fn an_off_profile_still_discloses_a_registered_summary() {
 /// module happens to be installed for other tests in this binary.
 #[tokio::test]
 async fn a_module_disabled_in_configuration_discloses_a_wanted_summary() {
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let previous = std::env::var_os("TINYJUICE_TEST_MODULE");
     // SAFETY: serialized by TEST_ENV_LOCK; restored below for every exit path.
     unsafe { std::env::remove_var("TINYJUICE_TEST_MODULE") };
@@ -321,4 +316,17 @@ fn install_request_saves_a_copy_under_the_workspace_when_asked() {
         request.options.repl_save_dir,
         Some(std::path::PathBuf::from("/ws/.tokenjuice/repl"))
     );
+}
+
+#[test]
+fn install_request_summarizes_only_on_request_under_a_64k_cap() {
+    let config = crate::config::Config::default();
+    let request = install_request(&config);
+    assert!(request.options.llm_summary_enabled);
+    assert_eq!(
+        request.options.llm_summary_mode,
+        types::LlmSummaryMode::OnDemand,
+        "ingest must never call the summary model on its own"
+    );
+    assert_eq!(request.options.llm_summary_max_input_tokens, 64_000);
 }

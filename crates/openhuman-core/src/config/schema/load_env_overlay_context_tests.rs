@@ -81,3 +81,78 @@ fn env_overlay_context_tool_result_budget_env_wins_over_legacy_migration() {
         "env value wins; legacy migration suppressed"
     );
 }
+
+#[test]
+fn env_overlay_compaction_trigger_tokens_sets_and_clears_the_override() {
+    assert_eq!(Config::default().context.compaction_trigger_tokens, None);
+
+    let mut cfg = Config::default();
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_COMPACTION_TRIGGER_TOKENS", " 64000 "),
+    );
+    assert_eq!(cfg.context.compaction_trigger_tokens, Some(64_000));
+
+    // `0` clears an override set in config.toml.
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_COMPACTION_TRIGGER_TOKENS", "0"));
+    assert_eq!(cfg.context.compaction_trigger_tokens, None);
+
+    // Garbage is ignored (leaves the prior value untouched).
+    let mut cfg = Config::default();
+    cfg.context.compaction_trigger_tokens = Some(10);
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_COMPACTION_TRIGGER_TOKENS", "lots"),
+    );
+    assert_eq!(cfg.context.compaction_trigger_tokens, Some(10));
+}
+
+#[test]
+fn compaction_strategy_defaults_to_task_state_and_env_selects_it() {
+    use crate::config::CompactionStrategy;
+    assert_eq!(
+        Config::default().context.compaction_strategy,
+        CompactionStrategy::TaskState
+    );
+
+    let mut cfg = Config::default();
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_COMPACTION_STRATEGY", " Summary "),
+    );
+    assert_eq!(cfg.context.compaction_strategy, CompactionStrategy::Summary);
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new().with("OPENHUMAN_COMPACTION_STRATEGY", "task-state"),
+    );
+    assert_eq!(
+        cfg.context.compaction_strategy,
+        CompactionStrategy::TaskState
+    );
+
+    // Unknown and empty values leave the current strategy alone.
+    cfg.context.compaction_strategy = CompactionStrategy::Summary;
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_COMPACTION_STRATEGY", "magic"));
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_COMPACTION_STRATEGY", ""));
+    assert_eq!(cfg.context.compaction_strategy, CompactionStrategy::Summary);
+}
+
+#[test]
+fn compaction_strategy_reads_from_toml() {
+    use crate::config::CompactionStrategy;
+    let cfg: crate::config::ContextConfig =
+        toml::from_str("compaction_strategy = \"summary\"").unwrap();
+    assert_eq!(cfg.compaction_strategy, CompactionStrategy::Summary);
+    let cfg: crate::config::ContextConfig = toml::from_str("").unwrap();
+    assert_eq!(cfg.compaction_strategy, CompactionStrategy::TaskState);
+}
+
+#[test]
+fn compaction_settings_bundle_the_trigger_and_strategy() {
+    use crate::config::{CompactionSettings, CompactionStrategy, ContextConfig};
+    let mut cfg = ContextConfig::default();
+    assert_eq!(cfg.compaction_settings(), CompactionSettings::default());
+    cfg.compaction_trigger_tokens = Some(0);
+    cfg.compaction_strategy = CompactionStrategy::Summary;
+    let settings = cfg.compaction_settings();
+    assert_eq!(settings.trigger_tokens, None, "a 0 trigger is no override");
+    assert_eq!(settings.strategy, CompactionStrategy::Summary);
+    cfg.compaction_trigger_tokens = Some(64_000);
+    assert_eq!(cfg.compaction_settings().trigger_tokens, Some(64_000));
+}

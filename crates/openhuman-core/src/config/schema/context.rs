@@ -1,12 +1,10 @@
 //! Context management configuration.
 //!
 //! Knobs for the global `crates/openhuman-core/src/agent/context/` module — budget
-//! thresholds, summarization trigger percentages, microcompact behavior,
-//! and the session-memory extraction cadence. Wired into the root
+//! thresholds, summarization trigger percentages and microcompact behavior. Wired into the root
 //! [`super::Config`] as the `context` section; env overrides live in
 //! [`super::load`].
 
-use crate::agent::context::session_memory::SessionMemoryConfig;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -50,15 +48,15 @@ pub struct ContextConfig {
     #[serde(default = "default_tool_result_budget_bytes")]
     pub tool_result_budget_bytes: usize,
 
-    /// Tool results larger than this **token** count trigger the
-    /// `summarizer` sub-agent (orchestrator session only). The summarizer
-    /// compresses the payload into a dense note that preserves
-    /// identifiers and key facts, and the compressed summary replaces
-    /// the raw payload before it enters agent history. Default: 4000 tokens.
-    /// Set to 0 to disable.
+    /// Tool results larger than this **token** count are stored behind a
+    /// TinyJuice recovery handle (orchestrator session only). The registered
+    /// `juice_summarize` tool currently returns TinyJuice's deterministic
+    /// overview; OpenHuman does not pass the turn's summarizer model into that
+    /// tool yet. Ingest-time LLM summaries are disabled
+    /// (`LlmSummaryMode::OnDemand`). Default: 4000 tokens.
+    /// Set to 0 to disable the summary model.
     ///
-    /// Token count is estimated as `chars / 4` (the same heuristic used
-    /// by `tree_summarizer::estimate_tokens`). Pairs with
+    /// Token count is estimated as `chars / 4` (a rough heuristic). Pairs with
     /// [`Self::summarizer_max_payload_tokens`] which caps the upper end
     /// (paying for an LLM call on a multi-million-token blob makes no
     /// economic sense, so above the cap the existing
@@ -69,21 +67,18 @@ pub struct ContextConfig {
     )]
     pub summarizer_payload_threshold_tokens: usize,
 
-    /// Hard cap on payload size (in **tokens**) above which summarization
-    /// is skipped entirely and the existing
-    /// [`Self::tool_result_budget_bytes`] truncation path takes over.
-    /// Default: `2_000_000` tokens (above the context window of every
-    /// model we ship against — a payload this big can't be summarized
-    /// cost-effectively).
+    /// Most input (in **tokens**) one summary call sends to the model.
+    /// TinyJuice lowers it further to what `llm_summary_timeout_ms` can
+    /// prefill, and samples a larger output down to the head, the tail and
+    /// the lines matching the agent's hint rather than sending it whole.
+    /// Default: `64_000` tokens. The old `2_000_000` default let a single
+    /// summary send a 418k-token request that the timeout then cancelled
+    /// after it was billed.
     #[serde(
         default = "default_summarizer_max_payload_tokens",
         alias = "summarizer_max_payload_bytes"
     )]
     pub summarizer_max_payload_tokens: usize,
-
-    /// Session-memory extraction thresholds.
-    #[serde(default)]
-    pub session_memory: SessionMemoryConfig,
 
     /// Override for the model used by the summarizer when autocompaction
     /// fires. `None` (the default) means "use the caller's current
@@ -124,6 +119,73 @@ pub struct ContextConfig {
     /// `compaction_enabled = false` or `OPENHUMAN_COMPACTION=0`.
     #[serde(default = "default_true")]
     pub compaction_enabled: bool,
+
+    /// Absolute token count at which context compaction (the summarization
+    /// step) fires, overriding the default of min(80% of the model's context
+    /// window, 350k tokens). Also enables compaction for a model whose window
+    /// is unknown.
+    ///
+    /// For benchmarks and debugging that need compaction to happen early;
+    /// leave unset in normal use. `None` or `0` means no override. Env:
+    /// `OPENHUMAN_COMPACTION_TRIGGER_TOKENS`.
+    #[serde(default)]
+    pub compaction_trigger_tokens: Option<u64>,
+
+    /// How a compaction writes its checkpoint. `task_state` (the default) is a
+    /// typed task state: facts copied from tool calls (original task, files
+    /// modified and read, recent commands and errors) plus one structured
+    /// model call, over a 20k-token verbatim tail. `summary` is the earlier
+    /// free-form LLM summary over the last 8 messages. Env:
+    /// `OPENHUMAN_COMPACTION_STRATEGY`.
+    #[serde(default)]
+    pub compaction_strategy: CompactionStrategy,
+}
+
+/// The compaction knobs a turn carries: the trigger override and the
+/// checkpoint strategy. See [`ContextConfig::compaction_settings`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CompactionSettings {
+    /// Absolute trigger override (`None`: the window-relative default).
+    pub trigger_tokens: Option<u64>,
+    /// How a compaction writes its checkpoint.
+    pub strategy: CompactionStrategy,
+}
+
+impl ContextConfig {
+    /// The compaction knobs for a turn; a `0` trigger reads as no override.
+    #[must_use]
+    pub fn compaction_settings(&self) -> CompactionSettings {
+        CompactionSettings {
+            trigger_tokens: self.compaction_trigger_tokens.filter(|t| *t > 0),
+            strategy: self.compaction_strategy,
+        }
+    }
+}
+
+/// How a context compaction writes its checkpoint. See
+/// [`ContextConfig::compaction_strategy`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CompactionStrategy {
+    /// Typed task state (TinyAgents `TaskStateSummarizer`) over a
+    /// token-budgeted tail. Chosen by the openhuman-benchmarks compaction eval.
+    #[default]
+    TaskState,
+    /// Free-form LLM summary (TinyAgents `ModelSummarizer`) over the last
+    /// `keep_last` messages.
+    Summary,
+}
+
+impl CompactionStrategy {
+    /// Parses a config or env value (`task_state`/`typed`, `summary`).
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+            "task_state" | "typed" | "s4" => Some(Self::TaskState),
+            "summary" | "free_form" | "s0" => Some(Self::Summary),
+            _ => None,
+        }
+    }
 }
 
 fn default_enabled() -> bool {
@@ -151,7 +213,7 @@ fn default_summarizer_payload_threshold_tokens() -> usize {
 }
 
 fn default_summarizer_max_payload_tokens() -> usize {
-    2_000_000
+    64_000
 }
 
 impl Default for ContextConfig {
@@ -164,10 +226,11 @@ impl Default for ContextConfig {
             tool_result_budget_bytes: default_tool_result_budget_bytes(),
             summarizer_payload_threshold_tokens: default_summarizer_payload_threshold_tokens(),
             summarizer_max_payload_tokens: default_summarizer_max_payload_tokens(),
-            session_memory: SessionMemoryConfig::default(),
             summarizer_model: None,
             prefer_markdown_tool_output: default_true(),
             compaction_enabled: default_true(),
+            compaction_trigger_tokens: None,
+            compaction_strategy: CompactionStrategy::default(),
         }
     }
 }

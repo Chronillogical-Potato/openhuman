@@ -17,7 +17,7 @@
 // production code, so silence the noise rather than churn 76 files.
 #![allow(dead_code)]
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 /// Process-global env lock shared by every aggregated suite that mutates
 /// process-global env (`OPENHUMAN_WORKSPACE`, `HOME`, `BACKEND_URL`, …).
@@ -29,9 +29,11 @@ use std::sync::{Mutex, OnceLock};
 /// longer mutually exclude. Each file's local env lock is redefined to a
 /// `&`-reference to this one static, so all env mutations across all aggregated
 /// suites serialize on a single mutex while non-env tests keep running in
-/// parallel. Poison is recovered (`into_inner`) at the guard sites, so a
-/// panicking test cannot wedge the whole suite.
-pub static SHARED_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+/// parallel. The lock is a `tokio::sync::Mutex`: it is never poisoned, so a
+/// panicking test cannot wedge the whole suite, and an async test may hold its
+/// guard across `.await`. Synchronous tests take it with `blocking_lock()`,
+/// async tests with `lock().await`.
+pub static SHARED_ENV_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
 /// Serializes aggregated suites that reach the Composio connector module.
 ///

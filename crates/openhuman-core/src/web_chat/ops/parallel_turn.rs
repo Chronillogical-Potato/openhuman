@@ -61,7 +61,7 @@ pub(crate) async fn spawn_parallel_turn(
             };
             let result = run_turn_under_cancel_and_deadline(
                 task_cancel_token,
-                origin,
+                origin.clone(),
                 approval_ctx,
                 run_chat_task(
                     &client_id_task,
@@ -73,6 +73,7 @@ pub(crate) async fn spawn_parallel_turn(
                     locale,
                     run_queue,
                     metadata,
+                    origin.clone(),
                     /* fork */ true,
                 ),
             )

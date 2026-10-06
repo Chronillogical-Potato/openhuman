@@ -47,7 +47,7 @@
 
 use crate::env_guard::EnvVarGuard;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 
 use openhuman_core::config::Config;
 use openhuman_core::core::all::RegisteredController;
@@ -55,13 +55,18 @@ use openhuman_core::inference::host_runtime::all_local_inference_registered_cont
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// Point the Ollama health probe at a closed loopback port and clear the
@@ -97,9 +102,11 @@ async fn call(controller: &RegisteredController, params: Value) -> Result<Value,
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     // Unroutable on purpose: any handler that reaches for the backend must fail
     // fast rather than touch the network from a test.
@@ -209,7 +216,7 @@ fn local_inference_controllers_pin_their_registered_wire_method_names() {
 /// text and the `output_path` the caller chose.
 #[tokio::test]
 async fn inference_tts_controller_covers_disabled_missing_binary_and_stubbed_synthesis() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = false;
@@ -308,7 +315,7 @@ async fn inference_tts_controller_covers_disabled_missing_binary_and_stubbed_syn
 /// trim, the unreadable-file branch and the empty-file branch.
 #[tokio::test]
 async fn inference_transcribe_controllers_cover_params_trimming_and_local_rejections() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = true;
@@ -417,7 +424,7 @@ async fn inference_transcribe_controllers_cover_params_trimming_and_local_reject
 /// (`ops_part_01.rs:267`) rather than in the model call.
 #[tokio::test]
 async fn inference_agent_chat_simple_controller_covers_params_and_prompt_guard() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = false;
@@ -494,7 +501,7 @@ async fn inference_agent_chat_simple_controller_covers_params_and_prompt_guard()
 /// scheme contract, which nothing else does.
 #[tokio::test]
 async fn inference_status_controllers_tolerate_extra_params_and_reject_bad_urls() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let _ollama = pin_offline_ollama();
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);

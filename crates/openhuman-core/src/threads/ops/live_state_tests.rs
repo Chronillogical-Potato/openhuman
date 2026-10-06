@@ -18,13 +18,13 @@ fn thread_live_state_request_parses_thread_id() {
 }
 
 struct WorkspaceGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
+    _lock: tokio::sync::MutexGuard<'static, ()>,
     _tmp: tempfile::TempDir,
 }
 
 impl WorkspaceGuard {
-    fn new() -> Self {
-        let lock = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    async fn new() -> Self {
+        let lock = TEST_ENV_LOCK.lock().await;
         let tmp = tempfile::tempdir().expect("tempdir");
         unsafe {
             std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -49,7 +49,7 @@ impl Drop for WorkspaceGuard {
 /// one is set.
 #[tokio::test]
 async fn goal_get_reads_back_a_stored_goal() {
-    let _ws = WorkspaceGuard::new();
+    let _ws = WorkspaceGuard::new().await;
 
     let empty = goal_get(ThreadLiveStateRequest {
         thread_id: "thread-goal-live".to_string(),
@@ -82,7 +82,7 @@ async fn goal_get_reads_back_a_stored_goal() {
 /// wrote for the same thread.
 #[tokio::test]
 async fn todos_get_reads_back_what_the_todo_tool_wrote() {
-    let _ws = WorkspaceGuard::new();
+    let _ws = WorkspaceGuard::new().await;
     let dir = crate::config::Config::load_or_init()
         .await
         .unwrap()

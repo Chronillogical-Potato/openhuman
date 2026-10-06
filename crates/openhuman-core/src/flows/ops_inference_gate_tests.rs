@@ -110,7 +110,7 @@ async fn inference_gate_passes_when_model_constructs() {
     // network at all. Construction still observes the process-global test
     // provider seam, so serialize this probe with tests that install an
     // override.
-    let _inference = crate::inference::inference_test_guard();
+    let _inference = crate::inference::inference_test_guard_async().await;
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp);
     config.memory_provider = Some("ollama:llama3".to_string());
@@ -136,7 +136,7 @@ async fn inference_gate_surfaces_construction_error() {
     // the gate must surface that failure, naming the offending node.
     // Construction must FAIL here, so no test may have the process-global
     // `test_provider_override` installed meanwhile; its installers hold this.
-    let _inference = crate::inference::inference_test_guard();
+    let _inference = crate::inference::inference_test_guard_async().await;
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp);
     seed_app_session_for_gate_test(&tmp);
@@ -227,7 +227,7 @@ async fn inference_gate_probes_every_distinct_agent_node_role() {
     // incorrectly pass. Both failures must be named.
     // Construction must FAIL here, so no test may have the process-global
     // `test_provider_override` installed meanwhile; its installers hold this.
-    let _inference = crate::inference::inference_test_guard();
+    let _inference = crate::inference::inference_test_guard_async().await;
     let tmp = TempDir::new().unwrap();
     let mut config = test_config(&tmp);
     seed_app_session_for_gate_test(&tmp);

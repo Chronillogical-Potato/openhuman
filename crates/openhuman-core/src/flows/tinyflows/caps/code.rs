@@ -76,6 +76,7 @@ impl CodeRunner for OpenHumanCode {
         let policy = resolve_sandbox_policy(
             SandboxMode::Sandboxed,
             &self.config.action_dir,
+            &self.config.workspace_dir,
             &self.config.runtime,
             false,
         );

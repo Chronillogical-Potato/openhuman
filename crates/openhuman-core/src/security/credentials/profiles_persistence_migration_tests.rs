@@ -67,7 +67,9 @@ fn clear_lock_if_stale_reclaims_pidless_lock_past_short_grace() {
     std::fs::write(&lock_path, "garbage without a pid line\n").unwrap();
     // Past the malformed grace but far below the 30s stale-age threshold —
     // the old code would have left this in place and blocked ~30s.
-    assert!(MALFORMED_LOCK_GRACE_MS + 500 < STALE_LOCK_AGE_MS);
+    const {
+        assert!(MALFORMED_LOCK_GRACE_MS + 500 < STALE_LOCK_AGE_MS);
+    }
     let aged = std::time::SystemTime::now()
         - std::time::Duration::from_millis(MALFORMED_LOCK_GRACE_MS + 500);
     std::fs::OpenOptions::new()
@@ -86,14 +88,18 @@ fn clear_lock_if_stale_reclaims_pidless_lock_past_short_grace() {
 
 #[test]
 fn lock_timeout_allows_fresh_leaked_locks_to_age_into_stale_reclaim() {
-    assert!(
-        LOCK_TIMEOUT_MS > STALE_LOCK_AGE_MS,
-        "lock timeout must outlive stale-lock age so a fresh leaked lock can be reclaimed"
-    );
-    assert!(
-        LOCK_TIMEOUT_MS - STALE_LOCK_AGE_MS >= 1_000,
-        "timeout should leave at least one periodic stale recheck after the threshold"
-    );
+    const {
+        assert!(
+            LOCK_TIMEOUT_MS > STALE_LOCK_AGE_MS,
+            "lock timeout must outlive stale-lock age so a fresh leaked lock can be reclaimed"
+        );
+    }
+    const {
+        assert!(
+            LOCK_TIMEOUT_MS - STALE_LOCK_AGE_MS >= 1_000,
+            "timeout should leave at least one periodic stale recheck after the threshold"
+        );
+    }
 }
 
 /// Sentry OPENHUMAN-TAURI-H8: when `OpenOptions::create_new` fails with

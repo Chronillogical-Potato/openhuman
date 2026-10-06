@@ -1,5 +1,6 @@
 /**
- * Memory tool calls (`memory_store`, `memory_recall`, `memory_hybrid_search`)
+ * Memory tool calls (the single `memory` tool, plus the retired `memory_store`,
+ * `memory_recall` and `memory_hybrid_search` seen in older transcripts)
  * rendered through the vendored `memory-chips` element instead of the raw
  * JSON `ToolDataView` fallback every other dynamic tool gets.
  *
@@ -63,7 +64,36 @@ function chipsForRecall(result: unknown): MemoryChip[] {
   });
 }
 
+/** A tool result as an object: the core may hand it over as a JSON string. */
+function parseResult(result: unknown): unknown {
+  if (typeof result !== 'string') return result;
+  try {
+    return JSON.parse(result);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The single `memory` tool (`recall | fetch | learn | forget`): a `learn` is
+ * one write (its `text`); a `recall` lists its `citations` (`snippet`) and a
+ * `fetch` its `hits` (`text`). `forget` shows nothing.
+ */
+function chipsForMemoryTool(args: unknown, result: unknown): MemoryChip[] {
+  const record = asRecord(args);
+  const action = stringField(record, 'action');
+  if (action === 'learn') {
+    const text = stringField(record, 'text')?.slice(0, 60);
+    return text ? [{ id: `learn:${text}`, text, change: 'added' }] : [];
+  }
+  if (action !== 'recall' && action !== 'fetch') return [];
+  const parsed = asRecord(parseResult(result));
+  const list = action === 'recall' ? parsed?.citations : parsed?.hits;
+  return chipsForRecall(Array.isArray(list) ? list : []);
+}
+
 const CHIP_BUILDERS: Record<string, (args: unknown, result: unknown) => MemoryChip[]> = {
+  memory: (args, result) => chipsForMemoryTool(args, result),
   memory_store: args => chipsForStore(args),
   memory_recall: (_args, result) => chipsForRecall(result),
   memory_hybrid_search: (_args, result) => chipsForRecall(result),
@@ -100,6 +130,7 @@ function createMemoryToolCall(toolName: string): ToolCallMessagePartComponent {
 }
 
 /** One toolkit entry per memory tool name, sharing the same renderer logic. */
+export const MemoryToolCall = createMemoryToolCall('memory');
 export const MemoryStoreCall = createMemoryToolCall('memory_store');
 export const MemoryRecallCall = createMemoryToolCall('memory_recall');
 export const MemoryHybridSearchCall = createMemoryToolCall('memory_hybrid_search');

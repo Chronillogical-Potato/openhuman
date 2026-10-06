@@ -87,16 +87,16 @@ fn find<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
         .unwrap_or_else(|| panic!("{name} missing"))
 }
 
+/// A shared, immutable tool registry.
+type ToolRegistry = Arc<Vec<Box<dyn Tool>>>;
+
 /// A registry split the way a real agent's is: the pack tool in the durable
 /// vector, the packed tool in the separate synthesised one.
 ///
 /// This is not a contrived shape. Every `delegate_*` tool is synthesised into
 /// `OpenHumanSessionHost::synthesized_tools`, a different `Arc` from the durable registry
 /// (#6145), and seven delegates were already packed.
-fn split_registries(
-    name: &'static str,
-    level: PermissionLevel,
-) -> (Arc<Vec<Box<dyn Tool>>>, Arc<Vec<Box<dyn Tool>>>) {
+fn split_registries(name: &'static str, level: PermissionLevel) -> (ToolRegistry, ToolRegistry) {
     let mut durable: Vec<Box<dyn Tool>> = Vec::new();
     append_pack_tools(&mut durable);
     let durable = Arc::new(durable);
@@ -161,7 +161,7 @@ fn closing_a_goal_is_never_packed() {
         "`goal_complete` was packed; see the carve-out note on the `goals` pack"
     );
     // And the rest of the family is, or the carve-out saved nothing.
-    for held in ["goals", "goal_get", "goal_set"] {
+    for held in ["goal_get", "goal_set"] {
         assert!(
             all_packed_tool_names().contains(&held),
             "`{held}` should be reachable through the `goals` pack, not on the wire"
@@ -409,14 +409,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         ),
         ("scheduling", &["cron"]),
         (
-            "profile",
-            &[
-                "save_preference",
-                "remember_preference",
-                "manage_profile_memory",
-            ],
-        ),
-        (
             "media",
             &[
                 "create_image",
@@ -428,7 +420,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
             ],
         ),
         ("tasks", &["manage_tasks"]),
-        ("goals", &["goals", "goal_get", "goal_set"]),
+        ("goals", &["goal_get", "goal_set"]),
         ("docs", &["gitbooks_search", "gitbooks_get_page"]),
     ];
 

@@ -5,7 +5,7 @@
 //! deterministic controller paths. External-service paths are asserted at
 //! validation/config boundaries so the suite stays hermetic.
 
-use crate::env_guard::env_lock;
+use crate::env_guard::env_lock_async;
 use crate::env_guard::EnvVarGuard;
 use crate::rpc_harness::serve_rpc;
 use crate::rpc_harness::{ok, payload, rpc, schema, write_min_config};
@@ -66,7 +66,7 @@ fn error_message<'a>(value: &'a Value, context: &str) -> &'a str {
 
 #[tokio::test]
 async fn worker_b_schema_catalog_exposes_all_controller_methods() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let catalog = schema(&harness.rpc_base).await;
@@ -124,7 +124,7 @@ async fn worker_b_schema_catalog_exposes_all_controller_methods() {
 
 #[tokio::test]
 async fn inference_settings_oauth_and_validation_paths_are_reachable() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let update_model = rpc(
@@ -261,7 +261,7 @@ async fn inference_settings_oauth_and_validation_paths_are_reachable() {
 
 #[tokio::test]
 async fn agent_definitions_profiles_and_validation_paths_are_reachable() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let definitions = rpc(
@@ -363,7 +363,7 @@ async fn agent_definitions_profiles_and_validation_paths_are_reachable() {
 
 #[tokio::test]
 async fn tools_and_tool_registry_paths_are_reachable_without_live_services() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let registry = rpc(
@@ -462,7 +462,7 @@ async fn tools_and_tool_registry_paths_are_reachable_without_live_services() {
 
 #[tokio::test]
 async fn approval_read_and_decision_validation_paths_are_reachable() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let pending = rpc(

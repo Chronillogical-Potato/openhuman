@@ -60,7 +60,7 @@ fn cost_record_line(id: &str, model: &str, cost_usd: f64, input: u64, output: u6
 #[tokio::test]
 async fn billing_uncovered_controllers_round_trip_against_the_backend() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start("", false).await;
     let log = mock_log();
     log.clear();
@@ -272,7 +272,7 @@ async fn billing_uncovered_controllers_round_trip_against_the_backend() {
 #[tokio::test]
 async fn billing_rejects_bad_input_before_it_reaches_the_backend() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start("", false).await;
     harness.login().await;
     let log = mock_log();
@@ -332,7 +332,7 @@ async fn billing_rejects_bad_input_before_it_reaches_the_backend() {
 #[tokio::test]
 async fn billing_without_a_session_refuses_locally() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start("", false).await;
     let log = mock_log();
     log.clear();
@@ -373,7 +373,7 @@ async fn billing_without_a_session_refuses_locally() {
 #[tokio::test]
 async fn cost_controllers_report_seeded_usage_and_split_managed_from_byok() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start(
         r#"
 [cost]
@@ -641,7 +641,7 @@ alert_threshold = 0.9
 #[tokio::test]
 async fn cost_controllers_answer_on_a_workspace_with_no_history() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start("", true).await;
     bind_cost_tracker(&harness.workspace(), json!({}));
 
@@ -684,7 +684,7 @@ async fn cost_controllers_answer_on_a_workspace_with_no_history() {
 #[tokio::test]
 async fn dashboard_model_health_projects_the_registry_and_thresholds() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start(
         r#"
 [dashboard.model_health]
@@ -798,7 +798,7 @@ vision = false
 #[tokio::test]
 async fn dashboard_model_health_refuses_when_disabled() {
     crate::tinyhumans_boot::boot();
-    let _lock = support::env_lock();
+    let _lock = support::env_lock_async().await;
     let harness = Harness::start(
         r#"
 [dashboard.model_health]

@@ -100,7 +100,7 @@ fn validate_asset_name_rejects_unprefixed_asset() {
 // `update_apply` so the three cases serialise on the same mutex.
 #[tokio::test]
 async fn update_apply_rejects_non_github_url_before_network_call() {
-    let _guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = TEST_ENV_LOCK.lock().await;
     let outcome = update_apply(
         "https://evil.example.com/asset".to_string(),
         "openhuman-core-x86_64.tar.gz".to_string(),
@@ -116,7 +116,7 @@ async fn update_apply_rejects_non_github_url_before_network_call() {
 
 #[tokio::test]
 async fn update_apply_rejects_unsafe_asset_name() {
-    let _guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = TEST_ENV_LOCK.lock().await;
     let outcome = update_apply(
         "https://github.com/owner/repo/releases/download/v1/x".to_string(),
         "../etc/passwd".to_string(),
@@ -132,7 +132,7 @@ async fn update_apply_rejects_unsafe_asset_name() {
 
 #[tokio::test]
 async fn update_apply_rejects_when_rpc_mutations_disabled() {
-    let _guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     write_update_policy(

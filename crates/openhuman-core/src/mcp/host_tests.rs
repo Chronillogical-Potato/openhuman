@@ -32,7 +32,6 @@ fn populated_server() -> HostServer {
             disallowed_tools: vec!["debug".into()],
             timeout_secs: 9,
             auth: McpAuthConfig::BearerToken { token: "t".into() },
-            ..Default::default()
         },
         expose: Default::default(),
         direct_tools: Vec::new(),

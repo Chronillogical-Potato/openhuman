@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn metadata_methods_expose_execute_permission_and_schema() {
-    let tool = SpawnParallelAgentsTool::default();
+    let tool = SpawnParallelAgentsTool;
     assert_eq!(tool.name(), "spawn_parallel_agents");
     assert!(tool.description().contains("independent sub-agent tasks"));
     assert_eq!(tool.permission_level(), PermissionLevel::Execute);
@@ -21,7 +21,7 @@ fn ownership_boundary_is_prepended_when_present() {
 
 #[test]
 fn schema_advertises_isolation_and_base_ref() {
-    let tool = SpawnParallelAgentsTool::default();
+    let tool = SpawnParallelAgentsTool;
     let schema = tool.parameters_schema();
     let props = &schema["properties"]["tasks"]["items"]["properties"];
     assert_eq!(props["isolation"]["enum"][0], "none");

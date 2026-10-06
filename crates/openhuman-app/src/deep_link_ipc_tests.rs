@@ -129,7 +129,7 @@ fn round_trip_bind_connect_forward() {
         if let Ok(stream) = listener.accept().map(|(s, _)| s) {
             stream.set_read_timeout(Some(Duration::from_secs(2))).ok();
             let reader = BufReader::new(stream);
-            for line in reader.lines().flatten() {
+            for line in reader.lines().map_while(Result::ok) {
                 if line.starts_with("openhuman://") {
                     received_clone.lock().unwrap().push(line);
                 }

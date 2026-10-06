@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::channels::traits::{ChannelMessage, SendMessage};
+use std::path::Path;
 use std::sync::Mutex as StdMutex;
 use tempfile::tempdir;
 use tinychannels::remote::session_store::with_store_read;
@@ -40,12 +41,7 @@ fn approval_subscriber(channels: &[Arc<RecordingChannel>]) -> ChannelApprovalSur
     ChannelApprovalSurfaceSubscriber::new(Arc::new(map))
 }
 
-fn received(
-    channel: &str,
-    reply_target: &str,
-    thread_ts: Option<&str>,
-    ws: &PathBuf,
-) -> DomainEvent {
+fn received(channel: &str, reply_target: &str, thread_ts: Option<&str>, ws: &Path) -> DomainEvent {
     DomainEvent::ChannelMessageReceived {
         channel: channel.into(),
         message_id: "m1".into(),
@@ -54,11 +50,11 @@ fn received(
         content: "hi".into(),
         thread_ts: thread_ts.map(str::to_string),
         inbound_envelope: None,
-        workspace_dir: ws.clone(),
+        workspace_dir: ws.to_path_buf(),
     }
 }
 
-fn processed(channel: &str, reply_target: &str, ws: &PathBuf) -> DomainEvent {
+fn processed(channel: &str, reply_target: &str, ws: &Path) -> DomainEvent {
     DomainEvent::ChannelMessageProcessed {
         channel: channel.into(),
         message_id: "m1".into(),
@@ -71,7 +67,7 @@ fn processed(channel: &str, reply_target: &str, ws: &PathBuf) -> DomainEvent {
         model: "test-model".into(),
         elapsed_ms: 10,
         success: true,
-        workspace_dir: ws.clone(),
+        workspace_dir: ws.to_path_buf(),
     }
 }
 

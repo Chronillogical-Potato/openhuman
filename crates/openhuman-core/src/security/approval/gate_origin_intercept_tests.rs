@@ -113,7 +113,7 @@ async fn intercept_with_external_channel_origin_persists_and_ttl_denies() {
     // Non-web channel inbound (Telegram / Discord / Slack / etc.):
     // persist an audit row but TTL-deny — there is no channel-routed
     // approval surface yet, and the input is remote-attacker text.
-    let (gate, _dir, env) = expiry_gate();
+    let (gate, _dir, env) = expiry_gate().await;
     let gate = Arc::new(gate);
     let origin = AgentTurnOrigin::ExternalChannel {
         channel: "telegram".into(),
@@ -363,7 +363,7 @@ async fn flow_tool_trust_auto_allows_before_parking() {
     //
     // The second half of this test *does* wait a park out, so it needs the
     // short window even though it never inspects the "timed out" reason.
-    let (gate, _dir, env) = expiry_gate();
+    let (gate, _dir, env) = expiry_gate().await;
     let gate = Arc::new(gate);
     store::insert_flow_trust(&gate.config, "flow-trusted", "composio").unwrap();
 

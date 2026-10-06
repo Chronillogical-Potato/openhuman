@@ -95,7 +95,7 @@ fn full_turn_builds_correlated_span_tree() {
     );
     assert_eq!(turn.attributes["agent.iterations"], serde_json::json!(1));
     assert_eq!(turn.status, SpanStatus::Ok);
-    assert!(turn.attributes.get("gen_ai.usage.cost_usd").is_some());
+    assert!(turn.attributes.contains_key("gen_ai.usage.cost_usd"));
 
     // Iteration parented to the turn.
     let iter = find(spans, "agent.iteration#1");
@@ -301,7 +301,7 @@ fn subagent_failure_records_error_without_raw_text() {
     let sub = find(c.spans(), "subagent.Coder");
     assert_eq!(sub.status, SpanStatus::Error);
     assert_eq!(sub.attributes["error"], serde_json::json!(true));
-    assert!(sub.attributes.get("error.length").is_some());
+    assert!(sub.attributes.contains_key("error.length"));
 
     let blob = serde_json::to_string(c.spans()).unwrap();
     assert!(
@@ -455,7 +455,7 @@ fn no_user_attribution_omits_user_id() {
     let mut c = SpanCollector::new(TraceContext::new("anon-1", None));
     c.record(&AgentProgress::TurnStarted, 0);
     let turn = find(c.spans(), "agent.turn");
-    assert!(turn.attributes.get("user.id").is_none());
+    assert!(!turn.attributes.contains_key("user.id"));
     assert_eq!(turn.attributes["session.id"], serde_json::json!("anon-1"));
 }
 

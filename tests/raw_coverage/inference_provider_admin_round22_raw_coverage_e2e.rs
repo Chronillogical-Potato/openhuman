@@ -54,18 +54,23 @@ struct SeenRequest {
 /// as a flaky failure under `cargo llvm-cov` (the coverage job does not pass
 /// `--test-threads=1`). Every test takes this guard up front so the suite is
 /// effectively serialized regardless of the runner's thread count.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 #[tokio::test]
 async fn provider_admin_model_listing_covers_openrouter_validation_and_local_synthesis() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -148,7 +153,7 @@ async fn provider_admin_model_listing_covers_openrouter_validation_and_local_syn
 
 #[tokio::test]
 async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -242,7 +247,7 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
 
 #[tokio::test]
 async fn local_admin_covers_diagnostics_errors_and_probe_with_fake_bins() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -480,9 +485,11 @@ fn provider_entry(
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.api_url = Some("http://127.0.0.1:9".to_string());
     config

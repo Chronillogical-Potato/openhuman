@@ -20,6 +20,7 @@
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+import { parseAttachmentReferences } from '../lib/attachments';
 import type { QueueItemPayload } from '../services/chatService';
 import type { ThreadMessage } from '../types/thread';
 import { clearAllChatRuntime, clearRuntimeForThread, endInferenceTurn } from './chatRuntimeSlice';
@@ -50,12 +51,35 @@ export interface QueueState {
 
 const initialState: QueueState = { itemsByThread: {}, pendingFollowupsByThread: {} };
 
-/** Mirrors the core's `queued_turn::text_preview`: 80 code points, then `…`. */
+/** Mirrors core queue previews: caption or filenames, clipped at 80 code points. */
 const QUEUE_PREVIEW_CHARS = 80;
 
 export function clipQueuePreview(text: string): string {
-  const chars = Array.from(text);
-  if (chars.length <= QUEUE_PREVIEW_CHARS) return text;
+  const names: string[] = [];
+  const caption = text
+    .replace(/\[(IMAGE|FILE|ATTACHMENT):([^\]]+)\]/g, (marker, kind: string, source: string) => {
+      if (kind === 'ATTACHMENT') {
+        const parsed = parseAttachmentReferences(marker);
+        if (parsed.attachments.length === 0) return marker;
+        names.push(parsed.attachments[0].name);
+      } else {
+        // Inspect only the transport header, never decode the media payload.
+        const header = source.startsWith('data:') ? source.split(',', 1)[0] : '';
+        const encoded = header
+          .split(';')
+          .find(param => param.startsWith('name='))
+          ?.slice(5);
+        const name =
+          encoded === undefined ? '' : new URLSearchParams(`name=${encoded}`).get('name');
+        names.push(name || 'attachment');
+      }
+      return '';
+    })
+    .replace(/ {2,}/g, ' ')
+    .trim();
+  const preview = caption || names.join(', ');
+  const chars = Array.from(preview);
+  if (chars.length <= QUEUE_PREVIEW_CHARS) return preview;
   return `${chars.slice(0, QUEUE_PREVIEW_CHARS).join('')}…`;
 }
 

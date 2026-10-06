@@ -159,34 +159,13 @@ fn autonomy_settings_rpc_is_registered() {
 }
 
 #[test]
-fn memory_sync_settings_rpc_is_registered() {
-    let funcs: Vec<&str> = all_controller_schemas()
-        .iter()
-        .map(|s| s.function)
-        .collect();
-    assert!(funcs.contains(&"get_memory_sync_settings"));
-    assert!(funcs.contains(&"update_memory_sync_settings"));
-    // The handler registry must stay in lockstep with the schema list.
-    let handlers: Vec<&str> = all_registered_controllers()
-        .iter()
-        .map(|h| h.schema.function)
-        .collect();
-    assert!(handlers.contains(&"get_memory_sync_settings"));
-    assert!(handlers.contains(&"update_memory_sync_settings"));
-}
-
-#[test]
 fn deserialize_params_parses_memory_settings_update() {
     let mut m = Map::new();
-    m.insert("backend".into(), Value::String("sqlite".into()));
-    m.insert("auto_save".into(), Value::Bool(true));
     m.insert(
         "embedding_dimensions".into(),
         Value::Number(serde_json::Number::from(1536)),
     );
     let out: MemorySettingsUpdate = deserialize_params(m).unwrap();
-    assert_eq!(out.backend.as_deref(), Some("sqlite"));
-    assert_eq!(out.auto_save, Some(true));
     assert_eq!(out.embedding_dimensions, Some(1536));
 }
 
@@ -270,7 +249,7 @@ fn deserialize_params_parses_workspace_onboarding_flag_set_params() {
     let mut m = Map::new();
     m.insert("value".into(), Value::Bool(true));
     let out: WorkspaceOnboardingFlagSetParams = deserialize_params(m).unwrap();
-    assert_eq!(out.value, true);
+    assert!(out.value);
     assert!(out.flag_name.is_none());
 }
 
@@ -310,7 +289,7 @@ use crate::config::TEST_ENV_LOCK;
 
 #[tokio::test]
 async fn handle_get_autonomy_settings_returns_current_value() {
-    let _g = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -340,7 +319,7 @@ async fn handle_get_autonomy_settings_returns_current_value() {
 
 #[tokio::test]
 async fn handle_update_autonomy_settings_rejects_invalid_value() {
-    let _g = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -378,7 +357,7 @@ async fn handle_get_agent_paths_returns_action_workspace_and_projects() {
     // the action sandbox / internal workspace paths instead of the hard-coded
     // `~/OpenHuman/projects` / `~/.openhuman/workspace` strings that drift
     // when an operator sets OPENHUMAN_ACTION_DIR.
-    let _g = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -427,7 +406,7 @@ async fn handle_get_agent_paths_reflects_openhuman_action_dir_env_override() {
     // must show that override in the panel. The override is honoured by
     // default_action_dir() at Config load time; this test verifies the RPC
     // surface forwards the loaded value unchanged.
-    let _g = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().unwrap();
     let custom_actions = tmp.path().join("custom-actions-3237");
     std::fs::create_dir_all(&custom_actions).expect("create custom action dir");

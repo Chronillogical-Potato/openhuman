@@ -336,7 +336,7 @@ fn a_direct_hand_off_closes_its_owners_pack_and_nothing_else() {
     // `hand_off_to_skill_setup` is a hypothetical UNPACKED hand-off to the
     // skills pack's owner (the real one, `setup_skills`, is packed now; see
     // `a_packed_hand_off_leaves_its_owners_pack_open`).
-    let delegates = vec![
+    let delegates = [
         delegate("hand_off_to_skill_setup", "skill_setup"),
         delegate("create_image", "image_agent"),
     ];

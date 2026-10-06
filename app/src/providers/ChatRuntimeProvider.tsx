@@ -609,8 +609,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       // Persist sequentially so the queued prompts land in the append-log in the
       // order the user queued them (concurrent dispatches would race), and
       // surface failures instead of dropping them silently. The stored message
-      // carries the original content + attachment metadata, so the follow-up
-      // persists identically to an interactive send.
+      // carries the original upload markers in memory. The append boundary
+      // saves originals and returns durable references before writing history.
       for (const item of queued) {
         try {
           await dispatch(addMessageLocal({ threadId, message: item.message })).unwrap();

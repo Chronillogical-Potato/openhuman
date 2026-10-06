@@ -463,7 +463,7 @@ describe('ChatComposer', () => {
       expect(onAttachFiles).not.toHaveBeenCalled();
     });
 
-    it('ignores unreadable clipboard items and non-media files', () => {
+    it('ignores unreadable clipboard items while accepting arbitrary files', () => {
       const onAttachFiles = vi.fn().mockResolvedValue(undefined);
       renderComposer({ onAttachFiles });
       const file = new File(['text'], 'note.txt', { type: 'text/plain' });
@@ -476,8 +476,8 @@ describe('ChatComposer', () => {
           ],
         },
       });
-      expect(onAttachFiles).not.toHaveBeenCalled();
-      expect(notPrevented).toBe(true);
+      expect(onAttachFiles).toHaveBeenCalledWith([file]);
+      expect(notPrevented).toBe(false);
     });
 
     it('ignores plain-text paste (no media items)', () => {

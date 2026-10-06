@@ -62,7 +62,8 @@ async fn voice_status_detects_stub_binaries() {
             .expect("chmod");
     }
 
-    let _guard = EnvVarGuard::locked_set("PIPER_BIN", &piper_stub.display().to_string());
+    let _guard =
+        EnvVarGuard::locked_set_async("PIPER_BIN", &piper_stub.display().to_string()).await;
 
     let mut config = Config::default();
     config.workspace_dir = tmp.path().join("workspace");

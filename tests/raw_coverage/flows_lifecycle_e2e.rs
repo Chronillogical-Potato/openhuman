@@ -17,7 +17,7 @@
 use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -44,16 +44,21 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 /// The crate-wide env lock, not a private one. Every aggregated suite in
 /// `raw_coverage_all` shares one process, so libtest runs them concurrently
 /// and a lock local to this file would isolate nothing.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 /// Serializes every case in this binary: `HOME` and the backend-URL overrides
 /// are process-global, so two cases running in parallel would resolve each
 /// other's `config.toml` and each other's flows database.
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// Initialise the process RPC token (idempotent) and return the bearer the
@@ -256,7 +261,7 @@ fn str_at<'a>(value: &'a Value, pointer: &str) -> &'a str {
 /// the draft, so the draft store is empty afterwards and the flow store is not.
 #[tokio::test]
 async fn flows_draft_surface_round_trips_and_promotes_into_a_saved_flow() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let draft = h
@@ -407,7 +412,7 @@ async fn flows_draft_surface_round_trips_and_promotes_into_a_saved_flow() {
 /// first, and honour its limit.
 #[tokio::test]
 async fn flows_list_all_runs_spans_flows_and_prune_reports_the_retention_cap() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let first = h
@@ -505,7 +510,7 @@ async fn flows_list_all_runs_spans_flows_and_prune_reports_the_retention_cap() {
 /// is not an error), while a contract fetch for a named action is.
 #[tokio::test]
 async fn flows_tool_catalog_surface_degrades_without_composio_credentials() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let search = h
@@ -601,7 +606,7 @@ async fn flows_tool_catalog_surface_degrades_without_composio_credentials() {
 /// Stop must never kill a newer turn.
 #[tokio::test]
 async fn flows_build_cancel_reports_no_turn_in_flight_without_erroring() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let unscoped = h

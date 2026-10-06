@@ -34,7 +34,7 @@ pub use schemas::{
 /// Serializes tests that mutate the process-global `OPENHUMAN_SKILL_REGISTRY_CACHE_DIR`
 /// env var, so cargo's parallel runner can't interleave their cache dirs.
 #[cfg(all(test, feature = "skills"))]
-pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(crate) static TEST_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 // ---------------------------------------------------------------------------
 // Disabled facade — compiled only when the `skills` feature is OFF.

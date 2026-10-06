@@ -103,9 +103,20 @@ async fn handle_round_trip_find_summarize_and_extract() {
     // The model sees a small preview naming the handle and the tools.
     assert!(preview.len() < content.len() / 4);
     assert!(preview.contains(&handle));
-    for name in REPL_TOOL_NAMES {
+    // It names the slice read and the outline, then the whole-original
+    // retrieve last; `juice_extract` (HTML/Markdown only) is left to its
+    // description.
+    for name in ["juice_find", "juice_summarize"] {
         assert!(preview.contains(name), "footer must name {name}");
     }
+    let find = preview.find("juice_find").unwrap();
+    let retrieve = preview
+        .find(crate::inference::tokenjuice::RETRIEVE_TOOL_NAME)
+        .expect("footer names the whole-original retrieve");
+    assert!(
+        find < retrieve,
+        "slice read before whole original: {preview}"
+    );
     assert!(
         !preview.contains("needle in the middle"),
         "the needle must be behind the handle, not in the preview"

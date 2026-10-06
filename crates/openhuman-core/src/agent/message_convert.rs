@@ -17,13 +17,15 @@
 //! agent-loop while callers keep speaking the row vocabulary.
 
 use tinyinference_llm::message::{
-    AssistantMessage, ContentBlock, ImageRef, Message, SystemMessage, ToolMessage, UserMessage,
+    AssistantMessage, ContentBlock, ImageRef, MediaRef, Message, SystemMessage, ToolMessage,
+    UserMessage,
 };
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools_agent::dialect::{
     DialectMessage, DialectResponse, DialectRole, ToolDialect, ToolResultEntry, TranscriptEntry,
 };
 
+use crate::agent::attachments::codec::{media_from_part, part_from_media};
 use crate::inference::provider::ChatResponse;
 use tinyagents_session::transcript::{TranscriptMessage, TranscriptPart, TranscriptToolCall};
 
@@ -204,6 +206,15 @@ fn user_blocks_from_parts(parts: &[TranscriptPart]) -> Vec<ContentBlock> {
                 url: url.clone(),
                 mime_type: data_uri_mime(url),
             }),
+            TranscriptPart::Audio { source, mime_type } => {
+                ContentBlock::Audio(media_from_part(source, mime_type))
+            }
+            TranscriptPart::Video { source, mime_type } => {
+                ContentBlock::Video(media_from_part(source, mime_type))
+            }
+            TranscriptPart::Document { source, mime_type } => {
+                ContentBlock::Document(media_from_part(source, mime_type))
+            }
         })
         .collect();
     if blocks.is_empty() {
@@ -221,6 +232,43 @@ fn user_blocks_from_parts(parts: &[TranscriptPart]) -> Vec<ContentBlock> {
 /// [`user_text_with_markers`] gives back exactly the text that came in. Text
 /// without a ready marker is a plain text message, byte for byte.
 pub(crate) fn user_message_from_text(text: &str) -> Message {
+    if !crate::agent::attachments::parse(text).1.is_empty() {
+        let mut content = Vec::new();
+        for segment in crate::agent::attachments::segments(text) {
+            let attachment = match segment {
+                crate::agent::attachments::Segment::Text(text) => {
+                    if let Message::User(user) = user_message_from_text(&text) {
+                        content.extend(user.content);
+                    }
+                    continue;
+                }
+                crate::agent::attachments::Segment::Attachment(file) => file,
+            };
+            content.push(ContentBlock::Text(attachment.description()));
+            let media = MediaRef::Path {
+                path: attachment.path.clone(),
+                media_type: Some(attachment.mime.clone()),
+            };
+            let block = if attachment.mime.starts_with("image/") {
+                Some(ContentBlock::Image(ImageRef {
+                    url: attachment.path,
+                    // Durable Image's stable contract is URL-only. MIME is
+                    // sniffed from original bytes by the provider decorator.
+                    mime_type: None,
+                }))
+            } else if attachment.mime.starts_with("audio/") {
+                Some(ContentBlock::Audio(media))
+            } else if attachment.mime.starts_with("video/") {
+                Some(ContentBlock::Video(media))
+            } else {
+                // Documents also carry arbitrary binaries to the host fallback.
+                Some(ContentBlock::Document(media))
+            };
+            content.extend(block);
+        }
+        return Message::User(UserMessage { content });
+    }
+
     const PREFIX: &str = "[IMAGE:";
     if !text.contains(PREFIX) {
         return Message::user(text);
@@ -287,9 +335,15 @@ pub(crate) fn user_text_with_markers(msg: &Message) -> String {
 ///
 /// Blocks are emitted in **source order** — prose and images interleave as the
 /// user wrote them, so a caption stays next to its image. A marker whose payload
-/// is not a provider-ready reference (a `data:` URI or an `http(s)` URL) is kept
-/// verbatim as text rather than sent as an image the provider would reject.
+/// is empty or malformed is kept verbatim as text. Local references are
+/// resolved by the host model decorator before provider serialization.
 fn user_content_blocks(text: String) -> Vec<ContentBlock> {
+    if !crate::agent::attachments::parse(&text).1.is_empty() {
+        if let Message::User(user) = user_message_from_text(&text) {
+            return user.content;
+        }
+    }
+
     const PREFIX: &str = "[IMAGE:";
     // Fast path: no markers → unchanged single text block (byte-for-byte).
     if !text.contains(PREFIX) {
@@ -350,13 +404,10 @@ fn user_content_blocks(text: String) -> Vec<ContentBlock> {
     blocks
 }
 
-/// Whether an `[IMAGE:…]` payload is a reference the provider can serialize as an
-/// image: an inline `data:` URI or an `http(s)` URL. Anything else (a bare
-/// filesystem path, an un-normalized marker) is left as text.
+/// A nonempty legacy image reference. Local paths remain typed and are
+/// resolved under host policy on the ephemeral provider request.
 fn is_provider_ready_image_reference(reference: &str) -> bool {
-    reference.starts_with("data:")
-        || reference.starts_with("http://")
-        || reference.starts_with("https://")
+    !reference.trim().is_empty()
 }
 
 /// Extract the MIME type from a `data:<mime>;base64,…` URI, if present.
@@ -478,10 +529,15 @@ pub(crate) fn message_to_native_chat_message(msg: &Message) -> Option<Transcript
 /// image. Json / provider-extension blocks carry no user-visible text, so they
 /// are dropped, as [`Message::text`] drops them.
 fn user_row(msg: &Message, user: &UserMessage) -> TranscriptMessage {
-    let has_image = user
-        .content
-        .iter()
-        .any(|block| matches!(block, ContentBlock::Image(_)));
+    let has_image = user.content.iter().any(|block| {
+        matches!(
+            block,
+            ContentBlock::Image(_)
+                | ContentBlock::Audio(_)
+                | ContentBlock::Video(_)
+                | ContentBlock::Document(_)
+        )
+    });
     if !has_image {
         return TranscriptMessage::user(msg.text());
     }
@@ -495,6 +551,9 @@ fn user_row(msg: &Message, user: &UserMessage) -> TranscriptMessage {
                 ContentBlock::Image(image) => Some(TranscriptPart::Image {
                     url: image.url.clone(),
                 }),
+                ContentBlock::Audio(media) => part_from_media(media, "audio"),
+                ContentBlock::Video(media) => part_from_media(media, "video"),
+                ContentBlock::Document(media) => part_from_media(media, "document"),
                 _ => None,
             })
             .collect(),

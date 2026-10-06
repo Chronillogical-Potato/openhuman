@@ -20,10 +20,10 @@ use tinyinference_llm::providers::openai::{
 /// fallback + abstract-tier remapping), the resolved API key, and the OpenAI
 /// codex-oauth routing shared by every cloud `ChatModel` constructor.
 pub(super) struct CloudSlugResolution<'a> {
-    entry: &'a crate::config::schema::cloud_providers::CloudProviderCreds,
-    effective_model: String,
-    key: String,
-    codex: tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
+    pub(super) entry: &'a crate::config::schema::cloud_providers::CloudProviderCreds,
+    pub(super) effective_model: String,
+    pub(super) key: String,
+    pub(super) codex: tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
 }
 
 pub(super) fn resolve_cloud_slug<'a>(

@@ -3,7 +3,7 @@
 //! These tests avoid live Composio/backend calls and exercise public helper
 //! surfaces that feed the JSON-RPC and agent-tool paths.
 
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 
 use serde_json::{json, Value};
 use tempfile::tempdir;
@@ -21,7 +21,7 @@ use openhuman_core::integrations::composio::{
 
 use tinytools::Tool;
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[tokio::test]
 async fn composio_connected_integrations_public_helpers_handle_empty_auth_and_identity_edges() {
@@ -145,8 +145,10 @@ async fn composio_action_tool_execute_reports_missing_route_without_network() {
     let _module = crate::CONNECTOR_MODULE_LOCK.lock().await;
     crate::tinyhumans_boot::boot();
     let tmp = tempfile::tempdir().expect("temp config directory");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
+    let config = Config {
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
     let tool = ComposioActionTool::new(
         Arc::new(config),
         "GMAIL_SEND_EMAIL".into(),
@@ -204,19 +206,14 @@ fn composio_client_factory_modes_are_deterministic_without_network() {
 #[tokio::test]
 async fn composio_controller_registry_and_scope_handlers_cover_validation_edges() {
     let _env_lock = ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
+        .get_or_init(|| tokio::sync::Mutex::new(()))
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .await;
     crate::tinyhumans_boot::boot();
     // The controller loads config through the process workspace resolver. Pin
-    // this test to a null memory driver so its fail-closed assertion does not
-    // depend on a developer's local config or attempt to load TinyMemory.
+    // the test to an isolated workspace so the scope store does not depend on
+    // a developer's local config.
     let workspace = tempdir().expect("isolated workspace");
-    std::fs::write(
-        workspace.path().join("config.toml"),
-        "[subsystems.memory]\ndriver = \"null\"\n",
-    )
-    .expect("write isolated memory config");
     let _workspace = WorkspaceEnvGuard::set(workspace.path());
     let schemas = all_composio_controller_schemas();
     let registered = all_composio_registered_controllers();
@@ -256,26 +253,29 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     .await
     .expect_err("write must be bool");
     assert!(invalid_write.contains("invalid 'write'"));
-    // The storage half must refuse rather than report a write it did not do.
-    //
-    // This transport-only test does not configure a memory module, so the
-    // workspace binds the null driver. Pin the refusal at the driver's family
-    // boundary instead of claiming to reach the module's `kv_put` path.
-    let memory_missing = composio_call(
+    // The storage half persists to `<workspace>/integrations/composio_user_scopes.json`
+    // (no memory driver involved) and reads back through `get_user_scopes`.
+    let saved = composio_call(
         set_scopes,
-        json!({ "toolkit": "gmail", "read": true, "write": true, "admin": false }),
+        json!({ "toolkit": " GitHub ", "read": true, "write": false, "admin": true }),
     )
     .await
-    .expect_err("the backing write must fail when the bound driver has no Graph family");
+    .expect("set_user_scopes persists to the workspace file store");
+    assert_eq!(saved.pointer("/admin"), Some(&json!(true)));
+    assert_eq!(saved.pointer("/write"), Some(&json!(false)));
+    let reread = composio_call(get_scopes, json!({ "toolkit": "github" }))
+        .await
+        .expect("get_user_scopes reads the stored pref");
+    assert_eq!(reread.pointer("/admin"), Some(&json!(true)));
+    assert_eq!(reread.pointer("/write"), Some(&json!(false)));
     assert!(
-        memory_missing.starts_with("[composio][scopes] "),
-        "the refusal must be tagged as the scopes storage half's, so a failure here \
-         points at this handler rather than at whatever it called; got: {memory_missing}"
-    );
-    assert!(
-        memory_missing.contains("does not serve Graph"),
-        "set_user_scopes must fail CLOSED when the bound driver cannot store scopes; \
-         got: {memory_missing}"
+        workspace
+            .path()
+            .join("workspace")
+            .join("integrations")
+            .join("composio_user_scopes.json")
+            .exists(),
+        "the pref lands in the workspace file store"
     );
 }
 

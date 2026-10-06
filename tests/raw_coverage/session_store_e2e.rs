@@ -28,7 +28,7 @@
 use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -52,17 +52,22 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 /// nothing: every `tests/raw_coverage/` suite is a module in the one
 /// `raw_coverage_all` binary, so libtest runs them concurrently in one process
 /// and only the shared mutex actually excludes another suite's `set_var`.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 // ── Env isolation ─────────────────────────────────────────────────────────
 
 /// `HOME` / `OPENHUMAN_WORKSPACE` are process-global, so every case in this
 /// binary is serialised behind one lock.
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 fn ensure_rpc_auth() {
@@ -246,7 +251,7 @@ fn error_message(value: &Value, context: &str) -> String {
 /// idempotent because the item ledger says the work is done.
 #[tokio::test]
 async fn session_import_plans_imports_then_skips_on_rerun() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let raw_dir = harness.workspace.join("session_raw");
@@ -404,7 +409,7 @@ async fn session_import_plans_imports_then_skips_on_rerun() {
 /// scans a directory.
 #[tokio::test]
 async fn session_import_rejects_malformed_params() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let bad = rpc(
@@ -453,7 +458,7 @@ async fn session_import_rejects_malformed_params() {
 ///     byte-for-byte, and a pass-through returns the input unchanged.
 #[tokio::test]
 async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     // A JSON array: the one kind the existing `json_rpc_e2e` coverage already
@@ -599,7 +604,7 @@ async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
 /// never minted is a clean `found: false` rather than an error.
 #[tokio::test]
 async fn tokenjuice_refuses_empty_input_and_misses_cleanly() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let no_content = rpc(
@@ -692,7 +697,7 @@ fn seed_artifact(
 /// resolving an absolute path, and `delete` actually removing the row.
 #[tokio::test]
 async fn ai_artifacts_list_filter_get_and_delete() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     seed_artifact(
@@ -861,7 +866,7 @@ async fn ai_artifacts_list_filter_get_and_delete() {
 #[cfg(not(feature = "e2e-test-support"))]
 #[tokio::test]
 async fn test_support_controllers_are_absent_without_their_feature() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let catalog = schema_catalog(&harness.rpc_base).await;
@@ -903,7 +908,7 @@ async fn test_support_controllers_are_absent_without_their_feature() {
 #[cfg(feature = "e2e-test-support")]
 #[tokio::test]
 async fn test_support_introspection_reads_the_live_workspace() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     std::fs::create_dir_all(harness.workspace.join("notes")).expect("create notes dir");

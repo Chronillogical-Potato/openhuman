@@ -9,15 +9,13 @@
 //!   so every chain's signer derives a deterministic address.
 //! - Sample addresses corresponding to that mnemonic (one per chain).
 
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use tempfile::TempDir;
 
 use super::ops::{setup, WalletAccount, WalletChain, WalletSetupParams, WalletSetupSource};
 use crate::config::rpc as config_rpc;
 use crate::config::test_env::EnvVarGuard;
 
-pub(crate) static TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+pub(crate) static TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Standard BIP-39 test mnemonic — produces deterministic accounts per chain.
 pub(crate) const TEST_MNEMONIC: &str =
@@ -81,7 +79,9 @@ pub(crate) struct UnreachableRpcGuard {
 
 impl UnreachableRpcGuard {
     pub(crate) fn set() -> Self {
-        let env_lock = RPC_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let env_lock = RPC_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // Bind then drop to learn a port that is free, hence refusing.
         let port = std::net::TcpListener::bind("127.0.0.1:0")
             .and_then(|listener| listener.local_addr())
@@ -111,15 +111,15 @@ impl Drop for UnreachableRpcGuard {
     }
 }
 
-pub(crate) fn set_workspace_env_for_test(temp: &TempDir) -> EnvVarGuard {
-    EnvVarGuard::workspace(temp.path())
+pub(crate) async fn set_workspace_env_for_test(temp: &TempDir) -> EnvVarGuard {
+    EnvVarGuard::workspace_async(temp.path()).await
 }
 
 pub(crate) async fn setup_wallet_in(temp: &TempDir) -> Result<EnvVarGuard, String> {
     // Wallet state lookups rely on OPENHUMAN_WORKSPACE for the duration of
     // each test. Return a guard so the tempdir path does not leak into later
     // parallel tests after this test's TempDir has been dropped.
-    let workspace_guard = set_workspace_env_for_test(temp);
+    let workspace_guard = set_workspace_env_for_test(temp).await;
     let config = config_rpc::load_config_with_timeout().await?;
     let encrypted = crate::security::encryption::rpc::encrypt_secret(&config, TEST_MNEMONIC)
         .await?

@@ -136,16 +136,21 @@ async fn telegram_media(
     )
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: &std::sync::OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: &std::sync::OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 #[tokio::test]
 async fn telegram_loopback_covers_reaction_text_fallback_and_media_send_paths() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = spawn_telegram_mock().await;
     let _guard = EnvVarGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", base);
     let _legacy_guard = EnvVarGuard::unset("OPENHUMAN_TELEGRAM_API_BASE");

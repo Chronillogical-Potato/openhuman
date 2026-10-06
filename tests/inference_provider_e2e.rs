@@ -12,7 +12,7 @@
 #[path = "support/env_guard.rs"]
 mod env_guard;
 use env_guard::EnvVarGuard;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
@@ -29,15 +29,12 @@ use openhuman_rpc::server::build_core_http_router;
 // this lock first to prevent races when cargo runs tests in parallel threads
 // within the same process.
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 static RPC_AUTH_INIT: OnceLock<()> = OnceLock::new();
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let m = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    match m.lock() {
-        Ok(g) => g,
-        Err(p) => p.into_inner(),
-    }
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let m = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    m.lock().await
 }
 
 const TEST_RPC_TOKEN: &str = "inference-provider-e2e-token";
@@ -62,7 +59,7 @@ fn ensure_rpc_auth() {
 
 #[tokio::test]
 async fn http_endpoint_chat_completions_no_bearer_returns_401() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let body = json!({
@@ -84,7 +81,7 @@ async fn http_endpoint_chat_completions_no_bearer_returns_401() {
 
 #[tokio::test]
 async fn http_endpoint_models_no_bearer_returns_401() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let req = Request::builder()
@@ -101,7 +98,7 @@ async fn http_endpoint_models_no_bearer_returns_401() {
 
 #[tokio::test]
 async fn http_endpoint_models_with_bearer_returns_model_list() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let tmp = tempdir().expect("tempdir");
@@ -145,7 +142,7 @@ async fn http_endpoint_models_with_bearer_returns_model_list() {
 
 #[tokio::test]
 async fn http_endpoint_chat_completions_with_bearer_passes_auth() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let body = json!({

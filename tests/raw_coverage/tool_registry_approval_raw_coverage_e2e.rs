@@ -8,7 +8,7 @@
 use crate::env_guard::EnvVarGuard;
 use crate::rpc_harness::{error_message, payload};
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use axum::http::header::AUTHORIZATION;
@@ -35,7 +35,7 @@ use openhuman_rpc::server::build_core_http_router;
 const TEST_RPC_TOKEN: &str = "tool-registry-approval-raw-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct TestHarness {
     _tmp: TempDir,
@@ -44,11 +44,16 @@ struct TestHarness {
     rpc_join: tokio::task::JoinHandle<Result<(), std::io::Error>>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 fn ensure_rpc_auth() {
@@ -219,7 +224,7 @@ fn install_test_mcp_server(config: &Config, server: &InstalledServer) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn tool_registry_rpc_diagnostics_include_denials_and_provider_errors() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup(
         r#"
 [[capability_providers]]
@@ -444,7 +449,7 @@ async fn tool_registry_entries_include_connected_mcp_client_tools() {
 
 #[tokio::test]
 async fn tool_registry_diagnostics_reports_config_and_audit_store_failures() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let workspace_file = tmp.path().join("workspace-file");
     std::fs::write(&workspace_file, "not a directory").expect("workspace sentinel");
@@ -625,7 +630,7 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
     let config = Config::load_or_init()
         .await

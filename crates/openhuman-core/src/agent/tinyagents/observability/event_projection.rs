@@ -286,6 +286,7 @@ impl EventListener for OpenhumanEventBridge {
                     "[tinyagents] context compressed before model call"
                 );
             }
+            AgentEvent::Compacted { .. } => super::compaction_log::log_compacted(&record.event),
             AgentEvent::UnknownToolCall {
                 call_id,
                 requested_name,

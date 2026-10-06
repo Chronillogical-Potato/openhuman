@@ -95,9 +95,7 @@ async fn load_config_with_timeout_rejects_directory_config() {
     let config_path = tmp.path().join("config.toml");
     std::fs::create_dir(&config_path).unwrap();
 
-    let _g = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::TEST_ENV_LOCK.lock().await;
     let prev = std::env::var("OPENHUMAN_WORKSPACE").ok();
     std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path().to_str().unwrap());
 

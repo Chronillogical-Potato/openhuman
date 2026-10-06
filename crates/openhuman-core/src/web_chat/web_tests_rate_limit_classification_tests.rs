@@ -149,8 +149,8 @@ fn classify_inference_error_rate_limited_returns_structured_retry_after_ms() {
         classified.source, "provider",
         "upstream 429 must classify source=provider, not openhuman_budget"
     );
-    assert_eq!(
-        classified.retryable, true,
+    assert!(
+        classified.retryable,
         "transient upstream 429 must allow same-thread retry"
     );
     assert_eq!(

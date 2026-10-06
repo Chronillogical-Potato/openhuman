@@ -9,13 +9,13 @@
 //!
 //! Run with: `cargo test -p openhuman-cli --test in_process_all`
 
-use crate::env_guard::{env_lock, EnvVarGuard};
+use crate::env_guard::{env_lock_async, EnvVarGuard};
 use std::path::Path;
 
 use serde_json::json;
 use tempfile::tempdir;
 
-use openhuman_core::memory::conversations::{
+use openhuman_core::threads::store::{
     ConversationMessage, ConversationStore, CreateConversationThread,
 };
 use openhuman_core::threads::ops::transcript_search;
@@ -101,7 +101,7 @@ fn seed_workspace(workspace: &Path) -> ConversationStore {
 /// scopes the hit to the thread that actually contains it.
 #[tokio::test]
 async fn transcript_search_op_finds_message_in_prior_thread() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
     let workspace = tmp.path().join("workspace");
@@ -132,7 +132,7 @@ async fn transcript_search_op_finds_message_in_prior_thread() {
 /// orchestrator can use to omit the active chat it already has in hand.
 #[tokio::test]
 async fn transcript_search_op_honours_exclude_thread() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
     let workspace = tmp.path().join("workspace");
@@ -153,7 +153,7 @@ async fn transcript_search_op_honours_exclude_thread() {
 /// A query that matches nothing returns no hits (not an error).
 #[tokio::test]
 async fn transcript_search_op_returns_empty_on_no_match() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
     let workspace = tmp.path().join("workspace");

@@ -1,6 +1,4 @@
-use super::{
-    group_first_time_when_bus_ready, learning_first_time_when_bus_ready, DomainSubscriberPlan,
-};
+use super::{group_first_time_when_bus_ready, DomainSubscriberPlan};
 use crate::config::test_env::EnvVarGuard;
 
 // ---- domain-subscriber gating (#4796 DoD item 3) ----------------------------
@@ -22,6 +20,7 @@ fn domain_subscriber_plan_full_registers_every_gated_subscriber() {
             channels: true,
             flows: true,
             memory: true,
+            threads: true,
             agent: true,
             hosted: true,
             mcp: true,
@@ -44,6 +43,7 @@ fn domain_subscriber_plan_none_registers_no_gated_subscriber() {
             channels: false,
             flows: false,
             memory: false,
+            threads: false,
             agent: false,
             hosted: false,
             mcp: false,
@@ -143,31 +143,6 @@ fn domain_subscriber_registration_is_idempotent_after_success() {
 }
 
 #[test]
-fn learning_subscriber_registration_retries_after_bus_becomes_ready() {
-    let completed = std::sync::Mutex::new(false);
-
-    assert!(!learning_first_time_when_bus_ready(&completed, false));
-    assert!(
-        !*completed.lock().expect("registry lock"),
-        "a deferred learning attempt must not consume its token"
-    );
-
-    assert!(learning_first_time_when_bus_ready(&completed, true));
-    assert!(
-        *completed.lock().expect("registry lock"),
-        "the ready retry must consume the learning token"
-    );
-}
-
-#[test]
-fn learning_subscriber_registration_is_idempotent_after_success() {
-    let completed = std::sync::Mutex::new(false);
-
-    assert!(learning_first_time_when_bus_ready(&completed, true));
-    assert!(!learning_first_time_when_bus_ready(&completed, true));
-}
-
-#[test]
 fn domain_subscriber_registration_readiness_helper_is_idempotent() {
     use crate::core::all::DomainGroup;
     use std::collections::HashSet;
@@ -206,7 +181,7 @@ async fn tool_timeout_seeds_on_channelless_core_boot() {
     // Clear the operator override behind a panic-safe RAII guard: if any assertion
     // below panics, `Drop` still restores the previous value, so sibling tests that
     // share `TEST_ENV_LOCK` never inherit the cleared var.
-    let _env = EnvVarGuard::locked_unset_many(&["OPENHUMAN_TOOL_TIMEOUT_SECS"]);
+    let _env = EnvVarGuard::locked_unset_many_async(&["OPENHUMAN_TOOL_TIMEOUT_SECS"]).await;
 
     // Distinctive, in-range (1..=3600) value so the assertion can only pass on a
     // real seed, never on the default. Channel-less: `channels_config` stays empty,

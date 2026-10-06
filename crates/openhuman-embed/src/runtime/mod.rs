@@ -190,6 +190,7 @@ impl Drop for CoreGuard {
 /// every [`Agent`](crate::Agent) built on it tears the core down and, for
 /// [`Workspace::Ephemeral`], removes the workspace — see [`CoreGuard`].
 pub struct Runtime {
+    id: String,
     guard: Arc<CoreGuard>,
     /// The config every agent starts from. Already carries the runtime-wide
     /// defaults (backend URL, access, provider model, supplied overrides).
@@ -204,6 +205,11 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    /// Opaque identity of this instantiated runtime.
+    pub fn runtime_id(&self) -> &str {
+        &self.id
+    }
+
     /// Start configuring a runtime.
     pub fn builder() -> RuntimeBuilder {
         RuntimeBuilder::new()
@@ -252,6 +258,19 @@ impl Runtime {
     /// agent's provider route and access tier.
     pub fn core(&self) -> HarnessCore<'_> {
         HarnessCore::new(self.core_ref())
+    }
+
+    /// One tenant's memory: the agents, items, learnings and brain below the
+    /// layout root `root` (`team:acme`), every call confined to that subtree.
+    /// Bind agents to the same root ([`MemoryBinding::root`](crate::MemoryBinding::root))
+    /// and this is their memory as the operator sees it. See [`crate::memory`].
+    ///
+    /// # Errors
+    ///
+    /// [`MemoryError::InvalidRequest`](crate::memory::MemoryError::InvalidRequest)
+    /// when `root` is not a valid layout root, or is the store root itself.
+    pub fn memory(&self, root: &str) -> crate::memory::MemoryResult<crate::memory::Memory> {
+        crate::memory::Memory::bind(self.base_config.clone(), root)
     }
 
     /// The directory holding `config.toml`, the credential store and, for
@@ -343,6 +362,7 @@ impl Runtime {
         access: Access,
     ) -> Self {
         Self {
+            id: uuid::Uuid::new_v4().to_string(),
             guard: Arc::new(CoreGuard {
                 core: Some(core),
                 workspace,

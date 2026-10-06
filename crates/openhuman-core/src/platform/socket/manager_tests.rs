@@ -246,8 +246,32 @@ async fn emit_cannot_send_past_a_concurrent_teardown_drain() {
     *mgr.shared.status.write() = ConnectionStatus::Connected;
 
     // Teardown begins: take the gate before clearing it, mirroring `ws_loop`'s
-    // "clear the flag and drain under the same lock" critical section.
-    let mut teardown_guard = gate.lock();
+    // "clear the flag and drain under the same lock" critical section. The gate is
+    // a synchronous leaf lock (never held over an `.await` in production), so
+    // teardown runs on its own OS thread rather than as a guard held across the
+    // awaits below; the test task steps it through `release_tx`.
+    let (locked_tx, locked_rx) = tokio::sync::oneshot::channel::<()>();
+    let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+    let teardown_gate = Arc::clone(&gate);
+    let teardown = std::thread::spawn(move || {
+        let mut teardown_guard = teardown_gate.lock();
+        locked_tx
+            .send(())
+            .expect("test task is waiting for the lock");
+        release_rx
+            .recv()
+            .expect("test task releases teardown after the pending-while-locked check");
+        // Teardown's clear + drain, under the held lock. `drain_pending_emits` lives
+        // in the sibling `ws_loop` module; the loop replicates its try_recv sweep.
+        *teardown_guard = false;
+        let mut drained = 0usize;
+        while rx.try_recv().is_ok() {
+            drained += 1;
+        }
+        drop(teardown_guard);
+        (drained, rx)
+    });
+    locked_rx.await.expect("teardown thread took the gate");
 
     // A concurrent emit starts while teardown holds the gate.
     let emit_mgr = Arc::clone(&mgr);
@@ -264,15 +288,9 @@ async fn emit_cannot_send_past_a_concurrent_teardown_drain() {
         "emit must block on the readiness gate while teardown holds it"
     );
 
-    // Teardown's clear + drain, under the held lock. `drain_pending_emits` lives
-    // in the sibling `ws_loop` module; the loop replicates its try_recv sweep.
-    *teardown_guard = false;
-    let mut drained = 0usize;
-    while rx.try_recv().is_ok() {
-        drained += 1;
-    }
+    release_tx.send(()).expect("teardown thread is waiting");
+    let (drained, mut rx) = teardown.join().expect("teardown thread must not panic");
     assert_eq!(drained, 0, "nothing was queued before teardown began");
-    drop(teardown_guard);
 
     // With the gate released and cleared, the previously-blocked emit resumes,
     // sees `ready == false`, and rejects — enqueuing nothing onto the channel

@@ -14,15 +14,15 @@ use tinyagents_harness::no_progress::{
     ClassifiedFailure, ClassifiedFailureTracker, NoProgress, NoProgressTracker, ToolAttempt,
 };
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
-use tinyinference_llm::message::Message as TaMessage;
-use tinyinference_llm::model::ModelRequest;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
+use super::fetched_site::{fetch_host_scope, fetched_site_policy, heuristic_text};
 use super::loop_guards::{
     is_repeat_call_exempt, RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD,
     RECOVERABLE_REPEAT_FAILURE_THRESHOLD,
 };
+use super::nudge_injector::PendingNudgeInjector;
 pub(crate) use crate::inference::failure_copy::user_actionable_escalation;
 use crate::inference::failure_copy::{
     recoverable_identical_halt_summary, recoverable_no_progress_halt_summary,
@@ -216,6 +216,10 @@ pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String
             Some(serde_json::Value::Number(value)) => value.to_string(),
             _ => continue,
         };
+        if let Some(host_scope) = fetch_host_scope(tool, field, &value) {
+            scope.push_str(&host_scope);
+            continue;
+        }
         scope.push(':');
         scope.push_str(field);
         scope.push('=');
@@ -250,6 +254,18 @@ pub(super) fn recovery_policy(
     Some((class, budget))
 }
 
+/// Prefix of `tinytools::render_command_failure`, the one renderer every
+/// shell-family tool uses for a command that ran and did not exit 0: an
+/// exit-code (or signal) line, then the program's own stdout and stderr.
+const COMMAND_EXIT_REPORT_PREFIX: &str = "Command failed (";
+
+/// Whether `error` is a finished command's exit report rather than a failure
+/// of the tool itself (a timeout, a policy refusal, a runtime that could not
+/// be resolved), which the tools word differently.
+fn is_command_exit_report(error: &str) -> bool {
+    error.trim_start().starts_with(COMMAND_EXIT_REPORT_PREFIX)
+}
+
 /// Tools whose first argument is a filesystem path the model typed.
 fn is_path_tool(tool: &str) -> bool {
     matches!(
@@ -274,6 +290,28 @@ fn classified_recovery_policy(
     // class, and halted the run on its first wrong guess.
     if error.trim_start().starts_with("unknown tool `") {
         return Some(("validation", 1));
+    }
+    // A command that ran and exited non-zero is reported as an exit-code line
+    // followed by the program's own stdout and stderr. That output is data,
+    // not a tool-layer verdict: keyword sniffing read `Update objects.md
+    // (#401)` in a `git log | head` (exit 141, a harmless SIGPIPE) as a
+    // credential failure, a zero-retry class, and ended the whole run on the
+    // first call. The exit-code hint already steers the model, and the
+    // generic no-progress ladder still bounds a command repeated unchanged.
+    if is_command_exit_report(error) {
+        return None;
+    }
+    // A module the host could not load stays unloaded until the app restarts,
+    // so retrying the same tool cannot help. Steer the model off it once
+    // rather than halting the run on the first call or spending a transient
+    // budget on it (`restart the app to try again` read as recoverable).
+    if error.contains(crate::tools::status::MODULE_FAULT_MARKER)
+        && error.contains("restart the app to try again")
+    {
+        return Some(("unavailable", 1));
+    }
+    if let Some(policy) = fetched_site_policy(tool, error) {
+        return policy;
     }
     // A tool-owned JSON error contract is less ambiguous than rendered prose.
     // Read only explicit status/code fields; arbitrary response data is not a
@@ -381,6 +419,12 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         "repeated_tool_failure"
     }
 
+    // Failure accounting and corrective nudges must observe tool outcomes even
+    // when an earlier middleware has already requested a control action.
+    fn is_observer(&self) -> bool {
+        true
+    }
+
     async fn before_tool(
         &self,
         _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
@@ -436,6 +480,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             false if body_level_failure => content.clone(),
             false => String::new(),
         };
+        let heuristic_failure_text = heuristic_text(tool_name, &failure_text);
 
         if !result.is_error && !body_level_failure {
             // Only a successful observation against this operation and scope
@@ -443,6 +488,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             for class in [
                 "permission",
                 "authentication",
+                "site_refused",
                 "policy",
                 "unsupported",
                 "missing_window",
@@ -451,6 +497,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 "transient",
                 "uncertain_side_effect",
                 "validation",
+                "unavailable",
             ] {
                 self.classified
                     .clear(&ClassifiedFailure::new(class, tool_name, &scope));
@@ -479,12 +526,17 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 }
                 if matches!(
                     class,
-                    "missing_window" | "missing_app" | "validation" | "uncertain_side_effect"
+                    "missing_window"
+                        | "missing_app"
+                        | "validation"
+                        | "uncertain_side_effect"
+                        | "unavailable"
                 ) {
                     let instruction = match class {
-                        "validation" => "The last call failed validation. Correct its schema or arguments once before trying again.",
-                        "uncertain_side_effect" => "The last command timed out and was killed; it may have partly run. Check its effect before repeating anything, then retry at most once as a smaller, bounded step (fewer items per call, a per-item timeout such as `timeout 5`, or background it and poll).",
-                        _ => "The desktop target was not found. Rediscover the current app and window once before trying again.",
+                        "validation" => "The last call failed validation. Correct its schema or arguments once before trying again.".to_owned(),
+                        "uncertain_side_effect" => "The last command timed out and was killed; it may have partly run. Check its effect before repeating anything, then retry at most once as a smaller, bounded step (fewer items per call, a per-item timeout such as `timeout 5`, or background it and poll).".to_owned(),
+                        "unavailable" => format!("The `{tool_name}` tool is unavailable for the rest of this run: a module it needs failed to load and will not recover until the app restarts. Do not call `{tool_name}` again; continue with your other tools."),
+                        _ => "The desktop target was not found. Rediscover the current app and window once before trying again.".to_owned(),
                     };
                     tracing::debug!(
                         tool = tool_name,
@@ -508,8 +560,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // *before* the count-based thresholds, because the orchestrator otherwise
         // re-emits the doomed step under varied delegation-tool names so the
         // identical-retry threshold never trips in time.
-        if result.is_error {
-            if let Some(kind) = terminal_inference_failure_kind(&failure_text) {
+        // A command's exit report carries the program's output, which can quote
+        // a provider error (a script calling an API) without the agent's own
+        // inference having failed.
+        if result.is_error && !is_command_exit_report(&failure_text) {
+            if let Some(kind) = terminal_inference_failure_kind(heuristic_failure_text) {
                 tracing::warn!(
                     tool = tool_name,
                     kind = ?kind,
@@ -547,11 +602,17 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // the legacy extended headroom instead of the crate's deterministic 3/6.
         // Route them to the recoverable ladder; a success or a non-recoverable
         // failure resets that streak and feeds the crate tracker as before.
+        // A finished command's exit report is the program's output, so a test
+        // run that prints `timed out` or `connection refused` is not a
+        // transient tool failure. Its identical-repeat count would otherwise
+        // persist across the turn and halt an edit-and-rerun loop on the same
+        // test command; the crate tracker below resets on any success instead.
         let recoverable = result.is_error
             && !hard_reject
-            && (is_recoverable_tool_failure(&failure_text)
+            && !is_command_exit_report(&failure_text)
+            && (is_recoverable_tool_failure(heuristic_failure_text)
                 || matches!(
-                    crate::tools::status::classify(&failure_text, false).class,
+                    crate::tools::status::classify(heuristic_failure_text, false).class,
                     crate::tools::status::ToolFailureClass::Timeout
                         | crate::tools::status::ToolFailureClass::ServiceUnavailable
                         | crate::tools::status::ToolFailureClass::ModelConnection
@@ -627,7 +688,10 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 // #4092: if the blocker is user-actionable (a missing connection),
                 // escalate with a concrete ask instead of the crate's generic
                 // "unreachable environment, report back" summary.
-                let escalation = user_actionable_escalation(tool_name, &content);
+                // A command printing `not connected` is not a missing integration.
+                let escalation = (!is_command_exit_report(&content))
+                    .then(|| user_actionable_escalation(tool_name, &content))
+                    .flatten();
                 let user_actionable = escalation.is_some();
                 let summary = escalation.unwrap_or(summary);
                 tracing::warn!(
@@ -648,43 +712,6 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 self.handle.send(SteeringCommand::Pause);
                 self.tracker.reset();
             }
-        }
-        Ok(())
-    }
-}
-
-/// Appends queued [`RepeatedToolFailureMiddleware`] nudges to the next model
-/// request as system messages, then forgets them. The request is built from a
-/// copy of the working transcript, so nothing it adds is ever committed.
-pub(crate) struct PendingNudgeInjector {
-    pending: Arc<Mutex<Vec<String>>>,
-}
-
-#[async_trait]
-impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for PendingNudgeInjector {
-    fn name(&self) -> &str {
-        "pending_nudge_injector"
-    }
-
-    async fn before_model(
-        &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        _state: &(),
-        request: &mut ModelRequest,
-    ) -> TaResult<()> {
-        let nudges = self
-            .pending
-            .lock()
-            .map(|mut pending| std::mem::take(&mut *pending))
-            .unwrap_or_default();
-        if !nudges.is_empty() {
-            tracing::debug!(
-                count = nudges.len(),
-                "[tinyagents::mw] request-scoped nudge(s) appended to the next model request"
-            );
-            request
-                .messages
-                .extend(nudges.into_iter().map(TaMessage::system));
         }
         Ok(())
     }

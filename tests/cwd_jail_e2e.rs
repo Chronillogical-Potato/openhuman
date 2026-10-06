@@ -19,11 +19,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-#[cfg(any(
-    all(target_os = "linux", feature = "sandbox-landlock"),
-    target_os = "macos",
-    target_os = "windows"
-))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 use openhuman_core::sandbox::cwd_jail::spawn;
 use openhuman_core::sandbox::cwd_jail::Jail;
 
@@ -42,10 +38,39 @@ fn unique_tempdir(tag: &str) -> PathBuf {
 }
 
 // ── Linux: Landlock real-sandbox enforcement ────────────────────────
+//
+// Landlock is always compiled in on Linux (tinybox-jail enables it by default),
+// but the running kernel may not support it. In that case TinyBox selects its
+// `unsupported` backend, whose spawn must refuse the command instead of running
+// it unconfined. Each test exercises Landlock when available and otherwise
+// verifies that fail-closed refusal leaves the filesystem untouched.
 
-#[cfg(all(target_os = "linux", feature = "sandbox-landlock"))]
+#[cfg(target_os = "linux")]
+fn landlock_is_available() -> bool {
+    let backend = openhuman_core::sandbox::cwd_jail::default_backend();
+    match backend.name() {
+        "landlock" => {
+            assert!(
+                backend.is_available(),
+                "selected Landlock backend is unavailable"
+            );
+            true
+        }
+        openhuman_core::sandbox::cwd_jail::detect::UNSUPPORTED_BACKEND_NAME => {
+            assert!(
+                !backend.is_available(),
+                "unsupported backend claims availability"
+            );
+            false
+        }
+        name => panic!("unexpected Linux jail backend: {name}"),
+    }
+}
+
+#[cfg(target_os = "linux")]
 #[test]
-fn linux_landlock_blocks_write_outside_root() {
+fn linux_landlock_blocks_write_outside_root_or_unsupported_refuses_spawn() {
+    let landlock = landlock_is_available();
     let root = unique_tempdir("ll-root");
     let outside = unique_tempdir("ll-outside");
     let outside_target = outside.join("forbidden.txt");
@@ -57,7 +82,22 @@ fn linux_landlock_blocks_write_outside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = spawn(&jail, cmd).expect("spawn under landlock");
+    let mut child = match spawn(&jail, cmd) {
+        Ok(child) if landlock => child,
+        Err(error) if !landlock => {
+            assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+            assert!(
+                !outside_target.exists(),
+                "unsupported backend must refuse before creating {}",
+                outside_target.display()
+            );
+            fs::remove_dir_all(&root).ok();
+            fs::remove_dir_all(&outside).ok();
+            return;
+        }
+        Ok(_) => panic!("unsupported backend launched an unconfined command"),
+        Err(error) => panic!("Landlock spawn failed: {error}"),
+    };
     let _ = child.wait().expect("wait");
 
     assert!(
@@ -69,9 +109,10 @@ fn linux_landlock_blocks_write_outside_root() {
     fs::remove_dir_all(&outside).ok();
 }
 
-#[cfg(all(target_os = "linux", feature = "sandbox-landlock"))]
+#[cfg(target_os = "linux")]
 #[test]
-fn linux_landlock_allows_write_inside_root() {
+fn linux_landlock_allows_write_inside_root_or_unsupported_refuses_spawn() {
+    let landlock = landlock_is_available();
     let root = unique_tempdir("ll-root-write");
     let inside = root.join("ok.txt");
 
@@ -82,7 +123,21 @@ fn linux_landlock_allows_write_inside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = spawn(&jail, cmd).expect("spawn under landlock");
+    let mut child = match spawn(&jail, cmd) {
+        Ok(child) if landlock => child,
+        Err(error) if !landlock => {
+            assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+            assert!(
+                !inside.exists(),
+                "unsupported backend must refuse before creating {}",
+                inside.display()
+            );
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+        Ok(_) => panic!("unsupported backend launched an unconfined command"),
+        Err(error) => panic!("Landlock spawn failed: {error}"),
+    };
     let status = child.wait().expect("wait");
     assert!(status.success(), "write inside root should succeed");
     assert!(inside.exists());

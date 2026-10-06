@@ -121,7 +121,7 @@ async fn boot_migrates_legacy_files_into_the_chosen_folder() {
     use crate::agent::artifacts::store::save_artifact_meta;
     use crate::agent::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
 
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let prev_projects_dir = std::env::var_os("OPENHUMAN_PROJECTS_DIR");
     unsafe {

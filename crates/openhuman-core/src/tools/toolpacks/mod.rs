@@ -26,7 +26,7 @@ pub mod groups;
 pub mod ops;
 pub mod registry;
 
-pub use groups::{GroupMode, ToolGroups, GROUP_COUNT};
+pub use groups::{set_process_default, GroupMode, ToolGroups, GROUP_COUNT};
 pub use ops::{
     append_pack_tools, bind_pack_registry, bind_synthesized_pack_registry, close_handed_off_packs,
     closed_by_direct_handoff, strip_packed_from_visible,

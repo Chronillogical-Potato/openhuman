@@ -30,6 +30,69 @@ use super::transcript_compat_tests::{
 /// multi-file and the compaction record is not a plain row list).
 const TYPED_SCENARIOS: &[&str] = &["plain", "native_tools", "image_user", "xml_tools"];
 
+/// Native-image transport support for live fixtures, independent of the
+/// selected-model facts supplied to the scripted response model.
+struct LiveImageModel(std::sync::Arc<tinyagents_harness::testkit::ScriptedModel>);
+
+#[async_trait::async_trait]
+impl tinyinference_llm::model::ChatModel<()> for LiveImageModel {
+    fn profile(&self) -> Option<&tinyinference_llm::model::ModelProfile> {
+        tinyinference_llm::model::ChatModel::<()>::profile(self.0.as_ref())
+    }
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        modality == tinyinference_llm::model::InputModality::Image
+            && mime == "image/png"
+            && source == tinyinference_llm::model::InputSource::Base64
+    }
+    async fn invoke(
+        &self,
+        state: &(),
+        request: tinyinference_llm::model::ModelRequest,
+    ) -> tinyinference_llm::Result<ModelResponse> {
+        tinyinference_llm::model::ChatModel::invoke(self.0.as_ref(), state, request).await
+    }
+}
+
+fn live_image_model(reply: &str) -> std::sync::Arc<LiveImageModel> {
+    use tinyinference_llm::model::{Modalities, ModelProfile};
+    std::sync::Arc::new(LiveImageModel(std::sync::Arc::new(
+        tinyagents_harness::testkit::ScriptedModel::new(vec![ModelResponse::assistant(reply)])
+            .with_profile(ModelProfile {
+                tool_calling: true,
+                modalities: Modalities {
+                    image_in: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
+    )))
+}
+
+fn build_live_image_host(
+    root: &std::path::Path,
+    model: std::sync::Arc<LiveImageModel>,
+    thread: &str,
+) -> crate::agent::OpenHumanSessionHost {
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = root.join("workspace");
+    config.action_dir = root.to_path_buf();
+    config.config_path = root.join("config.toml");
+    config.modules.enabled = false;
+    let mut host = crate::agent::SessionHostBuilder::new()
+        .chat_model_with_config(model, std::sync::Arc::new(config))
+        .tools(Vec::new())
+        .tool_dispatcher(Box::new(tinytools_agent::dialect::NativeDialect))
+        .build()
+        .expect("configured image session");
+    host.set_thread_id(Some(thread));
+    host
+}
+
 fn scenario(name: &str) -> &'static Scenario {
     SCENARIOS
         .iter()
@@ -175,18 +238,8 @@ fn a_live_image_turn_persists_typed_image_parts_and_resumes_identically() {
     run_async(async {
         let root = tempfile::tempdir().expect("tempdir");
         let thread = thread_id("live_image");
-        let mut host = build_host(
-            root.path(),
-            model(
-                vec![response(
-                    vec![ContentBlock::Text("saw it".into())],
-                    Vec::new(),
-                )],
-                true,
-            ),
-            true,
-            &thread,
-        );
+        let vision = live_image_model("saw it");
+        let mut host = build_live_image_host(root.path(), vision.clone(), &thread);
         let stem = host.session_id().expect("session id");
         let png = "data:image/png;base64,iVBORw0KGgo=";
         host.turn(&format!("look [IMAGE:{png}] please"))
@@ -208,16 +261,29 @@ fn a_live_image_turn_persists_typed_image_parts_and_resumes_identically() {
             .find(|line| line["shape"] == "user_parts")
             .expect("the image turn is a typed user_parts row");
         assert!(!user_line["content"].as_str().unwrap().contains("[IMAGE:"));
-        assert_eq!(user_line["parts"][1]["type"], "image");
-        assert_eq!(user_line["parts"][1]["url"], png);
+        let image_path = user_line["parts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|part| part["type"] == "image")
+            .and_then(|part| part["url"].as_str())
+            .expect("durable image path");
+        assert!(image_path.starts_with("uploads/"), "{image_path}");
+        assert_eq!(
+            std::fs::read(root.path().join(image_path)).unwrap(),
+            b"\x89PNG\r\n\x1a\n"
+        );
+        assert!(
+            !raw.contains("base64,"),
+            "provider bytes must remain ephemeral"
+        );
         assert!(!raw.contains("[IMAGE:"), "no text marker is persisted");
 
-        let mut second = build_host(
-            root.path(),
-            model(vec![ModelResponse::assistant("unused")], true),
-            true,
-            &thread,
-        );
+        assert!(serde_json::to_string(&vision.0.requests())
+            .unwrap()
+            .contains(png));
+
+        let mut second = build_live_image_host(root.path(), live_image_model("unused"), &thread);
         assert!(second.resume_bound_session().await.expect("resume"));
         assert_eq!(
             serde_json::to_value(
@@ -237,28 +303,20 @@ fn a_live_image_turn_persists_typed_image_parts_and_resumes_identically() {
 /// the user message's content blocks of the request the model actually saw.
 async fn live_image_request_blocks() -> Vec<ContentBlock> {
     use tinyinference_llm::message::Message;
-    use tinyinference_llm::model::{Modalities, ModelProfile};
 
     let root = tempfile::tempdir().expect("tempdir");
-    let vision = std::sync::Arc::new(
-        tinyagents_harness::testkit::ScriptedModel::new(vec![response(
-            vec![ContentBlock::Text("saw it".into())],
-            Vec::new(),
-        )])
-        .with_profile(ModelProfile {
-            tool_calling: true,
-            modalities: Modalities {
-                image_in: true,
-                ..Default::default()
-            },
-            ..Default::default()
-        }),
-    );
-    let mut host = build_host(root.path(), vision.clone(), true, &thread_id("vision"));
+    let vision = live_image_model("saw it");
+    let mut host = build_live_image_host(root.path(), vision.clone(), &thread_id("vision"));
     host.turn("look [IMAGE:data:image/png;base64,iVBORw0KGgo=] please")
         .await
         .expect("turn");
-    let request = vision.requests().last().expect("request").messages.clone();
+    let request = vision
+        .0
+        .requests()
+        .last()
+        .expect("request")
+        .messages
+        .clone();
     request
         .into_iter()
         .rev()
@@ -307,7 +365,7 @@ fn typed_and_legacy_rows_bridge_to_identical_model_messages() {
         AssistantMessage, ContentBlock, ImageRef, Message, ToolMessage, UserMessage,
     };
 
-    let messages = vec![
+    let messages = [
         Message::User(UserMessage {
             content: vec![
                 ContentBlock::Text("see ".into()),
@@ -369,8 +427,7 @@ fn regenerate_typed_session_compat() {
         let tools = legacy
             .lines()
             .filter_map(|line| serde_json::from_str::<Value>(line).ok())
-            .filter(|value| value.get("kind").and_then(Value::as_str) == Some("tools"))
-            .next_back()
+            .rfind(|value| value.get("kind").and_then(Value::as_str) == Some("tools"))
             .map(|value| value["tools"].clone())
             .expect("legacy fixture records its tools");
         append_tools_record(&path, &tools).expect("tools record");

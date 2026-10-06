@@ -6,9 +6,10 @@ use super::support::{
     workspace_dir,
 };
 use crate::core::Outcome;
-use crate::memory::conversations;
-use crate::memory::conversations::{ConversationMessagePatch, CrossThreadHit};
-use crate::memory::{
+use crate::threads::store as conversations;
+use crate::threads::store::{ConversationMessagePatch, CrossThreadHit};
+use crate::threads::ThreadsError;
+use crate::threads::{
     ApiEnvelope, AppendConversationMessageRequest, ConversationMessageRecord,
     ConversationMessagesRequest, ConversationMessagesResponse, ConversationThreadSummary,
     ConversationThreadsListResponse, CreateConversationThreadRequest,
@@ -16,7 +17,6 @@ use crate::memory::{
     UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
     UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
 };
-use crate::threads::ThreadsError;
 use crate::web_chat as web_channel;
 use std::path::PathBuf;
 use tinyagents_session::turn_state;
@@ -151,9 +151,120 @@ pub async fn transcript_search(
 pub async fn message_append(
     request: AppendConversationMessageRequest,
 ) -> Result<Outcome<ApiEnvelope<ConversationMessageRecord>>, ThreadsError> {
-    let dir = workspace_dir().await?;
+    let origin = crate::core::runtime::CoreContext::current_turn_origin();
+    let config = crate::config::rpc::load_config_with_timeout()
+        .await
+        .map_err(|error| ThreadsError::Message(format!("load config: {error}")))?;
+    let persistence_dir = workspace_dir().await.map_err(ThreadsError::Message)?;
+    message_append_with_config(request, &config, origin.as_ref(), &persistence_dir).await
+}
+
+async fn message_append_with_config(
+    mut request: AppendConversationMessageRequest,
+    config: &crate::config::Config,
+    origin: Option<&crate::agent::turn_origin::AgentTurnOrigin>,
+    persistence_dir: &std::path::Path,
+) -> Result<Outcome<ApiEnvelope<ConversationMessageRecord>>, ThreadsError> {
+    if request.message.sender == "user" {
+        let raw_upload = request.message.content.contains("[IMAGE:")
+            || request.message.content.contains("[FILE:");
+        let durable_files = crate::agent::attachments::parse(&request.message.content).1;
+        let durable_upload = !durable_files.is_empty();
+        if durable_upload {
+            let image_count = durable_files
+                .iter()
+                .filter(|file| file.mime.starts_with("image/"))
+                .count();
+            let (without_images, raw_images) =
+                tinyagents_harness::multimodal::markers::parse_image_markers(
+                    &request.message.content,
+                );
+            let (_, raw_files) =
+                tinyagents_harness::multimodal::markers::parse_file_markers(&without_images);
+            let (max_images, image_mb) = config.multimodal.effective_limits();
+            let (max_files, file_mb, _) = config.multimodal_files.effective_limits();
+            if config.multimodal_files.max_files == 0
+                || image_count + raw_images.len() > max_images
+                || durable_files.len() - image_count + raw_files.len() > max_files
+                || (image_count > 0 && config.multimodal.max_images == 0)
+                || matches!(
+                    origin,
+                    Some(crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+                )
+            {
+                return Err(ThreadsError::Message(
+                    "attachment count exceeds configured limit".into(),
+                ));
+            }
+            for file in &durable_files {
+                let scope = crate::agent::attachments::AttachmentAccessScope {
+                    external_channel: matches!(
+                        origin,
+                        Some(crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
+                    ),
+                    workspace: Some(config.action_dir.clone()),
+                };
+                let path = crate::agent::attachments::resolve_path(config, &file.path, &scope)
+                    .await
+                    .map_err(|error| {
+                        ThreadsError::Message(format!("validate user attachment: {error}"))
+                    })?;
+                let metadata = tokio::fs::metadata(path).await.map_err(|error| {
+                    ThreadsError::Message(format!("validate user attachment: {error}"))
+                })?;
+                let cap = if file.mime.starts_with("image/") {
+                    image_mb
+                } else {
+                    file_mb
+                } * 1024
+                    * 1024;
+                if !metadata.is_file() || metadata.len() > cap as u64 {
+                    return Err(ThreadsError::Message(
+                        "attachment exceeds configured file limit".into(),
+                    ));
+                }
+            }
+        }
+        let byte_fields = [
+            "attachmentDataUris",
+            "attachmentData",
+            "attachmentDataUri",
+            "attachmentPosters",
+            "attachmentPoster",
+            "attachmentPreviews",
+            "attachmentPreview",
+        ];
+        let has_upload_bytes = byte_fields.iter().any(|field| {
+            request
+                .message
+                .extra_metadata
+                .get(*field)
+                .is_some_and(|value| !value.is_null() && value != &serde_json::json!([]))
+        });
+        if has_upload_bytes && !raw_upload && !durable_upload {
+            return Err(ThreadsError::Message(
+                "user upload bytes require attachment markers before persistence".into(),
+            ));
+        }
+        request.message.content = crate::agent::attachments::stage_turn(
+            &request.message.content,
+            Some(config),
+            None,
+            Some(&request.thread_id),
+            origin,
+        )
+        .await
+        .map_err(|error| ThreadsError::Message(format!("stage user attachments: {error}")))?;
+        if raw_upload || durable_upload {
+            if let Some(metadata) = request.message.extra_metadata.as_object_mut() {
+                for field in byte_fields {
+                    metadata.remove(field);
+                }
+            }
+        }
+    }
     let message = conversations::blocking::append_message(
-        dir,
+        persistence_dir.to_path_buf(),
         request.thread_id.clone(),
         record_to_message(request.message),
     )
@@ -165,6 +276,10 @@ pub async fn message_append(
         None,
     ))
 }
+
+#[cfg(test)]
+#[path = "crud_message_append_tests.rs"]
+mod message_append_tests;
 
 /// Updates labels for a conversation thread.
 ///

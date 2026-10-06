@@ -235,7 +235,7 @@ fn cache_key_is_based_on_config_path_string() {
 
 #[tokio::test]
 async fn fetch_connected_integrations_returns_empty_without_auth() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let tmp = tempfile::tempdir().unwrap();
     let config = test_config(&tmp);
     let integrations = fetch_connected_integrations(&config).await;

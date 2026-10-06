@@ -1,50 +1,31 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import MemoryDataPanel from '../../../components/settings/panels/MemoryDataPanel';
+import MemoryEngineSetup from '../../../components/memory/MemoryEngineSetup';
+import { Alert, AlertDescription } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
-import { useCoreState } from '../../../providers/CoreStateProvider';
 import { trackEvent } from '../../../services/analytics';
-import { isLocalSessionToken } from '../../../utils/localSession';
 import { CUSTOM_WIZARD_ROUTES, CUSTOM_WIZARD_STEPS } from '../customWizardSteps';
-import { type CustomStepChoice, useOnboardingContext } from '../OnboardingContext';
+import { useOnboardingContext } from '../OnboardingContext';
 import CustomWizardStep from '../steps/CustomWizardStep';
 
 const STEP_KEY = 'vault' as const;
 
+/**
+ * Step 3 — where OpenHuman keeps what it learns.
+ *
+ * The Default/Configure fork that used to sit above this is gone: it asked
+ * again what the runtime choice already answered, and "Default" branched to
+ * nothing. The engine picker is the step.
+ */
 export default function VaultSetupStep() {
   const { t } = useT();
   const navigate = useNavigate();
-  const { snapshot } = useCoreState();
-  const { draft, setDraft, completeAndExit } = useOnboardingContext();
+  const { completeAndExit } = useOnboardingContext();
   const stepIndex = CUSTOM_WIZARD_STEPS.indexOf(STEP_KEY);
-  const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
-
-  const appliedLocalRef = useRef(false);
-  const initialChoice = isLocalSession ? 'configure' : (draft.customChoices?.[STEP_KEY] ?? null);
-  const [choice, setChoice] = useState<CustomStepChoice | null>(initialChoice);
   const [exitError, setExitError] = useState<string | null>(null);
 
-  if (isLocalSession && !appliedLocalRef.current) {
-    appliedLocalRef.current = true;
-    if (choice !== 'configure') {
-      setChoice('configure');
-    }
-    setDraft(prev => ({
-      ...prev,
-      customChoices: { ...prev.customChoices, [STEP_KEY]: 'configure' },
-    }));
-  }
-
-  const persistChoice = useCallback(
-    (next: CustomStepChoice) => {
-      setChoice(next);
-      setDraft(prev => ({ ...prev, customChoices: { ...prev.customChoices, [STEP_KEY]: next } }));
-    },
-    [setDraft]
-  );
-
-  const configureContent = useMemo(() => <MemoryDataPanel embedded />, []);
+  const configureContent = useMemo(() => <MemoryEngineSetup />, []);
 
   return (
     <>
@@ -54,23 +35,11 @@ export default function VaultSetupStep() {
         stepCount={CUSTOM_WIZARD_STEPS.length}
         title={t('onboarding.custom.vault.title')}
         subtitle={t('onboarding.custom.vault.subtitle')}
-        defaultDescription={t('onboarding.custom.vault.defaultDesc')}
-        configureDescription={t('onboarding.custom.vault.configureDesc')}
         configureContent={configureContent}
-        defaultDisabled={isLocalSession}
-        defaultDisabledReason={
-          isLocalSession ? t('onboarding.custom.vault.localDisabledReason') : undefined
-        }
-        hideChoiceCards={isLocalSession}
-        choice={choice}
-        onChoiceChange={persistChoice}
         onBack={() => navigate(CUSTOM_WIZARD_ROUTES[CUSTOM_WIZARD_STEPS[stepIndex - 1]])}
         onContinue={async () => {
           setExitError(null);
-          trackEvent('onboarding_step_complete', {
-            step_name: 'custom_vault',
-            choice: choice ?? 'default',
-          });
+          trackEvent('onboarding_step_complete', { step_name: 'custom_vault' });
           try {
             await completeAndExit();
           } catch (err) {
@@ -82,11 +51,9 @@ export default function VaultSetupStep() {
         continueLabel={t('onboarding.custom.finish')}
       />
       {exitError ? (
-        <div
-          className="mt-3 rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-4 py-3 text-sm text-coral-700 dark:text-coral-300"
-          data-testid="onboarding-vault-exit-error">
-          {t('onboarding.custom.vault.exitError')}
-        </div>
+        <Alert variant="destructive" className="mt-3" data-testid="onboarding-vault-exit-error">
+          <AlertDescription>{t('onboarding.custom.vault.exitError')}</AlertDescription>
+        </Alert>
       ) : null}
     </>
   );

@@ -110,8 +110,7 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
     let marker_line = raw
         .lines()
         .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
-        .filter(|line| line.get("role").and_then(|role| role.as_str()) == Some("assistant"))
-        .last()
+        .rfind(|line| line.get("role").and_then(|role| role.as_str()) == Some("assistant"))
         .expect("failure marker line");
     assert_eq!(
         marker_line.get("iteration").and_then(|n| n.as_u64()),

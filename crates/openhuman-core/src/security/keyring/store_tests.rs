@@ -31,7 +31,7 @@ use crate::security::keyring;
 /// store followed the env var around.
 #[test]
 fn test_builds_ignore_the_process_wide_workspace_env_var() {
-    let _env_lock = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_lock = TEST_ENV_LOCK.blocking_lock();
     let tmp = tempfile::tempdir().expect("tempdir");
     let _guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path());
 
@@ -46,7 +46,7 @@ fn test_builds_ignore_the_process_wide_workspace_env_var() {
 /// This is the half that guarantees the fix is test-only.
 #[test]
 fn production_resolution_still_honours_the_workspace_env_var() {
-    let _env_lock = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_lock = TEST_ENV_LOCK.blocking_lock();
     let tmp = tempfile::tempdir().expect("tempdir");
     let _guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path());
 

@@ -28,6 +28,7 @@ async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     };
     let mut ctx = context();
 
@@ -45,9 +46,7 @@ async fn same_tool_calls_persist_artifacts_under_distinct_call_ids() {
         .await
         .expect("second artifact is persisted");
 
-    let root = temp
-        .path()
-        .join("artifacts/tool-results/identity-session/echo");
+    let root = temp.path().join("tool-results/identity-session/echo");
     assert_eq!(
         std::fs::read_to_string(root.join("echo-1.txt")).expect("first artifact"),
         "first result is deliberately oversized"

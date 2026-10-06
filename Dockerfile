@@ -131,7 +131,12 @@ RUN groupadd --gid 10001 openhuman \
 # entrypoint chown is a no-op on a fresh (root-owned) named volume and on
 # first-time anonymous volume mounts.
 ENV HOME=/home/openhuman
-RUN mkdir -p /home/openhuman/.openhuman \
+# Create every directory a named volume is mounted over, so a fresh volume
+# inherits this ownership instead of being root-owned (Docker only copies
+# ownership from the image when the mount point already exists there).
+# `~/OpenHuman` is the agent's default projects/action directory, mounted by
+# docker-compose.yml as `openhuman-projects`.
+RUN mkdir -p /home/openhuman/.openhuman /home/openhuman/OpenHuman \
  && chown -R openhuman:openhuman /home/openhuman
 
 # Copy the built binary

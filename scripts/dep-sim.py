@@ -53,7 +53,7 @@ from pathlib import Path
 # Crates whose build script shells out to a C/C++/asm toolchain. Kept in sync
 # with the same list in kernel-floor.sh — if you add one here, add it there.
 NATIVE = {
-    "libsqlite3-sys", "libgit2-sys", "libz-sys", "lzma-sys", "aws-lc-sys",
+    "libdeflate-sys", "libsqlite3-sys", "libgit2-sys", "libz-sys", "lzma-sys", "aws-lc-sys",
     "ring", "openssl-sys", "zstd-sys", "bzip2-sys",
     "curl-sys", "onig_sys", "tree-sitter",
 }

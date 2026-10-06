@@ -8,7 +8,7 @@
 use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 
 use reqwest::StatusCode;
 use serde_json::{json, Value};
@@ -22,7 +22,7 @@ use openhuman_rpc::server::build_core_http_router;
 const TEST_RPC_TOKEN: &str = "connectivity-raw-coverage-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct TestHarness {
     _tmp: TempDir,
@@ -46,12 +46,14 @@ impl Drop for ProbeListener {
     }
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let mutex = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    match mutex.lock() {
-        Ok(guard) => guard,
-        Err(poisoned) => poisoned.into_inner(),
-    }
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    let mutex = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    mutex.blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let mutex = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    mutex.lock().await
 }
 
 fn ensure_rpc_auth() {
@@ -211,7 +213,7 @@ fn spawn_probe_listener_from(
 
 #[tokio::test]
 async fn connectivity_diag_rpc_reports_live_listener_port_and_process() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
     let rpc_port = harness
         .rpc_base
@@ -219,7 +221,7 @@ async fn connectivity_diag_rpc_reports_live_listener_port_and_process() {
         .expect("rpc url")
         .port()
         .expect("rpc port");
-    let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", &rpc_port.to_string());
+    let _core_port = EnvVarGuard::set("OPENHUMAN_CORE_PORT", rpc_port.to_string());
 
     let diag_result = rpc(
         &harness.rpc_base,
@@ -249,7 +251,7 @@ async fn connectivity_diag_rpc_reports_live_listener_port_and_process() {
 
 #[tokio::test]
 async fn pick_listen_port_identifies_ipv6_openhuman_listener_when_supported() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let Some(probe) =
         try_spawn_probe_listener_on("::1", "200 OK", r#"{"name":"openhuman","ok":true}"#).await
     else {

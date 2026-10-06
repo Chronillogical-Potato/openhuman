@@ -4,20 +4,24 @@
 //! both hold a permit at the same time and confuse each other's
 //! `available_permits` reads.
 use super::*;
-use std::sync::Mutex;
 use std::time::Instant;
 use tokio::time::{timeout, Duration as TokioDuration};
 
-static GATE_TEST_LOCK: Mutex<()> = Mutex::new(());
+static GATE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-fn lock() -> std::sync::MutexGuard<'static, ()> {
+fn lock() -> tokio::sync::MutexGuard<'static, ()> {
     // Tolerate poisoning so a panicking test doesn't block the rest.
-    GATE_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+    GATE_TEST_LOCK.blocking_lock()
+}
+
+async fn lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    // Tolerate poisoning so a panicking test doesn't block the rest.
+    GATE_TEST_LOCK.lock().await
 }
 
 #[tokio::test]
 async fn wait_for_capacity_returns_permit_when_gate_uninit() {
-    let _g = lock();
+    let _g = lock_async().await;
     let permit = wait_for_capacity().await;
     assert!(
         permit.is_some(),
@@ -38,7 +42,7 @@ async fn wait_for_capacity_returns_permit_when_gate_uninit() {
 // jitter under full-suite load cannot flip it; the "must have waited" check
 // compares against a 40ms sleep that strictly precedes the release.
 async fn second_waiter_blocks_until_first_drops() {
-    let _g = lock();
+    let _g = lock_async().await;
     let first = wait_for_capacity().await.expect("first permit");
     assert_eq!(available_llm_permits(), 0);
 
@@ -106,7 +110,7 @@ async fn signed_out_is_ignored_when_gate_uninit() {
     // flag would let any earlier test that set it (`clear_session`, RPC 401
     // dispatch, `SessionExpiredSubscriber`) deadlock every subsequent caller
     // of `wait_for_capacity`.
-    let _g = lock();
+    let _g = lock_async().await;
     if skip_if_gate_initialised("signed_out_is_ignored_when_gate_uninit") {
         return;
     }
@@ -130,7 +134,7 @@ async fn wait_for_capacity_acquires_immediately_when_signed_out_and_uninit() {
     // gate, every subsequent `wait_for_capacity()` polls forever on the
     // 60-second `paused_poll_ms` fallback (STATE is None in tests, so
     // the fallback is the unconfigured default).
-    let _g = lock();
+    let _g = lock_async().await;
     if skip_if_gate_initialised("wait_for_capacity_acquires_immediately_when_signed_out_and_uninit")
     {
         return;
@@ -158,7 +162,7 @@ async fn set_signed_out_is_a_noop_when_gate_uninit() {
     // implementations of `set_signed_out` and `is_signed_out` is
     // unreachable here. The gate we exercise is exclusively the
     // `STATE.get().is_none()` early-return.
-    let _g = lock();
+    let _g = lock_async().await;
     if skip_if_gate_initialised("set_signed_out_is_a_noop_when_gate_uninit") {
         return;
     }
@@ -180,7 +184,7 @@ async fn set_signed_out_is_a_noop_when_gate_uninit() {
 
 #[tokio::test]
 async fn semaphore_size_is_one() {
-    let _g = lock();
+    let _g = lock_async().await;
     let p1 = wait_for_capacity().await.expect("first permit");
     // Try-acquire must fail while the slot is held.
     assert!(
@@ -198,7 +202,7 @@ async fn semaphore_size_is_one() {
 /// `resume_notify` must hand back one process-wide instance.
 #[tokio::test]
 async fn resume_notify_is_a_stable_singleton() {
-    let _g = lock();
+    let _g = lock_async().await;
     assert!(
         Arc::ptr_eq(&resume_notify(), &resume_notify()),
         "resume_notify must return one shared instance"
@@ -210,7 +214,7 @@ async fn resume_notify_is_a_stable_singleton() {
 /// end-to-end (fire on one handle, wake on another).
 #[tokio::test]
 async fn resume_notify_wakes_a_parked_waiter() {
-    let _g = lock();
+    let _g = lock_async().await;
     let waiter = resume_notify();
     let parked = tokio::spawn(async move { waiter.notified().await });
     // Yield so the spawned task reaches `.notified()` before we fire.
@@ -233,7 +237,7 @@ async fn resume_notify_wakes_a_parked_waiter() {
 #[tokio::test]
 async fn resume_transitions_fire_the_notify() {
     use crate::config::SchedulerGateMode;
-    let _g = lock();
+    let _g = lock_async().await;
 
     // Ensure STATE is initialised. `set` is a no-op if an earlier test
     // already promoted it — that's fine, we re-drive the transition below.
@@ -241,7 +245,7 @@ async fn resume_transitions_fire_the_notify() {
         mode: SchedulerGateMode::Off,
         ..Default::default()
     };
-    let signals = tinymemory_gate::sample(&SIGNAL_ENV);
+    let signals = super::super::signals::sample(&SIGNAL_ENV);
     let _ = STATE.set(Arc::new(RwLock::new(GateCore::new(cfg, signals))));
 
     // --- update_config: Paused -> running fires the notify ---

@@ -13,7 +13,7 @@ impl SessionHostBuilder {
     ///
     /// This method is responsible for wiring together the provided components,
     /// setting up the context manager, and initializing the conversation history.
-    /// It ensures that all required fields (provider, tools, memory, etc.) are present.
+    /// It ensures that all required fields (provider, tools, dispatcher, …) are present.
     pub fn build(self) -> Result<OpenHumanSessionHost> {
         let mut tools = self
             .tools
@@ -46,10 +46,12 @@ impl SessionHostBuilder {
         }
         // The synthesised set lives beside the durable registry, never inside
         // it (`OpenHumanSessionHost::synthesized_tools`); a durable name wins a collision.
-        let synthesized_tools = super::drop_synthesized_name_collisions(
-            &tools,
-            self.synthesized_tools.unwrap_or_default(),
-        );
+        let synthesized_tools = self.synthesized_tools.unwrap_or_default();
+        super::super::managed_tools::reject_synthesized_collisions(
+            &self.permanent_tool_names,
+            &synthesized_tools,
+        )?;
+        let synthesized_tools = super::drop_synthesized_name_collisions(&tools, synthesized_tools);
         let synthesized_tool_names: std::collections::HashSet<String> = synthesized_tools
             .iter()
             .map(|tool| tool.name().to_string())
@@ -121,8 +123,8 @@ impl SessionHostBuilder {
             &mut visible_names,
             &agent_definition_name,
         );
-        // Per-tool exposure: `Hidden` members of a collapsed tool (`memory_*`,
-        // `todo_*`) and `Deferred` tools leave the wire; they stay registered
+        // Per-tool exposure: `Hidden` members of a collapsed tool (`todo_*`)
+        // and `Deferred` tools leave the wire; they stay registered
         // and dispatchable. A wildcard belt always gets this; a hand-written
         // `[tools] named` list is already the answer to "what should this
         // agent see", so it opts into discovery by naming `tool_search` — the
@@ -142,9 +144,12 @@ impl SessionHostBuilder {
         // that is still empty — see the matching strip there.
         let discovery_opted_in =
             visible_names.remove(crate::tools::implementations::meta::TOOL_SEARCH_NAME);
-        let discovery_enabled = belt_is_wildcard || discovery_opted_in;
+        let discovery_enabled = (belt_is_wildcard || discovery_opted_in)
+            && !self
+                .withheld_tool_names
+                .contains(crate::tools::implementations::meta::TOOL_SEARCH_NAME);
         // A wildcard belt was seeded from the whole registry, so its durable
-        // `Hidden` members (collapsed `memory_*` / `todo_*`) leave here too.
+        // `Hidden` members (collapsed `todo_*`) leave here too.
         // A named belt never listed them.
         let mut deferred_names = if belt_is_wildcard {
             crate::tools::implementations::meta::strip_deferred_from_visible(
@@ -177,6 +182,16 @@ impl SessionHostBuilder {
                 "[tools] withheld deferred tool schemas; reachable via the harness tool_search bridge"
             );
         }
+        if !self.withheld_tool_names.is_empty() {
+            visible_names.retain(|name| !self.withheld_tool_names.contains(name));
+            deferred_names.retain(|name| !self.withheld_tool_names.contains(name));
+            if visible_names.is_empty() {
+                visible_names
+                    .insert(crate::agent::harness::definition::NO_TOOLS_SENTINEL.to_string());
+            }
+        }
+        visible_names.extend(self.permanent_tool_names.iter().cloned());
+        deferred_names.retain(|name| !self.permanent_tool_names.contains(name));
         // What the policy classifies and the harness registers: the advertised
         // set plus the deferred set. A deferred tool outside this union would
         // be `HideFromPrompt`, and the direct-call gate refuses those.
@@ -282,7 +297,7 @@ impl SessionHostBuilder {
 
         // Pull the model source out of the builder once; the OpenHumanSessionHost holds it and
         // builds a fresh tiered crate `ChatModel` set from it per turn.
-        let turn_model_source = self
+        let mut turn_model_source = self
             .turn_model_source
             .ok_or_else(|| anyhow::anyhow!("provider is required"))?;
 
@@ -303,17 +318,30 @@ impl SessionHostBuilder {
         // Live history reduction moved to the tinyagents graph
         // (`ContextCompressionMiddleware` + `MessageTrimMiddleware`, issue
         // #4249), so the session no longer constructs an in-turn summarizer
-        // here. The archivist hook still drives durable segment recaps on its
-        // own post-turn path; it is no longer coupled to context compaction.
+        // here.
         let context = ContextManager::new(&context_config, prompt_builder);
 
-        let workspace_dir = self
-            .workspace_dir
-            .unwrap_or_else(|| std::path::PathBuf::from("."));
-        let action_dir = self.action_dir.unwrap_or_else(|| workspace_dir.clone());
-        let memory = self
-            .memory
-            .ok_or_else(|| anyhow::anyhow!("memory is required"))?;
+        let workspace_dir = self.workspace_dir.unwrap_or_else(|| {
+            self.runtime_config
+                .as_ref()
+                .map(|config| config.workspace_dir.clone())
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+        });
+        let action_dir = self.action_dir.unwrap_or_else(|| {
+            self.runtime_config
+                .as_ref()
+                .map(|config| config.action_dir.clone())
+                .unwrap_or_else(|| workspace_dir.clone())
+        });
+        let runtime_config = self.runtime_config.map(|config| {
+            let mut config = (*config).clone();
+            config.workspace_dir = workspace_dir.clone();
+            config.action_dir = action_dir.clone();
+            Arc::new(config)
+        });
+        if let Some(config) = &runtime_config {
+            turn_model_source = turn_model_source.with_attachment_config(config.clone());
+        }
 
         // Direct builder callers (notably unit fixtures) do not pass through
         // `build_session_agent_inner`, which normally creates the durable host
@@ -322,7 +350,7 @@ impl SessionHostBuilder {
         // the built-in test definitions when the process registry is absent.
         // Production callers keep the explicit hosted-authority error: a
         // builtins-only fallback there could hide a missing workspace load.
-        let mut hosted_config = crate::config::Config::default();
+        let mut hosted_config = runtime_config.as_deref().cloned().unwrap_or_default();
         hosted_config.workspace_dir = workspace_dir.clone();
         hosted_config.action_dir = action_dir.clone();
         let hosted_config = Arc::new(hosted_config);
@@ -358,7 +386,6 @@ impl SessionHostBuilder {
                 )),
                 config: Arc::clone(&hosted_config),
                 definitions,
-                memory: Arc::clone(&memory),
                 post_turn_hooks: self.post_turn_hooks.clone(),
                 // Usually this path names a registry id, and carries no
                 // definition of its own. A caller that supplied one with
@@ -391,12 +418,11 @@ impl SessionHostBuilder {
             visible_tool_specs: Arc::new(visible_tool_specs),
             visible_tool_names: visible_names,
             deferred_tool_names: deferred_names,
+            permanent_tool_names: self.permanent_tool_names,
             discovery_enabled,
             requested_deferred_tools: Arc::from(self.deferred_tools.clone()),
             subagent_tool_ceiling_names,
             tool_policy_session,
-            memory,
-            auto_recall: self.auto_recall,
             tool_dispatcher: std::sync::Arc::from(
                 self.tool_dispatcher
                     .ok_or_else(|| anyhow::anyhow!("tool_dispatcher is required"))?,
@@ -409,11 +435,8 @@ impl SessionHostBuilder {
             action_dir,
             workspace_descriptor: self.workspace_descriptor,
             workflows: self.workflows.unwrap_or_default(),
-            auto_save: self.auto_save.unwrap_or(false),
             last_memory_context: None,
             post_turn_hooks: self.post_turn_hooks,
-            learning_enabled: self.learning_enabled,
-            explicit_preferences_enabled: self.explicit_preferences_enabled,
             event_session_id,
             event_channel,
             thread_id: None,
@@ -450,16 +473,11 @@ impl SessionHostBuilder {
             run_queue: None,
             connected_integrations: Vec::new(),
             connected_integrations_initialized: false,
-            runtime_config: None,
+            runtime_config,
             hosted_base,
             definition: None,
-            // Default to `true` (omit) so legacy / custom agents built
-            // without a definition stay lean. Opt-in agents thread their
-            // `omit_profile = false` through the builder.
-            omit_profile: self.omit_profile.unwrap_or(true),
-            omit_memory_md: self.omit_memory_md.unwrap_or(true),
+            omit_memory_context: self.omit_memory_context.unwrap_or(false),
             payload_summarizer: self.payload_summarizer,
-            trigger_memory_agent: self.trigger_memory_agent.unwrap_or_default(),
             tokenjuice_compression: self.tokenjuice_compression,
             tool_policy: self
                 .tool_policy
@@ -474,7 +492,6 @@ impl SessionHostBuilder {
             announced_skills: std::collections::HashSet::new(),
             pending_skill_announcement: Vec::new(),
             pending_skill_retraction: Vec::new(),
-            archivist_hook: self.archivist_hook,
             synthesized_tool_names,
         })
     }

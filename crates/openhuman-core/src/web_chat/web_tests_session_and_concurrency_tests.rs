@@ -300,8 +300,11 @@ async fn wedged_turn_hits_wall_clock_backstop_and_emits_turn_timeout_chat_error(
     // Panic-safe teardown of the process-global env override: if any assertion
     // below unwinds, this guard still clears `OPENHUMAN_WEB_TURN_TIMEOUT_SECS` so
     // a 1s backstop can't leak into unrelated tests sharing this process.
-    let _env_guard =
-        crate::config::test_env::EnvVarGuard::locked_set("OPENHUMAN_WEB_TURN_TIMEOUT_SECS", "1");
+    let _env_guard = crate::config::test_env::EnvVarGuard::locked_set_async(
+        "OPENHUMAN_WEB_TURN_TIMEOUT_SECS",
+        "1",
+    )
+    .await;
     let block = make_block();
     set_test_run_chat_task_block(Some(block.clone())).await;
 
@@ -545,9 +548,7 @@ fn classify_genuine_param_400_keeps_model_mismatch_copy_not_glitch() {
 #[tokio::test]
 async fn unscoped_cancel_stops_the_threads_detached_subagents() {
     let _serial = FORCED_ERROR_TEST_LOCK.lock().await;
-    let _registry = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _registry = crate::config::TEST_ENV_LOCK.lock().await;
     use crate::agent::orchestration::running_subagents;
 
     let thread_id = "stop-detached-subagent-thread";

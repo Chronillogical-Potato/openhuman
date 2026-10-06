@@ -79,9 +79,7 @@ async fn list_pagination() {
     let tmp = TempDir::new().unwrap();
 
     for i in 0..5_u32 {
-        let ts = Utc
-            .with_ymd_and_hms(2025, 1, i as u32 + 1, 0, 0, 0)
-            .unwrap();
+        let ts = Utc.with_ymd_and_hms(2025, 1, i + 1, 0, 0, 0).unwrap();
         save_artifact_meta(tmp.path(), &make_meta(&format!("id-{i}"), "x", ts))
             .await
             .unwrap();

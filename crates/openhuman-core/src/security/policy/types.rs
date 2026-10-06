@@ -200,6 +200,22 @@ pub(super) const ACCOUNT_CONFIG_FILE: &str = "config.toml";
 /// Where oversized tool outputs are persisted for the agent to read back.
 pub(super) const ARTIFACT_TOOL_RESULTS_DIR: &str = "tool-results";
 
+/// Where oversized tool outputs are persisted for the agent to read back:
+/// `<workspace_dir>/artifacts/tool-results`.
+///
+/// Inside the core's own state, not the agent's working directory. The action
+/// directory is often a project the agent is editing, and a tool output saved
+/// there becomes a stray file in that project (picked up by `git add -A`, shown
+/// in the diff). This is the one subdirectory of the internal `artifacts/` store
+/// agent file tools may read (`is_workspace_internal_path`), and `from_config`
+/// grants it as a read-only root so the absolute pointer the store hands out
+/// stays readable when `workspace_only` refuses other absolute paths.
+pub fn tool_result_artifacts_dir(workspace_dir: &std::path::Path) -> PathBuf {
+    workspace_dir
+        .join(ARTIFACTS_DIR)
+        .join(ARTIFACT_TOOL_RESULTS_DIR)
+}
+
 /// Files directly under `workspace_dir` that hold secrets or persona config
 /// and must not be writable by agent tools.
 pub(super) const WORKSPACE_INTERNAL_FILES: &[&str] = &[

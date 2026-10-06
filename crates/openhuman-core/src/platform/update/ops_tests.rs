@@ -218,7 +218,7 @@ async fn supervisor_strategy_message_mentions_supervisor() {
 #[tokio::test]
 async fn update_run_rejected_when_rpc_mutations_disabled() {
     use crate::config::TEST_ENV_LOCK;
-    let _lock = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _lock = TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::TempDir::new().unwrap();
 
     // Write a config with mutations disabled.

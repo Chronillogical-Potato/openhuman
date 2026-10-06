@@ -1,7 +1,7 @@
 //! Focused JSON-RPC E2E coverage for config, auth/credentials, app_state,
 //! and connectivity controller surfaces.
 
-use crate::env_guard::{env_lock, EnvVarGuard};
+use crate::env_guard::{env_lock, env_lock_async, EnvVarGuard};
 use crate::rpc_auth::ensure_rpc_auth;
 use crate::rpc_harness::{ok, payload, rpc, schema};
 use std::net::SocketAddr;
@@ -28,7 +28,7 @@ use openhuman_core::config::schema::{
 use openhuman_core::config::{
     clear_active_user, default_projects_dir, pre_login_user_dir, read_active_user_id,
     user_openhuman_dir, write_active_user_id, Config, DaemonConfig, DictationActivationMode,
-    LlmBackend, ReflectionSource, UpdateRestartStrategy,
+    UpdateRestartStrategy,
 };
 use openhuman_core::core::events::DomainEvent;
 use openhuman_core::desktop::app_state::app_state_schemas;
@@ -245,14 +245,7 @@ runtime_enabled = false
 opt_in_confirmed = false
 
 [memory]
-provider = "none"
-embedding_provider = "none"
-embedding_model = "none"
-embedding_dimensions = 0
-auto_save = false
-
-[memory_tree]
-embedding_strict = false
+engine = "tinyhumans"
 "#;
     std::fs::write(openhuman_dir.join("config.toml"), cfg).expect("write config.toml");
     let _: openhuman_core::config::Config =
@@ -390,19 +383,10 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         serde_json::from_value(json!({})).expect("model health defaults");
     assert_eq!(model_health.evaluation_window_tasks, 50);
 
-    let memory = MemoryConfig {
-        agentmemory_url: Some("https://memory.example.test".to_string()),
-        agentmemory_secret: Some("secret-token".to_string()),
-        agentmemory_timeout_ms: Some(750),
-        ..MemoryConfig::default()
-    };
-    let debug = format!("{memory:?}");
-    assert!(debug.contains("<redacted>"));
-    assert!(!debug.contains("secret-token"));
-    assert_eq!(LlmBackend::Cloud.as_str(), "cloud");
-    assert_eq!(LlmBackend::Local.as_str(), "local");
-    assert_eq!(LlmBackend::parse(" LOCAL "), Ok(LlmBackend::Local));
-    assert!(LlmBackend::parse("remote").is_err());
+    let memory = MemoryConfig::default();
+    assert_eq!(memory.engine, "tinyhumans");
+    assert!(memory.conversations.enabled);
+    assert!(memory.recall.enabled);
 
     let telegram: TelegramConfig = serde_json::from_value(json!({
         "bot_token": "bot-token",
@@ -459,7 +443,6 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         usage: openhuman_core::config::schema::LocalAiUsage {
             embeddings: true,
             heartbeat: true,
-            learning_reflection: true,
             subconscious: true,
         },
         ..Default::default()
@@ -472,13 +455,14 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         assert!(local_ai.is_active());
         assert!(local_ai.use_local_for_embeddings());
         assert!(local_ai.use_local_for_heartbeat());
-        assert!(local_ai.use_local_for_learning());
         assert!(local_ai.use_local_for_subconscious());
     }
 
-    let mut search = openhuman_core::config::schema::SearchConfig::default();
-    search.brave = openhuman_core::config::schema::SearchEngineCredentials {
-        api_key: Some(" brave-key ".into()),
+    let mut search = openhuman_core::config::schema::SearchConfig {
+        brave: openhuman_core::config::schema::SearchEngineCredentials {
+            api_key: Some(" brave-key ".into()),
+        },
+        ..Default::default()
     };
     assert_eq!(
         search.brave.key(),
@@ -586,12 +570,8 @@ fn config_proxy_public_paths_normalize_validate_and_apply_scope() {
     let _all_lower = EnvVarGuard::unset("all_proxy");
     let _no_lower = EnvVarGuard::unset("no_proxy");
 
-    assert!(ProxyConfig::supported_service_keys()
-        .iter()
-        .any(|key| *key == "memory.embeddings"));
-    assert!(ProxyConfig::supported_service_selectors()
-        .iter()
-        .any(|selector| *selector == "tool.*"));
+    assert!(ProxyConfig::supported_service_keys().contains(&"memory.embeddings"));
+    assert!(ProxyConfig::supported_service_selectors().contains(&"tool.*"));
 
     let services = ProxyConfig {
         enabled: true,
@@ -845,7 +825,7 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
 /// sentinel the JSON-RPC layer demotes, without a backend request.
 #[tokio::test]
 async fn hosted_rpcs_answer_backend_unavailable_for_a_local_session() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let local_session = rpc(
@@ -890,7 +870,7 @@ async fn hosted_rpcs_answer_backend_unavailable_for_a_local_session() {
 
 #[tokio::test]
 async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_local_session() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     // The host hands the core an already-obtained session; no backend is
@@ -991,7 +971,7 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
 
 #[tokio::test]
 async fn config_loaders_resolve_user_workspace_markers_and_ignore_workspace_when_scoped() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path().join("home");
     let root = home.join(".openhuman");
@@ -1108,19 +1088,17 @@ async fn config_loaders_resolve_user_workspace_markers_and_ignore_workspace_when
 
 #[tokio::test]
 async fn config_default_path_loader_ignores_workspace_override_and_projects_dir_trims() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path().join("home");
     let root = home.join(".openhuman");
     let user_dir = root.join("users").join("default-loader-user");
     let workspace_override = tmp.path().join("workspace-override");
-    let _guards = vec![
-        EnvVarGuard::set_to_path("HOME", &home),
+    let _guards = [EnvVarGuard::set_to_path("HOME", &home),
         EnvVarGuard::unset(APP_ENV_VAR),
         EnvVarGuard::unset(VITE_APP_ENV_VAR),
         EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace_override),
-        EnvVarGuard::set("OPENHUMAN_MODEL", " default-loader-model "),
-    ];
+        EnvVarGuard::set("OPENHUMAN_MODEL", " default-loader-model ")];
 
     let missing = Config::load_from_default_paths()
         .await
@@ -1162,7 +1140,7 @@ async fn config_default_path_loader_ignores_workspace_override_and_projects_dir_
 
 #[tokio::test]
 async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let config_dir = tmp.path().join("config");
     let workspace_dir = tmp.path().join("workspace");
@@ -1214,38 +1192,6 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
         EnvVarGuard::set("OPENHUMAN_RUNTIME_PYTHON_PREFERRED_COMMAND", "python3.13"),
         EnvVarGuard::set("OPENHUMAN_CORE_SENTRY_DSN", "https://dsn.example/1"),
         EnvVarGuard::set("OPENHUMAN_ANALYTICS_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_ENABLED", "true"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_REFLECTION_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_USER_PROFILE_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_TOOL_TRACKING_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_TOOL_MEMORY_CAPTURE_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_EXPLICIT_PREFERENCES_ENABLED", "true"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_REFLECTION_SOURCE", "cloud"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_MAX_REFLECTIONS_PER_SESSION", "3"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_MIN_TURN_COMPLEXITY", "2"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_EPISODIC_CAPTURE_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_STM_RECALL_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_LEARNING_UNIFIED_COMPACTION_ENABLED", "false"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_ENDPOINT", "https://embed.example"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_MODEL", "embed-env"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_TIMEOUT_MS", "1234"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_STRICT", "true"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_RATE_LIMIT", "42"),
-        EnvVarGuard::set(
-            "OPENHUMAN_MEMORY_EXTRACT_ENDPOINT",
-            "https://extract.example",
-        ),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EXTRACT_MODEL", "extract-env"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_EXTRACT_TIMEOUT_MS", "2345"),
-        EnvVarGuard::set(
-            "OPENHUMAN_MEMORY_SUMMARISE_ENDPOINT",
-            "https://summarise.example",
-        ),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_SUMMARISE_MODEL", "summarise-env"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_SUMMARISE_TIMEOUT_MS", "3456"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_TREE_CONTENT_DIR", "/tmp/openhuman-tree"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_TREE_LLM_BACKEND", "local"),
-        EnvVarGuard::set("OPENHUMAN_MEMORY_TREE_CLOUD_LLM_MODEL", "cloud-tree-model"),
         EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_ENABLED", "false"),
         EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_INTERVAL_MINUTES", "1440"),
         EnvVarGuard::set("OPENHUMAN_AUTO_UPDATE_RESTART_STRATEGY", "supervisor"),
@@ -1301,32 +1247,10 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
     assert!(!config.runtime_python.enabled);
     assert_eq!(config.runtime_python.minimum_version, "3.13.0");
     assert!(config.runtime_python.prefer_system);
-    assert_eq!(config.observability.analytics_enabled, false);
+    assert!(!config.observability.analytics_enabled);
     assert_eq!(
         config.observability.sentry_dsn.as_deref(),
         Some("https://dsn.example/1")
-    );
-    assert!(config.learning.enabled);
-    assert!(!config.learning.reflection_enabled);
-    assert_eq!(config.learning.reflection_source, ReflectionSource::Cloud);
-    assert_eq!(config.learning.max_reflections_per_session, 3);
-    assert_eq!(config.learning.min_turn_complexity, 2);
-    assert!(!config.learning.episodic_capture_enabled);
-    assert_eq!(config.memory.embedding_rate_limit_per_min, 42);
-    assert_eq!(
-        config.memory_tree.embedding_endpoint.as_deref(),
-        Some("https://embed.example")
-    );
-    assert_eq!(
-        config.memory_tree.embedding_model.as_deref(),
-        Some("embed-env")
-    );
-    assert_eq!(config.memory_tree.embedding_timeout_ms, Some(1234));
-    assert!(config.memory_tree.embedding_strict);
-    assert_eq!(config.memory_tree.llm_backend, LlmBackend::Local);
-    assert_eq!(
-        config.memory_tree.content_dir.as_deref(),
-        Some(Path::new("/tmp/openhuman-tree"))
     );
     assert!(!config.update.enabled);
     assert_eq!(config.update.interval_minutes, 1440);
@@ -1356,7 +1280,7 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
 
 #[tokio::test]
 async fn config_save_and_load_encrypts_channel_secret_fields() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path().join("home");
@@ -1381,9 +1305,11 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
         .expect("config parent")
         .join("workspace");
 
-    let mut config = Config::default();
-    config.config_path = config_path.clone();
-    config.workspace_dir = workspace_dir.clone();
+    let mut config = Config {
+        config_path: config_path.clone(),
+        workspace_dir: workspace_dir.clone(),
+        ..Default::default()
+    };
     config.secrets.encrypt = true;
     config.api_key = Some("api-secret".into());
     config.search.brave.api_key = Some("brave-secret".into());
@@ -1622,11 +1548,13 @@ fn auth_service_direct_paths_cover_profile_selection_and_validation() {
 
 #[tokio::test]
 async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
+    let mut config = Config {
+        config_path: tmp.path().join("config.toml"),
+        workspace_dir: tmp.path().join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
         .expect("create config parent");
@@ -1691,11 +1619,13 @@ async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
 
 #[tokio::test]
 async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
+    let mut config = Config {
+        config_path: tmp.path().join("config.toml"),
+        workspace_dir: tmp.path().join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
         .expect("create config parent");
@@ -1755,11 +1685,13 @@ async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
 
 #[tokio::test]
 async fn credentials_public_ops_cover_service_and_missing_session_error_paths() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
+    let mut config = Config {
+        config_path: tmp.path().join("config.toml"),
+        workspace_dir: tmp.path().join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.local_ai.runtime_enabled = false;
     config.voice_server.auto_start = false;
@@ -1827,12 +1759,14 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
 
 #[tokio::test]
 async fn credentials_secret_helpers_round_trip_with_file_keyring_backend() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
     let tmp = tempdir().expect("tempdir");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
+    let config = Config {
+        config_path: tmp.path().join("config.toml"),
+        workspace_dir: tmp.path().join("workspace"),
+        ..Default::default()
+    };
     std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
         .expect("create config parent");
 
@@ -1855,7 +1789,7 @@ async fn credentials_secret_helpers_round_trip_with_file_keyring_backend() {
 
 #[tokio::test]
 async fn worker_a_controller_schemas_are_fully_exposed() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let schema = schema(&harness.rpc_base).await;
@@ -1875,7 +1809,6 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.config_get_dashboard_settings",
                 "openhuman.config_get_data_paths",
                 "openhuman.config_get_dictation_settings",
-                "openhuman.config_get_memory_sync_settings",
                 "openhuman.config_get_onboarding_completed",
                 "openhuman.config_get_privacy_mode",
                 "openhuman.config_get_runtime_flags",
@@ -1897,7 +1830,6 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.config_update_dictation_settings",
                 "openhuman.config_update_local_ai_settings",
                 "openhuman.config_update_memory_settings",
-                "openhuman.config_update_memory_sync_settings",
                 "openhuman.config_update_model_settings",
                 "openhuman.config_update_runtime_settings",
                 "openhuman.config_update_sandbox_settings",
@@ -1934,25 +1866,37 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
         ),
         ("connectivity", vec!["openhuman.connectivity_diag"]),
         (
-            "memory_sources",
+            "memory",
             vec![
+                "openhuman.memory_agents_list",
+                "openhuman.memory_brain_forget",
+                "openhuman.memory_brain_ingest",
+                "openhuman.memory_brain_search",
+                "openhuman.memory_brain_sources",
+                "openhuman.memory_conversations_backfill_start",
+                "openhuman.memory_conversations_backfill_status",
+                "openhuman.memory_engine_get",
+                "openhuman.memory_engine_set",
+                "openhuman.memory_engines_list",
+                "openhuman.memory_explore",
+                "openhuman.memory_fetch",
+                "openhuman.memory_forget",
+                "openhuman.memory_import_scan",
+                "openhuman.memory_import_start",
+                "openhuman.memory_import_status",
+                "openhuman.memory_items_get",
+                "openhuman.memory_items_list",
+                "openhuman.memory_jobs_list",
+                "openhuman.memory_jobs_run",
+                "openhuman.memory_learn",
+                "openhuman.memory_pack_preview",
+                "openhuman.memory_policy_get",
+                "openhuman.memory_policy_set",
+                "openhuman.memory_recall",
                 "openhuman.memory_sources_add",
-                "openhuman.memory_sources_apply_all_in",
-                "openhuman.memory_sources_coding_session_status",
-                "openhuman.memory_sources_estimate_sync_cost",
-                "openhuman.memory_sources_get",
-                "openhuman.memory_sources_ingest_coding_sessions",
                 "openhuman.memory_sources_list",
-                "openhuman.memory_sources_list_items",
-                "openhuman.memory_sources_monthly_cost_summary",
-                "openhuman.memory_sources_read_item",
-                "openhuman.memory_sources_reconcile",
                 "openhuman.memory_sources_remove",
-                "openhuman.memory_sources_status_list",
-                "openhuman.memory_sources_supported_toolkits",
                 "openhuman.memory_sources_sync",
-                "openhuman.memory_sources_sync_audit_log",
-                "openhuman.memory_sources_update",
             ],
         ),
     ] {
@@ -2025,7 +1969,7 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
 
 #[tokio::test]
 async fn config_controller_mutations_round_trip_over_json_rpc() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let initial = rpc(&harness.rpc_base, 10_001, "openhuman.config_get", json!({})).await;
@@ -2061,8 +2005,7 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
             "agentic_provider": "worker-a-cloud:agent",
             "coding_provider": "worker-a-cloud:code",
             "memory_provider": "worker-a-cloud:memory",
-            "embeddings_provider": "worker-a-cloud:embeddings",
-            "learning_provider": "worker-a-cloud:learning"
+            "embeddings_provider": "worker-a-cloud:embeddings"
         }),
     )
     .await;
@@ -2153,12 +2096,9 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
         10_004,
         "openhuman.config_update_memory_settings",
         json!({
-            "backend": "sqlite",
-            "auto_save": true,
             "embedding_provider": "none",
             "embedding_model": "none",
-            "embedding_dimensions": 0,
-            "memory_window": "minimal"
+            "embedding_dimensions": 0
         }),
     )
     .await;
@@ -2185,8 +2125,7 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
                 "base_url": "http://127.0.0.1:11434",
                 "model_id": "llama3",
                 "chat_model_id": "llama3",
-                "usage_embeddings": false,
-                "usage_learning_reflection": false
+                "usage_embeddings": false
             }),
         ),
         (
@@ -2324,7 +2263,7 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
 
 #[tokio::test]
 async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exercised() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let refused = rpc(
@@ -2726,15 +2665,13 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
 
 #[tokio::test]
 async fn config_auto_approve_public_helper_persists_once_and_is_idempotent() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let home = tmp.path().join("home");
-    let _guards = vec![
-        EnvVarGuard::set_to_path("HOME", &home),
+    let _guards = [EnvVarGuard::set_to_path("HOME", &home),
         EnvVarGuard::unset("OPENHUMAN_WORKSPACE"),
         EnvVarGuard::unset(APP_ENV_VAR),
-        EnvVarGuard::unset(VITE_APP_ENV_VAR),
-    ];
+        EnvVarGuard::unset(VITE_APP_ENV_VAR)];
 
     openhuman_core::config::add_auto_approve_tool("tool.config.round10")
         .await
@@ -2759,7 +2696,7 @@ async fn config_auto_approve_public_helper_persists_once_and_is_idempotent() {
 
 #[tokio::test]
 async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let state = rpc(
@@ -3035,7 +2972,7 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
 
 #[tokio::test]
 async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_identity() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let session = rpc(
@@ -3142,7 +3079,7 @@ async fn auth_local_session_normalizes_user_and_app_state_snapshot_uses_stored_i
 
 #[tokio::test]
 async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_session() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let (backend_base, backend_state, backend_join) = serve_mock_backend().await;
     let harness = setup().await;
     let _backend_guard = EnvVarGuard::set("BACKEND_URL", &backend_base);
@@ -3355,7 +3292,7 @@ async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_ses
 
 #[tokio::test]
 async fn app_state_update_persists_and_snapshot_reads_local_state() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let updated = rpc(
@@ -3464,7 +3401,7 @@ async fn app_state_update_persists_and_snapshot_reads_local_state() {
 
 #[tokio::test]
 async fn app_state_snapshot_degrades_runtime_service_status_failures() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
     let service_state_path = harness.home.join("service-status-failure.json");
     std::fs::write(
@@ -3515,7 +3452,7 @@ async fn app_state_snapshot_degrades_runtime_service_status_failures() {
 
 #[tokio::test]
 async fn app_state_snapshot_and_update_surface_state_dir_creation_errors() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let config = rpc(&harness.rpc_base, 30_101, "openhuman.config_get", json!({})).await;
@@ -3559,7 +3496,7 @@ async fn app_state_snapshot_and_update_surface_state_dir_creation_errors() {
 async fn app_state_snapshot_keeps_unquarantinable_local_state_path_but_uses_defaults() {
     use std::os::unix::fs::PermissionsExt;
 
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let config = rpc(&harness.rpc_base, 31_151, "openhuman.config_get", json!({})).await;
@@ -3630,7 +3567,7 @@ async fn app_state_snapshot_keeps_unquarantinable_local_state_path_but_uses_defa
 
 #[tokio::test]
 async fn app_state_snapshot_quarantines_unreadable_local_state_path() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let config = rpc(&harness.rpc_base, 31_101, "openhuman.config_get", json!({})).await;

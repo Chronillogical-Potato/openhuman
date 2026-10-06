@@ -17,8 +17,12 @@ fn test_config(tmp: &tempfile::TempDir) -> Config {
 /// Per-module alias so call sites don't need to spell out the path.
 /// The actual lock lives in `connected_integrations` so it is shared
 /// with `tools_tests` and any other test module that touches the cache.
-fn cache_guard() -> std::sync::MutexGuard<'static, ()> {
+fn cache_guard() -> tokio::sync::MutexGuard<'static, ()> {
     crate::integrations::composio::connected_integrations::composio_cache_test_lock()
+}
+
+async fn cache_guard_async() -> tokio::sync::MutexGuard<'static, ()> {
+    crate::integrations::composio::connected_integrations::composio_cache_test_lock_async().await
 }
 
 // ── Mock-backend integration tests for ops ─────────────────────
@@ -30,10 +34,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use tinymemory_api::chunks::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
 
 struct DirectAuthFailureGuard {
     key_id: u64,
@@ -97,40 +99,6 @@ fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
     c
 }
 
-fn sample_memory_chunk(source_kind: SourceKind, source_id: &str, seq: u32) -> Chunk {
-    sample_memory_chunk_with_owner(source_kind, source_id, "alice@example.com", seq)
-}
-
-fn sample_memory_chunk_with_owner(
-    source_kind: SourceKind,
-    source_id: &str,
-    owner: &str,
-    seq: u32,
-) -> Chunk {
-    let ts = Utc
-        .timestamp_millis_opt(1_700_000_000_000 + i64::from(seq))
-        .unwrap();
-    let content = format!("composio memory {source_id} {owner} {seq}");
-    Chunk {
-        id: chunk_id(source_kind, source_id, seq, &content),
-        content,
-        metadata: Metadata {
-            source_kind,
-            source_id: source_id.to_string(),
-            owner: owner.to_string(),
-            timestamp: ts,
-            time_range: (ts, ts),
-            tags: vec!["composio".to_string()],
-            source_ref: Some(SourceRef::new(format!("composio://{source_id}/{seq}"))),
-            path_scope: None,
-        },
-        token_count: 12,
-        seq_in_source: seq,
-        created_at: ts,
-        partial_message: false,
-    }
-}
-
 // ── Windows-observed sync regression coverage (issue #749) ────
 //
 // These tests exercise the cross-platform defenses layered on top
@@ -182,7 +150,7 @@ fn integration(toolkit: &str, connected: bool) -> ConnectedIntegration {
         connected,
         connections: if connected {
             vec![IntegrationConnection {
-                connection_id: format!("c-1"),
+                connection_id: "c-1".to_string(),
                 label: None,
                 is_default: true,
             }]
@@ -257,11 +225,9 @@ fn direct_mode_no_key_config(tmp: &tempfile::TempDir) -> Config {
 
 // ── enrich_connections_with_identity ──────────────────────────────────
 //
-// `enrich_connections_with_identity` reads through the bound memory driver
-// now (`identity_store::load_connected_identities`) rather than a
-// process-global engine client, so its tests bind a driver per test with
-// `memory::test_support::install_memory_driver_for_test` instead of the
-// `tinymemory_core::global::init` helper this file used to carry.
+// `enrich_connections_with_identity` reads the workspace identities file
+// (`identity_store::load_connected_identities`), so each test gets its own
+// temp workspace.
 
 fn make_connections_response(
     conns: &[(&str, &str, &str)],

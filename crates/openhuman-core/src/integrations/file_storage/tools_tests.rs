@@ -241,8 +241,8 @@ fn sanitize_filename_strips_separators_and_traversal() {
         Some("evil.sh")
     );
     assert_eq!(sanitize_filename("a/b\\c.txt").as_deref(), Some("c.txt"));
-    assert_eq!(sanitize_filename("..").is_none(), true);
-    assert_eq!(sanitize_filename("  ").is_none(), true);
+    assert!(sanitize_filename("..").is_none());
+    assert!(sanitize_filename("  ").is_none());
 }
 
 // ── End-to-end flows against a mock backend (wiremock) ──────────────

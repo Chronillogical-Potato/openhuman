@@ -16,7 +16,7 @@
 //! `env_lock()` across `.await` on purpose, as there.
 #![allow(clippy::await_holding_lock)]
 
-use crate::env_guard::env_lock_with_file_keyring as env_lock;
+use crate::env_guard::env_lock_with_file_keyring_async as env_lock_async;
 use crate::env_guard::EnvVarGuard;
 use crate::rpc_auth::{ensure_rpc_auth, rpc_token};
 use crate::scripted_stack::{
@@ -527,8 +527,12 @@ where
 
 /// How the case reaches its agent.
 enum Entry {
+    /// Run the runtime-only summarizer directly; ingest no longer invokes it.
+    Summarizer,
     /// A web-chat turn (the orchestrator, and specialists it hands off to).
     WebChat,
+    /// Web chat with an explicit assertion that OnDemand ingest stays unary.
+    WebChatNoAutomaticSummary,
     /// `openhuman.flows_build` — the workflow_builder directly.
     FlowsBuild,
     /// `openhuman.agent_triage_evaluate` with `dry_run` — trigger_triage directly.
@@ -629,13 +633,34 @@ fn run_case(case: Case) {
 }
 
 async fn run_case_inner(case: Case) {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     reset_script(case.scripted_completions);
     let stack = boot_stack(case.extra_config).await;
 
     match case.entry {
-        Entry::WebChat => {
-            let client_id = format!("prompt-{}", case.agent);
+        Entry::Summarizer => {
+            use openhuman_core::inference::host_runtime::ops::{agent_chat_for, AgentChatTarget};
+            let mut config = openhuman_core::config::Config::load_or_init().await.unwrap();
+            agent_chat_for(
+                &mut config,
+                AgentChatTarget::AgentId("summarizer"),
+                case.user_message,
+                Some("e2e-mock-model".into()),
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("summarizer turn must finish");
+        }
+        Entry::WebChat | Entry::WebChatNoAutomaticSummary => {
+            // Cases in this module can exercise the same agent with distinct
+            // settings. Keep their durable session identities separate so a
+            // process-global session cache cannot resume a previous case.
+            let case_id = case.user_message.replace(' ', "-");
+            let client_id = format!("prompt-{}-{case_id}", case.agent);
+            let thread_id = format!("thread-{}-{case_id}", case.agent);
             let (mut events, ready) =
                 spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
             wait_for_sse_ready(ready).await;
@@ -645,7 +670,7 @@ async fn run_case_inner(case: Case) {
                 "openhuman.channel_web_chat",
                 json!({
                     "client_id": client_id,
-                    "thread_id": format!("thread-{}", case.agent),
+                    "thread_id": thread_id,
                     "message": case.user_message,
                     "model_override": "e2e-mock-model",
                 }),
@@ -764,6 +789,12 @@ async fn run_case_inner(case: Case) {
             "[{agent}] {run} consecutive `{tool}` calls (cap {cap}); called {calls:?}"
         );
     }
+    if matches!(case.entry, Entry::WebChatNoAutomaticSummary) {
+        assert!(requests.len() >= 2, "the tool result must reach a subsequent model request");
+        assert!(requests.iter().all(|request| !system_text(request)
+            .contains("You compress a single oversized tool result")));
+    }
+
 }
 
 // ─── Cases ──────────────────────────────────────────────────────────────────
@@ -884,11 +915,32 @@ fn orchestrator_reaches_cron_through_the_scheduling_pack() {
     });
 }
 
-/// An oversized orchestrator tool result goes to TinyJuice's summary stage,
-/// which calls back for the summarizer's model — and the summarizer must run
-/// with no tools at all. TinyJuice decides whether a result is worth a summary,
-/// so the scripted tool returns a large one (~29 KB); a timestamp-sized result
-/// never reaches the summarizer.
+/// The OnDemand policy leaves ingest on the orchestrator; a large result must
+/// not silently add a unary summary model call to the scripted turn.
+#[test]
+fn oversized_tool_result_does_not_automatically_invoke_summarizer() {
+    run_case(Case {
+        agent: "orchestrator",
+        agent_marker: "## Routing\n\nFirst match wins:",
+        entry: Entry::WebChatNoAutomaticSummary,
+        user_message: "What is the state of my workspace?",
+        scripted_completions: vec![
+            call("shell", json!({ "command": "seq 1 6000" })),
+            text_completion("Your workspace has nothing notable."),
+        ],
+        must_call: &["shell"],
+        must_not_call: &[],
+        must_advertise: &["shell"],
+        must_not_advertise: &[],
+        advertises_nothing: false,
+        max_consecutive_calls_of: None,
+        extra_config: "summarizer_payload_threshold_tokens = 1",
+    });
+}
+
+/// The runtime-only summarizer advertises no tools on its actual model wire.
+/// Dispatch it explicitly: TinyJuice's OnDemand mode no longer invokes a
+/// summary model automatically when an oversized tool result is ingested.
 #[test]
 fn summarizer_advertises_no_tools() {
     run_case(Case {
@@ -896,13 +948,9 @@ fn summarizer_advertises_no_tools() {
         // The summarizer's prompt is TinyJuice's summary contract, verbatim
         // (`tinyjuice::summarize::SYSTEM_PROMPT`, vendor/tinyjuice/src/summarize/prompt.md).
         agent_marker: "You compress a single oversized tool result",
-        entry: Entry::WebChat,
+        entry: Entry::Summarizer,
         user_message: "What is the state of my workspace?",
-        scripted_completions: vec![
-            call("shell", json!({ "command": "seq 1 6000" })),
-            text_completion("Workspace summary: nothing notable."),
-            text_completion("Your workspace has nothing notable."),
-        ],
+        scripted_completions: vec![text_completion("Workspace summary: nothing notable.")],
         must_call: &[],
         must_not_call: &[],
         must_advertise: &[],
@@ -956,7 +1004,7 @@ fn max_consecutive_counts_the_longest_run() {
 #[test]
 fn orchestrator_prompt_names_only_discoverable_delegates() {
     run_on_agent_stack("orchestrator_discoverable_delegates", || async {
-        let _lock = env_lock();
+        let _lock = env_lock_async().await;
         reset_script(vec![text_completion("Hello.")]);
         let stack = boot_stack("").await;
         let client_id = "prompt-discoverable";

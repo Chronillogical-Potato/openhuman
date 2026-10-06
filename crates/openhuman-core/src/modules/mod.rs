@@ -42,6 +42,7 @@
 pub mod boot;
 pub mod browser;
 pub mod browser_task;
+mod browser_task_report;
 pub mod computer;
 pub mod computer_config;
 pub mod connectors;
@@ -49,8 +50,6 @@ pub mod desktop;
 #[cfg(feature = "documents")]
 pub mod documents;
 pub mod host;
-pub mod memory;
-mod memory_host;
 pub mod ops;
 pub mod registry;
 pub mod runtime;

@@ -13,13 +13,13 @@
   "providers": {
     "tinyruntime-nodejs": {
       "repo": "tinyhumansai/tinyruntime-nodejs",
-      "version": "0.2.5",
-      "built_against": "a7771a7278dcf8f4ae9e2977e432f74c22d9953a"
+      "version": "0.2.6",
+      "built_against": "b55d4d8334c2c9cf952290860291135ebc271168"
     },
     "tinyruntime-python": {
       "repo": "tinyhumansai/tinyruntime-python",
-      "version": "0.2.5",
-      "built_against": "a7771a7278dcf8f4ae9e2977e432f74c22d9953a"
+      "version": "0.2.6",
+      "built_against": "b55d4d8334c2c9cf952290860291135ebc271168"
     }
   }
 }

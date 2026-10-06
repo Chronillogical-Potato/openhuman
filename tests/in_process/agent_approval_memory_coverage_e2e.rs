@@ -20,7 +20,7 @@
 //! JSON-RPC router (`build_core_http_router`) and asserted on, so the number the
 //! gate reports and the coverage that exists are the same thing.
 
-use crate::env_guard::env_lock;
+use crate::env_guard::env_lock_async;
 use crate::env_guard::EnvVarGuard;
 use crate::rpc_auth::{ensure_rpc_auth, rpc_token};
 use crate::rpc_harness::{error_message, payload};
@@ -57,10 +57,6 @@ async fn serve_rpc() -> (
 
 fn write_config(openhuman_dir: &Path) {
     std::fs::create_dir_all(openhuman_dir).expect("create .openhuman");
-    // `provider = "none"` binds the null memory driver. That is deliberate for
-    // `memory_provider_status`: the null driver still reports the three
-    // MANDATORY capability families, which is what makes the assertion below a
-    // real check rather than a shape check.
     let cfg = r#"api_url = "http://127.0.0.1:9"
 default_model = "e2e-model"
 default_temperature = 0.2
@@ -72,13 +68,7 @@ encrypt = false
 enabled = false
 
 [memory]
-provider = "none"
-embedding_provider = "none"
-embedding_model = "none"
-embedding_dimensions = 0
-
-[memory_tree]
-embedding_strict = false
+engine = "tinyhumans"
 
 [autonomy]
 level = "supervised"
@@ -159,7 +149,7 @@ async fn rpc(rpc_base: &str, id: i64, method: &str, params: Value) -> Value {
 /// report both would render two contradictory banners in the UI.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn approval_get_gate_state_returns_a_consistent_boot_snapshot() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -251,7 +241,7 @@ async fn approval_get_gate_state_returns_a_consistent_boot_snapshot() {
 /// the gate lifecycle.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn approval_preauthorize_flow_succeeds_without_a_gate_installed() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let flow_id = format!("flow-{}", uuid::Uuid::new_v4());
@@ -308,7 +298,7 @@ async fn approval_preauthorize_flow_succeeds_without_a_gate_installed() {
 /// dispatch would leave these calls panicking or succeeding with defaults.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn approval_preauthorize_flow_rejects_malformed_params_over_the_wire() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let missing_flow = rpc(
@@ -433,7 +423,7 @@ fn composio_write_tools_declare_an_external_effect_so_the_approval_gate_parks_th
 /// not `0`, which a paging client would follow forever.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_run_events_returns_a_drained_empty_page_for_an_unknown_run() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -480,7 +470,7 @@ async fn agent_run_events_returns_a_drained_empty_page_for_an_unknown_run() {
 /// actually supposed to reject this.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_run_events_rejects_a_missing_run_id() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -518,7 +508,7 @@ async fn agent_run_events_rejects_a_missing_run_id() {
 /// observable.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_run_events_accepts_an_oversized_limit_without_erroring() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -544,7 +534,7 @@ async fn agent_run_events_accepts_an_oversized_limit_without_erroring() {
 /// distinct from an error, which the UI would surface as a failure.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_run_status_returns_null_for_an_unknown_run() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -571,7 +561,7 @@ async fn agent_run_status_returns_null_for_an_unknown_run() {
 /// unfiltered poll.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_runs_active_accepts_every_filter_combination() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     for (id, params, label) in [
@@ -604,7 +594,7 @@ async fn agent_runs_active_accepts_every_filter_combination() {
 /// shape-only check would not catch.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_graph_topologies_exports_structure_without_run_state() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -640,7 +630,7 @@ async fn agent_graph_topologies_exports_structure_without_run_state() {
 /// stale or partial source.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn agent_registry_snapshot_counts_agree_with_the_component_inventory() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
@@ -701,128 +691,72 @@ async fn agent_registry_snapshot_counts_agree_with_the_component_inventory() {
 }
 
 // ---------------------------------------------------------------------------
-// memory.provider_status
+// memory v2 engine status
 // ---------------------------------------------------------------------------
 
-/// `openhuman.memory_provider_status` is the RPC that *reports* the bound
-/// driver's capability set, and it is deliberately the one memory controller
-/// that is never capability-gated (`core/all.rs:775-780`: "Gating it on a
-/// capability would be self-referential and would hide the explanation for
-/// every other absence in this block").
+/// `openhuman.memory_engine_get` is the RPC that *reports* the configured
+/// engine's state, and it answers (never errors) while memory is off: a signed
+/// out core selects `tinyhumans` by default but has no credential, so the view
+/// says `status = "off"` and why. That explanation is what the UI shows in
+/// place of the memory pages; a regression to a bare error would hide it.
 ///
-/// # The capability assertion is conditional, deliberately
-///
-/// An unresolved slot (no workspace context) reports `class="null"`,
-/// `health="down"`, **empty** capabilities and a `last_error` — pinned by
-/// `memory::ops::provider_tests::status_without_a_context_reports_an_unresolved_slot`.
-/// A bound driver reports its advertised families. Asserting the MANDATORY
-/// three unconditionally would therefore be wrong, not strict: it would fail on
-/// the legitimate unresolved path.
-///
-/// So this asserts the *invariant that holds either way* — a driver that
-/// reports itself healthy must advertise the three MANDATORY families
-/// (`Capabilities::validate` refuses to bind one that does not), and a driver
-/// that advertises nothing must say why. That pairing is what a regression
-/// would break: a driver going silently capability-less while still reporting
-/// `ready` is exactly the shape of openhuman#5598, where `memory_tree` methods
-/// answered `UnknownMethod` on staging with no visible explanation.
+/// `openhuman.memory_engines_list` agrees: nothing is active.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn memory_provider_status_reports_the_bound_driver_and_its_mandatory_families() {
-    let _lock = env_lock();
+async fn memory_engine_status_explains_why_memory_is_off_when_signed_out() {
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let response = rpc(
         &harness.rpc_base,
         20,
-        "openhuman.memory_provider_status",
+        "openhuman.memory_engine_get",
         json!({}),
     )
     .await;
-    let status = payload(&response, "memory_provider_status");
+    let status = payload(&response, "memory_engine_get");
 
     assert_eq!(
-        status.get("slot").and_then(Value::as_str),
-        Some("memory"),
-        "slot is always \"memory\" for this controller: {status}"
+        status.get("engine").and_then(Value::as_str),
+        Some("tinyhumans"),
+        "the default engine is tinyhumans: {status}"
     );
-
-    let class = status
-        .get("class")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("class must be a string: {status}"));
+    assert_eq!(
+        status.get("status").and_then(Value::as_str),
+        Some("off"),
+        "no credential means memory is off: {status}"
+    );
+    assert_eq!(status.get("has_key").and_then(Value::as_bool), Some(false));
     assert!(
-        matches!(class, "embedded" | "external" | "module" | "null"),
-        "class must be one of the documented DriverClass tags, got {class:?} in {status}"
+        status
+            .get("reason")
+            .and_then(Value::as_str)
+            .is_some_and(|reason| !reason.is_empty()),
+        "an off engine must say why: {status}"
+    );
+    assert_eq!(
+        status.get("fetch_modes").and_then(Value::as_array).map(Vec::len),
+        Some(0),
+        "an off engine offers no fetch modes: {status}"
     );
 
-    let health = status
-        .get("health")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("health must be a string: {status}"));
+    let engines = rpc(
+        &harness.rpc_base,
+        21,
+        "openhuman.memory_engines_list",
+        json!({}),
+    )
+    .await;
+    let engines = payload(&engines, "memory_engines_list");
     assert!(
-        matches!(health, "ready" | "degraded" | "down"),
-        "health must be ready|degraded|down, got {health:?} in {status}"
+        engines.get("active").is_some_and(Value::is_null),
+        "nothing is active while memory is off: {engines}"
     );
-
-    // `health_reason` is documented as null when ready — an operator-facing
-    // reason attached to a healthy driver would be a contradiction the UI
-    // renders as a warning banner on a working system.
-    if health == "ready" {
-        assert!(
-            status
-                .get("health_reason")
-                .map(|reason| reason.is_null())
-                .unwrap_or(true),
-            "a ready driver must carry no health_reason: {status}"
-        );
-    }
-
-    let contract_version = status
-        .get("contract_version")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("contract_version must be a string: {status}"));
-    let mut parts = contract_version.split('.');
-    let (major, minor, extra) = (parts.next(), parts.next(), parts.next());
-    assert!(
-        major.is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
-            && minor.is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
-            && extra.is_none(),
-        "contract_version must be exactly \"<major>.<minor>\", got {contract_version:?}"
-    );
-
-    let capabilities: Vec<&str> = status
-        .get("capabilities")
+    let ids: Vec<&str> = engines
+        .get("engines")
         .and_then(Value::as_array)
-        .unwrap_or_else(|| panic!("capabilities must be an array: {status}"))
+        .unwrap_or_else(|| panic!("engines must be an array: {engines}"))
         .iter()
-        .filter_map(Value::as_str)
+        .filter_map(|engine| engine.get("id").and_then(Value::as_str))
         .collect();
-
-    if capabilities.is_empty() {
-        // Nothing bound. That is a legitimate state, but it must be explained:
-        // a silently capability-less driver is indistinguishable from a broken
-        // one, which is the whole reason this RPC is never capability-gated.
-        assert_ne!(
-            health, "ready",
-            "a driver advertising no capabilities must not report itself ready: {status}"
-        );
-        assert!(
-            status
-                .get("last_error")
-                .is_some_and(|error| !error.is_null()),
-            "an unresolved memory slot must report last_error explaining why nothing bound: \
-             {status}"
-        );
-    } else {
-        // Something bound and is serving. `Capabilities::validate` refuses to
-        // bind a driver missing any MANDATORY family, so their presence is a
-        // structural guarantee, not a property of the pinned artifact.
-        for mandatory in ["core", "recall", "portability"] {
-            assert!(
-                capabilities.contains(&mandatory),
-                "a bound driver must advertise the MANDATORY family {mandatory:?}; \
-                 got {capabilities:?} in {status}"
-            );
-        }
-    }
+    assert!(ids.contains(&"tinyhumans") && ids.contains(&"cortexdb"), "{ids:?}");
 }

@@ -66,7 +66,7 @@ Each provider had a **scanner module** in `crates/openhuman-app/src/` (all remov
 | `gmessages_scanner` | Periodic                        | Google Messages Web read-only IndexedDB walk                         |
 | `imessage_scanner`  | Periodic                        | **No webview.** Reads `~/Library/Messages/chat.db` directly on macOS |
 
-Each scan emits `webview:event` payloads and POSTs `openhuman.memory_doc_ingest` straight to the core RPC, so memory grows whether the UI window is open or backgrounded.
+Each scan emitted `webview:event` payloads from the shell, so scanning continued whether the UI window was open or backgrounded. (The native iMessage scanner's old `openhuman.memory_doc_ingest` RPC call no longer exists in the core.)
 
 ### Google Meet mascot camera
 

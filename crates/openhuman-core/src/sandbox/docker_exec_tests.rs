@@ -38,9 +38,7 @@ fn recorded(out: &Path) -> Vec<String> {
 
 /// Run `f` with `bin` first on `PATH`, serialised against other env tests.
 fn with_fake_path<T>(bin: &Path, f: impl FnOnce() -> T) -> T {
-    let _guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::config::TEST_ENV_LOCK.blocking_lock();
     let prev = std::env::var_os("PATH");
     let mut paths = vec![bin.to_path_buf()];
     if let Some(p) = &prev {
@@ -67,7 +65,9 @@ fn policy(workspace: &Path) -> SandboxPolicy {
     SandboxPolicy {
         backend: SandboxBackendKind::Docker,
         workspace_root: workspace.to_path_buf(),
+        state_dir: PathBuf::from("/tmp/state"),
         read_only_mounts: vec![],
+        read_write_mounts: vec![],
         allow_network: false,
         env_passthrough: vec![],
         docker_overrides: None,
@@ -262,9 +262,7 @@ fn missing_docker_binary_is_an_execution_error() {
     let ws = tmp.path().join("ws");
     std::fs::create_dir_all(&ws).unwrap();
     // Replace PATH wholesale so no `docker` can be found.
-    let _guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::config::TEST_ENV_LOCK.blocking_lock();
     let prev = std::env::var_os("PATH");
     std::env::set_var("PATH", tmp.path());
     let err = block_on(docker_exec(

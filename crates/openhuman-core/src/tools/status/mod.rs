@@ -18,6 +18,6 @@ mod types;
 
 pub use ops::{classify, describe, tool_execution_error};
 pub use types::{
-    ClassifiedFailure, FailureCategory, ToolFailureClass, ToolLifecycleState, NOT_FOUND_MARKER,
-    UNSUPPORTED_MARKER,
+    ClassifiedFailure, FailureCategory, ToolFailureClass, ToolLifecycleState, MODULE_FAULT_MARKER,
+    NOT_FOUND_MARKER, UNSUPPORTED_MARKER,
 };

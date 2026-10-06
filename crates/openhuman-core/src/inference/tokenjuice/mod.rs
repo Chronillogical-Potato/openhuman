@@ -100,6 +100,10 @@ pub(crate) fn install_request(config: &crate::config::Config) -> InstallRequest 
             // only a turn whose agent carries a summary model supplies — so
             // switching it on here enables it for those turns, not for all.
             llm_summary_enabled: config.context.summarizer_payload_threshold_tokens > 0,
+            // Never at ingest: a large result gets deterministic compression
+            // and a recovery handle, and the model writes a summary only when
+            // the agent asks for one with `juice_summarize` (#6955).
+            llm_summary_mode: types::LlmSummaryMode::OnDemand,
             llm_summary_threshold_tokens: config.context.summarizer_payload_threshold_tokens,
             llm_summary_max_input_tokens: config.context.summarizer_max_payload_tokens,
             repl_handle: repl_handle_active(config),

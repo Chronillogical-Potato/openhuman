@@ -31,8 +31,8 @@ fn scrub_with_notice_for_tool(tool_name: &str, content: &str) -> Option<(String,
         return scrub_with_notice(content);
     }
     // Take the token out of the document instead of masking it with a dummy
-    // value: the scrubber redacts every labelled `token` value regardless of
-    // length, so any placeholder under that key is redacted and counted too.
+    // value: the scrubber redacts secret-looking `token` values of any
+    // length, so a UUID-shaped placeholder is redacted and counted too.
     if let Some(pending) = value["pending"].as_object_mut() {
         pending.remove("token");
     }

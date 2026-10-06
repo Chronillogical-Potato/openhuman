@@ -1,7 +1,6 @@
 /// `list_agent_definitions`'s own tool description used to discourage
-/// `agent_ref` with stale "follow-up"/"for now" wording (issue B37, Gap
-/// 1) — pin that it now correctly describes the harness's full tool
-/// loop instead.
+/// `agent_ref` with stale "follow-up"/"for now" wording (issue B37, Gap 1) —
+/// pin that it now correctly describes the harness's full tool loop instead.
 #[test]
 fn list_agent_definitions_tool_description_has_no_stale_followup_language() {
     use crate::flows::builder_tools::ListAgentDefinitionsTool;

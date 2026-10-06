@@ -1,6 +1,6 @@
 //! Unified chat-provider factory.
 //!
-//! Resolves workload names (e.g. `"reasoning"`, `"learning"`) to a
+//! Resolves workload names (e.g. `"reasoning"`, `"summarization"`) to a
 //! crate-native `ChatModel` plus the concrete model id selected for a workload.
 //!
 //! ## Provider-string grammar
@@ -41,6 +41,7 @@ pub(crate) mod access_gates;
 mod chat_model;
 mod cloud_slug;
 mod credentials;
+mod discovery;
 mod local_runtime;
 mod managed_backend;
 mod primary_cloud;
@@ -57,6 +58,7 @@ pub use chat_model::{
 };
 pub(crate) use credentials::openai_bearer_is_oauth;
 pub use credentials::{auth_key_for_slug, lookup_key_for_slug, redact_endpoint};
+pub(crate) use discovery::model_limits_request;
 pub(crate) use local_runtime::create_local_chat_model_from_string;
 pub(crate) use managed_backend::make_openhuman_backend_model;
 pub(crate) use routing::role_uses_implicit_cloud_fallback;

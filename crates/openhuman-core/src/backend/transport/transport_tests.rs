@@ -45,9 +45,9 @@ impl BackendTransport for NamedTransport {
 }
 
 /// The global slot is process state; serialise the tests that touch it.
-fn global_lock() -> &'static std::sync::Mutex<()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+fn global_lock() -> &'static tokio::sync::Mutex<()> {
+    static LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn parse_body_text_handles_empty_json_and_plain_text() {
 
 #[test]
 fn global_install_replaces_and_clears() {
-    let _guard = global_lock().lock().unwrap();
+    let _guard = global_lock().blocking_lock();
     clear_backend_transport();
     assert!(installed_backend_transport().is_none());
 
@@ -157,7 +157,7 @@ fn global_install_replaces_and_clears() {
 
 #[test]
 fn resolve_prefers_global_over_test_fallback() {
-    let _guard = global_lock().lock().unwrap();
+    let _guard = global_lock().blocking_lock();
     clear_backend_transport();
     // Under cfg(test) the plain transport is the floor, never `Unavailable`.
     assert_eq!(resolve_backend_transport().unwrap().name(), "plain-test");
@@ -295,7 +295,7 @@ async fn backend_client_reports_unavailable_when_transport_returns_unavailable()
         }
     }
 
-    let _guard = global_lock().lock().unwrap();
+    let _guard = global_lock().lock().await;
     install_backend_transport(Arc::new(Absent));
     let client = crate::backend::BackendClient::new("https://api.example.test").unwrap();
     let err = client

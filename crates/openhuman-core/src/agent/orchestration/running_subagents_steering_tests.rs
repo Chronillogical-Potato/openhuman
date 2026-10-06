@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn steer_pushes_into_the_subagent_queue() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let tx = register_test("task-steer", "session-A", rq.clone());
 
@@ -38,7 +38,7 @@ async fn steer_pushes_into_the_subagent_queue() {
 
 #[tokio::test]
 async fn steer_prefers_registered_tinyagents_handle() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let tx = register_test("task-registered-steer", "session-A", rq.clone());
     let handle = SteeringHandle::allow_all();
@@ -75,7 +75,7 @@ async fn steer_prefers_registered_tinyagents_handle() {
 
 #[tokio::test]
 async fn steer_rejects_cross_parent_and_unknown() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let _tx = register_test("task-owned", "session-owner", rq);
 
@@ -104,7 +104,7 @@ async fn steer_rejects_cross_parent_and_unknown() {
 
 #[tokio::test]
 async fn steer_after_terminal_is_rejected() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let tx = register_test("task-term", "session-A", rq);
     let _ = tx.send(DetachedSubagentStatus::Failed {
@@ -120,7 +120,7 @@ async fn steer_after_terminal_is_rejected() {
 
 #[tokio::test]
 async fn detached_subagent_rejects_followup_lane() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let _tx = register_test("task-no-followup", "session-A", rq.clone());
 

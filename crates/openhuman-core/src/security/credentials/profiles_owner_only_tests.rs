@@ -49,7 +49,7 @@ fn a_saved_store_file_is_owner_only() {
 
     #[cfg(unix)]
     assert_eq!(
-        mode_of(&path),
+        mode_of(path),
         0o600,
         "the credential store must not be group/world readable"
     );

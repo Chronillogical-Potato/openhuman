@@ -52,7 +52,7 @@ fn list_toolkits_tool_metadata_is_stable() {
     assert!(s
         .get("required")
         .and_then(|r| r.as_array())
-        .map_or(true, |a| a.is_empty()));
+        .is_none_or(|a| a.is_empty()));
 }
 
 #[test]
@@ -421,7 +421,7 @@ async fn sandbox_read_only_passes_through_read_scope_actions_to_downstream_gates
     // config nor races the shared env var against the other
     // config-loading composio tests.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
@@ -457,7 +457,7 @@ async fn sandbox_unset_leaves_all_scopes_to_downstream_gates() {
     // so this test neither reads the dev's real config nor races the
     // shared env var against the other config-loading composio tests.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
@@ -492,7 +492,7 @@ async fn sandbox_sandboxed_mode_does_not_trigger_readonly_gate() {
     // config nor races the shared env var against the other
     // config-loading composio tests.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());

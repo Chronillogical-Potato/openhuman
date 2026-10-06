@@ -11,7 +11,11 @@
 //! * **the tool vocabulary**: `file_read` opens an artifact and `use_skill` is the
 //!   one wrapper whose result *is* the wrapped tool's result;
 //! * **the read limit**: the largest body `file_read` will open
-//!   ([`FileReadTool::MAX_FILE_SIZE_BYTES`]).
+//!   ([`FileReadTool::MAX_FILE_SIZE_BYTES`]);
+//! * **where the files go**: `<workspace_dir>/artifacts/tool-results`
+//!   ([`crate::security::policy::tool_result_artifacts_dir`]), a detached store
+//!   outside the action directory, so a tool output is never written into the
+//!   project the agent is working in.
 
 use serde_json::Value;
 use tinyagents_harness::artifacts::tool_results::{self, ArtifactRead, ToolResultArtifactStore};
@@ -22,9 +26,27 @@ use tinytools_std::filesystem::FileReadTool;
 /// Namespace of the artifact index in the run's store registry.
 pub(crate) const TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE: &str = "openhuman_tool_result_artifacts";
 
-/// A store rooted at `action_dir` for one session, wired to OpenHuman's
-/// redactor, read tool and read limit.
+/// A detached store for one session, keeping its files in `storage_dir` (see
+/// [`crate::security::policy::tool_result_artifacts_dir`]) and wired to
+/// OpenHuman's redactor, read tool and read limit.
 pub(crate) fn new_tool_result_store(
+    storage_dir: std::path::PathBuf,
+    session_key: impl Into<String>,
+) -> ToolResultArtifactStore {
+    ToolResultArtifactStore::detached(
+        storage_dir,
+        session_key,
+        std::sync::Arc::new(SanitizingRedactor),
+        READ_TOOL,
+        FileReadTool::MAX_FILE_SIZE_BYTES,
+    )
+}
+
+/// A store over the layout releases before the detached store used,
+/// `<action_dir>/artifacts/tool-results/`. Never written to: it exists so the
+/// session host can keep sweeping stale sessions that older builds left in the
+/// user's project.
+pub(crate) fn legacy_action_dir_store(
     action_dir: std::path::PathBuf,
     session_key: impl Into<String>,
 ) -> ToolResultArtifactStore {
@@ -39,13 +61,20 @@ pub(crate) fn new_tool_result_store(
 
 /// The artifact a tool call reads, if any — `file_read`, possibly wrapped in
 /// `use_skill` (#6284).
-pub(crate) fn artifact_read_target(tool_name: &str, args: &Value) -> Option<ArtifactRead> {
-    tool_results::artifact_read_target(
-        tool_name,
-        args,
-        READ_TOOL,
-        tinyagents_harness::tool::packs::USE_SKILL,
-    )
+///
+/// With a `store`, its own pointers are recognised (a detached store's are
+/// absolute); without one, only the relative `artifacts/tool-results/…` form a
+/// store-less turn can still meet in an older transcript.
+pub(crate) fn artifact_read_target(
+    store: Option<&ToolResultArtifactStore>,
+    tool_name: &str,
+    args: &Value,
+) -> Option<ArtifactRead> {
+    let wrapper = tinyagents_harness::tool::packs::USE_SKILL;
+    match store {
+        Some(store) => store.read_target(tool_name, args, wrapper),
+        None => tool_results::artifact_read_target(tool_name, args, READ_TOOL, wrapper),
+    }
 }
 
 /// Bound one page of an artifact read to `budget_bytes`.

@@ -101,7 +101,7 @@ fn root_turn_follows_the_thread_choice() {
     let mut ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     ctx.thread_id = Some(thread.to_string());
     assert_eq!(
-        turn_reasoning_for(&ctx, None),
+        turn_reasoning_for(&ctx, None, None),
         Some(ReasoningConfig::effort(ReasoningEffort::High))
     );
     set_thread_effort(thread, None);
@@ -114,7 +114,7 @@ fn subagent_turn_keeps_the_provider_default() {
     let mut ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     ctx.thread_id = Some(thread.to_string());
     ctx.spawn_depth = 1;
-    assert_eq!(turn_reasoning_for(&ctx, None), None);
+    assert_eq!(turn_reasoning_for(&ctx, None, None), None);
     set_thread_effort(thread, None);
 }
 
@@ -124,7 +124,86 @@ fn root_turn_without_a_thread_choice_uses_the_session_config() {
     config.runtime.reasoning_effort = Some("medium".into());
     let ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     assert_eq!(
-        turn_reasoning_for(&ctx, Some(&config)),
+        turn_reasoning_for(&ctx, Some(&config), None),
         Some(ReasoningConfig::effort(ReasoningEffort::Medium))
+    );
+}
+
+#[test]
+fn root_turn_reasoning_reserves_output_room_with_a_budget() {
+    // #6951: with only an effort level, a reasoning model could think through
+    // the whole output cap and return `length` with no tool call. A capped
+    // turn now also carries a thinking budget of about 55% of that cap.
+    let thread = "reasoning-test-thread-budget";
+    set_thread_effort(thread, Some(ReasoningEffort::High));
+    let mut ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    ctx.thread_id = Some(thread.to_string());
+    let reasoning = turn_reasoning_for(
+        &ctx,
+        None,
+        Some(crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
+    );
+    set_thread_effort(thread, None);
+    assert_eq!(
+        reasoning,
+        Some(ReasoningConfig {
+            effort: Some(ReasoningEffort::High),
+            budget_tokens: Some(9011),
+            summary: None,
+        })
+    );
+}
+
+#[test]
+fn configured_effort_gets_a_budget_under_a_turn_cap() {
+    let mut config = Config::default();
+    config.runtime.reasoning_effort = Some("medium".into());
+    let ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    let reasoning = turn_reasoning_for(&ctx, Some(&config), Some(10_000)).expect("reasoning");
+    assert_eq!(reasoning.effort, Some(ReasoningEffort::Medium));
+    assert_eq!(reasoning.budget_tokens, Some(5_500));
+}
+
+#[test]
+fn disabled_reasoning_gets_no_budget() {
+    let mut config = Config::default();
+    config.runtime.reasoning_enabled = Some(false);
+    let ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    assert_eq!(
+        turn_reasoning_for(&ctx, Some(&config), Some(16_384)),
+        Some(ReasoningConfig::effort(ReasoningEffort::None))
+    );
+}
+
+#[test]
+fn provider_default_reasoning_is_not_turned_on_by_a_budget() {
+    // A bare budget would switch reasoning on for models that default to off
+    // (OpenRouter treats `reasoning.max_tokens` as "enable"), so a turn with
+    // no reasoning choice stays at the provider default.
+    let ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    assert_eq!(turn_reasoning_for(&ctx, None, Some(16_384)), None);
+}
+
+#[test]
+fn uncapped_turn_keeps_the_effort_only() {
+    let mut config = Config::default();
+    config.runtime.reasoning_effort = Some("high".into());
+    let ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    assert_eq!(
+        turn_reasoning_for(&ctx, Some(&config), None),
+        Some(ReasoningConfig::effort(ReasoningEffort::High))
+    );
+}
+
+#[test]
+fn a_cap_too_small_for_a_provider_minimum_budget_keeps_the_effort_only() {
+    // Anthropic models behind OpenRouter / the managed backend reject a
+    // thinking budget under 1024 tokens; below that the effort alone is sent.
+    let mut config = Config::default();
+    config.runtime.reasoning_effort = Some("low".into());
+    let ctx = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    assert_eq!(
+        turn_reasoning_for(&ctx, Some(&config), Some(1_500)),
+        Some(ReasoningConfig::effort(ReasoningEffort::Low))
     );
 }

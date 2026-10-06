@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn explicit_scratch_workspace_cannot_activate_operator_user() {
-    let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();
+    let _guard = crate::config::TEST_ENV_LOCK.blocking_lock();
     let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
     let scratch = tempfile::tempdir().unwrap();
     unsafe {

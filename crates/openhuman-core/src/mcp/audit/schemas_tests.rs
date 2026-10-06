@@ -23,9 +23,7 @@ fn domain_schema_exports_match_internal_controller() {
 
 #[tokio::test]
 async fn handle_list_returns_persisted_audit_records() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|err| err.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());

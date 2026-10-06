@@ -49,7 +49,7 @@
 //!
 //! Run with: `cargo test -p openhuman-cli --test in_process_all`
 
-use crate::env_guard::env_lock;
+use crate::env_guard::env_lock_async;
 use crate::env_guard::EnvVarGuard;
 use crate::rpc_auth::ensure_rpc_auth;
 use crate::rpc_harness::rpc;
@@ -184,7 +184,7 @@ async fn set_default(harness: &Harness, id: i64, channel: &str) -> Value {
 /// which a same-process round trip cannot see.
 #[tokio::test]
 async fn set_default_persists_the_choice_to_config_on_disk() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let before = harness.configs_on_disk();
@@ -235,7 +235,7 @@ async fn set_default_persists_the_choice_to_config_on_disk() {
 /// bug #3712 describes.
 #[tokio::test]
 async fn set_default_applies_to_the_live_proactive_handle() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     // The channel runtime is what registers this in production

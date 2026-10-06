@@ -39,6 +39,29 @@ const SAFE_ENV_VARS: &[&str] = &[
     "ProgramW6432",
 ];
 
+/// Exit status coreutils `timeout` returns when its own limit expires.
+const COMMAND_TIMEOUT_EXIT_CODE: i32 = 124;
+/// Appended to an exit-124 failure: the command's own `timeout` fired, not the
+/// tool's (#6953). Without it, `exit code 124 [stdout] ok` reads like a bug.
+const COMMAND_TIMEOUT_NOTE: &str = "[exit 124: the command's own `timeout` limit expired; the shell tool's timeout_secs did not fire]";
+
+/// The result when the tool's own `timeout_secs` deadline killed the command.
+fn tool_timeout_message(secs: u64) -> String {
+    format!("Command timed out after {secs}s and was killed: the shell tool's timeout_secs limit fired.")
+}
+
+/// [`tinytools::command_failure`], plus [`COMMAND_TIMEOUT_NOTE`] on exit 124.
+fn command_failure(code: Option<i32>, stdout: &str, stderr: &str) -> ToolResult {
+    let mut failure = tinytools::command_failure(code, stdout, stderr);
+    if code == Some(COMMAND_TIMEOUT_EXIT_CODE) {
+        tracing::debug!("[shell] exit 124: attributing it to the command's own timeout");
+        failure.content.push(tinytools::ToolContent::Text {
+            text: COMMAND_TIMEOUT_NOTE.to_string(),
+        });
+    }
+    failure
+}
+
 /// Shell command execution tool with sandboxing
 pub struct ShellTool {
     security: Arc<SecurityPolicy>,
@@ -399,18 +422,9 @@ impl ShellTool {
             );
         }
 
-        match self.runtime_path_for_command(command).await {
-            Ok(Some(path)) => {
-                tracing::debug!(path = %path, "[shell] applying managed runtime PATH");
-                cmd.env("PATH", path);
-            }
-            Ok(None) => {}
-            Err(error) => {
-                return (
-                    true,
-                    ToolResult::error(format!("Failed to resolve command runtime: {error}")),
-                );
-            }
+        if let Some(path) = self.runtime_path_for_command(command).await {
+            tracing::debug!(path = %path, "[shell] applying managed runtime PATH");
+            cmd.env("PATH", path);
         }
 
         // No default deadline — only a caller-supplied `timeout_secs` bounds the
@@ -453,14 +467,15 @@ impl ShellTool {
                     // Surface the exit code AND both streams so the agent can
                     // diagnose the failure (e.g. 127 missing dependency, 126
                     // sandbox/permission wall) instead of looping on it (#4095).
-                    tinytools::command_failure(output.status.code(), &stdout, &stderr)
+                    command_failure(output.status.code(), &stdout, &stderr)
                 }
             }
             Ok(Err(e)) => ToolResult::error(format!("Failed to execute command: {e}")),
-            Err(_) => ToolResult::error(format!(
-                "Command timed out after {}s and was killed",
-                explicit_timeout.map(|d| d.as_secs()).unwrap_or(0)
-            )),
+            Err(_) => {
+                let secs = explicit_timeout.map(|d| d.as_secs()).unwrap_or(0);
+                tracing::debug!(timeout_secs = secs, "[shell] tool timeout_secs fired");
+                ToolResult::error(tool_timeout_message(secs))
+            }
         };
         (true, tool_result)
     }
@@ -479,6 +494,7 @@ impl ShellTool {
         let policy = sandbox::resolve_sandbox_policy(
             crate::agent::harness::definition::SandboxMode::Sandboxed,
             action_dir,
+            &self.security.workspace_dir,
             &config,
             false,
         );
@@ -490,17 +506,8 @@ impl ShellTool {
         );
 
         let mut extra_env = std::collections::HashMap::new();
-        match self.runtime_path_for_command(command).await {
-            Ok(Some(path)) => {
-                extra_env.insert("PATH".into(), path.into());
-            }
-            Ok(None) => {}
-            Err(error) => {
-                return (
-                    true,
-                    ToolResult::error(format!("Failed to resolve command runtime: {error}")),
-                );
-            }
+        if let Some(path) = self.runtime_path_for_command(command).await {
+            extra_env.insert("PATH".into(), path.into());
         }
 
         // Apply the same Git config hardening to local and sandboxed shells.
@@ -524,10 +531,7 @@ impl ShellTool {
         {
             Ok(result) => {
                 let tool_result = if result.timed_out {
-                    ToolResult::error(format!(
-                        "Command timed out after {}s and was killed",
-                        effective.as_secs()
-                    ))
+                    ToolResult::error(tool_timeout_message(effective.as_secs()))
                 } else if result.success() {
                     if result.stderr.is_empty() {
                         ToolResult::success(result.stdout)
@@ -540,7 +544,7 @@ impl ShellTool {
                 } else {
                     // Same exit-code + both-streams surfacing as the native path
                     // (#4095); the sandbox `-1` sentinel renders as a signal.
-                    tinytools::command_failure(
+                    command_failure(
                         tinytools::sandbox_exit_code(result.exit_code),
                         &result.stdout,
                         &result.stderr,
@@ -555,7 +559,19 @@ impl ShellTool {
         }
     }
 
-    async fn runtime_path_for_command(&self, command: &str) -> anyhow::Result<Option<String>> {
+    /// The `PATH` to run `command` under when it needs a managed runtime, or
+    /// `None` to keep the inherited one.
+    ///
+    /// A runtime that cannot be resolved (its module refused or faulted, the
+    /// download failed) leaves the inherited `PATH` in place rather than
+    /// failing the command: the host's own interpreter may well run it, and if
+    /// none exists the command fails with its own `command not found`. Failing
+    /// here instead blocked every `python …` command for the rest of the run
+    /// once the runtime module had faulted, even with a working `python3` on
+    /// the host. This fallback is safe because commands still pass through
+    /// `check_gated_command` and sandbox policy, and the child already inherits
+    /// `PATH` through `SAFE_ENV_VARS`.
+    async fn runtime_path_for_command(&self, command: &str) -> Option<String> {
         let mut prepend_dirs = Vec::new();
 
         // Node injection preserves the existing contract: shell only sees the
@@ -573,26 +589,49 @@ impl ShellTool {
 
         if shell_command_needs_python_runtime(command) {
             if let Some(bootstrap) = self.python_bootstrap.as_ref() {
-                let resolved = bootstrap.resolve().await?;
-                tracing::debug!(
-                    bin_dir = %resolved.bin_dir.display(),
-                    python_bin = %resolved.python_bin.display(),
-                    version = %resolved.version,
-                    source = ?resolved.source,
-                    "[shell] prepending python runtime bin to PATH"
-                );
-                prepend_dirs.push(resolved.bin_dir);
+                match bootstrap.resolve().await {
+                    Ok(resolved) => {
+                        tracing::debug!(
+                            bin_dir = %resolved.bin_dir.display(),
+                            python_bin = %resolved.python_bin.display(),
+                            version = %resolved.version,
+                            source = ?resolved.source,
+                            "[shell] prepending python runtime bin to PATH"
+                        );
+                        prepend_dirs.push(resolved.bin_dir);
+                    }
+                    Err(error) => {
+                        log_python_runtime_unavailable(
+                            bootstrap.config().runtime_python.enabled,
+                            &error,
+                        );
+                    }
+                }
             }
         }
 
         if prepend_dirs.is_empty() {
-            Ok(None)
+            None
         } else {
-            Ok(Some(prepend_path_dirs(
+            Some(prepend_path_dirs(
                 prepend_dirs.iter().map(|p| p.as_path()),
                 &std::env::var("PATH").unwrap_or_default(),
-            )))
+            ))
         }
+    }
+}
+
+fn log_python_runtime_unavailable(enabled: bool, error: &anyhow::Error) {
+    if enabled {
+        tracing::warn!(
+            error = %error,
+            "[shell] python runtime unavailable — running on the inherited PATH"
+        );
+    } else {
+        tracing::debug!(
+            error = %error,
+            "[shell] python runtime disabled — running on the inherited PATH"
+        );
     }
 }
 

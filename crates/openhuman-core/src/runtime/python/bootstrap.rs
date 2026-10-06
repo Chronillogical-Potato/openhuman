@@ -92,6 +92,13 @@ impl PythonBootstrap {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn cache_for_test(&self, resolved: ResolvedPython) {
+        if let Ok(mut cached) = self.cached.lock() {
+            *cached = Some(resolved);
+        }
+    }
+
     /// The configuration this bootstrap resolves under.
     #[must_use]
     pub fn config(&self) -> &Config {

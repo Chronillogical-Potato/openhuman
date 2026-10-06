@@ -151,7 +151,7 @@ embeddings, voice (STT and TTS), web search, media generation, the Jev ranker,
 Composio and the other `/agent-integrations/*` tools, referral, and webhooks.
 The realtime voice agent and Socket.IO relay require a signed-in user session. Callers that
 can only send a bearer (the vendored STT and embedding clients, the connector
-module's proxy route, TinyCortex's Composio sync) send the key as
+module's proxy route, the memory engine's sync) send the key as
 `Authorization: Bearer`, which the backend accepts because it recognises the
 `tiny_live_` / `tiny_test_` prefix. What a key may reach is decided by its
 scopes on the backend: `inference`, `voice`, `search`, `media`, `storage`,
@@ -229,6 +229,15 @@ let runtime = tokio::runtime::Builder::new_multi_thread()
     .expect("tokio runtime");
 ```
 
+### Memory per tenant
+
+Bind each agent with `AgentSpec::memory(MemoryBinding::new(agent_id).root("team:acme"))`
+and its turns run TinyMemory's lifecycle under `team:acme/agent:<agent_id>`.
+`Runtime::memory("team:acme")` is the operator's view of that tenant: its
+agents, items, learnings and brain. Every call stays inside the root's subtree.
+`RuntimeBuilder::memory_engine` installs a host-supplied engine in place of the
+configured one. See `docs/specs/memory-v2.md`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They
@@ -281,7 +290,7 @@ Every feature on this crate is a pass-through to the same-named feature on
 `openhuman-core` (package `openhuman`): `default`, `http-server`,
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
 `runtime-node`, `contacts`, `media`, `flows`, `skills`, `mcp`,
-`crash-reporting`, `channels`, `sandbox-landlock`,
+`crash-reporting`, `channels`,
 `sandbox-bubblewrap`, `browser-native`, `whatsapp-web`,
 `file-logging`, `scheduler-gate`.
 
@@ -349,3 +358,12 @@ above. It does not depend on `openhuman-rpc`; `Outcome` and `StructuredRpcError`
 are core types (`openhuman_core::core`). `openhuman-app` and `openhuman-tui`
 depend on `openhuman-rpc` for its client (and the app on its server) and on
 `openhuman-core`; neither uses `openhuman-embed`.
+
+## Permanent tools on supplied agents
+
+Hosts can pass an existing configured `Agent` to another library, which adds
+its tools through `Agent::attach_tools` without constructing a replacement.
+Attachments are shared by clones, always directly advertised, and update only
+their managed system catalogue when a continuing conversation gains tools.
+See [agent attachment semantics and example](src/agent/README.md#attach-tools-to-an-existing-agent)
+for source identity, collision errors, policy composition, and runtime identity.

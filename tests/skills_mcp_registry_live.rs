@@ -22,7 +22,7 @@ use env_guard::EnvVarGuard;
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -35,13 +35,11 @@ use openhuman_rpc::server::build_core_http_router;
 const TEST_RPC_TOKEN: &str = "skills-mcp-live-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let mutex = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    mutex
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let mutex = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    mutex.lock().await
 }
 
 /// A core RPC stack over a throwaway `HOME`, with no registry overrides.
@@ -140,7 +138,7 @@ fn installed_skill_count(home: &Path) -> usize {
 #[tokio::test]
 #[ignore = "live: real skill catalog + SKILL.md hosts"]
 async fn live_every_skill_catalog_source_offers_installable_skills() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let stack = live_stack().await;
 
     let browse = rpc(
@@ -237,7 +235,7 @@ async fn live_every_skill_catalog_source_offers_installable_skills() {
 #[tokio::test]
 #[ignore = "live: official MCP registry + npm/pypi packages"]
 async fn live_official_mcp_registry_server_declares_connects_and_answers_a_tool_call() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let stack = live_stack().await;
     let query = std::env::var("OPENHUMAN_LIVE_MCP_QUERY").unwrap_or_else(|_| "everything".into());
 

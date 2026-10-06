@@ -31,7 +31,7 @@ use crate::env_guard::EnvVarGuard;
 use crate::rpc_harness::payload;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -49,13 +49,18 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 
 /// Crate-wide, not file-local: all aggregated suites share one process, so a
 /// private mutex would not mutually exclude with anyone else's env mutation.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// `core::auth::RPC_TOKEN`
@@ -245,7 +250,7 @@ fn unsigned_jwt(claims: Value) -> String {
 
 #[tokio::test]
 async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
 
     // ---- Phase A: nothing routed. Every hint resolves to its managed tier. --
@@ -456,7 +461,7 @@ async fn inference_resolve_model_maps_hints_and_tiers_to_the_routed_model() {
 
 #[tokio::test]
 async fn inference_provider_auth_errors_surfaces_recorded_byo_key_rejections() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
 
     // Start from a known state — another suite in this binary may have
@@ -581,7 +586,7 @@ async fn inference_provider_auth_errors_surfaces_recorded_byo_key_rejections() {
 #[cfg(unix)]
 #[tokio::test]
 async fn inference_claude_code_status_classifies_ok_outdated_unusable_and_missing() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
     let stub_dir = harness.home().join("stub-cli");
 
@@ -703,7 +708,7 @@ async fn inference_claude_code_status_classifies_ok_outdated_unusable_and_missin
 #[cfg(unix)]
 #[tokio::test]
 async fn inference_claude_code_auth_status_prefers_the_env_key_then_reads_the_cli() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
     let stub_dir = harness.home().join("stub-auth-cli");
 
@@ -844,7 +849,7 @@ async fn inference_claude_code_auth_status_prefers_the_env_key_then_reads_the_cl
 
 #[tokio::test]
 async fn inference_claude_code_full_access_toggle_round_trips_through_the_workspace() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
 
     // The safe posture is the default, and it must be the default on a fresh
@@ -987,7 +992,7 @@ async fn inference_claude_code_full_access_toggle_round_trips_through_the_worksp
 
 #[tokio::test]
 async fn inference_openai_oauth_import_codex_cli_imports_a_real_auth_file() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
 
     let codex_home = harness.home().join("codex-home");

@@ -78,9 +78,7 @@ fn security_policy_info_reflects_configured_action_budget() {
 async fn load_and_get_security_policy_info_reflects_env_overlay() {
     // Serialize against every other test that mutates process env —
     // load_tests.rs uses the same lock so we cannot race with it.
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
 
     for budget in [42_u32, 0_u32] {
         // Point the loader at a throwaway workspace so the test does not

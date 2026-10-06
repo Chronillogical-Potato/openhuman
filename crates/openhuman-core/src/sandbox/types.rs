@@ -25,8 +25,16 @@ pub struct SandboxPolicy {
     pub backend: SandboxBackendKind,
     /// Workspace root mounted into the sandbox (read/write).
     pub workspace_root: PathBuf,
+    /// The core's own state directory (`workspace_dir`), never the user's
+    /// project. Per-call scratch the sandbox needs on the host, such as the
+    /// local jail's output capture, lives under it so nothing appears in
+    /// `workspace_root` while a command runs.
+    pub state_dir: PathBuf,
     /// Additional read-only mounts (e.g. `/usr/lib`, managed node).
     pub read_only_mounts: Vec<PathBuf>,
+    /// Additional read-write mounts (e.g. `~/.cargo`). Local jail only.
+    #[serde(default)]
+    pub read_write_mounts: Vec<PathBuf>,
     /// Whether outbound network is allowed inside the sandbox.
     pub allow_network: bool,
     /// Environment variables to passthrough into the sandbox.

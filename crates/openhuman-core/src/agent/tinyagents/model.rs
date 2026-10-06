@@ -350,6 +350,15 @@ impl ChatModel<()> for ErrorSlotModel {
         self.inner.profile()
     }
 
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         self.inner.cache_identity()
     }
@@ -445,6 +454,15 @@ impl ChatModel<()> for ProfileOverrideModel {
         Some(&self.profile)
     }
 
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         self.inner
             .cache_identity()
@@ -500,6 +518,15 @@ impl ChatModel<()> for MaxTokensModel {
     // identity, and the harness response cache then keys every wrapped model
     // under one "anonymous-model" marker, so a shared cache could serve a
     // local model's answer to a hosted one.
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         self.inner.cache_identity()
     }

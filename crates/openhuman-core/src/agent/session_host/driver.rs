@@ -123,11 +123,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
         }
         let sidecar = request.run_context.data.session_sidecar.clone();
         let started = Instant::now();
-        let user_message = request
-            .history
-            .iter()
-            .rev()
-            .find(|message| matches!(message, Message::User(_)))
+        let user_message = crate::agent::tinyagents::last_user_message(&request.history)
             .map(crate::agent::message_convert::user_text_with_markers)
             .unwrap_or_default();
         let context_window = self
@@ -149,9 +145,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             .iter()
             .filter_map(crate::agent::message_convert::message_to_native_chat_message)
             .collect();
-        if (turn_models.supports_vision() || self.model_vision)
-            && crate::agent::multimodal::has_image_placeholders(&messages)
-        {
+        if crate::agent::multimodal::has_image_placeholders(&messages) {
             messages = crate::agent::multimodal::rehydrate_image_placeholders(&messages);
         }
 
@@ -407,6 +401,14 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             observed.wrap_up_injected = outcome.wrap_up_injected;
             observed.resolved_route = outcome.resolved_route.clone();
         }
+        // The turn compacted its context: persist the compacted history, so the
+        // next turn starts from the checkpoint. The runtime session seals the
+        // current generation and opens the next (the history no longer extends
+        // it), so the full conversation stays on disk.
+        let history = match &outcome.compaction {
+            Some(carry) => carry.apply(history),
+            None => history,
+        };
         Ok(DriverOutcome {
             history,
             output: Some(output),
