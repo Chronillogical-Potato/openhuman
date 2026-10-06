@@ -114,6 +114,10 @@ const debug = debugFactory('conversations');
 // tool activity, or the core's 20s `inference_heartbeat`) before the chat
 // warns that it has gone quiet. A warning only — see `handleSilence`.
 const SILENCE_WARNING_MS = 120_000;
+// How long after a Stop the thread may still show a running turn before the
+// UI settles it locally. The core publishes `chat_cancelled` before it answers
+// the cancel RPC, so this only fires when that event never reached us.
+const STOP_SETTLE_FALLBACK_MS = 5_000;
 
 interface ConversationsProps {
   /**
