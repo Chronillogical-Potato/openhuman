@@ -159,11 +159,7 @@ pub(crate) fn live_config(
         LIVE_PROVIDER_ELEVENLABS_HOSTED => {
             // The hosted agent owns its prompt and its brain (OpenHuman over
             // the Custom-LLM relay); only the voice may be overridden.
-            live.voice = settings
-                .elevenlabs
-                .voice_id
-                .clone()
-                .or_else(|| non_empty(crate::voice::realtime_default_voice_id()));
+            live.voice = non_empty(settings.elevenlabs.voice_id.clone());
         }
         _ => {}
     }
