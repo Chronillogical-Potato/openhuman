@@ -1074,7 +1074,8 @@ const messages: TranslationMap = {
   'mcp.playground.title': 'تشغيل {name}',
   'mcp.playground.inputSchema': 'مخطط الإدخال',
   'mcp.playground.argsLabel': 'المعطيات (JSON)',
-  'mcp.playground.argsHelp': 'اكتب JSON مطابقًا لمخطط الإدخال (schema). يتم التعامل مع الإدخال الفارغ على أنه {}.',
+  'mcp.playground.argsHelp':
+    'اكتب JSON مطابقًا لمخطط الإدخال (schema). يتم التعامل مع الإدخال الفارغ على أنه {}.',
   'mcp.playground.runShortcut': '⌘/Ctrl + Enter للتشغيل',
   'mcp.playground.format': 'الشكل',
   'mcp.playground.invalidJson': 'JSON غير صالح',
