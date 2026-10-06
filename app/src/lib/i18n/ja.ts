@@ -1,7 +1,7 @@
 import type { TranslationMap } from './types';
 
-// Japanese (日本語) translations. Keys mirror en.ts; missing/
-// English-identical values fall back to English via I18nContext.resolveEn().
+// Japanese (日本語) translations. Keys mirror en.ts.
+// Missing keys fall back to English via I18nContext.resolveEn().
 const messages: TranslationMap = {
   // Navigation
   'nav.home': 'ホーム',
@@ -5534,6 +5534,8 @@ const messages: TranslationMap = {
     'クレジットが足りないため、メモリーを使えません。補充すると再び使えます。保存済みの内容は失われていません。',
   'memory.error.unavailable':
     '現在、メモリーに接続できません。保存済みの内容は失われていません。少し待ってから再試行してください。',
+  'memory.outOfCredits.title': 'クレジット不足',
+  'memory.outOfCredits.action': 'チャージする',
   'onboarding.custom.search.skipForNow': '今はスキップ',
   'onboarding.custom.search.ready': 'Web検索の準備ができました。',
   'onboarding.custom.search.notReady':
