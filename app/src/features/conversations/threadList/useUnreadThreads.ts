@@ -8,19 +8,21 @@ import { useEffect, useRef, useState } from 'react';
  * the core has no read receipts, so this resets on reload rather than
  * inventing a persisted "seen" state the backend cannot confirm.
  *
- * `runningThreadIds` must be a stable-per-content key (sorted ids joined) so
- * the effect only runs when the running set actually changes.
+ * The ids are folded into a string key, so a fresh array with the same
+ * content each render does not re-run the edge detection.
  */
+const SEPARATOR = '\u0000';
+
 export function useUnreadThreads(
   runningThreadIds: readonly string[],
   selectedThreadId: string | null
 ): ReadonlySet<string> {
   const [unread, setUnread] = useState<ReadonlySet<string>>(() => new Set());
   const previousRunning = useRef<ReadonlySet<string>>(new Set());
-  const runningKey = runningThreadIds.join('\u0000');
+  const runningKey = runningThreadIds.join(SEPARATOR);
 
   useEffect(() => {
-    const running = new Set(runningThreadIds);
+    const running = new Set(runningKey ? runningKey.split(SEPARATOR) : []);
     const finished = [...previousRunning.current].filter(
       id => !running.has(id) && id !== selectedThreadId
     );
@@ -31,8 +33,6 @@ export function useUnreadThreads(
       for (const id of finished) next.add(id);
       return next;
     });
-    // `runningKey` carries the content of `runningThreadIds`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningKey, selectedThreadId]);
 
   useEffect(() => {
