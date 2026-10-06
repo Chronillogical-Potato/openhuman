@@ -9,9 +9,7 @@ fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // same lock before mutating the process-global live policy so parallel
     // cloud-model construction cannot observe this temporary LocalOnly mode.
     let _inference = crate::inference::inference_test_guard();
-    let _env = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env = crate::config::TEST_ENV_LOCK.blocking_lock();
     use crate::config::PrivacyMode;
     use crate::security::SecurityPolicy;
     let ws = std::env::temp_dir().join("openhuman_factory_privacy_test");
@@ -78,7 +76,7 @@ async fn create_chat_model_uses_native_test_override() {
     use tinyinference_llm::message::Message;
     use tinyinference_llm::model::ModelRequest;
 
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
 
     // The factory consults this override under cfg(test), so `create_chat_model`
     // resolves to the mock without needing configured cloud providers.
@@ -121,7 +119,7 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
         }
     }
 
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let seen = Arc::new(Mutex::new(Vec::new()));
     let _override = test_provider_override::install_model(Arc::new(TemperatureProbe {
         seen: Arc::clone(&seen),
@@ -405,7 +403,7 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
     use crate::security::egress::{EgressDescriptor, EgressReason};
     use std::time::Duration;
 
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     crate::core::bus::init().await.expect("bus init");
     let mut rx = crate::core::bus::BUS.get().unwrap().receiver();
 
@@ -455,7 +453,7 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
     use crate::security::egress::EgressDescriptor;
     use std::time::Duration;
 
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     crate::core::bus::init().await.expect("bus init");
     let mut rx = crate::core::bus::BUS.get().unwrap().receiver();
 

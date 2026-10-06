@@ -9,9 +9,8 @@
 //     pipeline. Mixing the BYO-key controls into it would conflate two
 //     orthogonal concerns and confuse users (triggers don't work at all
 //     in direct mode — separately calling that out is cleaner).
-//   - PR1 already owns LocalModelPanel and PR2 owns VoicePanel; this PR
-//     stays in its lane by introducing a new file rather than editing
-//     BackendProviderPanel / LocalModelPanel / VoicePanel.
+//   - The BYO-key controls are their own concern, so they live in a new
+//     file rather than being folded into an existing provider panel.
 import { Cloud, KeyRound, type LucideIcon, Save } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 

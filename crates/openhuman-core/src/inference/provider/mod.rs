@@ -13,13 +13,10 @@ pub(crate) mod openai_codex;
 /// Crate-native managed OpenHuman backend as a host `ChatModel` (issue #4727).
 pub mod openhuman_backend_model;
 pub mod ops;
-pub mod schemas;
 pub mod types;
 
 #[allow(unused_imports)]
-pub use types::{
-    ChatRequest, ChatResponse, ProviderDelta, UsageInfo, AGENT_TURN_MAX_OUTPUT_TOKENS,
-};
+pub use types::{BilledUsage, ChatResponse, ProviderDelta, AGENT_TURN_MAX_OUTPUT_TOKENS};
 
 pub use error_code::{
     backend_error_code_skips_sentry, body_flags_malformed, extract_backend_error_code,

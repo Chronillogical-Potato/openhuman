@@ -198,15 +198,3 @@ pub(super) fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
         .decode(input)
         .map_err(|e| format!("[voice-factory] base64 decode error: {e}"))
 }
-
-pub(super) fn extension_for_mime(mime: &str) -> &str {
-    match mime {
-        "audio/wav" | "audio/x-wav" => "wav",
-        "audio/mpeg" | "audio/mp3" => "mp3",
-        "audio/ogg" => "ogg",
-        "audio/webm" => "webm",
-        "audio/flac" => "flac",
-        "audio/mp4" | "audio/m4a" => "m4a",
-        _ => "wav",
-    }
-}

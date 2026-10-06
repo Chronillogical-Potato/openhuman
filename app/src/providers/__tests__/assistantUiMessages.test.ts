@@ -32,6 +32,47 @@ function tool(over: Partial<ToolTimelineEntry> = {}): ToolTimelineEntry {
 }
 
 describe('toThreadMessageLike', () => {
+  it('renders durable uploads as file chips without raw reference JSON or inline bytes', () => {
+    const references = [
+      { path: 'uploads/t/id/scan.png', name: 'scan.png', mime: 'image/png', size_bytes: 3 },
+      {
+        path: 'uploads/t/id/archive.zip',
+        name: 'archive.zip',
+        mime: 'application/zip',
+        size_bytes: 8,
+      },
+    ]
+      .map(file => `[ATTACHMENT:${encodeURIComponent(JSON.stringify(file))}]`)
+      .join(' ');
+    expect(toThreadMessageLike(msg({ content: `inspect ${references}` })).content).toEqual([
+      { type: 'text', text: 'inspect' },
+      { type: 'file', filename: 'scan.png', data: '', mimeType: 'image/png' },
+      { type: 'file', filename: 'archive.zip', data: '', mimeType: 'application/zip' },
+    ]);
+  });
+
+  it('keeps malformed or unsafe durable markers as ordinary text', () => {
+    for (const path of ['../escape', '/etc/passwd', 'C:\\secret', 'uploads/../secret']) {
+      const content = `[ATTACHMENT:${encodeURIComponent(JSON.stringify({ path, name: 'file', mime: 'image/png', size_bytes: 1 }))}]`;
+      expect(toThreadMessageLike(msg({ content })).content).toEqual([
+        { type: 'text', text: content },
+      ]);
+    }
+    const content = '[ATTACHMENT:%invalid]';
+    expect(toThreadMessageLike(msg({ content })).content).toEqual([
+      { type: 'text', text: content },
+    ]);
+  });
+
+  it('continues to render legacy inline image previews', () => {
+    expect(
+      toThreadMessageLike(msg({ content: 'photo [IMAGE:data:image/png;base64,old]' })).content
+    ).toEqual([
+      { type: 'text', text: 'photo' },
+      { type: 'image', image: 'data:image/png;base64,old', filename: undefined },
+    ]);
+  });
+
   it('maps sender to role', () => {
     expect(toThreadMessageLike(msg({ id: 'u' })).role).toBe('user');
     expect(toThreadMessageLike(msg({ id: 'a', sender: 'agent' })).role).toBe('assistant');

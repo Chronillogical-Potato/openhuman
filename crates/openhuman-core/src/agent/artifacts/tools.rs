@@ -3,12 +3,13 @@
 //! Each tool is a thin shim over a read/delete handler in
 //! [`crate::agent::artifacts::ops`], unwrapping the `Outcome`
 //! envelope and emitting the inner JSON value. The artifacts domain owns
-//! agent-generated files (presentations/documents/images) under
-//! `<workspace>/artifacts/`; these tools let the agent enumerate and
-//! inspect what it has produced.
+//! agent-generated files (presentations/documents/images): metadata under
+//! `<workspace>/artifacts/`, the files themselves in the visible files folder
+//! (`~/OpenHuman/projects/Files`, #5505); these tools let the agent enumerate
+//! and inspect what it has produced.
 //!
 //! `artifact_list` / `artifact_get` are read-only and default-enabled.
-//! `artifact_delete` is `Dangerous` (irreversible directory removal) and
+//! `artifact_delete` is `Dangerous` (irreversibly removes the file and its record) and
 //! ships default-OFF — it must be opted in via the tool toggle
 //! (the `artifact_delete` `ToolFamily` in `TOOL_FAMILIES`,
 //! `tools/user_filter.rs`).

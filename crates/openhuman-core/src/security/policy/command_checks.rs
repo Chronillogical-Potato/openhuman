@@ -1,12 +1,12 @@
 use crate::util::floor_char_boundary;
 
-use super::policy_command::{
-    classify_segment, has_dangerous_env_prefix, has_hidden_execution, is_command_executor,
-};
 use super::types::{
     AutonomyLevel, CommandClass, CommandRiskLevel, GateDecision, SecurityPolicy,
     POLICY_BLOCKED_MARKER,
 };
+use tinybox_core::shell::classify::{classify_segment, has_hidden_execution};
+use tinybox_core::shell::env_guard::has_dangerous_env_prefix;
+use tinybox_core::shell::executor::is_command_executor;
 use tinybox_core::shell::scan::{
     command_basename, contains_unquoted_char, contains_unquoted_single_ampersand,
     has_leading_env_assignment, normalized_command_name, skip_env_assignments,

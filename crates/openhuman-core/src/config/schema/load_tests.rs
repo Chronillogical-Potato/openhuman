@@ -1,4 +1,4 @@
-use super::dirs::{ACTION_DIR_ENV_VAR, MEMORY_SYNC_INTERVAL_SECS_ENV_VAR};
+use super::dirs::ACTION_DIR_ENV_VAR;
 use super::env::EnvLookup;
 use super::*;
 use crate::config::schema::{StreamMode, TelegramConfig};
@@ -80,8 +80,8 @@ async fn write_file(path: &std::path::Path, contents: &str) {
 
 const CORRUPTED_TOML: &str = "{{{ bad table header\n";
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK.blocking_lock()
 }
 
 async fn load_or_init_for_workspace(root: &std::path::Path) -> Config {
@@ -106,6 +106,8 @@ mod active_user_and_dirs_tests;
 mod backup_tests;
 #[path = "load_corruption_recovery_tests.rs"]
 mod corruption_recovery_tests;
+#[path = "load_env_overlay_context_tests.rs"]
+mod env_overlay_context_tests;
 #[path = "load_env_overlay_tests.rs"]
 mod env_overlay_tests;
 #[path = "load_migration_tests.rs"]

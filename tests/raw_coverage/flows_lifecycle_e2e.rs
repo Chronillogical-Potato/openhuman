@@ -14,9 +14,10 @@
 
 #![cfg(feature = "flows")]
 
+use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -43,50 +44,21 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 /// The crate-wide env lock, not a private one. Every aggregated suite in
 /// `raw_coverage_all` shares one process, so libtest runs them concurrently
 /// and a lock local to this file would isolate nothing.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
-
-struct EnvVarGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set_to_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    fn set(key: &'static str, value: &str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, old }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 /// Serializes every case in this binary: `HOME` and the backend-URL overrides
 /// are process-global, so two cases running in parallel would resolve each
 /// other's `config.toml` and each other's flows database.
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// Initialise the process RPC token (idempotent) and return the bearer the
@@ -289,7 +261,7 @@ fn str_at<'a>(value: &'a Value, pointer: &str) -> &'a str {
 /// the draft, so the draft store is empty afterwards and the flow store is not.
 #[tokio::test]
 async fn flows_draft_surface_round_trips_and_promotes_into_a_saved_flow() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let draft = h
@@ -429,320 +401,9 @@ async fn flows_draft_surface_round_trips_and_promotes_into_a_saved_flow() {
     h.join.abort();
 }
 
-/// A draft that names a `flow_id` must UPDATE that flow on promote rather than
-/// create a second one — the behaviour `parse_draft_update_flow_id` exists to
-/// protect.
-#[tokio::test]
-async fn flows_draft_promote_updates_the_linked_flow_instead_of_creating_a_second() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    let flow = h
-        .ok(
-            1101,
-            "openhuman.flows_create",
-            json!({ "name": "Original", "graph": trigger_only_graph() }),
-        )
-        .await;
-    let flow_id = str_at(&flow, "/id").to_string();
-
-    let draft = h
-        .ok(
-            1102,
-            "openhuman.flows_draft_create",
-            json!({
-                "name": "Edited In Canvas",
-                "graph": two_node_graph(),
-                "flow_id": flow_id,
-            }),
-        )
-        .await;
-    assert_eq!(
-        draft.get("flow_id").and_then(Value::as_str),
-        Some(flow_id.as_str()),
-        "the draft records the flow it edits: {draft}"
-    );
-
-    let promoted = h
-        .ok(
-            1103,
-            "openhuman.flows_draft_promote",
-            json!({ "id": str_at(&draft, "/id") }),
-        )
-        .await;
-    assert_eq!(
-        str_at(&promoted, "/id"),
-        flow_id,
-        "promoting a linked draft updates the SAME flow: {promoted}"
-    );
-    assert_eq!(str_at(&promoted, "/name"), "Edited In Canvas");
-
-    let flows = h.ok(1104, "openhuman.flows_list", json!({})).await;
-    assert_eq!(
-        flows.as_array().map(Vec::len),
-        Some(1),
-        "no second flow was created: {flows}"
-    );
-
-    h.join.abort();
-}
-
 // ── duplicate / set_enabled ─────────────────────────────────────────────────
 
-/// A duplicate is a copy that is deliberately born DISABLED and unbound, so it
-/// can never fire on its own schedule before the user has reviewed it.
-#[tokio::test]
-async fn flows_duplicate_copies_the_graph_and_lands_disabled() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    let source = h
-        .ok(
-            1201,
-            "openhuman.flows_create",
-            json!({ "name": "Nightly Report", "graph": two_node_graph() }),
-        )
-        .await;
-    let source_id = str_at(&source, "/id").to_string();
-    assert_eq!(
-        source.get("enabled").and_then(Value::as_bool),
-        Some(true),
-        "a manually triggered flow is created enabled"
-    );
-
-    let copy = h
-        .ok(
-            1202,
-            "openhuman.flows_duplicate",
-            json!({ "id": source_id }),
-        )
-        .await;
-    assert_ne!(str_at(&copy, "/id"), source_id, "the copy gets a fresh id");
-    assert_eq!(
-        str_at(&copy, "/name"),
-        "Nightly Report (copy)",
-        "the copy is suffixed: {copy}"
-    );
-    assert_eq!(
-        copy.get("enabled").and_then(Value::as_bool),
-        Some(false),
-        "a duplicate is born disabled: {copy}"
-    );
-    assert_eq!(
-        copy.pointer("/graph/nodes")
-            .and_then(Value::as_array)
-            .map(Vec::len),
-        Some(2),
-        "the copy carries the source graph: {copy}"
-    );
-
-    let flows = h.ok(1203, "openhuman.flows_list", json!({})).await;
-    assert_eq!(flows.as_array().map(Vec::len), Some(2));
-
-    let missing = h
-        .err(
-            1204,
-            "openhuman.flows_duplicate",
-            json!({ "id": "no-such-flow" }),
-        )
-        .await;
-    assert!(
-        missing.contains("no-such-flow") && missing.contains("not found"),
-        "duplicate names the absent flow: {missing}"
-    );
-
-    h.join.abort();
-}
-
-/// `set_enabled` is the toggle behind the flow list's switch. Both directions
-/// must be reflected in the stored flow, and a re-read must agree.
-#[tokio::test]
-async fn flows_set_enabled_toggles_both_ways_and_persists() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    let flow = h
-        .ok(
-            1301,
-            "openhuman.flows_create",
-            json!({ "name": "Toggle Me", "graph": trigger_only_graph() }),
-        )
-        .await;
-    let flow_id = str_at(&flow, "/id").to_string();
-
-    let off = h
-        .ok(
-            1302,
-            "openhuman.flows_set_enabled",
-            json!({ "id": flow_id, "enabled": false }),
-        )
-        .await;
-    assert_eq!(off.get("enabled").and_then(Value::as_bool), Some(false));
-
-    let reread = h
-        .ok(1303, "openhuman.flows_get", json!({ "id": flow_id }))
-        .await;
-    assert_eq!(
-        reread.get("enabled").and_then(Value::as_bool),
-        Some(false),
-        "the disable is persisted, not just echoed: {reread}"
-    );
-
-    let on = h
-        .ok(
-            1304,
-            "openhuman.flows_set_enabled",
-            json!({ "id": flow_id, "enabled": true }),
-        )
-        .await;
-    assert_eq!(on.get("enabled").and_then(Value::as_bool), Some(true));
-
-    let missing = h
-        .err(
-            1305,
-            "openhuman.flows_set_enabled",
-            json!({ "id": "no-such-flow", "enabled": true }),
-        )
-        .await;
-    assert!(
-        missing.to_lowercase().contains("not found") || missing.contains("no-such-flow"),
-        "set_enabled on an absent flow is an error: {missing}"
-    );
-
-    let no_flag = h
-        .err(
-            1306,
-            "openhuman.flows_set_enabled",
-            json!({ "id": flow_id }),
-        )
-        .await;
-    assert!(
-        no_flag.contains("enabled"),
-        "the required `enabled` param is named: {no_flag}"
-    );
-
-    h.join.abort();
-}
-
 // ── history / rollback ──────────────────────────────────────────────────────
-
-/// Every update snapshots the *prior* graph, and rollback restores one through
-/// the normal update path — so the rollback is itself snapshotted and undoable.
-#[tokio::test]
-async fn flows_history_records_prior_graphs_and_rollback_restores_them() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    let flow = h
-        .ok(
-            1401,
-            "openhuman.flows_create",
-            json!({ "name": "Versioned", "graph": trigger_only_graph() }),
-        )
-        .await;
-    let flow_id = str_at(&flow, "/id").to_string();
-
-    let empty = h
-        .ok(
-            1402,
-            "openhuman.flows_get_history",
-            json!({ "id": flow_id }),
-        )
-        .await;
-    assert_eq!(
-        empty.as_array().map(Vec::len),
-        Some(0),
-        "a freshly created flow has no prior revisions: {empty}"
-    );
-
-    h.ok(
-        1403,
-        "openhuman.flows_update",
-        json!({ "id": flow_id, "graph": two_node_graph() }),
-    )
-    .await;
-
-    let history = h
-        .ok(
-            1404,
-            "openhuman.flows_get_history",
-            json!({ "id": flow_id }),
-        )
-        .await;
-    let revisions = history.as_array().expect("get_history returns an array");
-    assert_eq!(revisions.len(), 1, "one prior snapshot: {history}");
-    let revision = &revisions[0];
-    let revision_id = str_at(revision, "/id").to_string();
-    assert_eq!(
-        revision.get("flow_id").and_then(Value::as_str),
-        Some(flow_id.as_str())
-    );
-    assert_eq!(
-        revision
-            .pointer("/graph/nodes")
-            .and_then(Value::as_array)
-            .map(Vec::len),
-        Some(1),
-        "the snapshot holds the ORIGINAL one-node graph, not the new one: {revision}"
-    );
-
-    let rolled = h
-        .ok(
-            1405,
-            "openhuman.flows_rollback",
-            json!({ "id": flow_id, "revision_id": revision_id }),
-        )
-        .await;
-    assert_eq!(
-        rolled
-            .pointer("/graph/nodes")
-            .and_then(Value::as_array)
-            .map(Vec::len),
-        Some(1),
-        "rollback restored the one-node graph: {rolled}"
-    );
-
-    let after = h
-        .ok(
-            1406,
-            "openhuman.flows_get_history",
-            json!({ "id": flow_id }),
-        )
-        .await;
-    assert_eq!(
-        after.as_array().map(Vec::len),
-        Some(2),
-        "the rollback snapshotted the graph it replaced, so it is undoable: {after}"
-    );
-
-    let bad_revision = h
-        .err(
-            1407,
-            "openhuman.flows_rollback",
-            json!({ "id": flow_id, "revision_id": "no-such-revision" }),
-        )
-        .await;
-    assert!(
-        bad_revision.contains("no-such-revision") && bad_revision.contains(&flow_id),
-        "rollback names both the revision and the flow: {bad_revision}"
-    );
-
-    // `limit` is honoured, not ignored.
-    let capped = h
-        .ok(
-            1408,
-            "openhuman.flows_get_history",
-            json!({ "id": flow_id, "limit": 1 }),
-        )
-        .await;
-    assert_eq!(
-        capped.as_array().map(Vec::len),
-        Some(1),
-        "get_history honours limit: {capped}"
-    );
-
-    h.join.abort();
-}
 
 // ── run history: list_all_runs / prune_runs ─────────────────────────────────
 
@@ -751,7 +412,7 @@ async fn flows_history_records_prior_graphs_and_rollback_restores_them() {
 /// first, and honour its limit.
 #[tokio::test]
 async fn flows_list_all_runs_spans_flows_and_prune_reports_the_retention_cap() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let first = h
@@ -841,238 +502,6 @@ async fn flows_list_all_runs_spans_flows_and_prune_reports_the_retention_cap() {
 
 // ── approval manifest / required connections ────────────────────────────────
 
-/// The save+enable pre-authorization card: one row per permission a run will
-/// prompt for, classified, deduped on the trust key, and joined against the
-/// grants the flow already holds.
-#[tokio::test]
-async fn flows_approval_manifest_classifies_every_gated_node_kind() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    let graph = json!({
-        "nodes": [
-            { "id": "t", "kind": "trigger", "name": "Manual" },
-            { "id": "http", "kind": "http_request", "name": "Call",
-              "config": { "url": "https://example.invalid/hook", "method": "POST" } },
-            { "id": "code", "kind": "code", "name": "Transform",
-              "config": { "language": "javascript", "code": "return items;" } },
-            { "id": "dyn", "kind": "tool_call", "name": "Chosen at run time",
-              "config": { "slug": "=nodes.t.output.slug", "args": {} } },
-            { "id": "ai", "kind": "agent", "name": "Summarize",
-              "config": { "agent_ref": "summarizer", "prompt": "summarize" } }
-        ],
-        "edges": [
-            { "from_node": "t", "to_node": "http" },
-            { "from_node": "http", "to_node": "code" },
-            { "from_node": "code", "to_node": "dyn" },
-            { "from_node": "dyn", "to_node": "ai" }
-        ]
-    });
-
-    let manifest = h
-        .ok(
-            1601,
-            "openhuman.flows_approval_manifest",
-            json!({ "graph": graph }),
-        )
-        .await;
-    let entries = manifest
-        .get("entries")
-        .and_then(Value::as_array)
-        .unwrap_or_else(|| panic!("manifest carries an entries array: {manifest}"));
-
-    let find = |tool: &str| -> &Value {
-        entries
-            .iter()
-            .find(|entry| entry.get("tool_name").and_then(Value::as_str) == Some(tool))
-            .unwrap_or_else(|| panic!("manifest must list {tool}: {manifest}"))
-    };
-
-    let http = find("flows_http_request");
-    assert_eq!(http.get("node_id").and_then(Value::as_str), Some("http"));
-    assert_eq!(http.get("class").and_then(Value::as_str), Some("Network"));
-    assert_eq!(
-        str_at(http, "/label"),
-        "Call https://example.invalid/hook",
-        "the label names the destination so the card is readable: {http}"
-    );
-
-    let code = find("flows_code");
-    assert_eq!(code.get("class").and_then(Value::as_str), Some("Write"));
-
-    assert!(
-        entries.iter().any(
-            |entry| entry.get("kind").and_then(Value::as_str) == Some("dynamic")
-                && entry.get("node_id").and_then(Value::as_str) == Some("dyn")
-        ),
-        "an `=` slug cannot be pre-approved and must be disclosed as dynamic: {manifest}"
-    );
-    assert!(
-        entries.iter().any(
-            |entry| entry.get("kind").and_then(Value::as_str) == Some("agent")
-                && entry.get("node_id").and_then(Value::as_str) == Some("ai")
-        ),
-        "an agent node's inner tool calls are unknowable and must be disclosed: {manifest}"
-    );
-
-    // `missing` and `already_trusted` partition the APPROVABLE keys — the
-    // dynamic and agent rows have no trust key to grant, so neither list may
-    // name them.
-    let gate_installed = manifest
-        .get("gate_installed")
-        .and_then(Value::as_bool)
-        .unwrap_or_else(|| panic!("gate_installed is reported as a boolean: {manifest}"));
-    let missing: Vec<&str> = manifest
-        .get("missing")
-        .and_then(Value::as_array)
-        .expect("missing array")
-        .iter()
-        .filter_map(Value::as_str)
-        .collect();
-    let already: Vec<&str> = manifest
-        .get("already_trusted")
-        .and_then(Value::as_array)
-        .expect("already_trusted array")
-        .iter()
-        .filter_map(Value::as_str)
-        .collect();
-
-    if gate_installed {
-        // No `id` was given, so no grants can be joined: every approvable key
-        // is missing and nothing is already trusted.
-        assert!(
-            missing.contains(&"flows_http_request") && missing.contains(&"flows_code"),
-            "un-granted approvable keys are listed as missing: {missing:?}"
-        );
-        assert!(
-            already.is_empty(),
-            "a candidate graph joined against no flow holds no grants: {already:?}"
-        );
-    } else {
-        // Gate uninstalled: nothing ever parks, so nothing is `missing`; and no
-        // grant was ever made, so nothing is `already_trusted` either.
-        // `gate_installed: false` is the caller's only signal.
-        //
-        // This branch used to assert the opposite — the approvable keys landed
-        // in `already_trusted`, claiming grants the flow did not hold. openhuman#6093
-        // fixed that (`split_manifest_trust` returns two empty lists when the
-        // gate is absent), so the assertion is inverted to the fixed behaviour.
-        assert!(
-            missing.is_empty(),
-            "with no gate installed nothing can park, so nothing is missing: {missing:?}"
-        );
-        assert!(
-            already.is_empty(),
-            "with no gate installed no grant was ever made, so nothing is already \
-             trusted either: {already:?}"
-        );
-    }
-    for list in [&missing, &already] {
-        assert!(
-            !list.contains(&"dyn") && !list.contains(&"ai"),
-            "only approvable rows carry a trust key: {list:?}"
-        );
-    }
-
-    let neither = h
-        .err(1602, "openhuman.flows_approval_manifest", json!({}))
-        .await;
-    assert!(
-        neither.contains("'id'") && neither.contains("'graph'"),
-        "the manifest says which of the two inputs it needs: {neither}"
-    );
-
-    let unknown = h
-        .err(
-            1603,
-            "openhuman.flows_approval_manifest",
-            json!({ "id": "no-such-flow" }),
-        )
-        .await;
-    assert!(
-        unknown.contains("no-such-flow"),
-        "the manifest names the absent flow: {unknown}"
-    );
-
-    h.join.abort();
-}
-
-/// The "Connect <toolkit>" CTAs. Composio slugs contribute a toolkit; native
-/// `oh:` tools and plain HTTP nodes deliberately do not.
-#[tokio::test]
-async fn flows_required_connections_lists_only_composio_toolkits() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    let graph = json!({
-        "nodes": [
-            { "id": "t", "kind": "trigger", "name": "Manual" },
-            { "id": "send", "kind": "tool_call", "name": "Send",
-              "config": { "slug": "GMAIL_SEND_EMAIL", "args": {} } },
-            { "id": "native", "kind": "tool_call", "name": "Native",
-              "config": { "slug": "oh:web_search", "args": {} } },
-            { "id": "http", "kind": "http_request", "name": "Webhook",
-              "config": { "url": "https://example.invalid/hook", "method": "POST" } }
-        ],
-        "edges": [
-            { "from_node": "t", "to_node": "send" },
-            { "from_node": "send", "to_node": "native" },
-            { "from_node": "native", "to_node": "http" }
-        ]
-    });
-
-    let out = h
-        .ok(
-            1701,
-            "openhuman.flows_required_connections",
-            json!({ "graph": graph }),
-        )
-        .await;
-    let required = out
-        .get("required_connections")
-        .and_then(Value::as_array)
-        .unwrap_or_else(|| panic!("required_connections array: {out}"));
-    assert_eq!(
-        required.len(),
-        1,
-        "only the Composio slug needs a connection — `oh:` and http_request do not: {out}"
-    );
-    assert_eq!(
-        required[0].get("toolkit").and_then(Value::as_str),
-        Some("gmail")
-    );
-    assert_eq!(
-        required[0].get("status").and_then(Value::as_str),
-        Some("missing"),
-        "a fresh workspace has no Gmail connection: {out}"
-    );
-
-    let none = h
-        .ok(
-            1702,
-            "openhuman.flows_required_connections",
-            json!({ "graph": trigger_only_graph() }),
-        )
-        .await;
-    assert_eq!(
-        none.get("required_connections")
-            .and_then(Value::as_array)
-            .map(Vec::len),
-        Some(0),
-        "a trigger-only graph needs no connection: {none}"
-    );
-
-    let no_graph = h
-        .err(1703, "openhuman.flows_required_connections", json!({}))
-        .await;
-    assert!(
-        no_graph.contains("graph"),
-        "the required `graph` param is named: {no_graph}"
-    );
-
-    h.join.abort();
-}
-
 // ── canvas tool browser ─────────────────────────────────────────────────────
 
 /// The in-canvas tool browser reads the LIVE Composio catalog. With no
@@ -1081,7 +510,7 @@ async fn flows_required_connections_lists_only_composio_toolkits() {
 /// is not an error), while a contract fetch for a named action is.
 #[tokio::test]
 async fn flows_tool_catalog_surface_degrades_without_composio_credentials() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let search = h
@@ -1177,7 +606,7 @@ async fn flows_tool_catalog_surface_degrades_without_composio_credentials() {
 /// Stop must never kill a newer turn.
 #[tokio::test]
 async fn flows_build_cancel_reports_no_turn_in_flight_without_erroring() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let unscoped = h

@@ -42,105 +42,57 @@ fn managed_model_advertises_tool_and_vision_capabilities() {
 }
 
 #[test]
+fn managed_model_supports_only_serializable_native_media_inputs() {
+    use tinyinference_llm::model::{InputModality, InputSource};
+
+    let model = backend();
+    for mime in ["image/png", "image/jpeg", "image/webp", "image/gif"] {
+        for source in [InputSource::Base64, InputSource::Url] {
+            assert!(
+                model.supports_input(InputModality::Image, mime, source),
+                "managed transport should serialize {mime} from {source:?}"
+            );
+        }
+    }
+
+    for mime in ["audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp3"] {
+        assert!(
+            model.supports_input(InputModality::Audio, mime, InputSource::Base64),
+            "managed transport should serialize inline {mime}"
+        );
+        assert!(
+            !model.supports_input(InputModality::Audio, mime, InputSource::Url),
+            "managed transport must not advertise URL serialization for {mime}"
+        );
+    }
+
+    for modality in [InputModality::Image, InputModality::Audio] {
+        for source in [InputSource::Base64, InputSource::Url, InputSource::Path] {
+            assert!(
+                !model.supports_input(modality, "application/pdf", source),
+                "managed transport must reject PDF as {modality:?}/{source:?}"
+            );
+        }
+    }
+    for modality in [InputModality::Video, InputModality::Document] {
+        for source in [InputSource::Base64, InputSource::Url, InputSource::Path] {
+            assert!(
+                !model.supports_input(modality, "application/octet-stream", source),
+                "managed transport must reject {modality:?}/{source:?}"
+            );
+        }
+    }
+    assert!(!model.supports_input(InputModality::Image, "image/tiff", InputSource::Base64));
+    assert!(!model.supports_input(InputModality::Audio, "audio/ogg", InputSource::Base64));
+    assert!(!model.supports_input(InputModality::Image, "image/png", InputSource::Path));
+}
+
+#[test]
 fn resolve_model_normalizes_blank_and_trims_non_empty_values() {
     assert_eq!(resolve_model(""), crate::config::MODEL_MANAGED_DEFAULT);
     assert_eq!(resolve_model(" \t\n"), crate::config::MODEL_MANAGED_DEFAULT);
     assert_eq!(resolve_model("  reasoning-v1  "), "reasoning-v1");
     assert_eq!(resolve_model("hint:reasoning"), "hint:reasoning");
-}
-
-/// The managed `openhuman.{billing,usage}` envelope on `raw` must re-project
-/// into the host `UsageInfo` the cost bridge reads — charged USD, cached
-/// tokens, and context window — exactly as the legacy legacy model-adapter path did.
-#[test]
-fn project_managed_usage_recovers_charged_and_cached() {
-    use crate::agent::tinyagents::model::usage_info_from_response;
-    use tinyinference_llm::message::AssistantMessage;
-    use tinyinference_llm::usage::Usage;
-
-    let raw = serde_json::json!({
-        "openhuman": {
-            "usage": { "cached_input_tokens": 128, "context_window": 200000 },
-            "billing": { "charged_amount_usd": 0.0042 }
-        }
-    });
-    let response = ModelResponse {
-        message: AssistantMessage {
-            id: None,
-            content: vec![],
-            tool_calls: vec![],
-            usage: None,
-            origin: None,
-        },
-        usage: Some(Usage {
-            input_tokens: 1000,
-            output_tokens: 50,
-            ..Usage::default()
-        }),
-        finish_reason: None,
-        raw: Some(raw),
-        resolved_model: None,
-        continue_turn: None,
-        served_from_cache: false,
-        correlation: None,
-        resolved_route: None,
-    };
-
-    let projected = project_managed_usage(response);
-    let usage = usage_info_from_response(&projected).expect("usage recovered");
-    assert!(
-        (usage.charged_amount_usd - 0.0042).abs() < 1e-9,
-        "charged={}",
-        usage.charged_amount_usd
-    );
-    assert_eq!(usage.cached_input_tokens, 128, "cached tokens backfilled");
-    assert_eq!(usage.context_window, 200_000);
-    assert_eq!(usage.input_tokens, 1000);
-    assert_eq!(usage.output_tokens, 50);
-}
-
-/// A response with no `openhuman` envelope stays untouched — no meta key, no
-/// charged USD — so non-managed/billing-free responses aren't fabricated.
-#[test]
-fn project_managed_usage_is_noop_without_envelope() {
-    use crate::agent::tinyagents::model::usage_info_from_response;
-    use tinyinference_llm::message::AssistantMessage;
-    use tinyinference_llm::usage::Usage;
-
-    let response = ModelResponse {
-        message: AssistantMessage {
-            id: None,
-            content: vec![],
-            tool_calls: vec![],
-            usage: None,
-            origin: None,
-        },
-        usage: Some(Usage {
-            input_tokens: 10,
-            output_tokens: 5,
-            cache_read_tokens: 3,
-            ..Usage::default()
-        }),
-        finish_reason: None,
-        raw: Some(serde_json::json!({ "id": "resp_1" })),
-        resolved_model: None,
-        continue_turn: None,
-        served_from_cache: false,
-        correlation: None,
-        resolved_route: None,
-    };
-
-    let projected = project_managed_usage(response);
-    // raw keeps only the wire fields — no meta key injected.
-    assert!(projected
-        .raw
-        .as_ref()
-        .unwrap()
-        .get("openhuman_usage_meta")
-        .is_none());
-    let usage = usage_info_from_response(&projected).expect("usage present");
-    assert_eq!(usage.charged_amount_usd, 0.0);
-    assert_eq!(usage.cached_input_tokens, 3, "crate cached count preserved");
 }
 
 // ── probe_readiness (B45 — flows provider-connectivity author gate) ────
@@ -428,6 +380,65 @@ fn no_hint_leaves_provider_options_untouched() {
 }
 
 #[test]
+fn request_reasoning_effort_becomes_the_managed_reasoning_object() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        ModelRequest::new(vec![Message::user("hi")])
+            .with_reasoning(ReasoningConfig::effort(ReasoningEffort::High)),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "effort": "high" })
+    );
+    assert!(
+        request.reasoning.is_none(),
+        "the neutral field is consumed so the transport sends no second `reasoning_effort`"
+    );
+}
+
+#[test]
+fn request_reasoning_none_disables_reasoning_on_the_managed_wire() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        ModelRequest::new(vec![Message::user("hi")])
+            .with_reasoning(ReasoningConfig::effort(ReasoningEffort::None)),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "enabled": false })
+    );
+}
+
+#[test]
+fn request_reasoning_budget_becomes_max_tokens() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        ModelRequest::new(vec![Message::user("hi")]).with_reasoning(ReasoningConfig {
+            effort: Some(ReasoningEffort::High),
+            budget_tokens: Some(8_000),
+            summary: None,
+        }),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "max_tokens": 8000 })
+    );
+}
+
+#[test]
+fn suggestion_off_hint_wins_over_request_reasoning() {
+    use tinyinference_llm::model::{ReasoningConfig, ReasoningEffort};
+    let request = apply_reasoning_hint(
+        without_reasoning(ModelRequest::new(vec![Message::user("hi")]))
+            .with_reasoning(ReasoningConfig::effort(ReasoningEffort::Low)),
+    );
+    assert_eq!(
+        request.provider_options["reasoning"],
+        serde_json::json!({ "enabled": false })
+    );
+}
+
+#[test]
 fn explicit_reasoning_option_wins_over_the_hint() {
     let request = without_reasoning(ModelRequest::new(vec![Message::user("hi")]))
         .with_provider_options(serde_json::json!({ "reasoning": { "effort": "high" } }));
@@ -700,62 +711,50 @@ fn resolve_bearer_returns_token_for_exp_less_offline_session() {
         .expect("an exp-less offline session must resolve (presence-only)");
     assert_eq!(token, "test.session.jwt");
 }
-#[test]
-fn api_key_endpoint_is_bound_to_tinyhumans_or_loopback() {
-    use super::is_managed_endpoint_for_api_key;
+#[path = "openhuman_backend_model_endpoint_tests.rs"]
+mod endpoint_tests;
 
-    assert!(is_managed_endpoint_for_api_key(
-        "https://api.tinyhumans.ai/openai/v1"
-    ));
-    assert!(is_managed_endpoint_for_api_key(
-        "http://127.0.0.1:18765/openai/v1"
-    ));
-    assert!(is_managed_endpoint_for_api_key(
-        "http://[::1]:18765/openai/v1"
-    ));
-    assert!(!is_managed_endpoint_for_api_key(
-        "https://example.com/openai/v1"
-    ));
-    assert!(!is_managed_endpoint_for_api_key(
-        "http://api.tinyhumans.ai/openai/v1"
+// #6932: the offline local profile is a valid sign-in with no TinyHumans
+// account behind it. `classify_session_token` reports its `exp`-less token
+// `Live`, so managed inference used to send it, collect a backend
+// `401 "Invalid token"` and surface that as an expired session.
+#[test]
+fn the_offline_local_session_cannot_authenticate_managed_inference() {
+    use crate::security::credentials::session_support::{
+        SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+    };
+
+    let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))
+        .expect_err("a local session has no managed bearer");
+
+    assert_eq!(
+        error.to_string(),
+        LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+}
+
+#[test]
+fn the_refusal_does_not_read_as_an_expired_session() {
+    use crate::security::credentials::session_support::SessionTokenCheck;
+
+    let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))
+        .expect_err("a local session has no managed bearer");
+
+    // The whole point of the fix: this must not reach the sign-out path that
+    // the backend's 401 envelope used to trigger.
+    assert!(!crate::core::observability::is_session_expired_message(
+        &error.to_string()
     ));
 }
 
-/// #6724 (review): a 401 reported *inside* a stream must start re-auth just
-/// like a failed `stream()` call does.
-#[tokio::test]
-async fn an_in_band_401_publishes_session_expired() {
-    use crate::core::events::DomainEvent;
+#[test]
+fn a_signed_in_session_still_authenticates_managed_inference() {
+    use crate::security::credentials::session_support::SessionTokenCheck;
 
-    crate::core::bus::init().await.expect("bus init");
-    let mut rx = crate::core::bus::BUS
-        .get()
-        .expect("event bus initialized")
-        .receiver();
+    let bearer = managed_bearer(SessionTokenCheck::Live(
+        "header.payload.signature".to_string(),
+    ))
+    .expect("a hosted session is the bearer");
 
-    observe_in_band_failure(&ModelStreamItem::ProviderFailed(ProviderError {
-        provider: PROVIDER_LABEL.to_string(),
-        status: Some(401),
-        message: "TEST_MARKER_IN_BAND token expired".to_string(),
-        ..ProviderError::default()
-    }));
-
-    let mut source_seen = None;
-    loop {
-        match rx.try_recv() {
-            Ok(DomainEvent::SessionExpired { source, reason })
-                if reason.contains("TEST_MARKER_IN_BAND") =>
-            {
-                source_seen = Some(source);
-                break;
-            }
-            Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
-            Err(_) => break,
-        }
-    }
-    assert_eq!(
-        source_seen.as_deref(),
-        Some("openhuman_backend_model.stream(401)"),
-        "an in-band 401 must publish SessionExpired"
-    );
+    assert_eq!(bearer, "header.payload.signature");
 }

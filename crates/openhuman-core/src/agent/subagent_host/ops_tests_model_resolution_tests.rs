@@ -241,9 +241,6 @@ async fn typed_mode_progress_emission_is_a_noop_without_sink() {
     assert_eq!(outcome.iterations, 1);
 }
 
-// Truncation tests live in ops_truncation_tests.rs to keep this file
-// under the ~500-line guideline.
-
 // ── resolve_subagent_source ───────────────────────────────────────────
 
 #[test]

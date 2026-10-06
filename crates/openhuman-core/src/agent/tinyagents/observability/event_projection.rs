@@ -286,6 +286,7 @@ impl EventListener for OpenhumanEventBridge {
                     "[tinyagents] context compressed before model call"
                 );
             }
+            AgentEvent::Compacted { .. } => super::compaction_log::log_compacted(&record.event),
             AgentEvent::UnknownToolCall {
                 call_id,
                 requested_name,
@@ -382,12 +383,12 @@ impl EventListener for OpenhumanEventBridge {
                 );
             }
             AgentEvent::DeferredToolCall { call_id, tool_name } => {
-                // The following `ToolStarted` names the real tool; this only
-                // records that it arrived through the bridge.
+                // The following `ToolStarted` names the same tool; this only
+                // records that it was not on the wire and was called by name.
                 tracing::debug!(
                     call_id = call_id.as_str(),
                     tool = tool_name.as_str(),
-                    "[tool-search] deferred tool invoked through tool_call"
+                    "[tool-search] deferred tool invoked by name"
                 );
             }
             AgentEvent::ToolSearched {

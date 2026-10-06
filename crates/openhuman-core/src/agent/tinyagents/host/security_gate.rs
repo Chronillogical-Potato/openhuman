@@ -79,7 +79,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tinyagents_harness::error::{Result as TaResult, TinyAgentsError};
+use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::host::security_gate::{
     ContentOrigin, GateDecision, ScreenOutcome, SecurityGate, ToolCallRequest,
 };
@@ -674,16 +674,6 @@ impl SecurityGate for OpenHumanSecurityGate {
             }
         }
     }
-}
-
-/// Marks a verdict the gate could not reach at all (storage down, config
-/// unreadable). Callers fail closed on it; a *policy* refusal is a `Deny`, not
-/// an error. Nothing in this adapter currently produces one — every branch
-/// reaches a decision — but the helper keeps the distinction explicit for the
-/// storage-backed checks a later slice may add.
-#[allow(dead_code)]
-pub(crate) fn gate_unavailable(detail: impl std::fmt::Display) -> TinyAgentsError {
-    TinyAgentsError::Capability(format!("security gate could not reach a verdict: {detail}"))
 }
 
 #[cfg(test)]

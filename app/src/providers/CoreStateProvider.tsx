@@ -33,6 +33,7 @@ import { store } from '../store';
 import { resetUserScopedState } from '../store/resetActions';
 import { loadThreads, resetThreadCachesPreservingSelection } from '../store/threadSlice';
 import { getActiveUserId, setActiveUserId } from '../store/userScopedStorage';
+import { markIdentityFlipSeed } from '../utils/bootstrapActiveUser';
 import { isLocalSessionToken } from '../utils/localSession';
 import {
   getSessionToken,
@@ -40,7 +41,6 @@ import {
   restartApp,
   setOnboardingCompleted,
   storeSession,
-  syncMemoryClientToken,
   logout as tauriLogout,
 } from '../utils/tauriCommands';
 import { CoreStateContext, type CoreStateContextValue } from './coreStateContext';
@@ -211,6 +211,10 @@ async function handleIdentityFlip(opts: { reason: string; nextUserId: string }):
   const { reason, nextUserId } = opts;
   log('identity flip restart reason=%s nextUserId=%s', reason, `****${nextUserId.slice(-4)}`);
   setActiveUserId(nextUserId);
+  // Survive the relaunch. In local core mode the next boot primes from the
+  // core's `active_user.toml`, which still names the previous user and would
+  // undo the line above -- restarting again, forever (#4545).
+  markIdentityFlipSeed(nextUserId);
   store.dispatch(resetUserScopedState());
   socketService.disconnect();
   await restartApp();
@@ -266,7 +270,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const [state, setState] = useState<CoreState>(() => getCoreStateSnapshot());
   const snapshotRequestIdRef = useRef(0);
   const teamsRequestIdRef = useRef(0);
-  const memoryTokenRef = useRef<string | null>(state.snapshot.sessionToken);
   const logoutGuardUntilRef = useRef(0);
   const bootstrapFailCountRef = useRef(0);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
@@ -455,20 +458,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
     // with matching seed are no-ops — redux-persist already loaded the
     // right namespace and the active user id is already correct.
     syncAnalyticsConsent(snapshot.analyticsEnabled);
-
-    if (!snapshot.sessionToken) {
-      memoryTokenRef.current = null;
-      return;
-    }
-
-    if (memoryTokenRef.current !== snapshot.sessionToken) {
-      try {
-        await syncMemoryClientToken(snapshot.sessionToken);
-        memoryTokenRef.current = snapshot.sessionToken;
-      } catch (error) {
-        console.warn('[core-state] memory client sync failed during refresh:', error);
-      }
-    }
   }, [commitState, t]);
 
   /** Serialized refresh — all callers share the same in-flight promise. */
@@ -698,12 +687,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       sessionTokenBeingStoredRef.current = token;
       try {
         await storeSession(token, user ?? {});
-        try {
-          await syncMemoryClientToken(token);
-          memoryTokenRef.current = token;
-        } catch (error) {
-          console.warn('[core-state] memory client sync failed after session store:', error);
-        }
         // refresh() drives refreshCore, which now owns identity-flip detection
         // and dispatches handleIdentityFlip when both prev and next are
         // authenticated and identities differ. The previous standalone
@@ -778,7 +761,6 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
       teamInvitesById: {},
       snapshot: toSignedOutSnapshot(previous.snapshot),
     }));
-    memoryTokenRef.current = null;
     // Keep `OPENHUMAN_ACTIVE_USER_ID` pointing at the last user. The next
     // refresh's `getActiveUserId()` seed comparison decides whether the
     // upcoming login is a same-user re-login (no restart) or a different-

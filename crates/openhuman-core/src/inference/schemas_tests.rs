@@ -33,9 +33,11 @@ fn inference_schema_function_names_are_stable() {
     assert!(functions.contains(&"update_model_settings"));
     assert!(functions.contains(&"update_local_settings"));
     assert!(functions.contains(&"list_models"));
-    assert!(functions.contains(&"device_profile"));
-    assert!(functions.contains(&"presets"));
-    assert!(functions.contains(&"apply_preset"));
+    // Local model presets, device profiling and tiering were removed: the
+    // user runs their own local runtime and picks models there.
+    assert!(!functions.contains(&"device_profile"));
+    assert!(!functions.contains(&"presets"));
+    assert!(!functions.contains(&"apply_preset"));
     assert!(functions.contains(&"diagnostics"));
     assert!(functions.contains(&"openai_oauth_start"));
     assert!(functions.contains(&"openai_oauth_complete"));

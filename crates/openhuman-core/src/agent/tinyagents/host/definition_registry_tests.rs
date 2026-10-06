@@ -458,16 +458,6 @@ async fn list_is_stable_across_calls() {
 }
 
 #[tokio::test]
-async fn is_usable_as_a_trait_object() {
-    let registry: Box<dyn DefinitionRegistry> = Box::new(builtins());
-    assert!(registry
-        .resolve("orchestrator")
-        .await
-        .expect("resolve")
-        .is_some());
-}
-
-#[tokio::test]
 async fn an_empty_catalogue_misses_everything_without_erroring() {
     let registry = registry_of(Vec::new());
     assert_eq!(registry.resolve("anything").await.expect("resolve"), None);
@@ -567,4 +557,83 @@ async fn a_session_definition_does_not_shadow_other_ids() {
         registry.resolve("no-such-agent").await.unwrap().is_none(),
         "a session definition must not answer for an unrelated missing id"
     );
+}
+
+fn handle_mode_config() -> Arc<crate::config::Config> {
+    let mut config = crate::config::Config::default();
+    config.context.compaction_enabled = true;
+    config.tokenjuice.router_enabled = true;
+    config.tokenjuice.ccr_enabled = true;
+    config.tokenjuice.repl_handle_enabled = true;
+    Arc::new(config)
+}
+
+/// A curated belt must still be allowed to call the tools a compacted result
+/// points at. The session advertises them; the harness allowlist built here is
+/// what decides whether a call to them dispatches or is answered as unknown.
+#[test]
+fn named_scope_admits_the_tinyjuice_tools_a_handle_names() {
+    let mut def = synthetic("curated", AgentTier::Worker, &[]);
+    def.tools = ToolScope::Named(vec!["file_read".into()]);
+    let registered = Arc::new(vec![
+        "file_read".to_string(),
+        "juice_retrieve".to_string(),
+        "juice_find".to_string(),
+        "juice_extract".to_string(),
+        "juice_summarize".to_string(),
+    ]);
+    let tools = registry_of(vec![def.clone()])
+        .with_config(handle_mode_config())
+        .with_registered_tools(registered)
+        .project(&def)
+        .tools;
+    for name in [
+        "juice_retrieve",
+        "juice_find",
+        "juice_extract",
+        "juice_summarize",
+    ] {
+        assert!(
+            tools.contains(&name.to_string()),
+            "{name} missing: {tools:?}"
+        );
+    }
+}
+
+#[test]
+fn named_scope_skips_tinyjuice_tools_that_are_off_or_unregistered() {
+    let mut def = synthetic("curated", AgentTier::Worker, &[]);
+    def.tools = ToolScope::Named(vec!["file_read".into()]);
+
+    // Handle mode off: nothing names the REPL tools, so they stay out.
+    let mut off = crate::config::Config::default();
+    off.context.compaction_enabled = false;
+    off.tokenjuice.repl_handle_enabled = false;
+    let tools = registry_of(vec![def.clone()])
+        .with_config(Arc::new(off))
+        .with_registered_tools(Arc::new(vec!["file_read".into(), "juice_find".into()]))
+        .project(&def)
+        .tools;
+    assert!(!tools.contains(&"juice_find".to_string()), "{tools:?}");
+
+    // Active but not registered: an allowlist entry for a tool that does not
+    // exist would only widen the surface.
+    let tools = registry_of(vec![def.clone()])
+        .with_config(handle_mode_config())
+        .with_registered_tools(Arc::new(vec!["file_read".into()]))
+        .project(&def)
+        .tools;
+    assert!(!tools.contains(&"juice_find".to_string()), "{tools:?}");
+}
+
+#[test]
+fn zero_tool_scope_stays_zero_tool_with_tinyjuice_active() {
+    let mut def = synthetic("silent", AgentTier::Worker, &[]);
+    def.tools = ToolScope::Named(Vec::new());
+    let tools = registry_of(vec![def.clone()])
+        .with_config(handle_mode_config())
+        .with_registered_tools(Arc::new(vec!["juice_find".into()]))
+        .project(&def)
+        .tools;
+    assert!(!tools.contains(&"juice_find".to_string()), "{tools:?}");
 }

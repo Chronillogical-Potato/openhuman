@@ -1,5 +1,4 @@
 use super::*;
-use std::sync::Arc;
 use tinyagents_harness::ids::{CallId, RunId, ThreadId};
 use tinyinference_llm::usage::Usage;
 use tokio::sync::mpsc;
@@ -487,15 +486,4 @@ async fn a_closed_channel_is_survivable() {
     })
     .await;
     assert_eq!(sink.dropped(), 2);
-}
-
-#[tokio::test]
-async fn works_through_an_arc_trait_object() {
-    let (tx, mut rx) = mpsc::channel(8);
-    let dynamic: Arc<dyn ProgressSink> = Arc::new(OpenHumanProgressSink::new(tx));
-    dynamic.emit(started()).await;
-    assert!(matches!(
-        rx.try_recv().expect("event forwarded"),
-        AgentProgress::TurnStarted
-    ));
 }

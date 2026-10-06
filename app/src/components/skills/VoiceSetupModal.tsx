@@ -1,8 +1,9 @@
 /**
  * Voice Intelligence setup/enable modal.
  *
- * Two-step flow: if STT model isn't downloaded, directs to Local Model
+ * Two-step flow: if no speech-to-text engine is configured, directs to Voice
  * settings. Otherwise, starts the voice server and shows success.
+ * Speech-to-text is hosted; nothing is downloaded.
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -54,10 +55,9 @@ export default function VoiceSetupModal({ onClose, skillStatus }: Props) {
     }
   };
 
-  const handleGoToLocalModel = () => {
+  const handleGoToVoiceSettings = () => {
     onClose();
-    // STT model install lives on the Voice settings panel (PR 2). The
-    // legacy `/settings/local-model` route handled Ollama assets only.
+    // The STT engine is picked on the Voice settings panel.
     navigate('/settings/voice');
   };
 
@@ -103,7 +103,7 @@ export default function VoiceSetupModal({ onClose, skillStatus }: Props) {
           </p>
 
           <div className="flex flex-col gap-2">
-            <Button variant="primary" size="lg" onClick={handleGoToLocalModel} className="w-full">
+            <Button variant="primary" size="lg" onClick={handleGoToVoiceSettings} className="w-full">
               {t('skills.setup.voice.downloadSttBtn')}
             </Button>
             <Button variant="secondary" size="lg" onClick={onClose} className="w-full">

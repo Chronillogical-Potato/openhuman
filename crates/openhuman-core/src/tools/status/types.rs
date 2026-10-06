@@ -86,6 +86,12 @@ pub const NOT_FOUND_MARKER: &str = "[not-found]";
 /// ([`ToolFailureClass::Unsupported`]). Same contract as [`NOT_FOUND_MARKER`].
 pub const UNSUPPORTED_MARKER: &str = "[unsupported]";
 
+/// Phrase a module fault carries (`modules::ops`): a module that failed to
+/// load stays unloaded until the app restarts, so any call that needs it fails
+/// the same way for the rest of the process. Shared so the recovery policy
+/// matches the producer's wording instead of a copy of it.
+pub const MODULE_FAULT_MARKER: &str = "This is terminal for the running process";
+
 /// The three top-level states the UI separates, per the #4254 acceptance
 /// criterion "clear separation between recoverable failure, blocked-by-policy,
 /// and action-needs-user-confirmation states".

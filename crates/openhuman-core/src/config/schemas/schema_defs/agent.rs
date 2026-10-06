@@ -84,7 +84,7 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
             inputs: vec![],
             outputs: vec![json_output(
                 "settings",
-                "Agent settings: agent_timeout_secs, effective_timeout_secs, env_override, min_timeout_secs, max_timeout_secs.",
+                "Agent settings: agent_timeout_secs, effective_timeout_secs, env_override, min_timeout_secs, max_timeout_secs, tool_dispatcher, tool_dispatcher_env_override.",
             )],
         }),
 "update_agent_settings" => Some( ControllerSchema {
@@ -101,6 +101,12 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                 name: "chat_agent_id",
                 ty: TypeSchema::Option(Box::new(TypeSchema::String)),
                 comment: "Agent definition id the web-chat path routes turns to. Empty string reverts to the orchestrator. A named definition's own max_iterations governs the turn, so this is how a longer-running agent is selected.",
+                required: false,
+            },
+            FieldSchema {
+                name: "tool_dispatcher",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "How tool calls are spoken to the model: auto (default; native when supported, else JSON-in-tag) | native | xml | pformat | python | typescript. Applies to new sessions.",
                 required: false,
             }],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
@@ -156,25 +162,6 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                 comment: "Updated runtime flag state.",
                 required: true,
             }],
-        }),
-"get_memory_sync_settings" => Some( ControllerSchema {
-            namespace: "config",
-            function: "get_memory_sync_settings",
-            description: "Get the global memory-sync cadence applied to all opted-in sources: stored value, resolved selected cadence, manual/default flags, the 24h default, and the preset options (4h/12h/24h).",
-            inputs: vec![],
-            outputs: vec![json_output("settings", "Memory sync schedule settings.")],
-        }),
-"update_memory_sync_settings" => Some( ControllerSchema {
-            namespace: "config",
-            function: "update_memory_sync_settings",
-            description: "Set the global memory-sync cadence. Omit/null resets to the default; 0 means Manual only (auto-sync disabled); a positive value is seconds between syncs. Takes effect on the next scheduler tick.",
-            inputs: vec![FieldSchema {
-                name: "sync_interval_secs",
-                ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                comment: "Seconds between auto-syncs. null = default (24h); 0 = Manual only; n>0 = sync every n seconds.",
-                required: false,
-            }],
-            outputs: vec![json_output("settings", "Updated memory sync schedule settings.")],
         }),
 "get_sandbox_settings" => Some( ControllerSchema {
             namespace: "config",

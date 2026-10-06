@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   deleteArtifact,
   downloadArtifact,
-  revealArtifactInFileManager,
+  revealArtifact,
 } from '../../../services/artifactDownloadService';
 import chatRuntimeReducer, {
   type ArtifactSnapshot,
@@ -17,7 +17,7 @@ import ChatFilesPanel from '../ChatFilesPanel';
 vi.mock('../../../services/artifactDownloadService', () => ({
   downloadArtifact: vi.fn(),
   deleteArtifact: vi.fn(),
-  revealArtifactInFileManager: vi.fn(),
+  revealArtifact: vi.fn(),
 }));
 
 const THREAD = 't-panel-1';
@@ -89,12 +89,7 @@ describe('ChatFilesPanel', () => {
     expect(screen.getByTestId('chat-files-delete-art-2')).toBeInTheDocument();
   });
 
-  it('on Download click → calls downloadArtifact + surfaces a Show-in-folder button on success', async () => {
-    const a = readyArtifact('art-1', 'Climate Deck');
-    vi.mocked(downloadArtifact).mockResolvedValueOnce({
-      ok: true,
-      path: '/Users/me/Downloads/Climate Deck.pptx',
-    });
+  const renderOne = (a: ArtifactSnapshot) => {
     const store = mkStore([
       {
         threadId: THREAD,
@@ -110,18 +105,44 @@ describe('ChatFilesPanel', () => {
         <ChatFilesPanel threadId={THREAD} artifacts={[a]} onClose={() => {}} />
       </Provider>
     );
-    fireEvent.click(screen.getByTestId('chat-files-download-art-1'));
-    await waitFor(() => {
-      expect(screen.getByTestId('chat-files-reveal-art-1')).toBeInTheDocument();
+  };
+
+  it('on Download click → calls downloadArtifact', async () => {
+    vi.mocked(downloadArtifact).mockResolvedValueOnce({
+      ok: true,
+      path: '/Users/me/Downloads/Climate Deck.pptx',
     });
-    expect(downloadArtifact).toHaveBeenCalledWith('art-1', 'Climate Deck', 'pptx');
+    renderOne(readyArtifact('art-1', 'Climate Deck'));
+    fireEvent.click(screen.getByTestId('chat-files-download-art-1'));
+    await waitFor(() =>
+      expect(downloadArtifact).toHaveBeenCalledWith('art-1', 'Climate Deck', 'pptx')
+    );
+  });
+
+  it('offers Show in folder on every ready file, without downloading first (#5505)', async () => {
+    vi.mocked(revealArtifact).mockResolvedValueOnce({ ok: true });
+    renderOne(readyArtifact('art-1', 'Climate Deck'));
 
     fireEvent.click(screen.getByTestId('chat-files-reveal-art-1'));
-    await waitFor(() => {
-      expect(revealArtifactInFileManager).toHaveBeenCalledWith(
-        '/Users/me/Downloads/Climate Deck.pptx'
-      );
+
+    await waitFor(() => expect(revealArtifact).toHaveBeenCalledWith('art-1'));
+    expect(downloadArtifact).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('chat-files-reveal-error-art-1')).not.toBeInTheDocument();
+  });
+
+  it('says so when the file cannot be shown', async () => {
+    vi.mocked(revealArtifact).mockResolvedValueOnce({
+      ok: false,
+      code: 'REVEAL_FAILED',
+      error: 'raw detail',
     });
+    renderOne(readyArtifact('art-1', 'Climate Deck'));
+
+    fireEvent.click(screen.getByTestId('chat-files-reveal-art-1'));
+
+    expect(await screen.findByTestId('chat-files-reveal-error-art-1')).toHaveTextContent(
+      'Couldn’t show the file. It may have been moved or deleted outside OpenHuman.'
+    );
   });
 
   it('Delete → Cancel keeps the artifact and does NOT call the RPC', async () => {

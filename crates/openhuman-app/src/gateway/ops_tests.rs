@@ -5,7 +5,7 @@
 //! publish it asks for, and what the core is started with. Those are pure, so
 //! they are asserted as values rather than observed by creating a container.
 //!
-//! Provisioning end to end needs a Docker daemon and is `#[ignore]`d below.
+//! Provisioning end to end spawns a local box and a netcat stand-in core and is `#[ignore]`d below.
 
 use std::collections::BTreeMap;
 
@@ -240,7 +240,7 @@ mod provisioning {
     }
 
     #[tokio::test]
-    #[ignore = "spawns a process and binds a port; run explicitly"]
+    #[ignore = "spawns a tinybox local box plus a netcat-served stand-in core on a real port (needs `nc` with -l -p); run: cargo test --manifest-path crates/openhuman-app/Cargo.toml --lib gateway::ops_tests::provisioning -- --ignored --nocapture"]
     async fn a_local_box_is_provisioned_and_answers_through_its_endpoint() {
         let dir = tempfile::TempDir::new().expect("a temporary directory");
         let gateway = Gateway {

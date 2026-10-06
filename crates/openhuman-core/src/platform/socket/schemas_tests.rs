@@ -13,13 +13,6 @@ fn catalog_lists_all_five_controllers() {
 }
 
 #[test]
-fn registered_controllers_match_schemas_count() {
-    let schemas = all_controller_schemas();
-    let handlers = all_registered_controllers();
-    assert_eq!(schemas.len(), handlers.len());
-}
-
-#[test]
 fn all_schemas_use_socket_namespace() {
     for s in all_controller_schemas() {
         assert_eq!(s.namespace, "socket", "function {}", s.function);
@@ -58,15 +51,6 @@ fn emit_schema_data_is_optional() {
     let data = s.inputs.iter().find(|f| f.name == "data").unwrap();
     assert!(event.required);
     assert!(!data.required);
-}
-
-#[test]
-fn unknown_function_returns_unknown_fallback_schema() {
-    let s = schemas("no_such_fn");
-    assert_eq!(s.namespace, "socket");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.outputs.len(), 1);
-    assert_eq!(s.outputs[0].name, "error");
 }
 
 #[test]

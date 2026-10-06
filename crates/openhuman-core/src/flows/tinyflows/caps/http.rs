@@ -20,11 +20,11 @@ use super::*;
 use crate::config::{Config, HttpRequestConfig};
 use crate::security::credentials::{HttpCredential, HttpCredentialsStore};
 use crate::security::{CommandClass, SecurityPolicy};
-use crate::tools::HttpRequestTool;
+use crate::tools::http_request_tool;
 use tinytools::Tool as _;
 
 /// [`HttpClient`] adapter over `HttpRequestTool`
-/// (`crates/openhuman-core/src/tools/impl/network/http_request.rs`). Allowlist + DNS-rebind
+/// (`tinytools_std::network::HttpRequestTool`, built by `tools/impl/network/host.rs`). Allowlist + DNS-rebind
 /// guard live inside `execute`, so this adapter gets them for free.
 ///
 /// **B2:** also routes through the OpenHuman `ApprovalGate` before dispatch
@@ -192,7 +192,7 @@ impl HttpClient for OpenHumanHttp {
             inject_http_credential(&mut request, &cred)?;
         }
 
-        let tool = HttpRequestTool::new(
+        let tool = http_request_tool(
             self.security.clone(),
             self.http_config.allowed_domains.clone(),
             self.http_config.max_response_size,

@@ -1,5 +1,5 @@
 //! The in-process registry of running async sub-agents: registration,
-//! per-task metadata, and the terminal/transient [`SubagentStatus`] each entry
+//! per-task metadata, and the terminal/transient [`DetachedSubagentStatus`] each entry
 //! carries.
 //!
 //! Each running async sub-agent registers here (via [`register`]), keyed by
@@ -10,7 +10,7 @@
 //! - a TinyAgents `SteeringHandle` in the process-local
 //!   `SteeringRegistry` while the child TinyAgents run is active, so
 //!   steer/collect controls can deliver directly to the crate queue;
-//! - a `watch::Receiver<SubagentStatus>` — so `wait_subagent` can block until the
+//! - a `watch::Receiver<DetachedSubagentStatus>` — so `wait_subagent` can block until the
 //!   child reaches a terminal status;
 //! - an `AbortHandle` — used by `subagent_cancel`/`close_subagent` paths to stop
 //!   detached work.
@@ -32,27 +32,10 @@ use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::RunQueue;
 use tinyagents_harness::CancellationToken;
 
-use super::task_ledger::record_spawned;
-
-/// Terminal/transient state of a running async sub-agent, published by the
-/// spawner's background task and observed by `wait_subagent`.
-#[derive(Debug, Clone)]
-pub(crate) enum SubagentStatus {
-    /// Still executing its inner tool-call loop.
-    Running,
-    /// Finished normally with a final response.
-    Completed { output: String, iterations: usize },
-    /// Paused on `ask_user_clarification`; resume via `continue_subagent`.
-    AwaitingUser { question: String },
-    /// The run errored out.
-    Failed { error: String },
-}
-
-impl SubagentStatus {
-    pub(crate) fn is_terminal(&self) -> bool {
-        !matches!(self, SubagentStatus::Running)
-    }
-}
+use super::task_ledger::{record_spawned, task_store_for_workspace};
+use tinyagents_orchestration::subagent::{
+    spawn_status_watcher, DetachedSubagentStatus, SubagentIdentity,
+};
 
 #[derive(Clone)]
 pub(crate) struct RunningSubagentMetadata {
@@ -66,31 +49,29 @@ pub(crate) struct RunningSubagentMetadata {
     pub(crate) run_queue: Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct SubagentResumeRef {
-    pub(crate) task_id: String,
-    pub(crate) agent_id: String,
-    pub(crate) subagent_session_id: Option<String>,
+impl SubagentIdentity for RunningSubagentMetadata {
+    fn agent_id(&self) -> &str {
+        &self.agent_id
+    }
+    fn subagent_session_id(&self) -> Option<&str> {
+        self.subagent_session_id.as_deref()
+    }
 }
 
 /// Soft cap on registry size. Terminal entries are only swept when the table
 /// grows past this, so the common case (a handful of live sub-agents) never
 /// evicts a still-uncollected terminal result out from under a `wait`/`steer`.
 const REGISTRY_SOFT_CAP: usize = 256;
-/// Metadata-only timeout mirrored into the TinyAgents task ledger. It matches
-/// `wait_subagent`'s default wait window; execution remains governed by the
-/// existing detached task and wait-tool paths.
-pub(crate) const DETACHED_LEDGER_TIMEOUT_MS: u64 = 120_000;
-
-static REGISTRY: OnceLock<DetachedTaskRegistry<RunningSubagentMetadata, SubagentStatus>> =
+static REGISTRY: OnceLock<DetachedTaskRegistry<RunningSubagentMetadata, DetachedSubagentStatus>> =
     OnceLock::new();
 
-pub(crate) fn registry() -> &'static DetachedTaskRegistry<RunningSubagentMetadata, SubagentStatus> {
+pub(crate) fn registry(
+) -> &'static DetachedTaskRegistry<RunningSubagentMetadata, DetachedSubagentStatus> {
     REGISTRY.get_or_init(|| {
         DetachedTaskRegistry::new(
             shared_steering_registry().clone(),
             REGISTRY_SOFT_CAP,
-            SubagentStatus::is_terminal,
+            DetachedSubagentStatus::is_terminal,
         )
     })
 }
@@ -98,14 +79,14 @@ pub(crate) fn registry() -> &'static DetachedTaskRegistry<RunningSubagentMetadat
 /// Create the status channel a spawner threads into [`register`].
 ///
 /// The spawner moves the [`watch::Sender`] into its detached task and `send`s a
-/// terminal [`SubagentStatus`] on completion. Dropping the sender (e.g. a
+/// terminal [`DetachedSubagentStatus`] on completion. Dropping the sender (e.g. a
 /// panicked/aborted task) closes the channel, which `wait_subagent` surfaces as
 /// a failure rather than hanging.
 pub(crate) fn status_channel() -> (
-    watch::Sender<SubagentStatus>,
-    watch::Receiver<SubagentStatus>,
+    watch::Sender<DetachedSubagentStatus>,
+    watch::Receiver<DetachedSubagentStatus>,
 ) {
-    watch::channel(SubagentStatus::Running)
+    watch::channel(DetachedSubagentStatus::Running)
 }
 
 /// Register a running async sub-agent so it can be steered and waited on.
@@ -125,7 +106,7 @@ pub(crate) fn register(
     parent_thread_id: Option<String>,
     run_queue: Arc<RunQueue<crate::agent::queued_turn::QueuedTurn>>,
     abort: AbortHandle,
-    status: watch::Receiver<SubagentStatus>,
+    status: watch::Receiver<DetachedSubagentStatus>,
 ) {
     if let Some(thread_id) = parent_thread_id.as_deref() {
         if crate::agent::orchestration::background_completions::mark_stopped_task_if_thread_stopped(
@@ -155,7 +136,11 @@ pub(crate) fn register(
         &workspace_dir,
         parent_thread_id.as_deref(),
     );
-    spawn_status_watcher(task_id.clone(), workspace_dir.clone(), status.clone());
+    spawn_status_watcher(
+        task_store_for_workspace(&workspace_dir),
+        task_id.clone(),
+        status.clone(),
+    );
 
     let metadata = RunningSubagentMetadata {
         agent_id,
@@ -184,33 +169,4 @@ pub(crate) fn register(
             .len()
             .expect("detached task registry lock poisoned")
     );
-}
-
-/// Watch a child's status channel and mirror the first terminal status into the
-/// typed lifecycle store. A dropped sender (aborted/panicked task) without a
-/// terminal status is recorded as a failure, matching [`super::wait::wait`].
-fn spawn_status_watcher(
-    task_id: String,
-    workspace_dir: PathBuf,
-    mut status: watch::Receiver<SubagentStatus>,
-) {
-    tokio::spawn(async move {
-        loop {
-            let snapshot = status.borrow_and_update().clone();
-            if snapshot.is_terminal() {
-                super::task_ledger::record_status(&workspace_dir, &task_id, &snapshot);
-                break;
-            }
-            if status.changed().await.is_err() {
-                super::task_ledger::record_status(
-                    &workspace_dir,
-                    &task_id,
-                    &SubagentStatus::Failed {
-                        error: "sub-agent task ended without reporting a result".to_string(),
-                    },
-                );
-                break;
-            }
-        }
-    });
 }

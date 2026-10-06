@@ -32,7 +32,6 @@ import localeReducer from './localeSlice';
 import mascotReducer, { migrateLegacySpeakReplies } from './mascotSlice';
 import notificationReducer from './notificationSlice';
 import personaReducer from './personaSlice';
-import providerSurfacesReducer from './providerSurfaceSlice';
 import { pttReducer } from './pttSlice';
 import queueReducer from './queueSlice';
 import runModeReducer from './runModeSlice';
@@ -266,7 +265,6 @@ export const store = configureStore({
     channelConnections: persistedChannelConnectionsReducer,
     accounts: persistedAccountsReducer,
     notifications: persistedNotificationReducer,
-    providerSurfaces: providerSurfacesReducer,
     coreMode: persistedCoreModeReducer,
     locale: persistedLocaleReducer,
     mascot: persistedMascotReducer,

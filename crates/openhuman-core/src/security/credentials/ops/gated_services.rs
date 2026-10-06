@@ -94,8 +94,9 @@ pub async fn start_credential_gated_services(config: &Config) {
     // the specific stage rather than an anonymous "a service failed".
     let mut tasks: Vec<(&'static str, tokio::task::JoinHandle<()>)> = Vec::new();
 
-    // 1. Local AI (Ollama, embeddings) — the heaviest single warm-up,
-    //    so keeping it off the critical path for the others is the biggest win.
+    // 1. Local AI — a read-only probe of the user's own runtime endpoint
+    //    (`bootstrap` never spawns a runtime or pulls a model). Kept off the
+    //    critical path so a slow endpoint cannot delay the other services.
     {
         let config = config.clone();
         tasks.push((
@@ -103,13 +104,13 @@ pub async fn start_credential_gated_services(config: &Config) {
             tokio::spawn(async move {
                 if config.local_ai.runtime_enabled {
                     let step = std::time::Instant::now();
-                    log::debug!("[services] local AI bootstrap starting");
+                    log::debug!("[services] local AI endpoint probe starting");
                     let runtime = crate::inference::local_runtime_config(&config);
                     crate::inference::host_runtime::global(&config)
                         .bootstrap(&runtime)
                         .await;
                     log::debug!(
-                        "[services] local AI bootstrapped after login ({} ms)",
+                        "[services] local AI endpoint probed after login ({} ms)",
                         step.elapsed().as_millis()
                     );
                 } else {
@@ -192,9 +193,10 @@ pub async fn stop_credential_gated_services(config: &Config) {
         log::info!("[services] voice server stopped on logout");
     }
 
-    // 4. Local AI — reset state to idle. We don't kill the Ollama process
-    //    (it may be serving other clients or mid-download), but we clear
-    //    the internal state so it re-bootstraps on next login.
+    // 4. Local AI — reset state to idle. OpenHuman never owns the local
+    //    runtime process (the user runs Ollama / LM Studio / MLX), so there is
+    //    nothing to stop; we only clear the cached probe verdict so the
+    //    endpoint is re-probed on next login.
     if config.local_ai.runtime_enabled {
         let service = crate::inference::host_runtime::global(config);
         let runtime = crate::inference::local_runtime_config(config);

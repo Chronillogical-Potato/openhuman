@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 
 import { setWalkthroughPending } from '../../components/walkthrough/AppWalkthrough';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { trackEvent } from '../../services/analytics';
+import { userScopedStorage } from '../../store/userScopedStorage';
 import { getDefaultEnabledTools, getEnabledRustToolNames } from '../../utils/toolDefinitions';
 import BetaBanner from './components/BetaBanner';
 import { OnboardingContext, type OnboardingDraft } from './OnboardingContext';
@@ -13,10 +14,45 @@ import { OnboardingContext, type OnboardingDraft } from './OnboardingContext';
  * completion side-effects (persist `onboarding_completed`, notify backend,
  * navigate to /chat). Individual steps render through `<Outlet />`.
  */
+/** Where the in-progress draft is parked between reloads. */
+const DRAFT_STORAGE_KEY = 'onboarding_draft';
+
 const OnboardingLayout = () => {
   const navigate = useNavigate();
   const { setOnboardingCompletedFlag, setOnboardingTasks, snapshot } = useCoreState();
   const [draft, setDraftState] = useState<OnboardingDraft>({ connectedSources: [] });
+
+  // The draft used to live only in React state, so a reload mid-wizard lost
+  // every choice and the gate sent the user back to step one. It is per-user
+  // state, so it goes through `userScopedStorage` rather than raw localStorage.
+  const draftLoaded = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void userScopedStorage
+      .getItem(DRAFT_STORAGE_KEY)
+      .then(raw => {
+        if (cancelled || !raw) return;
+        const parsed = JSON.parse(raw) as OnboardingDraft;
+        if (parsed && Array.isArray(parsed.connectedSources)) {
+          setDraftState(parsed);
+        }
+      })
+      .catch(e => console.debug('[onboarding:layout] no resumable draft', e))
+      .finally(() => {
+        if (!cancelled) draftLoaded.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Only persist after the restore has settled, so an empty initial state
+  // cannot overwrite a saved draft before it is read back.
+  useEffect(() => {
+    if (!draftLoaded.current) return;
+    void userScopedStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  }, [draft]);
 
   const setDraft = useCallback(
     (updater: (prev: OnboardingDraft) => OnboardingDraft) => setDraftState(updater),
@@ -46,8 +82,6 @@ const OnboardingLayout = () => {
       await setOnboardingTasks({
         accessibilityPermissionGranted:
           snapshot.localState.onboardingTasks?.accessibilityPermissionGranted ?? false,
-        localModelConsentGiven: false,
-        localModelDownloadStarted: false,
         enabledTools,
         connectedSources: draft.connectedSources,
         updatedAtMs: Date.now(),
@@ -59,6 +93,8 @@ const OnboardingLayout = () => {
     try {
       await setOnboardingCompletedFlag(true);
     } catch (e) {
+      // Rethrown so the calling step can offer a retry. The draft stays in
+      // storage, so a retry — or a reload — resumes instead of starting over.
       console.error('[onboarding] Failed to persist onboarding_completed', e);
       throw e;
     }
@@ -74,6 +110,17 @@ const OnboardingLayout = () => {
     } catch (e) {
       console.warn('[onboarding:layout] could not set walkthrough pending flag; continuing', e);
     }
+
+    // The run is finished; drop the resumable draft so a later visit to
+    // onboarding does not inherit stale choices. Deliberately NOT awaited:
+    // `userScopedStorage` blocks on the boot-time `primeActiveUserId()`, so
+    // awaiting it would put a storage handshake on the critical path to /chat
+    // and hang the final step if that prime never happened. A stale draft is
+    // harmless — the onboarding gate will not route back here once
+    // `onboarding_completed` is set — so cleanup is best-effort.
+    void userScopedStorage
+      .removeItem(DRAFT_STORAGE_KEY)
+      .catch(e => console.warn('[onboarding:layout] could not clear the saved draft', e));
 
     navigate('/chat', { replace: true });
   }, [draft.connectedSources, navigate, setOnboardingCompletedFlag, setOnboardingTasks, snapshot]);

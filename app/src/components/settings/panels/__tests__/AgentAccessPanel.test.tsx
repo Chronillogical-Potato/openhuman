@@ -40,6 +40,8 @@ const agentSettings = (overrides: Partial<AgentSettings> = {}): AgentSettings =>
   env_override: false,
   min_timeout_secs: 1,
   max_timeout_secs: 3600,
+  tool_dispatcher: 'auto',
+  tool_dispatcher_env_override: false,
   ...overrides,
 });
 
@@ -62,8 +64,20 @@ vi.mock('../../../../utils/tauriCommands', async () => {
     openhumanUpdateAutonomySettings: vi.fn(),
     openhumanGetAgentSettings: vi.fn(),
     openhumanUpdateAgentSettings: vi.fn(),
-    // The advanced panel no longer calls the agent-paths RPCs (action-dir
-    // moved to PermissionsPanel) — no mock needed, but keep the import clean.
+    // The "Files folder" row (#5505) reads the agent paths on mount.
+    openhumanGetAgentPaths: vi.fn(async () => ({
+      result: {
+        action_dir: '/home/u/OpenHuman/projects',
+        workspace_dir: '/home/u/.openhuman/users/u/workspace',
+        projects_dir: '/home/u/OpenHuman/projects',
+        action_dir_source: 'default',
+        files_dir: '/home/u/OpenHuman/projects/Files',
+        default_files_dir: '/home/u/OpenHuman/projects/Files',
+        files_dir_source: 'default',
+      },
+      logs: [],
+    })),
+    openhumanUpdateAgentPaths: vi.fn(),
   };
 });
 
@@ -92,6 +106,7 @@ describe('AgentAccessPanel (advanced)', () => {
     expect(await screen.findByText('Confine to workspace')).toBeInTheDocument();
     expect(screen.getByText('Granted folders')).toBeInTheDocument();
     expect(screen.getByText('Always-allowed tools')).toBeInTheDocument();
+    expect(screen.getByText('Files folder')).toBeInTheDocument();
   });
 
   it('toggling "confine to workspace" persists workspace_only', async () => {
@@ -218,6 +233,43 @@ describe('AgentAccessPanel (advanced)', () => {
     fireEvent.blur(input); // value still the loaded 120
     await waitFor(() => expect(mockGetAgent).toHaveBeenCalled());
     expect(mockUpdateAgent).not.toHaveBeenCalled();
+  });
+
+  it('defaults the tool call format to JSON (auto)', async () => {
+    renderWithProviders(<AgentAccessPanel />);
+    const select = (await screen.findByLabelText('Tool call format')) as HTMLSelectElement;
+    await waitFor(() => expect(mockGetAgent).toHaveBeenCalled());
+    expect(select.value).toBe('auto');
+  });
+
+  it('persists a changed tool call format', async () => {
+    renderWithProviders(<AgentAccessPanel />);
+    const select = await screen.findByLabelText('Tool call format');
+    fireEvent.change(select, { target: { value: 'python' } });
+    await waitFor(() =>
+      expect(mockUpdateAgent).toHaveBeenCalledWith({ tool_dispatcher: 'python' })
+    );
+  });
+
+  it('reverts the tool call format when saving fails', async () => {
+    mockUpdateAgent.mockRejectedValueOnce(new Error('nope'));
+    renderWithProviders(<AgentAccessPanel />);
+    const select = (await screen.findByLabelText('Tool call format')) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'xml' } });
+    expect(await screen.findByText('nope')).toBeInTheDocument();
+    expect(select.value).toBe('auto');
+  });
+
+  it('locks the tool call format when the env override is active', async () => {
+    mockGetAgent.mockResolvedValue({
+      result: agentSettings({ tool_dispatcher: 'native', tool_dispatcher_env_override: true }),
+      logs: [],
+    });
+    renderWithProviders(<AgentAccessPanel />);
+    const select = (await screen.findByLabelText('Tool call format')) as HTMLSelectElement;
+    await waitFor(() => expect(select.disabled).toBe(true));
+    expect(select.value).toBe('native');
+    expect(screen.getByText(/OPENHUMAN_TOOL_DISPATCHER/)).toBeInTheDocument();
   });
 
   it('disables the timeout input and warns when an env override is active', async () => {

@@ -57,7 +57,10 @@ pub const PACKS: &[ToolPack] = &[
             "list_agent_definitions",
             "list_connectable_toolkits",
         ],
-        owners: &["orchestrator", "workflow_builder", "flow_discovery"],
+        // The orchestrator is NOT an owner: it builds and discovers through
+        // `spawn_async_subagent` (prompt.md) and reaches the rest via `use_skill`,
+        // so owning the pack put all of it on its wire for nothing.
+        owners: &["workflow_builder", "flow_discovery"],
         guide: "",
     },
     ToolPack {
@@ -341,20 +344,6 @@ pub const PACKS: &[ToolPack] = &[
         guide: include_str!("guides/scheduling.md"),
     },
     ToolPack {
-        id: "profile",
-        summary: "The user's profile: record preferences, edit persona and people graph.",
-        // The delegate and the two raw tools belong together because they are
-        // one question from the model's side — "remember this about the user" —
-        // split only by how much editing it needs.
-        tools: &[
-            "save_preference",
-            "remember_preference",
-            "manage_profile_memory",
-        ],
-        owners: &["profile_memory_agent"],
-        guide: "",
-    },
-    ToolPack {
         id: "media",
         summary: "Images and clips: generate, or read (describe, OCR, charts, UI elements).",
         tools: &[
@@ -382,12 +371,8 @@ pub const PACKS: &[ToolPack] = &[
         id: "goals",
         // Everything about goals EXCEPT closing one.
         //
-        // Two different surfaces live here, and the pack is the seam that lets
-        // the model find either: `goals` is the user's durable long-term
-        // objectives held in memory, while `goal_get` / `goal_set` are the
-        // agent-owned completion contract for one conversation thread and are
-        // assigned to `goals_agent`. Long-term goals remain user-reachable
-        // through `memory_goals.*`.
+        // `goal_get` / `goal_set` are the agent-owned completion contract for
+        // one conversation thread.
         //
         // `goal_complete` is deliberately NOT a member. Closing a goal is the
         // one goal operation an agent reaches for reactively, at the end of
@@ -395,9 +380,9 @@ pub const PACKS: &[ToolPack] = &[
         // moment buys nothing: the alternative to a visible `goal_complete` is
         // an objective that silently stays open and keeps driving autonomous
         // continuation. Same reasoning as `DELIBERATELY_UNPACKED_FLEET_TOOLS`.
-        summary: "Long-term goals and this thread's objective: read, add, edit.",
-        tools: &["goals", "goal_get", "goal_set"],
-        owners: &["goals_agent"],
+        summary: "This thread's objective: read and set it.",
+        tools: &["goal_get", "goal_set"],
+        owners: &[],
         guide: "",
     },
     ToolPack {

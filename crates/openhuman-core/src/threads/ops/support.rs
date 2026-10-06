@@ -4,51 +4,15 @@
 
 use crate::config::Config;
 use crate::core::runtime::context::CoreContext;
-use crate::core::Outcome;
-use crate::memory::conversations;
-use crate::memory::conversations::{ConversationMessage, ConversationThread};
-use crate::memory::{
-    ApiEnvelope, ApiMeta, ConversationMessageRecord, ConversationThreadSummary, PaginationMeta,
-};
+use crate::threads::store as conversations;
+use crate::threads::store::{ConversationMessage, ConversationThread};
 use crate::threads::THREAD_TITLE_LOG_PREFIX;
-use serde::Serialize;
-use std::collections::BTreeMap;
+use crate::threads::{ConversationMessageRecord, ConversationThreadSummary};
 use std::path::PathBuf;
 use tinyagents_harness::title::{title_from_user_message, title_log_fingerprint};
 
-pub(super) fn request_id() -> String {
-    uuid::Uuid::new_v4().to_string()
-}
-
-pub(super) fn counts(
-    entries: impl IntoIterator<Item = (&'static str, usize)>,
-) -> BTreeMap<String, usize> {
-    entries
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v))
-        .collect()
-}
-
-pub(super) fn envelope<T: Serialize>(
-    data: T,
-    counts: Option<BTreeMap<String, usize>>,
-    pagination: Option<PaginationMeta>,
-) -> Outcome<ApiEnvelope<T>> {
-    Outcome::new(
-        ApiEnvelope {
-            data: Some(data),
-            error: None,
-            meta: ApiMeta {
-                request_id: request_id(),
-                latency_seconds: None,
-                cached: None,
-                counts,
-                pagination,
-            },
-        },
-        vec![],
-    )
-}
+// One envelope/counts implementation for every ApiEnvelope-returning domain.
+pub(super) use crate::core::envelope::{counts, envelope};
 
 pub(super) async fn workspace_dir() -> Result<PathBuf, String> {
     Config::load_or_init()

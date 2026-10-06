@@ -3,9 +3,9 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use super::super::reply_speech::ReplySpeechResult;
 use crate::config::Config;
 use crate::core::Outcome;
+use tinyinference_voice::reply::ReplySpeech as ReplySpeechResult;
 
 // ---------------------------------------------------------------------------
 // Shared result type

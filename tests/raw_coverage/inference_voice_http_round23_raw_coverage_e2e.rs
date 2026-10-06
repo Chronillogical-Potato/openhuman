@@ -2,8 +2,9 @@
 //!
 //! This suite uses temp workspaces, fake binaries, and loopback HTTP/WS servers
 //! only. It must not call host Ollama, MLX, Python, Whisper, Piper, models, or
-//! download endpoints.
+//! download endpoints, and OpenHuman itself must not launch any of them.
 
+use crate::env_guard::EnvVarGuard;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -16,17 +17,15 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::{SinkExt, StreamExt};
-use openhuman_core::core::types::AppState;
 use openhuman_core::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::config::Config;
+use openhuman_core::core::types::AppState;
+use openhuman_core::inference::host_runtime::{local_ai_status, LocalAiService};
+use openhuman_core::inference::http;
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
-};
-use openhuman_core::inference::http;
-use openhuman_core::inference::host_runtime::{
-    local_ai_assets_status, local_ai_downloads_progress, LocalAiService,
 };
 use openhuman_core::voice::streaming::handle_dictation_ws;
 use serde_json::{json, Value};
@@ -38,60 +37,29 @@ struct MockState {
     requests: Arc<Mutex<Vec<(String, Value)>>>,
 }
 
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
-        let previous = std::env::var_os(key);
-        // SAFETY: mutation is serialized by `env_lock()` (see below).
-        unsafe { std::env::set_var(key, value) };
-        Self { key, previous }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let previous = std::env::var_os(key);
-        // SAFETY: mutation is serialized by `env_lock()` (see below).
-        unsafe { std::env::remove_var(key) };
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.previous {
-            Some(value) => {
-                // SAFETY: mutation is serialized by `env_lock()` (see below).
-                unsafe { std::env::set_var(self.key, value) }
-            }
-            None => {
-                // SAFETY: mutation is serialized by `env_lock()` (see below).
-                unsafe { std::env::remove_var(self.key) }
-            }
-        }
-    }
-}
-
 /// Serializes the whole suite's process-global env access.
 ///
 /// `cargo test` and `cargo llvm-cov` run a binary's tests on multiple threads
 /// by default. These tests mutate `OPENHUMAN_WORKSPACE`, `OPENHUMAN_OLLAMA_BASE_URL`,
 /// and binary path env vars, so every test takes this guard before reading or
 /// writing config that may be influenced by process env.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 #[tokio::test]
 async fn http_models_and_chat_use_mocked_ollama_without_real_runtime() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -203,7 +171,7 @@ async fn http_models_and_chat_use_mocked_ollama_without_real_runtime() {
 
 #[tokio::test]
 async fn dictation_ws_empty_stop_and_audio_cap_do_not_load_whisper() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.dictation.streaming = false;
@@ -241,37 +209,28 @@ async fn dictation_ws_empty_stop_and_audio_cap_do_not_load_whisper() {
 }
 
 #[tokio::test]
-async fn local_service_assets_report_state_from_fake_files_and_binaries() {
-    let _env = env_lock();
+async fn local_service_reports_endpoint_state_from_mocked_ollama_without_spawning() {
+    let _env = env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
+    // Runtime binaries on PATH leave a marker if run: OpenHuman probes the
+    // user's endpoint and must never launch a runtime itself.
     let scripts = tempdir().expect("scripts");
-    write_stub_script(scripts.path(), "ollama", "#!/bin/sh\nexit 42\n");
-    write_stub_script(scripts.path(), "python", "#!/bin/sh\nexit 42\n");
-    write_stub_script(scripts.path(), "python3", "#!/bin/sh\nexit 42\n");
-    write_stub_script(scripts.path(), "mlx_lm.generate", "#!/bin/sh\nexit 42\n");
-    write_stub_script(scripts.path(), "piper", "#!/bin/sh\nexit 42\n");
-
-    // The `stt` asset slot still exists (the hosted-STT migration left the
-    // generic local-AI asset plumbing in place), so a present file on disk
-    // must still report "ready" — only the transcription engine behind it is
-    // gone. Nothing reads this file any more; it exists to drive the state
-    // machine.
-    let fake_model = tmp.path().join("fake-stt-asset.bin");
-    std::fs::write(&fake_model, b"not a real stt model").expect("fake model");
+    let spawn_marker = scripts.path().join("spawned.marker");
+    let marker_script = format!("#!/bin/sh\ntouch '{}'\nexit 42\n", spawn_marker.display());
+    for name in ["ollama", "python", "python3", "mlx_lm.generate", "piper"] {
+        write_stub_script(scripts.path(), name, &marker_script);
+    }
 
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = true;
     config.local_ai.opt_in_confirmed = true;
     config.local_ai.provider = "ollama".to_string();
     config.local_ai.base_url = Some(base.clone());
-    config.local_ai.selected_tier = Some("custom".to_string());
     config.local_ai.chat_model_id = "gemma3:1b-it-qat".to_string();
     config.local_ai.embedding_model_id = "bge-m3".to_string();
     config.local_ai.vision_model_id = "vision-ready".to_string();
-    config.local_ai.stt_model_id = fake_model.display().to_string();
     config.local_ai.tts_voice_id = "round23-voice".to_string();
-    config.local_ai.tts_download_url = Some(format!("{base}/asset/tts"));
     config.save().await.expect("save config");
 
     let _path = EnvVarGuard::set("PATH", scripts.path());
@@ -282,34 +241,26 @@ async fn local_service_assets_report_state_from_fake_files_and_binaries() {
 
     let runtime = openhuman_core::inference::local_runtime_config(&config);
     let service = LocalAiService::new(&runtime);
-    let assets = service.assets_status(&runtime).await.expect("assets");
-    assert!(assets.ollama_available);
-    assert_eq!(assets.chat.state, "ready");
-    assert_eq!(assets.embedding.state, "ready");
-    // Since #5253 (vision-capable routing), the configured "vision-ready" id
-    // passes `is_vision_capable` (name carries the vision marker) instead of
-    // being rejected by the old MVP allowlist — and the mock's /api/tags
-    // advertises it, so an Ondemand-mode vision model that is present reports
-    // "ready", not "ondemand".
-    assert_eq!(assets.vision.state, "ready");
-    assert_eq!(assets.tts.state, "ondemand");
+    service.bootstrap(&runtime).await;
+    let status = service.status();
+    assert_eq!(status.state, "ready");
+    assert_eq!(status.vision_mode, "ondemand");
+    assert_eq!(status.chat_model_id, "gemma3:1b-it-qat");
 
-    let progress = service.downloads_progress(&runtime).await.expect("progress");
-    assert_eq!(progress.tts.state, "ondemand");
+    let diagnostics = service.diagnostics(&runtime).await.expect("diagnostics");
+    assert_eq!(diagnostics["expected"]["chat_found"], true);
+    assert_eq!(diagnostics["expected"]["embedding_found"], true);
+    assert_eq!(diagnostics["expected"]["vision_found"], true);
+    assert_eq!(diagnostics["repair_actions"], json!([]));
 
-    // No transcription assertion here any more: `transcribe_with_prompt` is a
-    // hosted call to the backend proxy since the whisper.cpp engine was
-    // deleted, so there is no local binary to stub and nothing this offline
-    // test can drive. Hosted STT is covered where the backend is mocked.
+    // No transcription assertion here: `transcribe_with_prompt` is a hosted
+    // call to the backend proxy since the whisper.cpp engine was deleted.
 
-    assert_eq!(
-        local_ai_downloads_progress(&config)
-            .await
-            .expect("ops progress")
-            .value
-            .tts
-            .state,
-        "ondemand"
+    let ops_status = local_ai_status(&config).await.expect("ops status").value;
+    assert_eq!(ops_status.provider, "ollama");
+    assert!(
+        !spawn_marker.exists(),
+        "OpenHuman must never launch a local runtime binary"
     );
 }
 
@@ -319,7 +270,6 @@ async fn serve_mock() -> (String, MockState) {
         .route("/v1/chat/completions", post(ollama_chat_completions))
         .route("/api/tags", get(ollama_tags))
         .route("/api/show", post(ollama_show))
-        .route("/asset/tts", get(asset_tts))
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -422,14 +372,6 @@ async fn ollama_show(Json(body): Json<Value>) -> impl IntoResponse {
     .into_response()
 }
 
-async fn asset_tts() -> impl IntoResponse {
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_LENGTH, "12")
-        .body(Body::from("voice-bytes!"))
-        .expect("tts response")
-}
-
 fn sse_response<const N: usize>(events: [Value; N]) -> Response<Body> {
     let mut body = events
         .into_iter()
@@ -454,9 +396,11 @@ fn remember(state: &MockState, path: &str, body: Value) {
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.api_url = Some("http://127.0.0.1:9".to_string());
     config

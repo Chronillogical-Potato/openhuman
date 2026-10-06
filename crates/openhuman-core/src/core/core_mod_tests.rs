@@ -35,59 +35,6 @@ fn method_name_preserves_underscores_in_function() {
 }
 
 #[test]
-fn controller_schema_equality_considers_all_fields() {
-    let a = ControllerSchema {
-        namespace: "a",
-        function: "b",
-        description: "x",
-        inputs: vec![],
-        outputs: vec![],
-    };
-    let b = ControllerSchema {
-        namespace: "a",
-        function: "b",
-        description: "x",
-        inputs: vec![],
-        outputs: vec![],
-    };
-    let c = ControllerSchema {
-        namespace: "a",
-        function: "b",
-        description: "different",
-        inputs: vec![],
-        outputs: vec![],
-    };
-    assert_eq!(a, b);
-    assert_ne!(a, c);
-}
-
-#[test]
-fn type_schema_nesting_is_equality_comparable() {
-    let a = TypeSchema::Array(Box::new(TypeSchema::Option(Box::new(TypeSchema::String))));
-    let b = TypeSchema::Array(Box::new(TypeSchema::Option(Box::new(TypeSchema::String))));
-    let c = TypeSchema::Array(Box::new(TypeSchema::Option(Box::new(TypeSchema::I64))));
-    assert_eq!(a, b);
-    assert_ne!(a, c);
-}
-
-#[test]
-fn field_schema_required_flag_changes_equality() {
-    let a = FieldSchema {
-        name: "x",
-        ty: TypeSchema::Bool,
-        comment: "",
-        required: true,
-    };
-    let b = FieldSchema {
-        name: "x",
-        ty: TypeSchema::Bool,
-        comment: "",
-        required: false,
-    };
-    assert_ne!(a, b);
-}
-
-#[test]
 fn controller_schema_serializes_to_json() {
     // Schema must be JSON-serializable: the /schema endpoint depends on it.
     let s = ControllerSchema {

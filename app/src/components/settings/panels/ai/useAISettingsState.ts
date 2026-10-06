@@ -52,7 +52,6 @@ function toPanelRoutingFromApi(api: ApiAISettings): { panel: AISettings } {
     coding: liftRef(api.routing.coding),
     vision: liftRef(api.routing.vision),
     memory: liftRef(api.routing.memory),
-    learning: liftRef(api.routing.learning),
   };
   return {
     panel: {
@@ -81,7 +80,6 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       coding: panel.routing.coding,
       vision: panel.routing.vision,
       memory: panel.routing.memory,
-      learning: panel.routing.learning,
     },
     modelRegistry: panel.modelRegistry,
     defaultModel: panel.defaultModel ?? '',
@@ -207,14 +205,19 @@ export function useAISettings() {
  * UI expects. Extracted as a pure function so it can be unit-tested without
  * rendering the hook.
  *
+ * The local endpoint is user-run (Ollama / LM Studio / OpenAI-compatible); the
+ * app never installs, starts or downloads anything, so there is no
+ * starting / downloading / installing state to surface.
+ *
  * Priority order:
- *  1. `disabled` — config master switch is off.
- *  2. `degraded` — server alive but slow (ollama_status === 'degraded').
- *  3. `running`  — normal healthy state (ollama_running true, not degraded).
- *  4. `missing`  — daemon installed but not found on disk.
- *  5. `starting` / `downloading` — daemon is coming up.
- *  6. `error`    — daemon in error state.
- *  7. `stopped`  — catch-all / no snapshot.
+ *  1. `disabled`    — config master switch is off.
+ *  2. `degraded`    — server alive but slow (ollama_status === 'degraded').
+ *  3. `running`     — normal healthy state (ollama_running true, not degraded).
+ *  4. `unreachable` — the core could not reach the configured endpoint
+ *                     (status.state === 'unreachable'); treated as offline.
+ *  5. `degraded`    — the core reports the runtime degraded without a
+ *                     diagnostics verdict.
+ *  6. `stopped`     — catch-all / no snapshot.
  */
 export function deriveOllamaState(snapshot: LocalProviderSnapshot | null): OllamaState {
   if (!snapshot) return 'stopped';
@@ -222,9 +225,8 @@ export function deriveOllamaState(snapshot: LocalProviderSnapshot | null): Ollam
   if (stateStr === 'disabled') return 'disabled';
   if (snapshot.diagnostics?.ollama_status === 'degraded') return 'degraded';
   if (snapshot.diagnostics?.ollama_running) return 'running';
-  if (stateStr === 'missing') return 'missing';
-  if (stateStr === 'starting' || stateStr === 'downloading') return 'starting';
-  if (stateStr === 'error') return 'error';
+  if (stateStr === 'unreachable') return 'unreachable';
+  if (stateStr === 'degraded') return 'degraded';
   return 'stopped';
 }
 

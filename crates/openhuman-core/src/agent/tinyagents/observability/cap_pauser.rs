@@ -72,20 +72,20 @@ pub(crate) type ToolFailureMap = Arc<
     >,
 >;
 
-/// Shared FIFO carry of the per-call provider [`UsageInfo`](crate::inference::provider::UsageInfo)
+/// Shared FIFO carry of the per-call provider [`BilledUsage`](crate::inference::provider::BilledUsage)
 /// the model adapter observed, drained by the bridge when it records that
 /// call's usage. The crate `Usage` the harness surfaces on
 /// `AgentEvent::UsageRecorded` carries only token counts, so the
 /// backend-charged USD, the model's context window, and the
 /// cache-creation/reasoning token breakdown have no crate home — the model
-/// adapter pushes the full provider `UsageInfo` here (one push per provider
+/// adapter pushes the full provider `BilledUsage` here (one push per provider
 /// response) and the bridge pops it (one pop per recorded model call, after the
 /// duplicate-usage dedupe guard) to restore charged-USD precedence and the full
 /// accounting (#4467, item 1). A pop that finds nothing (a fallback-route call
 /// that did not push, or an out-of-band usage event) degrades gracefully to a
 /// catalogue estimate.
 pub(crate) type ProviderUsageCarry =
-    Arc<Mutex<std::collections::VecDeque<crate::inference::provider::UsageInfo>>>;
+    Arc<Mutex<std::collections::VecDeque<crate::inference::provider::BilledUsage>>>;
 
 /// An [`EventListener`] that pauses the run once `cap` model calls have
 /// completed, so the loop stops gracefully at the iteration budget (returning

@@ -5,17 +5,25 @@
 //! prefix reconciliation, tool snapshots, resume and persistence remain inside
 //! the runtime session.
 
+#[path = "runtime_session_attachment_input.rs"]
+mod attachment_input;
+mod memory_ingest;
+mod permanent;
+#[path = "runtime_session_turn.rs"]
+mod turn;
+
 use std::sync::Arc;
 
 use anyhow::Result;
 use tinyagents_runtime::{
     CommitReceipt, ResumeMode, ResumePreparation, SessionBuilder, SessionTerminal,
-    SessionTurnRequest, ToolSnapshot, TranscriptTarget, TurnOptions, TurnPreparation,
+    SessionTurnRequest, ToolSnapshot, TranscriptTarget, TurnPreparation,
 };
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
 
 use crate::agent::{
+    message_convert::{user_message_from_text, user_text_with_markers},
     session_host::{
         driver::OpenHumanSessionDriver, OpenHumanSessionHooks, OpenHumanTranscriptCodec,
     },
@@ -46,9 +54,6 @@ pub(super) struct OpenHumanSessionState {
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
     pub(super) active_turn_overrides: super::types::TurnOverrides,
     prelude: Option<OpenHumanTurnPrelude>,
-    pub(crate) pending_citations:
-        Option<tokio::task::JoinHandle<Vec<crate::memory::agent::memory_loader::MemoryCitation>>>,
-    pub(crate) last_turn_citations: Vec<crate::memory::agent::memory_loader::MemoryCitation>,
 }
 
 /// Owned host-only inputs used by the async runtime preparation hook.
@@ -56,11 +61,8 @@ pub(super) struct OpenHumanSessionState {
 /// `tinyagents_runtime::Session`.
 #[derive(Clone)]
 struct OpenHumanTurnPrelude {
-    memory: Arc<dyn crate::memory::Memory>,
-    learning_enabled: bool,
-    explicit_preferences_enabled: bool,
     config: crate::config::AgentConfig,
-    /// Host session-memory state, shared by the runtime hooks. It is not
+    /// Host prompt/utilisation state, shared by the runtime hooks. It is not
     /// generic conversation state and the runtime never persists it.
     context: Arc<std::sync::Mutex<crate::agent::context::ContextManager>>,
     tool_policy: Arc<dyn crate::agent::tool_policy::ToolPolicy>,
@@ -69,15 +71,13 @@ struct OpenHumanTurnPrelude {
     action_dir: std::path::PathBuf,
     model_name: String,
     agent_definition_name: String,
-    omit_profile: bool,
-    omit_memory_md: bool,
-    auto_save: bool,
+    /// No per-turn memory pack for this agent (definition's
+    /// `omit_memory_context`); its turns are still logged.
+    omit_memory_context: bool,
     thread_id: Option<String>,
-    auto_recall: Option<Arc<crate::memory::auto_recall::AutoRecall>>,
     agent_definition_id: String,
     event_session_id: String,
     event_channel: String,
-    trigger_memory_agent: crate::agent::harness::definition::TriggerMemoryAgent,
     subagent_tool_ceiling_names: std::collections::HashSet<String>,
     turn_model_source: crate::agent::tinyagents::TurnModelSource,
     temperature: f64,
@@ -90,7 +90,6 @@ struct OpenHumanTurnPrelude {
     allowed_subagent_ids: std::collections::HashSet<String>,
     sandbox_mode: crate::agent::harness::definition::SandboxMode,
     runtime_config: Option<Arc<crate::config::Config>>,
-    archivist_hook: Option<Arc<crate::agent::harness::archivist::ArchivistHook>>,
     /// The one authoritative, request-refreshable composition of executable
     /// tools, policy, and provider schema. Generic runtime owns the immutable
     /// `ToolSnapshot`; this host surface is the source used to create it.
@@ -121,6 +120,7 @@ struct OpenHumanTurnToolSurface {
     /// as the final allowlist, and classified `Allow` by the policy, so a
     /// found tool is callable. See `OpenHumanSessionHost::deferred_tool_names`.
     deferred_tool_names: std::collections::HashSet<String>,
+    permanent_tool_names: std::collections::HashSet<String>,
     /// Whether this belt reaches deferred tools at all; fixed at build.
     discovery_enabled: bool,
     /// The definition's own `deferred_tools`; see `meta::deferred_set`.
@@ -168,7 +168,12 @@ struct OpenHumanTurnPreludeMutable {
     workflows: Vec<crate::skills::Workflow>,
     composio_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     skill_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
-    pending_user_autosave: Option<String>,
+    /// The user-authored text of the in-flight turn, held until commit so the
+    /// committed turn can be handed to memory.
+    pending_user_text: Option<String>,
+    /// The in-flight turn's memory identity and index, from pre-turn to
+    /// commit (`memory_ingest`).
+    pending_memory_turn: Option<memory_ingest::PendingMemoryTurn>,
 }
 
 impl OpenHumanTurnPrelude {
@@ -233,14 +238,19 @@ impl OpenHumanTurnPrelude {
                             .iter()
                             .filter(|spec| surface.deferred_tool_names.contains(&spec.name)),
                     )
+                    .filter(|spec| {
+                        self.thread_id.is_some()
+                            || !crate::agent::tinyagents::harness_tool_registration::is_thread_goal_tool(
+                                &spec.name,
+                            )
+                    })
                     .map(|spec| spec.as_ref().clone())
                     .collect(),
             )
             .map_err(|error| anyhow::anyhow!(error.to_string()))?
         };
         let prefix = if cold {
-            let learned = self.fetch_learned_context().await;
-            let tiered = self.build_system_prompt_tiered(learned)?;
+            let tiered = self.build_system_prompt_tiered()?;
             Some(super::prefix_snapshot::tiered_prefix_snapshot(&tiered))
         } else {
             None
@@ -250,111 +260,16 @@ impl OpenHumanTurnPrelude {
             tools: Some(tools),
         })
     }
-    fn begin_user_effects(&self, state: &mut OpenHumanSessionState, request: &SessionTurnRequest) {
-        let user_text = request.input.text();
-        if self.auto_save && crate::agent::turn_origin::current_is_user_authored() {
-            self.mutable
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .pending_user_autosave = Some(user_text.clone());
-        }
-        state.last_turn_citations.clear();
-        if let Some(previous) = state.pending_citations.take() {
-            previous.abort();
-        }
-        let memory = self.memory.clone();
-        state.pending_citations = Some(tokio::spawn(async move {
-            crate::memory::agent::memory_loader::collect_recall_citations(
-                memory.as_ref(),
-                &user_text,
-                5,
-                0.4,
-            )
-            .await
-            .unwrap_or_default()
-        }));
+    fn begin_user_effects(&self, request: &SessionTurnRequest) {
+        let user_text =
+            crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());
+        self.mutable
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .pending_user_text = user_text;
     }
 
-    async fn fetch_learned_context(&self) -> crate::agent::prompts::LearnedContextData {
-        if !self.learning_enabled && !self.explicit_preferences_enabled {
-            return Default::default();
-        }
-        if !self.learning_enabled && self.explicit_preferences_enabled {
-            return crate::agent::prompts::LearnedContextData {
-                user_profile: crate::memory::preferences::load_general_preferences_on(
-                    &self.memory,
-                    crate::memory::preferences::STANDING_PREFS_LIMIT,
-                )
-                .await,
-                ..Default::default()
-            };
-        }
-        use crate::memory::MemoryCategory;
-        let observations = self
-            .memory
-            .list(
-                Some("learning_observations"),
-                Some(&MemoryCategory::Custom("learning_observations".into())),
-                None,
-            )
-            .await
-            .unwrap_or_default();
-        let patterns = self
-            .memory
-            .list(
-                Some("learning_patterns"),
-                Some(&MemoryCategory::Custom("learning_patterns".into())),
-                None,
-            )
-            .await
-            .unwrap_or_default();
-        let reflections = self
-            .memory
-            .list(
-                Some(crate::agent::learning::reflection::REFLECTIONS_NAMESPACE),
-                Some(&MemoryCategory::Custom(
-                    crate::agent::learning::reflection::REFLECTIONS_NAMESPACE.into(),
-                )),
-                None,
-            )
-            .await
-            .unwrap_or_default();
-        let limits = self.config.resolved_memory_limits();
-        crate::agent::prompts::LearnedContextData {
-            observations: observations
-                .iter()
-                .rev()
-                .take(5)
-                .map(|entry| sanitize_prelude_entry(&entry.content))
-                .collect(),
-            patterns: patterns
-                .iter()
-                .take(3)
-                .map(|entry| sanitize_prelude_entry(&entry.content))
-                .collect(),
-            user_profile: crate::memory::preferences::load_general_preferences_on(
-                &self.memory,
-                crate::memory::preferences::STANDING_PREFS_LIMIT,
-            )
-            .await,
-            reflections: reflections
-                .iter()
-                .rev()
-                .take(10)
-                .map(|entry| sanitize_prelude_entry(&entry.content))
-                .collect(),
-            tree_root_summaries: collect_prelude_tree_roots(
-                limits.per_namespace_max_chars,
-                limits.total_tree_max_chars,
-            )
-            .await,
-        }
-    }
-
-    fn build_system_prompt_tiered(
-        &self,
-        learned: crate::agent::prompts::LearnedContextData,
-    ) -> Result<crate::agent::prompts::TieredPrompt> {
+    fn build_system_prompt_tiered(&self) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{tool_call_format_from_dialect, PromptContext, PromptTool};
         let surface = self
             .tool_surface
@@ -363,6 +278,12 @@ impl OpenHumanTurnPrelude {
         let specs = surface
             .visible_tool_specs
             .iter()
+            .filter(|spec| {
+                self.thread_id.is_some()
+                    || !crate::agent::tinyagents::harness_tool_registration::is_thread_goal_tool(
+                        &spec.name,
+                    )
+            })
             .map(|spec| spec.as_ref().clone())
             .collect::<Vec<_>>();
         let instructions = self.tool_dispatcher.prompt_instructions(&specs);
@@ -370,10 +291,23 @@ impl OpenHumanTurnPrelude {
             .tools
             .iter()
             .chain(surface.synthesized_tools.iter())
+            .filter(|tool| {
+                self.thread_id.is_some()
+                    || !crate::agent::tinyagents::harness_tool_registration::is_thread_goal_tool(
+                        tool.name(),
+                    )
+            })
             .map(|tool| tool.as_ref())
             .collect::<Vec<_>>();
         let mut prompt_tools = PromptTool::from_tool_refs(tool_refs.iter().copied());
+        prompt_tools.retain(|tool| !surface.permanent_tool_names.contains(tool.name.as_ref()));
         let mut visible_tool_names = surface.tool_policy_session.visible_tool_names_for_prompt();
+        visible_tool_names.retain(|name| !surface.permanent_tool_names.contains(name));
+        if self.thread_id.is_none() {
+            visible_tool_names.retain(|name| {
+                !crate::agent::tinyagents::harness_tool_registration::is_thread_goal_tool(name)
+            });
+        }
         crate::agent::prompts::swap_deferred_for_discovery_bridge(
             &mut prompt_tools,
             &mut visible_tool_names,
@@ -395,16 +329,12 @@ impl OpenHumanTurnPrelude {
             tools: &prompt_tools,
             workflows: &mutable.workflows,
             dispatcher_instructions: &instructions,
-            learned,
             visible_tool_names: &visible_tool_names,
             tool_call_format: tool_call_format_from_dialect(
                 self.tool_dispatcher.tool_call_format(),
             ),
             connected_integrations: &mutable.connected_integrations,
             connected_identities_md: crate::agent::prompts::render_connected_identities(),
-            include_profile: !self.omit_profile,
-            include_memory_md: !self.omit_memory_md,
-            curated_snapshot: None,
             user_identity: crate::security::credentials::identity::peek_credential_user_identity(),
             personality_roster: vec![],
             agents_md_global: agents_md.global,
@@ -430,19 +360,19 @@ impl OpenHumanTurnPrelude {
     /// semantics, but keeps the mutable authority in hook state rather than a
     /// second turn loop. A revoked delegate is removed from the executable
     /// source, schema, and policy together before this request is prepared.
-    fn refresh_delegation_tool_surface(&self) {
+    fn refresh_delegation_tool_surface(&self) -> anyhow::Result<()> {
         use crate::agent::harness::definition::AgentDefinitionRegistry;
         use crate::tools::agent_policy::ToolPolicyEngine;
         use crate::tools::orchestrator_tools::collect_orchestrator_tools;
 
         let Some(registry) = AgentDefinitionRegistry::global() else {
-            return;
+            return Ok(());
         };
         let Some(definition) = registry.get(&self.agent_definition_id).cloned() else {
-            return;
+            return Ok(());
         };
         if definition.subagents.is_empty() {
-            return;
+            return Ok(());
         }
         let (integrations, integrations_are_authoritative) = {
             let mutable = self
@@ -471,6 +401,10 @@ impl OpenHumanTurnPrelude {
             integrations_are_authoritative,
         );
         collected.extend(rebuilt);
+        super::managed_tools::reject_synthesized_collisions(
+            &surface.permanent_tool_names,
+            &collected,
+        )?;
         let synthesized =
             super::builder::drop_synthesized_name_collisions(&surface.tools, collected);
         let synthesized_names = synthesized
@@ -560,6 +494,7 @@ impl OpenHumanTurnPrelude {
         surface.synthesized_tools = synthesized_tools;
         surface.visible_tool_specs = Arc::new(visible);
         surface.tool_policy_session = policy;
+        Ok(())
     }
 
     fn drain_host_events(&self) -> bool {
@@ -614,8 +549,6 @@ impl OpenHumanTurnPrelude {
         run_context: &mut OpenHumanRunContext,
     ) -> String {
         let mut context = String::new();
-        self.append_recall_lanes(original_user_message, &mut context)
-            .await;
 
         let active_goal = if overrides.suppress_active_goal {
             None
@@ -695,36 +628,9 @@ impl OpenHumanTurnPrelude {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             mutable.last_memory_context = (!context.is_empty()).then_some(context);
         }
-        enriched = self
-            .inject_agent_experience_context(original_user_message, enriched)
-            .await;
-
-        let parent = run_context.attach_parent(self.parent_context());
-        let (enriched_with_memory_agent, memory_agent_context_injected) = self
-            .inject_triggered_memory_agent_context(
-                original_user_message,
-                enriched,
-                parent,
-                overrides.suppress_memory_agent,
-            )
-            .await;
-        enriched = enriched_with_memory_agent;
-        let mut prepared_sources = Vec::new();
-        if memory_agent_context_injected {
-            prepared_sources.push(crate::agent::harness::AgentContextPreparedSource {
-                source: "memory agent context retrieval".to_string(),
-                has_enough_context: None,
-            });
-        }
-        if !prepared_sources.is_empty() {
-            enriched = format!(
-                "{}\n\n{enriched}",
-                render_agent_context_status_note(&prepared_sources)
-            );
-        }
+        run_context.attach_parent(self.parent_context());
         self.apply_pending_announcements(&mut enriched);
 
-        run_context.prepared_context_sources = Arc::new(prepared_sources);
         run_context.attachment_placeholders = Arc::new(
             crate::agent::multimodal::extract_image_placeholders_in_text(original_user_message),
         );
@@ -743,91 +649,10 @@ impl OpenHumanTurnPrelude {
             self.tool_dispatcher.tool_call_format(),
         )
         .harness_dispatcher();
-        run_context
-            .stop_hooks
-            .extend(crate::agent::stop_hooks::current_stop_hooks());
-        self.context
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .tick_turn();
         format!(
             "{}\n\n{enriched}",
             crate::agent::prompts::current_datetime_line()
         )
-    }
-
-    async fn append_recall_lanes(&self, user_message: &str, context: &mut String) {
-        const BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
-        let preferences = tokio::time::timeout(
-            BUDGET,
-            crate::memory::preferences::recall_situational_preferences_on(
-                &self.memory,
-                user_message,
-            ),
-        )
-        .await
-        .unwrap_or_default();
-        if !preferences.is_empty() {
-            context.push_str("## Relevant preferences\n\n");
-            for preference in preferences {
-                context.push_str(preference.trim());
-                context.push('\n');
-            }
-            context.push('\n');
-        }
-        if let Some(auto_recall) = &self.auto_recall {
-            if let Some(block) = auto_recall.block_for(user_message).await {
-                context.push_str(&block);
-            }
-        }
-    }
-
-    async fn inject_agent_experience_context(
-        &self,
-        user_message: &str,
-        enriched: String,
-    ) -> String {
-        if !self.learning_enabled {
-            return enriched;
-        }
-        let visible_tools = self
-            .tool_surface
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .visible_tool_specs
-            .iter()
-            .map(|spec| spec.name.clone())
-            .collect();
-        let query = crate::agent::experience::ExperienceQuery {
-            query: user_message.to_string(),
-            tools: visible_tools,
-            tags: Vec::new(),
-            agent_id: Some(self.agent_definition_id.clone()).filter(|id| !id.trim().is_empty()),
-            entrypoint: Some(self.event_channel.clone())
-                .filter(|channel| !channel.trim().is_empty()),
-            max_hits: 3,
-        };
-        let stores = vec![crate::agent::experience::AgentExperienceStore::new(
-            self.memory.clone(),
-        )];
-        match crate::agent::experience::retrieve_across_stores(&stores, query).await {
-            Ok(hits) => {
-                let matched: Vec<_> = hits
-                    .into_iter()
-                    .filter(|hit| !hit.match_reasons.is_empty())
-                    .collect();
-                let block = crate::agent::experience::render_experience_hits(&matched, 2048);
-                if block.is_empty() {
-                    enriched
-                } else {
-                    crate::agent::experience::prepend_experience_block(&enriched, &block)
-                }
-            }
-            Err(error) => {
-                log::warn!("[agent-experience] retrieval failed (non-fatal): {error}");
-                enriched
-            }
-        }
     }
 
     fn parent_context(&self) -> crate::agent::harness::ParentExecutionContext {
@@ -861,7 +686,6 @@ impl OpenHumanTurnPrelude {
             workspace_descriptor: crate::agent::harness::current_parent()
                 .and_then(|parent| parent.workspace_descriptor)
                 .or_else(|| self.workspace_descriptor.clone()),
-            memory: self.memory.clone(),
             agent_config: self.config.clone(),
             workflows: Arc::new(workflows),
             memory_context: Arc::new(memory_context),
@@ -875,51 +699,6 @@ impl OpenHumanTurnPrelude {
             session_parent_prefix: self.session_parent_prefix.clone(),
             on_progress: self.on_progress.clone(),
             run_queue: self.run_queue.clone(),
-        }
-    }
-
-    async fn inject_triggered_memory_agent_context(
-        &self,
-        user_message: &str,
-        enriched: String,
-        parent_context: &crate::agent::harness::ParentExecutionContext,
-        force_skip: bool,
-    ) -> (String, bool) {
-        use crate::agent::harness::definition::TriggerMemoryAgent;
-        if force_skip
-            || self.trigger_memory_agent != TriggerMemoryAgent::Always
-            || self.agent_definition_id == "agent_memory"
-        {
-            return (enriched, false);
-        }
-        let Some(registry) = crate::agent::harness::AgentDefinitionRegistry::global() else {
-            return (enriched, false);
-        };
-        let Some(definition) = registry.get("agent_memory").cloned() else {
-            return (enriched, false);
-        };
-        let prompt = format!(
-            "Search the user's memory tree and return only context relevant to the next agent turn.\n\nUser prompt:\n{user_message}"
-        );
-        let options = crate::agent::subagent_host::SubagentRunOptions {
-            task_id: Some(format!("mem-trigger-{}", uuid::Uuid::new_v4())),
-            model_override: Some(parent_context.model_name.clone()),
-            run_context: OpenHumanRunContext::new().with_parent(parent_context.clone()),
-            ..Default::default()
-        };
-        match crate::agent::subagent_host::run_subagent(&definition, &prompt, options).await {
-            Ok(outcome) if !outcome.output.trim().is_empty() => (
-                format!(
-                    "## Memory agent context\n\n{}\n\n---\n\n{enriched}",
-                    crate::util::truncate_with_ellipsis(&outcome.output, 8000)
-                ),
-                true,
-            ),
-            Ok(_) => (enriched, false),
-            Err(error) => {
-                log::warn!("[agent_memory:trigger] failed: {error:#}");
-                (enriched, false)
-            }
         }
     }
 
@@ -944,54 +723,8 @@ impl OpenHumanTurnPrelude {
     }
 
     async fn finalize_after_durable_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
-        if self.flush_user_autosave().await {
-            self.flush_assistant_autosave(receipt.outcome.output.as_deref())
-                .await;
-        }
         self.mirror_transcript_after_commit(receipt);
-        self.spawn_transcript_ingestion_after_commit(receipt);
-        self.spawn_session_memory_extraction_after_commit(receipt)
-            .await;
-    }
-
-    async fn flush_user_autosave(&self) -> bool {
-        let message = self
-            .mutable
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .pending_user_autosave
-            .take();
-        let Some(message) = message else {
-            return false;
-        };
-        self.store_autosave_message("user_msg", &message).await
-    }
-
-    async fn flush_assistant_autosave(&self, message: Option<&str>) {
-        let Some(message) = message.filter(|message| !message.trim().is_empty()) else {
-            return;
-        };
-        self.store_autosave_message("assistant_msg", message).await;
-    }
-
-    async fn store_autosave_message(&self, kind: &str, message: &str) -> bool {
-        let key = format!("{kind}:{}", uuid::Uuid::new_v4());
-        if let Err(error) = self
-            .memory
-            .store(
-                crate::agent::learning::transcript_ingest::CONVERSATION_RAW_NAMESPACE,
-                &key,
-                message,
-                crate::memory::MemoryCategory::Conversation,
-                self.thread_id.as_deref(),
-            )
-            .await
-        {
-            log::warn!("[agent_autosave] durable message autosave failed kind={kind} key={key} err={error}");
-            false
-        } else {
-            true
-        }
+        self.memory_post_turn(receipt);
     }
 
     fn mirror_transcript_after_commit(&self, receipt: &CommitReceipt<OpenHumanRunContext>) {
@@ -1032,90 +765,6 @@ impl OpenHumanTurnPrelude {
             .await
             {
                 log::warn!("[session-store] dual-write failed stem={stem}: {error:#}");
-            }
-        });
-    }
-
-    fn spawn_transcript_ingestion_after_commit(
-        &self,
-        receipt: &CommitReceipt<OpenHumanRunContext>,
-    ) {
-        let Some(path) = receipt
-            .transcript
-            .as_ref()
-            .map(|commit| commit.path.clone())
-        else {
-            return;
-        };
-        let memory = self.memory.clone();
-        tokio::spawn(async move {
-            if let Err(error) = crate::agent::learning::transcript_ingest::ingest_transcript_path(
-                memory.as_ref(),
-                &path,
-            )
-            .await
-            {
-                log::warn!("[transcript_ingest] background ingest failed: {error}");
-            }
-        });
-    }
-
-    async fn spawn_session_memory_extraction_after_commit(
-        &self,
-        receipt: &CommitReceipt<OpenHumanRunContext>,
-    ) {
-        let should_extract = self
-            .context
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .should_extract_session_memory();
-        if !should_extract {
-            return;
-        }
-        if let Some(archivist) = &self.archivist_hook {
-            archivist.flush_open_segment(&self.event_session_id).await;
-        }
-        // Resolve all fallible launch inputs before mutating the extraction
-        // state.  A missing registry/definition/parent is a no-op, not a
-        // permanently "in progress" session-memory extraction.
-        let Some(registry) = crate::agent::harness::AgentDefinitionRegistry::global() else {
-            return;
-        };
-        let Some(definition) = registry.get("archivist").cloned() else {
-            return;
-        };
-        let Some(parent) = receipt.options.context.parent.clone() else {
-            return;
-        };
-        let (handle, stats) = {
-            let mut context = self
-                .context
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let stats = context.stats();
-            context.mark_session_memory_started();
-            (context.session_memory_handle(), stats)
-        };
-        log::info!(
-            "[session_memory] scheduling durable archivist extraction turn={}",
-            stats.session_memory_current_turn
-        );
-        tokio::spawn(async move {
-            let result = crate::agent::subagent_host::run_subagent(
-                &definition,
-                crate::agent::context::ARCHIVIST_EXTRACTION_PROMPT,
-                crate::agent::subagent_host::SubagentRunOptions {
-                    run_context: OpenHumanRunContext::new().with_parent(parent),
-                    ..Default::default()
-                },
-            )
-            .await;
-            if let Ok(mut state) = handle.lock() {
-                if result.is_ok() {
-                    state.mark_extraction_complete();
-                } else {
-                    state.mark_extraction_failed();
-                }
             }
         });
     }
@@ -1207,62 +856,6 @@ pub(super) fn holistic_last_turn_usage(
     }
 }
 
-fn sanitize_prelude_entry(content: &str) -> String {
-    let value: String = content.trim().chars().take(200).collect();
-    if value.contains("Bearer ")
-        || value.contains("sk-")
-        || value.contains("ghp_")
-        || value.contains("-----BEGIN")
-    {
-        "[redacted: potential secret]".into()
-    } else {
-        value
-    }
-}
-
-fn render_agent_context_status_note(
-    sources: &[crate::agent::harness::AgentContextPreparedSource],
-) -> String {
-    let sources = if sources.is_empty() {
-        "the OpenHuman harness".to_string()
-    } else {
-        sources
-            .iter()
-            .map(|source| source.source.as_str())
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-    format!(
-        "## Agent context status\n\nAgent context retrieval/preparation has already run once \
-         for this turn in code via {sources}. Do not gather general context again. Use the \
-         prepared context below, and call only specific follow-up tools if a concrete missing \
-         detail is required."
-    )
-}
-
-async fn collect_prelude_tree_roots(
-    per_namespace_cap: usize,
-    total_cap: usize,
-) -> Vec<crate::agent::prompts::NamespaceSummary> {
-    use crate::memory::api::provider::MemoryProvider;
-    let Ok(guard) = crate::memory::ops::guard::active_memory_guard().await else {
-        return Vec::new();
-    };
-    let Some(tree) = guard.as_tree() else {
-        return Vec::new();
-    };
-    tree.root_summaries_with_caps(per_namespace_cap, total_cap)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|row| crate::agent::prompts::NamespaceSummary {
-            namespace: row.namespace,
-            body: row.body,
-            updated_at: row.updated_at,
-        })
-        .collect()
-}
-
 impl OpenHumanSessionHost {
     pub(super) fn update_runtime_prelude_progress(
         &mut self,
@@ -1319,89 +912,7 @@ impl OpenHumanSessionHost {
 
     /// Dispatch one public OpenHuman turn through the neutral runtime.
     pub async fn turn(&mut self, user_message: &str) -> Result<String> {
-        self.ensure_runtime_session()?;
-
-        let mut context = OpenHumanRunContext::new();
-        context.progress = self.on_progress.clone();
-        context.thread_id = self.thread_id.clone();
-        context.workspace = self.workspace_descriptor.clone();
-        let cancellation = context.cancellation.clone();
-        let root_config = context.root_run_config("openhuman-session");
-        let mut options = TurnOptions {
-            request_id: crate::agent::turn_origin::current_request_id(),
-            thread_id: self.thread_id.clone(),
-            stream: self.on_progress.is_some(),
-            session: self.session.clone(),
-            resume: if self.session.is_some() {
-                // Exact, identity-keyed resume. Unlike `LatestForAgent` it
-                // cannot splice a different thread's transcript into this
-                // turn, and the file it reads is the file the turn appends to.
-                ResumeMode::Session
-            } else if self
-                .runtime_session
-                .as_ref()
-                .is_some_and(|session| session.history().is_empty())
-            {
-                ResumeMode::LatestForAgent
-            } else {
-                ResumeMode::Never
-            },
-            cancellation,
-            run_context: context.into_tinyagents(root_config),
-        };
-        // `tinyagents_runtime::Session` owns the restored declaration
-        // snapshot. Load a bound, otherwise empty session before its normal
-        // lifecycle runs so the host prelude can rebuild only its permitted
-        // recorded integration executors for this turn.
-        if matches!(options.resume, ResumeMode::Session)
-            && self
-                .runtime_session
-                .as_ref()
-                .is_some_and(|session| session.history().is_empty())
-        {
-            let runtime = self
-                .runtime_session
-                .as_mut()
-                .expect("runtime session initialized");
-            let resumed = runtime
-                .resume(&options)
-                .await
-                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-            if resumed.loaded {
-                let recorded_tools = runtime.recorded_tools().cloned();
-                if let Some(prelude) = self
-                    .runtime_state
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner())
-                    .prelude
-                    .clone()
-                {
-                    prelude.adopt_recorded_tools(recorded_tools.as_ref());
-                }
-            }
-        }
-        // Resume restores the exact leading prompt messages from the durable
-        // transcript. Carry their count to the cache stamper: a later System
-        // compaction summary may be adjacent, but is not a frozen prompt tier.
-        let runtime = self
-            .runtime_session
-            .as_ref()
-            .expect("runtime session initialized");
-        let frozen_prefix_len = runtime.prefix_snapshot().messages().len();
-        if frozen_prefix_len > 0 || !runtime.history().is_empty() {
-            options.run_context.data.cacheable_system_prefix_len = Some(frozen_prefix_len);
-        }
-        let outcome = self
-            .runtime_session
-            .as_mut()
-            .expect("runtime session initialized")
-            .turn(
-                SessionTurnRequest::new(Message::user(user_message)),
-                options,
-            )
-            .await
-            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-        Ok(outcome.output.unwrap_or_default())
+        self.turn_with_origin(user_message, None).await
     }
 
     pub(in crate::agent::session_host) fn ensure_runtime_session(&mut self) -> Result<()> {
@@ -1413,6 +924,7 @@ impl OpenHumanSessionHost {
             tokenjuice_compaction_enabled,
             microcompact_keep_recent,
             autocompact_enabled,
+            compaction,
         ) = {
             let context = self
                 .context
@@ -1423,9 +935,11 @@ impl OpenHumanSessionHost {
                 context.compaction_enabled(),
                 context.microcompact_keep_recent(),
                 context.autocompact_enabled(),
+                context.compaction(),
             )
         };
         let artifact_store = super::artifact_wiring::build_artifact_store(
+            &self.workspace_dir,
             self.workspace_descriptor.as_ref(),
             &self.action_dir,
             &self.event_session_id,
@@ -1434,14 +948,14 @@ impl OpenHumanSessionHost {
         let context_mw = TurnContextMiddleware {
             tool_result_budget_bytes,
             payload_summarizer: self.payload_summarizer.clone(),
-            // Was `None` in both production constructors; `artifact_wiring`
-            // documents why its root is the correctness question (#6408, #6483).
+            // Rooted outside the project; see `artifact_wiring` (#6408, #6483).
             artifact_store: Some(artifact_store),
             tokenjuice_compaction_enabled,
             tokenjuice_compression: self.tokenjuice_compression,
             runtime_config: self.runtime_config.clone(),
             microcompact_keep_recent,
             autocompact_enabled,
+            compaction,
             transcript_snapshot: None,
         };
         let driver = Arc::new(OpenHumanSessionDriver::new(
@@ -1494,9 +1008,6 @@ impl OpenHumanSessionHost {
                 .as_ref()
                 .map(crate::agent::tinyagents::config::required_output_from);
             state.prelude = Some(OpenHumanTurnPrelude {
-                memory: self.memory.clone(),
-                learning_enabled: self.learning_enabled,
-                explicit_preferences_enabled: self.explicit_preferences_enabled,
                 config: self.config.clone(),
                 context: self.context.clone(),
                 tool_policy: self.tool_policy.clone(),
@@ -1505,15 +1016,11 @@ impl OpenHumanSessionHost {
                 action_dir: self.action_dir.clone(),
                 model_name: self.model_name.clone(),
                 agent_definition_name: self.agent_definition_name.clone(),
-                omit_profile: self.omit_profile,
-                omit_memory_md: self.omit_memory_md,
-                auto_save: self.auto_save,
+                omit_memory_context: self.omit_memory_context,
                 thread_id: self.thread_id.clone(),
-                auto_recall: self.auto_recall.clone(),
                 agent_definition_id: self.agent_definition_id.clone(),
                 event_session_id: self.event_session_id.clone(),
                 event_channel: self.event_channel.clone(),
-                trigger_memory_agent: self.trigger_memory_agent,
                 subagent_tool_ceiling_names: self.subagent_tool_ceiling_names.clone(),
                 turn_model_source: self.turn_model_source.clone(),
                 temperature: self.temperature,
@@ -1531,7 +1038,6 @@ impl OpenHumanSessionHost {
                     .map(|definition| definition.sandbox_mode)
                     .unwrap_or(crate::agent::harness::definition::SandboxMode::None),
                 runtime_config: self.runtime_config.clone(),
-                archivist_hook: self.archivist_hook.clone(),
                 tool_surface: Arc::new(std::sync::Mutex::new(OpenHumanTurnToolSurface {
                     tools: self.tools.clone(),
                     synthesized_tools: self.synthesized_tools.clone(),
@@ -1540,6 +1046,7 @@ impl OpenHumanSessionHost {
                     visible_tool_specs: self.visible_tool_specs.clone(),
                     visible_tool_names: self.visible_tool_names.clone(),
                     deferred_tool_names: self.deferred_tool_names.clone(),
+                    permanent_tool_names: self.permanent_tool_names.clone(),
                     discovery_enabled: self.discovery_enabled,
                     requested_deferred_tools: self.requested_deferred_tools.clone(),
                     auto_include_new_synthesized_tools: true,
@@ -1571,7 +1078,8 @@ impl OpenHumanSessionHost {
                     workflows: self.workflows.clone(),
                     composio_events: None,
                     skill_events: None,
-                    pending_user_autosave: None,
+                    pending_user_text: None,
+                    pending_memory_turn: None,
                 })),
             });
         }
@@ -1617,9 +1125,13 @@ impl OpenHumanSessionHost {
                                 "OpenHumanTurnPrelude",
                             )
                         })?;
+                        let new_session = !view.resumed && view.history.is_empty();
                         prelude
-                            .refresh_turn_boundary(!view.resumed && view.history.is_empty())
-                            .await;
+                            .refresh_turn_boundary(new_session)
+                            .await
+                            .map_err(|error| {
+                                tinyagents_runtime::RuntimeError::Driver(error.to_string())
+                            })?;
                         let context_window = prelude
                             .turn_model_source
                             .effective_context_window(&prelude.model_name)
@@ -1632,33 +1144,38 @@ impl OpenHumanSessionHost {
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
                             .context_window = context_window;
-                        let original_user_message = request.input.text();
-                        prelude.begin_user_effects(
-                            &mut state
-                                .lock()
-                                .unwrap_or_else(|poisoned| poisoned.into_inner()),
-                            request,
-                        );
+                        let original_user_message = user_text_with_markers(&request.input);
+                        prelude.begin_user_effects(request);
                         let overrides = std::mem::take(
                             &mut state
                                 .lock()
                                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                                 .active_turn_overrides,
                         );
-                        let enriched = prelude
-                            .enrich_request(
+                        let current_input =
+                            view.history.last().filter(|last| **last == request.input);
+                        let (enriched, memory_turn) = futures::join!(
+                            prelude.enrich_request(
                                 &original_user_message,
                                 &overrides,
                                 &mut options.run_context.data,
-                            )
-                            .await;
-                        request.input = Message::user(enriched);
-                        let mut preparation = prelude
-                            .prepare(!view.resumed && view.history.is_empty())
-                            .await
-                            .map_err(|error| {
+                            ),
+                            // Boxed: the hook's future (config load, engine
+                            // calls) would otherwise be inlined into this
+                            // already-large hook future.
+                            Box::pin(prelude.memory_pre_turn(
+                                view.history,
+                                view.committed_turns,
+                                current_input,
+                            )),
+                        );
+                        options.run_context.data.memory_turn = memory_turn;
+                        request.input = user_message_from_text(&enriched);
+                        let mut preparation =
+                            prelude.prepare(new_session).await.map_err(|error| {
                                 tinyagents_runtime::RuntimeError::Driver(error.to_string())
                             })?;
+                        prelude.refresh_permanent_prefix(&mut preparation, view.prefix);
                         if overrides.suppress_tools {
                             // One-off tool-less turn: must not become the
                             // thread's recorded tool list.
@@ -1746,16 +1263,11 @@ impl OpenHumanSessionHost {
                             .count()
                             .max(1) as u32;
                         let output = receipt.outcome.output.clone().unwrap_or_default();
-                        let input = receipt
-                            .outcome
-                            .history
-                            .iter()
-                            .rev()
-                            .find_map(|message| match message {
-                                Message::User(_) => Some(message.text()),
-                                _ => None,
-                            })
-                            .unwrap_or_default();
+                        // Skips compaction checkpoints (user-role, not the user's words).
+                        let input =
+                            crate::agent::tinyagents::last_user_message(&receipt.outcome.history)
+                                .map(user_text_with_markers)
+                                .unwrap_or_default();
                         let sidecar = receipt
                             .options
                             .context
@@ -1789,11 +1301,6 @@ impl OpenHumanSessionHost {
                             .unwrap_or_else(|poisoned| poisoned.into_inner())
                             .prelude
                             .clone();
-                        let citations = state
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .pending_citations
-                            .take();
                         if let Some(prelude) = prelude {
                             prelude.finalize_after_durable_commit(&receipt).await;
                             account_committed_turn_against_goal(
@@ -1803,14 +1310,6 @@ impl OpenHumanSessionHost {
                             )
                             .await;
                         }
-                        // Citations are display-only, but their result belongs
-                        // to this committed turn. Join only after durability so
-                        // a failed/cancelled candidate never becomes the UI's
-                        // "last turn" citation set.
-                        let citations = match citations {
-                            Some(task) => task.await.unwrap_or_default(),
-                            None => Vec::new(),
-                        };
                         let _ =
                             progress::send_receipt_progress(&receipt, &input, &output, iterations)
                                 .await;
@@ -1824,7 +1323,6 @@ impl OpenHumanSessionHost {
                                 .unwrap_or_else(|poisoned| poisoned.into_inner());
                             state.last_turn_hit_cap = interrupted;
                             state.last_turn_usage = Some(usage);
-                            state.last_turn_citations = citations;
                         }
                         crate::agent::hooks::fire_hooks(
                             &post_turn_hooks,
@@ -1915,6 +1413,7 @@ impl OpenHumanSessionHost {
             visible_tool_specs: self.visible_tool_specs.clone(),
             visible_tool_names: self.visible_tool_names.clone(),
             deferred_tool_names: self.deferred_tool_names.clone(),
+            permanent_tool_names: self.permanent_tool_names.clone(),
             discovery_enabled: self.discovery_enabled,
             requested_deferred_tools: self.requested_deferred_tools.clone(),
             auto_include_new_synthesized_tools: auto_include_new_synthesized_tools

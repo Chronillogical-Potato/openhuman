@@ -15,9 +15,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::security::devices::crypto::{
-    base64url_decode, base64url_encode, DeviceKeypair, TunnelCipher,
-};
+use crate::security::devices::crypto::{base64url_encode, DeviceKeypair, TunnelCipher};
 use crate::security::devices::store;
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
@@ -274,52 +272,6 @@ fn build_secret_store(config: &Config) -> SecretStore {
         .parent()
         .map_or_else(|| std::path::PathBuf::from("."), std::path::PathBuf::from);
     SecretStore::new(&data_dir, true)
-}
-
-/// Reconstruct a `DeviceKeypair` from the encrypted private key store.
-///
-/// Returns `None` when the channel has no persisted key or decryption fails.
-pub(crate) fn load_keypair_from_store(
-    config: &Config,
-    channel_id: &str,
-) -> Option<Arc<DeviceKeypair>> {
-    let enc = PERSISTED_KEYPAIRS
-        .lock()
-        .unwrap()
-        .get(channel_id)
-        .cloned()?;
-    let store = build_secret_store(config);
-    let private_b64 = store
-        .decrypt(&enc)
-        .map_err(|e| {
-            log::warn!(
-                "[devices/rpc] decrypt keypair failed channel_id={}: {e}",
-                channel_id
-            );
-        })
-        .ok()?;
-    let priv_bytes = base64url_decode(&private_b64)
-        .map_err(|e| {
-            log::warn!(
-                "[devices/rpc] base64url decode keypair failed channel_id={}: {e}",
-                channel_id
-            );
-        })
-        .ok()?;
-    if priv_bytes.len() != 32 {
-        log::warn!(
-            "[devices/rpc] loaded private key has wrong length {} channel_id={}",
-            priv_bytes.len(),
-            channel_id
-        );
-        return None;
-    }
-    let arr: [u8; 32] = priv_bytes.try_into().ok()?;
-    log::debug!(
-        "[devices/rpc] keypair restored from encrypted store channel_id={}",
-        channel_id
-    );
-    Some(Arc::new(DeviceKeypair::from_private_bytes(arr)))
 }
 
 // ---------------------------------------------------------------------------

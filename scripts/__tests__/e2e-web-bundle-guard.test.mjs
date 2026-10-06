@@ -25,6 +25,7 @@ const repoRoot = path.join(
   "..",
 );
 const MARKER = "openhuman-e2e-bundle.marker";
+const BUNDLE_INPUTS = ["src/App.tsx", "public/favicon.ico", "index.html", "vite.config.ts"];
 
 function writeExecutable(file, body) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -48,6 +49,14 @@ function makeTree(script) {
       path.join(repoRoot, "app", "scripts", file),
       path.join(root, "app", "scripts", file),
     );
+  }
+  // e2e-web-session.sh checks these paths before starting the mock or core.
+  // The fixture needs the same bundle inputs as the port-guard tests so this
+  // suite reaches the guard under test instead of failing on its test tree.
+  for (const rel of BUNDLE_INPUTS) {
+    const file = path.join(root, "app", rel);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "");
   }
   fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
   fs.copyFileSync(
@@ -186,6 +195,66 @@ test("the session accepts a marked bundle and proceeds past the guard", () => {
   } finally {
     tree.cleanup();
   }
+});
+
+test("CI Full refreshes the E2E marker after restoring its content-keyed artifact", () => {
+  const workflow = fs.readFileSync(
+    path.join(repoRoot, ".github/workflows/ci-full.yml"),
+    "utf8",
+  );
+  const restoreStep = workflow.match(
+    /- name: Restore Playwright E2E artifact([\s\S]*?)(?=\n      - name: |\n    [a-zA-Z_-]+:|$)/,
+  )?.[1];
+
+  assert.ok(restoreStep, "CI Full must keep a Playwright artifact restore step");
+  assert.match(restoreStep, /cp -a repo\/app\/dist-web app\//);
+  assert.match(restoreStep, /touch app\/dist-web\/openhuman-e2e-bundle\.marker/);
+
+  const cacheStep = workflow.match(
+    /- name: Restore cached Playwright E2E artifact([\s\S]*?)(?=\n      - name: |\n    [a-zA-Z_-]+:|$)/,
+  )?.[1];
+  assert.ok(cacheStep, "CI Full must keep a Playwright artifact cache step");
+  assert.match(cacheStep, /\.github\/workflows\/ci-full\.yml/);
+  assert.match(
+    cacheStep,
+    /e2e-playwright-linux-c3c20d625bcc9f75e50c3c2c2b75c88d3e60a3f4352b0f19f5327b490438722d-/,
+  );
+  const jobBlock = (id, nextId) => {
+    const start = workflow.indexOf(`  ${id}:\n`);
+    const end = workflow.indexOf(`\n  ${nextId}:\n`, start);
+    return start < 0 || end < 0
+      ? undefined
+      : workflow.slice(start, end);
+  };
+  const pinnedImage =
+    "image: ghcr.io/tinyhumansai/openhuman_ci:latest@sha256:c3c20d625bcc9f75e50c3c2c2b75c88d3e60a3f4352b0f19f5327b490438722d";
+  const producerJob = jobBlock("build-playwright-e2e-artifact", "playwright-e2e");
+  const consumerJob = jobBlock("playwright-e2e", "e2e-desktop");
+  assert.ok(producerJob, "Playwright artifact producer job must exist");
+  assert.ok(consumerJob, "Playwright artifact consumer job must exist");
+  assert.ok(
+    producerJob.includes(pinnedImage),
+    "Playwright artifact producer must use the cache-key CI image",
+  );
+  assert.ok(
+    consumerJob.includes(pinnedImage),
+    "Playwright artifact consumer must use the cache-key CI image",
+  );
+  assert.equal(
+    producerJob.match(/container:\n\s+image: .+/)?.[0],
+    consumerJob.match(/container:\n\s+image: .+/)?.[0],
+    "Playwright artifact producer and consumer must use the same pinned CI image",
+  );
+  assert.match(cacheStep, /crates\/\*\*/);
+  assert.match(cacheStep, /vendor\/\*\*/);
+  assert.match(cacheStep, /build\.rs/);
+  assert.match(cacheStep, /\.cargo\/\*\*/);
+  assert.match(cacheStep, /scripts\/ci\/product-features\.\*/);
+  assert.match(cacheStep, /app\/tsconfig\*\.json/);
+  assert.match(cacheStep, /packages\/\*\*/);
+  assert.match(cacheStep, /pnpm-workspace\.yaml/);
+  assert.match(cacheStep, /'package\.json'/);
+  assert.match(cacheStep, /app\/scripts\/e2e-ports\.sh/);
 });
 
 test("e2e-web-build.sh marks the bundle it builds, recording the E2E settings", () => {

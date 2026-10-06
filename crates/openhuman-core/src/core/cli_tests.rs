@@ -2,6 +2,7 @@ use super::{
     grouped_schemas, load_dotenv_for_cli, parse_function_params, parse_input_value,
     parse_launch_options,
 };
+use crate::config::test_env::EnvVarGuard;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use tempfile::tempdir;
 
@@ -52,11 +53,19 @@ fn launch_options_reject_missing_or_empty_values() {
     }
 }
 
-/// Serialises env-mutating CLI tests via the crate-wide backend env lock —
-/// these tests set `BACKEND_URL`, which `openhuman_tinyhumans::backend::url`
-/// tests also read/remove, so a module-local lock is not enough.
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    crate::config::app_env::env_test_lock()
+/// Serialises env-mutating CLI tests on the crate-wide env lock and the
+/// backend env lock — these tests set `BACKEND_URL`, which
+/// `openhuman_tinyhumans::backend::url` tests also read/remove, and other
+/// suites mutate env under `TEST_ENV_LOCK` alone, so neither lock suffices on
+/// its own. Taken in the established order: `TEST_ENV_LOCK`, then backend.
+fn env_lock() -> (
+    tokio::sync::MutexGuard<'static, ()>,
+    tokio::sync::MutexGuard<'static, ()>,
+) {
+    (
+        crate::config::test_env::lock_env(),
+        crate::config::app_env::env_test_lock(),
+    )
 }
 
 #[test]
@@ -69,7 +78,6 @@ fn grouped_schemas_contains_migrated_namespaces() {
     assert!(grouped.contains_key("config"));
     assert!(grouped.contains_key("auth"));
     assert!(grouped.contains_key("service"));
-    assert!(grouped.contains_key("migrate"));
     assert!(grouped.contains_key("inference"));
 }
 
@@ -166,15 +174,10 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
     .expect("write .env");
 
     let original_dir = std::env::current_dir().expect("current dir");
-    let prior_backend = std::env::var("BACKEND_URL").ok();
-    let prior_app_env = std::env::var("OPENHUMAN_APP_ENV").ok();
-    let prior_dotenv_path = std::env::var("OPENHUMAN_DOTENV_PATH").ok();
-
-    unsafe {
-        std::env::remove_var("BACKEND_URL");
-        std::env::set_var("OPENHUMAN_APP_ENV", "production");
-        std::env::remove_var("OPENHUMAN_DOTENV_PATH");
-    }
+    // Env lock is held by `_guard`; the vars are restored when `_vars` drops.
+    let _vars = EnvVarGuard::unset("BACKEND_URL")
+        .with("OPENHUMAN_APP_ENV", "production")
+        .without("OPENHUMAN_DOTENV_PATH");
     std::env::set_current_dir(tmp.path()).expect("set current dir");
 
     let result = load_dotenv_for_cli();
@@ -183,20 +186,6 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
     let loaded_app_env = std::env::var("OPENHUMAN_APP_ENV").ok();
 
     std::env::set_current_dir(&original_dir).expect("restore current dir");
-    unsafe {
-        match prior_backend {
-            Some(value) => std::env::set_var("BACKEND_URL", value),
-            None => std::env::remove_var("BACKEND_URL"),
-        }
-        match prior_app_env {
-            Some(value) => std::env::set_var("OPENHUMAN_APP_ENV", value),
-            None => std::env::remove_var("OPENHUMAN_APP_ENV"),
-        }
-        match prior_dotenv_path {
-            Some(value) => std::env::set_var("OPENHUMAN_DOTENV_PATH", value),
-            None => std::env::remove_var("OPENHUMAN_DOTENV_PATH"),
-        }
-    }
 
     result.expect("dotenv load should succeed");
     assert_eq!(
@@ -301,52 +290,6 @@ fn chat_alias_points_to_the_separate_executable() {
 // `OPENHUMAN_WORKSPACE`, i.e. env mutation plus disk writes. Same reasoning
 // recorded in the M5.4 block of `all_tests.rs`.
 
-use crate::core::all::{
-    capability_for_parts, capability_for_rpc_method, sole_capability_for_namespace,
-};
-use crate::core::cli_capability::capability_verdict;
-use tinymemory_api::capabilities::Capabilities;
-
-#[test]
-fn capability_gated_namespace_reports_a_config_fact_not_a_typo() {
-    let required = sole_capability_for_namespace("memory_tree");
-    assert!(required.is_some(), "memory_tree must be a gated namespace");
-    let err = capability_verdict(
-        "null",
-        Capabilities::mandatory(),
-        required,
-        "openhuman memory_tree",
-    )
-    .expect_err("the null driver does not advertise `tree`");
-    let msg = err.to_string();
-    assert!(msg.contains("null"), "{msg}");
-    assert!(msg.contains("tree"), "{msg}");
-    assert!(!msg.contains("unknown namespace"), "{msg}");
-}
-
-#[test]
-fn capability_gated_function_reports_a_config_fact_not_a_typo() {
-    let required = capability_for_parts("memory", "doc_ingest").flatten();
-    let err = capability_verdict(
-        "null",
-        Capabilities::mandatory(),
-        required,
-        "openhuman memory doc_ingest",
-    )
-    .expect_err("the null driver does not advertise `ingest`");
-    let msg = err.to_string();
-    assert!(msg.contains("ingest"), "{msg}");
-    assert!(!msg.contains("unknown function"), "{msg}");
-}
-
-#[test]
-fn capability_gated_rpc_method_reports_its_family_unfiltered() {
-    assert_eq!(
-        capability_for_rpc_method("openhuman.memory_tree_wipe_all"),
-        Some(Some(tinymemory_api::capabilities::Capability::Tree))
-    );
-}
-
 /// A real typo must stay a typo — the gate never fires for it, because the
 /// unfiltered lookup finds no controller to name a family for.
 #[test]
@@ -382,89 +325,14 @@ fn unknown_function_in_a_live_namespace_still_reports_unknown_function() {
 #[test]
 fn default_build_leaves_the_generic_namespace_path_unchanged() {
     let grouped = grouped_schemas();
-    for ns in ["memory", "memory_tree", "memory_goals"] {
-        assert!(grouped.contains_key(ns), "`{ns}` must still be listed");
-    }
+    assert!(
+        grouped.contains_key("memory"),
+        "`memory` must still be listed"
+    );
     // `memory_diff` was removed with the `memory-git` gate; it must not come
     // back as a listed namespace.
     assert!(
         !grouped.contains_key("memory_diff"),
         "`memory_diff` was removed and must not be listed"
-    );
-}
-
-/// The gate must fire on the path a user actually takes.
-///
-/// This drives `run_namespace_command` itself rather than the pure
-/// `capability_verdict` helper, because the two disagreed once: the check
-/// originally sat in the not-found arm, which is unreachable on a plain CLI
-/// invocation (no ambient `CoreContext` ⇒ `grouped_schemas()` is unfiltered ⇒
-/// the gated function is still *found*). Every helper-level test passed while
-/// the real command ran to completion under a driver that does not advertise
-/// the family. Assert through the entry point or this regresses silently.
-#[test]
-fn generic_namespace_path_reports_the_config_fact_under_a_driver_without_the_family() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let workspace = tempdir().expect("temp workspace");
-
-    // SAFETY: serialised by TEST_ENV_LOCK, and both vars are restored below.
-    std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
-    std::env::set_var("OPENHUMAN_MEMORY_DRIVER", "null");
-
-    let err = super::run_namespace_command(
-        "memory_tree",
-        &["list_chunks".to_string()],
-        &grouped_schemas(),
-    )
-    .expect_err("`tree` is not advertised by the null driver, so this must not run");
-
-    std::env::remove_var("OPENHUMAN_MEMORY_DRIVER");
-    std::env::remove_var("OPENHUMAN_WORKSPACE");
-
-    let message = err.to_string();
-    assert!(
-        message.starts_with(crate::core::cli_capability::CAPABILITY_UNAVAILABLE_PREFIX),
-        "must read as a configuration fact, not an unknown-command error: {message}"
-    );
-    assert!(
-        message.contains("null") && message.contains("tree"),
-        "must name the bound driver and the missing family: {message}"
-    );
-    assert!(
-        !message.contains("unknown"),
-        "a gated command is not a typo and must not read like one: {message}"
-    );
-}
-
-#[test]
-fn raw_call_path_rejects_a_method_the_bound_driver_does_not_advertise() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let workspace = tempdir().expect("temp workspace");
-
-    // SAFETY: serialised by TEST_ENV_LOCK, and both vars are restored below.
-    std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
-    std::env::set_var("OPENHUMAN_MEMORY_DRIVER", "null");
-
-    let err = super::run_call_command(&[
-        "--method".to_string(),
-        "openhuman.memory_tree_wipe_all".to_string(),
-    ])
-    .expect_err("the null driver must not dispatch a tree wipe");
-
-    std::env::remove_var("OPENHUMAN_MEMORY_DRIVER");
-    std::env::remove_var("OPENHUMAN_WORKSPACE");
-
-    let message = err.to_string();
-    assert!(
-        message.starts_with(crate::core::cli_capability::CAPABILITY_UNAVAILABLE_PREFIX),
-        "must reject before dispatching: {message}"
-    );
-    assert!(
-        message.contains("null") && message.contains("tree"),
-        "{message}"
     );
 }

@@ -34,7 +34,7 @@ logic. Every controller it exposes is implemented by a domain module under
 | `mod.rs` | `ControllerSchema`/`FieldSchema`/`TypeSchema`: the controller contract; module declarations. |
 | `all.rs` | The controller registry: `RegisteredController`, `RegisteredCliAdapter`, `DomainGroup`, `all_registered_controllers()`, `all_controller_schemas()`, `rpc_method_name()`, `validate_params()`, `all_http_method_schemas()`. |
 | `dispatch.rs` | `dispatch()`: the 4-tier RPC router. |
-| `bus.rs` | The `BUS: OnceBus<DomainEvent>` singleton, `EVENTS_ROOT`/`EVENTS_INTERFACE`/`EVENTS_VERSION`, `init`/`init_over_socket`. |
+| `bus.rs` | The `BUS: OnceBus<DomainEvent>` singleton, `EVENTS_ROOT`/`EVENTS_INTERFACE`/`EVENTS_VERSION`, `init`. |
 | `events.rs` | `DomainEvent`: the full event catalog, `domain()` routing. |
 | `outcome.rs` | `Outcome<T>`, `apply_log_envelope`, `unwrap_rpc`: the controller result and its wire shape. |
 | `structured_error.rs` | `StructuredRpcError`: typed error envelope sentinel-encoded into a controller's `Err(String)`. |
@@ -49,14 +49,14 @@ logic. Every controller it exposes is implemented by a domain module under
 | `legacy_aliases.rs` | `resolve_legacy`: rewrites retired method names before dispatch; mirrors `app/src/services/rpcMethods.ts`'s `LEGACY_METHOD_ALIASES`. |
 | `observability.rs` | `report_error` + Sentry `before_send` filters that drop deterministic provider/updater noise. |
 | `log_redaction.rs` | `scrub_secrets`: regex secret scrubbing shared by the Sentry path and always-on log path. |
-| `rpc_log.rs` | `redact_params_for_log` (key-name redaction for the `[rpc:dispatch]` trace log in `dispatch.rs`) plus `format_request_id` / `summarize_rpc_result` / `redact_result_for_trace` helpers with no caller yet. |
+| `rpc_log.rs` | `redact_params_for_log` (key-name redaction for the `[rpc:dispatch]` trace log in `dispatch.rs`) |
 | `logging.rs` | `init_for_cli_run` / `init_for_embedded`: logger setup for each host kind. |
 | `shutdown.rs` | Graceful shutdown signal plumbing. |
 | `sentry_transport.rs` | Sentry client setup, gated by the `crash-reporting` feature. |
 | `http_server_status.rs` | `HTTP_SERVER_COMPILED_IN`: ungated compile-time marker so a listener-less core fails the build instead of shipping silently. |
 | `bus_testing.rs` | `isolated_bus()`: a private bus for tests that must observe events without racing the process-global singleton. |
 | `runtime/` | `CoreBuilder` → `CoreRuntime` composition API: see [runtime/README.md](runtime/README.md). |
-| `subsystem/` | The subsystem driver registry (`SubsystemRegistry`, `DriverClass`, `DriverHealth`) and the `subsystems` RPC namespace. |
+| `subsystem/` | The `subsystems` status namespace (`SubsystemStatus` row, RPC and CLI table); memory fills its row. |
 
 ## Controller registration and `DomainGroup`
 
@@ -190,21 +190,17 @@ and say so.
 `runtime/` is the embeddable composition API: `CoreBuilder` builds a
 `CoreRuntime` in two phases (initialization, then serve); see
 [runtime/README.md](runtime/README.md) for the full builder reference.
-`AGENT_WORKER_STACK_BYTES` (16 MiB) and `MAX_BLOCKING_THREADS` (64) live in
+`AGENT_WORKER_STACK_BYTES` (20 MiB) and `MAX_BLOCKING_THREADS` (64) live in
 `runtime/mod.rs`: a single agent turn is a very large async state machine,
 and delegating to a sub-agent nests another one, which overflows tokio's
 default 2 MiB worker stack; every multi-thread runtime that can host a turn
 (the desktop shell, `openhuman-core run`, `agent_cli`) sets both constants.
 
-`subsystem/` is the generic half of the subsystem-driver model: `DriverClass`
-and `DriverHealth` describe a bound driver's shape and health without naming
-any specific subsystem's contract crate, and `SubsystemRegistry` holds one
-bound driver per capability slot. The memory adapter
-(`crate::memory::binding`) is the first consumer, converting
-`tinymemory_api::MemoryHealth` into `DriverHealth`; the read-only `status`
-projection backs the `subsystems` RPC namespace and the `openhuman
-subsystems` CLI table. Later subsystems (inference, channels, sandbox) are
-expected to reuse the same registry rather than invent their own.
+`subsystem/` owns the generic `SubsystemStatus` wire row behind the `subsystems`
+RPC namespace and the `openhuman subsystems` CLI table. Memory is the only
+occupant: `crate::memory::status` projects the bound Memory v2 engine into its
+row, and a later subsystem appends its own adapter call in
+`subsystem::schemas::subsystems_status`.
 
 ## The controller contract
 

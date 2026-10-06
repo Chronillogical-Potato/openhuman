@@ -3,6 +3,7 @@
 //! These tests use only loopback HTTP mocks and temp workspaces. They do not
 //! require real Ollama, LM Studio, Piper, Whisper, Python, or model binaries.
 
+use crate::env_guard::EnvVarGuard;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -19,64 +20,42 @@ use openhuman_core::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::config::Config;
-use openhuman_core::security::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
-};
 use openhuman_core::inference::host_runtime::LocalAiService;
 use openhuman_core::inference::provider::factory::{
     auth_key_for_slug, create_chat_model_from_string_with_model_id, provider_for_role,
 };
 use openhuman_core::inference::provider::list_configured_models;
-use tinyinference_core::sanitize::sanitize_api_error;
+use openhuman_core::security::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
+
+/// One captured mock request: method/path, optional auth header, JSON body.
+type RecordedRequest = (String, Option<String>, Value);
 
 #[derive(Clone, Default)]
 struct MockState {
-    requests: Arc<Mutex<Vec<(String, Option<String>, Value)>>>,
-}
-
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
-        let previous = std::env::var(key).ok();
-        // SAFETY: this test binary is run with --test-threads=1 in validation.
-        unsafe { std::env::set_var(key, value) };
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.previous {
-            Some(value) => {
-                // SAFETY: this test binary is run with --test-threads=1 in validation.
-                unsafe { std::env::set_var(self.key, value) }
-            }
-            None => {
-                // SAFETY: this test binary is run with --test-threads=1 in validation.
-                unsafe { std::env::remove_var(self.key) }
-            }
-        }
-    }
+    requests: Arc<Mutex<Vec<RecordedRequest>>>,
 }
 
 // Serialize env mutation against every other aggregated suite via the
-// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvGuard` struct
+// single crate-wide SHARED_ENV_LOCK (these tests use an `EnvVarGuard` struct
 // that does not itself hold a lock). Poison is recovered so a panic
 // elsewhere cannot wedge the suite.
-fn __shared_env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn __shared_env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     crate::SHARED_ENV_LOCK
-        .get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
 }
 
- #[tokio::test]
+async fn __shared_env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    crate::SHARED_ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
+}
+
+#[tokio::test]
 async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes() {
-    let _env_lock = __shared_env_lock();
+    let _env_lock = __shared_env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -168,32 +147,27 @@ async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes
     assert_eq!(provider_for_role("chat", &config), "custom:demo-chat@0.4");
     // #6109: an unset route no longer borrows a sibling's BYOK provider; with no
     // `primary_cloud` configured it falls through to the managed backend.
-    assert_eq!(
-        provider_for_role("reasoning", &config),
-        "openhuman"
-    );
+    assert_eq!(provider_for_role("reasoning", &config), "openhuman");
 
     let (_provider, model) =
         create_chat_model_from_string_with_model_id("chat", "custom:demo-chat@0.4", &config, 0.7)
             .expect("cloud model");
     assert_eq!(model, "demo-chat");
 
-    let (_local_provider, local_model) =
-        create_chat_model_from_string_with_model_id(
-            "chat",
-            "ollama:gemma3:1b-it-qat@0.1",
-            &config,
-            0.7,
-        )
-        .expect("ollama model");
+    let (_local_provider, local_model) = create_chat_model_from_string_with_model_id(
+        "chat",
+        "ollama:gemma3:1b-it-qat@0.1",
+        &config,
+        0.7,
+    )
+    .expect("ollama model");
     assert_eq!(local_model, "gemma3:1b-it-qat");
 
-    let empty_model = match create_chat_model_from_string_with_model_id(
-        "chat", "ollama:", &config, 0.7,
-    ) {
-        Ok(_) => panic!("expected empty model error"),
-        Err(err) => err,
-    };
+    let empty_model =
+        match create_chat_model_from_string_with_model_id("chat", "ollama:", &config, 0.7) {
+            Ok(_) => panic!("expected empty model error"),
+            Err(err) => err,
+        };
     assert!(empty_model.to_string().contains("empty model"));
 
     let listed = list_configured_models("custom")
@@ -240,8 +214,8 @@ async fn provider_factory_and_model_listing_cover_cloud_local_and_invalid_shapes
 }
 
 #[tokio::test]
-async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama() {
-    let _env_lock = __shared_env_lock();
+async fn local_service_public_inference_and_diagnostics_use_loopback_ollama() {
+    let _env_lock = __shared_env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let _ollama_env = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", &base);
     let tmp = tempdir().expect("tempdir");
@@ -251,10 +225,6 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
     config.local_ai.chat_model_id = "gemma3:1b-it-qat".to_string();
     config.local_ai.vision_model_id = "llava:mock".to_string();
     config.local_ai.embedding_model_id = "bge-m3".to_string();
-    config.local_ai.preload_embedding_model = true;
-    config.local_ai.preload_vision_model = false;
-    config.local_ai.preload_stt_model = false;
-    config.local_ai.preload_tts_voice = false;
 
     let runtime = openhuman_core::inference::local_runtime_config(&config);
     let service = LocalAiService::new(&runtime);
@@ -283,15 +253,6 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
         .expect("inline");
     assert_eq!(completion, "chat:gemma3:1b-it-qat");
 
-    let assets = service.assets_status(&runtime).await.expect("assets");
-    assert!(assets.ollama_available);
-    assert_eq!(assets.chat.state, "ready");
-    assert_eq!(assets.embedding.state, "ready");
-    assert!(matches!(
-        assets.tts.state.as_str(),
-        "ready" | "ondemand" | "missing"
-    ));
-
     let diagnostics = service.diagnostics(&runtime).await.expect("diagnostics");
     assert_eq!(diagnostics["ollama_running"], true);
     assert_eq!(diagnostics["expected"]["chat_found"], true);
@@ -303,10 +264,6 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
             >= 4
     );
 
-    let progress = service.downloads_progress(&runtime).await.expect("progress");
-    assert_eq!(progress.chat.id, "gemma3:1b-it-qat");
-    assert_eq!(progress.embedding.id, "bge-m3");
-
     let disabled_config = Config::default();
     let disabled_runtime = openhuman_core::inference::local_runtime_config(&disabled_config);
     let disabled_err = service
@@ -314,17 +271,16 @@ async fn local_service_public_inference_assets_and_shutdown_use_loopback_ollama(
         .await
         .expect_err("disabled prompt");
     assert_eq!(disabled_err, "local ai is disabled");
-
-    service.shutdown_owned_ollama(&runtime).await;
-    assert!(!service.has_owned_ollama());
 }
 
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.api_url = Some("http://127.0.0.1:9".to_string());
     config

@@ -10,23 +10,31 @@ const repoRoot = path.join(
   "..",
 );
 
+import { AREA_ENV, buildPlan } from "../ci/self-hosted/lanes-plan.mjs";
 const workflow = fs.readFileSync(
-  path.join(repoRoot, ".github", "workflows", "ci-lite.yml"),
+  path.join(repoRoot, "scripts", "ci", "self-hosted", "lanes-plan.mjs"),
   "utf8",
 );
+const plan = buildPlan({
+  profile: "ex63",
+  areas: Object.fromEntries(Object.keys(AREA_ENV).map((key) => [key, true])),
+  env: { CI_SCRATCH_DIR: "/scratch" },
+});
+const commands = plan.lanes.flatMap((lane) => lane.checks.map((check) => check.run)).join("\n");
 const rustCoverage = fs.readFileSync(
   path.join(repoRoot, "scripts", "ci", "rust-coverage.sh"),
   "utf8",
 );
 
-test("CI Lite runs the complete frontend suite for frontend changes", () => {
-  assert.match(workflow, /pnpm --filter openhuman-app test:coverage/);
-  assert.doesNotMatch(workflow, /vitest related|CHANGED_FILES|frontend-src/);
+test("CI lanes run the complete frontend suite", () => {
+  assert.match(commands, /pnpm --filter openhuman-app test:coverage/);
+  assert.doesNotMatch(commands, /vitest related|CHANGED_FILES|frontend-src/);
+  assert.match(workflow, /test:coverage/);
 });
 
-test("CI Lite runs the complete Rust suite for Rust-core changes", () => {
-  assert.match(workflow, /bash scripts\/ci\/rust-coverage\.sh/);
-  assert.doesNotMatch(workflow, /rust-core-src|rust-core-full/);
+test("CI lanes run the complete Rust suite", () => {
+  assert.match(commands, /bash scripts\/ci\/rust-coverage\.sh/);
+  assert.doesNotMatch(commands, /rust-core-src|rust-core-full/);
   assert.doesNotMatch(rustCoverage, /CHANGED_FILES|MAX_CHANGED_FILES/);
 
   for (const crate of [

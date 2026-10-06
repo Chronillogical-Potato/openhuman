@@ -1,134 +1,141 @@
 ---
 description: >-
-  Optional, opt-in local AI via Ollama or LM Studio. Powers memory embeddings, summary-tree
-  building, learning passes, and explicitly routed chat/reasoning workloads on-device.
+  Use a local model runtime you run yourself (Ollama, LM Studio, MLX, OMLX, or
+  any OpenAI-compatible server) as an OpenHuman provider. OpenHuman does not
+  install the runtime or download models.
 icon: microchip
 ---
 
 # Local AI (optional)
 
-OpenHuman can run a local model on your machine for workloads where keeping data on-device matters: **memory embeddings, summary-tree building, learning and reflection passes, and explicitly routed chat or reasoning workloads**. It is **opt-in** and ships **off** by default.
+OpenHuman can send any workload to a model running on your own machine: chat, reasoning, vision, memory embeddings, summary-tree building, and learning/reflection passes. Local AI is **opt-in** and **off** by default.
 
-This is deliberate scoping. The previous design tried to put every modality on-device by default, and the result was a heavy, hardware-sensitive footprint. Today, local AI stays explicit: recurring privacy-sensitive work can run locally, and chat/reasoning can also run locally when you route those workloads to a local provider.
+OpenHuman does not install, start, stop, or update a local runtime, and it does not download model weights. You:
 
-## What runs local when you turn it on
+1. install and run the runtime yourself (Ollama, LM Studio, MLX, OMLX, or another OpenAI-compatible server),
+2. pull or load the models you want with that runtime's own tools (for example `ollama pull bge-m3`),
+3. add the runtime's endpoint to OpenHuman as a provider and route workloads to it.
 
-| Workload                  | Default model                     | Implementation                                                                                                                 |
-| ------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Memory embeddings**     | `bge-m3`                          | `OllamaEmbeddingModel`, built by `crates/tinyinference-embeddings/src/factory.rs` in `vendor/tinyagents/vendor/tinyinference` - used by the [Memory Tree](../obsidian-wiki/memory-tree.md) for vector search. |
-| **Summary-tree building** | `gemma3:1b-it-qat` (configurable) | `crates/tinymemory-core/src/tree/summarise.rs` in `vendor/tinymemory` - source / topic / global summary builders for the Memory Tree.      |
-| **Learning / reflection** | small chat model                  | `crates/openhuman-core/src/agent/learning/reflection.rs` - passes that consolidate what was learned.                                       |
-| **Chat**                  | configured local chat model       | `Config::workload_local_model("chat")` reads `chat_provider`; `crates/openhuman-core/src/inference/provider/factory/routing.rs` handles hint routing.        |
-| **Reasoning**             | configured local chat model       | `Config::workload_local_model("reasoning")` reads `reasoning_provider`; see [Opting in](#opting-in).                           |
+If a workload names a model the runtime does not have, the request fails with the runtime's error. Pull the model and retry; OpenHuman will not fetch it for you.
 
-Each of these is an explicit opt-in. Turning on local AI does not silently route everything through it, you choose the workloads.
+## Supported runtimes
+
+Every local runtime is reached over its OpenAI-compatible HTTP API. The provider string prefix decides which runtime a workload uses (`crates/openhuman-core/src/inference/provider/factory/local_runtime.rs`):
+
+| Runtime                          | Provider string        | Default endpoint           | Endpoint overrides (highest first)                                                                            |
+| -------------------------------- | ---------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [Ollama](https://ollama.com)     | `ollama:<model>`       | `http://127.0.0.1:11434`   | `local_ai.base_url`, then `OPENHUMAN_OLLAMA_BASE_URL`, then `OLLAMA_HOST`. OpenHuman appends `/v1` for chat. |
+| [LM Studio](https://lmstudio.ai) | `lmstudio:<model>`     | `http://localhost:1234/v1` | `OPENHUMAN_LM_STUDIO_BASE_URL`, then `LM_STUDIO_BASE_URL`, then `local_ai.base_url`                           |
+| MLX (`mlx_lm.server`)            | `mlx:<model>`          | `http://127.0.0.1:8080/v1` | `OPENHUMAN_LOCAL_INFERENCE_URL`, then `MLX_SERVER_URL`, then `local_ai.base_url`                              |
+| OMLX                             | `omlx:<model>`         | `http://127.0.0.1:8000/v1` | `OPENHUMAN_LOCAL_INFERENCE_URL`, then `OMLX_SERVER_URL`, then `local_ai.base_url`                             |
+| Any OpenAI-compatible server     | `local-openai:<model>` | `http://127.0.0.1:8080/v1` | `OPENHUMAN_LOCAL_INFERENCE_URL`, then `LOCAL_OPENAI_URL`, then `local_ai.base_url`                            |
+
+LM Studio, OMLX, and `local-openai` send `local_ai.api_key` as a Bearer token when one is set; Ollama and MLX send no auth. Local runtimes do not need an OpenHuman account.
+
+The model part of the provider string is passed to the runtime unchanged, so it must match the runtime's own model id (for Ollama, the name you pulled, including the tag). An optional `@<temperature>` suffix pins a temperature, for example `ollama:qwen2.5:14b@0.2`.
+
+## Multiple self-hosted servers
+
+If you run several OpenAI-compatible model servers, a gateway can expose one
+endpoint and use named model IDs to select the upstream. See
+[Use multiple local LLM servers](../../guides/multiple-local-llm-servers.md) for an
+optional community Model Router example with a Mac mini and Linux GPU PC.
+OpenHuman does not bundle or supervise the gateway.
+
+## Adding a local runtime in the app
+
+1. Start the runtime and make sure its server is listening. For Ollama, `curl http://localhost:11434/api/tags` should return JSON.
+2. Pull or load the models you plan to use (see [Use OpenHuman with a local model](../../guides/local-model.md)).
+3. Open **Connections → LLM**, choose **Add a provider**, and pick the runtime under **Local runtimes** (Ollama, LM Studio, OMLX). For MLX or another server, use **Add a custom provider** with its OpenAI-compatible endpoint.
+4. Confirm or edit the endpoint. On save, OpenHuman writes `local_ai.base_url` and `local_ai.provider`, turns on `local_ai.runtime_enabled`, and lists the endpoint's models. If the runtime is not reachable, the provider is not saved.
+5. Route workloads to it with **Custom routing**, choosing from the models the runtime reports.
+
+The model list comes from the runtime. A model you have not pulled does not appear; pull it in the runtime and reopen the picker.
+
+## Configuration
+
+The same setup by hand, in `config.toml`:
+
+```toml
+[local_ai]
+runtime_enabled = true                # needed for the background local features below
+provider = "ollama"                   # "ollama", "lm_studio", or "omlx"
+base_url = "http://localhost:11434"   # optional; omit to use the default
+chat_model_id = "gemma3:4b-it-qat"    # model used by local summary-tree building
+embedding_model_id = "bge-m3"
+vision_model_id = "gemma3:4b-it-qat"  # leave empty for no local vision
+```
+
+Workload routing lives at the top level of `config.toml`; each field takes a provider string:
+
+```toml
+chat_provider = "ollama:gemma3:4b-it-qat"
+reasoning_provider = "ollama:qwen2.5:14b"
+embeddings_provider = "ollama:bge-m3"
+```
+
+The workload fields are `chat_provider`, `reasoning_provider`, `agentic_provider`, `coding_provider`, `vision_provider`, `memory_provider`, `embeddings_provider`, and `learning_provider`. A field that is unset, blank, or `cloud` stays on the default route. For the background features (embeddings, memory, learning), `Config::workload_local_model(...)` in `crates/openhuman-core/src/config/schema/types/resolvers.rs` treats a workload as local only when its field is `ollama:<model>`.
+
+The legacy `local_ai.usage.*` booleans are kept only so older configs migrate. They do not override the workload fields.
+
+## What the local runtime is used for
+
+| Workload                             | Configured by                                         | Notes                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Chat, reasoning, coding, agentic** | `chat_provider`, `reasoning_provider`, ...            | Any local prefix from the table above.                                                                                              |
+| **Learning / reflection**            | `learning_provider`                                   | `crates/openhuman-core/src/agent/learning/reflection.rs`.                                                                           |
+| **Vision**                           | `vision_provider`, `local_ai.vision_model_id`         | Must be a vision-capable model. See [Local vision](#local-vision).                                                                  |
+
+For lightweight chat hints (`hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`, `hint:summarize`, `hint:medium`, `hint:tool_lite`), the [router](README.md) prefers the local provider when `local_ai.runtime_enabled = true` and it is reachable. Heavy hints (`hint:reasoning`, `hint:agentic`, `hint:coding`) stay on the default route unless the matching workload field points at a local provider.
 
 ## What stays in the cloud by default
 
-| Workload       | Why cloud                                                                                      |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| **Chat**       | Frontier reasoning quality unless `chat_provider` is explicitly set to a local provider.       |
-| **Reasoning**  | Stronger multi-step quality unless `reasoning_provider` is explicitly set to a local provider. |
-| **Vision**     | Same, unless `vision_provider` points at a local vision-capable model. See below.              |
-| **STT**        | Backend-proxied transcription through `tinyinference-voice`, with authentication bound in `crates/openhuman-core/src/voice/cloud_transcribe.rs`. There is no local STT engine. |
-| **TTS**        | Hosted [text-to-speech](../native-tools/voice.md) under the hood (`reply_speech.rs`).          |
-| **Web search** | Backend proxy (no API key on your machine).                                                    |
+| Workload       | Why                                                                                                                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **STT**        | Backend-proxied transcription (`crates/openhuman-core/src/voice/cloud_transcribe.rs`) or a third-party key. There is no local STT engine. |
+| **TTS**        | Hosted [text-to-speech](../native-tools/voice.md) by default. Local Piper works if you install it yourself and set `PIPER_BIN`.           |
+| **Web search** | Backend proxy, or your own search provider key.                                                                                           |
 
-For **lightweight or medium chat hints** (`hint:reaction`, `hint:classify`, `hint:format`, `hint:sentiment`, `hint:summarize`, `hint:medium`, `hint:tool_lite`), the [router](README.md) can prefer the local provider only when `local_ai.runtime_enabled = true` and the configured local provider is reachable.
+Any workload you have not pointed at a local provider keeps using the default route.
 
-Heavy hints (`hint:reasoning`, `hint:agentic`, `hint:coding`) stay cloud by default unless the matching workload provider field is explicitly configured locally.
+### Local text-to-speech with Piper
 
-## How it works
+Setting `local_ai.tts_provider = "piper"` runs [Piper](https://github.com/rhasspy/piper) for spoken replies. OpenHuman does not ship or install Piper or its voices: install the Piper binary and a voice model yourself and point the `PIPER_BIN` environment variable at the binary.
 
-Under the hood, OpenHuman supports two local provider paths:
+## Privacy
 
-- [Ollama](https://ollama.com), used for bundled model lifecycle, embeddings, and the existing model-asset flow.
-- [LM Studio](https://lmstudio.ai), used through its local OpenAI-compatible server for chat-style local inference.
+[Privacy Mode](../privacy-mode.md) set to `local_only` refuses every non-local chat provider at construction time and permits only the local prefixes above. It does not start a runtime or fetch models: with privacy mode on and no reachable local runtime, workloads fail rather than fall back to the cloud.
 
-For Ollama, OpenHuman talks to its OpenAI-compatible `/v1` endpoint where possible. That means:
+Without privacy mode, lightweight hints routed to a local provider that turns out to be unreachable fall back to the remote provider. Use privacy mode if strict locality matters.
 
-- The OpenAI-compatible provider (`crates/openhuman-core/src/inference/provider/crate_openai.rs`) wraps Ollama exactly the way it wraps a remote OpenAI-style provider. No special-case code path.
-- The provider router creates a _health-gated_ local provider on startup. If Ollama is not reachable, requests transparently fall back to the remote provider, no broken state.
-- Models are pulled on demand by Ollama and cached in its own store. OpenHuman doesn't ship the weights itself.
-
-For LM Studio, set `local_ai.provider = "lm_studio"` and ensure LM Studio's local server is running. OpenHuman defaults to `http://localhost:1234/v1`, probes `GET /v1/models`, and sends chat requests to `POST /v1/chat/completions`. You can override the endpoint with `local_ai.base_url`, `OPENHUMAN_LM_STUDIO_BASE_URL`, or `LM_STUDIO_BASE_URL`.
-
-## Opting in
-
-Local runtime startup is gated in the core config (`crates/openhuman-core/src/config/schema/local_ai.rs`):
-
-| Flag                                 | Default  | Meaning                                                                  |
-| ------------------------------------ | -------- | ------------------------------------------------------------------------ |
-| `local_ai.runtime_enabled`           | `false`  | Master switch. `false` ⇒ no local provider is created at all.            |
-| `local_ai.opt_in_confirmed`          | `false`  | Explicit opt-in marker. Bootstrap forces `false` unless you re-opt.      |
-| `local_ai.provider`                  | `ollama` | Local provider: `ollama` or `lm_studio`.                                 |
-| `local_ai.base_url`                  | unset    | Optional provider URL. LM Studio defaults to `http://localhost:1234/v1`. |
-| `local_ai.usage.embeddings`          | `false`  | Legacy preset/migration flag for memory embeddings.                      |
-| `local_ai.usage.learning_reflection` | `false`  | Legacy preset/migration flag for learning passes.                        |
-
-Unified workload provider fields control chat/reasoning routing. Set them to an Ollama provider string when you want those paths on-device:
-
-```toml
-chat_provider = "ollama:llama3.1:8b"
-reasoning_provider = "ollama:qwen2.5:14b"
-```
-
-On current configs, the `*_provider` fields are the source of truth for workload routing (`Config::workload_local_model(...)` in `crates/openhuman-core/src/config/schema/types.rs`). Unset, blank, `cloud`, `openhuman`, or any non-`ollama:` value keeps that workload on the cloud/default route. Setting a provider string such as `ollama:all-minilm:latest` or `ollama:qwen2.5:14b` routes that workload on-device when `local_ai.runtime_enabled = true` and the provider health check passes.
-
-The legacy `local_ai.usage.*` booleans are kept for presets and migration compatibility; they do not override the unified provider fields after migration. For deterministic routing, either set the workload provider field explicitly, or leave it unset / set it to `cloud` to force the default cloud route. The same provider-string pattern is used by `agentic_provider`, `coding_provider`, `memory_provider`, `embeddings_provider`, and `learning_provider`.
-
-### Legacy flag behavior
-
-The `local_ai.usage.*` booleans are consulted only during preset application and initial migration. After that, `Config::workload_local_model(...)` treats the matching `*_provider` field as the definitive routing control:
-
-- `embeddings_provider = "ollama:all-minilm"` routes embeddings on-device even if `local_ai.usage.embeddings = false`.
-- An unset, blank, or `cloud` `embeddings_provider` keeps embeddings on the cloud/default route even if `local_ai.usage.embeddings = true`.
-
-Prefer setting the `*_provider` fields directly when editing configuration by hand.
-
-In the desktop app, **Settings → AI & Skills → Local AI** exposes presets, pick one ("embeddings only", "memory + reflection", "everything local") and the right combination of flags is set for you. Status (Ollama reachability, model availability, per-subsystem enablement) is surfaced live via `openhuman.inference_status`.
-
-## When to turn it on
-
-Local AI is worth turning on if any of these are true:
-
-- Keep embeddings local when ingesting large volumes of email / chat.
-- Enable **summary-tree building** to work offline.
-- Keep learning and reflection passes on-device for privacy-sensitive work.
-
-It is **not** worth turning on if you only have a few sources connected, the cloud path is faster and the privacy benefit is small. There is also a hardware cost: Ollama and a small Gemma model want a few GB of RAM and pull a few GB of weights.
+The backend URL guard in `crates/openhuman-tinyhumans/src/backend/url.rs` keeps the two kinds of endpoint apart. If `api_url` is set to something that looks like a local model server (a loopback or private host on a common runner port such as 11434, 1234, 8000, or 8080, or a `/v1/chat/completions` path), backend requests ignore it and go to the hosted API. Configure local endpoints through a provider or `local_ai.base_url`, not `api_url`.
 
 ## Local vision
 
-Vision is a separate capability from chat, and **most small local models cannot do it**. Ollama does not reject an image sent to a text-only model: it drops the image and answers from the prompt text, which produces a fluent description of something the model never saw. OpenHuman therefore resolves the vision model through a capability check and refuses to route a vision request at a chat-only model.
+Vision is a separate capability from chat, and most small local models cannot do it. Ollama does not reject an image sent to a text-only model: it drops the image and answers from the prompt text, which produces a description of something the model never saw. OpenHuman resolves the vision model through a capability check and refuses to route a vision request at a known chat-only model.
 
-What that means in practice:
+- `vision_provider` and `local_ai.vision_model_id` must name a vision-capable model, and you must have pulled it. `moondream:1.8b-v2-q4_K_S` (about 1.7 GB) is a small option; `gemma3:4b-it-qat` handles chat and vision with one set of weights.
+- Gemma 3 is text-only at 270M and 1B and multimodal from 4B up. Gemma 3n is a different model and is text-only at every size.
+- Leaving `vision_model_id` empty is a valid "no local vision" setup.
+- Attaching an image to a chat turn also needs the model's **vision** flag in the model registry. See [Local models & bring your own key](local-and-byok-models.md#attaching-images-in-chat-needs-one-more-flag).
 
-- `local_ai.vision_model_id` must name a vision-capable model. `moondream:1.8b-v2-q4_K_S` (~1.7 GB) is the smallest option; `gemma3:4b-it-qat` and `gemma4:e4b-it-q8_0` handle chat and vision with one set of weights.
-- Gemma 3 is text-only at 270M and 1B, and multimodal from 4B up. **Gemma 3n is a different model and is text-only at every size**, so it is not usable for vision even though it is a capable chat model.
-- Leaving `vision_model_id` empty is a valid "no local vision" setup. A vision request then returns a message naming the config key to set and the models to pull, rather than failing silently.
-- If a configured vision model turns out to be chat-only, the core logs a warning and falls back to a vision-capable default instead of sending images to a model that would ignore them.
+## What you need
 
-The full per-model capability table lives in [Local models & bring your own key](local-and-byok-models.md).
+- The runtime installed and running. OpenHuman does not manage it.
+- The models pulled or loaded in that runtime.
+- Enough disk and RAM for the models you chose. As a rough guide, `bge-m3` is about 1.2 GB on disk and a 4B chat model about 4 GB; plan for 8 GB+ RAM, 16 GB+ for larger models.
 
-## What you'll need
+### Troubleshooting
 
-- [**Ollama**](https://ollama.com) installed and running locally, or [**LM Studio**](https://lmstudio.ai) with the local server enabled.
-- Enough disk for the models (`gemma3:1b-it-qat` \~1.0 GB, `bge-m3` \~1.2 GB, plus \~1.7 GB if you add Moondream for vision).
-- Enough RAM to keep the model resident (8 GB+ recommended, 16 GB+ ideal).
-
-OpenHuman handles the rest: lifecycle (`crates/openhuman-core/src/inference/local/service/`), API clients, health checks, and graceful fallback to remote when the local provider disappears.
-
-### LM Studio troubleshooting
-
-- Confirm the LM Studio local server is enabled and reachable at `http://localhost:1234/v1`.
-- Load the selected model in LM Studio before calling OpenHuman. Diagnostics report `load_lm_studio_model` when the configured `local_ai.chat_model_id` is not present in `/v1/models`.
-- If LM Studio uses a different port, set `local_ai.base_url` or `OPENHUMAN_LM_STUDIO_BASE_URL`.
-- LM Studio model downloads are managed inside LM Studio. OpenHuman will not pull LM Studio models from the local asset-download controls.
+- **Provider will not save, or the model list is empty.** The runtime is not reachable at the endpoint. Start it and check the port. For Ollama, run `curl http://localhost:11434/api/tags`.
+- **The runtime reports the model is missing.** The model is not pulled or loaded. Run `ollama pull <model>`, or load it in LM Studio, then retry.
+- **LM Studio on a different port.** Set `local_ai.base_url` or `OPENHUMAN_LM_STUDIO_BASE_URL`. Load the model in LM Studio before OpenHuman calls it.
+- **Ollama context too small for agent turns.** Set `local_ai.num_ctx` to send `options.num_ctx` with each Ollama chat request.
 
 ## See also
 
+- [Use OpenHuman with a local model](../../guides/local-model.md). Step-by-step setup.
 - [Local models & bring your own key](local-and-byok-models.md). Per-model capability table and BYOK setup.
-- [Memory Tree](../obsidian-wiki/memory-tree.md). what local embeddings + summarization power.
-- [Automatic Model Routing](README.md). how lightweight chat hints prefer the local provider.
-- [Privacy & Security](../privacy-and-security.md). what moves on-device when you opt in.
+- [Memory](../memory.md). Memory is stored by its engine, not by a local model.
+- [Automatic Model Routing](README.md). How lightweight chat hints prefer the local provider.
+- [Privacy Mode](../privacy-mode.md). Enforcing local-only inference.

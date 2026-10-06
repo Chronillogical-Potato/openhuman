@@ -50,7 +50,6 @@ async fn a_tool_written_against_this_path_satisfies_the_shared_trait() {
 fn a_tool_carrying_no_host_extension_yields_none() {
     let tool = DummyTool;
     assert!(pack_registry_handle(&tool).is_none());
-    assert!(generated_runtime_context(&tool, &serde_json::Value::Null).is_none());
 }
 
 #[test]

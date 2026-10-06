@@ -209,8 +209,6 @@ test.describe('Settings - Feature Preferences', () => {
     await callCoreRpc('openhuman.app_state_update_local_state', {
       onboardingTasks: {
         accessibilityPermissionGranted: false,
-        localModelConsentGiven: false,
-        localModelDownloadStarted: false,
         enabledTools: ['shell'],
         connectedSources: [],
         updatedAtMs: Date.now(),

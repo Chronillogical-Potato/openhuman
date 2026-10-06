@@ -70,10 +70,13 @@ fn config(
     };
     config.gitbooks.enabled = false;
     let mut server = McpServerConfig {
-        name: "ticktick".into(),
-        endpoint: endpoint.into(),
-        auth: McpAuthConfig::BearerToken {
-            token: SECRET.into(),
+        server: tinymcp_bus::McpServerConfig {
+            name: "ticktick".into(),
+            endpoint: endpoint.into(),
+            auth: McpAuthConfig::BearerToken {
+                token: SECRET.into(),
+            },
+            ..Default::default()
         },
         ..Default::default()
     };

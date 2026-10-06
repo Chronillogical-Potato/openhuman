@@ -46,6 +46,10 @@ WORKSPACE_DIR="${OPENHUMAN_WORKSPACE:-/home/openhuman/.openhuman}"
 # The home directory (where core.token is written when OPENHUMAN_CORE_TOKEN is
 # unset — see crates/openhuman-core/src/core/auth.rs default_root_openhuman_dir()).
 HOME_OPENHUMAN_DIR="/home/openhuman/.openhuman"
+# The agent's default projects/action directory (`~/OpenHuman`), mounted as
+# its own named volume by docker-compose.yml. Healed like the workspace so a
+# volume created before the image owned this path is still writable.
+PROJECTS_DIR="/home/openhuman/OpenHuman"
 
 echo "[docker-entrypoint] uid=$(id -u), gid=$(id -g), user=$(id -un 2>/dev/null || echo unknown)"
 echo "[docker-entrypoint] target user=${OPENHUMAN_USER} uid=${OPENHUMAN_UID} gid=${OPENHUMAN_GID}"
@@ -124,6 +128,7 @@ add_config_dir() {
 
 add_config_dir "${WORKSPACE_DIR}"
 add_config_dir "${HOME_OPENHUMAN_DIR}"
+add_config_dir "${PROJECTS_DIR}"
 # The legacy candidate is DERIVED, not configured, so it is only a candidate
 # when it already exists: `heal_dir` runs `mkdir -p`, and materializing an empty
 # sibling `.openhuman` that the core may never resolve into is a side effect a

@@ -4,41 +4,33 @@
 //! `tools/impl/README.md`; `security_for_tool_context` below is the shared
 //! `SecurityPolicy` resolver that must stay in step with the `filesystem` copy.
 
-mod insert_sql_record;
 mod install_tool;
 mod lsp;
 mod node_exec;
 mod npm_exec;
 mod proxy_config;
-mod pushover;
 mod python_exec;
 mod retrieve_tool_output;
 mod schedule;
 mod shell;
-mod tool_stats;
 mod update_apply;
 mod update_check;
-mod workspace_state;
 
 use crate::security::policy::{TrustedAccess, TrustedRoot};
 use crate::security::SecurityPolicy;
 use tinytools::ToolRunContext;
 
-pub use insert_sql_record::InsertSqlRecordTool;
 pub use install_tool::InstallToolTool;
 pub use lsp::{lsp_capability_enabled, LspTool, LSP_ENABLED_ENV};
 pub use node_exec::NodeExecTool;
 pub use npm_exec::NpmExecTool;
 pub use proxy_config::ProxyConfigTool;
-pub use pushover::PushoverTool;
 pub use python_exec::PythonExecTool;
-pub use retrieve_tool_output::RetrieveToolOutputTool;
+pub use retrieve_tool_output::{retrieve_tool_output_tool, RetrieveToolOutputTool};
 pub use schedule::ScheduleTool;
 pub use shell::ShellTool;
-pub use tool_stats::ToolStatsTool;
 pub use update_apply::UpdateApplyTool;
 pub use update_check::UpdateCheckTool;
-pub use workspace_state::WorkspaceStateTool;
 
 /// Clone `security` and scope it to the run's workspace descriptor, if any.
 ///

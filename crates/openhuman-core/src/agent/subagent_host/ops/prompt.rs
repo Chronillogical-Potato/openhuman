@@ -3,10 +3,11 @@
 //! Includes the role-contract suffix, its injector, and the tool-spec
 //! deduplication helper used before sending specs to the provider.
 
-use crate::agent::harness::artifact_offload::{
+use crate::agent::harness::artifact_offload::OFFLOAD_WRITE_TOOL;
+use std::collections::HashSet;
+use tinyagents_harness::artifacts::{
     render_artifact_offload_contract, should_render_offload_contract, ARTIFACT_OFFLOAD_HEADING,
 };
-use std::collections::HashSet;
 use tinytools::ToolSpec;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ pub(crate) fn append_artifact_offload_contract(
     agent_id: &str,
     visible_tool_names: &HashSet<String>,
 ) -> String {
-    if !should_render_offload_contract(visible_tool_names) {
+    if !should_render_offload_contract(visible_tool_names, OFFLOAD_WRITE_TOOL) {
         tracing::debug!(
             agent_id = %agent_id,
             "[artifact] sub-agent holds no file-write tool — skipping offload contract (harness-side offload still applies)"
@@ -102,7 +103,7 @@ pub(crate) fn append_artifact_offload_contract(
         prompt.push('\n');
     }
     prompt.push('\n');
-    prompt.push_str(&render_artifact_offload_contract());
+    prompt.push_str(&render_artifact_offload_contract(OFFLOAD_WRITE_TOOL));
 
     tracing::debug!(
         agent_id = %agent_id,

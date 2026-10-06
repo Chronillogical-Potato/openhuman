@@ -1,13 +1,11 @@
 //! End-to-end tests for `openhuman::sandbox::cwd_jail`.
 //!
-//! Each test goes through the public surface only — `Jail`, `spawn`,
-//! `JailRegistry`, `default_backend` — and (where the platform allows it)
-//! actually exercises the OS sandbox by trying to do something it should
-//! be blocked from doing.
+//! Each test goes through the public surface only (`Jail`, `spawn`) and
+//! actually exercises the OS sandbox by trying to do something it should be
+//! blocked from doing. Registry, backend-selection and builder semantics are
+//! covered by `vendor/tinybox/crates/tinybox-jail` unit tests.
 //!
 //! Platform breakdown:
-//! - **Common** (all OSes): registry CRUD + spawn via `NoopBackend`, jail
-//!   builder semantics. Runs in every CI matrix slot.
 //! - **Linux**: `target_os = "linux"` gate exercises Landlock by spawning
 //!   `/bin/sh` and trying to write outside the jail.
 //! - **macOS**: same shape, exercises Seatbelt via `/usr/bin/touch`.
@@ -15,19 +13,15 @@
 //!   the raw-`HANDLE` → `Child` bridge lands (see TODO in
 //!   `crates/openhuman-core/src/cwd_jail/windows.rs`).
 
+#![allow(dead_code, unused_imports)]
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-#[cfg(any(
-    all(target_os = "linux", feature = "sandbox-landlock"),
-    target_os = "macos",
-    target_os = "windows"
-))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 use openhuman_core::sandbox::cwd_jail::spawn;
-use openhuman_core::sandbox::cwd_jail::{
-    default_backend, spawn_with, Jail, JailRegistry, NoopBackend,
-};
+use openhuman_core::sandbox::cwd_jail::Jail;
 
 fn unique_tempdir(tag: &str) -> PathBuf {
     let p = std::env::temp_dir().join(format!(
@@ -43,86 +37,40 @@ fn unique_tempdir(tag: &str) -> PathBuf {
     p
 }
 
-// ── Common: runs on every platform ──────────────────────────────────
-
-#[test]
-fn registry_full_lifecycle_with_noop() {
-    let base = unique_tempdir("lifecycle");
-    let reg = JailRegistry::open(&base).unwrap();
-
-    // Create several jails in parallel.
-    let a = reg.create("agent-a").unwrap();
-    let b = reg.create("agent-b").unwrap();
-    let c = reg.create("agent-c").unwrap();
-    assert_eq!(reg.list().len(), 3);
-
-    // Rename + notes update timestamps.
-    let renamed = reg.rename(&a.id, "agent-a-renamed").unwrap();
-    assert_eq!(renamed.label, "agent-a-renamed");
-    let noted = reg
-        .set_notes(&a.id, Some("owner=stevent95".into()))
-        .unwrap();
-    assert_eq!(noted.notes.as_deref(), Some("owner=stevent95"));
-
-    // Spawn through the registry into one of the jails.
-    let mut cmd = noop_exit_zero_cmd();
-    cmd.stdout(Stdio::null()).stderr(Stdio::null());
-    let mut child = reg.spawn_in_with(&b.id, &NoopBackend, cmd).unwrap();
-    let status = child.wait().unwrap();
-    assert!(status.success() || cfg!(windows));
-
-    // Delete one, clear the rest.
-    reg.delete(&c.id).unwrap();
-    assert!(reg.get(&c.id).is_none());
-    let cleared = reg.clear().unwrap();
-    assert_eq!(cleared, 2);
-    assert!(reg.list().is_empty());
-
-    // Reopen — empty index round-trips.
-    drop(reg);
-    let reg2 = JailRegistry::open(&base).unwrap();
-    assert!(reg2.list().is_empty());
-
-    fs::remove_dir_all(&base).ok();
-}
-
-#[test]
-fn jail_canonicalize_rejects_missing_root() {
-    let jail = Jail::new("/does/not/exist/at/all", "missing");
-    let err = spawn_with(&NoopBackend, &jail, noop_exit_zero_cmd()).unwrap_err();
-    assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
-}
-
-#[test]
-fn default_backend_is_named_and_available() {
-    let b = default_backend();
-    assert!(!b.name().is_empty());
-    // On every supported platform the auto-detected backend should be
-    // available — even noop returns true.
-    assert!(b.is_available());
-}
-
-#[test]
-fn jail_builder_carries_intent_through_clone() {
-    // `spawn` clones the jail before canonicalize; verify a chained
-    // builder still produces the right shape.
-    let dir = unique_tempdir("builder");
-    let j = Jail::new(&dir, "build")
-        .add_read_only("/usr/lib")
-        .add_read_only("/usr/share")
-        .deny_net()
-        .deny_subprocess();
-    assert_eq!(j.read_only.len(), 2);
-    assert!(!j.allow_net);
-    assert!(!j.allow_subprocess);
-    fs::remove_dir_all(&dir).ok();
-}
-
 // ── Linux: Landlock real-sandbox enforcement ────────────────────────
+//
+// Landlock is always compiled in on Linux (tinybox-jail enables it by default),
+// but the running kernel may not support it. In that case TinyBox selects its
+// `unsupported` backend, whose spawn must refuse the command instead of running
+// it unconfined. Each test exercises Landlock when available and otherwise
+// verifies that fail-closed refusal leaves the filesystem untouched.
 
-#[cfg(all(target_os = "linux", feature = "sandbox-landlock"))]
+#[cfg(target_os = "linux")]
+fn landlock_is_available() -> bool {
+    let backend = openhuman_core::sandbox::cwd_jail::default_backend();
+    match backend.name() {
+        "landlock" => {
+            assert!(
+                backend.is_available(),
+                "selected Landlock backend is unavailable"
+            );
+            true
+        }
+        openhuman_core::sandbox::cwd_jail::detect::UNSUPPORTED_BACKEND_NAME => {
+            assert!(
+                !backend.is_available(),
+                "unsupported backend claims availability"
+            );
+            false
+        }
+        name => panic!("unexpected Linux jail backend: {name}"),
+    }
+}
+
+#[cfg(target_os = "linux")]
 #[test]
-fn linux_landlock_blocks_write_outside_root() {
+fn linux_landlock_blocks_write_outside_root_or_unsupported_refuses_spawn() {
+    let landlock = landlock_is_available();
     let root = unique_tempdir("ll-root");
     let outside = unique_tempdir("ll-outside");
     let outside_target = outside.join("forbidden.txt");
@@ -134,7 +82,22 @@ fn linux_landlock_blocks_write_outside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = spawn(&jail, cmd).expect("spawn under landlock");
+    let mut child = match spawn(&jail, cmd) {
+        Ok(child) if landlock => child,
+        Err(error) if !landlock => {
+            assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+            assert!(
+                !outside_target.exists(),
+                "unsupported backend must refuse before creating {}",
+                outside_target.display()
+            );
+            fs::remove_dir_all(&root).ok();
+            fs::remove_dir_all(&outside).ok();
+            return;
+        }
+        Ok(_) => panic!("unsupported backend launched an unconfined command"),
+        Err(error) => panic!("Landlock spawn failed: {error}"),
+    };
     let _ = child.wait().expect("wait");
 
     assert!(
@@ -146,9 +109,10 @@ fn linux_landlock_blocks_write_outside_root() {
     fs::remove_dir_all(&outside).ok();
 }
 
-#[cfg(all(target_os = "linux", feature = "sandbox-landlock"))]
+#[cfg(target_os = "linux")]
 #[test]
-fn linux_landlock_allows_write_inside_root() {
+fn linux_landlock_allows_write_inside_root_or_unsupported_refuses_spawn() {
+    let landlock = landlock_is_available();
     let root = unique_tempdir("ll-root-write");
     let inside = root.join("ok.txt");
 
@@ -159,7 +123,21 @@ fn linux_landlock_allows_write_inside_root() {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = spawn(&jail, cmd).expect("spawn under landlock");
+    let mut child = match spawn(&jail, cmd) {
+        Ok(child) if landlock => child,
+        Err(error) if !landlock => {
+            assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+            assert!(
+                !inside.exists(),
+                "unsupported backend must refuse before creating {}",
+                inside.display()
+            );
+            fs::remove_dir_all(&root).ok();
+            return;
+        }
+        Ok(_) => panic!("unsupported backend launched an unconfined command"),
+        Err(error) => panic!("Landlock spawn failed: {error}"),
+    };
     let status = child.wait().expect("wait");
     assert!(status.success(), "write inside root should succeed");
     assert!(inside.exists());
@@ -290,16 +268,4 @@ fn windows_appcontainer_blocks_write_outside_root() {
     let err = spawn(&jail, cmd).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
     fs::remove_dir_all(&root).ok();
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────
-
-fn noop_exit_zero_cmd() -> Command {
-    if cfg!(windows) {
-        let mut c = Command::new("cmd");
-        c.args(["/C", "exit"]);
-        c
-    } else {
-        Command::new("true")
-    }
 }

@@ -1,30 +1,5 @@
 use super::*;
 
-#[tokio::test]
-async fn task_store_tracks_lifecycle() {
-    // Smoke the re-exported orchestration primitives: a task moves
-    // Pending → Running → Completed and is readable back by id.
-    let store = InMemoryTaskStore::new();
-    let spec = OrchestrationTaskSpec::new(
-        "task-1",
-        OrchestrationTaskKind::SubAgent {
-            agent: "researcher".to_string(),
-        },
-    );
-    let rec = store.insert(spec).expect("insert");
-    assert_eq!(rec.status, OrchestrationTaskStatus::Pending);
-
-    store.mark_running(rec.task_id()).expect("running");
-    let done = store
-        .complete(rec.task_id(), OrchestrationTaskResult::text("done"))
-        .expect("complete");
-    assert_eq!(done.status, OrchestrationTaskStatus::Completed);
-    assert_eq!(
-        store.get(rec.task_id()).map(|r| r.status),
-        Some(OrchestrationTaskStatus::Completed)
-    );
-}
-
 #[test]
 fn steering_registry_reexport_registers_task_handles() {
     let registry = shared_steering_registry();

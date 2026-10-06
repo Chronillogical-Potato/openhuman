@@ -164,7 +164,7 @@ fn format_transcript_renders_known_messages() {
 /// to the test-runner binary. Asserts we can open chat.db read-only,
 /// run our JOIN query, and deserialize at least one row.
 #[test]
-#[ignore]
+#[ignore = "reads the operator's real macOS ~/Library/Messages/chat.db (needs Full Disk Access); run: cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner -- --ignored"]
 fn real_chat_db_opens_and_returns_messages() {
     let path = match chat_db_path() {
         Some(p) => p,
@@ -194,7 +194,7 @@ fn real_chat_db_opens_and_returns_messages() {
 
 /// Sanity: `read_since` with cursor past max rowid returns empty.
 #[test]
-#[ignore]
+#[ignore = "reads the operator's real macOS ~/Library/Messages/chat.db (needs Full Disk Access); run: cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner -- --ignored"]
 fn real_chat_db_empty_past_cursor() {
     let path = match chat_db_path() {
         Some(p) => p,

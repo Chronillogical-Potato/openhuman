@@ -43,3 +43,11 @@ scripts/
 # prune excluded directories still see the leaf exception below.
 !scripts/
 !scripts/docker-entrypoint-core.sh
+# Build-time module staging (Dockerfile `modules` stage).
+!scripts/lib/
+!scripts/lib/module-pins.mjs
+!scripts/ci/
+!scripts/ci/self-hosted/
+!scripts/ci/self-hosted/test-module-assets.mjs
+!scripts/release/
+!scripts/release/stage-modules.mjs

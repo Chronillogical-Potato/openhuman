@@ -102,14 +102,6 @@ impl TokenUsage {
     }
 }
 
-/// Time period for cost aggregation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum UsagePeriod {
-    Session,
-    Day,
-    Month,
-}
-
 /// A single cost record for persistent storage.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostRecord {

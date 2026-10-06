@@ -6,7 +6,7 @@ import {
   type ArtifactErrorCode,
   deleteArtifact,
   downloadArtifact,
-  revealArtifactInFileManager,
+  revealArtifact,
 } from '../../services/artifactDownloadService';
 import {
   type ArtifactSnapshot,
@@ -23,7 +23,8 @@ import { extensionFor } from './artifactExtension';
  * Mounted by {@link ChatFilesChip}. Renders one row per artifact with:
  *  - kind icon + title + human-readable size
  *  - Download (Tauri `download_artifact_to_downloads`)
- *  - Show-in-folder (only after a successful download in this session)
+ *  - Show in folder: opens the file manager at the artifact's real file in
+ *    the visible files folder (#5505)
  *  - Delete with a confirm-step (optimistic slice removal + RPC call,
  *    re-upsert on failure with a toast).
  *
@@ -64,6 +65,8 @@ function localizeErrorCode(
       return t('chat.files.error.download_failed');
     case 'DELETE_FAILED':
       return t('chat.files.error.delete_failed');
+    case 'REVEAL_FAILED':
+      return t('chat.files.error.reveal_failed');
     case 'CANCELLED':
       // User-initiated dialog dismissal — not a real error. Callers treat
       // it as a no-op; surface nothing (fall back to raw text if passed).
@@ -155,7 +158,6 @@ function KindIcon({ kind }: { kind: ArtifactSnapshot['kind'] }) {
 
 interface RowDownloadState {
   state: 'idle' | 'downloading' | 'done' | 'error';
-  path?: string;
   /** Already-localized error headline ready for direct render. */
   error?: string;
 }
@@ -167,6 +169,8 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [downloadState, setDownloadState] = useState<Record<string, RowDownloadState>>({});
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Per-row "Show in folder" failure, already localized.
+  const [revealError, setRevealError] = useState<Record<string, string>>({});
 
   // Esc closes. Use keydown not keyup so a panel that opened via Enter
   // doesn't immediately re-trigger its trigger on the same release.
@@ -206,7 +210,7 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
     setDownloadState(prev => ({
       ...prev,
       [artifact.artifactId]: outcome.ok
-        ? { state: 'done', path: outcome.path }
+        ? { state: 'done' }
         : {
             state: 'error',
             // Prefer the localized headline; only fall back to the raw
@@ -217,9 +221,14 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
     }));
   };
 
-  const handleReveal = async (path: string) => {
-    if (path) {
-      await revealArtifactInFileManager(path);
+  const handleReveal = async (artifact: ArtifactSnapshot) => {
+    setRevealError(({ [artifact.artifactId]: _cleared, ...rest }) => rest);
+    const outcome = await revealArtifact(artifact.artifactId);
+    if (!outcome.ok) {
+      setRevealError(prev => ({
+        ...prev,
+        [artifact.artifactId]: localizeErrorCode(t, outcome.code, outcome.error),
+      }));
     }
   };
 
@@ -341,17 +350,15 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                         ? t('chat.artifact.downloading')
                         : t('chat.artifact.download')}
                     </Button>
-                    {row.state === 'done' && row.path && (
-                      <Button
-                        variant="tertiary"
-                        size="xs"
-                        onClick={() => void handleReveal(row.path!)}
-                        analyticsId={`chat-files-reveal-${artifact.kind}`}
-                        data-testid={`chat-files-reveal-${artifact.artifactId}`}
-                        className="text-[11px] underline text-sage-600">
-                        {t('chat.artifact.reveal')}
-                      </Button>
-                    )}
+                    <Button
+                      variant="tertiary"
+                      size="xs"
+                      onClick={() => void handleReveal(artifact)}
+                      analyticsId={`chat-files-reveal-${artifact.kind}`}
+                      data-testid={`chat-files-reveal-${artifact.artifactId}`}
+                      className="text-[11px] underline text-sage-600">
+                      {t('chat.artifact.reveal')}
+                    </Button>
                     <Button
                       iconOnly
                       variant="tertiary"
@@ -376,6 +383,13 @@ export default function ChatFilesPanel({ threadId, artifacts, onClose }: ChatFil
                       </svg>
                     </Button>
                   </div>
+                )}
+                {revealError[artifact.artifactId] && (
+                  <p
+                    className="text-[11px] text-coral-600 dark:text-coral-400 mt-0.5 wrap-break-word"
+                    data-testid={`chat-files-reveal-error-${artifact.artifactId}`}>
+                    {revealError[artifact.artifactId]}
+                  </p>
                 )}
                 {row.state === 'error' && row.error && (
                   <p className="text-[11px] text-coral-600 dark:text-coral-400 mt-0.5 wrap-break-word">

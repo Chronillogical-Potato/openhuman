@@ -58,10 +58,9 @@ pub(crate) fn toolkit_has_curated_catalog(toolkit: &str) -> bool {
 }
 
 pub(crate) async fn validate_tool_contracts(config: &Config, graph: &WorkflowGraph) -> Vec<String> {
-    use crate::flows::tinyflows::caps::{
-        fetch_live_toolkit_catalog, missing_required_args, unsupported_arg_names,
-    };
-    use tinymemory_api::composio::toolkit_from_slug;
+    use crate::flows::tinyflows::caps::fetch_live_toolkit_catalog;
+    use crate::integrations::composio::contract::toolkit_from_slug;
+    use tinyagents_harness::tool::{missing_required_args, unsupported_arg_names};
 
     let mut errors = Vec::new();
     for node in &graph.nodes {

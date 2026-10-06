@@ -1,6 +1,6 @@
 {
   "name": "openhuman-app",
-  "version": "0.64.10",
+  "version": "0.64.12",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -96,7 +96,6 @@
     "@tauri-apps/plugin-deep-link": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-os": "^2.3.2",
-    "@types/three": "^0.183.1",
     "@xyflow/react": "^12.11.1",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
@@ -153,6 +152,7 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/redux-logger": "^3.0.13",
+    "@types/three": "^0.183.1",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
     "@vitejs/plugin-react": "^6.0.1",

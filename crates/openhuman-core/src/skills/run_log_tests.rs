@@ -19,20 +19,22 @@ fn detect_repeated_line_catches_real_failure_modes() {
     // The exact text shapes we observed in run adcd2dfd (×23) and
     // dffae55d (×8). With defaults (min_len=30, min_count=4) both must
     // trip and the worst offender is returned.
-    let adcd = std::iter::repeat(
+    let adcd = std::iter::repeat_n(
         "Now I understand the structure. The keys need to go into the chunk files.",
+        23,
     )
-    .take(23)
     .collect::<Vec<_>>()
     .join("\n");
     let (line, n) = detect_repeated_line(&adcd, 30, 4).expect("must trip");
     assert_eq!(n, 23);
     assert!(line.contains("Now I understand the structure"));
 
-    let dffae = std::iter::repeat("Good, the repo is cloned. Let me narrow down the search.")
-        .take(8)
-        .collect::<Vec<_>>()
-        .join("\n");
+    let dffae = std::iter::repeat_n(
+        "Good, the repo is cloned. Let me narrow down the search.",
+        8,
+    )
+    .collect::<Vec<_>>()
+    .join("\n");
     let (_, n2) = detect_repeated_line(&dffae, 30, 4).expect("must trip");
     assert_eq!(n2, 8);
 }

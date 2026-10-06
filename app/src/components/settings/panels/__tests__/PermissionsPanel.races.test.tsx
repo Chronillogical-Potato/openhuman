@@ -44,6 +44,9 @@ const agentPaths = (overrides: Partial<AgentPaths> = {}): AgentPaths => ({
   workspace_dir: '/home/test/.openhuman/users/u1/workspace',
   projects_dir: '/home/test/OpenHuman/projects',
   action_dir_source: 'default',
+  files_dir: '/home/test/OpenHuman/projects/Files',
+  default_files_dir: '/home/test/OpenHuman/projects/Files',
+  files_dir_source: 'default',
   ...overrides,
 });
 

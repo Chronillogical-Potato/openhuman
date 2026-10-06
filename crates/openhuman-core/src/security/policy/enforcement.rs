@@ -176,6 +176,24 @@ impl SecurityPolicy {
             });
         }
 
+        // Oversized tool outputs are saved to `<workspace_dir>/artifacts/tool-results`
+        // (`tool_result_artifacts_dir`), outside the action dir, and the model is
+        // handed the absolute path to page them back with `file_read`. Under
+        // `workspace_only` an absolute path is refused unless a trusted root
+        // covers it, so without this grant every pointer would be unreadable.
+        // Read-only: the agent reads its own outputs back; it has no reason to
+        // write there. `is_workspace_internal_path` already exempts this one
+        // directory from the internal-state boundary.
+        let tool_results = super::types::tool_result_artifacts_dir(workspace_dir)
+            .to_string_lossy()
+            .to_string();
+        if !trusted_roots.iter().any(|r| r.path == tool_results) {
+            trusted_roots.push(TrustedRoot {
+                path: tool_results,
+                access: TrustedAccess::Read,
+            });
+        }
+
         // Dedicated, namespaced scratch dir (`/tmp/openhuman`) granted ReadWrite
         // so the LLM's natural `/tmp/...` temp-file habit lands in a sandboxed,
         // trusted location instead of the world-shared `/tmp`. Only this subdir

@@ -250,18 +250,6 @@ pub mod connections {
         }
     }
 
-    /// Why a server's most recent attempt hit a 401, as a stable code.
-    pub async fn auth_hint_for(server_id: &str) -> Option<&'static str> {
-        Some(
-            host::try_service()?
-                .dynamic()
-                .connections()
-                .auth_hint(server_id)
-                .await?
-                .as_code(),
-        )
-    }
-
     /// Why a server's most recent attempt in `config`'s workspace hit a 401.
     pub async fn auth_hint_for_config(config: &Config, server_id: &str) -> Option<&'static str> {
         match host::for_config(config) {
@@ -341,15 +329,6 @@ pub mod connections {
         }
     }
 
-    /// The most recent failure message for a server.
-    pub async fn last_error_for(server_id: &str) -> Option<String> {
-        host::try_service()?
-            .dynamic()
-            .connections()
-            .last_error(server_id)
-            .await
-    }
-
     /// The most recent failure message for a server in `config`'s workspace.
     pub async fn last_error_for_config(config: &Config, server_id: &str) -> Option<String> {
         match host::for_config(config) {
@@ -363,33 +342,6 @@ pub mod connections {
                 None
             }
         }
-    }
-}
-
-/// The registry's own store, for the callers that reach it directly.
-///
-/// The store itself moved to `tinymcp`. What is left here is the one entry
-/// point outside this module that named it: an end-to-end test seeds the
-/// upstream response cache so it can exercise an install without reaching a
-/// real catalog. Keeping the spelling means that test needs no edit, and the
-/// signature is the one it already calls.
-#[cfg(feature = "mcp")]
-pub mod store {
-    use crate::config::Config;
-    use crate::mcp::host;
-
-    /// Writes one upstream response into the cache for `config`'s workspace.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when the service cannot be opened or the row cannot be
-    /// written.
-    pub fn set_cached(config: &Config, cache_key: &str, body_json: &str) -> anyhow::Result<()> {
-        host::for_config(config)?
-            .dynamic()
-            .store()
-            .cache(cache_key, body_json)
-            .map_err(|error| anyhow::anyhow!("failed to seed the registry cache: {error}"))
     }
 }
 

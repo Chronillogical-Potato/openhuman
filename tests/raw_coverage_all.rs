@@ -15,9 +15,9 @@
 // binary can read as dead once every file shares one crate root here (e.g. a
 // helper only reached by a `#[cfg]`-gated test). These are coverage suites, not
 // production code, so silence the noise rather than churn 76 files.
-#![allow(dead_code, unused_imports)]
+#![allow(dead_code)]
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 /// Process-global env lock shared by every aggregated suite that mutates
 /// process-global env (`OPENHUMAN_WORKSPACE`, `HOME`, `BACKEND_URL`, …).
@@ -29,9 +29,11 @@ use std::sync::{Mutex, OnceLock};
 /// longer mutually exclude. Each file's local env lock is redefined to a
 /// `&`-reference to this one static, so all env mutations across all aggregated
 /// suites serialize on a single mutex while non-env tests keep running in
-/// parallel. Poison is recovered (`into_inner`) at the guard sites, so a
-/// panicking test cannot wedge the whole suite.
-pub static SHARED_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+/// parallel. The lock is a `tokio::sync::Mutex`: it is never poisoned, so a
+/// panicking test cannot wedge the whole suite, and an async test may hold its
+/// guard across `.await`. Synchronous tests take it with `blocking_lock()`,
+/// async tests with `lock().await`.
+pub static SHARED_ENV_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
 /// Serializes aggregated suites that reach the Composio connector module.
 ///
@@ -48,5 +50,15 @@ pub static CONNECTOR_MODULE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::c
 /// The core carries no backend client of its own.
 #[path = "support/tinyhumans_boot.rs"]
 pub mod tinyhumans_boot;
+
+/// The shared `EnvVarGuard` (set / unset one var, restore on drop). It does not
+/// lock: suites hold [`SHARED_ENV_LOCK`] through their own `env_lock()`.
+#[path = "support/env_guard.rs"]
+pub mod env_guard;
+/// The RPC bearer and JSON-RPC helpers some suites share (see `support/`).
+#[path = "support/rpc_auth.rs"]
+pub mod rpc_auth;
+#[path = "support/rpc_harness.rs"]
+pub mod rpc_harness;
 
 include!(concat!(env!("OUT_DIR"), "/raw_coverage_mods.rs"));

@@ -1,13 +1,9 @@
 use super::*;
 
-fn usage(input: u64, output: u64, cached: u64, charged: f64) -> UsageInfo {
-    UsageInfo {
-        input_tokens: input,
-        output_tokens: output,
-        cached_input_tokens: cached,
-        charged_amount_usd: charged,
-        ..Default::default()
-    }
+fn usage(input: u64, output: u64, cached: u64, charged: f64) -> BilledUsage {
+    BilledUsage::from_counts(input, output)
+        .with_cached_input_tokens(cached)
+        .with_charged_usd(charged)
 }
 
 const FLASH: &str = crate::config::MODEL_MANAGED_DEFAULT;

@@ -3,7 +3,6 @@ use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
 use crate::agent::prompts::ToolCallFormat;
 use crate::config::AgentConfig;
-use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
@@ -263,14 +262,16 @@ fn reusable_follow_up_message_preserves_context() {
 #[test]
 fn extract_workflow_proposal_finds_last_proposal_tool_result() {
     let history = vec![
-        ChatMessage::user("build me a workflow"),
-        ChatMessage::tool(r#"{"type":"something_else","x":1}"#),
-        ChatMessage::tool(r#"{"type":"workflow_proposal","persisted":false,"name":"Old Draft"}"#),
-        ChatMessage::assistant("revising…"),
-        ChatMessage::tool(
+        TranscriptMessage::user("build me a workflow"),
+        TranscriptMessage::tool(r#"{"type":"something_else","x":1}"#),
+        TranscriptMessage::tool(
+            r#"{"type":"workflow_proposal","persisted":false,"name":"Old Draft"}"#,
+        ),
+        TranscriptMessage::assistant("revising…"),
+        TranscriptMessage::tool(
             r#"{"type":"workflow_proposal","persisted":false,"name":"Daily X Trending Email"}"#,
         ),
-        ChatMessage::assistant("Here's the proposed workflow."),
+        TranscriptMessage::assistant("Here's the proposed workflow."),
     ];
     let proposal = extract_workflow_proposal_from_history(&history).expect("proposal extracted");
     // The LAST proposal wins — later revisions supersede earlier drafts.
@@ -280,16 +281,16 @@ fn extract_workflow_proposal_finds_last_proposal_tool_result() {
 #[test]
 fn extract_workflow_proposal_ignores_non_proposal_history() {
     let history = vec![
-        ChatMessage::user("hello"),
-        ChatMessage::tool("plain text tool output, not json"),
-        ChatMessage::assistant("done"),
+        TranscriptMessage::user("hello"),
+        TranscriptMessage::tool("plain text tool output, not json"),
+        TranscriptMessage::assistant("done"),
     ];
     assert!(extract_workflow_proposal_from_history(&history).is_none());
 }
 
 #[test]
 fn attach_workflow_proposal_persists_thread_message_and_extends_summary() {
-    use crate::memory::conversations::CreateConversationThread;
+    use crate::threads::store::CreateConversationThread;
     let temp = tempfile::tempdir().expect("tempdir");
     conversations::ensure_thread(
         temp.path().to_path_buf(),
@@ -304,7 +305,7 @@ fn attach_workflow_proposal_persists_thread_message_and_extends_summary() {
     )
     .expect("thread created");
 
-    let history = vec![ChatMessage::tool(
+    let history = vec![TranscriptMessage::tool(
         r#"{"type":"workflow_proposal","persisted":false,"name":"Daily X Trending Email","graph":{"nodes":[],"edges":[]}}"#,
     )];
     let summary = attach_workflow_proposal(
@@ -348,7 +349,7 @@ fn attach_workflow_proposal_without_proposal_returns_summary_unchanged() {
         Some("thread-x"),
         "sub-task-2",
         "task_manager_agent",
-        &[ChatMessage::tool("no proposal here")],
+        &[TranscriptMessage::tool("no proposal here")],
         "research done".to_string(),
     );
     assert_eq!(summary, "research done");
@@ -470,7 +471,6 @@ fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
         model_name: "test-model".into(),
         temperature: 0.0,
         workspace_dir: workspace_dir.to_path_buf(),
-        memory: Arc::new(NoopMemory),
         agent_config: AgentConfig::default(),
         workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
@@ -482,64 +482,6 @@ fn parent_context(workspace_dir: &Path) -> ParentExecutionContext {
         session_parent_prefix: None,
         on_progress: None,
         run_queue: None,
-    }
-}
-
-struct NoopMemory;
-
-#[async_trait::async_trait]
-impl Memory for NoopMemory {
-    fn name(&self) -> &str {
-        "noop"
-    }
-
-    async fn store(
-        &self,
-        _namespace: &str,
-        _key: &str,
-        _content: &str,
-        _category: MemoryCategory,
-        _session_id: Option<&str>,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn recall(
-        &self,
-        _query: &str,
-        _limit: usize,
-        _opts: RecallOpts<'_>,
-    ) -> anyhow::Result<Vec<MemoryEntry>> {
-        Ok(Vec::new())
-    }
-
-    async fn get(&self, _namespace: &str, _key: &str) -> anyhow::Result<Option<MemoryEntry>> {
-        Ok(None)
-    }
-
-    async fn list(
-        &self,
-        _namespace: Option<&str>,
-        _category: Option<&MemoryCategory>,
-        _session_id: Option<&str>,
-    ) -> anyhow::Result<Vec<MemoryEntry>> {
-        Ok(Vec::new())
-    }
-
-    async fn forget(&self, _namespace: &str, _key: &str) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-
-    async fn namespace_summaries(&self) -> anyhow::Result<Vec<NamespaceSummary>> {
-        Ok(Vec::new())
-    }
-
-    async fn count(&self) -> anyhow::Result<usize> {
-        Ok(0)
-    }
-
-    async fn health_check(&self) -> bool {
-        true
     }
 }
 

@@ -1,6 +1,8 @@
 //! Docker-backed sandbox execution backend.
 //!
-//! Runs agent tool commands inside ephemeral Docker containers with:
+//! Policy mapping for the Docker sandbox; the one-shot container itself is
+//! `tinybox_docker::OneShot` / `DockerCli`. Commands run inside ephemeral
+//! containers with:
 //! - Controlled workspace mounts (host `action_dir` → `/workspace`)
 //! - Network isolation (default: `none`)
 //! - Resource limits (memory, CPU)
@@ -16,179 +18,94 @@ use super::types::{
     SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest, SandboxExecResult, SandboxPolicy,
     SandboxStatus,
 };
-use std::process::Stdio;
-use tokio::process::Command;
+use tinybox_docker::{DockerCli, OneShot};
 
 /// Label applied to all sandbox containers for orphan cleanup.
 const CONTAINER_LABEL: &str = "openhuman.sandbox=true";
 
-/// Maximum output size in bytes (1MB), matching shell tool limit.
-const MAX_OUTPUT_BYTES: usize = 1_048_576;
-
 /// Check whether Docker is available and responsive.
 pub async fn is_docker_available() -> bool {
-    let result = Command::new("docker")
-        .args(["info", "--format", "{{.ServerVersion}}"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .output()
-        .await;
-    match result {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
-    }
+    DockerCli::new().is_available().await
 }
 
 /// Execute a command inside an ephemeral Docker container.
 ///
-/// The container is created with `docker run --rm` so it self-cleans on
-/// exit. Resource limits, network policy, and mounts are derived from
-/// the `SandboxPolicy`.
+/// Policy stays here (which image, network, limits and mounts the
+/// `SandboxPolicy` asks for); the one-shot `docker run --rm` command line and
+/// its execution are `tinybox_docker::{OneShot, DockerCli}`.
 pub async fn docker_exec(
     policy: &SandboxPolicy,
     request: &SandboxExecRequest,
 ) -> anyhow::Result<SandboxExecResult> {
     let overrides = policy.docker_overrides.as_ref();
-    let image = overrides
-        .and_then(|o| o.image.as_deref())
-        .unwrap_or("alpine:3.20");
-    let network = overrides
-        .and_then(|o| o.network.as_deref())
-        .unwrap_or("none");
-
-    let mut cmd = Command::new("docker");
-    cmd.arg("run").arg("--rm");
-
-    // Container identification for orphan cleanup.
-    cmd.arg("--label").arg(CONTAINER_LABEL);
-
-    // Network isolation.
-    cmd.arg("--network").arg(network);
-
-    // Drop all capabilities by default.
-    cmd.arg("--cap-drop").arg("ALL");
-
-    // Additional capability drops.
+    let mut spec = OneShot::new(&policy.workspace_root, &request.command)
+        .with_label(CONTAINER_LABEL)
+        .with_read_only_mounts(policy.read_only_mounts.iter().cloned());
     if let Some(ov) = overrides {
-        for cap in &ov.extra_caps_drop {
-            cmd.arg("--cap-drop").arg(cap);
+        if let Some(image) = &ov.image {
+            spec = spec.with_image(image);
         }
-    }
-
-    // Resource limits.
-    let memory_mb = overrides.and_then(|o| o.memory_limit_mb).unwrap_or(512);
-    cmd.arg("-m").arg(format!("{memory_mb}m"));
-
-    let cpu = overrides.and_then(|o| o.cpu_limit).unwrap_or(1.0);
-    cmd.arg("--cpus").arg(cpu.to_string());
-
-    // Read-only rootfs.
-    let read_only = overrides.and_then(|o| o.read_only_rootfs).unwrap_or(true);
-    if read_only {
-        cmd.arg("--read-only");
-        // tmpfs mounts so the container can still write to /tmp and /var/tmp.
-        cmd.arg("--tmpfs").arg("/tmp:rw,noexec,nosuid,size=64m");
-        cmd.arg("--tmpfs").arg("/var/tmp:rw,noexec,nosuid,size=64m");
-    }
-
-    // No new privileges (prevent setuid/setgid escalation inside container).
-    cmd.arg("--security-opt").arg("no-new-privileges");
-
-    // Workspace mount.
-    let workspace = policy
-        .workspace_root
-        .canonicalize()
-        .unwrap_or_else(|_| policy.workspace_root.clone());
-    let mount = format!("{}:/workspace", workspace.display());
-    cmd.arg("-v").arg(mount);
-    cmd.arg("-w").arg("/workspace");
-
-    // Read-only mounts.
-    for ro_path in &policy.read_only_mounts {
-        let canonical = ro_path.canonicalize().unwrap_or_else(|_| ro_path.clone());
-        let ro_mount = format!("{}:{}:ro", canonical.display(), canonical.display());
-        cmd.arg("-v").arg(ro_mount);
-    }
-
-    // Environment passthrough.
-    for var_name in &policy.env_passthrough {
-        if let Ok(val) = std::env::var(var_name) {
-            cmd.arg("-e").arg(format!("{var_name}={val}"));
+        if let Some(network) = &ov.network {
+            spec = spec.with_network(network);
         }
-    }
-    // Inject request-specific environment.
-    for (k, v) in &request.env {
-        let mut assignment = k.clone();
-        assignment.push("=");
-        assignment.push(v);
-        cmd.arg("-e").arg(assignment);
+        if let Some(mb) = ov.memory_limit_mb {
+            spec = spec.with_memory_mb(mb);
+        }
+        if let Some(cpu) = ov.cpu_limit {
+            spec = spec.with_cpus(cpu);
+        }
+        if let Some(ro) = ov.read_only_rootfs {
+            spec = spec.with_read_only_rootfs(ro);
+        }
+        spec = spec.with_extra_cap_drops(ov.extra_caps_drop.iter().cloned());
     }
 
-    cmd.arg(image);
-    cmd.arg("sh").arg("-c").arg(&request.command);
-
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
+    // Environment passthrough (explicit allowlist, only when set), then the
+    // request-specific environment.
+    let mut env: Vec<(std::ffi::OsString, std::ffi::OsString)> = policy
+        .env_passthrough
+        .iter()
+        .filter_map(|name| std::env::var(name).ok().map(|v| (name.into(), v.into())))
+        .collect();
+    env.extend(request.env.iter().map(|(k, v)| (k.clone(), v.clone())));
+    let spec = spec.with_env(env);
 
     tracing::debug!(
-        image = image,
-        network = network,
-        memory_mb = memory_mb,
-        cpu = cpu,
-        workspace = %workspace.display(),
+        workspace = %policy.workspace_root.display(),
         command = %request.command,
         "[sandbox:docker] launching container"
     );
 
-    let result = tokio::time::timeout(request.timeout, cmd.output()).await;
-
-    match result {
-        Ok(Ok(output)) => {
-            let mut stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let mut stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-            if stdout.len() > MAX_OUTPUT_BYTES {
-                stdout.truncate(MAX_OUTPUT_BYTES);
-                stdout.push_str("\n... [output truncated at 1MB]");
-            }
-            if stderr.len() > MAX_OUTPUT_BYTES {
-                stderr.truncate(MAX_OUTPUT_BYTES);
-                stderr.push_str("\n... [stderr truncated at 1MB]");
-            }
-
-            let exit_code = output.status.code().unwrap_or(-1);
-            tracing::debug!(
-                exit_code = exit_code,
-                stdout_len = stdout.len(),
-                stderr_len = stderr.len(),
-                "[sandbox:docker] container exited"
-            );
-
-            Ok(SandboxExecResult {
-                exit_code,
-                stdout,
-                stderr,
-                timed_out: false,
-            })
-        }
-        Ok(Err(e)) => {
-            tracing::error!(error = %e, "[sandbox:docker] failed to spawn container");
-            anyhow::bail!("Docker execution failed: {e}")
-        }
-        Err(_) => {
+    match DockerCli::new().run_one_shot(&spec, request.timeout).await {
+        Ok(out) if out.timed_out => {
             tracing::warn!(
                 timeout_secs = request.timeout.as_secs(),
                 "[sandbox:docker] container timed out, killing"
             );
             Ok(SandboxExecResult {
-                exit_code: -1,
-                stdout: String::new(),
-                stderr: format!(
-                    "Command timed out after {}s and was killed",
-                    request.timeout.as_secs()
-                ),
+                exit_code: out.exit_code,
+                stdout: out.stdout,
+                stderr: out.stderr,
                 timed_out: true,
             })
+        }
+        Ok(out) => {
+            tracing::debug!(
+                exit_code = out.exit_code,
+                stdout_len = out.stdout.len(),
+                stderr_len = out.stderr.len(),
+                "[sandbox:docker] container exited"
+            );
+            Ok(SandboxExecResult {
+                exit_code: out.exit_code,
+                stdout: out.stdout,
+                stderr: out.stderr,
+                timed_out: false,
+            })
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "[sandbox:docker] failed to spawn container");
+            anyhow::bail!("Docker execution failed: {e}")
         }
     }
 }
@@ -196,41 +113,8 @@ pub async fn docker_exec(
 /// Clean up orphaned sandbox containers (those labeled with
 /// `openhuman.sandbox=true` that are still running).
 pub async fn cleanup_orphaned_containers() -> anyhow::Result<u32> {
-    let output = Command::new("docker")
-        .args(["ps", "-q", "--filter", &format!("label={CONTAINER_LABEL}")])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .output()
-        .await?;
-
-    let ids: Vec<&str> = std::str::from_utf8(&output.stdout)
-        .unwrap_or("")
-        .lines()
-        .filter(|l| !l.is_empty())
-        .collect();
-
-    if ids.is_empty() {
-        tracing::debug!("[sandbox:docker] no orphaned containers found");
-        return Ok(0);
-    }
-
-    let count = ids.len() as u32;
-    tracing::info!(
-        count = count,
-        "[sandbox:docker] cleaning up orphaned containers"
-    );
-
-    let mut kill_cmd = Command::new("docker");
-    kill_cmd.arg("kill");
-    for id in &ids {
-        kill_cmd.arg(id);
-    }
-    let _ = kill_cmd
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .await;
-
+    let count = DockerCli::new().kill_labelled(CONTAINER_LABEL).await?;
+    tracing::debug!(count = count, "[sandbox:docker] orphan cleanup finished");
     Ok(count)
 }
 
@@ -291,3 +175,7 @@ pub fn validate_docker_policy(policy: &SandboxPolicy) -> Result<(), Vec<String>>
 #[cfg(test)]
 #[path = "docker_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "docker_exec_tests.rs"]
+mod exec_tests;

@@ -12,9 +12,9 @@ fn expands_legacy_ui_toggle_ids_to_rust_tool_names() {
 
 #[test]
 fn keeps_direct_rust_tool_names() {
-    let allowed = expand_enabled_tool_names(&["cron_add".to_string(), "memory_store".to_string()]);
+    let allowed = expand_enabled_tool_names(&["cron_add".to_string(), "memory".to_string()]);
     assert!(allowed.contains("cron_add"));
-    assert!(allowed.contains("memory_store"));
+    assert!(allowed.contains("memory"));
 }
 
 #[test]

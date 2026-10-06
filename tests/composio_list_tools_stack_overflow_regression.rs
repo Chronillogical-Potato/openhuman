@@ -57,7 +57,7 @@
 //! run_chat_task → Agent::turn → execute_tools → <delegation tool>`)
 //! without standing up an HTTP + Socket.IO stack. We drive the production
 //! path from `run_subagent` downward — i.e. everything below a delegation
-//! tool's `execute` — on a production-realistic 2 MB tokio worker stack.
+//! tool's `execute` — on a small tokio worker stack (`SUBAGENT_TOWER_STACK_BYTES`).
 //!
 //! **Caveat — what this test does and does not catch.** Because the
 //! upper ~30 frames are missing, the bare path here fits in 2 MB even
@@ -89,10 +89,9 @@
 //!
 //! ## Setup
 //!
-//!   * fresh tokio multi-thread runtime, `thread_stack_size(2 << 20)`
-//!     (production default), so the test runs in the same stack budget
-//!     production does — anything larger would let dormant regressions
-//!     hide for longer,
+//!   * fresh tokio multi-thread runtime, `thread_stack_size(SUBAGENT_TOWER_STACK_BYTES)`
+//!     (3 MiB, well under the 16 MiB production `AGENT_WORKER_STACK_BYTES`), so
+//!     frame growth in the tower is caught long before it threatens production,
 //!   * `OPENHUMAN_WORKSPACE` pointed at a tempdir with a representative
 //!     `config.toml` so the TOML parser does real work,
 //!   * `run_subagent(critic)` exactly like a delegation tool
@@ -108,14 +107,12 @@
 // trip CI's linker with SIGBUS before the regression can run.
 #![cfg(not(coverage))]
 
-use anyhow::Result;
 use async_trait::async_trait;
 use openhuman_core::agent::harness::definition::{AgentDefinitionRegistry, ModelSpec};
 use openhuman_core::agent::harness::{with_parent_context, ParentExecutionContext};
 use openhuman_core::agent::prompts::ToolCallFormat;
 use openhuman_core::agent::subagent_host::{run_subagent, SubagentRunOptions};
 use openhuman_core::config::AgentConfig;
-use openhuman_core::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use parking_lot::Mutex;
 use serde_json::json;
 use std::sync::Arc;
@@ -123,6 +120,18 @@ use tempfile::tempdir;
 use tinyinference_llm::message::AssistantMessage;
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
+
+/// Worker stack for this guard: 3 MiB, deliberately far below the production
+/// `AGENT_WORKER_STACK_BYTES` (16 MiB, which stays the real budget).
+///
+/// Measured in an unoptimised build (#6379): before the async-frame work the
+/// sub-agent tower (`run_subagent` → `run_subagent_direct` → config load →
+/// `Config::save`) needed between 3.5 and 4 MiB; it overflowed at 3 MiB. It
+/// now peaks near 1.6 MiB (passes at 1664 KiB, overflows at 1536 KiB). 3 MiB
+/// leaves ~85% headroom for unrelated growth while still failing on the old
+/// frames, so a handler that re-inlines a large future or `Config` copy into
+/// this chain trips here long before it could threaten the 16 MiB budget.
+const SUBAGENT_TOWER_STACK_BYTES: usize = 3 * 1024 * 1024;
 
 // ── env serialisation (config-rs reads process env) ──────────────────
 
@@ -236,53 +245,6 @@ impl ChatModel<()> for StubModel {
     }
 }
 
-// ── stub memory ──────────────────────────────────────────────────────
-
-struct StubMemory;
-
-#[async_trait]
-impl Memory for StubMemory {
-    async fn store(
-        &self,
-        _: &str,
-        _: &str,
-        _: &str,
-        _: MemoryCategory,
-        _: Option<&str>,
-    ) -> Result<()> {
-        Ok(())
-    }
-    async fn recall(&self, _: &str, _: usize, _: RecallOpts<'_>) -> Result<Vec<MemoryEntry>> {
-        Ok(vec![])
-    }
-    async fn get(&self, _: &str, _: &str) -> Result<Option<MemoryEntry>> {
-        Ok(None)
-    }
-    async fn list(
-        &self,
-        _: Option<&str>,
-        _: Option<&MemoryCategory>,
-        _: Option<&str>,
-    ) -> Result<Vec<MemoryEntry>> {
-        Ok(vec![])
-    }
-    async fn forget(&self, _: &str, _: &str) -> Result<bool> {
-        Ok(true)
-    }
-    async fn namespace_summaries(&self) -> Result<Vec<NamespaceSummary>> {
-        Ok(vec![])
-    }
-    async fn count(&self) -> Result<usize> {
-        Ok(0)
-    }
-    async fn health_check(&self) -> bool {
-        true
-    }
-    fn name(&self) -> &str {
-        "stub"
-    }
-}
-
 // ── the regression itself ────────────────────────────────────────────
 
 /// Structural regression for the path that crashed in `crahs.log`.
@@ -290,12 +252,11 @@ impl Memory for StubMemory {
 ///
 /// `#[test]` (not `#[tokio::test]`) so the worker stack size is set
 /// explicitly. The work runs via `tokio::spawn` so the assertion is
-/// performed on a 2 MB worker rather than on `block_on`'s driver
+/// performed on a small worker rather than on `block_on`'s driver
 /// thread (which inherits the much larger cargo-test main-thread stack
 /// and would hide stack-budget regressions).
 #[test]
-#[ignore = "TODO(#6379): hosted TinyAgents delegation exceeds the production worker stack budget"]
-fn composio_list_tools_via_subagent_runs_on_production_worker_stack() {
+fn composio_list_tools_via_subagent_runs_on_small_worker_stack() {
     // Serialise env mutation across the test binary (other tests may
     // poke OPENHUMAN_WORKSPACE concurrently).
     let _env = env_lock();
@@ -308,12 +269,15 @@ fn composio_list_tools_via_subagent_runs_on_production_worker_stack() {
         tmp.path().to_str().expect("tempdir path utf-8"),
     );
 
-    // Production tokio worker stack default is ~2 MB. The SIGBUS in
-    // crahs.log occurred at an address inside a 2080 KB stack region
-    // (`Stack 302648000-302850000`). Reproduce that budget exactly.
+    // Every runtime that can host an agent turn (the desktop host,
+    // `openhuman-core run`, `agent_cli`, embedders) sets
+    // `AGENT_WORKER_STACK_BYTES` (16 MiB). The SIGBUS in crahs.log happened on a
+    // default ~2 MB worker before that was applied everywhere. This guard runs
+    // on a much smaller stack (see `SUBAGENT_TOWER_STACK_BYTES`) so frame growth
+    // in the tower is caught early, while production keeps its 16 MiB budget.
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
-        .thread_stack_size(2 * 1024 * 1024)
+        .thread_stack_size(SUBAGENT_TOWER_STACK_BYTES)
         .enable_all()
         .build()
         .expect("build runtime");
@@ -321,7 +285,7 @@ fn composio_list_tools_via_subagent_runs_on_production_worker_stack() {
     // The actual work has to be on a worker thread, not the
     // `block_on` driver thread (which inherits the OS test-runner stack
     // and is much larger). Spawn → join to force the closure onto a
-    // 2 MB worker.
+    // small worker.
     rt.block_on(async {
         tokio::spawn(drive_subagent())
             .await
@@ -332,8 +296,10 @@ fn composio_list_tools_via_subagent_runs_on_production_worker_stack() {
 async fn drive_subagent() {
     let _ = AgentDefinitionRegistry::init_global_builtins();
 
-    let mut profile = ModelProfile::default();
-    profile.tool_calling = true;
+    let profile = ModelProfile {
+        tool_calling: true,
+        ..Default::default()
+    };
     let model = Arc::new(StubModel {
         iter: Arc::new(Mutex::new(0)),
         profile,
@@ -355,7 +321,6 @@ async fn drive_subagent() {
         temperature: 0.4,
         workspace_dir: std::env::temp_dir(),
         workspace_descriptor: None,
-        memory: Arc::new(StubMemory),
         agent_config: AgentConfig::default(),
         workflows: Arc::new(vec![]),
         memory_context: Arc::new(None),

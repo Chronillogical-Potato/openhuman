@@ -11,8 +11,9 @@ pub(crate) use factory::provider_role_for_definition;
 mod builder_build;
 mod dispatcher;
 mod factory;
-mod helpers;
 mod host_tools;
+mod iteration_cap;
+mod permanent_tool;
 mod setters;
 
 pub use host_tools::{HostTools, HostTurnTools, TurnContext};
@@ -177,7 +178,7 @@ pub(super) fn visible_tool_specs_for_policy(
         .collect()
 }
 
-/// Ensure the CCR recovery tool (`tinyjuice_retrieve`) is a member of a
+/// Ensure the CCR recovery tool (`juice_retrieve`) is a member of a
 /// non-empty visibility allowlist. Compaction runs on every agent's tool
 /// output, so any agent with a curated `ToolScope::Named` list must still be
 /// able to act on a `⟦tj:…⟧` marker. Only the live tool is added; the legacy
@@ -250,7 +251,7 @@ pub(super) fn ensure_repl_tools_visible(
 /// Whether TinyJuice may summarize this agent's tool output. Only the
 /// orchestrator gets a summary model, and a zero threshold turns it off.
 pub(super) fn summarizes_tool_output(agent_id: &str, config: &crate::config::Config) -> bool {
-    agent_id == "orchestrator" && config.context.summarizer_payload_threshold_tokens > 0
+    crate::inference::tokenjuice::summarizes_tool_output(agent_id, config)
 }
 
 pub(super) fn should_synthesize_delegation_tools(def: &AgentDefinition) -> bool {

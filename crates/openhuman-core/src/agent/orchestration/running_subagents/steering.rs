@@ -5,7 +5,7 @@
 use tinyagents_graph::orchestration::DetachedTaskRegistryError;
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::QueueLane;
-use tinyagents_harness::steering::{SteeringCommand, SteeringCommandKind};
+use tinyagents_harness::steering::SteeringCommand;
 use tinyinference_llm::message::Message as TaMessage;
 
 use super::cancel::now_ms;
@@ -64,117 +64,6 @@ fn send_registered_steering(
     };
     handle.send(command);
     true
-}
-
-/// Crate-native steering directives beyond the `InjectMessage`/collect lanes.
-///
-/// These map 1:1 onto the tinyagents [`SteeringCommand`] control variants that
-/// the crate exposes (`Redirect`, `Pause`, `Resume`, `Cancel`). They are
-/// delivered **only** through a registered `SteeringHandle` and therefore land
-/// only at a safe loop boundary (the crate drains before each model call) —
-/// never mid-stream, and never through the `RunQueue` fallback (which has no
-/// equivalent lane). Approval/security is never bypassed: `Redirect` lowers to a
-/// system instruction the normal approval-gated loop still governs, and
-/// `Pause`/`Resume`/`Cancel` are pure control-flow.
-///
-/// The crate's `SetMetadata` command is intentionally *not* mapped here: no
-/// OpenHuman control surface owns run-metadata mutation yet.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum SteeringDirective {
-    /// Redirect the run toward a new instruction (`SteeringCommand::Redirect`).
-    Redirect(String),
-    /// Cooperatively pause at the next checkpoint (`SteeringCommand::Pause`).
-    Pause,
-    /// Clear a pending pause (`SteeringCommand::Resume`).
-    Resume,
-    /// Cooperatively terminate at the next checkpoint (`SteeringCommand::Cancel`) —
-    /// a graceful, safe-boundary alternative to the hard `AbortHandle` cancel.
-    Cancel,
-}
-
-impl SteeringDirective {
-    fn kind(&self) -> SteeringCommandKind {
-        match self {
-            SteeringDirective::Redirect(_) => SteeringCommandKind::Redirect,
-            SteeringDirective::Pause => SteeringCommandKind::Pause,
-            SteeringDirective::Resume => SteeringCommandKind::Resume,
-            SteeringDirective::Cancel => SteeringCommandKind::Cancel,
-        }
-    }
-
-    fn into_command(self) -> SteeringCommand {
-        match self {
-            SteeringDirective::Redirect(instruction) => SteeringCommand::Redirect { instruction },
-            SteeringDirective::Pause => SteeringCommand::Pause,
-            SteeringDirective::Resume => SteeringCommand::Resume,
-            SteeringDirective::Cancel => SteeringCommand::Cancel,
-        }
-    }
-}
-
-/// Why a crate-native steering directive could not be delivered.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum SteerDirectiveError {
-    /// No such sub-agent — never existed, or already finished and pruned.
-    Unknown,
-    /// The caller's `parent_session` does not own this sub-agent.
-    NotOwned,
-    /// The sub-agent already reached a terminal status.
-    AlreadyDone,
-    /// The sub-agent has no live crate-native `SteeringHandle` registered
-    /// (e.g. a legacy `RunQueue`-only run), so control-flow steering that has no
-    /// `RunQueue` lane cannot be delivered.
-    NoRegisteredHandle,
-    /// The run's `SteeringPolicy` does not permit this directive's command
-    /// kind. Enqueuing it anyway would abort the run with
-    /// `TinyAgentsError::Steering`, so we refuse up front.
-    PolicyRejected,
-}
-
-pub(crate) fn steer_directive_error_from_registry(
-    error: DetachedTaskRegistryError,
-) -> SteerDirectiveError {
-    match error {
-        DetachedTaskRegistryError::NotOwned => SteerDirectiveError::NotOwned,
-        DetachedTaskRegistryError::AlreadyDone => SteerDirectiveError::AlreadyDone,
-        DetachedTaskRegistryError::NoSteeringHandle => SteerDirectiveError::NoRegisteredHandle,
-        _ => SteerDirectiveError::Unknown,
-    }
-}
-
-/// Deliver a crate-native control-flow [`SteeringDirective`] to a running
-/// sub-agent through its registered TinyAgents `SteeringHandle`.
-///
-/// Unlike [`steer`], this has **no** `RunQueue` fallback: the crate control
-/// variants (`Redirect`/`Pause`/`Resume`/`Cancel`) have no OpenHuman queue lane,
-/// so a run must have a live registered handle to receive them. The directive's
-/// command kind is checked against the run's own `SteeringPolicy` *before*
-/// enqueue — a disallowed command would otherwise abort the run — so this can
-/// never smuggle a control kind past a policy that a tighter run class installed.
-pub(crate) fn steer_directive(
-    task_id: &str,
-    parent_session: &str,
-    directive: SteeringDirective,
-) -> Result<(), SteerDirectiveError> {
-    let handle = registry()
-        .steering_handle(&TaskId::new(task_id), parent_session)
-        .map_err(steer_directive_error_from_registry)?;
-    let kind = directive.kind();
-    if !handle.policy().is_allowed(kind) {
-        log::warn!(
-            "[running_subagents] directive rejected by run policy task_id={} kind={}",
-            task_id,
-            kind.as_str()
-        );
-        return Err(SteerDirectiveError::PolicyRejected);
-    }
-    handle.send(directive.into_command());
-    log::info!(
-        "[running_subagents] steered task_id={} directive={} via=tinyagents_registry",
-        task_id,
-        kind.as_str()
-    );
-    Ok(())
 }
 
 /// Inject a message into a running sub-agent. Prefer the crate-native

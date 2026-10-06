@@ -23,3 +23,10 @@ pub fn boot() {
             .expect("install the TinyHumans backend transport for tests");
     });
 }
+
+/// Whether [`boot`] has run in this process. A suite that asserts on a surface
+/// the hosted layer adds (or must not add) uses this when it shares a process
+/// with suites that boot the transport.
+pub fn is_booted() -> bool {
+    BOOT.is_completed()
+}

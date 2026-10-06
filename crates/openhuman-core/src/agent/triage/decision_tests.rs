@@ -34,18 +34,6 @@ fn brace_inside_string_does_not_break_matching() {
 }
 
 #[test]
-fn trailing_commas_are_stripped() {
-    let src = "{ \"a\": 1, \"b\": [1, 2,], }";
-    assert_eq!(strip_trailing_commas(src), "{ \"a\": 1, \"b\": [1, 2] }");
-}
-
-#[test]
-fn trailing_comma_inside_string_is_left_alone() {
-    let src = "{ \"reason\": \"a, b, c,\" }";
-    assert_eq!(strip_trailing_commas(src), src);
-}
-
-#[test]
 fn action_value_is_lowercased() {
     let src = "{\"action\": \"Drop\", \"reason\": \"x\"}";
     let out = lowercase_action_value(src);

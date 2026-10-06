@@ -1,34 +1,34 @@
 //! Process-wide singleton: cached policy + cooperative throttling.
 //!
-//! One sampler task refreshes [`Signals`] every 30s and recomputes the
-//! [`Policy`]. Workers call [`current_policy`] for cheap reads or
-//! [`wait_for_capacity`] to cooperatively block until the host is ready.
+//! The machinery (sampling, the cached [`GateCore`], the sampler task and the
+//! cooperative wait) is [`super::throttle`] and [`super::signals`]. This file
+//! is the wiring of it: the process-wide state, the signed-out override, the resume
+//! notification, and the per-runtime state that keeps unit tests from sharing
+//! any of it.
 
 #[cfg(not(test))]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
 
 use parking_lot::RwLock;
-use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Notify, Semaphore};
 
-use crate::config::{Config, SchedulerGateConfig};
-use crate::cron::scheduler_gate::signals::{self, Signals};
-use tinymemory_api::host::{decide, PauseReason, Policy};
+use super::signals::SignalEnv;
+use super::throttle::{GateCore, SharedCore, LLM_SLOTS};
+use crate::config::SchedulerGateConfig;
 
-/// Process-wide ceiling on concurrent LLM-bound work.
-///
-/// Held at 1 to keep concurrent local-Ollama / bge-m3 calls (8K context,
-/// ~1.3 GB resident each) from saturating local RAM. See
-/// `feedback_local_llm_load.md` — backfills with multiple
-/// simultaneous Ollama requests have crashed the user's laptop twice.
-///
-/// Cloud-backend LLM calls bypass this semaphore at the worker layer
-/// (see `memory_queue::worker::run_once`) because they're
-/// bandwidth-bound, not RAM-bound, and the worker pool itself bounds
-/// concurrency upstream. Keeping this at 1 preserves the laptop-RAM
-/// contract regardless of backend.
-const LLM_SLOTS: usize = 1;
+pub use super::decide::Signals;
+pub use super::throttle::LlmPermit;
+pub use crate::config::schema::{PauseReason, Policy};
+
+/// The environment variables that override what the hardware reports. The names
+/// are user-facing configuration, so they stay the host's; the sampler only
+/// reads whichever names it is handed.
+const SIGNAL_ENV: SignalEnv = SignalEnv {
+    on_ac_power: "OPENHUMAN_ON_AC_POWER",
+    battery_charge: "OPENHUMAN_BATTERY_CHARGE",
+    deployment: "OPENHUMAN_DEPLOYMENT",
+};
 
 #[cfg(not(test))]
 static LLM_PERMITS: OnceLock<Arc<Semaphore>> = OnceLock::new();
@@ -89,33 +89,7 @@ fn llm_permits() -> Arc<Semaphore> {
     }
 }
 
-/// RAII guard returned by [`wait_for_capacity`] / [`acquire_llm_permit`].
-///
-/// While the caller holds an `LlmPermit`, no other LLM-bound caller in
-/// the process can acquire one (the global semaphore has a single slot).
-/// Drop the permit as soon as the LLM request returns — holding it past
-/// post-processing serialises unrelated work for no reason.
-///
-/// This type is intentionally opaque: callers can't reach into the
-/// underlying [`OwnedSemaphorePermit`] and risk forgetting to release it.
-#[must_use = "drop the LlmPermit only after the LLM call returns"]
-pub struct LlmPermit {
-    _permit: OwnedSemaphorePermit,
-}
-
-impl Drop for LlmPermit {
-    fn drop(&mut self) {
-        log::trace!("[scheduler_gate] llm permit released");
-    }
-}
-
-struct State {
-    cfg: SchedulerGateConfig,
-    signals: Signals,
-    policy: Policy,
-}
-
-static STATE: OnceLock<Arc<RwLock<State>>> = OnceLock::new();
+static STATE: OnceLock<SharedCore> = OnceLock::new();
 static STARTED: std::sync::Once = std::sync::Once::new();
 
 /// Process-wide "session is signed out" override. When `true`, every gate
@@ -131,68 +105,22 @@ static STARTED: std::sync::Once = std::sync::Once::new();
 #[cfg(not(test))]
 static SIGNED_OUT: AtomicBool = AtomicBool::new(false);
 
-const SAMPLE_INTERVAL: Duration = Duration::from_secs(30);
-
 /// Initialise the gate and spawn the background sampler.
 ///
 /// Idempotent — repeat calls during bootstrap are no-ops. Subsequent config
 /// reloads should call [`update_config`] instead.
-pub fn init_global(config: &Config) {
-    let cfg = config.scheduler_gate.clone();
+pub fn init_global(cfg: SchedulerGateConfig) {
     STARTED.call_once(|| {
-        let signals = signals::sample();
-        let policy = decide(&signals, &cfg);
-        log::info!(
-            "[scheduler_gate] startup policy={} mode={} on_ac={} charge={:?} cpu={:.1}% server={}",
-            policy.as_str(),
-            cfg.mode.as_str(),
-            signals.on_ac_power,
-            signals.battery_charge,
-            signals.cpu_usage_pct,
-            signals.server_mode,
-        );
-        let state = Arc::new(RwLock::new(State {
-            cfg,
-            signals,
-            policy,
-        }));
+        let signals = super::signals::sample(&SIGNAL_ENV);
+        let state: SharedCore = Arc::new(RwLock::new(GateCore::new(cfg, signals)));
         let _ = STATE.set(state.clone());
-
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(SAMPLE_INTERVAL).await;
-                // Sampling does a brief blocking sleep + sysinfo refresh —
-                // push it off the async runtime.
-                let signals = match tokio::task::spawn_blocking(signals::sample).await {
-                    Ok(s) => s,
-                    Err(err) => {
-                        log::warn!("[scheduler_gate] sampler join error: {err:#}");
-                        continue;
-                    }
-                };
-                let mut guard = state.write();
-                let next = decide(&signals, &guard.cfg);
-                if next != guard.policy {
-                    log::info!(
-                        "[scheduler_gate] policy {} -> {} (on_ac={} charge={:?} cpu={:.1}% server={})",
-                        guard.policy.as_str(),
-                        next.as_str(),
-                        signals.on_ac_power,
-                        signals.battery_charge,
-                        signals.cpu_usage_pct,
-                        signals.server_mode,
-                    );
-                }
-                guard.signals = signals;
-                guard.policy = next;
-            }
-        });
+        super::throttle::spawn_sampler(state, SIGNAL_ENV);
     });
 }
 
 /// Process-wide resume signal (#2831). Fired whenever the gate transitions
-/// **out of** a paused state — the user toggles Memory Tree back on
-/// ([`update_config`]) or signs back in ([`set_signed_out`]). Background loops
+/// **out of** a paused state — the user changes the scheduler-gate setting
+/// back to a running mode ([`update_config`]) or signs back in ([`set_signed_out`]). Background loops
 /// (e.g. the Composio periodic scheduler) park on [`resume_notify`] so they can
 /// resume work within seconds instead of waiting out their next tick boundary.
 static RESUME_NOTIFY: OnceLock<Arc<Notify>> = OnceLock::new();
@@ -205,8 +133,8 @@ static RESUME_NOTIFY: OnceLock<Arc<Notify>> = OnceLock::new();
 /// mid-tick, a single permit is stored so the *next* `notified()` returns at
 /// once — a resume that arrives during a tick is never lost.
 ///
-/// **Over-notifying is safe by design.** A spurious wake (e.g. Memory Tree
-/// toggled on while still signed out, so the effective policy is still paused)
+/// **Over-notifying is safe by design.** A spurious wake (e.g. the gate
+/// un-paused while still signed out, so the effective policy is still paused)
 /// just causes one cheap gate-checked tick that re-reads [`current_policy`] and
 /// no-ops. We therefore fire on each individual un-pause transition rather than
 /// computing the precise combined (config × signed-out) edge.
@@ -219,19 +147,13 @@ pub fn resume_notify() -> Arc<Notify> {
 /// Update the gate's view of user config (e.g. after a settings change).
 ///
 /// Fires [`resume_notify`] when this update moves the policy out of a paused
-/// state (e.g. Memory Tree toggled back on), so parked background loops resume
+/// state (e.g. a switch back to a running mode), so parked background loops resume
 /// promptly (#2831).
 pub fn update_config(cfg: SchedulerGateConfig) {
     let Some(state) = STATE.get() else {
         return;
     };
-    let resumed = {
-        let mut guard = state.write();
-        let was_paused = matches!(guard.policy, Policy::Paused { .. });
-        guard.cfg = cfg;
-        guard.policy = decide(&guard.signals, &guard.cfg);
-        was_paused && !matches!(guard.policy, Policy::Paused { .. })
-    };
+    let resumed = state.write().update_config(cfg);
     if resumed {
         resume_notify().notify_one();
     }
@@ -257,7 +179,7 @@ pub fn current_policy() -> Policy {
     }
     STATE
         .get()
-        .map(|s| s.read().policy)
+        .map(|s| s.read().policy())
         .unwrap_or(Policy::Normal)
 }
 
@@ -370,116 +292,23 @@ impl Drop for SignedOutTestGuard {
     }
 }
 
-/// Most recent sampled signals, or a neutral default if the sampler hasn't run.
-pub fn current_signals() -> Signals {
-    STATE.get().map(|s| s.read().signals).unwrap_or(Signals {
-        on_ac_power: true,
-        battery_charge: None,
-        cpu_usage_pct: 0.0,
-        server_mode: false,
-    })
-}
-
 /// Cooperatively block a caller until the host is ready for LLM-bound
 /// work, then hand back an [`LlmPermit`] that holds a slot in the global
 /// LLM semaphore.
 ///
-/// Policy-driven backoff happens **before** semaphore acquisition so a
-/// `Paused` mode doesn't pile up tasks queued for the slot — they sit
-/// in the pause-poll loop, not in the semaphore wait queue.
-///
-/// * **Aggressive / Normal** — wait for the global slot; return immediately
-///   once granted.
-/// * **Throttled** — sleep `throttled_backoff_ms` first so concurrent
-///   workers serialise themselves, then acquire the slot.
-/// * **Paused** — poll every `paused_poll_ms` until the policy changes,
-///   then acquire the slot.
-///
-/// Drop the returned [`LlmPermit`] as soon as the LLM call returns.
+/// See [`super::throttle::wait_for_capacity`] for the per-policy behaviour. The
+/// signed-out override is only honoured once the gate has been initialised by
+/// [`init_global`]: in unit tests where it never was, there is no
+/// background-worker pool to stand down, but the per-runtime `signed_out` flag
+/// can still be `true` from an earlier test that exercised the credentials / 401
+/// paths, and honouring it would make every later caller poll forever (the
+/// `openhuman::agent::triage::evaluator::tests::*` hangs reported after #1516).
 ///
 /// Returns `None` only if the global LLM semaphore has been closed
-/// (never happens in production — the semaphore lives for the lifetime
-/// of the process). Callers can safely treat `None` as "skip the
+/// (never happens in production). Callers can safely treat `None` as "skip the
 /// gate" rather than propagating an error.
 pub async fn wait_for_capacity() -> Option<LlmPermit> {
-    loop {
-        // Signed-out override is checked first and uses the same paused-poll
-        // cadence as the rest of the Paused arm. Holding here (rather than
-        // returning) means workers naturally resume the instant the user
-        // signs back in — no respawn dance, no missed wakeups.
-        //
-        // We gate on `STATE.get().is_some()` so the override only fires once
-        // the gate has been initialised by `init_global`. In unit tests
-        // where `init_global` was never called there is no background-worker
-        // pool to stand down, but the per-runtime `signed_out` flag can
-        // still be `true` from an earlier test that exercised the credentials
-        // / 401 paths (`clear_session`, RPC 401 dispatch, or
-        // `SessionExpiredSubscriber.handle()`). Without the gate, every
-        // subsequent caller of `wait_for_capacity` polls forever on the
-        // 60-second fallback cadence — manifest as the
-        // `openhuman::agent::triage::evaluator::tests::*` hangs reported
-        // after #1516.
-        if STATE.get().is_some() && is_signed_out() {
-            let paused_ms = STATE
-                .get()
-                .map(|s| s.read().cfg.paused_poll_ms)
-                .unwrap_or(60_000);
-            log::trace!("[scheduler_gate] paused (signed_out); polling every {paused_ms}ms");
-            tokio::time::sleep(Duration::from_millis(paused_ms)).await;
-            continue;
-        }
-
-        let (policy, throttled_ms, paused_ms) = match STATE.get() {
-            Some(state) => {
-                let g = state.read();
-                (g.policy, g.cfg.throttled_backoff_ms, g.cfg.paused_poll_ms)
-            }
-            None => {
-                // Gate not initialised (unit tests, early bootstrap).
-                // Acquire directly — no policy to consult.
-                return acquire_llm_permit_inner().await;
-            }
-        };
-        match policy {
-            Policy::Aggressive | Policy::Normal => {
-                return acquire_llm_permit_inner().await;
-            }
-            Policy::Throttled => {
-                log::trace!(
-                    "[scheduler_gate] throttled — sleeping {throttled_ms}ms before permit acquire"
-                );
-                tokio::time::sleep(Duration::from_millis(throttled_ms)).await;
-                return acquire_llm_permit_inner().await;
-            }
-            Policy::Paused { reason } => {
-                log::debug!(
-                    "[scheduler_gate] paused ({}); polling every {paused_ms}ms",
-                    reason.as_str()
-                );
-                tokio::time::sleep(Duration::from_millis(paused_ms)).await;
-                // re-evaluate; user may have toggled the gate back on.
-            }
-        }
-    }
-}
-
-async fn acquire_llm_permit_inner() -> Option<LlmPermit> {
-    let sem = llm_permits();
-    match sem.acquire_owned().await {
-        Ok(permit) => {
-            log::trace!("[scheduler_gate] llm permit acquired");
-            Some(LlmPermit { _permit: permit })
-        }
-        Err(_) => {
-            // Semaphore closed — should never happen since we never
-            // close it. Log loudly and let the caller proceed without
-            // a permit so the pipeline doesn't deadlock.
-            log::warn!(
-                "[scheduler_gate] llm semaphore closed unexpectedly — proceeding without a permit"
-            );
-            None
-        }
-    }
+    super::throttle::wait_for_capacity(STATE.get(), is_signed_out, &llm_permits()).await
 }
 
 /// Test/diagnostic hook: try to grab a permit without consulting the
@@ -488,10 +317,7 @@ async fn acquire_llm_permit_inner() -> Option<LlmPermit> {
 /// [`wait_for_capacity`] so the policy backoff applies.
 #[cfg(test)]
 pub fn try_acquire_llm_permit() -> Option<LlmPermit> {
-    let sem = llm_permits();
-    sem.try_acquire_owned()
-        .ok()
-        .map(|p| LlmPermit { _permit: p })
+    super::throttle::try_acquire_llm_permit(&llm_permits())
 }
 
 /// Number of permits currently available. Test-only diagnostic.

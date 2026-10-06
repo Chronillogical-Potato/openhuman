@@ -1,31 +1,185 @@
-//! Cron persistence: SQLite-backed job storage and run history.
+//! Cron persistence: a thin host wrapper over `tinyflows_sqlite::schedule`.
 //!
-//! Split by responsibility: [`schema`] owns row mapping and the
-//! connection/migration setup, [`jobs`] owns job CRUD, and [`runs`] owns
-//! run-history recording, output truncation, and history reads.
+//! The SQLite job store and run history live upstream (schema, CRUD, output
+//! truncation, pruning). This module only turns the host [`Config`] into the
+//! store's [`CronStoreOptions`] — database path under the workspace, run-history
+//! cap, and due-job batch size — so callers keep passing `&Config`.
 
-mod jobs;
-mod runs;
-mod schema;
+use crate::config::Config;
+use anyhow::Result;
+use chrono::{DateTime, Utc};
+use tinyflows_schedule::{CronJob, CronJobPatch, CronRun, DeliveryConfig, Schedule, SessionTarget};
+use tinyflows_sqlite::schedule::{self as upstream, CronStoreOptions};
+
+/// Builds the store options from the host config: `<workspace>/cron/jobs.db`,
+/// `cron.max_run_history`, `scheduler.max_tasks`.
+fn opts(config: &Config) -> CronStoreOptions {
+    CronStoreOptions {
+        db_path: config.workspace_dir.join("cron").join("jobs.db"),
+        max_run_history: config.cron.max_run_history,
+        max_tasks: config.scheduler.max_tasks,
+    }
+}
+
+pub fn add_job(config: &Config, expression: &str, command: &str) -> Result<CronJob> {
+    upstream::add_job(&opts(config), expression, command)
+}
+
+pub fn add_shell_job(
+    config: &Config,
+    name: Option<String>,
+    schedule: Schedule,
+    command: &str,
+) -> Result<CronJob> {
+    upstream::add_shell_job(&opts(config), name, schedule, command)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn add_agent_job(
+    config: &Config,
+    name: Option<String>,
+    schedule: Schedule,
+    prompt: &str,
+    session_target: SessionTarget,
+    model: Option<String>,
+    delivery: Option<DeliveryConfig>,
+    delete_after_run: bool,
+) -> Result<CronJob> {
+    upstream::add_agent_job(
+        &opts(config),
+        name,
+        schedule,
+        prompt,
+        session_target,
+        model,
+        delivery,
+        delete_after_run,
+    )
+}
+
+/// Like [`add_agent_job`] but accepts an optional built-in agent definition
+/// ID and the initial enabled state.
+#[allow(clippy::too_many_arguments)]
+pub fn add_agent_job_with_definition(
+    config: &Config,
+    name: Option<String>,
+    schedule: Schedule,
+    prompt: &str,
+    session_target: SessionTarget,
+    model: Option<String>,
+    delivery: Option<DeliveryConfig>,
+    delete_after_run: bool,
+    agent_id: Option<String>,
+    enabled: bool,
+) -> Result<CronJob> {
+    upstream::add_agent_job_with_definition(
+        &opts(config),
+        name,
+        schedule,
+        prompt,
+        session_target,
+        model,
+        delivery,
+        delete_after_run,
+        agent_id,
+        enabled,
+    )
+}
+
+/// Registers (idempotently) the cron job that fires a flow's `schedule`
+/// trigger; see `tinyflows_sqlite::schedule::add_flow_schedule_job`.
+pub fn add_flow_schedule_job(
+    config: &Config,
+    flow_id: &str,
+    schedule: Schedule,
+) -> Result<CronJob> {
+    upstream::add_flow_schedule_job(&opts(config), flow_id, schedule)
+}
+
+pub fn find_flow_schedule_job(config: &Config, flow_id: &str) -> Result<Option<CronJob>> {
+    upstream::find_flow_schedule_job(&opts(config), flow_id)
+}
+
+pub fn list_jobs(config: &Config) -> Result<Vec<CronJob>> {
+    upstream::list_jobs(&opts(config))
+}
+
+pub fn get_job(config: &Config, job_id: &str) -> Result<CronJob> {
+    upstream::get_job(&opts(config), job_id)
+}
+
+pub fn remove_job(config: &Config, id: &str) -> Result<()> {
+    upstream::remove_job(&opts(config), id)?;
+    println!("✅ Removed cron job {id}");
+    Ok(())
+}
+
+/// Deletes every cron job in the workspace (E2E `openhuman.test_reset`).
+pub fn clear_all_jobs(config: &Config) -> Result<usize> {
+    upstream::clear_all_jobs(&opts(config))
+}
+
+/// Removes duplicate jobs sharing a `name`, keeping the one with most history.
+pub fn dedup_named_jobs(config: &Config) -> Result<usize> {
+    upstream::dedup_named_jobs(&opts(config))
+}
+
+pub fn due_jobs(config: &Config, now: DateTime<Utc>) -> Result<Vec<CronJob>> {
+    upstream::due_jobs(&opts(config), now)
+}
+
+pub fn update_job(config: &Config, job_id: &str, patch: CronJobPatch) -> Result<CronJob> {
+    upstream::update_job(&opts(config), job_id, patch)
+}
+
+pub fn record_last_run(
+    config: &Config,
+    job_id: &str,
+    finished_at: DateTime<Utc>,
+    success: bool,
+    output: &str,
+) -> Result<()> {
+    upstream::record_last_run(&opts(config), job_id, finished_at, success, output)
+}
+
+pub fn reschedule_after_run(
+    config: &Config,
+    job: &CronJob,
+    success: bool,
+    output: &str,
+) -> Result<()> {
+    upstream::reschedule_after_run(&opts(config), job, success, output)
+}
+
+pub fn record_run(
+    config: &Config,
+    job_id: &str,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+    status: &str,
+    output: Option<&str>,
+    duration_ms: i64,
+) -> Result<()> {
+    upstream::record_run(
+        &opts(config),
+        job_id,
+        started_at,
+        finished_at,
+        status,
+        output,
+        duration_ms,
+    )
+}
+
+/// Removes "queued" placeholder rows so only the real result row remains.
+pub fn delete_queued_runs(config: &Config, job_id: &str) -> Result<usize> {
+    upstream::delete_queued_runs(&opts(config), job_id)
+}
+
+pub fn list_runs(config: &Config, job_id: &str, limit: usize) -> Result<Vec<CronRun>> {
+    upstream::list_runs(&opts(config), job_id, limit)
+}
 
 #[cfg(test)]
 #[path = "store_tests.rs"]
 mod tests;
-
-pub use jobs::{
-    add_agent_job, add_agent_job_with_definition, add_flow_schedule_job, add_job, add_shell_job,
-    clear_all_jobs, dedup_named_jobs, due_jobs, find_flow_schedule_job, get_job, list_jobs,
-    remove_job, update_job,
-};
-pub use runs::{delete_queued_runs, list_runs, record_last_run, record_run, reschedule_after_run};
-
-// Re-exported (private `use`, visible to this module and its `tests`
-// descendant) so `store_tests.rs` / its sub-test-modules can keep exercising
-// the connection helper and the `rusqlite::params!` macro directly via
-// `use super::*;`, exactly as when this was one spliced file.
-#[allow(unused_imports)]
-use runs::{MAX_CRON_OUTPUT_BYTES, TRUNCATED_OUTPUT_MARKER};
-#[allow(unused_imports)]
-use rusqlite::params;
-#[allow(unused_imports)]
-use schema::with_connection;

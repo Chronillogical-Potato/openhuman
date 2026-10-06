@@ -633,3 +633,34 @@ fn list_pending_for_flow_run_filters_to_the_matching_flow_and_run() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].request_id, "a");
 }
+
+#[test]
+fn list_recent_decisions_marks_unparseable_args_instead_of_failing() {
+    let (config, _dir) = test_config();
+    insert_pending(&config, &sample("corrupt-json", "sess-A"), "sess-A").unwrap();
+    with_connection(&config, |conn| {
+        conn.execute(
+            "UPDATE pending_approvals
+             SET args_redacted = ?1, decided_at = ?2, decision = ?3
+             WHERE request_id = ?4",
+            params![
+                "{not valid json",
+                Utc::now().to_rfc3339(),
+                ApprovalDecision::Deny.as_str(),
+                "corrupt-json"
+            ],
+        )?;
+        Ok(())
+    })
+    .unwrap();
+
+    let rows = list_recent_decisions(&config, 10).unwrap();
+    let row = rows
+        .iter()
+        .find(|row| row.request_id == "corrupt-json")
+        .expect("corrupt audit row is still listed");
+    assert_eq!(
+        row.args_redacted,
+        json!({ "_error": "args_redacted not valid JSON" })
+    );
+}

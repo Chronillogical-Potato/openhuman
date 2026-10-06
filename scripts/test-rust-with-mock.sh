@@ -114,18 +114,6 @@ case "$(uname -s):$(uname -m)" in
     ;;
 esac
 
-# The product test surface exercises memory through its native module. CI builds
-# the pinned submodule and supplies this explicit override; mirror that setup
-# locally so the full runner never falls back to GitHub release metadata (which
-# makes an otherwise hermetic mock-backend suite network-bound).
-if [ -z "${TINYMEMORY_TEST_MODULE:-}" ]; then
-  memory_manifest="vendor/tinymemory/crates/tinymemory-module/Cargo.toml"
-  memory_module="vendor/tinymemory/crates/tinymemory-module/target/release/libtinymemory_module.$module_ext"
-  echo "Building TinyMemory test module from the pinned submodule ..."
-  cargo build --release --manifest-path "$memory_manifest"
-  export TINYMEMORY_TEST_MODULE="$REPO_ROOT/$memory_module"
-fi
-
 # Tokenjuice JSON-RPC coverage loads the production native module. Keep the
 # test run hermetic by building the pinned submodule instead of falling back
 # to GitHub release metadata.
@@ -205,6 +193,7 @@ run_raw_coverage_modules() {
     # path. These groups verify the host-to-module round trip, so inject the
     # pinned connector only for their processes.
     if { [ "$module" = "composio_credentials_state_raw_coverage_e2e" ] ||
+         [ "$module" = "composio_tools_direct_raw_coverage_e2e" ] ||
          [ "$module" = "tools_composio_large_round25_raw_coverage_e2e" ]; } &&
        [ -z "${TINYCONNECTORS_TEST_MODULE:-}" ]; then
       TINYCONNECTORS_TEST_MODULE="$connectors_module" \
@@ -213,6 +202,24 @@ run_raw_coverage_modules() {
       cargo_test --test raw_coverage_all -- "${module}::" --test-threads=1 "$@"
     fi
   done < <(raw_coverage_modules)
+}
+
+in_process_modules() {
+  find tests/in_process -maxdepth 1 -type f -name '*.rs' -print |
+    sed -e 's#^tests/in_process/##' -e 's#\.rs$##' |
+    sort
+}
+
+run_in_process_modules() {
+  # ~20 former `tests/*.rs` targets now share the `in_process_all` binary. Run
+  # each module in its own cargo process so the process-global RPC bearer,
+  # backend transport and module singletons stay per suite, as they were.
+  while IFS= read -r module; do
+    [ -n "$module" ] || continue
+    echo "[test-rust-with-mock] in-process module: ${module}"
+    TINYCONNECTORS_TEST_MODULE="${TINYCONNECTORS_TEST_MODULE:-$connectors_module}" \
+      cargo_test --test in_process_all -- "${module}::" "$@"
+  done < <(in_process_modules)
 }
 
 run_json_rpc_e2e() {
@@ -255,6 +262,8 @@ run_full_suite() {
       # each generated module filter in its own cargo process so local
       # `pnpm test:rust` preserves the same process-global isolation as CI.
       run_raw_coverage_modules "$@"
+    elif [ "$target" = "in_process_all" ]; then
+      run_in_process_modules "$@"
     elif [ "$target" = "json_rpc_e2e" ]; then
       run_json_rpc_e2e "$@"
     else
@@ -275,6 +284,12 @@ elif [ "$#" -ge 2 ] && [ "$1" = "--test" ] && [ "$2" = "raw_coverage_all" ]; the
     shift
   fi
   run_raw_coverage_modules "$@"
+elif [ "$#" -ge 2 ] && [ "$1" = "--test" ] && [ "$2" = "in_process_all" ]; then
+  shift 2
+  if [ "${1:-}" = "--" ]; then
+    shift
+  fi
+  run_in_process_modules "$@"
 elif [ "$#" -ge 2 ] && [ "$1" = "--test" ] && [ "$2" = "json_rpc_e2e" ]; then
   shift 2
   if [ "${1:-}" = "--" ]; then

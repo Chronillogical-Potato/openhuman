@@ -5,7 +5,7 @@
 //! instead of erroring. Falls back to a deterministic digest summary if the
 //! summarization call fails or returns no prose.
 
-use crate::inference::provider::UsageInfo;
+use crate::inference::provider::BilledUsage;
 use std::sync::Arc;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, ModelRequest};
@@ -14,7 +14,7 @@ use tinyinference_llm::model::{ChatModel, ModelRequest};
 /// summary call so the caller can fold it into sub-agent token/cost accounting.
 pub(super) struct SubagentCheckpointOutcome {
     pub(super) text: String,
-    pub(super) usage: Option<UsageInfo>,
+    pub(super) usage: Option<BilledUsage>,
 }
 
 /// Sub-agent cap-hit summary: when the iteration cap is hit, summarize the

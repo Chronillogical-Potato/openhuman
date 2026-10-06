@@ -10,8 +10,8 @@ fn test_request() -> AgentTurnRequest {
     AgentTurnRequest {
         turn_model_source: crate::agent::tinyagents::TurnModelSource::from_model(model),
         history: vec![
-            ChatMessage::system("you are a test bot"),
-            ChatMessage::user("hello"),
+            TranscriptMessage::system("you are a test bot"),
+            TranscriptMessage::user("hello"),
         ],
         tools_registry: Arc::new(Vec::new()),
         provider_name: "fake-provider".into(),
@@ -106,8 +106,7 @@ async fn register_agent_handlers_exposes_run_turn_on_global_registry() {
     // other test that installs a handler override (e.g. the channel
     // dispatch integration tests in `runtime_dispatch.rs`).
     register_agent_handlers();
-    let registry = Some(crate::core::bus::BUS.native())
-        .expect("native registry should be initialized after register_agent_handlers");
+    let registry = crate::core::bus::BUS.native();
     assert!(
         registry.is_registered(AGENT_RUN_TURN_METHOD),
         "`{AGENT_RUN_TURN_METHOD}` should be registered on the global native registry"

@@ -14,7 +14,7 @@ fn subscriber_metadata_is_stable() {
 
 #[tokio::test]
 async fn unrelated_events_are_ignored() {
-    ChannelInboundSubscriber::default()
+    ChannelInboundSubscriber
         .handle(&DomainEvent::SystemStartup {
             component: "test".into(),
         })

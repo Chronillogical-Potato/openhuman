@@ -2,9 +2,10 @@
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::voice::reply_speech::{ReplySpeechResult, VisemeFrame};
 #[cfg(test)]
 use tinyinference_voice::piper::synthetic_viseme_timeline;
+use tinyinference_voice::reply::ReplySpeech as ReplySpeechResult;
+use tinyinference_voice::VisemeFrame;
 
 /// Default Piper voice id.
 pub const DEFAULT_PIPER_VOICE: &str = "en_US-lessac-medium";

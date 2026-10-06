@@ -1,6 +1,6 @@
 //! Tests for the connector module shim.
 
-use super::{is_unsupported_by_route, methods};
+use super::{is_unsupported_by_route, member_failure_message, methods};
 
 #[test]
 fn classified_errors_start_with_the_frontend_marker() {
@@ -121,4 +121,45 @@ async fn a_build_without_the_module_loader_says_so() {
         .expect_err("no loader, no connectors");
     assert!(error.contains("modules"), "{error}");
     assert!(error.contains(methods::LIST_TOOLKITS), "{error}");
+}
+
+// ── stateless member failures ─────────────────────────────────────────────
+
+#[test]
+fn a_stateless_member_failure_is_peeled_to_the_message_the_user_reads() {
+    let wrapped = "ListConnectionsDirect: ai.tinyhumans.tinybus.Error.Failed: \
+                   Composio v3 connected_accounts failed: HTTP 401: Invalid API key";
+    assert_eq!(
+        member_failure_message("ListConnectionsDirect", wrapped),
+        "Composio v3 connected_accounts failed: HTTP 401: Invalid API key"
+    );
+    // Every wire layer present is peeled, however many there are.
+    let doubled = "ListToolsDirect: ai.tinyhumans.tinybus.Error.Failed: \
+                   ai.tinyhumans.tinybus.Error.Failed: Composio v3 list_tool_schemas: HTTP 500";
+    assert_eq!(
+        member_failure_message("ListToolsDirect", doubled),
+        "Composio v3 list_tool_schemas: HTTP 500"
+    );
+    // A message that merely contains a colon is not cut.
+    let plain = "ListToolsDirect: ai.tinyhumans.tinybus.Error.Failed: error sending request: boom";
+    assert_eq!(
+        member_failure_message("ListToolsDirect", plain),
+        "error sending request: boom"
+    );
+}
+
+#[test]
+fn a_failure_that_is_not_a_member_failure_is_left_alone() {
+    // The module could not be loaded or reached: there is no member prefix.
+    let unloaded = "the module runtime is unavailable: boom";
+    assert_eq!(
+        member_failure_message("ListConnectionsDirect", unloaded),
+        unloaded
+    );
+    // Another member's failure is not ours to rewrite.
+    let other = "Execute: ai.tinyhumans.tinybus.Error.Failed: x";
+    assert_eq!(
+        member_failure_message("ListConnectionsDirect", other),
+        other
+    );
 }

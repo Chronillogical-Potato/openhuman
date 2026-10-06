@@ -11,9 +11,8 @@ use crate::flows::ops;
 use crate::flows::ops::validate_and_migrate_graph;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
-use super::dry_run_diagnostics::{
-    find_upstream_condition, tool_call_arg_null_entries, tool_call_error_message, CapturingObserver,
-};
+use tinyflows::authoring_report::{self, AuthoringReport};
+use tinyflows::observability::CapturingObserver;
 
 /// Wall-clock bound on a single `dry_run_workflow` mock execution. A malformed
 /// or pathological draft graph must never hang the agent tool-loop; the mock
@@ -94,7 +93,7 @@ const DRY_RUN_TIMEOUT_SECS: u64 = 30;
 /// [`StepStatus::Error`](tinyflows::observability::StepStatus::Error). Every
 /// such `tool_call` step is collected into `node_errors`
 /// (`{ node_id, error }`, the error text read back out of the run's `output`
-/// state — see [`tool_call_error_message`]) and fails the dry run the same as
+/// state — see `authoring_report::AuthoringReport`) and fails the dry run the same as
 /// a null resolution.
 ///
 /// **Routing-divergence warning (B15's dry-run blind spot):** none of the
@@ -109,7 +108,7 @@ const DRY_RUN_TIMEOUT_SECS: u64 = 30;
 /// [`CapturingObserver`] is collected into `routing_divergence_warnings`
 /// (`{ node_id, condition_node_id, message }`, `condition_node_id` naming the
 /// nearest upstream `condition` node found by walking predecessors — see
-/// [`find_upstream_condition`] — or `null` if none is found). This is a
+/// `tinyflows::diagnostics::nearest_upstream_condition` — or `null` if none is found). This is a
 /// **warning, not a hard reject**: it never flips `ok` to `false` by itself
 /// (an unexercised branch can be entirely intentional), and is surfaced on
 /// both the `ok: true` and `ok: false` result shapes so the caller can
@@ -278,33 +277,6 @@ impl Tool for DryRunWorkflowTool {
             inner: caps.tools.clone(),
         });
 
-        // Which node ids are `tool_call` nodes — the null-resolution check
-        // below is scoped to just these (see the struct doc: a null in an
-        // `agent`'s prompt is not execution-breaking the way a null tool arg
-        // is, so only `tool_call` diagnostics fail the dry run).
-        let tool_call_node_ids: std::collections::HashSet<&str> = graph
-            .nodes
-            .iter()
-            .filter(|node| node.kind == tinyflows::model::NodeKind::ToolCall)
-            .map(|node| node.id.as_str())
-            .collect();
-
-        // Which node ids are `agent` nodes — scoped narrowly to the ONE
-        // execution-breaking agent diagnostic: a null-resolved `prompt`
-        // itself (see the struct doc's "agent prompt nulls" section). Every
-        // OTHER agent-config subfield (e.g. a null inside `tools` args) stays
-        // non-fatal here, same as before.
-        let agent_node_ids: std::collections::HashSet<&str> = graph
-            .nodes
-            .iter()
-            .filter(|node| node.kind == tinyflows::model::NodeKind::Agent)
-            .map(|node| node.id.as_str())
-            .collect();
-
-        // Capture every node's execution diagnostics (null-resolved
-        // `=`-expressions the engine itself traced — see
-        // `tinyflows::expr::resolve_traced`) as the sandbox run executes, so
-        // they can be inspected once the run settles.
         let observer = Arc::new(CapturingObserver::default());
         let observer_dyn: Arc<dyn tinyflows::observability::RunObserver> = observer.clone();
         let run = tinyflows::engine::run_with_observer(&compiled, input, &caps, &observer_dyn);
@@ -326,13 +298,8 @@ impl Tool for DryRunWorkflowTool {
                 // than letting the generic "required arg missing/null" text
                 // (which sent the transcript agent re-wiring a correct binding
                 // three times) stand alone. WS6.
-                let unverifiable_bindings: Vec<Value> =
-                    tool_call_arg_null_entries(&observer.steps(), &graph, &tool_call_node_ids)
-                        .into_iter()
-                        .filter(|entry| {
-                            entry.get("unverifiable").and_then(Value::as_bool) == Some(true)
-                        })
-                        .collect();
+                let unverifiable_bindings =
+                    authoring_report::unverifiable_bindings(&graph, &observer.steps());
                 if !unverifiable_bindings.is_empty() {
                     tracing::debug!(
                         target: "flows",
@@ -371,165 +338,16 @@ impl Tool for DryRunWorkflowTool {
             }
         };
 
-        // Collect every null-resolved `=`-expression that landed on a
-        // `tool_call` node's `args.*` config path — the class of binding
-        // mistake that "builds" (compiles, dry-runs against echo mocks) but
-        // does nothing at runtime because the wired field never had a value.
-        // Each entry is honest about WHY it resolved null: a binding to an
-        // upstream Composio `tool_call`'s output is flagged `unverifiable`
-        // (the echo mock can't produce real tool output fields) rather than
-        // reported as a plain wiring mistake — see [`build_null_resolution_entry`].
-        let null_resolutions: Vec<Value> =
-            tool_call_arg_null_entries(&observer.steps(), &graph, &tool_call_node_ids);
+        // The bucketing and advice wording live upstream (`tinyflows::authoring_report`);
+        // this tool keeps the mock capabilities, the timeout and the JSON envelope.
+        let AuthoringReport {
+            null_resolutions,
+            agent_prompt_nulls,
+            agent_input_context_nulls,
+            node_errors,
+            routing_divergence_warnings,
+        } = AuthoringReport::build(&graph, &observer.steps(), &outcome.output);
 
-        // Collect every null-resolved `agent`-node `prompt` — execution-
-        // breaking in the same way a null `tool_call` arg is: `prompt` is the
-        // node's ONLY input channel to the completion, so a `null` there
-        // means the agent runs with an EMPTY prompt (the exact root-cause bug
-        // `input_context` — and the static gate in
-        // `ops::validate_binding_resolvability` — exist to prevent). Scoped
-        // to the `location == "prompt"` diagnostic specifically: other
-        // agent-config subfields (e.g. a null buried in `tools` args) stay
-        // non-fatal here, same as before this check existed.
-        let agent_prompt_nulls: Vec<Value> = observer
-            .steps()
-            .iter()
-            .filter(|step| agent_node_ids.contains(step.node_id.as_str()))
-            .flat_map(|step| {
-                step.diagnostics
-                    .iter()
-                    .filter(|&diag| diag.location == "prompt")
-                    .map(|diag| {
-                        json!({
-                            "node_id": step.node_id,
-                            "location": diag.location,
-                            "expression": diag.expression,
-                            "suggestion": "Feed upstream data via input_context:\"=item\" and \
-                                make the prompt a plain instruction.",
-                        })
-                    })
-            })
-            .collect();
-
-        // Collect every null-resolved `agent`-node `input_context` — mirrors
-        // `agent_prompt_nulls` exactly (see the struct doc's "Agent-
-        // `input_context` null check" section): `input_context` has been the
-        // agent's primary upstream-data channel since #4590, so a null
-        // resolution here is just as execution-breaking as a null `prompt` —
-        // the agent runs with no upstream data at all.
-        let agent_input_context_nulls: Vec<Value> = observer
-            .steps()
-            .iter()
-            .filter(|step| agent_node_ids.contains(step.node_id.as_str()))
-            .flat_map(|step| {
-                step.diagnostics
-                    .iter()
-                    .filter(|&diag| diag.location == "input_context")
-                    .map(|diag| {
-                        json!({
-                            "node_id": step.node_id,
-                            "location": diag.location,
-                            "expression": diag.expression,
-                            "suggestion": "Wire input_context from a real upstream field, e.g. \
-                                \"=nodes.<node_id>.item.json.<field>\" (or \"=item\" off the \
-                                trigger), not an expression that resolves to null.",
-                        })
-                    })
-            })
-            .collect();
-
-        // Collect every `tool_call` node whose EXECUTOR errored (e.g. the
-        // Composio required-arg preflight rejecting a missing/null arg) —
-        // regardless of that node's `on_error` policy. A `"continue"`/`"route"`
-        // policy converts the failure into a routed error ITEM and the run
-        // still completes successfully (`Ok(outcome)`), so the naive
-        // `null_resolutions` check above misses it entirely: the failing
-        // node's `ExecutionStep` carries an EMPTY `diagnostics` (the engine
-        // never got far enough to trace an `=`-expression — see
-        // `tinyflows::engine`'s error-item path) even though the node
-        // genuinely failed. Only `"stop"` (the default) fails the whole run —
-        // and that's already caught above via `Ok(Err(e))` before this point,
-        // so every `StepStatus::Error` step reachable here is exactly the
-        // continue/route case. The error text itself isn't on the step (the
-        // engine only attaches it to the routed error item), so it's read
-        // back out of `outcome.output`.
-        let node_errors: Vec<Value> = observer
-            .steps()
-            .iter()
-            .filter(|step| {
-                tool_call_node_ids.contains(step.node_id.as_str())
-                    && matches!(step.status, tinyflows::observability::StepStatus::Error)
-            })
-            .map(|step| {
-                let error =
-                    tool_call_error_message(&outcome.output, &step.node_id).unwrap_or_else(|| {
-                        format!(
-                            "tool_call node '{}' failed during the sandbox run — its `on_error` \
-                             policy turned the failure into routed/continued data instead of \
-                             failing the whole dry run, but the underlying error still means the \
-                             node is broken.",
-                            step.node_id
-                        )
-                    });
-                json!({ "node_id": step.node_id, "error": error })
-            })
-            .collect();
-
-        // Routing-divergence blind spot (B15): an `agent`/`tool_call` node that
-        // did NOT execute during the sandbox run at all — because an upstream
-        // `condition` routed the mock trigger payload onto its OTHER branch —
-        // is invisible to every check above (`null_resolutions` etc. only
-        // inspect steps that ran). But the mock input's *shape* need not match
-        // a real trigger's shape (a webhook's real JSON vs. the dry run's `{}`
-        // default, say), so a condition that took the `false` branch under mock
-        // data may well take `true` at runtime with real data — or vice versa.
-        // Either way, the dry run silently never exercised the very node whose
-        // wiring most needed checking. This is a WARNING, not a hard reject
-        // (an unexercised branch can be entirely intentional), surfaced
-        // alongside the other diagnostics so the caller can double-check the
-        // wiring by hand.
-        let executed_steps = observer.steps();
-        let executed_node_ids: std::collections::HashSet<&str> = executed_steps
-            .iter()
-            .map(|step| step.node_id.as_str())
-            .collect();
-        let routing_divergence_warnings: Vec<Value> = graph
-            .nodes
-            .iter()
-            .filter(|node| {
-                node.kind != tinyflows::model::NodeKind::Trigger
-                    && (agent_node_ids.contains(node.id.as_str())
-                        || tool_call_node_ids.contains(node.id.as_str()))
-                    && !executed_node_ids.contains(node.id.as_str())
-            })
-            .map(|node| {
-                let condition_node_id = find_upstream_condition(&graph, &node.id);
-                let message = match &condition_node_id {
-                    Some(cid) => format!(
-                        "Node '{}' did not execute in the dry run (condition '{}' routed to \
-                         the other branch under mock data); verify the wiring — at runtime \
-                         with real data it may route differently.",
-                        node.id, cid
-                    ),
-                    None => format!(
-                        "Node '{}' did not execute in the dry run (an upstream branch routed \
-                         the mock data away from it); verify the wiring — at runtime with real \
-                         data it may route differently.",
-                        node.id
-                    ),
-                };
-                json!({
-                    "node_id": node.id,
-                    "condition_node_id": condition_node_id,
-                    "message": message,
-                })
-            })
-            .collect();
-
-        // Quiet, informational only (never a prompt, never a gate): the
-        // ApprovalGate permissions a real run of this graph will need, so the
-        // builder agent can tell the user what the save+enable card will ask
-        // for — the card itself fires at save+enable, NOT during dry runs.
         let permissions_manifest =
             crate::flows::ops::compute_approval_manifest(&self.config, &graph).await;
 

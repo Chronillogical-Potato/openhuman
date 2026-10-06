@@ -1,0 +1,4 @@
+{"_meta":{"version":1,"agent":"main","agent_id":"main","dispatcher":"native","created":"2025-01-01T00:00:00Z","updated":"2025-01-01T00:00:00Z","turn_count":1,"input_tokens":0,"output_tokens":0,"cached_input_tokens":0,"charged_amount_usd":0.0,"thread_id":"compat-legacy_adopted"}}
+{"role":"system","content":"legacy system prompt"}
+{"role":"user","content":"legacy question 1"}
+{"role":"assistant","content":"legacy answer 1"}

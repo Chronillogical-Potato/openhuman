@@ -59,11 +59,22 @@ The library API. Initialize one runtime (features, services, backend URL,
 the TinyHumans API key), then instantiate agents on it, each fully described
 and independent of the others:
 
+For hosted TinyHumans inference and services, use
+[`openhuman_tinyhumans::RuntimeBuilder`](../openhuman-tinyhumans/README.md),
+which binds the backend transport during startup. The
+[minimal library recipe](../../docs/library-minimal-recipe.md) covers the
+dependency and feature selection. The plain embed builder supports standalone
+hosts with their own providers; hosted requests require an installed transport
+and otherwise return `BACKEND_UNAVAILABLE:`.
+
 ```rust,no_run
-use openhuman_embed::{Access, AgentSpec, McpServer, Provider, Runtime, Workspace};
+use openhuman_tinyhumans::{
+    embed::{Access, AgentSpec, McpServer, Provider, Workspace},
+    RuntimeBuilder,
+};
 
 # async fn demo() -> Result<(), Box<dyn std::error::Error>> {
-let runtime = Runtime::builder()
+let runtime = RuntimeBuilder::new()
     .workspace(Workspace::dir("/var/lib/my-product/openhuman"))
     .api_key("th_live_…")                     // the only credential in library mode
     .build()
@@ -151,7 +162,7 @@ embeddings, voice (STT and TTS), web search, media generation, the Jev ranker,
 Composio and the other `/agent-integrations/*` tools, referral, and webhooks.
 The realtime voice agent and Socket.IO relay require a signed-in user session. Callers that
 can only send a bearer (the vendored STT and embedding clients, the connector
-module's proxy route, TinyCortex's Composio sync) send the key as
+module's proxy route, the memory engine's sync) send the key as
 `Authorization: Bearer`, which the backend accepts because it recognises the
 `tiny_live_` / `tiny_test_` prefix. What a key may reach is decided by its
 scopes on the backend: `inference`, `voice`, `search`, `media`, `storage`,
@@ -229,6 +240,15 @@ let runtime = tokio::runtime::Builder::new_multi_thread()
     .expect("tokio runtime");
 ```
 
+### Memory per tenant
+
+Bind each agent with `AgentSpec::memory(MemoryBinding::new(agent_id).root("team:acme"))`
+and its turns run TinyMemory's lifecycle under `team:acme/agent:<agent_id>`.
+`Runtime::memory("team:acme")` is the operator's view of that tenant: its
+agents, items, learnings and brain. Every call stays inside the root's subtree.
+`RuntimeBuilder::memory_engine` installs a host-supplied engine in place of the
+configured one. See `docs/specs/memory-v2.md`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They
@@ -236,7 +256,7 @@ are documented rather than hidden; each is a candidate follow-up in the core.
 
 - `autonomy.auto_approve` / `auto_approve_all` and the memory guard's
   autonomy tier come from the runtime's boot config (`security::live_policy`),
-  not the agent's. Path and command policy *do* use the agent's own tier.
+  not the agent's. Path and command policy _do_ use the agent's own tier.
 - The approval gate is on or off process-wide; parked approvals are not
   labelled with the agent id. A per-agent "no approvals" is `Access::full()`,
   whose `TrustedAutomation` origin the gate honours per turn.
@@ -250,15 +270,15 @@ are documented rather than hidden; each is a candidate follow-up in the core.
   registry; `[[mcp_client.servers]]` declared through `AgentSpec::mcp` are
   per agent. The host-seeded documentation server is visible to every agent.
 - `install_skill` / `create_skill` still write to `~/.openhuman`. With
-  `include_user_skills(false)` (the default) an agent does not *discover* the
+  `include_user_skills(false)` (the default) an agent does not _discover_ the
   operator's skills, but an install by the agent lands there.
 - One API key (or session) is shared by all agents.
-- `IntegrationClient` (backend-proxied Composio/search/media tools) only
-  ever reads the app-session JWT
-  (`security::credentials::session_support::get_session_token`), never the
-  runtime's API key. A library runtime that authenticates with only
-  `.api_key(...)` gets no integration tools at all rather than the key
-  being sent as the wrong header.
+- `IntegrationClient` (backend-proxied Composio/search/media tools) accepts
+  the runtime's TinyHumans API key or an app-session JWT through
+  `security::credentials::session_support::resolve_backend_credential`.
+  API keys use `x-api-key`; session JWTs use `Authorization: Bearer`.
+  With the backend transport installed and the integration feature and runtime
+  gates enabled, an API-key-only runtime can register integration tools.
 
 Other invariants worth knowing before wiring any entry point:
 
@@ -267,7 +287,7 @@ Other invariants worth knowing before wiring any entry point:
   auth profiles and the keyring file resolve beside `config_path`, so a
   workspace-only override reads the operator's real credentials. `Runtime`
   and `Harness` set both for `Workspace::Ephemeral` and `Workspace::Dir`.
-- A turn runs under the access tier *and* the turn origin. `Access::full()`
+- A turn runs under the access tier _and_ the turn origin. `Access::full()`
   sets both (`AutonomyLevel::Full` plus a `TrustedAutomation` origin);
   `Access::readonly()` and `Access::supervised()` set no origin and leave the
   approval gate on.
@@ -281,7 +301,7 @@ Every feature on this crate is a pass-through to the same-named feature on
 `openhuman-core` (package `openhuman`): `default`, `http-server`,
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
 `runtime-node`, `contacts`, `media`, `flows`, `skills`, `mcp`,
-`crash-reporting`, `channels`, `sandbox-landlock`,
+`crash-reporting`, `channels`,
 `sandbox-bubblewrap`, `browser-native`, `whatsapp-web`,
 `file-logging`, `scheduler-gate`.
 
@@ -349,3 +369,12 @@ above. It does not depend on `openhuman-rpc`; `Outcome` and `StructuredRpcError`
 are core types (`openhuman_core::core`). `openhuman-app` and `openhuman-tui`
 depend on `openhuman-rpc` for its client (and the app on its server) and on
 `openhuman-core`; neither uses `openhuman-embed`.
+
+## Permanent tools on supplied agents
+
+Hosts can pass an existing configured `Agent` to another library, which adds
+its tools through `Agent::attach_tools` without constructing a replacement.
+Attachments are shared by clones, always directly advertised, and update only
+their managed system catalogue when a continuing conversation gains tools.
+See [agent attachment semantics and example](src/agent/README.md#attach-tools-to-an-existing-agent)
+for source identity, collision errors, policy composition, and runtime identity.

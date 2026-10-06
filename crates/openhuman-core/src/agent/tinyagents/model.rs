@@ -3,30 +3,18 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tinyinference_llm::message::{AssistantMessage, ContentBlock, MessageDelta};
+use tinyinference_llm::message::{AssistantMessage, ContentBlock};
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
 };
-use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolDelta};
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinyinference_llm::usage::Usage;
-use tokio::sync::mpsc::UnboundedSender;
 
-use crate::agent::messages::ChatMessage;
-use crate::inference::provider::{ChatResponse, ProviderDelta, UsageInfo};
+use crate::inference::provider::{BilledUsage, ChatResponse};
 
 pub(super) type TurnChatModel = Arc<dyn ChatModel<()>>;
 pub(super) type TierRoutes = Vec<(String, TurnChatModel)>;
 pub(super) type BuiltTurnModels = (TurnChatModel, TierRoutes, TurnChatModel);
-
-/// Convert a crate request into the host's native-role message shape while the
-/// remaining bespoke transports still consume `ChatMessage`.
-pub(crate) fn native_chat_messages(request: &ModelRequest) -> Vec<ChatMessage> {
-    request
-        .messages
-        .iter()
-        .filter_map(crate::agent::message_convert::message_to_native_chat_message)
-        .collect()
-}
 
 /// Build a [`PFormatRegistry`](tinytools_agent::PFormatRegistry)
 /// from the tool schemas advertised on a [`ModelRequest`] (issue #4465).
@@ -130,7 +118,7 @@ fn response_to_model_response(
         // reasoning tokens all have crate homes as of tinyagents 1.7. `Usage::new`
         // seeds input/output/total; set the detail fields on top.
         let mut usage = Usage::new(u.input_tokens, u.output_tokens);
-        usage.cache_read_tokens = u.cached_input_tokens;
+        usage.cache_read_tokens = u.cached_input_tokens();
         usage.cache_creation_tokens = u.cache_creation_tokens;
         usage.reasoning_tokens = u.reasoning_tokens;
         if u.charged_amount_usd.is_finite() && u.charged_amount_usd > 0.0 {
@@ -138,8 +126,8 @@ fn response_to_model_response(
                 (u.charged_amount_usd * 1_000_000.0).round() as i64,
             ));
         }
-        if u.context_window > 0 {
-            usage.context_window_tokens = Some(u.context_window);
+        if u.context_window() > 0 {
+            usage.context_window_tokens = Some(u.context_window());
         }
         usage
     });
@@ -174,15 +162,6 @@ fn response_to_model_response(
     }
 }
 
-/// Convert a native host response into the crate model response shape.
-pub(crate) fn native_model_response(response: &ChatResponse) -> ModelResponse {
-    response_to_model_response(
-        response,
-        &tinytools_agent::PFormatRegistry::default(),
-        false,
-    )
-}
-
 /// Convert a host response while preserving the legacy text-tool fallback for
 /// a request that advertised tools. This remains available to migration
 /// fixtures that exercise the old XML/P-Format recovery contract without
@@ -198,47 +177,19 @@ pub(crate) fn native_model_response_for_request(
     )
 }
 
-/// Normalize a completed prompt-guided response for a crate-native model.
-///
-/// TinyAgents owns the generic prompt protocol and XML tool-call grammar. The
-/// host keeps a temporary second pass for its legacy P-Format prompts until
-/// those prompts are migrated (migration plan WP1/WP4).
-pub(crate) fn prompt_guided_text_response(text: String, request: &ModelRequest) -> ModelResponse {
-    if request.tools.is_empty() {
-        return ModelResponse::assistant(text);
-    }
-
-    let response = tinyinference_llm::prompt_tools::recover_tool_calls(
-        ModelResponse::assistant(text.clone()),
-        &request.tools,
-    );
-    if !response.message.tool_calls.is_empty() {
-        return response;
-    }
-
-    response_to_model_response(
-        &ChatResponse {
-            text: Some(text),
-            ..Default::default()
-        },
-        &pformat_registry_from_request(request),
-        true,
-    )
-}
-
 /// JSON key under which the model adapter stashes the provider-reported
 /// billing/context metadata that the crate [`Usage`] has no field for
 /// (gap G1). Consumed by [`usage_info_from_response`].
 const OPENHUMAN_USAGE_META_KEY: &str = "openhuman_usage_meta";
 
-/// The two host [`UsageInfo`] fields with no crate [`Usage`] home, ferried
+/// The two host [`BilledUsage`] fields with no crate [`Usage`] home, ferried
 /// through [`ModelResponse::raw`] so a standalone `invoke` stays usage-faithful.
 #[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 struct OpenhumanUsageMeta {
-    /// Provider-charged amount in USD (`UsageInfo::charged_amount_usd`).
+    /// Provider-charged amount in USD (`BilledUsage::charged_amount_usd`).
     #[serde(default)]
     charged_amount_usd: f64,
-    /// Model context window in tokens (`UsageInfo::context_window`).
+    /// Model context window in tokens (`BilledUsage::context_window`).
     #[serde(default)]
     context_window: u64,
 }
@@ -246,14 +197,14 @@ struct OpenhumanUsageMeta {
 /// Build the `ModelResponse.raw` value carrying charged-USD + context-window
 /// metadata, or `None` when the provider reported neither (so responses from
 /// providers that don't surface billing stay `raw: None`).
-fn openhuman_usage_meta_raw(usage: Option<&UsageInfo>) -> Option<serde_json::Value> {
+fn openhuman_usage_meta_raw(usage: Option<&BilledUsage>) -> Option<serde_json::Value> {
     let u = usage?;
-    if u.charged_amount_usd <= 0.0 && u.context_window == 0 {
+    if u.charged_amount_usd <= 0.0 && u.context_window() == 0 {
         return None;
     }
     let meta = OpenhumanUsageMeta {
         charged_amount_usd: u.charged_amount_usd,
-        context_window: u.context_window,
+        context_window: u.context_window(),
     };
     Some(serde_json::json!({ OPENHUMAN_USAGE_META_KEY: meta }))
 }
@@ -299,7 +250,7 @@ pub(crate) fn merge_openhuman_usage_meta(
     }
 }
 
-/// Reconstruct a host [`UsageInfo`] from a crate [`ModelResponse`], recovering
+/// Reconstruct a host [`BilledUsage`] from a crate [`ModelResponse`], recovering
 /// the provider-charged USD + context window the adapter stashed in
 /// [`ModelResponse::raw`] (gap G1). Returns `None` when the response carried no
 /// usage at all.
@@ -308,7 +259,7 @@ pub(crate) fn merge_openhuman_usage_meta(
 /// the legacy chat response onto `Arc<dyn ChatModel>`
 /// (`invoke` → `ModelResponse`): the full host usage record — real token
 /// counts *and* backend-charged USD — survives the crossing.
-pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<UsageInfo> {
+pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<BilledUsage> {
     let usage = response.usage.as_ref()?;
     let mut meta = response
         .raw
@@ -324,78 +275,14 @@ pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<Usage
             .and_then(serde_json::Value::as_f64)
             .unwrap_or_default();
     }
-    Some(UsageInfo {
-        input_tokens: usage.input_tokens,
-        output_tokens: usage.output_tokens,
-        context_window: meta.context_window,
-        cached_input_tokens: usage.cache_read_tokens,
-        cache_creation_tokens: usage.cache_creation_tokens,
-        reasoning_tokens: usage.reasoning_tokens,
-        charged_amount_usd: meta.charged_amount_usd,
-    })
-}
-
-/// Forward one openhuman [`ProviderDelta`]. Visible text, reasoning, and
-/// tool-call **argument** fragments all become harness [`ModelStreamItem`]s (so
-/// the [`OpenhumanEventBridge`](super::OpenhumanEventBridge) mirrors them as
-/// progress deltas from the crate stream alone): text/reasoning as
-/// [`MessageDelta`], and each argument fragment as
-/// [`ModelStreamItem::ToolCallDelta`] correlated by `call_id`. The tool-call
-/// **start** marker now also rides the native stream: with the crate `ToolDelta`
-/// carrying an optional `tool_name` (G2), the call-opening delta is a
-/// `ToolCallDelta` with the name set and empty content, so the
-/// [`OpenhumanEventBridge`](super::OpenhumanEventBridge) records the name and
-/// opens the UI timeline row off the crate stream alone — no out-of-band
-/// forwarder. The model adapter still assembles the final native tool calls from
-/// the `Completed` response (the `StreamAccumulator` treats it as
-/// authoritative), so these fragments are progress-only — the UI can show the
-/// call being composed.
-pub(crate) fn forward_provider_delta(tx: &UnboundedSender<ModelStreamItem>, delta: ProviderDelta) {
-    match delta {
-        ProviderDelta::TextDelta { delta } => {
-            if !delta.is_empty() {
-                let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta::text(delta)));
-            }
-        }
-        ProviderDelta::ThinkingDelta { delta } => {
-            if !delta.is_empty() {
-                let _ = tx.send(ModelStreamItem::MessageDelta(MessageDelta::reasoning(
-                    delta,
-                )));
-            }
-        }
-        ProviderDelta::ToolCallStart { call_id, tool_name } => {
-            // Call-opening marker: name set, empty content. Rides the native
-            // crate stream (G2) so the bridge can label the call before its
-            // arguments arrive.
-            tracing::trace!(
-                call_id = call_id.as_str(),
-                tool_name = tool_name.as_str(),
-                "[stream] forwarding tool-call start onto crate ToolCallDelta"
-            );
-            let _ = tx.send(ModelStreamItem::ToolCallDelta(ToolDelta {
-                call_id,
-                content: String::new(),
-                tool_name: Some(tool_name),
-                content_index: None,
-            }));
-        }
-        ProviderDelta::ToolCallArgsDelta { call_id, delta } => {
-            if !delta.is_empty() {
-                tracing::trace!(
-                    call_id = call_id.as_str(),
-                    len = delta.len(),
-                    "[stream] forwarding tool-arg fragment onto crate ToolCallDelta"
-                );
-                let _ = tx.send(ModelStreamItem::ToolCallDelta(ToolDelta {
-                    call_id,
-                    content: delta,
-                    tool_name: None,
-                    content_index: None,
-                }));
-            }
-        }
-    }
+    Some(
+        BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)
+            .with_context_window(meta.context_window)
+            .with_cached_input_tokens(usage.cache_read_tokens)
+            .with_cache_creation_tokens(usage.cache_creation_tokens)
+            .with_reasoning_tokens(usage.reasoning_tokens)
+            .with_charged_usd(meta.charged_amount_usd),
+    )
 }
 
 /// Shared slot that preserves the most recent original provider error.
@@ -461,6 +348,15 @@ fn slot_error(error: &tinyinference_llm::Error) -> anyhow::Error {
 impl ChatModel<()> for ErrorSlotModel {
     fn profile(&self) -> Option<&ModelProfile> {
         self.inner.profile()
+    }
+
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
     }
 
     fn cache_identity(&self) -> Option<String> {
@@ -558,6 +454,15 @@ impl ChatModel<()> for ProfileOverrideModel {
         Some(&self.profile)
     }
 
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         self.inner
             .cache_identity()
@@ -613,6 +518,15 @@ impl ChatModel<()> for MaxTokensModel {
     // identity, and the harness response cache then keys every wrapped model
     // under one "anonymous-model" marker, so a shared cache could serve a
     // local model's answer to a hosted one.
+    fn supports_input(
+        &self,
+        modality: tinyinference_llm::model::InputModality,
+        mime: &str,
+        source: tinyinference_llm::model::InputSource,
+    ) -> bool {
+        self.inner.supports_input(modality, mime, source)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         self.inner.cache_identity()
     }

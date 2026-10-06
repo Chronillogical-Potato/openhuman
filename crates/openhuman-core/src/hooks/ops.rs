@@ -42,12 +42,11 @@ pub async fn init(config: &crate::config::schema::Config) {
     super::host::engine()
         .set_default_timeout(Duration::from_secs(settings.default_timeout_secs))
         .await;
-    let loaded = super::host::engine()
-        .reload(
-            Some(config.action_dir.clone()),
-            Some(config.workspace_dir.clone()),
-        )
-        .await;
+    let loaded = super::host::reload(
+        Some(config.action_dir.clone()),
+        Some(config.workspace_dir.clone()),
+    )
+    .await;
     if loaded.is_empty() {
         // Nothing configured: keep the bridge out of the harness entirely so an
         // unconfigured host pays not even a task-local lookup per tool call.

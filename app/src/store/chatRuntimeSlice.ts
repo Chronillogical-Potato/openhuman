@@ -775,7 +775,7 @@ export interface ArtifactSnapshot {
   status: ArtifactStatus;
   /** Final on-disk size. Only set when `status === 'ready'`. */
   sizeBytes?: number;
-  /** Relative path under `<workspace>/artifacts/`. Only set when `status === 'ready'`. */
+  /** File name relative to its root folder. Only set when `status === 'ready'`. */
   path?: string;
   /** Producer-supplied reason. Only set when `status === 'failed'`. */
   error?: string;

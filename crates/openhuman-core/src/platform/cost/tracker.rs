@@ -598,13 +598,6 @@ impl CostStorage {
         Ok((self.daily_cost_usd, self.monthly_cost_usd))
     }
 
-    /// Get aggregated **managed-route** costs for the current day and month —
-    /// the only spend the local `[cost]` budget may gate (#5016).
-    fn get_aggregated_managed_costs(&mut self) -> Result<(f64, f64)> {
-        self.ensure_period_cache_current()?;
-        Ok((self.daily_managed_cost_usd, self.monthly_managed_cost_usd))
-    }
-
     /// Get cost for a specific date.
     fn get_cost_for_date(&self, date: NaiveDate) -> Result<f64> {
         let mut cost = 0.0;

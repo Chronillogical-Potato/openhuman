@@ -31,9 +31,7 @@ async fn search_page(args: serde_json::Value) -> serde_json::Value {
 #[tokio::test]
 async fn search_tool_returns_a_bounded_page_and_where_the_next_one_starts() {
     // #6286: a broad query used to return every match in one result.
-    let _env = crate::skills::catalog::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env = crate::skills::catalog::TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var("OPENHUMAN_SKILL_REGISTRY_CACHE_DIR", tmp.path());
     let catalog: Vec<_> = (0..45)

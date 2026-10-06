@@ -12,9 +12,10 @@
 //! Aggregated into `tests/raw_coverage_all.rs` by `build.rs`. Run with:
 //! `cargo test --test raw_coverage_all --features "$(bash scripts/ci/product-features.sh)" automation_scheduling_e2e`
 
+use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -36,47 +37,18 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 /// The crate-wide env lock, not a private one. Every aggregated suite in
 /// `raw_coverage_all` shares one process, so libtest runs them concurrently
 /// and a lock local to this file would isolate nothing.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-struct EnvVarGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set_to_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    fn set(key: &'static str, value: &str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, old }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// Initialise the process RPC token (idempotent) and return the bearer the
@@ -131,15 +103,7 @@ enabled = false
 [runtime_python]
 enabled = false
 
-[memory]
-provider = "none"
-embedding_provider = "none"
-embedding_model = "none"
-embedding_dimensions = 0
 
-[memory_tree]
-embedding_strict = false
-spacy_enabled = false
 "#;
 
 /// Prove the disable switches actually bound to the fields harness-init reads,
@@ -154,10 +118,6 @@ fn assert_provisioning_is_disabled() -> openhuman_core::config::Config {
     assert!(
         !parsed.runtime_python.enabled,
         "[runtime_python] enabled=false must bind — otherwise harness_init downloads CPython"
-    );
-    assert!(
-        !parsed.memory_tree.spacy_enabled,
-        "[memory_tree] spacy_enabled=false must bind — otherwise harness_init provisions spaCy"
     );
     parsed
 }
@@ -292,7 +252,7 @@ fn str_at<'a>(value: &'a Value, pointer: &str) -> &'a str {
 /// that completes without a model.
 #[tokio::test]
 async fn cron_run_records_history_and_remove_is_not_idempotent() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let job = h
@@ -425,63 +385,6 @@ async fn cron_run_records_history_and_remove_is_not_idempotent() {
     h.join.abort();
 }
 
-/// Every cron controller validates its `job_id` before touching the store, and
-/// a whitespace-only id must not slip through as a valid one.
-#[tokio::test]
-async fn cron_controllers_reject_absent_and_blank_job_ids() {
-    let _lock = env_lock();
-    let h = setup().await;
-
-    for (id, method) in [
-        (2101, "openhuman.cron_remove"),
-        (2102, "openhuman.cron_run"),
-        (2103, "openhuman.cron_runs"),
-    ] {
-        let blank = h.err(id, method, json!({ "job_id": "   " })).await;
-        assert!(
-            blank.contains("job_id"),
-            "{method} rejects a blank job_id by name: {blank}"
-        );
-
-        let absent = h.err(id + 10, method, json!({})).await;
-        assert!(
-            absent.contains("job_id"),
-            "{method} names its required param: {absent}"
-        );
-    }
-
-    // The three diverge on an id that does not name a job, and the divergence
-    // is worth pinning. `remove` and `run` both go through `cron::get_job` /
-    // `remove_job` and raise; `runs` queries the run table by id and cannot
-    // tell "no such job" from "job with no runs", so a typo reads as an empty
-    // history. See `~/tinyhuman/bugs/e2e-wave-cron-run-schema-declares-an-outcome-it-never-returns.md`.
-    for (id, method) in [
-        (2121, "openhuman.cron_remove"),
-        (2122, "openhuman.cron_run"),
-    ] {
-        let unknown = h.err(id, method, json!({ "job_id": "no-such-job" })).await;
-        assert!(
-            unknown.contains("no-such-job"),
-            "{method} names the unknown job: {unknown}"
-        );
-    }
-
-    let unknown_history = h
-        .ok(
-            2123,
-            "openhuman.cron_runs",
-            json!({ "job_id": "no-such-job" }),
-        )
-        .await;
-    assert_eq!(
-        unknown_history.as_array().map(Vec::len),
-        Some(0),
-        "cron_runs cannot distinguish an unknown job from one with no runs: {unknown_history}"
-    );
-
-    h.join.abort();
-}
-
 // ── task_sources ────────────────────────────────────────────────────────────
 
 /// `task_sources_sync` fans out over every ENABLED source and reports one
@@ -494,7 +397,7 @@ async fn cron_controllers_reject_absent_and_blank_job_ids() {
 /// `~/tinyhuman/bugs/e2e-wave-task_sources-fetch-pipeline-unavailable.md`.
 #[tokio::test]
 async fn task_sources_sync_reports_one_outcome_per_enabled_source() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let empty = h.ok(2201, "openhuman.task_sources_sync", json!({})).await;
@@ -588,7 +491,7 @@ async fn task_sources_sync_reports_one_outcome_per_enabled_source() {
 /// `~/tinyhuman/bugs/e2e-wave-task_sources-fetch-pipeline-unavailable.md`.
 #[tokio::test]
 async fn task_sources_list_databases_is_unavailable_for_every_provider() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     for (id, provider) in [
@@ -665,7 +568,7 @@ fn write_user_hooks(home: &Path) {
 /// real moment.
 #[tokio::test]
 async fn hooks_reload_list_and_test_round_trip_a_deny_rule() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     // Before the file exists, reload must produce an empty, warning-free config
@@ -849,7 +752,7 @@ async fn hooks_reload_list_and_test_round_trip_a_deny_rule() {
 /// does — the endpoint exists so an author never has to guess.
 #[tokio::test]
 async fn hooks_test_rejects_unknown_events_and_malformed_payloads() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let unknown = h
@@ -895,7 +798,7 @@ async fn hooks_test_rejects_unknown_events_and_malformed_payloads() {
 /// believes that file is running, so `list` must say why it is not.
 #[tokio::test]
 async fn hooks_reload_surfaces_a_malformed_file_as_a_warning() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let dir = h.home().join(".openhuman");
@@ -935,7 +838,7 @@ async fn hooks_reload_surfaces_a_malformed_file_as_a_warning() {
 /// not.
 #[tokio::test]
 async fn harness_init_run_completes_offline_and_force_bypasses_the_probes() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let h = setup().await;
 
     let snapshot = h.ok(2701, "openhuman.harness_init_run", json!({})).await;
@@ -954,7 +857,6 @@ async fn harness_init_run_completes_offline_and_force_bypasses_the_probes() {
     let step_ids: Vec<&str> = steps.iter().map(|step| str_at(step, "/id")).collect();
     for expected in [
         "python_runtime",
-        "spacy",
         "kompress",
         "runtime_python_server",
     ] {

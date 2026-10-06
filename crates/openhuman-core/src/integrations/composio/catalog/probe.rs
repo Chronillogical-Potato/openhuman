@@ -10,7 +10,7 @@ use serde_json::Value;
 use super::contract::COMPOSIO_CATALOG_CACHE_TTL;
 use super::contract::{CacheEntry, ToolContract};
 use crate::config::Config;
-use crate::json_schema::compute_primary_array_path_from_value;
+use tinyagents_harness::tool::compute_primary_array_path_from_value;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Real-output probe (systemic tool-contract fix, Part 3 / B12)
@@ -41,7 +41,7 @@ use crate::json_schema::compute_primary_array_path_from_value;
 /// arrays in practice, but the skip is explicit so a future envelope field
 /// can't silently win a shallowest-wins tie against a real nested array.
 /// `pub(crate)` because the workflow adapter seam passes this into the
-/// vendor-neutral walker in [`crate::json_schema`]. That walker
+/// vendor-neutral walker in `tinyagents_harness::tool::schema_walk`. That walker
 /// deliberately takes the skip-list as a parameter rather than knowing any
 /// provider's envelope shape, so this constant is the piece of Composio
 /// knowledge the caller supplies — exporting it is the seam, not a leak.

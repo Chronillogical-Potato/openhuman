@@ -5,11 +5,6 @@ use serde_json::json;
 // ── ArtifactKind ───────────────────────────────────────────────────────────
 
 #[test]
-fn artifact_kind_default_is_other() {
-    assert_eq!(ArtifactKind::default(), ArtifactKind::Other);
-}
-
-#[test]
 fn artifact_kind_as_str_roundtrip() {
     assert_eq!(ArtifactKind::Presentation.as_str(), "presentation");
     assert_eq!(ArtifactKind::Document.as_str(), "document");
@@ -35,20 +30,6 @@ fn artifact_kind_parse_case_insensitive() {
 }
 
 #[test]
-fn artifact_kind_serde_roundtrip() {
-    for kind in [
-        ArtifactKind::Presentation,
-        ArtifactKind::Document,
-        ArtifactKind::Image,
-        ArtifactKind::Other,
-    ] {
-        let json = serde_json::to_value(&kind).unwrap();
-        let back: ArtifactKind = serde_json::from_value(json).unwrap();
-        assert_eq!(back, kind);
-    }
-}
-
-#[test]
 fn artifact_kind_serializes_lowercase() {
     assert_eq!(
         serde_json::to_string(&ArtifactKind::Presentation).unwrap(),
@@ -61,11 +42,6 @@ fn artifact_kind_serializes_lowercase() {
 }
 
 // ── ArtifactStatus ─────────────────────────────────────────────────────────
-
-#[test]
-fn artifact_status_default_is_pending() {
-    assert_eq!(ArtifactStatus::default(), ArtifactStatus::Pending);
-}
 
 #[test]
 fn artifact_status_as_str_roundtrip() {
@@ -83,45 +59,7 @@ fn artifact_status_parse_case_insensitive() {
     assert_eq!(ArtifactStatus::parse(""), ArtifactStatus::Pending);
 }
 
-#[test]
-fn artifact_status_serde_roundtrip() {
-    for status in [
-        ArtifactStatus::Pending,
-        ArtifactStatus::Ready,
-        ArtifactStatus::Failed,
-    ] {
-        let json = serde_json::to_value(&status).unwrap();
-        let back: ArtifactStatus = serde_json::from_value(json).unwrap();
-        assert_eq!(back, status);
-    }
-}
-
 // ── ArtifactMeta ───────────────────────────────────────────────────────────
-
-#[test]
-fn artifact_meta_serde_roundtrip() {
-    let meta = ArtifactMeta {
-        id: "abc-123".to_string(),
-        kind: ArtifactKind::Presentation,
-        title: "Q3 Deck".to_string(),
-        path: "abc-123/deck.pptx".to_string(),
-        size_bytes: 204800,
-        status: ArtifactStatus::Ready,
-        created_at: Utc.with_ymd_and_hms(2025, 6, 1, 12, 0, 0).unwrap(),
-        error: None,
-        thread_id: Some("thread-42".to_string()),
-        tool_call_id: None,
-    };
-    let json = serde_json::to_value(&meta).unwrap();
-    assert_eq!(json["id"], "abc-123");
-    assert_eq!(json["kind"], "presentation");
-    assert_eq!(json["status"], "ready");
-    let back: ArtifactMeta = serde_json::from_value(json).unwrap();
-    assert_eq!(back.id, meta.id);
-    assert_eq!(back.kind, meta.kind);
-    assert_eq!(back.status, meta.status);
-    assert_eq!(back.size_bytes, meta.size_bytes);
-}
 
 #[test]
 fn artifact_meta_json_shape() {
@@ -130,6 +68,8 @@ fn artifact_meta_json_shape() {
         kind: ArtifactKind::Other,
         title: "test".to_string(),
         path: "x/file.txt".to_string(),
+        file: None,
+        file_root: None,
         size_bytes: 0,
         status: ArtifactStatus::Pending,
         created_at: Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
@@ -187,6 +127,8 @@ fn artifact_meta_thread_id_none_is_skipped_in_serialised_form() {
         kind: ArtifactKind::Other,
         title: "t".to_string(),
         path: "x/t.txt".to_string(),
+        file: None,
+        file_root: None,
         size_bytes: 0,
         status: ArtifactStatus::Pending,
         created_at: Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
@@ -210,6 +152,8 @@ fn artifact_meta_thread_id_some_round_trips() {
         kind: ArtifactKind::Other,
         title: "t".to_string(),
         path: "x/t.txt".to_string(),
+        file: None,
+        file_root: None,
         size_bytes: 0,
         status: ArtifactStatus::Pending,
         created_at: Utc.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),

@@ -13,7 +13,9 @@ fn reports_the_compiled_gate_state() {
 #[test]
 #[cfg(feature = "http-server")]
 fn is_true_when_the_http_server_feature_is_on() {
-    assert!(HTTP_SERVER_COMPILED_IN);
+    const {
+        assert!(HTTP_SERVER_COMPILED_IN);
+    }
 }
 
 /// The slim build must report honestly, otherwise the shell's const assert

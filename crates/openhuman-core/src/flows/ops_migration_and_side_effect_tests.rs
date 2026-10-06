@@ -30,33 +30,6 @@ async fn flows_discover_applies_the_flow_discovery_definitions_effective_iterati
     assert_eq!(agent.agent_config().max_tool_iterations, expected);
 }
 
-#[test]
-fn validate_and_migrate_graph_rejects_condition_edges_with_branch_label_on_to_port() {
-    // The exact malformed shape the workflow_builder agent produced live
-    // (see issue B23): both edges share `from_port: "main"` with the branch
-    // label on `to_port` instead. The engine routes exclusively on
-    // `from_port` (B24, `tinyflows::validate`), so this must be a hard
-    // reject here — never persisted as a silently-broken no-op condition.
-    let bad_graph = condition_graph("main", "true", "main", "false");
-
-    let err = validate_and_migrate_graph(bad_graph)
-        .expect_err("condition edges with the branch label on to_port must be rejected");
-    assert!(
-        err.contains("condition") && err.contains("from_port"),
-        "expected an InvalidConditionRouting-style error naming from_port, got: {err}"
-    );
-}
-
-#[test]
-fn validate_and_migrate_graph_accepts_condition_edges_with_branch_label_on_from_port() {
-    // The correct shape: `from_port` carries "true"/"false", `to_port` stays
-    // "main".
-    let good_graph = condition_graph("true", "main", "false", "main");
-
-    validate_and_migrate_graph(good_graph)
-        .expect("correctly-routed condition graph (branch label on from_port) must validate");
-}
-
 #[tokio::test]
 async fn flows_create_rejects_condition_edges_with_branch_label_on_to_port() {
     // The same hard gate applies at the actual persistence path
@@ -350,50 +323,6 @@ async fn flows_update_does_not_force_require_approval_on_readonly_graph() {
         !updated.value.require_approval,
         "a name-only update to a read-only graph must not force require_approval"
     );
-}
-
-// ── graph_has_outbound_side_effect / trigger_is_automatic helper tests ────
-
-#[test]
-fn graph_has_outbound_side_effect_detects_tool_call() {
-    let g = graph(tool_call_graph());
-    assert!(graph_has_outbound_side_effect(&g));
-}
-
-#[test]
-fn graph_has_outbound_side_effect_detects_http_request() {
-    let g = graph(http_request_graph());
-    assert!(graph_has_outbound_side_effect(&g));
-}
-
-#[test]
-fn graph_has_outbound_side_effect_detects_code() {
-    let g = graph(code_graph());
-    assert!(graph_has_outbound_side_effect(&g));
-}
-
-#[test]
-fn graph_has_outbound_side_effect_false_for_agent_only() {
-    let g = graph(readonly_graph());
-    assert!(!graph_has_outbound_side_effect(&g));
-}
-
-#[test]
-fn trigger_is_automatic_schedule() {
-    let g = graph(schedule_trigger_graph("0 9 * * *"));
-    assert!(trigger_is_automatic(&g));
-}
-
-#[test]
-fn trigger_is_automatic_manual() {
-    let g = graph(manual_trigger_graph());
-    assert!(!trigger_is_automatic(&g));
-}
-
-#[test]
-fn trigger_is_automatic_no_trigger_kind() {
-    let g = graph(trigger_only_graph());
-    assert!(!trigger_is_automatic(&g));
 }
 
 #[tokio::test]

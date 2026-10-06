@@ -82,69 +82,6 @@ async fn graph_wiring_warnings_uses_the_probed_output_fields_when_schema_is_unkn
 }
 
 #[test]
-fn degrade_completed_status_all_clean_stays_completed() {
-    let steps = vec![clean_step("a"), clean_step("b")];
-    assert_eq!(degrade_completed_status(&steps), "completed");
-}
-
-#[test]
-fn degrade_completed_status_null_binding_becomes_warnings() {
-    let mut warned = clean_step("a");
-    warned.diagnostics = vec![json!({ "location": "args.to", "expression": "=item.to" })];
-    let steps = vec![clean_step("trigger"), warned];
-    assert_eq!(degrade_completed_status(&steps), "completed_with_warnings");
-}
-
-#[test]
-fn degrade_completed_status_errored_step_becomes_failed() {
-    let mut errored = clean_step("a");
-    errored.status = Some("error".to_string());
-    let steps = vec![clean_step("trigger"), errored];
-    assert_eq!(degrade_completed_status(&steps), "failed");
-}
-
-#[test]
-fn degrade_completed_status_error_outranks_diagnostics() {
-    // A step can carry both an error status and null-resolution diagnostics
-    // (e.g. it errored trying to use the unresolved value) — failed wins.
-    let mut errored_with_diagnostics = clean_step("a");
-    errored_with_diagnostics.status = Some("error".to_string());
-    errored_with_diagnostics.diagnostics =
-        vec![json!({ "location": "args.to", "expression": "=item.to" })];
-    let steps = vec![errored_with_diagnostics];
-    assert_eq!(degrade_completed_status(&steps), "failed");
-}
-
-#[test]
-fn failed_step_error_summary_none_when_no_step_errored() {
-    let steps = vec![clean_step("a"), clean_step("b")];
-    assert_eq!(failed_step_error_summary(&steps), None);
-}
-
-#[test]
-fn failed_step_error_summary_names_the_errored_node() {
-    let mut errored = clean_step("x");
-    errored.status = Some("error".to_string());
-    let steps = vec![clean_step("trigger"), errored];
-    let summary = failed_step_error_summary(&steps).expect("an errored step must summarize");
-    assert!(summary.contains('x'), "got: {summary}");
-}
-
-#[test]
-fn failed_step_error_summary_names_every_errored_node() {
-    let mut errored_a = clean_step("a");
-    errored_a.status = Some("error".to_string());
-    let mut errored_b = clean_step("b");
-    errored_b.status = Some("error".to_string());
-    let steps = vec![errored_a, errored_b];
-    let summary = failed_step_error_summary(&steps).unwrap();
-    assert!(
-        summary.contains('a') && summary.contains('b'),
-        "got: {summary}"
-    );
-}
-
-#[test]
 fn agent_prompt_binding_unaffected() {
     // The field-addressability checks are scoped to `tool_call` `args` only
     // — an agent's own `prompt` referencing a dangling/unschemad node path is
@@ -162,37 +99,6 @@ fn agent_prompt_binding_unaffected() {
         "edges": [ { "from_node": "t", "to_node": "summarize" } ]
     }));
     assert!(validate_binding_resolvability(&g).is_empty());
-}
-
-#[test]
-fn finalize_terminal_status_pending_approval_wins_over_error() {
-    // Precedence: an outstanding pending_approval always wins, even if a step
-    // also settled with an error — mirrors degrade_completed_status's own
-    // precedence rule, now centralized in finalize_terminal_status.
-    let mut errored = clean_step("a");
-    errored.status = Some("error".to_string());
-    let steps = vec![errored];
-    let (status, error) = finalize_terminal_status(&steps, &["gate".to_string()]);
-    assert_eq!(status, "pending_approval");
-    assert_eq!(error, None);
-}
-
-#[test]
-fn finalize_terminal_status_populates_error_on_degraded_failure() {
-    let mut errored = clean_step("x");
-    errored.status = Some("error".to_string());
-    let steps = vec![errored];
-    let (status, error) = finalize_terminal_status(&steps, &[]);
-    assert_eq!(status, "failed");
-    assert!(error.unwrap().contains('x'));
-}
-
-#[test]
-fn finalize_terminal_status_no_error_when_clean() {
-    let steps = vec![clean_step("a")];
-    let (status, error) = finalize_terminal_status(&steps, &[]);
-    assert_eq!(status, "completed");
-    assert_eq!(error, None);
 }
 
 /// Regression for issue #4593 (widened for #4881's `resume_flow_run`/

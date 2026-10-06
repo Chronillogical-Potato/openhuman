@@ -8,6 +8,11 @@ use super::*;
 #[tokio::test]
 async fn a_large_result_becomes_a_handle_the_repl_tools_can_query() {
     if std::env::var_os("TINYJUICE_TEST_MODULE").is_none() {
+        eprintln!(
+            "SKIPPED (not run, not asserted): TINYJUICE_TEST_MODULE is not set. Build \
+             vendor/tinyjuice and export TINYJUICE_TEST_MODULE=<path to libtinyjuice_module>, \
+             or use scripts/test-rust-with-mock.sh"
+        );
         return;
     }
     let rows: String = (0..1200)
@@ -33,7 +38,9 @@ async fn a_large_result_becomes_a_handle_the_repl_tools_can_query() {
         "not compacted: {} bytes",
         output.text.len()
     );
-    for name in REPL_TOOL_NAMES {
+    // The footer advertises slice/search, outline, and full recovery. Structured
+    // extraction remains callable, but is not a suggested recovery operation.
+    for name in ["juice_find", "juice_summarize", "juice_retrieve"] {
         assert!(output.text.contains(name), "footer must name {name}");
     }
     let handle = output

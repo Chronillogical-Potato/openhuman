@@ -6,8 +6,17 @@ use crate::config::Config;
 
 use super::langfuse;
 use super::otlp;
-use super::serialize::spans_to_ndjson;
-use super::types::{TraceContext, TraceSpan};
+use crate::config::schema::AgentTracingBackend;
+use tinyagents_harness::observability::trace_export::serialize::{spans_to_ndjson, SpanEnvelope};
+use tinyagents_harness::observability::trace_export::{RunType, TraceContext, TraceSpan};
+
+/// Map the configured backend onto the upstream NDJSON envelope.
+pub(crate) fn envelope_for(backend: AgentTracingBackend) -> SpanEnvelope {
+    match backend {
+        AgentTracingBackend::Otel => SpanEnvelope::Otel,
+        AgentTracingBackend::Langfuse => SpanEnvelope::Langfuse,
+    }
+}
 
 /// Export finished spans per the [`AgentTracingConfig`]: append NDJSON to the
 /// configured file, or emit to the application log when no path is set.
@@ -17,7 +26,7 @@ pub(crate) fn export_spans(config: &AgentTracingConfig, spans: &[TraceSpan]) {
     if !config.enabled || spans.is_empty() {
         return;
     }
-    let payload = spans_to_ndjson(config.backend, spans);
+    let payload = spans_to_ndjson(envelope_for(config.backend), spans);
     match &config.export_path {
         Some(path) => {
             use std::io::Write as _;
@@ -159,7 +168,7 @@ pub(crate) async fn export_subagent_journal_trace(
         .with_session_group(thread_id.unwrap_or(task_id).to_string())
         .with_agent_id(agent_id.to_string())
         .with_channel_source("subagent".to_string())
-        .with_run_type(super::types::RunType::Subagent)
+        .with_run_type(RunType::Subagent)
         .with_capture_content(config.observability.agent_tracing.capture_content)
         .with_run_lineage(
             Some(first.run_id.as_str().to_string()),
@@ -169,7 +178,10 @@ pub(crate) async fn export_subagent_journal_trace(
                 .map(|id| id.as_str().to_string()),
             Some(first.root_run_id.as_str().to_string()),
         );
-    let rooted = langfuse::root_subagent_observations(&observations);
+    let rooted =
+        tinyagents_harness::observability::trace_export::journal_export::root_subagent_observations(
+            &observations,
+        );
     let mut spans =
         super::journal_projection::spans_from_observations(trace_ctx.clone(), 0, &rooted);
     if let Some(root) = spans.iter_mut().find(|span| span.parent_span_id.is_none()) {
@@ -184,7 +196,7 @@ pub(crate) async fn export_subagent_journal_trace(
             }
         }
     }
-    otlp::prepare_subagent_root(&mut spans);
+    tinyagents_harness::observability::trace_export::otlp::prepare_subagent_root(&mut spans);
     if let Err(err) = otlp::push_spans(config, &spans).await {
         log::warn!(
             "[agent-tracing] child Langfuse OTLP push failed run_id={journal_run_id}: {err}"

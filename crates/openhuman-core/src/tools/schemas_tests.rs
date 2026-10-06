@@ -78,9 +78,3 @@ fn web_search_schema_shape() {
     // callers can attribute a managed search (#5136).
     assert!(s.outputs.iter().any(|f| f.name == "provider"));
 }
-
-#[test]
-fn unknown_function_returns_unknown() {
-    let s = tools_schemas("nonexistent");
-    assert_eq!(s.function, "unknown");
-}

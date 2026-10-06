@@ -461,12 +461,12 @@ pub async fn flows_build_cancel(
 /// their tool result, so we match on that (the same gate the frontend uses) and
 /// return the LAST one — the most recent proposal in the turn.
 pub(super) fn extract_workflow_proposal(
-    history: &[crate::agent::messages::ConversationMessage],
+    history: &[tinytools_agent::dialect::TranscriptEntry],
 ) -> Option<Value> {
-    use crate::agent::messages::ConversationMessage;
+    use tinytools_agent::dialect::TranscriptEntry;
     let mut latest = None;
     for message in history {
-        if let ConversationMessage::ToolResults(results) = message {
+        if let TranscriptEntry::ToolResults(results) = message {
             for result in results {
                 if let Ok(value) = serde_json::from_str::<Value>(&result.content) {
                     if value.get("type").and_then(Value::as_str) == Some("workflow_proposal") {

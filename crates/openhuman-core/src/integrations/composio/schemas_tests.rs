@@ -2,14 +2,6 @@ use super::*;
 use serde_json::json;
 
 #[test]
-fn catalog_counts_match() {
-    let s = all_controller_schemas();
-    let h = all_registered_controllers();
-    assert_eq!(s.len(), h.len());
-    assert!(s.len() >= 9);
-}
-
-#[test]
 fn all_schemas_use_composio_namespace_and_have_descriptions() {
     for s in all_controller_schemas() {
         assert_eq!(s.namespace, "composio", "function {}", s.function);
@@ -55,14 +47,6 @@ fn list_capabilities_schema_has_matrix_output() {
         .outputs
         .iter()
         .any(|f| f.name == "capabilities" && f.required));
-}
-
-#[test]
-fn unknown_function_returns_unknown_schema() {
-    let s = schemas("no_such_fn");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.inputs.len(), 1);
-    assert_eq!(s.inputs[0].name, "function");
 }
 
 #[test]

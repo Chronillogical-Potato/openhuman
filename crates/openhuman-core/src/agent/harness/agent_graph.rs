@@ -25,11 +25,11 @@ use std::sync::Arc;
 use tinytools::WorkspaceDescriptor;
 use tokio::sync::mpsc::Sender;
 
-use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::agent::subagent_host::SubagentRunError;
 use crate::agent::tinyagents::TurnModelSource;
 use tinyagents_harness::run_queue::RunQueue;
+use tinyagents_session::transcript::TranscriptMessage;
 use tinytools::{Tool, ToolSpec};
 
 /// The assembled inputs for one sub-agent turn, handed to a custom
@@ -45,7 +45,7 @@ pub struct AgentTurnRequest {
     pub model: String,
     pub temperature: f64,
     /// Full working transcript for the turn (system + prior + this user turn).
-    pub history: Vec<ChatMessage>,
+    pub history: Vec<TranscriptMessage>,
     pub parent_tools: Arc<Vec<Box<dyn Tool>>>,
     pub dynamic_tools: Vec<Box<dyn Tool>>,
     pub specs: Vec<ToolSpec>,
@@ -95,7 +95,7 @@ pub struct AgentTurnUsage {
 /// The result of a custom turn graph. `history` is the full updated transcript
 /// (the runner persists it back and mirrors it to any worker thread).
 pub struct AgentTurnResult {
-    pub history: Vec<ChatMessage>,
+    pub history: Vec<TranscriptMessage>,
     pub output: String,
     pub iterations: usize,
     pub usage: AgentTurnUsage,

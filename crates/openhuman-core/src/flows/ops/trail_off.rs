@@ -2,7 +2,7 @@ use super::*;
 
 // The pure text heuristics (`text_looks_like_question` and the code-span / URL /
 // paragraph checks under it) live in `tinyflows-copilot`; what stays here needs
-// the host's `ConversationMessage` history and tool names.
+// the host's `TranscriptEntry` history and tool names.
 pub(super) use tinyflows_copilot::text_looks_like_question;
 
 /// Builder-authoring tools whose result body can explain a trail-off — the
@@ -29,7 +29,7 @@ const TRAIL_OFF_BLOCKER_TOOLS: &[&str] = &[
 /// blocker is found (the model may have simply stopped with nothing to point
 /// to).
 pub(super) fn build_trail_off_fallback(
-    history: &[crate::agent::messages::ConversationMessage],
+    history: &[tinytools_agent::dialect::TranscriptEntry],
 ) -> String {
     match last_builder_tool_blocker(history) {
         Some(blocker) => format!(
@@ -69,14 +69,14 @@ pub(super) fn combine_trail_off_fallback(fallback: &str, original: &str) -> Stri
 /// misattributes an unrelated read-only tool's plain-text output as a
 /// blocker.
 fn last_builder_tool_blocker(
-    history: &[crate::agent::messages::ConversationMessage],
+    history: &[tinytools_agent::dialect::TranscriptEntry],
 ) -> Option<String> {
-    use crate::agent::messages::ConversationMessage;
+    use tinytools_agent::dialect::TranscriptEntry;
 
     let mut call_names: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
     for message in history {
-        if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = message {
+        if let TranscriptEntry::AssistantToolCalls { tool_calls, .. } = message {
             for call in tool_calls {
                 call_names.insert(call.id.clone(), call.name.clone());
             }
@@ -84,7 +84,7 @@ fn last_builder_tool_blocker(
     }
 
     for message in history.iter().rev() {
-        let ConversationMessage::ToolResults(results) = message else {
+        let TranscriptEntry::ToolResults(results) = message else {
             continue;
         };
         for result in results.iter().rev() {

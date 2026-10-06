@@ -25,7 +25,7 @@
 //!
 //! The vendor-neutral half of the work (walking a JSON Schema or a JSON value
 //! for its primary array and its field names) is in
-//! [`crate::json_schema`], owned by neither side.
+//! `tinyagents_harness::tool::schema_walk`.
 
 mod contract;
 mod lookups;

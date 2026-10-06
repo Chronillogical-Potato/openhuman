@@ -20,7 +20,6 @@ fn background_roles_fall_back_to_cloud() {
         "embeddings",
         "memory",
         "summarization",
-        "learning",
         "agentic",
         "burst",
     ] {
@@ -62,9 +61,9 @@ fn fallback_notice_names_capability_local_model_and_override() {
 
 #[test]
 fn fallback_notice_for_role_without_capability_label_uses_role_name() {
-    let msg = cloud_fallback_notice("learning", "ollama:gemma3:1b", "openhuman");
-    assert!(msg.contains("Learning"), "got: {msg}");
-    assert!(msg.contains("learning_provider"), "got: {msg}");
+    let msg = cloud_fallback_notice("scratch", "ollama:gemma3:1b", "openhuman");
+    assert!(msg.contains("Scratch"), "got: {msg}");
+    assert!(msg.contains("scratch_provider"), "got: {msg}");
 }
 
 #[test]
@@ -105,36 +104,4 @@ fn vision_unsupported_message_names_model_and_a_concrete_remedy() {
     assert!(msg.contains("gemma3:1b"), "got: {msg}");
     assert!(msg.contains("llava:7b"), "got: {msg}");
     assert!(msg.contains("vision_provider"), "got: {msg}");
-}
-
-#[test]
-fn vision_preflight_allows_a_vision_capable_model() {
-    use crate::config::schema::ModelRegistryEntry;
-    let mut config = crate::config::Config::default();
-    config.model_registry = vec![ModelRegistryEntry {
-        id: "llava:7b".into(),
-        provider: "ollama".into(),
-        cost_per_1m_output: 0.0,
-        vision: true,
-        ..Default::default()
-    }];
-    assert!(vision_preflight("llava:7b", &config).is_ok());
-}
-
-#[test]
-fn vision_preflight_rejects_a_text_only_model_with_an_actionable_message() {
-    let config = crate::config::Config::default();
-    let err = vision_preflight("gemma3:1b", &config)
-        .expect_err("a text-only model must fail the vision pre-flight");
-    assert!(err.contains("gemma3:1b"), "got: {err}");
-    assert!(err.contains("llava:7b"), "got: {err}");
-}
-
-#[test]
-fn vision_preflight_allows_the_managed_vision_route() {
-    // The vision route and the managed default are multimodal per
-    // `oh_tier_supports_vision`; the pre-flight must not fire for them.
-    let config = crate::config::Config::default();
-    assert!(vision_preflight("hint:vision", &config).is_ok());
-    assert!(vision_preflight(crate::config::MODEL_MANAGED_DEFAULT, &config).is_ok());
 }

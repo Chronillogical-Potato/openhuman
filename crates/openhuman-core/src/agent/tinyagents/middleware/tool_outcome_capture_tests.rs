@@ -67,7 +67,7 @@ async fn same_tool_calls_keep_completion_and_failure_records_by_call_id() {
 
     let recorded = failure_map.lock().expect("failure lookup");
     assert_eq!(recorded.len(), 2, "same tool names cannot overwrite calls");
-    assert_eq!(recorded["echo-success"].0, true);
-    assert_eq!(recorded["echo-failure"].0, false);
+    assert!(recorded["echo-success"].0);
+    assert!(!recorded["echo-failure"].0);
     assert!(recorded["echo-failure"].1.is_some());
 }

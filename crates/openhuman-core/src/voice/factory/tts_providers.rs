@@ -4,11 +4,12 @@ use async_trait::async_trait;
 use log::debug;
 
 use super::super::local_speech::{synthesize_piper, PiperOptions};
-use super::super::reply_speech::{synthesize_reply, ReplySpeechOptions, ReplySpeechResult};
+use super::super::reply_speech::{synthesize_reply, ReplySpeechOptions};
 use super::traits::TtsProvider;
-use crate::config::schema::voice_providers::TtsApiStyle;
 use crate::config::Config;
 use crate::core::Outcome;
+use tinyinference_voice::external_tts::{ExternalTtsClient, TtsApiStyle};
+use tinyinference_voice::reply::ReplySpeech as ReplySpeechResult;
 
 const LOG_PREFIX: &str = "[voice-factory]";
 
@@ -118,13 +119,13 @@ impl TtsProvider for PiperTtsProvider {
 // ---------------------------------------------------------------------------
 
 /// Third-party TTS provider dispatched via the voice provider registry.
-/// Supports OpenAI-compatible and ElevenLabs API styles.
+/// Supports OpenAI-compatible and ElevenLabs API styles; the HTTP clients
+/// live in `tinyinference_voice::external_tts`.
 pub struct ExternalTtsProvider {
     slug: String,
     default_voice: String,
-    endpoint: String,
-    api_key: String,
     api_style: TtsApiStyle,
+    client: ExternalTtsClient,
 }
 
 impl ExternalTtsProvider {
@@ -138,9 +139,8 @@ impl ExternalTtsProvider {
         Self {
             slug: slug.into(),
             default_voice: default_voice.into(),
-            endpoint: endpoint.into(),
-            api_key: api_key.into(),
             api_style,
+            client: ExternalTtsClient::new(reqwest::Client::new(), endpoint, api_key, api_style),
         }
     }
 }
@@ -169,10 +169,7 @@ impl TtsProvider for ExternalTtsProvider {
             text.len()
         );
 
-        let (audio_bytes, audio_mime) = match self.api_style {
-            TtsApiStyle::OpenaiAudio => self.synthesize_openai_compat(text, resolved_voice).await?,
-            TtsApiStyle::ElevenLabs => self.synthesize_elevenlabs(text, resolved_voice).await?,
-        };
+        let (audio_bytes, audio_mime) = self.client.synthesize(text, resolved_voice).await?;
 
         use base64::Engine;
         let audio_base64 = base64::engine::general_purpose::STANDARD.encode(&audio_bytes);
@@ -191,98 +188,5 @@ impl TtsProvider for ExternalTtsProvider {
     #[cfg(test)]
     fn configured_voice(&self) -> Option<&str> {
         Some(&self.default_voice)
-    }
-}
-
-impl ExternalTtsProvider {
-    async fn synthesize_openai_compat(
-        &self,
-        text: &str,
-        voice: &str,
-    ) -> Result<(Vec<u8>, String), String> {
-        let url = format!("{}/audio/speech", self.endpoint.trim_end_matches('/'));
-
-        let body = serde_json::json!({
-            "model": "tts-1",
-            "voice": voice,
-            "input": text,
-        });
-
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Content-Type", "application/json")
-            .body(body.to_string())
-            .send()
-            .await
-            .map_err(|e| format!("[voice-tts] external TTS request failed: {e}"))?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(format!("[voice-tts] external TTS error {status}: {body}"));
-        }
-
-        let content_type = resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("audio/mpeg")
-            .to_string();
-
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| format!("[voice-tts] failed to read audio: {e}"))?;
-
-        Ok((bytes.to_vec(), content_type))
-    }
-
-    async fn synthesize_elevenlabs(
-        &self,
-        text: &str,
-        voice_id: &str,
-    ) -> Result<(Vec<u8>, String), String> {
-        let url = format!(
-            "{}/text-to-speech/{}",
-            self.endpoint.trim_end_matches('/'),
-            voice_id
-        );
-
-        let body = serde_json::json!({
-            "text": text,
-            "model_id": "eleven_multilingual_v2",
-        });
-
-        let client = reqwest::Client::new();
-        let resp = client
-            .post(&url)
-            .header("xi-api-key", &self.api_key)
-            .header("Content-Type", "application/json")
-            .body(body.to_string())
-            .send()
-            .await
-            .map_err(|e| format!("[voice-tts] elevenlabs request failed: {e}"))?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(format!("[voice-tts] elevenlabs error {status}: {body}"));
-        }
-
-        let content_type = resp
-            .headers()
-            .get("content-type")
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("audio/mpeg")
-            .to_string();
-
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(|e| format!("[voice-tts] failed to read elevenlabs audio: {e}"))?;
-
-        Ok((bytes.to_vec(), content_type))
     }
 }

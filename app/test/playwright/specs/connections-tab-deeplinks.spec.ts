@@ -57,7 +57,7 @@ async function openRoute(
   // from the same deterministic guest-to-user transition used by the alias
   // coverage instead.
   await bootRuntimeReadyGuestPage(page);
-  await signInViaBypassUser(page, userId);
+  await signInViaBypassUser(page, userId, { waitForInitialThread: true });
   await page.evaluate(
     ({ target }) => {
       try {

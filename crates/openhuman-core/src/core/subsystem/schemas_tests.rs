@@ -11,11 +11,6 @@ fn status_schema_shape() {
 }
 
 #[test]
-fn unknown_function_returns_the_unknown_schema() {
-    assert_eq!(schemas("not_real").function, "unknown");
-}
-
-#[test]
 fn schemas_and_controllers_line_up() {
     let schemas = all_controller_schemas();
     let controllers = all_registered_controllers();

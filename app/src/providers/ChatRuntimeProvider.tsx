@@ -9,6 +9,8 @@ import {
   createSkillToolChainLatencyTracker,
   SKILL_TOOL_CHAIN_TARGET_MS,
 } from '../lib/ai/skillToolChainLatency';
+import { chatErrorCopyText } from '../lib/chatErrorCopy';
+import { useT } from '../lib/i18n/I18nContext';
 import { classifyReplyDeliveryFailure } from '../lib/userErrors/classify';
 import { ingestRuntimeErrorSignal } from '../lib/userErrors/report';
 import { maybeParseWorkflowProposalTool } from '../lib/workflows/workflowProposal';
@@ -385,6 +387,13 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
 
 const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
+  // Latest translator for the long-lived socket handlers below: a failed turn's
+  // copy is rendered in the locale active when the error arrives.
+  const { t } = useT();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const { refetch: refetchSnapshot } = useRefetchSnapshotOnTurnEnd();
   const socketStatus = useAppSelector(selectSocketStatus);
   // The core's run queue (`queue_item_*`) → `queueSlice` → the composer queue.
@@ -600,8 +609,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
       // Persist sequentially so the queued prompts land in the append-log in the
       // order the user queued them (concurrent dispatches would race), and
       // surface failures instead of dropping them silently. The stored message
-      // carries the original content + attachment metadata, so the follow-up
-      // persists identically to an interactive send.
+      // carries the original upload markers in memory. The append boundary
+      // saves originals and returns durable references before writing history.
       for (const item of queued) {
         try {
           await dispatch(addMessageLocal({ threadId, message: item.message })).unwrap();
@@ -1833,7 +1842,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               segmentDeliveriesRef.current,
               segmentDeliveryKey(event.thread_id, event.request_id)
             );
-            const errorContent = event.message || '';
+            const errorContent = chatErrorCopyText(event, tRef.current) || '';
             void dispatch(
               addInferenceResponse({
                 content: errorContent,
@@ -1882,7 +1891,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           // surfacing it tells the user *why* the turn failed instead of a blanket apology.
           // An empty message still becomes an error-status row; assistant-ui
           // supplies its own fallback in the error card.
-          const errorContent = event.message || '';
+          const errorContent = chatErrorCopyText(event, tRef.current) || '';
           // A core-owned failure carries a deterministic id, so dedupe on that
           // rather than on the text. Two runs can fail with byte-identical
           // content — the same upstream provider message, or the generic

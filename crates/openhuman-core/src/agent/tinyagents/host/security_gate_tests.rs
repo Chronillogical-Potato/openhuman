@@ -266,14 +266,6 @@ async fn ordinary_text_passes_screening_unchanged() {
     assert_eq!(outcome.effective_text(text), Some(text));
 }
 
-#[test]
-fn gate_unavailable_is_an_error_not_a_refusal() {
-    // A policy refusal is Deny/Block; Err means no verdict was reachable.
-    let err = gate_unavailable("approval store unreadable");
-    assert!(matches!(err, TinyAgentsError::Capability(_)));
-    assert!(err.to_string().contains("could not reach a verdict"));
-}
-
 /// Builds a session whose channel policy yields `action` for `tool_name`.
 fn policy_session(tool_name: &str, action: ToolPolicyAction) -> Arc<ToolPolicySession> {
     use crate::tools::agent_policy::{TaskProfile, TaskRiskLevel, ToolPolicyDecision};
@@ -339,7 +331,7 @@ async fn require_approval_never_silently_allows_a_plain_tool() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn desktop_default_skips_channel_and_external_approval_parks() {
-    let _guard = crate::config::TEST_ENV_LOCK.lock().unwrap();
+    let _guard = crate::config::TEST_ENV_LOCK.lock().await;
     let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
     let temp = tempfile::tempdir().unwrap();
     std::fs::write(

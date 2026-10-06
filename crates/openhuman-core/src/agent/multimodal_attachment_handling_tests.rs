@@ -13,7 +13,7 @@ async fn prepare_messages_handles_mixed_image_and_file_markers() {
     let txt_path = temp.path().join("note.txt");
     std::fs::write(&txt_path, b"caption").unwrap();
 
-    let messages = vec![ChatMessage::user(format!(
+    let messages = vec![TranscriptMessage::user(format!(
         "compare [IMAGE:{}] with [FILE:{}]",
         png_path.display(),
         txt_path.display()
@@ -43,28 +43,26 @@ fn count_markers_only_inspects_latest_user_message() {
     // attached more than 1. Per-turn semantics: count only the latest
     // user message.
     let history = vec![
-        ChatMessage::user(
+        TranscriptMessage::user(
             "[FILE:/tmp/a.txt] [FILE:/tmp/b.txt] [FILE:/tmp/c.txt] [FILE:/tmp/d.txt]".to_string(),
         ),
-        ChatMessage::assistant("ok"),
-        ChatMessage::user("now just one [FILE:/tmp/e.txt]".to_string()),
+        TranscriptMessage::assistant("ok"),
+        TranscriptMessage::user("now just one [FILE:/tmp/e.txt]".to_string()),
     ];
     assert_eq!(count_file_markers(&history), 1);
-    assert!(contains_file_markers(&history));
 
     let history_no_new_files = vec![
-        ChatMessage::user("[FILE:/tmp/a.txt] [FILE:/tmp/b.txt]".to_string()),
-        ChatMessage::assistant("ok"),
-        ChatMessage::user("no attachments this turn".to_string()),
+        TranscriptMessage::user("[FILE:/tmp/a.txt] [FILE:/tmp/b.txt]".to_string()),
+        TranscriptMessage::assistant("ok"),
+        TranscriptMessage::user("no attachments this turn".to_string()),
     ];
     assert_eq!(count_file_markers(&history_no_new_files), 0);
-    assert!(!contains_file_markers(&history_no_new_files));
 
     // Same semantics for the image counter.
     let image_history = vec![
-        ChatMessage::user("[IMAGE:/tmp/1.png] [IMAGE:/tmp/2.png]".to_string()),
-        ChatMessage::assistant("ok"),
-        ChatMessage::user("plain text only".to_string()),
+        TranscriptMessage::user("[IMAGE:/tmp/1.png] [IMAGE:/tmp/2.png]".to_string()),
+        TranscriptMessage::assistant("ok"),
+        TranscriptMessage::user("plain text only".to_string()),
     ];
     assert_eq!(count_image_markers(&image_history), 0);
 }
@@ -93,7 +91,7 @@ async fn prepare_messages_rejects_absolute_file_marker_under_untrusted_channel_c
     // honours `max_files: 0` and returns TooManyFiles before
     // normalize_file_reference is called.
     let cfg = MultimodalFileConfig::for_untrusted_channel_input();
-    let messages = vec![ChatMessage::user(
+    let messages = vec![TranscriptMessage::user(
         "please summarise [FILE:/etc/passwd]".to_string(),
     )];
     let err = prepare_messages_for_provider(&messages, &MultimodalConfig::default(), &cfg)
@@ -111,7 +109,7 @@ async fn prepare_messages_rejects_relative_file_marker_under_untrusted_channel_c
     // looks "local" to the cwd would be a disk read against the server
     // process working directory if it slipped through.
     let cfg = MultimodalFileConfig::for_untrusted_channel_input();
-    let messages = vec![ChatMessage::user(
+    let messages = vec![TranscriptMessage::user(
         "what does [FILE:./relative.txt] say?".to_string(),
     )];
     let err = prepare_messages_for_provider(&messages, &MultimodalConfig::default(), &cfg)
@@ -129,7 +127,7 @@ async fn prepare_messages_under_untrusted_channel_config_passes_plain_text_throu
     // unchanged. The hardening only rejects file-marker smuggling, not
     // ordinary channel chatter.
     let cfg = MultimodalFileConfig::for_untrusted_channel_input();
-    let messages = vec![ChatMessage::user("hello, how are you?".to_string())];
+    let messages = vec![TranscriptMessage::user("hello, how are you?".to_string())];
     let prepared = prepare_messages_for_provider(&messages, &MultimodalConfig::default(), &cfg)
         .await
         .expect("plain channel text must pass through the hardened config");
@@ -186,7 +184,7 @@ async fn image_placeholder_rehydrates_to_disk_path_for_provider() {
     // Ingress: stash the image to disk and leave a placeholder.
     let msg = format!("describe [IMAGE:{TINY_PNG_DATA_URI}]");
     let placeholdered = stash_image_attachments(&msg, &MultimodalConfig::default()).await;
-    let messages = vec![ChatMessage::user(placeholdered)];
+    let messages = vec![TranscriptMessage::user(placeholdered)];
     assert!(has_image_placeholders(&messages), "placeholder detected");
 
     // Dispatch (vision model): rehydrate to an inline [IMAGE:<path>] marker that
@@ -236,7 +234,7 @@ async fn image_placeholder_rehydrates_to_disk_path_for_provider() {
 fn rehydrate_missing_stash_id_keeps_placeholder_text() {
     // A placeholder whose id is absent from the stash (e.g. after a restart) is
     // left verbatim rather than dropped — the model still sees a text mention.
-    let messages = vec![ChatMessage::user(
+    let messages = vec![TranscriptMessage::user(
         "see [Image: image #att:deadbeefdeadbeef]".to_string(),
     )];
     let out = rehydrate_image_placeholders(&messages);

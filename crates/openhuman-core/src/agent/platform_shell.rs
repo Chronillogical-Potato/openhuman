@@ -94,6 +94,16 @@ pub fn assert_forwards_windows_bootstrap(allowlist: &[&str], launcher: &str) {
     }
 }
 
+/// Add Windows bootstrap variables to a host child. Keep these out of the
+/// sandbox policy because that policy is also forwarded into Linux containers.
+pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) {
+    for var in WINDOWS_PROCESS_ENV_VARS {
+        if let Ok(val) = std::env::var(var) {
+            cmd.env(var, val);
+        }
+    }
+}
+
 /// Whether the Unix arm prefixes `set -o pipefail`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum PipeFail {
@@ -167,8 +177,8 @@ fn shell_program() -> &'static str {
 /// `\"`. But `cmd.exe` does not understand `\"` — it only toggles quote state
 /// on a bare `"`. Handed to `cmd /C` via `arg`, the `>` / `2>` operators in a
 /// redirect wrap (see [`wrap_with_output_redirection`]) land inside a cmd
-/// quote-span, so no redirection happens and the `.sandbox_stdout` /
-/// `.sandbox_stderr` capture files are never written. `raw_arg` passes the
+/// quote-span, so no redirection happens and the sandbox's `stdout` /
+/// `stderr` capture files are never written. `raw_arg` passes the
 /// string to cmd verbatim, which is exactly the byte-transparent contract this
 /// module promises. `/C` itself has no special characters.
 #[cfg(windows)]

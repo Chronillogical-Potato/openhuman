@@ -80,30 +80,6 @@ fn provider_filter_works() {
 }
 
 #[test]
-fn insert_if_not_recent_skips_duplicate() {
-    let dir = TempDir::new().unwrap();
-    let config = test_config(&dir);
-    let n = sample_notification("dup-a", "slack");
-    assert!(insert_if_not_recent(&config, &n).unwrap());
-
-    let n2 = sample_notification("dup-b", "slack");
-    assert!(!insert_if_not_recent(&config, &n2).unwrap());
-}
-
-#[test]
-fn insert_if_not_recent_rejects_expired_window_only() {
-    let dir = TempDir::new().unwrap();
-    let config = test_config(&dir);
-
-    let mut old = sample_notification("old1", "slack");
-    old.received_at = Utc::now() - chrono::Duration::seconds(120);
-    insert(&config, &old).unwrap();
-
-    let fresh_same_content = sample_notification("fresh1", "slack");
-    assert!(insert_if_not_recent(&config, &fresh_same_content).unwrap());
-}
-
-#[test]
 fn insert_if_not_recent_is_atomic_under_concurrent_calls() {
     let dir = TempDir::new().unwrap();
     let config = Arc::new(test_config(&dir));
@@ -132,17 +108,6 @@ fn insert_if_not_recent_is_atomic_under_concurrent_calls() {
 }
 
 #[test]
-fn exists_recent_rejects_expired_notification() {
-    let dir = TempDir::new().unwrap();
-    let config = test_config(&dir);
-    let mut n = sample_notification("old1", "slack");
-    n.received_at = Utc::now() - chrono::Duration::seconds(120);
-    insert(&config, &n).unwrap();
-
-    assert!(!exists_recent(&config, "slack", None, "Test notification", "Test body").unwrap());
-}
-
-#[test]
 fn settings_roundtrip_defaults_and_upsert() {
     let dir = TempDir::new().unwrap();
     let config = test_config(&dir);
@@ -168,37 +133,6 @@ fn settings_roundtrip_defaults_and_upsert() {
     assert!(!updated.enabled);
     assert_eq!(updated.importance_threshold, 0.75);
     assert!(!updated.route_to_orchestrator);
-}
-
-#[test]
-fn exists_recent_detects_with_and_without_account_id() {
-    let dir = TempDir::new().unwrap();
-    let config = test_config(&dir);
-
-    let mut n = sample_notification("acct-1", "slack");
-    n.account_id = Some("acct-main".to_string());
-    insert(&config, &n).unwrap();
-
-    assert!(exists_recent(
-        &config,
-        "slack",
-        Some("acct-main"),
-        "Test notification",
-        "Test body"
-    )
-    .unwrap());
-    assert!(!exists_recent(
-        &config,
-        "slack",
-        Some("acct-other"),
-        "Test notification",
-        "Test body"
-    )
-    .unwrap());
-
-    let n_null = sample_notification("acct-null", "slack");
-    insert(&config, &n_null).unwrap();
-    assert!(exists_recent(&config, "slack", None, "Test notification", "Test body").unwrap());
 }
 
 #[test]

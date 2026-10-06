@@ -140,6 +140,7 @@ const AutonomyRateLimitSection = () => {
                 type="button"
                 variant="primary"
                 size="xs"
+                data-testid="autonomy-max-actions-save"
                 onClick={() => void onSave()}
                 disabled={!canSave}>
                 {status.kind === 'saving' ? t('autonomy.statusSaving') : t('common.save')}

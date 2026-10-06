@@ -192,23 +192,6 @@ impl OpenHumanDefinitionRegistry {
         }
     }
 
-    /// Adapts the process-wide registry, or `None` when
-    /// [`AgentDefinitionRegistry::init_global`] has not run yet.
-    ///
-    /// Returning `Option` rather than lazily initialising keeps boot ordering
-    /// the host's decision: silently building a builtins-only registry here
-    /// would mask a missing workspace-override load.
-    pub fn from_global() -> Option<Self> {
-        AgentDefinitionRegistry::global().map(|registry| Self {
-            registry: RegistryHandle::Global(registry),
-            config: None,
-            registered_tools: None,
-            deferred_tools: None,
-            session_delegation_tools: None,
-            session_definition: None,
-        })
-    }
-
     /// Adapts a freshly-built builtins-only registry (no workspace scan).
     pub fn builtins_only() -> Self {
         Self::new(Arc::new(AgentDefinitionRegistry::builtins_only()))
@@ -345,6 +328,24 @@ impl OpenHumanDefinitionRegistry {
                 }
                 if let Some(delegation_tools) = self.session_delegation_tools.as_deref() {
                     names.extend(delegation_tools.iter().cloned());
+                }
+                // A curated belt still has to reach the tools a compacted
+                // result names (`juice_retrieve`, `juice_find`, …). The
+                // session adds them to its visible set; without the same
+                // names here the harness allowlist rejects every call to them
+                // as an unknown tool. A zero-tool belt stays zero-tool.
+                if !named.is_empty() {
+                    if let (Some(config), Some(registered)) =
+                        (self.config.as_deref(), self.registered_tools.as_deref())
+                    {
+                        for name in
+                            crate::inference::tokenjuice::companion_tool_names(&def.id, config)
+                        {
+                            if registered.iter().any(|r| r == name) {
+                                names.push(name.to_string());
+                            }
+                        }
+                    }
                 }
                 // `extra_tools` is an "also include these" hook on top of a
                 // named scope. Under `Wildcard` it is meaningless — everything

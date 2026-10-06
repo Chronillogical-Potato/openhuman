@@ -22,6 +22,16 @@ impl OpenHumanSessionHost {
     /// It wraps the core `turn` logic with telemetry events (`AgentTurnStarted`,
     /// `AgentTurnCompleted`) and error sanitization.
     pub async fn run_single(&mut self, message: &str) -> Result<String> {
+        self.run_single_with_origin(message, None).await
+    }
+
+    /// Runs a single turn with authority supplied explicitly by its entry point.
+    pub async fn run_single_with_origin(
+        &mut self,
+        message: &str,
+        origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
+    ) -> Result<String> {
+        let origin = origin.or_else(crate::core::runtime::CoreContext::current_turn_origin);
         let guard = enforce_prompt_input(
             message,
             PromptEnforcementContext {
@@ -68,7 +78,7 @@ impl OpenHumanSessionHost {
             channel: self.event_channel().to_string(),
         });
 
-        match self.turn(message).await {
+        match self.turn_with_origin(message, origin.as_ref()).await {
             Ok(response) => {
                 let history = self.history();
                 let new_entries = Self::new_entries_for_turn(&history_snapshot, &history);
@@ -133,38 +143,5 @@ impl OpenHumanSessionHost {
                 Err(err)
             }
         }
-    }
-
-    /// Runs an interactive CLI loop, reading from standard input and printing to standard output.
-    ///
-    /// This method starts a persistent session where the user can chat with the agent
-    /// directly from the console. It handles input until a termination command
-    /// (e.g., `/quit`) is received.
-    pub async fn run_interactive(&mut self) -> Result<()> {
-        println!("🦀 OpenHuman Interactive Mode");
-        println!("Type /quit to exit.\n");
-
-        let (tx, mut rx) = tokio::sync::mpsc::channel(32);
-        let cli = crate::channels::CliChannel::new();
-
-        let listen_handle = tokio::spawn(async move {
-            let _ = crate::channels::Channel::listen(&cli, tx).await;
-        });
-
-        while let Some(msg) = rx.recv().await {
-            match self.run_single(&msg.content).await {
-                Ok(response) => println!("\n{response}\n"),
-                Err(e) => {
-                    // `run_single` already publishes `AgentError` and
-                    // sanitises the payload; surface a concise line here
-                    // for the CLI user and continue the loop.
-                    eprintln!("\nError: {e}\n");
-                    continue;
-                }
-            }
-        }
-
-        listen_handle.abort();
-        Ok(())
     }
 }

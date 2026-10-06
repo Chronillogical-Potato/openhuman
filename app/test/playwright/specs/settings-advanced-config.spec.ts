@@ -90,7 +90,11 @@ test.describe('Settings - Advanced Config', () => {
 
     await expect(page.getByRole('heading', { name: 'Max actions per hour' })).toBeVisible();
     await page.locator('#autonomy-max-actions').fill(String(target));
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page
+      .locator('#autonomy-max-actions')
+      .locator('xpath=ancestor::div[.//button[normalize-space()="Save"]][1]')
+      .getByRole('button', { name: 'Save' })
+      .click();
     await expect(page.getByText('Saved.')).toBeVisible();
 
     await expect

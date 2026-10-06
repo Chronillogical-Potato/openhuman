@@ -17,13 +17,6 @@ fn display_formatting() {
 }
 
 #[test]
-fn context_limit_detection() {
-    assert!(is_context_limit_error("prompt is too long for model"));
-    assert!(is_context_limit_error("context_length_exceeded"));
-    assert!(!is_context_limit_error("rate limit exceeded"));
-}
-
-#[test]
 fn max_iterations_detection_matches_display() {
     // The substring helper must match the variant's own Display output —
     // the channels dispatch / web_channel sites flatten the typed error

@@ -262,47 +262,6 @@ pub(super) fn settle_steps(config: &Config, run_id: &str, output: &Value) -> Vec
     merged
 }
 
-/// Degrades a would-be `"completed"` status: `"failed"` if any settled step
-/// errored, `"completed_with_warnings"` if any carries null-resolution
-/// diagnostics, else `"completed"`.
-///
-/// Called only once the run has no `pending_approvals` left — precedence
-/// against that case is handled by the caller (`pending_approval` always
-/// wins over any of these).
-pub(super) fn degrade_completed_status(steps: &[FlowRunStep]) -> &'static str {
-    if steps.iter().any(|s| s.status.as_deref() == Some("error")) {
-        return "failed";
-    }
-    if steps.iter().any(|s| !s.diagnostics.is_empty()) {
-        "completed_with_warnings"
-    } else {
-        "completed"
-    }
-}
-
-/// Names the node(s) whose step settled with `status == "error"` — the
-/// engine's `ExecutionStep` carries no error message of its own for a step
-/// that failed under an `on_error: "continue"`/`"route"` policy (it only
-/// fails the *run* future, and so gets an actual error string, when the
-/// policy is `"stop"`), so this is the best available detail for
-/// [`FlowRun::error`] when [`degrade_completed_status`] degrades to
-/// `"failed"` without an outer run-future `Err`.
-pub(super) fn failed_step_error_summary(steps: &[FlowRunStep]) -> Option<String> {
-    let failed_nodes: Vec<&str> = steps
-        .iter()
-        .filter(|s| s.status.as_deref() == Some("error"))
-        .map(|s| s.node_id.as_str())
-        .collect();
-    if failed_nodes.is_empty() {
-        None
-    } else {
-        Some(format!(
-            "node(s) failed after retries: {}",
-            failed_nodes.join(", ")
-        ))
-    }
-}
-
 /// Computes a settled run's terminal status and, when that status is
 /// `"failed"`, an accompanying error message — shared by `flows_run` and
 /// `flows_resume` so the two call sites can't drift on the

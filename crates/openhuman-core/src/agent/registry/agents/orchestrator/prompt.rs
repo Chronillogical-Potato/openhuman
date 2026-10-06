@@ -13,8 +13,8 @@
 use crate::agent::harness::definition::SubagentEntry;
 use crate::agent::harness::AgentDefinitionRegistry;
 use crate::agent::prompts::{
-    render_datetime, render_identity, render_tools, render_user_files, render_workspace,
-    ConnectedIntegration, PromptContext, ToolCallFormat,
+    render_datetime, render_identity, render_tools, render_workspace, ConnectedIntegration,
+    PromptContext, ToolCallFormat,
 };
 use crate::skills::ops_types::Workflow;
 use crate::tools::orchestrator_tools::sanitise_slug;
@@ -55,6 +55,16 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
                 .iter()
                 .any(|tool| tool.name.as_ref() == "mcp_registry_tool_call"));
 
+    // `composio_connect` exists only while Composio is on (the registry builds no
+    // Composio tools under `composio.mode = "disabled"`), so its routing row must
+    // vanish with it. Same sentinel rule as MCP: an empty visible set is unfiltered.
+    let composio_available = ctx.visible_tool_names.is_empty()
+        || ctx.visible_tool_names.contains("composio_connect")
+        || ctx
+            .tools
+            .iter()
+            .any(|tool| tool.name.as_ref() == "composio_connect");
+
     // ── Stable tier: identical across sessions for a given build ─────────
     //
     // Identity leads the prompt (#5701): SOUL.md is the product persona every
@@ -69,6 +79,7 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
             ARCHETYPE,
             skill_run.is_some() || skill_install.is_some(),
             mcp_available,
+            composio_available,
         ),
     );
     // A native-tool-calling provider carries the schemas in the request, and
@@ -93,7 +104,6 @@ pub fn build(ctx: &PromptContext<'_>) -> Result<String> {
     // ── Volatile tier: the user's state, changes between sessions ────────
     out.push_str(PROMPT_TIER_VOLATILE_MARKER);
     out.push('\n');
-    push(&mut out, &render_user_files(ctx)?);
     push(&mut out, ctx.connected_identities_md.as_str());
     push(
         &mut out,
@@ -258,27 +268,59 @@ fn hand_off_route(ctx: &PromptContext<'_>, specialist: &str) -> Option<String> {
         .map(|pack| format!("`{tool}` (`use_skill` skill `{}`)", pack.id))
 }
 
-/// How this session runs an installed skill: its own `run_workflow`, when the
-/// belt carries it. There is no skill-running specialist any more — the
+/// How this session runs an installed skill: its own `run_workflow`, on the
+/// belt directly or, while the `workflows` pack holds it, through `use_skill`. There is no skill-running specialist any more — the
 /// orchestrator's `run_workflow` already spawns the skill as an isolated run
 /// (`spawn_skill_run_background`), so a second hand-off was a second door.
 fn run_workflow_route(ctx: &PromptContext<'_>) -> Option<String> {
     const RUN_WORKFLOW: &str = "run_workflow";
-    (ctx.visible_tool_names.is_empty() || ctx.visible_tool_names.contains(RUN_WORKFLOW))
-        .then(|| format!("`{RUN_WORKFLOW}`"))
+    if ctx.visible_tool_names.is_empty() || ctx.visible_tool_names.contains(RUN_WORKFLOW) {
+        return Some(format!("`{RUN_WORKFLOW}`"));
+    }
+    // Packed: only a route if this session can call `use_skill` itself, AND its
+    // belt actually lists `run_workflow`. `use_skill` may be on the wire for
+    // some other pack while the `workflows` pack has nothing callable here, in
+    // which case the policy gate would refuse the call this names.
+    if !ctx
+        .visible_tool_names
+        .contains(tinyagents_harness::tool::packs::USE_SKILL)
+        || !belt_lists(ctx, RUN_WORKFLOW)
+    {
+        return None;
+    }
+    toolpacks::pack_for_tool(RUN_WORKFLOW)
+        .map(|pack| format!("`{RUN_WORKFLOW}` (`use_skill` skill `{}`)", pack.id))
+}
+
+/// Whether this agent's own belt lists `tool`: a wildcard belt holds everything,
+/// a named one only what it names. The prompt has no policy session, and a pack
+/// is callable for an agent only when its belt mentions one of the pack's tools.
+fn belt_lists(ctx: &PromptContext<'_>, tool: &str) -> bool {
+    use crate::agent::harness::definition::ToolScope;
+    let Some(registry) = AgentDefinitionRegistry::global() else {
+        return false;
+    };
+    let Some(definition) = resolve_definition(registry, ctx.agent_id) else {
+        return false;
+    };
+    match &definition.tools {
+        ToolScope::Wildcard => true,
+        ToolScope::Named(names) => names.iter().any(|name| name == tool),
+    }
 }
 
 /// `prompt.md` with the route-tagged rows this build cannot honour removed.
 ///
-/// A row tagged `<!--route:skills-->` or `<!--route:mcp-->` names a hand-off
+/// A row tagged `<!--route:skills-->`, `<!--route:mcp-->` or `<!--route:composio-->` names a hand-off
 /// that exists only while that family is compiled in: with `skills` off the
 /// loader drops `skill_setup` from the builtins, so no
 /// delegate is synthesised and the static row would order the model to call a
 /// tool nobody has — the very failure this issue is about (#6302). The tag is
 /// stripped from every row that stays, so it never reaches the model.
-fn strip_route_lines(archetype: &str, skills: bool, mcp: bool) -> String {
+fn strip_route_lines(archetype: &str, skills: bool, mcp: bool, composio: bool) -> String {
     const SKILLS_TAG: &str = "<!--route:skills-->";
     const MCP_TAG: &str = "<!--route:mcp-->";
+    const COMPOSIO_TAG: &str = "<!--route:composio-->";
     archetype
         .lines()
         .filter(|line| {
@@ -286,11 +328,17 @@ fn strip_route_lines(archetype: &str, skills: bool, mcp: bool) -> String {
                 skills
             } else if line.contains(MCP_TAG) {
                 mcp
+            } else if line.contains(COMPOSIO_TAG) {
+                composio
             } else {
                 true
             }
         })
-        .map(|line| line.replace(SKILLS_TAG, "").replace(MCP_TAG, ""))
+        .map(|line| {
+            line.replace(SKILLS_TAG, "")
+                .replace(MCP_TAG, "")
+                .replace(COMPOSIO_TAG, "")
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -306,8 +354,8 @@ fn strip_route_lines(archetype: &str, skills: bool, mcp: bool) -> String {
 ///
 /// So: exact match first, then the longest registry id that `agent_id` extends
 /// at an `_` boundary. Longest wins because ids are not prefix-free —
-/// no id is a prefix of another today, but ids that share a stem (`goals_agent`
-/// vs a future `goals`) would, and a shorter accidental match would resolve
+/// no id is a prefix of another today, but ids that share a stem (`task_manager_agent`
+/// vs a future `task_manager`) would, and a shorter accidental match would resolve
 /// a renamed session onto the wrong agent's subagent list.
 fn resolve_definition<'r>(
     registry: &'r AgentDefinitionRegistry,

@@ -136,9 +136,3 @@ fn schemas_and_registered_controllers_have_bidirectional_parity() {
 
     assert_eq!(schema_functions, handler_functions);
 }
-
-#[test]
-fn schemas_unknown_returns_placeholder() {
-    let s = schemas("does-not-exist");
-    assert_eq!(s.function, "unknown");
-}

@@ -4,7 +4,6 @@ use crate::agent::harness::definition::{
     AgentDefinition, AgentTier, DefinitionSource, ModelSpec, PromptSource, SandboxMode, ToolScope,
 };
 use crate::agent::harness::fork_context::{with_parent_context, ParentExecutionContext};
-use crate::agent::messages::ConversationMessage;
 use crate::agent::orchestration::spawn_parallel_graph::{
     prepare_spawn_parallel_tasks_from_defs, ParallelTaskRejectionKind, SpawnParallelTaskPreflight,
     WorkerDispatchMode,
@@ -13,7 +12,6 @@ use crate::agent::prompts::ToolCallFormat;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::OpenHumanSessionHost;
 use crate::config::AgentConfig;
-use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use async_trait::async_trait;
 use parking_lot::Mutex;
 use serde_json::json;
@@ -29,6 +27,7 @@ use tinyinference_llm::tool::ToolCall;
 use tinytools::ToolTimeout;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 use tinytools_agent::dialect::NativeDialect;
+use tinytools_agent::dialect::TranscriptEntry;
 use tokio::time::{sleep, timeout, Duration};
 
 const PARENT_PROMPT_CANARY: &str = "parallel-fanout-e2e-canary";
@@ -43,64 +42,6 @@ fn test_lineage(task_id: &str) -> ParallelAgentLineage {
         parent_session: "parent-session".into(),
         root_session: "root-session".into(),
         child_task_id: task_id.into(),
-    }
-}
-
-struct NoopMemory;
-
-#[async_trait]
-impl Memory for NoopMemory {
-    async fn store(
-        &self,
-        _namespace: &str,
-        _key: &str,
-        _content: &str,
-        _category: MemoryCategory,
-        _session_id: Option<&str>,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn recall(
-        &self,
-        _query: &str,
-        _limit: usize,
-        _opts: RecallOpts<'_>,
-    ) -> anyhow::Result<Vec<MemoryEntry>> {
-        Ok(Vec::new())
-    }
-
-    async fn get(&self, _namespace: &str, _key: &str) -> anyhow::Result<Option<MemoryEntry>> {
-        Ok(None)
-    }
-
-    async fn list(
-        &self,
-        _namespace: Option<&str>,
-        _category: Option<&MemoryCategory>,
-        _session_id: Option<&str>,
-    ) -> anyhow::Result<Vec<MemoryEntry>> {
-        Ok(Vec::new())
-    }
-
-    async fn forget(&self, _namespace: &str, _key: &str) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-
-    async fn namespace_summaries(&self) -> anyhow::Result<Vec<NamespaceSummary>> {
-        Ok(Vec::new())
-    }
-
-    async fn count(&self) -> anyhow::Result<usize> {
-        Ok(0)
-    }
-
-    async fn health_check(&self) -> bool {
-        true
-    }
-
-    fn name(&self) -> &str {
-        "noop"
     }
 }
 
@@ -128,7 +69,6 @@ fn parent_context(max_parallel_tools: usize) -> ParentExecutionContext {
         model_name: "test-model".into(),
         temperature: 0.2,
         workspace_dir: std::env::temp_dir(),
-        memory: Arc::new(NoopMemory),
         agent_config,
         workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
@@ -211,8 +151,6 @@ fn definition_with_tool_scope(
         omit_identity: true,
         omit_memory_context: true,
         omit_safety_preamble: true,
-        omit_profile: true,
-        omit_memory_md: true,
         model: ModelSpec::Inherit,
         temperature: 0.0,
         tools,
@@ -227,7 +165,6 @@ fn definition_with_tool_scope(
         timeout_secs: None,
         sandbox_mode,
         background: false,
-        trigger_memory_agent: Default::default(),
         tokenjuice_compression: Default::default(),
         subagents: Vec::new(),
         delegate_name: None,
@@ -393,51 +330,49 @@ impl ParallelHarnessProvider {
             sleep(Duration::from_millis(5)).await;
         }
 
-        let response = (|| -> tinyinference_llm::Result<ModelResponse> {
-            if flattened.contains(RESEARCH_PROMPT_CANARY) {
-                if flattened.contains("research-step-3-ok") {
-                    Ok(text_response(RESEARCH_DONE_CANARY))
-                } else if flattened.contains("research-step-2-ok") {
-                    Ok(tool_response(
-                        "fixture_step",
-                        json!({ "branch": "research", "step": 3 }),
-                    ))
-                } else if flattened.contains("research-step-1-ok") {
-                    Ok(tool_response(
-                        "fixture_step",
-                        json!({ "branch": "research", "step": 2 }),
-                    ))
-                } else {
-                    Ok(tool_response(
-                        "fixture_step",
-                        json!({ "branch": "research", "step": 1 }),
-                    ))
-                }
-            } else if flattened.contains(PLANNER_PROMPT_CANARY) {
-                if flattened.contains("planner-step-3-ok") {
-                    Ok(text_response(PLANNER_DONE_CANARY))
-                } else if flattened.contains("planner-step-2-ok") {
-                    Ok(tool_response(
-                        "fixture_step",
-                        json!({ "branch": "planner", "step": 3 }),
-                    ))
-                } else if flattened.contains("planner-step-1-ok") {
-                    Ok(tool_response(
-                        "fixture_step",
-                        json!({ "branch": "planner", "step": 2 }),
-                    ))
-                } else {
-                    Ok(tool_response(
-                        "fixture_step",
-                        json!({ "branch": "planner", "step": 1 }),
-                    ))
-                }
+        let response = if flattened.contains(RESEARCH_PROMPT_CANARY) {
+            if flattened.contains("research-step-3-ok") {
+                Ok(text_response(RESEARCH_DONE_CANARY))
+            } else if flattened.contains("research-step-2-ok") {
+                Ok(tool_response(
+                    "fixture_step",
+                    json!({ "branch": "research", "step": 3 }),
+                ))
+            } else if flattened.contains("research-step-1-ok") {
+                Ok(tool_response(
+                    "fixture_step",
+                    json!({ "branch": "research", "step": 2 }),
+                ))
             } else {
-                Err(tinyinference_llm::Error::Model(format!(
-                    "unexpected subagent payload: {flattened}"
-                )))
+                Ok(tool_response(
+                    "fixture_step",
+                    json!({ "branch": "research", "step": 1 }),
+                ))
             }
-        })();
+        } else if flattened.contains(PLANNER_PROMPT_CANARY) {
+            if flattened.contains("planner-step-3-ok") {
+                Ok(text_response(PLANNER_DONE_CANARY))
+            } else if flattened.contains("planner-step-2-ok") {
+                Ok(tool_response(
+                    "fixture_step",
+                    json!({ "branch": "planner", "step": 3 }),
+                ))
+            } else if flattened.contains("planner-step-1-ok") {
+                Ok(tool_response(
+                    "fixture_step",
+                    json!({ "branch": "planner", "step": 2 }),
+                ))
+            } else {
+                Ok(tool_response(
+                    "fixture_step",
+                    json!({ "branch": "planner", "step": 1 }),
+                ))
+            }
+        } else {
+            Err(tinyinference_llm::Error::Model(format!(
+                "unexpected subagent payload: {flattened}"
+            )))
+        };
 
         self.state
             .active_subagent_calls
@@ -549,12 +484,6 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
     let provider = ParallelHarnessProvider::default();
     let fixture_state = Arc::new(FixtureStepState::default());
 
-    let _memory_cfg = crate::config::MemoryConfig {
-        backend: "none".into(),
-        ..crate::config::MemoryConfig::default()
-    };
-    let mem: Arc<dyn Memory> = crate::memory::test_support::noop_memory();
-
     let tools: Vec<Box<dyn Tool>> = vec![
         Box::new(SpawnParallelAgentsTool::new()),
         Box::new(FixtureStepTool {
@@ -565,7 +494,6 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
     let mut agent = OpenHumanSessionHost::builder()
         .chat_model(Arc::new(provider.clone()))
         .tools(tools)
-        .memory(mem)
         .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(workspace_path)
         .build()
@@ -612,7 +540,7 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
 
     for message in history {
         match message {
-            ConversationMessage::AssistantToolCalls { tool_calls, .. } => {
+            TranscriptEntry::AssistantToolCalls { tool_calls, .. } => {
                 if tool_calls
                     .iter()
                     .any(|call| call.name == "spawn_parallel_agents")
@@ -620,7 +548,7 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
                     saw_parallel_call = true;
                 }
             }
-            ConversationMessage::ToolResults(results) => {
+            TranscriptEntry::ToolResults(results) => {
                 for result in results {
                     if !result.content.contains("\"parallel_agents\"") {
                         continue;
@@ -645,12 +573,12 @@ async fn agent_turn_runs_long_parallel_subagent_flow_with_many_nested_tool_calls
                     }
                 }
             }
-            ConversationMessage::Chat(message) if message.role == "assistant" => {
+            TranscriptEntry::Chat(message) if message.role.as_str() == "assistant" => {
                 if message.content.contains("spawn_parallel_agents") {
                     saw_parallel_call = true;
                 }
             }
-            ConversationMessage::Chat(message) if message.role == "tool" => {
+            TranscriptEntry::Chat(message) if message.role.as_str() == "tool" => {
                 let content = serde_json::from_str::<serde_json::Value>(&message.content)
                     .ok()
                     .and_then(|envelope| {

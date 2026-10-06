@@ -79,6 +79,7 @@ async fn files_a_single_generated_artifact() {
         },
         ArtifactKind::Image,
         workspace.clone(),
+        root.path().join("Files"),
     );
 
     let result = wrapped
@@ -115,6 +116,7 @@ async fn files_every_artifact_when_n_greater_than_one() {
         },
         ArtifactKind::Image,
         workspace.clone(),
+        root.path().join("Files"),
     );
 
     let result = wrapped
@@ -148,6 +150,7 @@ async fn leaves_an_errored_tool_result_untouched() {
         },
         ArtifactKind::Image,
         workspace.clone(),
+        root.path().join("Files"),
     );
 
     let result = wrapped.execute(json!({ "prompt": "x" })).await.unwrap();
@@ -166,7 +169,8 @@ async fn host_metadata_forwards_to_the_inner_tool() {
             fail: false,
         },
         ArtifactKind::Video,
-        workspace,
+        workspace.clone(),
+        workspace.join("Files"),
     );
     assert_eq!(wrapped.name(), "stub_generate");
     assert_eq!(wrapped.permission_level(), PermissionLevel::ReadOnly);

@@ -203,7 +203,7 @@ pub(super) async fn fetch_connected_integrations_uncached(
             // factory) still routes to the user's tenant. Direct-only
             // users without a backend session get empty tools — that
             // matches `composio_list_tools`'s direct-mode policy.
-            let connections = match direct_list_connections(direct).await {
+            let connections = match direct_list_connections(config, direct).await {
                 Ok(resp) => resp.connections,
                 Err(e) => {
                     tracing::warn!(

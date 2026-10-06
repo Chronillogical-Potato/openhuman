@@ -45,13 +45,6 @@ fn schemas_add_requires_provider_and_filter() {
 }
 
 #[test]
-fn schemas_unknown_function_returns_placeholder() {
-    let s = schemas("nope");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.outputs[0].name, "error");
-}
-
-#[test]
 fn read_provider_parses_known_and_rejects_unknown() {
     let mut params = Map::new();
     params.insert("provider".into(), json!("notion"));

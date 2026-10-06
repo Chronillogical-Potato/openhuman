@@ -87,6 +87,10 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "run_mode",
                     "Optional 'plan' | 'build' — start this turn with the thread already in the requested run mode, like the socket chat:start payload's run_mode. Unrecognized values are ignored.",
                 ),
+                optional_string(
+                    "reasoning_effort",
+                    "Optional reasoning (thinking) effort for this thread: 'none', 'minimal', 'low', 'medium', 'high' or 'xhigh' ('off' and 'max' are aliases). 'default' clears the thread's choice back to config; omitted leaves it unchanged. Unknown values are rejected.",
+                ),
             ],
             outputs: vec![json_output("ack", "Acceptance payload.")],
         },
@@ -153,6 +157,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
 fn handle_chat(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<WebChatParams>(params)?;
+        // Recorded before the turn starts so it reads the new choice.
+        crate::agent::tinyagents::apply_requested_effort(
+            &p.thread_id,
+            p.reasoning_effort.as_deref(),
+        )?;
         to_json(
             channel_web_chat(
                 &p.client_id,

@@ -61,13 +61,6 @@ fn schema_for_usage_log_has_days_and_limit_inputs() {
 }
 
 #[test]
-fn schema_for_unknown_returns_error_shape() {
-    let s = schema_for("cost_get_nonexistent");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.outputs[0].name, "error");
-}
-
-#[test]
 fn new_correlation_id_returns_eight_hex_chars() {
     let cid = new_correlation_id();
     assert_eq!(cid.len(), 8);

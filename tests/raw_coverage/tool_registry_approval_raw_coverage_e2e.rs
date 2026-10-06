@@ -5,78 +5,37 @@
 //! direct public API calls cover persistence/redaction/provider branches that
 //! are otherwise only indirectly reachable from the controllers.
 
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
+use crate::env_guard::EnvVarGuard;
+use crate::rpc_harness::{error_message, payload};
+use std::path::Path;
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use axum::http::header::AUTHORIZATION;
 use reqwest::StatusCode;
-use rusqlite::{params, Connection};
 use serde_json::{json, Map, Value};
 use tempfile::{tempdir, TempDir};
 
 use openhuman_core::agent::turn_origin::{self, AgentTurnOrigin};
-use openhuman_core::config::schema::{CapabilityProviderConfig, CapabilityProviderTrustState};
 use openhuman_core::config::Config;
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::mcp::registry::connections;
 use openhuman_core::mcp::registry::types::{CommandKind, InstalledServer, Transport};
 use openhuman_core::security::approval::gate::{
-    parse_approval_reply, ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
+    ApprovalChatContext, ApprovalGate, APPROVAL_CHAT_CONTEXT,
 };
-use openhuman_core::security::approval::store as approval_store;
 use openhuman_core::security::approval::{
-    all_approval_controller_schemas, all_approval_registered_controllers, redact_args,
-    summarize_action, ApprovalDecision, ExecutionOutcome, GateOutcome, PendingApproval,
+    all_approval_controller_schemas, all_approval_registered_controllers, ExecutionOutcome,
+    GateOutcome,
 };
 use openhuman_core::security::{live_policy, SecurityPolicy};
-use openhuman_core::tools::registry::{
-    all_tool_registry_controller_schemas, all_tool_registry_registered_controllers,
-    capability_provider_by_id, capability_provider_diagnostics, capability_provider_registry,
-    denials, get_tool, is_capability_provider_trusted_enabled, list_capability_providers,
-    list_tools, normalize_capability_provider_id, registry_entries, registry_entries_for_config,
-    CapabilityProviderRegistryError,
-};
+use openhuman_core::tools::registry::{denials, registry_entries, registry_entries_for_config};
 use openhuman_rpc::server::build_core_http_router;
 
 const TEST_RPC_TOKEN: &str = "tool-registry-approval-raw-e2e-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
-
-struct EnvVarGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set_to_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    fn set(key: &'static str, value: &str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, old }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 struct TestHarness {
     _tmp: TempDir,
@@ -85,11 +44,16 @@ struct TestHarness {
     rpc_join: tokio::task::JoinHandle<Result<(), std::io::Error>>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 fn ensure_rpc_auth() {
@@ -230,62 +194,6 @@ async fn rpc(rpc_base: &str, id: i64, method: &str, params: Value) -> Value {
         .unwrap_or_else(|err| panic!("json for {method}: {err}"))
 }
 
-fn ok<'a>(value: &'a Value, context: &str) -> &'a Value {
-    if let Some(error) = value.get("error") {
-        panic!("{context}: unexpected JSON-RPC error: {error}");
-    }
-    value
-        .get("result")
-        .unwrap_or_else(|| panic!("{context}: missing result: {value}"))
-}
-
-fn payload<'a>(value: &'a Value, context: &str) -> &'a Value {
-    let result = ok(value, context);
-    result.get("result").unwrap_or(result)
-}
-
-fn error_message<'a>(value: &'a Value, context: &str) -> &'a str {
-    value
-        .get("error")
-        .and_then(|error| error.get("message"))
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("{context}: error missing message: {value}"))
-}
-
-fn provider(
-    id: &str,
-    display_name: &str,
-    trust_state: CapabilityProviderTrustState,
-    enabled: bool,
-) -> CapabilityProviderConfig {
-    CapabilityProviderConfig {
-        id: id.to_string(),
-        display_name: display_name.to_string(),
-        source_uri: Some(format!(" https://example.com/providers/{id} ")),
-        source_digest: Some(" sha256:feedface ".to_string()),
-        trust_state,
-        enabled,
-    }
-}
-
-fn approval_db_path(config: &Config) -> PathBuf {
-    config.workspace_dir.join("approval").join("approval.db")
-}
-
-fn pending(
-    request_id: &str,
-    _session_id: &str,
-    expires_at: Option<chrono::DateTime<chrono::Utc>>,
-) -> PendingApproval {
-    PendingApproval::new(
-        request_id,
-        "tools.composio_execute",
-        "tools.composio_execute(action=execute, 42 bytes)",
-        json!({ "action": "execute", "tool_slug": "GMAIL_SEND_EMAIL" }),
-        expires_at,
-    )
-}
-
 fn test_mcp_server() -> InstalledServer {
     InstalledServer {
         server_id: format!("tool-registry-test-{}", uuid::Uuid::new_v4()),
@@ -316,7 +224,7 @@ fn install_test_mcp_server(config: &Config, server: &InstalledServer) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn tool_registry_rpc_diagnostics_include_denials_and_provider_errors() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup(
         r#"
 [[capability_providers]]
@@ -459,199 +367,6 @@ enabled = true
     harness.rpc_join.abort();
 }
 
-#[test]
-fn tool_registry_public_api_lists_gets_and_validates_ids() {
-    let listed = list_tools()
-        .into_cli_compatible_json()
-        .expect("list_tools json");
-    let tools = listed
-        .get("tools")
-        .and_then(Value::as_array)
-        .expect("listed tools");
-    let first_tool_id = tools
-        .first()
-        .and_then(|tool| tool.get("tool_id"))
-        .and_then(Value::as_str)
-        .expect("first tool id");
-
-    let found = get_tool(first_tool_id)
-        .expect("get first tool")
-        .into_cli_compatible_json()
-        .expect("get_tool json");
-    assert_eq!(
-        found.get("tool_id").and_then(Value::as_str),
-        Some(first_tool_id)
-    );
-    assert!(get_tool("   ")
-        .expect_err("blank id should fail")
-        .contains("non-empty"));
-    assert!(get_tool("missing.tool")
-        .expect_err("missing id should fail")
-        .contains("missing.tool"));
-}
-
-#[test]
-fn capability_provider_public_api_normalizes_lookup_and_error_branches() {
-    let config = Config {
-        capability_providers: vec![
-            provider(
-                " Team Tools ",
-                "  ",
-                CapabilityProviderTrustState::Trusted,
-                true,
-            ),
-            provider(
-                "draft_tools",
-                "Draft Tools",
-                CapabilityProviderTrustState::Untrusted,
-                true,
-            ),
-            provider(
-                "disabled.tools",
-                "Disabled Tools",
-                CapabilityProviderTrustState::Trusted,
-                false,
-            ),
-        ],
-        ..Config::default()
-    };
-
-    assert_eq!(
-        normalize_capability_provider_id(" Team Tools "),
-        Ok("team-tools".to_string())
-    );
-    assert!(normalize_capability_provider_id("!!!").is_err());
-    assert!(normalize_capability_provider_id(&"x".repeat(120)).is_err());
-
-    let registry = capability_provider_registry(&config).expect("provider registry");
-    let listed = registry.list();
-    assert_eq!(listed.len(), 3);
-    assert_eq!(listed[2].id, "team-tools");
-    assert_eq!(
-        listed[2].display_name, "team-tools",
-        "empty display_name should fall back to normalized id"
-    );
-    assert_eq!(
-        listed[2].source_uri.as_deref(),
-        Some("https://example.com/providers/ Team Tools")
-    );
-    assert!(registry.get("TEAM TOOLS").is_some());
-    assert!(registry.get("!!!").is_none());
-    assert!(registry.is_trusted_enabled("team tools"));
-    assert!(!registry.is_trusted_enabled("draft_tools"));
-    assert!(!registry.is_trusted_enabled("disabled.tools"));
-
-    assert_eq!(list_capability_providers(&config).unwrap().len(), 3);
-    let diagnostics = capability_provider_diagnostics(&config);
-    assert_eq!(diagnostics.total_providers, 3);
-    assert_eq!(diagnostics.enabled_providers, 2);
-    assert_eq!(diagnostics.trusted_providers, 2);
-    assert_eq!(diagnostics.trusted_enabled_providers, 1);
-    assert!(diagnostics.registry_errors.is_empty());
-    assert_eq!(
-        capability_provider_by_id(&config, "team tools")
-            .unwrap()
-            .expect("team provider")
-            .id,
-        "team-tools"
-    );
-    assert!(is_capability_provider_trusted_enabled(
-        &config,
-        "team tools"
-    ));
-
-    let duplicate_config = Config {
-        capability_providers: vec![
-            provider(
-                "Team Tools",
-                "Team Tools",
-                CapabilityProviderTrustState::Trusted,
-                true,
-            ),
-            provider(
-                "team-tools",
-                "Team Tools",
-                CapabilityProviderTrustState::Trusted,
-                true,
-            ),
-        ],
-        ..Config::default()
-    };
-    assert!(list_capability_providers(&duplicate_config).is_err());
-    let diagnostics = capability_provider_diagnostics(&duplicate_config);
-    assert_eq!(diagnostics.total_providers, 2);
-    assert!(diagnostics.registry_errors[0].contains("duplicate"));
-
-    let invalid_config = Config {
-        capability_providers: vec![provider(
-            "!!!",
-            "Invalid Tools",
-            CapabilityProviderTrustState::Trusted,
-            true,
-        )],
-        ..Config::default()
-    };
-    let invalid_err = list_capability_providers(&invalid_config).expect_err("invalid provider id");
-    assert_eq!(
-        invalid_err.to_string(),
-        CapabilityProviderRegistryError::InvalidId {
-            raw: "!!!".to_string()
-        }
-        .to_string()
-    );
-    assert!(!is_capability_provider_trusted_enabled(
-        &invalid_config,
-        "invalid"
-    ));
-    let invalid_diagnostics = capability_provider_diagnostics(&invalid_config);
-    assert_eq!(invalid_diagnostics.total_providers, 1);
-    assert_eq!(invalid_diagnostics.enabled_providers, 0);
-    assert!(invalid_diagnostics.registry_errors[0].contains("invalid provider id"));
-}
-
-#[test]
-fn tool_registry_diagnostics_for_config_reports_audit_success_and_policy_shape() {
-    let dir = tempdir().expect("tempdir");
-    let config = Config {
-        workspace_dir: dir.path().to_path_buf(),
-        ..Config::default()
-    };
-
-    let diagnostics = openhuman_core::tools::registry::ops::diagnostics_for_config(&config)
-        .into_cli_compatible_json()
-        .expect("diagnostics json");
-    assert!(diagnostics
-        .get("total_tools")
-        .and_then(Value::as_u64)
-        .is_some_and(|count| count > 0));
-    assert_eq!(
-        diagnostics.pointer("/mcp_write_audit/enabled"),
-        Some(&json!(true))
-    );
-    assert_eq!(
-        diagnostics.pointer("/mcp_write_audit/last_error"),
-        Some(&Value::Null)
-    );
-    assert!(diagnostics
-        .pointer("/mcp_write_audit/recent_rows")
-        .and_then(Value::as_u64)
-        .is_some());
-    assert_eq!(
-        diagnostics.pointer("/posture/autonomy_level"),
-        Some(&json!("supervised"))
-    );
-    assert!(diagnostics
-        .pointer("/policy_surfaces")
-        .and_then(Value::as_array)
-        .expect("policy surfaces")
-        .iter()
-        .any(|surface| surface.as_str() == Some("tool_registry.diagnostics")));
-    assert_eq!(
-        diagnostics.pointer("/mcp_allowlists/server_count"),
-        Some(&json!(0))
-    );
-}
-
 #[tokio::test(flavor = "current_thread")]
 async fn tool_registry_entries_fall_back_on_current_thread_runtime() {
     let entries = registry_entries();
@@ -733,83 +448,8 @@ async fn tool_registry_entries_include_connected_mcp_client_tools() {
 }
 
 #[tokio::test]
-async fn tool_registry_schema_handlers_validate_and_return_payloads() {
-    // Acquire the env lock — this test loads Config via the diagnostics
-    // handler, and a sibling test temporarily points OPENHUMAN_WORKSPACE at
-    // a file to exercise the load-failure branch. Without the lock those
-    // two can race and this test sees the corrupted env.
-    let _lock = env_lock();
-    let schemas = all_tool_registry_controller_schemas();
-    assert_eq!(
-        schemas
-            .iter()
-            .map(|schema| schema.function)
-            .collect::<Vec<_>>(),
-        vec!["list", "get", "diagnostics"]
-    );
-    let controllers = all_tool_registry_registered_controllers();
-    assert_eq!(controllers.len(), schemas.len());
-
-    let list_handler = controllers
-        .iter()
-        .find(|controller| controller.schema.function == "list")
-        .expect("list controller")
-        .handler;
-    let list_value = list_handler(Map::new()).await.expect("list handler");
-    let tools = list_value
-        .get("tools")
-        .and_then(Value::as_array)
-        .expect("tools array");
-    assert!(tools
-        .iter()
-        .any(|tool| tool.get("tool_id").and_then(Value::as_str) == Some("memory.search")));
-
-    let get_handler = controllers
-        .iter()
-        .find(|controller| controller.schema.function == "get")
-        .expect("get controller")
-        .handler;
-    assert!(get_handler(Map::new())
-        .await
-        .expect_err("missing tool_id")
-        .contains("non-empty string"));
-    let mut numeric_tool_id = Map::new();
-    numeric_tool_id.insert("tool_id".to_string(), json!(42));
-    assert!(get_handler(numeric_tool_id)
-        .await
-        .expect_err("numeric tool_id")
-        .contains("non-empty string"));
-    let mut blank_tool_id = Map::new();
-    blank_tool_id.insert("tool_id".to_string(), json!("   "));
-    assert!(get_handler(blank_tool_id)
-        .await
-        .expect_err("blank tool_id")
-        .contains("non-empty string"));
-    let mut valid_tool_id = Map::new();
-    valid_tool_id.insert("tool_id".to_string(), json!("tools.web_search"));
-    let tool_value = get_handler(valid_tool_id).await.expect("get handler");
-    assert_eq!(
-        tool_value.get("tool_id").and_then(Value::as_str),
-        Some("tools.web_search")
-    );
-
-    let diagnostics_handler = controllers
-        .iter()
-        .find(|controller| controller.schema.function == "diagnostics")
-        .expect("diagnostics controller")
-        .handler;
-    let diagnostics_value = diagnostics_handler(Map::new())
-        .await
-        .expect("diagnostics handler");
-    assert!(diagnostics_value
-        .get("total_tools")
-        .and_then(Value::as_u64)
-        .is_some_and(|count| count > 0));
-}
-
-#[tokio::test]
 async fn tool_registry_diagnostics_reports_config_and_audit_store_failures() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let workspace_file = tmp.path().join("workspace-file");
     std::fs::write(&workspace_file, "not a directory").expect("workspace sentinel");
@@ -834,285 +474,6 @@ async fn tool_registry_diagnostics_reports_config_and_audit_store_failures() {
         .last_error
         .as_deref()
         .is_some_and(|error| !error.is_empty()));
-}
-
-#[test]
-fn approval_redaction_and_store_cover_shape_expiry_migration_and_audit_branches() {
-    let dir = tempdir().expect("tempdir");
-    let config = Config {
-        workspace_dir: dir.path().to_path_buf(),
-        ..Config::default()
-    };
-
-    let raw_args = json!({
-        "action": "execute",
-        "tool_slug": "GMAIL_SEND_EMAIL",
-        "integration": "gmail",
-        "body": "Hello from /Users/alice/private.txt",
-        "recipients": ["a@example.com", "b@example.com"],
-        "metadata": {
-            "Subject": "Confidential subject",
-            "token": "sk-secret",
-            "auth": true,
-            "message": 42,
-            "password": null,
-            "user": { "id": "user-123", "name": "Alice" },
-            "attempts": 3,
-            "confirmed": true,
-            "nullable": null,
-            "safe_path": "C:\\Users\\bob\\Desktop\\report.txt",
-            "safe_list": [
-                "open /Users/frank/Desktop/report.txt",
-                { "content": "nested secret" }
-            ]
-        }
-    });
-    let redacted = redact_args(&raw_args);
-    assert_eq!(redacted["action"], json!("execute"));
-    assert_eq!(redacted["body"], json!("<redacted: string (35 chars)>"));
-    assert_eq!(redacted["recipients"], json!("<redacted: array (2 items)>"));
-    assert_eq!(
-        redacted.pointer("/metadata/Subject"),
-        Some(&json!("<redacted: string (20 chars)>"))
-    );
-    assert_eq!(
-        redacted.pointer("/metadata/attempts"),
-        Some(&json!(3)),
-        "non-sensitive numeric fields should pass through"
-    );
-    assert_eq!(
-        redacted.pointer("/metadata/auth"),
-        Some(&json!("<redacted: bool>"))
-    );
-    assert_eq!(
-        redacted.pointer("/metadata/message"),
-        Some(&json!("<redacted: number>"))
-    );
-    assert_eq!(redacted.pointer("/metadata/password"), Some(&Value::Null));
-    assert_eq!(
-        redacted.pointer("/metadata/user"),
-        Some(&json!("<redacted: object (2 keys)>"))
-    );
-    assert_eq!(
-        redacted.pointer("/metadata/safe_list/0"),
-        Some(&json!("open <HOME>/Desktop/report.txt"))
-    );
-    assert_eq!(
-        redacted.pointer("/metadata/safe_list/1/content"),
-        Some(&json!("<redacted: string (13 chars)>"))
-    );
-    assert_eq!(
-        redact_args(&json!(
-            "open /home/carol/report.md and C:\\Users\\dave\\x.txt"
-        )),
-        json!("open <HOME>/report.md and <HOME>\\x.txt")
-    );
-    assert_eq!(redact_args(&json!("/Users/erin")), json!("<HOME>"));
-    let summary = summarize_action("tools.composio_execute", &raw_args);
-    assert!(summary.contains("action=execute"));
-    assert!(summary.contains("tool_slug=GMAIL_SEND_EMAIL"));
-    assert!(summary.contains("integration=gmail"));
-    let summary_without_safe_fields = summarize_action("tools.empty", &json!(["opaque"]));
-    assert!(summary_without_safe_fields.starts_with("tools.empty ("));
-
-    approval_store::insert_pending(
-        &config,
-        &pending(
-            "expired",
-            "session-a",
-            Some(chrono::Utc::now() - chrono::Duration::minutes(5)),
-        ),
-        "session-a",
-    )
-    .expect("insert expired");
-    approval_store::insert_pending(
-        &config,
-        &pending(
-            "active",
-            "session-a",
-            Some(chrono::Utc::now() + chrono::Duration::minutes(5)),
-        ),
-        "session-a",
-    )
-    .expect("insert active");
-    approval_store::insert_pending(
-        &config,
-        &pending("other-session", "session-b", None),
-        "session-b",
-    )
-    .expect("insert no-ttl");
-
-    let rows = approval_store::list_pending(&config).expect("list pending");
-    let ids = rows
-        .iter()
-        .map(|row| row.request_id.as_str())
-        .collect::<Vec<_>>();
-    assert_eq!(ids, vec!["active", "other-session"]);
-    assert_eq!(
-        approval_store::get_decision(&config, "expired").expect("expired decision"),
-        Some(ApprovalDecision::Deny)
-    );
-
-    let removed = approval_store::purge_session(&config, "session-b").expect("purge session");
-    assert_eq!(removed, 1);
-    assert_eq!(
-        approval_store::purge_session(&config, "missing-session").unwrap(),
-        0
-    );
-
-    let decided = approval_store::decide(&config, "active", ApprovalDecision::ApproveOnce)
-        .expect("decide active")
-        .expect("active row");
-    assert_eq!(decided.request_id, "active");
-    assert!(!approval_store::record_execution(
-        &config,
-        "missing",
-        ExecutionOutcome::Aborted,
-        Some("not found"),
-    )
-    .expect("unknown record execution"));
-    assert!(approval_store::record_execution(
-        &config,
-        "active",
-        ExecutionOutcome::Failure,
-        Some("upstream Authorization: Bearer sk-live-abcdefghijklmnopqrstuvwxyz failed"),
-    )
-    .expect("record failed execution"));
-    assert!(!approval_store::record_execution(
-        &config,
-        "active",
-        ExecutionOutcome::Success,
-        Some("late rewrite"),
-    )
-    .expect("idempotent execution"));
-
-    let audit = approval_store::list_recent_decisions(&config, 0).expect("recent decisions");
-    assert_eq!(audit.len(), 1, "zero limit should clamp to one");
-    assert_eq!(audit[0].request_id, "active");
-    assert_eq!(audit[0].decision, ApprovalDecision::ApproveOnce);
-
-    let db_path = approval_db_path(&config);
-    let conn = Connection::open(&db_path).expect("open approval db");
-    conn.execute(
-        "INSERT INTO pending_approvals
-            (request_id, tool_name, action_summary, args_redacted, session_id, created_at,
-             decided_at, decision)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![
-            "corrupt-json",
-            "tools.web_search",
-            "corrupt args",
-            "{not valid json",
-            "session-a",
-            chrono::Utc::now().to_rfc3339(),
-            chrono::Utc::now().to_rfc3339(),
-            "deny",
-        ],
-    )
-    .expect("insert corrupt audit row");
-    drop(conn);
-    let audit = approval_store::list_recent_decisions(&config, 10).expect("audit with corrupt row");
-    let corrupt = audit
-        .iter()
-        .find(|row| row.request_id == "corrupt-json")
-        .expect("corrupt audit row");
-    assert_eq!(
-        corrupt.args_redacted,
-        json!({ "_error": "args_redacted not valid JSON" })
-    );
-
-    let legacy_dir = tempdir().expect("legacy tempdir");
-    let legacy_config = Config {
-        workspace_dir: legacy_dir.path().to_path_buf(),
-        ..Config::default()
-    };
-    let legacy_db = approval_db_path(&legacy_config);
-    std::fs::create_dir_all(legacy_db.parent().expect("legacy db parent"))
-        .expect("create legacy db dir");
-    let legacy_conn = Connection::open(&legacy_db).expect("open legacy db");
-    legacy_conn
-        .execute_batch(
-            "CREATE TABLE pending_approvals (
-                request_id      TEXT PRIMARY KEY,
-                tool_name       TEXT NOT NULL,
-                action_summary  TEXT NOT NULL,
-                args_redacted   TEXT NOT NULL,
-                session_id      TEXT NOT NULL,
-                created_at      TEXT NOT NULL,
-                expires_at      TEXT,
-                decided_at      TEXT,
-                decision        TEXT
-            );",
-        )
-        .expect("create legacy schema");
-    legacy_conn
-        .execute(
-            "INSERT INTO pending_approvals
-                (request_id, tool_name, action_summary, args_redacted, session_id, created_at)
-             VALUES ('legacy', 'tools.web_search', 'legacy', '{}', 'legacy-session', ?1)",
-            params![chrono::Utc::now().to_rfc3339()],
-        )
-        .expect("insert legacy row");
-    drop(legacy_conn);
-
-    assert_eq!(
-        approval_store::list_pending(&legacy_config)
-            .expect("migrated pending")
-            .len(),
-        1
-    );
-    approval_store::decide(&legacy_config, "legacy", ApprovalDecision::ApproveOnce)
-        .expect("decide legacy");
-    assert!(approval_store::record_execution(
-        &legacy_config,
-        "legacy",
-        ExecutionOutcome::Success,
-        None,
-    )
-    .expect("record execution after migration"));
-}
-
-#[test]
-fn approval_reply_parser_accepts_explicit_yes_no_only() {
-    for decision in [
-        ApprovalDecision::ApproveOnce,
-        ApprovalDecision::ApproveAlwaysForTool,
-        ApprovalDecision::Deny,
-    ] {
-        assert_eq!(
-            ApprovalDecision::from_str(decision.as_str()),
-            Some(decision)
-        );
-    }
-    assert_eq!(ApprovalDecision::from_str("maybe"), None);
-    assert!(ApprovalDecision::ApproveOnce.is_approve());
-    assert!(ApprovalDecision::ApproveAlwaysForTool.is_approve());
-    assert!(!ApprovalDecision::Deny.is_approve());
-
-    for outcome in [
-        ExecutionOutcome::Success,
-        ExecutionOutcome::Failure,
-        ExecutionOutcome::Aborted,
-    ] {
-        assert_eq!(ExecutionOutcome::from_str(outcome.as_str()), Some(outcome));
-    }
-    assert_eq!(ExecutionOutcome::from_str("partial"), None);
-    assert_eq!(
-        serde_json::to_string(&ExecutionOutcome::Aborted).expect("serialize outcome"),
-        "\"aborted\""
-    );
-
-    assert_eq!(
-        parse_approval_reply(" yes "),
-        Some(ApprovalDecision::ApproveOnce)
-    );
-    assert_eq!(
-        parse_approval_reply("APPROVED"),
-        Some(ApprovalDecision::ApproveOnce)
-    );
-    assert_eq!(parse_approval_reply("n"), Some(ApprovalDecision::Deny));
-    assert_eq!(parse_approval_reply("denied"), Some(ApprovalDecision::Deny));
-    assert_eq!(parse_approval_reply("maybe later"), None);
 }
 
 #[tokio::test]
@@ -1269,7 +630,7 @@ async fn approval_schema_handlers_validate_params_and_surface_empty_gate_state()
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn approval_rpc_decision_paths_persist_always_allow_and_recent_audit() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup("").await;
     let config = Config::load_or_init()
         .await

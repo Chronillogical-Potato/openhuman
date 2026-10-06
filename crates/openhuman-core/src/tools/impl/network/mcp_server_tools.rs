@@ -21,10 +21,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use tinymcp::tools::{McpExposure, McpServerTool, McpToolInvoker, McpToolSource};
+use tinymcp::tools::{McpExposure, McpServerTool, McpToolInvoker, McpToolSource, SecretScrubber};
 use tinytools::{PermissionLevel, Tool, ToolCategory, ToolExposure, ToolResult};
 
-use super::mcp::SecretScrubber;
 use crate::config::{Config, McpToolExposure};
 use crate::mcp::config_servers::McpServerRegistry;
 use crate::security::{SecurityPolicy, ToolOperation};

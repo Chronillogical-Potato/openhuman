@@ -31,13 +31,6 @@ fn update_local_state_schema() {
 }
 
 #[test]
-fn unknown_function_returns_unknown() {
-    let s = app_state_schemas("nonexistent");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "app_state");
-}
-
-#[test]
 fn schemas_and_controllers_match() {
     let s = all_app_state_controller_schemas();
     let c = all_app_state_registered_controllers();

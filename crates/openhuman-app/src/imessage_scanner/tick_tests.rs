@@ -66,7 +66,7 @@ async fn skips_when_gate_disconnected() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "reads the operator's real macOS ~/Library/Messages/chat.db (needs Full Disk Access); run: cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner::tick_tests -- --ignored"]
 async fn run_single_tick_ingests_groups_from_real_chatdb() {
     let Some(db) = chat_db() else {
         eprintln!("chat.db not available — skipping");
@@ -100,7 +100,7 @@ async fn run_single_tick_ingests_groups_from_real_chatdb() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "reads the operator's real macOS ~/Library/Messages/chat.db (needs Full Disk Access); run: cargo test --manifest-path crates/openhuman-app/Cargo.toml imessage_scanner::tick_tests -- --ignored"]
 async fn run_single_tick_keeps_cursor_on_group_failure() {
     let Some(db) = chat_db() else {
         return;

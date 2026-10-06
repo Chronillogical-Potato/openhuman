@@ -12,7 +12,7 @@
 //!
 //! `Deferred` takes such a tool off the wire without removing the capability.
 //! The tinyagents harness owns the other half of that bargain — the intrinsic
-//! `tool_search` / `tool_call` bridge, the BM25 catalogue, and the pluggable
+//! `tool_search` bridge, the BM25 catalogue, and the pluggable
 //! ranker a decision model plugs into (`tool::discover`). This host used to
 //! register a `tool_search` of its own, which the harness honoured over its
 //! intrinsic; that tool could *find* a deferred tool but the turn allowlist

@@ -89,236 +89,46 @@ fn count_captured(events: Vec<Event<'static>>) -> usize {
 }
 
 #[test]
-fn drops_updater_transient_check_failure() {
-    let event = event_with_tags_and_message(
-        &[],
-        "failed to check for updates: error sending request for url \
-         (https://github.com/tinyhumansai/openhuman/releases/latest/download/latest.json)",
-    );
-    assert_eq!(
-        count_captured(vec![event]),
-        0,
-        "transient updater check failures must be filtered in before_send"
-    );
-}
-
-#[test]
-fn drops_backend_api_transient_statuses() {
-    let events = ["408", "429", "502", "503", "504", "520"]
-        .into_iter()
-        .map(|status| {
-            event_with_tags(&[
-                ("domain", "backend_api"),
-                ("failure", "non_2xx"),
-                ("status", status),
-            ])
-        })
-        .collect();
-    assert_eq!(
-        count_captured(events),
-        0,
-        "transient backend_api statuses must be filtered in before_send"
-    );
-}
-
-#[test]
-fn drops_skills_install_fetch_404() {
-    let event = event_with_tags(&[
-        ("domain", "skills"),
-        ("operation", "install_fetch"),
-        ("failure", "non_2xx"),
-        ("status", "404"),
-    ]);
-    assert_eq!(
-        count_captured(vec![event]),
-        0,
-        "user/catalog skill install 4xx failures must be filtered in before_send"
-    );
-}
-
-#[test]
-fn keeps_skills_install_fetch_500() {
-    let event = event_with_tags(&[
-        ("domain", "skills"),
-        ("operation", "install_fetch"),
-        ("failure", "non_2xx"),
-        ("status", "500"),
-    ]);
-    assert_eq!(
-        count_captured(vec![event]),
-        1,
-        "skill install server failures must still reach Sentry"
-    );
-}
-
-#[test]
-fn drops_integrations_transient_transport_timeout() {
-    let event = event_with_tags_and_message(
-        &[("domain", "integrations"), ("failure", "transport")],
-        "GET /agent-integrations/tools failed: operation timed out",
-    );
-    assert_eq!(
-        count_captured(vec![event]),
-        0,
-        "transient integrations timeouts must be filtered in before_send"
-    );
-}
-
-#[test]
-fn drops_budget_exhausted_400() {
-    let event = event_with_tags_and_message(
-        &[
+fn before_send_chain_drops_transient_events_and_keeps_actionable_ones() {
+    // Predicate coverage lives in `core/observability_*_tests.rs`; this pins the
+    // `sentry::init` -> `before_send` -> transport wiring end to end.
+    let dropped = vec![
+        event_with_tags(&[
             ("domain", "llm_provider"),
             ("failure", "non_2xx"),
-            ("status", "400"),
-        ],
-        r#"OpenHuman API error (400 Bad Request): {"success":false,"error":"Insufficient budget"}"#,
-    );
-
+            ("status", "503"),
+        ]),
+        event_with_tags(&[
+            ("domain", "backend_api"),
+            ("failure", "non_2xx"),
+            ("status", "502"),
+        ]),
+        event_with_tags_and_message(
+            &[("domain", "integrations"), ("failure", "transport")],
+            "GET /agent-integrations/tools failed: operation timed out",
+        ),
+    ];
     assert_eq!(
-        count_captured(vec![event]),
+        count_captured(dropped),
         0,
-        "budget-exhausted 400s must be filtered in before_send"
+        "transient failures must be filtered in before_send"
     );
-}
 
-#[test]
-fn keeps_non_budget_400() {
-    let event = event_with_tags_and_message(
-        &[
+    let kept = vec![
+        event_with_tags(&[
             ("domain", "llm_provider"),
             ("failure", "non_2xx"),
-            ("status", "400"),
-        ],
-        "Bad request: missing field",
-    );
-
-    assert_eq!(
-        count_captured(vec![event]),
-        1,
-        "non-budget 400s must still reach Sentry"
-    );
-}
-
-#[test]
-fn drops_per_attempt_429_503_504_408_502() {
-    // Each of these matches the tag shape `ops::api_error` sets when a
-    // transient upstream status returns. With the filter installed in
-    // before_send, none should leak through to the transport.
-    let events = ["429", "503", "504", "408", "502"]
-        .into_iter()
-        .map(|status| {
-            event_with_tags(&[
-                ("domain", "llm_provider"),
-                ("failure", "non_2xx"),
-                ("status", status),
-            ])
-        })
-        .collect();
-    assert_eq!(
-        count_captured(events),
-        0,
-        "transient per-attempt failures must be filtered in before_send"
-    );
-}
-
-#[test]
-fn keeps_permanent_failures() {
-    // 4xx auth / not-found / etc. and 500 internal errors are actionable —
-    // they must reach Sentry exactly as before.
-    let events = ["400", "401", "403", "404", "500"]
-        .into_iter()
-        .map(|status| {
-            event_with_tags(&[
-                ("domain", "llm_provider"),
-                ("failure", "non_2xx"),
-                ("status", status),
-            ])
-        })
-        .collect();
-    assert_eq!(
-        count_captured(events),
-        5,
-        "permanent provider failures must reach Sentry"
-    );
-}
-
-#[test]
-fn keeps_backend_api_404_failure() {
-    let event = event_with_tags(&[
-        ("domain", "backend_api"),
-        ("failure", "non_2xx"),
-        ("status", "404"),
-    ]);
-    assert_eq!(
-        count_captured(vec![event]),
-        1,
-        "non-transient backend_api 404 failures must reach Sentry"
-    );
-}
-
-#[test]
-fn keeps_aggregate_all_exhausted_event() {
-    // The reliable_chat layer fires a single aggregate
-    // `failure=all_exhausted` event when every provider/model has been
-    // tried. That's the cascade signal we want — only the per-attempt
-    // noise gets dropped.
-    let event = event_with_tags(&[
-        ("domain", "llm_provider"),
-        ("failure", "all_exhausted"),
-        ("model", "claude-haiku-4-5-20251001"),
-        ("attempts", "12"),
-    ]);
-    assert_eq!(
-        count_captured(vec![event]),
-        1,
-        "aggregate all_exhausted event must surface for genuine outages"
-    );
-}
-
-#[test]
-fn drops_aggregate_all_exhausted_when_attempts_are_transient() {
-    let event = event_with_tags_and_message(
-        &[
+            ("status", "401"),
+        ]),
+        event_with_tags(&[
             ("domain", "llm_provider"),
             ("failure", "all_exhausted"),
-            ("attempts", "2"),
-        ],
-        "All providers/models failed. Attempts: openai API error (503 Service Unavailable); custom_openai API error (502 Bad Gateway)",
-    );
+            ("attempts", "12"),
+        ]),
+    ];
     assert_eq!(
-        count_captured(vec![event]),
-        0,
-        "all-transient aggregate should not recreate per-attempt Sentry noise"
-    );
-}
-
-#[test]
-fn keeps_aggregate_all_exhausted_with_permanent_attempt() {
-    let event = event_with_tags_and_message(
-        &[
-            ("domain", "llm_provider"),
-            ("failure", "all_exhausted"),
-            ("attempts", "2"),
-        ],
-        "All providers/models failed. Attempts: openai API error (401 Unauthorized); custom_openai API error (503 Service Unavailable)",
-    );
-    assert_eq!(
-        count_captured(vec![event]),
-        1,
-        "mixed/permanent aggregate should remain actionable"
-    );
-}
-
-#[test]
-fn keeps_event_missing_status_tag() {
-    // Belt-and-suspenders: an event with `failure=non_2xx` but no `status`
-    // tag (e.g. a future call site forgets to attach one) must NOT be
-    // silently dropped — we'd rather see it and fix the tag emission.
-    let event = event_with_tags(&[("domain", "llm_provider"), ("failure", "non_2xx")]);
-    assert_eq!(
-        count_captured(vec![event]),
-        1,
-        "event without status tag must not be silently dropped"
+        count_captured(kept),
+        2,
+        "actionable failures must still reach Sentry"
     );
 }

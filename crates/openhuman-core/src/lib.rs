@@ -12,7 +12,7 @@
 //! `runtime` — keep new modules sorted the same way): `agent`, `api`,
 //! `channels`, `config`, `core`, `cron`, `desktop`, `flows` (feature
 //! `flows`), `hooks`, `hosting` (feature `hosting`),
-//! `inference`, `integrations`, `json_schema`,
+//! `inference`, `integrations`,
 //! `mcp`, `media` (feature `media`), `memory`, `modules` (feature
 //! `modules`), `platform`, `runtime`, `sandbox`, `search`, `security`,
 //! `skills`, `test_support` (feature `e2e-test-support`), `threads`, `tools`,
@@ -67,7 +67,6 @@ pub mod hooks;
 pub mod hosting;
 pub mod inference;
 pub mod integrations;
-pub mod json_schema;
 pub mod mcp;
 #[cfg(feature = "media")]
 pub mod media;

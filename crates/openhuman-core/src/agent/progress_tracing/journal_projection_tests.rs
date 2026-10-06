@@ -271,7 +271,7 @@ fn projects_failed_subagent_from_child_run_failed() {
     assert_eq!(subagent.status, SpanStatus::Error);
     assert_eq!(subagent.attributes["error"], serde_json::json!(true));
     assert!(
-        subagent.attributes.get("error.length").is_some(),
+        subagent.attributes.contains_key("error.length"),
         "failed subagent span carries redacted error metadata"
     );
 }

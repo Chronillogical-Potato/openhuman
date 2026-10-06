@@ -11,8 +11,6 @@ fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
         omit_identity: true,
         omit_memory_context: true,
         omit_safety_preamble: true,
-        omit_profile: true,
-        omit_memory_md: true,
         model: ModelSpec::Inherit,
         temperature: 0.4,
         tools: ToolScope::Named(names.iter().map(|s| s.to_string()).collect()),
@@ -27,7 +25,6 @@ fn make_def_named_tools(names: &[&str]) -> AgentDefinition {
         timeout_secs: None,
         sandbox_mode: crate::agent::harness::definition::SandboxMode::None,
         background: false,
-        trigger_memory_agent: Default::default(),
         tokenjuice_compression: crate::inference::tokenjuice::AgentTokenjuiceCompression::Auto,
         subagents: vec![],
         delegate_name: None,
@@ -267,7 +264,6 @@ fn make_parent(
         model_name: "test-model".into(),
         temperature: 0.5,
         workspace_dir: std::env::temp_dir(),
-        memory: noop_memory(),
         agent_config: crate::config::AgentConfig::default(),
         workflows: Arc::new(vec![]),
         memory_context: Arc::new(None),
@@ -280,64 +276,6 @@ fn make_parent(
         on_progress: None,
         run_queue: None,
     }
-}
-
-fn noop_memory() -> Arc<dyn crate::memory::Memory> {
-    struct NoopMemory;
-    #[async_trait]
-    impl crate::memory::Memory for NoopMemory {
-        async fn store(
-            &self,
-            _namespace: &str,
-            _key: &str,
-            _content: &str,
-            _category: crate::memory::MemoryCategory,
-            _session_id: Option<&str>,
-        ) -> anyhow::Result<()> {
-            Ok(())
-        }
-        async fn recall(
-            &self,
-            _query: &str,
-            _limit: usize,
-            _opts: crate::memory::RecallOpts<'_>,
-        ) -> anyhow::Result<Vec<crate::memory::MemoryEntry>> {
-            Ok(vec![])
-        }
-        async fn get(
-            &self,
-            _namespace: &str,
-            _key: &str,
-        ) -> anyhow::Result<Option<crate::memory::MemoryEntry>> {
-            Ok(None)
-        }
-        async fn list(
-            &self,
-            _namespace: Option<&str>,
-            _category: Option<&crate::memory::MemoryCategory>,
-            _session_id: Option<&str>,
-        ) -> anyhow::Result<Vec<crate::memory::MemoryEntry>> {
-            Ok(vec![])
-        }
-        async fn forget(&self, _namespace: &str, _key: &str) -> anyhow::Result<bool> {
-            Ok(true)
-        }
-        async fn namespace_summaries(
-            &self,
-        ) -> anyhow::Result<Vec<crate::memory::NamespaceSummary>> {
-            Ok(vec![])
-        }
-        async fn count(&self) -> anyhow::Result<usize> {
-            Ok(0)
-        }
-        async fn health_check(&self) -> bool {
-            true
-        }
-        fn name(&self) -> &str {
-            "noop"
-        }
-    }
-    Arc::new(NoopMemory)
 }
 
 // ── Runtime spawn-hierarchy (tier) gate (issue #4098) ───────────────────────

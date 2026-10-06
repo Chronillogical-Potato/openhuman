@@ -14,9 +14,7 @@ fn app_env_from_env_reads_runtime_var() {
     // `.openhuman-staging` process-wide, which breaks any concurrent test
     // resolving the root openhuman dir. Hold the crate-wide env lock too,
     // in the established order (TEST_ENV_LOCK before the backend lock).
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.blocking_lock();
     let _guard = env_test_lock();
     let prev = std::env::var(APP_ENV_VAR).ok();
     std::env::set_var(APP_ENV_VAR, "staging");
@@ -31,9 +29,7 @@ fn app_env_from_env_reads_runtime_var() {
 #[test]
 fn app_env_empty_primary_falls_through_to_secondary() {
     // Same staging-root hazard as `app_env_from_env_reads_runtime_var`.
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.blocking_lock();
     let _guard = env_test_lock();
     let prev_p = std::env::var(APP_ENV_VAR).ok();
     let prev_s = std::env::var(VITE_APP_ENV_VAR).ok();

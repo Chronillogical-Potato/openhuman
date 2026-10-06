@@ -165,24 +165,7 @@ impl ToolGroups {
 /// [`CoreContext`]: crate::core::runtime::context::CoreContext
 static PROCESS_GROUPS: std::sync::OnceLock<ToolGroups> = std::sync::OnceLock::new();
 
-/// Declare the process-wide groups without standing up a [`CoreContext`].
-///
-/// For an **embedder that does its own tool routing**: a host which registers
-/// its own tools and gates them itself gains nothing from pack withholding and
-/// pays the capability for it. That is the audience
-/// [`ToolGroups::advertised`] already names, and until this existed it was the
-/// one audience that could not reach it — the only public way to set the groups
-/// is [`CoreContext::init_with_config`], which is `async`, while the places
-/// that read them are not: a roster build, an agent build (packs are stripped
-/// in `builder_build`, long before any turn), and an embedder's own synchronous
-/// test fixtures.
-///
-/// First call wins, matching `DEFAULT_CONTEXT`'s own rule. A scoped context
-/// still takes precedence in [`current`], so multi-tenant dispatch is
-/// unaffected: this changes only what a caller with **no** context resolves to.
-///
-/// [`CoreContext`]: crate::core::runtime::context::CoreContext
-/// [`CoreContext::init_with_config`]: crate::core::runtime::context::CoreContext::init_with_config
+/// Set the process-wide group posture for hosts that do not establish a core context.
 pub fn set_process_default(groups: ToolGroups) {
     let _ = PROCESS_GROUPS.set(groups);
 }

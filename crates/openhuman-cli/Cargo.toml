@@ -117,6 +117,10 @@ name = "cost_cap_removed"
 path = "../../tests/cost_cap_removed.rs"
 
 [[test]]
+name = "embedded_server_shutdown_e2e"
+path = "../../tests/embedded_server_shutdown_e2e.rs"
+
+[[test]]
 name = "observability_smoke"
 path = "../../tests/observability_smoke.rs"
 # The `is_*_event` Sentry filters are all `#[cfg(feature = "crash-reporting")]`.
@@ -135,6 +139,19 @@ path = "../../tests/x402_twit_sh_live.rs"
 required-features = ["web3"]
 
 [[test]]
+name = "memory_v2_e2e"
+path = "../../tests/memory_v2_e2e.rs"
+# Memory v2 over JSON-RPC against the shared node mock backend
+# (`scripts/mock-api-server.mjs`, which needs `node` on PATH).
+
+[[test]]
+name = "memory_cortexdb_live"
+path = "../../tests/memory_cortexdb_live.rs"
+# Memory v2 through the real `openhuman-core` binary against a live CortexDB.
+# Skips unless OPENHUMAN_LIVE_CORTEXDB_URL is set; run it with
+# scripts/test-memory-cortexdb-live.sh, which boots the server in Docker.
+
+[[test]]
 name = "json_rpc_e2e"
 path = "../../tests/json_rpc_e2e.rs"
 # `voice::reply_speech::{test_seam, TEST_SEAM_ENV}` — the reply-speech seam
@@ -149,45 +166,18 @@ path = "../../tests/raw_coverage_all.rs"
 # gate's `tinychannels/email`) and the local inference download service.
 required-features = ["voice", "inference"]
 
+# ~20 former `tests/*.rs` targets folded into one binary (one link of the
+# `openhuman` rlib instead of ~20): `tests/in_process/*.rs`, globbed by the
+# root `build.rs`. No `required-features` — these suites exercise gate-free
+# surfaces, so they run in the default contributor build too. Suites that need
+# a process of their own stay separate targets.
 [[test]]
-name = "agent_approval_memory_coverage_e2e"
-path = "../../tests/agent_approval_memory_coverage_e2e.rs"
-
-[[test]]
-name = "agent_builder_public"
-path = "../../tests/agent_builder_public.rs"
+name = "in_process_all"
+path = "../../tests/in_process_all.rs"
 
 [[test]]
 name = "agent_harness_e2e"
 path = "../../tests/agent_harness_e2e.rs"
-
-[[test]]
-name = "agent_prompt_comprehension_e2e"
-path = "../../tests/agent_prompt_comprehension_e2e.rs"
-
-[[test]]
-name = "agent_harness_public"
-path = "../../tests/agent_harness_public.rs"
-
-[[test]]
-name = "agent_multimodal_public"
-path = "../../tests/agent_multimodal_public.rs"
-
-[[test]]
-name = "agent_turn_overrides_e2e"
-path = "../../tests/agent_turn_overrides_e2e.rs"
-
-[[test]]
-name = "calendar_grounding_e2e"
-path = "../../tests/calendar_grounding_e2e.rs"
-
-[[test]]
-name = "channels_default_channel_e2e"
-path = "../../tests/channels_default_channel_e2e.rs"
-
-[[test]]
-name = "channels_host_boundary_e2e"
-path = "../../tests/channels_host_boundary_e2e.rs"
 
 [[test]]
 name = "cli_model_overrides_e2e"
@@ -202,10 +192,6 @@ name = "composio_list_tools_stack_overflow_regression"
 path = "../../tests/composio_list_tools_stack_overflow_regression.rs"
 
 [[test]]
-name = "config_auth_app_state_connectivity_e2e"
-path = "../../tests/config_auth_app_state_connectivity_e2e.rs"
-
-[[test]]
 name = "cwd_jail_e2e"
 path = "../../tests/cwd_jail_e2e.rs"
 
@@ -215,11 +201,11 @@ path = "../../tests/windows_sandbox_env_e2e.rs"
 
 [[test]]
 name = "domain_modules_e2e"
-path = "../../tests/domain_modules_e2e.rs"
+path = "../../tests/in_process/domain_modules_e2e.rs"
 
 [[test]]
 name = "embeddings_rpc_e2e"
-path = "../../tests/embeddings_rpc_e2e.rs"
+path = "../../tests/in_process/embeddings_rpc_e2e.rs"
 
 [[test]]
 name = "inference_provider_e2e"
@@ -232,14 +218,6 @@ path = "../../tests/keyring_secretstore_e2e.rs"
 [[test]]
 name = "keyring_secretstore_fresh_e2e"
 path = "../../tests/keyring_secretstore_fresh_e2e.rs"
-
-[[test]]
-name = "learning_phase4_integration_test"
-path = "../../tests/learning_phase4_integration_test.rs"
-
-[[test]]
-name = "linux_cef_deb_runtime_e2e"
-path = "../../tests/linux_cef_deb_runtime_e2e.rs"
 
 [[test]]
 name = "live_flows_demo_e2e"
@@ -267,80 +245,12 @@ path = "../../tests/media_generation_e2e.rs"
 required-features = ["media"]
 
 [[test]]
-name = "memory_graph_roundtrip_e2e"
-path = "../../tests/memory_graph_roundtrip_e2e.rs"
-
-[[test]]
-# Memory-engine selection over JSON-RPC against a hosted-CortexDB double.
-name = "memory_engine_e2e"
-path = "../../tests/memory_engine_e2e.rs"
-# Needs the memory module (the migration source) and the remote-engine gate.
-required-features = ["modules", "memory-remote"]
-
-[[test]]
-# Engine migration, cancel, credits and config safety.
-name = "memory_engine_migrate_e2e"
-path = "../../tests/memory_engine_migrate_e2e.rs"
-required-features = ["modules", "memory-remote"]
-
-[[test]]
-# The memory surface on the hosted engine: auto-recall, refusals, the error
-# vocabulary and the families it does not serve (openhuman#6718).
-name = "memory_hosted_surface_e2e"
-path = "../../tests/memory_hosted_surface_e2e.rs"
-required-features = ["modules", "memory-remote"]
-
-[[test]]
-name = "memory_roundtrip_e2e"
-path = "../../tests/memory_roundtrip_e2e.rs"
-
-[[test]]
-name = "memory_sources_e2e"
-path = "../../tests/memory_sources_e2e.rs"
-
-[[test]]
-name = "memory_tree_health_e2e"
-path = "../../tests/memory_tree_health_e2e.rs"
-
-[[test]]
-name = "tree_summarizer_e2e"
-path = "../../tests/tree_summarizer_e2e.rs"
-
-[[test]]
 name = "observability_wallet_expected_e2e"
 path = "../../tests/observability_wallet_expected_e2e.rs"
 
 [[test]]
-name = "orchestrator_parallel_fanout_routing"
-path = "../../tests/orchestrator_parallel_fanout_routing.rs"
-
-[[test]]
-name = "orchestrator_presentation_wiring"
-path = "../../tests/orchestrator_presentation_wiring.rs"
-
-[[test]]
-name = "skill_registry_e2e"
-path = "../../tests/skill_registry_e2e.rs"
-
-[[test]]
 name = "skills_mcp_registry_live"
 path = "../../tests/skills_mcp_registry_live.rs"
-
-[[test]]
-name = "transcript_search_e2e"
-path = "../../tests/transcript_search_e2e.rs"
-
-[[test]]
-name = "web_cancel_request_scoping"
-path = "../../tests/web_cancel_request_scoping.rs"
-
-[[test]]
-name = "worker_b_domain_e2e"
-path = "../../tests/worker_b_domain_e2e.rs"
-
-[[test]]
-name = "worker_c_modules_e2e"
-path = "../../tests/worker_c_modules_e2e.rs"
 
 [[example]]
 name = "embed_headless"
@@ -350,20 +260,10 @@ path = "../../examples/embed_headless.rs"
 name = "embed_kernel"
 path = "../../examples/embed_kernel.rs"
 
-[[example]]
-name = "run_memory_doctor"
-path = "../../examples/run_memory_doctor.rs"
-
-[[example]]
-name = "run_memory_reconcile"
-path = "../../examples/run_memory_reconcile.rs"
-
-
 [dependencies]
 # Direct core access: every test and bin names `openhuman_core::` paths.
 # `default-features = false` so the gates below are the only ones on.
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
-openhuman-embed = { path = "../openhuman-embed", default-features = false }
 openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
 openhuman-rpc = { workspace = true, features = ["server"] }
 anyhow = "1.0"
@@ -402,7 +302,6 @@ tinycomputer-bus = { path = "../../vendor/tinycomputer/crates/tinycomputer-bus" 
 # `default-features = false` keeps actix out of the graph (see the core manifest).
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 base64 = "0.22"
-filetime = "0.2"
 flate2 = "1"
 futures-util = "0.3"
 hex = "0.4"
@@ -410,8 +309,6 @@ lettre = { version = "0.11.22", default-features = false, features = ["builder",
 parking_lot = "0.12"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 sha2 = "0.10"
-# `ollama_lifecycle_e2e` checks the spawned runtime child is really gone.
-sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 tar = "0.4"
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = ["sqlite", "multimodal"] }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
@@ -419,13 +316,14 @@ tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = fal
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
 tinymcp = { path = "../../vendor/tinymcp/crates/tinymcp", default-features = false, features = ["rustls-tls"] }
 tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus", features = ["schemars"] }
-tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api" }
 tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
 tokio = { version = "1", features = ["full", "test-util"] }
 tokio-stream = { version = "0.1.18", default-features = false, features = ["sync"] }
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
+tokio-util = { version = "0.7", features = ["rt", "io"] }
 tower = { version = "0.5", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 url = "2"
@@ -447,17 +345,12 @@ hosting = ["openhuman-core/hosting", "openhuman-tinyhumans/hosting"]
 modules = ["openhuman-core/modules", "openhuman-tinyhumans/modules"]
 voice = ["openhuman-core/voice", "openhuman-tinyhumans/voice"]
 web3 = ["openhuman-core/web3", "openhuman-tinyhumans/web3"]
-memory-remote = ["openhuman-core/memory-remote", "openhuman-tinyhumans/memory-remote"]
 runtime-node = ["openhuman-core/runtime-node", "openhuman-tinyhumans/runtime-node"]
-contacts = ["openhuman-core/contacts", "openhuman-tinyhumans/contacts"]
 media = ["openhuman-core/media", "openhuman-tinyhumans/media"]
 flows = ["openhuman-core/flows", "openhuman-tinyhumans/flows"]
 skills = ["openhuman-core/skills", "openhuman-tinyhumans/skills"]
 mcp = ["openhuman-core/mcp", "openhuman-tinyhumans/mcp"]
 channels = ["openhuman-core/channels", "openhuman-tinyhumans/channels"]
-sandbox-landlock = ["openhuman-core/sandbox-landlock", "openhuman-tinyhumans/sandbox-landlock"]
-sandbox-bubblewrap = ["openhuman-core/sandbox-bubblewrap", "openhuman-tinyhumans/sandbox-bubblewrap"]
-landlock = ["openhuman-core/landlock"]
 whatsapp-web = ["openhuman-core/whatsapp-web", "openhuman-tinyhumans/whatsapp-web"]
 e2e-test-support = ["openhuman-core/e2e-test-support"]
 rss-bench = ["openhuman-core/rss-bench"]

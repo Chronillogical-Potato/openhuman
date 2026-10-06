@@ -5,8 +5,6 @@ import type { ServiceStatus } from '../../utils/tauriCommands/service';
 
 export interface CoreOnboardingTasks {
   accessibilityPermissionGranted: boolean;
-  localModelConsentGiven: boolean;
-  localModelDownloadStarted: boolean;
   enabledTools: string[];
   connectedSources: string[];
   updatedAtMs?: number;

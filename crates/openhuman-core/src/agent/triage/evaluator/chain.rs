@@ -95,23 +95,6 @@ pub async fn run_triage(envelope: &TriggerEnvelope) -> anyhow::Result<TriageOutc
     outcome
 }
 
-/// Production entry point that takes already-resolved arms and acquires
-/// the global LLM permit via [`scheduler_gate::wait_for_capacity`].
-///
-/// Use [`run_triage_with_arms_for_test`] in tests to bypass the shared
-/// semaphore. This function is `pub` for integration callers outside
-/// this module that supply pre-resolved providers.
-pub async fn run_triage_with_arms(
-    cloud: ResolvedProvider,
-    local: Option<ResolvedProvider>,
-    envelope: &TriggerEnvelope,
-) -> anyhow::Result<TriageOutcome> {
-    run_triage_with_arms_inner(cloud, local, envelope, Some(retry_state()), || {
-        crate::cron::scheduler_gate::wait_for_capacity()
-    })
-    .await
-}
-
 /// Test-only entry point: skip the global LLM permit acquisition so the
 /// triage tests don't contend with `scheduler_gate`'s process-wide
 /// 1-slot semaphore or get trapped by a stale `Paused` policy left in

@@ -1,5 +1,6 @@
 use super::*;
 use crate::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
+use crate::config::test_env::EnvVarGuard;
 use crate::security::{AutonomyLevel, CommandClass, SecurityPolicy};
 
 fn test_security(autonomy: AutonomyLevel) -> Arc<SecurityPolicy> {
@@ -59,31 +60,9 @@ fn test_security_with_env_cmd() -> Arc<SecurityPolicy> {
     })
 }
 
-/// RAII guard that restores an environment variable to its original state on drop,
-/// ensuring cleanup even if the test panics.
-struct EnvGuard {
-    key: &'static str,
-    original: Option<String>,
-}
-
-impl EnvGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let original = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, original }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match &self.original {
-            Some(val) => std::env::set_var(self.key, val),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
 #[path = "shell_tests_runtime_and_sandbox_tests.rs"]
 mod runtime_and_sandbox_tests;
 #[path = "shell_tests_schema_and_env_tests.rs"]
 mod schema_and_env_tests;
+#[path = "shell_tests_timeout_tests.rs"]
+mod timeout_tests;

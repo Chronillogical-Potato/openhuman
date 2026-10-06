@@ -40,7 +40,7 @@ and does not need a stub. Signatures must match the real ones exactly;
 
 | File | Role |
 | --- | --- |
-| `mod.rs` | Facade root: feature gate; re-exports from `tinywallet_x402` (`X402Client`, `X402Error`, `X402PaymentResult`, `handle_402`, the ledger and wire types); `init_ledger`, `handle_402_and_pay`, `try_paid_request` and `request_tool`, which supply the seams; the `store` accessors used by `http_request`. |
+| `mod.rs` | Facade root: feature gate; re-exports from `tinywallet_x402` (`X402Client`, `X402Error`, `X402PaymentResult`, `handle_402`, the ledger and wire types); `init_ledger`, `handle_402_and_pay` and `request_tool`, which supply the seams; the `store` accessors used by `http_request`. |
 | `seams.rs` | `WalletPaymentSigner` (the crate's `PaymentSigner`: keyring secret, decrypt, `modules::wallet::{derive_account, sign_message}`), `RuntimeProxyPolicy` (`ProxyPolicy` over `config::apply_runtime_proxy_to_builder`), and the `payments()` / `request_tool()` constructors that pair them with the wallet's `OpenHumanTransport`. |
 | `budget.rs` | The spending limits: the crate's defaults plus the `OPENHUMAN_X402_*` overrides. |
 | `records.rs` | `pending_record`: the `Pending` ledger record for the `http_request` fallback (ledger session + chat thread). |
@@ -75,7 +75,7 @@ behavior: it sends the initial request, requires a `PAYMENT-REQUIRED` /
 `X-PAYMENT-REQUIRED` header on a 402, pays via `handle_402_and_pay`, records a
 `Pending` ledger entry, retries with `PAYMENT-SIGNATURE`, and settles the entry
 from the retry's outcome and the `PAYMENT-RESPONSE` header. It differs from the
-generic `http_request` tool (`tools/impl/network/http_request.rs`), which
+generic `http_request` tool (`tinytools_std::network::HttpRequestTool`, with its payment hook in `tools/impl/network/host.rs`), which
 handles a 402 only as a silent fallback.
 
 The tool is built with `TaskLocalThread` (`seams.rs`), the host's
@@ -119,10 +119,11 @@ its record with `pending_record` (`records.rs`), which applies the same rule.
 
 ## Used by
 
-- `crates/openhuman-core/src/tools/impl/network/http_request.rs`:
-  `handle_x402_payment`, gated `#[cfg(feature = "web3")]`, is the 402 fallback
-  path any HTTP tool call can hit. It calls `x402::handle_402_and_pay` and
-  records to the same ledger via `x402::store::with_ledger_mut`.
+- `crates/openhuman-core/src/tools/impl/network/host.rs`:
+  `X402PaymentHook`, gated `#[cfg(feature = "web3")]` and installed on
+  `http_request` as its `PaymentHook`, is the 402 fallback path any HTTP tool
+  call can hit. It calls `x402::handle_402_and_pay` and records to the same
+  ledger via `x402::store::with_ledger_mut`.
 - `crates/openhuman-core/src/tools/ops.rs`: registers `x402::request_tool()` as
   an agent tool.
 - `crates/openhuman-core/src/core/all.rs`: wires `all_x402_registered_controllers`

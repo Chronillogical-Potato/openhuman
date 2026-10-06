@@ -193,11 +193,6 @@ impl SecretStore {
         value.starts_with("enc2:") || value.starts_with("enc:")
     }
 
-    /// Check if a value uses the secure `enc2:` format.
-    pub fn is_secure_encrypted(value: &str) -> bool {
-        value.starts_with("enc2:")
-    }
-
     fn use_legacy_file_key(&self) -> bool {
         cfg!(test)
     }

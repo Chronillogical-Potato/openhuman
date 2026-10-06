@@ -24,7 +24,7 @@ Suspected cause, workaround, or proposed fix. Skip if unknown.
 
 - [ ] **Repro gone** — Bug no longer reproduces on the stated environment (or root cause documented if intentional).
 - [ ] **Regression safety** — Unit, integration, or E2E coverage added or updated if this should not come back.
-- [ ] **Diff coverage ≥ 80%** — the fix PR meets the changed-lines coverage gate (Vitest + cargo-llvm-cov, enforced by [`.github/workflows/ci-lite.yml`](../../.github/workflows/ci-lite.yml)).
+- [ ] **Diff coverage ≥ 80%** — the fix PR meets the changed-lines coverage gate (Vitest + cargo-llvm-cov, enforced by [`.github/workflows/ci-fast.yml`](../../.github/workflows/ci-fast.yml)).
 - [ ] **…** — Other verify-before-close items.
 
 ## Related

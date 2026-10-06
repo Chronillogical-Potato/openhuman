@@ -66,24 +66,14 @@ fn ack_reaction_default_category() {
 }
 
 #[test]
-fn ack_reaction_is_deterministic() {
+fn ack_reaction_is_deterministic_and_total_on_edge_inputs() {
     let a = select_acknowledgment_reaction("thanks");
     let b = select_acknowledgment_reaction("thanks");
     assert_eq!(a, b, "same input should always yield same reaction");
-}
-
-#[test]
-fn ack_reaction_handles_empty_input_without_panic() {
-    // `content.chars().next()` is None on empty input — must not panic.
-    let r = select_acknowledgment_reaction("");
-    assert!(!r.is_empty());
-}
-
-#[test]
-fn ack_reaction_handles_single_char() {
-    let r = select_acknowledgment_reaction("?");
-    // Single "?" falls into question category (contains '?').
-    assert!(is_in(r, &["🤔", "✍️"]));
+    // Empty input must not panic (`content.chars().next()` is None).
+    assert!(!select_acknowledgment_reaction("").is_empty());
+    // A single "?" falls into the question category.
+    assert!(is_in(select_acknowledgment_reaction("?"), &["🤔", "✍️"]));
 }
 
 // ── build_channel_context_block (#928) ───────────────────────

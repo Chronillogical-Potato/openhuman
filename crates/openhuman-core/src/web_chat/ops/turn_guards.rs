@@ -151,12 +151,15 @@ pub(crate) fn sentry_suppression_reason(detailed: &str) -> Option<&'static str> 
 /// under one tag would rebuild, in the dashboard, exactly the conflation this
 /// change removed from the code (#5804).
 ///
-/// Pure over the formatted error string, for the same reason its neighbour is.
+/// The bound is a typed field on the harness's hosted error
+/// (`HostedError::timeout_bound`); the turn runner turns it into a
+/// [`TurnTimeoutBound`](crate::agent::error::TurnTimeoutBound) phrase in the
+/// flattened error, and this function reads that phrase back through the same
+/// type rather than a second spelling. Pure over the formatted error string,
+/// for the same reason its neighbour is.
 pub(crate) fn timeout_bound_tag(detailed: &str) -> &'static str {
-    if detailed.contains("per-model-call ceiling") {
-        "per_model_call"
-    } else if detailed.contains("remaining wall-clock budget") {
-        "run_remaining"
+    if let Some(bound) = crate::agent::error::TurnTimeoutBound::from_message(detailed) {
+        bound.tag()
     } else if super::super::web_errors::is_turn_timeout_error(detailed) {
         "unclassified_timeout"
     } else {

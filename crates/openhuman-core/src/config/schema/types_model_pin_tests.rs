@@ -29,6 +29,15 @@ fn output_language_directive_accepts_language_names() {
 }
 
 #[test]
+fn output_language_directive_strips_control_characters_and_blank_input() {
+    let directive = output_language_directive(Some("  Klingon\u{0000}  ")).expect("directive");
+    assert!(directive.contains("write all natural-language output in Klingon."));
+    assert_eq!(output_language_directive(Some("\u{0000}\u{0001}")), None);
+    assert_eq!(output_language_directive(Some("   ")), None);
+    assert_eq!(output_language_directive(None), None);
+}
+
+#[test]
 fn config_parses_orchestrator_and_team_model_pins() {
     let config: Config = toml::from_str(
         r#"
@@ -123,4 +132,75 @@ fn empty_model_pin_values_fall_back_to_auto_routing() {
 
     assert_eq!(config.configured_agent_model("orchestrator", true), None);
     assert_eq!(config.configured_agent_model("tools_agent", false), None);
+}
+
+#[test]
+fn workload_local_model_trims_and_only_honours_ollama_providers() {
+    let mut config = Config::default();
+    config.chat_provider = Some(" ollama:chat-local ".into());
+    config.reasoning_provider = Some("cloud".into());
+    config.agentic_provider = Some("ollama:agent-local".into());
+    config.coding_provider = Some("ollama:code-local".into());
+    config.memory_provider = Some("ollama:memory-local".into());
+    config.embeddings_provider = Some("ollama:embed-local".into());
+    assert_eq!(
+        config.workload_local_model("chat").as_deref(),
+        Some("chat-local")
+    );
+    assert_eq!(config.workload_local_model("reasoning"), None);
+    for workload in ["agentic", "coding", "memory", "embeddings"] {
+        assert!(config.workload_uses_local(workload), "{workload}");
+    }
+    assert!(!config.workload_uses_local("unknown"));
+    config.chat_provider = Some("ollama:   ".into());
+    assert_eq!(config.workload_local_model("chat"), None);
+}
+
+#[test]
+fn default_temperature_unsupported_models_suppress_reasoning_families_only() {
+    use tinyinference_llm::model::effective_temperature;
+
+    let config = Config::default();
+    let unsupported = &config.temperature_unsupported_models;
+    for model in ["gpt-4o-mini", "claude-3-sonnet"] {
+        assert_eq!(
+            effective_temperature(model, Some(0.7), None, unsupported),
+            Some(0.7),
+            "{model} keeps its temperature"
+        );
+    }
+    for model in ["o1-preview", "o3-mini", "o4-turbo", "gpt-5-turbo"] {
+        assert_eq!(
+            effective_temperature(model, Some(0.7), None, unsupported),
+            None,
+            "{model} must have temperature suppressed"
+        );
+    }
+}
+
+/// The v1 learning workload is gone, but configs written by older builds still
+/// carry its keys. They must keep loading (unknown keys are ignored, never an
+/// error) and the surviving workload routes must be unaffected.
+#[test]
+fn config_with_retired_learning_keys_still_parses() {
+    let config: Config = toml::from_str(
+        r#"
+learning_provider = "cloud"
+memory_provider = "ollama:summary-local"
+
+[local_ai]
+runtime_enabled = true
+
+[local_ai.usage]
+embeddings = true
+learning_reflection = true
+"#,
+    )
+    .expect("config with retired learning keys must still load");
+    assert_eq!(
+        config.workload_local_model("memory").as_deref(),
+        Some("summary-local")
+    );
+    assert_eq!(config.workload_local_model("learning"), None);
+    assert!(config.local_ai.usage.embeddings);
 }

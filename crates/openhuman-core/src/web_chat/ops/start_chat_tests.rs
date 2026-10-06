@@ -1,23 +1,6 @@
 use super::*;
 use crate::web_chat::GuardrailReason;
 
-/// `is_guardrail_error_message` recognizes the `GUARDRAIL:` sentinel and
-/// nothing else — mirrors `is_backend_unavailable_message`'s contract.
-#[test]
-fn is_guardrail_error_message_matches_only_the_sentinel() {
-    assert!(is_guardrail_error_message("GUARDRAIL:{}"));
-    assert!(is_guardrail_error_message(
-        r#"GUARDRAIL:{"verdict":"block","score":0.9,"reasons":[]}"#
-    ));
-    assert!(!is_guardrail_error_message("not a guardrail error"));
-    assert!(!is_guardrail_error_message(""));
-    // A message that merely mentions the word must not match — only the
-    // leading sentinel counts.
-    assert!(!is_guardrail_error_message(
-        "this GUARDRAIL: is not at the start"
-    ));
-}
-
 /// `From<StartChatError> for String` on the `Other` variant passes the
 /// message through unchanged — every pre-existing `.to_string()`/`{err}`
 /// consumer of the old `Result<String, String>` `start_chat` must see
@@ -49,7 +32,6 @@ fn guardrail_variant_converts_to_sentinel_plus_json_payload() {
         message.starts_with(GUARDRAIL_ERROR_PREFIX),
         "must start with the sentinel prefix, got: {message}"
     );
-    assert!(is_guardrail_error_message(&message));
 
     let json_part = message.strip_prefix(GUARDRAIL_ERROR_PREFIX).unwrap();
     let payload: crate::web_chat::GuardrailPayload =

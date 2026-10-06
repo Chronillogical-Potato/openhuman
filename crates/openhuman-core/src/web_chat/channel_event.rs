@@ -61,6 +61,17 @@ pub struct WebChannelEvent {
     /// — FE should not promise a fallback".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_fallback_available: Option<bool>,
+    /// Stable i18n key of the failure-copy table row behind `message`
+    /// (`chat_error.<class>`). `message` is always the finished English copy;
+    /// a UI that knows the key renders it in the user's locale instead and
+    /// falls back to `message` for an unknown key. Absent on error types that
+    /// have no table row (cancellation, guardrail, tool errors).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub copy_key: Option<String>,
+    /// Values `copy_key`'s copy needs: `retry_after_secs`, `provider`,
+    /// `detail` (the sanitized provider error quoted under the copy).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub copy_params: Option<serde_json::Value>,
     /// Name of the tool being called.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
@@ -79,9 +90,6 @@ pub struct WebChannelEvent {
     /// The current iteration/round number in a tool-call loop.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub round: Option<u32>,
-    /// Emoji reaction the assistant wants to add to the user's message.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reaction_emoji: Option<String>,
     /// 0-based index when a response is delivered as multiple segments.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub segment_index: Option<u32>,

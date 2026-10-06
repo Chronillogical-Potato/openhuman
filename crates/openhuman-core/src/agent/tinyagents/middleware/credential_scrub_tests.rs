@@ -36,3 +36,29 @@ fn browser_confirmation_token_survives_without_exempting_page_credentials() {
     });
     assert!(scrub_with_notice_for_tool("browser", &token_only.to_string()).is_none());
 }
+
+/// #6954: reading a source file that talks about tokens must reach the model
+/// verbatim; only secret-looking values are redacted.
+#[test]
+fn source_code_about_tokens_passes_through_the_host_scrubber() {
+    let source = r#"class Tokenizer:
+    def __init__(self):
+        self.eos_token = "<eos>"
+        previous_token: Optional[int] = None
+
+    def decode(self, token_id):
+        token = self.vocab[int(token_id)]
+        if token == self.unk_token:
+            return score / max(token_count, 1)
+        return {"mean_logprob_per_token": -4.73}
+"#;
+    assert!(
+        scrub_with_notice_for_tool("read_file", source).is_none(),
+        "source code was redacted"
+    );
+
+    let (scrubbed, count) = scrub_with_notice_for_tool("read_file", "password=hunter2secret")
+        .expect("a real credential is still redacted");
+    assert_eq!(count, 1);
+    assert!(!scrubbed.contains("hunter2secret"));
+}

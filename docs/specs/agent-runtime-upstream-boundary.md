@@ -40,10 +40,13 @@ transition period in which both paths compile.
 
 ### Keep in OpenHuman
 
-- `ChatMessage`, `ConversationMessage`, and other durable OpenHuman transcript
-  wire types. Conversion to/from `tinyinference_llm::message::Message` occurs
-  only at legacy disk/import/export boundaries; live turns use crate-native
-  messages.
+- The `{role, content}` wire adapter for the two host-owned files that embed
+  message rows (`agent::messages::history_wire`: the durable sub-agent session
+  store and the sub-agent pause checkpoint). There is no host message type: the
+  row is `tinyagents_session::transcript::TranscriptMessage`, typed dialect
+  entries are `tinytools_agent::dialect::TranscriptEntry`, and conversion to/from
+  `tinyinference_llm::message::Message` stays at the transcript codec boundary;
+  live turns use crate-native messages.
 - Security policy, approval, origin/taint rules, action-directory enforcement,
   workspace guards, credential handling, and sandbox selection.
 - OpenHuman configuration, tier selection, provider credentials, provider
@@ -313,7 +316,7 @@ all consumers import the owner directly, not that behavior is dropped.
 | `artifact_offload/` | Split | Move size/chunk/handoff policy mechanics to harness; keep action-dir authorization and OpenHuman artifact store callbacks. |
 | `run_queue/` | `tinyagents-harness::run_queue` | Delete the OpenHuman copy/facade after parity tests and direct imports. |
 | `tool_result_artifacts/` | Keep host store | OpenHuman action-dir artifact persistence implementing the upstream artifact callback/store seam. |
-| `credentials.rs`, `memory_context.rs`, `memory_context_safety.rs` | Keep host policy/adapters | Feed explicit context/capability requests; move only host-free formatting/traversal helpers. |
+| `credentials.rs`, `memory_context_safety.rs` | Keep host policy/adapters | Feed explicit context/capability requests; move only host-free formatting/traversal helpers. |
 | `fork_context.rs`, `sandbox_context.rs`, `spawn_depth_context.rs`, `task_recency_context.rs` | explicit `RunContext`/child context | Delete task-local shells. |
 | `subagent_runner/` | Delete | The complete legacy tree is replaced by direct `agent/subagent_host` adapters over `tinyagents-orchestration::subagent`; generic lifecycle ordering, coalescing and mutually exclusive persistence are upstream. |
 | `subagent_host/` | Keep host adapter | OpenHuman implements `SubagentPlanner`, `SubagentExecutor` and `SubagentPersistence`: definitions, policy, provider/model selection, tool narrowing, workspace/security, progress, artifacts and durable product checkpoint/session projection remain host-owned. |

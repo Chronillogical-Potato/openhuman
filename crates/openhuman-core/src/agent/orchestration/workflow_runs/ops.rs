@@ -9,15 +9,13 @@ use std::collections::BTreeMap;
 use anyhow::Result;
 use serde_json::json;
 use tinyagents_orchestration::workflow::{
-    validate_agents, validate_structure, DefinitionError, WorkflowDefinition,
-    WorkflowDefinitionListResponse, WorkflowPhase,
+    WorkflowDefinition, WorkflowDefinitionListResponse, WorkflowPhase,
 };
 use tinyagents_session::run_ledger::{
     get_workflow_run, list_workflow_runs, WorkflowRun, WorkflowRunListRequest,
     WorkflowRunListResponse,
 };
 
-use crate::agent::harness::definition::AgentDefinitionRegistry;
 use crate::config::Config;
 
 pub const PARALLEL_RESEARCH_ID: &str = "parallel_research_cross_check";
@@ -53,14 +51,6 @@ pub fn list_definitions() -> WorkflowDefinitionListResponse {
         count: definitions.len(),
         definitions,
     }
-}
-
-pub fn validate_definition(definition: &WorkflowDefinition) -> Vec<DefinitionError> {
-    let mut errors = validate_structure(definition);
-    if let Some(registry) = AgentDefinitionRegistry::global() {
-        errors.extend(validate_agents(definition, |id| registry.get(id).is_some()));
-    }
-    errors
 }
 
 pub fn list_runs(

@@ -6,12 +6,12 @@ use crate::config::Config;
 use crate::core::events::DomainEvent;
 use crate::flows::store;
 use async_trait::async_trait;
-use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 use tinybus::EventHandler;
 use tinyflows::model::NodeKind;
-use tinyflows::nodes::control_flow::dedup as dedup_node;
+use tinyflows::nodes::control_flow::dedup_settle::{self, CommitOutcome, Settlement};
+use tinyflows_sqlite::flows::SqliteStateStore;
 
 /// Listens for `DomainEvent::FlowRunFinished` and settles every `dedup` node
 /// in the finished flow's graph — the host half of the commit-on-success
@@ -41,7 +41,7 @@ use tinyflows::nodes::control_flow::dedup as dedup_node;
 ///
 /// Reuses the exact same per-flow `StateStore` namespace
 /// (`"flow:<flow_id>"`, see `tinyflows::caps::build_capabilities` in
-/// `crates/openhuman-core/src/flows/tinyflows/caps.rs`) the engine's `FlowStateStore` hands the
+/// `crates/openhuman-core/src/flows/tinyflows/caps.rs`) the engine's `SqliteStateStore` hands the
 /// `dedup` node during the run — that collision with the node's own keys is
 /// the entire point.
 ///
@@ -228,7 +228,7 @@ impl DedupCommitSubscriber {
             return;
         }
 
-        let success = matches!(status, "completed" | "completed_with_warnings");
+        let success = dedup_settle::is_success_status(status);
         tracing::debug!(
             target: "flows", %flow_id, %run_id, %status, success,
             dedup_node_count = node_ids.len(),
@@ -246,75 +246,57 @@ impl DedupCommitSubscriber {
         tracing::trace!(target: "flows", %flow_id, %run_id, "[dedup-commit] acquired per-flow commit lock");
         self.maybe_test_delay().await;
 
-        let namespace = format!("flow:{flow_id}");
+        let state = SqliteStateStore::new(store::dir(&self.config), format!("flow:{flow_id}"));
         for node_id in node_ids {
-            if success {
-                self.commit(&namespace, &node_id, flow_id, run_id);
-            } else {
-                self.release(&namespace, &node_id, flow_id, run_id);
-            }
+            self.settle_node(&state, &node_id, success, flow_id, run_id);
         }
 
         drop(lock_guard);
         tracing::trace!(target: "flows", %flow_id, %run_id, "[dedup-commit] released per-flow commit lock");
     }
 
-    /// Success path: union this node's `tentative` set into `committed`, then
-    /// clear `tentative`.
-    fn commit(&self, namespace: &str, node_id: &str, flow_id: &str, run_id: &str) {
-        let tentative_key = dedup_node::tentative_key(node_id);
-        let committed_key = dedup_node::committed_key(node_id);
-
-        let tentative = load_key_set(&self.config, namespace, &tentative_key);
-        if tentative.is_empty() {
-            tracing::trace!(target: "flows", %flow_id, %run_id, node_id, "[dedup-commit] no tentative keys — nothing to commit");
-            return;
-        }
-
-        let mut committed = load_key_set(&self.config, namespace, &committed_key);
-        let added = tentative
-            .iter()
-            .filter(|k| committed.insert((*k).clone()))
-            .count();
-
-        if let Err(e) = store_key_set(&self.config, namespace, &committed_key, &committed) {
-            tracing::warn!(
+    /// Settles one `dedup` node against the flow's state namespace through
+    /// `tinyflows`' pure commit/release logic, logging each outcome.
+    fn settle_node(
+        &self,
+        store: &SqliteStateStore,
+        node_id: &str,
+        success: bool,
+        flow_id: &str,
+        run_id: &str,
+    ) {
+        match dedup_settle::settle(store, node_id, success) {
+            Settlement::Commit(CommitOutcome::NothingTentative) => {
+                tracing::trace!(target: "flows", %flow_id, %run_id, node_id, "[dedup-commit] no tentative keys — nothing to commit");
+            }
+            Settlement::Commit(CommitOutcome::CommitFailed(e)) => tracing::warn!(
                 target: "flows", %flow_id, %run_id, node_id, error = %e,
                 "[dedup-commit] failed to write committed set — tentative left in place, will \
                  retry the commit on this node's next successful run"
-            );
-            return;
-        }
-        tracing::debug!(
-            target: "flows", %flow_id, %run_id, node_id, added, committed_len = committed.len(),
-            "[dedup-commit] committed tentative keys"
-        );
-
-        if let Err(e) = store::kv_delete(&self.config, namespace, &tentative_key) {
-            tracing::warn!(
-                target: "flows", %flow_id, %run_id, node_id, error = %e,
-                "[dedup-commit] committed but failed to clear tentative — harmless: the next \
-                 run's dedup load will re-union the same, now-already-committed keys (committed \
-                 is a set, so re-adding them is a no-op)"
-            );
-        }
-    }
-
-    /// Failure path: clear `tentative` only, leaving `committed` untouched so
-    /// the released keys retry on the flow's next run.
-    ///
-    /// Deliberately does NOT `load_key_set` first to report a count: that
-    /// would be a full `kv_get` + JSON deserialize + `HashSet` build purely
-    /// for a log line, and `kv_delete` already silently no-ops on a missing
-    /// key, so there is no early-return to save either (Greptile, issue
-    /// #5265).
-    fn release(&self, namespace: &str, node_id: &str, flow_id: &str, run_id: &str) {
-        match store::kv_delete(&self.config, namespace, &dedup_node::tentative_key(node_id)) {
-            Ok(()) => tracing::debug!(
+            ),
+            Settlement::Commit(CommitOutcome::Committed {
+                added,
+                committed_len,
+                clear_error,
+            }) => {
+                tracing::debug!(
+                    target: "flows", %flow_id, %run_id, node_id, added, committed_len,
+                    "[dedup-commit] committed tentative keys"
+                );
+                if let Some(e) = clear_error {
+                    tracing::warn!(
+                        target: "flows", %flow_id, %run_id, node_id, error = %e,
+                        "[dedup-commit] committed but failed to clear tentative — harmless: the next \
+                         run's dedup load will re-union the same, now-already-committed keys (committed \
+                         is a set, so re-adding them is a no-op)"
+                    );
+                }
+            }
+            Settlement::Release(Ok(())) => tracing::debug!(
                 target: "flows", %flow_id, %run_id, node_id,
                 "[dedup-commit] released tentative keys (if any) — will retry next run"
             ),
-            Err(e) => tracing::warn!(
+            Settlement::Release(Err(e)) => tracing::warn!(
                 target: "flows", %flow_id, %run_id, node_id, error = %e,
                 "[dedup-commit] failed to release tentative — those keys remain tentative until \
                  a future successful commit reconciles them (harmless: committed stays untouched \
@@ -346,44 +328,4 @@ impl EventHandler<DomainEvent> for DedupCommitSubscriber {
             self.handle_finished(flow_id, run_id, status).await;
         }
     }
-}
-
-/// Loads a `dedup` node's key set (stored as a JSON array of strings) from
-/// the flow-state KV table. Mirrors
-/// `tinyflows::nodes::control_flow::dedup`'s own key-set loader: a missing
-/// key, a non-array value, or an array with non-string elements all degrade
-/// to an empty set rather than an error — a first run against a fresh store
-/// has nothing recorded yet, which is not a fault.
-fn load_key_set(config: &Config, namespace: &str, key: &str) -> HashSet<String> {
-    match store::kv_get(config, namespace, key) {
-        Ok(Some(value)) => value
-            .as_array()
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(Value::as_str)
-                    .map(str::to_string)
-                    .collect()
-            })
-            .unwrap_or_default(),
-        Ok(None) => HashSet::new(),
-        Err(e) => {
-            tracing::warn!(target: "flows", %namespace, key, error = %e, "[dedup-commit] failed to load key set — treating as empty");
-            HashSet::new()
-        }
-    }
-}
-
-/// Persists `set` under `key` as a JSON array of strings, sorted for a
-/// stable, diffable on-disk representation (membership is exact-match either
-/// way, so sort order carries no semantic meaning).
-fn store_key_set(
-    config: &Config,
-    namespace: &str,
-    key: &str,
-    set: &HashSet<String>,
-) -> anyhow::Result<()> {
-    let mut keys: Vec<String> = set.iter().cloned().collect();
-    keys.sort_unstable();
-    let value = Value::Array(keys.into_iter().map(Value::String).collect());
-    store::kv_set(config, namespace, key, &value)
 }

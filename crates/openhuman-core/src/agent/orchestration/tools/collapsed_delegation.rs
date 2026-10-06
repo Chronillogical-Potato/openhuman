@@ -130,11 +130,6 @@ impl CollapsedDelegationTool {
                 .collect(),
         )
     }
-
-    /// The routable names, for the prompt renderer and the tests.
-    pub fn target_names(&self) -> Vec<&str> {
-        self.agent_enum()
-    }
 }
 
 fn build_description(targets: &[DelegateTarget]) -> String {
@@ -368,6 +363,23 @@ pub(crate) async fn execute_collapsed_delegation_with_live_parent(
         )));
     }
     let prompt = render_structured_handoff(&raw_prompt, &args);
+    let prompt = match crate::agent::attachments::delegation_prompt(
+        &prompt,
+        &args,
+        tool_context
+            .and_then(|ctx| ctx.workspace())
+            .or(run_context.workspace.as_ref()),
+        run_context.origin.as_ref(),
+    )
+    .await
+    {
+        Ok(prompt) => prompt,
+        Err(error) => {
+            return Ok(ToolResult::error(format!(
+                "image forwarding failed: {error}"
+            )));
+        }
+    };
 
     let model_override = args
         .get("model")

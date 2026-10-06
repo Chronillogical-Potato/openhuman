@@ -51,8 +51,6 @@ mod subagent_abort_report;
 #[cfg(test)]
 #[path = "tools/tools_e2e_tests.rs"]
 mod tools_e2e_tests;
-#[path = "tools/wait.rs"]
-mod wait;
 #[path = "tools/wait_subagent.rs"]
 mod wait_subagent;
 #[path = "tools/worker_thread.rs"]
@@ -97,6 +95,5 @@ pub(crate) use spawn_worker_thread::SpawnWorkerThreadDispatch;
 pub use spawn_worker_thread::SpawnWorkerThreadTool;
 pub(crate) use steer_subagent::SteerSubagentDispatch;
 pub use steer_subagent::SteerSubagentTool;
-pub use wait::{WaitLoopTool, WaitTool};
 pub(crate) use wait_subagent::WaitSubagentDispatch;
 pub use wait_subagent::WaitSubagentTool;

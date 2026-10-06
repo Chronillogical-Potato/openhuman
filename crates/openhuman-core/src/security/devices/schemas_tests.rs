@@ -32,26 +32,11 @@ fn schemas_revoke_requires_channel_id() {
 }
 
 #[test]
-fn schemas_unknown_returns_error_placeholder() {
-    let s = schemas("does-not-exist");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.outputs[0].name, "error");
-}
-
-#[test]
 fn all_controller_schemas_covers_three_functions() {
     let names: Vec<_> = all_controller_schemas()
         .into_iter()
         .map(|s| s.function)
         .collect();
-    assert_eq!(names, vec!["create_pairing", "list", "revoke"]);
-}
-
-#[test]
-fn all_registered_controllers_has_handler_per_schema() {
-    let controllers = all_registered_controllers();
-    assert_eq!(controllers.len(), 3);
-    let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
     assert_eq!(names, vec!["create_pairing", "list", "revoke"]);
 }
 

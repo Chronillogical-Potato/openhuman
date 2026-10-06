@@ -2,7 +2,7 @@
 //! unknown-tool call, and the exhaustive no-op arms (openhuman#6148).
 
 use super::*;
-use crate::agent::progress_tracing::TraceSpan;
+use tinyagents_harness::observability::trace_export::TraceSpan;
 
 /// A top-level model call that journals usage: `ModelStarted` → `UsageRecorded`
 /// → `ModelCompleted`, the order the agent loop emits them in

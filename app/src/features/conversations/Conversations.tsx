@@ -50,6 +50,7 @@ import {
   type Attachment,
   ATTACHMENT_MAX_FILES,
   ATTACHMENT_MAX_IMAGES,
+  attachmentMetadata,
   buildMessageWithAttachments,
   imageMarkerCost,
   parseMessageImages,
@@ -93,8 +94,17 @@ import type { ConfirmationModal as ConfirmationModalType } from '../../types/int
 import type { ThreadMessage } from '../../types/thread';
 import { chatThreadPath } from '../../utils/chatRoutes';
 import { CHAT_ATTACHMENTS_ENABLED } from '../../utils/config';
+import {
+  openhumanGetClientConfig,
+  openhumanUpdateRuntimeSettings,
+} from '../../utils/tauriCommands/config';
 import { ApprovalCardAdapter } from './aui/ApprovalCardAdapter';
 import { ComposerMessageQueue } from './aui/ComposerMessageQueue';
+import {
+  type ReasoningEffortChoice,
+  ReasoningEffortPicker,
+  toReasoningEffortChoice,
+} from './aui/ReasoningEffortPicker';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
 
@@ -442,6 +452,42 @@ const Conversations = ({
   const [composerModelContextWindow, setComposerModelContextWindow] = useState<
     number | null | undefined
   >(undefined);
+  // The composer's thinking level. Sent with every turn (`reasoning_effort`)
+  // so it applies immediately, and written to the core's
+  // `runtime.reasoning_effort` so it survives a restart and is the default for
+  // turns the composer does not start — the same split as the model pick.
+  const [composerReasoningEffort, setComposerReasoningEffort] =
+    useState<ReasoningEffortChoice>('default');
+  useEffect(() => {
+    let cancelled = false;
+    void openhumanGetClientConfig()
+      .then(res => {
+        if (!cancelled) {
+          setComposerReasoningEffort(toReasoningEffortChoice(res.result?.reasoning_effort));
+        }
+      })
+      .catch((err: unknown) => {
+        console.debug('[chat][composer-reasoning] client config unavailable', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const applyComposerReasoningEffort = useCallback((value: ReasoningEffortChoice) => {
+    setComposerReasoningEffort(value);
+    void openhumanUpdateRuntimeSettings({ reasoning_effort: value === 'default' ? '' : value })
+      .then(() => {
+        console.debug('[chat][composer-reasoning] persisted reasoning_effort', { effort: value });
+      })
+      .catch((err: unknown) => {
+        // The per-send value still applies; only persistence failed.
+        console.warn('[chat][composer-reasoning] failed to persist reasoning_effort', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, []);
   const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
     setComposerModelOverride(value);
     setComposerModelContextWindow(contextWindow ?? null);
@@ -460,48 +506,21 @@ const Conversations = ({
       });
   }, []);
 
-  // Whether the resolved model accepts image input.
-  // Managed tiers do; custom/BYOK models only when the user flagged them. Gates
-  // the composer's image-attachment affordance (docs flow regardless). Resolved
-  // against the non-attachment hint so the affordance is stable as you attach.
-  const [modelSupportsVision, setModelSupportsVision] = useState(false);
-  // Whether a vision-capable delegate (the `vision` sub-agent) is reachable.
-  // When it is, an image may be attached and routed to that sub-agent even if
-  // the active orchestrator model is non-vision — the orchestrator sees a text
-  // placeholder and delegates the image to the vision sub-agent. Resolved from
-  // the `vision` workload route (the managed default on the managed backend, or the BYOK
-  // model routed to the Vision workload).
-  const [visionDelegateAvailable, setVisionDelegateAvailable] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // Resolve the standard chat model so `modelSupportsVision` reflects the
-        // normal agent path, AND the vision workload so we know whether a
-        // vision sub-agent can take the image. Documents are text-extracted so
-        // any model handles them.
         const hint = composerModelOverride ?? CHAT_MODEL_HINT;
-        const [res, visionRes] = await Promise.all([
-          callCoreRpc<{ model: string; vision?: boolean }>({
-            method: 'openhuman.inference_resolve_model',
-            params: { hint },
-          }),
-          callCoreRpc<{ model: string; vision?: boolean }>({
-            method: 'openhuman.inference_resolve_model',
-            params: { hint: 'hint:vision' },
-          }).catch(() => ({ model: '', vision: false })),
-        ]);
+        const res = await callCoreRpc<{ model: string }>({
+          method: 'openhuman.inference_resolve_model',
+          params: { hint },
+        });
         if (!cancelled) {
           setResolvedModel(res.model);
-          setModelSupportsVision(res.vision === true);
-          setVisionDelegateAvailable(visionRes.vision === true);
         }
       } catch {
         if (!cancelled) {
           setResolvedModel(null);
-          setModelSupportsVision(false);
-          setVisionDelegateAvailable(false);
         }
       }
     })();
@@ -1016,35 +1035,17 @@ const Conversations = ({
     // can fire before React re-renders. Both would then seed their budget from
     // the same snapshot and each admit a full quota.
     const admitted = attachmentsRef.current;
-    let acceptedFileCount = admitted.filter(attachment => attachment.kind === 'file').length;
-    // Images and videos share one image-marker budget (video = its frames), so
-    // track consumed markers rather than per-kind counts.
+    let acceptedFileCount = admitted.filter(attachment => attachment.kind !== 'image').length;
+    // Only original images consume image markers; videos consume file slots.
     let acceptedImageMarkers = admitted.reduce(
       (sum, attachment) => sum + imageMarkerCost(attachment.kind),
       0
     );
     for (const file of Array.from(files)) {
-      const result = await validateAndReadFile(
-        file,
-        acceptedImageMarkers,
-        acceptedFileCount,
-        // Allow images AND video when the active model is vision-capable OR a
-        // vision sub-agent can take it (orchestrator delegates the image/frames
-        // onward). Video is sampled into still frames that ride the same path.
-        modelSupportsVision || visionDelegateAvailable
-      );
+      const result = await validateAndReadFile(file, acceptedImageMarkers, acceptedFileCount);
       if ('error' in result) {
         const { error } = result;
-        if (error.code === 'image_not_supported') {
-          setAttachError(
-            chatSendError('attachment_invalid', t('chat.attachment.imageNotSupported'))
-          );
-        } else if (error.code === 'video_not_supported') {
-          setAttachError(
-            chatSendError('attachment_invalid', t('chat.attachment.videoNotSupported'))
-          );
-        } else if (error.code === 'too_many') {
-          // image/video share the image-marker budget → tooMany; files separate.
+        if (error.code === 'too_many') {
           const key =
             error.kind === 'file' ? 'chat.attachment.tooManyFiles' : 'chat.attachment.tooMany';
           setAttachError(
@@ -1058,14 +1059,12 @@ const Conversations = ({
               t('chat.attachment.tooLarge').replace('{max}', `${maxMb} MB`)
             )
           );
-        } else if (error.code === 'unsupported_type') {
-          setAttachError(chatSendError('attachment_invalid', t('chat.attachment.unsupportedType')));
         } else {
           setAttachError(chatSendError('attachment_invalid', t('chat.attachment.readFailed')));
         }
         return;
       }
-      if (result.attachment.kind === 'file') {
+      if (result.attachment.kind !== 'image') {
         acceptedFileCount++;
       } else {
         acceptedImageMarkers += imageMarkerCost(result.attachment.kind);
@@ -1154,34 +1153,22 @@ const Conversations = ({
     addPendingSendingThread(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
-    const messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
+    let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
       id: `msg_${globalThis.crypto.randomUUID()}`,
-      content: trimmed,
+      content: messageText,
       type: 'text',
-      extraMetadata:
-        pendingAttachments.length > 0
-          ? {
-              attachmentCount: pendingAttachments.length,
-              attachmentNames: pendingAttachments.map(a => a.file.name),
-              attachmentKinds: pendingAttachments.map(a => a.kind),
-              attachmentDataUris: pendingAttachments
-                .filter(a => a.kind === 'image')
-                .map(a => a.previewUri ?? a.dataUri),
-              // Poster (first frame) per attachment, index-aligned with
-              // attachmentKinds — only video entries carry one; others null.
-              attachmentPosters: pendingAttachments.map(a =>
-                a.kind === 'video' ? (a.previewUri ?? a.dataUri) : null
-              ),
-              attachmentCompressed: pendingAttachments.map(a => a.compressed),
-            }
-          : {},
+      extraMetadata: attachmentMetadata(pendingAttachments),
       sender: 'user',
       createdAt: new Date().toISOString(),
     };
 
     try {
-      await dispatch(addMessageLocal({ threadId: sendingThreadId, message: userMessage })).unwrap();
+      const persisted = await dispatch(
+        addMessageLocal({ threadId: sendingThreadId, message: userMessage })
+      ).unwrap();
+      // The core saved the originals before returning this durable reference.
+      messageText = persisted.message.content;
     } catch (error) {
       // RTK's unwrap() re-throws the rejectWithValue payload directly (a plain
       // string, not an Error). Check for the stale-thread sentinel before
@@ -1219,15 +1206,16 @@ const Conversations = ({
     dispatch(markThreadInferenceActive(sendingThreadId));
 
     // ── Cloud socket path ─────────────────────────────────────────────────────
-    // Always route primary chat through the cloud backend via socket.
-    // Local model (Ollama) is used only for supplementary features
-    // (auto-react, autocomplete, etc.) — never as a primary chat path.
+    // Primary chat goes through the core over the socket; the core picks the
+    // routed provider (managed cloud, BYOK, or a user-run local endpoint such
+    // as Ollama configured under Connections → LLM).
     try {
       await chatSend({
         threadId: sendingThreadId,
         message: messageText,
         model: modelOverride,
         locale: uiLocale,
+        reasoningEffort: composerReasoningEffort,
       });
       trackAnalyticsEvent('chat_message_sent', {
         send_mode: 'standard',
@@ -1295,25 +1283,9 @@ const Conversations = ({
     }`;
     const followupMessage: ThreadMessage = {
       id: messageId,
-      content: normalized,
+      content: messageText,
       type: 'text',
-      extraMetadata:
-        pendingAttachments.length > 0
-          ? {
-              attachmentCount: pendingAttachments.length,
-              attachmentNames: pendingAttachments.map(a => a.file.name),
-              attachmentKinds: pendingAttachments.map(a => a.kind),
-              attachmentDataUris: pendingAttachments
-                .filter(a => a.kind === 'image')
-                .map(a => a.previewUri ?? a.dataUri),
-              // Poster (first frame) per attachment, index-aligned with
-              // attachmentKinds — only video entries carry one; others null.
-              attachmentPosters: pendingAttachments.map(a =>
-                a.kind === 'video' ? (a.previewUri ?? a.dataUri) : null
-              ),
-              attachmentCompressed: pendingAttachments.map(a => a.compressed),
-            }
-          : {},
+      extraMetadata: attachmentMetadata(pendingAttachments),
       sender: 'user',
       createdAt: new Date().toISOString(),
     };
@@ -1327,6 +1299,7 @@ const Conversations = ({
         model: modelOverride,
         locale: uiLocale,
         queueMode: 'followup',
+        reasoningEffort: composerReasoningEffort,
       });
       // Only clear the composer once the backend has accepted the queue, so a
       // failed send leaves the user's draft + attachments intact to retry.
@@ -1944,7 +1917,15 @@ const Conversations = ({
   );
 
   // Left-hand controls in the assistant-ui composer toolbar.
-  const assistantComposerFooterExtras = <>{chatFilesChip}</>;
+  const assistantComposerFooterExtras = (
+    <>
+      <ReasoningEffortPicker
+        value={composerReasoningEffort}
+        onChange={applyComposerReasoningEffort}
+      />
+      {chatFilesChip}
+    </>
+  );
 
   // The mic-first (`mic-cloud`) composer. It replaces only the text composer:
   // the transcript above it is the same assistant-ui `Thread` as text mode, so

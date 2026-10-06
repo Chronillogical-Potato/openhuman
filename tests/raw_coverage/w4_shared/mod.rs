@@ -18,6 +18,7 @@
 //!    initialised first. `rpc_token()` below asks for whatever is actually
 //!    active. See `~/tinyhuman/bugs/e2e-wave-raw-coverage-shared-rpc-token.md`.
 
+use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -37,18 +38,28 @@ pub const SESSION_USER_ID: &str = "w4-user";
 
 static AUTH_INIT: OnceLock<String> = OnceLock::new();
 /// The crate-wide env mutex, not a private one — see the module note above.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 static KEYRING_INIT: OnceLock<()> = OnceLock::new();
 
 /// Serializes every case that touches process-global env (`HOME`,
 /// `OPENHUMAN_WORKSPACE`, the backend-URL overrides) against every other
 /// aggregated suite. Poison is recovered so one panicking case cannot wedge the
 /// binary.
-pub fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+pub fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     let guard = ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock();
+    // Under the lock, so this `set_var` cannot race a concurrent env read.
+    KEYRING_INIT.get_or_init(|| {
+        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+    });
+    guard
+}
+
+pub async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let guard = ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await;
     // Under the lock, so this `set_var` cannot race a concurrent env read.
     KEYRING_INIT.get_or_init(|| {
         std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
@@ -74,40 +85,6 @@ fn rpc_token() -> &'static str {
             .expect("init_rpc_token must leave a token in place")
             .to_string()
     })
-}
-
-pub struct EnvVarGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvVarGuard {
-    pub fn set_to_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    pub fn set(key: &'static str, value: &str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, old }
-    }
-
-    pub fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(v) => std::env::set_var(self.key, v),
-            None => std::env::remove_var(self.key),
-        }
-    }
 }
 
 pub async fn serve_on_ephemeral(

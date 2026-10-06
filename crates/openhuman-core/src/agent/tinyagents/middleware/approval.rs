@@ -6,8 +6,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
-use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::{MiddlewareToolOutcome, ToolHandler, ToolMiddleware};
+use tinyagents_harness::middleware::{ApprovalResolution, ApprovalResolver};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
@@ -93,79 +92,76 @@ impl ApprovalSecurityMiddleware {
     }
 }
 
+/// Host side of the harness approval seam: the tool-set lookup, the global
+/// [`ApprovalGate`] hookup and the terminal audit row. The harness
+/// `ApprovalGateMiddleware` drives it (see `harness_assembly`).
 #[async_trait]
-impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
+impl ApprovalResolver<crate::agent::tinyagents::host::OpenHumanRunContext>
     for ApprovalSecurityMiddleware
 {
-    fn name(&self) -> &str {
-        "approval_security"
-    }
-
-    async fn wrap_tool(
+    async fn requires_approval(
         &self,
-        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        state: &(),
-        call: TaToolCall,
-        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
-    ) -> TaResult<MiddlewareToolOutcome> {
+        _ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        call: &TaToolCall,
+    ) -> bool {
         // Resolve external-effect up front so no tool borrow is held across the
         // approval await.
-        let mut audit_id: Option<String> = None;
         let has_ext = self.requires_approval(&call.name, &call.arguments).await;
         tracing::debug!(
             tool = %call.name,
             has_external_effect = has_ext,
             "[tinyagents::mw] checking tool for approval"
         );
-        if has_ext {
-            if let Some(gate) = ApprovalGate::try_global() {
-                let approval_name = approval_tool_name(&call.name, &call.arguments);
-                tracing::debug!(
-                    tool = %call.name,
-                    approval_name = %approval_name,
-                    "[tinyagents::mw] routing external-effect tool through approval gate"
-                );
-                let summary = summarize_action(&call.name, &call.arguments);
-                let redacted = redact_args(&call.arguments);
-                let (outcome, request_id) = gate
-                    .intercept_audited(approval_name.as_ref(), &summary, redacted)
-                    .await;
-                match outcome {
-                    GateOutcome::Deny { reason } => {
-                        tracing::warn!(
-                            tool = %call.name,
-                            reason = %reason,
-                            "[tinyagents::mw] approval gate denied tool call"
-                        );
-                        return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(reason)));
-                    }
-                    GateOutcome::Allow => audit_id = request_id,
-                }
-            } else {
+        has_ext
+    }
+
+    async fn resolve(
+        &self,
+        _ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        call: &TaToolCall,
+    ) -> ApprovalResolution {
+        let Some(gate) = ApprovalGate::try_global() else {
+            tracing::warn!(
+                tool = %call.name,
+                "[tinyagents::mw] approval gate unavailable; external-effect tool will run without interactive approval"
+            );
+            return ApprovalResolution::Allow { ticket: None };
+        };
+        let approval_name = approval_tool_name(&call.name, &call.arguments);
+        tracing::debug!(
+            tool = %call.name,
+            approval_name = %approval_name,
+            "[tinyagents::mw] routing external-effect tool through approval gate"
+        );
+        let summary = summarize_action(&call.name, &call.arguments);
+        let redacted = redact_args(&call.arguments);
+        let (outcome, request_id) = gate
+            .intercept_audited(approval_name.as_ref(), &summary, redacted)
+            .await;
+        match outcome {
+            GateOutcome::Deny { reason } => {
                 tracing::warn!(
                     tool = %call.name,
-                    "[tinyagents::mw] approval gate unavailable; external-effect tool will run without interactive approval"
+                    reason = %reason,
+                    "[tinyagents::mw] approval gate denied tool call"
                 );
+                ApprovalResolution::Deny { reason }
             }
+            GateOutcome::Allow => ApprovalResolution::Allow { ticket: request_id },
         }
+    }
 
-        let outcome = next.run(ctx, state, call).await?;
-
-        // Record the terminal audit row for an approved external-effect call
-        // (idempotent; a no-op when the id is unknown).
-        if let Some(id) = audit_id {
-            if let Some(gate) = ApprovalGate::try_global() {
-                if let MiddlewareToolOutcome::Result(res) = &outcome {
-                    let exec = if res.is_error {
-                        ExecutionOutcome::Failure
-                    } else {
-                        ExecutionOutcome::Success
-                    };
-                    let error = res.is_error.then(|| res.output());
-                    gate.record_execution(&id, exec, error.as_deref());
-                }
-            }
+    /// Record the terminal audit row for an approved external-effect call
+    /// (idempotent; a no-op when the id is unknown).
+    fn record(&self, ticket: &str, result: &TaToolResult) {
+        if let Some(gate) = ApprovalGate::try_global() {
+            let exec = if result.is_error {
+                ExecutionOutcome::Failure
+            } else {
+                ExecutionOutcome::Success
+            };
+            let error = result.is_error.then(|| result.output());
+            gate.record_execution(ticket, exec, error.as_deref());
         }
-        Ok(outcome)
     }
 }

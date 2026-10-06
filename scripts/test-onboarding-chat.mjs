@@ -307,9 +307,6 @@ async function main() {
     if (toolCalls.length > 0) {
       console.log(`\x1b[90m  tools used: ${toolCalls.join(', ')}\x1b[0m`);
     }
-    if (data.reaction_emoji) {
-      console.log(`\x1b[90m  reaction: ${data.reaction_emoji}\x1b[0m`);
-    }
     console.log('');
 
     responseBuffer = '';

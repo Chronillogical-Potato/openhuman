@@ -1,17 +1,92 @@
 use super::{find, ALL};
-use crate::modules::platform::candidates_for;
+use tinybus::module::platform::candidates_for;
 
 #[test]
 fn tinycomputer_registry_matches_bus_contract_and_published_release() {
     let desktop = find("tinycomputer").expect("compiled computer module");
     assert_eq!(desktop.bus_name, tinycomputer_bus::names::INTERFACE);
     assert_eq!(desktop.object_path, tinycomputer_bus::names::OBJECT_PATH);
-    assert_eq!(desktop.version, "0.7.0");
+    assert_eq!(desktop.version, "0.9.1");
     assert_eq!(desktop.assets.len(), 7);
     assert_eq!(
         desktop.asset_for("macos-26-arm64").unwrap().sha256,
-        "5b529cbf4b3403fe49b6a49ba3774e394cda54ee9a2fc44e8b536bc025ec7ba1"
+        "11ce9bf65f2ea4545e82ebb149118a5cd53bd8d48dc896778d11b01096f044b9"
     );
+}
+
+#[test]
+fn tinybox_registry_matches_the_published_v015_release_manifest() {
+    let record = find("tinybox").expect("compiled TinyBox module");
+    assert_eq!(record.version, "0.1.15");
+    assert_eq!(
+        record.release_url,
+        "https://github.com/tinyhumansai/tinybox/releases/tag/v0.1.15"
+    );
+
+    let actual = record
+        .assets
+        .iter()
+        .map(|asset| (asset.host_key, asset.archive, asset.sha256))
+        .collect::<Vec<_>>();
+    let published = [
+        (
+            "ubuntu-24.04-x86_64",
+            "tinybox-0.1.15-ubuntu-24.04-x86_64.tar.gz",
+            "43cd2cc0e9e5733d206be45d4c28e5c007862c48b5a3942a32d95e3995ba19cf",
+        ),
+        (
+            "ubuntu-24.04-arm64",
+            "tinybox-0.1.15-ubuntu-24.04-arm64.tar.gz",
+            "9cafb08666bb479ce42adc37e003fb9dbca8f9b9b8d36880ec8dd3c67afa1f10",
+        ),
+        (
+            "ubuntu-22.04-x86_64",
+            "tinybox-0.1.15-ubuntu-22.04-x86_64.tar.gz",
+            "4b55df76c83a626959d6c130b9c263a8d0c062a789c6566e1d920d9230dd3209",
+        ),
+        (
+            "ubuntu-22.04-arm64",
+            "tinybox-0.1.15-ubuntu-22.04-arm64.tar.gz",
+            "81a4e6e56434729ce924ef94e66d5200f1cb66ccbd512f40f1bfbed749595682",
+        ),
+        (
+            "macos-26-arm64",
+            "tinybox-0.1.15-macos-26-arm64.tar.gz",
+            "9433c307e7e5ee827b04d31dec771b8f28012ed6086d03abccca43deb99ecd50",
+        ),
+        (
+            "macos-26-x86_64",
+            "tinybox-0.1.15-macos-26-x86_64.tar.gz",
+            "18309b6692229b8abbecbfcb938d3e2cd509a58b067d44807355be40d48454a2",
+        ),
+        (
+            "macos-15-arm64",
+            "tinybox-0.1.15-macos-15-arm64.tar.gz",
+            "fcbb3e7339c93fc8ee939ecc7fd38f1adf37c29ba322d4085705ae82afd049dc",
+        ),
+        (
+            "macos-15-x86_64",
+            "tinybox-0.1.15-macos-15-x86_64.tar.gz",
+            "314063db104b0353974c56232b28e63a8da57f438a72776d079145ceef1a0ea1",
+        ),
+        (
+            "windows-2025-x86_64",
+            "tinybox-0.1.15-windows-2025-x86_64.zip",
+            "0acd1af4e5f19c75e2ef3b914d08717a0c1513a571b82bf5f48e32267f99fb31",
+        ),
+        (
+            "windows-2022-x86_64",
+            "tinybox-0.1.15-windows-2022-x86_64.zip",
+            "d36da0d16217e3415c5a60950f5fa555c81f5e0ebd0552022d1a85ad48a3a2b1",
+        ),
+        (
+            "windows-11-arm64",
+            "tinybox-0.1.15-windows-11-arm64.zip",
+            "d5ec94330ffc439451a05ebf5f2cd603236df5003993d34788deb4ac5fe22f49",
+        ),
+    ];
+
+    assert_eq!(actual, published);
 }
 
 #[test]

@@ -27,10 +27,9 @@ These never leave your computer as raw data:
 
 | Thing                         | Plain meaning                                                                                |
 | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| **Your Memory Tree**          | The database of everything OpenHuman has learned about your world. It's a file on your disk. |
-| **Your Obsidian vault**       | The human-readable Markdown version of that memory. Yours to read, edit, or delete.          |
+| **Your memory engine**        | Where documents, conversations and learnings are stored (hosted TinyHumans or your CortexDB). Delete items any time. |
 | **Audio you speak**           | Captured to transcribe, then discarded.                                                      |
-| **Local model state**         | If you turn on [local AI](local-model.md), the model and its work stay on-device.            |
+| **Local model state**         | If you use [local AI](local-model.md), your own runtime and its models stay on-device.       |
 | **Your persona and settings** | The files that define how your assistant behaves and what it's allowed to do.                |
 
 ## What the backend handles (and why)
@@ -59,7 +58,7 @@ These leave your machine because they can't work otherwise, but note _what_ is s
 
 You have real controls. From most to least private:
 
-1. **Route inference on-device.** Turn on [local AI with Ollama](local-model.md) so embeddings, summarization, and optionally chat/reasoning happen on your machine. _(Speech and web search still use the backend proxy even then.)_
+1. **Route inference on-device.** Run a local runtime such as Ollama yourself, pull the models, and [add it as a provider](local-model.md) so embeddings, summarization, and optionally chat/reasoning happen on your machine. OpenHuman doesn't install the runtime or download models for you. _(Speech and web search still use the backend proxy even then.)_
 2. **Tighten what the assistant can do.** In **Settings → Agents → Agent access**, set the autonomy tier. **Read-only** means it can observe and answer but never act or reach the network on its own. See the [Approval Gate](../features/approval-gate.md).
 3. **Keep it in one folder.** By default the agent is confined to your workspace and cannot read the rest of your disk (`workspace_only` is on). System and credential folders (`~/.ssh`, `~/.gnupg`, `~/.aws`, and OS directories) are blocked outright, regardless of settings.
 4. **Connect only what you need.** Every integration is a separate OAuth approval you grant (and can revoke) individually. Revoking stops the next sync; memory already collected stays local because it's yours.
@@ -78,7 +77,7 @@ You know your privacy posture when you can answer these:
 
 - [ ] Do you know your autonomy tier? (Check **Settings → Agents → Agent access**.)
 - [ ] Do you know which integrations are connected? (Check **Settings**; disconnect any you don't need.)
-- [ ] If locality matters for a workload, is [local AI](local-model.md) on and reporting `ready`?
+- [ ] If locality matters for a workload, is it routed to a [local provider](local-model.md) that is running and answering?
 - [ ] Are you comfortable that model turns send _retrieved snippets_, not your whole memory?
 
 ## Common misunderstandings

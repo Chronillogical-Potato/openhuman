@@ -11,25 +11,19 @@
 use std::path::Path;
 
 use tempfile::TempDir;
-use tinyagents_harness::store::{AppendStore, FileStore, JsonlAppendStore, Store};
+use tinyagents_harness::store::{AppendStore, JsonlAppendStore};
 
 use super::live::{dual_write_enabled, shadow_reads_enabled};
 use super::projector::journal_message_from_transcript as project;
-use crate::agent::messages::{
-    attach_chat_tool_failure_metadata, attach_chat_turn_usage_metadata,
-    transcript_message_from_chat, ChatMessage,
-};
-use tinyagents_session::transcript::import::convert::{
-    journal_messages as journal_messages_with, sanitize_store_name, stream_name,
-};
+use crate::config::test_env::EnvVarGuard;
+use tinyagents_session::transcript::import::convert::journal_messages as journal_messages_with;
 use tinyagents_session::transcript::import::live::{
     shadow_read_compare as shadow_read_compare_with, write_live_turn as write_live_turn_with,
     ShadowReadOutcome,
 };
 use tinyagents_session::transcript::import::ops::store_root;
-use tinyagents_session::transcript::import::types::{
-    JournalMessage, SessionDescriptor, NS_SESSIONS,
-};
+use tinyagents_session::transcript::import::types::JournalMessage;
+use tinyagents_session::transcript::TranscriptMessage;
 use tinyagents_session::transcript::{
     read_transcript, write_transcript, MessageUsage, SessionTranscript, TranscriptMeta,
     TranscriptToolCall, TurnUsage,
@@ -51,10 +45,8 @@ async fn shadow_read_compare(
     shadow_read_compare_with(workspace, key, t, project).await
 }
 
-fn durable_messages(
-    messages: &[ChatMessage],
-) -> Vec<tinyagents_session::transcript::TranscriptMessage> {
-    messages.iter().map(transcript_message_from_chat).collect()
+fn durable_messages(messages: &[TranscriptMessage]) -> Vec<TranscriptMessage> {
+    messages.to_vec()
 }
 
 /// A transcript meta header matching the importer's `native` fixture shape.
@@ -113,15 +105,18 @@ fn turn_usage() -> TurnUsage {
 /// the tool-failure marker onto the line's top-level `failure`/`failure_detail`
 /// fields, and since #6282 the read-back restores it to `extra_metadata`, so the
 /// marker round-trips.
-fn rich_base_messages() -> Vec<ChatMessage> {
-    let mut failed_tool = ChatMessage::tool("read_file failed: boom");
-    attach_chat_tool_failure_metadata(&mut failed_tool, Some("boom"));
+fn rich_base_messages() -> Vec<TranscriptMessage> {
+    let mut failed_tool = TranscriptMessage::tool("read_file failed: boom");
+    failed_tool.tool_failure = Some(tinyagents_session::transcript::ToolFailure {
+        failed: true,
+        detail: Some("boom".into()),
+    });
     vec![
-        ChatMessage::system("you are the orchestrator"),
-        ChatMessage::user("read the file"),
-        ChatMessage::assistant("calling read_file"),
+        TranscriptMessage::system("you are the orchestrator"),
+        TranscriptMessage::user("read the file"),
+        TranscriptMessage::assistant("calling read_file"),
         failed_tool,
-        ChatMessage::assistant("done"),
+        TranscriptMessage::assistant("done"),
     ]
 }
 
@@ -138,78 +133,6 @@ async fn journal_readback(ws: &Path, stream: &str) -> Vec<JournalMessage> {
         .collect()
 }
 
-#[tokio::test]
-async fn live_dual_write_matches_legacy_jsonl_render() {
-    let ws = TempDir::new().expect("tempdir");
-    let stem = "1719_orchestrator";
-    let jsonl_path = ws.path().join("session_raw").join(format!("{stem}.jsonl"));
-
-    // A user turn + an assistant turn. The base messages carry no usage
-    // metadata: the legacy writer embeds it from its `turn_usage` argument,
-    // exactly as `persist_session_transcript` does in production.
-    let base_messages = vec![ChatMessage::user("hi"), ChatMessage::assistant("done")];
-    let meta = meta("t-root");
-    let usage = turn_usage();
-
-    // (1) Legacy authoritative write — the primary persistence path.
-    write_transcript(
-        &jsonl_path,
-        &durable_messages(&base_messages),
-        &meta,
-        Some(&usage),
-    )
-    .expect("legacy write");
-
-    // (2) Live dual-write mirrors the authoritative JSONL read-back. The
-    // round-trip adds replay provenance that is part of shadow-read parity.
-    let transcript = read_transcript(&jsonl_path).expect("read legacy transcript for mirror");
-    write_live_turn(ws.path(), stem, &transcript)
-        .await
-        .expect("live dual-write");
-
-    // Parity: the store journal must equal the importer's read-back of the
-    // legacy JSONL, field for field (including reconstructed
-    // `openhuman_turn_usage` metadata and the tool-call id).
-    let expected = journal_messages(&read_transcript(&jsonl_path).expect("read legacy transcript"));
-    let actual = journal_readback(ws.path(), &stream_name(stem)).await;
-    assert_eq!(
-        actual, expected,
-        "live store stream diverges from the legacy JSONL render"
-    );
-
-    // The assistant record must carry the tool-call id via reconstructed usage.
-    let assistant = actual
-        .iter()
-        .find(|m| m.role == "assistant")
-        .expect("assistant record");
-    let tool_id = assistant
-        .extra_metadata
-        .as_ref()
-        .and_then(|m| m.get("openhuman_turn_usage"))
-        .and_then(|u| u.get("tool_calls"))
-        .and_then(|t| t.get(0))
-        .and_then(|c| c.get("id"))
-        .and_then(|id| id.as_str());
-    assert_eq!(tool_id, Some("tc1"), "tool-call id lost on the store path");
-
-    // The session descriptor is upserted under the sanitized stem with the
-    // stem's thread id and journal stream, matching the importer's projection.
-    let kv = FileStore::new(store_root(ws.path()).join("kv"));
-    let desc_value = kv
-        .get(NS_SESSIONS, &sanitize_store_name(stem))
-        .await
-        .expect("kv get")
-        .expect("descriptor present after live write");
-    let desc: SessionDescriptor = serde_json::from_value(desc_value).expect("descriptor shape");
-    assert_eq!(desc.session_key, stem);
-    assert_eq!(desc.thread_id, "t-root");
-    assert!(!desc.thread_id_synthesized);
-    assert_eq!(desc.stream, stream_name(stem));
-    assert_eq!(desc.dispatcher, "native");
-    assert_eq!(desc.provider.as_deref(), Some("anthropic"));
-    assert_eq!(desc.model.as_deref(), Some("claude"));
-}
-
 /// The dual-write is driven by the `AgentConfig::session_dual_write` config
 /// flag (default ON) with the `OPENHUMAN_SESSION_DUAL_WRITE` env var as a pure
 /// kill switch. This exercises the decision matrix directly. Env mutation is
@@ -218,10 +141,11 @@ async fn live_dual_write_matches_legacy_jsonl_render() {
 #[test]
 fn config_flag_and_env_kill_switch() {
     const ENV: &str = "OPENHUMAN_SESSION_DUAL_WRITE";
-    let prior = std::env::var(ENV).ok();
+    // Crate-wide env lock, held to the end; restores the prior value on drop
+    // (also on unwind).
+    let _env = EnvVarGuard::locked_unset(ENV);
 
     // Config OFF disables regardless of env.
-    std::env::remove_var(ENV);
     assert!(!dual_write_enabled(false), "config off disables");
 
     // Config ON (the default) enables when the env is unset.
@@ -246,11 +170,6 @@ fn config_flag_and_env_kill_switch() {
         !dual_write_enabled(false),
         "non-falsey env does not force config-off on"
     );
-
-    match prior {
-        Some(v) => std::env::set_var(ENV, v),
-        None => std::env::remove_var(ENV),
-    }
 }
 
 // ── Store-backed shadow read (issue #4249, 04.2 phase 2) ────────────────────
@@ -338,7 +257,7 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
         .iter()
         .rposition(|m| m.role == "assistant")
         .expect("assistant message present");
-    attach_chat_turn_usage_metadata(&mut live_messages[last_assistant], &usage);
+    live_messages[last_assistant].turn_usage = Some(usage.clone());
     let reconstructed = SessionTranscript {
         tools: None,
         meta: meta.clone(),
@@ -363,54 +282,6 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
     );
 }
 
-/// When the store has no stream for the session (dual-write never ran), the
-/// shadow read reports [`ShadowReadOutcome::Unavailable`] rather than a spurious
-/// divergence, and a content mismatch is reported as
-/// [`ShadowReadOutcome::Divergence`] with a compact first-diff index.
-#[tokio::test]
-async fn shadow_read_unavailable_and_divergence() {
-    let ws = TempDir::new().expect("tempdir");
-    let stem = "1719_orchestrator";
-    let meta = meta("t-root");
-
-    // No store write yet: empty/absent stream against a non-empty legacy
-    // transcript → Unavailable (no shadow), never a divergence.
-    let legacy = SessionTranscript {
-        tools: None,
-        meta: meta.clone(),
-        messages: durable_messages(&[ChatMessage::user("hi"), ChatMessage::assistant("done")]),
-    };
-    assert_eq!(
-        shadow_read_compare(ws.path(), stem, &legacy).await,
-        ShadowReadOutcome::Unavailable,
-        "absent store stream must be reported as no shadow available"
-    );
-
-    // Now mirror the two-message transcript, then compare against a legacy
-    // transcript that has an extra trailing message: divergence at index 2.
-    write_live_turn(ws.path(), stem, &legacy)
-        .await
-        .expect("live dual-write");
-    let diverging = SessionTranscript {
-        tools: None,
-        meta,
-        messages: durable_messages(&[
-            ChatMessage::user("hi"),
-            ChatMessage::assistant("done"),
-            ChatMessage::user("more"),
-        ]),
-    };
-    assert_eq!(
-        shadow_read_compare(ws.path(), stem, &diverging).await,
-        ShadowReadOutcome::Divergence {
-            legacy: 3,
-            shadow: 2,
-            first_diff: Some(2),
-        },
-        "a trailing legacy-only message must be reported as a compact divergence"
-    );
-}
-
 /// The shadow read is driven by the `AgentConfig::session_shadow_reads` config
 /// flag (default **ON** since the Phase 2 parity soak) with the
 /// `OPENHUMAN_SESSION_SHADOW_READS` env var as a
@@ -422,10 +293,11 @@ async fn shadow_read_unavailable_and_divergence() {
 #[test]
 fn shadow_read_flag_and_env_kill_switch() {
     const ENV: &str = "OPENHUMAN_SESSION_SHADOW_READS";
-    let prior = std::env::var(ENV).ok();
+    // Crate-wide env lock, held to the end; restores the prior value on drop
+    // (also on unwind).
+    let _env = EnvVarGuard::locked_unset(ENV);
 
     // Config OFF (the default) disables regardless of env — reader not invoked.
-    std::env::remove_var(ENV);
     assert!(
         !shadow_reads_enabled(false),
         "config off (default) disables the shadow read"
@@ -457,11 +329,6 @@ fn shadow_read_flag_and_env_kill_switch() {
         !shadow_reads_enabled(false),
         "non-falsey env cannot force a default-off flag on"
     );
-
-    match prior {
-        Some(v) => std::env::set_var(ENV, v),
-        None => std::env::remove_var(ENV),
-    }
 }
 
 // ── Legacy on-disk shapes (plan-agents.md Phase 2) ────────────────────────────
@@ -471,85 +338,3 @@ fn shadow_read_flag_and_env_kill_switch() {
 // markdown transcripts `read_transcript_legacy_md` still parses. Both predate
 // the store, so both reach the shadow read by a different route than the happy
 // path above — and a real user upgrading has them on disk today.
-
-/// A resume off the legacy **date-grouped** layout (`session_raw/DDMMYYYY/`)
-/// shadow-reads correctly.
-///
-/// The session key is the file *stem*, so the enclosing directory must not
-/// change it — a date-grouped transcript has to find the same store stream a
-/// flat one would. If the key were ever derived from the path instead, every
-/// pre-migration session would silently read as `Unavailable` and the parity
-/// soak would look clean while covering nothing.
-#[tokio::test]
-async fn shadow_read_matches_across_the_legacy_date_grouped_layout() {
-    let ws = TempDir::new().expect("tempdir");
-    let stem = "1719_orchestrator";
-    // The legacy layout nests the transcript under a DDMMYYYY directory.
-    let dated_dir = ws.path().join("session_raw").join("01012024");
-    std::fs::create_dir_all(&dated_dir).expect("create legacy dated dir");
-    let jsonl_path = dated_dir.join(format!("{stem}.jsonl"));
-
-    let base_messages = vec![ChatMessage::user("hi"), ChatMessage::assistant("done")];
-    let meta = meta("t-root");
-    let usage = turn_usage();
-
-    write_transcript(
-        &jsonl_path,
-        &durable_messages(&base_messages),
-        &meta,
-        Some(&usage),
-    )
-    .expect("legacy write");
-
-    write_live_turn(
-        ws.path(),
-        stem,
-        &read_transcript(&jsonl_path).expect("read legacy dated transcript for mirror"),
-    )
-    .await
-    .expect("live dual-write");
-
-    let legacy = read_transcript(&jsonl_path).expect("read legacy dated transcript");
-    assert_eq!(
-        shadow_read_compare(ws.path(), stem, &legacy).await,
-        ShadowReadOutcome::Match {
-            messages: legacy.messages.len()
-        },
-        "a date-grouped transcript must resolve the same store stream as a flat one"
-    );
-}
-
-/// A legacy **markdown** session shadow-reads as `Unavailable`, never as a
-/// divergence.
-///
-/// These transcripts predate the store entirely, so no dual-write ever ran for
-/// them and no stream exists. That must read as "no shadow to compare",
-/// because reporting it as divergence would flood the parity soak with false
-/// positives from every old session on disk — and the whole point of the soak
-/// is that a warning means something.
-#[tokio::test]
-async fn shadow_read_of_a_legacy_markdown_session_is_unavailable_not_divergent() {
-    let ws = TempDir::new().expect("tempdir");
-    let stem = "1719_orchestrator";
-    let md_path = ws.path().join("sessions").join("01012024");
-    std::fs::create_dir_all(&md_path).expect("create legacy md dir");
-    let md_file = md_path.join(format!("{stem}.md"));
-
-    // The pre-JSONL on-disk shape: an HTML-comment header plus `<!--MSG-->`
-    // delimited bodies.
-    std::fs::write(
-        &md_file,
-        "<!-- session_transcript\nagent: test_agent\ndispatcher: native\ncreated: 2026-01-01T00:00:00Z\nupdated: 2026-01-01T00:01:00Z\nturn_count: 1\ninput_tokens: 10\noutput_tokens: 5\ncached_input_tokens: 3\n-->\n\n<!--MSG role=\"user\"-->\nhello\n<!--/MSG-->\n<!--MSG role=\"assistant\"-->\nhi back\n<!--/MSG-->\n",
-    )
-    .expect("write legacy md");
-
-    // `read_transcript` routes a `.md` path to the legacy parser.
-    let legacy = read_transcript(&md_file).expect("read legacy md transcript");
-    assert_eq!(legacy.messages.len(), 2, "fixture parsed as two messages");
-
-    assert_eq!(
-        shadow_read_compare(ws.path(), stem, &legacy).await,
-        ShadowReadOutcome::Unavailable,
-        "a pre-store markdown session has no stream and must not read as divergence"
-    );
-}

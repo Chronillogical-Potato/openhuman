@@ -3,7 +3,6 @@
 use super::super::defaults;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -37,55 +36,24 @@ impl Default for GitbooksConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+// The wire contract's shapes, shared with `tinymcp`: what a server is called,
+// how to reach it, and how to authenticate. The TOML spelling is the
+// contract's, so a config file and the module cannot drift apart.
+pub use tinymcp_bus::{HttpHeader, McpAuthConfig, McpRegistryAuthConfig};
+
+/// One configured MCP server: the contract's [`tinymcp_bus::McpServerConfig`]
+/// (flattened, so the TOML keys are unchanged) plus how this application
+/// exposes its tools to the model.
+///
+/// Dereferences to the contract type, so `server.name`, `server.endpoint` and
+/// the rest read as they always have.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct McpServerConfig {
-    /// Stable server slug used by the agent-facing bridge tools.
-    #[serde(default)]
-    pub name: String,
-    /// MCP endpoint URL. Current implementation supports stateless
-    /// Streamable HTTP / JSON responses.
-    #[serde(default)]
-    pub endpoint: String,
-    /// Optional stdio command for local MCP servers. When set, the
-    /// client launches this command as a subprocess and speaks newline-
-    /// delimited JSON-RPC over stdin/stdout per the MCP stdio transport.
-    #[serde(default)]
-    pub command: String,
-    /// Command-line arguments for stdio MCP servers.
-    #[serde(default)]
-    pub args: Vec<String>,
-    /// Extra environment variables for stdio MCP servers. MCP stdio auth
-    /// is typically passed this way.
-    #[serde(default)]
-    pub env: HashMap<String, String>,
-    /// Optional working directory for stdio MCP servers.
-    #[serde(default)]
-    pub cwd: Option<String>,
-    /// Optional human-readable description shown in bridge tool output.
-    #[serde(default)]
-    pub description: Option<String>,
-    /// Whether this server should be exposed to the MCP bridge tools.
-    #[serde(default = "defaults::default_true")]
-    pub enabled: bool,
-    /// Exact remote tool names this server may expose through the generic
-    /// MCP bridge. Empty means all remote tools are allowed unless they
-    /// appear in `disallowed_tools`.
-    #[serde(default)]
-    pub allowed_tools: Vec<String>,
-    /// Exact remote tool names that should always be hidden and blocked.
-    /// This denylist takes precedence over `allowed_tools`.
-    #[serde(default)]
-    pub disallowed_tools: Vec<String>,
-    /// Per-request timeout in seconds.
-    #[serde(default = "default_mcp_timeout_secs")]
-    pub timeout_secs: u64,
-    /// Optional auth strategy applied to outbound requests for this
-    /// server. Useful for API-key and pre-provisioned bearer-token
-    /// flows; interactive OAuth discovery is handled by the client
-    /// transport separately when a server returns an auth challenge.
-    #[serde(default)]
-    pub auth: McpAuthConfig,
+    /// Name, endpoint or command, environment, allow/deny lists, timeout and
+    /// auth: everything the MCP client needs to reach the server.
+    #[serde(flatten)]
+    pub server: tinymcp_bus::McpServerConfig,
     /// How this server's tools reach the model. Every remote tool becomes its
     /// own `mcp_<server>_<tool>` tool; `deferred` (the default) leaves them
     /// out of the catalogue until `tool_search` finds them, `direct` sends
@@ -98,6 +66,29 @@ pub struct McpServerConfig {
     pub direct_tools: Vec<String>,
 }
 
+impl std::ops::Deref for McpServerConfig {
+    type Target = tinymcp_bus::McpServerConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.server
+    }
+}
+
+impl std::ops::DerefMut for McpServerConfig {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.server
+    }
+}
+
+impl From<tinymcp_bus::McpServerConfig> for McpServerConfig {
+    fn from(server: tinymcp_bus::McpServerConfig) -> Self {
+        Self {
+            server,
+            ..Self::default()
+        }
+    }
+}
+
 /// How a configured MCP server's tools enter the model's catalogue.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -107,68 +98,6 @@ pub enum McpToolExposure {
     Deferred,
     /// Sent to the model every turn.
     Direct,
-}
-
-fn default_mcp_timeout_secs() -> u64 {
-    30
-}
-
-impl Default for McpServerConfig {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            endpoint: String::new(),
-            command: String::new(),
-            args: Vec::new(),
-            env: HashMap::new(),
-            cwd: None,
-            description: None,
-            enabled: defaults::default_true(),
-            allowed_tools: Vec::new(),
-            disallowed_tools: Vec::new(),
-            timeout_secs: default_mcp_timeout_secs(),
-            auth: McpAuthConfig::None,
-            expose: McpToolExposure::Deferred,
-            direct_tools: Vec::new(),
-        }
-    }
-}
-
-/// One HTTP header (name + value) for the multi-header [`McpAuthConfig::Headers`]
-/// variant — e.g. a remote that requires both `X-Client-Key` and
-/// `X-Client-Secret`, or an API key plus an org id.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct HttpHeader {
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[derive(Default)]
-pub enum McpAuthConfig {
-    #[default]
-    None,
-    BearerToken {
-        token: String,
-    },
-    Basic {
-        username: String,
-        password: String,
-    },
-    Header {
-        name: String,
-        value: String,
-    },
-    /// Multiple request headers, all applied — for remotes that authenticate
-    /// with more than one header (single-header servers use [`Self::Header`]).
-    Headers {
-        headers: Vec<HttpHeader>,
-    },
-    QueryParam {
-        name: String,
-        value: String,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -237,28 +166,4 @@ impl Default for McpClientConfig {
             registry_auth: McpRegistryAuthConfig::default(),
         }
     }
-}
-
-/// Registry-browse auth + endpoint overrides. Lets a user who hits Smithery
-/// rate limits (or needs an authenticated official-registry endpoint) supply
-/// credentials from the desktop app instead of editing env vars. Each field is
-/// config-first with an env-var fallback so existing CI/Docker deployments that
-/// only set env vars keep working unchanged.
-///
-/// Secrets are write-only over RPC: the getter reports whether each secret is
-/// *set* (a boolean) and never echoes the value back.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(default)]
-pub struct McpRegistryAuthConfig {
-    /// Smithery API key. Falls back to `SMITHERY_API_KEY`.
-    #[serde(default)]
-    pub smithery_api_key: Option<String>,
-    /// Base URL override for the official registry. Falls back to
-    /// `MCP_OFFICIAL_REGISTRY_BASE` (non-secret).
-    #[serde(default)]
-    pub mcp_official_base: Option<String>,
-    /// Bearer token for the official registry. Falls back to
-    /// `MCP_OFFICIAL_REGISTRY_TOKEN`.
-    #[serde(default)]
-    pub mcp_official_token: Option<String>,
 }

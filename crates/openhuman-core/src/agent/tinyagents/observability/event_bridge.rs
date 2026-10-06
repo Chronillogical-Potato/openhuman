@@ -10,7 +10,7 @@ use tokio::sync::mpsc::Sender;
 use tinyinference_llm::usage::Usage;
 
 use crate::agent::progress::AgentProgress;
-use crate::inference::provider::UsageInfo;
+use crate::inference::provider::BilledUsage;
 use tinytools::humanize_tool_name;
 
 use super::cap_pauser::{
@@ -68,7 +68,7 @@ pub(crate) struct OpenhumanEventBridge {
     /// side-channel written by `ToolOutcomeCaptureMiddleware`; read when
     /// projecting `ToolCallCompleted`.
     pub(super) failure_map: ToolFailureMap,
-    /// Shared FIFO carry of the per-call provider `UsageInfo` the model adapter
+    /// Shared FIFO carry of the per-call provider `BilledUsage` the model adapter
     /// observed; drained in `record_usage` to restore backend-charged USD +
     /// context-window + cache-creation/reasoning tokens the crate `Usage` drops.
     pub(super) usage_carry: ProviderUsageCarry,
@@ -378,7 +378,7 @@ impl OpenhumanEventBridge {
         // back to the catalogue window and the crate token counts when absent.
         let context_window = carried
             .as_ref()
-            .map(|u| u.context_window)
+            .map(|u| u.context_window())
             .filter(|w| *w > 0)
             .unwrap_or_else(|| {
                 crate::platform::cost::catalog::lookup(&self.model)
@@ -437,15 +437,12 @@ impl OpenhumanEventBridge {
 
         // Feed the authoritative global cost tracker (same call the legacy
         // observer made), so the wallet/cost surfaces stay accurate.
-        let usage_info = UsageInfo {
-            input_tokens: usage.input_tokens,
-            output_tokens: usage.output_tokens,
-            context_window,
-            cached_input_tokens: usage.cache_read_tokens,
-            cache_creation_tokens,
-            reasoning_tokens,
-            charged_amount_usd: call_cost,
-        };
+        let usage_info = BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)
+            .with_context_window(context_window)
+            .with_cached_input_tokens(usage.cache_read_tokens)
+            .with_cache_creation_tokens(cache_creation_tokens)
+            .with_reasoning_tokens(reasoning_tokens)
+            .with_charged_usd(call_cost);
         if reasoning_tokens > 0 || cache_creation_tokens > 0 {
             log::debug!(
                 "[cost] recording reasoning/cache-creation tokens model={} reasoning_tokens={} cache_creation_tokens={}",
@@ -484,15 +481,10 @@ impl OpenhumanEventBridge {
     pub(super) fn estimate_call_cost(model: &str, usage: &Usage) -> f64 {
         crate::agent::cost::estimate_call_cost_usd(
             model,
-            &UsageInfo {
-                input_tokens: usage.input_tokens,
-                output_tokens: usage.output_tokens,
-                context_window: 0,
-                cached_input_tokens: usage.cache_read_tokens,
-                cache_creation_tokens: usage.cache_creation_tokens,
-                reasoning_tokens: usage.reasoning_tokens,
-                charged_amount_usd: 0.0,
-            },
+            &BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)
+                .with_cached_input_tokens(usage.cache_read_tokens)
+                .with_cache_creation_tokens(usage.cache_creation_tokens)
+                .with_reasoning_tokens(usage.reasoning_tokens),
         )
     }
 }

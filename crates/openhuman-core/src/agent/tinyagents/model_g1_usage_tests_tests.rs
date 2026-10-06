@@ -13,15 +13,14 @@ fn usage_round_trips_charged_usd_and_all_token_breakdowns() {
     let chat = ChatResponse {
         text: Some("hi".to_string()),
         tool_calls: Vec::new(),
-        usage: Some(UsageInfo {
-            input_tokens: 100,
-            output_tokens: 20,
-            context_window: 128_000,
-            cached_input_tokens: 40,
-            cache_creation_tokens: 10,
-            reasoning_tokens: 7,
-            charged_amount_usd: 0.0123,
-        }),
+        usage: Some(
+            BilledUsage::from_counts(100, 20)
+                .with_context_window(128_000)
+                .with_cached_input_tokens(40)
+                .with_cache_creation_tokens(10)
+                .with_reasoning_tokens(7)
+                .with_charged_usd(0.0123),
+        ),
         reasoning_content: None,
     };
     let model_response = response_to_model_response(&chat, &empty_registry(), false);
@@ -43,8 +42,8 @@ fn usage_round_trips_charged_usd_and_all_token_breakdowns() {
     let recovered = usage_info_from_response(&model_response).expect("usage info");
     assert_eq!(recovered.input_tokens, 100);
     assert_eq!(recovered.output_tokens, 20);
-    assert_eq!(recovered.context_window, 128_000);
-    assert_eq!(recovered.cached_input_tokens, 40);
+    assert_eq!(recovered.context_window(), 128_000);
+    assert_eq!(recovered.cached_input_tokens(), 40);
     assert_eq!(recovered.cache_creation_tokens, 10);
     assert_eq!(recovered.reasoning_tokens, 7);
     assert!((recovered.charged_amount_usd - 0.0123).abs() < 1e-9);
@@ -55,11 +54,7 @@ fn no_billing_metadata_leaves_raw_clean() {
     let chat = ChatResponse {
         text: Some("hi".to_string()),
         tool_calls: Vec::new(),
-        usage: Some(UsageInfo {
-            input_tokens: 5,
-            output_tokens: 3,
-            ..Default::default()
-        }),
+        usage: Some(BilledUsage::from_counts(5, 3)),
         reasoning_content: None,
     };
     let model_response = response_to_model_response(&chat, &empty_registry(), false);
@@ -69,7 +64,7 @@ fn no_billing_metadata_leaves_raw_clean() {
     );
     let recovered = usage_info_from_response(&model_response).expect("usage info");
     assert_eq!(recovered.charged_amount_usd, 0.0);
-    assert_eq!(recovered.context_window, 0);
+    assert_eq!(recovered.context_window(), 0);
     assert_eq!(recovered.input_tokens, 5);
 }
 
@@ -142,38 +137,43 @@ fn tool_request() -> ModelRequest {
     }
 }
 
+/// Wire shape of the billing/context metadata stashed in `ModelResponse.raw`:
+/// a literal-JSON pin so the key and field names cannot drift, and a response
+/// written by the current release (with the old key set) still reconstructs.
 #[test]
-fn prompt_guided_response_uses_tinyagents_xml_parser() {
-    let response = prompt_guided_text_response(
-        r#"Checking.<tool_call>{"name":"lookup","arguments":{"id":7}}</tool_call>"#.to_string(),
-        &tool_request(),
-    );
-
-    assert_eq!(response.text(), "Checking.");
-    assert_eq!(response.message.tool_calls.len(), 1);
-    assert!(
-        !response.message.tool_calls[0].id.is_empty(),
-        "the upstream parser assigns the tool-call ID"
-    );
-    assert_eq!(response.message.tool_calls[0].name, "lookup");
+fn usage_meta_raw_wire_shape_is_stable_and_old_payloads_load() {
+    let chat = ChatResponse {
+        text: Some("hi".to_string()),
+        tool_calls: Vec::new(),
+        usage: Some(
+            BilledUsage::from_counts(100, 20)
+                .with_context_window(128_000)
+                .with_charged_usd(0.0123),
+        ),
+        reasoning_content: None,
+    };
+    let written = response_to_model_response(&chat, &empty_registry(), false);
     assert_eq!(
-        response.message.tool_calls[0].arguments,
-        serde_json::json!({"id": 7})
-    );
-}
-
-#[test]
-fn prompt_guided_response_keeps_legacy_pformat_fallback() {
-    let response = prompt_guided_text_response(
-        "<tool_call>lookup[0|7|1|needle]</tool_call>".to_string(),
-        &tool_request(),
+        written.raw,
+        Some(serde_json::json!({
+            "openhuman_usage_meta": {"charged_amount_usd": 0.0123, "context_window": 128000}
+        }))
     );
 
-    assert_eq!(response.text(), "");
-    assert_eq!(response.message.tool_calls.len(), 1);
-    assert_eq!(response.message.tool_calls[0].name, "lookup");
-    assert_eq!(
-        response.message.tool_calls[0].arguments,
-        serde_json::json!({"id": 7, "query": "needle"})
+    let mut old = response_to_model_response(
+        &ChatResponse {
+            text: Some("x".into()),
+            usage: Some(BilledUsage::from_counts(7, 2)),
+            ..Default::default()
+        },
+        &empty_registry(),
+        false,
     );
+    old.raw = Some(serde_json::json!({
+        "openhuman_usage_meta": {"charged_amount_usd": 0.5, "context_window": 32000}
+    }));
+    let recovered = usage_info_from_response(&old).expect("usage");
+    assert_eq!(recovered.charged_amount_usd, 0.5);
+    assert_eq!(recovered.context_window(), 32_000);
+    assert_eq!(recovered.input_tokens, 7);
 }

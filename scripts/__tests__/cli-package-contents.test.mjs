@@ -16,8 +16,30 @@ test("CLI tarballs contain the core and standalone TUI", () => {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "openhuman-cli-package-"));
   const core = path.join(work, "core-fixture");
   const tui = path.join(work, "tui-fixture");
+  const fakeBin = path.join(work, "bin");
+  const nodeStub = path.join(fakeBin, "node");
   fs.writeFileSync(core, "core");
   fs.writeFileSync(tui, "tui");
+  fs.mkdirSync(fakeBin);
+  fs.writeFileSync(
+    nodeStub,
+    `#!/bin/sh
+set -eu
+test "$1" = "${path.join(repoRoot, "scripts/release/stage-modules.mjs")}" || exit 91
+shift
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--output" ]; then
+    output="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+mkdir -p "$output"
+: > "$output/.gitkeep"
+`,
+    { mode: 0o755 },
+  );
 
   execFileSync(
     "bash",
@@ -26,20 +48,35 @@ test("CLI tarballs contain the core and standalone TUI", () => {
       core,
       tui,
       "0.0.0",
-      "test-target",
+      "x86_64-unknown-linux-gnu",
     ],
-    { cwd: work, env: { ...process.env, GITHUB_TOKEN: "" } },
+    {
+      cwd: work,
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`,
+        GITHUB_TOKEN: "",
+      },
+    },
   );
 
   const entries = execFileSync(
     "tar",
-    ["-tzf", path.join(work, "openhuman-core-0.0.0-test-target.tar.gz")],
+    [
+      "-tzf",
+      path.join(work, "openhuman-core-0.0.0-x86_64-unknown-linux-gnu.tar.gz"),
+    ],
     { encoding: "utf8" },
   )
     .trim()
     .split("\n")
     .sort();
-  assert.deepEqual(entries, ["openhuman-core", "openhuman-tui"]);
+  assert.deepEqual(entries, [
+    "bundled-modules/",
+    "bundled-modules/.gitkeep",
+    "openhuman-core",
+    "openhuman-tui",
+  ]);
 });
 
 test("package-manager consumers install and expose the TUI", () => {
@@ -79,12 +116,50 @@ test("package-manager consumers install and expose the TUI", () => {
   );
 });
 
-test("Debian packages install both commands", () => {
+// packages/deb/build.sh shells out to dpkg-deb, which Debian-family hosts
+// and the Linux CI runners have and macOS/Windows developer machines do not.
+// Without it the build exits 127 and the red reads as a packaging defect.
+function dpkgDebAvailable() {
+  try {
+    execFileSync("dpkg-deb", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test("Debian packages install both commands", (t) => {
+  if (!dpkgDebAvailable()) {
+    t.skip("dpkg-deb not on PATH");
+    return;
+  }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "openhuman-deb-package-"));
   const core = path.join(work, "core-fixture");
   const tui = path.join(work, "tui-fixture");
+  const fakeBin = path.join(work, "bin");
+  const nodeStub = path.join(fakeBin, "node");
   fs.writeFileSync(core, "core");
   fs.writeFileSync(tui, "tui");
+  fs.mkdirSync(fakeBin);
+  fs.writeFileSync(
+    nodeStub,
+    `#!/bin/sh
+set -eu
+test "$1" = "${path.join(repoRoot, "scripts/release/stage-modules.mjs")}" || exit 91
+shift
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--output" ]; then
+    output="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+mkdir -p "$output"
+: > "$output/.gitkeep"
+`,
+    { mode: 0o755 },
+  );
 
   execFileSync(
     "bash",

@@ -59,7 +59,7 @@ fn compatible_session_reuses_and_incompatible_shape_spawns_new() {
         &session.subagent_session_id,
         "sub-1",
         &SubagentRunStatus::Completed,
-        vec![ChatMessage::user("done")],
+        vec![TranscriptMessage::user("done")],
     )
     .unwrap();
 

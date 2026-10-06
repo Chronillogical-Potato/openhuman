@@ -131,8 +131,20 @@ pub fn module_config(config: &Config) -> Result<serde_json::Value, String> {
                 "base_url": std::env::var("OPENHUMAN_COMPOSIO_DIRECT_BASE_V3").ok(),
                 "state_dir": state_dir,
             });
-            if let Some(base) = direct_base {
-                payload["base_url"] = serde_json::Value::String(base);
+            if let Some(base) = &direct_base {
+                payload["base_url"] = serde_json::Value::String(base.clone());
+            }
+            // The host's proxy and TLS policy for Composio, resolved for the
+            // destination the module will dial. Part of the route description,
+            // so a change in the proxy settings reconfigures the module on the
+            // next call. Omitted when it is the module's default (contract 1.10).
+            let destination = direct_base
+                .as_deref()
+                .unwrap_or("https://backend.composio.dev/api/v3");
+            if let Some(transport) =
+                crate::integrations::composio::client::module_transport(destination)
+            {
+                payload["transport"] = serde_json::json!(transport);
             }
             Ok(payload)
         }
@@ -302,6 +314,38 @@ where
     Reply: DeserializeOwned,
 {
     let proxy = proxy(config).await?;
+    proxy
+        .call::<Reply>(member, (request,))
+        .await
+        .map_err(|error| format!("{member}: {error}"))
+}
+
+/// Call a member that carries its own credential, without touching the route.
+///
+/// `ListConnectionsDirect` and `ListToolsDirect` read as the credential on the
+/// request, so the module's configured route is neither used nor replaced. That
+/// is why this does not reconcile the route first: a host serving several
+/// credentials from one module must not have one caller's configuration
+/// overwrite another's mid-call, and a config that names no route here would
+/// otherwise send the module `{"route": "none"}` in the middle of a read.
+///
+/// # Errors
+///
+/// As [`call`].
+pub async fn call_stateless<Request, Reply>(
+    config: &Config,
+    member: &str,
+    request: Request,
+) -> Result<Reply, String>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+{
+    // The module's own HTTP deadline is 30s; give the bus a little longer so a
+    // slow Composio surfaces as the module's message, not a bus timeout.
+    const STATELESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
+    ops::ensure_loaded(config, MODULE_ID).await?;
+    let proxy = proxy_to_serving().await?.with_timeout(STATELESS_TIMEOUT);
     proxy
         .call::<Reply>(member, (request,))
         .await

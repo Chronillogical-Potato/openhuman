@@ -16,47 +16,26 @@
 //! ride along only while `observability.agent_tracing.capture_content` is on;
 //! disabling that flag withholds content and leaves metadata-only export.
 
-use std::time::Duration;
-
 mod environment;
-mod ingestion_batch;
 mod journal_export;
 
 pub(crate) use environment::{environment_for_base, ingestion_url, skip_push};
 pub(crate) use journal_export::journal_push_ready;
-#[cfg(test)]
-pub(crate) use journal_export::push_observations;
-pub(crate) use journal_export::root_subagent_observations;
-
-use super::TraceContext;
-#[cfg(test)]
-use super::{SpanStatus, TraceSpan};
 
 #[cfg(test)]
 use crate::config::Config;
 #[cfg(test)]
 use environment::push_allowed;
 #[cfg(test)]
-use ingestion_batch::{iso_millis, split_ingestion_batch};
-#[cfg(test)]
-use journal_export::{
-    insert_run_telemetry_generation, observations_for_export, trace_config_from_context,
-    trace_ctx_with_run_lineage,
-};
-#[cfg(test)]
-use serde_json::{json, Value};
-#[cfg(test)]
-use std::borrow::Cow;
+use serde_json::json;
 #[cfg(test)]
 use tinyagents_harness::events::AgentEvent;
 #[cfg(test)]
-use tinyagents_harness::observability::{AgentObservation, LangfuseClient};
+use tinyagents_harness::observability::trace_export::{SpanStatus, TraceSpan};
 #[cfg(test)]
-use tinyagents_session::run_ledger::RunTelemetry;
+use tinyagents_harness::observability::AgentObservation;
 
 const LOG_TARGET: &str = "agent-tracing::langfuse";
-/// Cap the push so a slow/hung Langfuse never stalls run teardown.
-const PUSH_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[cfg(test)]
 #[path = "langfuse_tests.rs"]

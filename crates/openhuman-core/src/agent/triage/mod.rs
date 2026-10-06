@@ -44,4 +44,4 @@ pub use envelope::{TriggerEnvelope, TriggerSource};
 pub use escalation::apply_decision;
 pub use evaluator::{run_triage, TriageOutcome, TriageResolutionPath, TriageRun};
 pub use origin::{local_trigger_origin, remote_trigger_origin};
-pub use routing::{build_local_provider_with_config, resolve_provider, ResolvedProvider};
+pub use routing::{build_local_provider_with_config, ResolvedProvider};

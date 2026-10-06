@@ -1,7 +1,6 @@
 import { Mic, Play, Volume2 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
-import { installPiper } from '../../../services/api/voiceInstallApi';
 import { testVoiceProvider, type VoiceProviderView } from '../../../services/api/voiceSettingsApi';
 import type { VoiceStatus } from '../../../utils/tauriCommands';
 import { Badge, Button, Card, Field, NativeSelect, TextField } from '../../ui';
@@ -206,7 +205,7 @@ const VoicePanelRoutingSection = ({
                   isTestingTts ? <Spinner /> : <Play className="h-3.5 w-3.5" aria-hidden />
                 }
                 disabled={isTestingTts || !ttsProvider || ttsTestBlockedByInstall}
-                title={ttsTestBlockedByInstall ? t('voice.providers.notInstalled') : undefined}
+                title={ttsTestBlockedByInstall ? t('voice.providers.piperNotFound') : undefined}
                 onClick={() => void runTtsTest()}>
                 {isTestingTts ? t('voice.modal.testing') : t('voice.routing.testTts')}
               </Button>
@@ -234,9 +233,6 @@ const VoicePanelRoutingSection = ({
                   if (next === '__custom__') return;
                   setTtsVoice(next);
                   void persistProviders({ tts_voice: next });
-                  void installPiper({ voiceId: next }).catch(err =>
-                    console.warn('[voice-install:piper] auto-install on voice change failed:', err)
-                  );
                 }}
                 className="w-full">
                 {piperVoicePresets.map(v => (
@@ -259,12 +255,6 @@ const VoicePanelRoutingSection = ({
                   onBlur={() => {
                     if (ttsVoice && ttsVoice !== voiceStatus?.tts_voice_id) {
                       void persistProviders({ tts_voice: ttsVoice });
-                      void installPiper({ voiceId: ttsVoice }).catch(err =>
-                        console.warn(
-                          '[voice-install:piper] auto-install on custom voice failed:',
-                          err
-                        )
-                      );
                     }
                   }}
                   className="w-full"

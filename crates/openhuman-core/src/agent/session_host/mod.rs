@@ -38,6 +38,7 @@ mod codec;
 mod driver;
 mod factory;
 mod hooks;
+mod managed_tools;
 mod policy;
 mod prefix_snapshot;
 mod recorded_tools;
@@ -72,3 +73,7 @@ mod artifact_wiring;
 mod orphaned_head_resume_tests;
 #[cfg(test)]
 mod runtime_adapter_tests;
+#[cfg(test)]
+mod transcript_compat_tests;
+#[cfg(test)]
+mod typed_transcript_compat_tests;

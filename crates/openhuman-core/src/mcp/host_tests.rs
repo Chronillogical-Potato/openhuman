@@ -19,18 +19,20 @@ fn config_without_docs() -> Config {
 /// A declared server with every field set to something distinguishable.
 fn populated_server() -> HostServer {
     HostServer {
-        name: "weather".into(),
-        endpoint: "https://example.test/mcp".into(),
-        command: "npx".into(),
-        args: vec!["-y".into(), "weather-mcp".into()],
-        env: HashMap::from([("API_KEY".to_string(), "secret".to_string())]),
-        cwd: Some("/tmp".into()),
-        description: Some("Weather lookups".into()),
-        enabled: false,
-        allowed_tools: vec!["forecast".into()],
-        disallowed_tools: vec!["debug".into()],
-        timeout_secs: 9,
-        auth: McpAuthConfig::BearerToken { token: "t".into() },
+        server: tinymcp_bus::McpServerConfig {
+            name: "weather".into(),
+            endpoint: "https://example.test/mcp".into(),
+            command: "npx".into(),
+            args: vec!["-y".into(), "weather-mcp".into()],
+            env: [("API_KEY".to_string(), "secret".to_string())].into(),
+            cwd: Some("/tmp".into()),
+            description: Some("Weather lookups".into()),
+            enabled: false,
+            allowed_tools: vec!["forecast".into()],
+            disallowed_tools: vec!["debug".into()],
+            timeout_secs: 9,
+            auth: McpAuthConfig::BearerToken { token: "t".into() },
+        },
         expose: Default::default(),
         direct_tools: Vec::new(),
     }
@@ -108,10 +110,9 @@ fn every_credential_kind_converts() {
 
     for (host, expected) in cases {
         let mut config = config_without_docs();
-        config.mcp_client.servers.push(HostServer {
-            auth: host,
-            ..populated_server()
-        });
+        let mut server = populated_server();
+        server.auth = host;
+        config.mcp_client.servers.push(server);
 
         assert_eq!(client_config(&config).servers[0].auth, expected);
     }
@@ -122,21 +123,20 @@ fn a_multi_header_credential_keeps_every_header() {
     // A server wanting a client key and a client secret needs both; keeping
     // only the first is a 401 nobody can explain.
     let mut config = config_without_docs();
-    config.mcp_client.servers.push(HostServer {
-        auth: McpAuthConfig::Headers {
-            headers: vec![
-                HttpHeader {
-                    name: "X-Client-Key".into(),
-                    value: "k".into(),
-                },
-                HttpHeader {
-                    name: "Authorization".into(),
-                    value: "Bearer s".into(),
-                },
-            ],
-        },
-        ..populated_server()
-    });
+    let mut server = populated_server();
+    server.auth = McpAuthConfig::Headers {
+        headers: vec![
+            HttpHeader {
+                name: "X-Client-Key".into(),
+                value: "k".into(),
+            },
+            HttpHeader {
+                name: "Authorization".into(),
+                value: "Bearer s".into(),
+            },
+        ],
+    };
+    config.mcp_client.servers.push(server);
 
     match &client_config(&config).servers[0].auth {
         tinymcp::McpAuthConfig::Headers { headers } => {
@@ -185,53 +185,13 @@ fn the_registry_credentials_survive_the_conversion() {
 }
 
 #[test]
-fn the_documentation_server_is_seeded_when_it_is_enabled() {
-    // It is this application's own server. `tinymcp` has no business knowing
-    // about it, so the seeding happens here.
+fn the_documentation_server_is_never_seeded_as_an_mcp_server() {
+    // The docs are served by the hard-coded `gitbooks_*` tools; an MCP server
+    // entry would make the first turn dial the endpoint for nothing.
     let mut config = Config::default();
     config.gitbooks.enabled = true;
 
-    let converted = client_config(&config);
-    let docs = converted
-        .servers
-        .iter()
-        .find(|server| server.name == GITBOOKS_SERVER_NAME)
-        .expect("the documentation server");
-
-    assert_eq!(docs.endpoint, config.gitbooks.endpoint);
-    assert_eq!(docs.timeout_secs, config.gitbooks.timeout_secs);
-}
-
-#[test]
-fn the_documentation_server_is_not_seeded_when_it_is_disabled() {
-    let converted = client_config(&config_without_docs());
-
-    assert!(!converted
-        .servers
-        .iter()
-        .any(|server| server.name == GITBOOKS_SERVER_NAME));
-}
-
-#[test]
-fn a_user_declared_server_of_the_same_name_wins_over_the_seeded_one() {
-    // Someone who deliberately pointed that name somewhere else keeps it.
-    let mut config = Config::default();
-    config.gitbooks.enabled = true;
-    config.mcp_client.servers.push(HostServer {
-        name: GITBOOKS_SERVER_NAME.into(),
-        endpoint: "https://mine.test/mcp".into(),
-        ..HostServer::default()
-    });
-
-    let converted = client_config(&config);
-    let matching: Vec<_> = converted
-        .servers
-        .iter()
-        .filter(|server| server.name == GITBOOKS_SERVER_NAME)
-        .collect();
-
-    assert_eq!(matching.len(), 1);
-    assert_eq!(matching[0].endpoint, "https://mine.test/mcp");
+    assert!(client_config(&config).servers.is_empty());
 }
 
 #[test]
@@ -373,10 +333,13 @@ fn a_credentialed_plaintext_non_loopback_endpoint_is_refused() {
     use crate::config::McpAuthConfig as Auth;
     let mut config = config_without_docs();
     config.mcp_client.servers.push(HostServer {
-        name: "insecure".into(),
-        endpoint: "http://example.test/mcp".into(),
-        auth: Auth::BearerToken { token: "t".into() },
-        ..HostServer::default()
+        server: tinymcp_bus::McpServerConfig {
+            name: "insecure".into(),
+            endpoint: "http://example.test/mcp".into(),
+            auth: Auth::BearerToken { token: "t".into() },
+            ..Default::default()
+        },
+        ..Default::default()
     });
 
     let converted = client_config(&config);
@@ -391,13 +354,16 @@ fn a_credentialed_loopback_http_endpoint_is_allowed() {
     use crate::config::McpAuthConfig as Auth;
     let mut config = config_without_docs();
     config.mcp_client.servers.push(HostServer {
-        name: "local".into(),
-        endpoint: "http://127.0.0.1:9000/mcp".into(),
-        auth: Auth::Header {
-            name: "X-Key".into(),
-            value: "v".into(),
+        server: tinymcp_bus::McpServerConfig {
+            name: "local".into(),
+            endpoint: "http://127.0.0.1:9000/mcp".into(),
+            auth: Auth::Header {
+                name: "X-Key".into(),
+                value: "v".into(),
+            },
+            ..Default::default()
         },
-        ..HostServer::default()
+        ..Default::default()
     });
 
     let converted = client_config(&config);
@@ -412,13 +378,16 @@ fn a_credentialed_https_endpoint_is_allowed() {
     use crate::config::McpAuthConfig as Auth;
     let mut config = config_without_docs();
     config.mcp_client.servers.push(HostServer {
-        name: "remote".into(),
-        endpoint: "https://example.test/mcp".into(),
-        auth: Auth::Basic {
-            username: "u".into(),
-            password: "p".into(),
+        server: tinymcp_bus::McpServerConfig {
+            name: "remote".into(),
+            endpoint: "https://example.test/mcp".into(),
+            auth: Auth::Basic {
+                username: "u".into(),
+                password: "p".into(),
+            },
+            ..Default::default()
         },
-        ..HostServer::default()
+        ..Default::default()
     });
 
     let converted = client_config(&config);
@@ -426,4 +395,128 @@ fn a_credentialed_https_endpoint_is_allowed() {
         converted.servers.iter().any(|s| s.name == "remote"),
         "credentialed HTTPS endpoint must be preserved"
     );
+}
+
+/// A `config.toml` written before `McpServerConfig` became the contract's type
+/// plus two host-only keys. It must parse to the same servers, and writing it
+/// back must still read as the same document.
+const EXISTING_CONFIG_TOML: &str = r#"
+[mcp_client]
+enabled = true
+
+[mcp_client.client_identity]
+name = "custom-name"
+
+[mcp_client.registry_auth]
+smithery_api_key = "smithery-key"
+
+[[mcp_client.servers]]
+name = "weather"
+endpoint = "https://example.test/mcp"
+description = "Weather lookups"
+allowed_tools = ["forecast"]
+disallowed_tools = ["debug"]
+timeout_secs = 9
+expose = "direct"
+direct_tools = ["forecast"]
+
+[mcp_client.servers.auth]
+kind = "headers"
+headers = [{ name = "X-Client-Key", value = "k" }, { name = "X-Org", value = "o" }]
+
+[[mcp_client.servers]]
+name = "local"
+command = "npx"
+args = ["-y", "weather-mcp"]
+enabled = false
+
+[mcp_client.servers.env]
+API_KEY = "secret"
+"#;
+
+#[test]
+fn an_existing_config_toml_parses_with_the_same_shape_and_defaults() {
+    let config: Config = toml::from_str(EXISTING_CONFIG_TOML).expect("the existing shape parses");
+    let servers = &config.mcp_client.servers;
+    assert_eq!(servers.len(), 2);
+
+    let weather = &servers[0];
+    assert_eq!(weather.name, "weather");
+    assert_eq!(weather.endpoint, "https://example.test/mcp");
+    assert_eq!(weather.description.as_deref(), Some("Weather lookups"));
+    assert_eq!(weather.allowed_tools, ["forecast"]);
+    assert_eq!(weather.disallowed_tools, ["debug"]);
+    assert_eq!(weather.timeout_secs, 9);
+    assert!(weather.enabled, "enabled defaults to true");
+    assert_eq!(weather.expose, crate::config::McpToolExposure::Direct);
+    assert_eq!(weather.direct_tools, ["forecast"]);
+    assert_eq!(
+        weather.auth,
+        McpAuthConfig::Headers {
+            headers: vec![
+                HttpHeader::new("X-Client-Key", "k"),
+                HttpHeader::new("X-Org", "o"),
+            ]
+        }
+    );
+
+    let local = &servers[1];
+    assert_eq!(local.command, "npx");
+    assert_eq!(local.args, ["-y", "weather-mcp"]);
+    assert!(!local.enabled);
+    assert_eq!(local.timeout_secs, 30, "the timeout default is unchanged");
+    assert_eq!(local.auth, McpAuthConfig::None);
+    assert_eq!(local.expose, crate::config::McpToolExposure::Deferred);
+    assert!(local.direct_tools.is_empty());
+    assert_eq!(local.env.get("API_KEY").map(String::as_str), Some("secret"));
+
+    // The identity block keeps this application's defaults for whatever the
+    // file leaves out.
+    assert_eq!(config.mcp_client.client_identity.name, "custom-name");
+    assert_eq!(
+        config.mcp_client.client_identity.title,
+        "OpenHuman Core MCP Client"
+    );
+    assert_eq!(
+        config.mcp_client.registry_auth.smithery_api_key.as_deref(),
+        Some("smithery-key")
+    );
+
+    // And it converts to the module's configuration with the proxy defaulted.
+    let mut config = config;
+    config.gitbooks.enabled = false;
+    let converted = client_config(&config);
+    assert_eq!(converted.servers.len(), 2);
+    assert_eq!(
+        converted.registry_auth.smithery_api_key.as_deref(),
+        Some("smithery-key")
+    );
+}
+
+#[test]
+fn a_config_with_servers_writes_back_the_same_keys() {
+    let config: Config = toml::from_str(EXISTING_CONFIG_TOML).expect("parses");
+    let written = toml::to_string(&config).expect("a flattened server serializes");
+    let reread: Config = toml::from_str(&written).expect("the written file parses");
+    let doc: toml::Table = toml::from_str(&written).expect("a table");
+
+    let servers = doc["mcp_client"]["servers"].as_array().expect("servers");
+    let first = servers[0].as_table().expect("a table");
+    // Contract keys and host keys sit side by side in one table, as before.
+    for key in [
+        "name",
+        "endpoint",
+        "timeout_secs",
+        "allowed_tools",
+        "auth",
+        "expose",
+        "direct_tools",
+    ] {
+        assert!(first.contains_key(key), "missing `{key}` in {written}");
+    }
+    assert!(!first.contains_key("server"), "no wrapper key: {written}");
+    assert_eq!(first["expose"].as_str(), Some("direct"));
+    assert_eq!(first["auth"]["kind"].as_str(), Some("headers"));
+    assert_eq!(reread.mcp_client.servers[0].name, "weather");
+    assert_eq!(reread.mcp_client.servers[1].env["API_KEY"], "secret");
 }

@@ -193,8 +193,8 @@ async fn connect_imessage_persists_allowed_contacts() {
         .iter()
         .filter_map(toml::Value::as_str)
         .collect();
-    assert!(contacts.iter().any(|c| *c == "+15551234567"));
-    assert!(contacts.iter().any(|c| *c == "user@icloud.com"));
+    assert!(contacts.contains(&"+15551234567"));
+    assert!(contacts.contains(&"user@icloud.com"));
 }
 
 #[tokio::test]

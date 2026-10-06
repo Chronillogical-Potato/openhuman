@@ -44,31 +44,10 @@ impl VoiceCapability {
     }
 }
 
-/// API style for STT requests. Different providers use incompatible request
-/// shapes; the factory dispatches based on this discriminator.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum SttApiStyle {
-    /// OpenAI-compatible: multipart POST to `/audio/transcriptions`.
-    #[default]
-    OpenaiAudio,
-    /// Deepgram: POST binary audio to `/listen?model=<model>`.
-    Deepgram,
-    /// ElevenLabs Scribe: multipart POST to `/speech-to-text` with `model_id`
-    /// and an `xi-api-key` header.
-    ElevenLabs,
-}
-
-/// API style for TTS requests.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum TtsApiStyle {
-    /// OpenAI-compatible: POST JSON `{ model, voice, input }` to `/audio/speech`.
-    #[default]
-    OpenaiAudio,
-    /// ElevenLabs: POST JSON `{ text, model_id }` to `/text-to-speech/<voice_id>`.
-    ElevenLabs,
-}
+// The API-style enums live with the HTTP clients that dispatch on them
+// (`tinyinference_voice::external_{stt,tts}`); the TOML shape (`rename_all = "lowercase"`) and JSON schema are unchanged.
+use tinyinference_voice::external_stt::SttApiStyle;
+use tinyinference_voice::external_tts::TtsApiStyle;
 
 /// Endpoint config for one voice (STT/TTS) provider.
 ///

@@ -1,16 +1,13 @@
 use super::*;
-use crate::agent::messages::ChatMessage;
 use std::fs;
 use tempfile::TempDir;
+use tinyagents_session::transcript::TranscriptMessage;
 use tinyagents_session::transcript::{read_transcript, write_transcript, TranscriptMeta};
 
 fn durable_messages(
-    messages: impl IntoIterator<Item = ChatMessage>,
+    messages: impl IntoIterator<Item = TranscriptMessage>,
 ) -> Vec<tinyagents_session::transcript::TranscriptMessage> {
-    messages
-        .into_iter()
-        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
-        .collect()
+    messages.into_iter().collect()
 }
 
 fn meta() -> TranscriptMeta {
@@ -41,9 +38,9 @@ fn write_tainted_transcript(workspace_dir: &Path, stem: &str, system_body: &str)
     fs::create_dir_all(&raw_dir).unwrap();
     let path = raw_dir.join(format!("{stem}.jsonl"));
     let messages = vec![
-        ChatMessage::system(system_body),
-        ChatMessage::user("hello"),
-        ChatMessage::assistant("hi"),
+        TranscriptMessage::system(system_body),
+        TranscriptMessage::user("hello"),
+        TranscriptMessage::assistant("hi"),
     ];
     write_transcript(&path, &durable_messages(messages), &meta(), None).unwrap();
     path
@@ -162,11 +159,9 @@ fn sanitize_only_touches_first_system_message() {
     // Add a later user message that also mentions PROFILE.md — it must
     // survive the migration unchanged.
     let mut session = read_transcript(&path).unwrap();
-    session
-        .messages
-        .push(crate::agent::messages::transcript_message_from_chat(
-            &ChatMessage::user("Could you show me what was in ### PROFILE.md earlier?"),
-        ));
+    session.messages.push(TranscriptMessage::user(
+        "Could you show me what was in ### PROFILE.md earlier?",
+    ));
     write_transcript(&path, &session.messages, &session.meta, None).unwrap();
 
     let mutated = process_transcript(&path).unwrap();
@@ -196,8 +191,8 @@ fn run_cleans_flat_and_legacy_dirs_in_one_pass() {
     fs::create_dir_all(&legacy_dir).unwrap();
     let legacy_path = legacy_dir.join("1700000001_main.jsonl");
     let messages = vec![
-        ChatMessage::system(prompt_with_profile_block("style/legacy")),
-        ChatMessage::user("legacy"),
+        TranscriptMessage::system(prompt_with_profile_block("style/legacy")),
+        TranscriptMessage::user("legacy"),
     ];
     write_transcript(&legacy_path, &durable_messages(messages), &meta(), None).unwrap();
 
@@ -376,8 +371,8 @@ fn run_leaves_clean_transcripts_byte_identical() {
     fs::create_dir_all(&raw_dir).unwrap();
     let path = raw_dir.join("1700000000_main.jsonl");
     let messages = vec![
-        ChatMessage::system("## Identity\n\nNo profile here.\n\n### Tools\n\n- shell\n"),
-        ChatMessage::user("hi"),
+        TranscriptMessage::system("## Identity\n\nNo profile here.\n\n### Tools\n\n- shell\n"),
+        TranscriptMessage::user("hi"),
     ];
     write_transcript(&path, &durable_messages(messages), &meta(), None).unwrap();
     let before = fs::read(&path).unwrap();

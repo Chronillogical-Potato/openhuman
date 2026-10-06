@@ -93,7 +93,7 @@ pub fn resolve_backend_transport() -> Result<Arc<dyn BackendTransport>, BackendT
     }
     #[cfg(test)]
     {
-        return Ok(super::plain::PlainHttpTransport::fresh());
+        Ok(super::plain::PlainHttpTransport::fresh())
     }
     #[cfg(not(test))]
     {

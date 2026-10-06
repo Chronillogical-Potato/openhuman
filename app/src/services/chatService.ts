@@ -8,6 +8,7 @@
  */
 import debug from 'debug';
 
+import type { ChatErrorCopyParams } from '../lib/chatErrorCopy';
 import { callCoreRpc } from './coreRpcClient';
 import { socketService } from './socketService';
 
@@ -124,8 +125,6 @@ export interface ChatDoneEvent {
    * Absent on synthetic done events that never ran a real turn.
    */
   usage?: TurnUsageWire | null;
-  /** Emoji reaction decided by the local model (if any). */
-  reaction_emoji?: string | null;
   /** Total segments when the response was split into bubbles by Rust. */
   segment_total?: number | null;
   /** Memory citations captured during retrieval for this response. */
@@ -168,7 +167,6 @@ export interface ChatSegmentEvent {
   seq?: number;
   segment_index: number;
   segment_total: number;
-  reaction_emoji?: string | null;
   citations?: ChatCitation[] | null;
 }
 
@@ -206,6 +204,14 @@ export interface ChatErrorEvent {
    */
   client_id?: string;
   message: string;
+  /**
+   * Stable i18n key of the core's failure-copy table row behind `message`
+   * (`chat_error.<class>`). Absent on error types without a table row.
+   * Render with `chatErrorCopyText`, which falls back to `message`.
+   */
+  copy_key?: string;
+  /** Values the translated copy needs (retry-after seconds, provider, detail). */
+  copy_params?: ChatErrorCopyParams;
   error_type:
     | 'network'
     | 'timeout'
@@ -482,7 +488,7 @@ export interface ArtifactReadyEvent {
    * wrong `<workspace>/artifacts/` tree after a workspace switch.
    */
   workspace_dir: string;
-  /** Relative path under `<workspace>/artifacts/`, e.g. `<uuid>/deck.pptx`. */
+  /** File name relative to its root: `deck.pptx` in the visible files folder, or `<uuid>/deck.pptx` for a legacy record. */
   path: string;
   /** Final on-disk size in bytes. */
   size_bytes: number;
@@ -530,7 +536,7 @@ export interface ArtifactPendingEvent {
   title: string;
   /** Absolute workspace root — see {@link ArtifactReadyEvent.workspace_dir}. */
   workspace_dir: string;
-  /** Relative path under `<workspace>/artifacts/`, e.g. `<uuid>/deck.pptx`. */
+  /** File name relative to its root: `deck.pptx` in the visible files folder, or `<uuid>/deck.pptx` for a legacy record. */
   path: string;
   /** See {@link ArtifactReadyEvent.tool_call_id}. */
   tool_call_id?: string;
@@ -1607,6 +1613,12 @@ interface ChatSendParams {
    * (default) aborts the running turn.
    */
   queueMode?: QueueMode | null;
+  /**
+   * Thinking level for this thread: `none` | `low` | `medium` | `high` |
+   * `xhigh`, or `default` to hand the choice back to config/provider. Omitted
+   * leaves the thread's previous choice in place.
+   */
+  reasoningEffort?: string | null;
 }
 
 /**
@@ -1639,6 +1651,7 @@ export async function chatSend(params: ChatSendParams): Promise<string | undefin
       source: params.source ?? undefined,
       session_id: params.sessionId ?? undefined,
       queue_mode: params.queueMode ?? undefined,
+      reasoning_effort: params.reasoningEffort ?? undefined,
     },
   });
 

@@ -29,7 +29,7 @@ async fn outside_agent_turn_is_rejected() {
 
 #[test]
 fn running_wait_message_includes_agent_id_and_tick_instruction() {
-    let reference = running_subagents::SubagentResumeRef {
+    let reference = tinyagents_orchestration::subagent::SubagentResumeRef {
         task_id: "sub-1".into(),
         agent_id: "researcher".into(),
         subagent_session_id: Some("subsess-1".into()),

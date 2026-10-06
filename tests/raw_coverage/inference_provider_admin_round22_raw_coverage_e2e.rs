@@ -4,6 +4,7 @@
 //! and temp PATH binaries. This suite must not invoke real Ollama, MLX, Python,
 //! whisper, piper, local AI binaries, models, or downloads.
 
+use crate::env_guard::EnvVarGuard;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -22,14 +23,14 @@ use openhuman_core::config::schema::cloud_providers::{
     AuthStyle as CloudAuthStyle, CloudProviderCreds,
 };
 use openhuman_core::config::Config;
-use openhuman_core::security::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
-};
 use openhuman_core::inference::host_runtime::LocalAiService;
 use openhuman_core::inference::provider::factory::{
     auth_key_for_slug, create_chat_model_from_string_with_model_id,
 };
 use openhuman_core::inference::provider::list_configured_models;
+use openhuman_core::security::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 
 #[derive(Clone, Default)]
 struct MockState {
@@ -44,42 +45,6 @@ struct SeenRequest {
     body: Value,
 }
 
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
-        let previous = std::env::var_os(key);
-        // SAFETY: this integration test is validated with --test-threads=1.
-        unsafe { std::env::set_var(key, value) };
-        Self { key, previous }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let previous = std::env::var_os(key);
-        // SAFETY: this integration test is validated with --test-threads=1.
-        unsafe { std::env::remove_var(key) };
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.previous {
-            Some(value) => {
-                // SAFETY: mutation is serialized by `env_lock()` (see below).
-                unsafe { std::env::set_var(self.key, value) }
-            }
-            None => {
-                // SAFETY: mutation is serialized by `env_lock()` (see below).
-                unsafe { std::env::remove_var(self.key) }
-            }
-        }
-    }
-}
-
 /// Serializes the whole suite's process-global env access.
 ///
 /// Several tests mutate `OPENHUMAN_WORKSPACE` / `OPENHUMAN_OLLAMA_BASE_URL` /
@@ -89,18 +54,23 @@ impl Drop for EnvVarGuard {
 /// as a flaky failure under `cargo llvm-cov` (the coverage job does not pass
 /// `--test-threads=1`). Every test takes this guard up front so the suite is
 /// effectively serialized regardless of the runner's thread count.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 #[tokio::test]
 async fn provider_admin_model_listing_covers_openrouter_validation_and_local_synthesis() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -183,7 +153,7 @@ async fn provider_admin_model_listing_covers_openrouter_validation_and_local_syn
 
 #[tokio::test]
 async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -223,13 +193,9 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
     .expect("store app session");
     let _workspace = EnvVarGuard::set("OPENHUMAN_WORKSPACE", config.config_path.parent().unwrap());
 
-    let (legacy, legacy_model) = create_chat_model_from_string_with_model_id(
-        "chat",
-        "legacy:requested-model",
-        &config,
-        0.4,
-    )
-    .expect("legacy direct model");
+    let (legacy, legacy_model) =
+        create_chat_model_from_string_with_model_id("chat", "legacy:requested-model", &config, 0.4)
+            .expect("legacy direct model");
     assert_eq!(legacy_model, "requested-model");
     let legacy_response = legacy
         .invoke(
@@ -238,18 +204,11 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
         )
         .await
         .expect("legacy chat");
-    assert_eq!(
-        legacy_response.text(),
-        "legacy direct ok"
-    );
+    assert_eq!(legacy_response.text(), "legacy direct ok");
 
-    let (other, other_model) = create_chat_model_from_string_with_model_id(
-        "chat",
-        "other:other-model",
-        &config,
-        0.4,
-    )
-    .expect("other model");
+    let (other, other_model) =
+        create_chat_model_from_string_with_model_id("chat", "other:other-model", &config, 0.4)
+            .expect("other model");
     let other_text = other
         .invoke(
             &(),
@@ -265,9 +224,9 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
         &config,
         0.4,
     ) {
-            Ok(_) => panic!("expected abstract tier error"),
-            Err(err) => err,
-        };
+        Ok(_) => panic!("expected abstract tier error"),
+        Err(err) => err,
+    };
     assert!(abstract_err
         .to_string()
         .contains("has no concrete default_model configured"));
@@ -287,8 +246,8 @@ async fn factory_covers_legacy_api_key_scoping_and_abstract_model_errors() {
 }
 
 #[tokio::test]
-async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_fake_bins() {
-    let _env = env_lock();
+async fn local_admin_covers_diagnostics_errors_and_probe_with_fake_bins() {
+    let _env = env_lock_async().await;
     let (base, _state) = serve_mock().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -297,10 +256,6 @@ async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_f
     config.local_ai.base_url = Some(base.clone());
     config.local_ai.chat_model_id = "gemma3n:e4b-it-q8_0".to_string();
     config.local_ai.embedding_model_id = "all-minilm:latest".to_string();
-    config.local_ai.selected_tier = Some("custom".to_string());
-    config.local_ai.preload_embedding_model = true;
-    config.local_ai.preload_stt_model = true;
-    config.local_ai.preload_tts_voice = true;
     config.local_ai.stt_model_id = "round22-stt".to_string();
     config.local_ai.tts_voice_id = "round22-voice".to_string();
 
@@ -345,21 +300,16 @@ async fn local_admin_covers_diagnostics_errors_assets_status_and_shutdown_with_f
         .unwrap()
         .contains("not running or not reachable"));
 
-    let assets = service.assets_status(&runtime).await.expect("assets status");
-    assert!(assets.ollama_available);
-    assert_eq!(assets.chat.state, "missing");
-    assert_eq!(assets.embedding.state, "missing");
-    assert_ne!(assets.tts.state, "ready");
-
-    let child = tokio::process::Command::new("/bin/sh")
-        .arg("-c")
-        .arg("sleep 30")
-        .spawn()
-        .expect("spawn fake owned ollama child");
-    service.inject_owned_ollama(child);
-    assert!(service.has_owned_ollama());
-    service.shutdown_owned_ollama(&runtime).await;
-    assert!(!service.has_owned_ollama());
+    // Missing models are reported, never pulled: bootstrap stays a read-only
+    // probe of the reachable endpoint.
+    service.bootstrap(&runtime).await;
+    assert_eq!(service.status().state, "ready");
+    service.bootstrap(&tags_500_runtime).await;
+    assert_eq!(
+        service.status().state,
+        "ready",
+        "a ready status is kept until reset_to_idle"
+    );
 }
 
 async fn serve_mock() -> (String, MockState) {
@@ -535,9 +485,11 @@ fn provider_entry(
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.api_url = Some("http://127.0.0.1:9".to_string());
     config

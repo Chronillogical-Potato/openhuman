@@ -96,54 +96,6 @@ fn all_controller_schemas_covers_every_supported_function() {
 }
 
 #[test]
-fn all_registered_controllers_has_handler_per_schema() {
-    let controllers = all_registered_controllers();
-    assert_eq!(controllers.len(), 36);
-    let names: Vec<_> = controllers.iter().map(|c| c.schema.function).collect();
-    assert_eq!(
-        names,
-        vec![
-            "create",
-            "duplicate",
-            "validate",
-            "import",
-            "get",
-            "list",
-            "list_connections",
-            "update",
-            "delete",
-            "set_enabled",
-            "run",
-            "run_detached",
-            "resume",
-            "cancel_run",
-            "list_runs",
-            "list_all_runs",
-            "get_run",
-            "prune_runs",
-            "build",
-            "build_cancel",
-            "discover",
-            "list_suggestions",
-            "dismiss_suggestion",
-            "mark_suggestion_built",
-            "draft_create",
-            "draft_get",
-            "draft_update",
-            "draft_list",
-            "draft_delete",
-            "draft_promote",
-            "get_history",
-            "rollback",
-            "search_tool_catalog",
-            "get_tool_contract",
-            "required_connections",
-            "approval_manifest",
-        ]
-    );
-}
-
-#[test]
 fn schemas_import_requires_graph_and_optional_format() {
     let s = schemas("import");
     assert_eq!(s.namespace, "flows");
@@ -370,13 +322,6 @@ fn read_flow_stream_target_generates_request_id_when_absent() {
     // A uuid was minted — non-empty and not the thread id.
     assert!(!target.request_id.is_empty());
     assert_ne!(target.request_id, target.thread_id);
-}
-
-#[test]
-fn schemas_unknown_function_returns_placeholder() {
-    let s = schemas("does-not-exist");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.outputs[0].name, "error");
 }
 
 #[test]

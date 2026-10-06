@@ -6,7 +6,7 @@ other.
 | | Tier 1 — routing | Tier 2 — comprehension |
 |---|---|---|
 | Question | Is the agent wired so a model *could* follow its prompt? | Does a real model actually follow it? |
-| Where | `tests/agent_prompt_comprehension_e2e.rs` | `scripts/prompt-eval.sh` + `scripts/prompt-eval/cases.json` |
+| Where | `tests/in_process/agent_prompt_comprehension_e2e.rs` | `scripts/prompt-eval.sh` + `scripts/prompt-eval/cases.json` |
 | Model | Scripted completions (no model) | The real backend model |
 | Cost | Free, deterministic | Money per run, non-deterministic |
 | CI | Runs with the Rust integration tests | **Never.** Refuses to run when `CI=true` |
@@ -37,7 +37,7 @@ Fleet-wide static coverage of all agents lives in the prompt tests under
 `crates/openhuman-core/src/agent/registry/agents/`, not here.
 
 ```sh
-cargo test -p openhuman --test agent_prompt_comprehension_e2e
+cargo test -p openhuman-cli --test in_process_all agent_prompt_comprehension_e2e
 ```
 
 ## Tier 2

@@ -26,7 +26,7 @@ impl Tool for PingTool {
 #[tokio::test]
 async fn channel_turn_runs_through_the_graph() {
     let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(PingTool)]);
-    let mut history = vec![ChatMessage::user("ping please")];
+    let mut history = vec![TranscriptMessage::user("ping please")];
     let scripted: Arc<dyn ChatModel<()>> = Arc::new(ScriptedModel::new(vec![
         ModelResponse {
             message: AssistantMessage {
@@ -62,6 +62,7 @@ async fn channel_turn_runs_through_the_graph() {
         MultimodalConfig::default(),
         MultimodalFileConfig::default(),
         None,
+        None,
     )
     .await
     .expect("channel graph turn runs");
@@ -80,9 +81,9 @@ async fn channel_turn_runs_through_the_graph() {
 #[tokio::test]
 async fn channel_turn_pauses_on_ask_user_clarification() {
     let registry: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(
-        crate::agent::tools::AskClarificationTool::new(),
+        tinyagents_harness::tools::AskClarificationTool::new(),
     )]);
-    let mut history = vec![ChatMessage::user("build me a workflow")];
+    let mut history = vec![TranscriptMessage::user("build me a workflow")];
     let scripted: Arc<dyn ChatModel<()>> = Arc::new(ScriptedModel::new(vec![
         ModelResponse {
             message: AssistantMessage {
@@ -122,6 +123,7 @@ async fn channel_turn_pauses_on_ask_user_clarification() {
         MultimodalConfig::default(),
         MultimodalFileConfig::default(),
         None,
+        None,
     )
     .await
     .expect("channel graph turn runs");
@@ -136,4 +138,35 @@ async fn channel_turn_pauses_on_ask_user_clarification() {
         last.content, "Which three sources?",
         "the question stands in for the final assistant turn the paused run never produced"
     );
+}
+
+#[test]
+fn channel_current_images_are_available_to_vision_delegation() {
+    use tinyagents_session::transcript::TranscriptPart;
+    let mut current = TranscriptMessage::user("inspect the attached image");
+    current.parts = Some(vec![
+        TranscriptPart::Text {
+            text: current.content.clone(),
+        },
+        TranscriptPart::Image {
+            url: "uploads/thread/image.png".into(),
+        },
+    ]);
+    let history = vec![
+        TranscriptMessage::user("[IMAGE:uploads/old.png]"),
+        current,
+        TranscriptMessage::assistant("delegating"),
+    ];
+    let mut context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    seed_channel_attachments(&mut context, &history);
+    assert_eq!(
+        context.attachment_placeholders.as_ref(),
+        &vec!["[IMAGE:uploads/thread/image.png]".to_string()]
+    );
+    assert!(crate::agent::attachments::should_forward_parent_images(
+        "describe the image"
+    ));
+    assert!(!crate::agent::attachments::should_forward_parent_images(
+        "[IMAGE:uploads/explicit.png]"
+    ));
 }

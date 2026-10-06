@@ -62,22 +62,6 @@ struct LocalAiTtsParams {
     output_path: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-struct LocalAiDownloadAssetParams {
-    capability: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LocalAiInstallPiperParams {
-    /// Optional Piper voice id (e.g. `en_US-lessac-medium`). Defaults to
-    /// the bundled US-English Lessac voice.
-    #[serde(default)]
-    voice_id: Option<String>,
-    /// When true, blow away any existing voice file and re-download.
-    #[serde(default)]
-    force: Option<bool>,
-}
-
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("agent_chat"),
@@ -85,11 +69,6 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
         schemas("transcribe"),
         schemas("transcribe_bytes"),
         schemas("tts"),
-        schemas("assets_status"),
-        schemas("downloads_progress"),
-        schemas("download_asset"),
-        schemas("install_piper"),
-        schemas("piper_install_status"),
         schemas("test_connection"),
     ]
 }
@@ -115,26 +94,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("tts"),
             handler: handle_local_ai_tts,
-        },
-        RegisteredController {
-            schema: schemas("assets_status"),
-            handler: handle_local_ai_assets_status,
-        },
-        RegisteredController {
-            schema: schemas("downloads_progress"),
-            handler: handle_local_ai_downloads_progress,
-        },
-        RegisteredController {
-            schema: schemas("download_asset"),
-            handler: handle_local_ai_download_asset,
-        },
-        RegisteredController {
-            schema: schemas("install_piper"),
-            handler: handle_local_ai_install_piper,
-        },
-        RegisteredController {
-            schema: schemas("piper_install_status"),
-            handler: handle_local_ai_piper_install_status,
         },
         RegisteredController {
             schema: schemas("test_connection"),
@@ -179,7 +138,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                      endpoint alone.",
                 ),
             ],
-            outputs: vec![json_output("response", "Agent response payload.")],
+            outputs: vec![json_output(
+                "response",
+                "Agent response payload: `result` (the reply text), `logs`, `hit_cap` (true when \
+                 the turn stopped at its tool-iteration cap instead of finishing) and, only when \
+                 hit_cap is true, `checkpoint` (the resumable checkpoint text, equal to `result`).",
+            )],
         },
         "agent_chat_simple" => ControllerSchema {
             namespace: "inference",
@@ -228,50 +192,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
             ],
             outputs: vec![json_output("tts", "TTS result payload.")],
         },
-        "assets_status" => ControllerSchema {
-            namespace: "inference",
-            function: "assets_status",
-            description: "Get local AI asset installation status.",
-            inputs: vec![],
-            outputs: vec![json_output("status", "Assets status payload.")],
-        },
-        "downloads_progress" => ControllerSchema {
-            namespace: "inference",
-            function: "downloads_progress",
-            description: "Get local AI download progress.",
-            inputs: vec![],
-            outputs: vec![json_output("progress", "Download progress payload.")],
-        },
-        "download_asset" => ControllerSchema {
-            namespace: "inference",
-            function: "download_asset",
-            description: "Trigger download for one local AI asset capability.",
-            inputs: vec![required_string("capability", "Asset capability id.")],
-            outputs: vec![json_output("status", "Assets status payload.")],
-        },
-        "install_piper" => ControllerSchema {
-            namespace: "inference",
-            function: "install_piper",
-            description: "Download the Piper binary archive and the bundled en_US-lessac-medium voice files into the workspace.",
-            inputs: vec![
-                optional_string(
-                    "voice_id",
-                    "Piper voice id (e.g. en_US-lessac-medium). Defaults to en_US-lessac-medium.",
-                ),
-                optional_bool(
-                    "force",
-                    "When true, re-download even if the workspace already has the voice files.",
-                ),
-            ],
-            outputs: vec![json_output("status", "Piper install status payload.")],
-        },
-        "piper_install_status" => ControllerSchema {
-            namespace: "inference",
-            function: "piper_install_status",
-            description: "Query the Piper install state (missing / installing / installed / broken / error) plus per-stage download progress.",
-            inputs: vec![],
-            outputs: vec![json_output("status", "Piper install status payload.")],
-        },
         "test_connection" => ControllerSchema {
             namespace: "inference",
             function: "test_connection",
@@ -304,19 +224,18 @@ fn handle_agent_chat(params: Map<String, Value>) -> ControllerFuture {
             }
             _ => crate::inference::host_runtime::ops::AgentChatTarget::Orchestrator,
         };
-        to_json(
-            crate::inference::host_runtime::ops::agent_chat_for(
-                &mut config,
-                target,
-                &p.message,
-                p.model_override,
-                p.temperature,
-                p.thread_id,
-                p.cwd,
-                crate::config::schema::EphemeralRoute::from_params(p.inference_url, p.api_key),
-            )
-            .await?,
+        crate::inference::host_runtime::ops::agent_chat_reply_for(
+            &mut config,
+            target,
+            &p.message,
+            p.model_override,
+            p.temperature,
+            p.thread_id,
+            p.cwd,
+            crate::config::schema::EphemeralRoute::from_params(p.inference_url, p.api_key),
         )
+        .await?
+        .into_rpc_json()
     })
 }
 
@@ -378,109 +297,11 @@ fn handle_local_ai_tts(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-fn handle_local_ai_assets_status(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::inference::host_runtime::ops::local_ai_assets_status(&config).await?)
-    })
-}
-
-fn handle_local_ai_downloads_progress(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(crate::inference::host_runtime::ops::local_ai_downloads_progress(&config).await?)
-    })
-}
-
-fn handle_local_ai_download_asset(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiDownloadAssetParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::inference::host_runtime::ops::local_ai_download_asset(
-                &config,
-                p.capability.trim(),
-            )
-            .await?,
-        )
-    })
-}
-
-// The install RPCs are intentionally fire-and-forget: a binary+model
-// download can take minutes (1.6 GB GGML model, ~5 MB Piper binary
-// archive) but the core JSON-RPC client times out at
-// VITE_CORE_RPC_TIMEOUT_MS (default 30s). Blocking the handler on the
-// full download would force the UI into a retry loop that deletes the
-// in-flight .part on each retry, looping forever.
-//
-// Shape: mark the engine as `installing(0%)` in the shared status table,
-// spawn the real install on a background tokio task, return the
-// just-written status immediately. The UI's status-polling RPC
-// (handle_local_ai_*_install_status) reads from the same table and
-// renders real-time progress. The eventual `installed` / `error`
-// transition lands on the table when the background task finishes;
-// no caller awaits it.
-
-fn handle_local_ai_install_piper(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<LocalAiInstallPiperParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        let force = p.force.unwrap_or(false);
-
-        tinyinference_local::download::write_status(
-            tinyinference_local::download::VoiceInstallStatus {
-                engine: tinyinference_local::download::ENGINE_PIPER.to_string(),
-                state: tinyinference_local::download::VoiceInstallState::Installing,
-                progress: Some(0),
-                downloaded_bytes: None,
-                total_bytes: None,
-                stage: Some("queued".to_string()),
-                error_detail: None,
-            },
-        );
-
-        tracing::debug!(
-            voice_id = ?p.voice_id,
-            force,
-            "[voice-install:piper] spawning background install"
-        );
-        let voice_id = p.voice_id.clone();
-        tokio::spawn(async move {
-            let runtime = crate::inference::local_runtime_config(&config);
-            let install = tinyinference_local::piper::PiperInstall::new(
-                tinyinference_local::service::paths::workspace_piper_dir(&runtime),
-            );
-            if let Err(e) =
-                tinyinference_local::piper::install_piper(&install, voice_id, force).await
-            {
-                log::warn!("[voice-install:piper] background install failed: {e}");
-            }
-        });
-
-        let status =
-            tinyinference_local::download::read_status(tinyinference_local::download::ENGINE_PIPER);
-        serde_json::to_value(status).map_err(|e| format!("serialize piper status: {e}"))
-    })
-}
-
 fn handle_local_ai_test_connection(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = deserialize_params::<LocalAiTestConnectionParams>(params)?;
         let result = tinyinference_local::service::test_ollama_connection(&p.url).await?;
         serde_json::to_value(result).map_err(|e| format!("serialize test_connection result: {e}"))
-    })
-}
-
-fn handle_local_ai_piper_install_status(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let runtime = crate::inference::local_runtime_config(&config);
-        let install = tinyinference_local::piper::PiperInstall::new(
-            tinyinference_local::service::paths::workspace_piper_dir(&runtime),
-        );
-        let voice_id = tinyinference_local::models::effective_tts_voice_id(&config);
-        let status = tinyinference_local::piper::status(&install, &voice_id);
-        serde_json::to_value(status).map_err(|e| format!("serialize piper status: {e}"))
     })
 }
 
@@ -506,28 +327,10 @@ fn optional_string(name: &'static str, comment: &'static str) -> FieldSchema {
     }
 }
 
-fn optional_bool(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-        comment,
-        required: false,
-    }
-}
-
 fn optional_f64(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,
         ty: TypeSchema::Option(Box::new(TypeSchema::F64)),
-        comment,
-        required: false,
-    }
-}
-
-fn optional_u64(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
         comment,
         required: false,
     }

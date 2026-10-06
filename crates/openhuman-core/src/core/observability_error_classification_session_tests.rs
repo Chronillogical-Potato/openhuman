@@ -520,6 +520,32 @@ fn transient_filter_keeps_aggregate_all_exhausted() {
 
 #[cfg(feature = "crash-reporting")]
 #[test]
+fn all_exhausted_aggregate_is_dropped_only_when_every_attempt_is_transient() {
+    let tags = [
+        ("domain", "llm_provider"),
+        ("failure", "all_exhausted"),
+        ("attempts", "2"),
+    ];
+    let transient = event_with_tags_and_message(
+        &tags,
+        "All providers/models failed. Attempts: openai API error (503 Service Unavailable); custom_openai API error (502 Bad Gateway)",
+    );
+    assert!(
+        is_all_transient_provider_exhaustion_event(&transient),
+        "all-transient aggregate should not recreate per-attempt Sentry noise"
+    );
+    let mixed = event_with_tags_and_message(
+        &tags,
+        "All providers/models failed. Attempts: openai API error (401 Unauthorized); custom_openai API error (503 Service Unavailable)",
+    );
+    assert!(
+        !is_all_transient_provider_exhaustion_event(&mixed),
+        "mixed/permanent aggregate should remain actionable"
+    );
+}
+
+#[cfg(feature = "crash-reporting")]
+#[test]
 fn transient_filter_keeps_events_with_no_status_tag() {
     let event = event_with_tags(&[("domain", "llm_provider"), ("failure", "non_2xx")]);
     assert!(

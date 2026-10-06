@@ -8,7 +8,7 @@
 //!
 //! Frame cap: 64 KB. Rate limit: callers are expected to stay ≤ 100 frames/s.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::platform::socket::global_socket_manager;
@@ -16,12 +16,6 @@ use crate::platform::socket::global_socket_manager;
 // ---------------------------------------------------------------------------
 // Wire types
 // ---------------------------------------------------------------------------
-
-/// Payload emitted as `tunnel:register` to the backend.
-#[derive(Debug, Serialize)]
-pub struct TunnelRegisterPayload {
-    pub role: String, // always "core"
-}
 
 /// Response from the `tunnel:register` ACK callback.
 ///
@@ -111,14 +105,6 @@ where
     }
 }
 
-/// Payload emitted as `tunnel:connect` to join a channel.
-#[derive(Debug, Serialize)]
-pub struct TunnelConnectPayload {
-    #[serde(rename = "channelId")]
-    pub channel_id: String,
-    pub role: String, // "core" or "client"
-}
-
 /// Inbound `tunnel:peer-status` event payload.
 #[derive(Debug, Clone, Deserialize)]
 pub struct TunnelPeerStatus {
@@ -134,14 +120,6 @@ pub struct TunnelFrame {
     pub channel_id: String,
     /// Base64url-encoded encrypted frame bytes.
     pub payload: String,
-}
-
-/// Outbound `tunnel:frame` emit payload.
-#[derive(Debug, Serialize)]
-struct TunnelFrameEmit<'a> {
-    #[serde(rename = "channelId")]
-    channel_id: &'a str,
-    payload: &'a str,
 }
 
 // ---------------------------------------------------------------------------

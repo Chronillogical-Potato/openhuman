@@ -145,12 +145,6 @@ pub fn kv_set(
     tinyflows_sqlite::flows::kv_set(&dir(config), namespace, key, value)
 }
 
-/// Binds [`tinyflows_sqlite::flows::kv_delete`] to this host's catalog directory.
-#[inline]
-pub fn kv_delete(config: &Config, namespace: &str, key: &str) -> Result<()> {
-    tinyflows_sqlite::flows::kv_delete(&dir(config), namespace, key)
-}
-
 /// Binds [`tinyflows_sqlite::flows::insert_flow_run`] to this host's catalog directory.
 #[inline]
 pub fn insert_flow_run(

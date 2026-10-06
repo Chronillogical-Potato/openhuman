@@ -1,6 +1,5 @@
 //! Core channel connect/disconnect/status operations.
 
-mod catalog;
 mod connect_channel;
 mod disconnect;
 mod email;
@@ -9,8 +8,6 @@ pub(super) mod shared;
 mod status;
 mod test_channel;
 
-#[allow(unused_imports)]
-pub(crate) use catalog::{describe_channel, list_channels};
 pub use connect_channel::connect_channel;
 pub use disconnect::disconnect_channel;
 #[cfg(test)]

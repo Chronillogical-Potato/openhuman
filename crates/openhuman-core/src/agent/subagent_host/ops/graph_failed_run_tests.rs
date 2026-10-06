@@ -43,7 +43,7 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
     let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(EchoTool)]);
     let mut allowed = HashSet::new();
     allowed.insert("echo".to_string());
-    let mut history = vec![ChatMessage::user("please echo twice")];
+    let mut history = vec![TranscriptMessage::user("please echo twice")];
     let workspace = tempfile::TempDir::new().expect("temp workspace");
     let stem = "root-session__failed_run";
 
@@ -110,8 +110,7 @@ async fn failed_subagent_run_keeps_its_unanswered_round_out_of_history() {
     let marker_line = raw
         .lines()
         .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
-        .filter(|line| line.get("role").and_then(|role| role.as_str()) == Some("assistant"))
-        .last()
+        .rfind(|line| line.get("role").and_then(|role| role.as_str()) == Some("assistant"))
         .expect("failure marker line");
     assert_eq!(
         marker_line.get("iteration").and_then(|n| n.as_u64()),
@@ -128,7 +127,7 @@ fn failed_run_history_keeps_the_original_seed_not_the_provider_bound_one() {
     use crate::agent::tinyagents::TranscriptSnapshot;
     use tinyinference_llm::message::Message;
 
-    let original = vec![ChatMessage::user("describe [IMAGE:attachment-1]")];
+    let original = vec![TranscriptMessage::user("describe [IMAGE:attachment-1]")];
     let snapshot = TranscriptSnapshot {
         messages: vec![
             // The provider-bound seed: the placeholder expanded to image data.

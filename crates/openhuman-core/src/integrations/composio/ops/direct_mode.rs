@@ -9,14 +9,14 @@ use super::super::{
 };
 use super::error_utils::OpResult;
 
-async fn validate_direct_api_key_before_store(api_key: &str) -> OpResult<()> {
+async fn validate_direct_api_key_before_store(config: &Config, api_key: &str) -> OpResult<()> {
     let key_id = direct_auth::fingerprint_api_key(api_key);
     direct_auth::reset_direct_auth_failure(key_id);
 
     let direct = create_direct_client_for_api_key(api_key)
         .map_err(|e| format!("[composio-direct] validate_api_key: {e}"))?;
 
-    match direct_list_connections(&direct).await {
+    match direct_list_connections(config, &direct).await {
         Ok(_) => {
             direct_auth::record_direct_auth_success(key_id);
             tracing::debug!("[composio-direct] validate_api_key: probe succeeded");
@@ -85,7 +85,7 @@ pub async fn composio_set_api_key(
         activate_direct,
         "[composio-direct] set_api_key (redacted)"
     );
-    validate_direct_api_key_before_store(trimmed).await?;
+    validate_direct_api_key_before_store(config, trimmed).await?;
 
     crate::security::credentials::store_composio_api_key(config, trimmed)
         .await

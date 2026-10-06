@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 use crate::config::{default_root_openhuman_dir, user_openhuman_dir, write_active_user_id, Config};
 use crate::security::credentials::session_support::local_session_user_id;
 use crate::security::credentials::{
@@ -13,36 +14,6 @@ use serde_json::json;
 use tempfile::TempDir;
 use tokio::net::TcpListener;
 
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvVarGuard {
-    fn set_to_path(key: &'static str, path: &std::path::Path) -> Self {
-        let previous = std::env::var_os(key);
-        unsafe { std::env::set_var(key, path) };
-        Self { key, previous }
-    }
-
-    fn set(key: &'static str, value: &str) -> Self {
-        let previous = std::env::var_os(key);
-        unsafe { std::env::set_var(key, value) };
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match self.previous.take() {
-                Some(value) => std::env::set_var(self.key, value),
-                None => std::env::remove_var(self.key),
-            }
-        }
-    }
-}
-
 fn test_config(tmp: &TempDir) -> Config {
     let config = Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -50,17 +21,6 @@ fn test_config(tmp: &TempDir) -> Config {
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     };
-    // Storing a session asks the memory driver to re-embed, and resolving a
-    // driver that nothing has installed means attempting to load the compiled
-    // module — which a unit test cannot do, but takes seconds to fail at.
-    // These are credentials tests; binding is not what they are about, and one
-    // of them asserts a latency budget that the attempt blows straight through.
-    crate::memory::binding::install_diagnostics_for_test(
-        &config.workspace_dir,
-        &config.subsystems.memory,
-        Default::default(),
-        Default::default(),
-    );
     config
 }
 

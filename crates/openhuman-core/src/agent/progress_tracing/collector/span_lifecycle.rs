@@ -3,8 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::agent::progress_tracing::serialize::{truncate_capture_text, MAX_TOOL_CONTENT_CHARS};
-use crate::agent::progress_tracing::types::SpanKind;
+use tinyagents_harness::observability::trace_export::serialize::{
+    truncate_capture_text, MAX_TOOL_CONTENT_CHARS,
+};
+use tinyagents_harness::observability::trace_export::SpanKind;
 
 use super::state::SpanCollector;
 
@@ -144,7 +146,7 @@ impl SpanCollector {
             self.close_span(
                 index,
                 end_unix_ms,
-                crate::agent::progress_tracing::types::SpanStatus::Ok,
+                tinyagents_harness::observability::trace_export::SpanStatus::Ok,
                 BTreeMap::new(),
             );
         }

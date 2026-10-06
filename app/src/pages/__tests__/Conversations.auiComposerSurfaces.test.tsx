@@ -129,7 +129,7 @@ vi.mock('../../utils/openUrl', () => ({ openUrl: vi.fn() }));
 vi.mock('../../services/artifactDownloadService', () => ({
   listArtifactsForThread: vi.fn().mockResolvedValue({ ok: true, artifacts: [] }),
   saveArtifactViaDialog: vi.fn(),
-  revealArtifactInFileManager: vi.fn(),
+  revealArtifact: vi.fn(),
 }));
 
 vi.mock('../../services/coreRpcClient', async orig => {

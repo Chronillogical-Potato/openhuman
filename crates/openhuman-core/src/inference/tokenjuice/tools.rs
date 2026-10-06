@@ -35,9 +35,10 @@ impl Tool for TokenjuiceRetrieveTool {
     }
 
     fn description(&self) -> &str {
-        "Retrieve the full text of a tool result that was compacted to save context. \
-         Pass the token from its `⟦tj:a1b2c3d4⟧` marker; optionally a `range` for a \
-         byte or line slice. Only when you need the dropped detail."
+        "Return the whole original of a compacted or stored tool output, or a `range` \
+         of its lines or bytes. Pass the token its footer names (or the hash in a \
+         `⟦tj:…⟧` marker). To read or search only part of it, use juice_find with \
+         the same value as `handle` when that tool is offered."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -46,7 +47,7 @@ impl Tool for TokenjuiceRetrieveTool {
             "properties": {
                 "token": {
                     "type": "string",
-                    "description": "The hash from a ⟦tj:…⟧ marker."
+                    "description": "The token named in the output's footer (or a ⟦tj:…⟧ marker's hash)."
                 },
                 "range": {
                     "type": "object",

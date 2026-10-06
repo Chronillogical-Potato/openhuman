@@ -12,7 +12,7 @@
 //!
 //! # What the agent gets
 //!
-//! Ten tools, in [`tools`]. `hosting_launch_site` is the one that matters: it
+//! Ten tools, in [`tinyhosts::tools`]. `hosting_launch_site` is the one that matters: it
 //! turns a directory in the workspace into a live site with a database behind
 //! it. `hosting_rollback` is its counterweight — it points production back at
 //! an earlier deployment, so an agent that ships a broken site has a way back
@@ -26,7 +26,7 @@
 //! registry then does not register the tools at all. A tool that is present and
 //! cannot work is worse than one that is absent: a model will retry it.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -34,7 +34,7 @@ use tinyhosts::{Credentials, Host, ProviderKind};
 
 use crate::config::Config;
 
-pub mod tools;
+pub use tinyhosts::tools::resolve_in_workspace;
 
 #[cfg(test)]
 #[path = "hosting_tests.rs"]
@@ -151,46 +151,6 @@ impl Account {
 
     /// The agent tools this account exposes.
     pub fn tools(&self) -> Vec<Box<dyn tinytools::Tool>> {
-        tools::hosting_tools(self)
+        tinyhosts::tools::hosting_tools(&self.host, &self.workspace_dir)
     }
-}
-
-/// Resolves `relative` against the workspace, refusing anything outside it.
-///
-/// An agent names the directory to deploy, and a deployment uploads every byte
-/// under it to a third party. `../` and absolute paths are therefore refused
-/// here rather than trusted to the model — this is the only place in the domain
-/// that decides what may leave the machine.
-///
-/// # Errors
-///
-/// Returns an error when the path is absolute, escapes the workspace, or does
-/// not name a directory.
-pub fn resolve_in_workspace(workspace_dir: &Path, relative: &str) -> anyhow::Result<PathBuf> {
-    let trimmed = relative.trim();
-    let candidate = PathBuf::from(if trimmed.is_empty() { "." } else { trimmed });
-
-    if candidate.is_absolute() {
-        anyhow::bail!("path must be relative to the workspace, not absolute: {relative}");
-    }
-
-    let joined = workspace_dir.join(&candidate);
-    let canonical = joined
-        .canonicalize()
-        .map_err(|error| anyhow::anyhow!("cannot read {}: {error}", joined.display()))?;
-    let root = workspace_dir.canonicalize().map_err(|error| {
-        anyhow::anyhow!(
-            "cannot read the workspace {}: {error}",
-            workspace_dir.display()
-        )
-    })?;
-
-    if !canonical.starts_with(&root) {
-        anyhow::bail!("path escapes the workspace: {relative}");
-    }
-    if !canonical.is_dir() {
-        anyhow::bail!("not a directory: {relative}");
-    }
-
-    Ok(canonical)
 }

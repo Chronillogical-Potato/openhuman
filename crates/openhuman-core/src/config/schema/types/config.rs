@@ -73,6 +73,20 @@ pub struct Config {
     /// overrides at runtime so existing env-driven deployments are unaffected.
     #[serde(default)]
     pub action_dir_override: Option<PathBuf>,
+    /// Persisted user choice for the folder agent deliverables are written to,
+    /// set via Settings → Agent OS access (`config.update_agent_paths`,
+    /// #5505). `None` means the default, `~/OpenHuman/projects/Files`. Read it
+    /// through [`Self::files_dir`]. Changing it affects new artifacts only;
+    /// existing ones keep the folder recorded in their metadata.
+    #[serde(default)]
+    pub files_dir_override: Option<PathBuf>,
+    /// Files folders used before the current one. Artifacts created there keep
+    /// resolving, because the artifact escape guard trusts only folders the
+    /// core records here (plus the current one and the default), never a
+    /// folder an artifact's own metadata claims. Appended by
+    /// `config.update_agent_paths`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files_dir_history: Vec<PathBuf>,
     #[serde(skip)]
     pub config_path: PathBuf,
     /// Per-load snapshot used to remove standalone CLI inference overrides
@@ -111,8 +125,8 @@ pub struct Config {
     #[serde(default = "default_temperature_value")]
     pub default_temperature: f64,
 
-    /// Optional language for background LLM artifacts such as memory-tree
-    /// summaries, extraction reasons, and learning reflections. Accepts either
+    /// Optional language for background LLM artifacts such as
+    /// summaries and generated briefs. Accepts either
     /// a known UI locale tag (for example `zh-CN`) or a human-readable language
     /// name. `None` preserves the existing default-language behaviour.
     #[serde(default)]
@@ -172,29 +186,12 @@ pub struct Config {
     #[serde(default)]
     pub scheduler: SchedulerConfig,
 
-    /// Background-AI scheduler gate — throttles memory-tree digests,
-    /// embeddings, and other LLM-bound background work based on power
+    /// Background-AI scheduler gate — throttles embeddings and other
+    /// LLM-bound background work based on power
     /// state, CPU pressure, and deployment mode. See
     /// [`crate::cron::scheduler_gate`].
     #[serde(default)]
     pub scheduler_gate: SchedulerGateConfig,
-
-    /// Global memory-sync cadence applied to **all** opted-in memory
-    /// sources, presented to the user like a backup schedule ("Sync
-    /// every 4h / 12h / 24h", plus "Manual only"). See issue #3302.
-    ///
-    /// Semantics consumed by `memory_sync::composio::periodic`:
-    /// - `None` — no explicit user choice; the effective cadence falls
-    ///   back to [`DEFAULT_MEMORY_SYNC_INTERVAL_SECS`] (24h).
-    /// - `Some(0)` — **Manual only**: the periodic scheduler skips
-    ///   auto-sync entirely; manual `memory_sources_sync` still works.
-    /// - `Some(n)` — sync every `n` seconds, applied per connection as
-    ///   `max(n, provider_default)` so it overrides the provider's own
-    ///   cadence while never syncing more often than the provider intends.
-    ///
-    /// Overridable via `OPENHUMAN_MEMORY_SYNC_INTERVAL_SECS` (`0` = manual).
-    #[serde(default)]
-    pub memory_sync_interval_secs: Option<u64>,
 
     #[serde(default)]
     pub agent: AgentConfig,
@@ -239,24 +236,6 @@ pub struct Config {
 
     #[serde(default)]
     pub memory: MemoryConfig,
-
-    /// Phase 4 memory-tree embedding wiring (#710). Controls whether
-    /// ingest/seal pass new chunks/summaries through an Ollama embedder,
-    /// and whether missing endpoint config is fatal or warns and falls
-    /// back to inert zero vectors.
-    #[serde(default)]
-    pub memory_tree: MemoryTreeConfig,
-
-    #[serde(default)]
-    pub storage: StorageConfig,
-
-    /// `[subsystems.*]` — the uniform cross-subsystem driver-binding config
-    /// (kernel.md §3.6 / plan-memory.md §4.5). Currently only `subsystems.memory` is
-    /// populated; nothing reads this yet (zero behaviour change). The
-    /// existing `[memory]`, `[memory_tree]`, `[[memory_sources]]` blocks
-    /// above are unaffected.
-    #[serde(default)]
-    pub subsystems: SubsystemsConfig,
 
     #[serde(default)]
     pub composio: ComposioConfig,
@@ -316,11 +295,13 @@ pub struct Config {
     #[serde(default)]
     pub cost: CostConfig,
 
-    /// User-configured memory sources — each `[[memory_sources]]` entry
-    /// describes a data connector (Composio OAuth, local folder, GitHub
-    /// repo, RSS feed, Twitter query, web page) that feeds memory.
-    #[serde(default)]
-    pub memory_sources: Vec<crate::memory::sources::types::MemorySourceEntry>,
+    /// Legacy v1 `[[memory_sources]]` entries, read only so they can be
+    /// migrated into `[[memory.sources]]` on load
+    /// (`config::ops::loader::normalize_loaded_config`). Each entry is kept as
+    /// raw JSON, so a kind this build no longer knows (`twitter_query`) never
+    /// fails the parse. Never written back.
+    #[serde(default, rename = "memory_sources", skip_serializing)]
+    pub legacy_memory_sources: Vec<serde_json::Value>,
 
     /// User-facing agent registry — shipped default agents plus user-authored
     /// custom agents and persisted enable/disable/tool-policy overrides.
@@ -397,7 +378,7 @@ pub struct Config {
     #[serde(default)]
     pub vision_provider: Option<String>,
 
-    /// Provider string for memory-tree extract + summarise workloads.
+    /// Provider string for the summarisation workload.
     #[serde(default)]
     pub memory_provider: Option<String>,
 
@@ -409,10 +390,6 @@ pub struct Config {
     /// [`CustomEmbeddingsConfig`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_embeddings: Option<CustomEmbeddingsConfig>,
-
-    /// Provider string for learning / reflection passes.
-    #[serde(default)]
-    pub learning_provider: Option<String>,
 
     /// Node.js managed runtime configuration (skills that need `node`/`npm`).
     #[serde(default)]
@@ -471,9 +448,6 @@ pub struct Config {
     pub integrations: IntegrationsConfig,
 
     #[serde(default)]
-    pub learning: LearningConfig,
-
-    #[serde(default)]
     pub update: UpdateConfig,
 
     #[serde(default)]
@@ -499,18 +473,6 @@ pub struct Config {
 
     #[serde(default)]
     pub model_registry: Vec<ModelRegistryEntry>,
-
-    /// Migration version guard for `apply_composio_source_caps_migration`.
-    ///
-    /// The migration runs whenever this is `< CURRENT_CAPS_MIGRATION_VERSION`
-    /// (see `memory_sources::reconcile`), then is bumped to that version. Using a
-    /// monotonic version (rather than a bool) lets an improved migration re-run
-    /// once for installs that already ran an earlier revision. Defaults to `0`
-    /// (`#[serde(default)]`); the retired `composio_source_caps_migrated` bool is
-    /// silently ignored (Config does not `deny_unknown_fields`), so prior installs
-    /// re-run the current migration exactly once.
-    #[serde(default)]
-    pub composio_source_caps_migration_version: u32,
 }
 
 /// Shared default so `#[serde(default)]` and `Config::default()` stay in sync.

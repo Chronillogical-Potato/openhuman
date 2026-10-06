@@ -1,19 +1,15 @@
 //! JSON-RPC controller surface for inference operations.
 
-use crate::config::ops::local_ai_presets;
 use crate::config::rpc as config_rpc;
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::inference::host_runtime as local_runtime;
-use crate::inference::host_runtime::ops::ReactionDecision;
 use crate::inference::provider as providers;
-use crate::inference::{LocalAiEmbeddingResult, LocalAiStatus};
+use crate::inference::LocalAiStatus;
 use serde_json::{json, Value};
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::ModelRequest;
 use tinyinference_llm::sentiment::{parse_sentiment_response, SentimentResult};
-use tinyinference_local::device::detect_device_profile;
-use tinyinference_local::presets;
 use tracing::{debug, error, warn};
 
 const LOG_PREFIX: &str = "[inference::ops]";
@@ -120,23 +116,6 @@ pub async fn inference_vision_prompt(
     result
 }
 
-pub async fn inference_embed(
-    config: &Config,
-    inputs: &[String],
-) -> Result<Outcome<LocalAiEmbeddingResult>, String> {
-    debug!(input_count = inputs.len(), "{LOG_PREFIX} embed:start");
-    let result = local_runtime::rpc::local_ai_embed(config, inputs).await;
-    match &result {
-        Ok(outcome) => debug!(
-            vector_count = outcome.value.vectors.len(),
-            dimensions = outcome.value.dimensions,
-            "{LOG_PREFIX} embed:ok"
-        ),
-        Err(err) => warn!(error = %err, "{LOG_PREFIX} embed:error"),
-    }
-    result
-}
-
 pub async fn inference_test_provider_model(
     config: &Config,
     workload: &str,
@@ -211,26 +190,6 @@ pub async fn inference_test_provider_model(
                 );
             }
         }
-    }
-    result
-}
-
-pub async fn inference_should_react(
-    config: &Config,
-    message: &str,
-    channel_type: &str,
-) -> Result<Outcome<ReactionDecision>, String> {
-    debug!(
-        message_len = message.len(),
-        channel_type, "{LOG_PREFIX} should_react:start"
-    );
-    let result = local_runtime::rpc::local_ai_should_react(config, message, channel_type).await;
-    match &result {
-        Ok(outcome) => debug!(
-            should_react = outcome.value.should_react,
-            "{LOG_PREFIX} should_react:ok"
-        ),
-        Err(err) => warn!(error = %err, "{LOG_PREFIX} should_react:error"),
     }
     result
 }
@@ -319,7 +278,23 @@ pub async fn inference_update_local_settings(
     debug!("{LOG_PREFIX} update_local_settings:start");
     let result = config_rpc::load_and_apply_local_ai_settings(update).await;
     match &result {
-        Ok(_) => debug!("{LOG_PREFIX} update_local_settings:ok"),
+        Ok(_) => {
+            debug!("{LOG_PREFIX} update_local_settings:ok");
+            // The endpoint, provider or models may have changed: drop the
+            // cached probe verdict so the next status poll re-probes the
+            // user's runtime instead of reporting the old endpoint's state.
+            match config_rpc::load_config_with_timeout().await {
+                Ok(config) => {
+                    let runtime = crate::inference::local_runtime_config(&config);
+                    local_runtime::global(&config).reset_to_idle(&runtime);
+                    debug!("{LOG_PREFIX} update_local_settings:probe_reset");
+                }
+                Err(err) => warn!(
+                    error = %err,
+                    "{LOG_PREFIX} update_local_settings:probe_reset_skipped (config reload failed)"
+                ),
+            }
+        }
         Err(err) => warn!(error = %err, "{LOG_PREFIX} update_local_settings:error"),
     }
     result
@@ -383,17 +358,6 @@ pub async fn inference_list_models(provider_id: &str) -> Result<Outcome<Value>, 
     result
 }
 
-pub async fn inference_device_profile() -> Result<Outcome<Value>, String> {
-    debug!("{LOG_PREFIX} device_profile:start");
-    let profile = detect_device_profile();
-    let result = Ok(Outcome::single_log(
-        serde_json::to_value(profile).map_err(|e| format!("serialize: {e}"))?,
-        "inference device profile fetched",
-    ));
-    debug!("{LOG_PREFIX} device_profile:ok");
-    result
-}
-
 /// Snapshot of BYO provider auth failures (invalid / revoked key, 401 / 403)
 /// recorded this process. Backs the AI-settings provider-error notice so a
 /// key that breaks at runtime — most often in a silent background loop like
@@ -406,105 +370,6 @@ pub async fn inference_provider_auth_errors() -> Result<Outcome<Value>, String> 
     Ok(Outcome::single_log(
         json!({ "errors": errors }),
         "inference provider auth errors fetched",
-    ))
-}
-
-pub async fn inference_presets() -> Result<Outcome<Value>, String> {
-    debug!("{LOG_PREFIX} presets:start");
-    let config = config_rpc::load_config_with_timeout().await?;
-    let device = detect_device_profile();
-    let hardware_recommendation = presets::recommend_tier(&device);
-    let recommended = if hardware_recommendation.is_mvp_allowed() {
-        hardware_recommendation
-    } else {
-        presets::MVP_MAX_TIER
-    };
-    let current = local_ai_presets::current_tier_from_config(&config.local_ai);
-    let selected_tier = config.local_ai.selected_tier.as_ref().and_then(|value| {
-        let normalized = value.trim().to_ascii_lowercase();
-        presets::ModelTier::from_str_opt(&normalized)
-            .map(|tier| tier.as_str().to_string())
-            .or_else(|| (!normalized.is_empty()).then_some(normalized))
-    });
-    let presets = presets::mvp_presets();
-    let recommend_disabled = presets::should_default_to_cloud_fallback(&device);
-    let result = Ok(Outcome::single_log(
-        json!({
-            "presets": presets,
-            "recommended_tier": recommended,
-            "current_tier": current,
-            "selected_tier": selected_tier,
-            "device": device,
-            "recommend_disabled": recommend_disabled,
-            "local_ai_enabled": config.local_ai.runtime_enabled,
-        }),
-        "inference presets fetched",
-    ));
-    debug!("{LOG_PREFIX} presets:ok");
-    result
-}
-
-pub async fn inference_apply_preset(tier: &str) -> Result<Outcome<Value>, String> {
-    let tier_str = tier.trim().to_ascii_lowercase();
-    debug!(tier = %tier_str, "{LOG_PREFIX} apply_preset:start");
-
-    if tier_str == "disabled" {
-        let mut config = config_rpc::load_config_with_timeout().await?;
-        config.local_ai.runtime_enabled = false;
-        config.local_ai.selected_tier = Some("disabled".to_string());
-        config.local_ai.opt_in_confirmed = false;
-        config
-            .save()
-            .await
-            .map_err(|e| format!("save config: {e}"))?;
-        debug!("{LOG_PREFIX} apply_preset:disabled");
-        return Ok(Outcome::single_log(
-            json!({
-                "applied_tier": "disabled",
-                "local_ai_enabled": false,
-            }),
-            "inference preset applied",
-        ));
-    }
-
-    let tier = presets::ModelTier::from_str_opt(&tier_str).ok_or_else(|| {
-        format!(
-            "invalid tier '{}': expected one of disabled or ram_2_4gb",
-            tier_str
-        )
-    })?;
-
-    if tier == presets::ModelTier::Custom {
-        return Err("cannot apply 'custom' tier; set model IDs directly".to_string());
-    }
-    if !tier.is_mvp_allowed() {
-        return Err(format!(
-            "tier '{}' is not available in this build; only the 1B local model preset is supported",
-            tier_str
-        ));
-    }
-
-    let mut config = config_rpc::load_config_with_timeout().await?;
-    config.local_ai.runtime_enabled = true;
-    config.local_ai.opt_in_confirmed = true;
-    local_ai_presets::apply_preset_to_config(&mut config.local_ai, tier);
-    config
-        .save()
-        .await
-        .map_err(|e| format!("save config: {e}"))?;
-
-    debug!(tier = %tier_str, "{LOG_PREFIX} apply_preset:ok");
-    Ok(Outcome::single_log(
-        json!({
-            "applied_tier": tier,
-            "chat_model_id": config.local_ai.chat_model_id,
-            "vision_model_id": config.local_ai.vision_model_id,
-            "embedding_model_id": config.local_ai.embedding_model_id,
-            "quantization": config.local_ai.quantization,
-            "vision_mode": local_ai_presets::vision_mode_for_config(&config.local_ai),
-            "local_ai_enabled": true,
-        }),
-        "inference preset applied",
     ))
 }
 

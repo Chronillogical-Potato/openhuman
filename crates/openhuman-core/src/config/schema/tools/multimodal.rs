@@ -105,14 +105,6 @@ impl MultimodalFileConfig {
         (max_files, max_file_size_mb, max_extracted_text_chars)
     }
 
-    /// True iff `mime` is on the configured allowlist (case-insensitive).
-    pub fn is_mime_allowed(&self, mime: &str) -> bool {
-        let needle = mime.to_ascii_lowercase();
-        self.allowed_mime_types
-            .iter()
-            .any(|allowed| allowed.eq_ignore_ascii_case(&needle))
-    }
-
     /// Hardened config for turns whose user text originates from an
     /// untrusted third-party channel (Slack / Discord / Telegram /
     /// WhatsApp / etc.). Disables `[FILE:…]` marker resolution outright

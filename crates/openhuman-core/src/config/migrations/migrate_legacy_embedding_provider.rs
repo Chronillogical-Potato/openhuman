@@ -26,13 +26,14 @@
 //! a config carrying it belonged to a user who chose local/offline embeddings.
 //! To preserve that intent, the caller (`run_pending`) probes for a reachable
 //! local Ollama server and passes `prefer_local`:
-//! - `prefer_local = true`  → `"ollama"` + `bge-m3` (1024-dim; Ollama auto-pulls
-//!   the model on first embed). Keeps the user local/offline.
+//! - `prefer_local = true`  → `"ollama"` + `bge-m3` (1024-dim). Keeps the user
+//!   local/offline. OpenHuman does not pull the model: until the user runs
+//!   `ollama pull bge-m3`, embeds fail and the doctor / memory health surface
+//!   that exact remediation.
 //! - `prefer_local = false` → `"managed"` cloud backend + cloud defaults (the
 //!   fresh-install default), used when no local Ollama is reachable.
 //!
-//! Both targets are 1024-dim — matching the memory tree's fixed on-disk
-//! `EMBEDDING_DIM=1024`. This step only ever rewrites `fastembed`, so cloud-only
+//! Both targets are 1024-dim. This step only ever rewrites `fastembed`, so cloud-only
 //! users (never on `fastembed`) are untouched.
 //!
 //! Stored vectors written at the old signature are left in place: they are
@@ -118,7 +119,7 @@ pub fn run(config: &mut Config, prefer_local: bool) -> anyhow::Result<MigrationS
         return Ok(stats);
     }
 
-    // Both targets are 1024-dim (the memory tree's fixed on-disk EMBEDDING_DIM);
+    // Both targets are 1024-dim;
     // the legacy 384-dim BGE values are incompatible with either, so stored
     // vectors re-embed lazily via backfill regardless of which target we pick.
     let (provider, model, dimensions) = if prefer_local {
@@ -158,7 +159,7 @@ pub fn run(config: &mut Config, prefer_local: bool) -> anyhow::Result<MigrationS
 ///
 /// Invoked by [`super::run_pending`] to choose the [`run`] target — a reachable
 /// local Ollama lets former-`fastembed` (i.e. local-embedding) users stay local
-/// (`bge-m3`, auto-pulled on first embed) instead of being forced onto the
+/// (`bge-m3`, which the user pulls themselves) instead of being forced onto the
 /// managed cloud backend. Bounded (1.5s) and non-fatal: any client-build error,
 /// transport error, timeout, or non-2xx status ⇒ `false`, so the caller falls
 /// back to managed. Kept out of [`run`] so the rewrite itself stays pure/sync.

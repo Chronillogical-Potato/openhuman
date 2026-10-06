@@ -17,14 +17,11 @@
 // which encodes WHICH RELEASE the artifact is. A correctly-built older artifact
 // is admitted without complaint.
 //
-// Three things are checked, and the third is the one that generalises:
+// Two things are checked, and the second is the one that generalises:
 //
 //   1. Every record in `ALL` sits on the tag its `version` names, unless it is
 //      declared in module-pin-exemptions.json with the exact drift it has.
-//   2. For tinymemory — the only module pinned in more than two places — the
-//      registry version, `ARTIFACT_CAPABILITIES_PIN`, and every `memory_version`
-//      / `memory_sha256` pair in the workflows all describe one release.
-//   3. Every record in `ALL` is accounted for by the pin map below. A module
+//   2. Every record in `ALL` is accounted for by the pin map below. A module
 //      added without a decision here fails the gate rather than silently
 //      escaping it. Six vendored crates landed between 2026-08-20 and -27; a
 //      guard that enumerated today's modules would already be behind.
@@ -60,11 +57,10 @@ import { fileURLToPath } from "node:url";
 import {
   checkPinMapCoverage,
   classifyPin,
+  classifyProviderPin,
   expandRustIncludes,
   parseAllList,
-  parseArtifactCapabilitiesPin,
   parseRecords,
-  parseWorkflowMemoryBlocks,
 } from "../lib/module-pins.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -73,9 +69,11 @@ const ROOT = resolve(process.argv[2] ?? join(HERE, "..", ".."));
 // Record id -> the submodule that is the source of truth for its version.
 //
 // `submodule: null` means "this record has no submodule of its own", and needs a
-// reason. It is NOT an exemption from drift — the two runtime providers below
-// ship out of the tinyruntime release, so they are checked against
-// `vendor/tinyruntime` via `sharesWith`.
+// reason. It is NOT an exemption from drift. The two runtime providers below are
+// released from their own repositories on their own version line, so their
+// version cannot equal a submodule tag; `provider` instead checks them against
+// scripts/ci/module-provider-pins.json (their release, and the commit of
+// `builtAgainst` that release was built from, which must be the host's pin).
 const PIN_MAP = {
   tinysearch: { submodule: "vendor/tinysearch" },
   tinycomputer: { submodule: "vendor/tinycomputer" },
@@ -84,7 +82,6 @@ const PIN_MAP = {
   tinyhosts: { submodule: "vendor/tinyhosts" },
   tinydocs: { submodule: "vendor/tinydocs" },
   tinywallet: { submodule: "vendor/tinywallet" },
-  tinymemory: { submodule: "vendor/tinymemory" },
   tinyjuice: { submodule: "vendor/tinyjuice" },
   tinyvoice: { submodule: "vendor/tinyvoice" },
   tinyruntime: { submodule: "vendor/tinyruntime" },
@@ -95,13 +92,15 @@ const PIN_MAP = {
   tinyhosts: { submodule: "vendor/tinyhosts" },
   "tinyruntime-nodejs": {
     submodule: null,
-    sharesWith: "vendor/tinyruntime",
-    reason: "published from the tinyruntime release; no repository of its own",
+    provider: { builtAgainst: "vendor/tinyruntime" },
+    reason:
+      "released from tinyhumansai/tinyruntime-nodejs on its own version line; checked via module-provider-pins.json",
   },
   "tinyruntime-python": {
     submodule: null,
-    sharesWith: "vendor/tinyruntime",
-    reason: "published from the tinyruntime release; no repository of its own",
+    provider: { builtAgainst: "vendor/tinyruntime" },
+    reason:
+      "released from tinyhumansai/tinyruntime-python on its own version line; checked via module-provider-pins.json",
   },
 };
 
@@ -140,14 +139,6 @@ function readRustModule(relativePath, what) {
   return expandRustIncludes(relativePath, (includedPath) =>
     readOrDie(join(ROOT, includedPath), `${what} include`),
   );
-}
-
-/** Read an entrypoint plus an optional Rust sibling module it declares. */
-function readDeclaredSibling(relativePath, moduleName, what) {
-  const entry = readRustModule(relativePath, what);
-  if (!new RegExp(`^mod ${moduleName};$`, "m").test(entry)) return entry;
-  const sibling = `${relativePath.replace(/\.rs$/, "")}/${moduleName}.rs`;
-  return `${entry}\n${readRustModule(sibling, `${what} ${moduleName}`)}`;
 }
 
 /**
@@ -198,7 +189,7 @@ for (const name of allNames) {
 if (active.length === 0)
   fail("registry.rs: `ALL` resolved to zero usable records");
 
-// ── Check 3 first: is every record accounted for? ─────────────────────────────
+// ── Check 2 first: is every record accounted for? ─────────────────────────────
 //
 // Before checking pins, check that we KNOW about every record. Running the pin
 // checks first would report "all pins agree" on a tree containing a module this
@@ -266,9 +257,37 @@ function describeCached(path) {
   return describeCache.get(path);
 }
 
+function headCommit(submodulePath) {
+  describeCached(submodulePath); // fails closed when it is not checked out
+  return mustRun(
+    "git",
+    ["rev-parse", "HEAD"],
+    join(ROOT, submodulePath),
+    `rev-parse ${submodulePath}`,
+  );
+}
+
+const providerLocks = JSON.parse(
+  readOrDie(join(HERE, "module-provider-pins.json"), "provider pins"),
+).providers;
+
 for (const rec of active) {
   const entry = PIN_MAP[rec.id];
   if (!entry) continue; // already reported above
+  if (entry.provider) {
+    const lock = providerLocks[rec.id];
+    const src = entry.provider.builtAgainst;
+    const verdict = classifyProviderPin({
+      id: rec.id,
+      version: rec.version,
+      releaseUrl: rec.releaseUrl,
+      lock,
+      sourceSubmodule: src,
+      sourceHead: headCommit(src),
+    });
+    if (!verdict.ok) fail(verdict.message);
+    continue;
+  }
   const path = entry.submodule ?? entry.sharesWith;
   if (!path) {
     fail(`PIN_MAP["${rec.id}"] has neither submodule nor sharesWith`);
@@ -291,99 +310,6 @@ for (const rec of active) {
         : verdict.reason;
     notes.push(`  ~ ${rec.id}: ${actual} — declared exemption: ${why}`);
   }
-}
-
-// ── Check 2: the tinymemory pin set ───────────────────────────────────────────
-//
-// tinymemory is the only record pinned in more than two places, so it is the
-// only one with a spread this wide. Keyed off the record rather than a literal,
-// so re-pinning tinymemory does not need this file edited.
-
-const memRec = active.find((r) => r.id === "tinymemory");
-if (!memRec) {
-  fail(
-    'modules::registry::ALL no longer has a "tinymemory" record; the tinymemory pin-set check cannot run',
-  );
-} else {
-  const memSrc = readDeclaredSibling(
-    "crates/openhuman-core/src/modules/memory.rs",
-    "capabilities",
-    "modules/memory.rs",
-  );
-  const pin = parseArtifactCapabilitiesPin(memSrc);
-  if (!pin) {
-    fail(
-      "crates/openhuman-core/src/modules/memory.rs: could not find ARTIFACT_CAPABILITIES_PIN",
-    );
-  } else if (pin !== memRec.version) {
-    fail(
-      `ARTIFACT_CAPABILITIES_PIN and the tinymemory registry record disagree.\n` +
-        `    registry.rs version              : ${memRec.version}\n` +
-        `    modules/memory.rs PIN            : ${pin}\n` +
-        `    These name the release whose capability set the host assumes. Moving one\n` +
-        `    without the other is what #5598 looked like from the inside.`,
-    );
-  }
-
-  const WORKFLOWS = [
-    ".github/workflows/ci-full.yml",
-    ".github/workflows/ci-lite.yml",
-    ".github/workflows/e2e-reusable.yml",
-  ];
-  let sawAnyBlock = false;
-  for (const wf of WORKFLOWS) {
-    const src = readOrDie(join(ROOT, wf), `workflow ${wf}`);
-    const { versions, digests, archives } = parseWorkflowMemoryBlocks(src);
-
-    if (versions.length === 0) {
-      // The blocks are how CI gets a real module to test against. If one is
-      // renamed away this check must not quietly cover fewer files.
-      fail(
-        `${wf}: no \`memory_version="…"\` block found. If these moved, update WORKFLOWS in this script.`,
-      );
-      continue;
-    }
-    if (versions.length !== digests.length) {
-      fail(
-        `${wf}: ${versions.length} memory_version block(s) but ${digests.length} memory_sha256 — they pair up`,
-      );
-    }
-    sawAnyBlock = true;
-
-    versions.forEach((v, i) => {
-      if (v !== memRec.version) {
-        fail(
-          `${wf}: memory_version="${v}" but the tinymemory registry record is ${memRec.version}.\n` +
-            `    CI would fetch a different release than the product pins.`,
-        );
-      }
-      const digest = digests[i];
-      if (!digest) return;
-      const known = memRec.assets.find((a) => a.sha256 === digest);
-      if (!known) {
-        fail(
-          `${wf}: memory_sha256="${digest}" matches no asset digest in the tinymemory record.\n` +
-            `    Take it verbatim from the release's checksum.toml, as registry.rs:23-25 requires.`,
-        );
-      }
-    });
-
-    // The archive name embeds the version through ${memory_version}; assert the
-    // literal half resolves to an asset the record actually publishes.
-    for (const a of archives) {
-      const resolved = a.replace(/\$\{memory_version\}/g, memRec.version);
-      if (!memRec.assets.some((asset) => asset.archive === resolved)) {
-        fail(
-          `${wf}: builds archive name "${resolved}", which the tinymemory record does not publish.\n` +
-            `    Known: ${memRec.assets.map((x) => x.archive).join(", ")}`,
-        );
-      }
-    }
-  }
-  if (!sawAnyBlock)
-    fail(
-      "no workflow carried a memory_version block — this check scanned nothing",
-    );
 }
 
 // ── Report ────────────────────────────────────────────────────────────────────

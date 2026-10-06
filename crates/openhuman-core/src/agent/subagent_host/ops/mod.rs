@@ -76,7 +76,3 @@ mod tests;
 #[cfg(test)]
 #[path = "../ops_dedup_tests.rs"]
 mod dedup_tests;
-
-#[cfg(test)]
-#[path = "../ops_truncation_tests.rs"]
-mod truncation_tests;

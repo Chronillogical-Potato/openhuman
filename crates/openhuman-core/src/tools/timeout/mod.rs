@@ -138,11 +138,6 @@ pub fn tool_execution_timeout_secs() -> u64 {
     current_secs()
 }
 
-/// Effective timeout as a [`Duration`] for `tokio::time::timeout`-style callers.
-pub fn tool_execution_timeout_duration() -> Duration {
-    Duration::from_secs(current_secs())
-}
-
 /// Resolve an **explicit** per-call timeout request for a tool that is
 /// otherwise unbounded (the scripting tools: `shell`, `node_exec`, `npm_exec`).
 ///
@@ -176,19 +171,6 @@ pub fn explicit_call_timeout_duration(requested: Option<u64>, cap: u64) -> Optio
 /// deadline isn't killed by scheduler jitter. The user-facing `timeout_secs`
 /// reported on a timeout is the un-padded request.
 const TOOL_TIMEOUT_GRACE_SECS: u64 = 5;
-
-/// Resolve a tool's [`ToolTimeout`] policy into the `(deadline, timeout_secs)`
-/// pair the agent tool-execution loop enforces:
-/// - `Inherit` → the global config-driven timeout (a finite deadline).
-/// - `Millis(req)` → the clamped request, padded by [`TOOL_TIMEOUT_GRACE_SECS`]
-///   for the actual deadline while `timeout_secs` reports the un-padded budget.
-/// - `Unbounded` → `(None, 0)`: no deadline; the tool runs to completion.
-///
-/// Moved out of the retired legacy `engine::tools` module during the tinyagents
-/// migration (issue #4249); it lives here next to the timeout constants it uses.
-pub fn resolve_tool_deadline(policy: ToolTimeout) -> (Option<Duration>, u64) {
-    resolve_with(settings(), policy)
-}
 
 /// Pure core of [`resolve_tool_deadline`]: the inherited timeout is a parameter
 /// so tests can table-drive it without touching the process-global.

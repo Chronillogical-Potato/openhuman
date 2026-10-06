@@ -1,56 +1,20 @@
-//! Read-only rosters over the sub-agent registry: a compact snapshot type for
-//! ambient prompt injection, and the durable+live merge used to render the
+//! Read-only rosters over the sub-agent registry: the durable+live merge used to render the
 //! `[active_subagents]` context block.
 
-use super::registry::{registry, SubagentStatus};
+use tinyagents_orchestration::subagent::{snapshot_for_owner, SubagentSnapshot};
+
+use super::registry::registry;
 use crate::agent::orchestration::fleet_tools::FleetToolSet;
 
-/// Compact, read-only view of one registered sub-agent, for ambient injection
-/// into a parent's turn context (see [`active_subagents_context_block`]).
-#[derive(Debug, Clone)]
-pub(crate) struct SubagentSnapshot {
-    /// Worker *type* (e.g. `code_executor`). Not unique — two parallel workers
-    /// share this; disambiguate on `subagent_session_id` / `task_id`.
-    pub(crate) agent_id: String,
-    /// Durable, stable per-worker reference the prompt steers/waits/closes by.
-    pub(crate) subagent_session_id: Option<String>,
-    /// Transient registry key.
-    pub(crate) task_id: String,
-    /// Stable status label: `running` / `awaiting_user` / `completed` / `failed`.
-    pub(crate) status: &'static str,
-}
-
 /// Snapshot the sub-agents registered under `parent_session`, with each status
-/// read live from its watch channel. Read-only: it takes the registry lock only
-/// long enough to clone out the small summaries, never blocks on a child, and
-/// never mutates the table. Ordered by `agent_id` then `task_id` so the rendered
-/// roster is stable across turns (the underlying map is unordered).
+/// read live from its watch channel (ordered by `agent_id` then `task_id`).
 pub(crate) fn snapshot_for_parent(parent_session: &str) -> Vec<SubagentSnapshot> {
-    let mut out: Vec<SubagentSnapshot> = registry()
-        .snapshots(Some(parent_session))
-        .expect("detached task registry lock poisoned")
-        .into_iter()
-        .map(|entry| {
-            let status = match &entry.status {
-                SubagentStatus::Running => "running",
-                SubagentStatus::Completed { .. } => "completed",
-                SubagentStatus::AwaitingUser { .. } => "awaiting_user",
-                SubagentStatus::Failed { .. } => "failed",
-            };
-            SubagentSnapshot {
-                agent_id: entry.metadata.agent_id,
-                subagent_session_id: entry.metadata.subagent_session_id,
-                task_id: entry.task_id.as_str().to_string(),
-                status,
-            }
-        })
-        .collect();
-    out.sort_by(|a, b| {
-        a.agent_id
-            .cmp(&b.agent_id)
-            .then_with(|| a.task_id.cmp(&b.task_id))
-    });
-    out
+    snapshot_for_owner(registry(), parent_session).unwrap_or_else(|err| {
+        log::warn!(
+            "[running_subagents] roster unavailable parent_session={parent_session} err={err:?}"
+        );
+        Vec::new()
+    })
 }
 
 /// The follow-up guidance sentence, built from the tools the parent can see.

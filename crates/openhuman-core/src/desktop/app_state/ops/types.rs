@@ -11,10 +11,10 @@ use serde_json::Value;
 pub struct StoredOnboardingTasks {
     #[serde(default)]
     pub accessibility_permission_granted: bool,
-    #[serde(default)]
-    pub local_model_consent_given: bool,
-    #[serde(default)]
-    pub local_model_download_started: bool,
+    // `localModelConsentGiven` / `localModelDownloadStarted` were dropped with
+    // local model downloads. Older app-state files still carry them; serde
+    // ignores unknown fields here (no `deny_unknown_fields`), so those files
+    // keep loading and the keys are dropped on the next save.
     #[serde(default)]
     pub enabled_tools: Vec<String>,
     #[serde(default)]

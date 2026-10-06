@@ -133,21 +133,6 @@ impl AuditEvent {
         self
     }
 
-    /// Set action metadata for a generated tool execution.
-    pub fn with_generated_tool_action(mut self, entry: GeneratedToolExecutionLog<'_>) -> Self {
-        self.action = Some(Action {
-            command: Some(entry.tool_name.to_string()),
-            risk_level: Some(entry.risk_level.to_string()),
-            approved: entry.approved,
-            allowed: entry.allowed,
-            provider_id: Some(entry.provider_id.to_string()),
-            capability_id: Some(entry.capability_id.to_string()),
-            policy_decision: Some(entry.policy_decision.to_string()),
-            approval_id: entry.approval_id.map(str::to_string),
-        });
-        self
-    }
-
     /// Set the result
     pub fn with_result(
         mut self,
@@ -162,12 +147,6 @@ impl AuditEvent {
             duration_ms: Some(duration_ms),
             error,
         });
-        self
-    }
-
-    /// Set security context
-    pub fn with_security(mut self, sandbox_backend: Option<String>) -> Self {
-        self.security.sandbox_backend = sandbox_backend;
         self
     }
 }
@@ -242,22 +221,6 @@ pub struct CommandExecutionLog<'a> {
     pub channel: &'a str,
     pub command: &'a str,
     pub risk_level: &'a str,
-    pub approved: bool,
-    pub allowed: bool,
-    pub success: bool,
-    pub duration_ms: u64,
-}
-
-/// Structured generated tool execution details for audit correlation.
-#[derive(Debug, Clone)]
-pub struct GeneratedToolExecutionLog<'a> {
-    pub channel: &'a str,
-    pub tool_name: &'a str,
-    pub provider_id: &'a str,
-    pub capability_id: &'a str,
-    pub risk_level: &'a str,
-    pub policy_decision: &'a str,
-    pub approval_id: Option<&'a str>,
     pub approved: bool,
     pub allowed: bool,
     pub success: bool,
@@ -342,40 +305,6 @@ impl AuditLogger {
             .with_result(entry.success, None, entry.duration_ms, None);
 
         self.log(&event)
-    }
-
-    /// Log a generated tool execution event with provider/capability
-    /// provenance suitable for runtime policy audits.
-    pub fn log_generated_tool_event(&self, entry: GeneratedToolExecutionLog<'_>) -> Result<()> {
-        let event = AuditEvent::new(AuditEventType::CommandExecution)
-            .with_actor(entry.channel.to_string(), None, None)
-            .with_generated_tool_action(entry.clone())
-            .with_result(entry.success, None, entry.duration_ms, None);
-
-        self.log(&event)
-    }
-
-    /// Backward-compatible helper to log a command execution event.
-    #[allow(clippy::too_many_arguments)]
-    pub fn log_command(
-        &self,
-        channel: &str,
-        command: &str,
-        risk_level: &str,
-        approved: bool,
-        allowed: bool,
-        success: bool,
-        duration_ms: u64,
-    ) -> Result<()> {
-        self.log_command_event(CommandExecutionLog {
-            channel,
-            command,
-            risk_level,
-            approved,
-            allowed,
-            success,
-            duration_ms,
-        })
     }
 
     /// Rotate log if it exceeds max size

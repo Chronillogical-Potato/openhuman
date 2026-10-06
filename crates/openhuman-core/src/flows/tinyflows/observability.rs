@@ -2,11 +2,9 @@
 //! domain.
 //!
 //! `tinyflows` emits structured run/step records; the host decides what to do
-//! with them. Two observers live here:
+//! with them. The observer that lives here:
 //!
-//! - [`TracingRunObserver`] — log-only, for `run_with_observer` call sites and
-//!   as a simple example.
-//! - [`FlowRunObserver`] — the real one used by the durable run path (issue
+//! - [`FlowRunObserver`] — used by the durable run path (issue
 //!   G2, live run observation). It publishes a [`DomainEvent::FlowRunProgress`]
 //!   twice per non-trigger node — `running` when the node activates, then its
 //!   terminal `success`/`error` when it finishes — so the frontend socket
@@ -35,39 +33,6 @@ use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::flows::{upsert_flow_run_step, FlowRunStep};
-
-/// Logs run/step lifecycle events with grep-friendly `[flows]` prefixes.
-pub struct TracingRunObserver {
-    pub run_label: String,
-}
-
-impl RunObserver for TracingRunObserver {
-    fn on_run_start(&self, run_id: &str) {
-        tracing::info!(target: "flows", run_label = %self.run_label, %run_id, "[flows] run start");
-    }
-
-    fn on_step_finish(&self, step: &ExecutionStep) {
-        tracing::debug!(
-            target: "flows",
-            run_label = %self.run_label,
-            node = %step.node_id,
-            status = ?step.status,
-            duration_ms = step.duration_ms,
-            "[flows] step finished"
-        );
-    }
-
-    fn on_run_finish(&self, run: &Run) {
-        tracing::info!(
-            target: "flows",
-            run_label = %self.run_label,
-            id = %run.id,
-            status = ?run.status,
-            steps = run.steps.len(),
-            "[flows] run finish"
-        );
-    }
-}
 
 /// Maps a live [`StepStatus`] to the stable `"success"`/`"error"` string
 /// persisted on [`FlowRunStep::status`] and published on

@@ -186,7 +186,7 @@ pub(super) fn is_budget_exhausted_failure(
         return false;
     }
     let signal = last_agent_error.unwrap_or(last_output);
-    crate::backend::classify::is_budget_exhausted_message(signal)
+    tinyinference_providers::is_budget_exhausted_message(signal)
 }
 
 /// TAURI-RUST-HCK — a cron **agent** job pinned to a provider with no
@@ -255,7 +255,7 @@ pub(super) fn is_local_provider_unreachable_failure(
 pub(super) fn is_local_provider_no_model_loaded_message(signal: &str) -> bool {
     let lower = signal.to_ascii_lowercase();
     (lower.contains("local inference server") && lower.contains("no model loaded"))
-        || lower.contains("no models loaded")
+        || tinyinference_llm::failure::body_indicates_no_model_loaded(signal)
 }
 
 /// Static, leak-safe actionable alert copy for a permanent cron halt state.

@@ -205,55 +205,23 @@ describe('pickVisemeCode', () => {
 });
 
 describe('pickConversationAckFace', () => {
-  it('prefers explicit reaction emoji from chat_done', () => {
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '✅' })).toBe('happy');
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '🤔' })).toBe(
-      'confused'
-    );
-    // ⚠️ is now cautious (heads-up), not concerned.
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '⚠️' })).toBe(
-      'cautious'
-    );
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '❌' })).toBe(
-      'concerned'
-    );
-  });
-
-  it('maps proud and curious reaction emojis', () => {
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '🏆' })).toBe('proud');
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '⭐' })).toBe('proud');
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '🔍' })).toBe(
-      'curious'
-    );
-    expect(pickConversationAckFace({ full_response: 'Done', reaction_emoji: '🧐' })).toBe(
-      'curious'
-    );
-  });
-
-  it('falls back to deterministic response text cues', () => {
-    expect(
-      pickConversationAckFace({ full_response: 'All set, this is fixed.', reaction_emoji: null })
-    ).toBe('happy');
+  it('maps deterministic response text cues', () => {
+    expect(pickConversationAckFace({ full_response: 'All set, this is fixed.' })).toBe('happy');
     expect(
       pickConversationAckFace({
         full_response: 'I need more detail to clarify which workspace you mean.',
-        reaction_emoji: null,
       })
     ).toBe('confused');
     expect(
       pickConversationAckFace({
         full_response: 'Sorry, the provider failed and I cannot continue.',
-        reaction_emoji: null,
       })
     ).toBe('concerned');
   });
 
   it('maps proud text cues', () => {
     expect(
-      pickConversationAckFace({
-        full_response: 'Successfully completed all tasks done!',
-        reaction_emoji: null,
-      })
+      pickConversationAckFace({ full_response: 'Successfully completed all tasks done!' })
     ).toBe('proud');
   });
 
@@ -261,7 +229,6 @@ describe('pickConversationAckFace', () => {
     expect(
       pickConversationAckFace({
         full_response: 'Heads up, this might cause unexpected side effects.',
-        reaction_emoji: null,
       })
     ).toBe('cautious');
   });
@@ -270,28 +237,22 @@ describe('pickConversationAckFace', () => {
     expect(
       pickConversationAckFace({
         full_response: 'Interesting — let me check what is happening here.',
-        reaction_emoji: null,
       })
     ).toBe('curious');
   });
 
   it('concerned takes priority over cautious when both patterns match', () => {
     expect(
-      pickConversationAckFace({
-        full_response: 'Sorry, this failed. Make sure you try again.',
-        reaction_emoji: null,
-      })
+      pickConversationAckFace({ full_response: 'Sorry, this failed. Make sure you try again.' })
     ).toBe('concerned');
   });
 
   it('returns null when there is no strong cue', () => {
-    expect(
-      pickConversationAckFace({ full_response: 'Here is the summary.', reaction_emoji: null })
-    ).toBeNull();
+    expect(pickConversationAckFace({ full_response: 'Here is the summary.' })).toBeNull();
   });
 
   it('returns null when the response text is missing', () => {
-    expect(pickConversationAckFace({ reaction_emoji: null })).toBeNull();
+    expect(pickConversationAckFace({})).toBeNull();
   });
 });
 
@@ -421,33 +382,12 @@ describe('useHumanMascot state machine', () => {
     expect(result.current.face).toBe('idle');
   });
 
-  it('uses reaction emoji for the post-turn acknowledgement face', () => {
-    const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
-    act(() => {
-      capturedListeners?.onDone?.(
-        fakeEvent({
-          full_response: 'I need more detail before I can choose.',
-          reaction_emoji: '🤔',
-          rounds_used: 1,
-          total_input_tokens: 1,
-          total_output_tokens: 1,
-        })
-      );
-    });
-    expect(result.current.face).toBe('confused');
-    act(() => {
-      vi.advanceTimersByTime(ACK_FACE_HOLD_MS + 1);
-    });
-    expect(result.current.face).toBe('idle');
-  });
-
-  it('uses response text cues when no reaction emoji is present', () => {
+  it('uses response text cues for the post-turn acknowledgement face', () => {
     const { result } = renderHook(() => useHumanMascot({ speakReplies: false }));
     act(() => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Sorry, that failed because the provider is unavailable.',
-          reaction_emoji: null,
           rounds_used: 1,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -526,7 +466,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Here is the result.',
-          reaction_emoji: null,
           rounds_used: 2,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -547,7 +486,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Here is the result.',
-          reaction_emoji: null,
           rounds_used: 1,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -573,7 +511,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Research complete.',
-          reaction_emoji: null,
           rounds_used: 1,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -618,7 +555,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Sorry, the researcher failed.',
-          reaction_emoji: null,
           rounds_used: 2,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -639,7 +575,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Done.',
-          reaction_emoji: null,
           rounds_used: 2,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -656,7 +591,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Here you go.',
-          reaction_emoji: null,
           rounds_used: 1,
           total_input_tokens: 1,
           total_output_tokens: 1,
@@ -689,7 +623,6 @@ describe('useHumanMascot state machine', () => {
       capturedListeners?.onDone?.(
         fakeEvent({
           full_response: 'Here you go.',
-          reaction_emoji: null,
           rounds_used: 1,
           total_input_tokens: 1,
           total_output_tokens: 1,

@@ -1,8 +1,8 @@
 //! Persisting a sub-agent turn's (or a failed run's) raw transcript to
 //! `session_raw`, mirroring the removed `SubagentObserver::persist_transcript`.
 
-use crate::agent::messages::ChatMessage;
 use crate::agent::subagent_host::types::SubagentRunError;
+use tinyagents_session::transcript::TranscriptMessage;
 
 use super::dispatch::AggregatedUsage;
 use super::worker_mirror::mirror_worker_thread_from_history;
@@ -17,9 +17,9 @@ use super::worker_mirror::mirror_worker_thread_from_history;
 /// snapshot (the run failed before its first model call) recovers nothing, as
 /// before.
 pub(super) fn failed_run_history(
-    original: &[ChatMessage],
+    original: &[TranscriptMessage],
     snapshot: &crate::agent::tinyagents::TranscriptSnapshot,
-) -> (Vec<ChatMessage>, Option<String>) {
+) -> (Vec<TranscriptMessage>, Option<String>) {
     if snapshot.messages.is_empty() {
         return (Vec::new(), None);
     }
@@ -47,7 +47,7 @@ pub(super) fn persist_subagent_transcript(
     task_id: &str,
     provider_label: &str,
     model: &str,
-    history: &[ChatMessage],
+    history: &[TranscriptMessage],
     usage: &AggregatedUsage,
     thread_id: Option<&str>,
     context_window: u64,
@@ -103,13 +103,7 @@ pub(super) fn persist_subagent_transcript(
         thread_id: thread_id.map(str::to_owned),
         task_id: Some(task_id.to_string()),
     };
-    let durable_history: Vec<_> = history
-        .iter()
-        .map(crate::agent::messages::transcript_message_from_chat)
-        .collect();
-    if let Err(err) =
-        transcript::write_transcript(&path, &durable_history, &meta, Some(&turn_usage))
-    {
+    if let Err(err) = transcript::write_transcript(&path, history, &meta, Some(&turn_usage)) {
         tracing::debug!(
             agent_id,
             error = %err,
@@ -135,7 +129,7 @@ pub(super) fn persist_failed_run(
     task_id: &str,
     provider_label: &str,
     model: &str,
-    recovered: &[ChatMessage],
+    recovered: &[TranscriptMessage],
     usage: &AggregatedUsage,
     thread_id: Option<&str>,
     unanswered_steps: Option<&str>,
@@ -150,7 +144,7 @@ pub(super) fn persist_failed_run(
         None => format!("[subagent run failed before completion: {error}]"),
     };
     let mut history = recovered.to_vec();
-    history.push(ChatMessage::assistant(marker.clone()));
+    history.push(TranscriptMessage::assistant(marker.clone()));
 
     persist_subagent_transcript(
         workspace_dir,

@@ -1,8 +1,8 @@
 use super::*;
 
 use crate::agent::progress_tracing::export::export_spans;
-use crate::agent::progress_tracing::serialize::spans_to_ndjson;
-use crate::agent::progress_tracing::types::SpanKind;
+use tinyagents_harness::observability::trace_export::serialize::SpanEnvelope;
+use tinyagents_harness::observability::trace_export::SpanKind;
 // ── config ────────────────────────────────────────────────────────────────
 
 #[test]
@@ -95,7 +95,7 @@ fn full_turn_builds_correlated_span_tree() {
     );
     assert_eq!(turn.attributes["agent.iterations"], serde_json::json!(1));
     assert_eq!(turn.status, SpanStatus::Ok);
-    assert!(turn.attributes.get("gen_ai.usage.cost_usd").is_some());
+    assert!(turn.attributes.contains_key("gen_ai.usage.cost_usd"));
 
     // Iteration parented to the turn.
     let iter = find(spans, "agent.iteration#1");
@@ -301,7 +301,7 @@ fn subagent_failure_records_error_without_raw_text() {
     let sub = find(c.spans(), "subagent.Coder");
     assert_eq!(sub.status, SpanStatus::Error);
     assert_eq!(sub.attributes["error"], serde_json::json!(true));
-    assert!(sub.attributes.get("error.length").is_some());
+    assert!(sub.attributes.contains_key("error.length"));
 
     let blob = serde_json::to_string(c.spans()).unwrap();
     assert!(
@@ -451,43 +451,12 @@ fn cost_update_before_turn_start_lazily_opens_root() {
 }
 
 #[test]
-fn trace_session_id_prefers_ui_session_else_thread() {
-    assert_eq!(trace_session_id(Some(99), "thread-x"), "99");
-    assert_eq!(trace_session_id(None, "thread-x"), "thread-x");
-}
-
-#[test]
 fn no_user_attribution_omits_user_id() {
     let mut c = SpanCollector::new(TraceContext::new("anon-1", None));
     c.record(&AgentProgress::TurnStarted, 0);
     let turn = find(c.spans(), "agent.turn");
-    assert!(turn.attributes.get("user.id").is_none());
+    assert!(!turn.attributes.contains_key("user.id"));
     assert_eq!(turn.attributes["session.id"], serde_json::json!("anon-1"));
-}
-
-#[test]
-fn ndjson_otel_emits_one_line_per_span() {
-    let spans = one_turn_spans();
-    let out = spans_to_ndjson(AgentTracingBackend::Otel, &spans);
-    assert_eq!(out.lines().count(), spans.len());
-    // Bare OTel span body has the fields directly.
-    let first: serde_json::Value = serde_json::from_str(out.lines().next().unwrap()).unwrap();
-    assert_eq!(first["trace_id"], serde_json::json!("sess-42"));
-    assert_eq!(first["kind"], serde_json::json!("turn"));
-}
-
-#[test]
-fn ndjson_langfuse_wraps_each_span_in_an_observation_envelope() {
-    let spans = one_turn_spans();
-    let out = spans_to_ndjson(AgentTracingBackend::Langfuse, &spans);
-    let first: serde_json::Value = serde_json::from_str(out.lines().next().unwrap()).unwrap();
-    assert_eq!(first["type"], serde_json::json!("span-create"));
-    assert_eq!(first["body"]["trace_id"], serde_json::json!("sess-42"));
-}
-
-#[test]
-fn ndjson_empty_for_empty_slice() {
-    assert!(spans_to_ndjson(AgentTracingBackend::Otel, &[]).is_empty());
 }
 
 #[test]
@@ -629,5 +598,15 @@ fn turn_span_stamps_user_and_thread_grouping_attributes() {
         turn.attributes.get("thread.id").and_then(|v| v.as_str()),
         Some("thread-abc"),
         "session_group must be stamped as thread.id for the Langfuse sessionId"
+    );
+}
+
+#[test]
+fn envelope_for_maps_configured_backend() {
+    use crate::agent::progress_tracing::export::envelope_for;
+    assert_eq!(envelope_for(AgentTracingBackend::Otel), SpanEnvelope::Otel);
+    assert_eq!(
+        envelope_for(AgentTracingBackend::Langfuse),
+        SpanEnvelope::Langfuse
     );
 }

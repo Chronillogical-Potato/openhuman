@@ -151,3 +151,71 @@ async fn managed_stream_retries_a_proxy_completion_without_visible_text() {
         assert_eq!(calls.load(Ordering::SeqCst), 2);
     }
 }
+
+/// Serves one SSE completion and records the JSON body it was sent.
+async fn spawn_capturing_sse_server() -> (String, std::sync::Arc<std::sync::Mutex<Option<Value>>>) {
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind capturing server");
+    let addr = listener.local_addr().expect("capturing server address");
+    let app = axum::Router::new()
+        .route(
+            "/openai/v1/chat/completions",
+            axum::routing::post(
+                |axum::extract::State(seen): axum::extract::State<
+                    std::sync::Arc<std::sync::Mutex<Option<Value>>>,
+                >,
+                 axum::Json(body): axum::Json<Value>| async move {
+                    *seen.lock().unwrap() = Some(body);
+                    let chunk = serde_json::json!({
+                        "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }]
+                    });
+                    (
+                        [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
+                        format!("data: {chunk}\n\ndata: [DONE]\n\n"),
+                    )
+                },
+            ),
+        )
+        .with_state(seen.clone());
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("serve capturing");
+    });
+    (addr.to_string(), seen)
+}
+
+/// Anthropic's prompt cache is opt-in: the managed model must send
+/// `cache_control` breakpoints for a Claude upstream and nothing extra for any
+/// other, otherwise every call re-bills the whole stable prefix.
+#[tokio::test]
+async fn managed_stream_marks_the_cacheable_prefix_for_anthropic_models_only() {
+    use futures::StreamExt;
+    use tinyinference_llm::model::{PromptSegment, SegmentRole};
+
+    for (model, expect_markers) in [
+        ("anthropic/claude-sonnet-4-6", true),
+        ("openrouter/anthropic/claude-haiku-4.5", true),
+        ("deepseek/deepseek-v4-flash", false),
+    ] {
+        let tmp = tempfile::TempDir::new().expect("scratch credentials");
+        seed_app_session(tmp.path());
+        let (addr, seen) = spawn_capturing_sse_server().await;
+        let backend = backend_pointed_at(&addr, tmp.path());
+        let request = ModelRequest::new(vec![Message::system("stable rules"), Message::user("hi")])
+            .with_model(model)
+            .with_cache_segments(vec![PromptSegment {
+                id: "system".into(),
+                role: SegmentRole::System,
+                cacheable: true,
+            }]);
+        let stream = backend
+            .stream(&(), request)
+            .await
+            .expect("mock SSE response");
+        let _ = stream.collect::<Vec<_>>().await;
+        let body = seen.lock().unwrap().clone().expect("request body captured");
+        let markers = body.to_string().matches("cache_control").count();
+        assert_eq!(markers > 0, expect_markers, "model={model} body={body}");
+    }
+}

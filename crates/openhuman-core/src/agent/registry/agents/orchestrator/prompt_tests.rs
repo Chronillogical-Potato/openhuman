@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::prompts::{LearnedContextData, ToolCallFormat};
+use crate::agent::prompts::ToolCallFormat;
 use std::collections::HashSet;
 
 #[test]
@@ -135,14 +135,10 @@ fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
         tools: &[],
         workflows: &[],
         dispatcher_instructions: "",
-        learned: LearnedContextData::default(),
         visible_tool_names: EMPTY_VISIBLE.get_or_init(HashSet::new),
         tool_call_format: ToolCallFormat::PFormat,
         connected_integrations: integrations,
         connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: false,
-        curated_snapshot: None,
         user_identity: None,
         personality_roster: vec![],
         agents_md_global: None,
@@ -437,6 +433,19 @@ fn build_does_not_route_scope_errors_as_disconnected() {
     assert!(body.contains("`composio_connect`"));
 }
 
+#[test]
+fn composio_connect_is_not_advertised_when_the_tool_is_not_visible() {
+    let mut ctx = ctx_with(&[]);
+    // A filtered tool set without `composio_connect` (Composio disabled).
+    let hidden = ["web_fetch".to_string()].into_iter().collect();
+    ctx.visible_tool_names = &hidden;
+    assert!(!build(&ctx).unwrap().contains("composio_connect"));
+
+    let visible = ["composio_connect".to_string()].into_iter().collect();
+    ctx.visible_tool_names = &visible;
+    assert!(build(&ctx).unwrap().contains("`composio_connect`"));
+}
+
 fn gmail_only() -> Vec<ConnectedIntegration> {
     vec![ConnectedIntegration {
         toolkit: "gmail".into(),
@@ -594,6 +603,18 @@ fn build_never_mandates_plan_review_and_allows_a_lead_in() {
     assert!(!body.contains("before doing any of the work"));
     assert!(body.contains("3+ steps: `todo`, then execute."));
     assert!(body.contains("Make a tool call in the message that announces it"));
+}
+
+#[test]
+fn build_carries_the_spec_check_grounding_rules() {
+    // Issue #6952: in every Terminal-Bench 4.0 failure the model's own checks
+    // passed without testing the deliverable against what the task stated.
+    let body = build(&ctx_with(&[])).unwrap();
+    assert!(body.contains("Checks must mirror how the task is specified or graded"));
+    assert!(body.contains("Never delete state, data or services the solution needs at runtime"));
+    assert!(body.contains("Verify the final state as a fresh consumer would see it."));
+    assert!(body
+        .contains("List the request's stated constraints, filters and thresholds as `todo` items"));
 }
 
 #[test]

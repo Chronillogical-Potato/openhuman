@@ -63,6 +63,16 @@ test("fails one line over the limit", () => {
   assert.match(out, /a\.rs: 751 lines \(limit 750\)/);
 });
 
+test("rejects test.rs, tests.rs and the singular <name>_test.rs", () => {
+  for (const name of ["test.rs", "tests.rs", "thing_test.rs"]) {
+    const { status, out } = run({ [name]: 1 });
+    assert.equal(status, 1, name);
+    assert.match(out, /must use a descriptive \*_tests\.rs filename/);
+  }
+  const ok = run({ "thing_tests.rs": 1 });
+  assert.equal(ok.status, 0, ok.out);
+});
+
 test("warns, without failing, on a file inside the warn band", () => {
   const { status, out } = run({ "near.rs": 740, "far.rs": 725 });
   assert.equal(status, 0, out);

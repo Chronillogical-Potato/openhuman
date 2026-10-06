@@ -1,7 +1,7 @@
 /**
  * Utilities for multimodal chat attachments.
  *
- * Images are embedded as `[IMAGE:<data-uri>]` markers. Other supported files
+ * Images are embedded as `[IMAGE:<data-uri>]` markers. Other files
  * are embedded as `[FILE:<data-uri>]` markers. The Rust agent harness
  * (`agent/multimodal.rs`) parses, validates, and expands both shapes before
  * the provider call.
@@ -34,50 +34,25 @@ const ALLOWED_FILE_MIME_TYPES = [
 
 export type AllowedFileMimeType = (typeof ALLOWED_FILE_MIME_TYPES)[number];
 
-// Video formats accepted by the composer. The original video is never sent to
-// the provider — instead we sample a few still frames client-side and forward
-// them through the existing `[IMAGE:]` vision path (see `extractVideoFrames` +
-// `buildMessageWithAttachments`). So a vision-capable tier is required, the same
-// gate as images; audio and motion between frames are not conveyed.
+// Known video types select a video chip; every other MIME is still accepted
+// as an original file. Capability routing and extraction belong to the core.
 const ALLOWED_VIDEO_MIME_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'] as const;
-
 export type AllowedVideoMimeType = (typeof ALLOWED_VIDEO_MIME_TYPES)[number];
-export type AllowedAttachmentMimeType =
-  | AllowedImageMimeType
-  | AllowedFileMimeType
-  | AllowedVideoMimeType;
+export type AllowedAttachmentMimeType = string;
 export type AttachmentKind = 'image' | 'file' | 'video';
-
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   ...ALLOWED_IMAGE_MIME_TYPES,
   ...ALLOWED_FILE_MIME_TYPES,
   ...ALLOWED_VIDEO_MIME_TYPES,
 ] as const;
 
-// Document formats the backend actually text-extracts (PDF via pdf_extract;
-// TXT/Markdown via UTF-8). DOCX/PPTX/XLSX/ZIP are intentionally excluded — the
-// agent would only see a reference stub, not their content. `text/csv` is also
-// deliberately left out: the backend *can* extract it, but the chat composer is
-// scoped to PDF/TXT/Markdown by product decision (revisit here if CSV is wanted).
-// Used by the ingest validator below, not by a native `accept` filter:
-// Chromium/CEF on macOS greys valid files at the open panel regardless of the
-// filter shape, so selection is gated in `validateAndReadFile` after the user
-// picks, not at the dialog.
-const EXTRACTABLE_FILE_MIME_TYPES = ['application/pdf', 'text/plain', 'text/markdown'] as const;
-
-// Shared image-marker budget per message. Images cost 1 marker each; a video
-// costs VIDEO_FRAME_COUNT markers (its sampled frames). Mirrors the core default
-// `multimodal.max_images` (crates/openhuman-core/src/config/schema/tools/multimodal.rs) — the
-// core counts every `[IMAGE:]` marker (frames included) and errors on overflow,
-// so the composer must budget images + video frames against this single cap.
+// Original image uploads and all other original files have separate budgets.
 export const ATTACHMENT_MAX_IMAGES = 4;
 export const ATTACHMENT_MAX_FILES = 4;
 export const ATTACHMENT_MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024; // 8 MB
 export const ATTACHMENT_MAX_FILE_SIZE_BYTES = 16 * 1024 * 1024; // 16 MB
-export const ATTACHMENT_MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
-// Still frames sampled from a video and forwarded as `[IMAGE:]` markers. 2 keeps
-// a clip within the 4-marker budget alongside other attachments (e.g. 1 video +
-// 2 images, or 2 videos).
+export const ATTACHMENT_MAX_VIDEO_SIZE_BYTES = ATTACHMENT_MAX_FILE_SIZE_BYTES;
+// Default number of stills for callers explicitly requesting a video preview.
 export const VIDEO_FRAME_COUNT = 2;
 
 export interface Attachment {
@@ -90,18 +65,13 @@ export interface Attachment {
   originalSizeBytes: number;
   payloadSizeBytes: number;
   compressed: boolean;
-  // Only set for `kind: 'video'`: the still frames sampled from the clip,
-  // expanded into `[IMAGE:]` markers at send time. The chip itself shows a
-  // single poster (the first frame) via `previewUri`.
+  // Optional preview frames only; originals are always sent as FILE markers.
   frames?: string[];
 }
 
 type AttachmentError =
-  | { code: 'unsupported_type'; mimeType: string }
   | { code: 'too_large'; sizeBytes: number; maxBytes: number }
   | { code: 'too_many'; kind: AttachmentKind; max: number }
-  | { code: 'image_not_supported' }
-  | { code: 'video_not_supported' }
   | { code: 'read_failed'; reason: string };
 
 export function isAllowedMimeType(mime: string): mime is AllowedImageMimeType {
@@ -110,31 +80,6 @@ export function isAllowedMimeType(mime: string): mime is AllowedImageMimeType {
 
 export function isVideoMimeType(mime: string): mime is AllowedVideoMimeType {
   return (ALLOWED_VIDEO_MIME_TYPES as readonly string[]).includes(mime);
-}
-
-/**
- * The exact MIME set the ingest validator accepts — images plus the
- * text-extractable documents. A strict subset of {@link AllowedAttachmentMimeType}
- * (which also lists reference-only types like CSV/DOCX/ZIP that we reject).
- */
-type SupportedAttachmentMimeType =
-  | AllowedImageMimeType
-  | AllowedVideoMimeType
-  | (typeof EXTRACTABLE_FILE_MIME_TYPES)[number];
-
-/**
- * Only accepts formats the backend actually reads — images, plus the
- * text-extractable documents (PDF via
- * pdf_extract; TXT/Markdown via UTF-8). DOCX/PPTX/XLSX/ZIP are excluded so they
- * can't be attached as content-less reference stubs. Applied on every ingest
- * path (picker, drag-drop, paste).
- */
-function isSupportedAttachmentMimeType(mime: string): mime is SupportedAttachmentMimeType {
-  return (
-    (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime) ||
-    (ALLOWED_VIDEO_MIME_TYPES as readonly string[]).includes(mime) ||
-    (EXTRACTABLE_FILE_MIME_TYPES as readonly string[]).includes(mime)
-  );
 }
 
 export function attachmentKindForMime(mime: AllowedAttachmentMimeType): AttachmentKind {
@@ -154,8 +99,11 @@ export function fileToDataUri(file: Blob): Promise<string> {
 }
 
 async function blobToDataUri(blob: Blob, mimeType: string): Promise<string> {
-  const namedBlob = new Blob([blob], { type: mimeType });
-  return fileToDataUri(namedBlob);
+  // Blob normalizes MIME text to lowercase, including arbitrary parameters.
+  // Insert the encoded filename after reading so its case stays intact.
+  const typedBlob = new Blob([blob], { type: mimeType.split(';')[0] });
+  const uri = await fileToDataUri(typedBlob);
+  return `data:${mimeType};base64,${uri.slice(uri.indexOf(',') + 1)}`;
 }
 
 async function gzipBlob(file: File): Promise<Blob | null> {
@@ -201,7 +149,7 @@ async function buildAttachmentDataUri(
     return { dataUri, payloadSizeBytes: compressed.size, compressed: true };
   }
 
-  const dataUri = await fileToDataUri(file);
+  const dataUri = await blobToDataUri(file, `${mimeType};name=${encodeDataUriParam(file.name)}`);
   debug(
     '[chat:attachments] compression:skipped name=%s original=%d compressed=%s',
     file.name,
@@ -251,9 +199,8 @@ function seekVideo(video: HTMLVideoElement, time: number): Promise<void> {
 /**
  * Sample `count` still frames from a video file as JPEG data URIs by decoding it
  * in a detached `<video>` element and painting each seek point onto a `<canvas>`.
- * The full clip is never uploaded — only these frames ride the `[IMAGE:]` vision
- * path. Throws if the browser can't decode the file (the caller maps that to a
- * `read_failed` error). Requires a real codec-capable runtime (CEF/Chromium);
+ * This optional preview helper does not affect original upload acceptance.
+ * Throws if the browser cannot decode the file. Requires a codec-capable browser;
  * jsdom can't decode video, so unit tests stub {@link videoFrameExtractor}.
  */
 async function extractVideoFramesImpl(
@@ -302,47 +249,27 @@ export function extractVideoFrames(file: File, count?: number): Promise<string[]
   return videoFrameExtractor.extract(file, count);
 }
 
-/** Image-marker cost of an attachment kind (video = its sampled frames). */
+/** Number of image markers sent for an original attachment. */
 export function imageMarkerCost(kind: AttachmentKind): number {
-  if (kind === 'image') return 1;
-  if (kind === 'video') return VIDEO_FRAME_COUNT;
-  return 0;
+  return kind === 'image' ? 1 : 0;
 }
 
 export async function validateAndReadFile(
   file: File,
-  // Image-marker slots already consumed this message: 1 per image + VIDEO_FRAME_COUNT
-  // per video. Images and videos share one budget (ATTACHMENT_MAX_IMAGES) because
-  // the core counts every `[IMAGE:]` marker — frames included — and rejects overflow.
   existingImageMarkers: number,
   existingFileCount = 0,
-  // When `false` (the active chat model isn't vision-capable), image AND video
-  // files are rejected (video is conveyed as sampled frames through the vision
-  // path); documents (PDF/Word/etc.) still flow. Defaults `true` so non-chat
-  // callers are unaffected.
-  allowImages = true
+  // Kept for compatibility with callers: capabilities affect core routing,
+  // never whether an original may be uploaded.
+  _allowImages = true
 ): Promise<{ attachment: Attachment } | { error: AttachmentError }> {
-  if (!isSupportedAttachmentMimeType(file.type)) {
-    return { error: { code: 'unsupported_type', mimeType: file.type || 'unknown' } };
-  }
-
-  const kind = attachmentKindForMime(file.type);
-  if (!allowImages && kind === 'image') {
-    return { error: { code: 'image_not_supported' } };
-  }
-  if (!allowImages && kind === 'video') {
-    return { error: { code: 'video_not_supported' } };
-  }
-
-  if (kind === 'file') {
+  const mimeType = file.type || 'application/octet-stream';
+  const kind = attachmentKindForMime(mimeType);
+  if (kind !== 'image') {
     if (existingFileCount >= ATTACHMENT_MAX_FILES) {
       return { error: { code: 'too_many', kind: 'file', max: ATTACHMENT_MAX_FILES } };
     }
-  } else {
-    // image or video: budget against the shared image-marker cap.
-    if (existingImageMarkers + imageMarkerCost(kind) > ATTACHMENT_MAX_IMAGES) {
-      return { error: { code: 'too_many', kind: 'image', max: ATTACHMENT_MAX_IMAGES } };
-    }
+  } else if (existingImageMarkers >= ATTACHMENT_MAX_IMAGES) {
+    return { error: { code: 'too_many', kind: 'image', max: ATTACHMENT_MAX_IMAGES } };
   }
 
   const maxBytes =
@@ -356,30 +283,7 @@ export async function validateAndReadFile(
   }
 
   try {
-    if (kind === 'video') {
-      const frames = await videoFrameExtractor.extract(file);
-      if (frames.length === 0) {
-        return { error: { code: 'read_failed', reason: 'no frames extracted' } };
-      }
-      return {
-        attachment: {
-          id: globalThis.crypto.randomUUID(),
-          kind: 'video',
-          file,
-          // The clip is represented to the agent by its frames, not a data URI;
-          // the poster (first frame) drives the chip thumbnail.
-          dataUri: frames[0],
-          previewUri: frames[0],
-          mimeType: file.type,
-          originalSizeBytes: file.size,
-          payloadSizeBytes: file.size,
-          compressed: false,
-          frames,
-        },
-      };
-    }
-
-    const { dataUri, payloadSizeBytes, compressed } = await buildAttachmentDataUri(file, file.type);
+    const { dataUri, payloadSizeBytes, compressed } = await buildAttachmentDataUri(file, mimeType);
     const previewUri = kind === 'image' ? await fileToDataUri(file) : undefined;
     return {
       attachment: {
@@ -388,7 +292,7 @@ export async function validateAndReadFile(
         file,
         dataUri,
         previewUri,
-        mimeType: file.type,
+        mimeType,
         originalSizeBytes: file.size,
         payloadSizeBytes,
         compressed,
@@ -410,16 +314,73 @@ export async function validateAndReadFile(
 export function buildMessageWithAttachments(text: string, attachments: Attachment[]): string {
   if (attachments.length === 0) return text;
   const markers = attachments
-    .map(a => {
-      if (a.kind === 'image') return `[IMAGE:${a.dataUri}]`;
-      if (a.kind === 'file') return `[FILE:${a.dataUri}]`;
-      // Video: forward each sampled still as its own image marker so the agent
-      // "sees" the clip through the existing vision path.
-      return (a.frames ?? []).map(frame => `[IMAGE:${frame}]`).join(' ');
-    })
+    .map(a => `[${a.kind === 'image' ? 'IMAGE' : 'FILE'}:${a.dataUri}]`)
     .filter(marker => marker.length > 0)
     .join(' ');
   return text.trim() ? `${text.trim()} ${markers}` : markers;
+}
+
+/** Workspace references returned by the core after it has saved originals. */
+export interface AttachmentReference {
+  path: string;
+  name: string;
+  mime: string;
+  size_bytes: number;
+}
+
+/** Decode durable references without exposing raw JSON in message bubbles. */
+export function parseAttachmentReferences(content: string): {
+  text: string;
+  attachments: AttachmentReference[];
+} {
+  const attachments: AttachmentReference[] = [];
+  const text = content
+    .replace(/\[ATTACHMENT:([^\]]+)\]/g, (marker, encoded: string) => {
+      try {
+        const decoded = new URLSearchParams(`value=${encoded}`).get('value');
+        const value: unknown = JSON.parse(decoded ?? '');
+        if (!value || typeof value !== 'object') return marker;
+        const file = value as Partial<AttachmentReference>;
+        if (
+          typeof file.path !== 'string' ||
+          typeof file.name !== 'string' ||
+          typeof file.mime !== 'string' ||
+          typeof file.size_bytes !== 'number' ||
+          !Number.isSafeInteger(file.size_bytes) ||
+          file.size_bytes < 0
+        )
+          return marker;
+        // These are workspace references, never URLs or absolute browser targets.
+        const components = file.path.split('/');
+        if (
+          !file.path ||
+          file.path.includes('\\') ||
+          file.path.includes(':') ||
+          file.path.includes('\0') ||
+          components.some(part => part === '' || part === '.' || part === '..')
+        )
+          return marker;
+        attachments.push(file as AttachmentReference);
+        return '';
+      } catch {
+        return marker;
+      }
+    })
+    .replace(/ {2,}/g, ' ')
+    .trim();
+  return { text, attachments };
+}
+
+/** Display metadata excludes payload bytes; originals travel only in upload markers. */
+export function attachmentMetadata(attachments: Attachment[]): Record<string, unknown> {
+  return attachments.length === 0
+    ? {}
+    : {
+        attachmentCount: attachments.length,
+        attachmentNames: attachments.map(file => file.file.name),
+        attachmentKinds: attachments.map(file => file.kind),
+        attachmentCompressed: attachments.map(file => file.compressed),
+      };
 }
 
 /**
@@ -429,8 +390,8 @@ export function buildMessageWithAttachments(text: string, attachments: Attachmen
  */
 export function parseMessageImages(content: string): { text: string; dataUris: string[] } {
   const dataUris: string[] = [];
-  const text = content
-    .replace(/\[IMAGE:([^\]]+)\]/g, (_match, uri: string) => {
+  const text = parseAttachmentReferences(content)
+    .text.replace(/\[IMAGE:([^\]]+)\]/g, (_match, uri: string) => {
       dataUris.push(uri);
       return '';
     })

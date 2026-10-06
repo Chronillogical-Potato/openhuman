@@ -4,32 +4,12 @@ use super::*;
 
 pub(super) const CAPABILITIES: &[Capability] = &[
 Capability {
-        id: "local_ai.download_model",
-        name: "Download Local Models",
-        domain: "local_ai",
-        category: CapabilityCategory::LocalAI,
-        description: "Download and bootstrap local AI runtimes and model bundles.",
-        how_to: "Downloaded by the core local-runtime module; progress surfaces in the download snackbar. No settings control exposes it since the local-model panel was removed (0ec68613af).",
-        status: CapabilityStatus::Beta,
-        privacy: MODEL_DOWNLOAD,
-    },
-Capability {
         id: "local_ai.configure_provider",
         name: "Configure Local Provider",
         domain: "local_ai",
         category: CapabilityCategory::LocalAI,
-        description: "Select Ollama, LM Studio, MLX, oMLX, or a generic local OpenAI-compatible server. Local chat inference does not require an OpenHuman account.",
+        description: "Point OpenHuman at a local runtime you run yourself: Ollama, LM Studio, MLX, oMLX, or a generic OpenAI-compatible server. OpenHuman does not install the runtime or download models; pull them in your runtime (e.g. `ollama pull <model>`). Local chat inference does not require an OpenHuman account.",
         how_to: "Connections → API keys → LLM, or use provider strings: ollama:<model>, lmstudio:<model>, mlx:<model>, omlx:<model>, local-openai:<model>",
-        status: CapabilityStatus::Beta,
-        privacy: None,
-    },
-Capability {
-        id: "local_ai.manage_model_assets",
-        name: "Manage Model Assets",
-        domain: "local_ai",
-        category: CapabilityCategory::LocalAI,
-        description: "Inspect asset status and download specific chat, vision, embedding, STT, or TTS assets.",
-        how_to: "Served by the core `inference_assets_status` / `inference_download_asset` methods; no settings control exposes it since the local-model panel was removed (0ec68613af).",
         status: CapabilityStatus::Beta,
         privacy: None,
     },
@@ -49,7 +29,7 @@ Capability {
         domain: "local_ai",
         category: CapabilityCategory::LocalAI,
         description: "Create local vector embeddings for text input.",
-        how_to: "Connections → API keys → Embeddings, or the core `inference_embed` method.",
+        how_to: "Connections → API keys → Embeddings, or the core `embeddings_embed` method.",
         status: CapabilityStatus::Beta,
         privacy: LOCAL_RAW,
     },
@@ -85,20 +65,6 @@ Capability {
         how_to: "Served by the core `inference_prompt` method; no settings control exposes it since the local-model panel was removed (0ec68613af).",
         status: CapabilityStatus::Beta,
         privacy: None,
-    },
-Capability {
-        id: "local_ai.piper_installer",
-        name: "Piper Installer (Local TTS)",
-        domain: "local_ai",
-        category: CapabilityCategory::LocalAI,
-        description:
-            "One-click download of the Piper binary archive and the bundled en_US-lessac-medium \
-             voice (.onnx + .onnx.json) into the workspace so local Text-to-Speech runs without \
-             manual setup. Atomic rename guarantees no half-written voice files are ever read \
-             by the runtime.",
-        how_to: "Settings > Voice > Voice Providers > Install Piper",
-        status: CapabilityStatus::Beta,
-        privacy: MODEL_DOWNLOAD,
     },
 Capability {
         id: "local_ai.python_runtime_installer",

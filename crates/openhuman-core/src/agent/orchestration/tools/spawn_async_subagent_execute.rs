@@ -331,7 +331,7 @@ impl SpawnAsyncSubagentTool {
             .as_ref()
             .and_then(|session| session.latest_history.clone())
             .map(|mut history| {
-                history.push(ChatMessage::user(follow_up_prompt.clone()));
+                history.push(TranscriptMessage::user(follow_up_prompt.clone()));
                 history
             });
 
@@ -419,7 +419,7 @@ impl SpawnAsyncSubagentTool {
             crate::agent::turn_workspace::propagate(async move {
                 let options = SubagentRunOptions {
                     skill_filter_override: None,
-                            context,
+                    context,
                     model_override,
                     task_id: Some(background_task_id.clone()),
                     thread_id: Some(background_thread_id),
@@ -459,7 +459,7 @@ impl SpawnAsyncSubagentTool {
                                         err
                                     );
                                 }
-                                let _ = status_tx.send(SubagentStatus::Completed {
+                                let _ = status_tx.send(DetachedSubagentStatus::Completed {
                                     output: outcome.output.clone(),
                                     iterations: outcome.iterations,
                                 });
@@ -544,7 +544,7 @@ impl SpawnAsyncSubagentTool {
                              Partial progress:\n{}",
                                     outcome.output
                                 );
-                                let _ = status_tx.send(SubagentStatus::Completed {
+                                let _ = status_tx.send(DetachedSubagentStatus::Completed {
                                     output: framed.clone(),
                                     iterations: outcome.iterations,
                                 });
@@ -614,7 +614,7 @@ impl SpawnAsyncSubagentTool {
                                         err
                                     );
                                 }
-                                let _ = status_tx.send(SubagentStatus::Failed {
+                                let _ = status_tx.send(DetachedSubagentStatus::Failed {
                                     error: error.clone(),
                                 });
                                 crate::agent::orchestration::background_completions::record_failure(
@@ -660,7 +660,7 @@ impl SpawnAsyncSubagentTool {
                                         err
                                     );
                                 }
-                                let _ = status_tx.send(SubagentStatus::AwaitingUser {
+                                let _ = status_tx.send(DetachedSubagentStatus::AwaitingUser {
                                     question: question.clone(),
                                 });
                                 // #4896: a detached child that pauses for input won't
@@ -688,8 +688,7 @@ impl SpawnAsyncSubagentTool {
                                             agent_id: outcome.agent_id,
                                             task_id: outcome.task_id,
                                             question: question.clone(),
-                                            worker_thread_id: background_worker_thread_id
-                                                .clone(),
+                                            worker_thread_id: background_worker_thread_id.clone(),
                                             checkpoint_path: checkpoint
                                                 .as_ref()
                                                 .map(|path| path.to_string_lossy().to_string()),
@@ -715,7 +714,7 @@ impl SpawnAsyncSubagentTool {
                                 store_err
                             );
                         }
-                        let _ = status_tx.send(SubagentStatus::Failed {
+                        let _ = status_tx.send(DetachedSubagentStatus::Failed {
                             error: error.clone(),
                         });
                         // #4896: a detached child that errors previously only

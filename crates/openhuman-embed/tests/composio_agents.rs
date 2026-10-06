@@ -111,8 +111,8 @@ fn agents_call_composio_with_their_own_credential() {
             let b = beta.run("list my connections").await.expect("beta turn");
             assert!(b.reply.contains("beta-ok"), "{:?}", b.reply);
 
-            let a_reqs = provider_a.received_requests().await.unwrap();
-            let b_reqs = provider_b.received_requests().await.unwrap();
+            let a_reqs = common::chat_requests(&provider_a).await;
+            let b_reqs = common::chat_requests(&provider_b).await;
             let a_results = tool_results(&a_reqs[1]);
             let b_results = tool_results(&b_reqs[1]);
             assert!(a_results.contains("ca_alpha"), "{a_results}");

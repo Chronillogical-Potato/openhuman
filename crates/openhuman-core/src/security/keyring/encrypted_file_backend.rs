@@ -75,11 +75,6 @@ pub fn init_master_key() {
     });
 }
 
-/// Returns `true` if the master key has been successfully loaded.
-pub fn is_master_key_available() -> bool {
-    MASTER_KEY.get().and_then(|k| k.as_ref()).is_some()
-}
-
 /// Abstraction over the OS-keychain entry that holds the master key.
 ///
 /// Exists solely so the load-vs-mint decision in [`load_or_mint_master_key`]

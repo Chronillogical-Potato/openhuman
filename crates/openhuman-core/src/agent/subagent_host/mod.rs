@@ -49,6 +49,10 @@ mod tool_ranking_tests;
 #[path = "lifecycle_tests.rs"]
 mod lifecycle_tests;
 
+#[cfg(test)]
+#[path = "persisted_compat_tests.rs"]
+mod persisted_compat_tests;
+
 // Public API — the entry point and the shapes it returns.
 pub use autonomous::{
     autonomous_iter_cap, subagent_iter_cap_with_autonomous_lift, with_autonomous_iter_cap,

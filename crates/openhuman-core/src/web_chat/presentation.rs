@@ -1,16 +1,8 @@
-//! Presentation layer for web-channel chat responses.
-//!
-//! Handles two concerns that run on the **local model** (zero cloud cost):
-//!
-//! 1. **Message segmentation** — split an agent response into human-feeling
-//!    chat bubbles, but *only* when the content is natural-language prose.
-//!    Code blocks, structured data, and short messages are never split.
-//!
-//! 2. **Emoji reactions** — decide whether the assistant should react to the
-//!    user's message with an emoji.
+//! Presentation layer for web-channel chat responses: store a finished reply,
+//! then announce it to the client as `chat_done` (or, for channel-specific
+//! callers, as human-feeling `chat_segment` bubbles).
 
 use crate::agent::tinyagents::host::LastTurnUsage;
-use crate::config::rpc as config_rpc;
 use crate::web_chat::{SubagentUsagePayload, TurnUsagePayload, WebChannelEvent};
 
 use super::publish_web_channel_event;
@@ -62,7 +54,7 @@ pub(crate) async fn deliver_response(
     request_id: &str,
     full_response: &str,
     user_message: &str,
-    citations: &[crate::memory::agent::memory_loader::MemoryCitation],
+    citations: &[crate::memory::types::TurnCitation],
     usage: Option<&LastTurnUsage>,
     workspace_dir: Option<&std::path::Path>,
     timing: Option<super::turn_timing::TurnTimingSnapshot>,
@@ -72,20 +64,10 @@ pub(crate) async fn deliver_response(
     let timing_payload =
         timing.map(|snapshot| snapshot.into_payload(usage.map(|u| u.output_tokens)));
 
-    // Spawn reaction decision in parallel — it runs on the local model and
-    // shouldn't block segmentation or delivery.
-    let user_msg_owned = user_message.to_string();
-    let reaction_handle = tokio::spawn(crate::core::runtime::context::CoreContext::propagate(
-        async move { try_reaction(&user_msg_owned).await },
-    ));
-
     // Keep the response byte-for-byte in one assistant message. The legacy
     // segmentation helpers remain available to channel-specific callers/tests,
     // but the interactive web surface must not cut or reformat model output.
     let segments = [full_response.to_string()];
-
-    // Await the reaction result (should already be done or nearly done).
-    let reaction_emoji = reaction_handle.await.unwrap_or(None);
 
     if segments.len() <= 1 {
         // Store the answer before announcing it. Ordering is the whole point:
@@ -141,7 +123,6 @@ pub(crate) async fn deliver_response(
             thread_id,
             request_id,
             full_response,
-            reaction_emoji,
             citations,
             usage_payload,
             timing_payload,
@@ -180,14 +161,14 @@ pub(crate) async fn deliver_response(
             error_retry_after_ms: None,
             error_provider: None,
             error_fallback_available: None,
+            copy_key: None,
+            copy_params: None,
             tool_name: None,
             skill_id: None,
             args: None,
             output: None,
             success: None,
             round: None,
-            // Attach reaction emoji only on the first segment.
-            reaction_emoji: if i == 0 { reaction_emoji.clone() } else { None },
             segment_index: Some(i as u32),
             segment_total: Some(total),
             delta: None,
@@ -225,13 +206,14 @@ pub(crate) async fn deliver_response(
         error_retry_after_ms: None,
         error_provider: None,
         error_fallback_available: None,
+        copy_key: None,
+        copy_params: None,
         tool_name: None,
         skill_id: None,
         args: None,
         output: None,
         success: None,
         round: None,
-        reaction_emoji: None,
         segment_index: None,
         segment_total: Some(total),
         delta: None,
@@ -268,7 +250,7 @@ pub(crate) async fn deliver_response(
 }
 
 /// Deliver an agent response as exactly one `chat_done` bubble — no
-/// segmentation, no reaction — for turns the core runs on its own behalf
+/// segmentation — for turns the core runs on its own behalf
 /// (background sub-agent result delivery).
 ///
 /// Those turns persist their closing message themselves, as a single row,
@@ -288,7 +270,6 @@ pub(crate) fn deliver_response_single_bubble(
         thread_id,
         request_id,
         full_response,
-        None,
         &[],
         usage_payload(usage),
         // Background/core-initiated turns don't run through the web-channel
@@ -303,8 +284,7 @@ fn publish_chat_done(
     thread_id: &str,
     request_id: &str,
     full_response: &str,
-    reaction_emoji: Option<String>,
-    citations: &[crate::memory::agent::memory_loader::MemoryCitation],
+    citations: &[crate::memory::types::TurnCitation],
     usage_payload: Option<TurnUsagePayload>,
     timing_payload: Option<crate::web_chat::TurnTimingPayload>,
 ) {
@@ -321,13 +301,14 @@ fn publish_chat_done(
         error_retry_after_ms: None,
         error_provider: None,
         error_fallback_available: None,
+        copy_key: None,
+        copy_params: None,
         tool_name: None,
         skill_id: None,
         args: None,
         output: None,
         success: None,
         round: None,
-        reaction_emoji,
         segment_index: None,
         segment_total: None,
         delta: None,
@@ -351,40 +332,6 @@ fn publish_chat_done(
         seq: None,
         ..Default::default()
     });
-}
-
-// ── Reactions ────────────────────────────────────────────────────────────────
-
-/// Ask the local model for an emoji reaction to the user's message.
-/// Returns `None` if the local model is unavailable or decides no reaction.
-async fn try_reaction(user_message: &str) -> Option<String> {
-    if user_message.trim().is_empty() {
-        return None;
-    }
-
-    let config = match config_rpc::load_config_with_timeout().await {
-        Ok(c) => c,
-        Err(_) => return None,
-    };
-
-    if !config.local_ai.runtime_enabled {
-        return None;
-    }
-
-    match crate::inference::ops::inference_should_react(&config, user_message, "web").await {
-        Ok(outcome) => {
-            let decision = outcome.value;
-            if decision.should_react {
-                decision.emoji
-            } else {
-                None
-            }
-        }
-        Err(e) => {
-            tracing::debug!(error = %e, "[presentation:reaction] local model reaction failed");
-            None
-        }
-    }
 }
 
 #[cfg(any(test, debug_assertions))]

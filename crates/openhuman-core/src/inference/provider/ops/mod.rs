@@ -35,9 +35,7 @@ pub use models::{
 };
 
 pub use provider_factory::{
-    canonical_china_provider_name, is_glm_alias, is_minimax_alias, is_moonshot_alias,
-    is_qianfan_alias, is_qwen_alias, is_qwen_oauth_alias, is_zai_alias, list_providers,
-    ProviderInfo, ProviderRuntimeOptions, INFERENCE_BACKEND_ID,
+    list_providers, ProviderInfo, ProviderRuntimeOptions, INFERENCE_BACKEND_ID,
 };
 
 // ── test re-exports for ops_tests.rs ──

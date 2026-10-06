@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::agent::messages::ChatMessage;
 use crate::agent::subagent_host::SubagentRunStatus;
+use tinyagents_session::transcript::TranscriptMessage;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -62,7 +62,8 @@ pub struct DurableSubagentSession {
     pub current_task_id: Option<String>,
     pub status: DurableSubagentStatus,
     pub reusable: bool,
-    pub latest_history: Option<Vec<ChatMessage>>,
+    #[serde(default, with = "crate::agent::messages::history_wire::option")]
+    pub latest_history: Option<Vec<TranscriptMessage>>,
     pub latest_error: Option<String>,
     pub created_at: String,
     pub updated_at: String,

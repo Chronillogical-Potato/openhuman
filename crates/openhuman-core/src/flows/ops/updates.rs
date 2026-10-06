@@ -83,33 +83,6 @@ pub async fn flows_update(
     .await
 }
 
-/// Update a flow while atomically disarming any automatic-trigger graph.
-///
-/// Remote authoring surfaces use this variant so revising a schedule,
-/// app-event, or webhook flow never preserves a prior local opt-in to run the
-/// old graph. The same guarded store write persists the graph and
-/// `enabled=false`, so no trigger can observe the revised graph armed between
-/// two writes.
-pub(crate) async fn flows_update_disarming_automatic(
-    config: &Config,
-    id: &str,
-    name: Option<String>,
-    graph_json: Option<Value>,
-    require_approval: Option<bool>,
-    expected_version: Option<String>,
-) -> Result<Outcome<Flow>, String> {
-    flows_update_inner(
-        config,
-        id,
-        name,
-        graph_json,
-        require_approval,
-        expected_version,
-        true,
-    )
-    .await
-}
-
 async fn flows_update_inner(
     config: &Config,
     id: &str,

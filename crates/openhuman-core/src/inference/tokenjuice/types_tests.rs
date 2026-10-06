@@ -34,16 +34,3 @@ fn content_hint_matches_the_module_wire_shape() {
         })
     );
 }
-
-#[test]
-fn retrieve_range_uses_camel_case_wire_values() {
-    let range = RetrieveRange {
-        start: 2,
-        end: 5,
-        unit: RangeUnit::Lines,
-    };
-    assert_eq!(
-        serde_json::to_value(range).expect("serialize range"),
-        serde_json::json!({ "start": 2, "end": 5, "unit": "lines" })
-    );
-}

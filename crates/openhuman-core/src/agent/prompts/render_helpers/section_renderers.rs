@@ -5,7 +5,6 @@
 use super::super::sections::*;
 use super::super::types::*;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use std::sync::OnceLock;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,32 +17,6 @@ pub fn render_identity(ctx: &PromptContext<'_>) -> Result<String> {
     IdentitySection.build(ctx)
 }
 
-/// Render the `PROFILE.md` + `MEMORY.md` user-file injection.
-/// Empty when neither `ctx.include_profile` nor `ctx.include_memory_md`
-/// is set.
-pub fn render_user_files(ctx: &PromptContext<'_>) -> Result<String> {
-    UserFilesSection.build(ctx)
-}
-
-/// Render the tree-summariser user-memory block.
-pub fn render_user_memory(ctx: &PromptContext<'_>) -> Result<String> {
-    UserMemorySection.build(ctx)
-}
-
-/// Render the `## Project instructions (AGENTS.md)` block from the pre-loaded
-/// global + local content on [`PromptContext`]. Empty when neither layer
-/// carries content. Dynamic `agents/<id>/prompt.rs` builders call this so they
-/// inherit the same AGENTS.md injection as the default section chain.
-pub fn render_agents_md(ctx: &PromptContext<'_>) -> Result<String> {
-    AgentsInstructionsSection.build(ctx)
-}
-
-/// Render the privileged `## User Reflections` block. Empty when the
-/// learning subsystem has not captured any reflections yet.
-pub fn render_user_reflections(ctx: &PromptContext<'_>) -> Result<String> {
-    UserReflectionsSection.build(ctx)
-}
-
 /// Render the `## Tools` catalogue in the dispatcher's tool-call format.
 pub fn render_tools(ctx: &PromptContext<'_>) -> Result<String> {
     ToolsSection.build(ctx)
@@ -54,14 +27,6 @@ pub fn render_safety() -> String {
     SafetySection
         .build(&empty_prompt_context_for_static_sections())
         .expect("SafetySection::build is infallible")
-}
-
-/// Render the canonical grounding / anti-hallucination contract
-/// ([`GROUNDING_BODY`]). Dynamic `agents/<id>/prompt.rs` builders call this
-/// so they inherit the exact same anti-fabrication floor as the static
-/// section chain — single source of truth, no drift.
-pub fn render_grounding() -> &'static str {
-    GROUNDING_BODY
 }
 
 // `render_skills` and `render_connected_integrations` helpers are
@@ -180,20 +145,6 @@ pub fn render_ambient_environment(ctx: &PromptContext<'_>) -> Result<String> {
     Ok(out)
 }
 
-/// Format a memory item's `updated_at` as an absolute UTC date label
-/// for prompt injection, e.g. `2026-05-25`.
-///
-/// Absolute (not relative "N days ago") on purpose: memory sections sit
-/// near the front of the KV-cache-stable system prompt, so a label that
-/// changes daily would bust the cached prefix for everything after it.
-/// An absolute date only changes when the underlying memory does. The
-/// model judges staleness by comparing this against the injected current
-/// date. Shared by [`UserMemorySection`] and the working-memory block in
-/// `agent_memory::memory_loader`. (#2944)
-pub fn memory_date_label(updated_at: DateTime<Utc>) -> String {
-    updated_at.format("%Y-%m-%d").to_string()
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,14 +169,10 @@ fn empty_prompt_context_for_static_sections() -> PromptContext<'static> {
         tools: EMPTY_TOOLS,
         workflows: EMPTY_WORKFLOWS,
         dispatcher_instructions: "",
-        learned: LearnedContextData::default(),
         visible_tool_names: visible,
         tool_call_format: ToolCallFormat::PFormat,
         connected_integrations: EMPTY_INTEGRATIONS,
         connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: false,
-        curated_snapshot: None,
         user_identity: None,
         personality_roster: vec![],
         agents_md_global: None,

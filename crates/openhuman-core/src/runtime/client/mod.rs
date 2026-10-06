@@ -19,6 +19,6 @@ mod disabled;
 // `Languages` listing, for one — but a facade that re-exported the whole surface
 // would oblige the stub to grow a twin of every member nothing here uses.
 #[cfg(feature = "modules")]
-pub(crate) use crate::modules::runtime::{execute, pool_stats, resolve, RuntimeCallError};
+pub(crate) use crate::modules::runtime::{execute, resolve, RuntimeCallError};
 #[cfg(not(feature = "modules"))]
 pub(crate) use disabled::{execute, pool_stats, resolve, RuntimeCallError};

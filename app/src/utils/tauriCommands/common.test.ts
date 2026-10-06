@@ -274,17 +274,11 @@ describe('safeInvoke (tauriCommands/common)', () => {
   });
 
   // #5155: the dereference is now *guarded* — the vendored bootstrap and
-  // `utils/ipcTransportFallback.ts` settle the pending callback with a plain
+  // settles the pending callback with a plain
   // `{ message }` object instead of letting a `TypeError` escape. That shape
   // is not a `TypeError`, so the classifier must recognise it by message or
   // every `instanceof IpcUnavailableError` degradation branch goes dead.
-  it.each([
-    'IPC postMessage interface is unavailable on this platform',
-    'Tauri IPC bridge is unavailable (custom protocol not wired)',
-    'Tauri IPC bridge is unavailable (fallback queue full)',
-    'Tauri IPC bridge never became available',
-    'Tauri IPC fallback transport failed for "core_rpc_url": net down',
-  ])(
+  it.each(['IPC postMessage interface is unavailable on this platform'])(
     'classifies the guarded IPC-unavailable rejection %j as IpcUnavailableError',
     async message => {
       coreInvokeMock.mockRejectedValue({ message });

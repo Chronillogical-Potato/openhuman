@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 import { bootAuthenticatedPage, waitForAppReady } from '../helpers/core-rpc';
 
-test.describe('Local model runtime flow', () => {
-  test('shows direct-runtime guidance instead of app-managed bootstrap controls', async ({
+test.describe('Local model runtime route', () => {
+  test('redirects the retired local-model-debug route to the Connections LLM tab', async ({
     page,
   }) => {
     await bootAuthenticatedPage(page, 'pw-local-model-runtime');

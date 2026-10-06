@@ -200,7 +200,6 @@ function ChatComposerBody({
   inlineCompletionSuffix,
   isComposingTextRef,
   maxAttachments,
-  allowedMimeTypes,
   attachmentsEnabled,
   micEnabled = true,
   placeholder,
@@ -295,7 +294,7 @@ function ChatComposerBody({
     void onAttachFiles(files);
   };
 
-  // Clipboard paste: pull image/video files out of the paste payload (e.g. a
+  // Clipboard paste: pull files out of the paste payload (e.g. a
   // screenshot copied to the clipboard) and attach them; leave plain-text paste
   // untouched so normal typing still works. `addAttachmentOnPaste={false}` on
   // the primitive keeps assistant-ui's own paste-to-attach path out of the way —
@@ -305,17 +304,16 @@ function ChatComposerBody({
     // Prefer FileList: a webview can expose a clipboard image there without
     // a usable DataTransferItem. Use items only as a fallback, so the same
     // screenshot represented in both lists is attached once.
-    const isMedia = (file: File) => /^(image|video)\//.test(file.type);
-    let files = Array.from(e.clipboardData?.files ?? []).filter(isMedia);
+    let files = Array.from(e.clipboardData?.files ?? []);
     if (files.length === 0) {
       files = Array.from(e.clipboardData?.items ?? [])
         .filter(item => item.kind === 'file')
         .map(item => item.getAsFile())
-        .filter((file): file is File => file !== null && isMedia(file));
+        .filter((file): file is File => file !== null);
     }
     if (files.length === 0) return;
     e.preventDefault();
-    debug('[chat-composer] paste: ingesting %d media file(s)', files.length);
+    debug('[chat-composer] paste: ingesting %d file(s)', files.length);
     void onAttachFiles(files);
   };
 
@@ -362,12 +360,7 @@ function ChatComposerBody({
           <input
             ref={fileInputRef}
             type="file"
-            // No `accept` filter: Chromium 146 / CEF on macOS greys out valid files
-            // at the native open panel regardless of the filter shape (MIME, mixed,
-            // or extension-only). Selection is gated in `onAttachFiles` →
-            // `validateAndReadFile` instead (rejects unsupported types + images on
-            // non-vision models). `allowedMimeTypes` is kept for that JS validation.
-            accept={allowedMimeTypes.length ? allowedMimeTypes.join(',') : undefined}
+            // Accept originals of any type; the core chooses native or tool handling.
             multiple
             className="hidden"
             onChange={e => {

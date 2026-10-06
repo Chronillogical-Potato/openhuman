@@ -5,7 +5,7 @@
 //! openhuman's agent execution runs on the `tinyagents` crate
 //! (LangGraph/LangChain-style durable graphs + an agent-loop harness with model/
 //! tool registries, middleware, retry/fallback, and limits). This module is the
-//! **adapter seam**: it bridges openhuman's `Provider`, `Tool`, and `ChatMessage`
+//! **adapter seam**: it bridges openhuman's `Provider`, `Tool`, and `TranscriptMessage`
 //! types onto the crate's `ChatModel`, `Tool`, and `Message` traits, then drives
 //! a turn through [`AgentHarness::invoke`]. The chat / channel / sub-agent
 //! routes call [`run_turn_via_tinyagents_shared`] (default ON in production).
@@ -19,15 +19,17 @@
 //! `ask_user_clarification` early-exit pause are all re-wired onto the
 //! tinyagents harness.
 
-pub(crate) mod abort_guard;
+mod compaction_carry;
 pub mod config;
 pub mod discovery;
 mod embeddings;
 mod harness_assembly;
 mod harness_context_ladder;
-mod harness_tool_registration;
+pub(crate) mod harness_tool_registration;
 pub mod host;
+pub(crate) mod hosted_error;
 pub(crate) mod journal;
+mod memory_summarizer;
 pub(crate) mod middleware;
 pub(crate) mod model;
 pub(crate) mod observability;
@@ -46,8 +48,8 @@ pub mod run_mode;
 pub mod payload_summarizer;
 mod policy_denial;
 pub(crate) mod reaper;
+pub(crate) mod reasoning;
 pub(crate) mod replay;
-pub(crate) mod retriever;
 mod routes;
 mod steering_forwarder;
 pub(crate) mod stop_hooks;
@@ -61,17 +63,20 @@ mod turn_run_error;
 mod turn_run_finalize;
 mod turn_runner;
 mod use_skill_dispatch;
+mod verify_before_finish;
 
 pub(crate) use crate::agent::message_convert::chat_message_to_message;
 #[cfg(feature = "flows")]
 pub(crate) use crate::agent::message_convert::{reasoning_from_content, ta_call_to_oh_call};
 
+pub(crate) use compaction_carry::{last_user_message, CompactionCarry};
 #[allow(unused_imports)] // Wired into the recall/retrieval facade in workstream 09.2.
 pub(crate) use embeddings::ProviderEmbeddingModel;
 pub(crate) use middleware::{
     render_unanswered_steps, TranscriptSnapshot, TranscriptSnapshotSink, TurnContextMiddleware,
 };
 pub(crate) use observability::SubagentScope;
+pub(crate) use reasoning::{apply_requested_effort, parse_reasoning_effort};
 pub(crate) use topology::all_graph_topologies;
 pub use turn_models::TurnModelSource;
 pub(crate) use turn_models::TurnModels;
@@ -94,6 +99,9 @@ use turn_policy::{
     run_policy_for, DEFAULT_AGENT_TURN_TIMEOUT_SECS, DEFAULT_MODEL_CALL_TIMEOUT_SECS,
 };
 
+#[cfg(test)]
+#[path = "prompt_cache_golden_tests.rs"]
+mod prompt_cache_golden_tests;
 #[cfg(test)]
 #[path = "tinyagents_tests.rs"]
 mod tests;

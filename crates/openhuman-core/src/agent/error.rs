@@ -203,14 +203,45 @@ pub fn is_max_iterations_error(error_msg: &str) -> bool {
     error_msg.contains(MAX_ITERATIONS_ERROR_PREFIX)
 }
 
-/// Check if an error message indicates a context/prompt-too-long failure.
-pub fn is_context_limit_error(error_msg: &str) -> bool {
-    let lower = error_msg.to_lowercase();
-    lower.contains("prompt is too long")
-        || lower.contains("context_length_exceeded")
-        || lower.contains("maximum context length")
-        || lower.contains("prompt too long")
-        || lower.contains("token limit")
+/// Which wall-clock bound ended a turn, as the host reports it to telemetry.
+///
+/// Carried structurally from the harness (`HostedError::timeout_bound`) into
+/// the turn error, because the hosted error message is sanitized and no longer
+/// names the bound. The phrases below are the single place the host spells the
+/// two bounds: the turn runner composes the error text from them and
+/// `web_chat::ops::timeout_bound_tag` recognises that text through them, so
+/// neither side restates the wording.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TurnTimeoutBound {
+    /// One model call exceeded the per-model-call ceiling.
+    PerModelCall,
+    /// The run's own remaining wall-clock budget ran out.
+    RunRemaining,
+}
+
+impl TurnTimeoutBound {
+    /// Stable phrase embedded in the flattened turn error.
+    pub const fn phrase(self) -> &'static str {
+        match self {
+            Self::PerModelCall => "per-model-call ceiling",
+            Self::RunRemaining => "remaining wall-clock budget",
+        }
+    }
+
+    /// Sentry `timeout_bound` tag value.
+    pub const fn tag(self) -> &'static str {
+        match self {
+            Self::PerModelCall => "per_model_call",
+            Self::RunRemaining => "run_remaining",
+        }
+    }
+
+    /// Recover the bound from a flattened error string, if it names one.
+    pub fn from_message(message: &str) -> Option<Self> {
+        [Self::PerModelCall, Self::RunRemaining]
+            .into_iter()
+            .find(|bound| message.contains(bound.phrase()))
+    }
 }
 
 #[cfg(test)]

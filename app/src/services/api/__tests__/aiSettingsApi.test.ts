@@ -20,7 +20,6 @@ import {
   loadAISettings,
   loadLocalProviderSnapshot,
   loadProviderAuthErrors,
-  localProvider,
   modelRegistryVision,
   OPENAI_CODEX_OAUTH_MISSING_AUTH_URL,
   OPENAI_CODEX_OAUTH_MISSING_CALLBACK_URL,
@@ -29,7 +28,6 @@ import {
   saveAISettings,
   serializeProviderRef,
   setCloudProviderKey,
-  setLocalRuntimeEnabled,
   startOpenAiCodexOAuth,
   testProviderModel,
   upsertModelRegistryVision,
@@ -48,8 +46,6 @@ const mockCallCoreRpc = vi.fn();
 const mockIsTauri = vi.fn(() => true);
 const mockOpenhumanLocalAiStatus = vi.fn();
 const mockOpenhumanLocalAiDiagnostics = vi.fn();
-const mockOpenhumanLocalAiPresets = vi.fn();
-const mockOpenhumanLocalAiApplyPreset = vi.fn();
 
 vi.mock('../../coreRpcClient', () => ({ callCoreRpc: (a: unknown) => mockCallCoreRpc(a) }));
 
@@ -73,8 +69,6 @@ vi.mock('../../../utils/tauriCommands/config', () => ({
 vi.mock('../../../utils/tauriCommands/localAi', () => ({
   openhumanLocalAiStatus: (...args: unknown[]) => mockOpenhumanLocalAiStatus(...args),
   openhumanLocalAiDiagnostics: (...args: unknown[]) => mockOpenhumanLocalAiDiagnostics(...args),
-  openhumanLocalAiPresets: (...args: unknown[]) => mockOpenhumanLocalAiPresets(...args),
-  openhumanLocalAiApplyPreset: (...args: unknown[]) => mockOpenhumanLocalAiApplyPreset(...args),
 }));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -96,7 +90,6 @@ function makeClientConfigResult(overrides: Record<string, unknown> = {}) {
       coding_provider: null,
       memory_provider: null,
       embeddings_provider: null,
-      learning_provider: null,
       ...overrides,
     },
   };
@@ -285,8 +278,6 @@ describe('loadAISettings', () => {
     mockOpenhumanUpdateLocalAiSettings.mockReset();
     mockOpenhumanLocalAiStatus.mockReset();
     mockOpenhumanLocalAiDiagnostics.mockReset();
-    mockOpenhumanLocalAiPresets.mockReset();
-    mockOpenhumanLocalAiApplyPreset.mockReset();
   });
 
   it('returns cloudProviders with has_api_key=false when no profiles stored', async () => {
@@ -391,7 +382,6 @@ describe('loadAISettings', () => {
         coding_provider: 'ollama:codellama:13b',
         memory_provider: null,
         embeddings_provider: null,
-        learning_provider: null,
       })
     );
     mockAuthListProviderCredentials.mockResolvedValue(makeAuthProfileResult([]));
@@ -516,70 +506,34 @@ describe('loadAISettings', () => {
   });
 });
 
-describe('local provider facade', () => {
+describe('local provider snapshot', () => {
   beforeEach(() => {
-    mockOpenhumanUpdateLocalAiSettings.mockReset();
     mockOpenhumanLocalAiStatus.mockReset();
     mockOpenhumanLocalAiDiagnostics.mockReset();
-    mockOpenhumanLocalAiPresets.mockReset();
-    mockOpenhumanLocalAiApplyPreset.mockReset();
   });
 
-  it('loadLocalProviderSnapshot joins status diagnostics and presets', async () => {
+  it('loadLocalProviderSnapshot joins status and diagnostics', async () => {
     mockOpenhumanLocalAiStatus.mockResolvedValue({ result: { state: 'ready' } });
     mockOpenhumanLocalAiDiagnostics.mockResolvedValue({
       installed_models: [{ name: 'gemma3:1b-it-qat', size: 123 }],
-    });
-    mockOpenhumanLocalAiPresets.mockResolvedValue({
-      recommended_tier: 'ram_2_4gb',
-      current_tier: 'ram_2_4gb',
-      selected_tier: 'ram_2_4gb',
-      presets: [],
-      device: {
-        total_ram_bytes: 1,
-        cpu_count: 1,
-        cpu_brand: 'cpu',
-        os_name: 'os',
-        os_version: '1',
-        has_gpu: false,
-        gpu_description: null,
-      },
     });
 
     const snapshot = await loadLocalProviderSnapshot();
 
     expect(snapshot.status).toEqual({ state: 'ready' });
     expect(snapshot.installedModels).toEqual([{ name: 'gemma3:1b-it-qat', size: 123 }]);
-    expect(snapshot.presets?.recommended_tier).toBe('ram_2_4gb');
+    expect(snapshot).not.toHaveProperty('presets');
   });
 
-  it('setLocalRuntimeEnabled updates runtime_enabled and opt_in_confirmed together', async () => {
-    mockOpenhumanUpdateLocalAiSettings.mockResolvedValue({ result: {} });
+  it('loadLocalProviderSnapshot tolerates an unreachable endpoint', async () => {
+    mockOpenhumanLocalAiStatus.mockRejectedValue(new Error('connection refused'));
+    mockOpenhumanLocalAiDiagnostics.mockRejectedValue(new Error('connection refused'));
 
-    await setLocalRuntimeEnabled(true);
+    const snapshot = await loadLocalProviderSnapshot();
 
-    expect(mockOpenhumanUpdateLocalAiSettings).toHaveBeenCalledWith({
-      runtime_enabled: true,
-      opt_in_confirmed: true,
-    });
-  });
-
-  it('localProvider facade delegates applyPreset and setEnabled', async () => {
-    mockOpenhumanLocalAiApplyPreset.mockResolvedValue({ applied_tier: 'ram_2_4gb' });
-    mockOpenhumanUpdateLocalAiSettings.mockResolvedValue({ result: {} });
-
-    await localProvider.applyPreset('ram_2_4gb');
-    await localProvider.setEnabled(false);
-
-    expect(mockOpenhumanLocalAiApplyPreset).toHaveBeenCalledWith('ram_2_4gb');
-    expect(mockOpenhumanUpdateLocalAiSettings).toHaveBeenCalledWith({
-      runtime_enabled: false,
-      opt_in_confirmed: false,
-    });
+    expect(snapshot).toEqual({ status: null, diagnostics: null, installedModels: [] });
   });
 });
-
-// ─── saveAISettings ──────────────────────────────────────────────────────────
 
 describe('saveAISettings', () => {
   beforeEach(() => {
@@ -606,8 +560,6 @@ describe('saveAISettings', () => {
         coding: { kind: 'openhuman' },
         vision: { kind: 'openhuman' },
         memory: { kind: 'openhuman' },
-
-        learning: { kind: 'openhuman' },
       },
       modelRegistry: [],
       creditsBypass: { chat: false, reasoning: false },
@@ -705,8 +657,6 @@ describe('saveAISettings', () => {
         coding: { kind: 'openhuman' },
         vision: { kind: 'openhuman' },
         memory: { kind: 'openhuman' },
-
-        learning: { kind: 'openhuman' },
       },
       modelRegistry: [],
     };

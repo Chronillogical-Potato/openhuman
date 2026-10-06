@@ -144,59 +144,22 @@ async fn authed_json_sends_a_session_credential_as_a_bearer_only() {
     assert!(request_headers.get("x-api-key").is_none());
 }
 
-#[tokio::test]
-async fn authed_json_sends_bearer_and_host_headers() {
-    let (base_url, captured) = spawn_header_capture_server().await;
-    let client = BackendClient::new(&base_url).unwrap();
-
-    let response = client
-        .authed_json("sdk-cutover-token", Method::GET, "/probe", None)
-        .await
-        .unwrap();
-    assert_eq!(response, json!({ "ok": true }));
-
-    let headers = captured.take();
-    let request_headers = headers.last().unwrap();
-    assert_eq!(
-        request_headers
-            .get("authorization")
-            .and_then(|value| value.to_str().ok()),
-        Some("Bearer sdk-cutover-token")
-    );
-    assert!(request_headers.get(PRODUCT_IDENTITY_HEADER).is_some());
-}
-
 // Regression: OPENHUMAN-TAURI-8K / Sentry issue 7473650958.
 // When config.api_url is a full LLM completions URL (e.g. /v1/chat/completions),
 // Url::join used to produce wrong paths like /v1/chat/teams/me/usage instead of
 // /teams/me/usage — BackendClient::new must strip the path to prevent this.
 #[test]
 fn new_strips_path_from_completions_url() {
-    let client = BackendClient::new("https://api.tinyhumans.ai/v1/chat/completions").unwrap();
-    let url = client.url_for("/teams/me/usage").unwrap();
-    assert_eq!(url.path(), "/teams/me/usage");
-}
-
-#[test]
-fn new_strips_path_from_openai_style_url() {
-    let client = BackendClient::new("https://api.openai.com/v1/chat/completions").unwrap();
-    let url = client.url_for("/teams/me/usage").unwrap();
-    assert_eq!(url.path(), "/teams/me/usage");
-    assert_eq!(url.host_str(), Some("api.openai.com"));
-}
-
-#[test]
-fn new_works_with_bare_origin() {
-    let client = BackendClient::new("https://api.tinyhumans.ai").unwrap();
-    let url = client.url_for("/teams/me/usage").unwrap();
-    assert_eq!(url.path(), "/teams/me/usage");
-}
-
-#[test]
-fn new_works_with_trailing_slash() {
-    let client = BackendClient::new("https://api.tinyhumans.ai/").unwrap();
-    let url = client.url_for("/teams/me/usage").unwrap();
-    assert_eq!(url.path(), "/teams/me/usage");
+    for base in [
+        "https://api.tinyhumans.ai/v1/chat/completions",
+        "https://api.openai.com/v1/chat/completions",
+        "https://api.tinyhumans.ai",
+        "https://api.tinyhumans.ai/",
+    ] {
+        let client = BackendClient::new(base).unwrap();
+        let url = client.url_for("/teams/me/usage").unwrap();
+        assert_eq!(url.path(), "/teams/me/usage", "{base}");
+    }
 }
 
 #[tokio::test]

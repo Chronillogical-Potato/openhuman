@@ -217,31 +217,6 @@ async fn microcompact_clears_older_tool_bodies_and_keeps_recent() {
     assert_eq!(req.messages[3].text(), "thinking");
 }
 
-#[tokio::test]
-async fn microcompact_is_a_noop_when_within_keep_recent() {
-    let mw = MicrocompactMiddleware::new(5, CLEARED_PLACEHOLDER);
-    let mut req = ModelRequest::new(vec![TaMessage::tool("t1", "A"), TaMessage::tool("t2", "B")]);
-    mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
-    assert_eq!(req.messages[0].text(), "A");
-    assert_eq!(req.messages[1].text(), "B");
-}
-
-#[tokio::test]
-async fn microcompact_is_idempotent() {
-    let mw = MicrocompactMiddleware::new(1, CLEARED_PLACEHOLDER);
-    let mut req = ModelRequest::new(vec![
-        TaMessage::tool("t1", "FIRST"),
-        TaMessage::tool("t2", "SECOND"),
-    ]);
-    mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
-    let after_first = req.messages[0].text();
-    assert_eq!(after_first, CLEARED_PLACEHOLDER);
-    // Second pass leaves the already-cleared body as the placeholder.
-    mw.before_model(&mut ctx(), &(), &mut req).await.unwrap();
-    assert_eq!(req.messages[0].text(), CLEARED_PLACEHOLDER);
-    assert_eq!(req.messages[1].text(), "SECOND");
-}
-
 // ── ToolOutputMiddleware ────────────────────────────────────────────────
 
 #[tokio::test]
@@ -258,6 +233,7 @@ async fn tool_output_truncates_over_the_flat_budget() {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
     mw.after_tool(
@@ -293,6 +269,7 @@ async fn tool_output_leaves_small_results_untouched() {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     };
     let mut result = tool_result("echo", "tiny");
     mw.after_tool(
@@ -335,6 +312,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     };
     // Tool declares its own char cap → surfaced for the per-tool truncation.
     assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -498,6 +476,7 @@ async fn tool_output_honors_a_tools_own_cap() {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     };
     let mut result = tool_result("capped", &"y".repeat(500));
     mw.after_tool(

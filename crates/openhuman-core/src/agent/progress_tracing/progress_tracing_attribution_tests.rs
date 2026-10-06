@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::agent::progress_tracing::types::SpanKind;
+use tinyagents_harness::observability::trace_export::SpanKind;
 // ── identity / attribution / content capture ───────────────────────────────
 
 #[test]
@@ -236,10 +236,10 @@ fn model_call_completed_emits_generation_span_with_usage_cost_and_pricing() {
         a["gen_ai.pricing.input_per_mtok_usd"],
         serde_json::json!(0.0886)
     );
-    assert!(a.get("gen_ai.pricing.output_per_mtok_usd").is_some());
+    assert!(a.contains_key("gen_ai.pricing.output_per_mtok_usd"));
     // Zero reasoning / cache-write tokens are omitted on the generation.
-    assert!(a.get("gen_ai.usage.reasoning_tokens").is_none());
-    assert!(a.get("gen_ai.usage.cache_creation_tokens").is_none());
+    assert!(!a.contains_key("gen_ai.usage.reasoning_tokens"));
+    assert!(!a.contains_key("gen_ai.usage.cache_creation_tokens"));
 }
 
 #[test]
@@ -329,14 +329,12 @@ fn zero_reasoning_turn_leaves_root_without_reasoning_attr() {
     ]);
     c.finish(20);
     let turn = find(c.spans(), "agent.turn");
-    assert!(turn
+    assert!(!turn
         .attributes
-        .get("gen_ai.usage.reasoning_tokens")
-        .is_none());
-    assert!(turn
+        .contains_key("gen_ai.usage.reasoning_tokens"));
+    assert!(!turn
         .attributes
-        .get("gen_ai.usage.cache_creation_tokens")
-        .is_none());
+        .contains_key("gen_ai.usage.cache_creation_tokens"));
 }
 
 // ── run-type classification ─────────────────────────────────────────────────
@@ -443,7 +441,7 @@ fn failed_tool_records_classified_cause_only_when_capture_on() {
     off.record(&failed, 2);
     let tool = find(off.spans(), "tool.shell");
     assert_eq!(tool.status, SpanStatus::Error);
-    assert!(tool.attributes.get("error.message").is_none());
+    assert!(!tool.attributes.contains_key("error.message"));
 }
 
 #[test]
@@ -465,7 +463,7 @@ fn subagent_error_text_stays_out_without_capture() {
     ]);
     c.finish(50);
     let sub = find(c.spans(), "subagent.Coder");
-    assert!(sub.attributes.get("error.message").is_none());
+    assert!(!sub.attributes.contains_key("error.message"));
 }
 
 #[test]
@@ -560,7 +558,7 @@ fn subagent_model_call_nests_generation_and_stamps_model_on_subagent_span() {
 
     // The parent turn's rollup is NOT polluted by the child call.
     let turn = find(spans, "agent.turn");
-    assert!(turn.attributes.get("gen_ai.request.model").is_none());
+    assert!(!turn.attributes.contains_key("gen_ai.request.model"));
 }
 
 #[test]

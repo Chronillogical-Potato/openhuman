@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn prepare_messages_rejects_too_many_images() {
-    let messages = vec![ChatMessage::user(
+    let messages = vec![TranscriptMessage::user(
         "[IMAGE:/tmp/1.png]\n[IMAGE:/tmp/2.png]".to_string(),
     )];
 
@@ -27,7 +27,10 @@ async fn prepare_messages_extracts_text_from_pdf() {
     let file_path = temp.path().join("doc.pdf");
     std::fs::write(&file_path, SAMPLE_PDF_BYTES).unwrap();
 
-    let messages = vec![ChatMessage::user(format!("[FILE:{}]", file_path.display()))];
+    let messages = vec![TranscriptMessage::user(format!(
+        "[FILE:{}]",
+        file_path.display()
+    ))];
     let prepared = prepare_messages_for_provider(
         &messages,
         &MultimodalConfig::default(),
@@ -53,7 +56,10 @@ async fn prepare_messages_rejects_oversized_file() {
     let file_path = temp.path().join("huge.txt");
     std::fs::write(&file_path, vec![b'a'; 2 * 1024 * 1024]).unwrap();
 
-    let messages = vec![ChatMessage::user(format!("[FILE:{}]", file_path.display()))];
+    let messages = vec![TranscriptMessage::user(format!(
+        "[FILE:{}]",
+        file_path.display()
+    ))];
     let file_config = MultimodalFileConfig {
         max_file_size_mb: 1,
         ..Default::default()

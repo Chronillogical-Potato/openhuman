@@ -7,9 +7,10 @@ use super::super::collapsed_delegation::{
     dispatch_targets_from_schema, CollapsedDelegationTool, DelegateTarget,
 };
 use super::super::delegate_graph::DelegateGraphDispatch;
-use crate::agent::tools::{AskClarificationTool, DelegateToolDispatch};
+use crate::agent::tools::DelegateToolDispatch;
 use tinyagents_harness::context::RunConfig;
 use tinyagents_harness::tool::ToolDispatch;
+use tinyagents_harness::tools::AskClarificationTool;
 
 struct DelegationRegistrationTool {
     name: &'static str,
@@ -198,37 +199,9 @@ fn collapsed_dispatch_mapping_has_exact_advertised_vocabulary_and_rejects_drift(
 }
 
 #[test]
-fn ask_clarification_tool_re_exported() {
+fn ask_clarification_tool_is_the_harness_tool() {
     let tool = AskClarificationTool::new();
     assert_eq!(tool.name(), "ask_user_clarification");
-}
-
-#[tokio::test]
-async fn dispatch_subagent_returns_tool_error_when_agent_unknown() {
-    // Exercises the graceful-failure paths of `dispatch_subagent`:
-    // without a global registry we get the "registry not initialised"
-    // branch, and with one (set by another test in the same binary)
-    // a bogus agent id hits the "agent not found" branch. Either way
-    // the function must return `Ok(ToolResult::error(..))` rather than
-    // panicking or returning `Err`.
-    let res = dispatch_subagent(
-        "__definitely_not_a_real_agent__",
-        "test_tool",
-        "irrelevant prompt",
-        None,
-        None,
-        DispatchMode::Blocking,
-        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
-    )
-    .await
-    .expect("dispatch_subagent should not return Err on these inputs");
-
-    assert!(res.is_error, "expected a tool-error ToolResult");
-    let out = res.output();
-    assert!(
-        out.contains("registry not initialised") || out.contains("not found in registry"),
-        "unexpected graceful-failure message: {out}"
-    );
 }
 
 #[test]
@@ -503,7 +476,7 @@ fn a_pretty_printed_tool_call_payload_is_still_a_stub() {
 
 #[test]
 fn prose_naming_a_protocol_field_is_not_a_stub() {
-    // "tool_use" alone is enough for the archivist to attempt a strip, but
+    // "tool_use" alone is enough for a stub-stripper to attempt a strip, but
     // never enough to decide a sub-agent produced no answer.
     assert!(!super::is_unexecuted_tool_call_stub(
         "The \"tool_use\" field is how the provider reports a call."

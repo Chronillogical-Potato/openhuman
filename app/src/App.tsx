@@ -28,7 +28,6 @@ import WindowDragBar from './components/layout/shell/WindowDragBar';
 import WindowsWindowControls, {
   isWindowsDesktop,
 } from './components/layout/shell/WindowsWindowControls';
-import LocalAIDownloadSnackbar from './components/LocalAIDownloadSnackbar';
 import NoticeCenter from './components/notices/NoticeCenter';
 import OpenhumanLinkModal from './components/OpenhumanLinkModal';
 import PersistRehydrationScreen from './components/PersistRehydrationScreen';
@@ -148,7 +147,6 @@ function App() {
                               <SecurityBanner />
                               {!onMobile && <DictationHotkeyManager />}
                               {!onMobile && <PttHotkeyManager />}
-                              {!onMobile && <LocalAIDownloadSnackbar />}
                               {!onMobile && <AppUpdatePrompt />}
                               <KeyringConsentOverlay />
                               <HarnessInitOverlay />

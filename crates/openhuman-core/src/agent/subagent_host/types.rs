@@ -9,7 +9,7 @@ use thiserror::Error;
 use tinytools::WorkspaceDescriptor;
 
 use crate::agent::harness::definition::AgentTier;
-use crate::agent::messages::ChatMessage;
+use tinyagents_session::transcript::TranscriptMessage;
 
 /// Per-spawn options that override or augment what the
 /// [`AgentDefinition`] specifies. Built by `SpawnSubagentTool::execute`
@@ -52,7 +52,7 @@ pub struct SubagentRunOptions {
     /// system-prompt + user-message construction and uses this history
     /// directly — it already contains the system prompt and all prior
     /// turns including the clarification tool call/result.
-    pub initial_history: Option<Vec<ChatMessage>>,
+    pub initial_history: Option<Vec<TranscriptMessage>>,
 
     /// Directory for writing/reading checkpoint files when the
     /// sub-agent pauses for user input. Defaults to
@@ -155,7 +155,7 @@ pub struct SubagentRunOutcome {
     /// Final in-memory history after the run loop exits. Durable sub-agent
     /// sessions persist this so an idle worker can resume without rebuilding
     /// its context from only the parent transcript.
-    pub final_history: Vec<ChatMessage>,
+    pub final_history: Vec<TranscriptMessage>,
     /// Token + cost accounting accumulated across every provider call this
     /// sub-agent made. Surfaced so the parent turn can roll child spend into
     /// the session totals (tokens + USD) and the global cost tracker. See
@@ -229,7 +229,8 @@ pub struct SubagentCheckpointData {
     pub task_id: String,
     pub agent_id: String,
     pub worker_thread_id: Option<String>,
-    pub history: Vec<ChatMessage>,
+    #[serde(with = "crate::agent::messages::history_wire")]
+    pub history: Vec<TranscriptMessage>,
     pub question: String,
     pub options: Option<Vec<String>>,
     // A legacy `toolkit_override` key (written before the toolkit spawn

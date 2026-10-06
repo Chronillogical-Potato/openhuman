@@ -104,7 +104,7 @@ async fn explicit_worker_thread_replaces_parent_for_model_run_and_transcript() {
     let workspace = tempfile::tempdir().expect("workspace");
     let mut parent = crate::agent::tinyagents::host::OpenHumanRunContext::new();
     parent.thread_id = Some("parent-thread".to_owned());
-    let mut history = vec![ChatMessage::user("finish this")];
+    let mut history = vec![TranscriptMessage::user("finish this")];
 
     run_subagent_via_graph(
         crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(TwoStepProvider {
@@ -157,7 +157,7 @@ async fn subagent_runs_through_the_graph_engine_with_real_tools() {
     let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(EchoTool)]);
     let mut allowed = HashSet::new();
     allowed.insert("echo".to_string());
-    let mut history = vec![ChatMessage::user("please echo hi")];
+    let mut history = vec![TranscriptMessage::user("please echo hi")];
 
     let (output, iterations, usage, early_exit, hit_cap, _breaker) = run_subagent_via_graph(
         crate::agent::tinyagents::TurnModelSource::from_model(provider),
@@ -243,7 +243,7 @@ impl ChatModel<()> for ThinkingStreamProvider {
 async fn child_text_and_thinking_deltas_are_scoped_to_the_subagent() {
     let (tx, mut rx) = tokio::sync::mpsc::channel::<AgentProgress>(64);
     let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![]);
-    let mut history = vec![ChatMessage::user("hi")];
+    let mut history = vec![TranscriptMessage::user("hi")];
 
     let (output, _iters, _usage, _early, _hit_cap, _breaker) = run_subagent_via_graph(
         crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(ThinkingStreamProvider)),
@@ -379,7 +379,7 @@ async fn ask_user_clarification_pauses_and_surfaces_the_question() {
     let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(AskTool)]);
     let mut allowed = HashSet::new();
     allowed.insert("ask_user_clarification".to_string());
-    let mut history = vec![ChatMessage::user("help me")];
+    let mut history = vec![TranscriptMessage::user("help me")];
 
     let (output, iterations, _usage, early_exit, _hit_cap, _breaker) = run_subagent_via_graph(
         crate::agent::tinyagents::TurnModelSource::from_model(provider.clone()),
@@ -471,7 +471,7 @@ async fn cap_hit_summarizes_a_resumable_checkpoint() {
     let parent_tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(NoopTool)]);
     let mut allowed = HashSet::new();
     allowed.insert("noop".to_string());
-    let mut history = vec![ChatMessage::user("do a big task")];
+    let mut history = vec![TranscriptMessage::user("do a big task")];
 
     let (output, iterations, _usage, early_exit, hit_cap, _breaker) = run_subagent_via_graph(
         crate::agent::tinyagents::TurnModelSource::from_model(Arc::new(LoopForeverProvider)),

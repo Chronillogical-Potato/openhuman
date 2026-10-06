@@ -9,7 +9,9 @@
 use std::sync::{Arc, LazyLock};
 
 use async_trait::async_trait;
-use tinyagents_runtime::command_hooks::{HookEngine, HookEnvironment, PromptEvaluator};
+use tinyagents_runtime::command_hooks::{
+    config, HookConfig, HookEngine, HookEnvironment, PromptEvaluator,
+};
 
 /// Product name handed to the engine: `ProgramData\OpenHuman`,
 /// `/Library/Application Support/OpenHuman`, `/etc/openhuman`, `.openhuman`,
@@ -36,4 +38,32 @@ static ENGINE: LazyLock<HookEngine> = LazyLock::new(|| HookEngine::new(environme
 /// The process-global engine.
 pub fn engine() -> &'static HookEngine {
     &ENGINE
+}
+
+/// Re-read every `hooks.json` layer and install the result.
+///
+/// The engine's own [`HookEngine::reload`] reuses the environment it was built
+/// with, which froze the home directory at first use. Discovery resolves the
+/// user layer against the home directory **now**, as it did before the engine
+/// moved upstream, so a reload after `HOME` changes reads the right file.
+pub async fn reload(
+    project_dir: Option<std::path::PathBuf>,
+    workspace_dir: Option<std::path::PathBuf>,
+) -> Arc<HookConfig> {
+    let current = environment();
+    let loaded = tokio::task::spawn_blocking(move || {
+        config::load(&current, project_dir.as_deref(), workspace_dir.as_deref())
+    })
+    .await
+    .unwrap_or_default();
+    for warning in &loaded.warnings {
+        log::warn!("[hooks] {warning}");
+    }
+    log::info!(
+        "[hooks] active configuration: {} hook(s) across {} file(s)",
+        loaded.len(),
+        loaded.sources.len()
+    );
+    ENGINE.install(loaded).await;
+    ENGINE.snapshot().await
 }

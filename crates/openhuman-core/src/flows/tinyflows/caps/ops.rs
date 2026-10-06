@@ -33,13 +33,6 @@ use crate::security::{CommandClass, SecurityPolicy};
 #[cfg(test)]
 use crate::security::{GateDecision, POLICY_BLOCKED_MARKER};
 
-// The JSON Schema walkers moved to `openhuman::json_schema`, a domain owned by
-// neither this seam nor `composio` — see that module's docs for why neutral
-// ownership is load-bearing rather than tidiness.
-//
-// Re-exported so `crate::flows::tinyflows::caps::<fn>` keeps resolving for
-// the callers outside this module (`flows::ops`, `tinyflows::tests`) — the
-// relocation is an internal reorganization, not an API change.
 // The live Composio catalog and probe moved to `composio::catalog` -- the domain
 // that owns Composio's vocabulary. This import is the edge pointing the right
 // way round: the feature-gated seam depends on the always-compiled domain, not
@@ -57,9 +50,7 @@ pub(crate) use crate::integrations::composio::catalog::{
 
 use super::*;
 
-#[cfg(test)]
-pub(crate) use crate::json_schema::response_fields_from_schema;
-pub(crate) use crate::json_schema::{missing_required_args, unsupported_arg_names};
+use tinyagents_harness::tool::missing_required_args;
 
 /// Parses a `"composio:<toolkit>:<connection_id>"` `connection_ref` (see the
 /// node catalog, `my_docs/ohxtf/commons/12-node-catalog-0.2.md`) and returns
@@ -424,10 +415,7 @@ pub(crate) async fn preflight_composio_args(
     // (1) Static rules — the same validation the Composio dispatch runs, hoisted
     // ahead of it. Only the `Err` matters here; the normalized arguments it
     // returns are recomputed (and used) at dispatch.
-    if let Err(e) = crate::integrations::composio::execute_prepare::prepare_execute_arguments(
-        slug,
-        Some(args.clone()),
-    ) {
+    if let Err(e) = tinyconnectors::execute::prepare_execute_arguments(slug, Some(args.clone())) {
         tracing::warn!(target: "flows", %slug, error = %e, "[flows] preflight: static arg rule rejected the call — failing before dispatch");
         return Err(EngineError::Capability(format!("tool_call `{slug}`: {e}")));
     }
@@ -602,13 +590,11 @@ impl ToolInvoker for OpenHumanTools {
 /// and [`super::memory_adapter::OpenHumanMemory`] for `memory`, for its
 /// contract).
 ///
-/// `state_namespace` scopes the [`FlowStateStore`] KV so two saved flows that
+/// `state_namespace` scopes the [`tinyflows_sqlite::flows::SqliteStateStore`] KV so two saved flows that
 /// use the same state key never read or overwrite each other — callers pass a
-/// per-flow namespace (e.g. `"flow:<id>"`). Note this is **not** the same
-/// namespace `OpenHumanMemory` writes flow-scoped memory under — that one is
-/// derived independently from the run's trusted origin via
-/// `flows::flow_namespace`, so the two never need to agree on separator
-/// conventions.
+/// per-flow namespace (e.g. `"flow:<id>"`). This KV namespace is unrelated to
+/// flow-scoped memory: `OpenHumanMemory` tags memory items with
+/// `flows::flow_tag`, derived independently from the run's trusted origin.
 pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String>) -> Capabilities {
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
@@ -635,10 +621,10 @@ pub fn build_capabilities(config: Arc<Config>, state_namespace: impl Into<String
             config: config.clone(),
             security: security.clone(),
         }),
-        state: Arc::new(FlowStateStore {
-            config: config.clone(),
-            namespace: state_namespace.into(),
-        }),
+        state: Arc::new(tinyflows_sqlite::flows::SqliteStateStore::new(
+            crate::flows::store::dir(&config),
+            state_namespace,
+        )),
         agent: Some(Arc::new(OpenHumanAgentRunner {
             config: config.clone(),
         })),

@@ -37,7 +37,7 @@
 //! explicit, validated working directory. It does not inherit ambient git
 //! configuration that could redirect operations elsewhere.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use tinyagents_harness::workspace::{GitWorktreeBaseRef, GitWorktreeIsolation, WorkspaceIsolation};
 use tinytools::{SandboxMode, WorkspaceDescriptor};
@@ -176,47 +176,6 @@ impl WorkspaceIsolation for OpenHumanWorktreeIsolation {
             }
         }
     }
-}
-
-/// Fail-closed workspace path gate that mirrors
-/// [`WorkspaceDescriptor::enforce`] but routes the violation onto OpenHuman's
-/// global event bus instead of the SDK [`EventSink`], so audit/observability
-/// subscribers see out-of-root rejections.
-///
-/// This is a **carrier-side check only** — it publishes a
-/// [`DomainEvent::WorkspaceViolation`] and returns an error when `path` escapes
-/// the descriptor's allowed roots. It does **not** replace the authoritative
-/// enforcement done by `SecurityPolicy`/landlock; it is an additional
-/// observability + fail-closed signal keyed on the descriptor the isolated run
-/// carries.
-///
-/// [`EventSink`]: tinyagents_harness::events::EventSink
-pub fn enforce_workspace_path(
-    descriptor: &WorkspaceDescriptor,
-    path: &Path,
-) -> std::result::Result<(), WorkspacePathError> {
-    if descriptor.allows(path) {
-        return Ok(());
-    }
-    let rendered = path.display().to_string();
-    tracing::warn!(
-        path = %rendered,
-        policy_id = %descriptor.policy_id,
-        "[workspace] workspace_violation"
-    );
-    BUS.publish(DomainEvent::WorkspaceViolation { path: rendered });
-    Err(WorkspacePathError::OutsideWorkspace(path.to_path_buf()))
-}
-
-/// Rejection from [`enforce_workspace_path`].
-///
-/// Separate from `GitWorktreeError` (which is TinyAgents' git-plumbing error)
-/// because this gate is about OpenHuman's descriptor policy, not about git.
-#[derive(Debug, thiserror::Error)]
-pub enum WorkspacePathError {
-    /// The path escaped every root the descriptor allows.
-    #[error("path is outside the allowed workspace roots: {0}")]
-    OutsideWorkspace(PathBuf),
 }
 
 #[cfg(test)]

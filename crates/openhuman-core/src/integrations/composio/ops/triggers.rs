@@ -151,8 +151,8 @@ pub async fn composio_enable_trigger(
         // Enabling is the one trigger call a user drives directly from a
         // settings screen, so its failures are mapped to something a person can
         // act on ("reconnect GitHub") rather than the provider's own wording.
-        let class = super::super::error_mapping::classify_composio_error(slug, &e);
-        let mapped = super::super::error_mapping::format_provider_error(slug, &e);
+        let class = tinyconnectors::execute::classify_composio_error(slug, &e);
+        let mapped = tinyconnectors::execute::format_provider_error(slug, &e);
         tracing::warn!(
             slug = %slug,
             connection_id = %connection_id,

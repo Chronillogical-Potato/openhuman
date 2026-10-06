@@ -11,7 +11,6 @@ mod llm;
 mod ops;
 mod prompt;
 mod resolver;
-mod state;
 mod tier;
 pub(crate) mod tools;
 
@@ -26,8 +25,13 @@ pub(crate) use llm::*;
 // `caps::` path so existing call sites resolve unchanged.
 pub use ops::*;
 pub(crate) use prompt::*;
+// The pure prompt/reply helpers live upstream, beside the agent request builder.
 pub(crate) use resolver::*;
-pub(crate) use state::*;
 pub(crate) use tier::*;
 pub(crate) use tinyflows::caps::mock_schema_aware::*;
+pub(crate) use tinyflows::nodes::integration::agent_prompt::{
+    build_agent_result, build_harness_run_prompt, clamp_run_timeout_secs, extract_structured_json,
+    prepend_system_message, resolve_node_model, resolve_run_timeout_secs,
+    structured_output_requested,
+};
 pub(crate) use tools::NATIVE_TOOL_PREFIX;

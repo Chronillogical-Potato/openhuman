@@ -156,42 +156,6 @@ async fn audit_log_command_event_writes_structured_entry() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn audit_log_generated_tool_event_writes_correlation_fields() -> Result<()> {
-    let tmp = TempDir::new()?;
-    let config = AuditConfig {
-        enabled: true,
-        max_size_mb: 10,
-        ..Default::default()
-    };
-    let logger = AuditLogger::new(config, tmp.path().to_path_buf())?;
-
-    logger.log_generated_tool_event(GeneratedToolExecutionLog {
-        channel: "chat",
-        tool_name: "email.send",
-        provider_id: "mail.runtime",
-        capability_id: "email.send",
-        risk_level: "external_write",
-        policy_decision: "require_approval",
-        approval_id: Some("approval-1"),
-        approved: true,
-        allowed: true,
-        success: true,
-        duration_ms: 13,
-    })?;
-
-    let log_path = tmp.path().join("audit.log");
-    let content = tokio::fs::read_to_string(&log_path).await?;
-    let parsed: AuditEvent = serde_json::from_str(content.trim())?;
-    let action = parsed.action.unwrap();
-    assert_eq!(action.command, Some("email.send".to_string()));
-    assert_eq!(action.provider_id, Some("mail.runtime".to_string()));
-    assert_eq!(action.capability_id, Some("email.send".to_string()));
-    assert_eq!(action.policy_decision, Some("require_approval".to_string()));
-    assert_eq!(action.approval_id, Some("approval-1".to_string()));
-    Ok(())
-}
-
 #[test]
 fn audit_rotation_creates_numbered_backup() -> Result<()> {
     let tmp = TempDir::new()?;

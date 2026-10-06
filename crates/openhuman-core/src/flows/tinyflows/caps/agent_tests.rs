@@ -19,21 +19,6 @@ fn harness_ceiling_honours_a_valid_override() {
     assert_eq!(super::max_parallel_harness_agents(Some(" 16 ")), 16);
 }
 
-#[test]
-fn explicit_timeout_is_clamped_but_never_scaled() {
-    assert_eq!(super::resolve_run_timeout_secs(Some(120), 50), 120);
-    assert_eq!(super::resolve_run_timeout_secs(Some(5), 50), 10);
-    assert_eq!(super::resolve_run_timeout_secs(Some(9_000), 50), 600);
-}
-
-#[test]
-fn default_timeout_scales_with_iteration_cap_and_caps_at_600() {
-    assert_eq!(super::resolve_run_timeout_secs(None, 10), 240);
-    assert_eq!(super::resolve_run_timeout_secs(None, 25), 300);
-    assert_eq!(super::resolve_run_timeout_secs(None, 50), 600);
-    assert_eq!(super::resolve_run_timeout_secs(None, usize::MAX), 600);
-}
-
 #[tokio::test]
 async fn production_harness_ceiling_is_open_and_reusable() {
     let held = super::HARNESS_AGENT_SLOTS

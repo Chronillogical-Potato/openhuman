@@ -1,0 +1,1122 @@
+[
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "hi"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "4ec9a73c46d1624e5216adf44b51691df25b6bb750d6fd3c63ef68bd6d29dbd3",
+        "provider_options": {
+          "prompt_cache_key": "tap-6d34bf63ab3bd505"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      },
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "hi"
+                }
+              ]
+            }
+          },
+          {
+            "assistant": {
+              "content": [],
+              "id": "a1",
+              "tool_calls": [
+                {
+                  "arguments": {
+                    "id": "7"
+                  },
+                  "id": "c1",
+                  "name": "lookup"
+                }
+              ]
+            }
+          },
+          {
+            "tool": {
+              "artifact": {
+                "is_error": false,
+                "markdown_formatted": null,
+                "tinytools_content": [
+                  {
+                    "text": "found",
+                    "type": "text"
+                  }
+                ],
+                "trusted_verbatim": false
+              },
+              "content": [
+                {
+                  "text": "found"
+                },
+                {
+                  "text": "\n[took 0.0s]"
+                }
+              ],
+              "tool_call_id": "c1"
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "4ec9a73c46d1624e5216adf44b51691df25b6bb750d6fd3c63ef68bd6d29dbd3",
+        "provider_options": {
+          "prompt_cache_key": "tap-6d34bf63ab3bd505"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ],
+    "scenario": "first_turn_with_tools"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "only"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "hi"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "d169520eb93fc4c969fb0e2d47e4e485f8fb1ff2bfd8c100ded832e5835210da",
+        "provider_options": {
+          "prompt_cache_key": "tap-1641ec4dc4940471"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": []
+      }
+    ],
+    "scenario": "first_turn_no_tools"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                },
+                {
+                  "text": "\n\n## Tool Use Protocol\n\nCall a tool by writing a Python function call inside `<tool_call>` tags, one call per line:\n\n```\n<tool_call>\nread_file(path=\"src/main.rs\", limit=20)\n</tool_call>\n```\n\n- Use the signatures in `## Tools`. Prefer keyword arguments; positional arguments follow the signature order.\n- Values are Python literals only: quoted strings, numbers, True/False/None, lists, dicts. Omit optional arguments you do not need.\n- Write only calls inside the tags: no prose, no code fences. For several calls, use one line each or one `<tool_call>` block each.\n- After execution, results appear in `<tool_result>` tags. Continue reasoning with the results until you can give a final answer.\n\n## Tools\n\ndef lookup(id: str) -> str  # Looks up a record.\n"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "hi"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "69aba9602e7a2322814a890b40f8283cb3407c9b311e2492ddc140f639aaa06a",
+        "provider_options": {
+          "prompt_cache_key": "tap-ab8a9cf3c7ddacbe"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": []
+      }
+    ],
+    "scenario": "first_turn_text_dialect"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "hi"
+                }
+              ]
+            }
+          },
+          {
+            "assistant": {
+              "content": [
+                {
+                  "text": "hello"
+                }
+              ],
+              "tool_calls": []
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "and again"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "4ec9a73c46d1624e5216adf44b51691df25b6bb750d6fd3c63ef68bd6d29dbd3",
+        "provider_options": {
+          "prompt_cache_key": "tap-6d34bf63ab3bd505"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      },
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "hi"
+                }
+              ]
+            }
+          },
+          {
+            "assistant": {
+              "content": [
+                {
+                  "text": "hello"
+                }
+              ],
+              "tool_calls": []
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "and again"
+                }
+              ]
+            }
+          },
+          {
+            "assistant": {
+              "content": [],
+              "id": "a1",
+              "tool_calls": [
+                {
+                  "arguments": {
+                    "id": "7"
+                  },
+                  "id": "c1",
+                  "name": "lookup"
+                }
+              ]
+            }
+          },
+          {
+            "tool": {
+              "artifact": {
+                "is_error": false,
+                "markdown_formatted": null,
+                "tinytools_content": [
+                  {
+                    "text": "found",
+                    "type": "text"
+                  }
+                ],
+                "trusted_verbatim": false
+              },
+              "content": [
+                {
+                  "text": "found"
+                },
+                {
+                  "text": "\n[took 0.0s]"
+                }
+              ],
+              "tool_call_id": "c1"
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "4ec9a73c46d1624e5216adf44b51691df25b6bb750d6fd3c63ef68bd6d29dbd3",
+        "provider_options": {
+          "prompt_cache_key": "tap-6d34bf63ab3bd505"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ],
+    "scenario": "resumed_session"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "compaction summary of earlier turns"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "continue"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "4ec9a73c46d1624e5216adf44b51691df25b6bb750d6fd3c63ef68bd6d29dbd3",
+        "provider_options": {
+          "prompt_cache_key": "tap-6d34bf63ab3bd505"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      },
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "system.1",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable+context"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "volatile tier"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "compaction summary of earlier turns"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "continue"
+                }
+              ]
+            }
+          },
+          {
+            "assistant": {
+              "content": [],
+              "id": "a1",
+              "tool_calls": [
+                {
+                  "arguments": {
+                    "id": "7"
+                  },
+                  "id": "c1",
+                  "name": "lookup"
+                }
+              ]
+            }
+          },
+          {
+            "tool": {
+              "artifact": {
+                "is_error": false,
+                "markdown_formatted": null,
+                "tinytools_content": [
+                  {
+                    "text": "found",
+                    "type": "text"
+                  }
+                ],
+                "trusted_verbatim": false
+              },
+              "content": [
+                {
+                  "text": "found"
+                },
+                {
+                  "text": "\n[took 0.0s]"
+                }
+              ],
+              "tool_call_id": "c1"
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "4ec9a73c46d1624e5216adf44b51691df25b6bb750d6fd3c63ef68bd6d29dbd3",
+        "provider_options": {
+          "prompt_cache_key": "tap-6d34bf63ab3bd505"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ],
+    "scenario": "after_compaction_summary"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "history summary"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "go"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "f29ca3cf1a9bcb53c1601e97bed2cdf17f1cb5fb511cd65663279e6b4b4f4bf3",
+        "provider_options": {
+          "prompt_cache_key": "tap-147773b64ca0759e"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ],
+    "scenario": "resumed_unrecoverable_prefix"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": false,
+            "id": "volatile-system-history",
+            "role": "volatile"
+          }
+        ],
+        "messages": [
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "go"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "51dfe1e6c7f3c5bf4de3d98a0a58ead9326787a0e7a856d893c481cc7d69db30",
+        "provider_options": null,
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": []
+      }
+    ],
+    "scenario": "resumed_zero_prefix_no_system_messages"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "sub-agent prompt"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "task"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "1721fff92fa7869ed9c7ee2f6c92f26259d4e19752a88ec73c939df49d70f96e",
+        "provider_options": {
+          "prompt_cache_key": "tap-a62c1052cb84eb89"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      },
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "sub-agent prompt"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "task"
+                }
+              ]
+            }
+          },
+          {
+            "assistant": {
+              "content": [],
+              "id": "a1",
+              "tool_calls": [
+                {
+                  "arguments": {
+                    "id": "7"
+                  },
+                  "id": "c1",
+                  "name": "lookup"
+                }
+              ]
+            }
+          },
+          {
+            "tool": {
+              "artifact": {
+                "is_error": false,
+                "markdown_formatted": null,
+                "tinytools_content": [
+                  {
+                    "text": "found",
+                    "type": "text"
+                  }
+                ],
+                "trusted_verbatim": false
+              },
+              "content": [
+                {
+                  "text": "found"
+                },
+                {
+                  "text": "\n[took 0.0s]"
+                }
+              ],
+              "tool_call_id": "c1"
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "1721fff92fa7869ed9c7ee2f6c92f26259d4e19752a88ec73c939df49d70f96e",
+        "provider_options": {
+          "prompt_cache_key": "tap-a62c1052cb84eb89"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ],
+    "scenario": "subagent_fresh_context"
+  },
+  {
+    "requests": [
+      {
+        "cache_policy": {
+          "protect_prompt_prefix": true,
+          "response_cache_enabled": false
+        },
+        "cache_segments": [
+          {
+            "cacheable": true,
+            "id": "system",
+            "role": "system"
+          },
+          {
+            "cacheable": true,
+            "id": "tools",
+            "role": "tools"
+          }
+        ],
+        "messages": [
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "stable"
+                }
+              ]
+            }
+          },
+          {
+            "user": {
+              "content": [
+                {
+                  "text": "work"
+                }
+              ]
+            }
+          },
+          {
+            "system": {
+              "content": [
+                {
+                  "text": "[no progress] change strategy"
+                }
+              ]
+            }
+          }
+        ],
+        "metadata": null,
+        "model_hints": [],
+        "prompt_fingerprint": "790baf2f085a48393b913858e95118bcd8938b58196564b91050eed3c393d4ea",
+        "provider_options": {
+          "prompt_cache_key": "tap-a615fe9a59528ea5"
+        },
+        "reuse_previous_model": false,
+        "tags": [],
+        "tool_choice": "auto",
+        "tools": [
+          {
+            "description": "Looks up a record.",
+            "name": "lookup",
+            "parameters": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "type": "object"
+            }
+          }
+        ]
+      }
+    ],
+    "scenario": "fresh_run_with_system_nudge_after_user"
+  }
+]

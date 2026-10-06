@@ -11,17 +11,38 @@
 
 mod common;
 
-#[cfg(feature = "mcp")]
-use common::tool_results;
-use common::{chat_completion, offline_config, runtime, stub_backend, tool_call_completion};
+use common::{chat_completion, offline_config, runtime, stub_backend};
 use openhuman_embed::{
-    Access, AgentDefinitionSpec, AgentError, AgentSpec, Provider, Runtime, SandboxModeSpec,
-    Workspace,
+    Access, AgentDefinitionSpec, AgentError, AgentSpec, HostTurnTools, MemoryBinding, Provider,
+    Runtime, SandboxModeSpec, ToolScopeSpec, Workspace,
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, ResponseTemplate};
 
 const API_KEY: &str = "th_test_key";
+
+struct RecordingBudgetStopHook {
+    inner: openhuman_core::agent::stop_hooks::BudgetStopHook,
+    reason: std::sync::Arc<std::sync::Mutex<Option<String>>>,
+}
+
+#[async_trait::async_trait]
+impl openhuman_core::agent::stop_hooks::StopHook for RecordingBudgetStopHook {
+    fn name(&self) -> &str {
+        "budget"
+    }
+
+    async fn check(
+        &self,
+        state: &openhuman_core::agent::stop_hooks::TurnState<'_>,
+    ) -> openhuman_core::agent::stop_hooks::StopDecision {
+        let decision = openhuman_core::agent::stop_hooks::StopHook::check(&self.inner, state).await;
+        if let openhuman_core::agent::stop_hooks::StopDecision::Stop { reason } = &decision {
+            *self.reason.lock().expect("stop reason lock") = Some(reason.clone());
+        }
+        decision
+    }
+}
 
 /// A skills fixture with one bundle.
 fn skills_fixture() -> tempfile::TempDir {
@@ -67,22 +88,9 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .mount(&backend)
                 .await;
 
-            // Each provider first asks for `mcp_list_servers` once, so the
-            // tool's result — which names the servers the agent can see —
-            // comes back in the second request of that first turn.
             let provider_a = wiremock::MockServer::start().await;
             let provider_b = wiremock::MockServer::start().await;
-            for server in [&provider_a, &provider_b] {
-                Mock::given(method("POST"))
-                    .and(path("/v1/chat/completions"))
-                    .respond_with(
-                        ResponseTemplate::new(200)
-                            .set_body_json(tool_call_completion("mcp_list_servers", "{}")),
-                    )
-                    .up_to_n_times(1)
-                    .mount(server)
-                    .await;
-            }
+            let budget_provider = wiremock::MockServer::start().await;
             Mock::given(method("POST"))
                 .and(path("/v1/chat/completions"))
                 .respond_with(ResponseTemplate::new(200).set_body_json(chat_completion("alpha-ok")))
@@ -92,6 +100,14 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .and(path("/v1/chat/completions"))
                 .respond_with(ResponseTemplate::new(200).set_body_json(chat_completion("beta-ok")))
                 .mount(&provider_b)
+                .await;
+            let mut budget_completion = chat_completion("budget-metered");
+            budget_completion["usage"]["prompt_tokens"] = serde_json::json!(1_000_000);
+            budget_completion["usage"]["total_tokens"] = serde_json::json!(1_000_001);
+            Mock::given(method("POST"))
+                .and(path("/v1/chat/completions"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(budget_completion))
+                .mount(&budget_provider)
                 .await;
             #[allow(unused_variables)]
             let skills = skills_fixture();
@@ -199,9 +215,122 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .agent(AgentSpec::new("gamma").access(Access::readonly()))
                 .expect("gamma instantiates");
 
+            // Per-turn withholding must survive the full embed path through
+            // Agent::turn, session construction, and provider request
+            // serialization. The same configured tool disappears for one
+            // named session and is advertised again for the next.
+            let withholding_provider = wiremock::MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/v1/chat/completions"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(chat_completion("turn-ok")))
+                .mount(&withholding_provider)
+                .await;
+            let withholding_agent = runtime
+                .agent(
+                    AgentSpec::new("withholding")
+                        .provider(
+                            Provider::openai_compatible(
+                                format!("{}/v1", withholding_provider.uri()),
+                                "sk-withholding",
+                            )
+                            .model("withholding-model"),
+                        )
+                        .access(Access::readonly())
+                        .definition(
+                            AgentDefinitionSpec::new()
+                                .tools(ToolScopeSpec::Named(vec!["shell".to_string()])),
+                        )
+                        .tools(|turn| HostTurnTools {
+                            withheld: if turn.session_id() == Some("hidden-turn") {
+                                std::collections::HashSet::from(["shell".to_string()])
+                            } else {
+                                std::collections::HashSet::new()
+                            },
+                            ..Default::default()
+                        }),
+                )
+                .expect("withholding agent instantiates");
+
+            let budget_agent = runtime
+                .agent(
+                    AgentSpec::new("budget")
+                        .provider(
+                            Provider::openai_compatible(
+                                format!("{}/v1", budget_provider.uri()),
+                                "sk-budget",
+                            )
+                            .model("gpt-5.5"),
+                        )
+                        .access(Access::full())
+                        .definition(
+                            AgentDefinitionSpec::new()
+                                .tools(ToolScopeSpec::Named(vec!["shell".to_string()])),
+                        ),
+                )
+                .expect("budget agent instantiates");
+
+            withholding_agent
+                .turn("hide the configured tool")
+                .session("hidden-turn")
+                .send()
+                .await
+                .expect("hidden turn runs");
+            withholding_agent
+                .turn("restore the configured tool")
+                .session("visible-turn")
+                .send()
+                .await
+                .expect("visible turn runs");
+
+            let stop_reason = std::sync::Arc::new(std::sync::Mutex::new(None));
+            let budgeted_turn = openhuman_core::agent::stop_hooks::with_stop_hooks(
+                vec![std::sync::Arc::new(RecordingBudgetStopHook {
+                    inner: openhuman_core::agent::stop_hooks::BudgetStopHook::new(1.0),
+                    reason: std::sync::Arc::clone(&stop_reason),
+                })],
+                budget_agent.run("report a metered response"),
+            )
+            .await
+            .expect("budgeted runtime-owned agent turn returns");
+            assert_eq!(common::chat_requests(&budget_provider).await.len(), 1);
+            assert_eq!(
+                stop_reason.lock().expect("stop reason lock").as_deref(),
+                Some("turn cost $5.0000 reached cap $1.0000")
+            );
+            let usage = budgeted_turn
+                .usage
+                .expect("runtime-owned agent reports turn usage");
+            assert_eq!(usage.input_tokens, 1_000_000);
+            assert!(usage.cost_usd >= 1.0, "budgeted usage: {usage:?}");
+            let withholding_requests = common::chat_requests(&withholding_provider).await;
+            assert_eq!(withholding_requests.len(), 2);
+            let hidden_request: serde_json::Value =
+                serde_json::from_slice(&withholding_requests[0].body).unwrap();
+            let visible_request: serde_json::Value =
+                serde_json::from_slice(&withholding_requests[1].body).unwrap();
+            let has_shell = |request: &serde_json::Value| {
+                request["tools"].as_array().is_some_and(|tools| {
+                    tools.iter().any(|tool| tool["function"]["name"] == "shell")
+                })
+            };
+            assert!(
+                !has_shell(&hidden_request),
+                "the hidden turn's provider request must omit shell"
+            );
+            assert!(
+                has_shell(&visible_request),
+                "the next turn's provider request must advertise shell again"
+            );
+
             assert_eq!(
                 runtime.agent_ids(),
-                vec!["alpha".to_string(), "beta".to_string(), "gamma".to_string()]
+                vec![
+                    "alpha".to_string(),
+                    "beta".to_string(),
+                    "budget".to_string(),
+                    "gamma".to_string(),
+                    "withholding".to_string()
+                ]
             );
 
             // Layout: every agent has its own home, transcripts and action dir.
@@ -245,49 +374,28 @@ fn one_runtime_hosts_independently_configured_agents() {
             assert!(alpha.access().turn_origin().is_none());
             assert!(beta.access().turn_origin().is_some());
 
-            // Turns land on each agent's own provider. The first turn on each
-            // is the `mcp_list_servers` probe: two requests (tool call, then
-            // the final text).
-            let a0 = alpha.run("which mcp servers?").await.expect("alpha probe");
+            // Turns land on each agent's own provider, and each agent keeps
+            // only its own configured MCP servers (asserted above).
+            let a0 = alpha.run("hello from alpha").await.expect("alpha turn");
             assert!(a0.reply.contains("alpha-ok"), "{:?}", a0.reply);
-            assert_eq!(provider_a.received_requests().await.unwrap().len(), 2);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 0);
-            let b0 = beta.run("which mcp servers?").await.expect("beta probe");
+            assert_eq!(common::chat_requests(&provider_a).await.len(), 1);
+            assert_eq!(common::chat_requests(&provider_b).await.len(), 0);
+            let b0 = beta.run("hello from beta").await.expect("beta turn");
             assert!(b0.reply.contains("beta-ok"), "{:?}", b0.reply);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 2);
+            assert_eq!(common::chat_requests(&provider_b).await.len(), 1);
 
             let a1 = alpha.run("hello from alpha").await.expect("alpha turn");
             assert!(a1.reply.contains("alpha-ok"), "{:?}", a1.reply);
-            assert_eq!(provider_a.received_requests().await.unwrap().len(), 3);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 2);
+            assert_eq!(common::chat_requests(&provider_a).await.len(), 2);
+            assert_eq!(common::chat_requests(&provider_b).await.len(), 1);
 
-            // The request bodies carry each agent's own model, and the MCP
-            // servers each agent can list are its own (plus the host-seeded
-            // documentation server every agent gets, as on the desktop).
-            let a_reqs = provider_a.received_requests().await.unwrap();
-            let b_reqs = provider_b.received_requests().await.unwrap();
+            // The request bodies carry each agent's own model.
+            let a_reqs = common::chat_requests(&provider_a).await;
+            let b_reqs = common::chat_requests(&provider_b).await;
             let a_body: serde_json::Value = serde_json::from_slice(&a_reqs[0].body).unwrap();
             let b_body: serde_json::Value = serde_json::from_slice(&b_reqs[0].body).unwrap();
             assert_eq!(a_body["model"], "alpha-model");
             assert_eq!(b_body["model"], "beta-model");
-            #[cfg(feature = "mcp")]
-            {
-                let a_servers = tool_results(&a_reqs[1]);
-                let b_servers = tool_results(&b_reqs[1]);
-                assert!(
-                    a_servers.contains("alpha-mcp"),
-                    "alpha must see the server it declared: {a_servers}"
-                );
-                assert!(
-                    !b_servers.contains("alpha-mcp"),
-                    "beta must not see alpha's server: {b_servers}"
-                );
-                assert!(
-                    a_servers.contains("gitbooks") && b_servers.contains("gitbooks"),
-                    "both see the host-seeded docs server: {a_servers} / {b_servers}"
-                );
-            }
-
             // Transcripts are keyed by agent, and a thread resumes its own history.
             let transcripts: Vec<String> = std::fs::read_dir(alpha.transcripts_dir())
                 .expect("transcript dir")
@@ -338,7 +446,7 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .await
                 .expect("alpha second turn");
             assert_eq!(a2.session_id, a1.session_id);
-            let a2_req = provider_a.received_requests().await.unwrap().remove(3);
+            let a2_req = common::chat_requests(&provider_a).await.remove(2);
             let a2_body: serde_json::Value = serde_json::from_slice(&a2_req.body).unwrap();
             let a2_messages = a2_body["messages"].as_array().cloned().unwrap_or_default();
             assert!(
@@ -392,8 +500,8 @@ fn one_runtime_hosts_independently_configured_agents() {
                 }
             }
             assert_eq!((a_count, b_count), (25, 25));
-            assert_eq!(provider_a.received_requests().await.unwrap().len(), 4 + 25);
-            assert_eq!(provider_b.received_requests().await.unwrap().len(), 2 + 25);
+            assert_eq!(common::chat_requests(&provider_a).await.len(), 3 + 25);
+            assert_eq!(common::chat_requests(&provider_b).await.len(), 1 + 25);
 
             // Ids are unique while alive, and validated.
             let err = runtime
@@ -412,8 +520,38 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .expect_err("widening the runtime");
             assert!(matches!(err, AgentError::WidensRuntime(_)), "{err:?}");
 
+            // A memory binding gives an agent memory of its own: its turns
+            // are logged under the bound id, below the bound root. An
+            // unbound agent keeps the runtime's defaults.
+            let bound = runtime
+                .agent(
+                    AgentSpec::new("employee")
+                        .memory(MemoryBinding::new("employee-7").root("team:acme")),
+                )
+                .expect("a bound agent instantiates");
+            assert_eq!(
+                bound.config().memory.agent_id.as_deref(),
+                Some("employee-7")
+            );
+            assert_eq!(bound.config().memory.root.as_deref(), Some("team:acme"));
+            assert_eq!(beta.config().memory.agent_id, None);
+            let err = runtime
+                .agent(
+                    AgentSpec::new("misbound")
+                        .memory(MemoryBinding::new("x").root("not a namespace")),
+                )
+                .expect_err("an invalid memory root");
+            assert!(matches!(err, AgentError::Invalid(_)), "{err:?}");
+            let err = runtime
+                .agent(AgentSpec::new("unnamed").memory(MemoryBinding::new("  ")))
+                .expect_err("a blank memory agent id");
+            assert!(matches!(err, AgentError::Invalid(_)), "{err:?}");
+            drop(bound);
+
             // Dropping every handle releases the id.
+            drop(withholding_agent);
             drop(gamma);
+            drop(budget_agent);
             assert_eq!(
                 runtime.agent_ids(),
                 vec!["alpha".to_string(), "beta".to_string()]

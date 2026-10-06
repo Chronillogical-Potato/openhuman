@@ -1,9 +1,10 @@
 //! Mirroring a sub-agent turn's conversation onto its spawn's worker thread,
 //! matching the legacy `SubagentObserver`.
 
-use crate::agent::messages::{ChatMessage, ConversationMessage};
+use tinyagents_session::transcript::TranscriptMessage;
+use tinytools_agent::dialect::{DialectRole, TranscriptEntry};
 
-/// Append a worker-thread [`StoredMessage`](crate::memory::conversations::ConversationMessage)
+/// Append a worker-thread [`StoredMessage`](crate::threads::store::ConversationMessage)
 /// with the restored legacy [`SubagentObserver`] metadata (#4466): `scope`,
 /// `agent_id`, `task_id`, plus the per-message `iteration`, `final`, `mode`, and
 /// (for assistant tool rounds / tool results) `tool_calls` / `tool_call_id` /
@@ -19,7 +20,7 @@ fn append_worker_message(
     sender: &str,
     metadata: serde_json::Value,
 ) {
-    use crate::memory::conversations::{append_message, ConversationMessage as StoredMessage};
+    use crate::threads::store::{append_message, ConversationMessage as StoredMessage};
     let mut extra = serde_json::json!({
         "scope": "worker_thread",
         "agent_id": agent_id,
@@ -73,7 +74,7 @@ pub(super) fn mirror_worker_thread(
     thread_id: &str,
     agent_id: &str,
     task_id: &str,
-    conversation: &[ConversationMessage],
+    conversation: &[TranscriptEntry],
     extra_final: Option<&str>,
 ) {
     use std::collections::HashMap;
@@ -81,7 +82,7 @@ pub(super) fn mirror_worker_thread(
     // call_id -> tool name, so each tool result records the tool it came from.
     let mut names: HashMap<&str, &str> = HashMap::new();
     for msg in conversation {
-        if let ConversationMessage::AssistantToolCalls { tool_calls, .. } = msg {
+        if let TranscriptEntry::AssistantToolCalls { tool_calls, .. } = msg {
             for call in tool_calls {
                 names.insert(call.id.as_str(), call.name.as_str());
             }
@@ -91,7 +92,7 @@ pub(super) fn mirror_worker_thread(
     let mut iteration: u64 = 0;
     for msg in conversation {
         match msg {
-            ConversationMessage::AssistantToolCalls {
+            TranscriptEntry::AssistantToolCalls {
                 text, tool_calls, ..
             } => {
                 iteration += 1;
@@ -113,7 +114,7 @@ pub(super) fn mirror_worker_thread(
                     );
                 }
             }
-            ConversationMessage::ToolResults(results) => {
+            TranscriptEntry::ToolResults(results) => {
                 for r in results {
                     let tool_name = names
                         .get(r.tool_call_id.as_str())
@@ -135,8 +136,8 @@ pub(super) fn mirror_worker_thread(
                     );
                 }
             }
-            ConversationMessage::Chat(c)
-                if c.role == "assistant" && !c.content.trim().is_empty() =>
+            TranscriptEntry::Chat(c)
+                if c.role == DialectRole::Assistant && !c.content.trim().is_empty() =>
             {
                 iteration += 1;
                 append_worker_message(
@@ -169,7 +170,7 @@ pub(super) fn mirror_worker_thread(
     }
 }
 
-/// Worker-thread mirror from a flat [`ChatMessage`] history (the error-recovery
+/// Worker-thread mirror from a flat [`TranscriptMessage`] history (the error-recovery
 /// path, #4466): assistant messages become `agent` rows, tool messages become
 /// `user` rows. Used when only the recovered snapshot (not the typed
 /// `conversation`) is available. `failure_final`, when set, is appended as a
@@ -179,7 +180,7 @@ pub(super) fn mirror_worker_thread_from_history(
     thread_id: &str,
     agent_id: &str,
     task_id: &str,
-    history: &[ChatMessage],
+    history: &[TranscriptMessage],
     failure_final: Option<&str>,
 ) {
     let mut iteration: u64 = 0;

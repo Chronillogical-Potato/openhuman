@@ -30,13 +30,6 @@ fn system_info_schema() {
 }
 
 #[test]
-fn unknown_function_returns_unknown() {
-    let s = schemas("bad");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "health");
-}
-
-#[test]
 fn schemas_and_controllers_match() {
     let s = all_controller_schemas();
     let c = all_registered_controllers();

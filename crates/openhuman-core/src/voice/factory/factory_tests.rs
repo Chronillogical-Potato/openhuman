@@ -5,9 +5,10 @@ use super::entry::{
     resolve_tts_voice, DEFAULT_PIPER_VOICE,
 };
 use super::helpers::{effective_stt_provider, effective_tts_provider, split_slug_model};
-use crate::config::schema::voice_providers::{SttApiStyle, VoiceCapability};
+use crate::config::schema::voice_providers::VoiceCapability;
 use crate::config::schema::SttEngine;
 use crate::config::Config;
+use tinyinference_voice::external_stt::SttApiStyle;
 
 fn cfg() -> Config {
     Config::default()

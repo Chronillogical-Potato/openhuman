@@ -78,10 +78,6 @@ pub mod tools;
 #[path = "e2e_plumbing_tests.rs"]
 mod e2e_plumbing_tests;
 
-#[cfg(all(test, feature = "skills"))]
-#[path = "e2e_run_tests.rs"]
-mod e2e_run_tests;
-
 #[cfg(feature = "skills")]
 pub use ops::*;
 #[cfg(feature = "skills")]

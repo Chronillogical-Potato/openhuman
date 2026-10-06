@@ -36,7 +36,11 @@ fn test_security(workspace: &Path) -> Arc<SecurityPolicy> {
 }
 
 fn make_tool(workspace: &Path) -> DocumentTool {
-    DocumentTool::new(workspace.to_path_buf(), test_security(workspace))
+    DocumentTool::new(
+        workspace.to_path_buf(),
+        workspace.join("Files"),
+        test_security(workspace),
+    )
 }
 
 fn minimal_input_json() -> serde_json::Value {

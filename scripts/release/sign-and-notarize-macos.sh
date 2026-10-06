@@ -123,6 +123,9 @@ for bin in "$APP_PATH/Contents/Resources/"openhuman-core-*; do
   codesign_hardened "$bin"
 done
 
+# Bundled native modules (shared with build-macos-signed.sh).
+bash "$(dirname "$0")/macos-bundled-modules.sh" sign "$APP_PATH" "$ENTITLEMENTS" "$APPLE_SIGNING_IDENTITY"
+
 # ── Outer .app bundle ───────────────────────────────────────────────────────
 echo "[sign]   Signing .app bundle..."
 codesign_hardened "$APP_PATH"
@@ -130,6 +133,10 @@ codesign_hardened "$APP_PATH"
 # ── Verify ───────────────────────────────────────────────────────────────────
 echo "[sign] Verifying signatures"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+# Fail here, with every offending path, rather than after a notarization
+# round trip. This includes Mach-O inside the pinned release archives.
+bash "$(dirname "$0")/macos-bundled-modules.sh" check "$APP_PATH/Contents/Resources/bundled-modules"
 
 # ── Notarize ─────────────────────────────────────────────────────────────────
 echo "[sign] Notarizing..."

@@ -1,14 +1,14 @@
-//! Controller-boundary E2E coverage for the eleven `inference.*` local controllers.
+//! Controller-boundary E2E coverage for the six `inference.*` local controllers.
 //!
 //! # Why this suite exists alongside the others
 //!
-//! `inference_agent_raw_coverage_e2e.rs` and `inference_local_ops_piper_raw_coverage_e2e.rs`
-//! already drive `test_connection`, `assets_status`, `downloads_progress`,
-//! `install_piper` and `piper_install_status` through their real handlers, and
-//! several suites exercise `tts` / `transcribe_bytes` / `download_asset` at the
-//! *function* level (`synthesize_piper`, `local_ai_transcribe_bytes`,
-//! `LocalAiService::download_asset`). This file deliberately does not repeat any
-//! of that. It covers the two things none of them assert:
+//! `inference_agent_raw_coverage_e2e.rs` already drives `test_connection`
+//! through its real handler, and several suites exercise `tts` /
+//! `transcribe_bytes` at the *function* level (`synthesize_piper`,
+//! `local_ai_transcribe_bytes`). This file deliberately does not repeat any of
+//! that. (The model-download, asset-status and Piper-installer controllers were
+//! removed: the user runs their own local runtime and pulls models there.) It
+//! covers the two things none of them assert:
 //!
 //! 1. **The registered wire method name.** Every existing suite looks a
 //!    controller up by its `schema.function` ("tts"), never by the string the
@@ -18,9 +18,8 @@
 //!    `rpc_method_name()` (`crates/openhuman-core/src/core/all.rs:1069`) is the contract; this is the
 //!    only place it is pinned.
 //!
-//! 2. **The controller boundary itself for the five that had none**:
-//!    `agent_chat_simple`, `transcribe`, `transcribe_bytes`, `tts` and
-//!    `download_asset`. The handlers deserialize params, load the ambient
+//! 2. **The controller boundary itself for the four that had none**:
+//!    `agent_chat_simple`, `transcribe`, `transcribe_bytes` and `tts`. The handlers deserialize params, load the ambient
 //!    config, and trim string inputs before delegating
 //!    (`crates/openhuman-core/src/inference/local/schemas.rs:309-395`). None of that is
 //!    reachable from a direct call to the op, so none of it was covered.
@@ -29,22 +28,15 @@
 //!
 //! Temp workspaces, a temp PATH, and a stub `piper` shell script only.
 //!
-//! Two of these controllers (`assets_status`, `downloads_progress`) reach
-//! `LocalAiService::assets_status`, which probes `GET {ollama_base_url}/api/tags`
-//! with a two-second timeout. That base URL defaults to `localhost:11434` and is
-//! also taken from the ambient `OLLAMA_HOST`, so without pinning it this suite
-//! would make real socket calls — behaving differently on a machine that
-//! happens to be running Ollama, and costing up to two seconds per call. Every
-//! test therefore pins `OPENHUMAN_OLLAMA_BASE_URL` (the app-specific override,
-//! `ollama.rs:76`) to a closed loopback port and clears `OLLAMA_HOST`, so the
-//! probe is refused immediately and deterministically.
+//! Every test that could reach the local runtime pins
+//! `OPENHUMAN_OLLAMA_BASE_URL` (the app-specific override) to a closed
+//! loopback port and clears `OLLAMA_HOST`, so any probe is refused immediately
+//! and deterministically instead of dialling a real Ollama on the host.
 //!
 //! Beyond that, nothing here starts a server, opens a listening socket, or
-//! downloads an asset: the download and
-//! STT paths are driven to their *rejection* branches on purpose, because the
-//! bundled whisper.cpp engine was deleted and `transcribe` is now a hosted proxy
-//! call with no local binary to stub — see the note at
-//! `inference_local_services_round21_raw_coverage_e2e.rs:164-166`.
+//! downloads an asset: the STT paths are driven to their *rejection* branches on
+//! purpose, because the bundled whisper.cpp engine was deleted and `transcribe`
+//! is now a hosted proxy call with no local binary to stub.
 //!
 //! Every async test holds the process-global `env_lock()` guard across its
 //! `.await` points on purpose: `OPENHUMAN_WORKSPACE`, `PATH` and `PIPER_BIN` are
@@ -53,55 +45,28 @@
 //! serialization mechanism, the same reasoning as `tests/agent_harness_e2e.rs:8-12`.
 #![allow(clippy::await_holding_lock)]
 
+use crate::env_guard::EnvVarGuard;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 
-use openhuman_core::core::all::RegisteredController;
 use openhuman_core::config::Config;
+use openhuman_core::core::all::RegisteredController;
 use openhuman_core::inference::host_runtime::all_local_inference_registered_controllers;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
 }
 
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
-        let previous = std::env::var_os(key);
-        // SAFETY: every test here holds `env_lock()`, so no other aggregated
-        // suite mutates the environment concurrently.
-        unsafe { std::env::set_var(key, value) };
-        Self { key, previous }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let previous = std::env::var_os(key);
-        // SAFETY: as above.
-        unsafe { std::env::remove_var(key) };
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.previous {
-            // SAFETY: as above.
-            Some(value) => unsafe { std::env::set_var(self.key, value) },
-            // SAFETY: as above.
-            None => unsafe { std::env::remove_var(self.key) },
-        }
-    }
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 /// Point the Ollama health probe at a closed loopback port and clear the
@@ -137,9 +102,11 @@ async fn call(controller: &RegisteredController, params: Value) -> Result<Value,
 fn temp_config(tmp: &TempDir) -> Config {
     let root = tmp.path().join(".openhuman");
     std::fs::create_dir_all(root.join("workspace")).expect("workspace dir");
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     // Unroutable on purpose: any handler that reaches for the backend must fail
     // fast rather than touch the network from a test.
@@ -181,7 +148,7 @@ fn write_stub_piper(dir: &Path, name: &str, transcript: &Path) -> PathBuf {
     )
 }
 
-/// The eleven controllers `all_registered_controllers` builds
+/// The six controllers `all_registered_controllers` builds
 /// (`crates/openhuman-core/src/inference/local/schemas.rs:92-138`), paired with the wire
 /// method name each one must dispatch under.
 const EXPECTED_WIRE_METHODS: &[(&str, &str)] = &[
@@ -190,17 +157,6 @@ const EXPECTED_WIRE_METHODS: &[(&str, &str)] = &[
     ("transcribe", "openhuman.inference_transcribe"),
     ("transcribe_bytes", "openhuman.inference_transcribe_bytes"),
     ("tts", "openhuman.inference_tts"),
-    ("assets_status", "openhuman.inference_assets_status"),
-    (
-        "downloads_progress",
-        "openhuman.inference_downloads_progress",
-    ),
-    ("download_asset", "openhuman.inference_download_asset"),
-    ("install_piper", "openhuman.inference_install_piper"),
-    (
-        "piper_install_status",
-        "openhuman.inference_piper_install_status",
-    ),
     ("test_connection", "openhuman.inference_test_connection"),
 ];
 
@@ -260,7 +216,7 @@ fn local_inference_controllers_pin_their_registered_wire_method_names() {
 /// text and the `output_path` the caller chose.
 #[tokio::test]
 async fn inference_tts_controller_covers_disabled_missing_binary_and_stubbed_synthesis() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = false;
@@ -359,7 +315,7 @@ async fn inference_tts_controller_covers_disabled_missing_binary_and_stubbed_syn
 /// trim, the unreadable-file branch and the empty-file branch.
 #[tokio::test]
 async fn inference_transcribe_controllers_cover_params_trimming_and_local_rejections() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = true;
@@ -436,7 +392,7 @@ async fn inference_transcribe_controllers_cover_params_trimming_and_local_reject
     // A valid extension gets past validation and fails at the hosted call
     // instead. Asserting the *absence* of the local-AI gate is the point: STT
     // is hosted now, so gating it on the local runtime would be a regression
-    // (the same assertion `inference_local_ops_piper_...:190` makes for the op,
+    // (the same assertion the op-level suites make,
     // held here at the controller boundary).
     //
     // The runtime is turned OFF first, and that is what gives the assertion
@@ -460,73 +416,6 @@ async fn inference_transcribe_controllers_cover_params_trimming_and_local_reject
     );
 }
 
-/// `openhuman.inference_download_asset`: the disabled gate, the unknown
-/// capability message, and the case-folding + trimming the service applies.
-///
-/// Nothing is downloaded — every branch asserted here returns before a transfer
-/// starts.
-#[tokio::test]
-async fn inference_download_asset_controller_covers_disabled_unknown_and_case_folding() {
-    let _lock = env_lock();
-    // `download_asset` ends in `assets_status`, which probes Ollama — pin it
-    // even though every branch asserted here errors before reaching that call.
-    let _ollama = pin_offline_ollama();
-    let tmp = tempdir().expect("tempdir");
-    let mut config = temp_config(&tmp);
-    config.local_ai.runtime_enabled = false;
-    config.save().await.expect("save config");
-    let _workspace = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path().join(".openhuman"));
-
-    let controllers = all_local_inference_registered_controllers();
-    let download = controller(&controllers, "download_asset");
-
-    let missing = call(download, json!({}))
-        .await
-        .expect_err("capability is required");
-    assert!(
-        missing.starts_with("invalid params:") && missing.contains("capability"),
-        "expected a params error naming capability, got: {missing}"
-    );
-
-    // The disabled gate is checked before the capability is even matched
-    // (`service/assets_impl_01_part_01.rs:563`), so a nonsense capability still
-    // reports the disabled runtime rather than "unknown capability".
-    let disabled = call(download, json!({ "capability": "not-a-capability" }))
-        .await
-        .expect_err("local ai is disabled");
-    assert_eq!(disabled, "local ai is disabled");
-
-    let mut config = temp_config(&tmp);
-    config.local_ai.runtime_enabled = true;
-    config.save().await.expect("save config");
-
-    let unknown = call(download, json!({ "capability": "not-a-capability" }))
-        .await
-        .expect_err("unknown capability is rejected");
-    assert_eq!(
-        unknown,
-        "Unknown capability. Use one of: chat, vision, embedding, tts."
-    );
-
-    // Padded and upper-cased input must reach the same branch as the canonical
-    // spelling: the handler trims (`schemas.rs:393`) and the service lowercases
-    // (`assets_impl_01_part_01.rs:568`). If either were dropped this would come
-    // back as "Unknown capability" instead.
-    // Do NOT require an error here. Whether this call errors depends on whether a
-    // piper voice happens to be installed in the workspace: on a clean CI runner
-    // it returns Ok with an asset-status object (`state: "missing"`), while
-    // locally it can fail. The folding claim holds either way, so assert only
-    // that — an `expect_err` made this test depend on workspace state it does
-    // not control, and it failed on CI for exactly that reason.
-    let folded = call(download, json!({ "capability": "  TTS  " })).await;
-    if let Err(message) = folded {
-        assert_ne!(
-            message, "Unknown capability. Use one of: chat, vision, embedding, tts.",
-            "`  TTS  ` must fold to the `tts` capability, not fall through to unknown"
-        );
-    }
-}
-
 /// `openhuman.inference_agent_chat_simple`: params and the prompt guard.
 ///
 /// The lightweight sibling of `agent_chat`, which the suite covers elsewhere.
@@ -535,7 +424,7 @@ async fn inference_download_asset_controller_covers_disabled_unknown_and_case_fo
 /// (`ops_part_01.rs:267`) rather than in the model call.
 #[tokio::test]
 async fn inference_agent_chat_simple_controller_covers_params_and_prompt_guard() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
     config.local_ai.runtime_enabled = false;
@@ -604,16 +493,15 @@ async fn inference_agent_chat_simple_controller_covers_params_and_prompt_guard()
     );
 }
 
-/// The four read-only status controllers, at the boundary the other suites do
-/// not exercise: they must tolerate params they do not declare, and
-/// `test_connection` must reject a non-HTTP scheme before opening a socket.
+/// `test_connection`, at the boundary the other suites do not exercise: it must
+/// reject a non-HTTP scheme before opening a socket.
 ///
-/// The success paths of all four are covered against mocks in
+/// Its success path is covered against mocks in
 /// `inference_agent_raw_coverage_e2e.rs`; this asserts only the param-shape and
 /// scheme contract, which nothing else does.
 #[tokio::test]
 async fn inference_status_controllers_tolerate_extra_params_and_reject_bad_urls() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let _ollama = pin_offline_ollama();
     let tmp = tempdir().expect("tempdir");
     let mut config = temp_config(&tmp);
@@ -622,25 +510,6 @@ async fn inference_status_controllers_tolerate_extra_params_and_reject_bad_urls(
     let _workspace = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path().join(".openhuman"));
 
     let controllers = all_local_inference_registered_controllers();
-
-    // These three declare no inputs; a caller that sends some anyway (an older
-    // frontend, say) must not get a deserialization error.
-    for function in [
-        "assets_status",
-        "downloads_progress",
-        "piper_install_status",
-    ] {
-        let response = call(
-            controller(&controllers, function),
-            json!({ "unexpected": "field" }),
-        )
-        .await
-        .unwrap_or_else(|error| panic!("`{function}` rejected extra params: {error}"));
-        assert!(
-            response.is_object(),
-            "`{function}` should answer with an object"
-        );
-    }
 
     let test_connection = controller(&controllers, "test_connection");
 

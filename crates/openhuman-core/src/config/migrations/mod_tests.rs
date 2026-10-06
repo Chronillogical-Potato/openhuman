@@ -1,17 +1,14 @@
 use super::*;
-use crate::agent::messages::ChatMessage;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
+use tinyagents_session::transcript::TranscriptMessage;
 use tinyagents_session::transcript::{read_transcript, write_transcript, TranscriptMeta};
 
 fn durable_messages(
-    messages: impl IntoIterator<Item = ChatMessage>,
+    messages: impl IntoIterator<Item = TranscriptMessage>,
 ) -> Vec<tinyagents_session::transcript::TranscriptMessage> {
-    messages
-        .into_iter()
-        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
-        .collect()
+    messages.into_iter().collect()
 }
 
 /// Simulate a v3 user config: narrow allowed_commands, narrow auto_approve,
@@ -87,8 +84,8 @@ fn seed_tainted_transcript(workspace_dir: &Path) -> std::path::PathBuf {
     fs::create_dir_all(&raw_dir).unwrap();
     let path = raw_dir.join("1700000000_main.jsonl");
     let messages = vec![
-        ChatMessage::system(tainted_prompt()),
-        ChatMessage::user("hello"),
+        TranscriptMessage::system(tainted_prompt()),
+        TranscriptMessage::user("hello"),
     ];
     write_transcript(&path, &durable_messages(messages), &meta(), None).unwrap();
     path

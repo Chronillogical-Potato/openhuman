@@ -9,6 +9,11 @@ import { callCoreRpc } from '../../services/coreRpcClient';
 import { CommandResponse, tauriErrorMessage } from './common';
 
 export interface LocalAiStatus {
+  /**
+   * Runtime state of the user-run local endpoint: `ready`, `degraded`,
+   * `unreachable`, `disabled` or `idle`. The app never downloads or installs
+   * models or runtimes, so there is no download/install state.
+   */
   state: string;
   model_id: string;
   chat_model_id: string;
@@ -23,11 +28,6 @@ export interface LocalAiStatus {
   stt_state: string;
   tts_state: string;
   provider: string;
-  download_progress?: number | null;
-  downloaded_bytes?: number | null;
-  total_bytes?: number | null;
-  download_speed_bps?: number | null;
-  eta_seconds?: number | null;
   warning?: string | null;
   error_detail?: string | null;
   error_category?: string | null;
@@ -37,63 +37,6 @@ export interface LocalAiStatus {
   last_latency_ms?: number | null;
   prompt_toks_per_sec?: number | null;
   gen_toks_per_sec?: number | null;
-}
-
-export interface LocalAiAssetStatus {
-  state: string;
-  id: string;
-  provider: string;
-  path?: string | null;
-  warning?: string | null;
-}
-
-export interface LocalAiAssetsStatus {
-  chat: LocalAiAssetStatus;
-  vision: LocalAiAssetStatus;
-  embedding: LocalAiAssetStatus;
-  tts: LocalAiAssetStatus;
-  quantization: string;
-  /**
-   * True when the configured Ollama endpoint is reachable enough for model
-   * checks. When false the UI should render external-runtime guidance instead
-   * of pretending the app can install or launch Ollama itself.
-   */
-  ollama_available: boolean;
-}
-
-export interface LocalAiDownloadProgressItem {
-  id: string;
-  provider: string;
-  state: string;
-  progress?: number | null;
-  downloaded_bytes?: number | null;
-  total_bytes?: number | null;
-  speed_bps?: number | null;
-  eta_seconds?: number | null;
-  warning?: string | null;
-  path?: string | null;
-}
-
-export interface LocalAiDownloadsProgress {
-  state: string;
-  warning?: string | null;
-  progress?: number | null;
-  downloaded_bytes?: number | null;
-  total_bytes?: number | null;
-  speed_bps?: number | null;
-  eta_seconds?: number | null;
-  chat: LocalAiDownloadProgressItem;
-  vision: LocalAiDownloadProgressItem;
-  embedding: LocalAiDownloadProgressItem;
-  tts: LocalAiDownloadProgressItem;
-  /** Mirrors `LocalAiAssetsStatus.ollama_available` — see that field. */
-  ollama_available: boolean;
-}
-
-export interface LocalAiEmbeddingResult {
-  model_id: string;
-  dimensions: number;
-  vectors: number[][];
 }
 
 export interface LocalAiSpeechResult {
@@ -106,68 +49,17 @@ export interface LocalAiTtsResult {
   voice_id: string;
 }
 
-export interface ReactionDecision {
-  should_react: boolean;
-  emoji: string | null;
-}
-
 export interface SentimentResult {
   emotion: string;
   valence: string;
   confidence: number;
 }
 
-export interface DeviceProfileResult {
-  total_ram_bytes: number;
-  cpu_count: number;
-  cpu_brand: string;
-  os_name: string;
-  os_version: string;
-  has_gpu: boolean;
-  gpu_description: string | null;
-}
-
-export interface ModelPresetResult {
-  tier: string;
-  label: string;
-  description: string;
-  chat_model_id: string;
-  vision_model_id: string;
-  embedding_model_id: string;
-  quantization: string;
-  vision_mode: string;
-  supports_screen_summary: boolean;
-  target_ram_gb: number;
-  min_ram_gb: number;
-  approx_download_gb: number;
-}
-
-export interface PresetsResponse {
-  presets: ModelPresetResult[];
-  recommended_tier: string;
-  current_tier: string;
-  selected_tier?: string | null;
-  device: DeviceProfileResult;
-  /** When true the device is below the RAM floor and cloud fallback is the recommended default. */
-  recommend_disabled?: boolean;
-  /** Current value of `config.local_ai.runtime_enabled`. When false, cloud fallback is in use. */
-  local_ai_enabled?: boolean;
-}
-
-export interface ApplyPresetResult {
-  applied_tier: string;
-  chat_model_id?: string;
-  vision_model_id?: string;
-  embedding_model_id?: string;
-  quantization?: string;
-  vision_mode?: string;
-  local_ai_enabled?: boolean;
-}
-
-export type RepairAction =
-  | { action: 'install_ollama' }
-  | { action: 'start_server'; binary_path: string | null }
-  | { action: 'pull_model'; model: string };
+/**
+ * Always empty: the core no longer installs or starts runtimes or pulls
+ * models, so remediation is text-only in `issues`.
+ */
+export type RepairAction = never;
 
 /**
  * Verdict for a model's native context window against the memory-layer
@@ -282,15 +174,6 @@ export async function openhumanLocalAiVisionPrompt(
   });
 }
 
-export async function openhumanLocalAiEmbed(
-  inputs: string[]
-): Promise<CommandResponse<LocalAiEmbeddingResult>> {
-  return await callCoreRpc<CommandResponse<LocalAiEmbeddingResult>>({
-    method: 'openhuman.inference_embed',
-    params: { inputs },
-  });
-}
-
 export async function openhumanLocalAiTranscribe(
   audioPath: string
 ): Promise<CommandResponse<LocalAiSpeechResult>> {
@@ -321,20 +204,6 @@ export async function openhumanLocalAiTts(
 }
 
 /**
- * Ask the configured inference provider whether the assistant should react to
- * a user message with an emoji.
- */
-export async function openhumanLocalAiShouldReact(
-  message: string,
-  channelType: string
-): Promise<CommandResponse<ReactionDecision>> {
-  return await callCoreRpc<CommandResponse<ReactionDecision>>({
-    method: 'openhuman.inference_should_react',
-    params: { message, channel_type: channelType },
-  });
-}
-
-/**
  * Classify the emotion and sentiment of a user message via the configured
  * inference provider.
  */
@@ -344,46 +213,6 @@ export async function openhumanLocalAiAnalyzeSentiment(
   return await callCoreRpc<CommandResponse<SentimentResult>>({
     method: 'openhuman.inference_analyze_sentiment',
     params: { message },
-  });
-}
-
-export async function openhumanLocalAiAssetsStatus(): Promise<
-  CommandResponse<LocalAiAssetsStatus>
-> {
-  return await callCoreRpc<CommandResponse<LocalAiAssetsStatus>>({
-    method: 'openhuman.inference_assets_status',
-  });
-}
-
-export async function openhumanLocalAiDownloadsProgress(): Promise<
-  CommandResponse<LocalAiDownloadsProgress>
-> {
-  return await callCoreRpc<CommandResponse<LocalAiDownloadsProgress>>({
-    method: 'openhuman.inference_downloads_progress',
-  });
-}
-
-export async function openhumanLocalAiDownloadAsset(
-  capability: 'chat' | 'vision' | 'embedding' | 'tts'
-): Promise<CommandResponse<LocalAiAssetsStatus>> {
-  return await callCoreRpc<CommandResponse<LocalAiAssetsStatus>>({
-    method: 'openhuman.inference_download_asset',
-    params: { capability },
-  });
-}
-
-export async function openhumanLocalAiDeviceProfile(): Promise<DeviceProfileResult> {
-  return await callCoreRpc<DeviceProfileResult>({ method: 'openhuman.inference_device_profile' });
-}
-
-export async function openhumanLocalAiPresets(): Promise<PresetsResponse> {
-  return await callCoreRpc<PresetsResponse>({ method: 'openhuman.inference_presets' });
-}
-
-export async function openhumanLocalAiApplyPreset(tier: string): Promise<ApplyPresetResult> {
-  return await callCoreRpc<ApplyPresetResult>({
-    method: 'openhuman.inference_apply_preset',
-    params: { tier },
   });
 }
 

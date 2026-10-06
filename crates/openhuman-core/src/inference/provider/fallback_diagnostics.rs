@@ -10,7 +10,7 @@
 //! ## Why it happens, and why the routing itself is correct
 //!
 //! [`super::factory::provider_for_role`] deliberately routes the background
-//! roles (`vision`, `embeddings`, `memory`, `learning`, `agentic`, `burst`)
+//! roles (`vision`, `embeddings`, `memory`, `agentic`, `burst`)
 //! to the primary cloud provider when their
 //! own route is unset: they run tier-specific models (`hint:vision`,
 //! `hint:summarization`, …) that local runtimes and BYOK slugs do not serve. A
@@ -44,7 +44,6 @@ const CLOUD_FALLBACK_ROLES: &[&str] = &[
     "embeddings",
     "memory",
     "summarization",
-    "learning",
     "agentic",
     "burst",
 ];
@@ -59,7 +58,7 @@ pub(crate) fn role_falls_back_to_cloud(role: &str) -> bool {
 /// sentence ("… does not support **vision**").
 ///
 /// `None` for roles whose name is not a capability the user would recognise as
-/// a model feature (`learning`, `burst`, …); callers fall back to the role
+/// a model feature (`burst`, …); callers fall back to the role
 /// name itself.
 pub(crate) fn role_capability_label(role: &str) -> Option<&'static str> {
     match role.trim() {
@@ -158,18 +157,6 @@ pub(crate) fn local_vision_unsupported_message(model: &str) -> String {
          in Connections → LLM to a provider that supports images.",
         model.trim()
     )
-}
-
-/// Pure pre-flight for image input: `Ok(())` when `model` accepts images,
-/// `Err(actionable message)` when it does not.
-///
-/// Split from the call sites so the wording is unit-testable and identical
-/// everywhere an image is about to be dropped.
-pub(crate) fn vision_preflight(model: &str, config: &crate::config::Config) -> Result<(), String> {
-    if crate::inference::model_context::model_supports_vision(model, config) {
-        return Ok(());
-    }
-    Err(local_vision_unsupported_message(model))
 }
 
 fn capitalize_first(s: &str) -> String {

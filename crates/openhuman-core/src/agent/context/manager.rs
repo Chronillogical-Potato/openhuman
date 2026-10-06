@@ -11,26 +11,17 @@
 //!    [`ContextManager::build_system_prompt_with`].
 //!
 //! 2. **Context bookkeeping** — a [`ContextStatsState`] with utilisation
-//!    stats, tool-result budget config, and session-memory trigger state.
+//!    stats and tool-result budget config.
 //!    Live history reduction/summarization moved to the
 //!    tinyagents graph (`ContextCompressionMiddleware` +
 //!    `MessageTrimMiddleware`, issue #4249); this manager no longer runs
 //!    an in-turn summarizer.
 //!
-//! # What it doesn't own
-//!
-//! The session-memory extraction *task itself* still lives in the
-//! agent harness (`turn.rs` spawns the archivist sub-agent). The
-//! manager only owns the *state* that decides whether the trigger
-//! should fire; it exposes that via
-//! [`ContextManager::should_extract_session_memory`] so `turn.rs` can
-//! gate its existing `spawn_subagent` call.
 
-use super::session_memory::SessionMemoryConfig;
-use super::stats::{ContextStatsState, SessionMemoryHandle};
+use super::stats::ContextStatsState;
 use crate::agent::prompts::{PromptContext, SystemPromptBuilder};
 use crate::config::ContextConfig;
-use crate::inference::provider::UsageInfo;
+use crate::inference::provider::BilledUsage;
 use anyhow::Result;
 
 /// Read-only snapshot of per-session context state. Returned by
@@ -42,9 +33,6 @@ pub struct ContextStats {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub context_window: u64,
-    pub session_memory_total_tokens: u64,
-    pub session_memory_current_turn: u64,
-    pub session_memory_total_tool_calls: u64,
 }
 
 /// Per-session context manager. Constructed once by the agent harness
@@ -86,6 +74,9 @@ pub struct ContextManager {
     /// `[context].autocompact_enabled` so a diagnostic/test opt-out doesn't spend
     /// summarizer tokens or rewrite history. See [`ContextConfig::autocompact_enabled`].
     autocompact_enabled: bool,
+    /// `[context].compaction_trigger_tokens` and `compaction_strategy`. See
+    /// [`ContextConfig::compaction_settings`].
+    compaction: crate::config::CompactionSettings,
 }
 
 impl ContextManager {
@@ -97,15 +88,10 @@ impl ContextManager {
     ///
     /// The manager no longer owns a summarizer: live history reduction moved
     /// to the tinyagents graph (issue #4249). What remains here is the system
-    /// prompt, the stats/utilisation surface, tool-result budgeting, and
-    /// session-memory bookkeeping.
+    /// prompt, the stats/utilisation surface and tool-result budgeting.
     pub fn new(config: &ContextConfig, default_prompt_builder: SystemPromptBuilder) -> Self {
         Self {
-            stats_state: ContextStatsState::new(SessionMemoryConfig {
-                min_token_growth: config.session_memory.min_token_growth,
-                min_tool_calls: config.session_memory.min_tool_calls,
-                min_turns_between: config.session_memory.min_turns_between,
-            }),
+            stats_state: ContextStatsState::new(),
             default_prompt_builder,
             enabled: config.enabled,
             tool_result_budget_bytes: config.tool_result_budget_bytes,
@@ -119,6 +105,7 @@ impl ContextManager {
             // Summarization is off when the whole context system is disabled OR
             // autocompaction specifically is turned off.
             autocompact_enabled: config.enabled && config.autocompact_enabled,
+            compaction: config.compaction_settings(),
         }
     }
 
@@ -157,58 +144,17 @@ impl ContextManager {
         self.autocompact_enabled
     }
 
+    /// The compaction trigger override (benchmarks / debugging) and the
+    /// checkpoint strategy.
+    pub fn compaction(&self) -> crate::config::CompactionSettings {
+        self.compaction
+    }
+
     // ─── Budget tracking ──────────────────────────────────────────
 
-    /// Feed the latest provider [`UsageInfo`] into utilisation stats and the
-    /// session-memory state.
-    pub fn record_usage(&mut self, usage: &UsageInfo) {
+    /// Feed the latest provider [`BilledUsage`] into utilisation stats.
+    pub fn record_usage(&mut self, usage: &BilledUsage) {
         self.stats_state.record_usage(usage);
-    }
-
-    /// Bump the session-memory turn counter (called once per user turn).
-    pub fn tick_turn(&mut self) {
-        self.stats_state.tick_turn();
-    }
-
-    /// Accumulate a turn's tool-call count into the session-memory state.
-    pub fn record_tool_calls(&mut self, n: usize) {
-        self.stats_state.record_tool_calls(n);
-    }
-
-    /// Whether the caller should spawn a background session-memory
-    /// extraction this turn. Delegates to the underlying stats state; the
-    /// manager does not spawn the extraction itself.
-    pub fn should_extract_session_memory(&self) -> bool {
-        self.stats_state.should_extract_session_memory()
-    }
-
-    /// Mark a session-memory extraction as started (so repeated
-    /// calls to [`should_extract_session_memory`] return `false` until
-    /// the extraction completes).
-    pub fn mark_session_memory_started(&mut self) {
-        self.stats_state.mark_session_memory_started();
-    }
-
-    /// Mark a session-memory extraction as complete — resets deltas.
-    pub fn mark_session_memory_complete(&mut self) {
-        self.stats_state.mark_session_memory_complete();
-    }
-
-    /// Mark a session-memory extraction as failed — keeps deltas
-    /// intact so the next turn retries.
-    pub fn mark_session_memory_failed(&mut self) {
-        self.stats_state.mark_session_memory_failed();
-    }
-
-    /// Clone the shared session-memory handle so a detached background
-    /// task (see `turn.rs::spawn_session_memory_extraction`) can mark
-    /// the extraction complete or failed once it finishes. The
-    /// foreground path is expected to call
-    /// [`Self::mark_session_memory_started`] *before* spawning so
-    /// overlapping turns don't fire duplicate extractions while this
-    /// one is in flight.
-    pub(crate) fn session_memory_handle(&self) -> SessionMemoryHandle {
-        self.stats_state.session_memory_handle()
     }
 
     // ─── Prompt building ───────────────────────────────────────────
@@ -240,36 +186,16 @@ impl ContextManager {
         self.default_prompt_builder.build_tiered(ctx)
     }
 
-    /// Assemble the system prompt via a caller-supplied builder.
-    ///
-    /// Sub-agents pass `SystemPromptBuilder::for_subagent(...)` and
-    /// channels pass `with_defaults()` chained with a
-    /// `ChannelCapabilitiesSection`. Either way the builder itself
-    /// lives in [`super::prompt`] — no caller needs to know how
-    /// sections are composed internally.
-    pub fn build_system_prompt_with(
-        &self,
-        builder: &SystemPromptBuilder,
-        ctx: &PromptContext<'_>,
-    ) -> Result<String> {
-        let prompt = builder.build(ctx)?;
-        Ok(prompt)
-    }
-
     // ─── Observability ─────────────────────────────────────────────
 
     /// Read-only snapshot of the current budget state.
     pub fn stats(&self) -> ContextStats {
         let utilisation_pct = self.stats_state.utilization_pct();
-        let sm = self.stats_state.session_memory_snapshot();
         ContextStats {
             utilisation_pct,
             input_tokens: self.stats_state.last_input_tokens(),
             output_tokens: self.stats_state.last_output_tokens(),
             context_window: self.stats_state.context_window(),
-            session_memory_total_tokens: sm.total_tokens,
-            session_memory_current_turn: sm.current_turn,
-            session_memory_total_tool_calls: sm.total_tool_calls,
         }
     }
 }

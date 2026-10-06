@@ -21,7 +21,14 @@ pub async fn get_sandbox_settings() -> Result<Outcome<serde_json::Value>, String
     let sandbox = &config.sandbox;
     let docker = &config.runtime.docker;
 
-    let docker_available = is_docker_available().await;
+    // The daemon probe has no timeout of its own; bound it so a wedged
+    // daemon cannot hang the settings read.
+    let docker_available = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        crate::sandbox::docker::is_docker_available(),
+    )
+    .await
+    .unwrap_or(false);
 
     let backend_str = match sandbox.backend {
         crate::config::SandboxBackend::Auto => "auto",
@@ -115,18 +122,6 @@ pub async fn load_and_apply_sandbox_settings(
 ) -> Result<Outcome<serde_json::Value>, String> {
     let mut config = load_config_with_timeout().await?;
     apply_sandbox_settings(&mut config, update).await
-}
-
-async fn is_docker_available() -> bool {
-    let fut = tokio::process::Command::new("docker")
-        .arg("info")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
-    match tokio::time::timeout(std::time::Duration::from_secs(5), fut).await {
-        Ok(Ok(status)) => status.success(),
-        _ => false,
-    }
 }
 
 fn detect_os_sandbox_backend() -> &'static str {

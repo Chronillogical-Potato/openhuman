@@ -60,6 +60,11 @@ services:
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - openhuman-workspace:/home/openhuman/.openhuman
+      # The agent's default projects/action directory lives outside the
+      # workspace (~/OpenHuman). With `read_only: true` the core cannot create
+      # it and logs "could not create default projects dir ... Read-only file
+      # system" at every start; file tools then have nowhere to write.
+      - openhuman-projects:/home/openhuman/OpenHuman
     mem_limit: ${OPENHUMAN_CORE_MEM_LIMIT:-4g}
     cpus: ${OPENHUMAN_CORE_CPUS:-2.0}
     healthcheck:
@@ -72,3 +77,5 @@ services:
 volumes:
   openhuman-workspace:
     name: openhuman-workspace
+  openhuman-projects:
+    name: openhuman-projects

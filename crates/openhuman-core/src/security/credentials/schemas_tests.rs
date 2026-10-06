@@ -3,20 +3,6 @@ use super::*;
 // ── Schema catalog coverage ────────────────────────────────────
 
 #[test]
-fn catalog_counts_match() {
-    let schemas = all_controller_schemas();
-    let handlers = all_registered_controllers();
-    assert_eq!(schemas.len(), handlers.len());
-    // The account-bound `auth.oauth_*` (including `oauth_fetch_client_key`) /
-    // `auth.create_channel_link_token` controllers moved to
-    // `openhuman-tinyhumans`; the core keeps the rest.
-    assert!(
-        schemas.len() >= 7,
-        "auth namespace should expose ≥7 core fns"
-    );
-}
-
-#[test]
 fn all_schemas_use_auth_namespace_and_have_descriptions() {
     for s in all_controller_schemas() {
         assert_eq!(s.namespace, "auth", "function {}", s.function);
@@ -27,13 +13,6 @@ fn all_schemas_use_auth_namespace_and_have_descriptions() {
             s.function
         );
     }
-}
-
-#[test]
-fn unknown_function_returns_unknown_fallback() {
-    let s = schemas("no_such_fn");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "auth");
 }
 
 #[test]

@@ -15,7 +15,6 @@ use async_trait::async_trait;
 use tinyagents_harness::middleware::{AgentRun, BudgetTracker, Middleware, ToolInvocationIdentity};
 use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::message::Message as TaMessage;
-use tinyinference_llm::model::SegmentRole;
 use tinyinference_llm::tool::{ToolCall as TaToolCall, ToolSchema};
 use tinytools::{ToolPolicy as TaToolPolicy, ToolResult as TaToolResult};
 
@@ -103,6 +102,7 @@ fn summarizer_mw(ps: Arc<dyn PayloadSummarizer>) -> ToolOutputMiddleware {
         // `web_fetch` declares `summary_focus` in production.
         summary_focus_tools: ["web_fetch".to_string()].into(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     }
 }
 
@@ -217,6 +217,7 @@ fn compaction_enabled_mw() -> ToolOutputMiddleware {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     }
 }
 
@@ -268,6 +269,7 @@ fn truncation_probe_mw() -> ToolOutputMiddleware {
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
         raw_fetches: Default::default(),
+        file_reads: Default::default(),
     }
 }
 
@@ -330,48 +332,17 @@ fn body_failure_result(name: &str, extra: serde_json::Value) -> TaToolResult {
     tool_result(name, &serde_json::to_string_pretty(&body).unwrap())
 }
 
-// ── MemoryProtocolMiddleware (issue #4116) ──────────────────────────────
-
-use crate::agent::harness::memory_protocol::MEMORY_PROTOCOL_MARKER;
-
-/// Drive one full tool cycle through the middleware: `before_tool` (captures
-/// the arguments the result won't carry) then `after_tool`, correlated by a
-/// shared call id. Returns the (possibly annotated) result.
-async fn run_cycle(
-    mw: &MemoryProtocolMiddleware,
-    name: &str,
-    args: serde_json::Value,
-    content: &str,
-    error: Option<&str>,
-) -> TaToolResult {
-    let mut call = TaToolCall {
-        id: "c1".into(),
-        name: name.into(),
-        arguments: args,
-        invalid: None,
-    };
-    mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
-    let mut result = match error {
-        Some(error) => TaToolResult::error(error),
-        None => tool_result(name, content),
-    };
-    let invocation = ToolInvocationIdentity::new("c1", name);
-    mw.after_tool(&mut ctx(), &(), &invocation, &mut result)
-        .await
-        .unwrap();
-    result
-}
-
 // ── EmbedderToolHooksMiddleware ──────────────────────────────────────────
+
+/// One recorded post-tool notification: tool name, args, success flag, duration.
+type PostToolRecord = (String, serde_json::Value, Option<bool>, Option<u64>);
 
 /// Records lifecycle notifications for a test hook, optionally vetoing every
 /// pre-tool call so the veto path can be exercised.
 struct RecordingToolHook {
     name: &'static str,
     pre: std::sync::Arc<std::sync::Mutex<Vec<(String, serde_json::Value)>>>,
-    post: std::sync::Arc<
-        std::sync::Mutex<Vec<(String, serde_json::Value, Option<bool>, Option<u64>)>>,
-    >,
+    post: std::sync::Arc<std::sync::Mutex<Vec<PostToolRecord>>>,
     veto: bool,
 }
 
@@ -409,9 +380,7 @@ impl crate::agent::hooks::ToolHook for RecordingToolHook {
 
 fn embedder_hook_mw(
     pre: std::sync::Arc<std::sync::Mutex<Vec<(String, serde_json::Value)>>>,
-    post: std::sync::Arc<
-        std::sync::Mutex<Vec<(String, serde_json::Value, Option<bool>, Option<u64>)>>,
-    >,
+    post: std::sync::Arc<std::sync::Mutex<Vec<PostToolRecord>>>,
     veto: bool,
 ) -> EmbedderToolHooksMiddleware {
     EmbedderToolHooksMiddleware::new(vec![std::sync::Arc::new(RecordingToolHook {
@@ -426,10 +395,10 @@ fn embedder_hook_mw(
 mod approval_guard_tests;
 #[path = "middleware_classified_failure_tests.rs"]
 mod classified_failure_tests;
+#[path = "middleware_command_exit_failure_tests.rs"]
+mod command_exit_failure_tests;
 #[path = "middleware_loop_guard_tests.rs"]
 mod loop_guard_tests;
-#[path = "middleware_prompt_cache_tests.rs"]
-mod prompt_cache_tests;
 
 #[path = "middleware_research_budget_tests.rs"]
 mod research_budget_tests;
@@ -438,6 +407,8 @@ mod research_budget_tests;
 mod memory_and_hooks_tests;
 #[path = "middleware_tool_output_artifact_tests.rs"]
 mod tool_output_artifact_tests;
+#[path = "middleware_tool_output_file_read_tests.rs"]
+mod tool_output_file_read_tests;
 #[path = "middleware_tool_output_tests.rs"]
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]

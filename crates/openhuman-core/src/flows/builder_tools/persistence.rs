@@ -9,7 +9,6 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::flows::ops;
 use crate::flows::ops::validate_and_migrate_graph;
-use crate::flows::tools;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
 /// `create_workflow`: the gated create tool (audit F4/F12). Persists a NEW
@@ -463,7 +462,7 @@ impl Tool for SaveWorkflowTool {
                     let trigger_desc = flow
                         .graph
                         .trigger()
-                        .map(tools::describe_trigger)
+                        .map(tinyflows::summary::describe_trigger)
                         .unwrap_or_else(|| "automatic".to_string());
                     let warning = format!(
                         "WARNING: this flow is ENABLED with an automatic trigger \

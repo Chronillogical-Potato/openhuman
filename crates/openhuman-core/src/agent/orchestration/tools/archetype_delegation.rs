@@ -187,6 +187,23 @@ pub(crate) async fn execute_archetype_delegation_with_live_parent(
         )));
     }
     let prompt = render_structured_handoff(&raw_prompt, &args);
+    let prompt = match crate::agent::attachments::delegation_prompt(
+        &prompt,
+        &args,
+        tool_context
+            .and_then(|ctx| ctx.workspace())
+            .or(run_context.workspace.as_ref()),
+        run_context.origin.as_ref(),
+    )
+    .await
+    {
+        Ok(prompt) => prompt,
+        Err(error) => {
+            return Ok(ToolResult::error(format!(
+                "image forwarding failed: {error}"
+            )));
+        }
+    };
 
     let model_override = args
         .get("model")
@@ -252,6 +269,11 @@ pub(super) fn delegation_envelope_properties() -> Value {
         "prompt": {
             "type": "string",
             "description": "The whole task, self-contained: the worker has no memory of this chat."
+        },
+        "image_paths": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Image paths relative to the acting workspace."
         },
         "blocking": {
             "type": "boolean",

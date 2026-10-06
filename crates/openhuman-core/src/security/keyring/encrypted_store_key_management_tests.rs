@@ -253,7 +253,7 @@ fn malformed_key_file_rejected_not_panic() {
     let store = SecretStore::new(tmp.path(), true);
 
     // Write a 30-byte hex key (60 chars, even, decodes cleanly, wrong length).
-    fs::create_dir_all(&tmp.path()).unwrap();
+    fs::create_dir_all(tmp.path()).unwrap();
     fs::write(&store.key_path, "aa".repeat(30)).unwrap();
     super::super::clear_cached_key(&store.key_path);
 

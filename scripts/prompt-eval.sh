@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tier-2 prompt evals: does a real model follow the agent prompts? Scored,
 # costs money, non-deterministic. NEVER gates CI (refuses to run when CI=true).
-# Tier 1 (`tests/agent_prompt_comprehension_e2e.rs`) pins the script; only this
+# Tier 1 (`tests/in_process/agent_prompt_comprehension_e2e.rs`) pins the script; only this
 # answers whether a model follows it. See docs/prompt-evals.md.
 #
 # Usage: scripts/prompt-eval.sh [--case <id>] [--runs N] [--bin <openhuman-core>] [--real-workspace] [--allow-disabled]

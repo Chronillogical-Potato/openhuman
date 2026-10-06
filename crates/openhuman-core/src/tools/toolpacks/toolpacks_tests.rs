@@ -87,16 +87,16 @@ fn find<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
         .unwrap_or_else(|| panic!("{name} missing"))
 }
 
+/// A shared, immutable tool registry.
+type ToolRegistry = Arc<Vec<Box<dyn Tool>>>;
+
 /// A registry split the way a real agent's is: the pack tool in the durable
 /// vector, the packed tool in the separate synthesised one.
 ///
 /// This is not a contrived shape. Every `delegate_*` tool is synthesised into
 /// `OpenHumanSessionHost::synthesized_tools`, a different `Arc` from the durable registry
 /// (#6145), and seven delegates were already packed.
-fn split_registries(
-    name: &'static str,
-    level: PermissionLevel,
-) -> (Arc<Vec<Box<dyn Tool>>>, Arc<Vec<Box<dyn Tool>>>) {
+fn split_registries(name: &'static str, level: PermissionLevel) -> (ToolRegistry, ToolRegistry) {
     let mut durable: Vec<Box<dyn Tool>> = Vec::new();
     append_pack_tools(&mut durable);
     let durable = Arc::new(durable);
@@ -146,45 +146,6 @@ async fn a_packed_delegate_in_the_synthesised_set_is_reachable() {
     assert!(format!("{:?}", ran.content).contains("marker"));
 }
 
-/// Replacing the synthesised `Arc` must re-point the handle at the new one.
-///
-/// `refresh_delegation_tools` rebuilds that set on every Composio reconcile. A
-/// handle left holding the old `Weak` stops upgrading once the last reader of
-/// the previous allocation goes, and every packed delegate silently becomes
-/// unreachable for the rest of the session — the same class of bug the durable
-/// `OnceLock` rebinding fix already addressed on the other registry.
-#[tokio::test]
-async fn rebinding_the_synthesised_set_repoints_the_handle() {
-    let (durable, first) = split_registries("manage_profile_memory", PermissionLevel::ReadOnly);
-    let use_skill = find(&durable, USE_SKILL);
-
-    // A reconcile: a fresh set, and the old allocation dropped.
-    let second: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(FakeTool {
-        name: "save_preference",
-        level: PermissionLevel::ReadOnly,
-        external: false,
-        timeout: ToolTimeout::Inherit,
-    })]);
-    bind_synthesized_pack_registry(&durable, &second);
-    drop(first);
-
-    let ran = use_skill
-        .execute(json!({"skill": "profile", "tool": "save_preference", "args": {}}))
-        .await
-        .unwrap();
-    assert!(
-        !ran.is_error,
-        "handle did not follow the rebind: {}",
-        ran.text()
-    );
-    // And the retired instance is gone with its allocation.
-    let stale = use_skill
-        .execute(json!({"skill": "profile", "tool": "manage_profile_memory", "args": {}}))
-        .await
-        .unwrap();
-    assert!(stale.is_error, "a dropped delegate stayed reachable");
-}
-
 /// Closing a goal must stay directly callable.
 ///
 /// `goal_complete` is the one goal operation an agent reaches for reactively —
@@ -200,7 +161,7 @@ fn closing_a_goal_is_never_packed() {
         "`goal_complete` was packed; see the carve-out note on the `goals` pack"
     );
     // And the rest of the family is, or the carve-out saved nothing.
-    for held in ["goals", "goal_get", "goal_set"] {
+    for held in ["goal_get", "goal_set"] {
         assert!(
             all_packed_tool_names().contains(&held),
             "`{held}` should be reachable through the `goals` pack, not on the wire"
@@ -247,49 +208,6 @@ fn an_empty_visible_set_is_left_alone() {
     let mut visible: HashSet<String> = HashSet::new();
     strip_packed_from_visible(&mut visible, "orchestrator");
     assert!(visible.is_empty());
-}
-
-#[tokio::test]
-async fn use_skill_without_a_tool_renders_the_schema_of_a_present_tool() {
-    let name = pack("web3").unwrap().tools[0];
-    let tools = registry_with(name, PermissionLevel::ReadOnly);
-    let result = find(&tools, USE_SKILL)
-        .execute(json!({"skill": "web3"}))
-        .await
-        .unwrap();
-    assert!(!result.is_error);
-    let text = format!("{:?}", result.content);
-    assert!(text.contains(name), "rendered pack omitted `{name}`");
-    assert!(
-        text.contains("marker"),
-        "rendered pack omitted the arg schema"
-    );
-}
-
-#[tokio::test]
-async fn use_skill_refuses_a_tool_from_another_skill() {
-    // Cross-skill dispatch would make the `skill` argument decoration and let a
-    // workflow skill reach a crypto write.
-    let crypto = pack("web3").unwrap().tools[0];
-    let tools = registry_with(crypto, PermissionLevel::Dangerous);
-    let result = find(&tools, USE_SKILL)
-        .execute(json!({"skill": "workflows", "tool": crypto, "args": {}}))
-        .await
-        .unwrap();
-    assert!(result.is_error, "cross-skill dispatch was admitted");
-}
-
-#[test]
-fn use_skill_reports_the_inner_tools_permission_level() {
-    // The harness gates on this. Reporting the proxy's own level would launder
-    // a dangerous packed tool onto a channel that refuses it.
-    let name = pack("web3").unwrap().tools[0];
-    let tools = registry_with(name, PermissionLevel::Dangerous);
-    let use_skill = find(&tools, USE_SKILL);
-    assert_eq!(
-        use_skill.permission_level_with_args(&json!({"skill": "web3", "tool": name})),
-        PermissionLevel::Dangerous
-    );
 }
 
 #[test]
@@ -491,14 +409,6 @@ fn every_pack_declares_the_tools_it_is_named_for() {
         ),
         ("scheduling", &["cron"]),
         (
-            "profile",
-            &[
-                "save_preference",
-                "remember_preference",
-                "manage_profile_memory",
-            ],
-        ),
-        (
             "media",
             &[
                 "create_image",
@@ -510,7 +420,7 @@ fn every_pack_declares_the_tools_it_is_named_for() {
             ],
         ),
         ("tasks", &["manage_tasks"]),
-        ("goals", &["goals", "goal_get", "goal_set"]),
+        ("goals", &["goal_get", "goal_set"]),
         ("docs", &["gitbooks_search", "gitbooks_get_page"]),
     ];
 

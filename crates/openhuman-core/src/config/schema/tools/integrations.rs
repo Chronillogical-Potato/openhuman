@@ -21,6 +21,10 @@ use serde::{Deserialize, Serialize};
 /// sink. See `composio/tools/direct.rs` for the underlying client.
 pub const COMPOSIO_MODE_BACKEND: &str = "backend";
 pub const COMPOSIO_MODE_DIRECT: &str = "direct";
+/// Composio off: no client, no agent tools, and no hosted `list_toolkits` /
+/// connections round trip on the first turn. For headless and benchmark hosts
+/// that have no Composio account (or no backend) to ask.
+pub const COMPOSIO_MODE_DISABLED: &str = "disabled";
 
 fn default_composio_mode() -> String {
     COMPOSIO_MODE_BACKEND.into()
@@ -48,7 +52,8 @@ pub struct ComposioConfig {
     /// Routing mode for the main Composio integration flow. One of
     /// [`COMPOSIO_MODE_BACKEND`] (default — proxied through the OpenHuman
     /// backend) or [`COMPOSIO_MODE_DIRECT`] (BYO API key, calls
-    /// `backend.composio.dev` directly).
+    /// `backend.composio.dev` directly) or [`COMPOSIO_MODE_DISABLED`] (off).
+    /// `OPENHUMAN_COMPOSIO_MODE` overrides it for one launch.
     ///
     /// The user-provided API key for direct mode is *not* stored in the
     /// TOML — it lives in the encrypted keychain via

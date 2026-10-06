@@ -21,10 +21,8 @@ agent/harness/definition_tests.rs
 agent/session_host/builder/factory.rs
 agent/session_host/runtime_session.rs
 agent/session_host/runtime_session_tests.rs
-agent/session_host/turn/tools.rs
 agent/registry/agents/loader.rs
 agent/registry/agents/loader_tests_specialist_agents_tests.rs
-agent/registry/agents/mod.rs
 agent/tinyagents/mod.rs
 commands/ops.rs
 config/migrations/retire_local_whisper_stt_tests.rs
@@ -36,7 +34,6 @@ core/invoke_tests.rs
 core/legacy_aliases_tests.rs
 core/runtime/services.rs
 core/runtime/subscribers.rs
-flows/mod.rs
 mcp/server/resources.rs
 mcp/server/mod.rs
 mcp/server/tools/mod.rs
@@ -44,7 +41,7 @@ platform/socket/event_handlers.rs
 skills/bundled/mod.rs
 skills/mod.rs
 skills/search.rs
-tools/impl/network/http_request.rs
+tools/impl/network/host.rs
 tools/ops.rs
 tools/ops_tests.rs
 tools/ops_tests_capability_gating_tests.rs
@@ -52,7 +49,6 @@ tools/ops_tests_default_registry_tests.rs
 tools/ops_tests_domain_family_tests.rs
 tools/registry/ops_tests.rs
 tools/registry/schemas_tests.rs
-voice/compile_status_tests.rs
 web3/stub.rs
 web3/wallet/stub.rs
 web3/x402/stub.rs

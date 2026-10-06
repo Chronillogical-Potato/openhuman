@@ -31,10 +31,14 @@ async fn no_credential_is_a_backend_error_naming_the_gap() {
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     };
-    let ranker = TinyHumansJevRanker::new().with_config_loader(Arc::new(move || {
-        let config = config.clone();
-        Box::pin(async move { Ok(config) })
-    }));
+    // No env keys: a developer's shell may export OPENROUTER_API_KEY, and `auto`
+    // would then (correctly) route through it.
+    let ranker = TinyHumansJevRanker::new()
+        .with_env_loader(Arc::new(|_| None))
+        .with_config_loader(Arc::new(move || {
+            let config = config.clone();
+            Box::pin(async move { Ok(config) })
+        }));
     let err = ranker
         .rank(
             "send a message",

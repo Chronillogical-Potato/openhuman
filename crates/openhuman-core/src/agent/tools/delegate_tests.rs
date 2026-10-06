@@ -61,17 +61,10 @@ fn schema_lists_agent_names() {
 }
 
 #[tokio::test]
-async fn missing_agent_param() {
+async fn missing_required_params_are_rejected() {
     let tool = DelegateTool::new(sample_agents(), test_security());
-    let result = tool.execute(json!({"prompt": "test"})).await;
-    assert!(result.is_err());
-}
-
-#[tokio::test]
-async fn missing_prompt_param() {
-    let tool = DelegateTool::new(sample_agents(), test_security());
-    let result = tool.execute(json!({"agent": "researcher"})).await;
-    assert!(result.is_err());
+    assert!(tool.execute(json!({"prompt": "test"})).await.is_err());
+    assert!(tool.execute(json!({"agent": "researcher"})).await.is_err());
 }
 
 #[tokio::test]
@@ -87,25 +80,16 @@ async fn unknown_agent_returns_error() {
 
 #[tokio::test]
 async fn depth_limit_enforced() {
-    let tool = DelegateTool::with_depth(sample_agents(), test_security(), 3);
-    let result = tool
-        .execute(json!({"agent": "researcher", "prompt": "test"}))
-        .await
-        .unwrap();
-    assert!(result.is_error);
-    assert!(result.output().contains("depth limit"));
-}
-
-#[tokio::test]
-async fn depth_limit_per_agent() {
-    // coder has max_depth=2, so depth=2 should be blocked
-    let tool = DelegateTool::with_depth(sample_agents(), test_security(), 2);
-    let result = tool
-        .execute(json!({"agent": "coder", "prompt": "test"}))
-        .await
-        .unwrap();
-    assert!(result.is_error);
-    assert!(result.output().contains("depth limit"));
+    // Global limit, then coder's own max_depth=2 blocking at depth 2.
+    for (agent, depth) in [("researcher", 3), ("coder", 2)] {
+        let tool = DelegateTool::with_depth(sample_agents(), test_security(), depth);
+        let result = tool
+            .execute(json!({"agent": agent, "prompt": "test"}))
+            .await
+            .unwrap();
+        assert!(result.is_error, "{agent}@{depth}");
+        assert!(result.output().contains("depth limit"), "{agent}@{depth}");
+    }
 }
 
 #[test]
@@ -119,25 +103,16 @@ fn empty_agents_schema() {
 }
 
 #[tokio::test]
-async fn blank_agent_rejected() {
+async fn blank_agent_or_prompt_rejected() {
     let tool = DelegateTool::new(sample_agents(), test_security());
-    let result = tool
-        .execute(json!({"agent": "  ", "prompt": "test"}))
-        .await
-        .unwrap();
-    assert!(result.is_error);
-    assert!(result.output().contains("must not be empty"));
-}
-
-#[tokio::test]
-async fn blank_prompt_rejected() {
-    let tool = DelegateTool::new(sample_agents(), test_security());
-    let result = tool
-        .execute(json!({"agent": "researcher", "prompt": "  \t  "}))
-        .await
-        .unwrap();
-    assert!(result.is_error);
-    assert!(result.output().contains("must not be empty"));
+    for args in [
+        json!({"agent": "  ", "prompt": "test"}),
+        json!({"agent": "researcher", "prompt": "  \t  "}),
+    ] {
+        let result = tool.execute(args.clone()).await.unwrap();
+        assert!(result.is_error, "{args}");
+        assert!(result.output().contains("must not be empty"), "{args}");
+    }
 }
 
 #[tokio::test]

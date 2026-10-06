@@ -71,6 +71,8 @@ pub const TOOL_NAME: &str = "generate_document";
 /// One-shot `.docx` generator. See module docs for the request flow.
 pub struct DocumentTool {
     workspace_dir: PathBuf,
+    /// Visible folder the generated document is written into (#5505).
+    files_dir: crate::agent::artifacts::FileRoots,
     /// Retained for constructor parity with [`PresentationTool`] (both are
     /// registered identically in `tools::ops`) and for future features
     /// (e.g. embedding a `File`-source image) that will need the same
@@ -84,11 +86,26 @@ impl DocumentTool {
     /// directory the artifact pipeline writes into, plus the active
     /// [`SecurityPolicy`] (same signature as [`PresentationTool::new`] so
     /// both tools register with an identical call).
-    pub fn new(workspace_dir: PathBuf, security: Arc<SecurityPolicy>) -> Self {
+    pub fn new(
+        workspace_dir: PathBuf,
+        files_dir: impl Into<crate::agent::artifacts::FileRoots>,
+        security: Arc<SecurityPolicy>,
+    ) -> Self {
         Self {
             workspace_dir,
+            files_dir: files_dir.into(),
             security,
         }
+    }
+
+    /// The agent-registry constructor: the artifact metadata goes to
+    /// `config.workspace_dir`, the document to the files folder (#5505).
+    pub fn for_config(config: &crate::config::Config, security: Arc<SecurityPolicy>) -> Self {
+        Self::new(
+            config.workspace_dir.clone(),
+            crate::agent::artifacts::FileRoots::from_config(config),
+            security,
+        )
     }
 }
 
@@ -201,6 +218,7 @@ impl Tool for DocumentTool {
 
         let (meta, output_path) = create_artifact(
             &self.workspace_dir,
+            &self.files_dir,
             ArtifactKind::Document,
             &input.title,
             "docx",
@@ -227,7 +245,13 @@ impl Tool for DocumentTool {
         let bytes = match engine::generate(&input, GENERATION_TIMEOUT).await {
             Ok(bytes) => bytes,
             Err(err) => {
-                let _ = fail_artifact(&self.workspace_dir, &meta.id, &err.to_string()).await;
+                let _ = fail_artifact(
+                    &self.workspace_dir,
+                    &self.files_dir,
+                    &meta.id,
+                    &err.to_string(),
+                )
+                .await;
                 tracing::warn!(
                     target: "document",
                     err = %err,
@@ -243,7 +267,7 @@ impl Tool for DocumentTool {
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default();
             let reason = format!("failed to write generated document ({filename}): {err}");
-            let _ = fail_artifact(&self.workspace_dir, &meta.id, &reason).await;
+            let _ = fail_artifact(&self.workspace_dir, &self.files_dir, &meta.id, &reason).await;
             tracing::warn!(
                 target: "document",
                 err = %err,
@@ -264,7 +288,8 @@ impl Tool for DocumentTool {
                 // stuck `Pending` spinner. Fail-artifact errors are
                 // swallowed — they can only recur if the same ledger backend
                 // is unavailable.
-                let _ = fail_artifact(&self.workspace_dir, &meta.id, &reason).await;
+                let _ =
+                    fail_artifact(&self.workspace_dir, &self.files_dir, &meta.id, &reason).await;
                 tracing::warn!(
                     target: "document",
                     err = %err,

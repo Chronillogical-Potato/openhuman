@@ -15,7 +15,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import socketReducer from '../../../store/socketSlice';
 import threadReducer from '../../../store/threadSlice';
+import { primeActiveUserId } from '../../../store/userScopedStorage';
 import { useOnboardingContext } from '../OnboardingContext';
+
+// The layout parks its draft in userScopedStorage, whose reads and writes wait
+// on the boot-time prime that main.tsx performs in the real app.
+primeActiveUserId('test-user');
 
 // ── Module-level mocks ─────────────────────────────────────────────────────
 
@@ -174,6 +179,17 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
     expect(mockCreateNewThreadArg).not.toHaveBeenCalled();
   });
 
+  it('clears the persisted onboarding draft on completion', async () => {
+    localStorage.setItem('test-user:onboarding_draft', JSON.stringify({ connectedSources: [] }));
+    await setupLayout();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('complete-btn'));
+    });
+
+    expect(localStorage.getItem('test-user:onboarding_draft')).toBeNull();
+  });
+
   it('calls setOnboardingCompletedFlag(true) during completeAndExit', async () => {
     const { mockSetOnboardingCompletedFlag } = await setupLayout();
 
@@ -273,8 +289,6 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
     const existing = ['shell', 'cron_add', 'cron_list'];
     const { mockSetOnboardingTasks } = await setupLayout({
       accessibilityPermissionGranted: false,
-      localModelConsentGiven: false,
-      localModelDownloadStarted: false,
       enabledTools: existing,
       connectedSources: [],
       updatedAtMs: 1,
@@ -308,8 +322,6 @@ describe('OnboardingLayout — Joyride walkthrough integration (#1123)', () => {
   it('carries a recorded accessibility permission through onboarding completion', async () => {
     const { mockSetOnboardingTasks } = await setupLayout({
       accessibilityPermissionGranted: true,
-      localModelConsentGiven: false,
-      localModelDownloadStarted: false,
       enabledTools: ['shell'],
       connectedSources: [],
       updatedAtMs: 1,

@@ -52,7 +52,7 @@ fn list_toolkits_tool_metadata_is_stable() {
     assert!(s
         .get("required")
         .and_then(|r| r.as_array())
-        .map_or(true, |a| a.is_empty()));
+        .is_none_or(|a| a.is_empty()));
 }
 
 #[test]
@@ -301,6 +301,31 @@ fn agent_tools_skip_registration_when_no_credentials_at_all() {
 }
 
 #[test]
+fn agent_tools_are_all_removed_when_composio_is_disabled_even_if_signed_in() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = crate::config::Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    crate::security::credentials::AuthService::from_config(&config)
+        .store_provider_token(
+            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            "test-token",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store test session token");
+    config.composio.mode = "disabled".into();
+    let names: Vec<String> = all_composio_agent_tools(&config)
+        .iter()
+        .map(|t| t.name().to_string())
+        .collect();
+    assert!(
+        names.is_empty(),
+        "no composio tool (incl. composio_connect) may register: {names:?}"
+    );
+}
+
+#[test]
 fn agent_tools_register_when_backend_signed_in() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = crate::config::Config::default();
@@ -396,10 +421,10 @@ async fn sandbox_read_only_passes_through_read_scope_actions_to_downstream_gates
     // config nor races the shared env var against the other
     // config-loading composio tests.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -432,10 +457,10 @@ async fn sandbox_unset_leaves_all_scopes_to_downstream_gates() {
     // so this test neither reads the dev's real config nor races the
     // shared env var against the other config-loading composio tests.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -467,10 +492,10 @@ async fn sandbox_sandboxed_mode_does_not_trigger_readonly_gate() {
     // config nor races the shared env var against the other
     // config-loading composio tests.
     use crate::config::TEST_ENV_LOCK;
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _env_guard = TEST_ENV_LOCK.lock().await;
 
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");

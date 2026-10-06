@@ -54,7 +54,7 @@ The honest gap: **none of these filter the model's language or subject matter.**
 
 ### 2. Keep inference and data local
 
-- Turn on a [local model](local-model.md), then **route chat and reasoning at the local provider** so conversations run on-device. Enabling Local AI alone keeps only embeddings/memory local. Chat still uses the default cloud route until you point the chat/reasoning workloads at the local provider and confirm with a test message.
+- Set up a [local model](local-model.md) (run the runtime and pull the model yourself), then **route chat and reasoning at the local provider** so conversations run on-device. Adding the provider alone does not move chat; it stays on the default cloud route until you point the chat/reasoning workloads at the local provider and confirm with a test message. Turning on `local_only` [Privacy Mode](../features/privacy-mode.md) makes that guarantee hard.
 - Connect **no** integrations. Don't sign the child's accounts in.
 
 ### 3. Write a protective persona
@@ -82,7 +82,7 @@ Edit the behavior prompt (`SOUL.md`, via the **Brain** page `/brain`) to set age
 | ---------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | It produced content you consider inappropriate | There is no content filter; the persona alone governs tone | Strengthen the `SOUL.md` rules; supervise; this is an inherent limit of the tool |
 | It tried to do something (send/open/fetch)     | Tier isn't Read-only                                       | Set autonomy to **Read-only** in Agent access                                    |
-| Conversation went to the cloud                 | Local AI isn't on                                          | Turn on a [local model](local-model.md) and confirm `ready`                      |
+| Conversation went to the cloud                 | Chat isn't routed to a local provider                      | Route chat to a [local model](local-model.md) and send a test message            |
 | The child reached settings and changed things  | OpenHuman has no separate child login                      | Use OS-level user accounts/parental controls to lock down the machine itself     |
 
 ## Recovery

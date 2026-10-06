@@ -6,6 +6,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use tinyagents_graph::goals::GoalToolKind;
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::tool::ToolDispatch;
 use tinyagents_registry::{
@@ -22,7 +23,6 @@ use crate::agent::tinyagents::tools::{CanonicalSharedToolAdapter, EarlyExitHook}
 use crate::agent::tinyagents::turn_policy::is_subagent_spawn_or_delegate_tool;
 use crate::agent::tinyagents::use_skill_dispatch::UseSkillDispatch;
 use crate::agent::tools::{DelegateToolDispatch, TodoToolDispatch};
-use crate::memory::agent::CallMemoryAgentDispatch;
 use tinyagents_harness::tool::packs::USE_SKILL;
 
 /// Typed-dispatch selection shared by the direct per-turn registration below
@@ -56,7 +56,6 @@ pub(crate) fn typed_dispatch_for(
         "delegate_graph" => Arc::new(DelegateGraphDispatch::new(adapter)),
         "delegate" => Arc::new(DelegateToolDispatch::new(adapter)),
         "todo" => Arc::new(TodoToolDispatch::new(adapter)),
-        "call_memory_agent" => Arc::new(CallMemoryAgentDispatch::new(adapter)),
         _ => {
             return DelegationDispatch::for_tool(adapter).map(|dispatch| {
                 Arc::new(dispatch) as Arc<dyn ToolDispatch<(), OpenHumanRunContext>>
@@ -64,6 +63,14 @@ pub(crate) fn typed_dispatch_for(
         }
     };
     Some(dispatch)
+}
+
+/// Whether `name` is one of the model-facing per-thread goal tools
+/// (`goal_get` / `goal_set` / `goal_complete`), named by their owner.
+pub(crate) fn is_thread_goal_tool(name: &str) -> bool {
+    GoalToolKind::MODEL_FACING
+        .iter()
+        .any(|kind| kind.name() == name)
 }
 
 /// Register every admitted tool from `tool_sets` onto `harness` (and its
@@ -79,6 +86,9 @@ pub(crate) fn typed_dispatch_for(
 /// inheriting the parent's full tool surface (shell/file-write/spawn) — the
 /// old `allowed.is_empty() || allowed.contains(name)` predicate was
 /// fail-open.
+///
+/// `has_thread == false` drops the per-thread goal tools, which cannot run
+/// without a chat thread (issue #6956).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn register_turn_tools_and_agents(
     harness: &mut AgentHarness<(), OpenHumanRunContext>,
@@ -88,6 +98,7 @@ pub(super) fn register_turn_tools_and_agents(
     early_exit_set: &HashSet<&str>,
     early_exit_hook: Option<&EarlyExitHook>,
     is_subagent_run: bool,
+    has_thread: bool,
     session_deferred: &HashSet<String>,
 ) -> (
     usize,
@@ -109,6 +120,21 @@ pub(super) fn register_turn_tools_and_agents(
         .flat_map(|set| set.iter())
         .map(|tool| tool.name())
         .filter(|&name| seen_candidates.insert(name.to_string()))
+        // The per-thread goal tools resolve their target from the run's thread
+        // and refuse every call without one ("thread goal tools require an
+        // active chat thread"), so a thread-less turn is not offered them
+        // (issue #6956). Dropped as candidates, not just at registration, so
+        // the shadow exposure layer's reference matches what registers.
+        .filter(|&name| {
+            let keep = has_thread || !is_thread_goal_tool(name);
+            if !keep {
+                tracing::debug!(
+                    tool = name,
+                    "[goals] not registering thread goal tool on a turn without a chat thread"
+                );
+            }
+            keep
+        })
         .map(|name| name.to_string())
         .collect();
     let mut registered: HashSet<String> = HashSet::new();
@@ -273,3 +299,7 @@ pub(super) fn register_turn_tools_and_agents(
         registry_snapshot,
     )
 }
+
+#[cfg(test)]
+#[path = "harness_tool_registration_tests.rs"]
+mod tests;

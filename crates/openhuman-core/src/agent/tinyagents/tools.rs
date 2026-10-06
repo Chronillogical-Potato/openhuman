@@ -197,7 +197,28 @@ impl Tool for CanonicalSharedToolAdapter {
         // A callable tool's operational failure is input to the agent loop, not
         // a failure of the harness itself.  Preserve it as an error result so
         // the model can recover (or explain the failure) on its next round.
-        let result = match tool.execute_with_context(args, options, context).await {
+        let origin = context
+            .and_then(tinytools::ToolRunContext::host_extension)
+            .and_then(|extension| {
+                extension.downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()
+            })
+            .and_then(|context| {
+                context.state::<crate::agent::tinyagents::host::run_context::HostOperationContext>()
+            })
+            .and_then(|context| context.origin.clone());
+        let execution = tool.execute_with_context(args, options, context);
+        let execution = match (origin, crate::core::runtime::CoreContext::current()) {
+            (Some(origin), Some(core_context)) => {
+                crate::core::runtime::CoreContext::scope_with_turn_origin(
+                    core_context,
+                    Some(origin),
+                    execution,
+                )
+                .await
+            }
+            _ => execution.await,
+        };
+        let result = match execution {
             Ok(result) => result,
             Err(error) => {
                 tracing::warn!(tool = %self.name, %error, "[tinyagents] shared tool execution failed");

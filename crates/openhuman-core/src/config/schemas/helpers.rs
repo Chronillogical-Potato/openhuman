@@ -69,24 +69,20 @@ pub(super) struct ModelSettingsUpdate {
     pub(super) vision_provider: Option<String>,
     pub(super) memory_provider: Option<String>,
     pub(super) embeddings_provider: Option<String>,
-    pub(super) learning_provider: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct MemorySettingsUpdate {
-    pub(super) backend: Option<String>,
-    pub(super) auto_save: Option<bool>,
     pub(super) embedding_provider: Option<String>,
     pub(super) embedding_model: Option<String>,
     pub(super) embedding_dimensions: Option<usize>,
-    /// One of `"minimal" | "balanced" | "extended" | "maximum"`.
-    pub(super) memory_window: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeSettingsUpdate {
     pub(super) kind: Option<String>,
     pub(super) reasoning_enabled: Option<bool>,
+    pub(super) reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,7 +129,6 @@ pub(super) struct LocalAiSettingsUpdate {
     pub(super) model_id: Option<String>,
     pub(super) chat_model_id: Option<String>,
     pub(super) usage_embeddings: Option<bool>,
-    pub(super) usage_learning_reflection: Option<bool>,
     pub(super) api_key: Option<String>,
 }
 
@@ -230,6 +225,10 @@ pub(super) struct AgentSettingsUpdate {
     /// override (back to the orchestrator); omitted leaves it unchanged.
     #[serde(default)]
     pub(super) chat_agent_id: Option<String>,
+    /// `auto | native | xml | pformat | python | typescript`. Validated
+    /// server-side; omitted leaves it unchanged.
+    #[serde(default)]
+    pub(super) tool_dispatcher: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -237,11 +236,10 @@ pub(super) struct AgentPathsUpdate {
     /// New absolute action sandbox path. Empty string clears the override;
     /// omitted leaves it unchanged. Validated server-side.
     pub(super) action_dir: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct MemorySyncSettingsUpdate {
-    pub(super) sync_interval_secs: Option<u64>,
+    /// New absolute folder for agent deliverables (#5505). Empty string
+    /// clears the override; omitted leaves it unchanged.
+    #[serde(default)]
+    pub(super) files_dir: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -285,7 +283,6 @@ pub fn optional_json(name: &'static str, comment: &'static str) -> FieldSchema {
     }
 }
 
-#[allow(dead_code)]
 pub fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,

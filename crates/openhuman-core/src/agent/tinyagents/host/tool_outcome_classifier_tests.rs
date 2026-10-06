@@ -312,13 +312,3 @@ fn the_dispatched_name_changes_the_verdict_only_for_timeouts() {
         "a timeout must distinguish an external-effect tool from a safe one"
     );
 }
-
-#[test]
-fn usable_as_a_trait_object() {
-    let classifier: std::sync::Arc<dyn ToolOutcomeClassifier> =
-        std::sync::Arc::new(OpenHumanToolOutcomeClassifier::default());
-    assert_eq!(
-        classifier.classify("shell", &result(Some("503"), "")),
-        OutcomeClass::RetryableFailure
-    );
-}

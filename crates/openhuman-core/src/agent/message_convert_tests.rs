@@ -1,4 +1,43 @@
 use super::*;
+
+#[test]
+fn durable_upload_parts_survive_message_row_replay_without_inline_payloads() {
+    let mut text = String::from("Inspect these files");
+    for (name, mime) in [
+        ("image.png", "image/png"),
+        ("clip.mp3", "audio/mpeg"),
+        ("video.mp4", "video/mp4"),
+        ("archive.zip", "application/zip"),
+    ] {
+        let attachment = crate::agent::attachments::Attachment {
+            path: format!("uploads/thread/id/{name}"),
+            name: name.into(),
+            mime: mime.into(),
+            size_bytes: 10,
+        };
+        text.push_str(&attachment.marker());
+    }
+    let message = user_message_from_text(&text);
+    let row = message_to_native_chat_message(&message).unwrap();
+    let replay = chat_message_to_message(&row);
+    assert_eq!(message, replay);
+    let Message::User(user) = replay else {
+        panic!("user row expected")
+    };
+    assert!(user
+        .content
+        .iter()
+        .any(|part| matches!(part, ContentBlock::Audio(MediaRef::Path { .. }))));
+    assert!(user
+        .content
+        .iter()
+        .any(|part| matches!(part, ContentBlock::Video(MediaRef::Path { .. }))));
+    assert!(user
+        .content
+        .iter()
+        .any(|part| matches!(part, ContentBlock::Document(MediaRef::Path { .. }))));
+    assert!(!serde_json::to_string(&row).unwrap().contains("base64"));
+}
 use tinyinference_llm::model::ModelRequest;
 
 // #5359: a user turn whose text carries an inline `[IMAGE:data:…]` marker
@@ -8,7 +47,7 @@ use tinyinference_llm::model::ModelRequest;
 #[test]
 fn user_image_marker_becomes_an_image_content_block() {
     let png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
-    let msg = ChatMessage::user(format!("what is in this screenshot? [IMAGE:{png}]"));
+    let msg = TranscriptMessage::user(format!("what is in this screenshot? [IMAGE:{png}]"));
 
     let Message::User(user) = chat_message_to_message(&msg) else {
         panic!("user role must map to a user message");
@@ -83,7 +122,7 @@ fn image_only_and_multi_image_user_turns_map_to_image_blocks_only() {
     let gif = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
     let Message::User(only) =
-        chat_message_to_message(&ChatMessage::user(format!("[IMAGE:{jpeg}]")))
+        chat_message_to_message(&TranscriptMessage::user(format!("[IMAGE:{jpeg}]")))
     else {
         panic!("user role must map to a user message");
     };
@@ -92,7 +131,7 @@ fn image_only_and_multi_image_user_turns_map_to_image_blocks_only() {
 
     // Interleaved prose + images preserve source order: text, image, text,
     // image — so each caption stays next to its image.
-    let Message::User(multi) = chat_message_to_message(&ChatMessage::user(format!(
+    let Message::User(multi) = chat_message_to_message(&TranscriptMessage::user(format!(
         "compare [IMAGE:{jpeg}] and [IMAGE:{gif}]"
     ))) else {
         panic!("user role must map to a user message");
@@ -104,22 +143,18 @@ fn image_only_and_multi_image_user_turns_map_to_image_blocks_only() {
     assert!(matches!(&multi.content[3], ContentBlock::Image(i) if i.url == gif));
 }
 
-// A marker whose payload is not a provider-ready reference (a bare path, an
-// un-normalized marker) must stay verbatim as text — never sent as an image
-// the provider would reject.
+// Legacy paths become typed references; the provider decorator applies policy
+// and reads bytes only on its ephemeral request copy.
 #[test]
-fn non_data_image_marker_is_kept_as_text() {
-    let Message::User(user) = chat_message_to_message(&ChatMessage::user(
-        "see [IMAGE:/tmp/local/path.png] here".to_string(),
+fn local_image_marker_becomes_a_durable_path_reference() {
+    let Message::User(user) = chat_message_to_message(&TranscriptMessage::user(
+        "see [IMAGE:/tmp/local/path.png] here",
     )) else {
-        panic!("user role must map to a user message");
+        panic!("user")
     };
-    assert_eq!(user.content.len(), 1);
+    assert_eq!(user.content.len(), 3);
     assert!(
-        matches!(&user.content[0], ContentBlock::Text(t)
-            if t == "see [IMAGE:/tmp/local/path.png] here"),
-        "a non-data/http marker stays literal text, got {:?}",
-        user.content
+        matches!(&user.content[1], ContentBlock::Image(image) if image.url == "/tmp/local/path.png")
     );
 }
 
@@ -127,7 +162,8 @@ fn non_data_image_marker_is_kept_as_text() {
 // preserves the original (untrimmed) content.
 #[test]
 fn plain_user_text_stays_a_single_text_block() {
-    let Message::User(user) = chat_message_to_message(&ChatMessage::user("  hi there  ")) else {
+    let Message::User(user) = chat_message_to_message(&TranscriptMessage::user("  hi there  "))
+    else {
         panic!("user role must map to a user message");
     };
     assert_eq!(user.content.len(), 1);
@@ -135,24 +171,20 @@ fn plain_user_text_stays_a_single_text_block() {
 }
 
 #[test]
-fn seeded_native_tool_round_recovers_structure_and_round_trips() {
-    use tinytools_agent::dialect::NativeToolCall as OhToolCall;
-    // The native dispatcher seeds an assistant tool round as a
-    // {content, tool_calls} envelope followed by {tool_call_id, content} rows.
-    let oh_call = OhToolCall {
-        id: "call-1".into(),
-        name: "echo".into(),
-        arguments: r#"{"msg":"hi"}"#.into(),
-        extra_content: None,
-    };
-    let assistant_cm = ChatMessage::assistant(
-        serde_json::json!({ "content": "calling echo", "tool_calls": [oh_call] }).to_string(),
+fn typed_native_tool_round_maps_to_structured_messages_and_back() {
+    // A native tool round is carried in typed fields: calls on the assistant
+    // row, the answered call id on the tool row, plain text in `content`.
+    let assistant_cm = TranscriptMessage::assistant_with_calls(
+        "calling echo",
+        vec![TranscriptToolCall {
+            id: "call-1".into(),
+            name: "echo".into(),
+            arguments: r#"{"msg":"hi"}"#.into(),
+            extra_content: None,
+        }],
     );
-    let tool_cm = ChatMessage::tool(
-        serde_json::json!({ "tool_call_id": "call-1", "content": "echoed:hi" }).to_string(),
-    );
+    let tool_cm = TranscriptMessage::tool_result("call-1", "echoed:hi");
 
-    // Inbound: the envelopes are recovered into structured harness messages.
     let a = chat_message_to_message(&assistant_cm);
     let Message::Assistant(am) = &a else {
         panic!("expected Assistant, got {a:?}");
@@ -174,24 +206,79 @@ fn seeded_native_tool_round_recovers_structure_and_round_trips() {
     assert!(!tm.trusted_verbatim);
     assert_eq!(t.text(), "echoed:hi");
 
-    // Outbound: re-serialized to a well-formed native tool round (assistant
-    // carries structured tool_calls, the tool row carries the matching id).
+    // Back out: the same typed rows, no envelope string anywhere.
     let a_native = message_to_native_chat_message(&a).expect("assistant converts");
-    assert_eq!(a_native.role, "assistant");
-    let av: serde_json::Value = serde_json::from_str(&a_native.content).unwrap();
-    assert_eq!(av["tool_calls"][0]["id"], "call-1");
-    assert_eq!(av["content"], "calling echo");
+    assert_eq!(a_native.role.as_str(), "assistant");
+    assert_eq!(a_native.content, "calling echo");
+    assert_eq!(a_native.tool_calls, assistant_cm.tool_calls);
 
     let t_native = message_to_native_chat_message(&t).expect("tool converts");
-    assert_eq!(t_native.role, "tool");
-    let tv: serde_json::Value = serde_json::from_str(&t_native.content).unwrap();
-    assert_eq!(tv["tool_call_id"], "call-1");
-    assert_eq!(tv["content"], "echoed:hi");
+    assert_eq!(t_native.role.as_str(), "tool");
+    assert_eq!(t_native.content, "echoed:hi");
+    assert_eq!(t_native.tool_call_id.as_deref(), Some("call-1"));
+    assert_eq!(t_native.id.as_deref(), Some("call-1"));
+}
+
+/// A legacy envelope row (what an older release wrote) reads into the same
+/// model messages as its typed form once the reader has lifted it.
+#[test]
+fn legacy_envelope_rows_lift_to_the_same_messages_as_typed_rows() {
+    let envelope = r#"{"content":"calling echo","tool_calls":[{"id":"call-1","name":"echo","arguments":"{\"msg\":\"hi\"}"}]}"#;
+    let tool = r#"{"tool_call_id":"call-1","content":"echoed:hi"}"#;
+    let typed = vec![
+        TranscriptMessage::assistant_with_calls(
+            "calling echo",
+            vec![TranscriptToolCall {
+                id: "call-1".into(),
+                name: "echo".into(),
+                arguments: r#"{"msg":"hi"}"#.into(),
+                extra_content: None,
+            }],
+        ),
+        TranscriptMessage::tool_result("call-1", "echoed:hi"),
+    ];
+    let lifted = vec![
+        TranscriptMessage::from_legacy("assistant", envelope),
+        TranscriptMessage::from_legacy("tool", tool),
+    ];
+    assert_eq!(history_to_messages(&lifted), history_to_messages(&typed));
+    // ...and the lifted rows hand the exact original strings back.
+    assert_eq!(lifted[0].legacy_content(), envelope);
+    assert_eq!(lifted[1].legacy_content(), tool);
+}
+
+#[test]
+fn user_text_with_ready_markers_is_stored_as_typed_image_parts() {
+    let png = "data:image/png;base64,iVBORw0KGgo=";
+    let text = format!("look [IMAGE:{png}] and [IMAGE:/local/path.png] please");
+    let msg = user_message_from_text(&text);
+    let Message::User(user) = &msg else {
+        panic!("user message");
+    };
+    assert_eq!(user.content.len(), 5);
+    assert!(matches!(&user.content[0], ContentBlock::Text(t) if t == "look "));
+    assert!(matches!(&user.content[1], ContentBlock::Image(i) if i.url == png));
+    assert!(matches!(&user.content[2], ContentBlock::Text(t) if t == " and "));
+    assert!(
+        matches!(&user.content[3], ContentBlock::Image(image) if image.url == "/local/path.png")
+    );
+    // The row keeps the parts; `content` is the text.
+    let row = message_to_native_chat_message(&msg).expect("row");
+    assert_eq!(row.parts.as_ref().map(Vec::len), Some(5));
+    assert_eq!(row.content, "look  and  please");
+    // The text comes back exactly, markers in place.
+    assert_eq!(user_text_with_markers(&msg), text);
+    // A row round-trips to the same message.
+    assert_eq!(chat_message_to_message(&row), msg);
+    // Text without a ready marker is a plain text message.
+    for plain in ["hello", "dangling [IMAGE:data:x"] {
+        assert_eq!(user_message_from_text(plain), Message::user(plain));
+    }
 }
 
 #[test]
 fn plain_assistant_prose_is_not_misread_as_a_tool_round() {
-    let a = chat_message_to_message(&ChatMessage::assistant("just a normal reply"));
+    let a = chat_message_to_message(&TranscriptMessage::assistant("just a normal reply"));
     let Message::Assistant(am) = &a else {
         panic!("expected Assistant, got {a:?}");
     };
@@ -201,7 +288,7 @@ fn plain_assistant_prose_is_not_misread_as_a_tool_round() {
 
 #[test]
 fn reasoning_content_uses_typed_thinking_block_and_round_trips_metadata() {
-    let mut chat = ChatMessage::assistant("visible answer");
+    let mut chat = TranscriptMessage::assistant("visible answer");
     chat.extra_metadata = Some(serde_json::json!({ REASONING_EXT_KEY: "private thoughts" }));
 
     let msg = chat_message_to_message(&chat);
@@ -260,9 +347,9 @@ fn legacy_provider_extension_reasoning_still_round_trips() {
 #[test]
 fn roles_round_trip_through_the_bridge() {
     let history = vec![
-        ChatMessage::system("you are helpful"),
-        ChatMessage::user("hello"),
-        ChatMessage::assistant("hi there"),
+        TranscriptMessage::system("you are helpful"),
+        TranscriptMessage::user("hello"),
+        TranscriptMessage::assistant("hi there"),
     ];
     let messages = history_to_messages(&history);
     assert!(matches!(messages[0], Message::System(_)));
@@ -328,22 +415,22 @@ fn conversation_preserves_tool_call_structure() {
     let convo = messages_to_conversation(suffix);
     assert_eq!(convo.len(), 3);
     match &convo[0] {
-        ConversationMessage::AssistantToolCalls { tool_calls, .. } => {
+        TranscriptEntry::AssistantToolCalls { tool_calls, .. } => {
             assert_eq!(tool_calls[0].name, "echo");
             assert_eq!(tool_calls[0].id, "c1");
         }
         other => panic!("expected AssistantToolCalls, got {other:?}"),
     }
     match &convo[1] {
-        ConversationMessage::ToolResults(results) => {
+        TranscriptEntry::ToolResults(results) => {
             assert_eq!(results[0].tool_call_id, "c1");
             assert_eq!(results[0].content, "echoed:hi");
         }
         other => panic!("expected ToolResults, got {other:?}"),
     }
     match &convo[2] {
-        ConversationMessage::Chat(c) => {
-            assert_eq!(c.role, "assistant");
+        TranscriptEntry::Chat(c) => {
+            assert_eq!(c.role.as_str(), "assistant");
             assert_eq!(c.content, "all done");
         }
         other => panic!("expected Chat, got {other:?}"),
@@ -394,16 +481,65 @@ fn reasoning_from_content_keeps_every_thinking_block_in_order() {
     assert_eq!(reasoning_from_content(&content[1..2]), None);
 }
 
-/// The persisted `ConversationMessage::AssistantToolCalls` bytes must not
-/// change now that its tool calls are the dialect crate's `NativeToolCall`.
+// The flows builder reads a proposal out of `ToolResults` entries. A text
+// dialect records a round's results as one `[Tool results]` user row, so the
+// history projection must read that replay frame back as `ToolResults` rather
+// than leaving it as an opaque user `Chat` (the proposal was lost this way).
 #[test]
-fn conversation_tool_calls_serde_matches_persisted_literal_json() {
-    let literal = r#"{"type":"AssistantToolCalls","data":{"text":"hi","tool_calls":[{"id":"c1","name":"echo","arguments":"{\"a\":1}"},{"id":"c2","name":"g","arguments":"{}","extra_content":{"google":{"thought_signature":"sig"}}}],"reasoning_content":"r"}}"#;
-    let parsed: ConversationMessage = serde_json::from_str(literal).expect("legacy record loads");
-    let ConversationMessage::AssistantToolCalls { tool_calls, .. } = &parsed else {
-        panic!("expected AssistantToolCalls");
-    };
-    assert_eq!(tool_calls.len(), 2);
-    assert_eq!(tool_calls[0].extra_content, None);
-    assert_eq!(serde_json::to_string(&parsed).unwrap(), literal);
+fn history_projection_reads_text_dialect_replay_frame_as_tool_results() {
+    let messages = vec![
+        Message::user("build me a flow"),
+        Message::user(
+            "[Tool results]\n<tool_result id=\"call_1\">\n{\"type\":\"workflow_proposal\"}\n</tool_result>\n",
+        ),
+        Message::user("plain follow-up that merely mentions [Tool results]"),
+    ];
+
+    let projected = messages_to_history_projection(&messages);
+    assert_eq!(projected.len(), 3);
+    assert!(matches!(&projected[0], TranscriptEntry::Chat(_)));
+    match &projected[1] {
+        TranscriptEntry::ToolResults(results) => {
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].tool_call_id, "call_1");
+            assert_eq!(results[0].content, "{\"type\":\"workflow_proposal\"}");
+        }
+        other => panic!("expected ToolResults, got {other:?}"),
+    }
+    assert!(matches!(&projected[2], TranscriptEntry::Chat(_)));
+}
+
+// Native tool rounds keep their structure instead of being flattened to chat.
+#[test]
+fn history_projection_keeps_native_tool_round_structure() {
+    let messages = vec![
+        Message::user("go"),
+        Message::Assistant(AssistantMessage {
+            id: None,
+            content: vec![],
+            tool_calls: vec![TaToolCall {
+                id: "c1".into(),
+                name: "echo".into(),
+                arguments: serde_json::json!({}),
+                invalid: None,
+            }],
+            usage: None,
+            origin: None,
+        }),
+        Message::Tool(ToolMessage {
+            tool_call_id: "c1".into(),
+            content: vec![ContentBlock::Text("ok".into())],
+            trusted_verbatim: false,
+            artifact: None,
+        }),
+    ];
+    let projected = messages_to_history_projection(&messages);
+    assert!(matches!(
+        projected.as_slice(),
+        [
+            TranscriptEntry::Chat(_),
+            TranscriptEntry::AssistantToolCalls { .. },
+            TranscriptEntry::ToolResults(_)
+        ]
+    ));
 }

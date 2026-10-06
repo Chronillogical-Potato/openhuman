@@ -227,7 +227,7 @@ impl ModelMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 }
 
 /// Around-model middleware that feeds the cost event bridge (issue #4249,
-/// Phase 5): after the real model call, it reads the full host [`UsageInfo`] off
+/// Phase 5): after the real model call, it reads the full host [`BilledUsage`] off
 /// the returned [`ModelResponse`] — token breakdowns from the crate `Usage`,
 /// backend-charged USD + context window from the G1 `raw` passthrough
 /// ([`usage_info_from_response`](super::model::usage_info_from_response)) — and

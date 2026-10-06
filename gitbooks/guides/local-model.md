@@ -1,108 +1,117 @@
 ---
 description: >-
-  Run OpenHuman's inference on your own machine with Ollama: detection, model
-  selection, a real test, and every way it commonly breaks with the fix.
+  Run a local model runtime yourself (Ollama, LM Studio, MLX, or any
+  OpenAI-compatible server), pull your own models, and add the endpoint to
+  OpenHuman as a provider. Includes checks and common failures.
 icon: microchip
 ---
 
 # Use OpenHuman with a local model
 
-**Goal:** move some or all of OpenHuman's model work onto your own computer, so that data used for those workloads never leaves the machine.
+**Goal:** move some or all of OpenHuman's model work onto your own computer, so that the data used for those workloads never leaves the machine.
 
-Local AI is **opt-in** and ships **off**. Turning it on doesn't silently reroute everything. You choose which workloads go local.
+OpenHuman does not install a runtime, start it, or download models. You run the runtime, you pull the models, and OpenHuman calls the endpoint you give it. Local AI is **opt-in**; adding a local provider does not reroute anything until you point workloads at it.
 
-For the config-level reference (every flag and provider field), see [Local AI (optional)](../features/model-routing/local-ai.md). This guide is the task-oriented version: get it running and confirm it works.
+For the config reference (provider strings, endpoint overrides, every workload field), see [Local AI (optional)](../features/model-routing/local-ai.md). This guide is the task-oriented version.
 
 ---
 
 ## Prerequisites
 
-- [**Ollama**](https://ollama.com) installed. OpenHuman talks to it at its default address `http://localhost:11434`. (LM Studio is also supported at `http://localhost:1234/v1`; see the [reference page](../features/model-routing/local-ai.md#lm-studio-troubleshooting).)
-- **8 GB+ RAM** to get real value. Machines with less than 8 GB fall back to cloud summarization by design, because a small local model won't have the headroom.
-- Disk for the weights: a small chat model plus an embedding model is a few GB. OpenHuman does not ship weights; Ollama pulls them on demand.
+- A local runtime you install and run yourself:
+  - [**Ollama**](https://ollama.com), default address `http://localhost:11434`.
+  - [**LM Studio**](https://lmstudio.ai) with its local server enabled, default `http://localhost:1234/v1`.
+  - MLX (`mlx_lm.server`), OMLX, or any other OpenAI-compatible server.
+- Disk and RAM for the models you pick. A small chat model plus `bge-m3` for embeddings is a few GB on disk; 8 GB+ RAM is a sensible floor.
 
 ## Privacy implications
 
-- Workloads you route locally (embeddings, summary building, background loops, and, if you choose, chat/reasoning) run **entirely on-device**. Nothing about that work is sent out.
-- Anything you leave on the default route still goes through the OpenHuman [model router](../features/model-routing/). Local AI is additive; it doesn't change what you didn't move.
-- If the local provider becomes unreachable mid-session, requests **transparently fall back** to the remote provider. That means a crashed Ollama can send that data to the cloud path instead. If strict locality matters, watch the diagnostics (below).
+- Workloads you route locally run on-device. Nothing about that work is sent out.
+- Anything you leave on the default route still goes through the OpenHuman [model router](../features/model-routing/). Local AI only changes the workloads you move.
+- Without [Privacy Mode](../features/privacy-mode.md), lightweight hints routed locally can fall back to the remote provider if the runtime is unreachable. Turn on `local_only` privacy mode if strict locality matters; then an unreachable runtime makes the request fail instead.
 
 ---
 
 ## Steps
 
-### 1. Start Ollama
+### 1. Start the runtime
 
-Install and launch Ollama so its local server is running. You can confirm it's up from a terminal:
+Install and launch the runtime so its server is running. For Ollama, confirm from a terminal:
 
 ```bash
 curl http://localhost:11434/api/tags
 ```
 
-A JSON list of models (even an empty one) means the server is reachable. This is the exact probe OpenHuman uses to detect Ollama.
+A JSON list of models (even an empty one) means the server is reachable. For LM Studio or another OpenAI-compatible server, `curl http://localhost:1234/v1/models` (adjust the port) should return a model list.
 
-### 2. Turn on Local AI in OpenHuman
+### 2. Pull the models yourself
 
-Open **Settings → AI & Skills → Local AI**. It's off until you opt in here. Pick the **model tier** that matches your machine's memory (for example the `ram_2_4gb` tier on a typical laptop). OpenHuman selects sensible on-device models for you, for example `gemma3:1b-it-qat` for chat and `bge-m3` for embeddings.
-
-By default the tier keeps **embeddings and memory** on-device while chat and reasoning stay on the cloud route. To move those workloads local too, use **custom routing** to point the chat and reasoning workloads at the local provider, then test that a message stays on the machine.
-
-### 3. Let it pull the models
-
-When a workload needs a model that isn't installed yet, OpenHuman pulls it through Ollama and shows **download progress**. You can also pull manually:
+OpenHuman never pulls models. Pull every model you plan to route to before you configure it. For Ollama:
 
 ```bash
-ollama pull gemma3:1b-it-qat
-ollama pull bge-m3
+ollama pull gemma3:4b-it-qat   # chat, and vision from 4B up
+ollama pull bge-m3             # memory embeddings (1024 dimensions)
 ```
 
-### 4. Test that it actually answers
+In LM Studio, download the model in LM Studio and load it. For MLX or another server, start it with the model you want served.
 
-Don't assume; verify. The Local AI settings expose a **test action** that sends a short prompt to the configured local provider and shows you the reply. If you get a coherent response back, the path is live end-to-end (detection → model loaded → inference).
+See [Local models & bring your own key](../features/model-routing/local-and-byok-models.md) for which models can do chat, vision, and embeddings.
+
+### 3. Add the endpoint as a provider
+
+Open **Connections → LLM** and choose **Add a provider**:
+
+- For Ollama, LM Studio, or OMLX, pick it under **Local runtimes**. The default endpoint is filled in; change it if your runtime listens elsewhere.
+- For MLX or another server, choose **Add a custom provider** and enter its OpenAI-compatible endpoint (for example `http://127.0.0.1:8080/v1`).
+
+When you save, OpenHuman asks the endpoint for its model list. If the runtime isn't reachable, the provider isn't saved; fix step 1 and try again.
+
+### 4. Route workloads to it
+
+Use **Custom routing** on the workloads you want local (chat, reasoning, vision, and so on) and pick a model the runtime reported. Only models you have pulled or loaded appear.
+
+For memory embeddings, open **Connections → Embeddings** and choose Ollama with `bge-m3`, or set `embeddings_provider = "ollama:bge-m3"` in `config.toml`.
+
+### 5. Test that it answers
+
+Send a short message on a workload you routed locally, or use the model test in the LLM panel. A coherent reply means the path works end to end (endpoint reachable, model present, inference running). For Ollama you can also watch `ollama ps` while the request runs.
 
 ---
 
 ## Success checks
 
-Local AI is operational when:
+Local AI is working when:
 
-- [ ] **Settings → AI & Skills → Local AI** shows Ollama as reachable and your selected models as available (not "downloading" or "missing").
-- [ ] The test action returns a real reply from the local model.
-- [ ] The inference status reads **`ready`** (not `degraded`, `downloading`, or `disabled`).
-- [ ] For an embeddings-only setup: after the next memory sync, new summaries keep appearing in the **Memory** tab with Ollama running. That confirms embeddings are being produced locally.
-
-{% hint style="info" %}
-**Where to look under the hood.** OpenHuman surfaces a live diagnostics view for the local runtime (Ollama reachable? runner OK? which models are installed vs expected? what issues?). If a check fails, the diagnostics name the specific problem. Start there before changing config.
-{% endhint %}
+- [ ] The local provider shows as connected under **Connections → LLM**, and its model list contains the models you pulled.
+- [ ] A turn routed to the local provider returns a real reply.
+- [ ] For embeddings: after the next memory sync, new summaries keep appearing in the **Memory** tab with the runtime running.
 
 ## Common failures
 
-These are the actual failure states the runtime reports, and what each one means:
-
-| What you see                                                                        | Meaning                                                                  | Fix                                                                                                                                      |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **"Ollama server is not running or not reachable"** (status `degraded`)             | The app can't reach Ollama at its base URL                               | Start Ollama; confirm `curl http://localhost:11434/api/tags` works; if you use a non-default port, set the base URL in Local AI settings |
-| **"…reachable but cannot execute models. Restart the external runtime and retry."** | Ollama is answering but its model runner is broken (a fork/exec failure) | Quit and relaunch Ollama itself, then retry                                                                                              |
-| **"Chat model '…' is not installed"**                                               | The configured model isn't pulled yet                                    | Let OpenHuman pull it, or run `ollama pull <model>`                                                                                      |
-| **"…not reachable after fresh install. Start `ollama serve` manually and retry."**  | Ollama was just installed but the server isn't up                        | Run `ollama serve` (or launch the Ollama app) and retry                                                                                  |
-| Embedding model rejected for **context window too small**                           | The chosen embedding model can't hold enough tokens for the memory layer | Choose a larger-context embedding model such as **`bge-m3`**                                                                             |
-| Status stuck at **`downloading`**, then a retry message                             | A model pull stream was interrupted                                      | It retries automatically; if it keeps failing, check disk space and network, then pull manually                                          |
-| It "works" but answers feel cloud-quality                                           | The local provider was unreachable and OpenHuman **fell back to remote** | Fix reachability above; strict-local users should confirm status is `ready` before relying on it                                         |
+| What you see                                                    | Meaning                                                                     | Fix                                                                                                         |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Provider won't save; the endpoint is reported unreachable       | OpenHuman can't reach the runtime at that address                           | Start the runtime; check the port with `curl`; correct the endpoint                                         |
+| The model you want isn't in the picker                          | The runtime doesn't have it                                                 | `ollama pull <model>`, or download and load it in LM Studio, then reopen the picker                         |
+| A request fails saying the model is not found                   | The workload names a model the runtime no longer has                        | Pull it again, or route the workload to a model you have                                                    |
+| Ollama answers but every model call fails                       | Ollama's model runner is broken                                             | Quit and relaunch Ollama, then retry                                                                        |
+| Embeddings fail with a dimension error                          | The embedding model doesn't produce 1024-dimension vectors                  | Use `bge-m3`                                                                                                |
+| Agent turns lose context on Ollama                              | Ollama's default context window is small                                    | Set `local_ai.num_ctx` (for example `8192`)                                                                 |
+| Answers feel cloud-quality                                      | The runtime was unreachable and a lightweight hint fell back to remote      | Fix reachability; use `local_only` privacy mode if fallback is unacceptable                                 |
 
 ## Recovery
 
-- **Back to cloud in one step:** turn Local AI back off in **Settings → AI & Skills → Local AI**. Workloads return to the default route immediately; no data is lost.
-- **Free up a stuck runtime:** quit Ollama fully and relaunch it, then re-open the Local AI settings so OpenHuman re-probes.
-- **Disk pressure:** interrupted pulls are usually low disk. Clear space and let the pull resume, or `ollama pull` the model by hand.
+- **Back to cloud:** set the routed workloads back to the default route in **Custom routing**, or remove the local provider. No data is lost.
+- **Stuck runtime:** quit the runtime fully and relaunch it. OpenHuman reconnects on the next request.
+- **Disk pressure:** model pulls happen in your runtime, not in OpenHuman. Free space and pull again with the runtime's own command.
 
 ---
 
 ## Notes on what stays cloud anyway
 
-Even with "everything local", some workloads are cloud by default unless you explicitly route them: speech-to-text, text-to-speech, and web search go through the backend proxy. See [what stays in the cloud](../features/model-routing/local-ai.md#what-stays-in-the-cloud-by-default).
+Some workloads use the backend unless you configure something else: speech-to-text and web search go through the backend proxy, and text-to-speech uses the hosted voice unless you install Piper yourself and set `PIPER_BIN`. See [what stays in the cloud](../features/model-routing/local-ai.md#what-stays-in-the-cloud-by-default).
 
 ## See also
 
-- [Local AI (optional)](../features/model-routing/local-ai.md): the full config reference.
+- [Local AI (optional)](../features/model-routing/local-ai.md): the config reference.
 - [Keep sensitive data private](privacy-sensitive-data.md): the plain-language version of local vs external.
 - [Automatic Model Routing](../features/model-routing/): how tasks get matched to models.

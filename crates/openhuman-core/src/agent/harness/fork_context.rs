@@ -13,7 +13,6 @@
 use crate::agent::progress::AgentProgress;
 use crate::agent::tinyagents::TurnModelSource;
 use crate::config::AgentConfig;
-use crate::memory::Memory;
 use crate::skills::Workflow;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -92,12 +91,7 @@ pub struct ParentExecutionContext {
     /// through this task-local.
     pub workspace_descriptor: Option<WorkspaceDescriptor>,
 
-    /// Parent's memory backing store. Sub-agents share it for read access
-    /// but skip the per-turn context injection to save tokens — the
-    /// parent has already recalled and injected the relevant context.
-    pub memory: Arc<dyn Memory>,
-
-    /// Parent's agent config (for `max_tool_iterations`, `max_memory_context_chars`,
+    /// Parent's agent config (for `max_tool_iterations`,
     /// dispatcher choice, …).
     pub agent_config: AgentConfig,
 
@@ -105,9 +99,8 @@ pub struct ParentExecutionContext {
     /// workflows catalog inherit this list.
     pub workflows: Arc<Vec<Workflow>>,
 
-    /// Memory context loaded for the current turn. Auto-injected into
-    /// subagent prompts so they have access to conversation history and
-    /// skill sync data without running their own memory queries.
+    /// The per-turn context block built for the current turn (active goal,
+    /// running sub-agents). Auto-injected into subagent prompts.
     /// Wrapped in `Arc` so cloning into sub-agents is O(1) — a reference
     /// count bump rather than a full string copy per spawn.
     pub memory_context: Arc<Option<String>>,
@@ -173,12 +166,6 @@ tokio::task_local! {
     /// tool invocation that happens outside an agent turn (e.g. CLI/RPC
     /// direct tool calls); `spawn_subagent` rejects in that case.
     pub static PARENT_CONTEXT: ParentExecutionContext;
-
-    /// Context-preparation sources that already ran for this parent turn,
-    /// so downstream code can tell the harness has already prepared context
-    /// and avoid gathering it a second time.
-    ///
-    pub static AGENT_CONTEXT_PREPARED_SOURCES: Arc<Vec<AgentContextPreparedSource>>;
 }
 
 /// Returns a clone of the current parent execution context, if one is set.
@@ -198,29 +185,4 @@ where
     // rather than the whole nested turn generator — see the measurements on
     // the explicit usage ledger on `OpenHumanRunContext`.
     PARENT_CONTEXT.scope(ctx, Box::pin(future)).await
-}
-
-/// Returns the one-shot context-preparation sources that have already run for
-/// the current parent turn (a snapshot of the live list).
-pub fn current_agent_context_prepared_sources() -> Vec<AgentContextPreparedSource> {
-    AGENT_CONTEXT_PREPARED_SOURCES
-        .try_with(|sources| sources.as_ref().clone())
-        .unwrap_or_default()
-}
-
-/// Run `future` with the current turn's already-prepared context sources
-/// installed.
-pub async fn with_agent_context_prepared_sources<F, R>(
-    sources: Vec<AgentContextPreparedSource>,
-    future: F,
-) -> R
-where
-    F: std::future::Future<Output = R>,
-{
-    // Box before `scope` so only a pointer moves into the task-local frame
-    // rather than the whole nested turn generator — see the measurements on
-    // the explicit usage ledger on `OpenHumanRunContext`.
-    AGENT_CONTEXT_PREPARED_SOURCES
-        .scope(Arc::new(sources), Box::pin(future))
-        .await
 }

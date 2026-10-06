@@ -21,16 +21,13 @@
 //! `crate::agent::tinyagents`); there is no in-house interrupt fence.
 
 pub mod agent_graph;
-pub mod archivist;
 pub mod artifact_offload;
 pub(crate) mod builtin_definitions;
 pub mod definition;
 pub(crate) mod definition_loader;
 pub mod fork_context;
 pub(crate) mod graph;
-pub(crate) mod memory_context;
 pub(crate) mod memory_context_safety;
-pub(crate) mod memory_protocol;
 pub mod sandbox_context;
 pub(crate) mod spawn_depth_context;
 pub mod task_recency_context;
@@ -42,23 +39,13 @@ pub use agent_graph::{AgentGraph, AgentTurnRequest, AgentTurnResult, AgentTurnUs
 // glob-importing this module; callers use the `artifact_offload::` path.
 pub use definition::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource,
-    SandboxMode, ToolScope, TriggerMemoryAgent,
+    SandboxMode, ToolScope,
 };
 pub use fork_context::{
-    current_agent_context_prepared_sources, current_parent, with_agent_context_prepared_sources,
-    with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
+    current_parent, with_parent_context, AgentContextPreparedSource, ParentExecutionContext,
 };
 pub use sandbox_context::{current_sandbox_mode, with_current_sandbox_mode};
 pub(crate) use spawn_depth_context::{with_spawn_depth, MAX_SPAWN_DEPTH};
 pub use task_recency_context::{current_task_recency_window, with_task_recency_window};
 
 pub(crate) use graph::run_channel_turn_via_graph;
-
-#[cfg(test)]
-mod harness_gap_tests;
-#[cfg(test)]
-#[path = "parse_wire_tests.rs"]
-mod parse_tests;
-#[cfg(test)]
-#[path = "harness_tests.rs"]
-mod tests;

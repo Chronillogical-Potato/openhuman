@@ -20,13 +20,6 @@ fn schemas_and_controllers_match() {
     }
 }
 
-#[test]
-fn unknown_function_returns_unknown() {
-    let s = schemas("bad");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "embeddings");
-}
-
 #[tokio::test]
 async fn all_handlers_accept_empty_params_without_panic() {
     // Every handler should return a result (Ok or Err) when called with

@@ -9,10 +9,11 @@
 //!
 //! ## What stayed, and why
 //!
-//! * **[`contract`] — the prompt half.** It is OpenHuman prompt text naming
-//!   OpenHuman tools, which `plan-agents.md` §6 lists as not publishable. The
-//!   crate's [`render_artifact_pointer`] takes the read-tool name as a
-//!   parameter for the same reason, and [`READ_TOOL`] is what OpenHuman passes.
+//! * **The tool names.** The prompt contract now lives in the crate too
+//!   (`render_artifact_offload_contract`); the write-tool name it may mention,
+//!   [`OFFLOAD_WRITE_TOOL`], and the read-tool name for
+//!   [`render_artifact_pointer`], [`READ_TOOL`], are host vocabulary and are
+//!   passed in.
 //! * **[`policy`] — the two host policies.** `SecurityPolicy`'s workspace
 //!   containment and `sanitize_text`'s credential scrubbing. The crate asks;
 //!   these answer.
@@ -32,7 +33,7 @@
 //!
 //! Two halves enforce it:
 //!
-//! * **Prompt** — [`render_artifact_offload_contract`] is appended to every
+//! * **Prompt** — `render_artifact_offload_contract` is appended to every
 //!   typed sub-agent's system prompt, so workers offload on purpose.
 //! * **Harness** — [`offload_oversized_result`] runs on every sub-agent
 //!   outcome, so an oversized result is offloaded even when the worker inlined
@@ -45,7 +46,6 @@
 //! failure mode here — a refused path, a full disk — the caller keeps its
 //! inline payload and falls through to them.
 
-mod contract;
 pub mod policy;
 
 use std::path::PathBuf;
@@ -55,10 +55,14 @@ use tinyagents_harness::artifacts::ArtifactOffload;
 
 use crate::security::SecurityPolicy;
 
-pub use contract::{
-    render_artifact_offload_contract, should_render_offload_contract, ARTIFACT_OFFLOAD_HEADING,
-    OFFLOAD_WRITE_TOOL,
-};
+/// Tool a sub-agent must actually hold before the offload contract is worth
+/// rendering. Passed to the crate's
+/// [`render_artifact_offload_contract`](tinyagents_harness::artifacts::render_artifact_offload_contract)
+/// and `should_render_offload_contract`: a prompt may only name tools its agent
+/// can really call, and every skill-filtered specialist has no filesystem tools
+/// (see `subagent_host::ops_tests::typed_mode_filters_tools_by_skill_filter`).
+pub const OFFLOAD_WRITE_TOOL: &str = "file_write";
+
 pub use policy::{SanitizingRedactor, WorkspaceGuard};
 pub use tinyagents_harness::artifacts::{
     build_abstract, effective_offload_threshold, extract_artifact_paths, note_artifact_handoff,

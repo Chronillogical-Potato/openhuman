@@ -195,6 +195,7 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
         let policy = super::ops::resolve_sandbox_policy(
             mode,
             &config.workspace_dir,
+            &config.workspace_dir,
             &config.runtime,
             is_remote,
         );
@@ -243,6 +244,7 @@ fn handle_resolve_policy(params: Map<String, Value>) -> ControllerFuture {
         let policy = super::ops::resolve_sandbox_policy(
             mode,
             &config.action_dir,
+            &config.workspace_dir,
             &config.runtime,
             is_remote,
         );

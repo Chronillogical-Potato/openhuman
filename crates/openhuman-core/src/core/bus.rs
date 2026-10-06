@@ -75,7 +75,15 @@ pub const EVENTS_INTERFACE: &str = "ai.tinyhumans.openhuman.Events";
 /// `1.6.0` retired `SubconsciousTriggerProcessed`, which nothing published
 /// after the background-reasoning engine was removed.
 /// `1.7.0` added `MemoryDriverChanged` (memory-engine switch, additive).
-pub const EVENTS_VERSION: Version = Version::new(1, 7, 0);
+/// `1.8.0` is memory v2: it retires the v1 memory, memory-diff, memory-tree,
+/// tree-summarizer and learning variants (`MemoryDriverBindFailed`,
+/// `MemoryDriverChanged`, `MemoryGuardDenied`, `MemorySyncRequested`,
+/// `MemorySyncStageChanged`, `MemoryIngestionStarted`/`Completed`,
+/// `MemoryDiff*`, `DocumentCanonicalized`, `TreeSummarizer*`,
+/// `MemoryTreeBuildProgress`, `CacheRebuilt`) — nothing publishes them any
+/// more — and adds `ConversationTurnCommitted` (memory's conversation
+/// ingestion) and `CronSystemJobDue` (host-owned cron jobs).
+pub const EVENTS_VERSION: Version = Version::new(1, 8, 0);
 
 /// The bus. Initialised once by [`init`]; safe to touch before that.
 pub static BUS: OnceBus<DomainEvent> = OnceBus::new();
@@ -139,25 +147,6 @@ pub async fn init() -> tinybus::Result<()> {
     tracing::info!(
         events_version = %EVENTS_VERSION,
         "[bus] initialised with an in-process broker"
-    );
-    Ok(())
-}
-
-/// Initialise against a broker already listening on a socket.
-///
-/// Used when integrations run out of process: the kernel joins their bus rather
-/// than standing up its own. `address` is the broker's socket path.
-#[cfg(unix)]
-pub async fn init_over_socket(address: impl AsRef<std::path::Path>) -> tinybus::Result<()> {
-    let transport = tinybus::transport::unix::UnixTransport::connect(address.as_ref()).await?;
-    BUS.init_over(Box::new(transport), config()).await?;
-    if let Err(e) = BUS.announce(&manifest()).await {
-        tracing::warn!(error = %e, "[bus] could not announce the peer manifest");
-    }
-    tracing::info!(
-        address = %address.as_ref().display(),
-        events_version = %EVENTS_VERSION,
-        "[bus] initialised against a shared broker"
     );
     Ok(())
 }

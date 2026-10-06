@@ -66,12 +66,6 @@ impl PendingApproval {
         }
     }
 
-    /// Attach the gated tool call's provider-assigned call id.
-    pub fn with_tool_call_id(mut self, tool_call_id: impl Into<String>) -> Self {
-        self.tool_call_id = Some(tool_call_id.into());
-        self
-    }
-
     /// Attach an [`ApprovalSourceContext`] — used by
     /// [`super::gate::ApprovalGate`] when parking a `Workflow`-origin tool
     /// call so the row (and the `approval_list_pending` JSON the frontend

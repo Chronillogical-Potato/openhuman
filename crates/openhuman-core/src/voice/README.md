@@ -47,14 +47,13 @@ Keeping the two surfaces in lockstep is enforced by the disabled-build check
 | `hotkey.rs` | Re-export of `tinyvoice::hotkey` (the `tinyvoice` library's off-by-default `hotkey` feature, which owns the `rdev` dependency): `ActivationMode` (Tap/Push), `HotkeyEvent`, `HotkeyCombination`, `parse_hotkey`, `start_listener`. Its tests live in tinyvoice. |
 | `audio_capture.rs` | Mic capture → 16 kHz mono WAV bytes; `RecordingHandle`, peak-RMS reporting, and the host microphone-permission policy. The `cpal` device flow is `tinyvoice::capture`. Delegates framing/resample/energy math to `crate::modules::voice` (the `tinyvoice` module). |
 | `audio_toolkit/` | Podcast generation + email delivery (`audio_toolkit` RPC namespace), gated by the same `voice` feature. See its own [README](audio_toolkit/README.md). |
-| `text_input.rs` | Clipboard-paste text insertion (`insert_text`): writes clipboard then simulates Cmd/Ctrl+V via enigo, restoring prior clipboard. |
 | `dictation_listener.rs` | Core-side dictation broadcast bus: `DictationEvent`, `publish_dictation_event` / `subscribe_dictation_events`, `publish_transcription` / `subscribe_transcription_results`, rdev listener lifecycle (`start_if_enabled` / `stop`), `normalize_hotkey_for_rdev`. |
-| `reply_speech.rs` | Agent reply synthesis via backend `/openai/v1/audio/speech`; `ReplySpeechResult`, `VisemeFrame`, `AlignmentFrame`, `ReplySpeechOptions`, `synthesize_reply`, tolerant response normalization. |
+| `reply_speech.rs` | Agent reply synthesis via backend `/openai/v1/audio/speech`; `ReplySpeechOptions`, `synthesize_reply`; the response types (`ReplySpeech`, `VisemeFrame`, `AlignmentFrame`) and tolerant response normalization live in `tinyinference_voice::reply`. |
 | `realtime.rs` | Mints a short-lived signed WebSocket URL from the backend's `/voice-agent/get-signed-url` so the desktop client can open an ElevenLabs Agents session directly (#5399); the provider API key never leaves the server. |
 | `realtime_harness.rs` (+ `realtime_harness/turn_handler.rs`, `realtime_harness/chat_delivery.rs`, `realtime_harness/agent.rs`, `realtime_harness/prompt.rs`) | `voice:harness` socket turn handler for realtime sessions: runs the local orchestrator agent (same brain as chat/meet) on each turn the backend relays from the ElevenLabs Custom-LLM proxy, streaming `voice:harness:delta` / `:done` / `:error` back. |
 | `stub.rs` | Disabled-voice facade compiled when `voice` is OFF; mirrors the real public surface with no-op / error bodies. |
 | `cli.rs` | `openhuman voice` / `openhuman dictate` subcommand adapter: runs a blocking standalone dictation server (domain-owned, since it blocks forever and doesn't fit the controller registry). |
-| `*_tests.rs` | Sibling test suites wired via `#[path = ...]` (no inline `#[cfg(test)] mod` blocks, since `pnpm rust:layout` rejects them): `always_on_tests.rs`, `bus_tests.rs`, `compile_status_tests.rs`, `dictation_listener_tests.rs`, `ops_tests.rs`, `realtime_harness_tests.rs`, `realtime_tests.rs`, `reply_speech_tests.rs`, `schemas_tests.rs` (wired from `schemas/mod.rs`), `server_tests.rs`, `text_input_tests.rs`, `types_tests.rs`, `factory/factory_tests.rs`, `factory/stt_providers_tests.rs`, `audio_toolkit/ops_tests.rs`. |
+| `*_tests.rs` | Sibling test suites wired via `#[path = ...]` (no inline `#[cfg(test)] mod` blocks, since `pnpm rust:layout` rejects them): `always_on_tests.rs`, `bus_tests.rs`, `compile_status_tests.rs`, `dictation_listener_tests.rs`, `ops_tests.rs`, `realtime_harness_tests.rs`, `realtime_tests.rs`, `reply_speech_tests.rs`, `schemas_tests.rs` (wired from `schemas/mod.rs`), `server_tests.rs`, `types_tests.rs`, `factory/factory_tests.rs`, `factory/stt_providers_tests.rs`, `audio_toolkit/ops_tests.rs`. |
 
 ## Public surface
 
@@ -65,7 +64,7 @@ Keeping the two surfaces in lockstep is enforced by the disabled-build check
 - Events: `publish_ptt_transcript_committed` (from `bus`).
 - Compile status: `VOICE_COMPILED_IN` (from `compile_status`, always available regardless of the feature gate).
 - Re-exported inference submodules: `cloud_transcribe`, `local_speech`, `postprocess`, and `streaming` (only when `http-server` is also enabled).
-- Submodules `server`, `hotkey`, `dictation_listener`, `reply_speech`, `text_input`, `audio_capture`, `factory`, `always_on`, `bus`, `realtime`, `realtime_harness`, `audio_toolkit` are `pub`.
+- Submodules `server`, `hotkey`, `dictation_listener`, `reply_speech`, `audio_capture`, `factory`, `always_on`, `bus`, `realtime`, `realtime_harness`, `audio_toolkit` are `pub`.
 
 ## RPC / controllers
 

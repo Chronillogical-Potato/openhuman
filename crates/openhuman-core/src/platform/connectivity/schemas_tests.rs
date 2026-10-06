@@ -28,13 +28,6 @@ fn diag_schema_outputs_a_diag_payload_field() {
     assert_eq!(s.outputs[0].name, "diag");
 }
 
-#[test]
-fn unknown_function_returns_unknown_fallback() {
-    let s = schemas("no_such");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "connectivity");
-}
-
 #[tokio::test]
 async fn handle_diag_returns_json_object() {
     let value = handle_diag(Map::new()).await.expect("diag handler ok");

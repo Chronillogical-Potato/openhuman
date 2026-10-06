@@ -7,6 +7,8 @@ use tinyinference_llm::message::Message;
 
 const NUDGE: &str =
     "The last call failed validation. Correct its schema or arguments once before trying again.";
+const FAILED_TOOL_RESULT_WITH_NUDGE: &str =
+    "{\"status_code\": 422}\n\n[harness note]\nThe last call failed validation. Correct its schema or arguments once before trying again.";
 
 /// A native-tool-calling model that replays scripted responses and records the
 /// messages of every request it receives.
@@ -91,14 +93,14 @@ fn call(id: &str, name: &str) -> ChatResponse {
 fn nudge_count(messages: &[Message]) -> usize {
     messages
         .iter()
-        .filter(|m| matches!(m, Message::System(_)) && m.text() == NUDGE)
+        .filter(|m| matches!(m, Message::Tool(_)) && m.text() == FAILED_TOOL_RESULT_WITH_NUDGE)
         .count()
 }
 
 async fn run_turn(
     script: Vec<ChatResponse>,
     tools: Vec<Box<dyn Tool>>,
-) -> (Vec<Vec<Message>>, Vec<ConversationMessage>) {
+) -> (Vec<Vec<Message>>, Vec<TranscriptEntry>) {
     let (requests, history, _tmp) = run_turn_failing_from(script, tools, None).await;
     (requests, history)
 }
@@ -107,11 +109,7 @@ async fn run_turn_failing_from(
     script: Vec<ChatResponse>,
     tools: Vec<Box<dyn Tool>>,
     fail_from_call: Option<usize>,
-) -> (
-    Vec<Vec<Message>>,
-    Vec<ConversationMessage>,
-    tempfile::TempDir,
-) {
+) -> (Vec<Vec<Message>>, Vec<TranscriptEntry>, tempfile::TempDir) {
     let provider = Arc::new(RecordingProvider {
         responses: Mutex::new(script),
         requests: Mutex::new(Vec::new()),
@@ -129,15 +127,15 @@ async fn run_turn_failing_from(
 }
 
 /// No system row may follow the first conversational row of committed history.
-fn committed_system_rows_past_prefix(history: &[ConversationMessage]) -> Vec<String> {
+fn committed_system_rows_past_prefix(history: &[TranscriptEntry]) -> Vec<String> {
     history
         .iter()
         .filter_map(|m| match m {
-            ConversationMessage::Chat(chat) => Some(chat),
+            TranscriptEntry::Chat(chat) => Some(chat),
             _ => None,
         })
-        .skip_while(|chat| chat.role == "system")
-        .filter(|chat| chat.role == "system")
+        .skip_while(|chat| chat.role.as_str() == "system")
+        .filter(|chat| chat.role.as_str() == "system")
         .map(|chat| chat.content.clone())
         .collect()
 }
@@ -152,7 +150,7 @@ async fn validation_nudge_reaches_the_retry_but_is_not_committed() {
 
     assert_eq!(requests.len(), 2, "one failing call, then the retry");
     assert!(
-        matches!(requests[1].last(), Some(m @ Message::System(_)) if m.text() == NUDGE),
+        matches!(requests[1].last(), Some(message) if matches!(message, Message::Tool(_)) && message.text() == FAILED_TOOL_RESULT_WITH_NUDGE),
         "the retry request must end with the nudge, got {:?}",
         requests[1].last()
     );
@@ -161,10 +159,10 @@ async fn validation_nudge_reaches_the_retry_but_is_not_committed() {
     assert!(
         history.iter().any(|m| matches!(
             m,
-            ConversationMessage::Chat(chat) if chat.role == "tool" && chat.content.contains("422")
+            TranscriptEntry::Chat(chat) if chat.role.as_str() == "tool" && chat.content.contains("422")
         )) || history
             .iter()
-            .any(|m| matches!(m, ConversationMessage::ToolResults(r) if r.iter().any(|r| r.content.contains("422")))),
+            .any(|m| matches!(m, TranscriptEntry::ToolResults(r) if r.iter().any(|r| r.content.contains("422")))),
         "the validation failure must be part of the committed turn"
     );
     assert_eq!(
@@ -197,10 +195,13 @@ async fn a_second_validation_failure_rearms_the_nudge() {
     .await;
 
     assert_eq!(requests.len(), 3);
-    assert_eq!(requests.iter().map(|r| nudge_count(r)).collect::<Vec<_>>(), [0, 1, 1],
-        "each failure nudges exactly the request that follows it; a consumed nudge is not carried over");
+    assert_eq!(
+        requests.iter().map(|r| nudge_count(r)).collect::<Vec<_>>(),
+        [0, 1, 1],
+        "each failure nudges exactly the request that follows it; a consumed nudge is not carried over"
+    );
     assert!(
-        matches!(requests[2].last(), Some(m @ Message::System(_)) if m.text() == NUDGE),
+        matches!(requests[2].last(), Some(message) if matches!(message, Message::Tool(_)) && message.text() == FAILED_TOOL_RESULT_WITH_NUDGE),
         "the re-armed nudge must end the request after the second failure"
     );
     assert_eq!(
@@ -212,12 +213,12 @@ async fn a_second_validation_failure_rearms_the_nudge() {
 /// Committed rows carrying the nudge text in any role. A failed turn renders
 /// its unanswered request into the failure note as text (#6281), so a leak can
 /// arrive inside an assistant row, not only as a system row.
-fn committed_rows_mentioning_nudge(history: &[ConversationMessage]) -> Vec<String> {
+fn committed_rows_mentioning_nudge(history: &[TranscriptEntry]) -> Vec<String> {
     history
         .iter()
         .filter_map(|m| match m {
-            ConversationMessage::Chat(chat) if chat.content.contains(NUDGE) => {
-                Some(format!("{}: {}", chat.role, chat.content))
+            TranscriptEntry::Chat(chat) if chat.content.contains(NUDGE) => {
+                Some(format!("{}: {}", chat.role.as_str(), chat.content))
             }
             _ => None,
         })

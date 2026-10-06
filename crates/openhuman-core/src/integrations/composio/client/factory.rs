@@ -9,15 +9,14 @@
 //! "no connector route" the module reports when it is configured without one
 //! (#1710).
 //!
-//! [`ComposioRoute::Direct`] carries the slim direct-mode HTTP reader the host
-//! still needs for the two v3 reads the pinned module route does not match
-//! byte-for-byte (`/connected_accounts?limit=200`, `/tools` with
-//! `toolkit_versions=latest`, #3932) and for its loopback overrides.
+//! [`ComposioRoute::Direct`] carries the credential (key and validated base
+//! URL) the direct reads are made with, including the host-pinned and loopback
+//! overrides the module's single configured route cannot express per call.
 
 use std::sync::Arc;
 
+use super::DirectCredential;
 use crate::config::schema::{COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT};
-use crate::integrations::composio::tools::DirectComposioClient;
 
 // Re-declare the mode strings as local consts so they can be used as
 // pattern arms in the `match` below. `use` imports of `pub const &str`
@@ -27,17 +26,18 @@ use crate::integrations::composio::tools::DirectComposioClient;
 // without the "unreachable pattern" warning chain.
 const MODE_BACKEND_PAT: &str = COMPOSIO_MODE_BACKEND;
 const MODE_DIRECT_PAT: &str = COMPOSIO_MODE_DIRECT;
+const MODE_DISABLED_PAT: &str = crate::config::schema::COMPOSIO_MODE_DISABLED;
 
 /// The route [`resolve_composio_route`] selected.
 ///
 /// `Backend` is a unit: the backend-proxied route is reached through the
 /// connector module, whose configuration (`modules::connectors::module_config`)
-/// carries the base URL and bearer. `Direct` wraps the host-side v3 reader
-/// (see the module docs) for the user's own key.
+/// carries the base URL and bearer. `Direct` wraps the user's own key and its
+/// base URL (see the module docs).
 pub enum ComposioRoute {
     Backend,
     /// Held inside an `Arc` so the variant stays cheap to clone.
-    Direct(Arc<DirectComposioClient>),
+    Direct(Arc<DirectCredential>),
 }
 
 impl ComposioRoute {
@@ -52,14 +52,14 @@ impl ComposioRoute {
 
 pub(crate) fn create_direct_client_for_api_key(
     api_key: &str,
-) -> anyhow::Result<Arc<DirectComposioClient>> {
+) -> anyhow::Result<Arc<DirectCredential>> {
     direct_client(api_key, None)
 }
 
 fn direct_client(
     api_key: &str,
     base_urls: Option<&crate::config::ComposioDirectBaseUrls>,
-) -> anyhow::Result<Arc<DirectComposioClient>> {
+) -> anyhow::Result<Arc<DirectCredential>> {
     let api_key = api_key.trim();
     if api_key.is_empty() {
         anyhow::bail!("composio direct api key must not be empty");
@@ -67,7 +67,7 @@ fn direct_client(
 
     if let Some(urls) = base_urls {
         let client =
-            DirectComposioClient::new_with_base_urls(api_key, urls.v2.clone(), urls.v3.clone())?;
+            DirectCredential::new_with_base_urls(api_key, urls.v2.clone(), urls.v3.clone())?;
         return Ok(Arc::new(client));
     }
     #[cfg(debug_assertions)]
@@ -76,15 +76,14 @@ fn direct_client(
         std::env::var("OPENHUMAN_COMPOSIO_DIRECT_BASE_V3").ok(),
     ) {
         (Some(base_v2), Some(base_v3)) => {
-            DirectComposioClient::new_with_base_urls_for_loopback(api_key, base_v2, base_v3)
-                .map_err(|e| {
-                    anyhow::anyhow!("invalid debug composio direct loopback base override: {e}")
-                })?
+            DirectCredential::new_with_base_urls_for_loopback(api_key, base_v2, base_v3).map_err(
+                |e| anyhow::anyhow!("invalid debug composio direct loopback base override: {e}"),
+            )?
         }
-        _ => DirectComposioClient::new(api_key),
+        _ => DirectCredential::new(api_key),
     };
     #[cfg(not(debug_assertions))]
-    let client = DirectComposioClient::new(api_key);
+    let client = DirectCredential::new(api_key);
     Ok(Arc::new(client))
 }
 
@@ -100,6 +99,8 @@ fn direct_client(
 ///   slot **or** an `api_key` value in `config.composio.api_key`. The
 ///   stored key takes precedence so the encrypted keychain remains the
 ///   source of truth — `config.toml` is a fallback for power users.
+///
+/// - `"disabled"` — Composio is off; always `Err`, so no tools register.
 ///
 /// A host-pinned credential (`config.composio.host_credential`) takes
 /// precedence over both the mode and the credential store.
@@ -158,10 +159,16 @@ pub fn resolve_composio_route(config: &crate::config::Config) -> anyhow::Result<
             );
             Ok(ComposioRoute::Direct(client))
         }
+        MODE_DISABLED_PAT => {
+            tracing::debug!("[composio-factory] composio disabled by config");
+            Err(anyhow::anyhow!(
+                "composio is disabled (composio.mode = \"disabled\")"
+            ))
+        }
         unknown => {
             tracing::warn!(mode = %unknown, "[composio-factory] unknown composio mode");
             Err(anyhow::anyhow!(
-                "unknown composio mode: \"{unknown}\". Supported: \"backend\", \"direct\""
+                "unknown composio mode: \"{unknown}\". Supported: \"backend\", \"direct\", \"disabled\""
             ))
         }
     }

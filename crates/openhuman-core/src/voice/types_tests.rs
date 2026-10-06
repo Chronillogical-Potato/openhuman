@@ -70,17 +70,3 @@ fn from_local_ai_tts_result() {
     assert_eq!(voice.output_path, "/out.wav");
     assert_eq!(voice.voice_id, "voice1");
 }
-
-#[test]
-fn serde_round_trip_speech_result() {
-    let original = VoiceSpeechResult {
-        text: "round trip".into(),
-        raw_text: "round trip uh".into(),
-        model_id: "model".into(),
-    };
-    let json = serde_json::to_string(&original).unwrap();
-    let decoded: VoiceSpeechResult = serde_json::from_str(&json).unwrap();
-    assert_eq!(decoded.text, original.text);
-    assert_eq!(decoded.raw_text, original.raw_text);
-    assert_eq!(decoded.model_id, original.model_id);
-}

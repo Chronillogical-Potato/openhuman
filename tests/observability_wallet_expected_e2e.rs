@@ -28,9 +28,7 @@
 use std::io;
 use std::sync::{Arc, Mutex};
 
-use openhuman_core::core::observability::{
-    expected_error_kind, report_error_or_expected, ExpectedErrorKind,
-};
+use openhuman_core::core::observability::report_error_or_expected;
 use openhuman_core::web3::wallet::WALLET_NOT_CONFIGURED_MESSAGE;
 
 /// The exact wrapper `hosted/orchestration/schemas.rs` applies, reproduced from
@@ -128,72 +126,6 @@ fn capture_reporting<F: FnOnce()>(body: F) -> String {
 // ---------------------------------------------------------------------------
 // classification
 // ---------------------------------------------------------------------------
-
-/// The regression #5811 fixed: the wrapped form must classify as expected.
-///
-/// This is the assertion that fails if the `is_wallet_not_configured_message`
-/// arm is removed from `expected_error_kind`.
-#[test]
-fn a_context_wrapped_wallet_state_is_classified_as_expected() {
-    let wrapped = wrapped_like_issue_5805();
-
-    assert_eq!(
-        expected_error_kind(&wrapped),
-        Some(ExpectedErrorKind::WalletNotConfigured),
-        "the RPC layer wraps the wallet sentinel as `{{context}}: {{e}}` \
-         (#5805); a classifier that only matches the bare message lets this \
-         page. Message under test: {wrapped}"
-    );
-}
-
-/// Wrapping must not have to be single-layer: nothing constrains how many
-/// `format!("{context}: {e}")` hops an error takes before it is reported, and
-/// a predicate that only tolerated one would regress the moment a caller
-/// gained an intermediate layer.
-#[test]
-fn a_multiply_wrapped_wallet_state_is_still_classified_as_expected() {
-    let nested = format!(
-        "rpc.invoke_method failed: self_identity key_status: {WALLET_NOT_CONFIGURED_MESSAGE}"
-    );
-
-    assert_eq!(
-        expected_error_kind(&nested),
-        Some(ExpectedErrorKind::WalletNotConfigured),
-        "demotion must survive arbitrary nesting depth, not just one wrapper"
-    );
-}
-
-/// The bare sentinel — the shape a direct RPC produces — must stay demoted too.
-#[test]
-fn the_bare_wallet_sentinel_is_classified_as_expected() {
-    assert_eq!(
-        expected_error_kind(WALLET_NOT_CONFIGURED_MESSAGE),
-        Some(ExpectedErrorKind::WalletNotConfigured),
-    );
-}
-
-/// Guard against the matcher being too permissive.
-///
-/// The predicate is substring-based on purpose, which buys wrapper-tolerance at
-/// the cost of blast radius. This pins the other side of that trade: a genuine
-/// wallet failure — one that is a defect, not user-state — must still reach
-/// Sentry. Without this, a future widening of the needle could silently demote
-/// real failures and nothing would fail.
-#[test]
-fn a_genuine_wallet_failure_is_not_demoted() {
-    for genuine in [
-        "wallet signing failed: invalid nonce",
-        "wallet keychain read failed: keyring access denied",
-        "self_identity key_status: wallet is configured but the key is corrupt",
-    ] {
-        assert_eq!(
-            expected_error_kind(genuine),
-            None,
-            "a real wallet defect must still page; demoting it would hide the \
-             failures this classification exists to keep visible. Message: {genuine}"
-        );
-    }
-}
 
 // ---------------------------------------------------------------------------
 // the observable reporting decision

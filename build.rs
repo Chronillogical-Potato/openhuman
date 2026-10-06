@@ -1,7 +1,11 @@
 //! Build script for the `openhuman` core crate.
 //!
-//! Its sole job today is to generate the module list for the aggregated
-//! `raw_coverage_all` integration test target. The `tests/raw_coverage/`
+//! Its main job is to generate the module lists for the two aggregated
+//! integration test targets: `raw_coverage_all` (from `tests/raw_coverage/`)
+//! and `in_process_all` (from `tests/in_process/`, the gate-free router and
+//! public-API suites that used to be ~20 targets of their own). The text below
+//! describes the original `raw_coverage_all` case; `in_process_all` works the
+//! same way. The `tests/raw_coverage/`
 //! directory holds ~76 auto-generated `*_raw_coverage_e2e.rs` coverage suites
 //! that were previously ~76 separate `tests/*.rs` integration targets. Each
 //! separate target statically relinks the entire (very large) `openhuman`
@@ -55,7 +59,17 @@ fn main() {
     );
     warn_about_silently_skipped_test_targets(Path::new(&manifest_dir));
     let tests_dir = repository_root.join("tests");
-    let raw_dir = tests_dir.join("raw_coverage");
+    // Two aggregated targets, one directory each: `raw_coverage_all` (needs the
+    // `voice` + `inference` gates) and `in_process_all` (gate-free router and
+    // public-API suites).
+    write_module_list(&tests_dir, "raw_coverage", "raw_coverage_mods.rs");
+    write_module_list(&tests_dir, "in_process", "in_process_mods.rs");
+}
+
+/// Glob `tests/<subdir>/*.rs` and write `$OUT_DIR/<out_name>`: one
+/// `#[path = ...] mod <stem>;` per file, for an aggregated target to `include!`.
+fn write_module_list(tests_dir: &Path, subdir: &str, out_name: &str) {
+    let raw_dir = tests_dir.join(subdir);
 
     // Re-run whenever a file is added to / removed from the directory.
     println!("cargo:rerun-if-changed={}", raw_dir.display());
@@ -66,9 +80,9 @@ fn main() {
         // Source-only builds (e.g. the Docker image copies `src/` but not
         // `tests/`) never compile the integration targets, so there is nothing
         // to aggregate — emit an empty module list rather than breaking the
-        // build. But if `tests/` IS present and only `raw_coverage/` is missing,
-        // that's an accidental deletion: fail loudly so the suite can't be
-        // silently dropped.
+        // build. But if `tests/` IS present and only the subdirectory is
+        // missing, that's an accidental deletion: fail loudly so the suite
+        // can't be silently dropped.
         Err(_) if !tests_dir.exists() => None,
         Err(e) => panic!("failed to read {}: {e}", raw_dir.display()),
     };
@@ -99,8 +113,8 @@ fn main() {
     }
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR must be set");
-    let out_path = Path::new(&out_dir).join("raw_coverage_mods.rs");
-    fs::write(&out_path, generated).expect("failed to write raw_coverage_mods.rs");
+    let out_path = Path::new(&out_dir).join(out_name);
+    fs::write(&out_path, generated).unwrap_or_else(|e| panic!("failed to write {out_name}: {e}"));
 }
 
 /// The env var cargo sets for an enabled feature: upper-cased, `-` to `_`.

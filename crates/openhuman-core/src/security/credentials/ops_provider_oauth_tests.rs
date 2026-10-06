@@ -10,11 +10,9 @@ async fn clear_session_on_empty_store_reports_removed_false() {
     // lock) it deletes whichever concurrently-running test currently owns HOME —
     // e.g. `deferred_session_without_user_id_does_not_replace_active_user_profile`,
     // whose active-session guard then silently stops firing.
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     let result = clear_session(&config).await.unwrap();
     assert_eq!(result.value["removed"], false);
@@ -370,12 +368,10 @@ async fn credentials_stored_under_one_workspace_dir_invisible_to_another() {
 async fn clear_session_on_one_account_does_not_affect_another() {
     // See `clear_session_on_empty_store_reports_removed_false`: `clear_session`
     // reaches the HOME-derived root, so this test must own HOME while it runs.
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp_a = TempDir::new().unwrap();
     let tmp_b = TempDir::new().unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp_a.path());
+    let _home = EnvVarGuard::set("HOME", tmp_a.path());
     let config_a = test_config(&tmp_a);
     let config_b = test_config(&tmp_b);
 
@@ -485,16 +481,13 @@ async fn start_login_gated_services_completes_with_all_services_disabled() {
     // concurrently-running `store_session` test that would then start real
     // background services. (These are the same semantics `TEST_ENV_LOCK` gives
     // the HOME-mutating tests.)
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
     // Under `#[cfg(test)]` `start_login_gated_services` skips the real services
     // by default (they leak across the parallel test run); opt this one test
     // back in so it actually drives the concurrent spawn/await path it guards.
     // Only presence is checked, so the value (a temp path) is irrelevant.
-    let _run_services =
-        EnvVarGuard::set_to_path("OPENHUMAN_RUN_LOGIN_GATED_SERVICES_IN_TEST", tmp.path());
+    let _run_services = EnvVarGuard::set("OPENHUMAN_RUN_LOGIN_GATED_SERVICES_IN_TEST", tmp.path());
 
     let mut config = Config::default();
     // Every service is disabled so each `start_if_enabled` is a no-op: the test

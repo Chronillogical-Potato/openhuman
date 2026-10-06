@@ -36,8 +36,8 @@ const repoRoot = path.join(
   "..",
   "..",
 );
-const ciLite = fs.readFileSync(
-  path.join(repoRoot, ".github", "workflows", "ci-lite.yml"),
+const ciLanes = fs.readFileSync(
+  path.join(repoRoot, ".github", "workflows", "ci-lanes.yml"),
   "utf8",
 );
 
@@ -97,7 +97,39 @@ test("ex63 runs the core's unit tests under nextest; hosted keeps cargo's runner
   );
 });
 
-test("doctests, tui coverage and module-gated tests are left to pushes to main", () => {
+test("a core-only change still installs the node deps rust-core-coverage's mock backend imports", () => {
+  const coreOnly = { ...NONE, rustCore: true };
+  for (const plan of [
+    buildPlan({ profile: "ex63", areas: coreOnly, env: EX63_ENV }),
+    buildPlan({ profile: "hosted", areas: coreOnly }),
+  ]) {
+    const checks = new Map(
+      plan.lanes.flatMap((l) =>
+        l.checks.map((c) => [`${l.name}:${c.name}`, c]),
+      ),
+    );
+    const cov = checks.get("rust-cov:rust-core-coverage");
+    const install = cov.needs
+      .map((n) => checks.get(n.includes(":") ? n : `rust-cov:${n}`))
+      .find((c) => c.run === "pnpm install --frozen-lockfile");
+    assert.ok(
+      install,
+      `${plan.profile}: rust-core-coverage needs a pnpm install`,
+    );
+    assert.equal(install.when, true, `${plan.profile}: that install runs`);
+    // Exactly one install per profile: ex63 lanes share one checkout.
+    const installs = [...checks.values()].filter(
+      (c) => c.when && c.run === "pnpm install --frozen-lockfile",
+    );
+    assert.equal(installs.length, 1, plan.profile);
+  }
+  const hosted = buildPlan({ profile: "hosted", areas: coreOnly });
+  const sub = selectLanes(hosted, ["rust-cov"]);
+  assert.deepEqual(validatePlan(sub), []);
+  assert.deepEqual(orderProblems(sub), []);
+});
+
+test("doctests, tui coverage and module-gated tests are outside the PR lane", () => {
   for (const plan of plans()) {
     const cov = plan.lanes
       .find((l) => l.name === "rust-cov")
@@ -110,20 +142,7 @@ test("doctests, tui coverage and module-gated tests are left to pushes to main",
     assert.doesNotMatch(runs, /-p openhuman --no-default-features$/m);
     assert.doesNotMatch(runs, /tool_output_tabulates_a_large_graph/);
   }
-  // ...where CI Lite still runs them.
-  const lite = fs.readFileSync(
-    path.join(repoRoot, ".github/workflows/ci-lite.yml"),
-    "utf8",
-  );
-  assert.match(lite, /on:\s*\n\s*push:\s*\n\s*branches: \[main\]/);
-  assert.match(lite, /run: bash scripts\/ci\/run-module-gated-tests\.sh/);
-  assert.match(lite, /run: bash scripts\/ci\/rust-coverage\.sh/);
-  for (const cmd of [
-    "cargo test -p openhuman-embed",
-    "cargo test -p openhuman-tinyhumans",
-    "cargo check --manifest-path Cargo.toml -p openhuman --no-default-features",
-  ])
-    assert.ok(lite.includes(cmd), `CI Lite no longer runs: ${cmd}`);
+  assert.match(ciLanes, /scripts\/ci\/self-hosted\/lanes\.mjs/);
 });
 
 test("the complete suites run, not subsets", () => {
@@ -136,9 +155,7 @@ test("the complete suites run, not subsets", () => {
   );
 });
 
-test("every ci-lite check the lanes claim to carry is still a ci-lite check", () => {
-  // Commands shared verbatim with ci-lite.yml. If ci-lite changes one of these
-  // the lane plan must move with it (and vice versa).
+test("the lane plan retains the shared CI checks", () => {
   const shared = [
     "cargo fmt --all -- --check",
     "node scripts/ci/check-openhuman-rust-layout.mjs",
@@ -170,7 +187,6 @@ test("every ci-lite check the lanes claim to carry is still a ci-lite check", ()
   const runs = allRuns(plans()[0]).join("\n");
   for (const cmd of shared) {
     assert.ok(runs.includes(cmd), `lane plan lost: ${cmd}`);
-    assert.ok(ciLite.includes(cmd), `ci-lite.yml no longer runs: ${cmd}`);
   }
 });
 

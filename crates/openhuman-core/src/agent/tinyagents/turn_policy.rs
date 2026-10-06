@@ -168,6 +168,10 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     // delegations) are exempt in the harness and keep the remainder-only
     // budget. Env-overridable, `0` disables.
     policy.limits.max_model_call_ms = model_call_wall_clock_ms();
+    // Each executed tool row ends with `[took 12.3s]` (#6953). Without it the
+    // model cannot tell a fifteen-minute command from a fast one, so it cannot
+    // budget the rest of the turn against the ceiling above.
+    policy.tool_result_durations = true;
     // Crate-owned retry (Phase 3a), lengthened for #6413.
     //
     // The former schedule — 2 retries at 500 ms and 1 s — spent about 1.5 s in
@@ -248,8 +252,8 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     //     stable prefix into `provider_options`, and the provider adapters see
     //     `protect_prompt_prefix` and emit explicit `cache_control` breakpoints
     //     where the provider needs them (native Anthropic, OpenRouter relays).
-    // The stable prefix itself is declared per request by the host
-    // `PromptCacheSegmentMiddleware`.
+    // The stable prefix itself is declared per request by the vendor loop from
+    // the session's frozen system prefix (`RunContext::frozen_system_prefix_len`).
     policy.cache.protect_prompt_prefix = true;
     // Response caching is gated: it is enabled only for deterministic internal
     // runs (which additionally attach a `ResponseCache`). Interactive chat turns

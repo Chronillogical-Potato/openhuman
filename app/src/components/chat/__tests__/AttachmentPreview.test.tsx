@@ -54,6 +54,29 @@ describe('AttachmentPreview', () => {
     expect(screen.queryByAltText('doc.pdf')).not.toBeInTheDocument();
   });
 
+  it('renders a video chip without using original video bytes as an image', () => {
+    const file = new File(['original'], 'clip.mp4', { type: 'video/mp4' });
+    render(
+      <AttachmentPreview
+        attachments={[
+          {
+            id: 'video-no-preview',
+            kind: 'video',
+            file,
+            dataUri: 'data:video/mp4;base64,original',
+            mimeType: 'video/mp4',
+            originalSizeBytes: 8,
+            payloadSizeBytes: 8,
+            compressed: false,
+          },
+        ]}
+        onRemove={vi.fn()}
+      />
+    );
+    expect(screen.getByText('clip.mp4')).toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
   it('renders a video poster thumbnail with a play overlay', () => {
     const file = new File([new Uint8Array(64)], 'clip.mp4', { type: 'video/mp4' });
     const att = makeAttachment({

@@ -1,5 +1,4 @@
 use super::*;
-use crate::agent::progress_tracing::serialize::{capture_model_content, MAX_MODEL_CONTENT_CHARS};
 
 #[test]
 fn subagent_content_is_withheld_when_capture_off() {
@@ -26,29 +25,6 @@ fn subagent_content_is_withheld_when_capture_off() {
     let sub = find(c.spans(), "subagent.Researcher");
     assert!(sub.input.is_none());
     assert!(sub.output.is_none());
-}
-
-#[test]
-fn oversized_model_content_remains_structured() {
-    let big = "x".repeat(MAX_MODEL_CONTENT_CHARS + 100);
-    let captured = capture_model_content(&serde_json::json!([
-        { "role": "system", "content": big },
-        { "role": "user", "content": "the latest question" },
-    ]));
-    let messages = captured.as_array().expect("messages stay structured");
-    assert_eq!(messages.last().unwrap()["role"], "user");
-    assert_eq!(messages.last().unwrap()["content"], "the latest question");
-    assert!(captured.to_string().chars().count() <= MAX_MODEL_CONTENT_CHARS + 128);
-}
-
-#[test]
-fn object_model_content_is_truncated_without_panicking() {
-    let captured = capture_model_content(&serde_json::json!({
-        "role": "user",
-        "content": "x".repeat(MAX_MODEL_CONTENT_CHARS),
-    }));
-    assert_eq!(captured["role"], "user");
-    assert!(captured["content"].as_str().unwrap().contains("…"));
 }
 
 #[test]

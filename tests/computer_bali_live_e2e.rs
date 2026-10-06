@@ -48,9 +48,11 @@ const PLAN: &str = include_str!("fixtures/computer/bali/plan.json");
 const DEFAULT_CHROME: &str = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 fn config(workspace: &std::path::Path) -> Config {
-    let mut config = Config::default();
-    config.config_path = workspace.join("config.toml");
-    config.workspace_dir = workspace.join("workspace");
+    let mut config = Config {
+        config_path: workspace.join("config.toml"),
+        workspace_dir: workspace.join("workspace"),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     config.modules.enabled = true;
     config.browser.enabled = true;
@@ -111,7 +113,7 @@ fn summarize(view: &TaskView) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore] // live: downloads the module, launches Chrome, and calls OpenRouter
+#[ignore = "live: downloads the tinycomputer module, launches Chrome and calls OpenRouter; needs OPENROUTER_API_KEY. Run: cargo test -p openhuman-cli --test computer_bali_live_e2e -- --ignored --nocapture"]
 async fn books_a_bali_flight_up_to_the_payment_page() {
     if std::env::var("OPENROUTER_API_KEY").map_or(true, |key| key.trim().is_empty()) {
         eprintln!("skipping: OPENROUTER_API_KEY is not set");

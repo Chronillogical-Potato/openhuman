@@ -154,10 +154,12 @@ async fn start_backend() -> (String, Backend) {
 }
 
 fn config(root: &Path, api_url: &str) -> Config {
-    let mut config = Config::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
-    config.api_url = Some(api_url.to_owned());
+    let mut config = Config {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        api_url: Some(api_url.to_owned()),
+        ..Default::default()
+    };
     config.secrets.encrypt = false;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     openhuman_core::security::credentials::api_key::store_api_key(&config, API_KEY)
@@ -180,12 +182,16 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
     let (api_url, backend) = start_backend().await;
     let config = config(tmp.path(), &api_url);
     let action_dir = tmp.path().join("projects");
+    // Deliverables land in the visible Files folder (#5505); only each
+    // artifact's `meta.json` stays in the hidden workspace store.
+    let files_dir = tmp.path().join("Files");
 
     let generators = managed_generators(&config).expect("backend transport is installed");
     let tools = media_tools_from(
         generators,
         &action_dir,
         &config.workspace_dir,
+        &files_dir,
         WaitPolicy::new(Duration::from_millis(5), Duration::from_secs(20)),
     );
 
@@ -250,20 +256,27 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
         0,
         "filed media must leave the staging directory"
     );
-    let mut saved: Vec<(String, Vec<u8>)> = [image_id, video_id]
-        .iter()
-        .flat_map(|id| {
+    for id in [&image_id, &video_id] {
+        let entries: Vec<String> =
             std::fs::read_dir(config.workspace_dir.join("artifacts").join(id))
-                .expect("filed artifact directory")
-                .map(|entry| entry.unwrap().path())
-                .filter(|path| path.extension().is_some_and(|ext| ext != "json"))
-                .map(|path| {
-                    (
-                        path.extension().unwrap().to_string_lossy().into_owned(),
-                        std::fs::read(&path).unwrap(),
-                    )
-                })
-                .collect::<Vec<_>>()
+                .expect("filed artifact record")
+                .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+        assert_eq!(
+            entries,
+            vec!["meta.json".to_string()],
+            "only the record stays hidden"
+        );
+    }
+    let mut saved: Vec<(String, Vec<u8>)> = std::fs::read_dir(&files_dir)
+        .expect("visible files folder")
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.is_file())
+        .map(|path| {
+            (
+                path.extension().unwrap().to_string_lossy().into_owned(),
+                std::fs::read(&path).unwrap(),
+            )
         })
         .collect();
     saved.sort();

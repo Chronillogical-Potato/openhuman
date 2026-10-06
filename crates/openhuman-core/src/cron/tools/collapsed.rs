@@ -22,7 +22,7 @@
 //! the host). `permission_level_with_args` resolves the real one once the
 //! action is known; the argument-free `permission_level` reports the strictest,
 //! so a caller that does not pass arguments over-restricts rather than under-.
-//! See `tools::implementations::meta::collapse` for the reasoning.
+//! See `tinytools::collapse` for the reasoning.
 
 use std::sync::Arc;
 

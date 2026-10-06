@@ -3,8 +3,8 @@
 
 use super::*;
 
-use crate::agent::progress_tracing::otlp::otlp_requests;
-use crate::agent::progress_tracing::types::SpanKind;
+use tinyagents_harness::observability::trace_export::otlp::otlp_requests;
+use tinyagents_harness::observability::trace_export::SpanKind;
 
 fn iteration(iteration: u32) -> AgentProgress {
     AgentProgress::IterationStarted {
@@ -131,7 +131,11 @@ fn otlp_exports_completion_start_time_for_langfuse_ttft() {
         (completed(1), 1_700_000_001_000),
     ]);
     let spans = c.spans().to_vec();
-    let payloads = otlp_requests(&spans, "production");
+    let payloads = otlp_requests(
+        &spans,
+        "production",
+        &crate::agent::progress_tracing::export_brand(),
+    );
     let exported = payloads[0]["resourceSpans"][0]["scopeSpans"][0]["spans"]
         .as_array()
         .unwrap();

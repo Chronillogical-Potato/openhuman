@@ -1,15 +1,13 @@
-//! Operations over the local runtime: status, summarize, prompt, vision,
-//! embeddings, transcription, speech, and model asset management.
+//! Operations over the user-run local runtime: status, summarize, prompt,
+//! vision, transcription, and speech. OpenHuman never downloads models or
+//! starts the runtime; it only probes and talks to the configured endpoint.
 
 use chrono::Utc;
 
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::inference::host_runtime as local_ai;
-use crate::inference::{
-    LocalAiAssetsStatus, LocalAiDownloadsProgress, LocalAiEmbeddingResult, LocalAiSpeechResult,
-    LocalAiStatus, LocalAiTtsResult,
-};
+use crate::inference::{LocalAiSpeechResult, LocalAiStatus, LocalAiTtsResult};
 
 use super::turn_guards::enforce_user_prompt_or_reject;
 
@@ -18,7 +16,14 @@ pub async fn local_ai_status(config: &Config) -> Result<Outcome<LocalAiStatus>, 
     let service = local_ai::global(config);
     let runtime = crate::inference::local_runtime_config(config);
     let status = service.status();
-    if matches!(status.state.as_str(), "idle" | "degraded") {
+    // `unreachable` is re-probed on every status poll so a runtime the user
+    // starts later is picked up. The probe is read-only (`GET /api/tags` or
+    // `GET /v1/models`); it never spawns a runtime or pulls a model.
+    if matches!(status.state.as_str(), "idle" | "degraded" | "unreachable") {
+        tracing::debug!(
+            state = %status.state,
+            "[local_ai] status: scheduling endpoint probe"
+        );
         let service_clone = service.clone();
         let config_clone = runtime.clone();
         tokio::spawn(async move {
@@ -110,23 +115,6 @@ pub async fn local_ai_vision_prompt(
     ))
 }
 
-/// Generates semantic embeddings for the provided input strings.
-pub async fn local_ai_embed(
-    config: &Config,
-    inputs: &[String],
-) -> Result<Outcome<LocalAiEmbeddingResult>, String> {
-    let service = local_ai::global(config);
-    let runtime = crate::inference::local_runtime_config(config);
-    let Some(_permit) = crate::cron::scheduler_gate::wait_for_capacity().await else {
-        return Err("local AI embedding inference is paused while signed out".to_string());
-    };
-    let output = service
-        .embed(&runtime, inputs)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(Outcome::single_log(output, "local ai embedding completed"))
-}
-
 /// Transcribes the audio file at the specified path.
 pub async fn local_ai_transcribe(
     config: &Config,
@@ -197,53 +185,4 @@ pub async fn local_ai_tts(
         .await
         .map_err(|e| e.to_string())?;
     Ok(Outcome::single_log(output, "local ai tts completed"))
-}
-
-/// Returns the status of all local AI assets (models and support files).
-pub async fn local_ai_assets_status(
-    config: &Config,
-) -> Result<Outcome<LocalAiAssetsStatus>, String> {
-    let service = local_ai::global(config);
-    let runtime = crate::inference::local_runtime_config(config);
-    let output = service
-        .assets_status(&runtime)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(Outcome::single_log(
-        output,
-        "local ai assets status fetched",
-    ))
-}
-
-/// Returns progress for any ongoing asset downloads.
-pub async fn local_ai_downloads_progress(
-    config: &Config,
-) -> Result<Outcome<LocalAiDownloadsProgress>, String> {
-    let service = local_ai::global(config);
-    let runtime = crate::inference::local_runtime_config(config);
-    let output = service
-        .downloads_progress(&runtime)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(Outcome::single_log(
-        output,
-        "local ai downloads progress fetched",
-    ))
-}
-
-/// Triggers the download of a specific AI asset based on capability name.
-pub async fn local_ai_download_asset(
-    config: &Config,
-    capability: &str,
-) -> Result<Outcome<LocalAiAssetsStatus>, String> {
-    let service = local_ai::global(config);
-    let runtime = crate::inference::local_runtime_config(config);
-    let output = service
-        .download_asset(&runtime, capability.trim())
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(Outcome::single_log(
-        output,
-        "local ai asset download triggered",
-    ))
 }

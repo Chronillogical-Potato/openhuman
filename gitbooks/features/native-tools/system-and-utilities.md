@@ -18,7 +18,6 @@ The catch-all family. Small, sharp tools the agent reaches for to round out a ta
 | `current_time`      | Get the current time in any timezone, with formatting options.              |
 | `schedule`          | One-shot "do this once at time T" - for recurring jobs see [Cron](cron.md). |
 | `pushover`          | Send a push notification to your devices.                                   |
-| `insert_sql_record` | Append a row to the agent's structured workspace SQL store.                 |
 | `lsp`               | Query a language server (definitions, references, diagnostics).             |
 | `workspace_state`   | Inspect the current workspace - open files, recent edits, environment.      |
 | `proxy_config`      | Read or change proxy configuration for outbound requests.                   |

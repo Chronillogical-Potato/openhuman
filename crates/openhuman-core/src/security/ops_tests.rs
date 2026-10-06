@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 
 #[test]
 fn security_policy_info_returns_all_documented_fields() {
@@ -64,33 +65,6 @@ fn security_policy_info_reflects_configured_action_budget() {
     assert_eq!(outcome.value["max_actions_per_hour"], json!(77));
 }
 
-/// RAII guard that records the prior value of an env var, sets a new one
-/// for the duration of a test, and restores the prior value on drop —
-/// including across panics. Without this, a panicking assertion would
-/// leak `OPENHUMAN_MAX_ACTIONS_PER_HOUR` into later tests in the same
-/// process even though they share `TEST_ENV_LOCK`.
-struct EnvGuard {
-    key: &'static str,
-    prior: Option<String>,
-}
-
-impl EnvGuard {
-    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
-        let prior = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, prior }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match self.prior.take() {
-            Some(v) => std::env::set_var(self.key, v),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
 /// Regression coverage for the chained env-overlay → load-with-timeout →
 /// policy-info-payload path. The individual links are unit-tested
 /// elsewhere (env overlay in `config/schema/load_tests.rs`, payload
@@ -104,17 +78,15 @@ impl Drop for EnvGuard {
 async fn load_and_get_security_policy_info_reflects_env_overlay() {
     // Serialize against every other test that mutates process env —
     // load_tests.rs uses the same lock so we cannot race with it.
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
 
     for budget in [42_u32, 0_u32] {
         // Point the loader at a throwaway workspace so the test does not
         // read (or mutate) the developer's real `~/.openhuman/` config.
         // A fresh workspace per iteration keeps the two cases independent.
         let workspace = tempfile::tempdir().expect("tempdir for OPENHUMAN_WORKSPACE");
-        let _workspace_guard = EnvGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
-        let _budget_guard = EnvGuard::set("OPENHUMAN_MAX_ACTIONS_PER_HOUR", budget.to_string());
+        let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
+        let _budget_guard = EnvVarGuard::set("OPENHUMAN_MAX_ACTIONS_PER_HOUR", budget.to_string());
 
         let outcome = load_and_get_security_policy_info()
             .await

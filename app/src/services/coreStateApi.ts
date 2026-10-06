@@ -7,8 +7,6 @@ import { fetchCurrentUser } from './session/sessionOwner';
 
 interface OnboardingTasks {
   accessibilityPermissionGranted: boolean;
-  localModelConsentGiven: boolean;
-  localModelDownloadStarted: boolean;
   enabledTools: string[];
   connectedSources: string[];
   updatedAtMs?: number;

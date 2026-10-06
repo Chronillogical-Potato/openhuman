@@ -8,14 +8,15 @@
 use std::time::Duration;
 
 use crate::agent::harness::fork_context::ParentExecutionContext;
-use crate::agent::orchestration::running_subagents::{
-    self, SubagentStatus, WaitError, WaitOutcome,
-};
+use crate::agent::orchestration::running_subagents;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinyagents_orchestration::subagent::{
+    DetachedSubagentStatus, SubagentResumeRef, WaitError, WaitOutcome,
+};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
@@ -198,6 +199,12 @@ impl WaitSubagentTool {
                         "wait_subagent: sub-agent session `{subagent_session_id}` was not started by this agent."
                     )));
                 }
+                Err(WaitError::RegistryPoisoned) => {
+                    return Ok(ToolResult::error(
+                        "wait_subagent: the sub-agent registry is unavailable; try again."
+                            .to_string(),
+                    ));
+                }
             }
         } else {
             task_id.clone()
@@ -229,7 +236,7 @@ impl WaitSubagentTool {
         )
         .await
         {
-            Ok(WaitOutcome::Terminal(SubagentStatus::Completed { output, iterations })) => {
+            Ok(WaitOutcome::Terminal(DetachedSubagentStatus::Completed { output, iterations })) => {
                 log::debug!(
                     "[wait_subagent] outcome=completed task_id={} iterations={}",
                     resolved_task_id,
@@ -259,7 +266,7 @@ impl WaitSubagentTool {
                     serde_json::to_string(&status).unwrap_or_else(|_| "{}".to_string())
                 )))
             }
-            Ok(WaitOutcome::Terminal(SubagentStatus::AwaitingUser { question })) => {
+            Ok(WaitOutcome::Terminal(DetachedSubagentStatus::AwaitingUser { question })) => {
                 log::debug!(
                     "[wait_subagent] outcome=awaiting_user task_id={} question_chars={}",
                     resolved_task_id,
@@ -299,7 +306,7 @@ impl WaitSubagentTool {
                 }
                 Ok(ToolResult::success(message))
             }
-            Ok(WaitOutcome::Terminal(SubagentStatus::Failed { error })) => {
+            Ok(WaitOutcome::Terminal(DetachedSubagentStatus::Failed { error })) => {
                 log::debug!(
                     "[wait_subagent] outcome=failed task_id={} error={}",
                     resolved_task_id,
@@ -320,7 +327,7 @@ impl WaitSubagentTool {
                 )))
             }
             // `Running` is never terminal; treat defensively as a timeout-style result.
-            Ok(WaitOutcome::Terminal(SubagentStatus::Running)) => {
+            Ok(WaitOutcome::Terminal(DetachedSubagentStatus::Running)) => {
                 log::debug!(
                     "[wait_subagent] outcome=running task_id={} timeout_secs={}",
                     resolved_task_id,
@@ -361,13 +368,22 @@ impl WaitSubagentTool {
                     "wait_subagent: that sub-agent was not started by this agent.".to_string(),
                 ))
             }
+            Err(WaitError::RegistryPoisoned) => {
+                log::warn!(
+                    "[wait_subagent] outcome=registry_poisoned task_id={}",
+                    resolved_task_id
+                );
+                Ok(ToolResult::error(
+                    "wait_subagent: the sub-agent registry is unavailable; try again.".to_string(),
+                ))
+            }
         }
     }
 }
 
 /// Render a timeout/running wait response with a structured status payload.
 fn format_running_wait_message(
-    reference: Option<&running_subagents::SubagentResumeRef>,
+    reference: Option<&SubagentResumeRef>,
     task_id: &str,
     timeout_secs: u64,
 ) -> String {
@@ -388,7 +404,7 @@ fn format_running_wait_message(
 
 /// Build the machine-readable wait status block returned to the orchestrator.
 fn wait_status_payload(
-    reference: Option<&running_subagents::SubagentResumeRef>,
+    reference: Option<&SubagentResumeRef>,
     task_id: &str,
     status: &str,
     iterations: Option<usize>,

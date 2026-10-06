@@ -15,7 +15,7 @@ vi.mock('../../../services/artifactDownloadService', () => ({
   listArtifactsForThread: vi.fn(),
   downloadArtifact: vi.fn(),
   deleteArtifact: vi.fn(),
-  revealArtifactInFileManager: vi.fn(),
+  revealArtifact: vi.fn(),
 }));
 
 const THREAD = 't-chip-1';

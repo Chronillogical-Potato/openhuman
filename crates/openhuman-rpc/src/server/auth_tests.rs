@@ -72,8 +72,10 @@ fn is_external_inference_path_matches_only_v1_routes() {
 #[test]
 fn verify_external_inference_bearer_for_config_accepts_stored_key() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
+    let config = Config {
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
 
     let auth = AuthService::from_config(&config);
     auth.store_provider_token(

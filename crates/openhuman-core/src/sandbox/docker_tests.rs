@@ -6,7 +6,9 @@ fn test_policy() -> SandboxPolicy {
     SandboxPolicy {
         backend: SandboxBackendKind::Docker,
         workspace_root: PathBuf::from("/tmp/test-workspace"),
+        state_dir: PathBuf::from("/tmp/state"),
         read_only_mounts: vec![],
+        read_write_mounts: vec![],
         allow_network: false,
         env_passthrough: vec!["PATH".into(), "HOME".into()],
         docker_overrides: None,

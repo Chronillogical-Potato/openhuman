@@ -106,7 +106,7 @@ pub(super) struct ParallelEntry {
 #[derive(Debug, Clone)]
 pub(super) struct WebChatTaskResult {
     pub(super) full_response: String,
-    pub(super) citations: Vec<crate::memory::agent::memory_loader::MemoryCitation>,
+    pub(super) citations: Vec<crate::memory::types::TurnCitation>,
     /// Holistic token/cost/context totals for the turn (parent + sub-agents),
     /// forwarded to the frontend on `chat_done`. `None` for synthetic results
     /// (e.g. budget-exhausted placeholders) that never ran a real turn.
@@ -177,6 +177,10 @@ pub(crate) struct WebChatParams {
     /// ignored (logged), not rejected.
     #[serde(default)]
     pub(super) run_mode: Option<String>,
+    /// Optional reasoning effort for this thread (`agent::tinyagents::reasoning`).
+    /// Omitted leaves the thread's prior choice; `"default"` clears it.
+    #[serde(default)]
+    pub(super) reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

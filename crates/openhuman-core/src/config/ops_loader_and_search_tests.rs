@@ -88,7 +88,7 @@ async fn reset_local_data_tolerates_absent_paths() {
 
 #[test]
 fn env_flag_enabled_recognizes_truthy_forms() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     let key = "OPENHUMAN_TEST_FLAG_A";
     for truthy in ["1", "true", "TRUE", "yes", "YES"] {
         unsafe {
@@ -112,7 +112,7 @@ fn env_flag_enabled_recognizes_truthy_forms() {
 
 #[test]
 fn core_rpc_url_from_env_returns_default_when_unset() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::remove_var("OPENHUMAN_CORE_RPC_URL");
     }
@@ -121,7 +121,7 @@ fn core_rpc_url_from_env_returns_default_when_unset() {
 
 #[test]
 fn core_rpc_url_from_env_uses_override_when_set() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::set_var("OPENHUMAN_CORE_RPC_URL", "http://1.2.3.4:9999/rpc");
     }
@@ -189,7 +189,7 @@ fn reset_local_data_remove_error_explains_windows_lock_violation() {
 
 #[test]
 fn get_runtime_flags_reads_env_overrides() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     unsafe {
         std::env::remove_var("OPENHUMAN_BROWSER_ALLOW_ALL");
     }
@@ -201,7 +201,7 @@ fn get_runtime_flags_reads_env_overrides() {
 
 #[test]
 fn set_browser_allow_all_rejects_enable_without_operator_override() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
     let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
 
@@ -231,7 +231,7 @@ fn set_browser_allow_all_rejects_enable_without_operator_override() {
 
 #[test]
 fn set_browser_allow_all_toggles_env_var_when_operator_override_is_set() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
     let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
 
@@ -282,7 +282,7 @@ fn set_browser_allow_all_toggles_env_var_when_operator_override_is_set() {
 
 #[test]
 fn set_browser_allow_all_disable_does_not_require_operator_override() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.blocking_lock();
     let before = std::env::var(BROWSER_ALLOW_ALL_ENV).ok();
     let before_override = std::env::var(BROWSER_ALLOW_ALL_RPC_ENABLE_ENV).ok();
 
@@ -368,7 +368,7 @@ fn workspace_onboarding_flag_exists_returns_false_for_fresh_workspace() {
     let tmp = tempdir().unwrap();
     let res = workspace_onboarding_flag_exists(tmp.path().join("workspace"), "onboarding.done")
         .expect("flag check ok");
-    assert_eq!(res.value, false);
+    assert!(!res.value);
 }
 
 #[test]
@@ -390,65 +390,7 @@ fn workspace_onboarding_flag_exists_true_when_file_present() {
     std::fs::create_dir_all(&ws).unwrap();
     std::fs::write(ws.join("onboarding.done"), "").unwrap();
     let res = workspace_onboarding_flag_exists(ws, "onboarding.done").expect("flag check ok");
-    assert_eq!(res.value, true);
-}
-
-#[tokio::test]
-async fn apply_memory_sync_settings_stores_interval_and_view() {
-    let tmp = tempdir().unwrap();
-    let mut cfg = tmp_config(&tmp);
-
-    // Pick the 4h preset.
-    let patch = MemorySyncSettingsPatch {
-        sync_interval_secs: Some(14_400),
-    };
-    let outcome = apply_memory_sync_settings(&mut cfg, patch)
-        .await
-        .expect("apply");
-    assert_eq!(cfg.memory_sync_interval_secs, Some(14_400));
-    assert_eq!(outcome.value["sync_interval_secs"], 14_400);
-    assert_eq!(outcome.value["selected_secs"], 14_400);
-    assert_eq!(outcome.value["is_manual"], false);
-    assert_eq!(outcome.value["is_default"], false);
-}
-
-#[tokio::test]
-async fn apply_memory_sync_settings_manual_only() {
-    let tmp = tempdir().unwrap();
-    let mut cfg = tmp_config(&tmp);
-
-    let patch = MemorySyncSettingsPatch {
-        sync_interval_secs: Some(0),
-    };
-    let outcome = apply_memory_sync_settings(&mut cfg, patch)
-        .await
-        .expect("apply");
-    assert_eq!(cfg.memory_sync_interval_secs, Some(0));
-    assert_eq!(outcome.value["is_manual"], true);
-    assert_eq!(outcome.value["sync_interval_secs"], 0);
-}
-
-#[tokio::test]
-async fn apply_memory_sync_settings_reset_to_default() {
-    let tmp = tempdir().unwrap();
-    let mut cfg = tmp_config(&tmp);
-    cfg.memory_sync_interval_secs = Some(43_200);
-
-    // Omitted field → None → reset to default.
-    let patch = MemorySyncSettingsPatch {
-        sync_interval_secs: None,
-    };
-    let outcome = apply_memory_sync_settings(&mut cfg, patch)
-        .await
-        .expect("apply");
-    assert_eq!(cfg.memory_sync_interval_secs, None);
-    assert_eq!(outcome.value["is_default"], true);
-    assert!(outcome.value["sync_interval_secs"].is_null());
-    // The UI still gets a concrete cadence to highlight (the 24h default).
-    assert_eq!(
-        outcome.value["selected_secs"],
-        crate::config::DEFAULT_MEMORY_SYNC_INTERVAL_SECS
-    );
+    assert!(res.value);
 }
 
 #[tokio::test]
@@ -472,101 +414,6 @@ async fn apply_model_settings_updates_fields_and_persists_snapshot() {
         outcome.value["config"]["api_url"],
         "https://api.example.test"
     );
-}
-
-/// #5324 (CodeRabbit): the failed-job un-park must be scoped to an embedder
-/// change. Saving an unrelated model setting (temperature, chat model, …)
-/// through this shared path must leave terminally-`failed` embedding jobs
-/// parked, not restart them into the same external failure. Switching the
-/// embeddings provider is what un-parks them.
-///
-/// The gate is the host's rule, so that is what this pins: whether the driver
-/// is asked at all, and what the outcome line reports. Whether the ask then
-/// moves a row from `failed` to `ready` is the driver's, and is pinned in the
-/// driver's own conformance suite against a real queue.
-#[tokio::test]
-async fn apply_model_settings_requeues_failed_jobs_only_on_embedder_change() {
-    let tmp = tempdir().unwrap();
-    let mut cfg = tmp_config(&tmp);
-    let driver = crate::memory::binding::install_retrying_driver_for_test(&cfg, 1);
-
-    // Unrelated save (temperature only) — the driver must not be asked.
-    let unrelated = ModelSettingsPatch {
-        default_temperature: Some(0.5),
-        ..Default::default()
-    };
-    let outcome = apply_model_settings(&mut cfg, unrelated)
-        .await
-        .expect("apply");
-    assert_eq!(
-        driver.retry_calls(),
-        0,
-        "an unrelated model save must not ask the driver to un-park anything"
-    );
-    assert!(
-        outcome.logs.iter().any(|m| m.contains("requeued_failed=0")),
-        "messages: {:?}",
-        outcome.logs
-    );
-
-    // Now change the embeddings provider — this is the remediation, so the
-    // driver is asked and its count is reported.
-    let switch = ModelSettingsPatch {
-        embeddings_provider: Some("ollama:bge-m3".into()),
-        ..Default::default()
-    };
-    let outcome = apply_model_settings(&mut cfg, switch).await.expect("apply");
-    assert_eq!(
-        driver.retry_calls(),
-        1,
-        "switching the embeddings provider must ask the driver to un-park"
-    );
-    assert!(
-        outcome.logs.iter().any(|m| m.contains("requeued_failed=1")),
-        "the driver's count reaches the outcome line: {:?}",
-        outcome.logs
-    );
-}
-
-/// #5324 (CodeRabbit): mirror of the model-settings gate for the memory path.
-/// A `memory_window` / `auto_save` / `backend` save shares this function but
-/// does not remediate the embedder, so failed jobs must stay parked; changing
-/// the embedding provider un-parks them.
-#[tokio::test]
-async fn apply_memory_settings_requeues_failed_jobs_only_on_embedder_change() {
-    let tmp = tempdir().unwrap();
-    let mut cfg = tmp_config(&tmp);
-    let driver = crate::memory::binding::install_retrying_driver_for_test(&cfg, 1);
-
-    // Unrelated save (memory window preset only) — the driver is not asked.
-    let unrelated = MemorySettingsPatch {
-        memory_window: Some("balanced".into()),
-        ..Default::default()
-    };
-    let outcome = apply_memory_settings(&mut cfg, unrelated)
-        .await
-        .expect("apply");
-    assert_eq!(
-        driver.retry_calls(),
-        0,
-        "a memory-window save must not ask the driver to un-park anything"
-    );
-    assert!(outcome.logs.iter().any(|m| m.contains("requeued_failed=0")));
-
-    // Change the embedding provider — the driver is asked.
-    let switch = MemorySettingsPatch {
-        embedding_provider: Some("ollama".into()),
-        ..Default::default()
-    };
-    let outcome = apply_memory_settings(&mut cfg, switch)
-        .await
-        .expect("apply");
-    assert_eq!(
-        driver.retry_calls(),
-        1,
-        "switching the embedding provider must ask the driver to un-park"
-    );
-    assert!(outcome.logs.iter().any(|m| m.contains("requeued_failed=1")));
 }
 
 #[tokio::test]

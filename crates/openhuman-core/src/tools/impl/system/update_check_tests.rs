@@ -30,7 +30,7 @@ fn description_mentions_safety_and_companion_tool() {
 
 #[test]
 fn default_constructs_same_as_new() {
-    let a = UpdateCheckTool::default();
+    let a = UpdateCheckTool;
     let b = UpdateCheckTool::new();
     assert_eq!(a.name(), b.name());
 }

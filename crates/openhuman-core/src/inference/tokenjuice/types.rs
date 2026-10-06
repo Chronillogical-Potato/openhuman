@@ -17,7 +17,7 @@
 
 pub use tinyjuice_bus::types::{
     AgentTokenjuiceCompression, CompressOptions, CompressedOutput, CompressorKind, ContentHint,
-    ContentKind,
+    ContentKind, LlmSummaryMode,
 };
 pub use tinyjuice_bus::wire::{
     CacheStats, CompactRequest, CompactResponse, GenerateRequest, InstallRequest, RangeUnit,

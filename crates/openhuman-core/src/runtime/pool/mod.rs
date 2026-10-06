@@ -98,24 +98,6 @@ fn classify(error: &RuntimeCallError) -> PoolRunError {
     PoolRunError::PreDispatch(anyhow::anyhow!("{message}"))
 }
 
-/// Every live pool's counters, as the module reports them.
-///
-/// Returns an empty list when the module is not loaded or has no pool yet, which
-/// is the same thing a status surface wants to render: nothing running.
-pub async fn all_stats(config: &Config) -> Vec<(PoolLang, tinyruntime_bus::PoolStats)> {
-    match runtime::pool_stats(config).await {
-        Ok(response) => response
-            .pools
-            .into_iter()
-            .filter_map(|stats| PoolLang::from_language(&stats.language).map(|lang| (lang, stats)))
-            .collect(),
-        Err(error) => {
-            tracing::debug!("[runtime::pool] pool stats are unavailable: {error}");
-            Vec::new()
-        }
-    }
-}
-
 #[cfg(test)]
 #[path = "pool_tests.rs"]
 mod tests;

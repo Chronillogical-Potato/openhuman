@@ -8,13 +8,13 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
     // `Once`-guarded, so a test that omits it passes only while some
     // earlier test in the same binary happened to run first.
     use crate::config::TEST_ENV_LOCK;
-    let _cache_guard = cache_guard();
-    let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _cache_guard = cache_guard_async().await;
+    let _env_guard = TEST_ENV_LOCK.lock().await;
     // This test mutates BACKEND_URL below via EnvVarGuard, which races with
     // openhuman_tinyhumans::backend::url / core::cli_tests tests
     // that mutate the same process-global var under the crate-wide lock —
     // TEST_ENV_LOCK alone does not serialize against those. Hold both.
-    let _backend_env_guard = crate::config::app_env::env_test_lock();
+    let _backend_env_guard = crate::config::app_env::env_test_lock_async().await;
 
     let app = Router::new()
         .route(
@@ -61,7 +61,7 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
     let _backend_url_guard = EnvVarGuard::set("BACKEND_URL", &base);
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
-    let _workspace_env_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_env_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     config.save().await.unwrap();
 
     let outcome = composio_get_user_profile(&config, "c1").await.unwrap();

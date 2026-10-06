@@ -28,7 +28,7 @@ mod schemas;
 pub use engine::{resume_workflow_run, start_workflow_run, stop_workflow_run};
 pub use ops::{
     builtin_definitions, definition_by_id, get_run, list_definitions, list_runs,
-    validate_definition, PARALLEL_RESEARCH_ID,
+    PARALLEL_RESEARCH_ID,
 };
 pub use schemas::{
     all_controller_schemas as all_workflow_run_controller_schemas,

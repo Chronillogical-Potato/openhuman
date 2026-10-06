@@ -63,12 +63,18 @@ fn compile_time_app_env_values() -> [Option<&'static str>; 2] {
 /// backend-URL env vars. `std::env` is process-global, so a module-local lock
 /// cannot stop tests in other modules racing on the same vars.
 #[cfg(test)]
-pub(crate) fn env_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    use std::sync::{Mutex, OnceLock};
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(Mutex::default)
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+static ENV_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Blocking form for synchronous tests (panics inside a tokio runtime).
+#[cfg(test)]
+pub(crate) fn env_test_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_TEST_LOCK.blocking_lock()
+}
+
+/// Async form for `#[tokio::test]` bodies, so the guard may be held across `.await`.
+#[cfg(test)]
+pub(crate) async fn env_test_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_TEST_LOCK.lock().await
 }
 
 #[cfg(test)]

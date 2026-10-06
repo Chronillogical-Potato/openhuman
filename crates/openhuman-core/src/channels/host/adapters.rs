@@ -12,9 +12,8 @@ use async_trait::async_trait;
 use parking_lot::Mutex;
 use tinychannels::host::{
     AllowlistStore, ApprovalDecision, ApprovalGate, ConversationMessage, ConversationStore,
-    EventSink, LifecycleRegistry, ReactionDecision, ReactionGate, ReactionQuery, ShutdownHook,
-    SpeechRequest, SpeechResult, SpeechSynthesizer, Transcriber, TranscriptionRequest,
-    TranscriptionResult,
+    EventSink, LifecycleRegistry, ShutdownHook, SpeechRequest, SpeechResult, SpeechSynthesizer,
+    Transcriber, TranscriptionRequest, TranscriptionResult,
 };
 
 use crate::config::Config;
@@ -133,39 +132,6 @@ impl SpeechSynthesizer for VoiceSynthesizer {
 }
 
 // ---------------------------------------------------------------------------
-// ReactionGate → inference should_react
-// ---------------------------------------------------------------------------
-
-/// Inference-driven reaction gate backed by the local-AI should-react op.
-pub struct InferenceReactionGate {
-    pub config: Arc<Config>,
-}
-
-#[async_trait]
-impl ReactionGate for InferenceReactionGate {
-    async fn should_react(&self, query: ReactionQuery) -> anyhow::Result<ReactionDecision> {
-        // Honour the runtime gate: when the local model runtime is disabled we
-        // never react (matches presentation's prior inline guard).
-        if !self.config.local_ai.runtime_enabled {
-            tracing::debug!("{LOG_PREFIX} should_react skipped (local runtime disabled)");
-            return Ok(ReactionDecision::default());
-        }
-        let outcome = crate::inference::ops::inference_should_react(
-            &self.config,
-            &query.message,
-            &query.channel_type,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!(e))?;
-        Ok(ReactionDecision {
-            should_react: outcome.value.should_react,
-            emoji: outcome.value.emoji,
-            reason: None,
-        })
-    }
-}
-
-// ---------------------------------------------------------------------------
 // ApprovalGate → approval reply parsing
 // ---------------------------------------------------------------------------
 
@@ -214,9 +180,8 @@ impl ConversationStore for ConversationHistoryStore {
         session_key: &str,
         limit: usize,
     ) -> anyhow::Result<Vec<ConversationMessage>> {
-        let messages =
-            crate::memory::conversations::get_messages(self.workspace_dir.clone(), session_key)
-                .map_err(|e| anyhow::anyhow!(e))?;
+        let messages = crate::threads::store::get_messages(self.workspace_dir.clone(), session_key)
+            .map_err(|e| anyhow::anyhow!(e))?;
         let start = messages.len().saturating_sub(limit);
         Ok(messages[start..]
             .iter()
@@ -231,9 +196,9 @@ impl ConversationStore for ConversationHistoryStore {
     async fn append(&self, session_key: &str, message: ConversationMessage) -> anyhow::Result<()> {
         let now = chrono::Utc::now().to_rfc3339();
         // `append_message` requires the thread to exist; create-or-noop first.
-        crate::memory::conversations::ensure_thread(
+        crate::threads::store::ensure_thread(
             self.workspace_dir.clone(),
-            crate::memory::conversations::CreateConversationThread {
+            crate::threads::store::CreateConversationThread {
                 id: session_key.to_string(),
                 title: session_key.to_string(),
                 created_at: now.clone(),
@@ -243,7 +208,7 @@ impl ConversationStore for ConversationHistoryStore {
             },
         )
         .map_err(|e| anyhow::anyhow!(e))?;
-        let stored = crate::memory::conversations::ConversationMessage {
+        let stored = crate::threads::store::ConversationMessage {
             id: uuid::Uuid::new_v4().to_string(),
             content: message.content,
             message_type: message.role.clone(),
@@ -251,12 +216,8 @@ impl ConversationStore for ConversationHistoryStore {
             sender: message.role,
             created_at: now,
         };
-        crate::memory::conversations::append_message(
-            self.workspace_dir.clone(),
-            session_key,
-            stored,
-        )
-        .map_err(|e| anyhow::anyhow!(e))?;
+        crate::threads::store::append_message(self.workspace_dir.clone(), session_key, stored)
+            .map_err(|e| anyhow::anyhow!(e))?;
         Ok(())
     }
 }

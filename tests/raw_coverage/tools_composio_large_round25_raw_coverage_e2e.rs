@@ -4,7 +4,7 @@
 //! This test uses debug-only loopback base overrides and temp config stores so
 //! no real network, keychain, or backend session is required.
 
-use std::path::Path;
+use crate::env_guard::EnvVarGuard;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::body::to_bytes;
@@ -16,6 +16,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
+use openhuman_core::config::Config;
 use openhuman_core::integrations::composio::ops::{
     cached_active_integrations, composio_authorize, composio_execute, composio_list_connections,
     composio_list_toolkits, composio_list_tools, fetch_connected_integrations_status,
@@ -23,11 +24,10 @@ use openhuman_core::integrations::composio::ops::{
 use openhuman_core::integrations::composio::{
     invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,
 };
-use openhuman_core::config::Config;
+use openhuman_core::tools::ComposioListToolsTool;
 use tinytools::{Tool, ToolCallOptions};
-use openhuman_core::tools::{ComposioListToolsTool};
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {
@@ -43,55 +43,25 @@ struct MockState {
     requests: Arc<Mutex<Vec<RecordedRequest>>>,
 }
 
-struct EnvGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvGuard {
-    fn set(key: &'static str, value: impl AsRef<str>) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, value.as_ref());
-        Self { key, old }
-    }
-
-    fn set_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
 struct Harness {
     _tmp: TempDir,
     config: Config,
-    _guards: Vec<EnvGuard>,
+    _guards: Vec<EnvVarGuard>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 async fn setup_direct_config(base: &str) -> Harness {
-
     crate::tinyhumans_boot::boot();
     std::fs::create_dir_all("target").expect("target dir");
     let tmp = Builder::new()
@@ -103,22 +73,22 @@ async fn setup_direct_config(base: &str) -> Harness {
     std::fs::create_dir_all(&workspace).expect("workspace dir");
 
     let guards = vec![
-        EnvGuard::set_path("OPENHUMAN_WORKSPACE", &root),
-        EnvGuard::set_path("HOME", tmp.path()),
-        EnvGuard::set("OPENHUMAN_KEYRING_BACKEND", "file"),
-        EnvGuard::set(
+        EnvVarGuard::set_path("OPENHUMAN_WORKSPACE", &root),
+        EnvVarGuard::set_path("HOME", tmp.path()),
+        EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file"),
+        EnvVarGuard::set(
             "OPENHUMAN_COMPOSIO_DIRECT_BASE_V2",
             format!("{base}/api/v2"),
         ),
-        EnvGuard::set(
+        EnvVarGuard::set(
             "OPENHUMAN_COMPOSIO_DIRECT_BASE_V3",
             format!("{base}/api/v3"),
         ),
-        EnvGuard::unset("BACKEND_URL"),
-        EnvGuard::unset("VITE_BACKEND_URL"),
-        EnvGuard::unset("OPENHUMAN_API_URL"),
-        EnvGuard::unset("OPENHUMAN_CORE_RPC_URL"),
-        EnvGuard::unset("OPENHUMAN_CORE_PORT"),
+        EnvVarGuard::unset("BACKEND_URL"),
+        EnvVarGuard::unset("VITE_BACKEND_URL"),
+        EnvVarGuard::unset("OPENHUMAN_API_URL"),
+        EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL"),
+        EnvVarGuard::unset("OPENHUMAN_CORE_PORT"),
     ];
 
     let mut config = Config {
@@ -143,7 +113,7 @@ async fn setup_direct_config(base: &str) -> Harness {
 
 #[tokio::test]
 async fn round25_direct_mode_ops_use_loopback_factory_for_tools_connections_and_execute() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     invalidate_connected_integrations_cache();
 
     let state = MockState::default();
@@ -313,7 +283,7 @@ async fn composio_direct_handler(State(state): State<MockState>, request: Reques
     let body_json = if body_bytes.is_empty() {
         Value::Null
     } else {
-        serde_json::from_slice(&body_bytes).unwrap_or_else(|_| Value::Null)
+        serde_json::from_slice(&body_bytes).unwrap_or(Value::Null)
     };
 
     state

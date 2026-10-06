@@ -41,28 +41,3 @@ pub fn list_providers() -> Vec<ProviderInfo> {
 }
 
 // Legacy provider alias stubs (integrations / config); remote providers were removed.
-pub fn is_glm_alias(_name: &str) -> bool {
-    false
-}
-pub fn is_zai_alias(_name: &str) -> bool {
-    false
-}
-pub fn is_minimax_alias(_name: &str) -> bool {
-    false
-}
-pub fn is_moonshot_alias(_name: &str) -> bool {
-    false
-}
-pub fn is_qianfan_alias(_name: &str) -> bool {
-    false
-}
-pub fn is_qwen_alias(_name: &str) -> bool {
-    false
-}
-pub fn is_qwen_oauth_alias(_name: &str) -> bool {
-    false
-}
-pub fn canonical_china_provider_name(_name: &str) -> Option<&'static str> {
-    let _ = _name;
-    None
-}

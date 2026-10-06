@@ -5,36 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::modules::documents::DocumentCallError;
 
-/// Maximum number of slides a single `generate_presentation` call may
-/// produce. Hard cap to bound generation time and output size; the
-/// LLM is asked to break larger decks into multiple calls.
-pub(super) const MAX_SLIDES: usize = 64;
-
-/// Maximum length of a single text field (title, body, individual
-/// bullet, speaker notes). Bounds the payload size sent to the
-/// `ppt-rs` engine and avoids pathological inputs that would balloon
-/// the deck.
-pub(super) const MAX_TEXT_CHARS: usize = 2_000;
-
-/// Maximum number of bullets per slide. Higher counts produce
-/// unreadable slides and bloat the output file.
-pub(super) const MAX_BULLETS_PER_SLIDE: usize = 32;
-
-/// Maximum number of images attached to a single slide. The v1
-/// single-column layout stacks images vertically in the lower band of
-/// the slide; beyond this count each image is too small to read.
-pub(super) const MAX_IMAGES_PER_SLIDE: usize = 6;
-
-/// Maximum number of images across the whole deck. Bounds the embedded
-/// media payload (and therefore the artifact size) regardless of how
-/// the images are distributed across slides.
-pub(super) const MAX_IMAGES_PER_DECK: usize = 8;
-
-/// Per-image byte cap. Mirrors the multimodal pipeline's image ceiling
-/// (`agent::multimodal`) so a single oversized asset cannot balloon the
-/// deck or stall generation. Enforced at resolution time (once the
-/// bytes are in hand), not at schema-validation time.
-pub(super) const MAX_IMAGE_BYTES: usize = 5 * 1024 * 1024;
+// The size limits are the wire contract's: the tool validates against the same
+// numbers the `tinydocs` module enforces, so they are defined once, there.
+pub(super) use crate::tools::implementations::document::format::spec::presentation::{
+    MAX_BULLETS_PER_SLIDE, MAX_IMAGES_PER_DECK, MAX_IMAGES_PER_SLIDE, MAX_IMAGE_BYTES, MAX_SLIDES,
+    MAX_TEXT_CHARS,
+};
 
 /// Where a slide image's bytes come from. `Url` is intentionally
 /// **deferred** in v1 — fetching agent-supplied URLs at generation time

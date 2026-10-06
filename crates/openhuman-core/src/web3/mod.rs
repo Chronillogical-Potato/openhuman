@@ -41,7 +41,7 @@ pub use tinywallet_web3::crypto::service as types;
 // Ungated family members: `wallet` and `x402` are facades in their own right —
 // each keeps its own `stub.rs` and gates its real submodules on the same
 // default-ON `web3` feature. Always-compiled callers resolve through those
-// stubs (`tools/impl/network/http_request.rs` -> `x402`), so these
+// stubs (`tools/impl/network/host.rs` -> `x402`), so these
 // declarations must NOT carry a `#[cfg]`.
 pub mod wallet;
 pub mod x402;

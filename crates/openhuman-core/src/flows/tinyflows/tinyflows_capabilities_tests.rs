@@ -48,35 +48,6 @@ async fn http_adapter_rejects_host_outside_strict_allowlist() {
     );
 }
 
-// ── StateStore adapter ───────────────────────────────────────────────────
-
-#[tokio::test]
-async fn flow_state_store_round_trips_and_is_namespace_scoped() {
-    let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp);
-
-    let ns1 = FlowStateStore {
-        config: config.clone(),
-        namespace: "ns1".to_string(),
-    };
-    let ns2 = FlowStateStore {
-        config: config.clone(),
-        namespace: "ns2".to_string(),
-    };
-
-    assert!(ns1.load("k").await.unwrap().is_none());
-
-    ns1.store("k", json!({ "v": 1 })).await.unwrap();
-    assert_eq!(ns1.load("k").await.unwrap(), Some(json!({ "v": 1 })));
-
-    // A different namespace never sees ns1's value.
-    assert!(ns2.load("k").await.unwrap().is_none());
-
-    // Overwrite.
-    ns1.store("k", json!(2)).await.unwrap();
-    assert_eq!(ns1.load("k").await.unwrap(), Some(json!(2)));
-}
-
 // ── Engine smoke: real seam end to end ───────────────────────────────────
 
 #[tokio::test]
@@ -116,12 +87,19 @@ async fn engine_run_drives_trigger_to_http_request_through_the_real_seam() {
 
 // ── Code adapter ──────────────────────────────────────────────────────────
 
-/// Requires `node` on `PATH`. Ignored by default (per the B1 test plan);
-/// run explicitly with `cargo test -- --ignored` on a host with Node
-/// installed.
+/// Requires `node` on `PATH` (the code node runs the host's Node under the
+/// sandbox). Runs by default; on a host without Node it prints a `SKIPPED`
+/// line instead of failing.
 #[tokio::test]
-#[ignore = "requires a `node` binary on PATH"]
 async fn code_adapter_javascript_passthrough_round_trips_json() {
+    if std::process::Command::new("node")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("SKIPPED (not run, not asserted): no `node` binary on PATH");
+        return;
+    }
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     let security = Arc::new(SecurityPolicy::from_config(
@@ -271,38 +249,6 @@ fn http_cred_name_returns_none_for_non_http_cred_ref_or_empty_name() {
 }
 
 // ── structured agent output (parse_llm_json) ────────────────────────────
-
-#[test]
-fn parse_llm_json_accepts_bare_and_fenced_objects() {
-    let obj = super::super::caps::parse_llm_json(r#"{ "to": "a@b.com", "subject": "hi" }"#)
-        .expect("bare object parses");
-    assert_eq!(obj["to"], "a@b.com");
-
-    let fenced = "```json\n{ \"to\": \"a@b.com\" }\n```";
-    let obj = super::super::caps::parse_llm_json(fenced).expect("fenced object parses");
-    assert_eq!(obj["to"], "a@b.com");
-
-    let fenced_plain = "```\n[1, 2]\n```";
-    assert_eq!(
-        super::super::caps::parse_llm_json(fenced_plain),
-        Some(serde_json::json!([1, 2]))
-    );
-}
-
-#[test]
-fn parse_llm_json_rejects_prose_and_scalars() {
-    // Prose is not JSON.
-    assert_eq!(
-        super::super::caps::parse_llm_json("Sure! Here's the email."),
-        None
-    );
-    // Scalars parse as JSON but are not addressable — legacy shape instead.
-    assert_eq!(super::super::caps::parse_llm_json("42"), None);
-    assert_eq!(
-        super::super::caps::parse_llm_json("\"just a string\""),
-        None
-    );
-}
 
 // ── tool_call required-arg preflight ─────────────────────────────────────
 
@@ -454,58 +400,6 @@ async fn preflight_invoker_gates_the_mock_tool_path() {
 }
 
 #[test]
-fn node_request_to_prompt_prefers_prompt_string() {
-    let req = json!({ "prompt": "  summarize this  " });
-    assert_eq!(node_request_to_prompt(&req), "summarize this");
-}
-
-#[test]
-fn node_request_to_prompt_flattens_messages_when_no_prompt() {
-    let req = json!({
-        "messages": [
-            { "role": "system", "content": "be terse" },
-            { "role": "user", "content": "hello" },
-            { "role": "assistant", "content": "" }
-        ]
-    });
-    // Blank content is skipped; each surviving entry is `role: content`.
-    assert_eq!(
-        node_request_to_prompt(&req),
-        "system: be terse\n\nuser: hello"
-    );
-}
-
-#[test]
-fn node_request_to_prompt_empty_when_nothing_usable() {
-    assert_eq!(node_request_to_prompt(&json!({})), "");
-    assert_eq!(node_request_to_prompt(&json!({ "prompt": "   " })), "");
-    assert_eq!(node_request_to_prompt(&json!({ "messages": [] })), "");
-}
-
-#[test]
-fn resolve_node_model_precedence() {
-    // 1. Node config.model wins over the registry entry model (raw passthrough).
-    let req = json!({ "model": "reasoning-v1" });
-    assert_eq!(
-        resolve_node_model(&req, Some("chat-v1")).as_deref(),
-        Some("reasoning-v1")
-    );
-
-    // 2. No node model → the registry entry model is used.
-    let req = json!({ "prompt": "hi" });
-    assert_eq!(
-        resolve_node_model(&req, Some("custom-model")).as_deref(),
-        Some("custom-model")
-    );
-
-    // 3. Neither → None (the definition/role default stands).
-    assert_eq!(resolve_node_model(&req, None), None);
-    // Blank/whitespace strings are treated as absent.
-    let req = json!({ "model": "   " });
-    assert_eq!(resolve_node_model(&req, Some("  ")), None);
-}
-
-#[test]
 fn harness_model_default_override_normalises_tiers_to_hint_roles() {
     // Bare managed tiers → the `hint:<role>` form the session builder routes on
     // (a bare tier would otherwise fall through to the chat workload).
@@ -538,55 +432,6 @@ fn harness_model_default_override_forwards_raw_byok_models_verbatim() {
     );
     // Empty / whitespace is not a raw id — falls back to the chat workload.
     assert_eq!(harness_model_default_override("   "), "hint:chat");
-}
-
-#[test]
-fn clamp_run_timeout_secs_bounds_and_default() {
-    assert_eq!(clamp_run_timeout_secs(None), 240);
-    assert_eq!(clamp_run_timeout_secs(Some(0)), 10); // below floor
-    assert_eq!(clamp_run_timeout_secs(Some(5)), 10);
-    assert_eq!(clamp_run_timeout_secs(Some(120)), 120);
-    assert_eq!(clamp_run_timeout_secs(Some(600)), 600);
-    assert_eq!(clamp_run_timeout_secs(Some(10_000)), 600); // above ceiling
-}
-
-#[test]
-fn structured_output_instruction_only_when_requested() {
-    // Plain prose node — no steering.
-    assert!(structured_output_instruction(&json!({ "prompt": "hi" })).is_none());
-
-    // response_format: "json" triggers steering.
-    let inst = structured_output_instruction(&json!({ "response_format": "json" }))
-        .expect("json response_format requests structured output");
-    assert!(inst.contains("single JSON object"));
-
-    // An output_parser.schema is echoed into the instruction.
-    let inst = structured_output_instruction(&json!({
-        "output_parser": { "schema": { "type": "object", "required": ["plan"] } }
-    }))
-    .expect("output_parser.schema requests structured output");
-    assert!(inst.contains("JSON Schema"));
-    assert!(inst.contains("\"plan\""));
-}
-
-#[test]
-fn build_agent_result_shapes_structured_vs_prose() {
-    // Prose node: `{ text, agent_ref }`.
-    let out = build_agent_result("researcher", "just prose", &json!({ "prompt": "x" }));
-    assert_eq!(out["text"], "just prose");
-    assert_eq!(out["agent_ref"], "researcher");
-
-    // Structured node whose text is JSON: the parsed object is returned (no
-    // agent_ref wrapper) so `=item.<field>` bindings work downstream.
-    let req = json!({ "response_format": "json" });
-    let out = build_agent_result("planner", "{\"plan\": \"do it\"}", &req);
-    assert_eq!(out["plan"], "do it");
-    assert!(out.get("agent_ref").is_none());
-
-    // Structured requested but unparseable text → `{text}` fallback shape.
-    let out = build_agent_result("planner", "not json", &req);
-    assert_eq!(out["text"], "not json");
-    assert_eq!(out["agent_ref"], "planner");
 }
 
 #[test]

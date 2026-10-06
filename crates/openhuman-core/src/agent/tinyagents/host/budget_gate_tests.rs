@@ -173,18 +173,3 @@ fn this_gate_never_asks_for_compression() {
     let gate = gate(AgentTokenjuiceCompression::Full);
     assert_eq!(gate.compression_hint(&crowded()), CompressionHint::None);
 }
-
-#[tokio::test]
-async fn is_usable_as_a_trait_object() {
-    // Pins object safety: the harness stores this as `Arc<dyn BudgetGate>`.
-    let gate: Arc<dyn BudgetGate> = Arc::new(gate(AgentTokenjuiceCompression::Auto));
-    let permit = gate
-        .acquire(&CallEstimate::new("m", 1, 1).with_agent("lead"))
-        .await
-        .expect("grants");
-    drop(permit);
-    assert_eq!(
-        gate.compression_hint(&ContextState::default()),
-        CompressionHint::None
-    );
-}

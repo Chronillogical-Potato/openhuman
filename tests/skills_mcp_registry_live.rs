@@ -16,10 +16,13 @@
 //!
 //! `OPENHUMAN_LIVE_MCP_QUERY` picks the MCP registry search (default `everything`).
 
+#[path = "support/env_guard.rs"]
+mod env_guard;
+use env_guard::EnvVarGuard;
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -32,35 +35,11 @@ use openhuman_rpc::server::build_core_http_router;
 const TEST_RPC_TOKEN: &str = "skills-mcp-live-token";
 
 static AUTH_INIT: OnceLock<()> = OnceLock::new();
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let mutex = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    mutex
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-struct EnvVarGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let old = std::env::var(key).ok();
-        unsafe { std::env::set_var(key, value) };
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => unsafe { std::env::set_var(self.key, value) },
-            None => unsafe { std::env::remove_var(self.key) },
-        }
-    }
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let mutex = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    mutex.lock().await
 }
 
 /// A core RPC stack over a throwaway `HOME`, with no registry overrides.
@@ -80,7 +59,7 @@ impl Drop for LiveStack {
 async fn live_stack() -> LiveStack {
     let home = tempdir().expect("tempdir");
     let guards = vec![
-        EnvVarGuard::set("HOME", &home.path().to_string_lossy()),
+        EnvVarGuard::set_to_path("HOME", home.path()),
         EnvVarGuard::set(CORE_TOKEN_ENV_VAR, TEST_RPC_TOKEN),
         EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file"),
     ];
@@ -159,7 +138,7 @@ fn installed_skill_count(home: &Path) -> usize {
 #[tokio::test]
 #[ignore = "live: real skill catalog + SKILL.md hosts"]
 async fn live_every_skill_catalog_source_offers_installable_skills() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let stack = live_stack().await;
 
     let browse = rpc(
@@ -256,7 +235,7 @@ async fn live_every_skill_catalog_source_offers_installable_skills() {
 #[tokio::test]
 #[ignore = "live: official MCP registry + npm/pypi packages"]
 async fn live_official_mcp_registry_server_declares_connects_and_answers_a_tool_call() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let stack = live_stack().await;
     let query = std::env::var("OPENHUMAN_LIVE_MCP_QUERY").unwrap_or_else(|_| "everything".into());
 

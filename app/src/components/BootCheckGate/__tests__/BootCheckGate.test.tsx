@@ -13,8 +13,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import en from '../../../lib/i18n/en';
 import coreModeReducer, { type CoreModeState } from '../../../store/coreModeSlice';
 import localeReducer from '../../../store/localeSlice';
+import { clearStoredCoreToken, storeCoreMode, storeRpcUrl } from '../../../utils/configPersistence';
 import BootCheckGate from '../BootCheckGate';
 
 // The global test setup mocks isTauri()=>false (web). The existing picker
@@ -22,6 +24,14 @@ import BootCheckGate from '../BootCheckGate';
 // pre-selected). Force desktop runtime for those describes; the new web
 // describe at the bottom flips it back to false.
 const mockedIsTauri = vi.mocked(isTauri);
+
+// Assert against the real English dictionary so copy edits do not silently
+// turn these behavioural tests red (or green).
+const copy = (key: string): string => {
+  const value = (en as Record<string, string>)[key];
+  if (value === undefined) throw new Error(`missing en key ${key}`);
+  return value;
+};
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -86,6 +96,21 @@ function renderGate(store = makeStore()) {
   );
 }
 
+/**
+ * Reach the picker the way a real desktop user now does: first launch
+ * auto-boots local (no picker), the boot check comes back unreachable, and the
+ * user clicks copy('bootCheck.switchMode'). Consumes exactly one
+ * `mockRunBootCheck` result (queued with `Once`), so callers may set their own
+ * default result beforehand for what happens after the picker's Continue.
+ */
+async function renderPicker(store = makeStore()) {
+  mockRunBootCheck.mockResolvedValueOnce({ kind: 'unreachable', reason: 'Connection refused' });
+  const view = renderGate(store);
+  fireEvent.click(await screen.findByRole('button', { name: copy('bootCheck.switchMode') }));
+  await screen.findByText(copy('bootCheck.chooseCoreMode'));
+  return view;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -95,23 +120,66 @@ beforeEach(() => {
   mockedIsTauri.mockReturnValue(true);
 });
 
-describe('BootCheckGate — picker (unset mode)', () => {
-  it('shows the mode picker when coreMode is unset', () => {
-    renderGate();
-    expect(screen.getByText('Select a Runtime')).toBeInTheDocument();
-    expect(screen.getByText('Run Locally (Recommended)')).toBeInTheDocument();
-    expect(screen.getByText('Run on the Cloud (Complex)')).toBeInTheDocument();
+describe('BootCheckGate — first launch on desktop (unset mode)', () => {
+  beforeEach(() => {
+    mockRunBootCheck.mockReset();
+    vi.mocked(storeCoreMode).mockClear();
   });
 
-  it('does NOT render children while in picker', () => {
+  // The picker used to be the first screen. It asked an infrastructure
+  // question before the app showed anything, and its cloud branch cannot be
+  // answered on a genuine first run (needs a URL + bearer for an already
+  // deployed core). It is now a fallback, not an entry point.
+  it('does not show the picker and proceeds to the checking phase', async () => {
+    mockRunBootCheck.mockImplementation(() => new Promise(() => {}));
+    const store = makeStore();
+    renderGate(store);
+
+    await waitFor(() => {
+      expect(screen.getByText(copy('bootCheck.checkingCore'))).toBeInTheDocument();
+    });
+    expect(screen.queryByText(copy('bootCheck.chooseCoreMode'))).not.toBeInTheDocument();
+    expect(screen.queryByText(copy('bootCheck.localRecommended'))).not.toBeInTheDocument();
+    expect(store.getState().coreMode.mode).toEqual({ kind: 'local' });
+  });
+
+  it('adopts local mode and persists the marker', async () => {
+    mockRunBootCheck.mockResolvedValue({ kind: 'match' });
     renderGate();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('app-content')).toBeInTheDocument();
+    });
+    expect(storeCoreMode).toHaveBeenCalledWith('local');
+    expect(clearStoredCoreToken).toHaveBeenCalled();
+    expect(storeRpcUrl).toHaveBeenCalledWith('');
+    expect(mockRunBootCheck).toHaveBeenCalledWith({ kind: 'local' }, expect.any(Object));
+  });
+
+  it('reaches the picker as a fallback when local boot fails', async () => {
+    await renderPicker();
+    expect(screen.getByText(copy('bootCheck.localRecommended'))).toBeInTheDocument();
+    expect(screen.getByText(copy('bootCheck.cloudMode'))).toBeInTheDocument();
+  });
+});
+
+describe('BootCheckGate — picker (reached via Pick a Different Runtime)', () => {
+  it('shows the mode picker when coreMode is unset', async () => {
+    await renderPicker();
+    expect(screen.getByText(copy('bootCheck.chooseCoreMode'))).toBeInTheDocument();
+    expect(screen.getByText(copy('bootCheck.localRecommended'))).toBeInTheDocument();
+    expect(screen.getByText(copy('bootCheck.cloudMode'))).toBeInTheDocument();
+  });
+
+  it('does NOT render children while in picker', async () => {
+    await renderPicker();
     expect(screen.queryByTestId('app-content')).not.toBeInTheDocument();
   });
 
   it('continues with local mode when user clicks Continue', async () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'match' });
 
-    renderGate();
+    await renderPicker();
 
     // Local is pre-selected — just click Continue
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -121,27 +189,27 @@ describe('BootCheckGate — picker (unset mode)', () => {
     });
   });
 
-  it('shows URL input when user selects Cloud', () => {
-    renderGate();
+  it('shows URL input when user selects Cloud', async () => {
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
 
     expect(screen.getByPlaceholderText(/https:\/\/core\.example\.com/)).toBeInTheDocument();
   });
 
-  it('shows URL validation error when cloud URL is empty', () => {
-    renderGate();
+  it('shows URL validation error when cloud URL is empty', async () => {
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
-    expect(screen.getByText('Please enter a runtime URL.')).toBeInTheDocument();
+    expect(screen.getByText(copy('bootCheck.invalidUrl'))).toBeInTheDocument();
   });
 
-  it('shows URL validation error for non-http URL', () => {
-    renderGate();
+  it('shows URL validation error for non-http URL', async () => {
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     const input = screen.getByPlaceholderText(/https:\/\/core\.example\.com/);
     fireEvent.change(input, { target: { value: 'ftp://invalid' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -149,10 +217,10 @@ describe('BootCheckGate — picker (unset mode)', () => {
     expect(screen.getByText(/start with http/)).toBeInTheDocument();
   });
 
-  it('shows URL validation error for malformed URL string', () => {
-    renderGate();
+  it('shows URL validation error for malformed URL string', async () => {
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     const input = screen.getByPlaceholderText(/https:\/\/core\.example\.com/);
     fireEvent.change(input, { target: { value: 'not a url at all' } });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -160,10 +228,10 @@ describe('BootCheckGate — picker (unset mode)', () => {
     expect(screen.getByText(/That doesn't look like a valid URL/)).toBeInTheDocument();
   });
 
-  it('shows token validation error when cloud URL is valid but token is missing', () => {
-    renderGate();
+  it('shows token validation error when cloud URL is valid but token is missing', async () => {
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     const urlInput = screen.getByPlaceholderText(/https:\/\/core\.example\.com/);
     fireEvent.change(urlInput, { target: { value: 'https://core.example.com/rpc' } });
     // Token left blank.
@@ -175,12 +243,12 @@ describe('BootCheckGate — picker (unset mode)', () => {
   it('accepts a Tailscale HTTP core URL in cloud mode', async () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'match' });
 
-    renderGate();
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    await renderPicker();
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: 'http://100.116.244.64:7788/rpc' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
       target: { value: 'tok-1234' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -201,12 +269,12 @@ describe('BootCheckGate — picker (unset mode)', () => {
   it('normalizes a cloud core base URL to the /rpc endpoint before continuing', async () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'match' });
 
-    renderGate();
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    await renderPicker();
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: 'https://example.trycloudflare.com/' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
       target: { value: 'tok-1234' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -227,16 +295,16 @@ describe('BootCheckGate — picker (unset mode)', () => {
   it('warns about public HTTP cloud URLs but does not block them', async () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'match' });
 
-    renderGate();
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     const urlInput = screen.getByPlaceholderText(/https:\/\/core\.example\.com/);
     fireEvent.change(urlInput, { target: { value: 'http://core.example.com/rpc' } });
 
     // Non-blocking warning shows inline as soon as the public HTTP URL is typed.
     expect(screen.getByText(/traffic will not be encrypted/i)).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
       target: { value: 'tok-1234' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -254,17 +322,17 @@ describe('BootCheckGate — picker (unset mode)', () => {
     });
   });
 
-  it('clears the token error as soon as the user types into the token field', () => {
-    renderGate();
+  it('clears the token error as soon as the user types into the token field', async () => {
+    await renderPicker();
 
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: 'https://core.example.com/rpc' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText(/We'll need an auth token to connect/i)).toBeInTheDocument();
 
-    const tokenInput = screen.getByPlaceholderText(/Bearer token/i);
+    const tokenInput = screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder'));
     fireEvent.change(tokenInput, { target: { value: 'tok' } });
 
     expect(screen.queryByText(/We'll need an auth token to connect/i)).not.toBeInTheDocument();
@@ -273,12 +341,12 @@ describe('BootCheckGate — picker (unset mode)', () => {
   it('advances past picker and triggers boot check when cloud URL + token are both set', async () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'match' });
 
-    renderGate();
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    await renderPicker();
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: 'https://core.example.com/rpc' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
       target: { value: 'tok-1234' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -303,11 +371,13 @@ describe('BootCheckGate — picker test connection', () => {
   });
 
   function fillCloudInputs(url = 'https://core.example.com/rpc', token = 'tok-abc') {
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: url },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), { target: { value: token } });
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
+      target: { value: token },
+    });
   }
 
   it('shows Connected on a 200 response', async () => {
@@ -317,7 +387,7 @@ describe('BootCheckGate — picker test connection', () => {
       json: async () => ({ result: { ok: true } }),
     } as unknown as Response);
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs();
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
@@ -337,7 +407,7 @@ describe('BootCheckGate — picker test connection', () => {
       json: async () => ({ result: { ok: true } }),
     } as unknown as Response);
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs('https://example.trycloudflare.com/');
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
@@ -357,7 +427,7 @@ describe('BootCheckGate — picker test connection', () => {
       json: async () => ({ error: 'unauthorized' }),
     } as unknown as Response);
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs();
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
@@ -373,7 +443,7 @@ describe('BootCheckGate — picker test connection', () => {
       json: async () => ({}),
     } as unknown as Response);
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs();
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
@@ -385,7 +455,7 @@ describe('BootCheckGate — picker test connection', () => {
   it('shows Unreachable when fetch rejects', async () => {
     mockTestCoreRpcConnection.mockRejectedValue(new Error('network down'));
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs();
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
@@ -402,7 +472,7 @@ describe('BootCheckGate — picker test connection', () => {
       json: async () => ({}),
     } as unknown as Response);
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs();
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
@@ -412,18 +482,18 @@ describe('BootCheckGate — picker test connection', () => {
     expect(screen.getByTestId('test-status-unreachable').textContent).toMatch(/HTTP 500/);
   });
 
-  it('does not call the test endpoint when URL is missing', () => {
-    renderGate();
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+  it('does not call the test endpoint when URL is missing', async () => {
+    await renderPicker();
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
 
     expect(mockTestCoreRpcConnection).not.toHaveBeenCalled();
-    expect(screen.getByText('Please enter a runtime URL.')).toBeInTheDocument();
+    expect(screen.getByText(copy('bootCheck.invalidUrl'))).toBeInTheDocument();
   });
 
-  it('does not call the test endpoint when token is missing', () => {
-    renderGate();
-    fireEvent.click(screen.getByText('Run on the Cloud (Complex)'));
+  it('does not call the test endpoint when token is missing', async () => {
+    await renderPicker();
+    fireEvent.click(screen.getByText(copy('bootCheck.cloudMode')));
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: 'https://core.example.com/rpc' },
     });
@@ -440,14 +510,14 @@ describe('BootCheckGate — picker test connection', () => {
       json: async () => ({}),
     } as unknown as Response);
 
-    renderGate();
+    await renderPicker();
     fillCloudInputs();
     fireEvent.click(screen.getByRole('button', { name: 'Test Connection' }));
     await waitFor(() => {
       expect(screen.getByTestId('test-status-ok')).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
       target: { value: 'tok-def' },
     });
 
@@ -461,10 +531,9 @@ describe('BootCheckGate — checking state', () => {
     mockRunBootCheck.mockImplementation(() => new Promise(() => {}));
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Waking up your runtime…')).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.checkingCore'))).toBeInTheDocument();
     });
   });
 });
@@ -474,7 +543,6 @@ describe('BootCheckGate — match result', () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'match' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('app-content')).toBeInTheDocument();
@@ -487,10 +555,9 @@ describe('BootCheckGate — daemonDetected', () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'daemonDetected' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Legacy Background Runtime Detected')).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.legacyDetected'))).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Remove and Continue' })).toBeInTheDocument();
     });
   });
@@ -501,11 +568,12 @@ describe('BootCheckGate — outdatedLocal', () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'outdatedLocal' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Local Runtime Needs a Restart')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Restart Runtime' })).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.localNeedsRestart'))).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: copy('bootCheck.restartCore') })
+      ).toBeInTheDocument();
     });
   });
 });
@@ -526,8 +594,10 @@ describe('BootCheckGate — outdatedCloud', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Cloud Runtime Needs an Update')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Update Cloud Runtime' })).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.cloudNeedsUpdate'))).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: copy('bootCheck.updateCloudCore') })
+      ).toBeInTheDocument();
     });
   });
 });
@@ -537,10 +607,9 @@ describe('BootCheckGate — noVersionMethod', () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'noVersionMethod' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Runtime Version Check Failed')).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.versionCheckFailed'))).toBeInTheDocument();
     });
   });
 });
@@ -550,29 +619,31 @@ describe('BootCheckGate — unreachable', () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'unreachable', reason: 'Connection refused' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByText("Can't Reach the Runtime")).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.cannotReach'))).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Quit' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Pick a Different Runtime' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: copy('bootCheck.switchMode') })
+      ).toBeInTheDocument();
     });
   });
 
-  it("returns to picker when 'Pick a Different Runtime' is clicked", async () => {
+  it('returns to picker when the switch-mode button is clicked', async () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'unreachable', reason: 'Connection refused' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Pick a Different Runtime' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: copy('bootCheck.switchMode') })
+      ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pick a Different Runtime' }));
+    fireEvent.click(screen.getByRole('button', { name: copy('bootCheck.switchMode') }));
 
     await waitFor(() => {
-      expect(screen.getByText('Select a Runtime')).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.chooseCoreMode'))).toBeInTheDocument();
     });
   });
 });
@@ -595,10 +666,10 @@ describe('BootCheckGate — pre-set mode (subsequent launches)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Waking up your runtime…')).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.checkingCore'))).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Select a Runtime')).not.toBeInTheDocument();
+    expect(screen.queryByText(copy('bootCheck.chooseCoreMode'))).not.toBeInTheDocument();
   });
 });
 
@@ -616,7 +687,6 @@ describe('BootCheckGate — port conflict recovery', () => {
     });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('fix-automatically-btn')).toBeInTheDocument();
@@ -628,10 +698,9 @@ describe('BootCheckGate — port conflict recovery', () => {
     mockRunBootCheck.mockResolvedValue({ kind: 'unreachable', reason: 'some other error' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByText("Can't Reach the Runtime")).toBeInTheDocument();
+      expect(screen.getByText(copy('bootCheck.cannotReach'))).toBeInTheDocument();
     });
     expect(screen.queryByTestId('fix-automatically-btn')).not.toBeInTheDocument();
   });
@@ -643,7 +712,6 @@ describe('BootCheckGate — port conflict recovery', () => {
     mockRecoverPortConflict.mockResolvedValue({ success: true, message: 'ok', new_port: 7789 });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('fix-automatically-btn')).toBeInTheDocument();
@@ -663,7 +731,6 @@ describe('BootCheckGate — port conflict recovery', () => {
     mockRecoverPortConflict.mockResolvedValue({ success: true, message: 'ok', new_port: 7789 });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('fix-automatically-btn')).toBeInTheDocument();
@@ -690,7 +757,6 @@ describe('BootCheckGate — port conflict recovery', () => {
     });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('fix-automatically-btn')).toBeInTheDocument();
@@ -705,7 +771,7 @@ describe('BootCheckGate — port conflict recovery', () => {
     });
   });
 
-  it('"Pick a Different Runtime" still renders as secondary for port conflict', async () => {
+  it('the switch-mode button still renders as secondary for port conflict', async () => {
     mockRunBootCheck.mockResolvedValue({
       kind: 'unreachable',
       reason: 'port conflict',
@@ -713,10 +779,11 @@ describe('BootCheckGate — port conflict recovery', () => {
     });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Pick a Different Runtime' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: copy('bootCheck.switchMode') })
+      ).toBeInTheDocument();
     });
   });
 });
@@ -739,7 +806,6 @@ describe('BootCheckGate — foreign port owner', () => {
     mockRunBootCheck.mockResolvedValue(foreignResult);
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('force-quit-owner-btn')).toBeInTheDocument();
@@ -754,7 +820,6 @@ describe('BootCheckGate — foreign port owner', () => {
     mockForceQuitPortOwner.mockResolvedValue({ success: true, message: 'ok', new_port: 7789 });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('force-quit-owner-btn')).toBeInTheDocument();
@@ -773,7 +838,6 @@ describe('BootCheckGate — foreign port owner', () => {
     mockForceQuitPortOwner.mockResolvedValue({ success: false, message: 'access denied' });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('force-quit-owner-btn')).toBeInTheDocument();
@@ -798,7 +862,6 @@ describe('BootCheckGate — foreign port owner', () => {
     });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('fix-automatically-btn')).toBeInTheDocument();
@@ -820,7 +883,6 @@ describe('BootCheckGate — foreign port owner', () => {
     });
 
     renderGate();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('force-quit-owner-btn')).toBeInTheDocument();
@@ -834,18 +896,28 @@ describe('BootCheckGate — foreign port owner', () => {
 describe('BootCheckGate — picker (web build, !isTauri)', () => {
   beforeEach(() => {
     mockedIsTauri.mockReturnValue(false);
+    vi.mocked(storeCoreMode).mockClear();
+  });
+
+  it('shows the picker as the FIRST screen and does not auto-adopt local', () => {
+    renderGate();
+
+    expect(screen.getByText(copy('bootCheck.connectToCore'))).toBeInTheDocument();
+    expect(screen.queryByText(copy('bootCheck.checkingCore'))).not.toBeInTheDocument();
+    expect(storeCoreMode).not.toHaveBeenCalled();
+    expect(mockRunBootCheck).not.toHaveBeenCalled();
   });
 
   it('uses the web-friendly title and hides the Local option', () => {
     renderGate();
 
-    expect(screen.getByText('Connect to Your Runtime')).toBeInTheDocument();
-    expect(screen.queryByText('Select a Runtime')).not.toBeInTheDocument();
-    expect(screen.queryByText('Run Locally (Recommended)')).not.toBeInTheDocument();
+    expect(screen.getByText(copy('bootCheck.connectToCore'))).toBeInTheDocument();
+    expect(screen.queryByText(copy('bootCheck.chooseCoreMode'))).not.toBeInTheDocument();
+    expect(screen.queryByText(copy('bootCheck.localRecommended'))).not.toBeInTheDocument();
     // The selectable Cloud tile is also gone — cloud is implicit and the
     // URL/token form is rendered directly.
     expect(
-      screen.queryByRole('button', { name: 'Run on the Cloud (Complex)' })
+      screen.queryByRole('button', { name: copy('bootCheck.cloudMode') })
     ).not.toBeInTheDocument();
   });
 
@@ -853,7 +925,9 @@ describe('BootCheckGate — picker (web build, !isTauri)', () => {
     renderGate();
 
     expect(screen.getByPlaceholderText(/https:\/\/core\.example\.com/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Bearer token/i)).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder'))
+    ).toBeInTheDocument();
   });
 
   it('shows a Download desktop app CTA linking to the release page', () => {
@@ -878,7 +952,7 @@ describe('BootCheckGate — picker (web build, !isTauri)', () => {
     fireEvent.change(screen.getByPlaceholderText(/https:\/\/core\.example\.com/), {
       target: { value: 'https://core.example.com/rpc' },
     });
-    fireEvent.change(screen.getByPlaceholderText(/Bearer token/i), {
+    fireEvent.change(screen.getByPlaceholderText(copy('bootCheck.bearerTokenPlaceholder')), {
       target: { value: 'tok-web' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));

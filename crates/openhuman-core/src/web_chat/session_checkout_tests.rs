@@ -14,11 +14,12 @@ use super::{
     checkin_session_agent, checkin_session_agent_if_vacant, checkout_session_agent,
     fingerprint_diff, CheckedOutSession, CheckoutPolicy,
 };
-use crate::agent::messages::{ChatMessage, ConversationMessage};
 use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::web_chat::ops::{key_for, THREAD_SESSIONS};
 use crate::web_chat::types::SessionCacheFingerprint;
+use tinyagents_session::transcript::TranscriptMessage;
+use tinytools_agent::dialect::TranscriptEntry;
 
 fn test_config(tmp: &tempfile::TempDir) -> Config {
     let config = Config {
@@ -46,12 +47,11 @@ fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, ro
         .enumerate()
         .map(|(index, text)| {
             if index % 2 == 0 {
-                ChatMessage::user(*text)
+                TranscriptMessage::user(*text)
             } else {
-                ChatMessage::assistant(*text)
+                TranscriptMessage::assistant(*text)
             }
         })
-        .map(|message| crate::agent::messages::transcript_message_from_chat(&message))
         .collect();
     let meta = TranscriptMeta {
         session_id: None,
@@ -76,11 +76,11 @@ fn write_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &str, ro
     write_transcript(&path, &messages, &meta, None).unwrap();
 }
 
-fn prose(history: &[ConversationMessage]) -> Vec<String> {
+fn prose(history: &[TranscriptEntry]) -> Vec<String> {
     history
         .iter()
         .filter_map(|message| match message {
-            ConversationMessage::Chat(chat) => Some(chat.content.clone()),
+            TranscriptEntry::Chat(chat) => Some(chat.content.clone()),
             _ => None,
         })
         .collect()

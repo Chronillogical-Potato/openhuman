@@ -4,7 +4,8 @@
 //! turn under the workspace, written atomically and serialized through a
 //! process-wide mutex; `mark_all_interrupted` flags any non-terminal
 //! snapshot left over from an unclean shutdown at cold boot.
-//! [`mirror::TurnStateMirror`] is the writer — it translates
+//! `tinyagents_session::turn_state::TurnStateMirror` is the writer — it is driven by
+//! [`mirror::ObserveProgress`], which translates
 //! [`crate::agent::progress::AgentProgress`] events into [`types::TurnState`]
 //! mutations and flushes to the store at iteration / tool boundaries (not on
 //! every streaming delta), keeping `Completed` snapshots so the UI can replay
@@ -21,7 +22,6 @@
 pub mod mirror;
 pub mod rpc_types;
 
-pub use mirror::TurnStateMirror;
 pub use rpc_types::{
     ClearTurnStateRequest, ClearTurnStateResponse, GetTurnStateForRequestRequest,
     GetTurnStateRequest, GetTurnStateResponse, ListTurnStatesResponse,

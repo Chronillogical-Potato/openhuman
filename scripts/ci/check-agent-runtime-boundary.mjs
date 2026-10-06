@@ -49,8 +49,8 @@ const deletedTaskLocalModules = [
   "resolved_route", "run_cancellation_context", "thread_context",
 ];
 const taskLocalAccessors = [
-  "current_parent", "with_parent_context", "current_agent_context_prepared_sources",
-  "with_agent_context_prepared_sources", "current_sandbox_mode", "with_current_sandbox_mode",
+  "current_parent", "with_parent_context",
+  "current_sandbox_mode", "with_current_sandbox_mode",
   "current_spawn_depth", "with_spawn_depth", "current_task_recency_window",
   "with_task_recency_window", "current_turn_image_placeholders",
   "with_current_turn_image_placeholders", "with_dispatch_guard", "record_subagent_usage",
@@ -61,7 +61,7 @@ const taskLocalAccessors = [
   "with_origin", "with_inherited_origin", "current_request_id",
 ];
 const taskLocalStatics = [
-  "PARENT_CONTEXT", "AGENT_CONTEXT_PREPARED_SOURCES", "CURRENT_AGENT_SANDBOX_MODE",
+  "PARENT_CONTEXT", "CURRENT_AGENT_SANDBOX_MODE",
   "TASK_RECENCY_WINDOW", "CURRENT_TURN_IMAGE_PLACEHOLDERS", "AGENT_PROGRESS_SINK",
   "RESOLVED_PROVIDER_ROUTE", "CURRENT_RUN_CANCELLATION", "THREAD_ID", "AGENT_TURN_ORIGIN",
   "AGENT_TURN_WORKSPACE",

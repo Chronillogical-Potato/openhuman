@@ -73,26 +73,6 @@ fn default_registry_entries_are_fully_populated() {
 }
 
 #[test]
-fn tinyagents_projection_uses_per_token_rates_and_context_window() {
-    let entry = tinyagents_catalog_entry_for_model("anthropic/claude-opus-4-8")
-        .expect("projected catalog entry");
-    assert_eq!(entry.provider, "anthropic");
-    assert_eq!(entry.model_id, "claude-opus-4-8");
-    assert_eq!(entry.mode, "chat");
-    assert_eq!(entry.max_input_tokens, Some(1_000_000));
-    assert_eq!(entry.pricing.input_per_token, Some(5.0 / 1_000_000.0));
-    assert_eq!(entry.pricing.output_per_token, Some(25.0 / 1_000_000.0));
-    assert_eq!(
-        entry.pricing.cache_read_input_per_token,
-        Some(0.50 / 1_000_000.0)
-    );
-    assert_eq!(entry.pricing.cache_creation_input_per_token, None);
-    assert_eq!(entry.pricing.output_reasoning_per_token, None);
-    assert!(entry.capabilities.prompt_caching);
-    assert_eq!(entry.source, TINYAGENTS_CATALOG_SOURCE);
-}
-
-#[test]
 fn tinyagents_snapshot_contains_all_known_rows() {
     let snapshot = tinyagents_catalog_snapshot();
     assert_eq!(snapshot.schema_version, 1);

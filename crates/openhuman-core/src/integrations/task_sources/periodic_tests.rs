@@ -33,8 +33,12 @@ fn source_for(id: &str, interval_secs: u64, provider: ProviderSlug) -> TaskSourc
 
 #[test]
 fn tick_seconds_is_sane() {
-    assert!(TICK_SECONDS >= 60);
-    assert!(TICK_SECONDS <= 3600);
+    const {
+        assert!(TICK_SECONDS >= 60);
+    }
+    const {
+        assert!(TICK_SECONDS <= 3600);
+    }
 }
 
 #[test]

@@ -347,7 +347,7 @@ impl ComposioActionTool {
             iana = %iana,
             "[composio][per-action] applying calendar query defaults pre-dispatch"
         );
-        let args = super::googlecalendar_args::apply_calendar_query_defaults(
+        let args = tinyconnectors::execute::apply_calendar_query_defaults(
             &self.action_name,
             Some(args),
             &iana,

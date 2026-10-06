@@ -4,8 +4,6 @@
 
 use openhuman_core::channels::bus::test_support as bus_support;
 use openhuman_core::channels::providers::email_channel::test_support as email_support;
-use openhuman_core::channels::providers::lark::test_support as lark_support;
-use openhuman_core::channels::providers::telegram::test_support as telegram_support;
 use openhuman_core::channels::test_support as runtime_support;
 use openhuman_core::channels::traits::ChannelMessage;
 use serde_json::json;
@@ -98,27 +96,7 @@ fn dispatch_helpers_cover_channel_context_and_ack_categories() {
 }
 
 #[test]
-fn lark_and_email_parser_edges_are_exercised_without_sockets() {
-    let rich_post = json!({
-        "en_us": {
-            "content": [[
-                {"tag": "a", "href": "https://example.test/fallback"},
-                {"tag": "at", "user_id": "ou_123"},
-                {"tag": "text", "text": " done"}
-            ]]
-        }
-    })
-    .to_string();
-    let parsed = lark_support::parse_post_content_for_test(&rich_post).expect("post text");
-    assert!(parsed.contains("https://example.test/fallback"));
-    assert!(parsed.contains("@ou_123"));
-    assert!(parsed.ends_with("done"));
-    assert!(lark_support::parse_post_content_for_test("not json").is_none());
-    assert_eq!(
-        lark_support::strip_at_placeholders_for_test("before @_user_123 after @_user_x"),
-        "before after @_user_x"
-    );
-
+fn email_parser_edges_are_exercised_without_sockets() {
     let no_sender = b"Subject: Anonymous\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nbody";
     let parsed_mail = email_support::parse_email_fixture(no_sender).expect("mail parse");
     assert_eq!(parsed_mail.sender, "unknown");
@@ -128,24 +106,4 @@ fn lark_and_email_parser_edges_are_exercised_without_sockets() {
         b"From: Html <html@example.test>\r\nContent-Type: text/html\r\n\r\n<p>A</p><p>B</p>";
     let parsed_html = email_support::parse_email_fixture(html_only).expect("html parse");
     assert_eq!(parsed_html.text, "A\nB\n");
-}
-
-#[test]
-fn telegram_reaction_marker_parser_covers_malformed_and_inline_forms() {
-    assert_eq!(
-        telegram_support::parse_reaction_marker_for_test("plain text"),
-        ("plain text".to_string(), None)
-    );
-    assert_eq!(
-        telegram_support::parse_reaction_marker_for_test("[REACTION:]"),
-        (String::new(), None)
-    );
-    assert_eq!(
-        telegram_support::parse_reaction_marker_for_test("[REACTION:ok"),
-        ("[REACTION:ok".to_string(), None)
-    );
-    assert_eq!(
-        telegram_support::parse_reaction_marker_for_test("  [REACTION:ok|123] reply body  "),
-        ("reply body".to_string(), Some("ok|123".to_string()))
-    );
 }

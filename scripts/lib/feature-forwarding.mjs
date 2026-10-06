@@ -434,8 +434,6 @@ export const CHAIN_GATES_NOT_FORWARDED = {
   'openhuman-embed': {
     'e2e-test-support':
       'Exposes the destructive `openhuman.test_reset` RPC for the E2E build only. An embedder must never be able to turn a data wipe on.',
-    landlock:
-      'Back-compat alias for `sandbox-landlock` in the core; the embed facade forwards the canonical name instead of both spellings.',
     'rss-bench':
       'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in `openhuman-cli`, which forwards the gate directly.',
   },

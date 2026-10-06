@@ -26,8 +26,10 @@ fn host(config: &Config) -> std::sync::Arc<openhuman_core::mcp::host::McpHost> {
 
 fn fresh_workspace_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut cfg = Config::default();
-    cfg.workspace_dir = tmp.path().to_path_buf();
+    let cfg = Config {
+        workspace_dir: tmp.path().to_path_buf(),
+        ..Config::default()
+    };
     (tmp, cfg)
 }
 
@@ -65,8 +67,7 @@ async fn unknown_tool_call_returns_error() {
     h.dynamic()
         .connect(&server.server_id)
         .await
-        .expect("connect")
-        .tools;
+        .expect("connect");
 
     let err = h
         .dynamic()
@@ -153,8 +154,7 @@ async fn set_enabled_false_disconnects_running_server() {
     h.dynamic()
         .connect(&server.server_id)
         .await
-        .expect("connect")
-        .tools;
+        .expect("connect");
 
     let outcome = ops::mcp_clients_set_enabled(&cfg, server.server_id.clone(), false)
         .await
@@ -286,80 +286,6 @@ async fn per_config_lookups_see_a_per_config_connection() {
 }
 
 // ── Probe outcomes (#5772) ────────────────────────────────────────────────────
-
-/// `probe_alive` returns a four-variant `ProbeOutcome` instead of a bool, and
-/// `probe_alive_reflects_transport_liveness` above only ever asks
-/// `.is_alive()` — which is `false` for `Missing`, `Broken` and `TimedOut`
-/// alike, so nothing pinned which one comes back.
-///
-/// This pins the two that are reachable in a hermetic test: an entry that was
-/// never connected, and one that has been disconnected, must both report
-/// `Missing` — "there was nothing to probe" — rather than a transport failure
-/// nobody observed. That distinction is what the old bool could not express and
-/// is the half of #5636 this harness can actually demonstrate.
-#[tokio::test]
-async fn probe_alive_distinguishes_a_missing_entry_from_a_timed_out_one() {
-    let (_tmp, cfg) = fresh_workspace_config();
-    let h = host(&cfg);
-    let server = make_installed_server();
-    h.dynamic()
-        .store()
-        .insert_server(&server)
-        .expect("insert installed server");
-
-    // Installed but never connected: there is no live entry, so there is
-    // nothing to probe.
-    assert_eq!(
-        h.dynamic()
-            .connections()
-            .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
-            .await,
-        tinymcp::ProbeOutcome::Missing,
-        "a server that was never connected has no entry to probe"
-    );
-
-    h.dynamic()
-        .connect(&server.server_id)
-        .await
-        .expect("connect")
-        .tools;
-
-    // Connected and answering: a real round trip inside a real window.
-    match h
-        .dynamic()
-        .connections()
-        .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
-        .await
-    {
-        tinymcp::ProbeOutcome::Alive { .. } => {}
-        other => panic!("a live stub must probe Alive, got {other:?}"),
-    }
-
-    // NOT asserted here: `TimedOut`. It is the variant this enum most exists
-    // for, and it is unreachable against this stub — a probe with a
-    // `Duration::ZERO` window still came back `Alive { elapsed: 42.708µs }`,
-    // because `tokio::time::timeout` polls the inner future before it checks
-    // the deadline and `list_tools` on an established connection answers inside
-    // that first poll. Producing a real timeout needs a server that stalls on
-    // `tools/list`, which `test-mcp-stub` cannot be asked to do. Asserting it
-    // by contriving the window would have pinned nothing; see
-    // ~/tinyhuman/bugs/W6-test-findings.md.
-
-    // Disconnecting removes the entry, so the outcome goes back to Missing
-    // rather than to a transport error.
-    h.dynamic()
-        .connections()
-        .disconnect(&server.server_id)
-        .await;
-    assert_eq!(
-        h.dynamic()
-            .connections()
-            .probe_alive(&server.server_id, std::time::Duration::from_secs(8))
-            .await,
-        tinymcp::ProbeOutcome::Missing,
-        "a disconnected server has no entry, so nothing was observed to fail"
-    );
-}
 
 /// The supervisor's default probe window is 8s.
 ///

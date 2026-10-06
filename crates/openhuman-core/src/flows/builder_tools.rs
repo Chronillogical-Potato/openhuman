@@ -70,7 +70,6 @@ mod draft_edit;
 mod draft_revise;
 mod draft_validate;
 mod dry_run;
-mod dry_run_diagnostics;
 mod flow_reads;
 mod kind_reads;
 mod persistence;

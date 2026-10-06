@@ -142,7 +142,9 @@ describe('Settings - Advanced Config', function () {
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
     }, String(target));
-    await clickText('Save', 10_000);
+    const save = await browser.$('[data-testid="autonomy-max-actions-save"]');
+    await save.waitForClickable({ timeout: 10_000 });
+    await save.click();
     await waitForText('Saved.', 10_000);
 
     await browser.waitUntil(

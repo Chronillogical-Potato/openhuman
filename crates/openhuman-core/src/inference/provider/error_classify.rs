@@ -25,13 +25,6 @@ fn classify(err: &anyhow::Error) -> ProviderFailureClass {
     classify_provider_failure(status, None, &message)
 }
 
-pub(crate) fn is_non_retryable(err: &anyhow::Error) -> bool {
-    matches!(
-        classify(err),
-        ProviderFailureClass::NonRetryable | ProviderFailureClass::NonRetryableRateLimit
-    )
-}
-
 pub(crate) fn is_rate_limited(err: &anyhow::Error) -> bool {
     matches!(
         classify(err),
@@ -46,7 +39,3 @@ pub(crate) fn is_upstream_unhealthy(err: &anyhow::Error) -> bool {
 pub(crate) fn parse_retry_after_ms(err: &anyhow::Error) -> Option<u64> {
     parse_inference_retry_after(&err.to_string())
 }
-
-#[cfg(test)]
-#[path = "error_classify_tests.rs"]
-mod tests;

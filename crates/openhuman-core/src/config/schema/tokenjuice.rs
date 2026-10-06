@@ -32,7 +32,7 @@ pub struct TokenjuiceConfig {
     /// `router_enabled`, `ccr_enabled` and `context.compaction_enabled`. In this
     /// mode the LLM summary stage is skipped for results big enough to get a
     /// handle. Turn off to keep the one-blob compression and the
-    /// `tinyjuice_retrieve` round trip.
+    /// `juice_retrieve` round trip.
     #[serde(default = "default_true")]
     pub repl_handle_enabled: bool,
     /// Also write each stored original to

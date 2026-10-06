@@ -5,35 +5,12 @@
 use std::path::Path;
 use std::time::Duration;
 
-use tinyagents_graph::orchestration::{DetachedTaskRegistryError, DetachedTaskWaitOutcome};
-use tinyagents_harness::ids::TaskId;
+use tinyagents_orchestration::subagent::{
+    record_to_wait_outcome, task_status_label, wait_detached, WaitError, WaitOutcome,
+};
 
-use super::registry::{registry, SubagentStatus};
-use super::task_ledger::{record_to_status, task_record_for_task_in_workspace, task_status_label};
-
-/// Why a wait could not be set up.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum WaitError {
-    Unknown,
-    NotOwned,
-}
-
-pub(crate) fn wait_error_from_registry(error: DetachedTaskRegistryError) -> WaitError {
-    match error {
-        DetachedTaskRegistryError::NotOwned => WaitError::NotOwned,
-        _ => WaitError::Unknown,
-    }
-}
-
-/// Result of waiting on a sub-agent.
-#[derive(Debug)]
-pub(crate) enum WaitOutcome {
-    /// The sub-agent reached a terminal status (entry pruned).
-    Terminal(SubagentStatus),
-    /// The timeout elapsed first; the entry is left intact so the parent can
-    /// wait again. Carries the latest (non-terminal) status snapshot.
-    TimedOut(SubagentStatus),
-}
+use super::registry::registry;
+use super::task_ledger::task_record_for_task_in_workspace;
 
 /// Block until `task_id` reaches a terminal status or `timeout` elapses.
 pub(crate) async fn wait(
@@ -41,19 +18,7 @@ pub(crate) async fn wait(
     parent_session: &str,
     timeout: Duration,
 ) -> Result<WaitOutcome, WaitError> {
-    match registry()
-        .wait(&TaskId::new(task_id), parent_session, timeout)
-        .await
-    {
-        Ok(DetachedTaskWaitOutcome::Terminal(status)) => Ok(WaitOutcome::Terminal(status)),
-        Ok(DetachedTaskWaitOutcome::TimedOut(status)) => Ok(WaitOutcome::TimedOut(status)),
-        Err(DetachedTaskRegistryError::StatusChannelClosed) => {
-            Ok(WaitOutcome::Terminal(SubagentStatus::Failed {
-                error: "sub-agent task ended without reporting a result".to_string(),
-            }))
-        }
-        Err(error) => Err(wait_error_from_registry(error)),
-    }
+    wait_detached(registry(), task_id, parent_session, timeout).await
 }
 
 pub(crate) async fn wait_in_workspace(
@@ -65,6 +30,7 @@ pub(crate) async fn wait_in_workspace(
     match wait(task_id, parent_session, timeout).await {
         Ok(outcome) => return Ok(outcome),
         Err(WaitError::NotOwned) => return Err(WaitError::NotOwned),
+        Err(WaitError::RegistryPoisoned) => return Err(WaitError::RegistryPoisoned),
         Err(WaitError::Unknown) => {}
     }
 
@@ -75,5 +41,5 @@ pub(crate) async fn wait_in_workspace(
         task_status_label(record.status),
         workspace_dir.display()
     );
-    Ok(record_to_status(record))
+    Ok(record_to_wait_outcome(record))
 }

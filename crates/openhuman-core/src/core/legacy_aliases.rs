@@ -133,10 +133,6 @@ const LEGACY_ALIASES: &[(&str, &str)] = &[
         "openhuman.config_workspace_onboarding_flag_set",
     ),
     (
-        "openhuman.local_ai_apply_preset",
-        "openhuman.inference_apply_preset",
-    ),
-    (
         "openhuman.local_ai_agent_chat",
         "openhuman.inference_agent_chat",
     ),
@@ -145,32 +141,8 @@ const LEGACY_ALIASES: &[(&str, &str)] = &[
         "openhuman.inference_agent_chat_simple",
     ),
     (
-        "openhuman.local_ai_assets_status",
-        "openhuman.inference_assets_status",
-    ),
-    (
-        "openhuman.local_ai_device_profile",
-        "openhuman.inference_device_profile",
-    ),
-    (
         "openhuman.local_ai_diagnostics",
         "openhuman.inference_diagnostics",
-    ),
-    (
-        "openhuman.local_ai_download_asset",
-        "openhuman.inference_download_asset",
-    ),
-    (
-        "openhuman.local_ai_downloads_progress",
-        "openhuman.inference_downloads_progress",
-    ),
-    (
-        "openhuman.local_ai_install_piper",
-        "openhuman.inference_install_piper",
-    ),
-    (
-        "openhuman.local_ai_piper_install_status",
-        "openhuman.inference_piper_install_status",
     ),
     // bare `health_snapshot` (no namespace prefix) was used by older clients
     // before the canonical `openhuman.health_snapshot` form was established.
@@ -190,8 +162,6 @@ const LEGACY_ALIASES: &[(&str, &str)] = &[
     // the method was namespaced under `health` as `openhuman.health_system_info`.
     // Sentry CORE-RUST-G0 — https://sentry.tinyhumans.ai/organizations/tinyhumans/issues/6340/
     ("openhuman.system_info", "openhuman.health_system_info"),
-    ("openhuman.inference_embed", "openhuman.embeddings_embed"),
-    ("openhuman.local_ai_presets", "openhuman.inference_presets"),
     (
         "openhuman.local_ai_test_connection",
         "openhuman.inference_test_connection",

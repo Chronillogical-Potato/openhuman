@@ -19,13 +19,6 @@ fn schemas_decide_requires_request_id_and_decision() {
 }
 
 #[test]
-fn schemas_unknown_returns_placeholder() {
-    let s = schemas("nope");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.outputs[0].name, "error");
-}
-
-#[test]
 fn all_registered_controllers_has_handler_per_schema() {
     let controllers = all_registered_controllers();
     assert_eq!(controllers.len(), 5);

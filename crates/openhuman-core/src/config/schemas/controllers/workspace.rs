@@ -145,6 +145,7 @@ pub(super) fn handle_update_agent_paths(params: Map<String, Value>) -> Controlle
         };
         let patch = config_rpc::AgentPathsPatch {
             action_dir: update.action_dir,
+            files_dir: update.files_dir,
         };
         match config_rpc::load_and_apply_agent_paths_settings(patch).await {
             Ok(outcome) => {

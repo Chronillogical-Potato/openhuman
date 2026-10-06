@@ -1,22 +1,34 @@
 //! Host signals: power state, CPU pressure, deployment mode.
 //!
-//! Sampled on a 30s cadence by [`crate::cron::scheduler_gate::gate`]; this
-//! file just captures one snapshot at a time.
+//! Sampled on a 30s cadence by [`super::throttle::spawn_sampler`]; this file just
+//! captures one snapshot at a time.
 
 use std::path::Path;
 use std::time::Duration;
 
 use sysinfo::System;
 
-/// The snapshot type and the pure decision over it live in the memory
-/// contract crate; this file only samples the host hardware.
-pub use tinymemory_api::host::Signals;
+pub use super::decide::Signals;
+
+/// Names of the environment variables that override what the hardware says.
+///
+/// The names are the host's (they are user-facing configuration), so the host
+/// passes them in rather than this crate owning product-prefixed constants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SignalEnv {
+    /// `1`/`true`/`yes` or `0`/`false`/`no`: force the AC-power reading.
+    pub on_ac_power: &'static str,
+    /// A float in `0.0..=1.0`: force the battery charge.
+    pub battery_charge: &'static str,
+    /// `server` or `desktop`/`laptop`: force the deployment mode.
+    pub deployment: &'static str,
+}
 
 /// Sample once. Cheap (~ms-scale) — safe to call from a 30s background task.
-pub fn sample() -> Signals {
-    let (on_ac, charge) = sample_power();
+pub fn sample(env: &SignalEnv) -> Signals {
+    let (on_ac, charge) = sample_power(env);
     let cpu_usage_pct = sample_cpu();
-    let server_mode = detect_server_mode(charge.is_none());
+    let server_mode = detect_server_mode(env, charge.is_none());
     Signals {
         on_ac_power: on_ac,
         battery_charge: charge,
@@ -27,20 +39,21 @@ pub fn sample() -> Signals {
 
 // ---- power ---------------------------------------------------------------
 
-fn sample_power() -> (bool, Option<f32>) {
+fn sample_power(env: &SignalEnv) -> (bool, Option<f32>) {
     // Env overrides win — useful for CI, container hosts that misreport,
     // and manual debugging of the throttle path on a desktop. Only
     // explicit truthy/falsy tokens count: garbage values yield None so
     // the real probe still gets to answer (vs. silently coercing to
     // "on battery" and triggering throttling on every misconfigured host).
-    let env_on_ac = std::env::var("OPENHUMAN_ON_AC_POWER").ok().and_then(|v| {
-        match v.to_ascii_lowercase().as_str() {
-            "1" | "true" | "yes" => Some(true),
-            "0" | "false" | "no" => Some(false),
-            _ => None,
-        }
-    });
-    let env_charge = std::env::var("OPENHUMAN_BATTERY_CHARGE")
+    let env_on_ac =
+        std::env::var(env.on_ac_power)
+            .ok()
+            .and_then(|v| match v.to_ascii_lowercase().as_str() {
+                "1" | "true" | "yes" => Some(true),
+                "0" | "false" | "no" => Some(false),
+                _ => None,
+            });
+    let env_charge = std::env::var(env.battery_charge)
         .ok()
         .and_then(|v| v.parse::<f32>().ok())
         .map(|v| v.clamp(0.0, 1.0));
@@ -61,7 +74,7 @@ fn resolve_power(
             env_on_ac.unwrap_or(probe.on_ac),
             env_charge.or(probe.charge),
         ),
-        // No probe answer — either it failed, or the `scheduler-gate` feature is
+        // No probe answer — either it failed, or the `battery` feature is
         // compiled out. Treat as "plugged in, no battery", which yields
         // Normal/Aggressive rather than Throttled. Erring the other way would
         // throttle every server and container, where a battery probe never
@@ -77,7 +90,7 @@ struct BatteryProbe {
     charge: Option<f32>,
 }
 
-/// The real probe, when `scheduler-gate` is compiled in.
+/// The real probe, when `battery` is compiled in.
 #[cfg(feature = "scheduler-gate")]
 fn battery_probe() -> Option<BatteryProbe> {
     match probe_battery() {
@@ -130,6 +143,7 @@ fn probe_battery() -> Result<BatteryProbe, starship_battery::Error> {
     Ok(BatteryProbe { on_ac, charge })
 }
 
+#[cfg(any(feature = "scheduler-gate", test))]
 fn include_charge_sample(total: &mut f32, count: &mut f32, charge: f32) {
     if charge.is_finite() {
         *total += charge;
@@ -167,8 +181,8 @@ fn sample_cpu() -> f32 {
 
 // ---- deployment mode -----------------------------------------------------
 
-fn detect_server_mode(no_battery: bool) -> bool {
-    if let Ok(v) = std::env::var("OPENHUMAN_DEPLOYMENT") {
+fn detect_server_mode(env: &SignalEnv, no_battery: bool) -> bool {
+    if let Ok(v) = std::env::var(env.deployment) {
         if v.eq_ignore_ascii_case("server") {
             return true;
         }

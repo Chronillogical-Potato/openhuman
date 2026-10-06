@@ -1,4 +1,5 @@
 use super::*;
+use openhuman_core::agent::artifacts::FileRoots;
 
 #[test]
 fn sanitize_rejects_path_separators() {
@@ -20,45 +21,122 @@ fn sanitize_accepts_plain_names() {
     assert_eq!(sanitize_filename("  trim me  ").unwrap(), "trim me");
 }
 
-#[test]
-fn validate_source_rejects_relative_and_empty() {
-    assert!(validate_source("").is_err());
-    assert!(validate_source("relative/path.pptx").is_err());
-    assert!(validate_source("/definitely/not/here.pptx").is_err());
+async fn ready_artifact(workspace: &Path, files_dir: &Path) -> String {
+    use openhuman_core::agent::artifacts::{create_artifact, finalize_artifact, ArtifactKind};
+    let (meta, path) = create_artifact(
+        workspace,
+        files_dir,
+        ArtifactKind::Presentation,
+        "Deck",
+        "pptx",
+    )
+    .await
+    .unwrap();
+    std::fs::write(&path, b"deck").unwrap();
+    finalize_artifact(workspace, &meta.id, 4).await.unwrap();
+    meta.id
 }
 
-#[test]
-fn assert_artifact_source_accepts_file_under_artifacts_root() {
+#[tokio::test]
+async fn resolve_source_returns_the_file_in_the_files_folder() {
     let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    let art = root.join("users/u1/workspace/artifacts/a-1");
-    std::fs::create_dir_all(&art).unwrap();
-    let file = art.join("deck.pptx");
-    std::fs::write(&file, b"x").unwrap();
-    assert!(assert_artifact_source(&file, root).is_ok());
+    let files_dir = temp.path().join("Files");
+    let id = ready_artifact(temp.path(), &files_dir).await;
+    assert_eq!(
+        resolve_source(temp.path(), &FileRoots::new(&files_dir), &id)
+            .await
+            .unwrap(),
+        files_dir.join("deck.pptx")
+    );
 }
 
-#[test]
-fn assert_artifact_source_rejects_file_without_artifacts_component() {
+#[tokio::test]
+async fn resolve_source_rejects_unknown_ids_and_paths() {
     let temp = tempfile::tempdir().unwrap();
-    let root = temp.path();
-    let other = root.join("users/u1/secrets");
-    std::fs::create_dir_all(&other).unwrap();
-    let file = other.join("token.txt");
-    std::fs::write(&file, b"x").unwrap();
-    assert!(assert_artifact_source(&file, root).is_err());
+    assert!(
+        resolve_source(temp.path(), &FileRoots::new(temp.path()), "")
+            .await
+            .is_err()
+    );
+    assert!(resolve_source(
+        temp.path(),
+        &FileRoots::new(temp.path()),
+        "no-such-artifact"
+    )
+    .await
+    .is_err());
+    // A path is not an id: the store's id validation refuses separators.
+    assert!(
+        resolve_source(temp.path(), &FileRoots::new(temp.path()), "/etc/passwd")
+            .await
+            .is_err()
+    );
 }
 
-#[test]
-fn assert_artifact_source_rejects_file_outside_root() {
-    let root_dir = tempfile::tempdir().unwrap();
-    let outside_dir = tempfile::tempdir().unwrap();
-    // Even with an `artifacts` segment, a path outside the root is denied.
-    let art = outside_dir.path().join("artifacts");
-    std::fs::create_dir_all(&art).unwrap();
-    let file = art.join("evil.pptx");
-    std::fs::write(&file, b"x").unwrap();
-    assert!(assert_artifact_source(&file, root_dir.path()).is_err());
+#[tokio::test]
+async fn resolve_source_refuses_a_file_the_store_does_not_vouch_for() {
+    use openhuman_core::agent::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
+    let temp = tempfile::tempdir().unwrap();
+    let secret = temp.path().join("secret.txt");
+    std::fs::write(&secret, b"private").unwrap();
+    let meta = ArtifactMeta {
+        id: "tampered".to_string(),
+        kind: ArtifactKind::Other,
+        title: "x".to_string(),
+        path: "secret.txt".to_string(),
+        file: Some(secret.to_string_lossy().into_owned()),
+        file_root: Some(temp.path().join("Files").to_string_lossy().into_owned()),
+        size_bytes: 7,
+        status: ArtifactStatus::Ready,
+        created_at: chrono::Utc::now(),
+        error: None,
+        thread_id: None,
+        tool_call_id: None,
+    };
+    let dir = temp.path().join("artifacts").join("tampered");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("meta.json"), serde_json::to_vec(&meta).unwrap()).unwrap();
+    assert!(resolve_source(
+        temp.path(),
+        &FileRoots::new(temp.path().join("Files")),
+        "tampered"
+    )
+    .await
+    .is_err());
+}
+
+/// Download-by-id does not take a record's `file_root` on its own say-so: a
+/// record claiming a home-directory root for a private file inside it is
+/// refused because that root is not one of the vouched-for files folders.
+#[tokio::test]
+async fn resolve_source_refuses_a_record_that_claims_its_own_root() {
+    use openhuman_core::agent::artifacts::{ArtifactKind, ArtifactMeta, ArtifactStatus};
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path().join("home");
+    std::fs::create_dir_all(&home).unwrap();
+    let private = home.join("private.pdf");
+    std::fs::write(&private, b"private").unwrap();
+    let meta = ArtifactMeta {
+        id: "claims-home".to_string(),
+        kind: ArtifactKind::Other,
+        title: "x".to_string(),
+        path: "private.pdf".to_string(),
+        file: Some(private.to_string_lossy().into_owned()),
+        file_root: Some(home.to_string_lossy().into_owned()),
+        size_bytes: 7,
+        status: ArtifactStatus::Ready,
+        created_at: chrono::Utc::now(),
+        error: None,
+        thread_id: None,
+        tool_call_id: None,
+    };
+    let dir = temp.path().join("artifacts").join("claims-home");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("meta.json"), serde_json::to_vec(&meta).unwrap()).unwrap();
+    let files = FileRoots::new(temp.path().join("Files"));
+    assert!(resolve_source(temp.path(), &files, "claims-home")
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -82,7 +160,7 @@ async fn download_rejects_bad_source() {
             .is_err()
     );
     assert!(
-        download_artifact_to_downloads("relative".to_string(), "x.pptx".to_string())
+        download_artifact_to_downloads("   ".to_string(), "x.pptx".to_string())
             .await
             .is_err()
     );

@@ -17,6 +17,8 @@ fn tmp_config(tmp: &tempfile::TempDir) -> Config {
 
 #[path = "ops_agent_paths_tests.rs"]
 mod agent_paths_tests;
+#[path = "ops_files_dir_tests.rs"]
+mod files_dir_tests;
 #[path = "ops_loader_and_search_tests.rs"]
 mod loader_and_search_tests;
 #[path = "ops_model_and_local_ai_tests.rs"]

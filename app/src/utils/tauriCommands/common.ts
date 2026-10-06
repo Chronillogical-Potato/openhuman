@@ -15,9 +15,9 @@ const errLog = debug('tauri:ipc-guard:error');
 /**
  * True when the Tauri runtime is present AND the underlying IPC transport is
  * wired. The official `coreIsTauri()` check (which reads `globalThis.isTauri`)
- * is set early by Tauri's webview bootstrap, but on CEF `__TAURI_INTERNALS__`
- * (and the `postMessage` bridge it dispatches through) is injected *after*
- * `on_after_created` fires. An `invoke()` landing in that gap throws
+ * is set early by Tauri's webview bootstrap, but `__TAURI_INTERNALS__`
+ * (and the `postMessage` bridge it dispatches through) can be injected later.
+ * An `invoke()` landing in that gap throws
  * `TypeError: Cannot read properties of undefined (reading 'postMessage')`
  * deep inside Tauri's `sendIpcMessage` — see OPENHUMAN-REACT-S / #1472.
  *
@@ -37,9 +37,9 @@ export const isTauri = (): boolean => {
     .__TAURI_INTERNALS__;
   if (typeof internals?.invoke !== 'function') {
     // Bridge-missing branch: distinct from `!coreIsTauri()` (= not in Tauri
-    // at all). Logging here makes the CEF bootstrap gap observable in dev
+    // at all). Logging here makes the bootstrap gap observable in dev
     // and is a no-op in production (debug namespace disabled by default).
-    log('isTauri() -> false: IPC bridge not wired (CEF bootstrap gap or non-Tauri)');
+    log('isTauri() -> false: IPC bridge not wired (bootstrap gap or non-Tauri)');
     return false;
   }
   return true;
@@ -102,12 +102,10 @@ export function parseServiceCliOutput<T>(raw: string): CommandResponse<T> {
 }
 
 /**
- * Typed marker for the CEF "IPC bridge not wired" failure mode. The vendored
- * `crates/openhuman-app/vendor/tauri-cef/crates/tauri/scripts/ipc-protocol.js` falls
- * back to `window.ipc.postMessage(...)` whenever the custom-protocol fetch
- * rejects (network blip, navigation interrupt, mid-session re-entry). On CEF
- * `window.ipc` is never wired — `crates/openhuman-app/src/cef_impl.rs` drops the
- * `ipc_handler` registration — so the fallback throws
+ * Typed marker for the "IPC bridge not wired" failure mode. Tauri's IPC bootstrap
+ * falls back to `window.ipc.postMessage(...)` whenever the custom-protocol fetch
+ * rejects (network blip, navigation interrupt, mid-session re-entry). When
+ * `window.ipc` is not wired the fallback throws
  * `TypeError: Cannot read properties of undefined (reading 'postMessage')`
  * **synchronously**, before the underlying `invoke()` constructs its Promise.
  * The throw escapes the Promise executor and lands on `onunhandledrejection`,
@@ -141,39 +139,34 @@ export class IpcUnavailableError extends Error {
 }
 
 /**
- * Pattern matching the CEF IPC-fallback `TypeError`. We match on the message
+ * Pattern matching the IPC-fallback `TypeError`. We match on the message
  * substring `postMessage` rather than the constructor because:
  *
- * - The throw originates inside Tauri's `sendIpcMessage` (vendored
- *   `ipc-protocol.js:84`) which uses native `TypeError`. There is no
+ * - The throw originates inside Tauri's `sendIpcMessage`, which uses native `TypeError`. There is no
  *   sentinel class we can `instanceof` against.
- * - V8 / Blink emit the exact message
- *   `Cannot read properties of undefined (reading 'postMessage')`. CEF ships
- *   the same engine, so the substring is stable across the supported channels
- *   (see [feedback_cef_runtime_gaps]).
+ * - Engines emit the message
+ *   `Cannot read properties of undefined (reading 'postMessage')` (JavaScriptCore
+ *   words it differently, hence the loose `postMessage` substring match).
  *
  * Any future engine that changes the wording will still surface as a
  * generic `IpcUnavailableError` via the fallback branch in `classifyIpcThrow`.
  */
-function looksLikeCefPostMessageThrow(err: unknown): boolean {
+function looksLikePostMessageThrow(err: unknown): boolean {
   if (!(err instanceof TypeError)) return false;
   const msg = err.message ?? '';
   return msg.includes('postMessage');
 }
 
 /**
- * Messages the *guarded* IPC-unavailable paths reject with. Since #5155 the
- * dereference no longer throws: the vendored bootstrap settles the pending
- * callback with `'IPC postMessage interface is unavailable on this platform'`,
- * and `utils/ipcTransportFallback.ts` rejects with its own
- * `'Tauri IPC …'`-prefixed messages when even the custom-protocol
- * re-dispatch can't run. Those arrive as *rejections* carrying a plain
- * `{ message }` object rather than a `TypeError`, so the pattern above misses
- * them — match them here so call sites keep getting `IpcUnavailableError` and
- * their graceful-degradation branches keep firing.
+ * Messages the *guarded* IPC-unavailable path rejects with: the bootstrap
+ * settles the pending callback with
+ * `'IPC postMessage interface is unavailable on this platform'`. That arrives
+ * as a *rejection* carrying a plain `{ message }` object rather than a
+ * `TypeError`, so the pattern above misses it — match it here so call sites
+ * keep getting `IpcUnavailableError` and their graceful-degradation branches
+ * keep firing.
  */
-const IPC_UNAVAILABLE_MESSAGE_PATTERN =
-  /IPC postMessage interface is unavailable|Tauri IPC bridge (is unavailable|never became available)|Tauri IPC fallback transport failed/;
+const IPC_UNAVAILABLE_MESSAGE_PATTERN = /IPC postMessage interface is unavailable/;
 
 function looksLikeGuardedIpcUnavailable(err: unknown): boolean {
   if (err === null || err === undefined) return false;
@@ -184,12 +177,12 @@ function looksLikeGuardedIpcUnavailable(err: unknown): boolean {
 
 /**
  * Classify a value thrown synchronously by — or rejected from — `coreInvoke()`.
- * Returns the typed `IpcUnavailableError` when the shape matches a CEF
+ * Returns the typed `IpcUnavailableError` when the shape matches an
  * IPC-bridge failure, or `null` to let the caller surface the original error
  * verbatim.
  */
 function classifyIpcThrow(cmd: string, err: unknown): IpcUnavailableError | null {
-  if (looksLikeCefPostMessageThrow(err) || looksLikeGuardedIpcUnavailable(err)) {
+  if (looksLikePostMessageThrow(err) || looksLikeGuardedIpcUnavailable(err)) {
     return new IpcUnavailableError(cmd, err);
   }
   return null;
@@ -199,11 +192,11 @@ function classifyIpcThrow(cmd: string, err: unknown): IpcUnavailableError | null
  * Wrapper around `@tauri-apps/api/core::invoke()` that:
  *
  *   1. Calls through to `coreInvoke` inside a `try / catch` so a **synchronous**
- *      throw (e.g. the CEF `window.ipc.postMessage` `TypeError`) is converted
+ *      throw (e.g. the `window.ipc.postMessage` `TypeError`) is converted
  *      into a rejected Promise. Without this, the throw escapes the Promise
  *      executor where `coreInvoke` lives and lands on `onunhandledrejection`
  *      → Sentry captures it as `Non-Error promise rejection`-shaped noise.
- *   2. Re-tags the specific CEF fallback throw as `IpcUnavailableError` so
+ *   2. Re-tags the specific fallback throw as `IpcUnavailableError` so
  *      callers can `.catch((e) => e instanceof IpcUnavailableError ? … : …)`
  *      and degrade gracefully (skip / fallback) instead of surfacing a raw
  *      `TypeError` message to the user.
@@ -212,7 +205,7 @@ function classifyIpcThrow(cmd: string, err: unknown): IpcUnavailableError | null
  *   - fire-and-forget (`void invoke(...)` / `invoke(...).catch(noop)`), or
  *   - inside a try/catch that should also handle the bridge-unavailable case.
  *
- * Sites that already gate on `isTauri()` (which short-circuits the CEF
+ * Sites that already gate on `isTauri()` (which short-circuits the
  * bootstrap gap) still benefit from `safeInvoke` because the gap is the
  * *common* failure window, but the same `TypeError` is also raised when the
  * custom-protocol path fails mid-session and the fallback path runs into the
@@ -248,7 +241,7 @@ export async function safeInvoke<T>(
       errLog('safeInvoke(%s) -> IpcUnavailableError: %s', cmd, typed.message);
       throw typed;
     }
-    // Not the CEF bridge issue — surface as-is so existing message-based
+    // Not the IPC bridge issue — surface as-is so existing message-based
     // classifiers (e.g. `classifyWebviewAccountError`) still match.
     throw err;
   }

@@ -35,7 +35,13 @@ async fn run_in_sandbox(
     command: &str,
 ) -> openhuman_core::sandbox::types::SandboxExecResult {
     let tempdir = tempfile::tempdir().expect("tempdir");
-    let policy = resolve_sandbox_policy(mode, tempdir.path(), &RuntimeConfig::default(), false);
+    let policy = resolve_sandbox_policy(
+        mode,
+        tempdir.path(),
+        tempdir.path(),
+        &RuntimeConfig::default(),
+        false,
+    );
     execute_in_sandbox(
         &policy,
         command,
@@ -204,8 +210,18 @@ async fn powershell_runs_through_sandbox_path() {
 
 #[cfg(windows)]
 fn tool_available(program: &str) -> bool {
+    let args = if program.eq_ignore_ascii_case("powershell") {
+        vec![
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$PSVersionTable.PSVersion.ToString()",
+        ]
+    } else {
+        vec!["--version"]
+    };
     std::process::Command::new(program)
-        .arg("--version")
+        .args(args)
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()

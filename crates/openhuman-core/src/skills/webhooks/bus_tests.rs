@@ -26,7 +26,7 @@ fn error_body_is_base64_of_json_envelope() {
 #[test]
 fn default_equals_new_and_is_zero_sized() {
     // Both constructors produce the same unit-variant struct.
-    let _a = WebhookRequestSubscriber::default();
+    let _a = WebhookRequestSubscriber;
     let _b = WebhookRequestSubscriber::new();
     // Zero-sized type — just asserting both compile and construct.
     assert_eq!(std::mem::size_of::<WebhookRequestSubscriber>(), 0);

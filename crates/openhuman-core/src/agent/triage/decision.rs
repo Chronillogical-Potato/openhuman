@@ -27,6 +27,7 @@
 
 use serde::Deserialize;
 use thiserror::Error;
+use tinytools_agent::repair::json::strip_trailing_commas;
 
 /// The four outcomes the triage agent is allowed to choose.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -223,53 +224,6 @@ fn last_balanced_brace_object(text: &str) -> Option<String> {
         }
     }
     best.map(|(s, e)| text[s..e].to_string())
-}
-
-/// Strip trailing commas before closing `}` / `]` — a very common
-/// small-model mistake that otherwise trips `serde_json`.
-fn strip_trailing_commas(src: &str) -> String {
-    let mut out = String::with_capacity(src.len());
-    let mut in_string = false;
-    let mut escape = false;
-    let bytes = src.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        let b = bytes[i];
-        if in_string {
-            out.push(b as char);
-            if escape {
-                escape = false;
-            } else if b == b'\\' {
-                escape = true;
-            } else if b == b'"' {
-                in_string = false;
-            }
-            i += 1;
-            continue;
-        }
-        if b == b'"' {
-            in_string = true;
-            out.push('"');
-            i += 1;
-            continue;
-        }
-        if b == b',' {
-            // Look ahead past whitespace for the next non-ws char.
-            let mut j = i + 1;
-            while j < bytes.len() && (bytes[j] as char).is_whitespace() {
-                j += 1;
-            }
-            if j < bytes.len() && (bytes[j] == b'}' || bytes[j] == b']') {
-                // Drop the comma; continue from the whitespace so the
-                // preserved indentation lands in `out` naturally.
-                i += 1;
-                continue;
-            }
-        }
-        out.push(b as char);
-        i += 1;
-    }
-    out
 }
 
 /// Rewrite `"action": "Drop"` / `"action": "ESCALATE"` as

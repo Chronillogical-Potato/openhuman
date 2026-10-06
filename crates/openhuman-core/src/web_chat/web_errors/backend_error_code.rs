@@ -3,8 +3,8 @@
 //! [`classify_inference_error`](super::classify::classify_inference_error).
 
 use super::classify::ClassifiedError;
-use super::response_predicates::{is_malformed_tool_history_text, malformed_history_user_message};
-use super::retry::{parse_retry_after_secs_from_str, retry_after_hint};
+use super::retry::retry_after_hint;
+use tinyinference_llm::failure::{is_malformed_tool_history_text, parse_retry_after_secs};
 
 /// Classify a managed-backend error by its stable `errorCode` (#870).
 ///
@@ -48,71 +48,42 @@ pub(super) fn classify_by_backend_error_code(
         provider,
     );
 
+    use super::classify::{classified, classified_plain, copy_params};
+    use crate::inference::failure_copy::{failure_copy, FailureClass as C};
+
     let classified = match code {
         BackendErrorCode::RateLimited => {
-            let retry_secs = parse_retry_after_secs_from_str(err);
+            let retry_secs = parse_retry_after_secs(err);
             ClassifiedError {
-                error_type: "rate_limited",
-                message: format!(
-                    "Your AI provider is rate-limiting requests. You can retry in this thread.{}",
-                    retry_after_hint(retry_secs)
-                ),
-                source: "provider",
-                retryable: true,
                 retry_after_ms: retry_secs.map(|s| s.saturating_mul(1000)),
-                provider,
-                fallback_available,
+                copy_params: copy_params(provider.as_deref(), retry_secs, None),
+                ..classified(
+                    C::ManagedRateLimited,
+                    format!(
+                        "{}{}",
+                        failure_copy(C::ManagedRateLimited).copy,
+                        retry_after_hint(retry_secs)
+                    ),
+                    provider,
+                    fallback_available,
+                )
             }
         }
-        BackendErrorCode::UserInsufficientCredits => ClassifiedError {
-            error_type: "budget_exhausted",
-            message: "You're out of credits. Top up, or switch to 'Use Your Own Models' \
-                 in Settings."
-                .to_string(),
-            source: "openhuman_billing",
-            retryable: false,
-            retry_after_ms: None,
-            provider,
-            fallback_available: None,
-        },
+        BackendErrorCode::UserInsufficientCredits => {
+            classified_plain(C::ManagedBudgetExhausted, provider, None)
+        }
         // Operator fault (our key/account/quota/5xx) OR operator registry /
         // routing misconfig — NOT user-actionable. Both route to the same
         // calm "we've been notified" copy; the backend already paged. We
         // deliberately DROP the "check your API key" (F4) and "pick a
         // different model" (F6) copy the BYO substring arms would emit.
         BackendErrorCode::UpstreamUnavailable | BackendErrorCode::ModelUnavailable => {
-            ClassifiedError {
-                error_type: "provider_error",
-                message: "The AI service is temporarily unavailable — we've been notified. \
-                     Please try again shortly."
-                    .to_string(),
-                source: "provider",
-                retryable: true,
-                retry_after_ms: None,
-                provider,
-                fallback_available,
-            }
+            classified_plain(C::ManagedUnavailable, provider, fallback_available)
         }
-        BackendErrorCode::PayloadTooLarge => ClassifiedError {
-            error_type: "payload_too_large",
-            message: "Your message or attachment is too large for this model. Shorten it \
-                 or remove the attachment — or start a new thread."
-                .to_string(),
-            source: "config",
-            retryable: false,
-            retry_after_ms: None,
-            provider,
-            fallback_available: None,
-        },
-        BackendErrorCode::ContextLengthExceeded => ClassifiedError {
-            error_type: "context_overflow",
-            message: "The conversation is too long. Please start a new chat.".to_string(),
-            source: "config",
-            retryable: false,
-            retry_after_ms: None,
-            provider,
-            fallback_available: None,
-        },
+        BackendErrorCode::PayloadTooLarge => classified_plain(C::PayloadTooLarge, provider, None),
+        BackendErrorCode::ContextLengthExceeded => {
+            classified_plain(C::ContextOverflow, provider, None)
+        }
         BackendErrorCode::BadRequest => {
             // Same code, three shapes. FIRST: a tool-ordering rejection
             // (`validateToolMessageOrdering` — an orphaned `role:'tool'` message
@@ -122,15 +93,7 @@ pub(super) fn classify_by_backend_error_code(
             // is built, so the next turn cold-boots clean — tell the user
             // exactly that (and mark retryable, because resending now works).
             if is_malformed_tool_history_text(&err.to_lowercase()) {
-                ClassifiedError {
-                    error_type: "provider_request_rejected",
-                    message: malformed_history_user_message().to_string(),
-                    source: "provider",
-                    retryable: true,
-                    retry_after_ms: None,
-                    provider,
-                    fallback_available: None,
-                }
+                classified_plain(C::MalformedHistory, provider, None)
             // Else two shapes (B8/F8): a backend-flagged *malformed*
             // payload is a client bug (the request was built wrong — it pages
             // Sentry at the FE layer, gated elsewhere), while a plain
@@ -138,42 +101,16 @@ pub(super) fn classify_by_backend_error_code(
             // fix. The copy differs: don't tell the user to abandon the thread
             // for a one-off malformation (only this turn failed).
             } else if body_flags_malformed(err) {
-                ClassifiedError {
-                    error_type: "provider_request_rejected",
-                    message: "Something went wrong with this message. Try rephrasing it — \
-                         or start a new thread if it keeps happening."
-                        .to_string(),
-                    source: "provider",
-                    retryable: false,
-                    retry_after_ms: None,
-                    provider,
-                    fallback_available: None,
-                }
+                classified_plain(C::ManagedMalformedRequest, provider, None)
             } else {
-                ClassifiedError {
-                    error_type: "provider_request_rejected",
-                    message: "The request was rejected — usually a model or parameter \
-                         mismatch. Try a different model in Connections → API keys → LLM."
-                        .to_string(),
-                    source: "provider",
-                    retryable: false,
-                    retry_after_ms: None,
-                    provider,
-                    fallback_available: None,
-                }
+                classified_plain(C::ManagedRequestRejected, provider, None)
             }
         }
-        BackendErrorCode::InternalError => ClassifiedError {
-            error_type: "inference",
-            // Backend already paged its own 500; the FE must not double-report
-            // (gated in the Sentry classifier) and the user just retries.
-            message: "Something went wrong — we've been notified. Please try again.".to_string(),
-            source: "provider",
-            retryable: true,
-            retry_after_ms: None,
-            provider,
-            fallback_available,
-        },
+        // Backend already paged its own 500; the FE must not double-report
+        // (gated in the Sentry classifier) and the user just retries.
+        BackendErrorCode::InternalError => {
+            classified_plain(C::ManagedInternal, provider, fallback_available)
+        }
     };
 
     Some(classified)

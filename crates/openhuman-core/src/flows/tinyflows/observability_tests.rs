@@ -1,27 +1,4 @@
 use super::*;
-use serde_json::Value;
-use tinyflows::observability::RunStatus;
-
-#[test]
-fn callbacks_do_not_panic() {
-    let observer = TracingRunObserver {
-        run_label: "test".to_string(),
-    };
-    observer.on_run_start("run-1");
-    observer.on_step_finish(&ExecutionStep {
-        node_id: "n".to_string(),
-        status: StepStatus::Success,
-        output: Value::Null,
-        duration_ms: 5,
-        diagnostics: Vec::new(),
-        transcript: Vec::new(),
-    });
-    observer.on_run_finish(&Run {
-        id: "run-1".to_string(),
-        status: RunStatus::Completed,
-        steps: Vec::new(),
-    });
-}
 
 #[test]
 fn step_status_maps_to_stable_strings() {

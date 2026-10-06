@@ -236,9 +236,8 @@ impl ComposioExecuteTool {
             iana = %iana,
             "[composio][dispatcher] applying calendar query defaults pre-dispatch"
         );
-        let arguments = super::super::googlecalendar_args::apply_calendar_query_defaults(
-            &tool, arguments, &iana,
-        );
+        let arguments =
+            tinyconnectors::execute::apply_calendar_query_defaults(&tool, arguments, &iana);
 
         // Task-recency window (morning briefing): when the calling agent
         // installed a window, inject best-effort server-side narrowing for
@@ -250,7 +249,7 @@ impl ComposioExecuteTool {
                 - chrono::Duration::from_std(w).unwrap_or_else(|_| chrono::Duration::zero())
         });
         let arguments = match task_window_since {
-            Some(since) => super::super::task_window::apply_window_args(&tool, arguments, since),
+            Some(since) => tinyconnectors::execute::apply_window_args(&tool, arguments, since),
             None => arguments,
         };
 
@@ -290,7 +289,7 @@ impl ComposioExecuteTool {
                 // slug is a curated task-fetch action. Runs before the
                 // markdown/JSON body decision so the agent reads filtered data.
                 let resp = match task_window_since {
-                    Some(since) => super::super::task_window::filter_response(&tool, resp, since),
+                    Some(since) => tinyconnectors::execute::filter_response(&tool, resp, since),
                     None => resp,
                 };
                 tracing::info!(

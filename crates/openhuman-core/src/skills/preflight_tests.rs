@@ -227,7 +227,7 @@ async fn gate_passes_none_without_consulting_identity() {
     let calls = probes.calls.lock().unwrap();
     // The identity probe must not have been called.
     assert!(
-        !calls.iter().any(|c| *c == "composio_identity"),
+        !calls.contains(&"composio_identity"),
         "identity_match=none must not probe identity, got {calls:?}"
     );
 }

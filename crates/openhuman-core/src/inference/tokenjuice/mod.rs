@@ -1,8 +1,7 @@
 //! OpenHuman host adapter for the separately released TinyJuice module.
 
 pub mod config_patch;
-pub mod focus;
-pub mod generate;
+pub use tinyjuice::host::{focus, generate};
 pub mod ml;
 pub mod repl_tools;
 pub mod savings;
@@ -18,12 +17,14 @@ pub use types::{AgentTokenjuiceCompression, CompressorKind, ContentKind};
 
 use types::InstallRequest;
 
-pub const RETRIEVE_TOOL_NAME: &str = "tinyjuice_retrieve";
+pub const RETRIEVE_TOOL_NAME: &str = "juice_retrieve";
+pub const LEGACY_TINYJUICE_RETRIEVE_TOOL_NAME: &str = "tinyjuice_retrieve";
 pub const LEGACY_RETRIEVE_TOOL_NAME: &str = "retrieve_tool_output";
 /// Every name the recovery surface answers to: the live tool plus the two
 /// migration aliases a replayed transcript may still call.
 pub const RECOVERY_TOOL_NAMES: &[&str] = &[
     RETRIEVE_TOOL_NAME,
+    LEGACY_TINYJUICE_RETRIEVE_TOOL_NAME,
     "tokenjuice_retrieve",
     LEGACY_RETRIEVE_TOOL_NAME,
 ];
@@ -50,6 +51,32 @@ pub fn repl_handle_active(config: &crate::config::Config) -> bool {
         && config.tokenjuice.repl_handle_enabled
 }
 
+/// Whether TinyJuice may summarize this agent's tool output. Only the
+/// orchestrator gets a summary model, and a zero threshold turns it off.
+pub fn summarizes_tool_output(agent_id: &str, config: &crate::config::Config) -> bool {
+    agent_id == "orchestrator" && config.context.summarizer_payload_threshold_tokens > 0
+}
+
+/// The TinyJuice tools a compacted result can point the model at: the CCR
+/// recovery tool while anything can hand out a `⟦tj:…⟧` marker or a summary
+/// footer, plus the REPL tools while results are stored behind a handle.
+///
+/// This is the single list both the session's visible-tool set and the harness
+/// allowlist are built from. A name in the former but not the latter is
+/// advertised in the prompt and the tool declarations yet answered as an
+/// unknown tool at dispatch, so the model burns its failure budget on a tool it
+/// was told to call.
+pub fn companion_tool_names(agent_id: &str, config: &crate::config::Config) -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = Vec::new();
+    if config.context.compaction_enabled || summarizes_tool_output(agent_id, config) {
+        names.extend(RECOVERY_TOOL_VISIBLE.iter().copied());
+    }
+    if repl_handle_active(config) {
+        names.extend(REPL_TOOL_NAMES.iter().copied());
+    }
+    names
+}
+
 /// Where the module writes a plain-text copy of each stored original when
 /// `[tokenjuice] repl_save_enabled` is on.
 pub fn repl_save_dir(workspace_dir: &std::path::Path) -> std::path::PathBuf {
@@ -73,6 +100,10 @@ pub(crate) fn install_request(config: &crate::config::Config) -> InstallRequest 
             // only a turn whose agent carries a summary model supplies — so
             // switching it on here enables it for those turns, not for all.
             llm_summary_enabled: config.context.summarizer_payload_threshold_tokens > 0,
+            // Never at ingest: a large result gets deterministic compression
+            // and a recovery handle, and the model writes a summary only when
+            // the agent asks for one with `juice_summarize` (#6955).
+            llm_summary_mode: types::LlmSummaryMode::OnDemand,
             llm_summary_threshold_tokens: config.context.summarizer_payload_threshold_tokens,
             llm_summary_max_input_tokens: config.context.summarizer_max_payload_tokens,
             repl_handle: repl_handle_active(config),
@@ -152,42 +183,6 @@ pub(super) async fn proxy(config: &crate::config::Config) -> Result<tinybus::Pro
 #[cfg(not(feature = "modules"))]
 pub(super) async fn proxy(_config: &crate::config::Config) -> Result<tinybus::Proxy, String> {
     Err("native modules are not compiled into this build".to_string())
-}
-
-pub async fn compact_output_with_policy(
-    content: String,
-    tool_name: &str,
-    enabled: bool,
-    profile: AgentTokenjuiceCompression,
-) -> String {
-    compact_output_with_config(content, tool_name, enabled, profile, None).await
-}
-
-/// Compact tool output using an already-resolved runtime config when available.
-///
-/// Agent turns must not reload configuration from the middle of a deep tool
-/// call stack: startup owns migrations, while a turn only needs the snapshot it
-/// was constructed with.
-pub async fn compact_output_with_config(
-    content: String,
-    tool_name: &str,
-    enabled: bool,
-    profile: AgentTokenjuiceCompression,
-    runtime_config: Option<&std::sync::Arc<crate::config::Config>>,
-) -> String {
-    compact_tool_output(ToolOutputCompaction {
-        content,
-        tool_name,
-        enabled,
-        profile,
-        runtime_config,
-        arguments: None,
-        focus: None,
-        context_token: None,
-        scope: None,
-    })
-    .await
-    .text
 }
 
 /// Everything the module considers about one tool result.
@@ -498,10 +493,6 @@ pub async fn cache_stats() -> Result<types::CacheStats, String> {
 
 pub fn all_tokenjuice_registered_controllers() -> Vec<crate::core::all::RegisteredController> {
     schemas::all_registered_controllers()
-}
-
-pub fn all_tokenjuice_controller_schemas() -> Vec<crate::core::ControllerSchema> {
-    schemas::all_controller_schemas()
 }
 
 #[cfg(test)]

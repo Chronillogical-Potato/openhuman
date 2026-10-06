@@ -1,25 +1,26 @@
 use super::*;
-use serde_json::json;
 
+/// The flow `agent`/`llm` node result exposes usage under these exact keys;
+/// they are a contract with saved flows, so pin the literal JSON.
 #[test]
-fn backtick_run_reports_longest_sequence() {
-    assert_eq!(longest_backtick_run("a``b````c"), 4);
-    assert_eq!(longest_backtick_run("plain"), 0);
-}
-
-#[test]
-fn fenced_json_can_be_embedded_in_prose() {
+fn usage_to_json_wire_shape_is_stable() {
+    assert_eq!(usage_to_json(&None), serde_json::Value::Null);
+    let usage = BilledUsage::from_counts(100, 20)
+        .with_context_window(128_000)
+        .with_cached_input_tokens(40)
+        .with_cache_creation_tokens(10)
+        .with_reasoning_tokens(7)
+        .with_charged_usd(0.0123);
     assert_eq!(
-        extract_fenced_json_block("before ```json\n{\"ok\":true}\n``` after"),
-        Some(json!({"ok": true}))
+        usage_to_json(&Some(usage)),
+        serde_json::json!({
+            "input_tokens": 100,
+            "output_tokens": 20,
+            "context_window": 128000,
+            "cached_input_tokens": 40,
+            "cache_creation_tokens": 10,
+            "reasoning_tokens": 7,
+            "charged_amount_usd": 0.0123
+        })
     );
-}
-
-#[test]
-fn balanced_json_ignores_delimiters_and_escapes_inside_strings() {
-    assert_eq!(
-        extract_balanced_json(r#"before {"text":"} and \"quoted\"","ok":true} after"#),
-        Some(json!({"text": "} and \"quoted\"", "ok": true}))
-    );
-    assert_eq!(extract_balanced_json("no structured value"), None);
 }

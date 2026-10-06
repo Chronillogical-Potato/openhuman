@@ -69,14 +69,6 @@ use crate::cron::scheduler_gate;
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 use crate::platform::cost;
 
-/// Context utilization at which an *already budget-driven* soft hint is
-/// escalated to hard.
-///
-/// Deliberately only an escalator. Utilization on its own never originates a
-/// hint here — that question belongs to the crate's `SummarizationPolicy`, and
-/// answering it a second time from the host is how the two silently disagree.
-const ESCALATE_AT_UTILIZATION: f64 = 0.9;
-
 /// OpenHuman's [`BudgetGate`]: scheduler-gate back-pressure, cost-tracker
 /// budget enforcement, and TokenJuice-profile-aware compression advice.
 ///
@@ -150,26 +142,6 @@ impl OpenHumanBudgetGate {
     /// The model id [`record`](Self::record) will attribute usage to.
     fn attributed_model(&self) -> String {
         self.last_model.read().clone()
-    }
-
-    /// Lowers a hint to what the agent's TokenJuice profile tolerates.
-    ///
-    /// * `Off` — the agent has opted out of TokenJuice, so this gate asks for
-    ///   nothing. Union semantics mean the crate's own policy still compresses
-    ///   when the window demands it; this is a declined request, not a veto.
-    /// * `Light` — non-lossy reductions only, so `Hard` (which invites lossy
-    ///   compaction) is softened to `Soft`.
-    /// * `Auto` / `Full` — pass through. TokenJuice itself treats `Auto` as
-    ///   `Full` for callers that have not resolved it.
-    fn cap_hint(&self, hint: CompressionHint) -> CompressionHint {
-        match self.compression {
-            AgentTokenjuiceCompression::Off => CompressionHint::None,
-            AgentTokenjuiceCompression::Light => match hint {
-                CompressionHint::Hard => CompressionHint::Soft,
-                other => other,
-            },
-            AgentTokenjuiceCompression::Auto | AgentTokenjuiceCompression::Full => hint,
-        }
     }
 }
 

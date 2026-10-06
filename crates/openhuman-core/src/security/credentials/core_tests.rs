@@ -73,7 +73,7 @@ fn state_dir_from_config_falls_back_to_dot_when_no_parent() {
     let dir = state_dir_from_config(&config);
     // Either "." (our fallback) or "" (parent of a path with just a
     // filename) is acceptable — both behave as cwd.
-    assert!(dir == PathBuf::from(".") || dir.as_os_str().is_empty());
+    assert!(dir == *"." || dir.as_os_str().is_empty());
 }
 
 #[test]

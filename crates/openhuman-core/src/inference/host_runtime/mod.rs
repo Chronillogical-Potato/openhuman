@@ -1,18 +1,23 @@
 //! OpenHuman policy, RPC, and speech bindings for `tinyinference-local`.
 //!
-//! Runtime discovery, model management, downloads, and inference execution
-//! live in TinyInference. This module retains only product-owned access
+//! Endpoint resolution, probing, and inference execution live in
+//! TinyInference. The local runtime itself is run by the user; nothing here
+//! downloads models or manages a runtime process. This module retains only product-owned access
 //! policy, controller wiring, and voice integration.
 
 #[cfg(test)]
-pub(crate) static INFERENCE_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
-    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
+pub(crate) static INFERENCE_TEST_MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+/// Blocking form for synchronous tests (panics inside a tokio runtime).
 #[cfg(test)]
-pub(crate) fn inference_test_guard() -> std::sync::MutexGuard<'static, ()> {
-    INFERENCE_TEST_MUTEX
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
+pub(crate) fn inference_test_guard() -> tokio::sync::MutexGuard<'static, ()> {
+    INFERENCE_TEST_MUTEX.blocking_lock()
+}
+
+/// Async form for `#[tokio::test]` bodies, so the guard may be held across `.await`.
+#[cfg(test)]
+pub(crate) async fn inference_test_guard_async() -> tokio::sync::MutexGuard<'static, ()> {
+    INFERENCE_TEST_MUTEX.lock().await
 }
 
 mod core;

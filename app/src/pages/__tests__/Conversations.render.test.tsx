@@ -72,6 +72,16 @@ vi.mock('../../services/chatService', () => ({
   useRustChat: vi.fn(() => true),
 }));
 
+const { mockGetClientConfig, mockUpdateRuntimeSettings } = vi.hoisted(() => ({
+  mockGetClientConfig: vi.fn(() => Promise.resolve({ result: {} })),
+  mockUpdateRuntimeSettings: vi.fn(() => Promise.resolve({})),
+}));
+vi.mock('../../utils/tauriCommands/config', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../utils/tauriCommands/config')>()),
+  openhumanGetClientConfig: mockGetClientConfig,
+  openhumanUpdateRuntimeSettings: mockUpdateRuntimeSettings,
+}));
+
 vi.mock('../../services/api/threadApi', () => ({
   threadApi: {
     createNewThread: vi.fn().mockResolvedValue({ id: 'new-thread', labels: [] }),
@@ -352,6 +362,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    mockGetClientConfig.mockResolvedValue({ result: {} });
+    mockUpdateRuntimeSettings.mockResolvedValue({});
     // Reset the mock to defaults for each test
     mockGetThreads.mockResolvedValue({ threads: [], count: 0 });
     mockGetThreadMessages.mockResolvedValue({ messages: [], count: 0 });
@@ -818,6 +830,27 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(chatSend).not.toHaveBeenCalled();
   });
 
+  it('loads the thinking level from config, persists a new pick and sends it', async () => {
+    mockGetClientConfig.mockResolvedValue({ result: { reasoning_effort: 'low' } });
+    const { textarea, thread } = await renderSelectedConversation();
+
+    const picker = (await screen.findByTestId('composer-reasoning-effort')) as HTMLSelectElement;
+    await waitFor(() => expect(picker.value).toBe('low'));
+
+    fireEvent.change(picker, { target: { value: 'high' } });
+    expect(mockUpdateRuntimeSettings).toHaveBeenCalledWith({ reasoning_effort: 'high' });
+
+    await submitComposerText(textarea, 'think hard');
+    await waitFor(() => {
+      expect(chatSend).toHaveBeenCalledWith(
+        expect.objectContaining({ threadId: thread.id, reasoningEffort: 'high' })
+      );
+    });
+
+    fireEvent.change(picker, { target: { value: 'default' } });
+    expect(mockUpdateRuntimeSettings).toHaveBeenLastCalledWith({ reasoning_effort: '' });
+  });
+
   it('persists a local user message and sends through chat service for valid input', async () => {
     const { textarea, thread } = await renderSelectedConversation();
 
@@ -834,6 +867,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       message: 'hello cloud',
       model: 'hint:chat',
       locale: 'en',
+      reasoningEffort: 'default',
     });
   });
 
@@ -857,6 +891,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         message: 'play highway to hell',
         model: 'hint:chat',
         locale: 'en',
+        reasoningEffort: 'default',
       });
     });
   });
@@ -908,6 +943,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       message: 'slow backend',
       model: 'hint:chat',
       locale: 'en',
+      reasoningEffort: 'default',
     });
     // The send cleared the composer; with an empty composer mid-send the Send
     // button morphs into the Stop button, so there is no Send affordance left
@@ -1997,6 +2033,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         message: 'enter send',
         model: 'hint:chat',
         locale: 'en',
+        reasoningEffort: 'default',
       });
     });
   });
@@ -2071,6 +2108,7 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
         message: '안녕',
         model: 'hint:chat',
         locale: 'en',
+        reasoningEffort: 'default',
       });
     });
   });

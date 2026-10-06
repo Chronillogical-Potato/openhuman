@@ -431,6 +431,7 @@ impl PythonExecTool {
         let policy = sandbox::resolve_sandbox_policy(
             crate::agent::harness::definition::SandboxMode::Sandboxed,
             &security.action_dir,
+            &security.workspace_dir,
             &runtime_cfg,
             false,
         );

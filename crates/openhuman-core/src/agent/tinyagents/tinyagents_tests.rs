@@ -279,7 +279,9 @@ fn run_policy_retry_schedule_outlasts_a_throttled_upstream() {
         retry.jitter,
         "identical curves keep a saturated upstream saturated"
     );
-    assert!(JITTER_FRACTION > 0.0, "jitter must actually widen the band");
+    const {
+        assert!(JITTER_FRACTION > 0.0, "jitter must actually widen the band");
+    }
 
     // Both ceilings stay bounded — this must not become an unbounded retry
     // (cf. #6412, the opposite failure in another crate).

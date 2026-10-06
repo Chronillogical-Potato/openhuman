@@ -12,7 +12,6 @@ use super::super::runtime::process_channel_message;
 use super::super::traits;
 use super::super::{Channel, SendMessage};
 use super::common::SlowModel;
-use crate::agent::bus::{mock_agent_run_turn, AgentTurnResponse};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -85,14 +84,11 @@ fn make_test_context(
         channels_by_name: Arc::new(channels),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(model)),
         default_provider: Arc::new("test-provider".to_string()),
-        memory: crate::memory::guard::in_memory::FixedRecallProvider::guarded(Vec::new()),
         tools_registry: Arc::new(vec![]),
         system_prompt: crate::channels::ChannelSystemPrompt::fixed("test-system-prompt"),
         model: Arc::new("test-model".to_string()),
         temperature: 0.0,
-        auto_save_memory: false,
         max_tool_iterations: 1,
-        min_relevance_score: 0.0,
         conversation_histories: Arc::new(Mutex::new(HashMap::new())),
         turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
@@ -428,80 +424,6 @@ async fn telegram_threaded_inbound_emits_ack_reaction_then_reply() {
         Some("77"),
         "reply send must carry the same thread_ts as the inbound"
     );
-}
-
-/// Full encapsulation proof (parity with
-/// `discord_dispatch_routes_through_agent_run_turn_bus_handler`): install a
-/// stub `agent.run_turn` bus handler, drive a Telegram-shaped inbound
-/// message end-to-end, and assert the stub is invoked and its canned
-/// response reaches the channel. Together with the Discord counterpart,
-/// this proves the channels module can be fully exercised for BOTH
-/// Telegram and Discord without touching any real agent runtime, memory
-/// backend, or LLM provider.
-#[tokio::test]
-async fn telegram_dispatch_routes_through_agent_run_turn_bus_handler() {
-    // Install a typed stub for `agent.run_turn` via the shared mock bus
-    // helper. The returned guard holds `BUS_HANDLER_LOCK` for the whole
-    // test body and re-registers production handlers on drop.
-    let stub_calls = Arc::new(AtomicUsize::new(0));
-    let stub_calls_for_handler = Arc::clone(&stub_calls);
-    let _bus_guard = mock_agent_run_turn(move |req| {
-        let stub_calls = Arc::clone(&stub_calls_for_handler);
-        async move {
-            stub_calls.fetch_add(1, Ordering::SeqCst);
-            // Sanity-check the payload the dispatcher built for us.
-            assert_eq!(req.channel_name, "telegram");
-            assert_eq!(req.provider_name, "test-provider");
-            assert_eq!(req.model, "test-model");
-            assert!(
-                req.history.len() >= 2,
-                "history should include at least the system prompt and user message"
-            );
-            Ok(AgentTurnResponse::new("CANNED_TELEGRAM_RESPONSE"))
-        }
-    })
-    .await;
-
-    // Use the TelegramReactingChannel so the channel genuinely reports
-    // `name() == "telegram"`. This makes the `req.channel_name == "telegram"`
-    // assertion above a real encapsulation check: dispatch must look up the
-    // Telegram channel by its real name and build the bus request accordingly.
-    let recorder = Arc::new(TelegramReactingChannel::default());
-    let channel: Arc<dyn Channel> = recorder.clone();
-    // Minimal provider — never invoked because the stub short-circuits.
-    let ctx = make_test_context(channel, Arc::new(super::common::DummyModel));
-
-    process_channel_message(
-        ctx,
-        traits::ChannelMessage {
-            id: "tg_stub_msg".to_string(),
-            sender: "alice".to_string(),
-            reply_target: "alice".to_string(),
-            content: "hello from telegram bus test".to_string(),
-            channel: "telegram".to_string(),
-            timestamp: 1,
-            // No thread_ts so dispatch does not emit an automatic ack
-            // reaction — we want to count exactly one send.
-            thread_ts: None,
-        },
-    )
-    .await;
-
-    assert_eq!(
-        stub_calls.load(Ordering::SeqCst),
-        1,
-        "telegram dispatch must route through the agent.run_turn bus handler exactly once"
-    );
-
-    let sent = recorder.sent.lock().await;
-    assert_eq!(sent.len(), 1, "stubbed response must reach the channel");
-    assert!(
-        sent[0].content.contains("CANNED_TELEGRAM_RESPONSE"),
-        "delivered message should contain the stubbed text, got {:?}",
-        sent[0].content
-    );
-    // No manual restore — dropping `_bus_guard` at end-of-scope re-registers
-    // the production `agent.run_turn` handler automatically.
 }
 
 /// Regression: for non-Telegram channels, thread_ts DOES split history keys

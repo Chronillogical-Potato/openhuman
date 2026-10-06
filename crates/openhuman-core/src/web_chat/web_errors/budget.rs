@@ -1,56 +1,30 @@
-//! User-facing copy and detection for OpenHuman's own budget/quota limits —
-//! inference credits and the SecurityPolicy per-hour action-budget cap.
+//! Detection and user-facing accessors for OpenHuman's own budget/quota limits —
+//! inference credits and the SecurityPolicy per-hour action-budget cap. The
+//! copy lives in the host copy table; the phrase matching in
+//! `tinyinference_providers::billing`.
 
-use once_cell::sync::Lazy;
-use regex::Regex;
+use crate::inference::failure_copy::{failure_copy, FailureClass};
+use tinyinference_providers::{is_budget_message, BudgetMatch};
 
-static BUDGET_ERROR_NORMALIZE_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[-_\s]+").expect("budget normalize regex"));
-static BUDGET_ERROR_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
-    vec![
-        Regex::new(r"budget.*exceed").expect("budget exceeded regex"),
-        Regex::new(r"top up").expect("top up regex"),
-        Regex::new(r"add.*credits").expect("add credits regex"),
-        Regex::new(r"out of credits").expect("out of credits regex"),
-        Regex::new(r"no remaining credits").expect("no remaining credits regex"),
-    ]
-});
-
+/// Whether an error string signals an exhausted inference budget, read with the
+/// chat surface's [`BudgetMatch::Managed`] strictness: the managed no-credits
+/// 400 ("Insufficient budget" / "Insufficient balance") plus the looser
+/// top-up / out-of-credits wording, so the user gets the actionable budget copy
+/// instead of the generic apology (#3088).
 pub(crate) fn is_inference_budget_exceeded_error(message: &str) -> bool {
-    let normalized = BUDGET_ERROR_NORMALIZE_RE
-        .replace_all(&message.trim().to_ascii_lowercase(), " ")
-        .into_owned();
-    if BUDGET_ERROR_PATTERNS
-        .iter()
-        .any(|pattern| pattern.is_match(&normalized))
-    {
-        return true;
-    }
-    // Align with the canonical OpenHuman-backend budget detector
-    // (`billing_error::is_budget_exhausted_message`) so the managed
-    // no-credits response — a 400 carrying "Insufficient budget" /
-    // "Insufficient balance" — surfaces the actionable budget message
-    // below instead of the generic "Something went wrong" apology
-    // (issue #3088). Without this, an Ollama user with zero credits and
-    // routing still on Managed sees an opaque "provider error" and has no
-    // way to self-diagnose that they must top up or switch routing.
-    crate::backend::classify::is_budget_exhausted_message(message)
+    is_budget_message(message, BudgetMatch::Managed)
 }
 
 pub(crate) fn inference_budget_exceeded_user_message() -> &'static str {
-    // Keep the literal "top up" / "credits" tokens (asserted by
-    // `budget_exceeded_copy_mentions_top_up`) and add the self-diagnosis
-    // path for issue #3088: a user who enabled a local model but left
-    // routing on Managed needs to know they can switch to their own model
-    // rather than being stuck. We guide, never auto-switch — the user's
-    // routing choice in Settings is respected.
-    "You're out of credits, so I can't run the managed (cloud) model right now. \
-     You can top up your credits or pick a plan to continue — or, if you've enabled a \
-     local model like Ollama, switch routing to \"Use Your Own Models\" in Connections → API keys → LLM."
+    // Keeps the literal "top up" / "credits" tokens (asserted by
+    // `budget_exceeded_copy_mentions_top_up`) and the self-diagnosis path for
+    // #3088. We guide, never auto-switch — the user's routing choice in
+    // Settings is respected.
+    failure_copy(FailureClass::BudgetExhausted).copy
 }
 
 pub(crate) fn generic_inference_error_user_message() -> &'static str {
-    "Something went wrong. Please try again."
+    failure_copy(FailureClass::Inference).copy
 }
 
 /// Detect the SecurityPolicy global hourly action-budget signal

@@ -62,7 +62,7 @@ fn load_real_toolkit(toolkit: &str) -> Vec<ConnectedIntegrationTool> {
 fn assert_in_top(actions: &[ConnectedIntegrationTool], hits: &[usize], wanted: &str, label: &str) {
     let top_names: Vec<&str> = hits.iter().map(|&i| actions[i].name.as_str()).collect();
     assert!(
-        top_names.iter().any(|n| *n == wanted),
+        top_names.contains(&wanted),
         "[{label}] '{wanted}' not in top {k}: {top_names:?}",
         k = hits.len()
     );

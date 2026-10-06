@@ -86,7 +86,7 @@ impl Tool for GitbooksSearchTool {
             .call_tool("searchDocumentation", json!({ "query": query }))
             .await
         {
-            Ok(result) => Ok(crate::skills::types::tool_result_from_mcp(result.rendered)),
+            Ok(result) => Ok(tinymcp::tools::tool_result(result.rendered)),
             Err(e) => Ok(ToolResult::error(format!("gitbooks_search failed: {e}"))),
         }
     }
@@ -170,7 +170,7 @@ impl Tool for GitbooksGetPageTool {
             .call_tool("getPage", json!({ "url": url }))
             .await
         {
-            Ok(result) => Ok(crate::skills::types::tool_result_from_mcp(result.rendered)),
+            Ok(result) => Ok(tinymcp::tools::tool_result(result.rendered)),
             Err(e) => Ok(ToolResult::error(format!("gitbooks_get_page failed: {e}"))),
         }
     }

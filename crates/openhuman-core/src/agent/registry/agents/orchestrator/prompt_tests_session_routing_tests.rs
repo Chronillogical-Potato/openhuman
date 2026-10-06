@@ -58,27 +58,23 @@ fn the_withheld_block_renders_for_a_renamed_session_with_a_filter() {
         "expected the generated heading, got: {:?}",
         block.chars().take(120).collect::<String>()
     );
-    // The row this pins is a `documents`-gated skill, so the assertion depends
-    // on a Cargo feature the test does not declare. Under `default` the skill
-    // is not compiled, the row cannot render, and the failure reads as a broken
-    // block — which is how openhuman#6507 came to be filed and retracted.
-    //
-    // Unlike the tool-universe guard in `fleet_prompt_tests`, this test depends
-    // on exactly ONE feature and can ask about it directly, so there is no
-    // tool-to-feature mapping here to drift out of date.
+    // A packed delegate no Cargo feature gates must always render with its
+    // route; this is the row that pins the block in every build profile.
     assert!(
-        block.contains("`documents` (make_presentation"),
-        "a packed delegate must render with its route:{}\n{block}",
-        if cfg!(feature = "documents") {
-            String::new()
-        } else {
-            "\n\nNOTE — this may be a feature-profile artefact, not a rendering defect: \
-             the `documents` feature is NOT enabled in this build, so `make_presentation` \
-             does not exist and the row cannot render. Settle it by reproducing CI exactly:\
-             \n\n    cargo test -p openhuman --lib --features \"$(bash scripts/ci/product-features.sh)\"\
-             \n\nIf it passes there, this profile simply lacks the skill. See openhuman#6512."
-                .to_string()
-        }
+        block.contains("`tasks` (manage_tasks"),
+        "a packed delegate must render with its route:\n{block}"
+    );
+    // `make_presentation` is a `documents`-gated skill: under `default` it is
+    // not compiled and its row cannot render, so expecting it unconditionally
+    // reads as a broken block (which is how openhuman#6507 came to be filed
+    // and retracted). Assert it exactly when the feature is on, and assert its
+    // absence when it is off, so the expectation tracks the build profile.
+    let presentation_row = block.contains("`documents` (make_presentation");
+    assert_eq!(
+        presentation_row,
+        cfg!(feature = "documents"),
+        "the `documents` row must render exactly when the `documents` feature is enabled \
+         (see openhuman#6512):\n{block}"
     );
 }
 
@@ -227,7 +223,7 @@ fn skill_sections_name_the_hand_off_this_session_can_call() {
 fn a_route_tagged_prompt_row_is_dropped_when_its_family_is_absent() {
     let md = "keep me\n   - Skills row<!--route:skills-->\n   - MCP row<!--route:mcp-->\ntail";
 
-    let both = strip_route_lines(md, true, true);
+    let both = strip_route_lines(md, true, true, true);
     assert!(
         both.contains("Skills row") && both.contains("MCP row"),
         "both rows survive when both families are present: {both}"
@@ -237,7 +233,7 @@ fn a_route_tagged_prompt_row_is_dropped_when_its_family_is_absent() {
         "the tag is an authoring marker and must never reach the model: {both}"
     );
 
-    let neither = strip_route_lines(md, false, false);
+    let neither = strip_route_lines(md, false, false, true);
     assert!(
         !neither.contains("Skills row") && !neither.contains("MCP row"),
         "a row whose family is compiled out must be dropped: {neither}"
@@ -247,9 +243,19 @@ fn a_route_tagged_prompt_row_is_dropped_when_its_family_is_absent() {
         "untagged prose is untouched: {neither}"
     );
 
-    let skills_only = strip_route_lines(md, true, false);
+    let skills_only = strip_route_lines(md, true, false, true);
     assert!(
         skills_only.contains("Skills row") && !skills_only.contains("MCP row"),
         "each tag is decided on its own: {skills_only}"
     );
+}
+
+#[test]
+fn the_composio_connect_row_is_dropped_when_composio_is_off() {
+    let md = "keep\n- connect: `composio_connect`<!--route:composio-->\ntail";
+    let on = strip_route_lines(md, true, true, true);
+    assert!(on.contains("composio_connect") && !on.contains("<!--route:"));
+    let off = strip_route_lines(md, true, true, false);
+    assert!(!off.contains("composio_connect"), "{off}");
+    assert!(off.contains("keep") && off.contains("tail"));
 }

@@ -170,9 +170,7 @@ impl OpenHumanBackendModel {
     }
 
     fn resolve_bearer(&self) -> anyhow::Result<String> {
-        use crate::security::credentials::session_support::{
-            classify_session_token, SessionTokenCheck,
-        };
+        use crate::security::credentials::session_support::classify_session_token;
 
         // A stored API key (library runtime) is the bearer outright: the
         // OpenAI-compatible managed endpoint accepts it as `Bearer <key>`,
@@ -217,23 +215,8 @@ impl OpenHumanBackendModel {
         // stored token and let the 401 come back — but an expired session can
         // also surface upstream as a misleading "model unavailable", which is a
         // core symptom of #5503 (all tiers "die" over a long session). Failing
-        // fast as `session_expired` routes the user to re-auth instead. Offline
-        // / local sessions (`is_local_session_token`) and `exp`-less tokens
-        // carry no recorded expiry, so `classify_session_token` returns `Live`
-        // for them — their behaviour is unchanged and the post-call 401 net
-        // still covers a server-side revocation.
-        match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
-            SessionTokenCheck::Live(token) => Ok(token),
-            SessionTokenCheck::Expired => {
-                maybe_publish_local_session_expiry();
-                anyhow::bail!(
-                    "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
-                )
-            }
-            SessionTokenCheck::Absent => {
-                anyhow::bail!("No backend session: store a JWT via auth (app-session)")
-            }
-        }
+        // fast as `session_expired` routes the user to re-auth instead.
+        managed_bearer(classify_session_token(profile.as_ref(), chrono::Utc::now()))
     }
 
     /// The managed OpenAI-compatible endpoint, from the installed backend
@@ -416,76 +399,6 @@ fn resolve_model(model: &str) -> String {
     }
 }
 
-/// The subset of the managed backend's `openhuman` response envelope the crate
-/// `Usage`/`ModelResponse` can't carry — billing + cache tokens — so it can be
-/// re-projected for the host cost bridge.
-#[derive(Debug, Default, serde::Deserialize)]
-struct ManagedEnvelope {
-    #[serde(default)]
-    usage: Option<ManagedEnvelopeUsage>,
-    #[serde(default)]
-    billing: Option<ManagedEnvelopeBilling>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct ManagedEnvelopeUsage {
-    #[serde(default)]
-    cached_input_tokens: Option<u64>,
-    #[serde(default)]
-    context_window: Option<u64>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct ManagedEnvelopeBilling {
-    #[serde(default)]
-    charged_amount_usd: f64,
-}
-
-/// Re-project the managed `openhuman.{billing,usage}` envelope — which the crate
-/// `OpenAiModel` leaves only on `ModelResponse.raw` — into the metadata the host
-/// cost bridge reads: `openhuman_usage_meta` (charged USD + context window) plus a
-/// crate `Usage.cache_read_tokens` reconciliation when the crate missed the
-/// envelope's cached count. Parity with the legacy model-adapter path's
-/// `usage_info_from_response`; without it the crate-native managed turn reports
-/// `$0` charged and drops backend-reported cached tokens.
-fn project_managed_usage(mut response: ModelResponse) -> ModelResponse {
-    let envelope: ManagedEnvelope = response
-        .raw
-        .as_ref()
-        .and_then(|raw| raw.get("openhuman"))
-        .and_then(|oh| serde_json::from_value(oh.clone()).ok())
-        .unwrap_or_default();
-
-    let charged_amount_usd = envelope
-        .billing
-        .map(|b| b.charged_amount_usd)
-        .unwrap_or(0.0);
-    let context_window = envelope
-        .usage
-        .as_ref()
-        .and_then(|u| u.context_window)
-        .unwrap_or(0);
-
-    // The `openhuman.usage` cached count is authoritative (the legacy `extract_usage`
-    // preferred it over the standard block); backfill it when the crate's standard
-    // parse produced none.
-    if let (Some(usage), Some(cached)) = (
-        response.usage.as_mut(),
-        envelope.usage.as_ref().and_then(|u| u.cached_input_tokens),
-    ) {
-        if usage.cache_read_tokens == 0 {
-            usage.cache_read_tokens = cached;
-        }
-    }
-
-    response.raw = crate::agent::tinyagents::model::merge_openhuman_usage_meta(
-        response.raw,
-        charged_amount_usd,
-        context_window,
-    );
-    response
-}
-
 /// Request-metadata key a caller sets (to `true`) to ask for no reasoning on
 /// a call — see [`without_reasoning`].
 const REASONING_OFF_METADATA_KEY: &str = "openhuman_reasoning_off";
@@ -506,29 +419,60 @@ pub(crate) fn without_reasoning(mut request: ModelRequest) -> ModelRequest {
     request
 }
 
-/// Translate the [`without_reasoning`] hint into the managed backend's wire
-/// field. A `reasoning` object the caller already put in provider options wins.
-fn apply_reasoning_hint(request: ModelRequest) -> ModelRequest {
+/// Translate the request's reasoning choice into the managed backend's wire
+/// field: the OpenRouter-style `reasoning` object, which the backend forwards
+/// upstream.
+///
+/// Sources, highest first: a `reasoning` object the caller already put in
+/// provider options (left alone); the [`without_reasoning`] hint, which marks
+/// one helper call specifically; the request's provider-neutral
+/// `ModelRequest::reasoning` (the user's thinking level, from the harness
+/// `RunPolicy::default_reasoning`). The
+/// neutral field is consumed here, so the OpenAI-compatible transport does not
+/// also emit a top-level `reasoning_effort` for the same choice.
+fn apply_reasoning_hint(mut request: ModelRequest) -> ModelRequest {
+    if request.provider_options.get("reasoning").is_some() {
+        return request;
+    }
     let wants_off = request
         .metadata
         .get(REASONING_OFF_METADATA_KEY)
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    if !wants_off || request.provider_options.get("reasoning").is_some() {
+    let neutral = request.reasoning.take();
+    let wire = if wants_off {
+        Some(serde_json::json!({ "enabled": false }))
+    } else {
+        neutral.as_ref().and_then(managed_reasoning_wire)
+    };
+    let Some(wire) = wire else {
         return request;
-    }
+    };
     let mut options = request.provider_options.clone();
     if !options.is_object() {
         options = Value::Object(serde_json::Map::new());
     }
     if let Some(map) = options.as_object_mut() {
-        map.insert(
-            "reasoning".to_string(),
-            serde_json::json!({ "enabled": false }),
-        );
+        map.insert("reasoning".to_string(), wire.clone());
     }
-    log::debug!("[inference][managed] reasoning disabled for this call by request hint");
+    log::debug!("[inference][managed] reasoning for this call: {wire}");
     request.with_provider_options(options)
+}
+
+/// The OpenRouter `reasoning` object for a provider-neutral config: `none`
+/// disables reasoning, an explicit budget becomes `max_tokens`, and any other
+/// effort is sent by name. An empty config sends nothing.
+fn managed_reasoning_wire(reasoning: &tinyinference_llm::model::ReasoningConfig) -> Option<Value> {
+    use tinyinference_llm::model::ReasoningEffort;
+    if reasoning.effort == Some(ReasoningEffort::None) {
+        return Some(serde_json::json!({ "enabled": false }));
+    }
+    if let Some(budget) = reasoning.budget_tokens {
+        return Some(serde_json::json!({ "max_tokens": budget }));
+    }
+    reasoning
+        .effort
+        .map(|effort| serde_json::json!({ "effort": effort.as_str() }))
 }
 
 /// Inject this managed model's explicitly owned thread into provider options.
@@ -548,6 +492,45 @@ fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelReques
         );
     }
     request.with_provider_options(options)
+}
+
+/// The bearer a classified app-session token yields for managed inference.
+///
+/// Separate from [`OpenHumanBackendModel::resolve_bearer`] so the decision is
+/// testable without an on-disk auth profile.
+///
+/// `exp`-less tokens carry no recorded expiry, so `classify_session_token`
+/// reports them `Live`; the offline local session is one of those, and it
+/// authenticates no TinyHumans account. Sending it anyway earned a backend
+/// `401 "Invalid token"`, which published `SessionExpired` and told a user who
+/// was signed in locally that their session had expired (#6932). Refusing here
+/// mirrors the arm `resolve_backend_credential` already applies to every
+/// backend REST caller, and keeps the local credential intact.
+fn managed_bearer(
+    check: crate::security::credentials::session_support::SessionTokenCheck,
+) -> anyhow::Result<String> {
+    use crate::security::credentials::session_support::{
+        is_local_session_token, SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+    };
+
+    match check {
+        SessionTokenCheck::Live(token) if is_local_session_token(&token) => {
+            log::debug!(
+                "[providers][openhuman-backend] refusing managed inference for the offline local session"
+            );
+            anyhow::bail!(LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE)
+        }
+        SessionTokenCheck::Live(token) => Ok(token),
+        SessionTokenCheck::Expired => {
+            maybe_publish_local_session_expiry();
+            anyhow::bail!(
+                "SESSION_EXPIRED: backend session token expired locally — re-authentication required"
+            )
+        }
+        SessionTokenCheck::Absent => {
+            anyhow::bail!("No backend session: store a JWT via auth (app-session)")
+        }
+    }
 }
 
 /// Publish a `SessionExpired` event when the local `exp` precheck in
@@ -638,80 +621,8 @@ fn observe_in_band_failure(item: &ModelStreamItem) {
     }
 }
 
-#[async_trait]
-impl ChatModel<()> for OpenHumanBackendModel {
-    fn profile(&self) -> Option<&ModelProfile> {
-        Some(&self.profile)
-    }
-
-    /// Identity for harness response-cache scoping: the backend base URL and
-    /// the default tier/model. The session JWT is deliberately absent — it
-    /// rotates, and a key derived from it would never hit twice — and the
-    /// backend resolves the tier per account anyway, so two accounts sharing
-    /// a cache would need their own namespace, not a credential in the key.
-    fn cache_identity(&self) -> Option<String> {
-        self.base_url()
-            .ok()
-            .map(|base| format!("openhuman:{base}:{}", self.default_model))
-    }
-
-    async fn invoke(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelResponse> {
-        let model = self.build_wire_model()?;
-        let response = match model
-            .invoke(
-                state,
-                with_thread_id(apply_reasoning_hint(request), self.thread_id.as_deref()),
-            )
-            .await
-        {
-            Ok(response) => response,
-            Err(e) => {
-                log_managed_dispatch_error(&e, "invoke");
-                maybe_publish_session_expired(&e, "invoke");
-                return Err(e);
-            }
-        };
-        Ok(project_managed_usage(response))
-    }
-
-    async fn stream(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelStream> {
-        let model = self.build_wire_model()?;
-        // NOTE (streaming billing parity): the crate SSE parser sets `raw: None`
-        // on the terminal `Completed` response, so the `openhuman.billing` envelope
-        // is not available to `project_managed_usage` here — a streaming managed
-        // turn's charged USD falls back to the catalog cost estimate (token counts
-        // survive via `UsageDelta`). The authoritative charged amount is recovered
-        // on the non-streaming `invoke` path above. Restoring it for streaming
-        // needs the crate to preserve the final chunk's raw JSON (tracked upstream).
-        match model
-            .stream(
-                state,
-                with_thread_id(apply_reasoning_hint(request), self.thread_id.as_deref()),
-            )
-            .await
-        {
-            // A failure can also arrive *inside* an HTTP 200 stream as an SSE
-            // `{"error":…}` payload; it never reaches the `Err` arm (#6724).
-            Ok(stream) => Ok(stream.map_items(|item| {
-                observe_in_band_failure(&item);
-                item
-            })),
-            Err(e) => {
-                log_managed_dispatch_error(&e, "stream");
-                maybe_publish_session_expired(&e, "stream");
-                Err(e)
-            }
-        }
-    }
-}
+#[path = "openhuman_backend_model_calls.rs"]
+mod calls;
 
 /// Connect timeout for the shared managed-inference client; matches the
 /// adapter's own default.
@@ -754,6 +665,14 @@ fn managed_inference_http_client() -> reqwest::Client {
         .clone()
 }
 
+#[path = "openhuman_backend_model_usage.rs"]
+mod usage;
+use usage::project_managed_usage;
+
 #[cfg(test)]
 #[path = "openhuman_backend_model_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "openhuman_backend_model_usage_tests.rs"]
+mod usage_tests;

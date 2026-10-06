@@ -6,7 +6,9 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::agent::harness::tool_result_artifacts::new_tool_result_store;
+use crate::agent::harness::tool_result_artifacts::{
+    legacy_action_dir_store, new_tool_result_store,
+};
 use tinyagents_harness::artifacts::tool_results::ToolResultArtifactStore;
 
 /// How long another session's tool-result artifacts survive before a later
@@ -14,10 +16,9 @@ use tinyagents_harness::artifacts::tool_results::ToolResultArtifactStore;
 ///
 /// **A conservative default chosen for safety, not a retention policy.** The
 /// artifact store had no bound at all — nothing anywhere deletes these files —
-/// and shipping unbounded growth in the user's action workspace to fix a
-/// token-burn bug would trade one problem for another. This is the smallest
-/// thing that cannot grow without limit; the feature's owner should confirm or
-/// replace it.
+/// and shipping unbounded growth to fix a token-burn bug would trade one
+/// problem for another. This is the smallest thing that cannot grow without
+/// limit; the feature's owner should confirm or replace it.
 ///
 /// Alternatives considered: a count cap (needs a policy for which artifacts are
 /// worth keeping, which this code has no basis to decide), and a sweep at
@@ -31,31 +32,31 @@ use tinyagents_harness::artifacts::tool_results::ToolResultArtifactStore;
 /// available for debugging a session after the fact.
 const ARTIFACT_RETENTION: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
 
-/// Where artifacts are written, chosen to match where the READ path will look.
+/// Where artifacts are written: `<workspace_dir>/artifacts/tool-results`, the
+/// core's own state, never the agent's working directory.
 ///
-/// The store writes under `<root>/artifacts/tool-results/…` but hands the model
-/// a RELATIVE pointer, which `file_read` later resolves through
-/// `FsGate::scoped_to_workspace` (`tools/impl/filesystem/gate.rs`). That scoping
-/// overwrites `action_dir` with `ctx.workspace().root` whenever the turn carries
-/// a workspace descriptor — and `turn()` sets `context.workspace` from the
-/// host's own descriptor. So on a turn bound to a per-turn workspace, rooting
-/// the store at `action_dir` writes artifacts the model cannot dereference: a
-/// pointer to nothing, which is strictly worse than the inline truncation it
-/// replaces, since that at least returns the head.
+/// The store used to be rooted at `action_dir` (or the per-turn workspace
+/// descriptor's root) and hand the model a path relative to it. That kept the
+/// pointer readable, but the action directory is very often a project the
+/// agent is editing: every oversized tool output became a stray
+/// `artifacts/tool-results/…` file in it, swept into `git add -A` and shipped
+/// in the diff. In a coding benchmark one task's whole patch was twelve of
+/// these files and a scratch test.
 ///
-/// The descriptor is only `Some` when the embedder set a per-turn root, and in
-/// its absence the policy's own `action_dir` survives the read path untouched.
-/// Hence the same conditional on both sides rather than either one
-/// unconditionally — pinning one would break the other case in the other
-/// direction. Credit to the #6483 investigation for identifying the read-time
-/// override; this is its session-host counterpart.
-fn artifact_root(
-    workspace_descriptor: Option<&tinytools::WorkspaceDescriptor>,
-    action_dir: &Path,
-) -> PathBuf {
-    workspace_descriptor
-        .map(|descriptor| descriptor.root.clone())
-        .unwrap_or_else(|| action_dir.to_path_buf())
+/// The store is now detached. It writes under the workspace and hands out the
+/// **absolute** path, which resolves the same way whatever the turn's action
+/// directory or workspace descriptor is, so the read path no longer has to be
+/// matched against the write path (the #6483 trap: `FsGate::scoped_to_workspace`
+/// moving relative resolution to the descriptor root). Reading it back is
+/// policy: `SecurityPolicy::from_config` grants this directory as a read-only
+/// trusted root, and `is_workspace_internal_path` already exempts it from the
+/// internal-state boundary.
+fn artifact_root(workspace_dir: &Path) -> PathBuf {
+    // `ToolResultArtifactStore::detached` adds its own `tool-results` child
+    // namespace so pruning stays within the store-owned directory. Pass the
+    // workspace's `artifacts` directory here; the resulting store root is the
+    // policy-granted `<workspace>/artifacts/tool-results` directory.
+    workspace_dir.join("artifacts")
 }
 
 /// Build the store the turn path hands to `TurnContextMiddleware`, sweeping
@@ -65,19 +66,53 @@ fn artifact_root(
 /// because the worst it costs is disk, while failing the turn costs the user
 /// their message.
 pub(super) fn build_artifact_store(
+    workspace_dir: &Path,
     workspace_descriptor: Option<&tinytools::WorkspaceDescriptor>,
     action_dir: &Path,
     session_key: &str,
 ) -> ToolResultArtifactStore {
-    let store = new_tool_result_store(artifact_root(workspace_descriptor, action_dir), session_key);
-    match store.prune_stale_sessions(ARTIFACT_RETENTION) {
-        Ok(0) => {}
-        Ok(removed) => log::debug!(
-            "[agent][tool-result-artifacts] pruned {removed} stale artifact session dir(s)"
-        ),
-        Err(error) => {
-            log::warn!("[agent][tool-result-artifacts] artifact prune failed (continuing): {error}")
-        }
+    let store = new_tool_result_store(artifact_root(workspace_dir), session_key);
+    prune(&store, "workspace");
+    // Older builds wrote into the project itself. Keep sweeping those
+    // directories with the same age rule they always had, so the files they
+    // left behind still go away; nothing is written there any more.
+    for legacy_root in legacy_roots(workspace_descriptor, action_dir) {
+        prune(
+            &legacy_action_dir_store(legacy_root, session_key),
+            "legacy action-dir",
+        );
     }
     store
 }
+
+/// Every root a pre-detached build could have written artifacts under: the
+/// descriptor's root when a turn carried one, and the action directory.
+fn legacy_roots(
+    workspace_descriptor: Option<&tinytools::WorkspaceDescriptor>,
+    action_dir: &Path,
+) -> Vec<PathBuf> {
+    let mut roots = vec![action_dir.to_path_buf()];
+    if let Some(descriptor) = workspace_descriptor {
+        if descriptor.root != action_dir {
+            roots.push(descriptor.root.clone());
+        }
+    }
+    roots
+}
+
+fn prune(store: &ToolResultArtifactStore, which: &str) {
+    match store.prune_stale_sessions(ARTIFACT_RETENTION) {
+        Ok(0) => {}
+        Ok(removed) => log::debug!(
+            "[agent][tool-result-artifacts] pruned {removed} stale {which} artifact session dir(s) under {}",
+            store.root().display()
+        ),
+        Err(error) => log::warn!(
+            "[agent][tool-result-artifacts] {which} artifact prune failed (continuing): {error}"
+        ),
+    }
+}
+
+#[cfg(test)]
+#[path = "artifact_wiring_tests.rs"]
+mod tests;

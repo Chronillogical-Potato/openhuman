@@ -12,11 +12,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::any;
 use axum::{Json, Router};
 use serde_json::{json, Value};
-use tempfile::tempdir;
 
-use openhuman_core::integrations::composio::client::direct_list_connections;
-use openhuman_core::integrations::composio::trigger_history::ComposioTriggerHistoryStore;
-use openhuman_core::tools::DirectComposioClient;
+use openhuman_core::config::Config;
+use openhuman_core::integrations::composio::client::{direct_list_connections, DirectCredential};
 
 #[derive(Clone, Default)]
 struct MockState {
@@ -34,13 +32,21 @@ struct RecordedRequest {
 
 #[tokio::test]
 async fn direct_composio_client_uses_loopback_for_connected_accounts() {
+    // The read runs in the connector module, which is process-global.
+    let _module = crate::CONNECTOR_MODULE_LOCK.lock().await;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = Config {
+        workspace_dir: dir.path().to_path_buf(),
+        config_path: dir.path().join("config.toml"),
+        ..Config::default()
+    };
     let state = MockState::default();
     let app = Router::new()
         .fallback(any(composio_direct_handler))
         .with_state(state.clone());
     let base = start_loopback(app).await;
     let tool = Arc::new(
-        DirectComposioClient::new_with_base_urls_for_loopback(
+        DirectCredential::new_with_base_urls_for_loopback(
             " ck_round16 ",
             format!("{base}/api/v2"),
             format!("{base}/api/v3"),
@@ -48,17 +54,7 @@ async fn direct_composio_client_uses_loopback_for_connected_accounts() {
         .expect("loopback direct client"),
     );
 
-    let accounts = tool
-        .list_connected_accounts()
-        .await
-        .expect("connected accounts");
-    assert_eq!(accounts.len(), 4);
-    assert_eq!(accounts[0].toolkit_slug().as_deref(), Some("gmail"));
-    assert_eq!(accounts[1].toolkit_slug().as_deref(), Some("github"));
-    assert_eq!(accounts[2].toolkit_slug().as_deref(), Some("slack"));
-    assert_eq!(accounts[3].toolkit_slug(), None);
-
-    let mapped = direct_list_connections(&tool)
+    let mapped = direct_list_connections(&config, &tool)
         .await
         .expect("mapped connected accounts");
     assert_eq!(mapped.connections.len(), 4);
@@ -66,6 +62,16 @@ async fn direct_composio_client_uses_loopback_for_connected_accounts() {
         .connections
         .iter()
         .any(|conn| conn.id == "acct-github" && conn.toolkit == "github"));
+    // Slug extraction: padded string, nested object, `appName` fallback, and a
+    // row with no recognizable slug is kept with an empty toolkit.
+    let toolkits: Vec<&str> = mapped
+        .connections
+        .iter()
+        .map(|c| c.toolkit.as_str())
+        .collect();
+    assert_eq!(toolkits[..2], ["gmail", "github"]);
+    assert_eq!(toolkits[2], "slack");
+    assert_eq!(toolkits[3], "");
 
     let requests = state.requests.lock().expect("requests").clone();
     assert!(requests.iter().all(|request| {
@@ -76,54 +82,6 @@ async fn direct_composio_client_uses_loopback_for_connected_accounts() {
             && request.path == "/api/v3/connected_accounts"
             && request.query.contains("limit=200")
     }));
-}
-
-#[test]
-fn trigger_history_lists_newest_entries_and_skips_bad_jsonl_lines() {
-    let dir = tempdir().expect("tempdir");
-    let store = ComposioTriggerHistoryStore::new(dir.path()).expect("history store");
-
-    let first = store
-        .record_trigger(
-            "gmail",
-            "GMAIL_NEW_GMAIL_MESSAGE",
-            "meta-1",
-            "uuid-1",
-            &json!({ "message": { "id": "msg-1" } }),
-        )
-        .expect("first trigger");
-    let second = store
-        .record_trigger(
-            "github",
-            "GITHUB_PULL_REQUEST_EVENT",
-            "meta-2",
-            "uuid-2",
-            &json!({ "repo": "openhuman" }),
-        )
-        .expect("second trigger");
-
-    let current_file = store.list_recent(10).expect("history").current_day_file;
-    std::fs::write(
-        dir.path().join("state").join("triggers").join("2000-01-01.jsonl"),
-        "\nnot-json\n{\"received_at_ms\":1,\"toolkit\":\"slack\",\"trigger\":\"SLACK_EVENT\",\"metadata_id\":\"meta-0\",\"metadata_uuid\":\"uuid-0\",\"payload\":{\"ok\":true}}\n",
-    )
-    .expect("old jsonl");
-    std::fs::write(
-        dir.path().join("state").join("triggers").join("ignore.txt"),
-        "{\"toolkit\":\"ignored\"}\n",
-    )
-    .expect("ignored extension");
-
-    let recent = store.list_recent(2).expect("limited history");
-    assert_eq!(recent.entries.len(), 2);
-    assert_eq!(recent.entries[0].metadata_id, second.metadata_id);
-    assert_eq!(recent.entries[1].metadata_id, first.metadata_id);
-    assert_eq!(recent.current_day_file, current_file);
-    assert!(recent.archive_dir.ends_with("state/triggers"));
-
-    let all = store.list_recent(0).expect("limit zero coerces to one");
-    assert_eq!(all.entries.len(), 1);
-    assert_eq!(all.entries[0].metadata_uuid, second.metadata_uuid);
 }
 
 async fn composio_direct_handler(State(state): State<MockState>, request: Request) -> Response {

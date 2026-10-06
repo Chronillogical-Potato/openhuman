@@ -56,9 +56,8 @@ export function useVoiceSkillStatus(): VoiceSkillStatus {
   const sttReady = useMemo(() => {
     if (!voiceStatus) return false;
     // `stt_available` is the authoritative check: it asks whether the
-    // configured hosted engine resolves to a provider at all. Nothing has to be
-    // installed for STT any more, so the local-AI asset state is no longer
-    // consulted here — a workspace that never downloaded a model is still ready.
+    // configured hosted engine resolves to a provider at all. Nothing is
+    // installed or downloaded for STT.
     return voiceStatus.stt_available;
   }, [voiceStatus]);
 

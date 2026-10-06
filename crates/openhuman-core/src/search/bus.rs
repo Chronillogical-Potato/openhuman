@@ -5,8 +5,6 @@
 //! Without this subscriber a login would only reach it on the next search
 //! call, and a logout would leave the old credential in the module until then.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use tinybus::EventHandler;
 
@@ -45,16 +43,6 @@ impl EventHandler<DomainEvent> for CredentialRefreshSubscriber {
                 tracing::warn!(kind = %kind, %error, "[search][bus] module refresh failed")
             }
         }
-    }
-}
-
-/// Register the subscriber on the process bus. Called once at startup.
-pub fn register_credential_refresh_subscriber() {
-    match crate::core::bus::BUS.subscribe(Arc::new(CredentialRefreshSubscriber)) {
-        Some(handle) => std::mem::forget(handle),
-        None => tracing::warn!(
-            "[search][bus] failed to register credential refresh — bus not initialized"
-        ),
     }
 }
 

@@ -527,13 +527,6 @@ pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents_registry::Mode
     }
 }
 
-/// Resolve a model id and return its TinyAgents catalog projection.
-pub fn tinyagents_catalog_entry_for_model(
-    model: &str,
-) -> Option<tinyagents_registry::ModelCatalogEntry> {
-    lookup(model).map(tinyagents_catalog_entry)
-}
-
 /// Source tag for local (runtime-discovered) model entries in the unified
 /// catalog. Distinct from [`TINYAGENTS_CATALOG_SOURCE`] so consumers can tell a
 /// priced vendor row apart from a free local runtime model.

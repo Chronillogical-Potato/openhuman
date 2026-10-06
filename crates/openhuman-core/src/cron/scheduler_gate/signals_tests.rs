@@ -1,5 +1,12 @@
 use super::*;
 
+/// Variables no host sets, so the real probe answers.
+const TEST_ENV: SignalEnv = SignalEnv {
+    on_ac_power: "OPENHUMAN_GATE_TEST_ON_AC_POWER",
+    battery_charge: "OPENHUMAN_GATE_TEST_BATTERY_CHARGE",
+    deployment: "OPENHUMAN_GATE_TEST_DEPLOYMENT",
+};
+
 /// `sample_cpu` must always yield a finite percentage in `0..=100`, and
 /// must not panic — the regression guard for Sentry CORE-RUST-ED, where a
 /// long-lived `System` panicked with an out-of-bounds index after the
@@ -29,7 +36,7 @@ fn sample_cpu_repeatable() {
 /// never panics through the CPU path.
 #[test]
 fn signals_sample_smoke() {
-    let s = sample();
+    let s = sample(&TEST_ENV);
     assert!(s.cpu_usage_pct.is_finite());
     assert!((0.0..=100.0).contains(&s.cpu_usage_pct));
     if let Some(charge) = s.battery_charge {

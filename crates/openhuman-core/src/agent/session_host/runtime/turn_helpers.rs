@@ -3,10 +3,8 @@
 
 use super::super::types::OpenHumanSessionHost;
 use crate::agent::error::AgentError;
-use crate::agent::messages::ConversationMessage;
 use crate::util::truncate_with_ellipsis;
-use tinytools_agent::dialect::NativeToolCall;
-use tinytools_agent::ParsedToolCall;
+use tinytools_agent::dialect::TranscriptEntry;
 
 impl OpenHumanSessionHost {
     const EVENT_ERROR_MAX_CHARS: usize = 256;
@@ -15,21 +13,19 @@ impl OpenHumanSessionHost {
     // Static helpers for turn parsing + telemetry
     // ─────────────────────────────────────────────────────────────────
 
-    pub(in crate::agent::session_host) fn count_iterations(
-        messages: &[ConversationMessage],
-    ) -> usize {
+    pub(in crate::agent::session_host) fn count_iterations(messages: &[TranscriptEntry]) -> usize {
         messages
             .iter()
-            .filter(|message| matches!(message, ConversationMessage::AssistantToolCalls { .. }))
+            .filter(|message| matches!(message, TranscriptEntry::AssistantToolCalls { .. }))
             .count()
             + 1
     }
 
-    fn conversation_message_eq(left: &ConversationMessage, right: &ConversationMessage) -> bool {
-        serde_json::to_string(left).ok() == serde_json::to_string(right).ok()
+    fn conversation_message_eq(left: &TranscriptEntry, right: &TranscriptEntry) -> bool {
+        left == right
     }
 
-    fn message_slice_eq(left: &[ConversationMessage], right: &[ConversationMessage]) -> bool {
+    fn message_slice_eq(left: &[TranscriptEntry], right: &[TranscriptEntry]) -> bool {
         left.len() == right.len()
             && left
                 .iter()
@@ -38,9 +34,9 @@ impl OpenHumanSessionHost {
     }
 
     pub(in crate::agent::session_host) fn new_entries_for_turn<'a>(
-        history_snapshot: &[ConversationMessage],
-        current_history: &'a [ConversationMessage],
-    ) -> &'a [ConversationMessage] {
+        history_snapshot: &[TranscriptEntry],
+        current_history: &'a [TranscriptEntry],
+    ) -> &'a [TranscriptEntry] {
         let common_prefix_len = history_snapshot
             .iter()
             .zip(current_history.iter())
@@ -89,50 +85,5 @@ impl OpenHumanSessionHost {
             .collect::<Vec<_>>()
             .join(" ");
         truncate_with_ellipsis(&scrubbed, Self::EVENT_ERROR_MAX_CHARS)
-    }
-
-    /// Injects unique IDs into tool calls that are missing them.
-    ///
-    /// This is necessary for some tool dispatchers to correctly track and
-    /// associate results.
-    pub(in crate::agent::session_host) fn with_fallback_tool_call_ids(
-        mut parsed_calls: Vec<ParsedToolCall>,
-        iteration: usize,
-    ) -> Vec<ParsedToolCall> {
-        for (idx, call) in parsed_calls.iter_mut().enumerate() {
-            if call.id.is_none() {
-                call.id = Some(format!("parsed-{}-{}", iteration + 1, idx + 1));
-            }
-        }
-        parsed_calls
-    }
-
-    /// Converts parsed tool calls into the provider-standard `NativeToolCall` format.
-    ///
-    /// If the provider response already contains native tool calls, they are
-    /// returned as-is.
-    pub(in crate::agent::session_host) fn persisted_tool_calls_for_history(
-        response: &crate::inference::provider::ChatResponse,
-        parsed_calls: &[ParsedToolCall],
-        iteration: usize,
-    ) -> Vec<NativeToolCall> {
-        if !response.tool_calls.is_empty() {
-            return response.tool_calls.clone();
-        }
-
-        parsed_calls
-            .iter()
-            .enumerate()
-            .map(|(idx, call)| NativeToolCall {
-                id: call
-                    .id
-                    .clone()
-                    .unwrap_or_else(|| format!("parsed-{}-{}", iteration + 1, idx + 1)),
-                name: call.name.clone(),
-                arguments: call.arguments.to_string(),
-                // Prompt-based tool calls carry no provider extra_content.
-                extra_content: None,
-            })
-            .collect()
     }
 }

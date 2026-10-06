@@ -1,6 +1,6 @@
 //! Handlers for model and provider settings: resolution, status, client
 //! config, model and local-runtime settings updates, model listing, device
-//! profile, auth errors, presets, and diagnostics.
+//! auth errors, and diagnostics.
 
 use serde::de::Deserializer;
 use serde::Deserialize;
@@ -56,7 +56,6 @@ pub(super) struct InferenceUpdateModelSettingsParams {
     vision_provider: Option<String>,
     memory_provider: Option<String>,
     embeddings_provider: Option<String>,
-    learning_provider: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,18 +68,12 @@ pub(super) struct InferenceUpdateLocalSettingsParams {
     model_id: Option<String>,
     chat_model_id: Option<String>,
     usage_embeddings: Option<bool>,
-    usage_learning_reflection: Option<bool>,
     api_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub(super) struct InferenceListModelsParams {
     provider_id: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct InferenceApplyPresetParams {
-    tier: String,
 }
 
 pub(super) fn handle_inference_resolve_model(params: Map<String, Value>) -> ControllerFuture {
@@ -224,7 +217,6 @@ pub(super) fn handle_inference_update_model_settings(
             vision_provider: update.vision_provider,
             memory_provider: update.memory_provider,
             embeddings_provider: update.embeddings_provider,
-            learning_provider: update.learning_provider,
         };
         to_json(crate::inference::rpc::inference_update_model_settings(patch).await?)
     })
@@ -249,7 +241,6 @@ pub(super) fn handle_inference_update_local_settings(
             model_id: update.model_id,
             chat_model_id: update.chat_model_id,
             usage_embeddings: update.usage_embeddings,
-            usage_learning_reflection: update.usage_learning_reflection,
             api_key: update.api_key,
         };
         to_json(crate::inference::rpc::inference_update_local_settings(patch).await?)
@@ -263,25 +254,10 @@ pub(super) fn handle_inference_list_models(params: Map<String, Value>) -> Contro
     })
 }
 
-pub(super) fn handle_inference_device_profile(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move { to_json(crate::inference::rpc::inference_device_profile().await?) })
-}
-
 pub(super) fn handle_inference_provider_auth_errors(
     _params: Map<String, Value>,
 ) -> ControllerFuture {
     Box::pin(async move { to_json(crate::inference::rpc::inference_provider_auth_errors().await?) })
-}
-
-pub(super) fn handle_inference_presets(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move { to_json(crate::inference::rpc::inference_presets().await?) })
-}
-
-pub(super) fn handle_inference_apply_preset(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let request = deserialize_params::<InferenceApplyPresetParams>(params)?;
-        to_json(crate::inference::rpc::inference_apply_preset(&request.tier).await?)
-    })
 }
 
 pub(super) fn handle_inference_diagnostics(_params: Map<String, Value>) -> ControllerFuture {

@@ -39,12 +39,18 @@ pub(crate) static CACHE_GENERATION: AtomicU64 = AtomicU64::new(0);
 /// Poison-recovery (`unwrap_or_else`) keeps a panicking test from
 /// permanently blocking later ones.
 #[cfg(test)]
-pub(crate) fn composio_cache_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+pub(crate) fn composio_cache_test_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    COMPOSIO_CACHE_TEST_LOCK.blocking_lock()
 }
+
+/// Async form for `#[tokio::test]` bodies, so the guard may be held across `.await`.
+#[cfg(test)]
+pub(crate) async fn composio_cache_test_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    COMPOSIO_CACHE_TEST_LOCK.lock().await
+}
+
+#[cfg(test)]
+static COMPOSIO_CACHE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Bind a cached integration list to its backend endpoint, backend credential,
 /// and effective Composio credential identity. Digests keep secrets out of
@@ -156,8 +162,19 @@ pub fn cached_active_integrations_including_expired(
 }
 
 fn read_cached_integrations(config: &Config) -> Option<Vec<ConnectedIntegration>> {
+    read_cached_integrations_from(&INTEGRATIONS_CACHE, config)
+}
+
+/// [`read_cached_integrations`] over an explicit map, so the credential-keyed
+/// lookup can be exercised against a private map instead of the process-wide
+/// [`INTEGRATIONS_CACHE`], which unrelated code paths clear at any time (see
+/// [`invalidate_connected_integrations_cache`]).
+pub(crate) fn read_cached_integrations_from(
+    cache: &RwLock<HashMap<String, CachedIntegrations>>,
+    config: &Config,
+) -> Option<Vec<ConnectedIntegration>> {
     let key = cache_key(config);
-    let guard = match INTEGRATIONS_CACHE.try_read() {
+    let guard = match cache.try_read() {
         Ok(g) => g,
         Err(_) => {
             tracing::trace!(

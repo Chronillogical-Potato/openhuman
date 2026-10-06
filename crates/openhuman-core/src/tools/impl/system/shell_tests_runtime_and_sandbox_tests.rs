@@ -72,15 +72,105 @@ async fn shell_does_not_resolve_or_install_node_on_its_own() {
 
     // Unprimed (no prior node_exec/npm_exec resolve): shell injects NO
     // managed node bin onto PATH — it does not auto-resolve or install.
-    let injected = tool
-        .runtime_path_for_command("node --version")
-        .await
-        .expect("runtime path resolves");
+    let injected = tool.runtime_path_for_command("node --version").await;
     assert!(
         injected.is_none(),
         "shell injected a managed node bin without any prior node_exec/npm_exec \
          resolve — it must not auto-resolve/install on the shell path: {injected:?}"
     );
+}
+
+/// A Python runtime that cannot be resolved must not fail the command: the
+/// shell keeps the inherited `PATH`, so the host's own `python3` (a task
+/// repo's interpreter with its dependencies) still runs it. It used to answer
+/// every `python …` command with `Failed to resolve command runtime` once the
+/// runtime module had faulted.
+#[tokio::test]
+async fn shell_keeps_inherited_path_when_python_runtime_is_unavailable() {
+    let mut config = crate::config::Config::default();
+    config.runtime_python.enabled = false;
+    let python = Arc::new(PythonBootstrap::new(Arc::new(config)));
+    assert!(
+        python.resolve().await.is_err(),
+        "a disabled python runtime must fail to resolve for this test to mean anything"
+    );
+    let tool = ShellTool::with_language_bootstraps(
+        test_security(AutonomyLevel::Full),
+        test_runtime(),
+        test_audit(),
+        None,
+        Some(python),
+    );
+    assert_eq!(tool.runtime_path_for_command("python3 -V").await, None);
+
+    let result = tool
+        .execute(json!({"command": "python3 -c 'print(1)' || echo no-host-python"}))
+        .await
+        .unwrap();
+    let output = result.output();
+    assert!(
+        !output.contains("Failed to resolve command runtime")
+            && (output.contains('1') || output.contains("no-host-python")),
+        "the command must run on the inherited PATH: {output}"
+    );
+}
+
+#[test]
+fn shell_runtime_failure_logging_accepts_enabled_and_disabled_runtime_states() {
+    log_python_runtime_unavailable(true, &anyhow::anyhow!("test resolution failure"));
+    log_python_runtime_unavailable(false, &anyhow::anyhow!("test disabled runtime"));
+}
+
+#[cfg(unix)]
+fn shell_with_cached_python() -> (ShellTool, tempfile::TempDir) {
+    use crate::runtime::python::{PythonSource, ResolvedPython};
+    use std::os::unix::fs::PermissionsExt;
+
+    let bin_dir = tempfile::tempdir().unwrap();
+    let python_bin = bin_dir.path().join("python3");
+    std::fs::write(&python_bin, "#!/bin/sh\necho managed-python-path\n").unwrap();
+    std::fs::set_permissions(&python_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let mut config = crate::config::Config::default();
+    config.runtime_python.enabled = true;
+    let python = Arc::new(PythonBootstrap::new(Arc::new(config)));
+    python.cache_for_test(ResolvedPython {
+        bin_dir: bin_dir.path().to_path_buf(),
+        python_bin,
+        version: "test".into(),
+        source: PythonSource::Managed,
+    });
+    (
+        ShellTool::with_language_bootstraps(
+            test_security(AutonomyLevel::Full),
+            test_runtime(),
+            test_audit(),
+            None,
+            Some(python),
+        ),
+        bin_dir,
+    )
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn shell_uses_cached_python_path_in_native_mode() {
+    use crate::agent::harness::definition::SandboxMode;
+    use crate::agent::harness::with_current_sandbox_mode;
+
+    let (tool, _bin_dir) = shell_with_cached_python();
+    let result = with_current_sandbox_mode(SandboxMode::None, async {
+        tool.execute(json!({"command": "python3 -c 'print(1)'"}))
+            .await
+            .unwrap()
+    })
+    .await;
+    assert!(
+        !result.is_error,
+        "managed Python command failed: {}",
+        result.output()
+    );
+    assert!(result.output().contains("managed-python-path"));
 }
 
 #[tokio::test]
@@ -104,25 +194,21 @@ async fn shell_sandboxed_mode_routes_through_sandbox_backend() {
     use crate::agent::harness::definition::SandboxMode;
     use crate::agent::harness::with_current_sandbox_mode;
 
-    let tool = ShellTool::new(
-        test_security(AutonomyLevel::Supervised),
-        test_runtime(),
-        test_audit(),
-    );
+    let (tool, _bin_dir) = shell_with_cached_python();
     let result = with_current_sandbox_mode(SandboxMode::Sandboxed, async {
-        tool.execute(json!({"command": "echo sandboxed-output"}))
+        tool.execute(json!({"command": "python3 -c 'print(1)'"}))
             .await
             .unwrap()
     })
     .await;
     assert!(
         !result.is_error,
-        "sandboxed echo should succeed: {}",
+        "sandboxed managed Python command should succeed: {}",
         result.output()
     );
     assert!(
-        result.output().contains("sandboxed-output"),
-        "expected 'sandboxed-output' in result, got: {:?}",
+        result.output().contains("managed-python-path"),
+        "expected managed Python PATH in result, got: {:?}",
         result.output()
     );
 }

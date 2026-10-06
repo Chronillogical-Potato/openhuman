@@ -9,12 +9,10 @@
 
 pub mod app_env;
 pub mod daemon;
-pub mod migration_helpers;
 pub mod migrations;
 pub mod ops;
 pub mod schema;
 mod schemas;
-pub mod settings_cli;
 pub mod tools;
 pub mod workspace;
 pub mod workspace_handle;
@@ -29,9 +27,9 @@ pub use ops::*;
 pub use schema::{
     action_dir_env_override, active_user_marker_path, active_workspace_dir,
     active_workspace_dir_cached, active_workspace_snapshot, clear_active_user, default_action_dir,
-    default_projects_dir, default_root_openhuman_dir, is_legacy_tier_model, legacy_tier_role,
-    pre_login_user_dir, read_active_user_id, resolve_action_dir, user_openhuman_dir,
-    write_active_user_id, PRE_LOGIN_USER_ID, WORKLOAD_ROLES,
+    default_files_dir, default_projects_dir, default_root_openhuman_dir, is_legacy_tier_model,
+    legacy_tier_role, pre_login_user_dir, read_active_user_id, resolve_action_dir,
+    resolve_files_dir, user_openhuman_dir, write_active_user_id, PRE_LOGIN_USER_ID, WORKLOAD_ROLES,
 };
 pub use workspace_handle::workspace_handle;
 // Crate-internal: workspace→config-dir resolver reused by the cloud embedder.
@@ -43,25 +41,23 @@ pub use schema::{
     build_runtime_proxy_client_with_timeouts, output_language_directive, runtime_proxy_config,
     set_runtime_proxy_config, AgentConfig, AuditConfig, AutonomyConfig, BrowserComputerUseConfig,
     BrowserConfig, CapabilityProviderConfig, CapabilityProviderTrustState, ChannelsConfig,
-    ComposioConfig, ComposioDirectBaseUrls, ComposioHostCredential, ComputerConfig, Config,
-    ContextConfig, CostConfig, CronConfig, CurlConfig, DashboardConfig, DecisionModel,
-    DelegateAgentConfig, DiagramViewerConfig, DictationActivationMode, DictationConfig,
-    DiscordConfig, DockerRuntimeConfig, EmailConfig, EmbeddingRouteConfig, GitbooksConfig,
-    HttpHeader, HttpRequestConfig, IMessageConfig, IntegrationToggle, IntegrationsConfig,
-    LarkConfig, LearningConfig, LegacySearchInputs, LinqConfig, LlmBackend, LocalAiConfig,
-    MatrixConfig, McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig,
-    McpToolExposure, MemoryConfig, MemoryTreeConfig, ModelRouteConfig, MultimodalConfig,
-    MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig, PrivacyConfig, PrivacyMode,
-    ProxyConfig, ProxyScope, ReflectionSource, ReliabilityConfig, ResourceLimitsConfig,
+    CompactionSettings, CompactionStrategy, ComposioConfig, ComposioDirectBaseUrls,
+    ComposioHostCredential, ComputerConfig, Config, ContextConfig, CostConfig, CronConfig,
+    CurlConfig, DashboardConfig, DecisionModel, DelegateAgentConfig, DiagramViewerConfig,
+    DictationActivationMode, DictationConfig, DiscordConfig, DockerRuntimeConfig, EmailConfig,
+    EmbeddingRouteConfig, GitbooksConfig, HttpHeader, HttpRequestConfig, IMessageConfig,
+    IntegrationToggle, IntegrationsConfig, LarkConfig, LegacySearchInputs, LinqConfig,
+    LocalAiConfig, LocalJailConfig, MatrixConfig, McpAuthConfig, McpClientConfig,
+    McpClientIdentityConfig, McpServerConfig, McpToolExposure, MemoryConfig, ModelRouteConfig,
+    MultimodalConfig, MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig,
+    PrivacyConfig, PrivacyMode, ProxyConfig, ProxyScope, ReliabilityConfig, ResourceLimitsConfig,
     RuntimeConfig, RuntimePoolConfig, RuntimePoolLangConfig, SandboxBackend, SandboxConfig,
     SchedulerConfig, SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngineCredentials,
     SearchPresentation, SearchProviderSettings, SearchRoute, SearxngConfig, SecretsConfig,
-    SecurityConfig, ShellConfig, SlackConfig, StorageConfig, StorageProviderConfig,
-    StorageProviderSection, StreamMode, SttEngine, TeamModelConfig, TelegramConfig,
-    TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode, VoiceServerConfig,
-    WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_CLOUD_LLM_MODEL,
-    DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL, LEGACY_TIER_MODELS,
-    MANAGED_MULTIMODAL_MODELS, MANAGED_SEARCH_PROVIDERS, MEMORY_SYNC_INTERVAL_PRESETS_SECS,
+    SecurityConfig, ShellConfig, SlackConfig, StreamMode, SttEngine, TeamModelConfig,
+    TelegramConfig, TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode,
+    VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_MODEL,
+    LEGACY_TIER_MODELS, MANAGED_MULTIMODAL_MODELS, MANAGED_SEARCH_PROVIDERS,
     MODEL_IMAGE_GENERATION_AGENT, MODEL_MANAGED_DEFAULT, MODEL_MEDIA_UNDERSTANDING,
     MODEL_VIDEO_GENERATION_AGENT, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA,
     SEARCH_ENGINE_MANAGED, SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY,
@@ -81,7 +77,10 @@ pub use schemas::{
 /// `schema::load::tests`, etc. — can grab the same lock and avoid
 /// interleaved mutations.
 #[cfg(test)]
-pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(crate) static TEST_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+#[cfg(test)]
+pub(crate) mod test_env;
 
 #[cfg(test)]
 #[path = "mod_tests.rs"]

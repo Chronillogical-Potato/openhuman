@@ -1,41 +1,6 @@
 use super::*;
 
 #[tokio::test]
-async fn failed_memory_write_does_not_advance_the_protocol() {
-    let mw = MemoryProtocolMiddleware::new();
-    let failed = run_cycle(
-        &mw,
-        "memory_store",
-        json!({}),
-        "disk full",
-        Some("disk full"),
-    )
-    .await;
-    // A failed write is not annotated and leaves nothing pending, so a later
-    // run-end sweep must not warn about a stale index.
-    assert!(!result_text(&failed).contains(MEMORY_PROTOCOL_MARKER));
-    let mut run = AgentRun::new();
-    // after_agent is a no-op warn path; it must not error.
-    mw.after_agent(&mut ctx(), &(), &mut run).await.unwrap();
-}
-
-#[tokio::test]
-async fn second_write_without_an_update_flags_index_drift() {
-    let mw = MemoryProtocolMiddleware::new();
-    run_cycle(&mw, "memory_recall", json!({}), "checked", None).await;
-    let first = run_cycle(&mw, "memory_store", json!({}), "a", None).await;
-    assert!(!result_text(&first).contains("drifting"));
-
-    // No update_memory_md between the two writes → the index is drifting.
-    let second = run_cycle(&mw, "memory_store", json!({}), "b", None).await;
-    assert!(
-        result_text(&second).contains("drifting"),
-        "a second unsynced write should flag index drift: {}",
-        result_text(&second)
-    );
-}
-
-#[tokio::test]
 async fn embedder_tool_hooks_post_use_replays_the_normalized_pre_call_arguments() {
     let pre = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let post = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));

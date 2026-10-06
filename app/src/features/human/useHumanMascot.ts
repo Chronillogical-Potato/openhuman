@@ -148,17 +148,7 @@ type ConversationAckFace = Extract<
   | 'dancing'
   | 'waving'
 >;
-type ConversationAckEvent = { full_response?: string | null; reaction_emoji?: string | null };
-
-const HAPPY_REACTION_EMOJIS = new Set(['✅', '🎉', '🙌', '😊', '😄', '👍', '💪']);
-const PROUD_REACTION_EMOJIS = new Set(['⭐', '🌟', '🏆', '🎯', '💯', '🚀', '✨', '🥇']);
-const CURIOUS_REACTION_EMOJIS = new Set(['🔍', '💭', '🧐', '🤓', '👀']);
-const CONFUSED_REACTION_EMOJIS = new Set(['🤔', '❓', '❔']);
-const CAUTIOUS_REACTION_EMOJIS = new Set(['⚠️', '⚠', '💡', '⚡']);
-const CONCERNED_REACTION_EMOJIS = new Set(['🚨', '❌', '😕', '😟']);
-const CELEBRATING_REACTION_EMOJIS = new Set(['🥳', '🍾', '🎊', '🎈', '🪅']);
-const DANCING_REACTION_EMOJIS = new Set(['💃', '🕺', '🎵', '🎶', '🎸']);
-const WAVING_REACTION_EMOJIS = new Set(['👋', '🤝', '🫡']);
+type ConversationAckEvent = { full_response?: string | null };
 
 const CONCERNED_TEXT_RE =
   /\b(sorry|apolog(?:y|ize|ise)|failed|failure|error|cannot|can't|unable|blocked|problem)\b/i;
@@ -182,19 +172,6 @@ const GREETING_TEXT_RE =
  * states; this only decides the post-turn emotional beat.
  */
 export function pickConversationAckFace(event: ConversationAckEvent): ConversationAckFace | null {
-  const reaction = event.reaction_emoji?.trim();
-  if (reaction) {
-    if (CELEBRATING_REACTION_EMOJIS.has(reaction)) return 'celebrating';
-    if (DANCING_REACTION_EMOJIS.has(reaction)) return 'dancing';
-    if (WAVING_REACTION_EMOJIS.has(reaction)) return 'waving';
-    if (PROUD_REACTION_EMOJIS.has(reaction)) return 'proud';
-    if (HAPPY_REACTION_EMOJIS.has(reaction)) return 'happy';
-    if (CURIOUS_REACTION_EMOJIS.has(reaction)) return 'curious';
-    if (CONFUSED_REACTION_EMOJIS.has(reaction)) return 'confused';
-    if (CAUTIOUS_REACTION_EMOJIS.has(reaction)) return 'cautious';
-    if (CONCERNED_REACTION_EMOJIS.has(reaction)) return 'concerned';
-  }
-
   const text = event.full_response?.trim() ?? '';
   if (!text) return null;
   // Priority: concerned > cautious > proud > confused > curious > happy.

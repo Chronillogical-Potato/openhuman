@@ -20,7 +20,7 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 
 use crate::config::CostConfig;
-use crate::inference::provider::types::UsageInfo;
+use crate::inference::provider::types::BilledUsage;
 
 use super::tracker::CostTracker;
 use super::types::{CostSource, TokenUsage};
@@ -131,7 +131,7 @@ pub fn try_global() -> Option<Arc<CostTracker>> {
 }
 
 /// Convenience hook used by the agent turn loop: translates a provider
-/// [`UsageInfo`] into a [`TokenUsage`] record and persists it via the
+/// [`BilledUsage`] into a [`TokenUsage`] record and persists it via the
 /// global tracker. Silently skipped when the tracker is uninitialised.
 /// Errors are logged but never propagated — cost tracking must never
 /// break a turn.
@@ -143,7 +143,7 @@ pub fn try_global() -> Option<Arc<CostTracker>> {
 /// `model` is the model identifier the request was routed to (e.g.
 /// `"anthropic/claude-sonnet-4-20250514"`) and is used as the bucket key
 /// in per-model aggregates.
-pub fn record_provider_usage(model: &str, usage: &UsageInfo) {
+pub fn record_provider_usage(model: &str, usage: &BilledUsage) {
     let Some(token_usage) = build_token_usage(model, usage) else {
         return;
     };
@@ -155,15 +155,15 @@ pub fn record_provider_usage(model: &str, usage: &UsageInfo) {
     }
 }
 
-/// Translate a provider [`UsageInfo`] into a [`TokenUsage`] record.
+/// Translate a provider [`BilledUsage`] into a [`TokenUsage`] record.
 ///
 /// Returns `None` for an all-zero payload so the caller can skip the
-/// write — providers that don't echo usage produce `UsageInfo::default()`
+/// write — providers that don't echo usage produce `BilledUsage::default()`
 /// values, and persisting those would inflate the request count with
 /// non-events. Non-finite or negative cost is clamped to `0.0`. Extracted
 /// from [`record_provider_usage`] so the translation can be unit-tested
 /// independently of the process-global tracker singleton.
-pub(super) fn build_token_usage(model: &str, usage: &UsageInfo) -> Option<TokenUsage> {
+pub(super) fn build_token_usage(model: &str, usage: &BilledUsage) -> Option<TokenUsage> {
     if usage.input_tokens == 0 && usage.output_tokens == 0 && usage.charged_amount_usd == 0.0 {
         return None;
     }
@@ -174,7 +174,7 @@ pub(super) fn build_token_usage(model: &str, usage: &UsageInfo) -> Option<TokenU
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
         total_tokens,
-        cached_input_tokens: usage.cached_input_tokens.min(usage.input_tokens),
+        cached_input_tokens: usage.cached_input_tokens().min(usage.input_tokens),
         cache_creation_tokens: usage.cache_creation_tokens,
         reasoning_tokens: usage.reasoning_tokens,
         cost_usd: if usage.charged_amount_usd.is_finite() && usage.charged_amount_usd >= 0.0 {

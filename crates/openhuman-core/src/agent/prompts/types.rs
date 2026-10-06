@@ -8,7 +8,6 @@
 
 use crate::skills::Workflow;
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use std::path::Path;
 use tinytools::Tool;
 
@@ -17,87 +16,6 @@ use tinytools::Tool;
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub(crate) const BOOTSTRAP_MAX_CHARS: usize = 20_000;
-
-/// Tight per-file budget for user-specific, potentially growing files —
-/// currently `PROFILE.md` (onboarding enrichment output) and `MEMORY.md`
-/// (archivist-curated long-term memory). Caps the prompt footprint so
-/// either file can reach at most ~1000 tokens (a few % of a typical
-/// context window) regardless of how large the on-disk version has
-/// grown.
-pub(crate) const USER_FILE_MAX_CHARS: usize = 2_000;
-
-/// Per-namespace cap when injecting tree summarizer root summaries into
-/// the prompt. ~8 000 chars ≈ 2 000 tokens — that's the floor the user
-/// asked for ("at least 2000 tokens of user memory") for a single
-/// namespace, and matches what the tree summarizer's `Day` level
-/// already enforces upstream.
-///
-/// **Note**: this constant matches the `Balanced` preset of
-/// [`crate::config::schema::agent::MemoryContextWindow`] —
-/// the live agent harness now resolves the per-namespace cap from that
-/// preset (see `AgentConfig::resolved_memory_limits`). The constant is
-/// kept as the documented baseline for prompt-section authors.
-#[allow(dead_code)]
-pub(crate) const USER_MEMORY_PER_NAMESPACE_MAX_CHARS: usize = 8_000;
-
-/// Hard ceiling across all namespaces, so a workspace with 30 namespaces
-/// doesn't burn the entire context window. ~32 000 chars ≈ 8 000 tokens.
-///
-/// **Note**: same Balanced-preset baseline relationship as
-/// `USER_MEMORY_PER_NAMESPACE_MAX_CHARS` — see its rustdoc.
-#[allow(dead_code)]
-pub(crate) const USER_MEMORY_TOTAL_MAX_CHARS: usize = 32_000;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Learned context (pre-fetched, not blocking)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Pre-fetched learned context data for prompt sections (avoids blocking the runtime).
-#[derive(Debug, Clone, Default)]
-pub struct LearnedContextData {
-    /// Recent observations from the learning subsystem.
-    pub observations: Vec<String>,
-    /// Recognized patterns.
-    pub patterns: Vec<String>,
-    /// Learned user profile entries.
-    pub user_profile: Vec<String>,
-    /// Explicit user reflections captured from chat — distinct, high-priority
-    /// memory class. These are the user's own intentional self-statements
-    /// ("remember that I…", "going forward…", "I realized…") and are
-    /// privileged above generic [`Self::tree_root_summaries`] when the
-    /// orchestrator assembles its system prompt. Empty when the learning
-    /// subsystem is off or no reflections have been captured yet.
-    pub reflections: Vec<String>,
-    /// Pre-fetched root-level summaries from the tree summarizer, one per
-    /// namespace that has a root node on disk. Empty when the tree
-    /// summarizer hasn't run.
-    ///
-    /// Each entry carries the namespace's root `updated_at` so the
-    /// renderer can stamp how current the memory is. Without that stamp
-    /// the model treats distilled memory as present-tense and can serve
-    /// a stale summary as today's update (#2944).
-    pub tree_root_summaries: Vec<NamespaceSummary>,
-}
-
-/// A single memory-namespace root summary fetched from the tree
-/// summarizer, paired with the timestamp of its root node.
-///
-/// `updated_at` is rendered as an absolute date (not a relative
-/// "N days ago") on purpose: this block sits near the front of the
-/// KV-cache-stable system prompt, so a label that changes every day
-/// would bust the cached prefix for everything after it. An absolute
-/// date only changes when the underlying memory does; the model judges
-/// freshness by comparing it against the `## Current Date & Time`
-/// section. See [`LearnedContextData::tree_root_summaries`] (#2944).
-#[derive(Debug, Clone)]
-pub struct NamespaceSummary {
-    /// Memory namespace this root summary belongs to (e.g. `activities`).
-    pub namespace: String,
-    /// The distilled root summary text.
-    pub body: String,
-    /// When the namespace's root node was last updated on disk.
-    pub updated_at: DateTime<Utc>,
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Connected integrations (Composio toolkits)
@@ -244,7 +162,7 @@ impl<'a> PromptTool<'a> {
     }
 
     /// An entry the catalogue owns rather than borrows: a tool that exists
-    /// only for this prompt build (the harness's `tool_search` / `tool_call`
+    /// only for this prompt build (the harness's `tool_search`
     /// bridge), with no registration to borrow a name from.
     pub fn owned(
         name: String,
@@ -306,12 +224,11 @@ impl<'a> PromptTool<'a> {
 ///   a 71 KB prompt, the exact cost deferral exists to avoid — and told the
 ///   model to search for an action whose signature it could already read.
 ///
-/// * **The bridge must take their place.** The harness mints `tool_search` /
-///   `tool_call` onto `request.tools`, which a text dialect drops, and with
-///   `host_renders_tool_catalogue` it appends nothing itself. Without these
-///   entries the model reads "invoke a match with `tool_call`" in a search
-///   result and has no signature for that name; observed live as a turn that
-///   narrates the call it is about to make and then stops.
+/// * **The bridge must take their place.** The harness mints `tool_search`
+///   onto `request.tools`, which a text dialect drops, and with
+///   `host_renders_tool_catalogue` it appends nothing itself. Without this
+///   entry the model has no signature for `tool_search`; observed live as a
+///   turn that narrates the call it is about to make and then stops.
 ///
 /// A native-tool-calling provider is unaffected: it reads `request.tools`,
 /// where the harness already puts exactly this pair.
@@ -340,13 +257,13 @@ pub fn swap_deferred_for_discovery_bridge<'a>(
 pub enum ToolCallFormat {
     /// Compact positional legacy dialect.
     PFormat,
-    /// Legacy JSON-in-tag rendering with full schemas.
+    /// JSON-in-tag rendering with full schemas. The default.
+    #[default]
     Json,
     /// Provider supplies structured tool calls — catalogue is
     /// informational. Renders in the same JSON-schema form as `Json`.
     Native,
     /// Python `def` signatures; the model calls `name(arg="value")`.
-    #[default]
     Python,
     /// TypeScript `function` signatures; the model calls `name({arg: "value"})`.
     TypeScript,
@@ -420,17 +337,6 @@ impl UserIdentity {
     }
 }
 
-/// Frozen `MEMORY.md` + `USER.md` bodies for prompt injection.
-///
-/// Lives in the prompt layer (not `crate::curated_memory`) so agent
-/// prompt plumbing compiles in builds where the curated-memory domain
-/// module is not present.
-#[derive(Debug, Clone)]
-pub struct CuratedMemoryPromptSnapshot {
-    pub memory: String,
-    pub user: String,
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt context (everything a section needs)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -452,8 +358,6 @@ pub struct PromptContext<'a> {
     pub tools: &'a [PromptTool<'a>],
     pub workflows: &'a [Workflow],
     pub dispatcher_instructions: &'a str,
-    /// Pre-fetched learned context (empty when learning is disabled).
-    pub learned: LearnedContextData,
     /// When non-empty, only tools in this set are rendered. Skills
     /// section is also omitted when a filter is active.
     pub visible_tool_names: &'a std::collections::HashSet<String>,
@@ -464,18 +368,6 @@ pub struct PromptContext<'a> {
     /// by the caller so prompt builders remain deterministic and avoid
     /// hidden global reads during `build(ctx)`.
     pub connected_identities_md: String,
-    /// When `true`, inject `PROFILE.md` (onboarding enrichment output).
-    pub include_profile: bool,
-    /// When `true`, inject `MEMORY.md` (archivist-curated long-term
-    /// memory). Capped at [`USER_FILE_MAX_CHARS`] and frozen per session.
-    pub include_memory_md: bool,
-    /// Session-scoped curated-memory snapshot (`MEMORY.md` + `USER.md`)
-    /// captured once at turn start and reused by every delegated
-    /// sub-agent to keep prompt context byte-identical within the turn.
-    /// `None` when no snapshot is attached (unit tests, curated-memory
-    /// runtime unavailable) — [`UserFilesSection`] falls back to workspace
-    /// files.
-    pub curated_snapshot: Option<std::sync::Arc<CuratedMemoryPromptSnapshot>>,
     /// Authenticated user identity (id/name/email) when available — see
     /// [`UserIdentity`]. `None` for unauthenticated paths (CLI without a
     /// session, tests). Pre-fetched by the caller from the
@@ -617,8 +509,6 @@ pub fn split_prompt_tiers(body: &str, default_tier: PromptTier) -> Vec<(PromptTi
 pub struct SubagentRenderOptions {
     pub include_safety_preamble: bool,
     pub include_identity: bool,
-    pub include_profile: bool,
-    pub include_memory_md: bool,
 }
 
 impl SubagentRenderOptions {
@@ -629,17 +519,10 @@ impl SubagentRenderOptions {
 
     /// Construct from per-definition `omit_*` flags, inverting into the
     /// positive-sense `include_*` shape.
-    pub fn from_definition_flags(
-        omit_identity: bool,
-        omit_safety_preamble: bool,
-        omit_profile: bool,
-        omit_memory_md: bool,
-    ) -> Self {
+    pub fn from_definition_flags(omit_identity: bool, omit_safety_preamble: bool) -> Self {
         Self {
             include_identity: !omit_identity,
             include_safety_preamble: !omit_safety_preamble,
-            include_profile: !omit_profile,
-            include_memory_md: !omit_memory_md,
         }
     }
 }

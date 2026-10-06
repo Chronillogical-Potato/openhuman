@@ -83,11 +83,6 @@ const INTENTIONAL_ENGLISH = new Set([
   "settings.appearance.fontSizeUnit", // "px" — CSS unit, identical in every locale
   "settings.billing.inferenceBudget.dailySpendPoint",
   "settings.gateway.identityPlaceholder", // "~/.ssh/id_ed25519" — a file-path example; the leading ~ makes it fail the single-token technical test, but it is not prose
-  "settings.localModel.download.embeddingModel",
-  "settings.localModel.download.ttsOutput",
-  "settings.localModel.status.contextOkBadge",
-  "settings.localModel.status.expectedChat",
-  "settings.localModel.status.expectedVision",
   "settings.mcpServer.clientClaudeDesktop",
   "settings.sandbox.backend.bubblewrap",
   "settings.sandbox.backend.firejail",

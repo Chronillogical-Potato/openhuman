@@ -50,18 +50,26 @@ pub struct MediaArtifactTool<T: Tool> {
     inner: T,
     kind: ArtifactKind,
     workspace_dir: PathBuf,
+    /// Visible folder each generated file is moved into (#5505).
+    files_dir: crate::agent::artifacts::FileRoots,
 }
 
 impl<T: Tool> MediaArtifactTool<T> {
     /// `kind` is the artifact category to file every generated output
     /// under (`ArtifactKind::Image` / `ArtifactKind::Video`); `workspace_dir`
-    /// is the same workspace root the rest of the artifacts module writes
-    /// `<workspace_dir>/artifacts/<id>/...` under.
-    pub fn new(inner: T, kind: ArtifactKind, workspace_dir: impl Into<PathBuf>) -> Self {
+    /// holds the artifact metadata; `files_dir` is the visible folder the
+    /// generated file is moved into (#5505).
+    pub fn new(
+        inner: T,
+        kind: ArtifactKind,
+        workspace_dir: impl Into<PathBuf>,
+        files_dir: impl Into<crate::agent::artifacts::FileRoots>,
+    ) -> Self {
         Self {
             inner,
             kind,
             workspace_dir: workspace_dir.into(),
+            files_dir: files_dir.into(),
         }
     }
 
@@ -134,6 +142,7 @@ impl<T: Tool> MediaArtifactTool<T> {
         let title = Self::artifact_title(args, index, total);
         let (meta, dest) = match create_artifact_for_call(
             &self.workspace_dir,
+            &self.files_dir,
             self.kind.clone(),
             &title,
             &ext,
@@ -161,13 +170,14 @@ impl<T: Tool> MediaArtifactTool<T> {
                         }
                     }
                     Err(err) => {
-                        let _ = fail_artifact(&self.workspace_dir, &meta.id, &err).await;
+                        let _ = fail_artifact(&self.workspace_dir, &self.files_dir, &meta.id, &err)
+                            .await;
                         set_artifact_error(entry, &err);
                     }
                 }
             }
             Err(err) => {
-                let _ = fail_artifact(&self.workspace_dir, &meta.id, &err).await;
+                let _ = fail_artifact(&self.workspace_dir, &self.files_dir, &meta.id, &err).await;
                 tracing::warn!(
                     target: "media_generation",
                     err = %err,
@@ -187,7 +197,7 @@ fn set_artifact_error(entry: &mut Value, message: &str) {
 }
 
 /// Moves `src` to `dest`, falling back to copy + remove across filesystem
-/// boundaries (`rename` fails with `EXDEV` when the artifacts root and the
+/// boundaries (`rename` fails with `EXDEV` when the files folder and the
 /// media output dir are on different mounts). Returns the final file size.
 async fn move_or_copy(src: &Path, dest: &Path) -> Result<u64, String> {
     if tokio::fs::rename(src, dest).await.is_err() {

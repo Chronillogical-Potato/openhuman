@@ -203,7 +203,13 @@ pub async fn context_breakdown(
     }
 
     let total_est_tokens: usize = sections.iter().map(|s| s.est_tokens).sum();
-    let context_window = crate::inference::context_window_for_model(&report.model).unwrap_or(0);
+    let provider = crate::inference::provider::provider_for_role("chat", &config);
+    let context_window = crate::inference::model_context::context_window_for_route(
+        &provider,
+        &report.model,
+        &config,
+    )
+    .unwrap_or(0);
 
     let response = ContextBreakdownResponse {
         agent_id: report.agent.clone(),

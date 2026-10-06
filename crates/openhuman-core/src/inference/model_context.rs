@@ -21,9 +21,32 @@ const TIER_FLASH_CONTEXT: u64 = 1_000_000;
 
 /// Resolve the context window (in tokens) for a model id or OpenHuman tier alias.
 ///
+/// Returns the static model estimate. Call [`context_window_for_route`] when
+/// the provider route is known; provider-discovered values are stored per
+/// route and model. Thread usage prefers its persisted per-turn value before
+/// consulting either lookup.
+///
 /// Returns `None` when the model is unknown — callers should skip pre-dispatch
 /// trimming rather than guess.
 pub fn context_window_for_model(model: &str) -> Option<u64> {
+    static_context_window_for_model(model)
+}
+
+/// Resolve the synchronous window for a model on a specific provider route.
+pub(crate) fn context_window_for_route(
+    provider: &str,
+    model: &str,
+    config: &crate::config::Config,
+) -> Option<u64> {
+    crate::inference::context_window::config_override(model, config)
+        .or_else(|| crate::inference::context_window::remembered_window(provider, model))
+        .or_else(|| static_context_window_for_model(model))
+}
+
+/// The static guess for a model's window: tier aliases, then the cost catalog,
+/// then the generic id-pattern hints. These never override a provider-reported
+/// window; [`crate::inference::context_window`] consults them last.
+pub(crate) fn static_context_window_for_model(model: &str) -> Option<u64> {
     let normalized = model.trim();
     if normalized.is_empty() {
         return None;

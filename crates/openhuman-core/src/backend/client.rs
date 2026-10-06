@@ -525,7 +525,7 @@ impl BackendClient {
             let is_transient_infra =
                 crate::core::observability::is_transient_http_status_code(status_code);
             let is_budget_exhausted =
-                status_code == 400 && crate::backend::classify::is_budget_exhausted_message(&text);
+                status_code == 400 && tinyinference_providers::is_budget_exhausted_message(&text);
             if is_budget_exhausted {
                 tracing::info!(
                     method = method.as_str(),

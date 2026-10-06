@@ -233,7 +233,6 @@ fn module_doc_tool_table_matches_registered_tools() {
         include_str!("builder_tools/draft_revise.rs"),
         include_str!("builder_tools/draft_validate.rs"),
         include_str!("builder_tools/dry_run.rs"),
-        include_str!("builder_tools/dry_run_diagnostics.rs"),
         include_str!("builder_tools/flow_reads.rs"),
         include_str!("builder_tools/kind_reads.rs"),
         include_str!("builder_tools/persistence.rs"),

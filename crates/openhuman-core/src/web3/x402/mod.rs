@@ -81,17 +81,6 @@ pub async fn handle_402_and_pay(
         .await
 }
 
-/// Build a payment for `requirement` and return the encoded header value, for
-/// callers that manage their own HTTP layer.
-#[cfg(feature = "web3")]
-pub async fn try_paid_request(
-    challenge: &PaymentRequired,
-    requirement: &PaymentRequirements,
-) -> Result<String, X402Error> {
-    tinywallet_x402::protocol::pay_challenge_header(&seams::payments(), challenge, requirement)
-        .await
-}
-
 /// The `x402_request` agent tool, wired to OpenHuman's wallet, chain
 /// transport and proxy policy.
 #[cfg(feature = "web3")]

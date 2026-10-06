@@ -1,0 +1,56 @@
+[
+  {
+    "system": {
+      "content": [
+        {
+          "text": "You are the researcher."
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "content": [
+        {
+          "text": "find the answer"
+        }
+      ]
+    }
+  },
+  {
+    "assistant": {
+      "content": [
+        {
+          "text": ""
+        }
+      ],
+      "tool_calls": [
+        {
+          "arguments": {},
+          "id": "call_s",
+          "name": "search"
+        }
+      ]
+    }
+  },
+  {
+    "tool": {
+      "content": [
+        {
+          "text": "found"
+        }
+      ],
+      "tool_call_id": "call_s"
+    }
+  },
+  {
+    "assistant": {
+      "content": [
+        {
+          "text": "answer"
+        }
+      ],
+      "tool_calls": []
+    }
+  }
+]

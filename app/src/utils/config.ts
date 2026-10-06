@@ -103,15 +103,6 @@ export const DEV_SKIP_ONBOARDING =
   !DEV_FORCE_ONBOARDING;
 
 /**
- * Consumer-first-session UX (intent picker, home IA, trust affordances).
- * **Default off** so `main` stays unchanged until slices ship behind this flag.
- * Opt in locally or in staging: `VITE_CONSUMER_FIRST_SESSION=true` in `app/.env.local`.
- * Spec: `docs/plans/consumer-first-session-spec.md`.
- */
-export const CONSUMER_FIRST_SESSION_ENABLED =
-  import.meta.env.VITE_CONSUMER_FIRST_SESSION === 'true';
-
-/**
  * Master kill-switch for chat multimodal attachments (image / video / document).
  * Enabled by default; the actual affordance is gated on the resolved model's
  * capability tier at the call site (`Conversations.tsx`) — images and video need

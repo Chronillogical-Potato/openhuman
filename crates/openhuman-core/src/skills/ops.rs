@@ -41,7 +41,7 @@ pub use super::ops_install::{
     UninstallWorkflowParams, DEFAULT_INSTALL_TIMEOUT_SECS, MAX_INSTALL_TIMEOUT_SECS,
     MAX_INSTALL_URL_LEN, MAX_WORKFLOW_MD_BYTES,
 };
-pub use super::ops_parse::{inventory_resources, parse_workflow_md, parse_workflow_md_str};
+pub use super::ops_parse::inventory_resources;
 pub use super::ops_types::{
     Workflow, WorkflowFrontmatter, WorkflowScope, MAX_WORKFLOW_RESOURCE_BYTES,
 };

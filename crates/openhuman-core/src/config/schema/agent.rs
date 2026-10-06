@@ -47,98 +47,6 @@ impl TeamModelConfig {
     }
 }
 
-/// User-facing memory-context window preset.
-///
-/// Each preset maps deterministically (via [`MemoryContextWindow::limits`])
-/// to the actual character budgets used by the agent harness when
-/// injecting recalled memory and the long-term memory summary tree into
-/// new agent / orchestrator sessions. The mapping is the single source
-/// of truth — the frontend never decides budgets directly. Presets are
-/// bounded (`Maximum` ≈ 8 000 chars of recall + ≈ 128 000 chars of root
-/// summary, ≈ 32k tokens) so users cannot accidentally blow up prompts.
-///
-/// See `gitbooks/developing/memory-context-window.md` for the user-facing tradeoff
-/// guidance and the per-preset numbers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum MemoryContextWindow {
-    /// Cheapest, lightest. Tight recall + tree-summary budget.
-    Minimal,
-    /// Sensible default — current behaviour.
-    #[default]
-    Balanced,
-    /// More continuity at the cost of more tokens per run.
-    Extended,
-    /// Maximum allowed continuity — meaningfully larger token bill.
-    Maximum,
-}
-
-/// Concrete character budgets resolved from a [`MemoryContextWindow`]
-/// preset. All three caps are bounded to keep prompt growth safe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MemoryWindowLimits {
-    /// Cap for `[Memory context]` + `[User working memory]` injection
-    /// produced by `DefaultMemoryLoader`.
-    pub max_memory_context_chars: usize,
-    /// Per-namespace cap when collecting tree-summarizer root summaries
-    /// for the system prompt (first turn only).
-    pub per_namespace_max_chars: usize,
-    /// Hard ceiling across all namespaces for the tree-summary block.
-    pub total_tree_max_chars: usize,
-}
-
-impl MemoryContextWindow {
-    /// Return the canonical budgets for this preset. The mapping is
-    /// intentionally stepped (no continuous slider) so the UI and core
-    /// stay aligned and impact is predictable.
-    pub fn limits(self) -> MemoryWindowLimits {
-        match self {
-            MemoryContextWindow::Minimal => MemoryWindowLimits {
-                max_memory_context_chars: 800,
-                per_namespace_max_chars: 2_000,
-                total_tree_max_chars: 8_000,
-            },
-            MemoryContextWindow::Balanced => MemoryWindowLimits {
-                max_memory_context_chars: 2_000,
-                per_namespace_max_chars: 8_000,
-                total_tree_max_chars: 32_000,
-            },
-            MemoryContextWindow::Extended => MemoryWindowLimits {
-                max_memory_context_chars: 4_000,
-                per_namespace_max_chars: 16_000,
-                total_tree_max_chars: 64_000,
-            },
-            MemoryContextWindow::Maximum => MemoryWindowLimits {
-                max_memory_context_chars: 8_000,
-                per_namespace_max_chars: 32_000,
-                total_tree_max_chars: 128_000,
-            },
-        }
-    }
-
-    /// Stable lowercase label for serialization across CLI / RPC / UI.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            MemoryContextWindow::Minimal => "minimal",
-            MemoryContextWindow::Balanced => "balanced",
-            MemoryContextWindow::Extended => "extended",
-            MemoryContextWindow::Maximum => "maximum",
-        }
-    }
-
-    /// Parse from the lowercase label produced by [`Self::as_str`].
-    /// Returns `None` for unknown inputs so callers can fall back.
-    pub fn from_str_opt(s: &str) -> Option<Self> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "minimal" => Some(Self::Minimal),
-            "balanced" => Some(Self::Balanced),
-            "extended" => Some(Self::Extended),
-            "maximum" => Some(Self::Maximum),
-            _ => None,
-        }
-    }
-}
-
 /// Configuration for a delegate sub-agent used by the `delegate` tool.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DelegateAgentConfig {
@@ -230,18 +138,32 @@ pub struct AgentConfig {
     /// When true: bootstrap_max_chars=6000, rag_chunk_limit=2. Use for 13B or smaller models.
     #[serde(default)]
     pub compact_context: bool,
+    /// Tool-iteration cap for a turn whose agent has **no** definition of its
+    /// own. A named definition's `effective_max_iterations()` replaces it (see
+    /// `session_host::builder::iteration_cap`), so raising this does not lift
+    /// the orchestrator or any other defined agent; use
+    /// [`max_tool_iterations_override`](Self::max_tool_iterations_override)
+    /// for that.
     #[serde(default = "default_agent_max_tool_iterations")]
     pub max_tool_iterations: usize,
+    /// Explicit operator cap that wins over every agent definition's cap,
+    /// raising or lowering it, for the agent a turn runs as (sub-agents it
+    /// spawns keep their own definition caps). `None`, the default, leaves the
+    /// definition in charge. Also set per launch by
+    /// `OPENHUMAN_AGENT_MAX_TOOL_ITERATIONS`. Added for #6958, where the only
+    /// way to give a coding turn a larger budget was patching `agent.toml`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tool_iterations_override: Option<usize>,
     /// Agent the web-chat path (`channel_web_chat`, what the desktop composer
     /// calls) routes a turn to. `None` — the default — means `orchestrator`,
     /// which is what the shipped app runs.
     ///
     /// This is the only way to move that path off the orchestrator. A named
-    /// definition's `effective_max_iterations()` *overwrites*
+    /// definition's `effective_max_iterations()` replaces
     /// `max_tool_iterations` at the single resolution point in
-    /// `session_host::builder::factory`, so raising the global cap cannot lift
-    /// an agent that declares its own — the choice has to be which definition
-    /// answers, not which number is larger. The RPC path already takes an
+    /// `session_host::builder::iteration_cap`, so pick the agent here for its
+    /// prompt and tools; to change only the budget, set
+    /// `max_tool_iterations_override` instead. The RPC path already takes an
     /// `agent_id` per call; web chat carries no such field, and adding one to
     /// that wire contract to satisfy an operator preference would be the wrong
     /// seam.
@@ -262,12 +184,11 @@ pub struct AgentConfig {
     #[serde(default = "default_max_parallel_tools")]
     pub max_parallel_tools: usize,
     /// How the agent formats tool calls to its provider.
-    /// - `"python"` (default): code-style calls against Python signatures in
-    ///   the prompt (`def read_file(path: str, limit: int = None) -> str`,
-    ///   called as `read_file(path="x")`). The cheapest catalogue on the wire
-    ///   and a syntax every code-trained model already writes.
-    /// - `"auto"`: native structured tool-calling when the provider supports
-    ///   it, otherwise JSON-in-tag (`<tool_call>{…}</tool_call>`).
+    /// - `"auto"` (default): native structured tool-calling when the provider
+    ///   supports it, otherwise JSON-in-tag (`<tool_call>{…}</tool_call>`).
+    /// - `"python"`: code-style calls against Python signatures in the prompt
+    ///   (`def read_file(path: str, limit: int = None) -> str`, called as
+    ///   `read_file(path="x")`). Opt-in; mis-parses on some models.
     /// - `"native"`: force provider-native structured tool calls.
     /// - `"xml"`: force JSON-in-tag.
     /// - `"pformat"`: force compact positional P-Format (`tool[a|b]`); it
@@ -279,25 +200,6 @@ pub struct AgentConfig {
     /// field for one launch.
     #[serde(default = "default_agent_tool_dispatcher")]
     pub tool_dispatcher: String,
-    /// **Legacy** — maximum characters of memory context to inject per
-    /// turn. Prefer [`AgentConfig::memory_window`]; this field is only
-    /// honoured for unmigrated configs (those that have never set the
-    /// preset). Once a preset is explicitly chosen, the preset is
-    /// authoritative and this value is ignored.
-    #[serde(default = "default_max_memory_context_chars")]
-    pub max_memory_context_chars: usize,
-    /// Stepped user-facing preset that maps to the actual memory
-    /// injection budgets. See [`MemoryContextWindow`].
-    ///
-    /// `None` means "no preset has been chosen yet" (e.g. a config
-    /// upgraded from a build that predates this setting). In that
-    /// case [`AgentConfig::resolved_memory_limits`] honours the legacy
-    /// raw `max_memory_context_chars` field for backward compatibility.
-    /// Once the user picks a preset (or any caller writes one) it
-    /// becomes authoritative — the raw field is then ignored, so the
-    /// UI control is the single source of truth from that point on.
-    #[serde(default)]
-    pub memory_window: Option<MemoryContextWindow>,
     /// Per-channel maximum permission level for tool execution.
     /// Keys are channel names (e.g., "telegram", "discord", "web", "cli").
     /// Values are permission levels: "none", "readonly" (or "read_only"),
@@ -426,14 +328,35 @@ pub struct ToolSearchConfig {
     ///
     /// - `"jev"` (default): the installed decision-model ranker (Jev, via
     ///   `openhuman-tinyhumans`), falling back to BM25 only when it fails or
-    ///   the process has no TinyHumans credential.
+    ///   the process has no credential for the configured Jev route
+    ///   ([`ToolSearchConfig::jev_route`]).
     /// - `"auto"`: the installed ranker when the process has one and a
-    ///   TinyHumans credential; BM25 otherwise.
+    ///   credential for the Jev route; BM25 otherwise.
     /// - `"bm25"`: the built-in lexical ranker alone, no network.
     /// - `"compare"`: serve the installed ranker and record the BM25 ranking
     ///   alongside it in the `tool.searched` telemetry, so the two can be
     ///   judged on live traffic without changing what the model sees.
     pub ranker: String,
+    /// Where the Jev ranker's decision calls go and what authenticates them.
+    /// Jev is reachable three ways, and which one a process uses is the
+    /// operator's call, not something to infer from whatever credential
+    /// happens to be stored:
+    ///
+    /// - `"auto"` (default): the TinyHumans credential when the process has
+    ///   one, else `TYPESAFE_API_KEY` (direct), else an OpenRouter key
+    ///   (`OPENROUTER_API_KEY`, or the stored `openrouter` BYOK key).
+    /// - `"tinyhumans"`: the TinyHumans backend's proxy, TinyHumans credential only.
+    /// - `"typesafe"`: TypeSafe's own API, `TYPESAFE_API_KEY` only.
+    /// - `"openrouter"`: OpenRouter's System One API, OpenRouter key only.
+    ///
+    /// `OPENHUMAN_JEV_ROUTE` overrides this for one launch.
+    pub jev_route: String,
+    /// Replaces the API origin of the `"typesafe"` / `"openrouter"` routes
+    /// (a metering proxy, a regional mirror, a test double). Remote origins
+    /// must be HTTPS; plain HTTP is accepted for literal loopback IPs only,
+    /// which the Jev client enforces. `OPENHUMAN_JEV_BASE_URL` overrides this
+    /// for one launch. Has no effect on the `"tinyhumans"` route.
+    pub jev_base_url: Option<String>,
     /// Matches a search returns when the model does not ask for a number.
     /// Three: enough for the model to choose, few enough that the schemas
     /// returned do not undo the saving deferral made.
@@ -444,6 +367,8 @@ impl Default for ToolSearchConfig {
     fn default() -> Self {
         Self {
             ranker: "jev".into(),
+            jev_route: "auto".into(),
+            jev_base_url: None,
             top_k: 3,
         }
     }
@@ -491,11 +416,7 @@ fn default_max_parallel_tools() -> usize {
 }
 
 fn default_agent_tool_dispatcher() -> String {
-    "python".into()
-}
-
-fn default_max_memory_context_chars() -> usize {
-    2000
+    "auto".into()
 }
 
 impl AgentConfig {
@@ -552,37 +473,6 @@ impl AgentConfig {
         );
         true
     }
-
-    /// Resolve the active memory-context budgets for this agent config.
-    ///
-    /// Two cases:
-    ///
-    /// 1. **Preset chosen** (`memory_window = Some(_)`) — the preset is
-    ///    authoritative. The legacy raw `max_memory_context_chars`
-    ///    field is ignored entirely. This is the steady-state path: the
-    ///    UI control is the single source of truth.
-    ///
-    /// 2. **Unmigrated config** (`memory_window = None`) — fall back to
-    ///    the legacy raw `max_memory_context_chars` for the recall cap
-    ///    so a config upgraded from an older build keeps its previous
-    ///    recall behaviour. The raw value is still bounded by the
-    ///    `Maximum` preset's recall cap so safety limits are preserved.
-    ///    Tree-summary caps come from the `Balanced` baseline because
-    ///    older builds had no notion of a per-namespace tree cap on
-    ///    this code path.
-    pub fn resolved_memory_limits(&self) -> MemoryWindowLimits {
-        match self.memory_window {
-            Some(window) => window.limits(),
-            None => {
-                let mut limits = MemoryContextWindow::Balanced.limits();
-                let hard_cap = MemoryContextWindow::Maximum
-                    .limits()
-                    .max_memory_context_chars;
-                limits.max_memory_context_chars = self.max_memory_context_chars.min(hard_cap);
-                limits
-            }
-        }
-    }
 }
 
 impl Default for AgentConfig {
@@ -590,13 +480,12 @@ impl Default for AgentConfig {
         Self {
             compact_context: false,
             max_tool_iterations: default_agent_max_tool_iterations(),
+            max_tool_iterations_override: None,
             chat_agent_id: None,
             max_history_messages: default_agent_max_history_messages(),
             parallel_tools: false,
             max_parallel_tools: default_max_parallel_tools(),
             tool_dispatcher: default_agent_tool_dispatcher(),
-            max_memory_context_chars: default_max_memory_context_chars(),
-            memory_window: None,
             channel_permissions: std::collections::HashMap::new(),
             tool_result_budget_bytes: default_tool_result_budget_bytes(),
             agent_timeout_secs: default_agent_timeout_secs(),
@@ -608,7 +497,3 @@ impl Default for AgentConfig {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "agent_memory_window_tests_tests.rs"]
-mod memory_window_tests;

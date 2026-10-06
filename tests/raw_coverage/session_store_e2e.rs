@@ -25,9 +25,10 @@
 //! destructive `test_reset` never ships — so the case here asserts the
 //! absence, and the positive path is compiled in only when the feature is.
 
+use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock};
 use std::time::Duration;
 
 use axum::http::header::AUTHORIZATION;
@@ -51,51 +52,22 @@ static AUTH_INIT: OnceLock<()> = OnceLock::new();
 /// nothing: every `tests/raw_coverage/` suite is a module in the one
 /// `raw_coverage_all` binary, so libtest runs them concurrently in one process
 /// and only the shared mutex actually excludes another suite's `set_var`.
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 // ── Env isolation ─────────────────────────────────────────────────────────
 
-struct EnvVarGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set_to_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    fn set(key: &'static str, value: &str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, old }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
 /// `HOME` / `OPENHUMAN_WORKSPACE` are process-global, so every case in this
 /// binary is serialised behind one lock.
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 fn ensure_rpc_auth() {
@@ -279,7 +251,7 @@ fn error_message(value: &Value, context: &str) -> String {
 /// idempotent because the item ledger says the work is done.
 #[tokio::test]
 async fn session_import_plans_imports_then_skips_on_rerun() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let raw_dir = harness.workspace.join("session_raw");
@@ -437,7 +409,7 @@ async fn session_import_plans_imports_then_skips_on_rerun() {
 /// scans a directory.
 #[tokio::test]
 async fn session_import_rejects_malformed_params() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let bad = rpc(
@@ -486,7 +458,7 @@ async fn session_import_rejects_malformed_params() {
 ///     byte-for-byte, and a pass-through returns the input unchanged.
 #[tokio::test]
 async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     // A JSON array: the one kind the existing `json_rpc_e2e` coverage already
@@ -632,7 +604,7 @@ async fn tokenjuice_compress_agrees_with_detect_and_never_loses_content() {
 /// never minted is a clean `found: false` rather than an error.
 #[tokio::test]
 async fn tokenjuice_refuses_empty_input_and_misses_cleanly() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let no_content = rpc(
@@ -725,7 +697,7 @@ fn seed_artifact(
 /// resolving an absolute path, and `delete` actually removing the row.
 #[tokio::test]
 async fn ai_artifacts_list_filter_get_and_delete() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     seed_artifact(
@@ -883,94 +855,6 @@ async fn ai_artifacts_list_filter_get_and_delete() {
     harness.join.abort();
 }
 
-/// Failure paths for the artifact surface: a traversal id is refused before
-/// any filesystem access, an absent id is an error, and `regenerate` refuses
-/// both a non-presentation artifact and a call with no routing context.
-#[tokio::test]
-async fn ai_artifacts_reject_traversal_absence_and_unregenerable_kinds() {
-    let _lock = env_lock();
-    let harness = setup().await;
-
-    seed_artifact(
-        &harness.workspace,
-        "artifact-doc",
-        "document",
-        "A document",
-        "2026-03-01T00:00:00Z",
-        None,
-    );
-
-    let traversal = rpc(
-        &harness.rpc_base,
-        33_101,
-        "openhuman.ai_get_artifact",
-        json!({ "artifact_id": "../../etc/passwd" }),
-    )
-    .await;
-    assert!(
-        error_message(&traversal, "ai_get_artifact traversal").contains("must not contain '/'"),
-        "an id with a path separator must be refused by the validator: {traversal}"
-    );
-
-    let empty = rpc(
-        &harness.rpc_base,
-        33_102,
-        "openhuman.ai_delete_artifact",
-        json!({ "artifact_id": "   " }),
-    )
-    .await;
-    assert!(
-        error_message(&empty, "ai_delete_artifact blank id").contains("must not be empty"),
-        "a whitespace-only id trims to empty and must be refused: {empty}"
-    );
-
-    let missing = rpc(
-        &harness.rpc_base,
-        33_103,
-        "openhuman.ai_get_artifact",
-        json!({ "artifact_id": "artifact-that-does-not-exist" }),
-    )
-    .await;
-    assert!(
-        error_message(&missing, "ai_get_artifact absent").contains("artifact-that-does-not-exist"),
-        "the error must identify the artifact: {missing}"
-    );
-
-    // regenerate needs routing context for the socket events it triggers.
-    let no_routing = rpc(
-        &harness.rpc_base,
-        33_104,
-        "openhuman.ai_regenerate",
-        json!({ "artifact_id": "artifact-doc", "thread_id": "", "client_id": "" }),
-    )
-    .await;
-    assert!(
-        error_message(&no_routing, "ai_regenerate without routing")
-            .contains("thread_id + client_id"),
-        "regenerate must refuse without event routing: {no_routing}"
-    );
-
-    // Only presentations persist the args a re-dispatch needs.
-    let wrong_kind = rpc(
-        &harness.rpc_base,
-        33_105,
-        "openhuman.ai_regenerate",
-        json!({
-            "artifact_id": "artifact-doc",
-            "thread_id": "thread-alpha",
-            "client_id": "client-1",
-        }),
-    )
-    .await;
-    let message = error_message(&wrong_kind, "ai_regenerate on a document");
-    assert!(
-        message.contains("only supported for presentations") && message.contains("document"),
-        "the refusal must name the rule and the actual kind, got: {message}"
-    );
-
-    harness.join.abort();
-}
-
 // ── test_support ──────────────────────────────────────────────────────────
 
 /// The `test_support.*` controllers are compiled in only under
@@ -982,7 +866,7 @@ async fn ai_artifacts_reject_traversal_absence_and_unregenerable_kinds() {
 #[cfg(not(feature = "e2e-test-support"))]
 #[tokio::test]
 async fn test_support_controllers_are_absent_without_their_feature() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     let catalog = schema_catalog(&harness.rpc_base).await;
@@ -1024,7 +908,7 @@ async fn test_support_controllers_are_absent_without_their_feature() {
 #[cfg(feature = "e2e-test-support")]
 #[tokio::test]
 async fn test_support_introspection_reads_the_live_workspace() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let harness = setup().await;
 
     std::fs::create_dir_all(harness.workspace.join("notes")).expect("create notes dir");

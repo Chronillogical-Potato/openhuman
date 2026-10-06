@@ -214,8 +214,9 @@ fn setup_allows_fresh_without_force() {
 #[tokio::test]
 async fn reveal_recovery_phrase_returns_error_when_no_wallet() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let _wallet_lock = crate::web3::wallet::test_support::TEST_LOCK.lock();
-    let _workspace_guard = crate::web3::wallet::test_support::set_workspace_env_for_test(&temp);
+    let _wallet_lock = crate::web3::wallet::test_support::TEST_LOCK.lock().await;
+    let _workspace_guard =
+        crate::web3::wallet::test_support::set_workspace_env_for_test(&temp).await;
     let result = reveal_recovery_phrase().await;
     let err = result.expect_err("should error when no wallet configured");
     assert!(
@@ -227,7 +228,7 @@ async fn reveal_recovery_phrase_returns_error_when_no_wallet() {
 #[tokio::test]
 async fn reveal_recovery_phrase_returns_phrase_for_existing_wallet() {
     let temp = tempfile::tempdir().expect("temp dir");
-    let _wallet_lock = crate::web3::wallet::test_support::TEST_LOCK.lock();
+    let _wallet_lock = crate::web3::wallet::test_support::TEST_LOCK.lock().await;
     let _workspace_guard = crate::web3::wallet::test_support::setup_wallet_in(&temp)
         .await
         .expect("setup wallet");

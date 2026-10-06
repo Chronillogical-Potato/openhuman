@@ -5,8 +5,12 @@ use serde_json::{json, Value};
 /// Serialize tests that share the process-global scratch store. Same lock
 /// as `todos::ops` — otherwise the two test modules race under `cargo test`'s
 /// thread pool.
-fn scratch_lock() -> std::sync::MutexGuard<'static, ()> {
+fn scratch_lock() -> tokio::sync::MutexGuard<'static, ()> {
     crate::agent::todos::ops::scratch_test_lock()
+}
+
+async fn scratch_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    crate::agent::todos::ops::scratch_test_lock_async().await
 }
 
 /// A fresh on-disk workspace root for one test's `FileStore`-backed todo
@@ -30,7 +34,7 @@ fn payload(result: &ToolResult) -> Value {
 
 #[tokio::test]
 async fn a_write_replaces_the_whole_list_and_a_read_returns_it() {
-    let _guard = scratch_lock();
+    let _guard = scratch_lock_async().await;
     let workspace_dir = test_workspace();
     reset_scratch(&workspace_dir).await;
     let tool = TodoTool::new(workspace_dir.clone());
@@ -138,7 +142,6 @@ fn every_agent_binds_to_its_own_thread() {
         temperature: 0.0,
         workspace_dir: std::path::PathBuf::from("/tmp/openhuman-todo-parent"),
         workspace_descriptor: None,
-        memory: crate::memory::test_support::noop_memory(),
         agent_config: crate::config::AgentConfig::default(),
         workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),
@@ -197,7 +200,6 @@ async fn a_legacy_session_keyed_list_is_migrated_forward_once() {
         temperature: 0.0,
         workspace_dir: workspace_dir.clone(),
         workspace_descriptor: None,
-        memory: crate::memory::test_support::noop_memory(),
         agent_config: crate::config::AgentConfig::default(),
         workflows: Arc::new(Vec::new()),
         memory_context: Arc::new(None),

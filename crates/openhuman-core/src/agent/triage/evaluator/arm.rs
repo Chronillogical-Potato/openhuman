@@ -9,13 +9,14 @@ use anyhow::anyhow;
 
 use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
 use crate::agent::harness::AgentDefinitionRegistry;
-use crate::agent::messages::ChatMessage;
 use crate::config::MultimodalConfig;
 use crate::core::bus::BUS;
 use crate::inference::provider::error_classify::{
     is_rate_limited, is_upstream_unhealthy, parse_retry_after_ms,
 };
+use tinyagents_session::transcript::TranscriptMessage;
 use tinybus::NativeRequestError;
+use tinyinference_providers::{is_budget_message, BudgetMatch};
 
 use super::super::decision::parse_triage_decision;
 use super::super::envelope::TriggerEnvelope;
@@ -98,8 +99,8 @@ pub(super) async fn try_arm(
     })?;
     let user_message = render_user_message(envelope);
     let history = vec![
-        ChatMessage::system(&system_prompt),
-        ChatMessage::user(&user_message),
+        TranscriptMessage::system(&system_prompt),
+        TranscriptMessage::user(&user_message),
     ];
 
     let request = AgentTurnRequest {
@@ -282,45 +283,13 @@ fn is_prompt_guard_rejection(message: &str) -> bool {
 /// call because the user's inference budget or credit balance is empty —
 /// meaning a retry would hit the same wall.
 ///
-/// The vocabulary matches the OpenHuman backend's error copy and common
-/// third-party provider phrasing. It does **not** mirror the
-/// *semantics* of `web_chat/` (a different code path);
-/// it is an independent, conservative allowlist evaluated inline so the
-/// triage evaluator carries no cross-domain import.
-///
-/// Kept conservative on purpose: a false positive would silently
-/// reclassify a real `Fatal` error as `BudgetExhausted`, hiding it from
-/// Sentry.
+/// Uses the shared matcher at [`BudgetMatch::Strict`]: whole-word needles only,
+/// because a false positive would silently reclassify a real `Fatal` error as
+/// `BudgetExhausted`, hiding it from Sentry. (`stop updating` must not read as
+/// `top up`.) This is deliberately narrower than the chat surface's
+/// `BudgetMatch::Managed`.
 fn is_inference_budget_exceeded(message: &str) -> bool {
-    // Normalize: lowercase, replace non-alphanumeric with spaces, then
-    // split into whitespace-separated tokens. This lets us do
-    // whole-word matching: a raw `contains("top up")` against the
-    // normalized text would also fire on "stop updating" (which
-    // contains the substring "top up" across word boundaries).
-    let normalized: String = message
-        .trim()
-        .to_ascii_lowercase()
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { ' ' })
-        .collect();
-    let words: Vec<&str> = normalized.split_whitespace().collect();
-    const NEEDLES: &[&str] = &[
-        "budget exceeded",
-        "budget exceeds",
-        "top up",
-        "add credits",
-        "out of credits",
-        "no remaining credits",
-    ];
-    NEEDLES.iter().any(|needle| {
-        let needle_tokens: Vec<&str> = needle.split_whitespace().collect();
-        if needle_tokens.is_empty() || words.len() < needle_tokens.len() {
-            return false;
-        }
-        words
-            .windows(needle_tokens.len())
-            .any(|window| window == needle_tokens.as_slice())
-    })
+    is_budget_message(message, BudgetMatch::Strict)
 }
 
 /// Heuristic for transient cloud failures the provider stack didn't

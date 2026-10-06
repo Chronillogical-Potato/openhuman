@@ -33,20 +33,6 @@ impl PoolLang {
             Self::Python => Language::python(),
         }
     }
-
-    /// The pool a bus language belongs to, if this build has one for it.
-    ///
-    /// A language this core ships no pool concept for is `None` rather than an
-    /// error: the module routes whatever its configuration routes, and a status
-    /// surface should skip an unfamiliar entry rather than fail rendering.
-    #[must_use]
-    pub fn from_language(language: &Language) -> Option<Self> {
-        match language.as_str() {
-            tinyruntime_bus::NODEJS => Some(Self::Node),
-            tinyruntime_bus::PYTHON => Some(Self::Python),
-            _ => None,
-        }
-    }
 }
 
 /// The result of running one job on a pooled worker.

@@ -99,17 +99,6 @@ impl DeviceKeypair {
     pub fn private_bytes(&self) -> [u8; 32] {
         self.private.to_bytes()
     }
-
-    /// Reconstruct from stored (decrypted) private key bytes.
-    pub fn from_private_bytes(bytes: [u8; 32]) -> Self {
-        let private = StaticSecret::from(bytes);
-        let public = PublicKey::from(&private);
-        let pubkey_b64 = base64url_encode(public.as_bytes());
-        Self {
-            private,
-            pubkey_b64,
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

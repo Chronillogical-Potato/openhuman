@@ -61,13 +61,6 @@ fn daemon_host_set_requires_show_tray() {
 }
 
 #[test]
-fn unknown_function_returns_unknown() {
-    let s = schemas("nonexistent");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "service");
-}
-
-#[test]
 fn schemas_and_controllers_match() {
     let s = all_controller_schemas();
     let c = all_registered_controllers();

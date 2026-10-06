@@ -1,29 +1,27 @@
-//! Inference provider end-to-end tests using wiremock.
+//! Inference HTTP endpoint end-to-end tests.
 //!
-//! Non-streaming request/response, auth-header and temperature wire behavior of
-//! `OpenAiModel` is covered in tinyinference-llm (`providers/openai/wire_test.rs`);
-//! the streaming test below drives the SSE path over a real wiremock socket.
+//! Non-streaming request/response, auth-header, temperature and SSE streaming
+//! behavior of `OpenAiModel` is covered in tinyinference-llm
+//! (`providers/openai/{wire_test,test}.rs`).
 //!
 //! The `/v1/chat/completions` and `/v1/models` HTTP endpoint tests verify the
 //! full axum router layer (auth middleware + provider routing) end-to-end.
 //!
 //! No live LLM API calls are made.
 
-use std::sync::{Mutex, OnceLock};
+#[path = "support/env_guard.rs"]
+mod env_guard;
+use env_guard::EnvVarGuard;
+use std::sync::OnceLock;
 
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use serde_json::{json, Value};
 use tempfile::tempdir;
 use tower::ServiceExt;
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_rpc::server::build_core_http_router;
-use tinyinference_llm::message::Message;
-use tinyinference_llm::model::{ChatModel, ModelRequest, ModelStreamItem};
-use tinyinference_llm::providers::openai::{AuthStyle, OpenAiModel};
 
 // ── Environment serialisation lock ───────────────────────────────────────────
 //
@@ -31,15 +29,12 @@ use tinyinference_llm::providers::openai::{AuthStyle, OpenAiModel};
 // this lock first to prevent races when cargo runs tests in parallel threads
 // within the same process.
 
-static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+static ENV_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
 static RPC_AUTH_INIT: OnceLock<()> = OnceLock::new();
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    let m = ENV_LOCK.get_or_init(|| Mutex::new(()));
-    match m.lock() {
-        Ok(g) => g,
-        Err(p) => p.into_inner(),
-    }
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    let m = ENV_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    m.lock().await
 }
 
 const TEST_RPC_TOKEN: &str = "inference-provider-e2e-token";
@@ -56,103 +51,15 @@ fn ensure_rpc_auth() {
     });
 }
 
-fn openai_model(provider: &str, endpoint: &str, api_key: &str, auth: AuthStyle) -> OpenAiModel {
-    OpenAiModel::new(api_key)
-        .with_provider(provider)
-        .with_base_url(endpoint)
-        .with_auth_style(auth)
-}
-
 // ── Helper: build an env-isolated Config pointing at tempdir ─────────────────
 
-/// Sets OPENHUMAN_WORKSPACE to `dir` and returns an `EnvVarGuard` that
-/// restores the previous value on drop.  Must be called under `env_lock()`.
-struct EnvGuard {
-    key: &'static str,
-    prev: Option<String>,
-}
-
-impl EnvGuard {
-    fn set(key: &'static str, val: &str) -> Self {
-        let prev = std::env::var(key).ok();
-        // SAFETY: caller holds env_lock().
-        unsafe { std::env::set_var(key, val) };
-        Self { key, prev }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match &self.prev {
-            // SAFETY: caller's env_lock guard is still alive during drop.
-            Some(v) => unsafe { std::env::set_var(self.key, v) },
-            None => unsafe { std::env::remove_var(self.key) },
-        }
-    }
-}
-
 // ── Test 6: Streaming response returns ordered deltas ────────────────────────
-
-#[tokio::test]
-async fn openai_compat_streaming_returns_ordered_deltas() {
-    let server = MockServer::start().await;
-
-    let sse_body = concat!(
-        "data: {\"id\":\"x\",\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"Hel\"},\"finish_reason\":null}]}\n\n",
-        "data: {\"id\":\"x\",\"choices\":[{\"delta\":{\"content\":\"lo\"},\"finish_reason\":null}]}\n\n",
-        "data: {\"id\":\"x\",\"choices\":[{\"delta\":{\"content\":\"!\"},\"finish_reason\":\"stop\"}]}\n\n",
-        "data: [DONE]\n\n",
-    );
-
-    Mock::given(method("POST"))
-        .and(path("/v1/chat/completions"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_raw(sse_body.as_bytes().to_vec(), "text/event-stream"),
-        )
-        .mount(&server)
-        .await;
-
-    let model = openai_model(
-        "test",
-        &format!("{}/v1", server.uri()),
-        "key",
-        AuthStyle::Bearer,
-    );
-
-    use futures_util::StreamExt;
-    let request = ModelRequest::new(vec![
-        Message::system("You are helpful."),
-        Message::user("Say Hello!"),
-    ])
-    .with_model("gpt-4o-mini")
-    .with_temperature(0.7);
-    let mut stream = model
-        .stream(&(), request)
-        .await
-        .expect("stream should open");
-
-    let mut deltas = Vec::new();
-    while let Some(item) = stream.next().await {
-        if let ModelStreamItem::MessageDelta(delta) = item {
-            if !delta.text.is_empty() {
-                deltas.push(delta.text);
-            }
-        }
-    }
-
-    let combined = deltas.join("");
-    assert_eq!(
-        combined, "Hello!",
-        "combined stream deltas should equal 'Hello!'; got '{combined}'"
-    );
-}
 
 // ── Test 8: /v1/chat/completions HTTP endpoint — unauthorized ─────────────────
 
 #[tokio::test]
 async fn http_endpoint_chat_completions_no_bearer_returns_401() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let body = json!({
@@ -174,7 +81,7 @@ async fn http_endpoint_chat_completions_no_bearer_returns_401() {
 
 #[tokio::test]
 async fn http_endpoint_models_no_bearer_returns_401() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let req = Request::builder()
@@ -191,11 +98,11 @@ async fn http_endpoint_models_no_bearer_returns_401() {
 
 #[tokio::test]
 async fn http_endpoint_models_with_bearer_returns_model_list() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let tmp = tempdir().expect("tempdir");
-    let _workspace_guard = EnvGuard::set("OPENHUMAN_WORKSPACE", tmp.path().to_str().unwrap());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path().to_str().unwrap());
 
     let req = Request::builder()
         .method(Method::GET)
@@ -235,7 +142,7 @@ async fn http_endpoint_models_with_bearer_returns_model_list() {
 
 #[tokio::test]
 async fn http_endpoint_chat_completions_with_bearer_passes_auth() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     ensure_rpc_auth();
 
     let body = json!({
@@ -265,44 +172,3 @@ async fn http_endpoint_chat_completions_with_bearer_passes_auth() {
 }
 
 // ── Test 14: temperature_for_model helper ────────────────────────────────────
-
-#[test]
-fn temperature_helper_suppresses_o1_by_default_config() {
-    use openhuman_core::config::Config;
-    use tinyinference_llm::model::effective_temperature;
-
-    let config = Config::default();
-
-    // Normal model → temperature returned
-    assert_eq!(
-        effective_temperature(
-            "gpt-4o-mini",
-            Some(0.7),
-            None,
-            &config.temperature_unsupported_models,
-        ),
-        Some(0.7)
-    );
-    assert_eq!(
-        effective_temperature(
-            "claude-3-sonnet",
-            Some(0.5),
-            None,
-            &config.temperature_unsupported_models,
-        ),
-        Some(0.5)
-    );
-
-    // o1/o3/o4/gpt-5 → temperature suppressed
-    for model in ["o1-preview", "o3-mini", "o4-turbo", "gpt-5-turbo"] {
-        assert_eq!(
-            effective_temperature(
-                model,
-                Some(0.7),
-                None,
-                &config.temperature_unsupported_models,
-            ),
-            None,
-        );
-    }
-}

@@ -175,7 +175,7 @@ async fn intercept_with_workflow_require_approval_persists_and_ttl_denies() {
     // trust root — same conservative park-and-audit shape as
     // `ExternalChannel`, since there is no flow
     // review surface to route the prompt to yet (B3).
-    let (gate, _dir, env) = expiry_gate();
+    let (gate, _dir, env) = expiry_gate().await;
     let gate = Arc::new(gate);
     let origin = AgentTurnOrigin::TrustedAutomation {
         job_id: "flow-2".into(),
@@ -338,7 +338,7 @@ async fn timeout_publishes_approval_decided_with_expired_resolution() {
         .expect("event bus initialized above")
         .receiver();
 
-    let (gate, _dir, env) = expiry_gate();
+    let (gate, _dir, env) = expiry_gate().await;
     let gate = Arc::new(gate);
     let g = gate.clone();
     let handle = tokio::spawn(async move {

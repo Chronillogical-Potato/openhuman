@@ -2,13 +2,13 @@
  * artifactDownloadService coverage (#3024).
  *
  * Exercises every branch of `downloadArtifact`, `deleteArtifact`, and
- * `revealArtifactInFileManager` — including the typed error-code
+ * `revealArtifact` — including the typed error-code
  * payloads, the title double-extension guard, and the non-Tauri /
  * empty-id / RPC-error / invoke-error paths.
  *
  * Mocks: `safeInvoke` + `isTauri` from `utils/tauriCommands/common`,
- * `callCoreRpc` from `services/coreRpcClient`, and `revealItemInDir`
- * from `@tauri-apps/plugin-opener`. The service has no other I/O.
+ * `callCoreRpc` from `services/coreRpcClient`, and `revealPath` from
+ * `utils/openUrl`. The service has no other I/O.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,7 +16,7 @@ import {
   deleteArtifact,
   downloadArtifact,
   listArtifactsForThread,
-  revealArtifactInFileManager,
+  revealArtifact,
   saveArtifactViaDialog,
 } from '../artifactDownloadService';
 import { callCoreRpc } from '../coreRpcClient';
@@ -24,7 +24,7 @@ import { callCoreRpc } from '../coreRpcClient';
 const hoisted = vi.hoisted(() => ({
   invoke: vi.fn(),
   isTauri: vi.fn(() => true),
-  revealItemInDir: vi.fn(),
+  revealPath: vi.fn(),
 }));
 
 vi.mock('../../utils/tauriCommands/common', () => ({
@@ -34,8 +34,8 @@ vi.mock('../../utils/tauriCommands/common', () => ({
 
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
-vi.mock('@tauri-apps/plugin-opener', () => ({
-  revealItemInDir: (...args: unknown[]) => hoisted.revealItemInDir(...args),
+vi.mock('../../utils/openUrl', () => ({
+  revealPath: (...args: unknown[]) => hoisted.revealPath(...args),
 }));
 
 describe('listArtifactsForThread', () => {
@@ -234,7 +234,7 @@ describe('downloadArtifact', () => {
     const outcome = await downloadArtifact('art-1', 'fallback-title', 'pptx');
     expect(outcome).toEqual({ ok: true, path: '/Users/me/Downloads/climate-deck.pptx' });
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/workspace/artifacts/art-1/deck.pptx',
+      artifactId: 'art-1',
       filename: 'climate-deck.pptx',
     });
   });
@@ -247,7 +247,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/file.pdf');
     await downloadArtifact('art-1', 'caller-fallback', 'pdf');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'caller-fallback.pdf',
     });
   });
@@ -257,7 +257,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/x');
     await downloadArtifact('art-1', '   ', 'bin');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'artifact.bin',
     });
   });
@@ -270,7 +270,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/deck.pptx');
     await downloadArtifact('art-1', 'deck', '...pptx');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'deck.pptx',
     });
   });
@@ -283,7 +283,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/deck.pptx');
     await downloadArtifact('art-1', 'deck.pptx', 'pptx');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'deck.pptx',
     });
   });
@@ -296,7 +296,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/x');
     await downloadArtifact('art-1', 'DECK.PPTX', 'pptx');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'DECK.PPTX',
     });
   });
@@ -311,7 +311,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/x');
     await downloadArtifact('art-1', 'deck.pdf', 'pptx');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'deck.pdf',
     });
   });
@@ -324,7 +324,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/climate-overview.pptx');
     await downloadArtifact('art-1', 'climate-overview', 'pptx');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'climate-overview.pptx',
     });
   });
@@ -337,7 +337,7 @@ describe('downloadArtifact', () => {
     hoisted.invoke.mockResolvedValueOnce('/dest/just-a-title');
     await downloadArtifact('art-1', 'just-a-title', '');
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/p/file',
+      artifactId: 'art-1',
       filename: 'just-a-title',
     });
   });
@@ -402,38 +402,58 @@ describe('deleteArtifact', () => {
   });
 });
 
-describe('revealArtifactInFileManager', () => {
+describe('revealArtifact', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hoisted.isTauri.mockReturnValue(true);
   });
 
-  it('returns false when outside Tauri (no plugin call)', async () => {
+  it('needs the desktop app', async () => {
     hoisted.isTauri.mockReturnValueOnce(false);
-    const ok = await revealArtifactInFileManager('/some/path');
-    expect(ok).toBe(false);
-    expect(hoisted.revealItemInDir).not.toHaveBeenCalled();
+    const outcome = await revealArtifact('art-1');
+    expect(outcome).toEqual(expect.objectContaining({ ok: false, code: 'NOT_DESKTOP' }));
+    expect(callCoreRpc).not.toHaveBeenCalled();
+    expect(hoisted.revealPath).not.toHaveBeenCalled();
   });
 
-  it('returns false for an empty / whitespace path', async () => {
-    const ok = await revealArtifactInFileManager('   ');
-    expect(ok).toBe(false);
-    expect(hoisted.revealItemInDir).not.toHaveBeenCalled();
+  it('reveals the real file the core reports, not a Downloads copy', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({
+      absolute_path: '/Users/me/OpenHuman/projects/Files/deck.pptx',
+    });
+    hoisted.revealPath.mockResolvedValueOnce(undefined);
+
+    const outcome = await revealArtifact('art-1');
+
+    expect(outcome).toEqual({ ok: true });
+    expect(callCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.ai_get_artifact',
+      params: { artifact_id: 'art-1' },
+    });
+    expect(hoisted.revealPath).toHaveBeenCalledWith('/Users/me/OpenHuman/projects/Files/deck.pptx');
   });
 
-  it('delegates to revealItemInDir on success', async () => {
-    hoisted.revealItemInDir.mockResolvedValueOnce(undefined);
-    const ok = await revealArtifactInFileManager('/Users/me/Downloads/deck.pptx');
-    expect(ok).toBe(true);
-    expect(hoisted.revealItemInDir).toHaveBeenCalledWith('/Users/me/Downloads/deck.pptx');
+  it('reports a file the core cannot resolve (e.g. moved or deleted)', async () => {
+    vi.mocked(callCoreRpc).mockRejectedValueOnce(new Error('file missing for id=art-1'));
+    const outcome = await revealArtifact('art-1');
+    expect(outcome).toEqual({
+      ok: false,
+      code: 'RESOLVE_FAILED',
+      error: 'file missing for id=art-1',
+    });
+    expect(hoisted.revealPath).not.toHaveBeenCalled();
   });
 
-  it('swallows plugin errors and returns false (best-effort reveal)', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    hoisted.revealItemInDir.mockRejectedValueOnce(new Error('plugin failed'));
-    const ok = await revealArtifactInFileManager('/Users/me/Downloads/deck.pptx');
-    expect(ok).toBe(false);
-    warn.mockRestore();
+  it('reports a file manager that refuses the path', async () => {
+    vi.mocked(callCoreRpc).mockResolvedValueOnce({ absolute_path: 'C:\\Users\\x\\deck.pptx' });
+    hoisted.revealPath.mockRejectedValueOnce(new Error('path on another OS'));
+    const outcome = await revealArtifact('art-1');
+    expect(outcome).toEqual({ ok: false, code: 'REVEAL_FAILED', error: 'path on another OS' });
+  });
+
+  it('rejects an empty id without calling the core', async () => {
+    const outcome = await revealArtifact('   ');
+    expect(outcome).toEqual(expect.objectContaining({ ok: false, code: 'MISSING_ARTIFACT_ID' }));
+    expect(callCoreRpc).not.toHaveBeenCalled();
   });
 });
 
@@ -468,7 +488,7 @@ describe('saveArtifactViaDialog (dialog removed with rfd)', () => {
     const outcome = await saveArtifactViaDialog('a-1', 'Deck', 'pptx');
     expect(outcome).toEqual({ ok: true, path: '/Users/me/Downloads/Deck.pptx' });
     expect(hoisted.invoke).toHaveBeenCalledWith('download_artifact_to_downloads', {
-      sourcePath: '/ws/artifacts/a-1/deck.pptx',
+      artifactId: 'a-1',
       filename: 'Deck.pptx',
     });
     // The removed `rfd` command must never be invoked again.

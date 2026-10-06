@@ -14,7 +14,7 @@ fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
     use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 
     let host_key = Box::leak(
-        crate::modules::platform::host_candidates()[0]
+        tinybus::module::platform::host_candidates()[0]
             .clone()
             .into_boxed_str(),
     );
@@ -222,40 +222,6 @@ fn errors_never_leak_a_path_or_a_url() {
     }
 }
 
-#[test]
-fn module_config_hands_the_module_the_hosts_cloud_embedding_defaults() {
-    // `cloud_embedding_model` is what the module's engine falls back to when
-    // the opted-in local model is unreachable, so it must be the host's
-    // managed-cloud default, never the user's intended (usually local) model.
-    // Sending `config.memory.embedding_model` here made the fallback ask the
-    // managed embedder for `nomic-embed-text` (#5820).
-    let mut config = offline_config();
-    config.memory.embedding_model = "nomic-embed-text:latest".to_string();
-    config.memory.embedding_dimensions = 768;
-
-    let sent = ops::module_config(&config, crate::modules::memory::MODULE_ID);
-
-    assert_eq!(
-        sent["cloud_embedding_model"],
-        tinyinference_embeddings::DEFAULT_CLOUD_MODEL
-    );
-    assert_eq!(
-        sent["cloud_embedding_dimensions"],
-        tinyinference_embeddings::DEFAULT_CLOUD_DIMENSIONS
-    );
-    let supports = sent["models_supporting_dimensions"]
-        .as_array()
-        .expect("a list of model ids");
-    assert!(
-        supports
-            .iter()
-            .any(|model| model == "text-embedding-3-large"),
-        "the dimension-aware family is named: {supports:?}"
-    );
-    // The user's own model still travels, just not as the cloud fallback.
-    assert_eq!(sent["memory"]["embedding_model"], "nomic-embed-text:latest");
-}
-
 #[tokio::test]
 async fn a_bounded_wait_with_nothing_cached_and_downloads_off_fails_rather_than_loading() {
     // An isolated install directory: this machine's real cache may hold the
@@ -344,4 +310,60 @@ fn load_errors_render_for_callers_that_cannot_wait_again() {
     );
     let message = ops::LoadError::StillLoading.into_message();
     assert!(message.contains("still loading"), "{message}");
+}
+
+#[test]
+fn bundled_dir_prefers_registered_then_env_then_exe_sibling() {
+    let root = tempfile::tempdir().unwrap();
+    let registered = root.path().join("registered");
+    let from_env = root.path().join("env");
+    let exe_dir = root.path().join("bin");
+    std::fs::create_dir_all(&registered).unwrap();
+    std::fs::create_dir_all(&from_env).unwrap();
+    std::fs::create_dir_all(exe_dir.join("bundled-modules")).unwrap();
+
+    assert_eq!(
+        ops::resolve_bundled_dir(
+            Some(registered.clone()),
+            Some(from_env.clone()),
+            Some(exe_dir.clone())
+        ),
+        Some(registered)
+    );
+    assert_eq!(
+        ops::resolve_bundled_dir(None, Some(from_env.clone()), Some(exe_dir.clone())),
+        Some(from_env)
+    );
+    assert_eq!(
+        ops::resolve_bundled_dir(None, None, Some(exe_dir.clone())),
+        Some(exe_dir.join("bundled-modules"))
+    );
+}
+
+#[test]
+fn bundled_dir_ignores_paths_that_do_not_exist() {
+    let root = tempfile::tempdir().unwrap();
+    assert_eq!(
+        ops::resolve_bundled_dir(None, Some(root.path().join("missing")), None),
+        None
+    );
+    assert_eq!(
+        ops::resolve_bundled_dir(None, None, Some(root.path().into())),
+        None
+    );
+}
+
+#[test]
+fn bundled_dir_skips_a_missing_candidate_for_a_valid_later_one() {
+    let root = tempfile::tempdir().unwrap();
+    let exe_dir = root.path().join("bin");
+    std::fs::create_dir_all(exe_dir.join("bundled-modules")).unwrap();
+    assert_eq!(
+        ops::resolve_bundled_dir(
+            Some(root.path().join("stale")),
+            Some(root.path().join("typo")),
+            Some(exe_dir.clone())
+        ),
+        Some(exe_dir.join("bundled-modules"))
+    );
 }

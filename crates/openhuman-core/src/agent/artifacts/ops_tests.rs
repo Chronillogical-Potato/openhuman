@@ -46,6 +46,8 @@ async fn list_without_thread_filter_returns_all_threads() {
                 kind: ArtifactKind::Document,
                 title: id.to_string(),
                 path: format!("{id}/x.txt"),
+                file: None,
+                file_root: None,
                 size_bytes: 0,
                 status: ArtifactStatus::Ready,
                 created_at: chrono::Utc::now(),
@@ -86,6 +88,8 @@ async fn list_with_thread_filter_returns_only_matching_thread() {
                 kind: ArtifactKind::Document,
                 title: id.to_string(),
                 path: format!("{id}/x.txt"),
+                file: None,
+                file_root: None,
                 size_bytes: 0,
                 status: ArtifactStatus::Ready,
                 created_at: chrono::Utc::now(),
@@ -137,6 +141,8 @@ async fn list_with_thread_filter_unknown_thread_returns_zero() {
             kind: ArtifactKind::Document,
             title: "only".to_string(),
             path: "only/x.txt".to_string(),
+            file: None,
+            file_root: None,
             size_bytes: 0,
             status: ArtifactStatus::Ready,
             created_at: chrono::Utc::now(),
@@ -206,6 +212,8 @@ async fn regenerate_rejects_non_presentation_kind() {
             kind: ArtifactKind::Document,
             title: "notes".to_string(),
             path: "doc-1/notes.txt".to_string(),
+            file: None,
+            file_root: None,
             size_bytes: 0,
             status: ArtifactStatus::Failed,
             created_at: chrono::Utc::now(),
@@ -241,9 +249,15 @@ async fn regenerate_errors_when_args_missing() {
 
     // A presentation artifact with no persisted args.json (e.g. created
     // before #3162) cannot be regenerated.
-    let (meta, _) = create_artifact(tmp.path(), ArtifactKind::Presentation, "Old Deck", "pptx")
-        .await
-        .unwrap();
+    let (meta, _) = create_artifact(
+        tmp.path(),
+        &tmp.path().join("Files"),
+        ArtifactKind::Presentation,
+        "Old Deck",
+        "pptx",
+    )
+    .await
+    .unwrap();
     let err = ai_regenerate(&config, &meta.id, "t", "c")
         .await
         .unwrap_err();
@@ -260,9 +274,15 @@ async fn regenerate_reruns_producer_and_reuses_id() {
     let config = test_config(&tmp);
 
     // Seed a presentation artifact + its persisted creation args.
-    let (meta, _) = create_artifact(tmp.path(), ArtifactKind::Presentation, "Q3 Deck", "pptx")
-        .await
-        .unwrap();
+    let (meta, _) = create_artifact(
+        tmp.path(),
+        &tmp.path().join("Files"),
+        ArtifactKind::Presentation,
+        "Q3 Deck",
+        "pptx",
+    )
+    .await
+    .unwrap();
     let args = serde_json::json!({
         "title": "Q3 Deck",
         "slides": [{ "title": "Intro", "bullets": ["alpha", "beta"] }],
@@ -286,4 +306,140 @@ async fn regenerate_reruns_producer_and_reuses_id() {
     let got = get_artifact(tmp.path(), &meta.id).await.unwrap();
     assert_eq!(got.id, meta.id);
     assert_eq!(got.status, ArtifactStatus::Ready);
+}
+
+// ── #5505: files folder ─────────────────────────────────────────────────────
+
+/// Points the default files folder (`OPENHUMAN_PROJECTS_DIR/Files`) at a temp
+/// dir for one test, holding the shared env lock, and restores it on drop.
+struct DefaultFilesDir {
+    _lock: tokio::sync::MutexGuard<'static, ()>,
+    previous: Option<std::ffi::OsString>,
+    files_dir: std::path::PathBuf,
+}
+
+impl DefaultFilesDir {
+    async fn under(tmp: &TempDir) -> Self {
+        let lock = crate::config::TEST_ENV_LOCK.lock().await;
+        let previous = std::env::var_os("OPENHUMAN_PROJECTS_DIR");
+        let projects = tmp.path().join("projects");
+        unsafe {
+            std::env::set_var("OPENHUMAN_PROJECTS_DIR", &projects);
+        }
+        Self {
+            _lock: lock,
+            previous,
+            files_dir: crate::config::default_files_dir(),
+        }
+    }
+}
+
+impl Drop for DefaultFilesDir {
+    fn drop(&mut self) {
+        unsafe {
+            match self.previous.take() {
+                Some(v) => std::env::set_var("OPENHUMAN_PROJECTS_DIR", v),
+                None => std::env::remove_var("OPENHUMAN_PROJECTS_DIR"),
+            }
+        }
+    }
+}
+
+#[tokio::test]
+async fn get_returns_the_files_folder_path() {
+    use crate::agent::artifacts::store::{create_artifact, finalize_artifact};
+    use crate::agent::artifacts::types::ArtifactKind;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let default = DefaultFilesDir::under(&tmp).await;
+    let files_dir = default.files_dir.clone();
+    let (meta, path) = create_artifact(
+        tmp.path(),
+        &files_dir,
+        ArtifactKind::Document,
+        "Plan",
+        "docx",
+    )
+    .await
+    .unwrap();
+    std::fs::write(&path, b"plan").unwrap();
+    finalize_artifact(tmp.path(), &meta.id, 4).await.unwrap();
+
+    let value = ai_get_artifact(&config, &meta.id)
+        .await
+        .unwrap()
+        .into_cli_compatible_json()
+        .unwrap();
+
+    assert_eq!(
+        value["absolute_path"],
+        files_dir.join("plan.docx").to_string_lossy().as_ref()
+    );
+}
+
+#[tokio::test]
+async fn get_reports_a_ready_file_removed_outside_openhuman() {
+    use crate::agent::artifacts::store::{create_artifact, finalize_artifact};
+    use crate::agent::artifacts::types::ArtifactKind;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let default = DefaultFilesDir::under(&tmp).await;
+    let (meta, path) = create_artifact(
+        tmp.path(),
+        &default.files_dir,
+        ArtifactKind::Document,
+        "Plan",
+        "docx",
+    )
+    .await
+    .unwrap();
+    std::fs::write(&path, b"plan").unwrap();
+    finalize_artifact(tmp.path(), &meta.id, 4).await.unwrap();
+    std::fs::remove_file(&path).unwrap();
+
+    let err = ai_get_artifact(&config, &meta.id).await.unwrap_err();
+    assert!(err.contains("file missing"), "{err}");
+}
+
+/// A record whose `file_root` is not a files folder the core vouches for is
+/// refused by get, and delete leaves the file it names alone.
+#[tokio::test]
+async fn get_and_delete_refuse_a_record_rooted_outside_the_files_folder() {
+    use crate::agent::artifacts::store::save_artifact_meta;
+    use crate::agent::artifacts::types::{ArtifactKind, ArtifactMeta, ArtifactStatus};
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let _default = DefaultFilesDir::under(&tmp).await;
+    let home = tmp.path().join("home");
+    let private = home.join("private.pdf");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::write(&private, b"private").unwrap();
+    save_artifact_meta(
+        tmp.path(),
+        &ArtifactMeta {
+            id: "claims-home".to_string(),
+            kind: ArtifactKind::Document,
+            title: "x".to_string(),
+            path: "private.pdf".to_string(),
+            file: Some(private.to_string_lossy().into_owned()),
+            file_root: Some(home.to_string_lossy().into_owned()),
+            size_bytes: 7,
+            status: ArtifactStatus::Ready,
+            created_at: chrono::Utc::now(),
+            error: None,
+            thread_id: None,
+            tool_call_id: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    let err = ai_get_artifact(&config, "claims-home").await.unwrap_err();
+    assert!(err.contains("not a files folder"), "{err}");
+
+    ai_delete_artifact(&config, "claims-home").await.unwrap();
+    assert!(
+        private.exists(),
+        "the file outside the files folder is left alone"
+    );
 }

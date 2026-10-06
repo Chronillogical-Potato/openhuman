@@ -64,10 +64,15 @@ pub async fn list(workspace_dir: &Path, scope: &TodoScope) -> Result<TodosSnapsh
 }
 
 #[cfg(test)]
-pub(crate) fn scratch_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    use std::sync::{Mutex, OnceLock};
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+pub(crate) fn scratch_test_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    SCRATCH_TEST_LOCK.blocking_lock()
 }
+
+/// Async form for `#[tokio::test]` bodies, so the guard may be held across `.await`.
+#[cfg(test)]
+pub(crate) async fn scratch_test_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    SCRATCH_TEST_LOCK.lock().await
+}
+
+#[cfg(test)]
+static SCRATCH_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());

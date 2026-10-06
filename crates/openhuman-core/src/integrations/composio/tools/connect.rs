@@ -109,7 +109,7 @@ pub(super) async fn connection_is_active(config: &Config, toolkit: &str) -> anyh
             Ok(active_match(&resp.connections))
         }
         ComposioRoute::Direct(direct) => Ok(active_match(
-            &direct_list_connections(&direct).await?.connections,
+            &direct_list_connections(config, &direct).await?.connections,
         )),
     }
 }

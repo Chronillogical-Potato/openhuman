@@ -39,7 +39,11 @@ fn test_security(workspace: &Path) -> Arc<SecurityPolicy> {
 
 /// Build a tool whose security policy is rooted at `workspace`.
 fn make_tool(workspace: &Path) -> PresentationTool {
-    PresentationTool::new(workspace.to_path_buf(), test_security(workspace))
+    PresentationTool::new(
+        workspace.to_path_buf(),
+        workspace.join("Files"),
+        test_security(workspace),
+    )
 }
 
 fn minimal_input_json() -> serde_json::Value {

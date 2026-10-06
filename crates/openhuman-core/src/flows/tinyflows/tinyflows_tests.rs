@@ -23,14 +23,14 @@ use std::sync::Arc;
 
 use serde_json::json;
 use tempfile::TempDir;
-use tinyflows::caps::{CodeLanguage, CodeRunner, HttpClient, StateStore, ToolInvoker};
+use tinyflows::caps::{CodeLanguage, CodeRunner, HttpClient, ToolInvoker};
 use tinyflows::model::{Edge, Node, NodeKind, WorkflowGraph};
 
 use crate::config::Config;
 use crate::security::SecurityPolicy;
 
 use super::build_capabilities;
-use super::caps::{FlowStateStore, OpenHumanCode, OpenHumanHttp, OpenHumanTools};
+use super::caps::{OpenHumanCode, OpenHumanHttp, OpenHumanTools};
 
 fn test_config(tmp: &TempDir) -> Arc<Config> {
     let config = Config {
@@ -127,9 +127,7 @@ fn seeded_required_args_contract(
 // ── OpenHumanAgentRunner: routing + request/model mapping (Phase A) ───────────
 
 use super::caps::{
-    build_agent_result, clamp_run_timeout_secs, harness_model_default_override,
-    node_request_to_prompt, resolve_node_model, route_custom_entry_lookup, route_for_agent_ref,
-    structured_output_instruction, AgentRoute,
+    harness_model_default_override, route_custom_entry_lookup, route_for_agent_ref, AgentRoute,
 };
 
 // ── B38 (Gap 2): a custom agent_ref must route to the harness (real tools),

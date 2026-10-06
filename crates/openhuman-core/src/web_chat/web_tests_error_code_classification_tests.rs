@@ -535,42 +535,6 @@ fn normalize_model_override_trims_value() {
     );
 }
 
-// ── Broadcast events ──────────────────────────────────────────
-
-#[test]
-fn subscribe_web_channel_events_returns_receiver() {
-    // Just confirm we can subscribe without panic.
-    let _rx = subscribe_web_channel_events();
-}
-
-// ── Field builder helpers ─────────────────────────────────────
-
-#[test]
-fn required_string_marks_field_required() {
-    let f = required_string("client_id", "c");
-    assert!(f.required);
-    assert!(matches!(f.ty, TypeSchema::String));
-}
-
-#[test]
-fn optional_string_marks_field_optional() {
-    let f = optional_string("model", "c");
-    assert!(!f.required);
-}
-
-#[test]
-fn optional_f64_marks_field_optional() {
-    let f = optional_f64("temperature", "c");
-    assert!(!f.required);
-}
-
-#[test]
-fn json_output_is_required_json_field() {
-    let f = json_output("ack", "c");
-    assert!(f.required);
-    assert!(matches!(f.ty, TypeSchema::Json));
-}
-
 #[test]
 fn fingerprint_autonomy_change_is_cache_miss() {
     // Changing the agent-access policy must invalidate the cached agent so the
@@ -600,16 +564,6 @@ fn fingerprint_model_registry_change_is_cache_miss() {
 }
 
 #[test]
-fn fingerprint_identical_inputs_are_cache_hit() {
-    let a = fp(None, None, "orchestrator", "anthropic:claude-sonnet-4-6");
-    let b = fp(None, None, "orchestrator", "anthropic:claude-sonnet-4-6");
-    assert_eq!(
-        a, b,
-        "identical fingerprints must compare equal (cache hit)"
-    );
-}
-
-#[test]
 fn classify_inference_error_in_stream_tool_history_rejection_uses_malformed_history_copy() {
     // #6724: a provider failure delivered inside an HTTP 200 stream reaches
     // classification as the session driver wraps the re-surfaced
@@ -630,4 +584,67 @@ fn classify_inference_error_in_stream_tool_history_rejection_uses_malformed_hist
         "{}",
         classified.message
     );
+}
+
+#[test]
+fn classify_inference_error_local_offline_profile_is_not_an_expired_session() {
+    // #6932: the refusal travels wrapped in the turn driver's context, so the
+    // arm matches the sentinel anywhere in the chain.
+    let raw = format!(
+        "run_chat_task failed client_id=abc thread_id=t-1 error={}",
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+    let classified = classify_inference_error(&raw);
+
+    assert_eq!(classified.error_type, "auth_error");
+    assert_eq!(classified.source, "config");
+    assert!(!classified.retryable);
+    assert!(
+        classified.message.contains("Use Your Own Models"),
+        "must route the user to the setting that fixes it: {}",
+        classified.message
+    );
+    assert!(
+        !classified.message.contains("session has expired"),
+        "must not claim an expired session: {}",
+        classified.message
+    );
+}
+
+#[test]
+fn classify_inference_error_a_mixed_fallback_chain_reports_the_provider_that_failed() {
+    // #6932 review: a fallback aggregate carries every attempt's text. A chain
+    // that refused managed for the local profile and then failed a BYO
+    // provider on its own key must report the key, not blame the profile for
+    // someone else's failure — so the sentinel sits with the catch-alls rather
+    // than at the head of the ladder.
+    let raw = format!(
+        "All providers/models failed. Attempts: {}; openai API error (401 Unauthorized): invalid api key",
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+    let classified = classify_inference_error(&raw);
+
+    assert_eq!(classified.error_type, "auth_error");
+    assert!(
+        !classified.message.contains("local offline profile"),
+        "must not blame the local profile for the BYO provider's key: {}",
+        classified.message
+    );
+}
+
+#[test]
+fn classify_inference_error_the_refusal_alone_keeps_the_exhausted_chain_flag() {
+    // The same refusal with nothing else in the chain is still ours, and the
+    // aggregate metadata rides along instead of being dropped.
+    let raw = format!(
+        "All providers/models failed. Attempts: {}",
+        crate::security::credentials::session_support::LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE
+    );
+    let classified = classify_inference_error(&raw);
+
+    assert_eq!(
+        classified.copy_key,
+        "chat_error.local_session_managed_unavailable"
+    );
+    assert_eq!(classified.fallback_available, Some(false));
 }

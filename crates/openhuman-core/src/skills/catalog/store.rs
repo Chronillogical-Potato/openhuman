@@ -69,14 +69,6 @@ pub fn load_cached_catalog_state() -> Option<CachedCatalog> {
     }
 }
 
-/// Load the cached catalog only when within the freshness TTL.
-pub fn load_cached_catalog() -> Option<Vec<CatalogEntry>> {
-    match load_cached_catalog_state()? {
-        CachedCatalog::Fresh(entries) => Some(entries),
-        CachedCatalog::Stale(_) => None,
-    }
-}
-
 pub fn save_catalog_cache(entries: &[CatalogEntry]) {
     let Some(dir) = registry_dir() else { return };
     if let Err(e) = std::fs::create_dir_all(&dir) {

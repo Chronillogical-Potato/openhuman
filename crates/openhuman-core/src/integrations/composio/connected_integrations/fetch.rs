@@ -64,6 +64,11 @@ pub enum FetchConnectedIntegrationsStatus {
 pub async fn fetch_connected_integrations_status(
     config: &Config,
 ) -> FetchConnectedIntegrationsStatus {
+    // Composio switched off: nothing to ask. An authoritative empty set also
+    // keeps the first turn from awaiting a hosted round trip.
+    if config.composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DISABLED {
+        return FetchConnectedIntegrationsStatus::Authoritative(Vec::new());
+    }
     // The offline local token is a core identity, never a TinyHumans backend
     // credential. Asking the hosted integrations endpoint with it yields 401,
     // can race the scheduler gate into signed-out state, and cannot discover a

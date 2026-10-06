@@ -120,7 +120,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "path",
                     ty: TypeSchema::String,
-                    comment: "Relative path from the artifacts root.",
+                    comment: "File name relative to its root: the files folder, or the artifacts root for a legacy record.",
                     required: true,
                 },
                 FieldSchema {

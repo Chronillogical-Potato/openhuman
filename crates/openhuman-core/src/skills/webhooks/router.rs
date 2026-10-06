@@ -317,20 +317,6 @@ impl WebhookRouter {
         self.routes.read().ok()?.get(tunnel_uuid).cloned()
     }
 
-    /// List tunnels owned by a specific skill (for the skill JS API).
-    pub fn list_for_skill(&self, skill_id: &str) -> Vec<TunnelRegistration> {
-        self.routes
-            .read()
-            .map(|routes| {
-                routes
-                    .values()
-                    .filter(|r| r.skill_id == skill_id)
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
-    }
-
     /// List all tunnel registrations (for the frontend admin UI).
     pub fn list_all(&self) -> Vec<TunnelRegistration> {
         self.routes

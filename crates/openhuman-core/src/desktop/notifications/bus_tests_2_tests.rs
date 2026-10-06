@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 
 #[test]
 fn cron_completed_produces_agents_notification() {
@@ -39,39 +40,6 @@ fn cron_failed_uses_failure_title() {
     };
     let n = event_to_notification(&ev).unwrap();
     assert_eq!(n.title, "Cron job failed");
-}
-
-#[test]
-fn successful_webhook_is_silent() {
-    let ev = DomainEvent::WebhookProcessed {
-        tunnel_id: "t".into(),
-        skill_id: "s".into(),
-        method: "POST".into(),
-        path: "/p".into(),
-        correlation_id: "c".into(),
-        status_code: 200,
-        elapsed_ms: 5,
-        error: None,
-    };
-    assert!(event_to_notification(&ev).is_none());
-}
-
-#[test]
-fn failed_webhook_produces_system_notification() {
-    let ev = DomainEvent::WebhookProcessed {
-        tunnel_id: "t".into(),
-        skill_id: "skill-x".into(),
-        method: "POST".into(),
-        path: "/p".into(),
-        correlation_id: "c".into(),
-        status_code: 500,
-        elapsed_ms: 12,
-        error: Some("boom".into()),
-    };
-    let n = event_to_notification(&ev).unwrap();
-    assert_eq!(n.category, CoreNotificationCategory::System);
-    assert!(n.body.contains("skill-x"));
-    assert!(n.body.contains("boom"));
 }
 
 #[test]
@@ -464,43 +432,15 @@ async fn an_outage_is_filed_under_its_own_workspace_not_the_bridge_s() {
 // workspace the user has switched away from would raise a banner naming that
 // workspace's server and its error inside the account they are in.
 
-/// RAII guard for `OPENHUMAN_WORKSPACE`, which is the first thing
-/// `config::active_workspace_dir` consults — so it is how a test says which
-/// workspace is the active one. Mirrors the guard in
-/// `config::workspace::ops_tests`; must be held with `TEST_ENV_LOCK`.
-struct ActiveWorkspaceEnvGuard;
-
-impl ActiveWorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        // SAFETY: caller holds `TEST_ENV_LOCK`, so no other thread in this
-        // process is reading or mutating this env var.
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        }
-        Self
-    }
-}
-
-impl Drop for ActiveWorkspaceEnvGuard {
-    fn drop(&mut self) {
-        // SAFETY: same contract as `set` — the lock is held for the whole test.
-        unsafe {
-            std::env::remove_var("OPENHUMAN_WORKSPACE");
-        }
-    }
-}
-
 #[tokio::test]
 async fn the_active_workspace_s_outage_is_announced() {
     // Held for the whole test. NOT dropped explicitly: `_guard` is declared
     // after it, so scope exit destroys the guard first and the env var is
     // cleared while this lock is still held. Releasing the lock early would
     // let the next test set its own override and have this guard erase it.
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let active = tempfile::TempDir::new().unwrap();
-    let _guard = ActiveWorkspaceEnvGuard::set(active.path());
+    let _guard = EnvVarGuard::workspace_unlocked(active.path());
 
     // Ask the resolver what it made of the override rather than assuming:
     // `OPENHUMAN_WORKSPACE` names a *config* root, and which subdirectory of
@@ -524,12 +464,10 @@ async fn a_switched_away_workspace_s_outage_is_not_announced() {
     // after it, so scope exit destroys the guard first and the env var is
     // cleared while this lock is still held. Releasing the lock early would
     // let the next test set its own override and have this guard erase it.
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let active = tempfile::TempDir::new().unwrap();
     let switched_away = tempfile::TempDir::new().unwrap();
-    let _guard = ActiveWorkspaceEnvGuard::set(active.path());
+    let _guard = EnvVarGuard::workspace_unlocked(active.path());
 
     let resolved = crate::config::active_workspace_dir()
         .await

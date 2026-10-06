@@ -1,40 +1,9 @@
 use super::*;
 
 #[test]
-fn browser_allowed_domains_shares_fetch_list_minus_wildcard() {
-    // Unified web-access firewall: the browser tool derives its host allowlist
-    // from `http_request.allowed_domains`, but the `"*"` allow-all wildcard is
-    // stripped so a fetch-side "Allow all" never silently opens the browser.
-
-    // Explicit hosts pass straight through (shared with fetch).
-    assert_eq!(
-        browser_allowed_domains(&["reuters.com".into(), "github.com".into()]),
-        vec!["reuters.com".to_string(), "github.com".to_string()],
-    );
-
-    // `"*"` (fetch allow-all, and the http_request default) yields an EMPTY
-    // browser list — browser stays closed unless OPENHUMAN_BROWSER_ALLOW_ALL.
-    assert!(browser_allowed_domains(&["*".into()]).is_empty());
-
-    // Mixed: wildcard dropped, explicit hosts kept.
-    assert_eq!(
-        browser_allowed_domains(&["*".into(), "intranet.corp".into()]),
-        vec!["intranet.corp".to_string()],
-    );
-
-    // Block-all (empty fetch list) -> empty browser list.
-    assert!(browser_allowed_domains(&[]).is_empty());
-}
-
-#[test]
 fn all_tools_includes_browser_when_enabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
-    // The embedding seam fails loudly when unwired.
-    let _mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
 
     let browser = BrowserConfig {
         enabled: true,
@@ -65,16 +34,6 @@ fn all_tools_includes_browser_when_enabled() {
     );
     assert!(names.contains(&"pushover"));
     assert!(names.contains(&"proxy_config"));
-}
-
-#[test]
-fn default_tools_names() {
-    let security = Arc::new(SecurityPolicy::default());
-    let tools = default_tools(security);
-    let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-    assert!(names.contains(&"shell"));
-    assert!(names.contains(&"file_read"));
-    assert!(names.contains(&"file_write"));
 }
 
 #[test]
@@ -110,57 +69,9 @@ fn default_tools_all_have_schemas() {
 }
 
 #[test]
-fn tool_spec_generation() {
-    let security = Arc::new(SecurityPolicy::default());
-    let tools = default_tools(security);
-    for tool in &tools {
-        let spec = tool.spec();
-        assert_eq!(spec.name, tool.name());
-        assert_eq!(spec.description, tool.description());
-        assert!(spec.parameters.is_object());
-    }
-}
-
-#[test]
-fn tool_result_serde() {
-    let result = ToolResult::success("hello");
-    let json = serde_json::to_string(&result).unwrap();
-    let parsed: ToolResult = serde_json::from_str(&json).unwrap();
-    assert!(!parsed.is_error);
-    assert_eq!(parsed.output(), "hello");
-}
-
-#[test]
-fn tool_result_with_error_serde() {
-    let result = ToolResult::error("boom");
-    let json = serde_json::to_string(&result).unwrap();
-    let parsed: ToolResult = serde_json::from_str(&json).unwrap();
-    assert!(parsed.is_error);
-    assert_eq!(parsed.output(), "boom");
-}
-
-#[test]
-fn tool_spec_serde() {
-    let spec = ToolSpec {
-        name: "test".into(),
-        description: "A test tool".into(),
-        parameters: serde_json::json!({"type": "object"}),
-    };
-    let json = serde_json::to_string(&spec).unwrap();
-    let parsed: ToolSpec = serde_json::from_str(&json).unwrap();
-    assert_eq!(parsed.name, "test");
-    assert_eq!(parsed.description, "A test tool");
-}
-
-#[test]
 fn all_tools_includes_delegate_when_agents_configured() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
-    // The embedding seam fails loudly when unwired.
-    let _mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
 
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
@@ -195,11 +106,6 @@ fn all_tools_includes_delegate_when_agents_configured() {
 fn all_tools_excludes_delegate_when_no_agents() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
-    // The embedding seam fails loudly when unwired.
-    let _mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
 
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
@@ -228,11 +134,6 @@ fn all_tools_registers_node_exec_when_node_enabled() {
     // lose both tools.
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
-    // The embedding seam fails loudly when unwired.
-    let _mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
 
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
@@ -265,11 +166,6 @@ fn all_tools_registers_python_exec_when_python_enabled() {
     // appear in the registry (routes inline code through the runtime pool, #5106).
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
-    // The embedding seam fails loudly when unwired.
-    let _mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
 
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
@@ -296,11 +192,6 @@ fn all_tools_registers_python_exec_when_python_enabled() {
 fn all_tools_excludes_node_exec_when_node_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
-    // The embedding seam fails loudly when unwired.
-    let _mem_cfg = MemoryConfig {
-        backend: "markdown".into(),
-        ..MemoryConfig::default()
-    };
 
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
@@ -377,10 +268,10 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
 }
 
 #[test]
-fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
+fn all_tools_registers_brave_engine_and_lsp_when_enabled() {
     // Search registers one tool per capability role from the TinySearch
     // catalog; a usable BYOK Brave key yields the `search` role tool
-    // alongside lsp + tool_stats.
+    // alongside lsp.
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -391,12 +282,8 @@ fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
         crate::config::SearchProviderSettings::direct(),
     );
     cfg.search.brave.api_key = Some("test-brave-key".into());
-    cfg.learning.enabled = true;
-    cfg.learning.tool_tracking_enabled = true;
 
-    let _env_guard = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_guard = crate::config::TEST_ENV_LOCK.blocking_lock();
     unsafe {
         std::env::set_var(crate::tools::implementations::LSP_ENABLED_ENV, "1");
     }
@@ -418,7 +305,6 @@ fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
             #[cfg(feature = "modules")]
             "web_search_tool",
             "lsp",
-            "tool_stats",
         ],
     );
 

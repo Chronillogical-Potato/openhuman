@@ -38,9 +38,9 @@ pub use arm::TRIGGER_TRIAGE_AGENT_ID;
 pub(crate) use chain::begin_outage_attempt;
 #[cfg(test)]
 pub(crate) use chain::record_outage;
+pub use chain::run_triage;
 #[cfg(test)]
 pub(crate) use chain::run_triage_with_arms_for_test_with_state;
-pub use chain::{run_triage, run_triage_with_arms};
 pub use outcome::{TriageOutcome, TriageResolutionPath, TriageRun};
 
 #[cfg(test)]

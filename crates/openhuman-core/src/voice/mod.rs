@@ -61,8 +61,6 @@ mod schemas;
 #[cfg(feature = "voice")]
 pub mod server;
 #[cfg(feature = "voice")]
-pub mod text_input;
-#[cfg(feature = "voice")]
 mod types;
 
 #[cfg(feature = "voice")]

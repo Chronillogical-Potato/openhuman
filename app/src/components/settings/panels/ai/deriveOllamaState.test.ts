@@ -33,7 +33,6 @@ function makeSnapshot(
             ok: false,
           } as never)
         : null,
-    presets: null,
     installedModels: [],
   };
 }
@@ -61,19 +60,33 @@ describe('deriveOllamaState', () => {
     expect(deriveOllamaState(makeSnapshot({ ollama_running: true }))).toBe('running');
   });
 
-  it('returns missing when state is missing and ollama is not running', () => {
-    expect(deriveOllamaState(makeSnapshot({ state: 'missing', ollama_running: false }))).toBe(
-      'missing'
+  it('returns unreachable when the core cannot reach the user-run endpoint', () => {
+    expect(deriveOllamaState(makeSnapshot({ state: 'unreachable', ollama_running: false }))).toBe(
+      'unreachable'
     );
   });
 
-  it('returns starting when state is starting or downloading', () => {
-    expect(deriveOllamaState(makeSnapshot({ state: 'starting' }))).toBe('starting');
-    expect(deriveOllamaState(makeSnapshot({ state: 'downloading' }))).toBe('starting');
+  it('a live diagnostics probe wins over a stale unreachable status', () => {
+    expect(deriveOllamaState(makeSnapshot({ state: 'unreachable', ollama_running: true }))).toBe(
+      'running'
+    );
   });
 
-  it('returns error when state is error', () => {
-    expect(deriveOllamaState(makeSnapshot({ state: 'error' }))).toBe('error');
+  it('returns degraded when the core reports degraded without a diagnostics verdict', () => {
+    expect(deriveOllamaState(makeSnapshot({ state: 'degraded' }))).toBe('degraded');
+  });
+
+  it('maps retired managed-runtime states to stopped', () => {
+    // The app no longer installs or downloads anything; an older core that
+    // still reports these must not surface a phantom progress state.
+    for (const state of ['downloading', 'installing', 'starting', 'missing']) {
+      expect(deriveOllamaState(makeSnapshot({ state }))).toBe('stopped');
+    }
+  });
+
+  it('returns stopped for an idle or ready status without a running probe', () => {
+    expect(deriveOllamaState(makeSnapshot({ state: 'idle' }))).toBe('stopped');
+    expect(deriveOllamaState(makeSnapshot({ state: 'ready' }))).toBe('stopped');
   });
 
   it('returns stopped as catch-all', () => {

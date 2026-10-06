@@ -6,9 +6,8 @@
 
 use super::subagent_abort_report::AbortReport;
 use crate::agent::harness::definition::AgentDefinitionRegistry;
-use crate::agent::messages::ChatMessage;
 use crate::agent::orchestration::fleet_tools::FleetToolSet;
-use crate::agent::orchestration::running_subagents::{self, SubagentStatus};
+use crate::agent::orchestration::running_subagents;
 use crate::agent::orchestration::subagent_sessions::{
     self, DurableSubagentStatus, SubagentSessionSelector, SubagentSessionStore,
     SubagentSessionUpsert,
@@ -17,13 +16,15 @@ use crate::agent::progress::AgentProgress;
 use crate::agent::subagent_host::{
     run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
 };
-use crate::memory::conversations::{self as conversations, ConversationMessage};
+use crate::threads::store::{self as conversations, ConversationMessage};
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinyagents_harness::context::{RunConfig, RunContext};
 use tinyagents_harness::run_queue::RunQueue;
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
+use tinyagents_orchestration::subagent::DetachedSubagentStatus;
+use tinyagents_session::transcript::TranscriptMessage;
 use tinytools::ToolRunContext;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 
@@ -175,7 +176,7 @@ impl Tool for SpawnAsyncSubagentTool {
         let agent_id_schema = if agent_ids.is_empty() {
             json!({
                 "type": "string",
-                "description": "Sub-agent id (e.g. archivist, planner, tools_agent)."
+                "description": "Sub-agent id (e.g. planner, critic, summarizer)."
             })
         } else {
             json!({
@@ -495,7 +496,7 @@ fn durable_task_key_source(
 /// dependency on the feature-gated flows domain — it is a generic scan for a
 /// structured tool payload.
 pub(crate) fn extract_workflow_proposal_from_history(
-    history: &[ChatMessage],
+    history: &[TranscriptMessage],
 ) -> Option<serde_json::Value> {
     history
         .iter()
@@ -520,7 +521,7 @@ fn attach_workflow_proposal(
     parent_thread_id: Option<&str>,
     task_id: &str,
     agent_id: &str,
-    final_history: &[ChatMessage],
+    final_history: &[TranscriptMessage],
     summary: String,
 ) -> String {
     let Some(proposal) = extract_workflow_proposal_from_history(final_history) else {

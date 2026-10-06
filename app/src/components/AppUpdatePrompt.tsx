@@ -10,7 +10,7 @@
  * point they can choose "Restart now" or "Later". Errors and the active
  * install/restart flow also surface visually.
  *
- * Visual conventions mirror `LocalAIDownloadSnackbar` — bottom-right portal,
+ * Visual conventions: bottom-right portal,
  * stone-900 panel, primary gradient progress bar.
  */
 import { useCallback, useRef, useState } from 'react';
@@ -18,7 +18,7 @@ import { createPortal } from 'react-dom';
 
 import { useAppUpdate } from '../hooks/useAppUpdate';
 import { useT } from '../lib/i18n/I18nContext';
-import { formatBytes } from '../utils/localAiHelpers';
+import { formatBytes } from '../utils/format';
 import Button from './ui/Button';
 
 interface AppUpdatePromptProps {

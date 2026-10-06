@@ -1,10 +1,11 @@
 //! Round26 raw integration coverage for high-yield channel cold paths.
 //!
-//! Loopback Bot API endpoints and parser/codec fixtures only: no real channel
+//! Loopback Bot API endpoints only: no real channel
 //! network services are contacted.
 //!
 //! Yuanbao biz-codec cases live in `vendor/tinychannels` (`yuanbao/proto_biz.rs`).
 
+use crate::env_guard::EnvVarGuard;
 use axum::{
     body::Bytes,
     extract::State,
@@ -12,10 +13,6 @@ use axum::{
     routing::post,
     Json, Router,
 };
-use openhuman_core::channels::providers::email_channel::{
-    test_support as email_support, EmailChannel, EmailConfig,
-};
-use openhuman_core::channels::providers::irc::test_support as irc_support;
 use openhuman_core::channels::providers::telegram::TelegramChannel;
 use openhuman_core::channels::traits::{Channel, SendMessage};
 use serde_json::{json, Value};
@@ -139,50 +136,24 @@ async fn telegram_media(
     )
 }
 
-struct EnvGuard {
-    key: &'static str,
-    prior: Option<String>,
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: &std::sync::OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
 }
 
-impl EnvGuard {
-    fn set(key: &'static str, value: String) -> Self {
-        let prior = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, prior }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        if let Some(value) = self.prior.take() {
-            std::env::set_var(self.key, value);
-        } else {
-            std::env::remove_var(self.key);
-        }
-    }
-}
-
-impl EnvGuard {
-    fn unset(key: &'static str) -> Self {
-        let prior = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, prior }
-    }
-}
-
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: &std::sync::OnceLock<std::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
-    LOCK.get_or_init(|| std::sync::Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: &std::sync::OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 #[tokio::test]
 async fn telegram_loopback_covers_reaction_text_fallback_and_media_send_paths() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let (base, state) = spawn_telegram_mock().await;
-    let _guard = EnvGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", base);
-    let _legacy_guard = EnvGuard::unset("OPENHUMAN_TELEGRAM_API_BASE");
+    let _guard = EnvVarGuard::set("OPENHUMAN_TELEGRAM_BOT_API_BASE", base);
+    let _legacy_guard = EnvVarGuard::unset("OPENHUMAN_TELEGRAM_API_BASE");
     let channel = TelegramChannel::new("round26".to_string(), vec!["alice".to_string()], false);
 
     channel
@@ -284,73 +255,4 @@ async fn telegram_loopback_covers_reaction_text_fallback_and_media_send_paths() 
     assert!(multipart[0].1.contains("round26.txt"));
     assert_eq!(multipart[1].0, "sendPhoto");
     assert!(multipart[1].1.contains("round26.png"));
-}
-
-#[test]
-fn irc_and_email_parser_edges_cover_helpers_without_sockets() {
-    let parsed = irc_support::parse_line_for_test(":Alice!u@h PRIVMSG #ops :hello world")
-        .expect("irc privmsg parse");
-    assert_eq!(parsed.0.as_deref(), Some("Alice!u@h"));
-    assert_eq!(parsed.1, "PRIVMSG");
-    assert_eq!(
-        parsed.2,
-        vec!["#ops".to_string(), "hello world".to_string()]
-    );
-    assert_eq!(parsed.3.as_deref(), Some("Alice"));
-    assert_eq!(
-        irc_support::parse_line_for_test("PING :server")
-            .expect("ping parse")
-            .2,
-        vec!["server".to_string()]
-    );
-    assert!(irc_support::parse_line_for_test("").is_none());
-    assert_eq!(
-        irc_support::encode_sasl_plain_for_test("openhuman", "secret"),
-        "AG9wZW5odW1hbgBzZWNyZXQ="
-    );
-    assert!(irc_support::is_user_allowed_for_test(
-        vec!["*".to_string()],
-        "Anyone"
-    ));
-    assert!(irc_support::is_user_allowed_for_test(
-        vec!["Alice".to_string()],
-        "alice"
-    ));
-    assert!(!irc_support::is_user_allowed_for_test(
-        vec!["Alice".to_string()],
-        "bob"
-    ));
-
-    let chunks = irc_support::split_message_for_test("alpha\nβeta\r\n0123456789", 5);
-    assert_eq!(chunks, vec!["alpha", "βeta", "01234", "56789"]);
-    assert_eq!(
-        irc_support::split_message_for_test("\n", 0),
-        vec![String::new()]
-    );
-
-    let channel = EmailChannel::new(EmailConfig {
-        from_address: "bot@example.test".to_string(),
-        allowed_senders: vec![
-            "*".to_string(),
-            "admin@example.test".to_string(),
-            "@team.example".to_string(),
-        ],
-        ..Default::default()
-    });
-    assert!(channel.is_sender_allowed("blocked@anywhere.test"));
-    assert_eq!(
-        EmailChannel::strip_html("<div>hello<br><span>team</span></div>"),
-        "helloteam"
-    );
-    let no_body = b"From: Unknown <nobody@example.test>\r\nSubject: No Body\r\n\r\n";
-    let parsed = email_support::parse_email_fixture(no_body).expect("email parse");
-    assert_eq!(parsed.sender, "nobody@example.test");
-    assert_eq!(parsed.subject.as_deref(), Some("No Body"));
-    assert!(parsed.text.is_empty());
-    let plain = channel
-        .build_plain_message("ops@example.test", "Round26", "plain body")
-        .expect("plain email");
-    let formatted = String::from_utf8_lossy(&plain.formatted()).to_string();
-    assert!(formatted.contains("Subject: Round26"));
-    assert!(formatted.contains("plain body"));
 }

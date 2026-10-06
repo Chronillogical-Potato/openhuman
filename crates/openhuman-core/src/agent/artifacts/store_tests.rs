@@ -10,6 +10,8 @@ fn make_meta(id: &str, title: &str, created_at: chrono::DateTime<Utc>) -> Artifa
         kind: ArtifactKind::Document,
         title: title.to_string(),
         path: format!("{id}/file.txt"),
+        file: None,
+        file_root: None,
         size_bytes: 100,
         status: ArtifactStatus::Ready,
         created_at,
@@ -77,9 +79,7 @@ async fn list_pagination() {
     let tmp = TempDir::new().unwrap();
 
     for i in 0..5_u32 {
-        let ts = Utc
-            .with_ymd_and_hms(2025, 1, i as u32 + 1, 0, 0, 0)
-            .unwrap();
+        let ts = Utc.with_ymd_and_hms(2025, 1, i + 1, 0, 0, 0).unwrap();
         save_artifact_meta(tmp.path(), &make_meta(&format!("id-{i}"), "x", ts))
             .await
             .unwrap();
@@ -103,7 +103,9 @@ async fn delete_removes_directory_and_meta() {
     // Confirm it exists
     get_artifact(tmp.path(), "del-id").await.unwrap();
 
-    delete_artifact(tmp.path(), "del-id").await.unwrap();
+    delete_artifact(tmp.path(), tmp.path(), "del-id")
+        .await
+        .unwrap();
 
     // Should now be gone
     let err = get_artifact(tmp.path(), "del-id").await.unwrap_err();
@@ -116,7 +118,7 @@ async fn delete_removes_directory_and_meta() {
 #[tokio::test]
 async fn delete_nonexistent_returns_error() {
     let tmp = TempDir::new().unwrap();
-    let err = delete_artifact(tmp.path(), "nonexistent-id")
+    let err = delete_artifact(tmp.path(), tmp.path(), "nonexistent-id")
         .await
         .unwrap_err();
     assert!(
@@ -261,9 +263,15 @@ async fn create_artifact_publishes_artifact_pending_event() {
     let _handle = collector.subscribe();
 
     let tmp = TempDir::new().unwrap();
-    let (meta, _path) = create_artifact(tmp.path(), ArtifactKind::Presentation, "Q3 Deck", "pptx")
-        .await
-        .expect("create_artifact succeeds");
+    let (meta, _path) = create_artifact(
+        tmp.path(),
+        &tmp.path().join("Files"),
+        ArtifactKind::Presentation,
+        "Q3 Deck",
+        "pptx",
+    )
+    .await
+    .expect("create_artifact succeeds");
     let expected_workspace = tmp.path().to_string_lossy().into_owned();
 
     // The bus is broadcast-based and processed off-task — wait until the
@@ -352,10 +360,15 @@ async fn artifact_events_fill_request_id_from_chat_context() {
 
     let (meta, _path) = APPROVAL_CHAT_CONTEXT
         .scope(ctx, async {
-            let (meta, _path) =
-                create_artifact(tmp.path(), ArtifactKind::Document, "Report", "pdf")
-                    .await
-                    .expect("create_artifact succeeds");
+            let (meta, _path) = create_artifact(
+                tmp.path(),
+                &tmp.path().join("Files"),
+                ArtifactKind::Document,
+                "Report",
+                "pdf",
+            )
+            .await
+            .expect("create_artifact succeeds");
             finalize_artifact(tmp.path(), &meta.id, 42)
                 .await
                 .expect("finalize_artifact succeeds");
@@ -427,11 +440,16 @@ async fn fail_artifact_fills_request_id_from_chat_context() {
 
     let meta = APPROVAL_CHAT_CONTEXT
         .scope(ctx, async {
-            let (meta, _path) =
-                create_artifact(tmp.path(), ArtifactKind::Document, "Report", "pdf")
-                    .await
-                    .expect("create_artifact succeeds");
-            fail_artifact(tmp.path(), &meta.id, "boom")
+            let (meta, _path) = create_artifact(
+                tmp.path(),
+                &tmp.path().join("Files"),
+                ArtifactKind::Document,
+                "Report",
+                "pdf",
+            )
+            .await
+            .expect("create_artifact succeeds");
+            fail_artifact(tmp.path(), tmp.path(), &meta.id, "boom")
                 .await
                 .expect("fail_artifact succeeds");
             meta
@@ -497,9 +515,15 @@ async fn read_args_errors_when_absent() {
 #[tokio::test]
 async fn create_artifact_mints_fresh_id_without_scope() {
     let tmp = TempDir::new().unwrap();
-    let (meta, _path) = create_artifact(tmp.path(), ArtifactKind::Presentation, "Q3 Deck", "pptx")
-        .await
-        .unwrap();
+    let (meta, _path) = create_artifact(
+        tmp.path(),
+        &tmp.path().join("Files"),
+        ArtifactKind::Presentation,
+        "Q3 Deck",
+        "pptx",
+    )
+    .await
+    .unwrap();
     // A normal (non-regenerate) create mints a UUID, never an empty id.
     assert!(!meta.id.is_empty());
     assert_eq!(meta.status, ArtifactStatus::Pending);
@@ -511,7 +535,14 @@ async fn create_artifact_reuses_id_inside_regenerate_scope() {
     let workspace = tmp.path().to_path_buf();
     let (meta, _path) = REGENERATE_TARGET_ID
         .scope("reused-id".to_string(), async move {
-            create_artifact(&workspace, ArtifactKind::Presentation, "Q3 Deck", "pptx").await
+            create_artifact(
+                &workspace,
+                &workspace.join("Files"),
+                ArtifactKind::Presentation,
+                "Q3 Deck",
+                "pptx",
+            )
+            .await
         })
         .await
         .unwrap();
@@ -528,9 +559,15 @@ async fn regenerate_preserves_original_created_at() {
     let workspace = tmp.path().to_path_buf();
 
     // First create stamps `created_at = now`.
-    let (first, _) = create_artifact(tmp.path(), ArtifactKind::Presentation, "Deck", "pptx")
-        .await
-        .unwrap();
+    let (first, _) = create_artifact(
+        tmp.path(),
+        &tmp.path().join("Files"),
+        ArtifactKind::Presentation,
+        "Deck",
+        "pptx",
+    )
+    .await
+    .unwrap();
     let original_created = first.created_at;
 
     // Regenerate reuses the id; created_at must NOT be bumped, otherwise the
@@ -539,7 +576,14 @@ async fn regenerate_preserves_original_created_at() {
     let ws = workspace.clone();
     let (second, _) = REGENERATE_TARGET_ID
         .scope(id.clone(), async move {
-            create_artifact(&ws, ArtifactKind::Presentation, "Deck", "pptx").await
+            create_artifact(
+                &ws,
+                &ws.join("Files"),
+                ArtifactKind::Presentation,
+                "Deck",
+                "pptx",
+            )
+            .await
         })
         .await
         .unwrap();

@@ -14,35 +14,6 @@ fn same_named_catalog() -> Vec<CatalogEntry> {
     .collect()
 }
 
-fn find_catalog_entry_matches_ids_and_unambiguous_legacy_names() {
-    let catalog = same_named_catalog();
-    let by_id = find_catalog_entry(&catalog, "clawhub/ai-code-review-ops").unwrap();
-    assert_eq!(by_id.id, "clawhub/ai-code-review-ops");
-    // An exact id wins over another entry carrying the same name.
-    assert_eq!(
-        find_catalog_entry(&catalog, "apple-notes").unwrap().source,
-        "built-in"
-    );
-    // Ids used to be display names; a name only one entry has still resolves.
-    assert_eq!(
-        find_catalog_entry(&catalog, "Apple Design").unwrap().id,
-        "clawhub/apple-design"
-    );
-}
-
-#[test]
-fn find_catalog_entry_refuses_an_ambiguous_name_and_lists_the_ids() {
-    let err = find_catalog_entry(&same_named_catalog(), "AI Code Review").unwrap_err();
-    assert!(
-        err.contains("2 catalog entries are named 'AI Code Review'"),
-        "{err}"
-    );
-    assert!(
-        err.contains("clawhub/qf-code-review") && err.contains("clawhub/ai-code-review-ops"),
-        "{err}"
-    );
-}
-
 #[test]
 fn find_catalog_entry_not_found_suggests_real_ids_instead_of_a_refresh() {
     let err = find_catalog_entry(&same_named_catalog(), "ai-code-review").unwrap_err();
@@ -80,12 +51,6 @@ async fn install_from_catalog_errors_for_portal_skill_without_download() {
 }
 
 #[test]
-fn parse_catalog_json_rejects_invalid_payloads() {
-    let error = parse_catalog_json("{").expect_err("invalid json");
-    assert!(error.contains("invalid catalog json"));
-}
-
-#[test]
 fn refresh_on_boot_enabled_defaults_on_and_accepts_common_false_values() {
     assert!(refresh_on_boot_enabled(None));
     assert!(refresh_on_boot_enabled(Some("1")));
@@ -102,10 +67,12 @@ use std::sync::Arc;
 
 const CACHE_DIR_ENV: &str = "OPENHUMAN_SKILL_REGISTRY_CACHE_DIR";
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    crate::skills::catalog::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    crate::skills::catalog::TEST_ENV_LOCK.blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    crate::skills::catalog::TEST_ENV_LOCK.lock().await
 }
 
 fn sample_entry() -> CatalogEntry {
@@ -121,7 +88,7 @@ fn sample_entry() -> CatalogEntry {
 
 #[tokio::test]
 async fn fresh_cache_skips_fetch() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(CACHE_DIR_ENV, tmp.path());
     store::save_catalog_cache(&[sample_entry()]);
@@ -147,7 +114,7 @@ async fn fresh_cache_skips_fetch() {
 
 #[tokio::test]
 async fn concurrent_cache_miss_coalesces_to_single_fetch() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(CACHE_DIR_ENV, tmp.path());
     store::clear_cache();
@@ -199,7 +166,7 @@ fn write_cache_at(dir: &std::path::Path, entries: Vec<CatalogEntry>, epoch: u64)
 
 #[tokio::test]
 async fn browse_serves_stale_without_a_foreground_fetch() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(CACHE_DIR_ENV, tmp.path());
     write_cache_at(tmp.path(), vec![sample_entry()], 1); // epoch 1 => stale
@@ -228,7 +195,7 @@ async fn browse_serves_stale_without_a_foreground_fetch() {
 
 #[tokio::test]
 async fn search_rejects_stale_and_fetches_fresh() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(CACHE_DIR_ENV, tmp.path());
     write_cache_at(tmp.path(), vec![sample_entry()], 1); // stale: 1 entry
@@ -260,7 +227,7 @@ async fn search_rejects_stale_and_fetches_fresh() {
 
 #[tokio::test]
 async fn search_ranks_installable_entries_before_uninstallable_ones() {
-    let _env = env_lock();
+    let _env = env_lock_async().await;
     let tmp = tempfile::tempdir().unwrap();
     std::env::set_var(CACHE_DIR_ENV, tmp.path());
     let agent = parse_hermes_entry(&json!({

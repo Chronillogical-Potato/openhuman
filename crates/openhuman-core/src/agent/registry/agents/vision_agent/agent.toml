@@ -1,7 +1,7 @@
 id = "vision_agent"
 display_name = "Vision"
 delegate_name = "analyze_image"
-when_to_use = "Image-understanding specialist: describe, OCR, read charts, compare images, or locate UI elements. Route here whenever the task hinges on the content of an image the user attached or named on disk. Read-only."
+when_to_use = "Image-understanding specialist: describe, OCR, read charts, compare images, or locate UI elements when the primary model cannot accept the image. Forward workspace images with image_paths. Read-only."
 temperature = 0.3
 max_iterations = 6
 max_result_chars = 16000
@@ -22,8 +22,8 @@ exact = "openrouter/qwen/qwen3.5-flash-02-23"
 [tools]
 # Attached images arrive inline in the sub-agent's context via the multimodal
 # pipeline (no tool call needed to "see" them). These tools cover the extra
-# actions a vision task may need: loading another user-provided image file and
-# inspecting image metadata.
+# actions a vision task may need, such as inspecting image metadata. These
+# tools do not attach additional images to the model's input.
 named = [
     "file_read",
     "image_info",

@@ -36,8 +36,7 @@ pub use params::{read_optional, read_required};
 pub use redact::redact_url_for_log;
 pub use retry::{is_transient_fs_error, retry_with_backoff, retry_with_backoff_async};
 pub use text::{
-    ceil_char_boundary, floor_char_boundary, provenance_tag, truncate_at_byte_boundary,
-    truncate_chars_flagged, truncate_with_ellipsis, truncate_with_suffix,
-    utf8_safe_prefix_at_byte_boundary,
+    ceil_char_boundary, floor_char_boundary, truncate_at_byte_boundary, truncate_with_ellipsis,
+    truncate_with_suffix, utf8_safe_prefix_at_byte_boundary,
 };
 pub use types::MaybeSet;

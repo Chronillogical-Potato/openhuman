@@ -17,7 +17,6 @@ import {
   isVideoMimeType,
   parseMessageImages,
   validateAndReadFile,
-  VIDEO_FRAME_COUNT,
   videoFrameExtractor,
 } from './attachments';
 
@@ -74,6 +73,62 @@ describe('fileToDataUri', () => {
 });
 
 describe('validateAndReadFile', () => {
+  it('preserves unknown MIME, filename and original bytes in the upload marker', async () => {
+    const file = new File([Uint8Array.of(0, 255, 128)], 'archive ] résumé.bin');
+    const result = await validateAndReadFile(file, 0);
+    expect('attachment' in result).toBe(true);
+    if ('attachment' in result) {
+      expect(result.attachment.mimeType).toBe('application/octet-stream');
+      expect(result.attachment.dataUri).toBe(
+        'data:application/octet-stream;name=archive%20%5D%20r%C3%A9sum%C3%A9.bin;base64,AP+A'
+      );
+    }
+  });
+
+  it('uses reversible gzip transport while preserving original filename and MIME', async () => {
+    const original = new TextEncoder().encode('a'.repeat(4096));
+    const file = new File([original], 'Report.TXT', { type: 'text/plain' });
+    Object.defineProperty(file, 'stream', {
+      value: () =>
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(original);
+            controller.close();
+          },
+        }),
+    });
+    try {
+      const result = await validateAndReadFile(file, 0);
+      expect('attachment' in result).toBe(true);
+      if ('attachment' in result) {
+        expect(result.attachment.compressed).toBe(true);
+        expect(result.attachment.dataUri).toMatch(
+          /^data:application\/gzip;original_mime=text%2Fplain;name=Report.TXT;base64,/
+        );
+        const encoded = result.attachment.dataUri.split(',')[1];
+        const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0));
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(bytes);
+            controller.close();
+          },
+        });
+        const recovered = await new Response(
+          stream.pipeThrough(new DecompressionStream('gzip'))
+        ).arrayBuffer();
+        expect(Array.from(new Uint8Array(recovered))).toEqual(Array.from(original));
+        expect(result.attachment.originalSizeBytes).toBe(original.length);
+      }
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('accepts audio originals without transcribing them', async () => {
+    const result = await validateAndReadFile(makeFile('voice.mp3', 'audio/mpeg', 3), 0);
+    expect('attachment' in result && result.attachment.kind).toBe('file');
+  });
+
   it('rejects when at max image count', async () => {
     const file = makeFile('x.png', 'image/png');
     const result = await validateAndReadFile(file, ATTACHMENT_MAX_IMAGES);
@@ -83,16 +138,13 @@ describe('validateAndReadFile', () => {
     }
   });
 
-  it('rejects unsupported MIME types', async () => {
+  it('accepts arbitrary MIME types', async () => {
     const file = makeFile('vector.svg', 'image/svg+xml');
     const result = await validateAndReadFile(file, 0);
-    expect('error' in result).toBe(true);
-    if ('error' in result) {
-      expect(result.error.code).toBe('unsupported_type');
-    }
+    expect('attachment' in result && result.attachment.kind).toBe('file');
   });
 
-  it('rejects non-extractable documents (docx/pptx/xlsx) the agent cannot read', async () => {
+  it('accepts Office documents and archives as original files', async () => {
     for (const mime of [
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -100,7 +152,7 @@ describe('validateAndReadFile', () => {
       'application/zip',
     ]) {
       const result = await validateAndReadFile(makeFile('f', mime, 8), 0);
-      expect('error' in result && result.error.code).toBe('unsupported_type');
+      expect('attachment' in result && result.attachment.kind).toBe('file');
     }
   });
 
@@ -111,9 +163,9 @@ describe('validateAndReadFile', () => {
     }
   });
 
-  it('rejects an image when allowImages is false (non-vision model)', async () => {
+  it('accepts an image even for a non-vision model', async () => {
     const result = await validateAndReadFile(makeFile('p.png', 'image/png', 8), 0, 0, false);
-    expect('error' in result && result.error.code).toBe('image_not_supported');
+    expect('attachment' in result && result.attachment.kind).toBe('image');
   });
 
   it('still accepts a document when allowImages is false', async () => {
@@ -155,7 +207,7 @@ describe('validateAndReadFile', () => {
     if ('attachment' in result) {
       expect(result.attachment.mimeType).toBe('image/png');
       expect(result.attachment.kind).toBe('image');
-      expect(result.attachment.dataUri).toMatch(/^data:image\/png;base64,/);
+      expect(result.attachment.dataUri).toMatch(/^data:image\/png;name=ok.png;base64,/);
       expect(result.attachment.file).toBe(file);
       expect(result.attachment.compressed).toBe(false);
     }
@@ -168,7 +220,7 @@ describe('validateAndReadFile', () => {
     if ('attachment' in result) {
       expect(result.attachment.mimeType).toBe('application/pdf');
       expect(result.attachment.kind).toBe('file');
-      expect(result.attachment.dataUri).toMatch(/^data:application\/pdf;base64,/);
+      expect(result.attachment.dataUri).toMatch(/^data:application\/pdf;name=doc.pdf;base64,/);
     }
   });
 
@@ -208,64 +260,47 @@ describe('video attachments', () => {
     expect(attachmentKindForMime('video/mp4')).toBe('video');
   });
 
-  it('costs 1 image marker per image and VIDEO_FRAME_COUNT per video', () => {
+  it('budgets originals rather than video preview frames', async () => {
     expect(imageMarkerCost('image')).toBe(1);
-    expect(imageMarkerCost('video')).toBe(VIDEO_FRAME_COUNT);
+    expect(imageMarkerCost('video')).toBe(0);
     expect(imageMarkerCost('file')).toBe(0);
-  });
-
-  it('rejects video when allowImages is false (non-vision model)', async () => {
-    const result = await validateAndReadFile(makeFile('clip.mp4', 'video/mp4', 8), 0, 0, false);
-    expect('error' in result && result.error.code).toBe('video_not_supported');
-  });
-
-  it('rejects video over the video size limit', async () => {
-    const big = makeFile('big.mp4', 'video/mp4', ATTACHMENT_MAX_VIDEO_SIZE_BYTES + 1);
-    const result = await validateAndReadFile(big, 0, 0, true);
-    expect('error' in result && result.error.code).toBe('too_large');
-  });
-
-  it('rejects video when its frames would exceed the shared image-marker budget', async () => {
-    // Budget full of images already → no room for a video's frames.
     const result = await validateAndReadFile(
       makeFile('clip.mp4', 'video/mp4', 8),
       ATTACHMENT_MAX_IMAGES,
       0,
-      true
+      false
     );
-    expect('error' in result && result.error.code).toBe('too_many');
-    // Reported as the image budget (frames are images to the model).
-    expect('error' in result && result.error.code === 'too_many' && result.error.kind).toBe(
-      'image'
-    );
+    expect('attachment' in result && result.attachment.kind).toBe('video');
   });
 
-  it('rejects a video that partially overflows the budget (images + frames)', async () => {
-    // One image used (1 marker); a video costs VIDEO_FRAME_COUNT more. With the
-    // default budget of 4, 1 + 2 = 3 fits, but seed close to the cap to overflow.
-    const used = ATTACHMENT_MAX_IMAGES - (VIDEO_FRAME_COUNT - 1); // leaves < cost
-    const result = await validateAndReadFile(makeFile('c.mp4', 'video/mp4', 8), used, 0, true);
+  it('rejects video over the original file size limit', async () => {
+    const result = await validateAndReadFile(
+      makeFile('big.mp4', 'video/mp4', ATTACHMENT_MAX_VIDEO_SIZE_BYTES + 1),
+      0
+    );
+    expect('error' in result && result.error.code).toBe('too_large');
+    expect(ATTACHMENT_MAX_VIDEO_SIZE_BYTES).toBe(ATTACHMENT_MAX_FILE_SIZE_BYTES);
+  });
+
+  it('rejects video when the file count is full', async () => {
+    const result = await validateAndReadFile(makeFile('clip.mp4', 'video/mp4', 8), 0, 4);
     expect('error' in result && result.error.code).toBe('too_many');
   });
 
-  it('samples frames and returns a video attachment within budget', async () => {
-    const frames = ['data:image/jpeg;base64,f1', 'data:image/jpeg;base64,f2'];
-    vi.spyOn(videoFrameExtractor, 'extract').mockResolvedValue(frames);
-    const file = makeFile('clip.mp4', 'video/mp4', 4096);
-    const result = await validateAndReadFile(file, 0, 0, true);
+  it('retains the exact video bytes without requiring a browser decoder', async () => {
+    const decode = vi
+      .spyOn(videoFrameExtractor, 'extract')
+      .mockRejectedValue(new Error('codec unavailable'));
+    const file = new File([Uint8Array.of(1, 2, 3, 4)], 'clip.mp4', { type: 'video/mp4' });
+    const result = await validateAndReadFile(file, 0);
     expect('attachment' in result).toBe(true);
     if ('attachment' in result) {
-      expect(result.attachment.kind).toBe('video');
-      expect(result.attachment.frames).toEqual(frames);
-      expect(result.attachment.previewUri).toBe(frames[0]);
-      expect(result.attachment.file).toBe(file);
+      expect(result.attachment.dataUri).toBe('data:video/mp4;name=clip.mp4;base64,AQIDBA==');
+      expect(buildMessageWithAttachments('', [result.attachment])).toBe(
+        '[FILE:data:video/mp4;name=clip.mp4;base64,AQIDBA==]'
+      );
     }
-  });
-
-  it('fails when no frames could be extracted', async () => {
-    vi.spyOn(videoFrameExtractor, 'extract').mockResolvedValue([]);
-    const result = await validateAndReadFile(makeFile('clip.mp4', 'video/mp4', 8), 0, 0, true);
-    expect('error' in result && result.error.code).toBe('read_failed');
+    expect(decode).not.toHaveBeenCalled();
   });
 });
 
@@ -355,7 +390,7 @@ describe('extractVideoFrames (DOM-mocked)', () => {
     expect(frames.length).toBe(2);
   });
 
-  it('propagates a read_failed error when the video fails to decode', async () => {
+  it('the explicit preview helper rejects a video that fails to decode', async () => {
     const realCreate = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
       if (tag === 'video') {
@@ -375,8 +410,7 @@ describe('extractVideoFrames (DOM-mocked)', () => {
       if (tag === 'canvas') return makeFakeCanvas() as unknown as HTMLElement;
       return realCreate(tag as keyof HTMLElementTagNameMap);
     });
-    const result = await validateAndReadFile(makeFile('bad.mp4', 'video/mp4', 8), 0, 0, true);
-    expect('error' in result && result.error.code).toBe('read_failed');
+    await expect(extractVideoFrames(makeFile('bad.mp4', 'video/mp4', 8))).rejects.toThrow();
   });
 });
 
@@ -385,19 +419,17 @@ describe('buildMessageWithAttachments', () => {
     expect(buildMessageWithAttachments('hello', [])).toBe('hello');
   });
 
-  it('expands a video into one IMAGE marker per sampled frame', () => {
+  it('sends the original video even when optional preview frames exist', () => {
     const video = makeAttachment({
       kind: 'video',
       file: makeFile('clip.mp4', 'video/mp4'),
       mimeType: 'video/mp4',
-      dataUri: 'data:image/jpeg;base64,f1',
+      dataUri: 'data:video/mp4;base64,original',
       previewUri: 'data:image/jpeg;base64,f1',
       frames: ['data:image/jpeg;base64,f1', 'data:image/jpeg;base64,f2'],
     });
     const result = buildMessageWithAttachments('watch', [video]);
-    expect(result).toBe(
-      'watch [IMAGE:data:image/jpeg;base64,f1] [IMAGE:data:image/jpeg;base64,f2]'
-    );
+    expect(result).toBe('watch [FILE:data:video/mp4;base64,original]');
   });
 
   it('appends IMAGE markers after the text', () => {

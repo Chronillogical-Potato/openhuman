@@ -1,64 +1,9 @@
 import { useRef, useState } from 'react';
 
-import type { VoiceInstallStatus } from '../../../services/api/voiceInstallApi';
 import { testVoiceProvider } from '../../../services/api/voiceSettingsApi';
 import { Alert, Button, ModalShell } from '../../ui';
 import { SettingsSelect, SettingsTextField } from '../controls';
 import { BUILTIN_VOICE_PROVIDER_META } from './VoicePanelProviderChips';
-
-/**
- * Map an install status snapshot to a button label. Single source of truth
- * for the four states the UI surfaces: Not installed / Install / Installing
- * N% / Reinstall.
- */
-const installButtonLabel = (
-  t: (key: string) => string,
-  status: VoiceInstallStatus | null,
-  busy: boolean
-): string => {
-  // Render based on the remote status — the install RPC is fire-and-forget,
-  // so the local `busy` flag only covers the brief moment between click and
-  // the RPC return. The real "is install running?" signal comes from the
-  // polled status table, which lags behind by at most one 2s tick.
-  if (status?.state === 'installing') {
-    const pct =
-      typeof status.progress === 'number' ? `${status.progress}%` : t('voice.providers.ellipsis');
-    return `${t('voice.providers.installing')} ${pct}`;
-  }
-  if (busy) return t('voice.providers.installingBusy');
-  if (status?.state === 'installed') return t('voice.providers.reinstallLocally');
-  if (status?.state === 'broken') return t('voice.providers.repair');
-  if (status?.state === 'error') return t('voice.providers.retryLocally');
-  return t('voice.providers.installLocally');
-};
-
-const installStatusText = (
-  t: (key: string) => string,
-  status: VoiceInstallStatus | null,
-  ready: boolean
-): string => {
-  if (status?.state === 'installing') {
-    const progress =
-      typeof status.progress === 'number'
-        ? `${t('voice.providers.installing')} ${status.progress}%`
-        : t('voice.providers.installing');
-    return status.stage ? `${progress} · ${status.stage}` : progress;
-  }
-  if (ready) return t('voice.providers.installed');
-  if (status?.state === 'error' || status?.state === 'broken') {
-    return status.error_detail ?? t('voice.providers.installFailed');
-  }
-  return t('voice.providers.notInstalled');
-};
-
-const installStatusClassName = (status: VoiceInstallStatus | null, ready: boolean): string => {
-  if (status?.state === 'error' || status?.state === 'broken') {
-    return 'text-coral-600 dark:text-coral-300';
-  }
-  if (status?.state === 'installing') return 'text-amber-600 dark:text-amber-300';
-  if (ready) return 'text-sage-600 dark:text-sage-300';
-  return 'text-content-muted';
-};
 
 interface VoicePanelKeyModalProps {
   t: (key: string) => string;
@@ -72,9 +17,9 @@ interface VoicePanelKeyModalProps {
   setTtsVoice: (value: string) => void;
   piperVoicePresets: ReadonlyArray<{ id: string; label: string }>;
   piperVoicePresetIds: readonly string[];
-  piperInstall: VoiceInstallStatus | null;
-  isInstallingPiper: boolean;
-  handleInstallPiper: () => Promise<void>;
+  /** True while the panel re-reads `voice_status` after a "Check again" click. */
+  isCheckingPiper: boolean;
+  handleRecheckPiper: () => Promise<void>;
   piperReady: boolean;
   pendingLocalProviderReady: boolean;
   isSavingProviders: boolean;
@@ -82,7 +27,7 @@ interface VoicePanelKeyModalProps {
   persistProviders: (update: { tts_voice?: string }) => Promise<void>;
 }
 
-/** Inline API-key / Piper-install modal opened from a provider chip. */
+/** Inline API-key / Piper setup modal opened from a provider chip. */
 const VoicePanelKeyModal = ({
   t,
   pendingKeySlug,
@@ -95,9 +40,8 @@ const VoicePanelKeyModal = ({
   setTtsVoice,
   piperVoicePresets,
   piperVoicePresetIds,
-  piperInstall,
-  isInstallingPiper,
-  handleInstallPiper,
+  isCheckingPiper,
+  handleRecheckPiper,
   piperReady,
   pendingLocalProviderReady,
   isSavingProviders,
@@ -255,17 +199,30 @@ const VoicePanelKeyModal = ({
               </SettingsSelect>
             </label>
 
+            {/* OpenHuman does not download Piper or its voices — the user
+                installs them and this only reports whether they resolve. */}
+            <p
+              data-testid="voice-piper-self-install-hint"
+              className="text-xs text-content-muted dark:text-content-secondary">
+              {t('voice.providers.piperSelfInstallHint')}
+            </p>
+
             <div className="flex items-center gap-2">
               <Button
                 type="button"
-                variant={piperReady ? 'secondary' : 'primary'}
+                variant="secondary"
                 size="xs"
-                onClick={() => void handleInstallPiper()}
-                disabled={isInstallingPiper || piperInstall?.state === 'installing'}>
-                {installButtonLabel(t, piperInstall, isInstallingPiper)}
+                data-testid="voice-piper-recheck"
+                onClick={() => void handleRecheckPiper()}
+                disabled={isCheckingPiper}>
+                {t('voice.providers.piperRecheck')}
               </Button>
-              <span className={`text-[11px] ${installStatusClassName(piperInstall, piperReady)}`}>
-                {installStatusText(t, piperInstall, piperReady)}
+              <span
+                data-testid="voice-piper-status"
+                className={`text-[11px] ${
+                  piperReady ? 'text-sage-600 dark:text-sage-300' : 'text-content-muted'
+                }`}>
+                {piperReady ? t('voice.providers.piperFound') : t('voice.providers.piperNotFound')}
               </span>
             </div>
           </>

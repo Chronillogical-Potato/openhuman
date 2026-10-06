@@ -15,7 +15,8 @@ backend, and delegates local OS-level confinement to `tinybox-jail`.
 - `pub enum SandboxBackendKind { None, Local, Docker }` (`types.rs`): which
   backend a session resolved to.
 - `pub struct SandboxPolicy` (`types.rs`): `backend`, `workspace_root`,
-  `read_only_mounts`, `allow_network`, `env_passthrough`, `docker_overrides`.
+  `state_dir`, `read_only_mounts`, `read_write_mounts`, `allow_network`, `env_passthrough`,
+  `docker_overrides`.
 - `pub struct DockerOverrides` (`types.rs`): per-session image, network, and
   resource-limit overrides layered on `RuntimeConfig`'s `[runtime.docker]`.
 - `pub struct ElevatedOp` and `pub const ELEVATED_TOOLS` (`types.rs`): tools
@@ -26,14 +27,21 @@ backend, and delegates local OS-level confinement to `tinybox-jail`.
 - `pub const SANDBOX_ENV_PASSTHROUGH` (`ops.rs`): the allowlisted environment
   variables (`PATH`, `HOME`, `TERM`, and so on) forwarded into sandboxed
   execution; no other host env leaks in.
-- `pub fn resolve_sandbox_policy(mode: SandboxMode, action_dir, runtime_config, is_remote_session) -> SandboxPolicy`
+- `pub fn resolve_sandbox_policy(mode: SandboxMode, action_dir, state_dir, runtime_config, is_remote_session) -> SandboxPolicy`
   (`ops.rs`): `SandboxMode::None`/`ReadOnly` resolve to
   `SandboxBackendKind::None`. `Sandboxed` resolves to `Docker` when
   `runtime_config.kind == "docker"` or the session is remote (channel/cron),
   otherwise `Local` (OS jail via `cwd_jail`). `allow_network` is
   `!is_remote_session` for `Sandboxed` and `true` otherwise; `workspace_root`
-  is `action_dir`; `read_only_mounts` is always empty; `docker_overrides` is
+  is `action_dir`; `state_dir` is the core's internal `workspace_dir`;
+  `read_only_mounts`/`read_write_mounts` carry the local jail's grant set
+  (`grants.rs`, empty for other backends); `docker_overrides` is
   populated from `[runtime.docker]` only for the `Docker` backend.
+  A host that already isolates the core (container, CI or benchmark task
+  image, VM) sets `OPENHUMAN_SANDBOX=off` (`SANDBOX_OFF_ENV`; also `none`,
+  `0`, `false`, `disabled`), and `Sandboxed` then resolves to `None` for the
+  whole process: the outer isolation permits work (package installs, `/etc`
+  edits) that the action-dir jail would refuse.
 - `pub async fn create_sandbox_backend(policy) -> SandboxBackendHandle`
   (`ops.rs`): instantiates and probes the resolved backend.
 - `pub async fn execute_in_sandbox(policy, command, working_dir, extra_env, timeout) -> anyhow::Result<SandboxExecResult>`
@@ -61,10 +69,32 @@ backend, and delegates local OS-level confinement to `tinybox-jail`.
   `policy.workspace_root`, applies `deny_net()` and any read-only mounts from
   the policy, and spawns through `cwd_jail::default_backend()` (falling back
   to `NoopBackend` if no OS jail is available on the host). Output is
-  captured by redirecting stdout/stderr to temp files inside the jail root,
-  because some backends (macOS Seatbelt) rebuild the command and drop piped
-  stdio.
-- Docker: `docker::docker_exec` runs `docker run --rm` with the host
+  captured by redirecting stdout/stderr to files, because some backends
+  (macOS Seatbelt) rebuild the command and drop piped stdio. The files live
+  in a fresh per-call directory, `sandbox_capture_root(state_dir)/<uuid>/`
+  (`<workspace_dir>/artifacts/sandbox-capture/<uuid>/{stdout,stderr}`), which
+  the jail is granted read/write for that spawn only
+  (`Jail::add_read_write`) and which is removed once read, on every exit
+  path. Nothing is written into the user's project, and concurrent calls
+  never share a file (#6961).
+- Local grants: a real jail (Landlock, Seatbelt) denies everything it is not
+  told about, so `resolve_sandbox_policy` adds the grant set from
+  `grants::resolve_local_jail_grants` and `[runtime.local_jail]`
+  (`LocalJailConfig`): `~/.cargo/bin` and its configuration files read-only;
+  `~/.cargo/registry` and `~/.cargo/git` read-write; `~/.rustup`, `~/.nvm`,
+  `~/.npm`, `/usr/local`, `/opt` and the user's git config files (symlink and
+  `include` targets canonicalized) read-only, each only when it exists; plus
+  the `extra_read_only` / `extra_read_write` lists. Cargo binaries and
+  configuration remain read-only whether or not registry credentials exist.
+  Credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`, ... and any
+  parent that would contain one) are never granted, and `/proc` only with
+  `allow_proc = true` (off by default: `/proc/<pid>/environ` exposes every
+  process's environment). Each call also gets a private writable scratch
+  directory, `sandbox_scratch_root(state_dir)/<uuid>/`, exported as `TMPDIR`
+  (so `mktemp` works without granting `/tmp`) and removed afterwards.
+  `create_sandbox_backend` reports `Inactive` for both the `noop` and the
+  `unsupported` backend names: neither confines anything.
+- Docker: `docker::docker_exec` maps the policy onto `tinybox_docker::OneShot`, which runs `docker run --rm` with the host
   `action_dir` mounted read/write at `/workspace`, network `none` by default,
   `--cap-drop ALL` (plus policy-specified extra drops),
   `--security-opt no-new-privileges`, a read-only rootfs with `/tmp` and
@@ -93,8 +123,8 @@ resolved `SandboxBackendKind` as a security boundary on its own.
   this domain resolves against.
 - `crate::agent::platform_shell`: Windows-aware shell/command building for
   the unsandboxed and local-jail paths.
-- `crate::config::RuntimeConfig`: `[runtime] kind` and `[runtime.docker]`
-  overrides feed `resolve_sandbox_policy`.
+- `crate::config::RuntimeConfig`: `[runtime] kind`, `[runtime.docker]` and
+  `[runtime.local_jail]` overrides feed `resolve_sandbox_policy`.
 
 ## Called by
 

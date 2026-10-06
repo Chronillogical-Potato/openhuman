@@ -81,8 +81,6 @@ fn save_and_reload_stored_app_state_round_trips() {
         encryption_key: Some("enc-key".into()),
         onboarding_tasks: Some(StoredOnboardingTasks {
             accessibility_permission_granted: true,
-            local_model_consent_given: true,
-            local_model_download_started: false,
             enabled_tools: vec!["search".into()],
             connected_sources: vec!["telegram".into()],
             updated_at_ms: Some(42),
@@ -95,10 +93,43 @@ fn save_and_reload_stored_app_state_round_trips() {
     assert_eq!(reloaded.encryption_key, Some("enc-key".into()));
     let tasks = reloaded.onboarding_tasks.expect("onboarding tasks");
     assert!(tasks.accessibility_permission_granted);
-    assert!(tasks.local_model_consent_given);
     assert_eq!(tasks.enabled_tools, vec!["search".to_string()]);
     assert_eq!(tasks.connected_sources, vec!["telegram".to_string()]);
     assert_eq!(tasks.updated_at_ms, Some(42));
+}
+
+/// App-state files written before local model downloads were removed carry
+/// `localModelConsentGiven` / `localModelDownloadStarted`. They must still
+/// load (the rest of the onboarding state intact) and the stale keys must be
+/// dropped on the next save.
+#[test]
+fn legacy_app_state_with_local_model_download_flags_still_loads() {
+    let legacy = serde_json::json!({
+        "encryptionKey": "enc-key",
+        "onboardingTasks": {
+            "accessibilityPermissionGranted": true,
+            "localModelConsentGiven": true,
+            "localModelDownloadStarted": true,
+            "enabledTools": ["search"],
+            "connectedSources": [],
+            "updatedAtMs": 7
+        }
+    });
+    let state: StoredAppState =
+        serde_json::from_value(legacy).expect("legacy app state must deserialize");
+    let tasks = state.onboarding_tasks.clone().expect("onboarding tasks");
+    assert!(tasks.accessibility_permission_granted);
+    assert_eq!(tasks.enabled_tools, vec!["search".to_string()]);
+    assert_eq!(tasks.updated_at_ms, Some(7));
+
+    let tmp = tempdir().unwrap();
+    let mut cfg = Config::default();
+    cfg.workspace_dir = tmp.path().join("workspace");
+    save_app_state(&cfg, &state).expect("save app state");
+    let reloaded = load_stored_app_state(&cfg).expect("reload app state");
+    let serialized = serde_json::to_string(&reloaded).expect("serialize");
+    assert!(!serialized.contains("localModelConsentGiven"));
+    assert!(!serialized.contains("localModelDownloadStarted"));
 }
 
 // ── RuntimeSnapshot cache tests ──────────────────────────────────────────────

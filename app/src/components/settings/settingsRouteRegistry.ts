@@ -494,18 +494,10 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
     devOnly: true,
     searchKeywords: ['developer', 'diagnostics', 'debug'],
   },
-  {
-    // memory-engine: choose the one active memory engine. Reached from the
-    // Brain page ("Memory engine · Change"); not a sidebar entry.
-    id: 'memory-engine',
-    titleKey: 'memoryEngine.title',
-    descriptionKey: 'memoryEngine.description',
-    section: 'features',
-    hiddenDeepLink: true,
-    searchKeywords: ['memory', 'engine', 'cortexdb', 'supermemory', 'mem0', 'cognee'],
-  },
+  // memory-engine / memory-data / memory-debug are redirects to the Memory
+  // page's chips (Connections → Memory); they have no settings panel.
   // Knowledge & Memory group retired entirely — memory surfaces live on the
-  // Brain page (graph / goals / sources / sync).
+  // Memory page (engine / ask / learnings / conversations / documents / context).
   // voice-debug retired from the settings UI.
   {
     id: 'event-log',
@@ -530,7 +522,8 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // dev-workflow (the cron-based GitHub dev-automation panel) was retired —
   // superseded by first-level Workflows (/flows) and the skills workflow runner.
   // Composio trigger-triage config merged into the Connections Composio page.
-  // Agent Chat + Local Model Debug are now chips on the Connections → LLM page.
+  // Agent Chat is a chip on the Connections → LLM page; the retired
+  // local-model-debug slug redirects there (settingsRouteElements.tsx).
   // skills-runner moved to Connections → Skills → Runner; the slug redirects.
   // The dev-only "Build / version info" alias was removed: it opened the same
   // About page, so dev builds listed two sidebar entries for one page. About's

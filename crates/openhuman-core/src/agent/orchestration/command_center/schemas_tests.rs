@@ -10,3 +10,8 @@ fn registered_controllers_match_schemas() {
     assert_eq!(schema_for("agent_work_list").function, "list");
     assert_eq!(schema_for("agent_work_control").function, "control");
 }
+
+#[test]
+fn unknown_agent_has_no_display_name() {
+    assert_eq!(resolve_display_name("__definitely_not_an_agent__"), None);
+}

@@ -1,11 +1,8 @@
 pub mod agent_policy;
-mod capability;
-pub mod generated;
 pub mod host_extensions;
 pub mod ops;
 pub mod orchestrator_tools;
 pub mod registry;
-pub mod schema;
 mod schemas;
 pub mod status;
 pub mod timeout;
@@ -16,7 +13,6 @@ pub(crate) mod user_filter;
 pub(crate) mod implementations;
 
 pub use crate::agent::artifacts::tools::*;
-pub use crate::agent::learning::tools::*;
 pub use crate::agent::orchestration::tools::*;
 pub use crate::agent::tools::*;
 pub use crate::config::tools::*;
@@ -38,9 +34,7 @@ pub use crate::integrations::task_sources::tools::*;
 pub use crate::integrations::tools::*;
 #[cfg(feature = "mcp")]
 pub use crate::mcp::registry::tools::*;
-pub use crate::memory::agent::tools::*;
-pub use crate::memory::tools::goals::*;
-pub use crate::memory::tools::*;
+pub use crate::memory::tools::{MemoryTool, MEMORY_TOOL_NAME};
 pub use crate::platform::cost::tools::*;
 pub use crate::platform::doctor::tools::*;
 pub use crate::platform::health::tools::*;
@@ -62,8 +56,6 @@ pub use crate::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::web3::wallet::tools::*;
 pub use implementations::*;
-#[allow(unused_imports)]
-pub use schema::{CleaningStrategy, SchemaCleanr};
 pub use schemas::{
     all_controller_schemas as all_tools_controller_schemas,
     all_registered_controllers as all_tools_registered_controllers,
@@ -71,5 +63,7 @@ pub use schemas::{
 // `Tool` itself rides here too, so an embedder implementing a tool reaches the *vendored* tinytools rather than adding a second path to it.
 // A second path is not merely duplicate -- it produces incompatible Rust types,
 // and a tool built against it cannot be handed to a session at all.
-pub use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult, ToolScope, ToolSpec};
+pub use tinytools::{
+    PermissionLevel, Tool, ToolCategory, ToolExposure, ToolResult, ToolScope, ToolSpec,
+};
 pub(crate) use user_filter::filter_tools_by_user_preference;

@@ -61,18 +61,27 @@ mod otlp;
 mod collector;
 /// Handing finished spans to the local exporter and the Langfuse push.
 mod export;
-/// Content truncation caps, JSON-value builders, and NDJSON serialization.
-mod serialize;
-/// Data model: [`RunType`], [`TraceContext`], [`SpanKind`], [`SpanStatus`],
-/// [`TraceSpan`].
-mod types;
+
+// The data model (`RunType`, `TraceContext`, `SpanKind`, `SpanStatus`,
+// `TraceSpan`), content truncation, NDJSON serialization, OTLP conversion and
+// Langfuse batch chunking live upstream in
+// `tinyagents_harness::observability::trace_export`.
+use tinyagents_harness::observability::trace_export::ExportBrand;
+#[cfg(test)]
+use tinyagents_harness::observability::trace_export::{RunType, TraceContext, TraceSpan};
+#[cfg(test)]
+use tinyagents_harness::observability::trace_export::{SpanKind, SpanStatus};
 
 pub use collector::SpanCollector;
-#[cfg(test)]
-pub use types::SpanKind;
-#[cfg(test)]
-pub use types::SpanStatus;
-pub use types::{trace_session_id, RunType, TraceContext, TraceSpan};
+
+/// Product identity stamped onto exported telemetry (OTLP service name, scope,
+/// Langfuse release/version and run-total labels).
+pub(crate) fn export_brand() -> ExportBrand<'static> {
+    ExportBrand {
+        product: "openhuman",
+        version: env!("CARGO_PKG_VERSION"),
+    }
+}
 
 pub(crate) use export::export_subagent_journal_trace;
 pub(crate) use export::{export_run_trace, export_run_trace_from_journal};

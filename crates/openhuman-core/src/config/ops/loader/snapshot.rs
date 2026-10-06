@@ -74,6 +74,9 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
         "api_url": config.api_url,
         "inference_url": config.inference_url,
         "default_model": config.default_model,
+        // The composer's thinking-level default (`runtime.reasoning_effort`);
+        // `null` means the provider decides.
+        "reasoning_effort": config.runtime.reasoning_effort,
         "app_version": app_version,
         "api_key_set": api_key_set,
         "model_routes": model_routes,
@@ -104,7 +107,6 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
         "vision_provider": config.vision_provider,
         "memory_provider": config.memory_provider,
         "embeddings_provider": config.embeddings_provider,
-        "learning_provider": config.learning_provider,
         "voice_providers": config.voice_providers.iter().map(|v| {
             serde_json::json!({
                 "id": v.id,

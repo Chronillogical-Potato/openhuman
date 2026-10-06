@@ -1,27 +1,21 @@
-use super::cancel::FinishedOutcome;
 use super::*;
 use crate::agent::orchestration::fleet_tools::FleetToolSet;
-use crate::agent::orchestration::running_subagents::registry::DETACHED_LEDGER_TIMEOUT_MS;
 use crate::agent::orchestration::running_subagents::resolve::resume_ref_for_task;
 use crate::agent::orchestration::running_subagents::resolve::task_id_for_session;
 use crate::agent::orchestration::running_subagents::roster::snapshot_for_parent;
-use crate::agent::orchestration::running_subagents::steering::steer_directive;
-use crate::agent::orchestration::running_subagents::steering::SteerDirectiveError;
-use crate::agent::orchestration::running_subagents::steering::SteeringDirective;
 use crate::agent::orchestration::running_subagents::wait::wait;
 use crate::agent::queued_turn::QueuedTurn;
-use crate::agent::tinyagents::host::steering::{
-    openhuman_steering_handle, shared_steering_registry, SteeringRunClass,
-};
+use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::MutexGuard;
 use std::time::Duration;
 use tinyagents_graph::orchestration::OrchestrationTaskStatus;
 use tinyagents_harness::ids::TaskId;
 use tinyagents_harness::run_queue::{QueueLane, RunQueue};
-use tinyagents_harness::steering::{
-    SteeringCommand, SteeringCommandKind, SteeringHandle, SteeringPolicy,
+use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
+use tinyagents_orchestration::subagent::FinishedOutcome;
+use tinyagents_orchestration::subagent::{
+    DetachedSubagentStatus, WaitError, WaitOutcome, DETACHED_LEDGER_TIMEOUT_MS,
 };
 use tokio::sync::watch;
 use tokio::task::AbortHandle;
@@ -29,16 +23,22 @@ use tokio::task::AbortHandle;
 #[path = "running_subagents_steering_tests.rs"]
 mod steering_tests;
 
+#[path = "running_subagents_wire_tests.rs"]
+mod wire_tests;
+
 /// Serializes every test that touches the global [`REGISTRY`]. We reuse the
 /// crate-wide `TEST_ENV_LOCK` (rather than a module-local mutex) because the
 /// destructive `cancel_all` path is also reachable from the `threads::ops`
 /// tests — those hold the same lock, so this prevents a purge there from
 /// wiping entries a test here is mid-way through.
-fn test_guard() -> MutexGuard<'static, ()> {
+fn test_guard() -> tokio::sync::MutexGuard<'static, ()> {
     // Recover from a poisoned guard so one panicking test doesn't cascade.
-    crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
+    crate::config::TEST_ENV_LOCK.blocking_lock()
+}
+
+async fn test_guard_async() -> tokio::sync::MutexGuard<'static, ()> {
+    // Recover from a poisoned guard so one panicking test doesn't cascade.
+    crate::config::TEST_ENV_LOCK.lock().await
 }
 
 fn dummy_abort() -> AbortHandle {
@@ -72,7 +72,7 @@ fn register_test(
     task_id: &str,
     parent_session: &str,
     rq: Arc<RunQueue<QueuedTurn>>,
-) -> watch::Sender<SubagentStatus> {
+) -> watch::Sender<DetachedSubagentStatus> {
     register_test_with_thread(task_id, parent_session, None, rq)
 }
 
@@ -83,7 +83,7 @@ fn register_test_with_thread(
     parent_session: &str,
     parent_thread_id: Option<&str>,
     rq: Arc<RunQueue<QueuedTurn>>,
-) -> watch::Sender<SubagentStatus> {
+) -> watch::Sender<DetachedSubagentStatus> {
     let (tx, rx) = status_channel();
     register(
         task_id.into(),
@@ -102,7 +102,7 @@ fn register_test_with_thread(
 
 #[tokio::test]
 async fn task_store_records_spawn_complete_and_cancel() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     // Spawn → the ledger sees a running SubAgent task scoped to the parent.
     let tx = register_test("task-ledger-1", "ledger-parent", run_queue());
     let running = task_records(Some("ledger-parent"));
@@ -118,7 +118,7 @@ async fn task_store_records_spawn_complete_and_cancel() {
     );
 
     // Publish a terminal status → the watcher mirrors Completed into the store.
-    tx.send(SubagentStatus::Completed {
+    tx.send(DetachedSubagentStatus::Completed {
         output: "done".into(),
         iterations: 2,
     })
@@ -154,7 +154,7 @@ async fn task_store_records_spawn_complete_and_cancel() {
 
 #[tokio::test]
 async fn task_id_for_session_enforces_parent_ownership() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let (tx, rx) = status_channel();
     register(
@@ -178,7 +178,7 @@ async fn task_id_for_session_enforces_parent_ownership() {
         task_id_for_session("subsess-1", "session-other"),
         Err(WaitError::NotOwned)
     ));
-    let _ = tx.send(SubagentStatus::Completed {
+    let _ = tx.send(DetachedSubagentStatus::Completed {
         output: "done".into(),
         iterations: 1,
     });
@@ -187,7 +187,7 @@ async fn task_id_for_session_enforces_parent_ownership() {
 
 #[tokio::test]
 async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let (tx_a, rx_a) = status_channel();
     register(
         "task-fleet-a".into(),
@@ -230,7 +230,7 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
     );
 
     // `b` pauses awaiting the user; `a` stays running.
-    tx_b.send(SubagentStatus::AwaitingUser {
+    tx_b.send(DetachedSubagentStatus::AwaitingUser {
         question: "which repo?".into(),
     })
     .unwrap();
@@ -341,11 +341,11 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
         .is_none());
     }
 
-    let _ = tx_a.send(SubagentStatus::Completed {
+    let _ = tx_a.send(DetachedSubagentStatus::Completed {
         output: "x".into(),
         iterations: 1,
     });
-    let _ = tx_other.send(SubagentStatus::Completed {
+    let _ = tx_other.send(DetachedSubagentStatus::Completed {
         output: "x".into(),
         iterations: 1,
     });
@@ -356,7 +356,7 @@ async fn snapshot_and_block_scope_to_parent_and_reflect_live_status() {
 
 #[tokio::test]
 async fn resume_ref_for_task_includes_resume_fields_and_enforces_ownership() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let (tx, rx) = status_channel();
     register(
         "task-resume".into(),
@@ -383,7 +383,7 @@ async fn resume_ref_for_task_includes_resume_fields_and_enforces_ownership() {
         Err(WaitError::NotOwned)
     ));
 
-    let _ = tx.send(SubagentStatus::Completed {
+    let _ = tx.send(DetachedSubagentStatus::Completed {
         output: "done".into(),
         iterations: 1,
     });
@@ -392,7 +392,7 @@ async fn resume_ref_for_task_includes_resume_fields_and_enforces_ownership() {
 
 #[tokio::test]
 async fn task_id_for_session_prefers_live_task_over_terminal_task() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let (old_tx, old_rx) = status_channel();
     register(
         "task-old".into(),
@@ -406,7 +406,7 @@ async fn task_id_for_session_prefers_live_task_over_terminal_task() {
         dummy_abort(),
         old_rx,
     );
-    let _ = old_tx.send(SubagentStatus::Completed {
+    let _ = old_tx.send(DetachedSubagentStatus::Completed {
         output: "old".into(),
         iterations: 1,
     });
@@ -434,12 +434,12 @@ async fn task_id_for_session_prefers_live_task_over_terminal_task() {
 
 #[tokio::test]
 async fn wait_returns_completion_once_published() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let tx = register_test("task-wait", "session-A", rq);
 
     tokio::spawn(async move {
-        let _ = tx.send(SubagentStatus::Completed {
+        let _ = tx.send(DetachedSubagentStatus::Completed {
             output: "the answer".into(),
             iterations: 3,
         });
@@ -451,7 +451,7 @@ async fn wait_returns_completion_once_published() {
         .await
         .expect("wait should resolve");
     match outcome {
-        WaitOutcome::Terminal(SubagentStatus::Completed { output, iterations }) => {
+        WaitOutcome::Terminal(DetachedSubagentStatus::Completed { output, iterations }) => {
             assert_eq!(output, "the answer");
             assert_eq!(iterations, 3);
         }
@@ -467,7 +467,7 @@ async fn wait_returns_completion_once_published() {
 
 #[tokio::test]
 async fn wait_times_out_and_leaves_entry_intact() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let _tx = register_test("task-slow", "session-A", rq);
 
@@ -476,7 +476,7 @@ async fn wait_times_out_and_leaves_entry_intact() {
         .expect("wait should resolve");
     assert!(matches!(
         outcome,
-        WaitOutcome::TimedOut(SubagentStatus::Running)
+        WaitOutcome::TimedOut(DetachedSubagentStatus::Running)
     ));
 
     // still steerable after a timed-out wait
@@ -493,7 +493,7 @@ async fn wait_times_out_and_leaves_entry_intact() {
 
 #[tokio::test]
 async fn cancel_for_thread_aborts_only_matching_entries() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let _a = register_test_with_thread("task-tA-1", "session-A", Some("thread-X"), rq.clone());
     let _b = register_test_with_thread("task-tA-2", "session-A", Some("thread-X"), rq.clone());
@@ -534,7 +534,7 @@ async fn cancel_for_thread_aborts_only_matching_entries() {
 
 #[tokio::test]
 async fn cancel_by_task_returns_metadata_and_removes_entry() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let _tx = register_test_with_thread("task-cbt", "session-Z", Some("thread-cbt"), rq.clone());
     let task_id = TaskId::new("task-cbt");
@@ -569,11 +569,11 @@ async fn cancel_by_task_returns_metadata_and_removes_entry() {
 /// the user is still a real cancel.
 #[tokio::test]
 async fn cancel_by_task_flags_a_run_that_already_finished() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let cases = [
         (
             "task-cbt-done",
-            SubagentStatus::Completed {
+            DetachedSubagentStatus::Completed {
                 output: "ok".into(),
                 iterations: 6,
             },
@@ -581,14 +581,14 @@ async fn cancel_by_task_flags_a_run_that_already_finished() {
         ),
         (
             "task-cbt-failed",
-            SubagentStatus::Failed {
+            DetachedSubagentStatus::Failed {
                 error: "boom".into(),
             },
             Some(FinishedOutcome::Failed),
         ),
         (
             "task-cbt-paused",
-            SubagentStatus::AwaitingUser {
+            DetachedSubagentStatus::AwaitingUser {
                 question: "which?".into(),
             },
             None,
@@ -604,7 +604,7 @@ async fn cancel_by_task_flags_a_run_that_already_finished() {
 
 #[tokio::test]
 async fn cancel_all_clears_everything() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     let _a = register_test_with_thread("task-all-1", "session-A", Some("thread-1"), rq.clone());
     // Headless (no parent thread) — aborted, but contributes no thread id.
@@ -634,7 +634,7 @@ async fn cancel_all_clears_everything() {
 
 #[tokio::test]
 async fn stop_for_thread_aborts_the_threads_running_children() {
-    let _guard = test_guard();
+    let _guard = test_guard_async().await;
     let rq = run_queue();
     // A real detached child that would otherwise run forever — the shape the
     // Stop button used to leave behind.

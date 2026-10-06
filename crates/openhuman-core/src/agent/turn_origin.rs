@@ -191,6 +191,18 @@ tokio::task_local! {
 /// covers every caller (web channel, channel runtime, cron, background
 /// jobs, CLI).
 pub async fn with_origin<F: std::future::Future>(origin: AgentTurnOrigin, fut: F) -> F::Output {
+    let scoped = scope_origin(origin.clone(), fut);
+    let context = crate::core::runtime::CoreContext::current()
+        .or_else(crate::core::runtime::CoreContext::default_context);
+    if let Some(context) = context {
+        crate::core::runtime::CoreContext::scope_with_turn_origin(context, Some(origin), scoped)
+            .await
+    } else {
+        scoped.await
+    }
+}
+
+async fn scope_origin<F: std::future::Future>(origin: AgentTurnOrigin, fut: F) -> F::Output {
     AGENT_TURN_ORIGIN.scope(origin, Box::pin(fut)).await
 }
 
@@ -345,35 +357,6 @@ where
     // `propagate` is evaluated here, on the caller's task, which is the whole
     // point of routing through this function.
     tokio::spawn(propagate(fut))
-}
-
-/// `tokio::spawn` for work that must deliberately **not** carry the caller's
-/// origin, naming why.
-///
-/// Dropping the origin is sometimes right — a detached background job that is
-/// not a continuation of the caller's turn should not inherit that turn's
-/// authority. The problem is that a bare `tokio::spawn` looks identical whether
-/// the author decided that or simply did not think about it, so a reviewer
-/// cannot tell a deliberate choice from a regression.
-///
-/// This is a plain `tokio::spawn` — the behaviour is the same — but the name and
-/// the `reason` make the choice explicit at the call site and greppable across
-/// the tree. The reason is emitted at `trace` so a live process can be asked
-/// which spawns dropped their label.
-///
-/// Prefer [`spawn`] unless the work genuinely is not a continuation of the
-/// caller's turn.
-pub fn spawn_unlabelled<F>(reason: &'static str, fut: F) -> tokio::task::JoinHandle<F::Output>
-where
-    F: std::future::Future + Send + 'static,
-    F::Output: Send + 'static,
-{
-    tracing::trace!(
-        reason,
-        parent_origin = ?current().as_ref().map(AgentTurnOrigin::class),
-        "[turn_origin] spawning without the caller's origin"
-    );
-    tokio::spawn(fut)
 }
 
 /// Read the ambient web-chat `request_id` for the current turn, when one was

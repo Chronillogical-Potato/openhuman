@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc;
 
-use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::agent::turn_origin::{self, AgentTurnOrigin};
 use crate::config::MultimodalConfig;
@@ -28,6 +27,7 @@ use crate::core::bus::BUS;
 use crate::security::prompt_injection::{
     enforce_prompt_input, PromptEnforcementAction, PromptEnforcementContext,
 };
+use tinyagents_session::transcript::TranscriptMessage;
 use tinytools::Tool;
 
 use super::harness::definition::{AgentDefinitionRegistry, SandboxMode};
@@ -54,7 +54,7 @@ pub struct AgentTurnRequest {
     /// user message. The handler mutates an internal clone of this during
     /// the tool-call loop; callers should rebuild their per-session cache
     /// from their own records, not from this vector.
-    pub history: Vec<ChatMessage>,
+    pub history: Vec<TranscriptMessage>,
 
     /// Registered tool implementations available to this turn.
     /// These are provided as trait objects to avoid tight coupling with tool implementations.
@@ -288,34 +288,42 @@ async fn handle_agent_run_turn(req: AgentTurnRequest) -> Result<AgentTurnRespons
         channel_name,
         target_agent_id.as_deref().unwrap_or("root")
     );
+    // Memory acts as the target agent (the root when none is named) for
+    // the whole channel turn.
+    let memory_agent = target_agent_id.clone().unwrap_or_default();
+    let graph_origin = origin.clone();
     let outcome = turn_origin::with_origin(
         origin,
-        with_file_state_agent_id(
-            file_state_id,
-            with_current_sandbox_mode(sandbox_mode, async {
-                // Channel/CLI turns run through the tinyagents harness
-                // (issue #4249); the legacy `run_tool_call_loop` is removed.
-                // `on_progress` mirrors the harness event stream (tool
-                // timeline, text deltas, cost footer) — production channel
-                // dispatch always supplies it and now expects it live.
-                // `on_delta` (raw Sender<String>) is superseded by
-                // `on_progress` text deltas, so it's intentionally unused.
-                let _ = (&provider_name, silent, &channel_name, on_delta);
-                run_channel_turn_via_graph(
-                    turn_model_source.clone(),
-                    &mut history,
-                    tools_registry.clone(),
-                    extra_tools,
-                    visible_tool_names.as_ref(),
-                    &model,
-                    temperature,
-                    max_tool_iterations,
-                    multimodal.clone(),
-                    multimodal_files.clone(),
-                    on_progress,
-                )
-                .await
-            }),
+        crate::memory::scope::within_agent(
+            &memory_agent,
+            with_file_state_agent_id(
+                file_state_id,
+                with_current_sandbox_mode(sandbox_mode, async {
+                    // Channel/CLI turns run through the tinyagents harness
+                    // (issue #4249); the legacy `run_tool_call_loop` is removed.
+                    // `on_progress` mirrors the harness event stream (tool
+                    // timeline, text deltas, cost footer) — production channel
+                    // dispatch always supplies it and now expects it live.
+                    // `on_delta` (raw Sender<String>) is superseded by
+                    // `on_progress` text deltas, so it's intentionally unused.
+                    let _ = (&provider_name, silent, &channel_name, on_delta);
+                    run_channel_turn_via_graph(
+                        turn_model_source.clone(),
+                        &mut history,
+                        tools_registry.clone(),
+                        extra_tools,
+                        visible_tool_names.as_ref(),
+                        &model,
+                        temperature,
+                        max_tool_iterations,
+                        multimodal.clone(),
+                        multimodal_files.clone(),
+                        on_progress,
+                        Some(graph_origin),
+                    )
+                    .await
+                }),
+            ),
         ),
     )
     .await
@@ -343,7 +351,7 @@ async fn handle_agent_run_turn_on_large_stack(
     let (tx, rx) = tokio::sync::oneshot::channel();
     let handle = std::thread::Builder::new()
         .name("agent-run-turn-test".to_string())
-        .stack_size(8 * 1024 * 1024)
+        .stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
         .spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -435,7 +443,7 @@ where
     crate::core::bus_testing::mock_bus_stub::<AgentTurnRequest, AgentTurnResponse, F, Fut, _>(
         AGENT_RUN_TURN_METHOD,
         handler,
-        || register_agent_handlers(),
+        register_agent_handlers,
     )
     .await
 }

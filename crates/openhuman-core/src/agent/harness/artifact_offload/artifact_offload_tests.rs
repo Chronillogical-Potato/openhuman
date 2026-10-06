@@ -11,7 +11,6 @@
 //!   redacting writer, since the whole point of `new_artifact_offload` is that
 //!   no call site can construct one without both.
 
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -46,45 +45,19 @@ fn policy_with(action_dir: PathBuf, workspace_dir: PathBuf) -> Arc<SecurityPolic
     })
 }
 
-// ── The prompt contract (stays host-side: OpenHuman prompt text) ──────────────
+// ── The prompt contract (renders upstream; the host passes its tool name) ─────
 
 #[test]
-fn prompt_contract_names_both_directories_and_the_write_step() {
-    let rendered = render_artifact_offload_contract();
-    assert!(rendered.starts_with(ARTIFACT_OFFLOAD_HEADING));
-    assert!(rendered.contains(OUTPUTS_DIR));
-    assert!(rendered.contains(SCRATCH_DIR));
+fn prompt_contract_names_the_host_write_tool_and_not_the_read_tool() {
+    let rendered =
+        tinyagents_harness::artifacts::render_artifact_offload_contract(OFFLOAD_WRITE_TOOL);
     assert!(rendered.contains(OFFLOAD_WRITE_TOOL));
-}
-
-#[test]
-fn prompt_contract_names_no_tool_the_agent_may_not_hold() {
-    // A prompt may only name tools its agent actually holds: advertising one it
-    // lacks produces hallucinated calls that fail. The reader's tool in
-    // particular belongs to a different agent.
-    let rendered = render_artifact_offload_contract();
+    // A prompt may only name tools its agent actually holds: the reader's tool
+    // belongs to a different agent.
     assert!(
         !rendered.contains(READ_TOOL),
         "the contract must not name the parent's reading tool: {rendered}"
     );
-}
-
-#[test]
-fn offload_contract_is_rendered_only_for_agents_holding_a_write_tool() {
-    let mut tools = HashSet::new();
-    assert!(
-        !should_render_offload_contract(&tools),
-        "an agent with no tools cannot offload"
-    );
-
-    tools.insert("web_search".to_string());
-    assert!(
-        !should_render_offload_contract(&tools),
-        "a search-only agent has no filesystem tool"
-    );
-
-    tools.insert(OFFLOAD_WRITE_TOOL.to_string());
-    assert!(should_render_offload_contract(&tools));
 }
 
 #[test]

@@ -172,7 +172,6 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   run_linter: spec('runLinter', ListChecksIcon, 'code'),
   run_tests: spec('runTests', ListChecksIcon, 'code'),
   lsp: spec('analyzeCode', CodeIcon, 'code', { chip: chip.path() }),
-  insert_sql_record: spec('insertRecord', DatabaseIcon, 'system', { chip: chip.text('table') }),
 
   // ── Shell and system ────────────────────────────────────────────────────
   shell: spec('runCommand', SquareTerminalIcon, 'shell', { chip: chip.command(), body: 'shell' }),
@@ -195,7 +194,7 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   current_time: spec('checkTime', ClockIcon, 'system'),
   resolve_time: spec('resolveDate', ClockIcon, 'system', { chip: chip.text('expr') }),
   retrieve_tool_output: spec('retrieveOutput', ArchiveRestoreIcon, 'system'),
-  tinyjuice_retrieve: spec('retrieveOutput', ArchiveRestoreIcon, 'system'),
+  juice_retrieve: spec('retrieveOutput', ArchiveRestoreIcon, 'system'),
   // REPL tools over a stored (handle) tool result; they reuse existing phrases.
   juice_find: spec('searchCode', TextSearchIcon, 'system', { chip: chip.text('query') }),
   juice_extract: spec('extractDetails', LayersIcon, 'system'),
@@ -289,7 +288,10 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   }),
 
   // ── Memory ──────────────────────────────────────────────────────────────
-  memory: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
+  // The single memory tool: recall asks a `question`, fetch a `query`, learn stores `text`.
+  memory: spec('searchMemory', BrainIcon, 'memory', {
+    chip: chip.text('question', 'query', 'text'),
+  }),
   memory_store: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('key', 'content') }),
   memory_recall: spec('recallMemories', BrainCircuitIcon, 'memory', { chip: chip.query() }),
   memory_forget: spec('forgetMemory', EraserIcon, 'memory', { chip: chip.text('key') }),
@@ -475,9 +477,15 @@ export const ACTION_TOOL_SPECS: Record<string, { arg: string; specs: Record<stri
   memory: {
     arg: 'action',
     specs: {
-      recall: spec('recallMemories', BrainCircuitIcon, 'memory', { chip: chip.query() }),
-      store: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('key', 'content') }),
+      // Memory v2 actions.
+      recall: spec('recallMemories', BrainCircuitIcon, 'memory', {
+        chip: chip.text('question', 'query'),
+      }),
+      fetch: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
+      learn: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('text') }),
       forget: spec('forgetMemory', EraserIcon, 'memory', { chip: chip.text('key') }),
+      // v1 actions, kept so persisted transcripts still render.
+      store: spec('saveToMemory', SaveIcon, 'memory', { chip: chip.text('key', 'content') }),
       hybrid_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
       vector_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),
       raw_search: spec('searchMemory', BrainIcon, 'memory', { chip: chip.query() }),

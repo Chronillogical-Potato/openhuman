@@ -83,9 +83,10 @@ pub(crate) fn handle_voice_update_provider_settings(
 ) -> ControllerFuture {
     Box::pin(async move {
         use crate::config::schema::voice_providers::{
-            generate_voice_provider_id, is_voice_slug_reserved, SttApiStyle, TtsApiStyle,
-            VoiceCapability, VoiceProviderCreds,
+            generate_voice_provider_id, is_voice_slug_reserved, VoiceCapability, VoiceProviderCreds,
         };
+        use tinyinference_voice::external_stt::SttApiStyle;
+        use tinyinference_voice::external_tts::TtsApiStyle;
 
         let p = deserialize_params::<VoiceUpdateProviderSettingsParams>(params)?;
         let mut config = config_rpc::load_config_with_timeout().await?;

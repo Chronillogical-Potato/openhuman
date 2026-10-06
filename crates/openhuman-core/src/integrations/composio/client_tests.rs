@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::Config;
+use crate::integrations::composio::module_client::module_guard;
 
 use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
 use serde_json::json;
@@ -37,21 +38,29 @@ fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
     config
 }
 
-/// Direct-mode reads are exercised over HTTP: `DirectComposioClient::new_with_v3_base`
-/// points its `/tools` and `/connected_accounts` GETs at a local axum mock, so we can
-/// assert the outbound `tags` filter (repeated query params) and the v3 ->
-/// canonical-envelope reshape without touching `backend.composio.dev`.
-fn direct_tool_for_mock(base_v3: String) -> std::sync::Arc<crate::tools::DirectComposioClient> {
+/// Direct-mode reads are exercised over HTTP through the connector module:
+/// `DirectCredential::new_with_v3_base` points the module's `/tools` and
+/// `/connected_accounts` GETs at a local axum mock, so we can assert the
+/// outbound `tags` filter (repeated query params) and the v3 ->
+/// canonical-envelope reshape without touching `backend.composio.dev`. These
+/// tests reach the process-global module, so they hold `module_guard`.
+fn direct_tool_for_mock(base_v3: String) -> std::sync::Arc<DirectCredential> {
     direct_tool_for_mock_with_key(base_v3, "ck_test_direct")
 }
 
 fn direct_tool_for_mock_with_key(
     base_v3: String,
     api_key: &str,
-) -> std::sync::Arc<crate::tools::DirectComposioClient> {
-    std::sync::Arc::new(crate::tools::DirectComposioClient::new_with_v3_base(
-        api_key, base_v3,
-    ))
+) -> std::sync::Arc<DirectCredential> {
+    std::sync::Arc::new(DirectCredential::new_with_v3_base(api_key, base_v3))
+}
+
+/// A config that can load the connector module and names no route.
+fn module_test_config(tmp: &tempfile::TempDir) -> Config {
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    config
 }
 
 struct DirectAuthFailureGuard {
@@ -59,7 +68,7 @@ struct DirectAuthFailureGuard {
 }
 
 impl DirectAuthFailureGuard {
-    fn for_tool(tool: &std::sync::Arc<crate::tools::DirectComposioClient>) -> Self {
+    fn for_tool(tool: &std::sync::Arc<DirectCredential>) -> Self {
         let key_id = tool.auth_key_fingerprint();
         crate::integrations::composio::direct_auth::reset_direct_auth_failure(key_id);
         Self { key_id }
@@ -90,6 +99,32 @@ fn resolve_composio_route_backend_empty_mode_falls_back_to_backend() {
     config.composio.mode = String::new();
     let route = resolve_composio_route(&config).expect("empty mode should fall back to backend");
     assert_eq!(route.mode(), "backend");
+}
+
+#[test]
+fn resolve_composio_route_disabled_errors_even_with_a_session() {
+    // `disabled` wins over a signed-in session: no route, so no tools register.
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let mut config = config_with_session_token(&tmp);
+    config.composio.mode = "disabled".into();
+    let err = resolve_composio_route(&config)
+        .err()
+        .expect("disabled must not resolve a route");
+    assert!(err.to_string().contains("disabled"), "got: {err}");
+}
+
+#[tokio::test]
+async fn disabled_mode_reports_no_integrations_without_a_backend_call() {
+    use crate::integrations::composio::{
+        fetch_connected_integrations_status, FetchConnectedIntegrationsStatus,
+    };
+    // Default config would try the hosted backend; disabled must answer locally.
+    let mut config = Config::default();
+    config.composio.mode = "disabled".into();
+    match fetch_connected_integrations_status(&config).await {
+        FetchConnectedIntegrationsStatus::Authoritative(v) => assert!(v.is_empty()),
+        FetchConnectedIntegrationsStatus::Unavailable => panic!("expected authoritative empty"),
+    }
 }
 
 #[test]
@@ -222,6 +257,9 @@ fn store_get_clear_composio_api_key_roundtrip() {
 
 #[tokio::test]
 async fn direct_list_connections_stops_hitting_composio_after_repeated_invalid_api_key() {
+    let _module = module_guard().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = module_test_config(&tmp);
     let hits = Arc::new(AtomicUsize::new(0));
     let app = Router::new()
         .route(
@@ -240,7 +278,7 @@ async fn direct_list_connections_stops_hitting_composio_after_repeated_invalid_a
     let _auth_guard = DirectAuthFailureGuard::for_tool(&tool);
 
     for _ in 0..2 {
-        let err = direct_list_connections(&tool)
+        let err = direct_list_connections(&config, &tool)
             .await
             .expect_err("invalid key should reject");
         assert!(
@@ -249,7 +287,7 @@ async fn direct_list_connections_stops_hitting_composio_after_repeated_invalid_a
         );
     }
 
-    let opened = direct_list_connections(&tool)
+    let opened = direct_list_connections(&config, &tool)
         .await
         .expect_err("third invalid-key failure should open the backoff gate");
     assert!(
@@ -257,7 +295,7 @@ async fn direct_list_connections_stops_hitting_composio_after_repeated_invalid_a
         "backoff error should be actionable, got: {opened:#}"
     );
 
-    let short_circuit = direct_list_connections(&tool)
+    let short_circuit = direct_list_connections(&config, &tool)
         .await
         .expect_err("open backoff gate should short-circuit before HTTP");
     assert!(
@@ -273,6 +311,9 @@ async fn direct_list_connections_stops_hitting_composio_after_repeated_invalid_a
 
 #[tokio::test]
 async fn direct_list_tools_forwards_tags_and_reshapes_v3_envelope() {
+    let _module = module_guard().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = module_test_config(&tmp);
     use axum::extract::RawQuery;
     use std::sync::Mutex;
 
@@ -303,6 +344,7 @@ async fn direct_list_tools_forwards_tags_and_reshapes_v3_envelope() {
     let tool = direct_tool_for_mock(base);
 
     let resp = super::direct_list_tools(
+        &config,
         &tool,
         &["github".to_string()],
         Some(&["stars".to_string(), "repos".to_string()]),
@@ -339,4 +381,219 @@ async fn pricing_for_config_short_circuits_in_direct_mode() {
     assert!(pricing.integrations.google_places.is_none());
     assert!(pricing.integrations.parallel.is_none());
     assert!(pricing.integrations.tinyfish.is_none());
+}
+
+// ── failure messages stay byte-identical to the pre-module client ─────────
+
+#[tokio::test]
+async fn http_failures_keep_their_user_facing_messages() {
+    let _module = module_guard().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = module_test_config(&tmp);
+    let app = Router::new()
+        .route(
+            "/connected_accounts",
+            get(|| async {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({"error": {"message": "Invalid API key"}})),
+                )
+            }),
+        )
+        .route(
+            "/tools",
+            get(|| async { (StatusCode::INTERNAL_SERVER_ERROR, "") }),
+        );
+    let tool = direct_tool_for_mock_with_key(
+        start_mock_backend(app).await,
+        "ck_test_direct_message_fixture",
+    );
+    let _auth_guard = DirectAuthFailureGuard::for_tool(&tool);
+
+    let err = direct_list_connections(&config, &tool).await.unwrap_err();
+    assert_eq!(
+        format!("{err:#}"),
+        "Composio v3 connected_accounts failed: HTTP 401: Invalid API key"
+    );
+    let err = direct_list_tools(&config, &tool, &[], None)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        format!("{err:#}"),
+        "Composio v3 list_tool_schemas: HTTP 500"
+    );
+}
+
+#[tokio::test]
+async fn connections_come_back_without_route_lifted_identity() {
+    let _module = module_guard().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = module_test_config(&tmp);
+    let app = Router::new().route(
+        "/connected_accounts",
+        get(|| async {
+            Json(json!({"items": [
+                {"id": " ca_1 ", "toolkit": "gmail", "status": "ACTIVE", "email": "a@b.c"},
+                {"id": "  ", "toolkit": "slack", "status": "ACTIVE"}
+            ]}))
+        }),
+    );
+    let tool = direct_tool_for_mock_with_key(start_mock_backend(app).await, "ck_test_identity");
+    let _auth_guard = DirectAuthFailureGuard::for_tool(&tool);
+    let connections = direct_list_connections(&config, &tool)
+        .await
+        .unwrap()
+        .connections;
+    assert_eq!(connections.len(), 1, "blank id dropped");
+    assert_eq!(connections[0].id, "ca_1");
+    // Identity is the host's to enrich from cached profiles.
+    assert!(connections[0].account_email.is_none());
+}
+
+#[tokio::test]
+async fn direct_reads_do_not_forward_credentials_across_redirects() {
+    let _module = module_guard().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = module_test_config(&tmp);
+    let redirected_request_seen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let observed = redirected_request_seen.clone();
+    let destination = start_mock_backend(Router::new().route(
+        "/tools",
+        get(move || {
+            let observed = observed.clone();
+            async move {
+                observed.store(true, Ordering::SeqCst);
+                Json(json!({"items": []}))
+            }
+        }),
+    ))
+    .await;
+    let redirect = format!("{destination}/tools");
+    let source = start_mock_backend(Router::new().route(
+        "/tools",
+        get(move || {
+            let redirect = redirect.clone();
+            async move { axum::response::Redirect::temporary(&redirect) }
+        }),
+    ))
+    .await;
+
+    let tool = direct_tool_for_mock_with_key(source, "ck_secret_value");
+    assert!(direct_list_tools(&config, &tool, &[], None).await.is_err());
+    assert!(!redirected_request_seen.load(Ordering::SeqCst));
+}
+
+// ── the host's proxy policy reaches the module ────────────────────────────
+
+/// A CONNECT proxy on loopback that tunnels to whatever it is asked for and
+/// reports each CONNECT request line it saw.
+fn connect_proxy() -> (String, std::sync::mpsc::Receiver<String>) {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::{TcpListener, TcpStream};
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut client) = stream else { return };
+            let mut reader = BufReader::new(client.try_clone().unwrap());
+            let mut line = String::new();
+            if reader.read_line(&mut line).unwrap_or(0) == 0 {
+                continue;
+            }
+            loop {
+                let mut header = String::new();
+                if reader.read_line(&mut header).unwrap_or(0) == 0 || header == "\r\n" {
+                    break;
+                }
+            }
+            let _ = sender.send(line.clone());
+            let Some(target) = line
+                .strip_prefix("CONNECT ")
+                .and_then(|rest| rest.split(' ').next())
+            else {
+                continue;
+            };
+            let Ok(upstream) = TcpStream::connect(target) else {
+                let _ = client.write_all(b"HTTP/1.1 502 Bad Gateway\r\n\r\n");
+                continue;
+            };
+            let _ = client.write_all(b"HTTP/1.1 200 Connection established\r\n\r\n");
+            let (mut client_read, mut upstream_write) =
+                (client.try_clone().unwrap(), upstream.try_clone().unwrap());
+            std::thread::spawn(move || {
+                let _ = std::io::copy(&mut client_read, &mut upstream_write);
+            });
+            let mut upstream_read = upstream;
+            let _ = std::io::copy(&mut upstream_read, &mut client);
+        }
+    });
+    (format!("http://127.0.0.1:{port}"), receiver)
+}
+
+#[tokio::test]
+async fn direct_reads_go_through_the_hosts_runtime_proxy() {
+    use crate::config::schema::{ProxyConfig, ProxyScope};
+    use crate::config::{runtime_proxy_config, set_runtime_proxy_config};
+
+    let _module = module_guard().await;
+    let _env = crate::config::TEST_ENV_LOCK.lock().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = module_test_config(&tmp);
+    let (proxy, proxied) = connect_proxy();
+    let hits = Arc::new(AtomicUsize::new(0));
+    let app = Router::new()
+        .route(
+            "/connected_accounts",
+            get(|State(hits): State<Arc<AtomicUsize>>| async move {
+                hits.fetch_add(1, Ordering::SeqCst);
+                Json(json!({"items": [{"id": "ca_p", "toolkit": "gmail", "status": "ACTIVE"}]}))
+            }),
+        )
+        .with_state(hits.clone());
+    let base = start_mock_backend(app).await;
+    let tool = direct_tool_for_mock_with_key(base.clone(), "ck_test_proxy");
+    let _auth_guard = DirectAuthFailureGuard::for_tool(&tool);
+
+    let previous = runtime_proxy_config();
+    set_runtime_proxy_config(ProxyConfig {
+        enabled: true,
+        http_proxy: Some(proxy.clone()),
+        // Only Composio's traffic: the runtime proxy is process-global, and
+        // every other test's loopback requests must stay direct meanwhile.
+        scope: ProxyScope::Services,
+        services: vec!["tool.composio".into()],
+        ..ProxyConfig::default()
+    });
+    let through = direct_list_connections(&config, &tool).await;
+    // A destination on the no-proxy list is called directly even with a proxy.
+    set_runtime_proxy_config(ProxyConfig {
+        enabled: true,
+        http_proxy: Some(proxy),
+        no_proxy: vec!["127.0.0.1".into()],
+        scope: ProxyScope::Services,
+        services: vec!["tool.composio".into()],
+        ..ProxyConfig::default()
+    });
+    let bypassed_proxied_before = proxied.try_iter().count();
+    let bypassed = direct_list_connections(&config, &tool).await;
+    let bypassed_proxied = proxied.try_iter().count();
+    set_runtime_proxy_config(previous);
+
+    assert_eq!(through.unwrap().connections[0].id, "ca_p");
+    assert_eq!(
+        bypassed_proxied_before, 1,
+        "the first read must have been tunnelled by the proxy"
+    );
+    assert!(bypassed.is_ok());
+    assert_eq!(
+        bypassed_proxied, 0,
+        "a no_proxy destination skips the proxy"
+    );
+    assert_eq!(
+        hits.load(Ordering::SeqCst),
+        2,
+        "both reads reached Composio"
+    );
 }

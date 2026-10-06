@@ -1,7 +1,7 @@
 ---
 description: >-
   Three ways to power OpenHuman: the managed subscription, your own provider key
-  (BYOK), or fully local models via Ollama. What each one supports for chat,
+  (BYOK), or fully local models on a runtime you run yourself. What each one supports for chat,
   vision, and embeddings, and how to configure it.
 icon: sliders
 ---
@@ -14,13 +14,13 @@ This page covers how to set up the two self-owned options and, importantly, **wh
 
 ## The three routes at a glance
 
-|                                        | **Managed (default)**         | **BYOK cloud**                              | **Local (Ollama / LM Studio)**            |
+|                                        | **Managed (default)**         | **BYOK cloud**                              | **Local (runtime you run)**               |
 | -------------------------------------- | ----------------------------- | ------------------------------------------- | ----------------------------------------- |
 | **Chat & reasoning**                   | Included                      | Your key, your billing                      | Yes, quality scales with model size       |
 | **Vision**                             | Included                      | Your key, if the model supports images      | Yes, but only with a vision-capable model |
 | **Embeddings**                         | Included                      | Your key, if the provider serves embeddings | Yes, `bge-m3` recommended                 |
 | **Speech to text**                     | Included                      | Your own key, via a voice provider slug     | No local STT engine                       |
-| **Text to speech**                     | Included                      | Your own key, via a voice provider slug     | Local Piper available                     |
+| **Text to speech**                     | Included                      | Your own key, via a voice provider slug     | Piper, if you install it (`PIPER_BIN`)    |
 | **Web search**                         | Included, no key needed       | Bring your own Exa key                      | Not applicable                            |
 | **Inference data leaves your machine** | Yes, to the OpenHuman backend | Yes, to your chosen provider                | No                                        |
 | **API keys to manage**                 | None                          | One per provider                            | None                                      |
@@ -30,15 +30,17 @@ Speech is configured separately from the LLM workload fields, and the two halves
 - STT reads `stt_provider`, falling back to the legacy `local_ai.stt_provider`, and finally to `voice_server.stt_engine` when neither names a provider.
 - TTS reads `tts_provider`, falling back to the legacy `local_ai.tts_provider`, and finally to `cloud`.
 
-There is no local STT engine: speech-to-text is either the hosted proxy or a third-party API you supply a key for, while TTS keeps a local option in Piper.
+There is no local STT engine: speech-to-text is either the hosted proxy or a third-party API you supply a key for, while TTS keeps a local option in Piper. OpenHuman does not install Piper: install the binary and a voice yourself, set `PIPER_BIN`, and set `tts_provider = "piper"`.
 
 That last row is deliberately about **inference data only**. Sign-in, managed integration OAuth, billing, and hosted features such as meeting agents still use the OpenHuman backend even when inference is entirely yours, so running local models is not by itself a guarantee that nothing leaves the machine. If you want a hard guarantee that no inference leaves the machine, use [Privacy Mode](../privacy-mode.md), which enforces the local-only path in the Rust core rather than relying on configuration alone.
 
-## Route A: local models with Ollama
+## Route A: local models
+
+OpenHuman does not install a runtime or download model weights. You run the runtime (Ollama, LM Studio, MLX, OMLX, or another OpenAI-compatible server), you pull the models, and OpenHuman calls the endpoint. The examples below use Ollama.
 
 ### 1. Install Ollama and pull a model
 
-Install [Ollama](https://ollama.com), then pull what you need. Every model named on this page is pullable from the public Ollama library with no extra setup:
+Install [Ollama](https://ollama.com), then pull what you need. Every model named on this page is pullable from the public Ollama library:
 
 ```bash
 ollama pull gemma3:1b-it-qat      # small chat model
@@ -50,7 +52,7 @@ ollama pull moondream:1.8b-v2-q4_K_S   # vision, small
 
 This is the part that bites people. A model that only does text will still **accept** an image request on Ollama: it silently drops the image and answers from the prompt text alone, which reads as a confident but entirely invented description. OpenHuman guards against this by refusing to route a vision request at a chat-only model, but it is worth knowing which is which.
 
-| Model                      | Download | Chat    | Vision  | Embeddings                         |
+| Model                      | Size     | Chat    | Vision  | Embeddings                         |
 | -------------------------- | -------- | ------- | ------- | ---------------------------------- |
 | `gemma3:270m-it-qat`       | 0.2 GB   | Yes     | No      | No                                 |
 | `gemma3:1b-it-qat`         | 1.0 GB   | Yes     | No      | No                                 |
@@ -60,32 +62,18 @@ This is the part that bites people. A model that only does text will still **acc
 | `moondream:1.8b-v2-q4_K_S` | 1.7 GB   | Minimal | **Yes** | No                                 |
 | `llava:7b`                 | 4.7 GB   | Minimal | **Yes** | No                                 |
 | `bge-m3`                   | 1.2 GB   | No      | No      | **Yes**, 1024 dim                  |
-| `all-minilm:latest`        | 0.05 GB  | No      | No      | 384 dim, too small for Memory Tree |
+| `all-minilm:latest`        | 0.05 GB  | No      | No      | 384 dim                            |
 
 Two traps worth calling out:
 
 - **Gemma 3 is split by size.** The 270M and 1B builds are text-only. Vision starts at 4B. Picking `gemma3:1b-it-qat` for vision gets you a text-only model.
 - **`gemma3n` is not `gemma3`.** Despite the name, Gemma 3n is a separate, text-only model on Ollama. It is a fine chat model and a bad vision model.
 
-For embeddings, prefer **`bge-m3`**. The Memory Tree stores vectors in a fixed 1024-dimension on-disk format, so a 384-dimension model such as `all-minilm` or a 768-dimension model such as `nomic-embed-text` will fail the dimension check at embed time.
+For embeddings, prefer **`bge-m3`** (1024 dimensions). Memory v2 does not use local embeddings; the memory engine embeds on its own side.
 
 ### 3. Point OpenHuman at it
 
-The quickest path is the desktop app: **Settings → AI & Skills → Local AI** exposes RAM tier presets that set every model ID for you and pull the weights. The tiers are:
-
-| Tier    | Chat                 | Vision                     | Embeddings                     | Download |
-| ------- | -------------------- | -------------------------- | ------------------------------ | -------- |
-| 1 GB    | `gemma3:270m-it-qat` | Disabled                   | `all-minilm:latest` (see note) | ~0.3 GB  |
-| 2-4 GB  | `gemma3:1b-it-qat`   | Disabled                   | `bge-m3`                       | ~2.3 GB  |
-| 4-8 GB  | `gemma3:1b-it-qat`   | `moondream:1.8b-v2-q4_K_S` | `all-minilm:latest` (see note) | ~2.8 GB  |
-| 8-16 GB | `gemma3:4b-it-qat`   | `gemma3:4b-it-qat`         | `bge-m3`                       | ~5.2 GB  |
-| 16 GB+  | `gemma4:e4b-it-q8_0` | `gemma4:e4b-it-q8_0`       | `bge-m3`                       | ~12.8 GB |
-
-The two highest tiers use one multimodal model for both chat and vision, so you download a single set of weights rather than a chat model plus a separate vision sidecar.
-
-{% hint style="warning" %}
-**The 1 GB and 4-8 GB tiers ship `all-minilm:latest`, which the Memory Tree cannot use.** It emits 384-dimension vectors and the Memory Tree's on-disk format is fixed at 1024, so memory embedding fails the dimension check at embed time. Those two tiers are usable for local chat and, on the 4-8 GB tier, vision, but if you want local Memory Tree embeddings set `embedding_model_id = "bge-m3"` explicitly after applying the preset, or pick the 2-4 GB tier or above. Aligning those presets is tracked as follow-up.
-{% endhint %}
+In the desktop app, open **Connections → LLM → Add a provider** and pick Ollama (or LM Studio / OMLX) under **Local runtimes**, or add a custom OpenAI-compatible endpoint. OpenHuman saves the endpoint, enables the local runtime, and lists the models the runtime reports. Models you have not pulled do not appear. See [Local AI (optional)](local-ai.md#adding-a-local-runtime-in-the-app).
 
 To configure by hand, the keys live under `[local_ai]` in `config.toml`:
 
@@ -99,11 +87,11 @@ vision_model_id = "gemma3:4b-it-qat"      # must be vision-capable
 embedding_model_id = "bge-m3"
 ```
 
-Leaving `vision_model_id` empty means "no local vision", which is a valid setup. A vision request then returns a message telling you what to set, rather than failing silently.
+Every model you name here must already be pulled. Leaving `vision_model_id` empty means "no local vision", which is a valid setup.
 
 ### 4. Route workloads to it
 
-Turning local AI on does not move everything on-device. You choose per workload with a provider string of the form `ollama:<model>`:
+Adding a local provider does not move everything on-device. You choose per workload with a provider string such as `ollama:<model>` (or `lmstudio:`, `mlx:`, `omlx:`, `local-openai:`):
 
 ```toml
 chat_provider = "ollama:gemma3:4b-it-qat"
@@ -128,7 +116,7 @@ vision = true
 
 Without that flag the images are stripped before dispatch and the model answers from the text alone — fluently, and with no indication that it never saw the picture.
 
-See [Local AI (optional)](local-ai.md) for the deeper runtime detail, LM Studio setup, and troubleshooting.
+See [Local AI (optional)](local-ai.md) for endpoint overrides, the other runtimes, and troubleshooting.
 
 ## Route B: bring your own key
 
@@ -141,6 +129,8 @@ Add your key in the desktop app under the LLM settings, which stores it in the O
 `openai`, `anthropic`, `google`, `openrouter`, `orcarouter`, `groq`, `mistral`, `deepseek`, `together`, `fireworks`, `cerebras`, `xai`, `moonshot`, `gmi`, `huggingface`, `nvidia`, `zai`, `minimax`, `stepfun`, `kilocode`, `deepinfra`, `novita`, `venice`, `vercel-ai-gateway`, `sumopod`, `modelscope`
 
 Anything else that speaks the OpenAI-compatible API works too: register it with your own slug and endpoint, and it routes the same way.
+
+On a headless core (`openhuman-core serve`) custom cloud providers are only built when a backend session or TinyHumans API key is present. If you run the core with no account, wire the endpoint as the `local-openai` runtime instead (`LOCAL_OPENAI_URL`, key in `local_ai.api_key`, workloads pinned to `local-openai:<model>`); see [Headless without a TinyHumans account](../cloud-deploy.md#headless-without-a-tinyhumans-account).
 
 ### 2. Route workloads to it
 
@@ -176,19 +166,13 @@ reasoning_provider = "anthropic:claude-sonnet-4"
 
 ## Troubleshooting
 
-**"no local vision model is configured"** means `local_ai.vision_model_id` is empty. Set it to a vision-capable model and pull it, or point `vision_provider` at a cloud model instead.
-
-**"local vision model ... is not available"** means the model is configured but not pulled. Run the `ollama pull` command in the message.
+**The model you want is not offered, or a request says the model is missing.** The runtime does not have it. Run `ollama pull <model>` (or load it in LM Studio), then retry. OpenHuman does not pull models.
 
 **Vision answers look plausible but describe the wrong image.** You are almost certainly on a chat-only model. Check `vision_model_id` against the capability table above. Current builds refuse this routing and fall back to a vision-capable model, so this points at an older build or a provider outside the local path.
 
-**A model you selected keeps reverting.** Local chat model IDs are checked against a supported list, and an unrecognized ID falls back to the default. Use one of the IDs from the tier table.
-
-**Embeddings fail with a dimension error.** The Memory Tree needs 1024-dimension vectors. Use `bge-m3`.
-
 ## See also
 
-- [Local AI (optional)](local-ai.md). Runtime detail, LM Studio, and the opt-in flags.
+- [Local AI (optional)](local-ai.md). Supported runtimes, endpoints, and the opt-in flags.
 - [Automatic Model Routing](README.md). How hints pick a model per task.
 - [Privacy Mode](../privacy-mode.md). Enforcing local-only inference in the core.
 - [Privacy & Security](../privacy-and-security.md). What moves on-device when you opt in.

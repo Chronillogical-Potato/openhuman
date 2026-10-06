@@ -1,0 +1,64 @@
+[
+  {
+    "system": {
+      "content": [
+        {
+          "text": "You are the researcher."
+        }
+      ]
+    }
+  },
+  {
+    "user": {
+      "content": [
+        {
+          "text": "find the answer"
+        },
+        {
+          "image": {
+            "mime_type": "image/png",
+            "url": "data:image/png;base64,iVBORw0KGgo="
+          }
+        }
+      ]
+    }
+  },
+  {
+    "assistant": {
+      "content": [
+        {
+          "text": "looking"
+        }
+      ],
+      "tool_calls": [
+        {
+          "arguments": {
+            "question": "which year?"
+          },
+          "id": "call_q",
+          "name": "ask_user_clarification"
+        }
+      ]
+    }
+  },
+  {
+    "tool": {
+      "content": [
+        {
+          "text": "awaiting user"
+        }
+      ],
+      "tool_call_id": "call_q"
+    }
+  },
+  {
+    "assistant": {
+      "content": [
+        {
+          "text": "plain prose turn"
+        }
+      ],
+      "tool_calls": []
+    }
+  }
+]

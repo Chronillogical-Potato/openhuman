@@ -1,35 +1,5 @@
 use super::*;
 
-// ── request_id ────────────────────────────────────────────────
-
-#[test]
-fn request_id_is_a_non_empty_uuid_and_fresh_per_call() {
-    let a = request_id();
-    let b = request_id();
-    assert!(!a.is_empty());
-    // v4 UUID canonical form: 36 chars with 4 hyphens.
-    assert_eq!(a.len(), 36);
-    assert_eq!(a.chars().filter(|c| *c == '-').count(), 4);
-    // Two calls must not collide — catches accidental caching.
-    assert_ne!(a, b);
-}
-
-// ── counts ────────────────────────────────────────────────────
-
-#[test]
-fn counts_materialises_entries_as_owned_string_keys() {
-    let map = counts([("num_threads", 3), ("num_messages", 7)]);
-    assert_eq!(map.get("num_threads"), Some(&3));
-    assert_eq!(map.get("num_messages"), Some(&7));
-    assert_eq!(map.len(), 2);
-}
-
-#[test]
-fn counts_empty_iter_yields_empty_map() {
-    let map = counts([]);
-    assert!(map.is_empty());
-}
-
 // NOTE: the title_log_fingerprint / collapse_whitespace copies were removed
 // here (plan.md §2.1) — threads/title.rs (the owning module) already covers
 // these functions with equivalent cases; the lowercase-hex assertion was
@@ -108,120 +78,38 @@ fn build_title_prompt_renders_user_and_assistant_sections_in_order() {
 // ── is_auto_generated_thread_title ────────────────────────────
 
 #[test]
-fn is_auto_generated_thread_title_accepts_canonical_new_chat_format() {
+fn is_auto_generated_thread_title_accepts_only_the_new_chat_format() {
     // Parser locks the format produced by `thread_create_new`:
-    // "Chat <Mon> <day> <H:MM> AM|PM".
-    assert!(is_auto_generated_thread_title("Chat Jan 1 1:00 AM"));
-    assert!(is_auto_generated_thread_title("Chat Dec 31 12:59 PM"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_tolerates_surrounding_whitespace() {
-    // Input is trimmed before parsing — storage layers may round-trip
-    // titles with stray whitespace.
-    assert!(is_auto_generated_thread_title("  Chat Jan 1 1:00 AM  "));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_user_edited_titles() {
-    // Any freeform user title must fall through to the "not a
-    // placeholder" branch so we never overwrite user-authored names.
-    assert!(!is_auto_generated_thread_title("My custom title"));
-    assert!(!is_auto_generated_thread_title("Trip planning"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_short_strings() {
-    // Hard `bytes.len() < 16` guard — locks in the minimum shape so
-    // we never enter the parser with too-small input.
-    assert!(!is_auto_generated_thread_title(""));
-    assert!(!is_auto_generated_thread_title("Chat"));
-    assert!(!is_auto_generated_thread_title("Chat Jan 1"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_non_alpha_month() {
-    // Month abbreviation must be 3 ASCII alpha chars.
-    assert!(!is_auto_generated_thread_title("Chat 123 1 1:00 AM"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_long_month_name() {
-    // "January 1 1:00 AM" — after "Chat ", bytes[8] is 'u' not ' '.
-    assert!(!is_auto_generated_thread_title("Chat January 1 1:00 AM"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_three_digit_day() {
-    // day: 1–2 ASCII digits; idx-day_start>2 rejects.
-    assert!(!is_auto_generated_thread_title("Chat Jan 100 1:00 AM"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_missing_colon() {
-    // 3-digit hour consumes through the position the `:` must occupy.
-    assert!(!is_auto_generated_thread_title("Chat Jan 1 100 AM"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_lowercase_meridiem() {
-    // Parser only accepts "AM" | "PM" (not "am"/"pm") so pattern stays
-    // tied to the producer in `thread_create_new`.
-    assert!(!is_auto_generated_thread_title("Chat Jan 1 1:00 am"));
-}
-
-#[test]
-fn is_auto_generated_thread_title_rejects_missing_space_before_meridiem() {
-    // The `bytes[idx + 2] != b' '` guard must reject "1:00AM" (no space).
-    assert!(!is_auto_generated_thread_title("Chat Jan 1 1:00AM"));
-}
-
-// ── envelope ──────────────────────────────────────────────────
-
-#[test]
-fn envelope_sets_data_and_propagates_counts_and_pagination() {
-    let pagination = PaginationMeta {
-        limit: 10,
-        offset: 0,
-        count: 7,
-    };
-    let counts_map = counts([("num_messages", 7)]);
-    let out = envelope(
-        json!({"v": 42}),
-        Some(counts_map.clone()),
-        Some(pagination.clone()),
-    );
-    let env = &out.value;
-    assert_eq!(env.data.as_ref().unwrap()["v"], json!(42));
-    assert!(env.error.is_none());
-    assert!(!env.meta.request_id.is_empty());
-    assert_eq!(env.meta.counts.as_ref().unwrap(), &counts_map);
-    let pag = env.meta.pagination.as_ref().unwrap();
-    assert_eq!(pag.limit, pagination.limit);
-    assert_eq!(pag.count, pagination.count);
-    assert_eq!(pag.offset, pagination.offset);
-    // No implicit latency/cached info — the envelope helper keeps
-    // optional fields unset so callers opt in explicitly.
-    assert!(env.meta.latency_seconds.is_none());
-    assert!(env.meta.cached.is_none());
-    // No logs are attached by default.
-    assert!(out.logs.is_empty());
-}
-
-#[test]
-fn envelope_omits_counts_and_pagination_when_not_provided() {
-    let out = envelope(json!(null), None, None);
-    assert!(out.value.meta.counts.is_none());
-    assert!(out.value.meta.pagination.is_none());
-}
-
-#[test]
-fn envelope_generates_unique_request_ids_per_call() {
-    // request_id uniqueness matters for client-side correlation of
-    // overlapping threads-API calls. Lock it in.
-    let a = envelope(json!({}), None, None);
-    let b = envelope(json!({}), None, None);
-    assert_ne!(a.value.meta.request_id, b.value.meta.request_id);
+    // "Chat <Mon> <day> <H:MM> AM|PM". Input is trimmed before parsing.
+    for title in [
+        "Chat Jan 1 1:00 AM",
+        "Chat Dec 31 12:59 PM",
+        "  Chat Jan 1 1:00 AM  ",
+    ] {
+        assert!(is_auto_generated_thread_title(title), "{title:?}");
+    }
+    // Everything else must fall through so user-authored names are never
+    // overwritten.
+    for title in [
+        "My custom title",
+        "Trip planning",
+        // `bytes.len() < 16` guard
+        "",
+        "Chat",
+        "Chat Jan 1",
+        // month must be 3 ASCII alpha chars
+        "Chat 123 1 1:00 AM",
+        "Chat January 1 1:00 AM",
+        // day is 1-2 digits
+        "Chat Jan 100 1:00 AM",
+        // hour/colon shape
+        "Chat Jan 1 100 AM",
+        // meridiem is exactly "AM" | "PM", preceded by a space
+        "Chat Jan 1 1:00 am",
+        "Chat Jan 1 1:00AM",
+    ] {
+        assert!(!is_auto_generated_thread_title(title), "{title:?}");
+    }
 }
 
 #[test]
@@ -292,11 +180,9 @@ fn title_log_prefix_is_grep_friendly_and_stable() {
 
 #[tokio::test]
 async fn message_append_returns_typed_not_found_for_stale_thread() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-missing";
 
     let err = message_append(AppendConversationMessageRequest {
@@ -324,11 +210,9 @@ async fn message_append_returns_typed_not_found_for_stale_thread() {
 
 #[tokio::test]
 async fn generate_title_returns_typed_not_found_for_stale_thread() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-missing";
 
     let err = thread_generate_title(GenerateConversationThreadTitleRequest {
@@ -349,11 +233,9 @@ async fn generate_title_returns_typed_not_found_for_stale_thread() {
 
 #[tokio::test]
 async fn generate_title_leaves_custom_title_unchanged() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-custom";
     create_thread_with_title(&workspace, thread_id, "Already named").await;
     let dir = crate::config::Config::load_or_init()
@@ -390,11 +272,9 @@ async fn generate_title_leaves_custom_title_unchanged() {
 
 #[tokio::test]
 async fn generate_title_returns_existing_title_when_no_user_message_exists() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-no-user";
     create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
 
@@ -413,11 +293,9 @@ async fn generate_title_returns_existing_title_when_no_user_message_exists() {
 
 #[tokio::test]
 async fn generate_title_falls_back_to_first_user_message_when_assistant_missing() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-fallback";
     create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
     let dir = crate::config::Config::load_or_init()
@@ -454,11 +332,9 @@ async fn generate_title_falls_back_to_first_user_message_when_assistant_missing(
 
 #[tokio::test]
 async fn thread_delete_removes_persisted_turn_state_snapshot() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-delete";
     create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
     let dir = crate::config::Config::load_or_init()
@@ -507,11 +383,9 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
 
 #[tokio::test]
 async fn threads_purge_removes_valid_and_corrupted_turn_state_files() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     create_thread_with_title(&workspace, "thread-a", "Chat Jan 1 1:00 AM").await;
     create_thread_with_title(&workspace, "thread-b", "Chat Jan 1 1:01 AM").await;
     let dir = crate::config::Config::load_or_init()
@@ -567,11 +441,9 @@ async fn threads_purge_removes_valid_and_corrupted_turn_state_files() {
 
 #[tokio::test]
 async fn turn_state_clear_reports_false_when_snapshot_is_absent() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
 
     let outcome = turn_state_clear(ClearTurnStateRequest {
         thread_id: "missing-thread".into(),
@@ -585,43 +457,22 @@ async fn turn_state_clear_reports_false_when_snapshot_is_absent() {
 // ── thread_update_title ───────────────────────────────────────
 
 #[tokio::test]
-async fn thread_update_title_rejects_empty_title() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+async fn thread_update_title_rejects_empty_and_whitespace_only_titles() {
+    let _env_lock = crate::config::TEST_ENV_LOCK.lock().await;
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
 
-    let err = thread_update_title(crate::memory::UpdateConversationThreadTitleRequest {
-        thread_id: "t-1".to_string(),
-        title: "".to_string(),
-    })
-    .await
-    .expect_err("empty title must be rejected");
+    for title in ["", "   "] {
+        let err = thread_update_title(crate::threads::UpdateConversationThreadTitleRequest {
+            thread_id: "t-1".to_string(),
+            title: title.to_string(),
+        })
+        .await
+        .expect_err("blank title must be rejected");
 
-    assert!(
-        err.contains("must not be empty"),
-        "expected empty-title error, got: {err}"
-    );
-}
-
-#[tokio::test]
-async fn thread_update_title_rejects_whitespace_only_title() {
-    let _env_lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
-
-    let err = thread_update_title(crate::memory::UpdateConversationThreadTitleRequest {
-        thread_id: "t-1".to_string(),
-        title: "   ".to_string(),
-    })
-    .await
-    .expect_err("whitespace-only title must be rejected");
-
-    assert!(
-        err.contains("must not be empty"),
-        "expected empty-title error, got: {err}"
-    );
+        assert!(
+            err.contains("must not be empty"),
+            "expected empty-title error for {title:?}, got: {err}"
+        );
+    }
 }

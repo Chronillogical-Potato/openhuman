@@ -10,14 +10,6 @@ fn keypair_round_trip_pubkey_is_base64url() {
 }
 
 #[test]
-fn keypair_private_bytes_round_trip() {
-    let kp = DeviceKeypair::generate();
-    let bytes = kp.private_bytes();
-    let kp2 = DeviceKeypair::from_private_bytes(bytes);
-    assert_eq!(kp.pubkey_b64, kp2.pubkey_b64);
-}
-
-#[test]
 fn dh_both_sides_derive_same_secret() {
     let core_kp = DeviceKeypair::generate();
     let device_kp = DeviceKeypair::generate();

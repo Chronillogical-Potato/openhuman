@@ -40,6 +40,11 @@ fn parameters_schema_advertises_dedicated_thread_flag() {
     let tool = SpawnSubagentTool;
     let schema = tool.parameters_schema();
     let props = schema.get("properties").expect("schema has properties");
+    // The per-toolkit spawn argument went with the integrations specialist.
+    assert!(
+        props.get("toolkit").is_none(),
+        "spawn_subagent must not advertise the removed `toolkit` argument"
+    );
     let flag = props
         .get("dedicated_thread")
         .expect("dedicated_thread advertised");

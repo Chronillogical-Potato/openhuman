@@ -28,7 +28,7 @@
 //! ## Stable event ids (05.1)
 //!
 //! The run [`EventSink`] is seeded by the caller with
-//! [`EventSink::with_stream_id`]`(run_id)` (see [`mint_run_id`]), so every
+//! [`EventSink::with_stream_id`]`(run_id)` (see `tinyagents_harness::observability::mint_run_id`), so every
 //! persisted observation carries a restart-stable `event_id` of the form
 //! `{run_id}-evt-{offset}`. That is the id a late-attaching replay reader
 //! reconstructs the timeline from — the same `(stream_id, offset)` always mints
@@ -37,11 +37,9 @@
 //!
 //! ## Follow-ups (not in this slice)
 //!
-//! - A replay RPC (`agent.run_events`?) that surfaces [`read_run_events`] /
-//!   [`read_run_status`] to the desktop for mid-run reconnect (05.x).
 //! - Full sub-agent / graph run lineage (`parent_run_id` / `root_run_id`
 //!   threading) — wired in 05.2/05.3. This slice threads `thread_id` (from the
-//!   sub-agent task scope) so [`FileStatusStore::list_by_thread`] answers.
+//!   sub-agent task scope) so `FileStatusStore::list_by_thread` answers.
 //!
 //! [`EventSink::with_stream_id`]: tinyagents_harness::events::EventSink::with_stream_id
 
@@ -49,45 +47,22 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use async_trait::async_trait;
 use once_cell::sync::Lazy;
 
-use tinyagents_harness::error::Result as TaResult;
 use tinyagents_harness::events::{EventSink, HarnessRunStatus};
 use tinyagents_harness::ids::{ComponentId, HarnessPhase, RunId, ThreadId};
 use tinyagents_harness::observability::{
-    AgentObservation, FanOutSink, HarnessEventJournal, HarnessStatusStore, JournalSink,
-    RedactingSink, StoreEventJournal,
+    process_env_secrets, AgentObservation, FanOutSink, FileStatusStore, HarnessEventJournal,
+    HarnessStatusStore, JournalSink, RedactingSink, StoreEventJournal,
 };
-use tinyagents_harness::store::{FileStore, Store};
 
 use tinyagents_session::transcript::import::ops::open_session_stores;
-
-/// KV namespace the durable per-run [`HarnessRunStatus`] snapshots live under
-/// (`{workspace}/tinyagents_store/kv/run_status/<run_id>.json`). Slash-free so
-/// it round-trips the crate [`FileStore`] name sanitizer.
-const STATUS_NS: &str = "run_status";
 
 /// Best-effort live request → durable tinyagents journal stream map. The web
 /// progress bridge uses this at turn end to shadow-project spans from the
 /// journal and compare them against the live `SpanCollector` path during C4 S3.
 static REQUEST_JOURNAL_RUNS: Lazy<Mutex<HashMap<String, String>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
-
-/// Mints a fresh, slash-free, process-unique run id (`run.<32-hex>`), used three
-/// ways for one turn: the [`EventSink::with_stream_id`] prefix (so persisted
-/// `event_id`s are the restart-stable `{run_id}-evt-{offset}`), the journal
-/// stream key, and the status-store key. The `simple()` uuid form (no hyphens)
-/// keeps the id inside the crate store's allowed-character set.
-///
-/// The caller mints this *before* creating the run [`EventSink`] so the same id
-/// seeds the sink stream prefix and the durable journal/status — see
-/// [`attach_turn_journal`].
-///
-/// [`EventSink::with_stream_id`]: tinyagents_harness::events::EventSink::with_stream_id
-pub(crate) fn mint_run_id() -> RunId {
-    RunId::new(format!("run.{}", uuid::Uuid::new_v4().simple()))
-}
 
 pub(crate) fn register_request_journal_run(request_id: &str, run_id: &str) {
     match REQUEST_JOURNAL_RUNS.lock() {
@@ -125,139 +100,6 @@ async fn resolve_workspace() -> anyhow::Result<PathBuf> {
     Ok(config.workspace_dir)
 }
 
-/// The OpenHuman journal redaction policy (issue #4249, 05.1).
-///
-/// The crate [`RedactingSink`] masks configured secret substrings anywhere they
-/// appear in a serialized event before the observation is persisted. This policy
-/// seeds it with the process's credential material — the values of environment
-/// variables whose name looks like a secret (contains `KEY` / `TOKEN` / `SECRET`
-/// / `PASSWORD` / `PASSWD` / `CREDENTIAL` / `BEARER`) — so an API key or bearer
-/// token echoed into model text, a tool argument fragment, or an error string is
-/// never written to the durable journal in the clear. Only reasonably long
-/// values (>= 8 chars) are masked, so unrelated short config values are left
-/// alone. Minimal but real: it does not persist raw secrets, and structural
-/// prompt/PII stripping is a follow-up if the event vocabulary grows to carry
-/// full prompts.
-fn openhuman_redaction_secrets() -> Vec<String> {
-    const MARKERS: [&str; 7] = [
-        "KEY",
-        "TOKEN",
-        "SECRET",
-        "PASSWORD",
-        "PASSWD",
-        "CREDENTIAL",
-        "BEARER",
-    ];
-    let mut secrets = Vec::new();
-    for (name, value) in std::env::vars() {
-        let upper = name.to_ascii_uppercase();
-        if MARKERS.iter().any(|m| upper.contains(m)) && value.trim().len() >= 8 {
-            secrets.push(value);
-        }
-    }
-    log::debug!(
-        "[journal] redaction policy seeded with {} secret value(s)",
-        secrets.len()
-    );
-    secrets
-}
-
-/// A durable [`HarnessStatusStore`] backed by a crate [`FileStore`] KV
-/// namespace.
-///
-/// The crate ships only an in-memory [`HarnessStatusStore`]
-/// (`InMemoryStatusStore`), which does not survive a process restart — useless
-/// for the "reattach after the UI died and see what is still running" use case
-/// this slice targets. This small `Store`-backed impl overwrites one
-/// `run_status/<run_id>.json` file per run (compact snapshot: ids, phase,
-/// counters, timestamps, error — never prompts or payloads) and answers the
-/// lineage/liveness queries by enumerating the namespace via
-/// [`Store::list`]. `list_by_root` is what lets a supervisor find "every active
-/// descendant of this root run".
-pub(crate) struct FileStatusStore {
-    kv: FileStore,
-}
-
-impl FileStatusStore {
-    /// Wrap the workspace kv store as a durable status store.
-    pub(crate) fn new(kv: FileStore) -> Self {
-        Self { kv }
-    }
-
-    /// Enumerate every persisted status snapshot (best-effort per-record decode:
-    /// a corrupt/legacy record is skipped, never fatal).
-    async fn all(&self) -> TaResult<Vec<HarnessRunStatus>> {
-        let keys = self.kv.list(STATUS_NS).await?;
-        let mut out = Vec::with_capacity(keys.len());
-        for key in keys {
-            if let Some(value) = self.kv.get(STATUS_NS, &key).await? {
-                match serde_json::from_value::<HarnessRunStatus>(value) {
-                    Ok(status) => out.push(status),
-                    Err(err) => {
-                        log::debug!("[journal] skipping undecodable run status key={key} err={err}")
-                    }
-                }
-            }
-        }
-        Ok(out)
-    }
-}
-
-#[async_trait]
-impl HarnessStatusStore for FileStatusStore {
-    async fn put_status(&self, status: HarnessRunStatus) -> TaResult<()> {
-        let key = status.run_id.as_str().to_string();
-        let value = serde_json::to_value(&status)?;
-        self.kv.put(STATUS_NS, &key, value).await
-    }
-
-    async fn get_status(&self, run_id: &str) -> TaResult<Option<HarnessRunStatus>> {
-        match self.kv.get(STATUS_NS, run_id).await? {
-            Some(value) => Ok(Some(serde_json::from_value(value)?)),
-            None => Ok(None),
-        }
-    }
-
-    async fn list_by_thread(&self, thread_id: &str) -> TaResult<Vec<HarnessRunStatus>> {
-        Ok(self
-            .all()
-            .await?
-            .into_iter()
-            .filter(|s| {
-                s.thread_id
-                    .as_ref()
-                    .is_some_and(|t| t.as_str() == thread_id)
-            })
-            .collect())
-    }
-
-    async fn list_by_root(&self, root_run_id: &str) -> TaResult<Vec<HarnessRunStatus>> {
-        Ok(self
-            .all()
-            .await?
-            .into_iter()
-            .filter(|s| s.root_run_id.as_str() == root_run_id)
-            .collect())
-    }
-
-    async fn list_active(&self) -> TaResult<Vec<HarnessRunStatus>> {
-        use tinyagents_harness::ids::ExecutionStatus;
-        Ok(self
-            .all()
-            .await?
-            .into_iter()
-            .filter(|s| {
-                matches!(
-                    s.status,
-                    ExecutionStatus::Pending
-                        | ExecutionStatus::Running
-                        | ExecutionStatus::Interrupted
-                )
-            })
-            .collect())
-    }
-}
-
 /// A live handle to a turn's durable journal + status snapshot.
 ///
 /// Held by the turn loop for the duration of the run so it can stamp a terminal
@@ -274,14 +116,6 @@ pub(crate) struct TurnJournal {
 }
 
 impl TurnJournal {
-    /// The durable run id — the journal stream key + status key a future replay
-    /// RPC reads back via [`read_run_events`] / [`read_run_status`].
-    // Part of the replay seam surfaced to the (follow-up) replay RPC.
-    #[allow(dead_code)]
-    pub(crate) fn run_id(&self) -> String {
-        self.run_id.as_str().to_string()
-    }
-
     /// Best-effort terminal write: mark the run completed and persist. Non-fatal.
     pub(crate) async fn finish_completed(&self) {
         self.event_sink.flush();
@@ -326,10 +160,10 @@ impl TurnJournal {
 ///
 /// `run_id` MUST be the same id the caller passed to
 /// [`EventSink::with_stream_id`] when it created `events` (mint it once via
-/// [`mint_run_id`]). That shared id is what makes the persisted `event_id`s the
+/// `tinyagents_harness::observability::mint_run_id`). That shared id is what makes the persisted `event_id`s the
 /// restart-stable `{run_id}-evt-{offset}` a late-attach replay reconstructs the
 /// timeline from. `thread_id` (when known — e.g. the sub-agent task scope)
-/// records the run under a thread so [`FileStatusStore::list_by_thread`] answers.
+/// records the run under a thread so `FileStatusStore::list_by_thread` answers.
 ///
 /// Returns a [`TurnJournal`] handle the caller uses to stamp the terminal
 /// status after the run, or `None` when the store could not be opened (the run
@@ -361,7 +195,7 @@ pub(crate) async fn attach_turn_journal(
     // observation's `event_id` is the stable `{run_id}-evt-{offset}`.
     let journal: Arc<dyn HarnessEventJournal> = Arc::new(StoreEventJournal::new(stores.journal));
     let journal_sink = Arc::new(JournalSink::new(journal, run_id.clone()));
-    let redacting = RedactingSink::new(journal_sink.clone(), openhuman_redaction_secrets());
+    let redacting = RedactingSink::new(journal_sink.clone(), process_env_secrets());
 
     // FanOutSink is the durable-observer composition seam (05.2 adds graph sinks
     // here). Subscribing it as its own listener leaves the bridge subscription
@@ -405,9 +239,6 @@ pub(crate) async fn attach_turn_journal(
 /// reconnect mid-run and backfill the timeline from durable state instead of
 /// relying on transient `AgentProgress` buffering. Best-effort: a missing store
 /// or unknown run yields an empty `Vec`, not an error.
-// Replay-RPC seam (05.x): no in-tree caller yet — the persisted journal is
-// provably replayable through this reader.
-#[allow(dead_code)]
 pub(crate) async fn read_run_events(
     run_id: &str,
     from_offset: u64,
@@ -420,21 +251,3 @@ pub(crate) async fn read_run_events(
         .await
         .map_err(|e| anyhow::anyhow!("[journal] read_run_events failed run_id={run_id}: {e}"))
 }
-
-/// Late-attach replay reader: the latest durable [`HarnessRunStatus`] for
-/// `run_id`, or `None` if unknown. Companion to [`read_run_events`] for the
-/// future replay RPC.
-#[allow(dead_code)]
-pub(crate) async fn read_run_status(run_id: &str) -> anyhow::Result<Option<HarnessRunStatus>> {
-    let workspace = resolve_workspace().await?;
-    let stores = open_session_stores(&workspace);
-    let status = FileStatusStore::new(stores.kv);
-    status
-        .get_status(run_id)
-        .await
-        .map_err(|e| anyhow::anyhow!("[journal] read_run_status failed run_id={run_id}: {e}"))
-}
-
-#[cfg(test)]
-#[path = "journal_tests.rs"]
-mod tests;

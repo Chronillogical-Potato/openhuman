@@ -9,9 +9,9 @@ icon: vials
 
 Desktop E2E tests use **WebDriverIO (WDIO)** to drive the app through a single `tauri-driver` (WebDriver) session against its native Wry/WebKit webview:
 
-| Platform  | Driver                        | Port | App format   | Selectors |
-| --------- | ------------------------------ | ---- | ------------- | --------- |
-| **Linux** | tauri-driver + WebKitWebDriver | 4444 | Debug binary  | CSS / DOM |
+| Platform  | Driver                         | Port | App format   | Selectors |
+| --------- | ------------------------------ | ---- | ------------ | --------- |
+| **Linux** | tauri-driver + WebKitWebDriver | 4444 | Debug binary | CSS / DOM |
 
 The app moved from CEF to Tauri's native Wry webview in #5456. The old Appium Chromium-driver backend attached over CEF's remote-debugging port; CDP only exists under a Chromium engine, so that backend was removed in #5478 along with CEF itself. Linux CI now drives the debug binary under Xvfb through `tauri-driver`. macOS and Windows have no automated desktop E2E coverage until a native driver (Appium Mac2 / WinAppDriver) replaces the removed one; that work is tracked in #5485. `pnpm --filter openhuman-app test:e2e:build` still produces a `.app` bundle on macOS for manual testing, but there is no supported automated session there yet.
 
@@ -78,7 +78,7 @@ active platform detection.
 
 `app/test/e2e/helpers/element-helpers.ts` provides a unified API over the WebView DOM:
 
-| Helper                    | Behavior                                      |
+| Helper                    | Behavior                                     |
 | ------------------------- | -------------------------------------------- |
 | `waitForText(text)`       | XPath over DOM text content                  |
 | `waitForButton(text)`     | `button` / `[role="button"]` XPath           |
@@ -171,7 +171,7 @@ E2E_PORT_BASE=31000 pnpm --filter openhuman-app test:e2e:web
 
 ### Push / PR checks
 
-The default pull-request gate is `.github/workflows/ci-lite.yml` (quick lane: quality checks plus complete unit-test suites for each changed area). E2E suites do not run on PRs to `main`. The full E2E matrix (Rust mock-backend, Playwright web, desktop on Linux/macOS/Windows) runs in `.github/workflows/ci-full.yml` on PRs targeting the `release` branch and on every push to it.
+The default pull-request gate is `.github/workflows/ci-fast.yml` (quality checks plus complete unit-test suites for changed areas). E2E suites do not run on PRs to `main`. The full E2E matrix (Rust mock-backend, Playwright web, desktop on Linux/macOS/Windows) runs in `.github/workflows/ci-full.yml` on PRs targeting the `release` branch and on every push to it.
 
 macOS and Windows desktop E2E do not run on pushes or PRs. `.github/workflows/e2e.yml` is a manually dispatched workflow whose `run_macos` / `run_windows` inputs default to `false` until #5485 lands a native driver for each platform; someone has to opt in explicitly to get cross-platform desktop signal before promotion.
 
@@ -232,6 +232,19 @@ bash app/scripts/e2e-run-spec.sh test/e2e/specs/notifications.spec.ts notificati
 ---
 
 ## Agent-observable artifact flow
+
+### Starting a composer test
+
+Chat drafts persist per thread. Before a spec types its initial prompt, call
+`replaceChatComposerText(input, prompt)` from
+`app/test/playwright/helpers/chat-composer.ts`. It selects and deletes the
+restored draft, waits for the empty value, types through keyboard events, and
+checks the exact prompt. Use `clearChatComposer(input)` when a case needs an
+empty composer. These helpers support both textarea and Lexical surfaces.
+
+Cases that exercise draft restoration or append a follow-up should keep their
+draft and drive that behavior explicitly. The helper's browser regressions live
+in `app/test/playwright/specs/chat-composer-helper.spec.ts`.
 
 For a canonical, inspectable run that drops screenshots, page-source dumps, and mock request logs on disk:
 

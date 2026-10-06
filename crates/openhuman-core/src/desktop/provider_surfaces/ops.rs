@@ -3,43 +3,21 @@
 //! This initial cut keeps state in-memory so the RPC contract and UI wiring
 //! can land before the SQLite-backed store arrives.
 
+use crate::core::envelope::{ApiEnvelope, EmptyRequest};
 use crate::core::Outcome;
-use crate::memory::{ApiEnvelope, ApiMeta, EmptyRequest};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
 use super::store;
 use super::types::{ProviderEvent, RespondQueueItem, RespondQueueListResponse};
 
-fn request_id() -> String {
-    uuid::Uuid::new_v4().to_string()
-}
-
-fn counts(entries: impl IntoIterator<Item = (&'static str, usize)>) -> BTreeMap<String, usize> {
-    entries
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v))
-        .collect()
-}
+use crate::core::envelope::{counts, envelope as shared_envelope};
 
 fn envelope<T: Serialize>(
     data: T,
     counts: Option<BTreeMap<String, usize>>,
 ) -> Outcome<ApiEnvelope<T>> {
-    Outcome::new(
-        ApiEnvelope {
-            data: Some(data),
-            error: None,
-            meta: ApiMeta {
-                request_id: request_id(),
-                latency_seconds: None,
-                cached: None,
-                counts,
-                pagination: None,
-            },
-        },
-        vec![],
-    )
+    shared_envelope(data, counts, None)
 }
 
 pub async fn ingest_event(

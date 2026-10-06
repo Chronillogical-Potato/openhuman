@@ -71,7 +71,7 @@ pub fn about_app_schemas(function: &str) -> ControllerSchema {
             description: "Look up one user-facing capability by its stable id.",
             inputs: vec![required_string(
                 "id",
-                "Capability id, such as local_ai.download_model.",
+                "Capability id, such as local_ai.configure_provider.",
             )],
             outputs: vec![capability_output(
                 "capability",

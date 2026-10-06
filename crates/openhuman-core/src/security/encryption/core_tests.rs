@@ -25,14 +25,6 @@ fn encrypt_decrypt_bytes_round_trip() {
 }
 
 #[test]
-fn encrypt_decrypt_string_round_trip() {
-    let k = key("pw", &EncryptionKey::generate_salt());
-    let secret = "sk-live-🔐-multibyte";
-    let json = k.encrypt_string(secret).expect("encrypt_string");
-    assert_eq!(k.decrypt_string(&json).expect("decrypt_string"), secret);
-}
-
-#[test]
 fn kdf_is_deterministic_for_same_password_and_salt() {
     // Two independent derivations from the same (password, salt) must yield
     // the same key: key_a encrypts, key_b decrypts.
@@ -112,15 +104,6 @@ fn generate_salt_is_correct_length_and_random() {
     let s2 = EncryptionKey::generate_salt();
     assert_eq!(s1.len(), SALT_LENGTH, "salt must be {SALT_LENGTH} bytes");
     assert_ne!(s1, s2, "two generated salts must differ (CSPRNG)");
-}
-
-#[test]
-fn decrypt_string_rejects_malformed_json() {
-    let k = key("pw", &EncryptionKey::generate_salt());
-    assert!(
-        k.decrypt_string("not-json").is_err(),
-        "non-JSON payload must be a clean Err, not a panic"
-    );
 }
 
 #[test]

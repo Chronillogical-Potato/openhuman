@@ -33,7 +33,6 @@ export const TOOL_PHRASES = {
   runLinter: { active: 'Running linter', done: 'Ran linter' },
   runTests: { active: 'Running tests', done: 'Ran tests' },
   analyzeCode: { active: 'Analyzing code', done: 'Analyzed code' },
-  insertRecord: { active: 'Inserting record', done: 'Inserted record' },
 
   // ── Shell and system ────────────────────────────────────────────────────
   runCommand: { active: 'Running command', done: 'Ran command' },

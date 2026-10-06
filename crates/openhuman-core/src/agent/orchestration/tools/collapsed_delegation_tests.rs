@@ -64,7 +64,7 @@ fn dispatch_target_mapping_matches_the_advertised_enum_and_agent_ids() {
 #[test]
 fn the_schema_carries_the_whole_delegation_envelope() {
     // The collapse must advertise exactly the member envelope plus its own
-    // `agent` selector: `prompt` and `blocking`. The structured hand-off
+    // `agent` selector: `prompt`, `blocking`, and `image_paths`. Structured hand-off
     // fields are no longer advertised by either tool (a self-contained
     // `prompt` carries them), but `render_structured_handoff` still reads
     // them, so a caller that sends them keeps its constraints.
@@ -72,7 +72,7 @@ fn the_schema_carries_the_whole_delegation_envelope() {
     let props = schema["properties"].as_object().expect("properties");
     let mut names: Vec<&str> = props.keys().map(String::as_str).collect();
     names.sort_unstable();
-    assert_eq!(names, vec!["agent", "blocking", "prompt"]);
+    assert_eq!(names, vec!["agent", "blocking", "image_paths", "prompt"]);
     assert_eq!(schema["required"], serde_json::json!(["agent", "prompt"]));
 }
 

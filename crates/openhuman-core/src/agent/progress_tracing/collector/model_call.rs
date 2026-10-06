@@ -3,10 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::agent::progress_tracing::serialize::{
+use tinyagents_harness::observability::trace_export::serialize::{
     capture_model_content, json_f64, json_str, json_u32, json_u64,
 };
-use crate::agent::progress_tracing::types::{SpanKind, SpanStatus};
+use tinyagents_harness::observability::trace_export::{SpanKind, SpanStatus};
 
 use super::state::SpanCollector;
 
@@ -20,7 +20,7 @@ impl SpanCollector {
     ///    (`gen_ai.provider`) and the pricing basis the local estimator uses;
     /// 2. record the captured request messages (incl. the system prompt) and
     ///    completion as the generation's input/output, gated on
-    ///    `capture_content` and truncated to [`crate::agent::progress_tracing::serialize::MAX_MODEL_CONTENT_CHARS`];
+    ///    `capture_content` and truncated to [`tinyagents_harness::observability::trace_export::serialize::MAX_MODEL_CONTENT_CHARS`];
     /// 3. accumulate reasoning / cache-creation tokens onto the root turn
     ///    span, which `TurnCostUpdated` (cumulative rollup) does not carry —
     ///    and, for child calls, roll model + usage onto the subagent span so

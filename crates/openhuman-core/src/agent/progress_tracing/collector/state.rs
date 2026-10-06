@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::agent::progress_tracing::types::{SpanStatus, TraceContext, TraceSpan};
+use tinyagents_harness::observability::trace_export::{SpanStatus, TraceContext, TraceSpan};
 
 /// When the in-flight model call streamed its first delta, for
 /// time-to-first-token. Reset when a new iteration (model call) starts and
@@ -125,7 +125,7 @@ impl SpanCollector {
 
     pub(super) fn open_span(
         &mut self,
-        kind: crate::agent::progress_tracing::types::SpanKind,
+        kind: tinyagents_harness::observability::trace_export::SpanKind,
         name: impl Into<String>,
         parent_span_id: Option<String>,
         start_unix_ms: u64,

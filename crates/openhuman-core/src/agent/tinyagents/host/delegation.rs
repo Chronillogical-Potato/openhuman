@@ -45,8 +45,6 @@
 use std::future::Future;
 use std::sync::Arc;
 
-use serde_json::Value;
-
 use super::super::observability::GraphTracingSink;
 
 use tinyagents_graph::delegation::{
@@ -66,60 +64,6 @@ fn with_tracing_sink(mut config: DelegationConfig) -> DelegationConfig {
         config.event_sink = Some(Arc::new(GraphTracingSink::new(GRAPH_SINK_LABEL)));
     }
     config
-}
-
-/// Run the plan→execute⇄review→finalize delegation graph, invoking `run_stage`
-/// for each stage. Returns the final [`DelegationState`].
-///
-/// See [`tinyagents_graph::delegation::run_delegation`].
-#[allow(dead_code)]
-pub(crate) async fn run_with_tracing<F, Fut>(
-    config: DelegationConfig,
-    run_stage: F,
-) -> Result<DelegationState, String>
-where
-    F: Fn(DelegationStage, DelegationState) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = Result<DelegationStageOutput, String>> + Send + 'static,
-{
-    tinyagents_graph::delegation::run_delegation(with_tracing_sink(config), run_stage).await
-}
-
-/// Run the delegation graph and report whether it finalized or parked on a
-/// durable human-approval interrupt.
-///
-/// See [`tinyagents_graph::delegation::run_delegation_durable`].
-#[allow(dead_code)]
-pub(crate) async fn run_durable_with_tracing<F, Fut>(
-    config: DelegationConfig,
-    run_stage: F,
-) -> Result<DelegationOutcome, String>
-where
-    F: Fn(DelegationStage, DelegationState) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = Result<DelegationStageOutput, String>> + Send + 'static,
-{
-    tinyagents_graph::delegation::run_delegation_durable(with_tracing_sink(config), run_stage).await
-}
-
-/// Resume a delegation graph parked on a durable human-approval interrupt,
-/// delivering the approver's `decision`.
-///
-/// `decision` accepts the approval RPC's stable wire values (`approve_once` /
-/// `approve_always_for_tool` / `deny`), so the existing decision contract routes
-/// into the resume unchanged. TTL expiry → pass [`deny_decision`].
-///
-/// See [`tinyagents_graph::delegation::resume_delegation`].
-#[allow(dead_code)]
-pub(crate) async fn resume_with_tracing<F, Fut>(
-    config: DelegationConfig,
-    decision: Value,
-    run_stage: F,
-) -> Result<DelegationOutcome, String>
-where
-    F: Fn(DelegationStage, DelegationState) -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = Result<DelegationStageOutput, String>> + Send + 'static,
-{
-    tinyagents_graph::delegation::resume_delegation(with_tracing_sink(config), decision, run_stage)
-        .await
 }
 
 /// Run the delegation graph, resuming from the last checkpoint boundary when the

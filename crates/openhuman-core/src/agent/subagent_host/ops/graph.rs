@@ -51,8 +51,6 @@ pub(super) use dispatch::{run_subagent_via_graph, AggregatedUsage};
 // of the original flat imports now live with the code that uses them, in
 // `dispatch.rs` / `transcript.rs` / `worker_mirror.rs`).
 #[cfg(test)]
-use crate::agent::messages::{ChatMessage, ConversationMessage};
-#[cfg(test)]
 use crate::agent::progress::AgentProgress;
 #[cfg(test)]
 use crate::inference::tokenjuice::AgentTokenjuiceCompression;
@@ -60,6 +58,8 @@ use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 use std::collections::HashSet;
 #[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
+use tinyagents_session::transcript::TranscriptMessage;
 #[cfg(test)]
 #[cfg(test)]
 use worker_mirror::{mirror_worker_thread, mirror_worker_thread_from_history};

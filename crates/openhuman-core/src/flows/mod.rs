@@ -4,7 +4,7 @@
 //!
 //! Business logic lives in [`ops`]; persistence in `store` (private, with a
 //! handful of functions re-exported below for the capability seam's
-//! [`crate::flows::tinyflows::caps::FlowStateStore`]); the RPC/CLI
+//! `tinyflows_sqlite::flows::SqliteStateStore`); the RPC/CLI
 //! controller surface in `schemas` (private, re-exported below).
 //!
 //! # Gate shape — leaf, not facade
@@ -20,9 +20,8 @@
 //! method that fails at runtime.
 //!
 //! The leaf gate holds only because no always-compiled domain has a real code
-//! edge into this tree. `memory/tools.rs` and `memory/tools/flavour.rs` name
-//! `flows::tinyflows` in **comments only**. If either ever becomes a real
-//! `use`, this family must convert to the facade+stub shape (see `voice/`).
+//! edge into this tree. If one ever gains a real `use` of `flows::`, this
+//! family must convert to the facade+stub shape (see `voice/`).
 
 pub mod agents;
 pub mod builder_tools;
@@ -30,9 +29,6 @@ pub mod bus;
 pub mod catalogue;
 pub mod discovery_tools;
 mod draft_store;
-#[cfg(test)]
-#[path = "import_tests.rs"]
-mod import_tests;
 pub mod memory_tools;
 pub mod node_contracts;
 pub mod ops;
@@ -60,8 +56,8 @@ pub use schemas::{
     all_registered_controllers as all_flows_registered_controllers,
 };
 // `kv_get`/`kv_set` are re-exported (not just `pub(crate)`-visible within this
-// domain's own module tree) because `tinyflows::caps::FlowStateStore`
-// (`crates/openhuman-core/src/flows/tinyflows/caps/state.rs`) lives in a sibling module and needs
+// domain's own module tree) because `tinyflows_sqlite::flows::SqliteStateStore`
+// (built in `crates/openhuman-core/src/flows/tinyflows/caps/ops.rs`) lives in a sibling module and needs
 // them to implement `tinyflows::caps::StateStore` without duplicating the
 // `flow_state` table's persistence logic.
 // `upsert_flow_run_step` is likewise re-exported for the tinyflows seam: the
@@ -77,15 +73,11 @@ pub use tinyflows_catalog::{
     DraftOrigin, Flow, FlowConnection, FlowDraft, FlowImport, FlowRevision, FlowRun, FlowRunStep,
     FlowRunTrigger, FlowSuggestion, FlowValidation, FlowValidationError, SuggestionStatus,
 };
-// `FLOW_MEMORY_NAMESPACE_PREFIX` / `flow_namespace` live in `memory_tools`
-// (the domain logic sibling that owns the agent tools consuming them) and are
-// re-exported here so every existing `flows::flow_namespace` /
-// `flows::FLOW_MEMORY_NAMESPACE_PREFIX` call site (`bus.rs`, `ops.rs`, this
-// module's own doc comments) keeps resolving unchanged — `mod.rs` stays
-// export-focused only, per this repo's canonical module shape.
-// `cross_flow_recall` is re-exported for the same reason: the tinyflows
-// `memory` node's `OpenHumanMemory` adapter (`scope: "flows"` recall) must
-// see byte-identical cross-flow results to `flow_memory_recall`'s own
-// `scope: "flows"` arm, so both call the one implementation here rather than
-// each walking `namespace_summaries` independently.
-pub use memory_tools::{cross_flow_recall, flow_namespace, FLOW_MEMORY_NAMESPACE_PREFIX};
+// Flow memory scoping (`flow:<id>` tags over memory v2) lives in
+// `memory_tools`, the sibling that owns the agent tools; the digest
+// subscriber, `flows_delete` and the tinyflows `memory` node adapter reach the
+// same helpers through these re-exports so every caller tags identically.
+pub use memory_tools::{
+    cross_flow_filter, flow_filter, flow_key_of, flow_key_tag, flow_meta, flow_tag,
+    forget_matching, remember_keyed, FLOWS_TAG,
+};

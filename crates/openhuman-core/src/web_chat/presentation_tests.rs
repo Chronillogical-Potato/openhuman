@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn single_bubble_delivery_emits_one_unsegmented_chat_done_without_reaction() {
+fn single_bubble_delivery_emits_one_unsegmented_chat_done() {
     let mut rx = crate::web_chat::subscribe_web_channel_events();
     // Prose `deliver_response` WOULD split into several `chat_segment` bubbles
     // (long, multi-paragraph, no fences) — the shape a background delivery turn
@@ -35,7 +35,6 @@ fn single_bubble_delivery_emits_one_unsegmented_chat_done_without_reaction() {
     assert_eq!(done.full_response.as_deref(), Some(text));
     assert_eq!(done.segment_total, None);
     assert_eq!(done.segment_index, None);
-    assert_eq!(done.reaction_emoji, None);
     assert!(done.usage.is_none());
 }
 
@@ -130,7 +129,7 @@ async fn chat_done_omits_timing_when_no_snapshot_is_supplied() {
 
 #[tokio::test]
 async fn delivery_stores_the_reply_before_announcing_it() {
-    use crate::memory::conversations::{self, CreateConversationThread};
+    use crate::threads::store::{self as conversations, CreateConversationThread};
 
     let ws = std::env::temp_dir().join(format!("deliver-persist-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&ws).unwrap();
@@ -147,7 +146,7 @@ async fn delivery_stores_the_reply_before_announcing_it() {
     )
     .expect("thread created");
 
-    let citation = crate::memory::agent::memory_loader::MemoryCitation {
+    let citation = crate::memory::types::TurnCitation {
         id: "mem-deliver".to_string(),
         key: "summary-source".to_string(),
         namespace: None,
@@ -206,7 +205,7 @@ async fn delivery_still_announces_when_the_reply_cannot_be_stored() {
     // `get_messages` answers `Ok(vec![])` for a thread it has never seen — only
     // `append_message` refuses one — so absence is what proves the write was
     // rejected and swallowed rather than silently creating a thread.
-    let messages = crate::memory::conversations::get_messages(ws.clone(), "absent-thread")
+    let messages = crate::threads::store::get_messages(ws.clone(), "absent-thread")
         .expect("reading an unknown thread is not an error");
     assert!(
         messages.is_empty(),

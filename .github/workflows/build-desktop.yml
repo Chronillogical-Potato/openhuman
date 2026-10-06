@@ -367,10 +367,12 @@ jobs:
             "${{ steps.core-paths.outputs.sidecar_base }}"
 
       # ---- Tauri build -------------------------------------------------------
-      - name: Bundle pinned Windows native modules
-        if: matrix.settings.platform == 'windows-latest'
+      # Downloaded and digest-verified here, once, so no installer fetches a
+      # module at runtime. The host key follows the build target, not the
+      # runner (the x86_64 macOS job may run on an arm64 runner).
+      - name: Bundle pinned native modules
         shell: bash
-        run: node scripts/release/stage-windows-modules.mjs
+        run: node scripts/release/stage-modules.mjs --target "${{ matrix.settings.target }}"
 
       # Vite is invoked via tauri.conf.json's beforeBuildCommand inside
       # `cargo tauri build`, so all VITE_* env must be present here for the

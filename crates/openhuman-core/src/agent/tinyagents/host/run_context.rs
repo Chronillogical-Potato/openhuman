@@ -307,9 +307,19 @@ pub struct OpenHumanRunContext {
     /// the registry that recovers positional / code-style calls; `Auto`
     /// (the default) leaves the harness to choose from the model profile.
     pub(crate) tool_dialect: tinyagents_harness::config::ToolDispatcher,
-    /// Number of frozen system tiers restored from the session prefix. A
-    /// later System compaction summary remains outside this cacheable prefix.
-    pub(crate) cacheable_system_prefix_len: Option<usize>,
+    /// This turn's memory (`memory::lifecycle::hooks::MemoryTurn`): the pack
+    /// recalled before the model ran, which `MemoryPackMiddleware` adds to
+    /// every model request of the turn ephemerally (never committed), and the
+    /// binding the compaction summarizer recalls under. A child run has its
+    /// own and does not inherit it.
+    pub(crate) memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
+}
+
+/// Minimal immutable authority view exposed to shared tools through the
+/// harness's typed state-view seam.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct HostOperationContext {
+    pub(crate) origin: Option<AgentTurnOrigin>,
 }
 
 impl Default for OpenHumanRunContext {
@@ -325,7 +335,7 @@ impl OpenHumanRunContext {
         Self {
             origin: None,
             progress: None,
-            stop_hooks: Vec::new(),
+            stop_hooks: crate::agent::stop_hooks::current_stop_hooks(),
             parent: None,
             prepared_context_sources: Arc::new(Vec::new()),
             file_state_agent_id: None,
@@ -351,7 +361,7 @@ impl OpenHumanRunContext {
             session_sidecar: Arc::new(Mutex::new(SessionTurnSidecar::default())),
             required_output: None,
             tool_dialect: tinyagents_harness::config::ToolDispatcher::Auto,
-            cacheable_system_prefix_len: None,
+            memory_turn: None,
         }
     }
 
@@ -442,7 +452,7 @@ impl OpenHumanRunContext {
         child.parent_subagent_usage = Some(self.subagent_usage.clone());
         child.subagent_usage = Arc::new(Mutex::new(Vec::new()));
         child.resolved_route = Arc::new(Mutex::new(None));
-        child.cacheable_system_prefix_len = None;
+        child.memory_turn = None;
         child
     }
 
@@ -478,17 +488,16 @@ impl OpenHumanRunContext {
         }
         let cancellation = self.cancellation.clone();
         let workspace = self.workspace.clone();
+        let host_operations = Arc::new(HostOperationContext {
+            origin: self.origin.clone(),
+        });
         let context = tinyagents_harness::context::RunContext::new(config, self)
-            .with_cancellation(cancellation);
+            .with_cancellation(cancellation)
+            .with_state_view(host_operations);
         match workspace {
             Some(workspace) => context.with_workspace(workspace),
             None => context,
         }
-    }
-
-    /// Returns this context's file-state identity for explicit tool plumbing.
-    pub fn file_state_scope(&self) -> Option<&str> {
-        self.file_state_agent_id.as_deref()
     }
 
     /// Records a child usage entry without relying on a task-local collector.

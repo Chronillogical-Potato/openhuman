@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::core::Outcome;
 
 use super::loader::{load_config_with_timeout, snapshot_config_json};
+use super::tool_dispatcher as td;
 
 /// Partial update for the `[autonomy]` block — the agent's filesystem access
 /// mode. Each `None` field is left unchanged. `trusted_roots`, `allowed_commands`,
@@ -55,30 +56,24 @@ pub struct AgentSettingsPatch {
     /// root (or to a guessed user dir) is silently ignored. Going through the
     /// running core writes wherever `Config::save` actually points.
     pub chat_agent_id: Option<String>,
+    /// How tool calls are spoken to the model (`[agent] tool_dispatcher`):
+    /// one of [`TOOL_DISPATCHER_CHOICES`](super::tool_dispatcher::TOOL_DISPATCHER_CHOICES). `None` leaves it
+    /// unchanged. Applies to new sessions; resumed threads keep their dialect.
+    pub tool_dispatcher: Option<String>,
 }
 
 /// Partial update for the agent's editable filesystem roots.
 ///
-/// Only `action_dir` is editable today (issue #3240). `workspace_dir` and
-/// `projects_dir` are intentionally read-only and not part of this patch.
+/// `action_dir` (issue #3240) and the files folder (#5505) are editable.
+/// `workspace_dir` and `projects_dir` are intentionally read-only.
 #[derive(Debug, Clone, Default)]
 pub struct AgentPathsPatch {
     /// New action sandbox root. `Some("")`/whitespace clears the override and
     /// reverts to the default; `Some(path)` sets it; `None` leaves it unchanged.
     pub action_dir: Option<String>,
-}
-
-/// Patch for the global memory-sync cadence (#3302).
-///
-/// `sync_interval_secs` carries the new value to store in
-/// [`Config::memory_sync_interval_secs`]:
-/// - omitted / `null` → reset to "use the default cadence" (`None`)
-/// - `0` → "Manual only" (periodic auto-sync disabled)
-/// - `n > 0` → sync every `n` seconds (applied per source as a floor over the
-///   provider default by the scheduler)
-#[derive(Debug, Default)]
-pub struct MemorySyncSettingsPatch {
-    pub sync_interval_secs: Option<u64>,
+    /// New folder for agent deliverables. Same `Some("")` / `Some(path)` /
+    /// `None` semantics as `action_dir`. Affects new artifacts only.
+    pub files_dir: Option<String>,
 }
 
 /// Updates the `[autonomy]` (agent access mode) settings in the configuration.
@@ -232,9 +227,13 @@ pub async fn apply_agent_settings(
         }
     }
 
+    let tool_dispatcher = td::normalize_optional(update.tool_dispatcher.as_deref())?;
+
     if let Some(timeout_secs) = update.agent_timeout_secs {
         config.agent.agent_timeout_secs = timeout_secs;
     }
+
+    td::apply_tool_dispatcher(config, tool_dispatcher);
 
     if let Some(chat_agent_id) = update.chat_agent_id {
         let trimmed = chat_agent_id.trim();
@@ -284,6 +283,8 @@ pub async fn get_agent_settings() -> Result<Outcome<serde_json::Value>, String> 
         "env_override": crate::tools::timeout::env_override_active(),
         "min_timeout_secs": crate::tools::timeout::MIN_TIMEOUT_SECS,
         "max_timeout_secs": crate::tools::timeout::MAX_TIMEOUT_SECS,
+        "tool_dispatcher": config.agent.tool_dispatcher,
+        "tool_dispatcher_env_override": td::tool_dispatcher_env_override(),
     });
     Ok(Outcome::single_log(value, "agent settings read"))
 }
@@ -401,6 +402,28 @@ pub async fn ensure_agent_dirs(config: &mut Config) {
         action = %redact_home(&action_dir),
         "[startup] workspace (internal state) and action sandbox (tool cwd) directories configured"
     );
+
+    // Agent deliverables are written to the visible files folder (#5505).
+    // Create it up front, and move this account's pre-#5505 artifact files out
+    // of the hidden workspace (idempotent; a no-op once migrated).
+    let files_dir = config.files_dir();
+    if let Err(e) = tokio::fs::create_dir_all(&files_dir).await {
+        tracing::warn!(
+            dir = %redact_home(&files_dir),
+            error = %e,
+            "[startup] could not create files folder"
+        );
+    }
+    let report =
+        crate::agent::artifacts::migrate_legacy_artifacts(&config.workspace_dir, &files_dir).await;
+    if report != crate::agent::artifacts::MigrationReport::default() {
+        tracing::info!(
+            moved = report.moved,
+            cleaned = report.cleaned,
+            failed = report.failed,
+            "[startup] moved legacy artifact files into the files folder"
+        );
+    }
 }
 
 /// Ensure `dir` is usable as a process working directory: it must exist (we
@@ -446,7 +469,73 @@ fn agent_paths_payload(config: &Config) -> serde_json::Value {
         "workspace_dir": config.workspace_dir.display().to_string(),
         "projects_dir": projects_dir.display().to_string(),
         "action_dir_source": action_dir_source(config),
+        "files_dir": config.files_dir().display().to_string(),
+        "default_files_dir": crate::config::default_files_dir().display().to_string(),
+        "files_dir_source": if config.files_dir_override.is_some() { "override" } else { "default" },
     })
+}
+
+/// Validate a user-chosen files folder (#5505) and create it. Fail-closed:
+/// the path must be absolute, not an existing file, not a protected location
+/// (credential stores, OS directories), and not inside the OpenHuman data
+/// directory — the point of the folder is that the user can see it, and the
+/// data dir holds internal state.
+async fn validate_files_dir(raw: &str, config: &Config) -> Result<PathBuf, String> {
+    let expanded = expand_tilde(raw);
+    let candidate = PathBuf::from(&expanded);
+    if !candidate.is_absolute() {
+        return Err(format!(
+            "files_dir must be an absolute path (got '{expanded}')"
+        ));
+    }
+    if candidate.is_file() {
+        return Err(format!(
+            "files_dir must be a folder, not a file: {expanded}"
+        ));
+    }
+    if crate::security::SecurityPolicy::is_always_forbidden(&candidate) {
+        return Err(format!(
+            "files_dir cannot be a protected system or credential folder: {expanded}"
+        ));
+    }
+    let mut internal = vec![config.workspace_dir.clone()];
+    if let Ok(root) = crate::config::default_root_openhuman_dir() {
+        internal.push(root);
+    }
+    if internal.iter().any(|dir| path_within(&candidate, dir)) {
+        return Err(format!(
+            "files_dir must not be inside the OpenHuman data folder: {expanded}"
+        ));
+    }
+    tokio::fs::create_dir_all(&candidate)
+        .await
+        .map_err(|e| format!("failed to create files_dir {expanded}: {e}"))?;
+    Ok(candidate)
+}
+
+/// `path` equals or sits under `dir`, comparing canonical forms so a
+/// symlinked spelling (e.g. macOS `/var` → `/private/var`) cannot slip into
+/// the data dir. A path that does not exist yet is canonicalized through its
+/// nearest existing ancestor.
+fn path_within(path: &Path, dir: &Path) -> bool {
+    canonical_prefix(path).starts_with(canonical_prefix(dir))
+}
+
+fn canonical_prefix(path: &Path) -> PathBuf {
+    let mut rest = Vec::new();
+    let mut cursor = path;
+    loop {
+        if let Ok(canon) = cursor.canonicalize() {
+            return rest.iter().rev().fold(canon, |acc, part| acc.join(part));
+        }
+        match (cursor.parent(), cursor.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name.to_os_string());
+                cursor = parent;
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
 }
 
 /// Applies an edit to the agent's `action_dir` sandbox root.
@@ -529,6 +618,34 @@ pub async fn apply_agent_paths_settings(
         );
     }
 
+    if let Some(raw) = update.files_dir {
+        let trimmed = raw.trim();
+        log::debug!(
+            "[config][agent_paths] apply files_dir edit (input_len={})",
+            trimmed.len()
+        );
+        let previous = config.files_dir();
+        if trimmed.is_empty() {
+            config.files_dir_override = None;
+            notes.push("files_dir override cleared (reverted to default)".to_string());
+        } else {
+            let candidate = validate_files_dir(trimmed, config).await?;
+            notes.push(format!("files_dir set to {}", candidate.display()));
+            config.files_dir_override = Some(candidate);
+        }
+        // Existing artifacts stay where they are, so the folder they were
+        // made in must stay trusted by the artifact escape guard.
+        if previous != config.files_dir() && !config.files_dir_history.contains(&previous) {
+            config.files_dir_history.push(previous);
+        }
+        config.save().await.map_err(|e| e.to_string())?;
+        crate::core::bus::BUS.publish(crate::core::events::DomainEvent::AgentPathsChanged);
+        log::debug!(
+            "[config][agent_paths] files_dir now '{}'",
+            config.files_dir().display()
+        );
+    }
+
     Ok(Outcome::new(agent_paths_payload(config), notes))
 }
 
@@ -560,61 +677,4 @@ pub async fn get_agent_paths() -> Result<Outcome<serde_json::Value>, String> {
             action_dir_source(&config),
         )],
     ))
-}
-
-fn memory_sync_settings_value(stored: Option<u64>) -> serde_json::Value {
-    let is_manual = stored == Some(0);
-    let is_default = stored.is_none();
-    let selected_secs = stored.unwrap_or(crate::config::DEFAULT_MEMORY_SYNC_INTERVAL_SECS);
-    json!({
-        "sync_interval_secs": stored,
-        "selected_secs": selected_secs,
-        "is_manual": is_manual,
-        "is_default": is_default,
-        "default_secs": crate::config::DEFAULT_MEMORY_SYNC_INTERVAL_SECS,
-        "presets": crate::config::MEMORY_SYNC_INTERVAL_PRESETS_SECS,
-    })
-}
-
-/// Returns the current global memory-sync cadence and its derived view.
-pub async fn get_memory_sync_settings() -> Result<Outcome<serde_json::Value>, String> {
-    let config = load_config_with_timeout().await?;
-    let value = memory_sync_settings_value(config.memory_sync_interval_secs);
-    Ok(Outcome::single_log(value, "memory sync settings read"))
-}
-
-/// Updates the global memory-sync cadence and persists it. The running
-/// scheduler reads `config.memory_sync_interval_secs` fresh on each tick, so
-/// the new cadence takes effect from the next tick without a restart.
-pub async fn apply_memory_sync_settings(
-    config: &mut Config,
-    update: MemorySyncSettingsPatch,
-) -> Result<Outcome<serde_json::Value>, String> {
-    config.memory_sync_interval_secs = update.sync_interval_secs;
-    config.save().await.map_err(|e| e.to_string())?;
-
-    tracing::info!(
-        sync_interval_secs = ?config.memory_sync_interval_secs,
-        "[config:memory_sync] memory sync interval updated"
-    );
-
-    let stored = config.memory_sync_interval_secs;
-    let value = memory_sync_settings_value(stored);
-    let msg = match stored {
-        Some(0) => "memory sync set to Manual only".to_string(),
-        Some(n) => format!("memory sync interval set to {n}s"),
-        None => "memory sync interval reset to default".to_string(),
-    };
-    Ok(Outcome::new(
-        value,
-        vec![format!("{msg} — saved to {}", config.config_path.display())],
-    ))
-}
-
-/// Loads the configuration, applies memory-sync settings, and saves it.
-pub async fn load_and_apply_memory_sync_settings(
-    update: MemorySyncSettingsPatch,
-) -> Result<Outcome<serde_json::Value>, String> {
-    let mut config = load_config_with_timeout().await?;
-    apply_memory_sync_settings(&mut config, update).await
 }

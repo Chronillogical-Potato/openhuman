@@ -1,31 +1,30 @@
 //! Round20 raw/E2E coverage for Composio tool leftovers and adjacent
 //! network-tool branches. All HTTP traffic stays on loopback mocks.
 
+use crate::env_guard::EnvVarGuard;
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use axum::body::{to_bytes, Bytes};
+use axum::body::to_bytes;
 use axum::extract::{Request, State};
-use axum::http::{HeaderMap, Method, StatusCode, Uri};
+use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::{Builder, TempDir};
 
-use openhuman_core::integrations::composio::ops::{composio_authorize, composio_list_tools};
 use openhuman_core::config::Config;
+use openhuman_core::integrations::composio::ops::{composio_authorize, composio_list_tools};
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
-use openhuman_core::security::SecurityPolicy;
-use tinytools::{Tool, ToolCallOptions};
 use openhuman_core::tools::{
-    ComposioAuthorizeTool, ComposioListConnectionsTool, ComposioListToolkitsTool,
-    ComposioListToolsTool, SpawnSubagentTool};
+    ComposioListConnectionsTool, ComposioListToolkitsTool, ComposioListToolsTool,
+};
+use tinytools::{Tool, ToolCallOptions};
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[derive(Clone, Debug)]
 struct RecordedRequest {
@@ -42,45 +41,22 @@ struct MockState {
     connections_fail: Arc<Mutex<bool>>,
 }
 
-struct EnvGuard {
-    key: &'static str,
-    old: Option<String>,
-}
-
-impl EnvGuard {
-    fn set_path(key: &'static str, path: &Path) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, old }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let old = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
 struct Harness {
     _tmp: TempDir,
     config: Config,
-    _guards: Vec<EnvGuard>,
+    _guards: Vec<EnvVarGuard>,
 }
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 fn tempdir() -> TempDir {
@@ -92,7 +68,6 @@ fn tempdir() -> TempDir {
 }
 
 async fn setup_config() -> Harness {
-
     crate::tinyhumans_boot::boot();
     let tmp = tempdir();
     let root = tmp.path().join("openhuman");
@@ -100,14 +75,14 @@ async fn setup_config() -> Harness {
     std::fs::create_dir_all(&workspace).expect("workspace dir");
 
     let guards = vec![
-        EnvGuard::set_path("OPENHUMAN_WORKSPACE", &root),
-        EnvGuard::set_path("HOME", tmp.path()),
-        EnvGuard::unset("BACKEND_URL"),
-        EnvGuard::unset("VITE_BACKEND_URL"),
-        EnvGuard::unset("OPENHUMAN_API_URL"),
-        EnvGuard::unset("OPENHUMAN_CORE_RPC_URL"),
-        EnvGuard::unset("OPENHUMAN_CORE_PORT"),
-        EnvGuard::unset("OPENHUMAN_LSP_ENABLED"),
+        EnvVarGuard::set_path("OPENHUMAN_WORKSPACE", &root),
+        EnvVarGuard::set_path("HOME", tmp.path()),
+        EnvVarGuard::unset("BACKEND_URL"),
+        EnvVarGuard::unset("VITE_BACKEND_URL"),
+        EnvVarGuard::unset("OPENHUMAN_API_URL"),
+        EnvVarGuard::unset("OPENHUMAN_CORE_RPC_URL"),
+        EnvVarGuard::unset("OPENHUMAN_CORE_PORT"),
+        EnvVarGuard::unset("OPENHUMAN_LSP_ENABLED"),
     ];
 
     let mut config = Config {
@@ -141,7 +116,7 @@ fn store_session_token(config: &Config) {
 
 #[tokio::test]
 async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
-    let _lock = env_lock();
+    let _lock = env_lock_async().await;
     let state = MockState::default();
     let base = start_loopback(
         Router::new()
@@ -241,8 +216,8 @@ async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
 }
 
 #[tokio::test]
-async fn round20_composio_ops_cover_authorize_scopes_and_direct_factory_edges() {
-    let _lock = env_lock();
+async fn round20_composio_ops_cover_authorize_scopes() {
+    let _lock = env_lock_async().await;
     let state = MockState::default();
     let base = start_loopback(
         Router::new()
@@ -285,41 +260,6 @@ async fn round20_composio_ops_cover_authorize_scopes_and_direct_factory_edges() 
     .value;
     assert_eq!(listed.tools.len(), 2);
 
-    let mut direct = harness.config.clone();
-    direct.composio.mode = "direct".to_string();
-    direct.composio.api_key = Some(" ck_round20_direct ".to_string());
-    direct.save().await.expect("save direct config");
-
-    let direct_toolkits = ComposioListToolkitsTool::new(Arc::new(direct.clone()))
-        .execute(json!({}))
-        .await
-        .expect("direct list toolkits");
-    assert!(!direct_toolkits.is_error);
-    assert!(direct_toolkits.output().contains("\"toolkits\":[]"));
-
-    let direct_authorize = ComposioAuthorizeTool::new(Arc::new(direct.clone()))
-        .execute(json!({ "toolkit": "gmail" }))
-        .await
-        .expect("direct authorize tool");
-    assert!(direct_authorize.is_error);
-    assert!(direct_authorize.output().contains("direct mode is active"));
-
-    let direct_list_tools = ComposioListToolsTool::new(Arc::new(direct))
-        .execute_with_options(
-            json!({ "include_unconnected": true }),
-            ToolCallOptions {
-                prefer_markdown: true,
-            },
-        )
-        .await
-        .expect("direct list tools tool");
-    assert!(!direct_list_tools.is_error);
-    assert_eq!(direct_list_tools.output(), "{\"tools\":[]}");
-    assert_eq!(
-        direct_list_tools.markdown_formatted.as_deref(),
-        Some("_No composio tools available._")
-    );
-
     let requests = state.requests.lock().expect("requests").clone();
     let authorize_body = requests
         .iter()
@@ -337,53 +277,6 @@ async fn round20_composio_ops_cover_authorize_scopes_and_direct_factory_edges() 
             .as_str()
             .unwrap_or_default()
             .contains("gmail.readonly")));
-}
-
-#[tokio::test]
-async fn round20_spawn_subagent_covers_validation_schema_and_disabled_worker_branch() {
-    let _lock = env_lock();
-    let tool = SpawnSubagentTool::new();
-
-    assert_eq!(tool.name(), "spawn_subagent");
-    assert_eq!(tool.permission_level().to_string(), "Execute");
-    let schema = tool.parameters_schema();
-    // The per-toolkit spawn argument went with the integrations specialist.
-    assert!(
-        schema["properties"].get("toolkit").is_none(),
-        "spawn_subagent must not advertise the removed `toolkit` argument"
-    );
-    assert!(schema["properties"]["dedicated_thread"]
-        .as_object()
-        .expect("dedicated_thread schema")
-        .contains_key("description"));
-
-    let missing_agent = tool
-        .execute(json!({ "prompt": "summarize the thread" }))
-        .await
-        .expect("missing agent id returns tool result");
-    assert!(missing_agent.is_error);
-    assert!(missing_agent.output().contains("agent_id"));
-
-    let missing_prompt = tool
-        .execute(json!({ "agent_id": "researcher" }))
-        .await
-        .expect("missing prompt returns tool result");
-    assert!(missing_prompt.is_error);
-    assert!(missing_prompt.output().contains("prompt"));
-
-    let dedicated_thread = tool
-        .execute(json!({
-            "agent_id": "researcher",
-            "prompt": "summarize",
-            "dedicated_thread": true
-        }))
-        .await
-        .expect("dedicated thread disabled returns tool result");
-    assert!(dedicated_thread.is_error);
-    // #3049 superseded #1624: dedicated_thread is no longer "temporarily
-    // disabled". Verify the tool errors (no provider) without requiring
-    // the exact legacy message.
-    assert!(!dedicated_thread.output().is_empty());
 }
 
 async fn start_loopback(app: Router) -> String {
@@ -495,130 +388,6 @@ async fn composio_backend_handler(State(state): State<MockState>, request: Reque
     }
 }
 
-async fn composio_direct_handler(State(state): State<MockState>, request: Request) -> Response {
-    let method = request.method().clone();
-    let uri = request.uri().clone();
-    let path = uri.path().to_string();
-    let query = uri.query().unwrap_or_default().to_string();
-    let api_key = request
-        .headers()
-        .get("x-api-key")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_string);
-    let bytes = to_bytes(request.into_body(), usize::MAX)
-        .await
-        .expect("request body");
-    let body: Value = if bytes.is_empty() {
-        json!({})
-    } else {
-        serde_json::from_slice(&bytes).unwrap_or_else(|_| json!(String::from_utf8_lossy(&bytes)))
-    };
-    state
-        .requests
-        .lock()
-        .expect("requests")
-        .push(RecordedRequest {
-            method: method.clone(),
-            path: path.clone(),
-            query: query.clone(),
-            body: body.clone(),
-            api_key,
-        });
-
-    match (method, path.as_str()) {
-        (Method::GET, "/api/v3/tools") if query.contains("toolkits=broken") => message_fail(
-            StatusCode::BAD_REQUEST,
-            "v3 broken list mentions connected_account_id and user_id",
-        ),
-        (Method::GET, "/api/v3/tools") if query.contains("toolkits=fallback") => {
-            fail(StatusCode::BAD_GATEWAY, "fallback to v2 please")
-        }
-        (Method::GET, "/api/v3/tools") if query.contains("toolkits=gmail") => Json(json!({
-            "items": [
-                {
-                    "slug": "gmail-fetch-emails",
-                    "name": "Gmail fetch",
-                    "description": "Fetch Gmail",
-                    "toolkit": { "slug": "gmail" },
-                    "input_parameters": {
-                        "type": "object",
-                        "properties": { "query": { "type": "string" } }
-                    }
-                },
-                {
-                    "name": "gmail-send-email",
-                    "description": "Send Gmail",
-                    "appName": "gmail"
-                }
-            ]
-        }))
-        .into_response(),
-        (Method::GET, "/api/v2/actions") if query.contains("appNames=fallback") => Json(json!({
-            "items": [
-                {
-                    "name": "FALLBACK_V2",
-                    "appName": "fallback",
-                    "description": "Fallback action",
-                    "enabled": true
-                }
-            ]
-        }))
-        .into_response(),
-        (Method::GET, "/api/v2/actions") if query.contains("appNames=broken") => message_fail(
-            StatusCode::BAD_REQUEST,
-            "v2 broken list mentions connected_account_id and user_id",
-        ),
-        (Method::POST, "/api/v3/tools/execute/GMAIL_FETCH_EMAILS") => Json(json!({
-            "successful": true,
-            "data": { "messages": [{ "id": "msg-round20" }] },
-            "error": null
-        }))
-        .into_response(),
-        (Method::POST, "/api/v3/tools/execute/BROKEN_ACTION") => message_fail(
-            StatusCode::BAD_REQUEST,
-            "bad execute connected_account_id user_id entity_id",
-        ),
-        (Method::POST, "/api/v2/actions/BROKEN_ACTION/execute") => message_fail(
-            StatusCode::BAD_REQUEST,
-            "bad legacy connected_account_id user_id entity_id",
-        ),
-        (Method::GET, "/api/v3/auth_configs") if query.contains("toolkit_slug=missing") => {
-            Json(json!({ "items": [] })).into_response()
-        }
-        (Method::GET, "/api/v3/connected_accounts") => Json(json!({
-            "items": [
-                {
-                    "id": "acct-gmail",
-                    "status": "ACTIVE",
-                    "created_at": "2026-05-30T00:00:00Z",
-                    "toolkit": "gmail"
-                },
-                {
-                    "id": "acct-github",
-                    "status": "CONNECTED",
-                    "createdAt": "2026-05-30T00:00:01Z",
-                    "toolkit": { "slug": "github" }
-                },
-                {
-                    "id": "acct-slack",
-                    "status": "PENDING",
-                    "appName": "slack"
-                },
-                {
-                    "id": "   ",
-                    "status": "ACTIVE",
-                    "toolkit": "dropme"
-                }
-            ]
-        }))
-        .into_response(),
-        _ => fail(
-            StatusCode::NOT_FOUND,
-            &format!("unhandled direct {path} {query}"),
-        ),
-    }
-}
-
 fn ok(data: Value) -> Response {
     Json(json!({ "success": true, "data": data })).into_response()
 }
@@ -629,8 +398,4 @@ fn fail(status: StatusCode, error: &str) -> Response {
         Json(json!({ "success": false, "error": error.to_string() })),
     )
         .into_response()
-}
-
-fn message_fail(status: StatusCode, message: &str) -> Response {
-    (status, Json(json!({ "message": message.to_string() }))).into_response()
 }

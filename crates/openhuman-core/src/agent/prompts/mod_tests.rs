@@ -7,24 +7,6 @@ use tinytools::Tool;
 
 static NO_FILTER: LazyLock<HashSet<String>> = LazyLock::new(HashSet::new);
 
-/// Build a `NamespaceSummary` with a fixed `updated_at` (#2944), so
-/// freshness-label assertions are deterministic.
-fn ns_summary_at(namespace: &str, body: &str, rfc3339: &str) -> NamespaceSummary {
-    NamespaceSummary {
-        namespace: namespace.into(),
-        body: body.into(),
-        updated_at: chrono::DateTime::parse_from_rfc3339(rfc3339)
-            .unwrap()
-            .with_timezone(&chrono::Utc),
-    }
-}
-
-/// `NamespaceSummary` with an arbitrary fixed date, for tests that don't
-/// assert on the freshness stamp itself.
-fn ns_summary(namespace: &str, body: &str) -> NamespaceSummary {
-    ns_summary_at(namespace, body, "2026-01-01T00:00:00Z")
-}
-
 struct TestTool;
 
 #[async_trait]
@@ -59,71 +41,11 @@ fn ctx_with_identity(identity: Option<UserIdentity>) -> PromptContext<'static> {
         tools: EMPTY_TOOLS,
         workflows: &[],
         dispatcher_instructions: "",
-        learned: LearnedContextData::default(),
         visible_tool_names: visible,
         tool_call_format: ToolCallFormat::PFormat,
         connected_integrations: EMPTY_INTEGRATIONS,
         connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: false,
-        curated_snapshot: None,
         user_identity: identity,
-        personality_roster: vec![],
-        agents_md_global: None,
-        agents_md_local: None,
-    }
-}
-
-/// Shared `PromptContext` for the MEMORY.md-framing tests below. Both
-/// exercise `UserFilesSection` with memory injection enabled and differ
-/// only in workspace contents, so they build an identical 19-field
-/// context — factor it out so the two can't drift when `PromptContext`
-/// gains fields. Borrows the caller's `workspace` and pre-built
-/// `prompt_tools` so the returned context outlives neither.
-fn memory_framing_ctx<'a>(
-    workspace: &'a std::path::Path,
-    prompt_tools: &'a [PromptTool<'a>],
-) -> PromptContext<'a> {
-    PromptContext {
-        workspace_dir: workspace,
-        model_name: "test-model",
-        agent_id: "",
-        tools: prompt_tools,
-        workflows: &[],
-        dispatcher_instructions: "",
-        learned: LearnedContextData::default(),
-        visible_tool_names: &NO_FILTER,
-        tool_call_format: ToolCallFormat::PFormat,
-        connected_integrations: &[],
-        connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: true,
-        curated_snapshot: None,
-        user_identity: None,
-        personality_roster: vec![],
-        agents_md_global: None,
-        agents_md_local: None,
-    }
-}
-
-fn ctx_with_learned(learned: LearnedContextData) -> PromptContext<'static> {
-    let prompt_tools: &'static [PromptTool<'static>] = &[];
-    PromptContext {
-        workspace_dir: Path::new("/tmp"),
-        model_name: "test-model",
-        agent_id: "",
-        tools: prompt_tools,
-        workflows: &[],
-        dispatcher_instructions: "",
-        learned,
-        visible_tool_names: &NO_FILTER,
-        tool_call_format: ToolCallFormat::PFormat,
-        connected_integrations: &[],
-        connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: false,
-        curated_snapshot: None,
-        user_identity: None,
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
@@ -144,14 +66,10 @@ fn agents_md_ctx(global: Option<String>, local: Option<String>) -> PromptContext
         tools: &[],
         workflows: &[],
         dispatcher_instructions: "",
-        learned: LearnedContextData::default(),
         visible_tool_names: &NO_FILTER,
         tool_call_format: ToolCallFormat::PFormat,
         connected_integrations: &[],
         connected_identities_md: String::new(),
-        include_profile: false,
-        include_memory_md: false,
-        curated_snapshot: None,
         user_identity: None,
         personality_roster: vec![],
         agents_md_global: global,
@@ -163,10 +81,12 @@ fn agents_md_ctx(global: Option<String>, local: Option<String>) -> PromptContext
 mod agents_md_registration_tests;
 #[path = "mod_tests_builder_sections_tests.rs"]
 mod builder_sections_tests;
+#[path = "mod_tests_grounding_spec_check_tests.rs"]
+mod grounding_spec_check_tests;
 #[path = "mod_tests_subagent_render_tests.rs"]
 mod subagent_render_tests;
-#[path = "mod_tests_user_files_reflections_tests.rs"]
-mod user_files_reflections_tests;
+#[path = "mod_tests_tools_sections_tests.rs"]
+mod tools_sections_tests;
 
 #[test]
 fn tool_call_format_maps_to_the_dialect_and_harness_vocabulary() {
@@ -214,7 +134,8 @@ fn tool_call_format_maps_to_the_dialect_and_harness_vocabulary() {
 }
 
 /// The prompt catalogue is the callable surface on a text dialect, so a
-/// deferred tool must leave it and the discovery bridge must take its place.
+/// deferred tool must leave it and the discovery bridge (`tool_search`) must
+/// take its place.
 /// Rendering the deferred set instead (what the policy allow-set does, since
 /// it admits those names to keep a found tool callable) both spends the bytes
 /// deferral exists to save and tells the model to search for a signature it
@@ -243,10 +164,11 @@ fn swapping_deferred_entries_leaves_the_bridge_in_their_place() {
         "deferred tools must not be rendered into the catalogue: {visible:?}"
     );
     assert!(
-        visible.contains("tool_search") && visible.contains("tool_call"),
-        "the bridge replaces them so the model can reach what it finds: {visible:?}"
+        visible.contains("tool_search") && !visible.contains("tool_call"),
+        "`tool_search` replaces them; there is no `tool_call` wrapper: {visible:?}"
     );
-    for name in ["tool_search", "tool_call"] {
+    {
+        let name = "tool_search";
         assert!(
             tools.iter().any(|tool| tool.name == name
                 && tool
@@ -259,8 +181,8 @@ fn swapping_deferred_entries_leaves_the_bridge_in_their_place() {
 }
 
 /// Nothing deferred: the catalogue and the advertised set are untouched, and
-/// a belt that never opted into discovery does not pay for two bridge
-/// schemas it cannot use.
+/// a belt that never opted into discovery does not pay for a bridge
+/// schema it cannot use.
 #[test]
 fn swapping_is_a_no_op_without_a_deferred_set() {
     let mut tools = vec![PromptTool::new("shell", "Run a command.")];

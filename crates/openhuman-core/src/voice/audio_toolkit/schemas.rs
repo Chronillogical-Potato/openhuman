@@ -27,14 +27,6 @@ struct GenerateAndEmailParams {
     attachment_name: Option<String>,
 }
 
-pub fn all_audio_toolkit_controller_schemas() -> Vec<ControllerSchema> {
-    vec![
-        audio_toolkit_schemas("generate_podcast"),
-        audio_toolkit_schemas("email_podcast"),
-        audio_toolkit_schemas("generate_and_email_podcast"),
-    ]
-}
-
 pub fn all_audio_toolkit_registered_controllers() -> Vec<RegisteredController> {
     vec![
         RegisteredController {

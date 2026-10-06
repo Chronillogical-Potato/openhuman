@@ -336,3 +336,58 @@ fn summarize_action_skill_install_without_entry_id_falls_back() {
     assert!(summary.contains("skill_registry_install"));
     assert!(summary.contains("bytes"));
 }
+
+#[test]
+fn non_string_sensitive_values_redact_to_kind_markers_and_nested_values_recurse() {
+    let args = json!({
+        "metadata": {
+            "Subject": "Confidential subject",
+            "auth": true,
+            "message": 42,
+            "password": null,
+            "user": { "id": "user-123", "name": "Alice" },
+            "attempts": 3,
+            "safe_list": [
+                "open /Users/frank/Desktop/report.txt",
+                { "content": "nested secret" }
+            ]
+        }
+    });
+    let red = redact_args(&args);
+    assert_eq!(
+        red.pointer("/metadata/Subject"),
+        Some(&json!("<redacted: string (20 chars)>"))
+    );
+    assert_eq!(red.pointer("/metadata/attempts"), Some(&json!(3)));
+    assert_eq!(
+        red.pointer("/metadata/auth"),
+        Some(&json!("<redacted: bool>"))
+    );
+    assert_eq!(
+        red.pointer("/metadata/message"),
+        Some(&json!("<redacted: number>"))
+    );
+    assert_eq!(
+        red.pointer("/metadata/password"),
+        Some(&serde_json::Value::Null)
+    );
+    assert_eq!(
+        red.pointer("/metadata/user"),
+        Some(&json!("<redacted: object (2 keys)>"))
+    );
+    assert_eq!(
+        red.pointer("/metadata/safe_list/0"),
+        Some(&json!("open <HOME>/Desktop/report.txt"))
+    );
+    assert_eq!(
+        red.pointer("/metadata/safe_list/1/content"),
+        Some(&json!("<redacted: string (13 chars)>"))
+    );
+    assert_eq!(
+        redact_args(&json!(
+            "open /home/carol/report.md and C:\\Users\\dave\\x.txt"
+        )),
+        json!("open <HOME>/report.md and <HOME>\\x.txt")
+    );
+    assert_eq!(redact_args(&json!("/Users/erin")), json!("<HOME>"));
+}

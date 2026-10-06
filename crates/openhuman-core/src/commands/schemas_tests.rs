@@ -19,13 +19,6 @@ fn list_schema_has_no_required_inputs() {
     assert_eq!(schema.outputs[0].name, "commands");
 }
 
-#[test]
-fn unknown_function_falls_back_to_an_error_schema() {
-    let schema = schemas("does_not_exist");
-    assert_eq!(schema.function, "unknown");
-    assert_eq!(schema.outputs[0].name, "error");
-}
-
 #[tokio::test]
 async fn handle_list_returns_every_builtin() {
     use serde_json::Map;

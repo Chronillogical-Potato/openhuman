@@ -1,18 +1,16 @@
 //! Host-side transcript-view tests (the projection itself lives in
 //! `tinyagents_session::transcript::view`): they drive it through OpenHuman's
-//! own writer types (`ChatMessage`, the session codec).
+//! own writer types (`TranscriptMessage`, the session codec).
 //!
 //! Tool-round projection tests: text-dialect rounds persisted through the real
 //! session codec and writer, and transcripts written before calls rode their
 //! issuing row.
 
-use crate::agent::messages::{
-    attach_chat_tool_failure_metadata, transcript_message_from_chat, ChatMessage,
-};
 use tempfile::TempDir;
 use tinyagents_session::transcript::view::{
     project_records, project_thread, DisplayItem, ToolCallStatus,
 };
+use tinyagents_session::transcript::TranscriptMessage;
 use tinyagents_session::transcript::{self, read_transcript_display};
 
 /// Write a raw JSONL transcript (meta header + `body` lines) for `thread_id`.
@@ -41,19 +39,19 @@ fn write_raw(workspace: &std::path::Path, stem: &str, thread_id: &str, body: &[&
 /// them as cancelled).
 #[test]
 fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
-    use crate::agent::messages::{ConversationMessage, ToolResultMessage};
     use crate::agent::session_host::OpenHumanTranscriptCodec;
     use crate::agent::tinyagents::host::OpenHumanRunContext;
     use tinyagents_runtime::{ResumeMode, TranscriptCodec, TranscriptTurnOptions};
     use tinyinference_llm::message::Message;
     use tinytools_agent::dialect::NativeToolCall;
+    use tinytools_agent::dialect::{ToolResultEntry, TranscriptEntry};
 
     let dir = TempDir::new().unwrap();
 
     // What the session driver persists for a text dialect: the conversation
     // rendered through the dialect's replay form.
     let conversation = vec![
-        ConversationMessage::AssistantToolCalls {
+        TranscriptEntry::AssistantToolCalls {
             text: None,
             tool_calls: vec![
                 NativeToolCall {
@@ -72,17 +70,21 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
             reasoning_content: None,
             extra_metadata: None,
         },
-        ConversationMessage::ToolResults(vec![
-            ToolResultMessage {
+        TranscriptEntry::ToolResults(vec![
+            ToolResultEntry {
                 tool_call_id: "call_web_search_1".into(),
                 content: "Search results for: rust async traits".into(),
+                trusted_verbatim: false,
             },
-            ToolResultMessage {
+            ToolResultEntry {
                 tool_call_id: "call_file_read_1".into(),
                 content: "unknown tool `file_read`".into(),
+                trusted_verbatim: false,
             },
         ]),
-        ConversationMessage::Chat(ChatMessage::assistant("Here is what I found.")),
+        TranscriptEntry::Chat(crate::agent::message_convert::row_to_dialect_message(
+            TranscriptMessage::assistant("Here is what I found."),
+        )),
     ];
     let rendered = crate::agent::message_convert::provider_messages_from_conversation(
         &tinytools_agent::dialect::XmlDialect,
@@ -144,7 +146,7 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
         .unwrap();
     let failed_result = rows
         .iter()
-        .find(|row| row.role == "user" && row.content.starts_with("[Tool results]"))
+        .find(|row| row.role.as_str() == "user" && row.content.starts_with("[Tool results]"))
         .expect("text dialect result row");
     assert_eq!(
         failed_result
@@ -185,7 +187,7 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
     let assistants: Vec<_> = persisted
         .messages
         .iter()
-        .filter(|m| m.role == "assistant")
+        .filter(|m| m.role.as_str() == "assistant")
         .collect();
     assert_eq!(assistants.len(), 2);
     let issued: Vec<String> = assistants[0]
@@ -321,7 +323,7 @@ fn calls_recorded_after_their_results_project_as_settled() {
 
 #[test]
 fn tool_failure_metadata_round_trips_write_to_display_line() {
-    // Full write path: a failed tool ChatMessage stamped with failure metadata
+    // Full write path: a failed tool TranscriptMessage stamped with failure metadata
     // must serialise the additive `failure` line field and read back as a failed
     // display message — proving the harness → transcript → projection seam.
     let dir = TempDir::new().unwrap();
@@ -347,27 +349,15 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
         task_id: None,
     };
 
-    let mut tool_msg = ChatMessage {
-        id: Some("call-1".into()),
-        role: "tool".into(),
-        content: r#"{"tool_call_id":"call-1","content":"boom"}"#.into(),
-        extra_metadata: None,
-        cache_breakpoints: Vec::new(),
-    };
-    attach_chat_tool_failure_metadata(&mut tool_msg, Some("boom: exit 1"));
+    let mut tool_msg =
+        TranscriptMessage::tool(r#"{"tool_call_id":"call-1","content":"boom"}"#).with_id("call-1");
+    tool_msg.tool_failure = Some(transcript::ToolFailure {
+        failed: true,
+        detail: Some("boom: exit 1".into()),
+    });
 
-    let messages = vec![
-        ChatMessage {
-            id: None,
-            role: "user".into(),
-            content: "do it".into(),
-            extra_metadata: None,
-            cache_breakpoints: Vec::new(),
-        },
-        tool_msg,
-    ];
+    let messages = vec![TranscriptMessage::user("do it"), tool_msg];
     let path = transcript::resolve_keyed_transcript_path(dir.path(), "700_orchestrator").unwrap();
-    let messages: Vec<_> = messages.iter().map(transcript_message_from_chat).collect();
     transcript::write_transcript(&path, &messages, &meta, None).unwrap();
 
     let display = read_transcript_display(&path).unwrap();
@@ -375,7 +365,7 @@ fn tool_failure_metadata_round_trips_write_to_display_line() {
         .records
         .iter()
         .find_map(|r| match r {
-            transcript::DisplayRecord::Message(m) if m.message.role == "tool" => Some(m),
+            transcript::DisplayRecord::Message(m) if m.message.role.as_str() == "tool" => Some(m),
             _ => None,
         })
         .expect("tool display message present");

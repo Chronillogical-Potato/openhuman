@@ -66,7 +66,7 @@ Test with **made-up** cases, never real patient data, until you're satisfied wit
 ## Success checks
 
 - [ ] Autonomy is **Read-only** or **Supervised**, workspace-only is on, approval gate is on.
-- [ ] Local AI is `ready` if you're keeping inference on-device.
+- [ ] If you're keeping inference on-device, your local runtime is running, the models are pulled, and a turn routed to it answers.
 - [ ] The persona reliably adds uncertainty flags and "verify clinically" language in replies to synthetic prompts.
 - [ ] Only intended sources are connected.
 - [ ] The assistant declines to present output as a diagnosis when tested.

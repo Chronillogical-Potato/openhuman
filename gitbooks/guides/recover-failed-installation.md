@@ -68,7 +68,7 @@ Match your symptom:
 | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Sign-in stalls after the provider step; log mentions `openhuman://` scheme **not registered** (Windows)                | The URL handler didn't register, or the install was moved after first launch | Follow the repair steps in [Troubleshooting Sign-In](../overview/troubleshooting-sign-in.md#windows-openhuman-handler-not-registered) |
 | App won't render / crashes on launch citing a **CEF / cache lock** (`SingletonLock`, cache "held by another instance") | A previous instance's browser cache is still locked                          | Ensure no other OpenHuman is running; if it persists, close all instances and relaunch                                                |
-| Local AI / Ollama errors on startup                                                                                    | The local model runtime isn't reachable                                      | This does **not** block the app; see [Use OpenHuman with a local model](local-model.md#common-failures)                               |
+| Local AI / Ollama errors                                                                                               | The local runtime you configured isn't running, or a model isn't pulled     | This does **not** block the app. OpenHuman doesn't install or start the runtime; start it yourself, see [Use OpenHuman with a local model](local-model.md#common-failures) |
 | "Low disk space" warning, or writes failing                                                                            | The workspace can't be written                                               | Free up space (the app wants a healthy margin, a few hundred MB minimum) and restart                                                  |
 
 ### Rung 4: Move the data folder aside (non-destructive reset)
@@ -91,7 +91,7 @@ Rename-Item "$env:USERPROFILE\.openhuman" ".openhuman.backup"
 
 Relaunch. OpenHuman recreates a fresh data folder and you sign in again.
 
-- If the fresh start **works**, the old folder was the issue, but your data is safe in the backup. You can copy specific pieces back (your memory database and vault) and test after each.
+- If the fresh start **works**, the old folder was the issue, but your data is safe in the backup. You can copy specific pieces back (your workspace files such as `SOUL.md` or `config.toml`) and test after each.
 - If it **still fails**, the data folder wasn't the cause. **Restore your backup** by renaming it back, so you lose nothing, and escalate (below).
 
 ---

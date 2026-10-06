@@ -4,11 +4,7 @@
 //! the conversion to OpenHuman's established wire rows; keeping it here makes
 //! the runtime usable by non-OpenHuman hosts without inheriting our metadata.
 
-use crate::agent::{
-    message_convert,
-    messages::{chat_message_from_transcript, transcript_message_from_chat},
-    tinyagents::host::OpenHumanRunContext,
-};
+use crate::agent::{message_convert, tinyagents::host::OpenHumanRunContext};
 use tinyagents_runtime::{RuntimeError, TranscriptCodec, TranscriptTurnOptions};
 use tinyagents_session::transcript::view::TOOL_RESULT_FAILURES_METADATA_KEY;
 use tinyagents_session::transcript::{
@@ -23,13 +19,7 @@ pub struct OpenHumanTranscriptCodec;
 
 impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
     fn decode_history(&self, transcript: &SessionTranscript) -> Result<Vec<Message>, RuntimeError> {
-        let rows = transcript
-            .messages
-            .iter()
-            .cloned()
-            .map(chat_message_from_transcript)
-            .collect::<Vec<_>>();
-        Ok(message_convert::history_to_messages(&rows))
+        Ok(message_convert::history_to_messages(&transcript.messages))
     }
 
     fn reconcile(
@@ -42,7 +32,6 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         let mut rows = next
             .iter()
             .filter_map(message_convert::message_to_native_chat_message)
-            .map(|message| transcript_message_from_chat(&message))
             .collect::<Vec<_>>();
 
         // `Message` intentionally cannot represent all durable transcript

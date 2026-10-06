@@ -48,6 +48,12 @@ raw_coverage_modules() {
     sort
 }
 
+in_process_modules() {
+  find tests/in_process -maxdepth 1 -type f -name '*.rs' -print |
+    sed -e 's#^tests/in_process/##' -e 's#\.rs$##' |
+    sort
+}
+
 # Print each explicitly declared integration-test target and its required
 # features as "<name><TAB><comma-separated gates>".
 test_target_required_features() {
@@ -119,6 +125,15 @@ run_integration_target() {
       suite "${target}::${module}" llvm_cov --no-report --no-fail-fast -p openhuman-cli \
         --test "${target}" -- "${module}::" --test-threads=1
     done < <(raw_coverage_modules)
+  elif [ "${target}" = "in_process_all" ]; then
+    # The former in-process router targets share one binary; keep one process
+    # per module so their process globals stay per suite, as before.
+    while IFS= read -r module; do
+      [ -n "${module}" ] || continue
+      log "running in-process module: ${module}"
+      suite "${target}::${module}" llvm_cov --no-report --no-fail-fast -p openhuman-cli \
+        --test "${target}" -- "${module}::"
+    done < <(in_process_modules)
   elif [ "${target}" = "json_rpc_e2e" ]; then
     # JSON-RPC tests share runtime/config globals and must remain serial.
     suite "${target}" llvm_cov --no-report --no-fail-fast -p openhuman-cli \

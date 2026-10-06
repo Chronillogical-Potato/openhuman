@@ -140,7 +140,7 @@ async fn compute_required_connections_skips_native_and_http_nodes() {
 
 #[test]
 fn extract_workflow_proposal_survives_large_graph() {
-    use crate::agent::messages::{ConversationMessage, ToolResultMessage};
+    use tinytools_agent::dialect::{ToolResultEntry, TranscriptEntry};
 
     // 6 nodes, several columns each — comfortably over tinyjuice's MIN_ROWS (3)
     // and ~512-byte tabulation thresholds, so an unprotected payload would get
@@ -173,9 +173,10 @@ fn extract_workflow_proposal_survives_large_graph() {
         payload_str.len()
     );
 
-    let history = vec![ConversationMessage::ToolResults(vec![ToolResultMessage {
+    let history = vec![TranscriptEntry::ToolResults(vec![ToolResultEntry {
         tool_call_id: "call-1".to_string(),
         content: payload_str,
+        trusted_verbatim: false,
     }])];
 
     let proposal = extract_workflow_proposal(&history).expect("proposal should be extractable");
@@ -192,18 +193,20 @@ fn extract_workflow_proposal_survives_large_graph() {
 
 #[test]
 fn extract_workflow_proposal_returns_the_latest_of_multiple_results() {
-    use crate::agent::messages::{ConversationMessage, ToolResultMessage};
+    use tinytools_agent::dialect::{ToolResultEntry, TranscriptEntry};
 
     let first = json!({ "type": "workflow_proposal", "flow_id": "first" });
     let second = json!({ "type": "workflow_proposal", "flow_id": "second" });
     let history = vec![
-        ConversationMessage::ToolResults(vec![ToolResultMessage {
+        TranscriptEntry::ToolResults(vec![ToolResultEntry {
             tool_call_id: "call-1".to_string(),
             content: first.to_string(),
+            trusted_verbatim: false,
         }]),
-        ConversationMessage::ToolResults(vec![ToolResultMessage {
+        TranscriptEntry::ToolResults(vec![ToolResultEntry {
             tool_call_id: "call-2".to_string(),
             content: second.to_string(),
+            trusted_verbatim: false,
         }]),
     ];
 
@@ -213,11 +216,12 @@ fn extract_workflow_proposal_returns_the_latest_of_multiple_results() {
 
 #[test]
 fn extract_workflow_proposal_ignores_non_proposal_tool_results() {
-    use crate::agent::messages::{ConversationMessage, ToolResultMessage};
+    use tinytools_agent::dialect::{ToolResultEntry, TranscriptEntry};
 
-    let history = vec![ConversationMessage::ToolResults(vec![ToolResultMessage {
+    let history = vec![TranscriptEntry::ToolResults(vec![ToolResultEntry {
         tool_call_id: "call-1".to_string(),
         content: json!({ "type": "search_results", "items": [] }).to_string(),
+        trusted_verbatim: false,
     }])];
 
     assert!(extract_workflow_proposal(&history).is_none());

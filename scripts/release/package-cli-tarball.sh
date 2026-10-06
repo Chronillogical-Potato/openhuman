@@ -27,7 +27,11 @@ trap 'rm -rf "$WORK"' EXIT
 cp "$CORE_BIN_PATH" "$WORK/openhuman-core"
 cp "$TUI_BIN_PATH" "$WORK/openhuman-tui"
 chmod +x "$WORK/openhuman-core" "$WORK/openhuman-tui"
-tar -czf "$TARBALL" -C "$WORK" openhuman-core openhuman-tui
+# Pinned native modules, staged at build time and found by the core beside its
+# binary; the host key follows the tarball's target triple.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+node "$REPO_ROOT/scripts/release/stage-modules.mjs" --target "$TARGET" --output "$WORK/bundled-modules"
+tar -czf "$TARBALL" -C "$WORK" openhuman-core openhuman-tui bundled-modules
 
 # openssl dgst works on both macOS and Linux
 openssl dgst -sha256 -r "$TARBALL" | awk '{print $1}' > "${TARBALL}.sha256"

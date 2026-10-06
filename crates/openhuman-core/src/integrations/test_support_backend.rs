@@ -736,7 +736,3 @@ pub async fn spawn_fake_integration_backend() -> FakeIntegrationBackend {
         state,
     }
 }
-
-#[cfg(test)]
-#[path = "test_support_tests.rs"]
-mod tests;

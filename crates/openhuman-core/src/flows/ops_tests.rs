@@ -577,10 +577,10 @@ fn readonly_graph() -> Value {
 // guarantee: every turn ends in a proposal or a real question, never silence).
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn builder_tool_call(id: &str, name: &str) -> crate::agent::messages::ConversationMessage {
-    use crate::agent::messages::ConversationMessage;
+fn builder_tool_call(id: &str, name: &str) -> tinytools_agent::dialect::TranscriptEntry {
     use tinytools_agent::dialect::NativeToolCall;
-    ConversationMessage::AssistantToolCalls {
+    use tinytools_agent::dialect::TranscriptEntry;
+    TranscriptEntry::AssistantToolCalls {
         text: None,
         tool_calls: vec![NativeToolCall {
             id: id.to_string(),
@@ -593,14 +593,12 @@ fn builder_tool_call(id: &str, name: &str) -> crate::agent::messages::Conversati
     }
 }
 
-fn builder_tool_result(
-    call_id: &str,
-    content: &str,
-) -> crate::agent::messages::ConversationMessage {
-    use crate::agent::messages::{ConversationMessage, ToolResultMessage};
-    ConversationMessage::ToolResults(vec![ToolResultMessage {
+fn builder_tool_result(call_id: &str, content: &str) -> tinytools_agent::dialect::TranscriptEntry {
+    use tinytools_agent::dialect::{ToolResultEntry, TranscriptEntry};
+    TranscriptEntry::ToolResults(vec![ToolResultEntry {
         tool_call_id: call_id.to_string(),
         content: content.to_string(),
+        trusted_verbatim: false,
     }])
 }
 

@@ -13,21 +13,6 @@ use super::LocalAiService;
 
 const LOG_PREFIX: &str = "[speech]";
 
-/// MIME hint sent to the backend for a given file extension. The backend
-/// forwards the blob to its STT provider, which sniffs the container; a wrong
-/// hint only costs a re-sniff, so an unknown extension falls back to WAV.
-fn mime_for_extension(ext: &str) -> &'static str {
-    match ext {
-        "wav" => "audio/wav",
-        "mp3" => "audio/mpeg",
-        "m4a" | "mp4" => "audio/mp4",
-        "ogg" | "opus" => "audio/ogg",
-        "webm" => "audio/webm",
-        "flac" => "audio/flac",
-        _ => "audio/wav",
-    }
-}
-
 pub async fn transcribe(
     service: &LocalAiService,
     config: &Config,
@@ -69,7 +54,7 @@ pub async fn transcribe_with_prompt(
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    let mime = mime_for_extension(&ext);
+    let mime = tinyinference_voice::mime::mime_for_extension(&ext);
     let file_name = path
         .file_name()
         .and_then(|n| n.to_str())

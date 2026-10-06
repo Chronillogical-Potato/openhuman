@@ -8,7 +8,7 @@ use serde_json::json;
 use tinytools::Tool;
 
 #[tokio::test]
-#[ignore] // requires funded wallet + network access
+#[ignore = "live: makes a real x402 payment to twit.sh on Base; needs a funded wallet and network. Run: GGML_NATIVE=OFF cargo test -p openhuman-cli --test x402_twit_sh_live -- --ignored --nocapture"]
 async fn x402_pay_twit_sh_for_hal_finney_tweet() {
     env_logger::init();
 

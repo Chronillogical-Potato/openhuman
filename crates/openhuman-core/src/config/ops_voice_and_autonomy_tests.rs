@@ -16,7 +16,7 @@ async fn get_config_snapshot_wraps_snapshot_in_rpc_outcome() {
 
 #[tokio::test]
 async fn load_and_apply_dictation_settings_rejects_invalid_activation_mode() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -38,7 +38,7 @@ async fn load_and_apply_dictation_settings_rejects_invalid_activation_mode() {
 
 #[tokio::test]
 async fn load_and_apply_voice_server_settings_rejects_invalid_activation_mode() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -66,7 +66,7 @@ async fn load_and_apply_voice_server_settings_rejects_invalid_activation_mode() 
 
 #[tokio::test]
 async fn load_and_apply_dictation_settings_accepts_valid_modes() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -92,7 +92,7 @@ async fn load_and_apply_dictation_settings_accepts_valid_modes() {
 
 #[tokio::test]
 async fn load_and_apply_voice_server_settings_accepts_valid_modes_and_clamps() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -136,7 +136,7 @@ async fn load_and_apply_voice_server_settings_accepts_valid_modes_and_clamps() {
 /// not ask for.
 #[tokio::test]
 async fn load_and_apply_voice_server_settings_rejects_unknown_stt_engine() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -168,7 +168,7 @@ async fn load_and_apply_voice_server_settings_rejects_unknown_stt_engine() {
 
 #[tokio::test]
 async fn get_dictation_settings_reads_from_loaded_config() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -184,7 +184,7 @@ async fn get_dictation_settings_reads_from_loaded_config() {
 
 #[tokio::test]
 async fn get_voice_server_settings_reads_from_loaded_config() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -199,7 +199,7 @@ async fn get_voice_server_settings_reads_from_loaded_config() {
 
 #[tokio::test]
 async fn get_onboarding_completed_reads_from_loaded_config() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -214,7 +214,7 @@ async fn get_onboarding_completed_reads_from_loaded_config() {
 
 #[tokio::test]
 async fn load_and_resolve_api_url_returns_api_url_in_response() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -240,7 +240,7 @@ fn resolve_api_url_comes_from_the_backend_transport() {
 
 #[tokio::test]
 async fn workspace_onboarding_flag_resolve_rejects_invalid_and_defaults() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -262,7 +262,7 @@ async fn workspace_onboarding_flag_resolve_rejects_invalid_and_defaults() {
 
 #[tokio::test]
 async fn workspace_onboarding_flag_set_rejects_invalid_names() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -280,7 +280,7 @@ async fn workspace_onboarding_flag_set_rejects_invalid_names() {
 
 #[tokio::test]
 async fn workspace_onboarding_flag_set_round_trip() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -314,7 +314,6 @@ async fn apply_model_settings_trims_and_clears_optional_provider_fields() {
         vision_provider: Some(" provider-vision ".into()),
         memory_provider: Some(" provider-memory ".into()),
         embeddings_provider: Some(" provider-embed ".into()),
-        learning_provider: Some(" provider-learning ".into()),
         ..Default::default()
     };
     apply_model_settings(&mut cfg, set)
@@ -340,7 +339,6 @@ async fn apply_model_settings_trims_and_clears_optional_provider_fields() {
         vision_provider: Some(" ".into()),
         memory_provider: Some(" ".into()),
         embeddings_provider: Some(" ".into()),
-        learning_provider: Some(" ".into()),
         ..Default::default()
     };
     apply_model_settings(&mut cfg, clear)
@@ -354,14 +352,13 @@ async fn apply_model_settings_trims_and_clears_optional_provider_fields() {
     assert!(cfg.vision_provider.is_none());
     assert!(cfg.memory_provider.is_none());
     assert!(cfg.embeddings_provider.is_none());
-    assert!(cfg.learning_provider.is_none());
 }
 
 // ── apply_autonomy_settings ────────────────────────────────────
 
 #[tokio::test]
 async fn apply_autonomy_settings_persists_max_actions_per_hour() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     let outcome = apply_autonomy_settings(
@@ -386,7 +383,7 @@ async fn apply_autonomy_settings_persists_max_actions_per_hour() {
 
 #[tokio::test]
 async fn apply_autonomy_settings_no_op_when_patch_empty() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     let prior = cfg.autonomy.max_actions_per_hour;
@@ -404,7 +401,7 @@ async fn apply_autonomy_settings_no_op_when_patch_empty() {
 
 #[tokio::test]
 async fn apply_autonomy_settings_rejects_zero() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     let err = apply_autonomy_settings(
@@ -424,7 +421,7 @@ async fn apply_autonomy_settings_rejects_zero() {
 
 #[tokio::test]
 async fn apply_autonomy_settings_accepts_unlimited_sentinel() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     // u32::MAX is the new "unlimited" sentinel exposed by the UI as a
     // preset. The upper cap was lifted in the same PR that defaulted
     // fresh installs to u32::MAX; anything in [1, u32::MAX] should now
@@ -445,7 +442,7 @@ async fn apply_autonomy_settings_accepts_unlimited_sentinel() {
 
 #[tokio::test]
 async fn load_and_apply_autonomy_settings_roundtrip() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -473,7 +470,7 @@ async fn load_and_apply_autonomy_settings_roundtrip() {
 async fn apply_autonomy_settings_replaces_auto_approve() {
     // ENV_LOCK serializes the `live_policy::reload_from` triggered by
     // `apply_autonomy_settings` against other live-policy-touching tests.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
     apply_autonomy_settings(
@@ -496,7 +493,7 @@ async fn apply_autonomy_settings_replaces_auto_approve() {
 
 #[tokio::test]
 async fn autonomy_auto_approve_all_defaults_false() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let cfg = tmp_config(&tmp);
     assert!(
@@ -509,7 +506,7 @@ async fn autonomy_auto_approve_all_defaults_false() {
 async fn autonomy_auto_approve_all_persists() {
     // ENV_LOCK serializes the `live_policy::reload_from` triggered by
     // `apply_autonomy_settings` against other live-policy-touching tests.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
 
@@ -556,7 +553,7 @@ async fn autonomy_auto_approve_all_persists() {
 
 #[tokio::test]
 async fn add_auto_approve_tool_appends_then_dedupes() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     let tmp = tempdir().unwrap();
     unsafe {
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp.path());
@@ -594,7 +591,7 @@ async fn apply_agent_settings_updates_timeout_and_persists_snapshot() {
     // ENV_LOCK: `set_tool_timeout_secs` reads OPENHUMAN_TOOL_TIMEOUT_SECS and
     // mutates the process-global timeout; serialize against other env-touching
     // tests and ensure no operator override is masking the config value.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = ENV_LOCK.lock().await;
     unsafe {
         std::env::remove_var("OPENHUMAN_TOOL_TIMEOUT_SECS");
     }
@@ -605,7 +602,7 @@ async fn apply_agent_settings_updates_timeout_and_persists_snapshot() {
         &mut cfg,
         AgentSettingsPatch {
             agent_timeout_secs: Some(300),
-            chat_agent_id: None,
+            ..AgentSettingsPatch::default()
         },
     )
     .await

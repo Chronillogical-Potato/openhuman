@@ -14,7 +14,7 @@ The agent tool layer. Defines the core [`Tool`] trait every agent-callable capab
 - Filter the registry by user tool-toggle preferences (`user_filter`).
 - Own tool-call lifecycle state and failure classification (`status`), on-demand schema disclosure (`toolpacks`), the process-wide tool execution timeout (`timeout`), the read-only cross-surface discovery registry (`registry`), and per-session tool-boundary policy (`agent_policy`): each documented in its own sibling README.
 - Expose a JSON-RPC `tools` controller allowlist (`openhuman.tools_*` on the wire) for Tauri-driven flows (onboarding-style orchestration in the renderer).
-- Browser-allowlist derivation: narrow the browser host list from the unified fetch allowlist (`browser_allowed_domains`, strips `"*"`).
+- Browser-allowlist derivation: narrow the browser host list from the unified fetch allowlist (strips `"*"`).
 
 ## Key files
 
@@ -22,12 +22,10 @@ The agent tool layer. Defines the core [`Tool`] trait every agent-callable capab
 | --- | --- |
 | `crates/openhuman-core/src/tools/mod.rs` | Export hub. Declares submodules, re-exports the built-in impls and every domain-owned tool set, and the `all_tools_*` controller pair. |
 | `crates/openhuman-core/src/tools/host_extensions.rs` | OpenHuman-only readers over erased `host_extension` slots: `pack_registry_handle`, `delegation_target`, and `generated_runtime_context`. Import the shared `Tool` vocabulary from `tinytools` directly. |
-| `crates/openhuman-core/src/tools/ops.rs` | Registry assembly: `default_tools`, `default_tools_with_runtime`, `all_tools`, `all_tools_with_runtime`, `browser_allowed_domains`. All config-gating logic lives here. |
+| `crates/openhuman-core/src/tools/ops.rs` | Registry assembly: `default_tools`, `default_tools_with_runtime`, `all_tools`, `all_tools_with_runtime`. All config-gating logic lives here. |
 | `crates/openhuman-core/src/tools/schemas.rs` (thin shell over the `schemas/` submodule: `apify.rs`, `composio.rs`, `registry.rs`, `web_search.rs`) | JSON-RPC `tools` namespace controllers + `handle_*` fns. `all_controller_schemas` / `all_registered_controllers` (re-exported as `all_tools_*`). |
-| `crates/openhuman-core/src/tools/schema.rs` | Re-exports `SchemaCleanr`, `CleaningStrategy` and `GEMINI_UNSUPPORTED_KEYWORDS` from `tinyagents_harness::tool` (local `$ref` resolution, provider-rejected keyword stripping, literal-union flattening). The only in-crate caller is `generated.rs`, which runs `SchemaCleanr::validate` on generated tool schemas at admission. |
 | `crates/openhuman-core/src/tools/orchestrator_tools.rs` | Synthesizes named per-subagent tools from the orchestrator's `subagents = [...]` definition; expands the skills wildcard into one `Deferred` `ComposioActionTool` per connected action (reached through `tool_search`, no delegate). |
 | [`crates/openhuman-core/src/mcp/registry/action_tool.rs`](../mcp/registry/action_tool.rs) | Registers connected MCP server actions as deferred tools for the orchestrator. Their searchable schemas use the same `tool_search` catalogue and JEV ranker as other deferred tools. |
-| `crates/openhuman-core/src/tools/generated.rs` | `GeneratedToolDefinition` + wrapper for runtime/profile-supplied generated capability tools (provider/capability/risk metadata for policy). |
 | `crates/openhuman-core/src/tools/user_filter.rs` | `filter_tools_by_user_preference` + UI-toggle-ID → Rust-tool-name map. Unmapped tools are always retained. |
 | [`crates/openhuman-core/src/tools/status/`](status/mod.rs) | Tool-call lifecycle state (`ToolLifecycleState`) and human-readable failure classification (`ToolFailureClass`, `classify`). Pure data/logic; no persistence, no RPC. |
 | [`crates/openhuman-core/src/tools/toolpacks/`](toolpacks/README.md) | On-demand tool disclosure: keeps a pack's tools constructed but unadvertised until `UseSkillTool` (`use_skill`) renders or invokes one, trimming per-turn schema token cost. Also home of `ToolGroups`/`GroupMode`, which `openhuman-embed` re-exports. |
@@ -37,7 +35,7 @@ The agent tool layer. Defines the core [`Tool`] trait every agent-callable capab
 | [`crates/openhuman-core/src/tools/impl/mod.rs`](impl/README.md) | Aggregates the built-in tool families; glob re-exports `browser`, `filesystem`, `network`, `system` and the two `documents`-gated tools. `meta` is declared `pub` but not glob re-exported: reach it as `implementations::meta`. |
 | `crates/openhuman-core/src/tools/impl/filesystem/` | Tools `file_read`, `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `list`, `read_diff`, `csv_export`, `git_operations`, `run_linter`, `run_tests`, `update_memory_md`. The tools live in `tinytools_std::filesystem` (vendor `tinytools`); this directory holds only the `FsGate` adapter for `SecurityPolicy` (`gate.rs`). |
 | `crates/openhuman-core/src/tools/impl/browser/` | Deferred `browser` (TinyComputer browser members and tasks), deferred `browser_open` (simple TinyComputer entry point), and direct `image_info`. |
-| `crates/openhuman-core/src/tools/impl/system/` | Tools `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `detect_tools`, `current_time`, `resolve_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`, `insert_sql_record`, `read_workspace_state`, `retrieve_tool_output`. Helper module (not a tool): `command_output`, the shared exit-code/stdout/stderr formatter for the shell family. |
+| `crates/openhuman-core/src/tools/impl/system/` | Tools `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `detect_tools`, `current_time`, `resolve_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`, `read_workspace_state`, `retrieve_tool_output`. Helper module (not a tool): `command_output`, the shared exit-code/stdout/stderr formatter for the shell family. |
 | `crates/openhuman-core/src/tools/impl/network/` | Tools `http_request`, `web_fetch`, `curl`, `gitbooks_search`/`gitbooks_get_page`, `mcp_list_servers`/`mcp_list_tools`/`mcp_call_tool` (`mcp`-feature gated), `gmail_unsubscribe`. Helper module: `url_guard` (host allowlist matching, private-address rejection, `validate_url`). |
 | `crates/openhuman-core/src/tools/impl/meta/` | Tools *about* the tool surface itself: `deferred` (the host's half of `ToolExposure::Deferred`; the harness's intrinsic `tool_search` bridge is the lookup half) and `collapse` (multi-action schema/permission merging helpers). |
 | `crates/openhuman-core/src/tools/impl/document/` (`documents` feature) | `DocumentTool` (`generate_document`): structured document generation/editing engine. |
@@ -74,7 +72,7 @@ Handlers load config via `config::rpc::load_config_with_timeout`, build the back
 This module owns the cross-cutting built-in tools (the only ones that belong here per the repo's tool-ownership rule):
 
 - Filesystem: `file_read`, `file_write`, `edit`, `apply_patch`, `grep`, `glob`, `list`, `read_diff`, `csv_export`, `git_operations`, `run_linter`, `run_tests`, `update_memory_md`.
-- System/process: `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `detect_tools`, `current_time`, `resolve_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`, `insert_sql_record`, `read_workspace_state`, `retrieve_tool_output`.
+- System/process: `shell`, `node_exec`, `npm_exec`, `python_exec`, `install_tool`, `detect_tools`, `current_time`, `resolve_time`, `schedule`, `proxy_config`, `pushover`, `lsp`, `tool_stats`, `update_check`, `update_apply`, `read_workspace_state`, `retrieve_tool_output`.
 - Browser: `browser`, `browser_open`, `image_info`.
 - Generic network: `http_request`, `web_fetch`, `curl`, `gitbooks_search`/`gitbooks_get_page`, MCP bridge (`mcp_list_servers`/`mcp_list_tools`/`mcp_call_tool`), `gmail_unsubscribe`.
 - Meta: `deferred` (which tools leave the wire for the harness's `tool_search` bridge) and the `collapse` multi-action helpers used by other tools' schema merging.
@@ -93,7 +91,7 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 
 ## Dependencies
 
-- `crate::agent`: `host_runtime` (`RuntimeAdapter`/`NativeRuntime`), `tool_policy::GeneratedToolRuntimeContext`, harness definitions (`AgentDefinition`, `SubagentEntry`) for orchestrator tool synthesis, and the agent-owned dispatch tools re-exported here.
+- `crate::agent`: `host_runtime` (`RuntimeAdapter`/`NativeRuntime`), harness definitions (`AgentDefinition`, `SubagentEntry`) for orchestrator tool synthesis, and the agent-owned dispatch tools re-exported here.
 - `crate::config`: `Config`, `BrowserConfig`, `HttpRequestConfig`, `DelegateAgentConfig`; drives all registration gating and `config::rpc::load_config_with_timeout` in RPC handlers.
 - `crate::search`: provider resolution, TinySearch module configuration, and search-owned tool implementations.
 - `crate::security`: `SecurityPolicy` (host/path/command gating threaded into nearly every tool) + `AuditLogger`.
@@ -123,7 +121,7 @@ None. No `store.rs`; the module holds no persisted state. Tools that persist (me
 
 - Ownership rule: only genuinely cross-cutting tool families (filesystem, browser, generic system/network, meta, and the `documents`-gated document/presentation tools) belong in `impl/`. New domain tools go in the owning domain's `tools.rs` and are re-exported via `mod.rs`: do not add them under `impl/`.
 - One unified `ToolResult`: every tool imports it from `tinytools`, so every tool uses the same type.
-- Browser allowlist is fail-safe: the browser shares `http_request.allowed_domains` but `browser_allowed_domains` strips the `"*"` wildcard: unifying can only narrow browser reach. Allow-all stays behind `OPENHUMAN_BROWSER_ALLOW_ALL`.
+- Browser allowlist is fail-safe: the browser shares `http_request.allowed_domains` but strips the `"*"` wildcard: unifying can only narrow browser reach. Allow-all stays behind `OPENHUMAN_BROWSER_ALLOW_ALL`.
 - Node tools are co-gated: `shell`, `node_exec`, and `npm_exec` share one memoised `NodeBootstrap`; with `node.enabled = false` (or the `runtime-node` feature off), node/npm tools are not registered and shell skips PATH injection.
 - `external_effect_with_args` is the hook the harness checks at the gate-decision point, not the arg-less variant. Override it for per-call gating (e.g. composio `execute` vs `list`).
 - `PermissionLevel` ordering is load-bearing: the runtime compares `<` to reject tools above a channel's max; `permission_level()` should return the *minimum* level across a multi-action tool, with `permission_level_with_args` doing the per-call check.

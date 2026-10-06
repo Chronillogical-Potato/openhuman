@@ -1,7 +1,6 @@
-
 //! End-to-end coverage for the notification centre and the small platform namespaces that had no
 //! e2e target at all: `notification` (7 uncovered), `health` (2), `doctor` (2), `service`'s
-//! daemon-host pair, `provider_surfaces` (2), `slack_memory` (2) and `announcements` (1).
+//! daemon-host pair, `provider_surfaces` (2) and `announcements` (1).
 //!
 //! Everything here goes over the real JSON-RPC surface (`build_core_http_router`) against an
 //! in-process axum mock for the hosted backend. Nothing reaches the network.
@@ -17,9 +16,10 @@
 //!   ~/tinyhuman/ci-slot.sh cargo test --test raw_coverage_all \
 //!       --features "$(bash scripts/ci/product-features.sh)" notification_platform
 
+use crate::env_guard::EnvVarGuard;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use axum::extract::State;
@@ -40,13 +40,18 @@ use openhuman_rpc::server::build_core_http_router;
 
 // ── env serialisation ────────────────────────────────────────────────────────
 
-static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
+static ENV_LOCK: &OnceLock<tokio::sync::Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
-fn platform_e2e_env_lock() -> std::sync::MutexGuard<'static, ()> {
+fn platform_e2e_env_lock() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .blocking_lock()
+}
+
+async fn platform_e2e_env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock().await
 }
 
 const TEST_JWT: &str = "e2e-notification-platform-jwt";
@@ -73,34 +78,6 @@ fn rpc_bearer() -> &'static str {
 fn ensure_rpc_auth() {
     crate::tinyhumans_boot::boot();
     let _ = rpc_bearer();
-}
-
-struct EnvGuard {
-    key: &'static str,
-    prev: Option<String>,
-}
-
-impl EnvGuard {
-    fn set_to_path(key: &'static str, path: &Path) -> Self {
-        let prev = std::env::var(key).ok();
-        std::env::set_var(key, path.as_os_str());
-        Self { key, prev }
-    }
-
-    fn unset(key: &'static str) -> Self {
-        let prev = std::env::var(key).ok();
-        std::env::remove_var(key);
-        Self { key, prev }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match &self.prev {
-            Some(v) => std::env::set_var(self.key, v),
-            None => std::env::remove_var(self.key),
-        }
-    }
 }
 
 // ── mock backend ─────────────────────────────────────────────────────────────
@@ -286,10 +263,10 @@ struct Harness {
     openhuman_home: std::path::PathBuf,
     mock_join: tokio::task::JoinHandle<()>,
     rpc_join: tokio::task::JoinHandle<()>,
-    _home: EnvGuard,
-    _ws: EnvGuard,
-    _backend: EnvGuard,
-    _vite: EnvGuard,
+    _home: EnvVarGuard,
+    _ws: EnvVarGuard,
+    _backend: EnvVarGuard,
+    _vite: EnvVarGuard,
     _tmp: tempfile::TempDir,
 }
 
@@ -298,10 +275,10 @@ impl Harness {
         let tmp = tempdir().expect("tempdir");
         let home = tmp.path().to_path_buf();
         let openhuman_home = home.join(".openhuman");
-        let _home = EnvGuard::set_to_path("HOME", &home);
-        let _ws = EnvGuard::unset("OPENHUMAN_WORKSPACE");
-        let _backend = EnvGuard::unset("BACKEND_URL");
-        let _vite = EnvGuard::unset("VITE_BACKEND_URL");
+        let _home = EnvVarGuard::set_to_path("HOME", &home);
+        let _ws = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+        let _backend = EnvVarGuard::unset("BACKEND_URL");
+        let _vite = EnvVarGuard::unset("VITE_BACKEND_URL");
 
         let (mock_addr, mock_join) = serve_ephemeral(mock_backend_router(state)).await;
         write_test_config(&openhuman_home, &format!("http://{mock_addr}"));
@@ -358,7 +335,7 @@ fn default_state() -> BackendState {
 /// `openhuman.notification_mark_acted`.
 #[tokio::test]
 async fn notification_centre_lifecycle_over_rpc() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
     let h = Harness::start(default_state()).await;
 
     // Enable the provider so ingest stores rather than skipping.
@@ -615,7 +592,7 @@ async fn notification_centre_lifecycle_over_rpc() {
 /// Covers: `openhuman.notification_core_list`, `openhuman.notification_core_mark_read`.
 #[tokio::test]
 async fn notification_core_sync_down_and_mark_read() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
     let h = Harness::start(default_state()).await;
 
     // Empty workspace first: the contract is an empty page, not an error.
@@ -828,7 +805,7 @@ async fn notification_core_sync_down_and_mark_read() {
 /// Covers: `openhuman.health_snapshot`, `openhuman.health_system_info`.
 #[tokio::test]
 async fn health_snapshot_and_system_info_report_this_process() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
     let h = Harness::start(default_state()).await;
 
     mark_component_ok("e2e_platform_probe_ok");
@@ -933,7 +910,7 @@ async fn health_snapshot_and_system_info_report_this_process() {
 /// Covers: `openhuman.doctor_report`, `openhuman.doctor_models`.
 #[tokio::test]
 async fn doctor_report_and_models_are_internally_consistent() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
     let h = Harness::start(default_state()).await;
 
     let report = post_json_rpc(&h.rpc_base, 9301, "openhuman.doctor_report", json!({})).await;
@@ -1090,7 +1067,7 @@ async fn doctor_report_and_models_are_internally_consistent() {
 /// Covers: `openhuman.service_daemon_host_get`, `openhuman.service_daemon_host_set`.
 #[tokio::test]
 async fn service_daemon_host_preferences_round_trip_to_disk() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
     let h = Harness::start(default_state()).await;
 
     let initial = post_json_rpc(
@@ -1203,7 +1180,7 @@ async fn service_daemon_host_preferences_round_trip_to_disk() {
 /// `openhuman.provider_surfaces_list_queue`.
 #[tokio::test]
 async fn provider_surfaces_respond_queue_upserts_by_event_identity() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
     let h = Harness::start(default_state()).await;
 
     let event = json!({
@@ -1354,128 +1331,6 @@ async fn provider_surfaces_respond_queue_upserts_by_event_identity() {
     h.stop();
 }
 
-// ── slack_memory ─────────────────────────────────────────────────────────────
-
-/// `slack_memory_sync_status` filters the Composio connection list down to active Slack rows and
-/// reports the degraded detail fields at zero; `slack_memory_sync_trigger` refuses an id that is
-/// not in that set.
-///
-/// Covers: `openhuman.slack_memory_sync_status`, `openhuman.slack_memory_sync_trigger`.
-#[tokio::test]
-async fn slack_memory_sync_status_filters_to_active_slack_connections() {
-    let _env_lock = platform_e2e_env_lock();
-
-    // Three rows that between them exercise every branch of the filter: an active slack one, an
-    // active connection for a *different* toolkit, and a slack one that is not active.
-    let state = BackendState {
-        announcement: AnnouncementMode::Present,
-        connections: Arc::new(json!({
-            "connections": [
-                { "id": "conn-slack-live", "toolkit": " Slack ", "status": "ACTIVE" },
-                { "id": "conn-gmail-live", "toolkit": "gmail", "status": "ACTIVE" },
-                { "id": "conn-slack-pending", "toolkit": "slack", "status": "PENDING" }
-            ]
-        })),
-    };
-    let h = Harness::start(state).await;
-    h.sign_in().await;
-
-    let status = post_json_rpc(
-        &h.rpc_base,
-        9601,
-        "openhuman.slack_memory_sync_status",
-        json!({}),
-    )
-    .await;
-    let result = peel(assert_no_jsonrpc_error(&status, "slack_memory_sync_status"));
-    let rows = result
-        .get("connections")
-        .and_then(Value::as_array)
-        .unwrap_or_else(|| panic!("sync_status returns a connections array: {result}"));
-    assert_eq!(
-        rows.len(),
-        1,
-        "only the active Slack connection is a sync candidate — the gmail row and the pending \
-         slack row must both be filtered out: {result}"
-    );
-    let row = &rows[0];
-    assert_eq!(
-        row.get("connection_id").and_then(Value::as_str),
-        Some("conn-slack-live"),
-        "the toolkit match is case- and whitespace-insensitive (` Slack ` matched): {row}"
-    );
-    // The per-connection detail this endpoint used to report has no source since tinymemory
-    // v1.13.4; the fields are kept on the wire at their zero value rather than removed. Pinning
-    // that keeps a future "it started reporting real cursors again" from going unnoticed.
-    assert_eq!(
-        row.get("per_channel_cursors").and_then(Value::as_str),
-        Some("{}"),
-        "cursor detail is no longer available and is reported as an empty JSON object: {row}"
-    );
-    assert_eq!(row.get("synced_ids_count").and_then(Value::as_u64), Some(0));
-    assert_eq!(
-        row.get("requests_used_today").and_then(Value::as_u64),
-        Some(0)
-    );
-    assert_eq!(
-        row.get("daily_request_limit").and_then(Value::as_u64),
-        Some(0)
-    );
-
-    // ── a trigger scoped to a connection that is not a candidate fails, naming the id.
-    let unknown = post_json_rpc(
-        &h.rpc_base,
-        9602,
-        "openhuman.slack_memory_sync_trigger",
-        json!({ "connection_id": "conn-slack-pending" }),
-    )
-    .await;
-    let message = jsonrpc_error_message(&unknown, "sync_trigger for a non-active connection");
-    assert!(
-        message.contains("no active Slack connection with id=conn-slack-pending"),
-        "the error must name the id it could not find, got: {message}"
-    );
-
-    // The gmail connection is active but the wrong toolkit — same refusal, which is what proves
-    // the filter is on toolkit *and* status rather than either alone.
-    let wrong_toolkit = post_json_rpc(
-        &h.rpc_base,
-        9603,
-        "openhuman.slack_memory_sync_trigger",
-        json!({ "connection_id": "conn-gmail-live" }),
-    )
-    .await;
-    assert!(
-        jsonrpc_error_message(&wrong_toolkit, "sync_trigger for a gmail connection")
-            .contains("no active Slack connection with id=conn-gmail-live")
-    );
-
-    h.stop();
-}
-
-/// Both `slack_memory` controllers refuse before the network hop when the user is signed out.
-#[tokio::test]
-async fn slack_memory_controllers_require_a_backend_session() {
-    let _env_lock = platform_e2e_env_lock();
-    let h = Harness::start(default_state()).await;
-    // Deliberately no sign_in().
-
-    for (id, method) in [
-        (9701, "openhuman.slack_memory_sync_status"),
-        (9702, "openhuman.slack_memory_sync_trigger"),
-    ] {
-        let response = post_json_rpc(&h.rpc_base, id, method, json!({})).await;
-        let message = jsonrpc_error_message(&response, method);
-        assert!(
-            message.contains("[slack_ingest] list_connections")
-                && message.contains("no backend session token"),
-            "{method} must fail at the client factory with an actionable message, got: {message}"
-        );
-    }
-
-    h.stop();
-}
-
 // ── announcements ────────────────────────────────────────────────────────────
 
 /// `announcements_get_latest` passes a backend announcement through verbatim, folds the backend's
@@ -1487,7 +1342,7 @@ async fn slack_memory_controllers_require_a_backend_session() {
 /// Covers: `openhuman.announcements_get_latest`.
 #[tokio::test]
 async fn announcements_get_latest_passes_through_and_folds_404_to_null() {
-    let _env_lock = platform_e2e_env_lock();
+    let _env_lock = platform_e2e_env_lock_async().await;
 
     // ── signed out: refused locally, before the backend is dialled.
     let h = Harness::start(default_state()).await;

@@ -36,12 +36,6 @@ pub(super) struct InferenceTestChatModelParams {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct InferenceShouldReactParams {
-    message: String,
-    channel_type: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct InferenceAnalyzeSentimentParams {
     message: String,
 }
@@ -93,17 +87,6 @@ pub(super) fn handle_inference_test_provider_model(params: Map<String, Value>) -
                 p.prompt.as_deref().unwrap_or("Hello world"),
             )
             .await?,
-        )
-    })
-}
-
-pub(super) fn handle_inference_should_react(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let p = deserialize_params::<InferenceShouldReactParams>(params)?;
-        let config = config_rpc::load_config_with_timeout().await?;
-        to_json(
-            crate::inference::rpc::inference_should_react(&config, &p.message, &p.channel_type)
-                .await?,
         )
     })
 }

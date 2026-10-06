@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicU16, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use axum::extract::{Query, State};
+use axum::extract::{Path as UrlPath, Query, State};
 use axum::http::{header::AUTHORIZATION, HeaderMap, StatusCode};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -45,6 +45,9 @@ pub struct HostedState {
     pub force_status: AtomicU16,
     /// Milliseconds every `experience` write is delayed by (0 = none).
     pub delay_ms: AtomicU64,
+    /// What `GET /memory/{facts,beliefs,understanding}` answers, by
+    /// `(layer, scope)`.
+    pub layers: Mutex<std::collections::HashMap<(String, String), Vec<Value>>>,
 }
 
 pub type Hosted = Arc<HostedState>;
@@ -125,14 +128,25 @@ pub async fn experience(
         .lock()
         .unwrap()
         .insert(key, (text, id.clone()));
-    state.events.lock().unwrap().push(json!({
+    // The engine keeps the caller's context (labels, `observed_at`) and stamps
+    // its own `recorded_at`; the hosted families look records up by label.
+    let mut context = body["context"].clone();
+    if !context.is_object() {
+        context = json!({});
+    }
+    context["recorded_at"] = json!("2026-09-02T00:00:00Z");
+    let mut event = json!({
         "id": id,
         "scope": body["scope"],
         "modality": body["modality"],
         "wal_offset": offset,
         "content": body["content"],
-        "context": { "recorded_at": "2026-09-02T00:00:00Z" },
-    }));
+        "context": context,
+    });
+    if !body["directives"].is_null() {
+        event["directives"] = body["directives"].clone();
+    }
+    state.events.lock().unwrap().push(event);
     ok(json!({ "event_id": id, "status": "captured", "replayed_from_idempotency": false }))
 }
 
@@ -153,9 +167,24 @@ pub async fn events(
         .get("limit")
         .and_then(|v| v.parse().ok())
         .unwrap_or(50);
+    // The engine splits its label filter on commas and keeps an event carrying
+    // any one of the pieces.
+    let wanted: Vec<String> = params
+        .get("labels")
+        .map(|labels| labels.split(',').map(|l| l.trim().to_string()).collect())
+        .unwrap_or_default();
+    let labelled = |event: &Value| {
+        wanted.is_empty()
+            || event["context"]["labels"].as_array().is_some_and(|labels| {
+                labels
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .any(|label| wanted.iter().any(|w| w == label))
+            })
+    };
     let mut stream = Vec::new();
     for event in state.events.lock().unwrap().iter().rev() {
-        if event["scope"].as_str() == Some(scope.as_str()) {
+        if event["scope"].as_str() == Some(scope.as_str()) && labelled(event) {
             stream.push(event.clone());
             stream.push(event.clone());
         }
@@ -175,12 +204,37 @@ pub async fn recall(
     }
     let scope = body["scope"].as_str().unwrap_or_default();
     let query = body["query"].as_str().unwrap_or_default().to_lowercase();
+    // `descend` recalls the scope and everything under it.
+    let descend = body["view"].as_str() == Some("descend");
+    // A metadata label filter keeps an event carrying any one of the labels.
+    let wanted: Vec<&str> = body
+        .pointer("/filters/metadata/labels")
+        .and_then(Value::as_array)
+        .map(|labels| labels.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    let budget = body
+        .pointer("/budgets/per_layer_limits/events")
+        .and_then(Value::as_u64)
+        .map_or(usize::MAX, |limit| limit as usize);
     let hits: Vec<Value> = state
         .events
         .lock()
         .unwrap()
         .iter()
-        .filter(|e| e["scope"].as_str() == Some(scope))
+        .filter(|e| {
+            e["scope"].as_str().is_some_and(|held| {
+                held == scope || (descend && held.starts_with(&format!("{scope}/")))
+            })
+        })
+        .filter(|e| {
+            wanted.is_empty()
+                || e["context"]["labels"].as_array().is_some_and(|labels| {
+                    labels
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .any(|label| wanted.contains(&label))
+                })
+        })
         .filter(|e| {
             query.is_empty()
                 || e["content"]["text"]
@@ -194,6 +248,7 @@ pub async fn recall(
             }
             hit
         })
+        .take(budget)
         .collect();
     ok(json!({ "pack_id": "pack_test", "layers": { "events": hits } }))
 }
@@ -210,17 +265,45 @@ pub async fn scopes(
         .get("limit")
         .and_then(|v| v.parse().ok())
         .unwrap_or(50);
+    // A prefix names a scope and everything under it.
+    let prefix = params.get("prefix").cloned();
     let mut paths: Vec<String> = state
         .events
         .lock()
         .unwrap()
         .iter()
         .filter_map(|e| e["scope"].as_str().map(str::to_string))
+        .filter(|path| {
+            prefix
+                .as_deref()
+                .is_none_or(|p| path == p || path.starts_with(&format!("{p}/")))
+        })
         .collect();
     paths.sort();
     paths.dedup();
     paths.truncate(limit);
     ok(json!({ "items": paths.into_iter().map(|p| json!({ "path": p })).collect::<Vec<_>>() }))
+}
+
+pub async fn event_by_id(
+    State(state): State<Hosted>,
+    headers: HeaderMap,
+    UrlPath(id): UrlPath<String>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(early) = gate(&state, &headers) {
+        return early;
+    }
+    let found = state
+        .events
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"].as_str() == Some(id.as_str()))
+        .cloned();
+    match found {
+        Some(event) => ok(event),
+        None => err(404, "NOT_FOUND"),
+    }
 }
 
 pub async fn forget(
@@ -249,14 +332,45 @@ pub async fn forget(
     ok(json!({ "deleted": { "events": deleted }, "requested": ids.len(), "matched": deleted }))
 }
 
+/// One page of a derived layer: everything seeded for the scope, in one page.
+pub async fn layer(
+    State(state): State<Hosted>,
+    headers: HeaderMap,
+    uri: axum::http::Uri,
+    Query(params): Query<std::collections::BTreeMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    if let Some(early) = gate(&state, &headers) {
+        return early;
+    }
+    let name = uri
+        .path()
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .to_string();
+    let scope = params.get("scope").cloned().unwrap_or_default();
+    let items = state
+        .layers
+        .lock()
+        .unwrap()
+        .get(&(name, scope))
+        .cloned()
+        .unwrap_or_default();
+    ok(json!({ "items": items, "has_more": false }))
+}
+
 pub async fn start_hosted() -> (String, Hosted) {
     let state: Hosted = Arc::new(HostedState::default());
     let app = Router::new()
         .route("/memory/experience", post(experience))
         .route("/memory/events", get(events))
+        .route("/memory/events/{id}", get(event_by_id))
         .route("/memory/recall", post(recall))
         .route("/memory/forget", post(forget))
         .route("/memory/scopes", get(scopes))
+        .route("/memory/facts", get(layer))
+        .route("/memory/beliefs", get(layer))
+        .route("/memory/understanding", get(layer))
         .with_state(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr: SocketAddr = listener.local_addr().unwrap();
@@ -493,7 +607,8 @@ impl Fixture {
 
     /// Poll a migration job to a terminal state.
     pub async fn wait_job(&self, job_id: &str) -> Value {
-        for _ in 0..200 {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+        loop {
             let v = self
                 .call(
                     "openhuman.memory_engine_migrate_status",
@@ -504,9 +619,12 @@ impl Fixture {
             if status["state"] != "running" {
                 return status;
             }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "migration job {job_id} did not finish within 60 seconds"
+            );
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
-        panic!("migration job {job_id} did not finish");
     }
 
     pub async fn put_doc(&self, key: &str, content: &str) {

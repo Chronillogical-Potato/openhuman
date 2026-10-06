@@ -4,15 +4,6 @@
 //! pipeline. Both now live in the `tinyruntime` module, which does the same work
 //! for every language, so what is left is the adapter that turns a module answer
 //! into the [`ResolvedPython`] this core's callers already name.
-//!
-//! # What still happens here
-//!
-//! [`spawn_stdio`](PythonBootstrap::spawn_stdio) launches a long-lived Python
-//! child of this process — the runtime Python server, and the stdio MCP servers.
-//! That is deliberately *not* the module's pooled execution: those children
-//! outlive a single job, speak their own protocols, and are owned by the
-//! subsystem that started them. The module resolves the interpreter; this core
-//! decides what to run with it.
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -101,6 +92,13 @@ impl PythonBootstrap {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn cache_for_test(&self, resolved: ResolvedPython) {
+        if let Ok(mut cached) = self.cached.lock() {
+            *cached = Some(resolved);
+        }
+    }
+
     /// The configuration this bootstrap resolves under.
     #[must_use]
     pub fn config(&self) -> &Config {
@@ -160,19 +158,6 @@ impl PythonBootstrap {
                 anyhow!("the python runtime module reported no interpreter and did not say why")
             })?;
         self.adopt(&resolved)
-    }
-
-    /// Launch a long-lived stdio Python child.
-    ///
-    /// # Errors
-    ///
-    /// When the interpreter cannot be resolved, or the child cannot be spawned.
-    pub async fn spawn_stdio(
-        &self,
-        spec: &super::process::PythonLaunchSpec,
-    ) -> Result<tokio::process::Child> {
-        let resolved = self.resolve().await?;
-        super::process::spawn_stdio_process(&resolved, spec)
     }
 
     /// Adapt a module resolution and remember it.

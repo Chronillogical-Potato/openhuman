@@ -159,17 +159,6 @@ fn trigger_agent_requires_caller_id_only() {
     }
 }
 
-#[test]
-fn unknown_function_returns_error_fallback_schema() {
-    let s = schemas("no_such_fn");
-    assert_eq!(s.function, "unknown");
-    assert_eq!(s.namespace, "webhooks");
-    assert_eq!(s.outputs.len(), 1);
-    assert_eq!(s.outputs[0].name, "error");
-    assert!(matches!(s.outputs[0].ty, TypeSchema::String));
-    assert!(s.outputs[0].required);
-}
-
 // ── deserialize_params ────────────────────────────────────────
 
 #[test]

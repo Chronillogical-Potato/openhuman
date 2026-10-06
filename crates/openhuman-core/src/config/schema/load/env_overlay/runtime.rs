@@ -1,4 +1,4 @@
-//! Env overrides for the local-AI tier preset and the Node, Python, runtime-pool, and tokenjuice runtimes.
+//! Env overrides for the Node, Python, runtime-pool, and tokenjuice runtimes.
 
 use crate::config::schema::load::env::parse_env_bool;
 use crate::config::schema::load::env::EnvLookup;
@@ -6,40 +6,6 @@ use crate::config::schema::Config;
 
 impl Config {
     pub(super) fn apply_runtime_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {
-        if let Some(tier_str) = env.get("OPENHUMAN_LOCAL_AI_TIER") {
-            let tier_str = tier_str.trim().to_ascii_lowercase();
-            if !tier_str.is_empty() {
-                if let Some(tier) = tinyinference_local::presets::ModelTier::from_str_opt(&tier_str)
-                {
-                    if tier == tinyinference_local::presets::ModelTier::Custom {
-                        tracing::warn!(
-                            tier = %tier_str,
-                            "ignoring custom OPENHUMAN_LOCAL_AI_TIER; only built-in presets are supported"
-                        );
-                    } else if !tier.is_mvp_allowed() {
-                        tracing::warn!(
-                            tier = %tier_str,
-                            "ignoring OPENHUMAN_LOCAL_AI_TIER outside the 1B local-model allowlist"
-                        );
-                    } else {
-                        crate::config::ops::local_ai_presets::apply_preset_to_config(
-                            &mut self.local_ai,
-                            tier,
-                        );
-                        tracing::debug!(
-                            tier = %tier_str,
-                            "applied local AI tier from OPENHUMAN_LOCAL_AI_TIER"
-                        );
-                    }
-                } else {
-                    tracing::warn!(
-                        tier = %tier_str,
-                        "ignoring invalid OPENHUMAN_LOCAL_AI_TIER (valid: ram_2_4gb)"
-                    );
-                }
-            }
-        }
-
         if let Some(flag) = env.get("OPENHUMAN_NODE_ENABLED") {
             if let Some(enabled) = parse_env_bool("OPENHUMAN_NODE_ENABLED", &flag) {
                 self.node.enabled = enabled;

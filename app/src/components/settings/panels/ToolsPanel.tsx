@@ -2,7 +2,6 @@ import {
   AlarmClock,
   Brain,
   Calendar,
-  Eraser,
   FileInput,
   FilePen,
   GitBranch,
@@ -11,7 +10,6 @@ import {
   type LucideIcon,
   MousePointerClick,
   Network,
-  Save,
   Search,
   SquareTerminal,
   Wrench,
@@ -46,9 +44,7 @@ const TOOL_ICONS: Record<string, LucideIcon> = {
   browser: MousePointerClick,
   http_request: Network,
   web_search: Search,
-  memory_store: Save,
-  memory_recall: Brain,
-  memory_forget: Eraser,
+  memory: Brain,
   cron: AlarmClock,
   schedule: Calendar,
 };
@@ -116,8 +112,6 @@ const ToolsPanel = ({ embedded = false, bare = false }: ToolsPanelProps = {}) =>
 
       await setOnboardingTasks({
         accessibilityPermissionGranted: onboardingTasks?.accessibilityPermissionGranted ?? false,
-        localModelConsentGiven: onboardingTasks?.localModelConsentGiven ?? false,
-        localModelDownloadStarted: onboardingTasks?.localModelDownloadStarted ?? false,
         enabledTools,
         connectedSources: onboardingTasks?.connectedSources ?? [],
         updatedAtMs: Date.now(),

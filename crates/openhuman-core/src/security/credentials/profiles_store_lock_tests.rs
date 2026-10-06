@@ -359,7 +359,7 @@ fn clear_active_profile() {
 
     store.clear_active_profile("openai").unwrap();
     let data = store.load().unwrap();
-    assert!(data.active_profiles.get("openai").is_none());
+    assert!(!data.active_profiles.contains_key("openai"));
 }
 
 #[test]

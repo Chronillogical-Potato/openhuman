@@ -13,21 +13,19 @@
 //! replay the finished turn. If the bridge exits without ever observing
 //! `TurnCompleted` (for example because the agent loop returned an error),
 //! the snapshot is flagged [`TurnLifecycle::Interrupted`] and persisted so
-//! the UI can surface a retry affordance.
+//! the UI can surface a retry affordance. The mirror type and that
+//! finalization live in `tinyagents_session::turn_state::TurnStateMirror`.
 
 #[cfg(test)]
 #[path = "mirror_tests.rs"]
 mod tests;
 
-mod caps;
-mod lifecycle;
 mod observe;
-mod state;
 
-pub use state::TurnStateMirror;
+pub use observe::ObserveProgress;
 
 #[cfg(test)]
-pub(crate) use caps::MAX_PERSISTED_TRANSCRIPT_ITEM;
+use tinyagents_session::turn_state::mirror::MAX_PERSISTED_TRANSCRIPT_ITEM;
 #[cfg(test)]
 use tinyagents_session::turn_state::store::TurnStateStore;
 #[cfg(test)]
@@ -35,3 +33,5 @@ use tinyagents_session::turn_state::types::{
     SubagentToolCall, SubagentTranscriptItem, ToolTimelineStatus, TranscriptItem, TurnLifecycle,
     TurnPhase,
 };
+#[cfg(test)]
+use tinyagents_session::turn_state::TurnStateMirror;

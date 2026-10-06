@@ -119,23 +119,28 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
             inputs: vec![],
             outputs: vec![json_output(
                 "paths",
-                "Resolved agent paths: action_dir (acting-tool CWD), workspace_dir (internal state, agent-blocked), projects_dir (default projects home), action_dir_source (env | override | default).",
+                "Resolved agent paths: action_dir (acting-tool CWD), workspace_dir (internal state, agent-blocked), projects_dir (default projects home), action_dir_source (env | override | default), files_dir (where agent deliverables are written), default_files_dir, files_dir_source (override | default).",
             )],
         }),
 "update_agent_paths" => Some( ControllerSchema {
             namespace: "config",
             function: "update_agent_paths",
             description:
-                "Update the agent's editable filesystem roots. Currently only action_dir (the acting-tool sandbox). The path must be absolute; a missing directory is auto-created; it cannot equal the internal workspace_dir. An empty string clears the override and reverts to the default. Applies to new sessions immediately (live policy hot-swap), no restart. OPENHUMAN_ACTION_DIR still overrides at runtime when set.",
+                "Update the agent's editable filesystem roots: action_dir (the acting-tool sandbox) and files_dir (the folder agent deliverables are written to; new artifacts only, and it may not sit inside the OpenHuman data folder). The path must be absolute; a missing directory is auto-created; it cannot equal the internal workspace_dir. An empty string clears the override and reverts to the default. Applies to new sessions immediately (live policy hot-swap), no restart. OPENHUMAN_ACTION_DIR still overrides at runtime when set.",
             inputs: vec![FieldSchema {
                 name: "action_dir",
                 ty: TypeSchema::Option(Box::new(TypeSchema::String)),
                 comment: "New absolute action sandbox path. Empty string clears the override (revert to default). Omit to leave unchanged.",
                 required: false,
+            }, FieldSchema {
+                name: "files_dir",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "New absolute folder for agent deliverables. Empty string clears the override (revert to ~/OpenHuman/projects/Files). Omit to leave unchanged.",
+                required: false,
             }],
             outputs: vec![json_output(
                 "paths",
-                "Updated agent paths (same shape as get_agent_paths): action_dir, workspace_dir, projects_dir, action_dir_source.",
+                "Updated agent paths (same shape as get_agent_paths): action_dir, workspace_dir, projects_dir, action_dir_source, files_dir, default_files_dir, files_dir_source.",
             )],
         }),
 "get_onboarding_completed" => Some( ControllerSchema {

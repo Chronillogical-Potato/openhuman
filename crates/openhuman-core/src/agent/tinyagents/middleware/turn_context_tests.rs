@@ -2,6 +2,41 @@ use super::*;
 use tinyagents_harness::context::RunConfig;
 
 #[tokio::test]
+async fn attachment_scope_is_request_local_and_contains_only_typed_authority() {
+    let root = std::path::PathBuf::from("/workspace/project");
+    let mut data = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    data.origin = Some(
+        crate::agent::turn_origin::AgentTurnOrigin::ExternalChannel {
+            channel: "test".into(),
+            sender: None,
+            reply_target: "room".into(),
+            message_id: "message".into(),
+        },
+    );
+    data.workspace = Some(tinytools::WorkspaceDescriptor::new(root.clone()));
+    let mut context = RunContext::new(RunConfig::new("attachment-scope"), data);
+    let mut request = ModelRequest::new(Vec::new());
+    request.metadata["preserved"] = serde_json::json!(true);
+
+    AttachmentRequestScopeMiddleware
+        .before_model(&mut context, &(), &mut request)
+        .await
+        .expect("scope carrier is installed");
+
+    let mut provider_metadata = request.metadata.clone();
+    let scope = crate::agent::attachments::take_request_scope(&mut provider_metadata);
+    assert!(scope.external_channel);
+    assert_eq!(scope.workspace.as_deref(), Some(root.as_path()));
+    assert_eq!(provider_metadata, serde_json::json!({"preserved": true}));
+    assert!(request.messages.is_empty());
+}
+
+#[tokio::test]
+async fn attachment_scope_observes_even_after_an_earlier_middleware_stops() {
+    assert!(AttachmentRequestScopeMiddleware.is_observer());
+}
+
+#[tokio::test]
 async fn transcript_snapshot_keeps_a_completed_failed_tool_row() {
     let sink = Arc::new(std::sync::Mutex::new(TranscriptSnapshot::default()));
     let middleware = TranscriptSnapshotMiddleware {

@@ -126,7 +126,7 @@ fn the_registered_agent_tools_run_over_the_process_service() {
 
 #[tokio::test]
 async fn the_accounts_seam_reports_the_stored_wallet() {
-    let _guard = TEST_LOCK.lock();
+    let _guard = TEST_LOCK.lock().await;
     let temp = TempDir::new().unwrap();
     let _workspace_guard = setup_wallet_in(&temp).await.unwrap();
 
@@ -165,7 +165,7 @@ async fn the_accounts_seam_reports_the_stored_wallet() {
 
 #[tokio::test]
 async fn the_backend_seam_needs_a_signed_in_session() {
-    let _guard = TEST_LOCK.lock();
+    let _guard = TEST_LOCK.lock().await;
     let temp = TempDir::new().unwrap();
     let _workspace_guard = setup_wallet_in(&temp).await.unwrap();
     let err = HostBackend.routes().await.unwrap_err();
@@ -178,7 +178,7 @@ async fn the_backend_seam_needs_a_signed_in_session() {
 /// the whole host stack: task-local scope, engine, quote store.
 #[tokio::test]
 async fn a_prepared_quote_is_bound_to_the_chat_thread_that_prepared_it() {
-    let _guard = TEST_LOCK.lock();
+    let _guard = TEST_LOCK.lock().await;
     let temp = TempDir::new().unwrap();
     let _workspace_guard = setup_wallet_in(&temp).await.unwrap();
 

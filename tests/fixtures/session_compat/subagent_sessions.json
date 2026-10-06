@@ -1,0 +1,44 @@
+[
+  {
+    "subagentSessionId": "subsess-compat-1",
+    "parentSession": "parent-compat",
+    "parentThreadId": "thread-compat",
+    "workerThreadId": "worker-compat",
+    "agentId": "researcher",
+    "displayName": "Researcher",
+    "model": null,
+    "sandboxMode": "none",
+    "actionRoot": null,
+    "taskKey": "key-1",
+    "taskTitle": "Find it",
+    "currentTaskId": "task-compat-1",
+    "status": "idle",
+    "reusable": true,
+    "latestHistory": [
+      {
+        "role": "system",
+        "content": "You are the researcher."
+      },
+      {
+        "role": "user",
+        "content": "find the answer"
+      },
+      {
+        "role": "assistant",
+        "content": "{\"content\":\"\",\"tool_calls\":[{\"id\":\"call_s\",\"name\":\"search\",\"arguments\":\"{}\"}]}"
+      },
+      {
+        "role": "tool",
+        "content": "{\"tool_call_id\":\"call_s\",\"content\":\"found\"}"
+      },
+      {
+        "role": "assistant",
+        "content": "answer"
+      }
+    ],
+    "latestError": null,
+    "createdAt": "2026-09-01T00:00:00Z",
+    "updatedAt": "2026-09-01T00:05:00Z",
+    "lastUsedAt": "2026-09-01T00:05:00Z"
+  }
+]

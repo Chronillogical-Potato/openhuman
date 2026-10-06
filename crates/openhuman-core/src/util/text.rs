@@ -3,25 +3,6 @@
 //! UTF-8-safe truncation, char-boundary rounding, and the non-leaky
 //! provenance tag used by the cross-chat context block.
 
-/// Render a short, non-leaky provenance tag for a session/thread id.
-///
-/// The channel-side `session_id` is typically a JSON blob
-/// (`{"client_id": "...", "thread_id": "..."}`); rendering it verbatim
-/// in a model prompt or log line would leak the raw `client_id` /
-/// socket UUID. Hash the input with `DefaultHasher` and emit only the
-/// low 32 bits as `chat:xxxxxxxx` — short, stable per id, and not
-/// reversible to the original blob.
-///
-/// Used by the cross-chat context block (issue #1505) so the prompt
-/// can attribute hits without surfacing raw identifiers.
-pub fn provenance_tag(session_id: &str) -> String {
-    use std::hash::{Hash, Hasher};
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    session_id.hash(&mut hasher);
-    let h = hasher.finish();
-    format!("chat:{:08x}", (h & 0xFFFF_FFFF) as u32)
-}
-
 /// Truncate a string to at most `max_chars` characters, appending "..." if truncated.
 ///
 /// This function safely handles multi-byte UTF-8 characters (emoji, CJK, accented characters)
@@ -54,17 +35,6 @@ pub fn provenance_tag(session_id: &str) -> String {
 /// ```
 pub fn truncate_with_ellipsis(s: &str, max_chars: usize) -> String {
     truncate_with_suffix(s, max_chars, "...")
-}
-
-/// Truncate `s` to at most `max_chars` characters (UTF-8-safe), returning the
-/// truncated slice plus whether truncation actually happened — so a caller
-/// can append its own marker only when needed, instead of always appending a
-/// fixed suffix like [`truncate_with_suffix`].
-pub fn truncate_chars_flagged(s: &str, max_chars: usize) -> (&str, bool) {
-    match s.char_indices().nth(max_chars) {
-        Some((byte_idx, _)) => (&s[..byte_idx], true),
-        None => (s, false),
-    }
 }
 
 /// Truncate a string to at most `max_chars` characters, appending `suffix` if truncated.

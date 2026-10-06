@@ -30,7 +30,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # serially so CI does not link several large integration binaries at once.
 # Tests guarded by `#[ignore]` stay skipped unless the caller passes
 # `-- --ignored`.
-# The suite list is DERIVED from `tests/*_e2e.rs`, not hand-maintained.
+# The suite list is DERIVED from `tests/*_e2e.rs` plus the `in_process_all`
+# aggregate (the former in-process router suites now live under
+# `tests/in_process/`), not hand-maintained.
 #
 # It used to be a literal list of 20 names while 29 `tests/*_e2e.rs` targets
 # existed, so nine were silently absent from this runner — including
@@ -58,7 +60,7 @@ _discover_e2e_suites() {
     done
     [ $skip -eq 0 ] && printf '%s\n' "$name"
   done < <(
-    find "$REPO_ROOT/tests" -maxdepth 1 -type f -name '*_e2e.rs' -print |
+    find "$REPO_ROOT/tests" -maxdepth 1 -type f \( -name '*_e2e.rs' -o -name 'in_process_all.rs' \) -print |
       sed -e 's#.*/##' -e 's#\.rs$##' |
       sort
   )
@@ -166,17 +168,6 @@ fi
 # execute. Keep this list in the same canonical source as `pnpm test:rust`.
 PRODUCT_FEATURES="$(bash "$REPO_ROOT/scripts/ci/product-features.sh")"
 
-# Memory-backed RPC tests use the pinned native module. Build the submodule
-# artifact when CI/local callers have not supplied an explicit release pin;
-# otherwise the clean E2E container falls back to unavailable release metadata.
-if [ -z "${TINYMEMORY_TEST_MODULE:-}" ]; then
-  memory_manifest="vendor/tinymemory/crates/tinymemory-module/Cargo.toml"
-  memory_module="vendor/tinymemory/crates/tinymemory-module/target/release/libtinymemory_module.so"
-  echo "[rust-e2e] Building pinned TinyMemory test module ..."
-  "$CARGO_BIN" build --release --manifest-path "$memory_manifest"
-  export TINYMEMORY_TEST_MODULE="$REPO_ROOT/$memory_module"
-fi
-
 # Module-backed Composio coverage must use the pinned local artifact as well.
 # Without this override the core resolves TinyConnectors through release
 # metadata, turning an otherwise hermetic mock-backend suite into a network
@@ -225,9 +216,31 @@ run_json_rpc_e2e_suite() {
   done <<<"$test_names"
 }
 
+run_in_process_modules() {
+  # `in_process_all` folds ~20 former `tests/*.rs` targets into one binary. Run
+  # each module in its own process, as those targets did, so process globals
+  # (the transport install, the RPC bearer, module singletons) stay per suite.
+  local module
+  while IFS= read -r module; do
+    [ -n "$module" ] || continue
+    echo "[rust-e2e]   in_process module: ${module}"
+    bash "$SCRIPT_DIR/ci-cancel-aware.sh" "$CARGO_BIN" test \
+      --manifest-path Cargo.toml --features "$PRODUCT_FEATURES" \
+      --test in_process_all -- "${module}::" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
+  done < <(
+    find "$REPO_ROOT/tests/in_process" -maxdepth 1 -type f -name '*.rs' -print |
+      sed -e 's#.*/##' -e 's#\.rs$##' |
+      sort
+  )
+}
+
 for suite in "${SUITES[@]}"; do
   if [ "$suite" = "json_rpc_e2e" ]; then
     run_json_rpc_e2e_suite
+    continue
+  fi
+  if [ "$suite" = "in_process_all" ]; then
+    run_in_process_modules
     continue
   fi
 

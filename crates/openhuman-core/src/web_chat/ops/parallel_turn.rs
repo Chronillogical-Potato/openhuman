@@ -61,7 +61,7 @@ pub(crate) async fn spawn_parallel_turn(
             };
             let result = run_turn_under_cancel_and_deadline(
                 task_cancel_token,
-                origin,
+                origin.clone(),
                 approval_ctx,
                 run_chat_task(
                     &client_id_task,
@@ -73,6 +73,7 @@ pub(crate) async fn spawn_parallel_turn(
                     locale,
                     run_queue,
                     metadata,
+                    origin.clone(),
                     /* fork */ true,
                 ),
             )
@@ -166,6 +167,8 @@ pub(crate) async fn spawn_parallel_turn(
                         error_retry_after_ms: classified.retry_after_ms,
                         error_provider: classified.provider,
                         error_fallback_available: classified.fallback_available,
+                        copy_key: Some(classified.copy_key.to_string()),
+                        copy_params: classified.copy_params,
                         ..Default::default()
                     });
                 }

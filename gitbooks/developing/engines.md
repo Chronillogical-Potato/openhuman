@@ -19,10 +19,13 @@ Supported routes:
 
 - **Managed (TinyHumans)**: the default. Access to the OpenRouter model
   catalogue with no key to manage.
-- **Local**: Ollama or LM Studio, set under `[local_ai]` with
-  `provider = "ollama"` or `"lm_studio"`, plus MLX on macOS.
+- **Local**: a runtime the user installs and runs (Ollama, LM Studio, MLX,
+  OMLX), addressed as `ollama:<model>`, `lmstudio:<model>`, `mlx:<model>` or
+  `omlx:<model>`, with the endpoint in `[local_ai] base_url`. OpenHuman does
+  not install the runtime or download models; the user pulls them.
 - **A local OpenAI-compatible endpoint**: any server that speaks the OpenAI
-  chat API, registered with its own slug and endpoint.
+  chat API, as `local-openai:<model>` or registered with its own slug and
+  endpoint.
 - **Claude Code / Claude Agent SDK**: a provider slug that shells out to an
   installed Claude Code CLI instead of calling a hosted API.
 - **26 BYOK slugs**, each shipped with a preset endpoint so only a key is
@@ -34,15 +37,15 @@ Supported routes:
 
 Provider definitions live under `crates/openhuman-core/src/inference/provider/`
 (`factory.rs` resolves a `<slug>:<model>` string to a client; `types.rs` holds
-the provider shapes). Full setup, the local-model capability table, and RAM
-tier presets are in [Local models & bring your own
+the provider shapes). Full setup and the local-model capability table are
+in [Local models & bring your own
 key](../features/model-routing/local-and-byok-models.md); routing behavior
 and fallback order are in [Automatic Model
 Routing](../features/model-routing/README.md).
 
 ## Embeddings
 
-Memory Tree embeddings route through a separate provider selection
+Embeddings route through a separate provider selection
 (`embeddings.update_settings` over RPC, or `embeddings_provider` for
 per-workload override), independent of the chat provider:
 
@@ -51,10 +54,9 @@ per-workload override), independent of the chat provider:
 - **Voyage**: direct Voyage AI API with your own key.
 - **OpenAI**: cloud embeddings via the OpenAI API.
 - **Cohere**: the Cohere embed API with your own key.
-- **Ollama**: a local model, `bge-m3` recommended. The Memory Tree's on-disk
-  vector format is fixed at 1024 dimensions, so a smaller embedding model
-  (`all-minilm`, 384 dimensions, or `nomic-embed-text`, 768) fails the
-  dimension check at embed time.
+- **Ollama**: a local model the user has pulled, `bge-m3` recommended
+  (`ollama pull bge-m3`). Memory v2 does not use these; the memory engine
+  embeds on its own side.
 - **Custom**: any OpenAI-compatible embeddings endpoint.
 
 Implementation: `crates/openhuman-core/src/inference/embedding_host/` (`mod.rs`
@@ -63,83 +65,34 @@ lists the providers; `factory.rs` builds the client; `schemas.rs` defines the
 
 ## Memory
 
-The memory contract (`tinymemory-api`, vendored at `vendor/tinymemory/`)
-defines a driver-neutral `MemoryProvider` trait. Engines are built by
-`tinymemory::factory` (`list_engines`, `build_provider`), and
-`tinymemory::migrate::copy` moves every record between two of them.
+Memory v2 (`docs/specs/memory-v2.md`) is Recall, Fetch and Store over a
+pluggable engine. The contract is `tinymemory-api` (vendored at
+`vendor/tinymemory/`): a `MemoryEngine` trait with `recall`, `fetch`, `store`,
+`forget`, `list` and `health`, plus an `EngineDescriptor` that declares whether
+the engine is hosted, needs an endpoint or key, and which fetch modes it
+supports. `tinymemory::list_engines` and `build_engine` are the registry.
 
-What the user can pick (Settings > Memory Engine, or `openhuman.memory_engine_*`
-over RPC):
+Two engines ship, both from the `tinymemory-cortex` crate:
 
 | id | what | endpoint | key |
 | --- | --- | --- | --- |
-| `tinymemory` | the compiled local TinyCortex module (default, nothing leaves the device) | none | none |
-| `tinyhumans` | CortexDB hosted by the TinyHumans backend, billed in credits | the backend origin, forced | the signed-in session (or API key), read live on every call |
-| `supermemory`, `mem0`, `cognee`, `cortex`, `agentmemory` | the user's own service | from the form | from the form, kept in the OS keychain |
+| `tinyhumans` | CortexDB hosted behind the TinyHumans backend (`/memory/*`) | the backend origin | the signed-in session or API key, resolved per request through the host credential seam |
+| `cortexdb` | the user's own CortexDB (direct `/v1/*`) | `[memory.engines.cortexdb] endpoint` (default `https://api-v1.cortexdb.ai`) | stored in the OS keychain as `memory-cortexdb` |
 
-The switch is applied in process: `memory::ops::engine` validates the request,
-stores any key under the keychain entry `memory-<id>`, writes
-`[subsystems.memory] driver` plus `drivers.<id>` (`class = "external"`,
-`transport = "http"`, `credential_ref = "keychain:memory-<id>"`,
-`trust_state = "trusted"` because the user chose it in the UI), and calls
-`memory::binding::rebind`, which drops the stale bindings, re-points the
-context and publishes `MemoryDriverChanged`. Bindings already held by a running
-agent session or the learning facet cache keep the previous engine until that
-session or the app restarts (derived contexts that keep the parent's memory
-config share its binding handle, so they follow a switch; one with its own
-`[subsystems.memory]` keeps that override). Every switch runs under one process-wide
-lock, `engine_set` is refused while a migration runs, and the commit reloads the
-config fresh and patches only `[subsystems.memory]`. Migration (`engine_migrate`) copies first and
-switches only after a clean copy; the source is never modified, and a failed
-run leaves the active engine alone. A running copy can be cancelled (`engine_migrate_cancel`, between pages), is
-bounded by `OPENHUMAN_MEMORY_MIGRATE_TIMEOUT_SECS` (default 2 hours) and fails, not
-hangs, if its task panics. Records written while a copy runs may be missing from
-the new engine; the job result carries a `note` saying so, and this migration does not provide a second-pass delta copy. `OPENHUMAN_MEMORY_DRIVER` pins the engine and makes the switch RPCs
-refuse.
+Select one with `[memory] engine` or from Connections > Memory > Engine
+(`openhuman.memory_engine_set`). `memory::engine::resolve` binds it: signed out
+with no CortexDB key means **memory is off** (the `memory` tool is not
+registered, ingestion is a no-op and RPCs answer `MEMORY_OFF`). Built engines
+are cached by a fingerprint of engine id, endpoint and credential identity, so
+changing any of them rebuilds the engine on the next call. There is no engine
+migration: switching engines starts empty, and the one-time import of a v1
+store uploads to whichever engine is selected, after explicit consent.
 
-`binding::admit` admits `tinymemory` (with `tinycortex` kept as a legacy
-alias), `null`, the first-party `tinyhumans` (no `drivers` entry, implicitly
-trusted) and any factory engine configured `class = "external"` with
-`trust_state = "trusted"`. An untrusted external driver, or an id the factory
-does not know, is still refused, and a build without the `memory-remote` gate
-refuses every external driver ("external driver transport is not implemented
-yet"). A driver that fails to build falls back to `null` with the reason
-surfaced in `memory.engine_get` and on the event bus, never silently. It falls
-back to `null`, not to the local module, so nothing is written locally while the
-user chose a remote engine; the UI says memory is paused. A construction failure
-(keychain locked, transport not installed yet) is retried on the next resolve after
-30 seconds; an admission refusal stays cached.
+Both engines declare `fetch_modes = [hybrid]` because the CortexDB recall wire
+has no keyword/vector switch; asking for another mode fails with `UNSUPPORTED`.
 
-On a remote engine the mandatory-surface fallbacks are bounded: recency reads at
-most two `export_page` calls of `min(limit*4, 200)` records, and the document list
-scans at most 10 namespaces and returns at most 200 documents with a `truncated`
-flag. The proper fix is a bounded `recent(namespace, limit)` on the tinymemory
-contract, an upstream follow-up. Hosted 402 and 401 errors from ordinary memory
-RPCs read `INSUFFICIENT_CREDITS:` and `SESSION_EXPIRED:` too; a 403 (a credential
-the engine refuses, such as an API key without the memory scope) reads
-`MEMORY_FORBIDDEN:` and never signs the user out, and a timeout, refused
-connection, 429 or 5xx that outlasts the retries reads `MEMORY_UNREACHABLE:`.
-
-Not every engine advertises every capability family. The hosted and CortexDB
-engines have no `documents`, `tree`, `sources` or `graph` families, so the
-document, tree and source RPCs answer a clean "does not support" error on them
-(see the [`memory/driver` README](../../crates/openhuman-core/src/memory/driver/README.md)
-for the full table). Brain's sync panels (activity, history, coding sessions)
-need `sources` and show "Not available" there.
-
-Auto-recall reads the notes a user saved through the mandatory recall on such an
-engine. Hosted CortexDB ranks its recall without scoring it, so its notes cannot
-be floored on similarity: the lane keeps the engine's first three, behind the
-same gate that decides whether a message needs memory at all. Situational
-preferences and the contradiction check need a scored engine and stay empty
-there. A lookup the engine refuses (out of credits, session not accepted,
-credential refused, unreachable) puts a one-line reason in the recall block
-instead of an empty result, so the model says memory is unavailable rather than
-that something was never stored.
-
-Related pages: [Memory](../features/obsidian-wiki/README.md) and its
-sub-pages for what TinyCortex actually does (memory tree, scoring, retrieval,
-git-backed diffs).
+Related pages: [Memory](../features/memory.md) and
+[Memory architecture](architecture/memory.md).
 
 ## Web search
 

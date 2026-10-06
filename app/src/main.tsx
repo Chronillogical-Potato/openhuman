@@ -21,29 +21,18 @@ import { APP_VERSION } from './utils/config';
 import { getStoredCoreMode } from './utils/configPersistence';
 import { setupDesktopDeepLinkListener } from './utils/desktopDeepLinkListener';
 import { missingHashRedirectTarget } from './utils/hashRouterBootstrap';
-import { installIpcTransportFallback } from './utils/ipcTransportFallback';
 import { getActiveUserIdFromCore } from './utils/tauriCommands';
 import { isTauri as tauriRuntimeAvailable } from './utils/tauriCommands/common';
-
-// Must run before anything can `invoke()`. Tauri's vendored IPC bootstrap
-// falls back to `window.ipc.postMessage(...)` once the `ipc://` custom-protocol
-// fetch rejects even once, and CEF never wires `window.ipc` — that dereference
-// is Sentry TAURI-REACT-6 / #5155. Installing a working fallback here makes the
-// undefined access impossible AND lets the latched fallback keep serving IPC
-// instead of bricking the session. Module-body position is early enough: ESM
-// hoists every import above this line, and no imported module invokes at
-// import time — the first real `invoke()` happens in a React effect.
-installIpcTransportFallback();
 
 setStoreForApiClient(() => getCoreStateSnapshot().snapshot.sessionToken);
 
 // The floating mascot is hosted in a native macOS NSPanel + WKWebView
-// that lives OUTSIDE Tauri's runtime (the vendored tauri-cef can't render
-// transparent windowed-mode browsers). That webview can't read a Tauri
+// that lives OUTSIDE Tauri's runtime (Tauri's webview can't render
+// transparent windowed-mode surfaces). That webview can't read a Tauri
 // window label, so the Rust shell appends `?window=mascot` to the URL it
 // loads. Detect it via the URL param so we can skip `getCurrentWindow()`
-// — which would either throw or trigger the CEF IPC-bootstrap gap that
-// `tauriRuntimeAvailable()` (= the hardened `isTauri()`) now guards
+// — which would either throw or hit the IPC-bootstrap gap that
+// `tauriRuntimeAvailable() (= the hardened `isTauri()`) now guards
 // against by reading `window.__TAURI_INTERNALS__.invoke`.
 const urlWindowParam = (() => {
   try {

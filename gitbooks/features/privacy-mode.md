@@ -44,11 +44,13 @@ Privacy Mode governs **data egress**. It is orthogonal to the [autonomy tiers](p
 
 ## Pairing it with local models
 
-Local-only mode is designed to work with OpenHuman's [Local AI](model-routing/local-ai.md) stack:
+Local-only mode is designed to work with [Local AI](model-routing/local-ai.md). OpenHuman does not install runtimes or download models, so you set these up yourself before turning it on:
 
-- Chat and reasoning via **Ollama / LM Studio / MLX** models you download in Settings.
-- **Piper** text-to-speech, installed from Settings in one click.
-- Local embeddings for [Memory Tree](obsidian-wiki/memory-tree.md) retrieval.
+- Chat and reasoning on a runtime you run (**Ollama, LM Studio, MLX, OMLX**, or another OpenAI-compatible server), with the models you pulled, added as a provider under **Connections → LLM**.
+- **Piper** text-to-speech, if you install the Piper binary and a voice yourself and set `PIPER_BIN`.
+- Memory stays on a CortexDB endpoint you run yourself; the hosted TinyHumans engine is a cloud call and is blocked by local-only mode.
+
+With local-only on, a workload routed to a runtime that isn't running, or to a model you haven't pulled, fails instead of falling back to the cloud.
 
 See the [Use OpenHuman with a local model](../guides/local-model.md) guide for a full local setup, and [Keep sensitive data private](../guides/privacy-sensitive-data.md) for a broader privacy walkthrough.
 

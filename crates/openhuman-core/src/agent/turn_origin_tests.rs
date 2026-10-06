@@ -281,24 +281,6 @@ async fn spawn_preserves_an_untrusted_origin_verbatim() {
     }
 }
 
-/// The explicit opt-out drops the label, which is its whole purpose — the
-/// value is that the call site says so by name instead of looking identical
-/// to a site that forgot.
-#[tokio::test]
-async fn spawn_unlabelled_drops_the_origin_on_purpose() {
-    let observed = with_origin(AgentTurnOrigin::Cli, async {
-        spawn_unlabelled("test: not a continuation of this turn", async { current() })
-            .await
-            .expect("spawned task panicked")
-    })
-    .await;
-
-    assert!(
-        observed.is_none(),
-        "spawn_unlabelled must not carry the caller's origin, got {observed:?}"
-    );
-}
-
 #[tokio::test]
 async fn current_returns_none_outside_scope() {
     assert!(current().is_none());

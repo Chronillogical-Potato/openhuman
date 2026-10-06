@@ -1,46 +1,15 @@
+#[path = "support/env_guard.rs"]
+mod env_guard;
+use env_guard::EnvVarGuard;
 use openhuman_core::config::schema::{Config, StreamMode, TelegramConfig};
 use openhuman_core::security::keyring;
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
-fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
-}
-
-struct EnvGuard {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvGuard {
-    fn set(key: &'static str, value: &std::path::Path) -> Self {
-        let previous = std::env::var_os(key);
-        unsafe {
-            std::env::set_var(key, value);
-        }
-        Self { key, previous }
-    }
-
-    fn set_str(key: &'static str, value: &'static str) -> Self {
-        let previous = std::env::var_os(key);
-        unsafe {
-            std::env::set_var(key, value);
-        }
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(value) => unsafe {
-                std::env::set_var(self.key, value);
-            },
-            None => unsafe {
-                std::env::remove_var(self.key);
-            },
-        }
-    }
+async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
+    static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await
 }
 
 fn parse_keyring_payload(json: &str) -> serde_json::Value {
@@ -49,14 +18,14 @@ fn parse_keyring_payload(json: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn config_secrets_create_master_key_in_keyring_on_fresh_install() {
-    let _guard = env_lock();
+    let _guard = env_lock_async().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let openhuman_dir = tmp.path().join("fresh-user");
     let workspace_dir = openhuman_dir.join("workspace");
     std::fs::create_dir_all(&workspace_dir).expect("workspace dir");
 
-    let _keyring_backend = EnvGuard::set_str("OPENHUMAN_KEYRING_BACKEND", "file");
-    let _workspace_override = EnvGuard::set("OPENHUMAN_WORKSPACE", &openhuman_dir);
+    let _keyring_backend = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
+    let _workspace_override = EnvVarGuard::set("OPENHUMAN_WORKSPACE", &openhuman_dir);
     keyring::init_workspace(&workspace_dir);
 
     let legacy_key_path = openhuman_dir.join(".secret_key");

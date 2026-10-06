@@ -1,9 +1,8 @@
 use super::*;
-use std::sync::Mutex;
 
 /// Serializes tests that mutate the process-global RESPOND_QUEUE so cargo's
 /// default parallel test runner cannot interleave clear/insert/assert cycles.
-static TEST_MUTEX: Mutex<()> = Mutex::new(());
+static TEST_MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 fn sample_event(entity_id: &str) -> ProviderEvent {
     ProviderEvent {
@@ -25,7 +24,7 @@ fn sample_event(entity_id: &str) -> ProviderEvent {
 
 #[tokio::test]
 async fn ingest_event_upserts_queue_item() {
-    let _lock = TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+    let _lock = TEST_MUTEX.lock().await;
     store::clear_queue();
     let first = ingest_event(sample_event("entity-1")).await.unwrap();
     let second = ingest_event(sample_event("entity-1")).await.unwrap();
@@ -46,7 +45,7 @@ async fn ingest_event_upserts_queue_item() {
 
 #[tokio::test]
 async fn list_queue_returns_newest_first() {
-    let _lock = TEST_MUTEX.lock().unwrap_or_else(|p| p.into_inner());
+    let _lock = TEST_MUTEX.lock().await;
     store::clear_queue();
     ingest_event(sample_event("entity-1")).await.unwrap();
     ingest_event(sample_event("entity-2")).await.unwrap();

@@ -1,7 +1,6 @@
 import { AudioLines, AudioWaveform, Cloud, Laptop, type LucideIcon, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import type { VoiceInstallStatus } from '../../../services/api/voiceInstallApi';
 import type { VoiceSettings } from '../../../services/api/voiceSettingsApi';
 import { Badge, Card, Switch, Tile, TileGrid } from '../../ui';
 
@@ -28,8 +27,6 @@ interface VoicePanelProviderChipsProps {
   onSttProviderChange: (next: string) => void;
   onTtsProviderChange: (next: string) => void;
   voiceSettings: VoiceSettings | null;
-  isInstallingPiper: boolean;
-  piperInstall: VoiceInstallStatus | null;
   isSavingPendingKey: boolean;
   setPendingKeySlug: (slug: string | null) => void;
   setPendingKeyValue: (value: string) => void;
@@ -71,7 +68,7 @@ const ProviderRow = ({
 /**
  * Voice providers as a tile grid: managed cloud (locked on), Piper (local TTS, no
  * key required), and the external BYOK providers. Turning an external
- * provider on opens the key modal; Piper opens its install modal.
+ * provider on opens the key modal; Piper opens its setup modal.
  */
 const VoicePanelProviderChips = ({
   t,
@@ -80,8 +77,6 @@ const VoicePanelProviderChips = ({
   onSttProviderChange,
   onTtsProviderChange,
   voiceSettings,
-  isInstallingPiper,
-  piperInstall,
   isSavingPendingKey,
   setPendingKeySlug,
   setPendingKeyValue,
@@ -115,8 +110,8 @@ const VoicePanelProviderChips = ({
         </ProviderRow>
 
         {/* Piper — local TTS, no API key required. Turning it on opens the
-          install/enable modal (inference_install_piper, then
-          voice_update_provider_settings on Enable). Turning it off routes TTS
+          setup modal (the user supplies the piper binary and voice; Enable
+          then calls voice_update_provider_settings). Turning it off routes TTS
           back to the managed cloud provider. */}
         <ProviderRow
           icon={Laptop}
@@ -128,11 +123,6 @@ const VoicePanelProviderChips = ({
             id="voice-provider-chip-piper"
             data-testid="voice-provider-chip-piper"
             checked={piperEnabled}
-            // Stay disabled for the full install window: the local RPC kickoff
-            // (`isInstallingPiper`) ends as soon as the start call returns, but
-            // the install continues until the status RPC reports `installed` /
-            // `error`. Combining both prevents routing edits mid-install.
-            disabled={isInstallingPiper || piperInstall?.state === 'installing'}
             onCheckedChange={next => {
               if (!next) {
                 onTtsProviderChange('cloud');

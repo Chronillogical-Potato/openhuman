@@ -1,10 +1,81 @@
-use crate::agent::messages::ChatMessage;
-/// Token usage returned by a provider. Defined in the contract crate because
-/// the extracted memory subsystem threads it out of summarisation runs; every
-/// existing `inference::provider::UsageInfo` path keeps naming this one type.
-pub use tinymemory_api::host::UsageInfo;
-use tinytools::ToolSpec;
+use tinyinference_llm::usage::Usage;
 use tinytools_agent::dialect::NativeToolCall;
+
+/// Token usage returned by a provider: the vendor [`Usage`] token counts plus
+/// the host-owned billing the vendor type deliberately does not carry.
+///
+/// `usage` is the single token-count representation threaded everywhere
+/// (cache reads/writes, reasoning tokens and the context window all have
+/// homes on it). Only the provider-charged amount stays host data: it is kept
+/// as an exact `f64` USD value (the vendor `ChargedAmount` is integer micro
+/// units and would round the persisted cost rows). `Deref` exposes the
+/// vendor fields (`input_tokens`, `output_tokens`, `cache_creation_tokens`,
+/// `reasoning_tokens`, ...) directly.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct BilledUsage {
+    /// Vendor token counts for the call.
+    pub usage: Usage,
+    /// Amount billed for this request in USD (from
+    /// `openhuman.billing.charged_amount_usd`). Zero when unavailable.
+    pub charged_amount_usd: f64,
+}
+
+impl BilledUsage {
+    /// Plain token counts with no cache breakdown, context window or charge.
+    pub fn from_counts(input_tokens: u64, output_tokens: u64) -> Self {
+        Self {
+            usage: Usage::new(input_tokens, output_tokens),
+            charged_amount_usd: 0.0,
+        }
+    }
+
+    /// Input tokens served from the provider prompt/KV cache.
+    pub fn cached_input_tokens(&self) -> u64 {
+        self.usage.cache_read_tokens
+    }
+
+    /// Model context window in tokens; `0` when unknown.
+    pub fn context_window(&self) -> u64 {
+        self.usage.context_window_tokens.unwrap_or(0)
+    }
+
+    /// Sets the cache-read token count.
+    pub fn with_cached_input_tokens(mut self, tokens: u64) -> Self {
+        self.usage.cache_read_tokens = tokens;
+        self
+    }
+
+    /// Sets the context window (`0` means unknown).
+    pub fn with_context_window(mut self, tokens: u64) -> Self {
+        self.usage.context_window_tokens = (tokens > 0).then_some(tokens);
+        self
+    }
+
+    /// Sets the cache-creation (write) token count.
+    pub fn with_cache_creation_tokens(mut self, tokens: u64) -> Self {
+        self.usage.cache_creation_tokens = tokens;
+        self
+    }
+
+    /// Sets the reasoning/thinking token count.
+    pub fn with_reasoning_tokens(mut self, tokens: u64) -> Self {
+        self.usage.reasoning_tokens = tokens;
+        self
+    }
+
+    /// Sets the provider-charged USD amount.
+    pub fn with_charged_usd(mut self, usd: f64) -> Self {
+        self.charged_amount_usd = usd;
+        self
+    }
+}
+
+impl std::ops::Deref for BilledUsage {
+    type Target = Usage;
+    fn deref(&self) -> &Usage {
+        &self.usage
+    }
+}
 
 /// An LLM response that may contain text, tool calls, or both.
 #[derive(Debug, Clone, Default)]
@@ -14,7 +85,7 @@ pub struct ChatResponse {
     /// Tool calls requested by the LLM.
     pub tool_calls: Vec<NativeToolCall>,
     /// Token usage info from the provider (if available).
-    pub usage: Option<UsageInfo>,
+    pub usage: Option<BilledUsage>,
     /// Raw reasoning/thinking content returned by thinking models (e.g.
     /// DeepSeek-R1, Qwen3) in the `reasoning_content` field. This must be
     /// passed back verbatim on the next turn — the API returns HTTP 400
@@ -26,17 +97,7 @@ pub struct ChatResponse {
     pub reasoning_content: Option<String>,
 }
 
-impl ChatResponse {
-    /// True when the LLM wants to invoke at least one tool.
-    pub fn has_tool_calls(&self) -> bool {
-        !self.tool_calls.is_empty()
-    }
-
-    /// Convenience: return text content or empty string.
-    pub fn text_or_empty(&self) -> &str {
-        self.text.as_deref().unwrap_or("")
-    }
-}
+impl ChatResponse {}
 
 /// A fine-grained streaming event emitted by a provider while serving a
 /// `chat()` call. Providers that support SSE/streaming forward these to
@@ -70,62 +131,10 @@ pub enum ProviderDelta {
 /// condition. Capping every agent turn at a realistic ceiling prices the
 /// pre-flight against a budget the user can actually afford; a residual `402`
 /// is then the genuine flat-balance case the insufficient-credits demote arm
-/// is meant for (TAURI-RUST-C62; mirrors [`EXTRACTION_MAX_OUTPUT_TOKENS`] in
-/// `memory_tree::score::extract::llm`).
+/// is meant for (TAURI-RUST-C62).
 ///
 /// `16384` sits comfortably above any realistic single agent turn — `max_tokens`
 /// is an upper bound, not a forced length, so the model still stops at its
 /// natural end well below the cap on normal turns — while cutting the
 /// reservation 4× versus a 64k window.
 pub const AGENT_TURN_MAX_OUTPUT_TOKENS: u32 = 16384;
-
-/// Request payload for provider chat calls.
-///
-/// The system prompt is built once at session start and frozen for the
-/// rest of the session — the inference backend's automatic prefix
-/// cache covers the whole thing, so there is no explicit cache-boundary
-/// to thread through the request.
-#[derive(Debug, Clone, Copy)]
-pub struct ChatRequest<'a> {
-    pub messages: &'a [ChatMessage],
-    pub tools: Option<&'a [ToolSpec]>,
-    /// Optional sink for `ProviderDelta` events. When `Some`, providers
-    /// that support streaming will ask the upstream API for SSE and
-    /// forward fine-grained events here. Providers without a streaming
-    /// implementation ignore the sender and return only the aggregated
-    /// response.
-    pub stream: Option<&'a tokio::sync::mpsc::Sender<ProviderDelta>>,
-    /// Optional upper bound on output tokens to request from the provider
-    /// (`max_tokens` on the OpenAI-compatible wire).
-    ///
-    /// Left `None` only for the orchestrator's open-ended generation. Agent
-    /// turns cap at [`AGENT_TURN_MAX_OUTPUT_TOKENS`] and callers whose output
-    /// is bounded by construction set a small concrete value — notably memory
-    /// extraction, whose response is a tiny structured-JSON object.
-    /// Beyond capping wasted generation, this stops credit-metered providers
-    /// (e.g. OpenRouter) from reserving the model's *entire* output window
-    /// during their pre-flight balance check: an unset `max_tokens` makes
-    /// OpenRouter price the request against the full 64k+ window and 402 a
-    /// low-balance BYO user who could easily afford the few thousand tokens
-    /// the turn actually needs (TAURI-RUST-C62).
-    pub max_tokens: Option<u32>,
-}
-
-/// Errors that can occur during streaming.
-#[derive(Debug, thiserror::Error)]
-pub enum StreamError {
-    #[error("HTTP error: {0}")]
-    Http(reqwest::Error),
-
-    #[error("JSON parse error: {0}")]
-    Json(serde_json::Error),
-
-    #[error("Invalid SSE format: {0}")]
-    InvalidSse(String),
-
-    #[error("Provider error: {0}")]
-    Provider(String),
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-}

@@ -3,11 +3,10 @@
 //! delivering the draft/final reply.
 
 use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
-use crate::agent::messages::ChatMessage;
 use crate::agent::progress::AgentProgress;
 use crate::channels::context::{
-    build_memory_context, compact_sender_history, conversation_history_key,
-    conversation_memory_key, is_context_window_overflow_error, ChannelRuntimeContext,
+    compact_sender_history, conversation_history_key, is_context_window_overflow_error,
+    ChannelRuntimeContext,
 };
 use crate::channels::routes::{
     get_or_create_turn_model_source, get_route_selection, handle_runtime_command_if_needed,
@@ -19,8 +18,8 @@ use crate::core::events::DomainEvent;
 use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tinyagents_session::transcript::TranscriptMessage;
 use tinybus::NativeRequestError;
-use tinymemory_api::provider::MemoryCore as _;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -158,30 +157,14 @@ pub(crate) async fn process_channel_runtime_message(
         None
     };
 
-    let memory_context =
-        build_memory_context(&ctx.memory, &msg.content, ctx.min_relevance_score).await;
-
-    if ctx.auto_save_memory {
-        let autosave_key = conversation_memory_key(&msg);
-        let _ = ctx
-            .memory
-            .store(
-                crate::agent::learning::transcript_ingest::CONVERSATION_RAW_NAMESPACE,
-                &autosave_key,
-                &msg.content,
-                tinymemory_api::types::MemoryCategory::Conversation,
-                None,
-                tinymemory_api::types::MemoryTaint::Internal,
-            )
-            .await;
-    }
-
+    // No per-turn memory recall or autosave: memory v2 reaches the session
+    // through `context.md` (injected by the session host) and ingests the
+    // committed turn from `ConversationTurnCommitted`.
     let channel_context = build_channel_context_block(&msg);
-    let enriched_message = match (memory_context.is_empty(), channel_context.is_empty()) {
-        (true, true) => msg.content.clone(),
-        (false, true) => format!("{memory_context}{}", msg.content),
-        (true, false) => format!("{channel_context}{}", msg.content),
-        (false, false) => format!("{memory_context}{channel_context}{}", msg.content),
+    let enriched_message = if channel_context.is_empty() {
+        msg.content.clone()
+    } else {
+        format!("{channel_context}{}", msg.content)
     };
 
     println!("  ⏳ Processing message...");
@@ -200,9 +183,9 @@ pub(crate) async fn process_channel_runtime_message(
     // identity file changed since the last message (#6028); otherwise the
     // same bytes as the previous turn.
     let system_prompt = ctx.system_prompt.current();
-    let mut history = vec![ChatMessage::system(system_prompt.as_str())];
+    let mut history = vec![TranscriptMessage::system(system_prompt.as_str())];
     history.append(&mut prior_turns);
-    history.push(ChatMessage::user(&enriched_message));
+    history.push(TranscriptMessage::user(&enriched_message));
 
     // Determine if this channel supports streaming draft updates
     let use_streaming = target_channel
@@ -486,8 +469,8 @@ pub(crate) async fn process_channel_runtime_message(
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
                 let turns = histories.entry(history_key).or_default();
-                turns.push(ChatMessage::user(&enriched_message));
-                turns.push(ChatMessage::assistant(&response_text));
+                turns.push(TranscriptMessage::user(&enriched_message));
+                turns.push(TranscriptMessage::assistant(&response_text));
                 // Trim to MAX_CHANNEL_HISTORY (keep recent turns)
                 while turns.len() > crate::channels::context::MAX_CHANNEL_HISTORY {
                     turns.remove(0);

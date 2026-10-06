@@ -88,7 +88,23 @@ RUN touch crates/openhuman-cli/src/main.rs crates/openhuman-core/src/lib.rs \
     cp "target/${CARGO_PROFILE}/openhuman-core" /tmp/openhuman-core
 
 # ==========================================================================
-# Stage 2: Minimal runtime image
+# Stage 2: Stage the registry-pinned native modules at build time
+# ==========================================================================
+# Downloads and digest-verifies every module archive the compiled registry
+# pins for this image's architecture (buildx runs this stage per platform), so
+# the container never needs GitHub access to load a module. The oldest
+# published Linux build (ubuntu-22.04, glibc 2.35) runs on bookworm (2.36).
+FROM node:24-bookworm-slim AS modules
+WORKDIR /repo
+COPY scripts/lib/module-pins.mjs scripts/lib/module-pins.mjs
+COPY scripts/ci/self-hosted/test-module-assets.mjs scripts/ci/self-hosted/test-module-assets.mjs
+COPY scripts/release/stage-modules.mjs scripts/release/stage-modules.mjs
+COPY crates/openhuman-core/src/modules/registry.rs crates/openhuman-core/src/modules/registry.rs
+COPY crates/openhuman-core/src/modules/registry/ crates/openhuman-core/src/modules/registry/
+RUN node scripts/release/stage-modules.mjs --output /bundled-modules
+
+# ==========================================================================
+# Stage 3: Minimal runtime image
 # ==========================================================================
 FROM debian:bookworm-slim AS runtime
 
@@ -115,11 +131,21 @@ RUN groupadd --gid 10001 openhuman \
 # entrypoint chown is a no-op on a fresh (root-owned) named volume and on
 # first-time anonymous volume mounts.
 ENV HOME=/home/openhuman
-RUN mkdir -p /home/openhuman/.openhuman \
+# Create every directory a named volume is mounted over, so a fresh volume
+# inherits this ownership instead of being root-owned (Docker only copies
+# ownership from the image when the mount point already exists there).
+# `~/OpenHuman` is the agent's default projects/action directory, mounted by
+# docker-compose.yml as `openhuman-projects`.
+RUN mkdir -p /home/openhuman/.openhuman /home/openhuman/OpenHuman \
  && chown -R openhuman:openhuman /home/openhuman
 
 # Copy the built binary
 COPY --from=builder /tmp/openhuman-core /usr/local/bin/openhuman-core
+
+# Pinned native modules, verified at image build time. The core still checks
+# each archive against the compiled digest and tinybus admission before loading.
+COPY --from=modules /bundled-modules /opt/openhuman/bundled-modules
+ENV OPENHUMAN_BUNDLED_MODULES=/opt/openhuman/bundled-modules
 
 # Copy the entrypoint script that chowns the workspace volume before dropping
 # privileges.  The script is a separate file so the E2E entrypoint

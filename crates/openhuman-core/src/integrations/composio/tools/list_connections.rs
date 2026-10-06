@@ -100,22 +100,25 @@ impl ComposioListConnectionsTool {
             }
             Ok(ComposioRoute::Direct(direct)) => {
                 tracing::debug!("[composio-direct] list_connections.execute: direct variant");
-                match direct_list_connections(&direct).await.map_err(|e| {
-                    // [#1166 / Sentry TAURI-RUST-X9] Symmetric error
-                    // routing with `ops.rs::composio_list_connections`.
-                    // The agent-tool path can also fire 401s when a
-                    // direct-mode user has a bad API key — without this
-                    // hook the failure escapes the classifier and lands
-                    // as an unclassified Sentry event. Render WITH the
-                    // `[composio-direct]` anchor BEFORE reporting so the
-                    // classifier arm in `is_provider_user_state_message`
-                    // (gated on that prefix) actually fires.
-                    let rendered = format!(
-                        "[composio-direct] composio_list_connections (direct) failed: {e:#}"
-                    );
-                    let rendered = redact_and_report(&live_config, "list_connections", &rendered);
-                    anyhow::anyhow!("{rendered}")
-                }) {
+                match direct_list_connections(&live_config, &direct)
+                    .await
+                    .map_err(|e| {
+                        // [#1166 / Sentry TAURI-RUST-X9] Symmetric error
+                        // routing with `ops.rs::composio_list_connections`.
+                        // The agent-tool path can also fire 401s when a
+                        // direct-mode user has a bad API key — without this
+                        // hook the failure escapes the classifier and lands
+                        // as an unclassified Sentry event. Render WITH the
+                        // `[composio-direct]` anchor BEFORE reporting so the
+                        // classifier arm in `is_provider_user_state_message`
+                        // (gated on that prefix) actually fires.
+                        let rendered = format!(
+                            "[composio-direct] composio_list_connections (direct) failed: {e:#}"
+                        );
+                        let rendered =
+                            redact_and_report(&live_config, "list_connections", &rendered);
+                        anyhow::anyhow!("{rendered}")
+                    }) {
                     Ok(resp) => resp,
                     Err(e) => return (live_config, Err(e)),
                 }

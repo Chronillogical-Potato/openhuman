@@ -642,7 +642,7 @@ sanitize_elf_rpaths() {
 # the lib silently vanishes from the AppImage and the binary segfaults on launch
 # on any host lacking the legacy soname (e.g. Arch, which ships libxdo.so.4). The
 # .deb path already guards this via its `depends` (libxdo3) +
-# linux_cef_deb_runtime_e2e; the AppImage path had no equivalent. This turns a
+# scripts/__tests__/tauri-deb-depends.test.mjs; the AppImage path had no equivalent. This turns a
 # silent runtime segfault into a loud build failure. CEF is staged separately
 # from the ldd walk, so verify its runtime library survived bundling as well.
 # anylinux.so establishes sharun's portable runtime before either dependency

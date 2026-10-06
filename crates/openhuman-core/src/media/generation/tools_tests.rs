@@ -19,6 +19,7 @@ fn tools(action_dir: &Path) -> Vec<Box<dyn Tool>> {
         },
         action_dir,
         &action_dir.join("workspace"),
+        action_dir.join("Files"),
         tinyagents_harness::tinyinference_video::WaitPolicy::new(
             std::time::Duration::from_millis(1),
             std::time::Duration::from_secs(5),
@@ -107,63 +108,6 @@ fn schemas_expose_the_reference_standards() {
             "video schema missing {key}"
         );
     }
-}
-
-#[tokio::test]
-async fn image_tool_files_each_generated_file_as_an_artifact() {
-    // The `media_generate_image` tool is wrapped in a `MediaArtifactTool`
-    // (`super::artifact_tool`) which relocates every file the inner
-    // `GenerateImageTool` writes under `<action_dir>/generated-media/` into
-    // the artifact store under `<workspace_dir>/artifacts/<id>/` and tags
-    // the result entry with `artifact_id`, so nothing is left behind in
-    // `generated-media` and the artifact directory holds the file instead.
-    let dir = tempfile::tempdir().unwrap();
-    let tools = tools(dir.path());
-    let result = by_name(&tools, IMAGE_TOOL_NAME)
-        .execute(json!({ "prompt": "an anime comic about a delivery certificate" }))
-        .await
-        .unwrap();
-    assert!(!result.is_error, "{result:?}");
-
-    let payload = result
-        .content
-        .iter()
-        .find_map(|block| match block {
-            tinytools::ToolContent::Json { data } => Some(data.clone()),
-            _ => None,
-        })
-        .expect("json content block");
-    let artifacts = payload["artifacts"].as_array().expect("artifacts array");
-    assert_eq!(artifacts.len(), 1);
-    let artifact_id = artifacts[0]["artifact_id"]
-        .as_str()
-        .expect("artifact_id set on the entry");
-    assert!(
-        artifacts[0].get("artifact_error").is_none(),
-        "{:?}",
-        artifacts[0]
-    );
-
-    // Nothing left behind in the raw generated-media staging dir...
-    let staged = std::fs::read_dir(dir.path().join("generated-media"))
-        .unwrap()
-        .count();
-    assert_eq!(staged, 0, "generated file should have been moved");
-
-    // ...and the file now lives under the artifact store, alongside the
-    // `meta.json` record `create_artifact_for_call` writes.
-    let workspace = dir.path().join("workspace");
-    let artifact_dir = workspace.join("artifacts").join(artifact_id);
-    let entries: Vec<String> = std::fs::read_dir(&artifact_dir)
-        .unwrap()
-        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-        .collect();
-    assert!(entries.contains(&"meta.json".to_string()), "{entries:?}");
-    assert_eq!(
-        entries.len(),
-        2,
-        "expected meta.json + the moved media file under {artifact_dir:?}, got {entries:?}"
-    );
 }
 
 #[tokio::test]

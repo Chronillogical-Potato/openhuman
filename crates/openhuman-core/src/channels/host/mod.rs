@@ -20,13 +20,13 @@ pub(crate) mod remote_control;
 
 pub use adapters::{
     ConfigAllowlistStore, ConversationHistoryStore, CoreApprovalGate, CoreShutdownRegistry,
-    InferenceReactionGate, OpenHumanEventSink, VoiceSynthesizer, VoiceTranscriber,
+    OpenHumanEventSink, VoiceSynthesizer, VoiceTranscriber,
 };
 pub use channel_events::{ChannelApprovalSurfaceSubscriber, ChannelTurnStateSubscriber};
 
 use std::sync::Arc;
 
-use tinychannels::host::{ChannelHostBuilder, ProviderContext};
+use tinychannels::host::ChannelHostBuilder;
 use tinychannels::ChannelHost;
 
 use crate::config::Config;
@@ -34,10 +34,11 @@ use crate::config::Config;
 /// Assemble the full OpenHuman [`ChannelHost`] from a config snapshot.
 ///
 /// Wires every capability OpenHuman can back today: lifecycle (shutdown),
-/// STT, TTS, reaction gate, approval-reply parsing, conversation history, and
-/// the web-channel event sink. Capabilities OpenHuman cannot yet express
-/// portably (turn dispatch, run ledger, pairing) are simply left unset — a
-/// provider that needs one degrades gracefully.
+/// STT, TTS, approval-reply parsing, conversation history, and the
+/// web-channel event sink. Capabilities OpenHuman cannot yet express portably
+/// (turn dispatch, run ledger, pairing) are simply left unset — a provider
+/// that needs one degrades gracefully. Emoji reactions are deliberately unset:
+/// the local-model reaction gate was removed, so providers never react.
 pub fn build_channel_host(config: Arc<Config>) -> Arc<dyn ChannelHost> {
     ChannelHostBuilder::new()
         .lifecycle(Arc::new(CoreShutdownRegistry))
@@ -47,9 +48,6 @@ pub fn build_channel_host(config: Arc<Config>) -> Arc<dyn ChannelHost> {
         .synthesizer(Arc::new(VoiceSynthesizer {
             config: Arc::clone(&config),
         }))
-        .reactions(Arc::new(InferenceReactionGate {
-            config: Arc::clone(&config),
-        }))
         .approvals(Arc::new(CoreApprovalGate))
         .conversations(Arc::new(ConversationHistoryStore {
             workspace_dir: config.workspace_dir.clone(),
@@ -57,16 +55,6 @@ pub fn build_channel_host(config: Arc<Config>) -> Arc<dyn ChannelHost> {
         .events(Arc::new(OpenHumanEventSink))
         .allowlist(Arc::new(ConfigAllowlistStore))
         .build()
-}
-
-/// Build the [`ProviderContext`] handed to a channel provider at construction:
-/// the assembled host + the channels config + a pre-built HTTP client.
-pub fn build_provider_context(config: &Config, http_client: reqwest::Client) -> ProviderContext {
-    ProviderContext::new(
-        build_channel_host(Arc::new(config.clone())),
-        config.channels_config.clone(),
-        http_client,
-    )
 }
 
 #[cfg(test)]

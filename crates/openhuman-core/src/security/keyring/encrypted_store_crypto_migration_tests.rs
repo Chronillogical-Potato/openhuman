@@ -227,14 +227,6 @@ fn needs_migration_detects_legacy_prefix() {
 }
 
 #[test]
-fn is_secure_encrypted_detects_enc2_only() {
-    assert!(SecretStore::is_secure_encrypted("enc2:aabbcc"));
-    assert!(!SecretStore::is_secure_encrypted("enc:aabbcc"));
-    assert!(!SecretStore::is_secure_encrypted("sk-plaintext"));
-    assert!(!SecretStore::is_secure_encrypted(""));
-}
-
-#[test]
 fn decrypt_and_migrate_returns_none_for_enc2() {
     let tmp = TempDir::new().unwrap();
     let store = SecretStore::new(tmp.path(), true);

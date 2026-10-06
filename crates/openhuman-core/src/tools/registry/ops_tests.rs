@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::schema::{CapabilityProviderConfig, CapabilityProviderTrustState, Config};
+use crate::config::test_env::EnvVarGuard;
 use crate::core::{FieldSchema, TypeSchema};
 
 #[test]
@@ -12,13 +13,13 @@ fn registry_entries_include_mcp_and_controller_tools() {
     // controller half below must keep its coverage in BOTH builds.
     #[cfg(feature = "mcp")]
     {
-        let memory_search = entries
+        let memory_recall = entries
             .iter()
-            .find(|entry| entry.tool_id == "memory.search")
-            .expect("memory.search mcp tool");
-        assert_eq!(memory_search.transport, ToolRegistryTransport::McpStdio);
-        assert_eq!(memory_search.route["method"], json!("tools/call"));
-        assert_eq!(memory_search.health, ToolRegistryHealth::Available);
+            .find(|entry| entry.tool_id == "memory.recall")
+            .expect("memory.recall mcp tool");
+        assert_eq!(memory_recall.transport, ToolRegistryTransport::McpStdio);
+        assert_eq!(memory_recall.route["method"], json!("tools/call"));
+        assert_eq!(memory_recall.health, ToolRegistryHealth::Available);
     }
 
     // With `mcp` compiled out the registry must contain NO MCP-transport
@@ -87,11 +88,9 @@ fn diagnostics_reports_inventory_and_policy_surfaces() {
 
 #[tokio::test]
 async fn diagnostics_loads_active_capability_provider_config() {
-    let _lock = crate::config::TEST_ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _env = EnvRestore::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _env = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path());
     std::fs::write(
         tmp.path().join("config.toml"),
         r#"
@@ -227,12 +226,12 @@ fn insert_registry_entry_skips_duplicate_tool_id() {
 
 #[test]
 fn get_tool_trims_and_returns_exact_entry() {
-    // `memory.search` is an MCP-transport entry, so it is absent when the `mcp`
+    // `memory.recall` is an MCP-transport entry, so it is absent when the `mcp`
     // feature is compiled out. The behaviour under test here is id *trimming*,
     // not MCP — so fall back to a controller-transport entry rather than gating
     // the whole test away and losing that coverage in slim builds.
     #[cfg(feature = "mcp")]
-    let tool_id = "memory.search";
+    let tool_id = "memory.recall";
     #[cfg(not(feature = "mcp"))]
     let tool_id = "tools.web_search";
 
@@ -389,26 +388,4 @@ fn the_write_audit_probe_reads_the_store_the_writer_wrote_to() {
         after.last_error
     );
     assert!(after.enabled, "the log is enabled when it is readable");
-}
-
-struct EnvRestore {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvRestore {
-    fn set_path(key: &'static str, value: &std::path::Path) -> Self {
-        let previous = std::env::var_os(key);
-        std::env::set_var(key, value);
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvRestore {
-    fn drop(&mut self) {
-        match &self.previous {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
 }

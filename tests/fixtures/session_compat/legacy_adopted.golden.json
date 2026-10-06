@@ -1,0 +1,168 @@
+{
+  "history": [
+    {
+      "system": {
+        "content": [
+          {
+            "text": "legacy system prompt"
+          }
+        ]
+      }
+    },
+    {
+      "user": {
+        "content": [
+          {
+            "text": "legacy question 1"
+          }
+        ]
+      }
+    },
+    {
+      "assistant": {
+        "content": [
+          {
+            "text": "legacy answer 1"
+          }
+        ],
+        "tool_calls": []
+      }
+    },
+    {
+      "user": {
+        "content": [
+          {
+            "text": "legacy question 2"
+          }
+        ]
+      }
+    },
+    {
+      "assistant": {
+        "content": [
+          {
+            "text": "legacy answer 2"
+          }
+        ],
+        "tool_calls": []
+      }
+    }
+  ],
+  "journal": [
+    {
+      "content": "legacy system prompt",
+      "extra_metadata": {
+        "openhuman_replayed": {
+          "request_id": null
+        }
+      },
+      "role": "system"
+    },
+    {
+      "content": "legacy question 1",
+      "extra_metadata": {
+        "openhuman_replayed": {
+          "request_id": null
+        }
+      },
+      "role": "user"
+    },
+    {
+      "content": "legacy answer 1",
+      "extra_metadata": {
+        "openhuman_replayed": {
+          "request_id": null
+        }
+      },
+      "role": "assistant"
+    },
+    {
+      "content": "legacy question 2",
+      "extra_metadata": {
+        "openhuman_replayed": {
+          "request_id": null
+        }
+      },
+      "role": "user"
+    },
+    {
+      "content": "legacy answer 2",
+      "extra_metadata": {
+        "openhuman_replayed": {
+          "request_id": null
+        }
+      },
+      "role": "assistant"
+    }
+  ],
+  "next_request": [
+    {
+      "system": {
+        "content": [
+          {
+            "text": "legacy system prompt"
+          }
+        ]
+      }
+    },
+    {
+      "user": {
+        "content": [
+          {
+            "text": "legacy question 1"
+          }
+        ]
+      }
+    },
+    {
+      "assistant": {
+        "content": [
+          {
+            "text": "legacy answer 1"
+          }
+        ],
+        "tool_calls": []
+      }
+    },
+    {
+      "user": {
+        "content": [
+          {
+            "text": "legacy question 2"
+          }
+        ]
+      }
+    },
+    {
+      "assistant": {
+        "content": [
+          {
+            "text": "legacy answer 2"
+          }
+        ],
+        "tool_calls": []
+      }
+    },
+    {
+      "user": {
+        "content": [
+          {
+            "text": "Current Date & Time: <clock>\n\nnext message"
+          }
+        ]
+      }
+    }
+  ],
+  "prefix": [
+    {
+      "system": {
+        "content": [
+          {
+            "text": "legacy system prompt"
+          }
+        ]
+      }
+    }
+  ],
+  "recorded_tools": null
+}
