@@ -206,7 +206,7 @@ test.describe('Live voice agent', () => {
     await expect(page.getByTestId('live-voice-controls')).toHaveAttribute('data-state', 'speaking');
 
     await page.getByTestId('live-voice-end').click();
-    await expect.poll(() => core.frames.at(-1)?.type).toBe('stop');
+    await expect.poll(() => core.frames[core.frames.length - 1]?.type).toBe('stop');
     await expect(page.getByTestId('live-voice-start')).toBeVisible();
   });
 
