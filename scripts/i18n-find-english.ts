@@ -40,7 +40,7 @@ const NATIVE_SCRIPT: Record<string, RegExp> = {
   bn: /[ঀ-৿]/,
   ar: /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/,
   ru: /[Ѐ-ӿ]/,
-  ja: /[\u3040-\u30ff\u3400-\u9fff]/,
+  ja: /[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]/,
   ko: /[가-힯ᄀ-ᇿ㄰-㆏]/,
 };
 
