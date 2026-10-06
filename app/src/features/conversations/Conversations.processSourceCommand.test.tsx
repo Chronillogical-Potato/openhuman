@@ -94,6 +94,13 @@ vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => (
       </button>
       <button
         type="button"
+        onClick={() =>
+          onSelect({ source: { kind: 'cloud', providerSlug: 'unknown-provider' }, model: 'model' })
+        }>
+        Pick unknown provider model
+      </button>
+      <button
+        type="button"
         onClick={() => onSelect({ source: { kind: 'managed' }, model: 'openrouter/author/model' })}>
         Pick managed model
       </button>
@@ -694,6 +701,7 @@ describe('composer model routing', () => {
   it.each([
     ['managed', 'openrouter/author/model'],
     ['local', 'ollama:qwen3:4b-instruct'],
+    ['unknown provider', 'unknown-provider:model'],
   ] as const)('serializes the %s picker route at the core boundary', async (route, model) => {
     mockChatSend.mockClear();
     await useRealChatSend();
