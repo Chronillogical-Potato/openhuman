@@ -1,4 +1,5 @@
 use super::*;
+use crate::cron::Schedule;
 use crate::agent::turn_origin::{with_origin, TrustedAutomationSource};
 use serde_json::json;
 
@@ -75,9 +76,27 @@ async fn current_job_origin_reads_the_scoped_turn() {
 }
 
 fn job_with_origin(origin: Option<JobOrigin>) -> CronJob {
-    let mut job = crate::cron::job_builder_test_job();
-    job.origin = origin;
-    job
+    CronJob {
+        id: "job-1".into(),
+        expression: "* * * * *".into(),
+        schedule: Schedule::Every { every_ms: 300_000 },
+        command: String::new(),
+        prompt: Some("p".into()),
+        name: None,
+        job_type: crate::cron::JobType::Agent,
+        session_target: crate::cron::SessionTarget::Current,
+        model: None,
+        agent_id: None,
+        enabled: true,
+        delivery: crate::cron::DeliveryConfig::default(),
+        delete_after_run: false,
+        created_at: chrono::Utc::now(),
+        next_run: chrono::Utc::now(),
+        last_run: None,
+        last_status: None,
+        last_output: None,
+        origin,
+    }
 }
 
 #[test]
