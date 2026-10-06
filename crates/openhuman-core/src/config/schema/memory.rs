@@ -72,6 +72,9 @@ pub const DEFAULT_MEMORY_ENGINE: &str = "tinyhumans";
 pub struct MemoryConfig {
     /// The selected engine id (`tinyhumans` or `cortexdb`).
     pub engine: String,
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub(crate) legacy_backend: Option<String>,
     /// Per-engine settings, keyed by engine id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub engines: BTreeMap<String, MemoryEngineSettings>,
@@ -142,6 +145,7 @@ impl Default for MemoryConfig {
     fn default() -> Self {
         Self {
             engine: DEFAULT_MEMORY_ENGINE.to_string(),
+            legacy_backend: None,
             engines: BTreeMap::new(),
             agent_id: None,
             root: None,

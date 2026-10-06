@@ -5,7 +5,7 @@
 //!
 //! | Engine | Endpoint | Credential | Off when |
 //! | --- | --- | --- | --- |
-//! | `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else [`crate::backend::base_url`] | the host's backend credential, resolved per request through [`backend_bearer_secret`] | signed out, or no backend transport |
+//! | `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else [`crate::backend::base_url`] | the host's backend credential, resolved per request through [`resolve_backend_credential`] | signed out, or no backend transport |
 //! | `cortexdb` | `[memory.engines.cortexdb] endpoint`, else CortexDB's managed API | the API key stored as [`MEMORY_CORTEXDB_KEY_NAME`] | no key stored |
 //!
 //! Built engines are cached per config fingerprint (engine id, endpoint,
@@ -34,9 +34,7 @@ use tinymemory_integrations::{BearerSource, EngineCredential, EngineSettings};
 
 use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
 use crate::config::Config;
-use crate::security::credentials::session_support::{
-    backend_bearer_secret, has_backend_credential,
-};
+use crate::security::credentials::session_support::resolve_backend_credential;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
 use super::error::{MemoryError, MemoryResult};
@@ -182,7 +180,17 @@ pub fn resolve(config: &Config) -> Binding {
     match engine_id.as_str() {
         TINYHUMANS_ENGINE => resolve_tinyhumans(config),
         CORTEXDB_ENGINE => resolve_cortexdb(config),
-        "" => off(None, None, "no memory engine selected"),
+        "" => {
+            let reason = config.memory.legacy_backend.as_deref().map_or_else(
+                || "no memory engine selected".to_string(),
+                |backend| {
+                    format!(
+                        "legacy memory backend `{backend}` is unsupported; select an explicit v2 memory engine"
+                    )
+                },
+            );
+            off(None, None, &reason)
+        }
         other => {
             tracing::warn!(engine = %other, "[memory:engine] unknown engine id in config");
             off(
@@ -223,7 +231,8 @@ fn resolve_tinyhumans(config: &Config) -> Binding {
             }
         },
     };
-    if !has_backend_credential(config) {
+    if let Err(error) = resolve_backend_credential(config) {
+        tracing::debug!(error = %error, "[memory:engine] no usable TinyHumans credential");
         return off(
             Some(TINYHUMANS_ENGINE),
             Some(endpoint),
@@ -391,7 +400,7 @@ pub fn clear_cortexdb_key(config: &Config) -> MemoryResult<bool> {
 #[must_use]
 pub fn has_key(config: &Config, id: &str) -> bool {
     match id {
-        TINYHUMANS_ENGINE => has_backend_credential(config),
+        TINYHUMANS_ENGINE => resolve_backend_credential(config).is_ok(),
         CORTEXDB_ENGINE => matches!(read_cortexdb_key(config), Ok(Some(_))),
         _ => false,
     }
@@ -405,11 +414,8 @@ struct HostBearer {
 #[async_trait]
 impl BearerSource for HostBearer {
     async fn bearer(&self) -> tinymemory_api::Result<String> {
-        match backend_bearer_secret(&self.config) {
-            Ok(Some(token)) if !token.trim().is_empty() => Ok(token),
-            Ok(_) => Err(tinymemory_api::Error::Unauthorized(
-                "no backend credential; sign in".to_string(),
-            )),
+        match resolve_backend_credential(&self.config) {
+            Ok(credential) => Ok(credential.into_secret()),
             Err(error) => {
                 tracing::debug!(error = %error, "[memory:engine] backend credential unavailable");
                 Err(tinymemory_api::Error::Unauthorized(
