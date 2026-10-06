@@ -537,6 +537,17 @@ const Conversations = ({
   // thread. Per-thread (a Set) so a send to thread B isn't blocked by an
   // in-flight send to thread A.
   const pendingSendsRef = useRef<Set<string>>(new Set());
+  // Threads whose Stop landed while their send RPC was still in flight. The
+  // core registers a turn only as that RPC returns, so the cancel found
+  // nothing to stop; the send path re-issues it once the turn exists.
+  const stopRequestedDuringSendRef = useRef<Set<string>>(new Set());
+  // Per-thread backstop armed by every Stop: if the thread still shows a
+  // running turn once it fires (the `chat_cancelled` event was lost, the cancel
+  // RPC failed), the local running state is settled so Stop never leaves a
+  // spinner the user cannot get rid of.
+  const stopSettleTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const inferenceTurnLifecycleRef = useRef(inferenceTurnLifecycleByThread);
+  inferenceTurnLifecycleRef.current = inferenceTurnLifecycleByThread;
   // Per-thread silence timers. Each in-flight turn gets its own 120s watchdog
   // keyed by thread id, so concurrent turns on different threads don't share
   // (and clobber) a single timeout.
