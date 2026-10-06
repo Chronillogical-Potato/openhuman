@@ -455,17 +455,33 @@ const Conversations = ({
     number | null | undefined
   >(undefined);
   // The composer's thinking level. Sent with every turn (`reasoning_effort`)
-  // so it applies immediately, and written to the core's
-  // `runtime.reasoning_effort` so it survives a restart and is the default for
-  // turns the composer does not start — the same split as the model pick.
-  const [composerReasoningEffort, setComposerReasoningEffort] =
+  // so it applies immediately, and written to the core so it survives a
+  // restart and is the default for turns the composer does not start — the
+  // same split as the model pick. It is remembered per model
+  // (`runtime.reasoning_effort_by_model`) when a model is picked, and globally
+  // (`runtime.reasoning_effort`) for the managed default; a model with no
+  // level of its own shows, and sends, the global one.
+  const [globalReasoningEffort, setGlobalReasoningEffort] =
     useState<ReasoningEffortChoice>('default');
+  const [reasoningEffortByModel, setReasoningEffortByModel] = useState<
+    Record<string, ReasoningEffortChoice>
+  >({});
+  const composerReasoningEffort: ReasoningEffortChoice =
+    (composerModelOverride ? reasoningEffortByModel[composerModelOverride] : undefined) ??
+    globalReasoningEffort;
   useEffect(() => {
     let cancelled = false;
     void openhumanGetClientConfig()
       .then(res => {
         if (!cancelled) {
-          setComposerReasoningEffort(toReasoningEffortChoice(res.result?.reasoning_effort));
+          setGlobalReasoningEffort(toReasoningEffortChoice(res.result?.reasoning_effort));
+          const byModel: Record<string, ReasoningEffortChoice> = {};
+          for (const [model, effort] of Object.entries(
+            res.result?.reasoning_effort_by_model ?? {}
+          )) {
+            byModel[model] = toReasoningEffortChoice(effort);
+          }
+          setReasoningEffortByModel(byModel);
         }
       })
       .catch((err: unknown) => {
@@ -477,19 +493,39 @@ const Conversations = ({
       cancelled = true;
     };
   }, []);
-  const applyComposerReasoningEffort = useCallback((value: ReasoningEffortChoice) => {
-    setComposerReasoningEffort(value);
-    void openhumanUpdateRuntimeSettings({ reasoning_effort: value === 'default' ? '' : value })
-      .then(() => {
-        console.debug('[chat][composer-reasoning] persisted reasoning_effort', { effort: value });
+  const applyComposerReasoningEffort = useCallback(
+    (value: ReasoningEffortChoice) => {
+      const model = composerModelOverride;
+      if (model) {
+        // `default` on a model drops its own level, falling back to the global one.
+        setReasoningEffortByModel(prev => {
+          const next = { ...prev };
+          if (value === 'default') delete next[model];
+          else next[model] = value;
+          return next;
+        });
+      } else {
+        setGlobalReasoningEffort(value);
+      }
+      void openhumanUpdateRuntimeSettings({
+        reasoning_effort: value === 'default' ? '' : value,
+        ...(model ? { reasoning_effort_model: model } : {}),
       })
+        .then(() => {
+          console.debug('[chat][composer-reasoning] persisted reasoning_effort', {
+            effort: value,
+            perModel: Boolean(model),
+          });
+        })
       .catch((err: unknown) => {
         // The per-send value still applies; only persistence failed.
         console.warn('[chat][composer-reasoning] failed to persist reasoning_effort', {
           message: err instanceof Error ? err.message : String(err),
         });
       });
-  }, []);
+    },
+    [composerModelOverride]
+  );
   const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
     setComposerModelOverride(value);
     setComposerModelContextWindow(contextWindow ?? null);
