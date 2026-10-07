@@ -116,9 +116,44 @@ impl<'a> Channels<'a> {
     }
 
     /// Start a Telegram listener whose messages `spec`'s agent answers.
+    ///
+    /// The agent must already exist on this runtime. The listener runs the
+    /// core's channel runtime for this one bot under the runtime's context,
+    /// with `agent.channel_agents.telegram` bound to the agent, so every
+    /// message is a turn of that agent: its prompt, its host tools, the
+    /// chat's history. Turns run as `ExternalChannel` and are capped at
+    /// read-only: tools that write or reach outside are refused at once.
+    ///
+    /// Spawns onto the current tokio runtime, so call it from inside one.
     pub fn telegram(&self, spec: TelegramChannelSpec) -> Result<ChannelListener, ChannelError> {
-        let _ = (self.runtime, spec);
-        Err(ChannelError::Invalid("not implemented".into()))
+        validate(&spec)?;
+        if !self
+            .runtime
+            .agent_ids()
+            .iter()
+            .any(|id| id == spec.agent_id.trim())
+        {
+            return Err(ChannelError::UnknownAgent(spec.agent_id));
+        }
+        let config = telegram_config(self.runtime.base_config(), &spec);
+        let context = std::sync::Arc::clone(self.runtime.core_runtime().context());
+        log::info!(
+            "[embed][channels] starting telegram listener for agent={}",
+            spec.agent_id
+        );
+        let task = tokio::spawn(openhuman_core::core::runtime::CoreContext::scope(
+            context,
+            async move {
+                if let Err(error) = openhuman_core::channels::start_channels(config).await {
+                    log::error!("[embed][channels] telegram listener ended: {error:#}");
+                }
+            },
+        ));
+        Ok(ChannelListener {
+            channel: "telegram",
+            agent_id: spec.agent_id,
+            task: task.abort_handle(),
+        })
     }
 }
 
@@ -145,8 +180,14 @@ impl ChannelListener {
         !self.task.is_finished()
     }
 
-    /// Stop listening.
-    pub fn stop(self) {}
+    /// Stop listening. Dropping the listener does the same.
+    pub fn stop(self) {
+        log::info!(
+            "[embed][channels] stopping {} listener for agent={}",
+            self.channel,
+            self.agent_id
+        );
+    }
 }
 
 impl Drop for ChannelListener {
@@ -156,14 +197,38 @@ impl Drop for ChannelListener {
 }
 
 /// `base` serving only `spec`'s Telegram bot, bound to `spec`'s agent.
+///
+/// Every other channel is cleared, so the listener this config starts serves
+/// this bot alone, whatever the runtime's base config carries.
 pub(crate) fn telegram_config(base: &Config, spec: &TelegramChannelSpec) -> Config {
-    let _ = spec;
-    base.clone()
+    let mut config = base.clone();
+    let mut telegram: openhuman_core::config::schema::TelegramConfig =
+        serde_json::from_value(serde_json::json!({
+            "bot_token": spec.bot_token.trim(),
+            "allowed_users": spec.allowed_users,
+        }))
+        .expect("a TelegramConfig with its required fields deserializes");
+    telegram.chat_id = spec.chat_id.clone();
+    telegram.mention_only = spec.mention_only;
+    telegram.stream_mode = spec.stream_mode.clone();
+    config.channels_config = openhuman_core::config::schema::ChannelsConfig {
+        telegram: Some(telegram),
+        message_timeout_secs: base.channels_config.message_timeout_secs,
+        ..Default::default()
+    };
+    config.agent.channel_agents =
+        std::collections::HashMap::from([("telegram".to_string(), spec.agent_id.trim().to_string())]);
+    config
 }
 
 /// Refuse a spec that names no bot or no agent.
 pub(crate) fn validate(spec: &TelegramChannelSpec) -> Result<(), ChannelError> {
-    let _ = spec;
+    if spec.bot_token.trim().is_empty() {
+        return Err(ChannelError::Invalid("the Telegram bot token is blank".into()));
+    }
+    if spec.agent_id.trim().is_empty() {
+        return Err(ChannelError::Invalid("the agent id is blank".into()));
+    }
     Ok(())
 }
 
