@@ -27,6 +27,14 @@ use crate::memory::error::{MemoryError, MemoryResult};
 /// Workspaces with a migration running now.
 static RUNNING: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
+/// `memory_migration_start` params.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct StartParams {
+    /// The user's consent to take a legacy tree other accounts may share.
+    #[serde(default)]
+    pub takeover: bool,
+}
+
 /// What [`scan`] found.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ScanView {
@@ -60,10 +68,12 @@ pub async fn scan(config: &Config, host: &dyn LayoutHost) -> MemoryResult<ScanVi
     let shared = host.shared_legacy(config);
     let needed = match state.phase {
         Phase::Cleaned => false,
-        Phase::Idle if !state.switched => {
-            let engines = host.engines(config)?;
-            legacy_present(&*engines.legacy).await?
-        }
+        Phase::Idle if !state.switched => match host.engines(config) {
+            // Memory off or signed out: nothing to show.
+            Err(MemoryError::Off(_)) => false,
+            Err(error) => return Err(error),
+            Ok(engines) => legacy_present(&*engines.legacy).await?,
+        },
         _ => true,
     };
     Ok(ScanView { needed, shared })

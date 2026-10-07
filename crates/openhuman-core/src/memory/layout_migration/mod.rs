@@ -12,6 +12,7 @@
 //! engines. Binding the two engines, the switch to the per-user tree, the
 //! catch-up pass, cleanup and the RPCs build on it.
 
+pub mod app_host;
 pub mod cleanup;
 pub mod copy;
 pub mod host;
@@ -23,10 +24,11 @@ pub mod state;
 #[cfg(test)]
 mod test_host;
 
+pub use app_host::AppHost;
 pub use cleanup::cleanup;
 pub use copy::{copy, legacy_present, Engines};
 pub use host::LayoutHost;
 pub use job::{run, Outcome, Trigger};
 pub use map::{FlowPlacement, Placement};
-pub use service::{retry, scan, start, status, tick, MigrationStatus, ScanView};
+pub use service::{retry, scan, start, status, tick, MigrationStatus, ScanView, StartParams};
 pub use state::{MigrationState, Phase};
