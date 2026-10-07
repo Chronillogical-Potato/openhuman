@@ -183,7 +183,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
     let request = FetchRequest {
         query: params.query,
         mode,
-        filter: params.filter.unwrap_or_default(),
+        filter: confine_filter(config, params.filter.unwrap_or_default()),
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
