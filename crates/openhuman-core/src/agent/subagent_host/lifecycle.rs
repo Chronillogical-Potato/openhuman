@@ -488,11 +488,8 @@ impl SubagentPlanner<crate::agent::tinyagents::host::OpenHumanRunContext, HostRe
             definition: request.host_request.definition.clone(),
             options,
         });
-        // The host execution leaf resolves the exact filtered tool snapshot
-        // together with its executable instances and policy.  A neutral
-        // empty declaration prevents this transport plan from advertising
-        // an authority it has not resolved. Role, ceiling, retry and result
-        // policy stay at the harness defaults: the host applies its own.
+        // The host leaf resolves the real tool snapshot and policy; an empty
+        // declaration here advertises no unresolved authority.
         Ok(PreparedSubagent::new(
             request.task_key.task_id,
             request.host_request.definition.id,
@@ -899,8 +896,7 @@ impl OpenHumanPersistence {
                     ..ArtifactReference::default()
                 })
                 .collect(),
-            schema_error: None,
-            artifact_error: None,
+            ..SubagentOutcome::cancelled(String::new())
         }
     }
 
@@ -1215,8 +1211,7 @@ fn host_outcome_to_neutral(
                 ..ArtifactReference::default()
             })
             .collect(),
-        schema_error: None,
-        artifact_error: None,
+        ..SubagentOutcome::cancelled(String::new())
     }
 }
 
