@@ -217,3 +217,173 @@ async fn compaction_recalls_from_the_dropped_turns() {
         .await
         .is_none());
 }
+
+#[tokio::test]
+async fn an_out_of_credits_recall_tells_the_turn_memory_is_unavailable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::out_of_credits().bind(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(&config, &identity, input("t", 0, "what colour do I like?"))
+        .await
+        .expect("a refused recall still gives the turn a notice");
+
+    assert_eq!(
+        pack.refusal,
+        Some(crate::memory::error::INSUFFICIENT_CREDITS)
+    );
+    assert!(
+        pack.markdown.contains("out of credits"),
+        "{}",
+        pack.markdown
+    );
+    assert!(pack.markdown.contains("does not mean nothing is stored"));
+    assert!(pack.refs.is_empty() && pack.citations.is_empty());
+    assert!(pack.tokens > 0);
+}
+
+#[tokio::test]
+async fn an_unreachable_engine_is_named_as_unreachable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::with(tinymemory_api::Error::Unavailable(
+        "connection refused".into(),
+    ))
+    .bind(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(&config, &identity, input("t", 0, "hello"))
+        .await
+        .expect("notice");
+
+    assert_eq!(pack.refusal, Some(crate::memory::error::UNAVAILABLE));
+    assert!(
+        pack.markdown.contains("could not be reached"),
+        "{}",
+        pack.markdown
+    );
+}
+
+#[tokio::test]
+async fn an_engine_fault_that_is_not_account_wide_injects_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::with(tinymemory_api::Error::Engine(
+        "index corrupt".into(),
+    ))
+    .bind(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    assert!(pre_turn(&config, &identity, input("t", 0, "hello"))
+        .await
+        .is_none());
+}
+
+#[test]
+fn a_refusal_is_read_back_from_a_skipped_section() {
+    let outcomes = vec![Ok(ContextPack {
+        markdown: String::new(),
+        tokens: 0,
+        refs: Vec::new(),
+        sections: Vec::new(),
+        skipped: vec![
+            tinymemory_tools::recall::SkippedSection {
+                heading: "Learnings".into(),
+                reason: "empty".into(),
+            },
+            tinymemory_tools::recall::SkippedSection {
+                heading: "History".into(),
+                reason: "unauthorized: [UNAUTHORIZED] memory API fetch (HTTP 401)".into(),
+            },
+        ],
+        engine: "tinyhumans".into(),
+    })];
+    let refusal = refusal_of(&outcomes).expect("refusal");
+    assert_eq!(refusal.code(), crate::memory::error::UNAUTHORIZED);
+
+    let quiet = vec![Ok(ContextPack {
+        markdown: String::new(),
+        tokens: 0,
+        refs: Vec::new(),
+        sections: Vec::new(),
+        skipped: Vec::new(),
+        engine: "tinyhumans".into(),
+    })];
+    assert!(refusal_of(&quiet).is_none());
+}
+
+// ── the pack's token budget against a large store (#6718, #7023) ────────────
+
+async fn fill_with_learnings(engine: &tinymemory_api::conformance::ReferenceEngine, count: usize) {
+    for i in 0..count {
+        engine
+            .store(StoreItem::learning(
+                format!(
+                    "Project note {i}: the Lisbon office ships release {i} on a Thursday, \
+                     reviewed by team {} with a rollback window of {} hours.",
+                    i % 17,
+                    i % 9 + 1
+                ),
+                LearningKind::Fact,
+                0.8,
+                MemoryMeta::default(),
+            ))
+            .await
+            .unwrap();
+    }
+}
+
+fn budget(config: &crate::config::Config) -> usize {
+    config.memory.recall.budget_tokens as usize
+}
+
+/// Lines that appear more than once in a rendered pack (headings aside).
+fn repeated_lines(markdown: &str) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    markdown
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("- "))
+        .filter(|line| !seen.insert(line.to_string()))
+        .map(str::to_string)
+        .collect()
+}
+
+#[tokio::test]
+async fn a_turn_pack_stays_within_its_budget_against_a_large_store() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    fill_with_learnings(&engine, 1500).await;
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+
+    let pack = pre_turn(
+        &config,
+        &identity,
+        input("t-large", 0, "when does the Lisbon release ship?"),
+    )
+    .await
+    .expect("a pack");
+    eprintln!(
+        "large store: 1500 learnings -> pack {} tokens (budget {}), {} refs",
+        pack.tokens,
+        budget(&config),
+        pack.refs.len()
+    );
+    // The budget check only means something if real learnings were recalled.
+    assert!(
+        pack.refusal.is_none(),
+        "not a refusal notice: {}",
+        pack.markdown
+    );
+    assert!(!pack.refs.is_empty(), "the pack recalled something");
+    assert!(pack.markdown.contains("Project note"), "{}", pack.markdown);
+    assert!(
+        pack.tokens <= budget(&config),
+        "{} > {}",
+        pack.tokens,
+        budget(&config)
+    );
+    assert!(repeated_lines(&pack.markdown).is_empty());
+}

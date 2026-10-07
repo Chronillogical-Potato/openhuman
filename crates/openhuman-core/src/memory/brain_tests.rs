@@ -205,3 +205,35 @@ async fn a_file_is_converted_and_filed_by_its_format() {
     let docs = stored(&engine, MetaFilter::kinds([ItemKind::Document])).await;
     assert_eq!(docs[0].meta.namespace.to_string(), "source:markdown");
 }
+
+#[tokio::test]
+async fn an_ingest_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
+    use std::sync::Arc;
+    use tinymemory_api::conformance::ReferenceEngine;
+    use tinymemory_api::Consolidation;
+
+    for (consolidation, queued) in [(Consolidation::OnDemand, 1), (Consolidation::Automatic, 0)] {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = config_in(&tmp);
+        crate::memory::engine::install_test_engine(
+            &config.workspace_dir,
+            Arc::new(ReferenceEngine::new().with_consolidation(consolidation)),
+        );
+        ingest(
+            &config,
+            BrainIngestParams {
+                path: None,
+                text: Some("Refunds are issued within 14 days.".into()),
+                source: Some("notion".into()),
+                title: None,
+            },
+        )
+        .await
+        .unwrap();
+        let pending = crate::memory::lifecycle::jobs::snapshot(&config)
+            .await
+            .pending
+            .len();
+        assert_eq!(pending, queued, "{consolidation:?}");
+    }
+}

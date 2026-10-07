@@ -93,7 +93,7 @@ test.describe('Onboarding modes', () => {
     await expectOnboardingCompleted();
   });
 
-  test('advanced custom path walks every custom wizard step and finishes on home', async ({
+  test('advanced custom path walks the three custom wizard steps and finishes on home', async ({
     page,
   }) => {
     await bootIntoOnboarding(page, 'pw-onboarding-custom');
@@ -108,29 +108,17 @@ test.describe('Onboarding modes', () => {
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await expect(page.getByTestId('onboarding-custom-inference-step')).toBeVisible();
-    expect(await clickTestId(page, 'onboarding-custom-inference-step-default')).toBe(true);
-    expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
-
-    await expect(page.getByTestId('onboarding-custom-voice-step')).toBeVisible();
-    expect(await clickTestId(page, 'onboarding-custom-voice-step-default')).toBe(true);
-    expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
-
-    await expect(page.getByTestId('onboarding-custom-oauth-step')).toBeVisible();
-    expect(await clickTestId(page, 'onboarding-custom-oauth-step-default')).toBe(true);
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await expect(page.getByTestId('onboarding-custom-search-step')).toBeVisible();
-    expect(await clickTestId(page, 'onboarding-custom-search-step-default')).toBe(true);
     expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
-    const embeddingsVisible = await page
-      .getByTestId('onboarding-custom-embeddings-step')
-      .isVisible()
-      .catch(() => false);
-    if (embeddingsVisible) {
-      expect(await clickTestId(page, 'onboarding-custom-embeddings-step-default')).toBe(true);
-      expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
+    await expect(page.getByTestId('onboarding-custom-vault-step')).toBeVisible();
+    // Voice, OAuth and embeddings are no longer wizard steps.
+    for (const retired of ['voice', 'oauth', 'embeddings']) {
+      await expect(page.getByTestId(`onboarding-custom-${retired}-step`)).toHaveCount(0);
     }
+    expect(await clickTestId(page, 'onboarding-next-button')).toBe(true);
 
     await ensureHomeOrForceComplete(page);
     await expectOnboardingCompleted();

@@ -132,6 +132,27 @@ fn failed_reply_without_a_name_falls_back_to_the_code() {
 }
 
 #[test]
+fn a_missing_chrome_tells_the_agent_where_the_user_sets_its_path() {
+    let response: DesktopResponse = serde_json::from_value(serde_json::json!({
+        "version": "2.5",
+        "ok": false,
+        "command": "browser-open-session",
+        "error": {
+            "code": "BROWSER_UNAVAILABLE",
+            "message": "browser unavailable: Chrome not found. Checked: - System Chrome installations",
+            "details": {"name": "ai.tinyhumans.tinycomputer.Browser.Error.BrowserUnavailable"}
+        }
+    }))
+    .unwrap();
+    let error = BrowserCallError::from_response(&response).to_string();
+    assert!(error.starts_with("BrowserUnavailable: browser unavailable: Chrome not found"));
+    assert!(error.contains("Chrome path"), "{error}");
+    assert!(error.contains("Do not install"), "{error}");
+    assert!(chrome_not_found("CHROME NOT FOUND"));
+    assert!(!chrome_not_found("Chrome launch timed out"));
+}
+
+#[test]
 fn fresh_profile_is_the_default() {
     let config = Config::default();
     assert_eq!(config.browser.profile_mode, "fresh");
