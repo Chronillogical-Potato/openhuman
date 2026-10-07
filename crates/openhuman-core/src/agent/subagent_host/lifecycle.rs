@@ -899,6 +899,8 @@ impl OpenHumanPersistence {
                     ..ArtifactReference::default()
                 })
                 .collect(),
+            schema_error: None,
+            artifact_error: None,
         }
     }
 
@@ -1213,6 +1215,8 @@ fn host_outcome_to_neutral(
                 ..ArtifactReference::default()
             })
             .collect(),
+        schema_error: None,
+        artifact_error: None,
     }
 }
 
