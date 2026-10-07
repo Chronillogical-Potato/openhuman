@@ -21,12 +21,17 @@ use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet, SaasConfig};
 use crate::tools::toolpacks::ToolGroups;
 
 /// One open user agent.
-#[derive(Debug)]
 pub struct UserAgentState {
     pub id: UserAgentId,
     pub layout: UserAgentLayout,
     pub config: Config,
     context: Arc<CoreContext>,
+}
+
+impl std::fmt::Debug for UserAgentState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserAgentState").field("id", &self.id).finish()
+    }
 }
 
 impl UserAgentState {

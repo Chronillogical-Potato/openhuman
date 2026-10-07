@@ -15,7 +15,7 @@ fn require_host() -> Result<std::sync::Arc<AgentHost>, String> {
 
 /// Create the agent for gateway user `user_id`, if it does not exist yet.
 pub fn provision(user_id: &str) -> Result<Outcome<ProvisionResult>, String> {
-    provision_on(&require_host()?, user_id)
+    provision_on(&*require_host()?, user_id)
 }
 
 pub(crate) fn provision_on(
@@ -34,7 +34,7 @@ pub(crate) fn provision_on(
 
 /// Close agent `agent_id` and archive its state.
 pub fn deprovision(agent_id: &str) -> Result<Outcome<DeprovisionResult>, String> {
-    deprovision_on(&require_host()?, agent_id)
+    deprovision_on(&*require_host()?, agent_id)
 }
 
 pub(crate) fn deprovision_on(
@@ -60,7 +60,7 @@ pub fn list() -> Result<Outcome<Vec<UserAgentSummary>>, String> {
 
 /// One agent, or an error when it is not provisioned.
 pub fn status(agent_id: &str) -> Result<Outcome<UserAgentSummary>, String> {
-    status_on(&require_host()?, agent_id)
+    status_on(&*require_host()?, agent_id)
 }
 
 pub(crate) fn status_on(
