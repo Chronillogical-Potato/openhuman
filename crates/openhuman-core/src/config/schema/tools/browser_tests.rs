@@ -66,3 +66,19 @@ fn known_unattended_names_match_the_gated_action_wire_names() {
         ]
     );
 }
+
+#[test]
+fn the_requested_kind_is_normalized_like_the_configured_entries() {
+    let config = with_unattended(&["click"]);
+    assert!(config.allows_unattended(" CLICK "));
+    assert!(config.allows_unattended("Click"));
+}
+
+#[test]
+fn an_allowed_kind_resolves_to_its_static_canonical_name() {
+    let config = with_unattended(&["Press"]);
+    let canonical: Option<&'static str> = config.unattended_kind(" PRESS ");
+    assert_eq!(canonical, Some("press"));
+    assert_eq!(config.unattended_kind("click"), None);
+    assert_eq!(config.unattended_kind("#secret selector"), None);
+}

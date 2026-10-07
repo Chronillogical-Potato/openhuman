@@ -125,6 +125,11 @@ impl BrowserConfig {
                 .any(|listed| normalized_action(listed) == kind)
     }
 
+    /// The canonical name of `kind` when it is allowed unattended.
+    pub fn unattended_kind(&self, _kind: &str) -> Option<&'static str> {
+        None
+    }
+
     /// Entries of `unattended_actions` that name no known action kind. They
     /// allow nothing; the loader reports them so a typo is not silent.
     pub fn unknown_unattended_actions(&self) -> Vec<String> {
