@@ -279,6 +279,10 @@ impl Fixture {
                 return result;
             }
             tokio::time::sleep(pause).await;
+            // A late wake can still cross it.
+            if std::time::Instant::now() >= deadline {
+                return result;
+            }
         }
     }
 
