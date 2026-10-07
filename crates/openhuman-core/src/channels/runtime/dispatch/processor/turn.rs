@@ -2,7 +2,7 @@
 //! assembly, dispatching the agentic turn over the native bus, and
 //! delivering the draft/final reply.
 
-use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
+use crate::agent::bus::AgentTurnResponse;
 use crate::agent::progress::AgentProgress;
 use crate::channels::context::{
     compact_sender_history, conversation_history_key, is_context_window_overflow_error,
@@ -19,7 +19,6 @@ use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tinyagents_session::transcript::TranscriptMessage;
-use tinybus::NativeRequestError;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -27,8 +26,11 @@ use super::super::helpers::{
     build_channel_context_block, log_worker_join_result, select_acknowledgment_reaction,
     spawn_scoped_typing_task, REPLY_LOG_TRUNCATE_CHARS,
 };
-use super::super::routing::resolve_target_agent;
+use super::super::host_agent::{
+    self, run_host_agent_turn, seed_rows, HostChannelTurn, HostRoute,
+};
 use super::approval::{channel_has_approval_surface, try_route_approval_reply};
+use super::bus_turn::dispatch_bus_turn;
 use super::RuntimeChannelMessage;
 
 pub(crate) async fn process_channel_message(
@@ -82,6 +84,23 @@ pub(crate) async fn process_channel_runtime_message(
     if channel_has_approval_surface(&msg.channel) && try_route_approval_reply(&msg).await {
         return;
     }
+
+    // A channel bound to a host agent nobody answers for is refused before
+    // any typing or provider work; see `host_agent`.
+    let bound_agent = match host_agent::route(ctx.as_ref(), &msg.channel) {
+        HostRoute::Unbound => None,
+        HostRoute::Agent(host) => Some(host),
+        HostRoute::Missing(agent_id) => {
+            host_agent::refuse_missing_agent(
+                ctx.as_ref(),
+                &msg,
+                target_channel.as_ref(),
+                &agent_id,
+            )
+            .await;
+            return;
+        }
+    };
 
     // Fire typing indicator as early as possible — before any async I/O — so the
     // user sees feedback immediately regardless of how fast the LLM responds.

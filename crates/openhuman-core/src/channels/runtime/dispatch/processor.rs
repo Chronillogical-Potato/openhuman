@@ -12,6 +12,7 @@
 //!   `tinychannels::runtime::run_dispatch_loop`.
 
 mod approval;
+mod bus_turn;
 mod turn;
 
 use crate::channels::context::ChannelRuntimeContext;

@@ -7,6 +7,7 @@ use crate::agent::bus::AgentTurnResponse;
 use crate::agent::host_agents::HostAgent;
 use crate::agent::progress::AgentProgress;
 use crate::agent::turn_origin::AgentTurnOrigin;
+use tinyagents_session::transcript::TranscriptMessage;
 
 /// One channel message, as a host agent's turn needs it.
 pub(crate) struct HostChannelTurn {
@@ -80,4 +81,17 @@ pub(crate) async fn run_host_agent_turn(
         format!("agent:{agent_id}"),
         model,
     ))
+}
+
+/// The prior turns of a channel `history` (`[system, ..prior, user]`) as seed
+/// rows: the channel's own system prompt and the new message are dropped, the
+/// agent brings its own prompt and the message is the turn.
+pub(crate) fn seed_rows(history: &[TranscriptMessage]) -> Vec<(String, String)> {
+    let end = history.len().saturating_sub(1);
+    history
+        .get(1..end)
+        .unwrap_or_default()
+        .iter()
+        .map(|row| (row.role.clone(), row.content.clone()))
+        .collect()
 }

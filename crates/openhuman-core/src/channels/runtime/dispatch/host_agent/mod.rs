@@ -29,7 +29,7 @@ use crate::core::events::DomainEvent;
 pub(crate) mod posture;
 mod turn;
 
-pub(crate) use turn::{run_host_agent_turn, HostChannelTurn};
+pub(crate) use turn::{run_host_agent_turn, seed_rows, HostChannelTurn};
 
 /// What a channel's binding resolves to for one message.
 pub(crate) enum HostRoute {
