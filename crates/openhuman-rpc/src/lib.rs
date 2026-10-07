@@ -17,6 +17,9 @@
 //!   and listener, plus the `run_server*` entry points hosts call; and
 //!   [`http_host`], the static-directory file server whose `http_host.*`
 //!   controllers the server registers with the core.
+//! - Behind `session-store` (on with `server`): [`session_store`], the
+//!   on-disk session store the app, the CLI and the TUI install, so the core
+//!   itself carries no storage layout.
 
 #[cfg(feature = "http-client")]
 mod client;
@@ -26,6 +29,8 @@ pub mod http_host;
 mod origin;
 #[cfg(feature = "server")]
 pub mod server;
+#[cfg(feature = "session-store")]
+pub mod session_store;
 
 #[cfg(feature = "http-client")]
 pub use client::{bearer_header, post_json_rpc, redact_url_for_log, HttpRpcResponse};

@@ -1,26 +1,63 @@
 import { type ReactNode, useState } from 'react';
 
-import { Button, Card } from '../../../components/ui';
+import Button from '../../../components/ui/Button';
 import { useT } from '../../../lib/i18n/I18nContext';
 import OnboardingNextButton from '../components/OnboardingNextButton';
 import WizardStepper from '../components/WizardStepper';
-import { CUSTOM_WIZARD_STEPS, STEP_LABEL_KEYS } from '../customWizardSteps';
+import type { CustomStepChoice } from '../OnboardingContext';
+
+interface ChoiceCardProps {
+  selected: boolean;
+  onClick: () => void;
+  accent: 'sage' | 'primary';
+  title: string;
+  description: string;
+  testId: string;
+  disabled?: boolean;
+}
+
+const ChoiceCard = ({
+  selected,
+  onClick,
+  accent,
+  title,
+  description,
+  testId,
+  disabled = false,
+}: ChoiceCardProps) => {
+  const selectedClasses =
+    accent === 'sage'
+      ? 'border-sage-500! bg-sage-50 dark:bg-sage-500/10 shadow-xs'
+      : 'border-primary-500! bg-primary-50 dark:bg-primary-500/15 shadow-xs';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
+      data-testid={testId}
+      className={`flex h-full w-full flex-col rounded-2xl border-2 p-5 text-left transition-colors focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60 ${
+        selected
+          ? selectedClasses
+          : 'border-line! bg-surface hover:border-line-strong! dark:hover:border-line-strong! hover:bg-surface-hover'
+      }`}>
+      <h3 className="text-base font-semibold text-content">{title}</h3>
+      <p className="mt-1 text-xs text-content-secondary leading-relaxed">{description}</p>
+    </button>
+  );
+};
 
 interface CustomWizardStepProps {
   stepIndex: number;
   stepCount: number;
   title: string;
   subtitle: string;
-  /**
-   * The step's configuration surface, rendered directly.
-   *
-   * There used to be a Default/Configure fork above this. It asked the same
-   * question the runtime choice already answered — a user reaches these steps
-   * precisely by saying they want to configure things themselves — and
-   * "Default" branched to nothing: no code ever read the recorded choice
-   * except the analytics tag. The step is the configuration now.
-   */
+  defaultDescription: string;
+  configureDescription: string;
+  /** Inline content rendered below the choice cards when 'configure' is picked. */
   configureContent?: ReactNode;
+  choice: CustomStepChoice | null;
+  onChoiceChange: (choice: CustomStepChoice) => void;
   onBack: () => void;
   onContinue: () => void | Promise<void>;
   /** Continue label override (used for the final "Finish setup" step). */
@@ -31,10 +68,9 @@ interface CustomWizardStepProps {
   continueLoading?: boolean;
   continueLoadingLabel?: string;
   testId?: string;
-  /** Explains a blocked Continue (e.g. the panel has unsaved edits). */
-  continueHint?: string;
-  /** Rendered beneath the footer — the search step's "Skip for now". */
-  secondaryAction?: ReactNode;
+  defaultDisabled?: boolean;
+  defaultDisabledReason?: string;
+  hideChoiceCards?: boolean;
 }
 
 const CustomWizardStep = ({
@@ -42,7 +78,11 @@ const CustomWizardStep = ({
   stepCount,
   title,
   subtitle,
+  defaultDescription,
+  configureDescription,
   configureContent,
+  choice,
+  onChoiceChange,
   onBack,
   onContinue,
   continueLabel,
@@ -50,14 +90,15 @@ const CustomWizardStep = ({
   continueLoading,
   continueLoadingLabel,
   testId,
-  continueHint,
-  secondaryAction,
+  defaultDisabled = false,
+  defaultDisabledReason,
+  hideChoiceCards = false,
 }: CustomWizardStepProps) => {
   const { t } = useT();
   const [isContinuing, setIsContinuing] = useState(false);
 
   const handleContinue = async () => {
-    if (isContinuing || continueDisabled) return;
+    if (isContinuing || choice === null || continueDisabled) return;
     try {
       setIsContinuing(true);
       await onContinue();
@@ -66,67 +107,76 @@ const CustomWizardStep = ({
     }
   };
 
-  // Derived from the step list itself rather than a parallel hand-ordered
-  // array, which could be — and was — sliced into labels belonging to steps
-  // that are no longer rendered. See STEP_LABEL_KEYS.
-  const stepperLabels = CUSTOM_WIZARD_STEPS.map(key => t(STEP_LABEL_KEYS[key]));
-
-  const rootTestId = testId ?? 'onboarding-custom-wizard-step';
+  const stepperLabels = [
+    t('onboarding.custom.stepperInference'),
+    t('onboarding.custom.stepperVoice'),
+    t('onboarding.custom.stepperOAuth'),
+    t('onboarding.custom.stepperSearch'),
+    t('onboarding.custom.stepperEmbeddings'),
+    t('onboarding.custom.stepperVault'),
+    t('onboarding.custom.stepperMemory'),
+  ].slice(0, stepCount);
 
   return (
-    <Card
-      padded
-      divided={false}
-      data-testid={rootTestId}
-      className="animate-fade-up p-6 shadow-soft sm:p-8">
+    <div
+      data-testid={testId ?? 'onboarding-custom-wizard-step'}
+      className="rounded-2xl bg-surface p-10 shadow-soft animate-fade-up">
       <WizardStepper labels={stepperLabels} activeIndex={stepIndex} />
 
-      <p
-        className="mt-8 text-[11px] font-medium uppercase tracking-wide text-content-faint"
-        data-testid="onboarding-step-counter">
-        {t('onboarding.custom.stepCounter')
-          .replace('{n}', String(stepIndex + 1))
-          .replace('{total}', String(stepCount))}
-      </p>
-      <h1 className="mt-1 text-2xl font-title text-content leading-tight">{title}</h1>
+      <h1 className="mt-8 text-2xl font-title text-content leading-tight">{title}</h1>
       <p className="mt-2 text-sm text-content-muted leading-relaxed">{subtitle}</p>
 
-      {/* No wrapper card here: the embedded panels are themselves `Card`s, and
-          nesting one in another produced a card-in-a-card. */}
-      {configureContent ? <div className="mt-6">{configureContent}</div> : null}
+      {!hideChoiceCards ? (
+        <>
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">
+            <ChoiceCard
+              testId={`${testId ?? 'onboarding-custom-wizard-step'}-default`}
+              accent="sage"
+              selected={choice === 'default'}
+              onClick={() => onChoiceChange('default')}
+              disabled={defaultDisabled}
+              title={t('onboarding.custom.defaultTitle')}
+              description={defaultDescription || t('onboarding.custom.defaultSubtitle')}
+            />
+            <ChoiceCard
+              testId={`${testId ?? 'onboarding-custom-wizard-step'}-configure`}
+              accent="primary"
+              selected={choice === 'configure'}
+              onClick={() => onChoiceChange('configure')}
+              title={t('onboarding.custom.configureTitle')}
+              description={configureDescription || t('onboarding.custom.configureSubtitle')}
+            />
+          </div>
 
-      {/* Back and Continue carry equal width. Continue used to sit in a
-          `flex-1` wrapper beside an intrinsically-sized Back, so the primary
-          action ran the width of the card while Back shrank to its label —
-          a hierarchy nobody chose. */}
-      <div className="mt-8 flex items-stretch gap-3">
-        {/* `size="lg"` matches OnboardingNextButton, which is also lg. Left at
-            the default md, Back rendered h-9 next to a h-11 Continue — equal
-            width but visibly unequal height. */}
-        <Button variant="secondary" size="lg" onClick={onBack} className="flex-1 basis-0">
+          {defaultDisabled && defaultDisabledReason ? (
+            <p className="mt-3 text-xs text-content-muted leading-relaxed">
+              {defaultDisabledReason}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+
+      {(choice === 'configure' || hideChoiceCards) && configureContent ? (
+        <div className="mt-6 rounded-2xl border border-line bg-surface-muted p-5">
+          {configureContent}
+        </div>
+      ) : null}
+
+      <div className="mt-8 flex items-center gap-3">
+        <Button variant="secondary" onClick={onBack}>
           {t('onboarding.custom.back')}
         </Button>
-        <div className="flex-1 basis-0">
+        <div className="flex-1">
           <OnboardingNextButton
             label={continueLabel ?? t('onboarding.custom.continue')}
             onClick={() => void handleContinue()}
-            disabled={continueDisabled || isContinuing}
+            disabled={choice === null || continueDisabled || isContinuing}
             loading={continueLoading || isContinuing}
             loadingLabel={continueLoadingLabel}
           />
         </div>
       </div>
-
-      {continueHint ? (
-        <p
-          className="mt-3 text-center text-xs text-amber-700 dark:text-amber-300"
-          data-testid="onboarding-continue-hint">
-          {continueHint}
-        </p>
-      ) : null}
-
-      {secondaryAction ? <div className="mt-3 flex justify-center">{secondaryAction}</div> : null}
-    </Card>
+    </div>
   );
 };
 

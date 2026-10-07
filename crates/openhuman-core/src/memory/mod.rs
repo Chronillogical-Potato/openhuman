@@ -23,7 +23,6 @@ pub mod backfill;
 pub mod brain;
 pub mod bus;
 pub mod channels;
-pub(crate) mod convert;
 pub mod engine;
 pub mod error;
 pub mod explore;

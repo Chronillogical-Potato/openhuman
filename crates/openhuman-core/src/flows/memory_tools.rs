@@ -175,10 +175,6 @@ pub async fn remember_keyed(
         },
     )
     .await?;
-    // A flow's own key/value state: searchable, but nothing is derived from
-    // it as memory about the user.
-    let mut meta = flow_meta(flow_id, &[key_tag]);
-    meta.derive = Some(false);
     let view = crate::memory::ops::learn(
         config,
         LearnParams {
@@ -187,7 +183,7 @@ pub async fn remember_keyed(
             confidence: None,
             meta: None,
         },
-        Some(meta),
+        Some(flow_meta(flow_id, &[key_tag])),
     )
     .await?;
     tracing::debug!(

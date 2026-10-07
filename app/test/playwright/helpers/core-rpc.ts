@@ -240,10 +240,16 @@ export async function waitForAppReady(page: Page): Promise<void> {
     .toBeGreaterThan(20);
   await expect
     .poll(async () =>
-      // Keyed off a test id, not the picker's heading. Matching the copy meant
-      // that renaming it left this wait matching nothing, so it resolved
-      // immediately and every spec raced the boot gate.
-      page.evaluate(() => document.querySelector('[data-testid="boot-check-picker"]') !== null)
+      page.evaluate(() => {
+        const candidates = Array.from(document.querySelectorAll('h2, button, p, div, span'));
+        return candidates.some(node => {
+          const text = node.textContent?.trim() ?? '';
+          if (!/Select a Runtime|Connect to Your Runtime/.test(text)) return false;
+          const el = node as HTMLElement;
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
+      })
     )
     .toBe(false);
 }

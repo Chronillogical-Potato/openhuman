@@ -9,9 +9,9 @@ icon: vials
 
 Desktop E2E tests use **WebDriverIO (WDIO)** to drive the app through a single `tauri-driver` (WebDriver) session against its native Wry/WebKit webview:
 
-| Platform  | Driver                         | Port | App format   | Selectors |
-| --------- | ------------------------------ | ---- | ------------ | --------- |
-| **Linux** | tauri-driver + WebKitWebDriver | 4444 | Debug binary | CSS / DOM |
+| Platform  | Driver                        | Port | App format   | Selectors |
+| --------- | ------------------------------ | ---- | ------------- | --------- |
+| **Linux** | tauri-driver + WebKitWebDriver | 4444 | Debug binary  | CSS / DOM |
 
 The app moved from CEF to Tauri's native Wry webview in #5456. The old Appium Chromium-driver backend attached over CEF's remote-debugging port; CDP only exists under a Chromium engine, so that backend was removed in #5478 along with CEF itself. Linux CI now drives the debug binary under Xvfb through `tauri-driver`. macOS and Windows have no automated desktop E2E coverage until a native driver (Appium Mac2 / WinAppDriver) replaces the removed one; that work is tracked in #5485. `pnpm --filter openhuman-app test:e2e:build` still produces a `.app` bundle on macOS for manual testing, but there is no supported automated session there yet.
 
@@ -78,7 +78,7 @@ active platform detection.
 
 `app/test/e2e/helpers/element-helpers.ts` provides a unified API over the WebView DOM:
 
-| Helper                    | Behavior                                     |
+| Helper                    | Behavior                                      |
 | ------------------------- | -------------------------------------------- |
 | `waitForText(text)`       | XPath over DOM text content                  |
 | `waitForButton(text)`     | `button` / `[role="button"]` XPath           |
@@ -232,19 +232,6 @@ bash app/scripts/e2e-run-spec.sh test/e2e/specs/notifications.spec.ts notificati
 ---
 
 ## Agent-observable artifact flow
-
-### Starting a composer test
-
-Chat drafts persist per thread. Before a spec types its initial prompt, call
-`replaceChatComposerText(input, prompt)` from
-`app/test/playwright/helpers/chat-composer.ts`. It selects and deletes the
-restored draft, waits for the empty value, types through keyboard events, and
-checks the exact prompt. Use `clearChatComposer(input)` when a case needs an
-empty composer. These helpers support both textarea and Lexical surfaces.
-
-Cases that exercise draft restoration or append a follow-up should keep their
-draft and drive that behavior explicitly. The helper's browser regressions live
-in `app/test/playwright/specs/chat-composer-helper.spec.ts`.
 
 For a canonical, inspectable run that drops screenshots, page-source dumps, and mock request logs on disk:
 

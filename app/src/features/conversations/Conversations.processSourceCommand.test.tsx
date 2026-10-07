@@ -18,7 +18,6 @@ import { SidebarSlotOutlet, SidebarSlotProvider } from '../../components/layout/
 import { registry } from '../../lib/commands/registry';
 import { threadApi } from '../../services/api/threadApi';
 import { chatSend } from '../../services/chatService';
-import { callCoreRpc } from '../../services/coreRpcClient';
 import chatRuntimeReducer from '../../store/chatRuntimeSlice';
 import layoutReducer from '../../store/layoutSlice';
 import queueReducer from '../../store/queueSlice';
@@ -31,89 +30,30 @@ import threadTodosReducer from '../../store/threadTodosSlice';
 import type { Thread } from '../../types/thread';
 import Conversations from './Conversations';
 
-vi.mock('../../services/socketService', () => ({
-  socketService: {
-    getSocket: vi.fn(() => ({ id: 'composer-test-socket' })),
-    on: vi.fn(),
-    off: vi.fn(),
-  },
+const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(() => ({
+  mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
+  mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
+  mockUseUsageState: vi.fn(() => ({
+    teamUsage: null,
+    currentPlan: null,
+    currentTier: 'FREE' as const,
+    isFreeTier: true,
+    usagePct: 0,
+    isNearLimit: false,
+    isAtLimit: false,
+    isBudgetExhausted: false,
+    shouldShowBudgetCompletedMessage: false,
+    isLoading: false,
+    refresh: vi.fn(),
+  })),
 }));
-
-const { mockGetThreads, mockGetThreadMessages, mockUseUsageState, mockChatSend } = vi.hoisted(
-  () => ({
-    mockGetThreads: vi.fn().mockResolvedValue({ threads: [], count: 0 }),
-    mockGetThreadMessages: vi.fn().mockResolvedValue({ messages: [], count: 0 }),
-    mockChatSend: vi.fn().mockResolvedValue(undefined),
-    mockUseUsageState: vi.fn(() => ({
-      teamUsage: null,
-      currentPlan: null,
-      currentTier: 'FREE' as const,
-      isFreeTier: true,
-      usagePct: 0,
-      isNearLimit: false,
-      isAtLimit: false,
-      isBudgetExhausted: false,
-      shouldShowBudgetCompletedMessage: false,
-      isLoading: false,
-      refresh: vi.fn(),
-    })),
-  })
-);
-
-vi.mock('../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn().mockResolvedValue({}) }));
 
 vi.mock('../../services/chatService', () => ({
   chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
   chatClearQueue: vi.fn().mockResolvedValue(0),
-  chatSend: mockChatSend,
+  chatSend: vi.fn().mockResolvedValue(undefined),
   subscribeChatEvents: vi.fn(() => () => {}),
   useRustChat: vi.fn(() => true),
-}));
-
-vi.mock('../../components/chat/ModelQualityPill', async importOriginal => {
-  const actual = await importOriginal<typeof import('../../components/chat/ModelQualityPill')>();
-  return { ...actual, useModelPickerProviders: () => ({ providers: [], loading: false }) };
-});
-
-vi.mock('../../components/settings/panels/ai/ProviderModelPickerDialog', () => ({
-  ProviderModelPickerDialog: ({
-    onSelect,
-  }: {
-    onSelect: (selection: {
-      source: { kind: 'cloud'; providerSlug: string } | { kind: 'local' } | { kind: 'managed' };
-      model: string;
-    }) => void;
-  }) => (
-    <div data-testid="provider-model-picker-dialog">
-      <button
-        type="button"
-        onClick={() =>
-          onSelect({ source: { kind: 'cloud', providerSlug: 'huggingface' }, model: 'org/model' })
-        }>
-        Pick Hugging Face model
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          onSelect({ source: { kind: 'cloud', providerSlug: 'unknown-provider' }, model: 'model' })
-        }>
-        Pick unknown provider model
-      </button>
-      <button
-        type="button"
-        onClick={() => onSelect({ source: { kind: 'managed' }, model: 'openrouter/author/model' })}>
-        Pick managed model
-      </button>
-      <button
-        type="button"
-        onClick={() => onSelect({ source: { kind: 'local' }, model: 'qwen3:4b-instruct' })}>
-        Pick local model
-      </button>
-      <button type="button" onClick={() => onSelect({ source: { kind: 'managed' }, model: '' })}>
-        Clear model
-      </button>
-    </div>
-  ),
 }));
 
 vi.mock('../../services/api/threadApi', () => ({
@@ -198,17 +138,13 @@ function buildStore(preload: Record<string, unknown>) {
   });
 }
 
-async function renderChat(
-  composer?: 'text' | 'mic-cloud',
-  withProcessData = false,
-  active = false
-) {
+async function renderChat(composer?: 'text' | 'mic-cloud', withProcessData = false) {
   mockGetThreads.mockResolvedValue({ threads: [thread], count: 1 });
   const store = buildStore({
     thread: {
       threads: [thread],
       selectedThreadId: THREAD_ID,
-      activeThreadIds: active ? { [THREAD_ID]: true } : {},
+      activeThreadIds: {},
       welcomeThreadId: null,
       messagesByThreadId: { [THREAD_ID]: [] },
       messages: [],
@@ -241,84 +177,6 @@ async function renderChat(
     );
   });
   return store;
-}
-
-async function submitComposerText(text: string) {
-  const input = screen.getByRole('textbox');
-  await act(async () => {
-    input.textContent = text;
-    fireEvent.input(input, { data: text, inputType: 'insertText' });
-  });
-  const sendButton = screen.getByTestId('send-message-button');
-  await waitFor(() => expect(sendButton).not.toBeDisabled());
-  await act(async () => {
-    fireEvent.click(sendButton);
-  });
-  await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-}
-
-async function clickSendButtonWithDraft(text: string) {
-  const input = screen.getByRole('textbox');
-  await act(async () => {
-    input.textContent = text;
-    fireEvent.input(input, { data: text, inputType: 'insertText' });
-  });
-  const sendButton = screen.getByTestId('send-message-button');
-  await waitFor(() => expect(sendButton).not.toBeDisabled());
-  await act(async () => {
-    fireEvent.click(sendButton);
-  });
-}
-
-async function selectPickerModel() {
-  fireEvent.click(screen.getByTestId('composer-chat-settings'));
-  fireEvent.click(await screen.findByRole('button', { name: 'Pick Hugging Face model' }));
-}
-
-async function selectPickerRoute(name: 'managed' | 'local' | 'unknown provider') {
-  fireEvent.click(screen.getByTestId('composer-chat-settings'));
-  fireEvent.click(await screen.findByRole('button', { name: `Pick ${name} model` }));
-}
-
-async function clearPickerModel() {
-  fireEvent.click(screen.getByTestId('composer-chat-settings'));
-  fireEvent.click(await screen.findByRole('button', { name: 'Clear model' }));
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise;
-    reject = rejectPromise;
-  });
-  return { promise, resolve, reject };
-}
-
-function mockModelSettingsWrites(writes: Record<string, Promise<unknown> | Promise<unknown>[]>) {
-  vi.mocked(callCoreRpc).mockImplementation(({ method, params }) => {
-    if (method === 'openhuman.inference_update_model_settings') {
-      const defaultModel = (params as { default_model: string }).default_model;
-      const writesForValue = writes[defaultModel];
-      const write = Array.isArray(writesForValue) ? writesForValue.shift() : writesForValue;
-      return (write ?? Promise.resolve({})) as ReturnType<typeof callCoreRpc>;
-    }
-    return Promise.resolve({}) as ReturnType<typeof callCoreRpc>;
-  });
-}
-
-async function useRealChatSend() {
-  const actual = await vi.importActual<typeof import('../../services/chatService')>(
-    '../../services/chatService'
-  );
-  mockChatSend.mockImplementation(actual.chatSend);
-}
-
-function latestChatRpc() {
-  return vi
-    .mocked(callCoreRpc)
-    .mock.calls.filter(([request]) => request.method === 'openhuman.channel_web_chat')
-    .at(-1)?.[0];
 }
 
 // The predicate's other half (`selectedThreadId !== null`) is deliberately not
@@ -413,344 +271,5 @@ describe('the agent-process-source command follows the panel that hosts it', () 
     expect(action, 'the command is registered in voice mode').toBeDefined();
     expect(action?.enabled?.()).toBe(true);
     expect(registry.runAction(ACTION_ID)).toBe(true);
-  });
-});
-
-describe('composer model routing', () => {
-  afterEach(() => {
-    cleanup();
-    registry.reset();
-    vi.mocked(threadApi.appendMessage)
-      .mockReset()
-      .mockImplementation(async (_threadId: string, message) => message);
-    vi.mocked(callCoreRpc).mockReset().mockResolvedValue({});
-    mockChatSend.mockReset().mockResolvedValue(undefined);
-  });
-
-  it('waits for a successful model clear before sending a normal default turn', async () => {
-    const clear = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
-    await renderChat('text');
-    await selectPickerModel();
-    await clearPickerModel();
-
-    await clickSendButtonWithDraft('wait for clear');
-    expect(mockChatSend).not.toHaveBeenCalled();
-    expect(threadApi.appendMessage).not.toHaveBeenCalled();
-
-    await act(async () => clear.resolve({}));
-    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-  });
-
-  it('waits for a successful model clear before sending a follow-up', async () => {
-    const clear = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
-    await renderChat('text', false, true);
-    await selectPickerModel();
-    await clearPickerModel();
-
-    await clickSendButtonWithDraft('wait for follow-up clear');
-    expect(mockChatSend).not.toHaveBeenCalled();
-
-    await act(async () => clear.resolve({}));
-    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ queueMode: 'followup' });
-    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-  });
-
-  it('blocks a normal send after a rejected clear and keeps the draft', async () => {
-    const clear = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
-    await renderChat('text');
-    await selectPickerModel();
-    await clearPickerModel();
-
-    await clickSendButtonWithDraft('retry this draft');
-    await act(async () => clear.reject(new Error('clear failed')));
-
-    expect(mockChatSend).not.toHaveBeenCalled();
-    expect(threadApi.appendMessage).not.toHaveBeenCalled();
-    expect(screen.getByRole('textbox')).toHaveTextContent('retry this draft');
-    await waitFor(() =>
-      expect(screen.getByTestId('chat-send-error')).toHaveAttribute(
-        'data-chat-send-error-code',
-        'cloud_send_failed'
-      )
-    );
-
-    const input = screen.getByRole('textbox');
-    await act(async () => {
-      input.textContent = 'retry this draft edited';
-      fireEvent.input(input, { data: 'retry this draft edited', inputType: 'insertText' });
-    });
-    await waitFor(() => expect(screen.queryByTestId('chat-send-error')).not.toBeInTheDocument());
-    expect(mockChatSend).not.toHaveBeenCalled();
-  });
-
-  it('blocks a follow-up after a rejected clear and keeps the draft', async () => {
-    const clear = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
-    await renderChat('text', false, true);
-    await selectPickerModel();
-    await clearPickerModel();
-
-    await clickSendButtonWithDraft('retry this follow-up');
-    await act(async () => clear.reject(new Error('clear failed')));
-
-    expect(mockChatSend).not.toHaveBeenCalled();
-    expect(screen.getByRole('textbox')).toHaveTextContent('retry this follow-up');
-    await waitFor(() =>
-      expect(screen.getByTestId('chat-send-error')).toHaveAttribute(
-        'data-chat-send-error-code',
-        'cloud_send_failed'
-      )
-    );
-
-    const input = screen.getByRole('textbox');
-    await act(async () => {
-      input.textContent = 'retry this follow-up edited';
-      fireEvent.input(input, { data: 'retry this follow-up edited', inputType: 'insertText' });
-    });
-    await waitFor(() => expect(screen.queryByTestId('chat-send-error')).not.toBeInTheDocument());
-    expect(mockChatSend).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    { label: 'normal send', followup: false },
-    { label: 'follow-up send', followup: true },
-  ])(
-    'retries a rejected clear on later default $label attempts until one succeeds',
-    async ({ followup }) => {
-      const firstClear = deferred<unknown>();
-      const secondClear = deferred<unknown>();
-      const thirdClear = deferred<unknown>();
-      mockModelSettingsWrites({
-        'huggingface:org/model': Promise.resolve({}),
-        '': [firstClear.promise, secondClear.promise, thirdClear.promise],
-      });
-      await renderChat('text', false, followup);
-      await selectPickerModel();
-      await clearPickerModel();
-
-      const clearCalls = () =>
-        vi.mocked(callCoreRpc).mock.calls.filter(([request]) => {
-          const params = request.params as { default_model?: string };
-          return (
-            request.method === 'openhuman.inference_update_model_settings' &&
-            params.default_model === ''
-          );
-        });
-
-      await clickSendButtonWithDraft('first blocked attempt');
-      expect(clearCalls()).toHaveLength(1);
-      await act(async () => firstClear.reject(new Error('clear unavailable')));
-      expect(mockChatSend).not.toHaveBeenCalled();
-      expect(screen.getByRole('textbox')).toHaveTextContent('first blocked attempt');
-
-      await clickSendButtonWithDraft('second blocked attempt');
-      await waitFor(() => expect(clearCalls()).toHaveLength(2));
-      expect(mockChatSend).not.toHaveBeenCalled();
-      expect(threadApi.appendMessage).not.toHaveBeenCalled();
-      await act(async () => secondClear.reject(new Error('clear still unavailable')));
-      expect(mockChatSend).not.toHaveBeenCalled();
-      expect(screen.getByRole('textbox')).toHaveTextContent('second blocked attempt');
-
-      await clickSendButtonWithDraft('third attempt');
-      await waitFor(() => expect(clearCalls()).toHaveLength(3));
-      expect(mockChatSend).not.toHaveBeenCalled();
-      expect(threadApi.appendMessage).not.toHaveBeenCalled();
-      await act(async () => thirdClear.resolve({}));
-
-      await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-      expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-      if (followup) {
-        expect(mockChatSend.mock.calls[0][0]).toMatchObject({ queueMode: 'followup' });
-      } else {
-        expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('queueMode');
-      }
-    }
-  );
-
-  it('waits on the newer clear when an older clear fails late', async () => {
-    const olderClear = deferred<unknown>();
-    const newerClear = deferred<unknown>();
-    mockModelSettingsWrites({
-      'huggingface:org/model': Promise.resolve({}),
-      '': [olderClear.promise, newerClear.promise],
-    });
-    await renderChat('text');
-    await selectPickerModel();
-    await clearPickerModel();
-    await clearPickerModel();
-
-    const clearCalls = () =>
-      vi.mocked(callCoreRpc).mock.calls.filter(([request]) => {
-        const params = request.params as { default_model?: string };
-        return (
-          request.method === 'openhuman.inference_update_model_settings' &&
-          params.default_model === ''
-        );
-      });
-
-    await clickSendButtonWithDraft('wait for latest clear');
-    expect(clearCalls()).toHaveLength(1);
-    expect(mockChatSend).not.toHaveBeenCalled();
-
-    await act(async () => olderClear.reject(new Error('older clear failed late')));
-    await waitFor(() => expect(clearCalls()).toHaveLength(2));
-    expect(mockChatSend).not.toHaveBeenCalled();
-
-    await act(async () => newerClear.resolve({}));
-    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-  });
-
-  it('does not wait for selected-model persistence before an explicit-model send', async () => {
-    const persist = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': persist.promise });
-    await renderChat('text');
-
-    await selectPickerModel();
-    await submitComposerText('explicit while persistence is pending');
-
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model: 'huggingface:org/model' });
-    expect(persist.promise).toBeInstanceOf(Promise);
-    await act(async () => persist.resolve({}));
-  });
-
-  it('lets a newly selected explicit model send after an earlier clear fails', async () => {
-    const clear = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': Promise.resolve({}), '': clear.promise });
-    await renderChat('text');
-    await selectPickerModel();
-    await clearPickerModel();
-    await clickSendButtonWithDraft('blocked default draft');
-    await act(async () => clear.reject(new Error('clear failed')));
-    expect(mockChatSend).not.toHaveBeenCalled();
-
-    await selectPickerModel();
-    await submitComposerText('new explicit route');
-
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ model: 'huggingface:org/model' });
-  });
-
-  it('serializes a pending selection before a later clear', async () => {
-    const selection = deferred<unknown>();
-    const clear = deferred<unknown>();
-    mockModelSettingsWrites({ 'huggingface:org/model': selection.promise, '': clear.promise });
-    await renderChat('text');
-    await selectPickerModel();
-    await clearPickerModel();
-
-    await clickSendButtonWithDraft('clear wins');
-    expect(mockChatSend).not.toHaveBeenCalled();
-
-    await act(async () => selection.resolve({}));
-    expect(mockChatSend).not.toHaveBeenCalled();
-    await act(async () => clear.resolve({}));
-    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-  });
-
-  it('leaves the persisted model to the core for a normal send by default', async () => {
-    mockChatSend.mockClear();
-    await renderChat('text');
-    await submitComposerText('normal default route');
-
-    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-  });
-
-  it('leaves the persisted model to the core for a follow-up send by default', async () => {
-    mockChatSend.mockClear();
-    await renderChat('text', false, true);
-    await submitComposerText('follow-up default route');
-
-    expect(mockChatSend.mock.calls[0][0]).toMatchObject({ queueMode: 'followup' });
-    expect(mockChatSend.mock.calls[0][0]).not.toHaveProperty('model');
-  });
-
-  it('forwards the concrete provider/model chosen in the picker for a normal send', async () => {
-    mockChatSend.mockClear();
-    await useRealChatSend();
-    await renderChat('text');
-
-    await selectPickerModel();
-    await submitComposerText('explicit picker route');
-
-    expect(latestChatRpc()).toMatchObject({
-      method: 'openhuman.channel_web_chat',
-      params: { model_override: 'huggingface:org/model' },
-    });
-    const resolverCalls = vi
-      .mocked(callCoreRpc)
-      .mock.calls.filter(([request]) => request.method === 'openhuman.inference_resolve_model');
-    expect(resolverCalls.at(-1)?.[0]).toMatchObject({
-      method: 'openhuman.inference_resolve_model',
-      params: { hint: 'huggingface:org/model' },
-    });
-  });
-
-  it('forwards the concrete provider/model chosen in the picker for a follow-up send', async () => {
-    mockChatSend.mockClear();
-    await useRealChatSend();
-    await renderChat('text', false, true);
-
-    await selectPickerModel();
-    await submitComposerText('explicit follow-up picker route');
-
-    expect(latestChatRpc()).toMatchObject({
-      method: 'openhuman.channel_web_chat',
-      params: { model_override: 'huggingface:org/model', queue_mode: 'followup' },
-    });
-  });
-
-  it.each([
-    ['managed', 'openrouter/author/model'],
-    ['local', 'ollama:qwen3:4b-instruct'],
-  ] as const)('serializes the %s picker route at the core boundary', async (route, model) => {
-    mockChatSend.mockClear();
-    await useRealChatSend();
-    await renderChat('text');
-
-    await selectPickerRoute(route);
-    await submitComposerText(`${route} picker route`);
-
-    expect(latestChatRpc()).toMatchObject({
-      method: 'openhuman.channel_web_chat',
-      params: { model_override: model },
-    });
-  });
-
-  it('keeps an unknown provider route rejected at the core boundary', async () => {
-    vi.mocked(callCoreRpc).mockImplementation(({ method, params }) => {
-      if (
-        method === 'openhuman.channel_web_chat' &&
-        (params as { model_override?: string }).model_override === 'unknown-provider:model'
-      ) {
-        return Promise.reject(new Error('unsupported provider route')) as ReturnType<
-          typeof callCoreRpc
-        >;
-      }
-      return Promise.resolve({}) as ReturnType<typeof callCoreRpc>;
-    });
-    await useRealChatSend();
-    await renderChat('text');
-
-    await selectPickerRoute('unknown provider');
-    await clickSendButtonWithDraft('unknown provider route');
-
-    await waitFor(() => expect(mockChatSend).toHaveBeenCalledTimes(1));
-    expect(latestChatRpc()).toMatchObject({
-      method: 'openhuman.channel_web_chat',
-      params: { model_override: 'unknown-provider:model' },
-    });
-    await waitFor(() => {
-      expect(screen.getByRole('textbox')).toHaveTextContent('unknown provider route');
-      expect(screen.getByTestId('chat-send-error')).toHaveAttribute(
-        'data-chat-send-error-code',
-        'cloud_send_failed'
-      );
-    });
   });
 });

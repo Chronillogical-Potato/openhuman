@@ -95,10 +95,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-# 316 -> 311 on 2026-10-05: the upstream Memory lifecycle refresh removed
-# five names from the Linux flows graph; native builds remain at three.
-# This matches the current `flows:332:311:3` entry in
-# scripts/kernel-floor.limits; its preceding 316-name entry is historical.
 EXPECTED_NAMES=311
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

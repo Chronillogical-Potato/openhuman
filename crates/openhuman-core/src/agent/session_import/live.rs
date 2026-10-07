@@ -66,11 +66,16 @@ pub const TINYAGENTS_SESSION_KV_STORE: &str = "openhuman_sessions";
 /// config reload / env change is honored on the next turn. This keeps a clean
 /// 04.2 seam (reads can flip independently) while making the mirror the default
 /// so new turns land in the store without opt-in.
+///
+/// Always off under a host session store that is not file-backed
+/// ([`crate::agent::session_store::replaces_files`]): it is already the only
+/// record, and there are no transcript files to mirror.
 pub fn dual_write_enabled(config_enabled: bool) -> bool {
     let killed = kill_switch_engaged();
-    let enabled = config_enabled && !killed;
+    let replaced = crate::agent::session_store::replaces_files();
+    let enabled = config_enabled && !killed && !replaced;
     log::debug!(
-        "[session-store] dual-write decision config_enabled={config_enabled} kill_switch={killed} enabled={enabled}"
+        "[session-store] dual-write decision config_enabled={config_enabled} kill_switch={killed} host_store={replaced} enabled={enabled}"
     );
     enabled
 }
@@ -85,7 +90,15 @@ pub fn dual_write_enabled(config_enabled: bool) -> bool {
 /// dual-write use, so a harness-side reader (04.2+) sees identical records. The
 /// journal (`JsonlAppendStore`, an `AppendStore` rather than a `Store`) is not
 /// registrable on the `StoreRegistry`; the dual-write opens it directly.
+///
+/// With a host session store that is not file-backed it is the current
+/// agent's key-value store, whatever the dual-write flag says: there are no
+/// files to mirror.
 pub async fn session_kv_store() -> Option<Arc<dyn Store>> {
+    if let Some(stores) = crate::agent::session_store::current() {
+        log::debug!("[session-store] registering the host session store's kv on RunContext.stores");
+        return Some(stores.kv);
+    }
     let cfg = match crate::config::Config::load_or_init().await {
         Ok(cfg) => cfg,
         Err(err) => {

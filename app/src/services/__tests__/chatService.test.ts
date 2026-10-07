@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  chatCancel,
-  chatClearQueue,
-  chatSend,
-  NO_SOCKET_CANCEL_CLIENT_ID,
-  subscribeChatEvents,
-} from '../chatService';
+import { chatCancel, chatClearQueue, chatSend, subscribeChatEvents } from '../chatService';
 import { socketService } from '../socketService';
 
 const mockCallCoreRpc = vi.fn();
@@ -493,16 +487,9 @@ describe('chatService.chatCancel', () => {
     expect(await chatCancel('thread-9')).toEqual({ accepted: false, turnCancelled: false });
   });
 
-  it('still sends the cancel when the socket has no id', async () => {
-    // A dropped or reconnecting socket is when a turn most often looks stuck;
-    // the Stop must still reach the core over RPC.
+  it('is not accepted without a socket id', async () => {
     vi.mocked(socketService.getSocket).mockReturnValue(null as never);
-    mockCallCoreRpc.mockResolvedValue({ result: { cancelled: true, request_id: 'req-2' } });
-
-    expect(await chatCancel('thread-9')).toEqual({ accepted: true, turnCancelled: true });
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.channel_web_cancel',
-      params: { client_id: NO_SOCKET_CANCEL_CLIENT_ID, thread_id: 'thread-9' },
-    });
+    expect(await chatCancel('thread-9')).toEqual({ accepted: false, turnCancelled: false });
+    expect(mockCallCoreRpc).not.toHaveBeenCalled();
   });
 });

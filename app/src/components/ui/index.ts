@@ -101,8 +101,6 @@ export { default as EmptyState, type EmptyStateProps } from './EmptyState';
 export { default as StatusLine, type StatusLineProps } from './StatusLine';
 export { default as ListRow, type ListRowProps } from './ListRow';
 export { default as Progress, type ProgressProps } from './Progress';
-export { default as Skeleton, type SkeletonProps } from './Skeleton';
-export { default as Stepper, type StepperProps } from './Stepper';
 export { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './Table';
 export {
   default as DataTable,

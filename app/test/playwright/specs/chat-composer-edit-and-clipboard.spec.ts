@@ -34,7 +34,6 @@
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
-import { clearChatComposer, replaceChatComposerText } from '../helpers/chat-composer';
 import {
   bootAuthenticatedPage,
   dismissWalkthroughIfPresent,
@@ -68,7 +67,6 @@ async function openChat(page: Page): Promise<Locator> {
   await dismissWalkthroughIfPresent(page);
   const input = page.getByTestId('chat-message-input');
   await expect(input).toBeVisible();
-  await clearChatComposer(input);
   return input;
 }
 
@@ -113,6 +111,15 @@ function caretOf(el: Locator): Promise<number> {
     pre.setEnd(range.startContainer, range.startOffset);
     return pre.toString().length;
   });
+}
+
+async function clearAndType(page: Page, el: Locator, text: string): Promise<void> {
+  await el.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await expect.poll(() => textOf(el), { timeout: 15_000 }).toBe('');
+  await page.keyboard.type(text);
+  await expect.poll(() => textOf(el), { timeout: 15_000 }).toBe(text);
 }
 
 async function placeCaret(page: Page, el: Locator, index: number): Promise<void> {
@@ -170,7 +177,7 @@ test.describe('Composer — clipboard, history, and the edit composer', () => {
 
     // Put "ABC" on the clipboard by typing then cutting — no clipboard
     // permissions needed, and it exercises the surface a user would.
-    await replaceChatComposerText(input, 'ABC');
+    await clearAndType(page, input, 'ABC');
     await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.press('ControlOrMeta+x');
     await expect.poll(() => textOf(input), { timeout: 15_000 }).toBe('');
@@ -193,7 +200,7 @@ test.describe('Composer — clipboard, history, and the edit composer', () => {
 
   test('undo after a mid-string insertion restores the previous text', async ({ page }) => {
     const input = await openChat(page);
-    await replaceChatComposerText(input, 'hello world');
+    await clearAndType(page, input, 'hello world');
 
     await placeCaret(page, input, 5);
     await page.keyboard.type('X');
@@ -208,7 +215,7 @@ test.describe('Composer — clipboard, history, and the edit composer', () => {
 
   test('redo after undo re-applies the insertion', async ({ page }) => {
     const input = await openChat(page);
-    await replaceChatComposerText(input, 'hello world');
+    await clearAndType(page, input, 'hello world');
 
     await placeCaret(page, input, 5);
     await page.keyboard.type('X');

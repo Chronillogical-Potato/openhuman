@@ -13,6 +13,8 @@ use openhuman_core::core::runtime::{CoreBuilder, DomainSet, ServiceSet, TokenSou
 use openhuman_core::core::types::HostKind;
 use openhuman_core::tools::toolpacks::ToolGroups;
 
+use openhuman_core::agent::session_store::SessionStoreProvider;
+
 use super::{ApiKey, Runtime, RuntimeError, RUNTIME_LIVE};
 use crate::harness::workspace::ResolvedWorkspace;
 use crate::harness::{Access, Provider, Workspace};
@@ -33,6 +35,7 @@ pub struct RuntimeBuilder {
     api_key: Option<ApiKey>,
     backend_transport: Option<Arc<dyn BackendTransport>>,
     memory_engine: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
+    session_store: Option<Arc<dyn SessionStoreProvider>>,
 }
 
 impl Default for RuntimeBuilder {
@@ -60,6 +63,7 @@ impl RuntimeBuilder {
             api_key: None,
             backend_transport: None,
             memory_engine: None,
+            session_store: None,
         }
     }
 
@@ -87,6 +91,21 @@ impl RuntimeBuilder {
     /// other's. It is process-wide, as the runtime is.
     pub fn memory_engine(mut self, engine: Arc<dyn tinymemory_api::MemoryEngine>) -> Self {
         self.memory_engine = Some(engine);
+        self
+    }
+
+    /// Where every agent's conversations are kept, in place of files under
+    /// the workspace: transcripts, the turn journal and run status, goals and
+    /// todos, each agent's apart from every other's (the provider is asked for
+    /// the stores of the agent's id).
+    ///
+    /// For a host serving many users from one process out of its own
+    /// database; pair it with [`Workspace::Stateless`] so nothing durable is
+    /// left on disk. [`InMemorySessionStores`](crate::InMemorySessionStores)
+    /// keeps everything in memory. It is process-wide, as the runtime is, and
+    /// is removed with the runtime.
+    pub fn session_store(mut self, provider: Arc<dyn SessionStoreProvider>) -> Self {
+        self.session_store = Some(provider);
         self
     }
 
@@ -219,9 +238,13 @@ impl RuntimeBuilder {
         if self.api_key.as_ref().is_some_and(ApiKey::is_blank) {
             return Err(RuntimeError::BlankApiKey);
         }
+        if matches!(self.workspace, Workspace::Stateless) && self.session_store.is_none() {
+            return Err(RuntimeError::NoSessionStore);
+        }
         if let Some(engine) = self.memory_engine.clone() {
             openhuman_core::memory::engine::install_host_engine(engine);
         }
+        let session_store = self.session_store.is_some();
         let inherit = self.workspace.is_operator_owned();
         let resolved = ResolvedWorkspace::resolve(&self.workspace, None).map_err(map_ws)?;
 
@@ -288,6 +311,13 @@ impl RuntimeBuilder {
         let tool_groups = self.tool_groups.unwrap_or_default();
         let services = self.services.unwrap_or_else(default_services);
 
+        // Install only after all fallible workspace/config resolution has
+        // completed; core boot performs recovery against this provider.
+        let previous_session_store = self
+            .session_store
+            .clone()
+            .and_then(openhuman_core::agent::session_store::install);
+
         log::debug!(
             "[embed][runtime] building host_kind={:?} inherit_workspace={inherit} \
              routed_provider={} api_key={has_api_key} domains={domains:?} tool_groups={tool_groups:?}",
@@ -304,16 +334,33 @@ impl RuntimeBuilder {
         if let Some(transport) = self.backend_transport {
             builder = builder.backend_transport(transport);
         }
-        let runtime = builder.build().await.map_err(RuntimeError::Build)?;
+        let runtime = match builder.build().await {
+            Ok(runtime) => runtime,
+            Err(error) => {
+                if session_store {
+                    openhuman_core::agent::session_store::clear();
+                    openhuman_core::agent::session_store::restore(previous_session_store);
+                }
+                return Err(RuntimeError::Build(error));
+            }
+        };
         let core = Core::from_runtime(Arc::new(runtime));
 
         if let Some(session) = self.session {
-            core.auth().store(session).await?;
+            if let Err(error) = core.auth().store(session).await {
+                if session_store {
+                    openhuman_core::agent::session_store::clear();
+                    openhuman_core::agent::session_store::restore(previous_session_store);
+                }
+                return Err(error.into());
+            }
         }
 
         Ok(Runtime::new(
             core,
             resolved,
+            session_store,
+            previous_session_store,
             config,
             inherit,
             domains,

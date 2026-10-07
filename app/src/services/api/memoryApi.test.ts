@@ -179,10 +179,6 @@ describe('memoryErrorCode', () => {
 
   it('falls back to a code prefix on the message', () => {
     expect(memoryErrorCode(new Error('UNAUTHORIZED: bad key'))).toBe('UNAUTHORIZED');
-    expect(memoryErrorCode({ message: 'x', data: { code: 'INSUFFICIENT_CREDITS' } })).toBe(
-      'INSUFFICIENT_CREDITS'
-    );
-    expect(memoryErrorCode(new Error('UNAVAILABLE: timed out'))).toBe('UNAVAILABLE');
   });
 
   it('returns null for an unrelated error', () => {
@@ -197,23 +193,6 @@ describe('helpers', () => {
     expect(memoryErrorMessage(new Error('a'))).toBe('a');
     expect(memoryErrorMessage({ message: 'b' })).toBe('b');
     expect(memoryErrorMessage('c')).toBe('c');
-  });
-
-  it('memoryErrorMessage explains an account-wide refusal when given a translator', () => {
-    const t = (key: string) => `t:${key}`;
-    const credits = {
-      message: 'insufficient credits: [USER_INSUFFICIENT_CREDITS] memory API recall (HTTP 402)',
-      data: { code: 'INSUFFICIENT_CREDITS' },
-    };
-    expect(memoryErrorMessage(credits, t)).toBe('t:memory.error.insufficientCredits');
-    expect(memoryErrorMessage({ message: 'x', data: { code: 'UNAVAILABLE' } }, t)).toBe(
-      't:memory.error.unavailable'
-    );
-    // A rejected key and an engine fault keep their own message, and without
-    // `t` nothing changes.
-    expect(memoryErrorMessage(new Error('UNAUTHORIZED: bad key'), t)).toBe('UNAUTHORIZED: bad key');
-    expect(memoryErrorMessage({ message: 'boom', data: { code: 'ENGINE' } }, t)).toBe('boom');
-    expect(memoryErrorMessage(credits)).toBe(credits.message);
   });
 
   it('isMemoryOn needs an engine that is not off', () => {

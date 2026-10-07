@@ -15,9 +15,8 @@ import {
   memoryItemsGet,
   type MemoryMeta,
 } from '../../services/api/memoryApi';
-import { Badge, Button, ModalShell } from '../ui';
+import { Alert, AlertDescription, Badge, Button, ModalShell } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { facetLabel } from './memoryFacetLabels';
 import { formatTimestamp, KIND_VARIANT, kindLabel } from './memoryFormat';
 
@@ -85,12 +84,12 @@ export default function MemoryItemDialog({ id, onClose, onForgotten }: MemoryIte
       .catch(err => {
         if (cancelled) return;
         log('read failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
       });
     return () => {
       cancelled = true;
     };
-  }, [id, t]);
+  }, [id]);
 
   const forget = async () => {
     setForgetting(true);
@@ -102,7 +101,7 @@ export default function MemoryItemDialog({ id, onClose, onForgotten }: MemoryIte
       onClose();
     } catch (err) {
       log('forget failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
     } finally {
       setForgetting(false);
     }
@@ -138,7 +137,11 @@ export default function MemoryItemDialog({ id, onClose, onForgotten }: MemoryIte
         </div>
       }>
       <div className="space-y-4">
-        {error !== null && <MemoryErrorAlert message={error} data-testid="memory-item-error" />}
+        {error !== null && (
+          <Alert variant="destructive" data-testid="memory-item-error">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {missing ? (
           <p className="text-sm text-content-muted" data-testid="memory-item-missing">
             {t('memoryPage.explorer.itemMissing')}

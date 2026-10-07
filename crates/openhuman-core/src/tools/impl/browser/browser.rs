@@ -26,7 +26,7 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
     time::Instant,
 };
-use task_actions::{approve_task_action, host_hint, parse_action, required, task_inputs};
+use task_actions::{approve_task_action, parse_action, required, task_inputs};
 use tinycomputer_bus::agent::{ContinueTaskRequest, TaskId, TaskStatus, TaskView};
 use tinycomputer_bus::browser::{
     Action, DownloadState, DownloadWaitRequest, NavigateRequest, ReadRequest, SessionId,
@@ -311,9 +311,6 @@ impl BrowserTool {
     /// token that only `confirm_pending` (through the host gate) can spend.
     async fn report(&self, view: TaskView) -> anyhow::Result<Value> {
         let mut output = serde_json::to_value(&view)?;
-        if let Some(hint) = host_hint(&view) {
-            output["host_hint"] = json!(hint);
-        }
         if let TaskStatus::NeedsApproval { action, target, .. } = &view.status {
             let token = uuid::Uuid::new_v4().to_string();
             *self.pending.lock().await = Some(Pending {

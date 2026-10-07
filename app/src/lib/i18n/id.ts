@@ -441,35 +441,6 @@ const messages: TranslationMap = {
   'welcome.privacyPolicy': 'Kebijakan Privasi',
   'welcome.termsOutro': '.',
   'welcome.connect': 'Uji',
-  'welcome.hero.subtitle': 'AI Anda, dengan memori, suara, dan seluruh web.',
-  'welcome.th.title': 'Lanjutkan dengan TinyHumans',
-  'welcome.th.promise': 'Satu akun. Semua sudah termasuk. Tidak perlu konfigurasi.',
-  'welcome.th.featureInference': 'Inferensi',
-  'welcome.th.featureSearch': 'Pencarian web',
-  'welcome.th.featureVoice': 'Suara',
-  'welcome.th.featureMemory': 'Memori',
-  'welcome.th.featureEmbeddings': 'Embedding',
-  'welcome.th.featureBilling': 'Penagihan',
-  'welcome.th.credit': 'Kredit $5 untuk memulai',
-  'welcome.th.cta': 'Lanjutkan dengan TinyHumans',
-  'welcome.th.providers': 'Masuk dengan Google, GitHub, atau X',
-  'welcome.self.title': 'Siapkan sendiri',
-  'welcome.self.promise': 'Gunakan kunci API dan endpoint Anda sendiri.',
-  'welcome.self.listLabel': 'Anda akan menyiapkan:',
-  'welcome.self.step1': 'Inferensi',
-  'welcome.self.step2': 'Pencarian web',
-  'welcome.self.step3': 'Memori',
-  'welcome.self.time': 'Sekitar 3 menit. Ubah apa pun nanti di Pengaturan.',
-  'welcome.self.cta': 'Siapkan sendiri',
-  'welcome.serverPrompt': 'Sudah menjalankan OpenHuman di server?',
-  'welcome.serverCta': 'Hubungkan ke sana.',
-  'welcome.handoff.title': 'Menyelesaikan proses masuk di browser Anda',
-  'welcome.handoff.body': 'Kami membuka tinyhumans.ai. Kembali setelah selesai.',
-  'welcome.handoff.reopen': 'Buka halaman lagi',
-  'welcome.handoff.failedTitle': 'Proses masuk tidak kembali',
-  'welcome.handoff.failedBody': 'Browser mungkin memblokir kembalinya ke OpenHuman.',
-  'welcome.handoff.retry': 'Coba lagi',
-  'welcome.handoff.fallbackSelf': 'Siapkan sendiri saja',
   'home.askAssistant': 'Tanyakan apa saja ke asisten Anda...',
   'home.statusOk': 'Asistenmu siap kapan pun kamu siap. Ketik sesuatu di bawah untuk memulai.',
   'home.statusBackendOnly':
@@ -692,12 +663,6 @@ const messages: TranslationMap = {
   'memory.search': 'Cari memori...',
   'memory.noResults': 'Memori tidak ditemukan',
   'memory.empty': 'Belum ada memori. Memori dibuat otomatis saat Anda berinteraksi.',
-  'memory.error.insufficientCredits':
-    'Memori tidak tersedia: kredit akun Anda habis. Isi ulang untuk memulihkannya; tidak ada data tersimpan yang hilang.',
-  'memory.error.unavailable':
-    'Memori tidak dapat dijangkau saat ini. Tidak ada data tersimpan yang hilang; coba lagi sebentar lagi.',
-  'memory.outOfCredits.title': 'Kredit habis',
-  'memory.outOfCredits.action': 'Isi ulang',
   'memory.tab.memory': 'Memori',
   'memory.tab.agents': 'Perpustakaan',
   'memory.analyzeNow': 'Analisis Sekarang',
@@ -780,9 +745,9 @@ const messages: TranslationMap = {
   'onboarding.custom.configureLater':
     'Anda dapat menyelesaikan pengaturan ini setelah orientasi. Kami akan mengarahkan Anda ke halaman Pengaturan yang sesuai setelah selesai.',
   'onboarding.custom.openSettings': 'Buka di Pengaturan',
-  'onboarding.custom.inference.title': 'Pilih penyedia model',
+  'onboarding.custom.inference.title': 'Inferensi (Teks)',
   'onboarding.custom.inference.subtitle':
-    'OpenHuman membutuhkan model untuk berpikir. Tambahkan kunci untuk penyedia yang sudah Anda gunakan, atau arahkan ke model yang berjalan secara lokal.',
+    'Model bahasa mana yang harus menjawab pertanyaan dan menjalankan agen Anda?',
   'onboarding.custom.inference.defaultDesc':
     'OpenHuman mengarahkan setiap beban kerja ke model default yang masuk akal. Tidak perlu key, tidak perlu pengaturan.',
   'onboarding.custom.inference.configureDesc':
@@ -800,17 +765,12 @@ const messages: TranslationMap = {
     'OpenHuman menjalankan workspace Composio terkelola. Satu klik untuk menghubungkan setiap layanan nanti.',
   'onboarding.custom.oauth.configureDesc':
     'Bawa akun Composio / API key Anda sendiri. Konfigurasi di Pengaturan › Koneksi.',
-  'onboarding.custom.search.title': 'Biarkan OpenHuman mencari di web',
-  'onboarding.custom.search.subtitle':
-    'Tanpa ini, OpenHuman hanya tahu apa yang dipelajarinya saat dilatih.',
+  'onboarding.custom.search.title': 'Pencarian Web',
+  'onboarding.custom.search.subtitle': 'Cara OpenHuman mencari web atas nama Anda.',
   'onboarding.custom.search.defaultDesc':
     'Pencarian web langsung berfungsi: Exa dan Gemini sudah termasuk dalam TinyHumans, tanpa kunci API.',
   'onboarding.custom.search.configureDesc':
     'Exa dan Gemini sudah termasuk. Tambahkan penyedia pencarian lain dengan kunci API milik Anda di Pengaturan › Alat.',
-  'onboarding.custom.search.skipForNow': 'Lewati untuk saat ini',
-  'onboarding.custom.search.ready': 'Pencarian web sudah siap.',
-  'onboarding.custom.search.notReady':
-    'Tambahkan penyedia di bawah agar OpenHuman dapat mencari di web.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Cara OpenHuman menghasilkan embedding vektor untuk pencarian memori semantik.',
@@ -1649,60 +1609,62 @@ const messages: TranslationMap = {
   'stats.latest': 'Terbaru',
   'stats.sessions': 'Sesi',
   'stats.tokens': 'token',
-  'bootCheck.invalidUrl': 'Masukkan alamat.',
+  'bootCheck.invalidUrl': 'Masukkan URL runtime.',
   'bootCheck.urlMustStartWith': 'URL harus diawali dengan http:// atau https://',
   'bootCheck.validUrlRequired': 'Itu bukan URL yang valid (coba https://core.example.com/rpc)',
   'bootCheck.tokenRequired': 'Kami memerlukan token autentikasi untuk terhubung.',
   'bootCheck.httpPublicWarning':
     'Ini adalah URL HTTP biasa pada host publik: lalu lintas tidak akan dienkripsi. Gunakan HTTPS kecuali Anda memercayai jaringan ini.',
-  'bootCheck.chooseCoreMode': 'Di mana OpenHuman harus berjalan?',
-  'bootCheck.connectToCore': 'Hubungkan ke OpenHuman',
+  'bootCheck.chooseCoreMode': 'Pilih Runtime',
+  'bootCheck.connectToCore': 'Hubungkan ke Runtime Anda',
   'bootCheck.desktopDescription':
-    'OpenHuman tidak dapat dimulai di komputer ini. Pilih di mana ia harus berjalan.',
+    'OpenHuman memerlukan runtime untuk berpikir. Pilih di mana runtime harus berada.',
   'bootCheck.webDescription':
-    'Di web, OpenHuman terhubung ke server yang Anda kendalikan. Masukkan alamat dan token-nya di bawah, atau unduh aplikasi desktop untuk menjalankannya langsung di perangkat Anda.',
+    'Di web, OpenHuman terhubung ke runtime yang Anda kendalikan. Masukkan URL dan token autentikasi di bawah, atau ambil aplikasi desktop untuk menjalankannya langsung di mesin Anda.',
   'bootCheck.preferDesktop': 'Lebih suka menyimpan semuanya di perangkat Anda sendiri?',
   'bootCheck.downloadDesktop': 'Dapatkan Aplikasi Desktop',
-  'bootCheck.localRecommended': 'Di komputer ini',
-  'bootCheck.localDescription': 'Paling cepat, sepenuhnya privat, tanpa perlu pengaturan.',
-  'bootCheck.cloudMode': 'Di server yang saya kelola',
+  'bootCheck.localRecommended': 'Jalankan Secara Lokal (Direkomendasikan)',
+  'bootCheck.localDescription':
+    'Berjalan langsung di komputer Anda. Tercepat, sepenuhnya privat, tidak perlu pengaturan.',
+  'bootCheck.cloudMode': 'Jalankan di Cloud (Kompleks)',
   'bootCheck.cloudDescription':
-    'Tetap online 24 jam sehari, jadi komputer ini tidak perlu terus menyala.',
-  'bootCheck.coreRpcUrl': 'Alamat',
+    'Hubungkan ke runtime yang Anda hosting di tempat lain. Tetap online 24×7 sehingga Anda tidak perlu terus menjalankan perangkat ini.',
+  'bootCheck.coreRpcUrl': 'URL Runtime',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
-  'bootCheck.authToken': 'Token',
-  'bootCheck.bearerTokenPlaceholder': 'Token dari server Anda',
+  'bootCheck.authToken': 'Token Autentikasi',
+  'bootCheck.bearerTokenPlaceholder': 'Token bearer dari runtime jarak jauh Anda',
   'bootCheck.storedLocally': 'Hanya disimpan di perangkat ini. Dikirim sebagai ',
   'bootCheck.testing': 'Menguji...',
   'bootCheck.testConnection': 'Uji Koneksi',
   'bootCheck.connectedOk': 'Terhubung. Anda siap melanjutkan.',
   'bootCheck.authFailed': 'Token tersebut tidak berfungsi. Periksa kembali dan coba lagi.',
   'bootCheck.unreachablePrefix': 'Tidak dapat mencapainya:',
-  'bootCheck.checkingCore': 'Memulai OpenHuman…',
-  'bootCheck.cannotReach': 'Tidak dapat terhubung',
-  'bootCheck.cannotReachDesc': 'Kami tidak dapat terhubung. Ingin mencoba di tempat lain?',
-  'bootCheck.switchMode': 'Ubah tempat menjalankannya',
+  'bootCheck.checkingCore': 'Membangunkan runtime Anda...',
+  'bootCheck.cannotReach': 'Tidak Dapat Menjangkau Runtime',
+  'bootCheck.cannotReachDesc':
+    'Kami tidak dapat terhubung ke runtime Anda. Ingin mencoba yang berbeda?',
+  'bootCheck.switchMode': 'Pilih Runtime Berbeda',
   'bootCheck.quit': 'Keluar',
-  'bootCheck.legacyDetected': 'Layanan latar belakang lama ditemukan',
+  'bootCheck.legacyDetected': 'Runtime Latar Belakang Lama Terdeteksi',
   'bootCheck.legacyDescription':
-    'Daemon OpenHuman yang dipasang terpisah sudah berjalan di perangkat ini. Kami perlu menghapusnya sebelum yang bawaan dapat mengambil alih.',
+    'Daemon OpenHuman yang diinstal terpisah sudah berjalan di perangkat ini. Kami perlu membersihkannya sebelum runtime bawaan dapat mengambil alih.',
   'bootCheck.removing': 'Menghapus...',
   'bootCheck.removeContinue': 'Hapus dan Lanjutkan',
-  'bootCheck.localNeedsRestart': 'OpenHuman perlu dimulai ulang',
+  'bootCheck.localNeedsRestart': 'Runtime Lokal Perlu Dimulai Ulang',
   'bootCheck.localNeedsRestartDesc':
-    'OpenHuman di komputer ini memiliki versi yang berbeda dari aplikasi ini. Mulai ulang singkat akan menyinkronkannya kembali.',
+    'Runtime lokal Anda menggunakan versi berbeda dari aplikasi ini. Mulai ulang cepat akan menyinkronkannya kembali.',
   'bootCheck.restarting': 'Memulai ulang...',
-  'bootCheck.restartCore': 'Mulai ulang',
-  'bootCheck.cloudNeedsUpdate': 'Server Anda perlu diperbarui',
+  'bootCheck.restartCore': 'Mulai Ulang Runtime',
+  'bootCheck.cloudNeedsUpdate': 'Runtime Cloud Perlu Diperbarui',
   'bootCheck.cloudNeedsUpdateDesc':
-    'Server Anda memiliki versi yang berbeda dari aplikasi ini. Jalankan pembaruan untuk menyinkronkannya kembali.',
+    'Runtime cloud Anda menggunakan versi berbeda dari aplikasi ini. Jalankan pembaruan untuk menyinkronkannya kembali.',
   'bootCheck.updating': 'Memperbarui...',
-  'bootCheck.updateCloudCore': 'Perbarui server',
-  'bootCheck.versionCheckFailed': 'Pemeriksaan versi gagal',
+  'bootCheck.updateCloudCore': 'Perbarui Runtime Cloud',
+  'bootCheck.versionCheckFailed': 'Pemeriksaan Versi Runtime Gagal',
   'bootCheck.versionCheckFailedDesc':
-    'Server Anda aktif tetapi tidak melaporkan versinya. Mungkin sudah usang. Mulai ulang atau perbarui untuk melanjutkan.',
+    'Runtime Anda aktif tetapi tidak melaporkan versinya. Mungkin sudah usang. Mulai ulang atau perbarui untuk melanjutkan.',
   'bootCheck.working': 'Memproses...',
-  'bootCheck.restartUpdateCore': 'Mulai ulang / Perbarui',
+  'bootCheck.restartUpdateCore': 'Mulai Ulang / Perbarui Runtime',
   'bootCheck.unexpectedError': 'Kesalahan Boot-Check Tak Terduga',
   'bootCheck.actionFailed': 'Terjadi kesalahan. Silakan coba lagi.',
   'bootCheck.portConflictTitle': 'Tidak dapat memulai mesin aplikasi',
@@ -3459,8 +3421,6 @@ const messages: TranslationMap = {
     'Integrasi Anda yang sudah ada (Gmail, Slack, GitHub, dll. yang terhubung melalui OpenHuman) tidak akan terlihat: mereka berada di tenant Composio yang dikelola OpenHuman.',
   'settings.composio.intro':
     'Composio mengintegrasikan 250+ aplikasi eksternal sebagai tool yang dapat dipanggil agen Anda. Pilih cara pemanggilan tool tersebut dirutekan.',
-  'settings.composio.directOnlyDesc':
-    'Autentikasi Composio terkelola tidak tersedia di sini. Masukkan kunci API Composio Anda sendiri atau lewati langkah ini untuk sementara.',
   'settings.composio.modeDirect': 'Langsung (bawa API key Anda sendiri)',
   'settings.composio.modeDirectDesc':
     'Panggilan langsung ke backend.composio.dev. Berdaulat / ramah offline. Eksekusi tool berjalan sinkron; webhook trigger real-time belum dirutekan dalam mode direct (isu lanjutan).',
@@ -4370,18 +4330,15 @@ const messages: TranslationMap = {
 
   // Monthly cost badge
 
-  'onboarding.custom.vault.title': 'Beri OpenHuman ingatan',
+  'onboarding.custom.vault.title': 'Pengaturan Memori & Vault',
   'onboarding.custom.vault.subtitle':
-    'Tempat apa yang Anda sampaikan disimpan, agar terbawa di berbagai obrolan.',
+    'Konfirmasi di mana catatan memori ditulis, bagaimana data sumber dibaca, dan apakah pipeline vault Anda sehat.',
   'onboarding.custom.vault.defaultDesc':
     'Gunakan default memori yang dikelola OpenHuman. Jalur vault dan kondisi sinkronisasi tetap dapat ditinjau nanti.',
   'onboarding.custom.vault.configureDesc':
     'Tinjau kepemilikan vault, jalankan pemeriksaan kesehatan, dan sesuaikan kontrol memori sekarang.',
   'onboarding.custom.vault.localDisabledReason':
     'Pengaturan terkelola memerlukan masuk OpenHuman dan tidak tersedia dalam mode lokal.',
-  'onboarding.custom.localDefaultDisabledReason':
-    'Pengaturan terkelola memerlukan akun OpenHuman. Dalam sesi lokal, Anda mengonfigurasi setiap layanan sendiri.',
-  'onboarding.custom.unsavedChanges': 'Simpan perubahan Anda sebelum melanjutkan.',
   'onboarding.custom.vault.exitError': 'Tidak dapat menyelesaikan orientasi. Silakan coba lagi.',
   'skills.create.whenToUse': 'Kapan digunakan',
   'skills.create.whenToUsePlaceholder': 'mis. saat pengguna meminta untuk memilah kotak masuk',
@@ -4860,8 +4817,6 @@ const messages: TranslationMap = {
     'Sesi Codex Anda telah kedaluwarsa. Hubungkan kembali di Pengaturan → Integrasi.',
   'chat_error.session_expired':
     'Sesi OpenHuman Anda telah kedaluwarsa. Silakan masuk lagi untuk melanjutkan.',
-  'chat_error.local_session_managed_unavailable':
-    'Anda berada di profil lokal offline, yang tidak memiliki akun OpenHuman di belakangnya, jadi model terkelola (cloud) tidak dapat dijalankan. Masuk untuk memakai model terkelola, atau ubah perutean ke "Gunakan Model Anda Sendiri" di Koneksi → Kunci API → LLM lalu tambahkan penyedia Anda sendiri.',
   'chat_error.action_budget':
     'Anda telah mencapai batas aksi per jam OpenHuman. Ini adalah batas keamanan lokal, bukan dari penyedia AI Anda. Batas ini pulih secara bertahap; Anda tetap bisa mengobrol di utas ini dan langkah yang banyak memakai alat akan berlanjut seiring batas terisi kembali.',
   'chat_error.max_iterations':
@@ -4999,50 +4954,29 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'Tautan',
   'memoryPage.off.title': 'Memori nonaktif',
   'memoryPage.off.description':
-    'Hubungkan CortexDB untuk mulai mengingat. Masuk untuk memakai CortexDB bawaan, atau hubungkan dengan kunci API Anda sendiri atau server di komputer ini.',
+    'Pilih mesin memori untuk mulai mengingat. Masuk untuk menggunakan memori TinyHumans, atau hubungkan CortexDB Anda sendiri.',
   'memoryPage.off.action': 'Pilih mesin',
-  'memoryPage.engine.listTitle': 'Memori CortexDB',
+  'memoryPage.engine.listTitle': 'Mesin memori',
   'memoryPage.engine.listDescription':
-    'Memori berjalan di CortexDB. Pilih cara aplikasi ini terhubung ke sana. Hanya satu koneksi yang aktif pada satu waktu.',
+    'Satu mesin aktif dalam satu waktu. Mesin ini menyimpan semua yang diingat memori dan menjawab pertanyaan tentangnya.',
+  'memoryPage.engine.loadError': 'Tidak dapat memuat mesin memori',
   'memoryPage.engine.offExplanation':
-    'Saat ini tidak ada koneksi memori yang bisa dipakai, jadi tidak ada yang disimpan atau diingat. Masuk untuk memakai CortexDB bawaan, atau hubungkan CortexDB dengan kunci API Anda atau di komputer ini.',
+    'Saat ini tidak ada mesin memori yang dapat digunakan, jadi tidak ada yang disimpan atau diingat. Masuk untuk menggunakan memori TinyHumans, atau hubungkan CortexDB Anda sendiri dengan endpoint dan API key.',
   'memoryPage.engine.statusDegraded': 'Memori mengalami gangguan',
   'memoryPage.engine.statusDown': 'Mesin memori tidak dapat dijangkau',
   'memoryPage.engine.statusOff': 'Nonaktif',
   'memoryPage.engine.active': 'Aktif',
   'memoryPage.engine.use': 'Gunakan',
+  'memoryPage.engine.edit': 'Ubah',
+  'memoryPage.engine.signInRequired': 'Perlu masuk',
+  'memoryPage.engine.hostedDetail': 'Dihosting oleh TinyHumans',
+  'memoryPage.engine.selfHostedDetail': 'Endpoint dan API key milik Anda sendiri',
+  'memoryPage.engine.connectTitle': 'Hubungkan {engine}',
   'memoryPage.engine.connect': 'Hubungkan',
   'memoryPage.engine.endpoint': 'Endpoint',
   'memoryPage.engine.apiKey': 'Kunci API',
   'memoryPage.engine.keySavedPlaceholder': 'Tersimpan. Masukkan kunci baru untuk menggantinya',
   'memoryPage.engine.keySavedHint': 'Kunci sudah tersimpan. Biarkan kosong untuk tetap memakainya.',
-  'memoryPage.engine.badgeDegraded': 'Menurun',
-  'memoryPage.engine.badgeDown': 'Tidak terjangkau',
-  'memoryPage.engine.connecting': 'Menghubungkan…',
-  'memoryPage.engine.save': 'Simpan',
-  'memoryPage.engine.builtin.title': 'CortexDB bawaan',
-  'memoryPage.engine.builtin.detail': 'Termasuk dalam akun TinyHumans Anda',
-  'memoryPage.engine.builtin.signInRequired': 'Masuk untuk memakai',
-  'memoryPage.engine.builtin.description':
-    'CortexDB yang di-host oleh TinyHumans dan sudah termasuk dalam akun Anda. Masuk untuk memakainya; tidak ada yang perlu disiapkan.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Memori baru langsung disimpan. Fakta dan keyakinan yang diambil darinya terisi dalam beberapa menit berikutnya.',
-  'memoryPage.engine.builtin.signInHint':
-    'Masuk ke akun TinyHumans Anda untuk memakai CortexDB bawaan.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB dengan kunci API Anda',
-  'memoryPage.engine.apiKeyOption.description':
-    'Gunakan akun CortexDB Anda sendiri. Kunci disimpan dengan aman di komputer ini, tidak pernah di file konfigurasi.',
-  'memoryPage.engine.selfHost.title': 'Host CortexDB sendiri',
-  'memoryPage.engine.selfHost.detail': 'Server CortexDB di komputer ini',
-  'memoryPage.engine.selfHost.step1':
-    'Jalankan server CortexDB di komputer ini dengan mengikuti panduan:',
-  'memoryPage.engine.selfHost.docsLink': 'Panduan self-hosting CortexDB',
-  'memoryPage.engine.selfHost.step2':
-    'Jalankan server dengan kunci API (CORTEX_API_KEY). Aplikasi terhubung dengan kunci itu.',
-  'memoryPage.engine.selfHost.step3':
-    'Masukkan alamat lokal server dan kuncinya di bawah, lalu hubungkan.',
-  'memoryPage.engine.selfHost.notLocal':
-    'Self-hosting hanya lokal. Gunakan alamat di komputer ini, seperti http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Pertanyaan Anda',
   'memoryPage.ask.queryLabel': 'Kueri pencarian',
   'memoryPage.ask.placeholder': 'Apa yang kita putuskan tentang rencana peluncuran?',
@@ -5073,8 +5007,6 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': 'Pembelajaran',
   'memoryPage.learnings.empty':
     'Belum ada pembelajaran. Tambahkan satu di atas, atau agen Anda akan menambahkannya saat bekerja bersama Anda.',
-  'memoryPage.learnings.deriving':
-    'Belum ada apa-apa. Memori masih membangun keyakinan dari percakapan terbaru Anda; keyakinan akan muncul di sini setelah proses latar belakang berikutnya.',
   'memoryPage.learnings.delete': 'Hapus pembelajaran',
   'memoryPage.conversations.turns': '{count} giliran',
   'memoryPage.documents.listDescription':
@@ -5252,7 +5184,6 @@ const messages: TranslationMap = {
   'memoryPage.import.running': 'Mengimpor memori sebelumnya…',
   'memoryPage.import.done': 'Memori sebelumnya telah diimpor',
   'memoryPage.import.failed': 'Impor gagal',
-  'memoryPage.import.resume': 'Lanjutkan impor',
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
 };
 
