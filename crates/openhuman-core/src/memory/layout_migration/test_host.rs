@@ -9,6 +9,7 @@ use tinymemory_api::{
 };
 use tinymemory_tools::MemoryLayout;
 
+use super::claim::ClaimKey;
 use super::copy::Engines;
 use super::host::LayoutHost;
 use super::map::{FlowPlacement, Placement};
@@ -21,7 +22,8 @@ pub(crate) struct FakeHost {
     pub(crate) tree: Arc<ReferenceEngine>,
     pub(crate) switched: AtomicBool,
     pub(crate) free: AtomicBool,
-    pub(crate) shared: bool,
+    /// The claim when the legacy tree is shared.
+    pub(crate) claim: Option<ClaimKey>,
     /// Asks for free_now: after this many, moving stops being free.
     pub(crate) free_for: AtomicUsize,
     /// Written to the legacy tree as the switch happens (a turn racing it).
@@ -39,7 +41,7 @@ impl FakeHost {
             tree: Arc::new(ReferenceEngine::new()),
             switched: AtomicBool::new(false),
             free: AtomicBool::new(true),
-            shared: false,
+            claim: None,
             free_for: AtomicUsize::new(usize::MAX),
             racing_write: Mutex::new(None),
         }
@@ -101,7 +103,7 @@ impl LayoutHost for FakeHost {
         self.free.load(Ordering::SeqCst) && left > 0
     }
 
-    fn shared_legacy(&self, _: &Config) -> bool {
-        self.shared
+    fn legacy_claim(&self, _: &Config) -> MemoryResult<Option<ClaimKey>> {
+        Ok(self.claim.clone())
     }
 }

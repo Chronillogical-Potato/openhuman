@@ -18,6 +18,7 @@
 //! Every step saves its progress, so [`run`] called again (after a pause, a
 //! crash or a restart) continues where the last one stopped.
 
+use super::claim;
 use super::cleanup::cleanup;
 use super::copy::{copy, legacy_present};
 use super::host::LayoutHost;
@@ -46,6 +47,9 @@ pub enum Outcome {
     /// Not started: the legacy tree may be shared, and the user has not
     /// agreed to take it.
     NeedsTakeover,
+    /// Not started: another account on this machine took the shared legacy
+    /// tree.
+    ClaimedElsewhere,
     /// Not started or not continued automatically: moving is not free now.
     NotFree,
     /// Stopped where it was; [`run`] again continues.
@@ -83,8 +87,16 @@ where
         state.takeover = true;
         state::save(dir, &state)?;
     }
-    if host.shared_legacy(config) && !state.takeover {
-        return Ok(Outcome::NeedsTakeover);
+    if let Some(key) = host.legacy_claim(config)? {
+        if claim::held_by_other(&key)? {
+            return Ok(Outcome::ClaimedElsewhere);
+        }
+        if !state.takeover {
+            return Ok(Outcome::NeedsTakeover);
+        }
+        if !claim::take(&key)? {
+            return Ok(Outcome::ClaimedElsewhere);
+        }
     }
     let auto = trigger == Trigger::Auto;
     if auto && !host.free_now(config).await {

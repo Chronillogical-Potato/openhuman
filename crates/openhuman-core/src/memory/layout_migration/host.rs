@@ -7,6 +7,7 @@
 
 use async_trait::async_trait;
 
+use super::claim::ClaimKey;
 use super::copy::Engines;
 use super::map::Placement;
 use crate::config::Config;
@@ -47,7 +48,12 @@ pub trait LayoutHost: Send + Sync {
     /// the hosted engine).
     async fn free_now(&self, config: &Config) -> bool;
 
-    /// Whether the legacy tree may be shared with other accounts on this
-    /// machine (a self-hosted key), so taking it needs the user's consent.
-    fn shared_legacy(&self, config: &Config) -> bool;
+    /// The claim on the legacy tree when other accounts on this machine may
+    /// share it (a self-hosted engine), so taking it needs the user's
+    /// consent and only one account may; `None` when it is the account's own.
+    ///
+    /// # Errors
+    ///
+    /// When memory is off or the account has no per-user root.
+    fn legacy_claim(&self, config: &Config) -> MemoryResult<Option<ClaimKey>>;
 }

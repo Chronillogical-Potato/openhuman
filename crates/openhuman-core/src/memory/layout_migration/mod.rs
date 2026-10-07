@@ -13,6 +13,7 @@
 //! catch-up pass, cleanup and the RPCs build on it.
 
 pub mod app_host;
+pub mod claim;
 pub mod cleanup;
 pub mod copy;
 pub mod host;

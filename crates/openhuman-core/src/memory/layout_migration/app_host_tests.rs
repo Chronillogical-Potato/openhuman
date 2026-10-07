@@ -45,3 +45,59 @@ async fn binds_the_legacy_tree_and_the_users_own() {
     assert!(placement.chat_node.to_string().ends_with("ws:main"));
     assert!(matches!(placement.flows, FlowPlacement::WithRoot));
 }
+
+#[test]
+fn places_into_the_v3_layout_before_the_switch() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = signed_in(&tmp);
+    assert!(!crate::memory::scope::layout_is_v3(&config));
+    let mut v3 = config.clone();
+    v3.memory.layout = crate::config::MemoryLayoutMode::V3;
+    let legacy = crate::memory::scope::MemoryIdentity::root()
+        .resolve(&config)
+        .layout;
+    let placement = AppHost.placement(&config).unwrap();
+    assert_ne!(placement.layout, legacy, "chats are pooled at ws:main");
+    assert_eq!(
+        placement.layout.conversations("a").unwrap(),
+        placement.chat_node
+    );
+}
+
+#[test]
+fn every_account_on_a_self_hosted_engine_shares_one_claim() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut a = signed_in(&tmp);
+    a.memory.engine = CORTEXDB_ENGINE.to_string();
+    let mut b = a.clone();
+    b.config_path = tmp
+        .path()
+        .join("users")
+        .join("fedcba9876543210fedcba98")
+        .join("config.toml");
+    for config in [&a, &b] {
+        install_test_engine_for_root(
+            &config.workspace_dir,
+            None,
+            Arc::new(ReferenceEngine::new()),
+        );
+    }
+    let key_a = AppHost.legacy_claim(&a).unwrap().unwrap();
+    let key_b = AppHost.legacy_claim(&b).unwrap().unwrap();
+    assert_eq!(key_a.marker, key_b.marker);
+    assert_eq!(
+        key_a
+            .marker
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap(),
+        tmp.path()
+    );
+    assert_eq!(key_a.owner, format!("user:{ACCOUNT}"));
+
+    let hosted = signed_in(&tmp);
+    assert!(AppHost.legacy_claim(&hosted).unwrap().is_none());
+}

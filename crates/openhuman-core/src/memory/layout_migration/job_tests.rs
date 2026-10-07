@@ -3,6 +3,7 @@ use std::sync::atomic::Ordering;
 use tinymemory_api::{ListRequest, MemoryEngine, MetaFilter};
 
 use super::*;
+use crate::memory::layout_migration::claim::ClaimKey;
 use crate::memory::layout_migration::test_host::{count, fact, FakeHost};
 
 async fn go(config: &Config, host: &FakeHost, trigger: Trigger) -> Outcome {
@@ -49,7 +50,7 @@ async fn a_shared_legacy_tree_moves_only_with_consent() {
     let tmp = tempfile::tempdir().unwrap();
     let config = crate::memory::test_fixtures::config_in(&tmp);
     let mut host = FakeHost::with(3).await;
-    host.shared = true;
+    host.claim = Some(ClaimKey::new(tmp.path(), "http://127.0.0.1:3141", "user:a"));
     assert_eq!(
         go(&config, &host, Trigger::Auto).await,
         Outcome::NeedsTakeover
@@ -119,4 +120,30 @@ async fn a_write_racing_the_switch_is_caught_up() {
     assert_eq!(texts.len(), 6);
     assert!(texts.iter().any(|t| t == "written as the switch happened"));
     assert_eq!(count(host.legacy.as_ref()).await, 0);
+}
+
+#[tokio::test]
+async fn a_tree_another_account_took_is_left_alone() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::memory::test_fixtures::config_in(&tmp);
+    let theirs = ClaimKey::new(tmp.path(), "http://127.0.0.1:3141", "user:b");
+    assert!(claim::take(&theirs).unwrap());
+    let mut host = FakeHost::with(3).await;
+    host.claim = Some(ClaimKey::new(
+        tmp.path(),
+        "http://127.0.0.1:3141/",
+        "user:a",
+    ));
+    assert_eq!(
+        go(&config, &host, Trigger::Manual { takeover: true }).await,
+        Outcome::ClaimedElsewhere
+    );
+    assert_eq!(count(&*host.legacy).await, 3, "nothing moved");
+    assert_eq!(count(&*host.tree).await, 0);
+    assert!(
+        !crate::memory::layout_migration::scan(&config, &host)
+            .await
+            .unwrap()
+            .needed
+    );
 }

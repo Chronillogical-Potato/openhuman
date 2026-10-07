@@ -17,6 +17,7 @@ use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use serde::Serialize;
 
+use super::claim;
 use super::copy::legacy_present;
 use super::host::LayoutHost;
 use super::job::{run, Trigger};
@@ -65,9 +66,16 @@ pub struct MigrationStatus {
 /// tree cannot be read.
 pub async fn scan(config: &Config, host: &dyn LayoutHost) -> MemoryResult<ScanView> {
     let state = state::load(&config.workspace_dir)?;
-    let shared = host.shared_legacy(config);
+    let claim = match host.legacy_claim(config) {
+        // Memory off or signed out: nothing to show.
+        Err(MemoryError::Off(_)) => None,
+        claim => claim?,
+    };
+    let shared = claim.is_some();
     let needed = match state.phase {
         Phase::Cleaned => false,
+        // Another account on this machine took the shared tree.
+        Phase::Idle if claim.as_ref().map(claim::held_by_other).transpose()? == Some(true) => false,
         Phase::Idle if !state.switched => match host.engines(config) {
             // Memory off or signed out: nothing to show.
             Err(MemoryError::Off(_)) => false,
@@ -102,10 +110,10 @@ fn is_running(config: &Config) -> bool {
         .contains(&config.workspace_dir)
 }
 
-/// Releases the workspace's claim when the run ends, however it ends.
-struct Claim(PathBuf);
+/// Releases the workspace's run slot when the run ends, however it ends.
+struct RunGuard(PathBuf);
 
-impl Drop for Claim {
+impl Drop for RunGuard {
     fn drop(&mut self) {
         RUNNING
             .lock()
@@ -130,9 +138,9 @@ pub fn start(
     {
         return false;
     }
-    let claim = Claim(workspace);
+    let guard = RunGuard(workspace);
     tokio::spawn(async move {
-        let _claim = claim;
+        let _guard = guard;
         let outcome = run(&config, host.as_ref(), trigger, || {
             let paused = paused();
             async move { paused }

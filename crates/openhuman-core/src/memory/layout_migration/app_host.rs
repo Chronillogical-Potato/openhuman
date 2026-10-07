@@ -4,10 +4,11 @@
 
 use async_trait::async_trait;
 
+use super::claim::ClaimKey;
 use super::copy::Engines;
 use super::host::LayoutHost;
 use super::map::{FlowPlacement, Placement};
-use crate::config::Config;
+use crate::config::{Config, MemoryLayoutMode};
 use crate::memory::engine::{self, CORTEXDB_ENGINE};
 use crate::memory::error::{MemoryError, MemoryResult};
 use crate::memory::scope::{self, MemoryIdentity};
@@ -18,9 +19,7 @@ pub struct AppHost;
 #[async_trait]
 impl LayoutHost for AppHost {
     fn engines(&self, config: &Config) -> MemoryResult<Engines> {
-        let root = scope::user_root(config).ok_or_else(|| {
-            MemoryError::Off("sign in to move memory into its own layout".to_string())
-        })?;
+        let root = signed_in_root(config)?;
         Ok(Engines {
             legacy: engine::bind_with_root(config, None)?.engine,
             tree: engine::bind_with_root(config, Some(&root))?.engine,
@@ -28,7 +27,11 @@ impl LayoutHost for AppHost {
     }
 
     fn placement(&self, config: &Config) -> MemoryResult<Placement> {
-        let layout = MemoryIdentity::root().resolve(config).layout;
+        // The v3 layout, whatever the setting says: the copy runs before the
+        // switch.
+        let mut v3 = config.clone();
+        v3.memory.layout = MemoryLayoutMode::V3;
+        let layout = MemoryIdentity::root().resolve(&v3).layout;
         let chat_node = scope::chat_node(&layout);
         Ok(Placement {
             layout,
@@ -49,11 +52,31 @@ impl LayoutHost for AppHost {
         crate::memory::billing::free_period_active(config).await
     }
 
-    fn shared_legacy(&self, config: &Config) -> bool {
+    fn legacy_claim(&self, config: &Config) -> MemoryResult<Option<ClaimKey>> {
         // A self-hosted key is the operator's: every local account using it
         // shares one legacy tree. The hosted engine is one tenant per person.
-        config.memory.engine.trim() == CORTEXDB_ENGINE
+        if config.memory.engine.trim() != CORTEXDB_ENGINE {
+            return Ok(None);
+        }
+        let owner = signed_in_root(config)?;
+        // `<app>/users/<id>/config.toml`: the app directory every account shares.
+        let app_dir = config
+            .config_path
+            .parent()
+            .and_then(std::path::Path::parent)
+            .and_then(std::path::Path::parent)
+            .ok_or_else(signed_out)?;
+        let endpoint = engine::bind_with_root(config, None)?.endpoint;
+        Ok(Some(ClaimKey::new(app_dir, &endpoint, &owner)))
     }
+}
+
+fn signed_in_root(config: &Config) -> MemoryResult<String> {
+    scope::user_root(config).ok_or_else(signed_out)
+}
+
+fn signed_out() -> MemoryError {
+    MemoryError::Off("sign in to move memory into its own layout".to_string())
 }
 
 #[cfg(test)]
