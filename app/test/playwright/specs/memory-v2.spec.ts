@@ -527,7 +527,8 @@ test.describe('Memory v2 — engine active', () => {
       timeout: 20_000,
     });
     await page.getByTestId('memory-import-retry-failed').click();
-    expect(fake.paramsOf('memory_import_retry_failed')).toEqual([{}]);
+    // The click resolves before the RPC reaches the fake: wait for it.
+    await expect.poll(() => fake.paramsOf('memory_import_retry_failed')).toEqual([{}]);
     expect(fake.paramsOf('memory_import_start')).toEqual([]);
 
     // Running, then done with nothing left to retry.
