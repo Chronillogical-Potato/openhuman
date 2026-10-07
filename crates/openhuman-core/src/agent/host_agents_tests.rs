@@ -10,7 +10,10 @@ fn lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn definition(id: &str) -> AgentDefinition {
-    let mut definition = AgentDefinition::stub_for_test(id);
+    let mut definition = crate::agent::harness::definition::AgentDefinitionRegistry::builtins_only()
+        .get("orchestrator")
+        .cloned()
+        .expect("the orchestrator is built in");
     definition.id = id.to_string();
     definition
 }
