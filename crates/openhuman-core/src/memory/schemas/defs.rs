@@ -4,7 +4,7 @@
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 /// Every function of the namespace, in spec order.
-pub const FUNCTIONS: [&str; 30] = [
+pub const FUNCTIONS: [&str; 34] = [
     "engines_list",
     "engine_get",
     "engine_set",
@@ -35,6 +35,10 @@ pub const FUNCTIONS: [&str; 30] = [
     "import_start",
     "import_status",
     "import_retry_failed",
+    "migration_scan",
+    "migration_start",
+    "migration_status",
+    "migration_retry",
 ];
 
 fn field(name: &'static str, ty: TypeSchema, comment: &'static str, required: bool) -> FieldSchema {
@@ -368,6 +372,34 @@ pub fn schema(function: &str) -> ControllerSchema {
             description: "Store again the items a finished v1 import skipped because the engine refused them.",
             inputs: vec![],
             outputs: out("{state: ImportState}"),
+        },
+        "migration_scan" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_scan",
+            description: "Whether memory from before the per-user layout is left to move.",
+            inputs: vec![],
+            outputs: out("{needed: bool, shared: bool}"),
+        },
+        "migration_start" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_start",
+            description: "Move memory from before the per-user layout now. takeover: true agrees to take a legacy tree other accounts on this machine may share.",
+            inputs: vec![opt("takeover", TypeSchema::Bool, "Consent to take a shared legacy tree.")],
+            outputs: out("{state: MigrationState, running: bool, interrupted: bool}"),
+        },
+        "migration_status" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_status",
+            description: "Progress of the move into the per-user layout.",
+            inputs: vec![],
+            outputs: out("{state: MigrationState, running: bool, interrupted: bool}"),
+        },
+        "migration_retry" => ControllerSchema {
+            namespace: "memory",
+            function: "migration_retry",
+            description: "Put the items the move could not store back in line for the next run.",
+            inputs: vec![],
+            outputs: out("MigrationState"),
         },
         _ => ControllerSchema {
             namespace: "memory",

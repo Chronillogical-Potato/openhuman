@@ -19,9 +19,9 @@ use std::time::Instant;
 use async_trait::async_trait;
 use tinymemory_api::{
     BeliefsRequest, ConsolidateReceipt, ConsolidateRequest, EngineDescriptor, EngineHealth,
-    ExplorePage, ExploreRequest, FetchPage, FetchRequest, ForgetReport, ForgetTarget, GetRequest,
-    Hit, ListPage, ListRequest, MemoryEngine, RecallAnswer, RecallRequest, Result, StoreItem,
-    StoreReceipt, WaitFor, WriteOptions,
+    EraseReport, EraseRequest, ExplorePage, ExploreRequest, ExportPage, FetchPage, FetchRequest,
+    ForgetReport, ForgetTarget, GetRequest, Hit, ListPage, ListRequest, MemoryEngine, RecallAnswer,
+    RecallRequest, Result, StoreItem, StoreReceipt, WaitFor, WriteOptions,
 };
 
 use super::error::MemoryError;
@@ -155,6 +155,18 @@ impl MemoryEngine for ScrubbingEngine {
     async fn list(&self, req: ListRequest) -> Result<ListPage> {
         self.timed("list", self.inner.list(req), |page| page.items.len())
             .await
+    }
+
+    async fn export(&self, req: ListRequest) -> Result<ExportPage> {
+        self.timed("export", self.inner.export(req), |page| page.items.len())
+            .await
+    }
+
+    async fn erase(&self, req: EraseRequest) -> Result<EraseReport> {
+        self.timed("erase", self.inner.erase(req), |report| {
+            report.erased_scopes
+        })
+        .await
     }
 
     async fn explore(&self, req: ExploreRequest) -> Result<ExplorePage> {

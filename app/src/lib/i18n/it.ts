@@ -5392,6 +5392,23 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementi che non è stato possibile importare: {count}.',
   'memoryPage.import.retryFailed': 'Riprova gli elementi non riusciti',
   'memoryPage.import.progress': '{imported} di {total} elementi importati',
+  'memoryPage.migrate.title': 'Sposta la memoria nel tuo account',
+  'memoryPage.migrate.body':
+    'La memoria salvata prima di questo aggiornamento è ancora nel vecchio layout condiviso. Viene spostata automaticamente in background finché lo spostamento è gratuito, oppure puoi spostarla ora.',
+  'memoryPage.migrate.action': 'Migra ora',
+  'memoryPage.migrate.running': 'Spostamento della memoria…',
+  'memoryPage.migrate.progress': '{copied} elementi spostati',
+  'memoryPage.migrate.progressOne': '{copied} elemento spostato',
+  'memoryPage.migrate.paused': 'Spostamento in pausa',
+  'memoryPage.migrate.resume': 'Riprendi',
+  'memoryPage.migrate.leftTitle': 'Impossibile spostare {count} elementi',
+  'memoryPage.migrate.leftTitleOne': 'Impossibile spostare {count} elemento',
+  'memoryPage.migrate.leftBody': 'Restano dove erano. Riprova o lasciali lì.',
+  'memoryPage.migrate.retry': 'Riprova',
+  'memoryPage.migrate.takeoverTitle': 'Prendere la memoria condivisa su questo computer?',
+  'memoryPage.migrate.takeoverBody':
+    'Questo server CortexDB potrebbe contenere la memoria di altri account di questo computer. Solo un account può prenderla: viene spostata nel tuo account e gli altri account non la vedono più.',
+  'memoryPage.migrate.takeoverConfirm': 'Prendila',
   // Live voice agents
   'voice.live.mute': 'Disattiva microfono',
   'voice.live.unmute': 'Riattiva microfono',

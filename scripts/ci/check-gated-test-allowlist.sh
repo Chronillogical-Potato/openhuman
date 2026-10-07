@@ -34,6 +34,7 @@ core/invoke_tests.rs
 core/legacy_aliases_tests.rs
 core/runtime/services.rs
 core/runtime/subscribers.rs
+memory/layout_migration/map_tests.rs
 mcp/server/resources.rs
 mcp/server/mod.rs
 mcp/server/tools/mod.rs

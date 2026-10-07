@@ -132,7 +132,7 @@ where
 /// credit balance (an `Engine` error), an unreachable or overloaded engine
 /// (`Unavailable`). Skipping those would advance the checkpoint past items
 /// that were never stored and finish `Done` with nothing imported.
-fn skips_item(error: &tinymemory_api::Error) -> bool {
+pub(super) fn skips_item(error: &tinymemory_api::Error) -> bool {
     use tinymemory_api::Error as E;
     matches!(
         error,
@@ -327,7 +327,7 @@ pub(crate) type PauseCheck = Arc<dyn Fn() -> bool + Send + Sync>;
 pub(crate) type BillingCheck = Arc<dyn Fn(&Config) -> bool + Send + Sync>;
 
 /// The scheduler's pause, which includes being signed out.
-fn scheduler_paused() -> bool {
+pub(crate) fn scheduler_paused() -> bool {
     matches!(
         crate::cron::scheduler_gate::current_policy(),
         crate::cron::scheduler_gate::Policy::Paused { .. }

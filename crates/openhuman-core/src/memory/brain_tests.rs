@@ -301,3 +301,49 @@ async fn an_ingest_queues_a_belief_build_only_for_an_engine_that_waits_for_one()
         assert_eq!(pending, queued, "{consolidation:?}");
     }
 }
+
+#[test]
+fn legacy_nodes_map_to_their_connector() {
+    use tinymemory_api::{SourceKind, SourceRef};
+    let item = |kind: SourceKind, path: Option<&str>| {
+        let mut item = document(None, path);
+        item.meta_mut().source = SourceRef { kind, id: None };
+        item
+    };
+    let link = item(SourceKind::Link, None);
+    for old in [
+        "pdf", "markdown", "md", "docx", "xlsx", "pptx", "code", "other", "files",
+    ] {
+        assert_eq!(legacy_brain_node(old, &link), files_source(), "{old}");
+    }
+    // `web` held links and feeds, and HTML files that were filed beside them.
+    assert_eq!(legacy_brain_node("web", &link), BrainSource::Web);
+    assert_eq!(
+        legacy_brain_node("web", &item(SourceKind::Rss, None)),
+        BrainSource::Web
+    );
+    assert_eq!(
+        legacy_brain_node("web", &item(SourceKind::Folder, None)),
+        files_source()
+    );
+    assert_eq!(
+        legacy_brain_node("web", &item(SourceKind::File, None)),
+        files_source()
+    );
+    // An upload carried the `Link` kind `web` implies, but kept its path.
+    assert_eq!(
+        legacy_brain_node("web", &item(SourceKind::Link, Some("/u/pricing.html"))),
+        files_source()
+    );
+    // Connectors keep their node, under the slug Composio uses.
+    assert_eq!(legacy_brain_node("notion", &link), BrainSource::Notion);
+    assert_eq!(legacy_brain_node("github", &link), BrainSource::Github);
+    assert_eq!(
+        legacy_brain_node("gmail", &link),
+        BrainSource::Other("gmail".into())
+    );
+    assert_eq!(
+        legacy_brain_node("google_drive", &link),
+        BrainSource::Other("googledrive".into())
+    );
+}

@@ -5380,6 +5380,23 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Elementy, których nie udało się zaimportować: {count}.',
   'memoryPage.import.retryFailed': 'Ponów nieudane elementy',
   'memoryPage.import.progress': 'Zaimportowano {imported} z {total} elementów',
+  'memoryPage.migrate.title': 'Przenieś pamięć na swoje konto',
+  'memoryPage.migrate.body':
+    'Pamięć zapisana przed tą aktualizacją wciąż znajduje się w starym wspólnym układzie. Jest przenoszona automatycznie w tle, dopóki przenoszenie jest bezpłatne, albo możesz przenieść ją teraz.',
+  'memoryPage.migrate.action': 'Migruj teraz',
+  'memoryPage.migrate.running': 'Przenoszenie pamięci…',
+  'memoryPage.migrate.progress': 'Przeniesiono elementy: {copied}',
+  'memoryPage.migrate.progressOne': 'Przeniesiono {copied} element',
+  'memoryPage.migrate.paused': 'Przenoszenie wstrzymane',
+  'memoryPage.migrate.resume': 'Wznów',
+  'memoryPage.migrate.leftTitle': 'Nie udało się przenieść elementów: {count}',
+  'memoryPage.migrate.leftTitleOne': 'Nie udało się przenieść {count} elementu',
+  'memoryPage.migrate.leftBody': 'Pozostają tam, gdzie były. Spróbuj ponownie albo je zostaw.',
+  'memoryPage.migrate.retry': 'Spróbuj ponownie',
+  'memoryPage.migrate.takeoverTitle': 'Przejąć pamięć udostępnioną na tym komputerze?',
+  'memoryPage.migrate.takeoverBody':
+    'Ten serwer CortexDB może zawierać pamięć innych kont na tym komputerze. Tylko jedno konto może ją przejąć: zostanie przeniesiona na Twoje konto, a inne konta przestaną ją widzieć.',
+  'memoryPage.migrate.takeoverConfirm': 'Przejmij',
   // Live voice agents
   'voice.live.mute': 'Wycisz mikrofon',
   'voice.live.unmute': 'Wyłącz wyciszenie',

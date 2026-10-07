@@ -5309,6 +5309,24 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'যে আইটেমগুলি ইমপোর্ট করা যায়নি: {count}।',
   'memoryPage.import.retryFailed': 'ব্যর্থ আইটেম আবার চেষ্টা করুন',
   'memoryPage.import.progress': '{total}টির মধ্যে {imported}টি আইটেম ইমপোর্ট হয়েছে',
+  'memoryPage.migrate.title': 'মেমরি আপনার অ্যাকাউন্টে সরান',
+  'memoryPage.migrate.body':
+    'এই আপডেটের আগে সংরক্ষিত মেমরি এখনও পুরনো শেয়ার করা লেআউটে আছে। সরানো বিনামূল্যে থাকাকালীন এটি ব্যাকগ্রাউন্ডে নিজে থেকেই সরে যায়, অথবা আপনি এখনই সরাতে পারেন।',
+  'memoryPage.migrate.action': 'এখনই সরান',
+  'memoryPage.migrate.running': 'মেমরি সরানো হচ্ছে…',
+  'memoryPage.migrate.progress': '{copied}টি আইটেম সরানো হয়েছে',
+  'memoryPage.migrate.progressOne': '{copied}টি আইটেম সরানো হয়েছে',
+  'memoryPage.migrate.paused': 'সরানো বিরতিতে আছে',
+  'memoryPage.migrate.resume': 'আবার শুরু করুন',
+  'memoryPage.migrate.leftTitle': '{count}টি আইটেম সরানো যায়নি',
+  'memoryPage.migrate.leftTitleOne': '{count}টি আইটেম সরানো যায়নি',
+  'memoryPage.migrate.leftBody':
+    'সেগুলো যেখানে ছিল সেখানেই থাকবে। আবার চেষ্টা করুন, অথবা সেখানেই রেখে দিন।',
+  'memoryPage.migrate.retry': 'আবার চেষ্টা করুন',
+  'memoryPage.migrate.takeoverTitle': 'এই কম্পিউটারে শেয়ার করা মেমরি নেবেন?',
+  'memoryPage.migrate.takeoverBody':
+    'এই CortexDB সার্ভারে এই কম্পিউটারের অন্য অ্যাকাউন্টের মেমরি থাকতে পারে। শুধু একটি অ্যাকাউন্ট এটি নিতে পারে: এটি আপনার অ্যাকাউন্টে সরে যাবে এবং অন্য অ্যাকাউন্টগুলো আর এটি দেখতে পাবে না।',
+  'memoryPage.migrate.takeoverConfirm': 'নিন',
   // Live voice agents
   'voice.live.mute': 'মাইক্রোফোন মিউট করুন',
   'voice.live.unmute': 'মাইক্রোফোন আনমিউট করুন',

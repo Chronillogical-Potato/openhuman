@@ -5362,6 +5362,24 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Элементы, которые не удалось импортировать: {count}.',
   'memoryPage.import.retryFailed': 'Повторить неудавшиеся элементы',
   'memoryPage.import.progress': 'Импортировано {imported} из {total}',
+  'memoryPage.migrate.title': 'Перенести память в ваш аккаунт',
+  'memoryPage.migrate.body':
+    'Память, сохранённая до этого обновления, всё ещё находится в старой общей структуре. Она переносится автоматически в фоне, пока перенос бесплатный, или вы можете перенести её сейчас.',
+  'memoryPage.migrate.action': 'Перенести сейчас',
+  'memoryPage.migrate.running': 'Перенос памяти…',
+  'memoryPage.migrate.progress': 'Перенесено элементов: {copied}',
+  'memoryPage.migrate.progressOne': 'Перенесён {copied} элемент',
+  'memoryPage.migrate.paused': 'Перенос приостановлен',
+  'memoryPage.migrate.resume': 'Продолжить',
+  'memoryPage.migrate.leftTitle': 'Не удалось перенести элементов: {count}',
+  'memoryPage.migrate.leftTitleOne': 'Не удалось перенести {count} элемент',
+  'memoryPage.migrate.leftBody':
+    'Они остаются на прежнем месте. Попробуйте ещё раз или оставьте их там.',
+  'memoryPage.migrate.retry': 'Повторить',
+  'memoryPage.migrate.takeoverTitle': 'Забрать общую память на этом компьютере?',
+  'memoryPage.migrate.takeoverBody':
+    'На этом сервере CortexDB может храниться память других аккаунтов этого компьютера. Забрать её может только один аккаунт: она переносится в ваш аккаунт, и другие аккаунты её больше не видят.',
+  'memoryPage.migrate.takeoverConfirm': 'Забрать',
   // Live voice agents
   'voice.live.mute': 'Выключить микрофон',
   'voice.live.unmute': 'Включить микрофон',

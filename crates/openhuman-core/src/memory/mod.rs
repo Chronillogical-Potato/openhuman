@@ -30,6 +30,7 @@ pub mod error;
 pub mod explore;
 pub mod guard;
 pub mod import;
+pub mod layout_migration;
 pub mod lifecycle;
 pub mod ops;
 pub mod schemas;

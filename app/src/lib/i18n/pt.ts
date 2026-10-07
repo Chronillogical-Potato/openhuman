@@ -5380,6 +5380,23 @@ const messages: TranslationMap = {
   'memoryPage.import.failedItems': 'Itens que não puderam ser importados: {count}.',
   'memoryPage.import.retryFailed': 'Tentar novamente os itens com falha',
   'memoryPage.import.progress': '{imported} de {total} itens importados',
+  'memoryPage.migrate.title': 'Mover a memória para sua conta',
+  'memoryPage.migrate.body':
+    'A memória salva antes desta atualização ainda está no antigo layout compartilhado. Ela é movida automaticamente em segundo plano enquanto mover for gratuito, ou você pode movê-la agora.',
+  'memoryPage.migrate.action': 'Migrar agora',
+  'memoryPage.migrate.running': 'Movendo a memória…',
+  'memoryPage.migrate.progress': '{copied} itens movidos',
+  'memoryPage.migrate.progressOne': '{copied} item movido',
+  'memoryPage.migrate.paused': 'Movimentação pausada',
+  'memoryPage.migrate.resume': 'Retomar',
+  'memoryPage.migrate.leftTitle': 'Não foi possível mover {count} itens',
+  'memoryPage.migrate.leftTitleOne': 'Não foi possível mover {count} item',
+  'memoryPage.migrate.leftBody': 'Eles continuam onde estavam. Tente de novo ou deixe-os lá.',
+  'memoryPage.migrate.retry': 'Tentar de novo',
+  'memoryPage.migrate.takeoverTitle': 'Assumir a memória compartilhada neste computador?',
+  'memoryPage.migrate.takeoverBody':
+    'Este servidor CortexDB pode conter memória de outras contas deste computador. Apenas uma conta pode assumi-la: ela é movida para sua conta e as outras contas deixam de vê-la.',
+  'memoryPage.migrate.takeoverConfirm': 'Assumir',
   // Live voice agents
   'voice.live.mute': 'Silenciar microfone',
   'voice.live.unmute': 'Reativar microfone',
