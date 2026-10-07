@@ -359,19 +359,11 @@ async fn install_workflow_from_url_is_idempotent_when_skill_already_exists() {
 
 #[test]
 fn install_fetch_status_reporting_suppresses_client_errors_only() {
-    assert!(!should_report_install_fetch_status(reqwest::StatusCode::OK));
-    assert!(!should_report_install_fetch_status(
-        reqwest::StatusCode::NOT_FOUND
-    ));
-    assert!(!should_report_install_fetch_status(
-        reqwest::StatusCode::GONE
-    ));
-    assert!(should_report_install_fetch_status(
-        reqwest::StatusCode::INTERNAL_SERVER_ERROR
-    ));
-    assert!(should_report_install_fetch_status(
-        reqwest::StatusCode::BAD_GATEWAY
-    ));
+    assert!(!should_report_install_fetch_status(200));
+    assert!(!should_report_install_fetch_status(404));
+    assert!(!should_report_install_fetch_status(410));
+    assert!(should_report_install_fetch_status(500));
+    assert!(should_report_install_fetch_status(502));
 }
 
 /// Happy path: install a SKILL.md under a synthetic user home, verify
