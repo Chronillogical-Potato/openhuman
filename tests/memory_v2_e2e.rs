@@ -1326,6 +1326,49 @@ async fn local_files_and_text_file_under_the_files_source() {
 }
 
 #[tokio::test]
+async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forgettable() {
+    let f = Fixture::new(true).await;
+    // Documents stored before the brain was filed by connector sit at a
+    // per-format node (`source:pdf`); they stay visible beside `files`.
+    let old = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "The old vendor code is PV-7023", "source": "pdf" }),
+        )
+        .await;
+    assert_eq!(old["source"], json!("pdf"), "{old}");
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "The new vendor code is PV-9000" }),
+    )
+    .await;
+    let sources = f.ok("openhuman.memory_brain_sources", json!({})).await;
+    let mut listed: Vec<String> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| s["source"].as_str().unwrap_or_default().to_string())
+        .collect();
+    listed.sort();
+    assert_eq!(listed, ["files", "pdf"], "{sources}");
+    let found = f
+        .ok(
+            "openhuman.memory_brain_search",
+            json!({ "query": "vendor code" }),
+        )
+        .await;
+    assert_eq!(
+        found["hits"].as_array().unwrap().len(),
+        2,
+        "an unscoped search reads both: {found}"
+    );
+    let gone = f
+        .ok("openhuman.memory_brain_forget", json!({ "source": "pdf" }))
+        .await;
+    assert_eq!(gone["forgotten"], json!(1), "{gone}");
+}
+
+#[tokio::test]
 async fn an_aliased_toolkit_is_one_memory_source() {
     let f = Fixture::new(true).await;
 
