@@ -142,14 +142,15 @@ pub async fn sync_toolkit(
 /// `composio:<toolkit>`.
 #[must_use]
 pub fn source_id_for_toolkit(config: &Config, toolkit: &str) -> String {
-    let toolkit = toolkit.to_ascii_lowercase();
+    use crate::integrations::composio::tools::canonicalize_toolkit_slug;
+    let toolkit = canonicalize_toolkit_slug(toolkit);
     config
         .memory
         .sources
         .iter()
         .find(|source| {
             source.kind == crate::config::schema::MemorySourceKind::Composio
-                && source.target == toolkit
+                && canonicalize_toolkit_slug(&source.target) == toolkit
         })
         .map_or_else(|| format!("composio:{toolkit}"), |source| source.id.clone())
 }

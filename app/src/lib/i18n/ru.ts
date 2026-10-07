@@ -5267,6 +5267,7 @@ const messages: TranslationMap = {
     'Все документы {source} будут удалены из мозга. Это действие нельзя отменить.',
   'memoryPage.brain.forgotten': 'Забыто документов {source}: {count}.',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'Файлы',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

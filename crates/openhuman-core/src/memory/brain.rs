@@ -1,10 +1,10 @@
-//! The brain: documents every agent shares, filed by source type.
+//! The brain: documents every agent shares, filed by the connector they came
+//! from.
 //!
-//! TinyMemory's layout keeps documents at `source:<kind>` nodes below the
-//! layout root (`tinymemory_tools::MemoryLayout::brain`), with no agent id.
-//! Synced sources ([`super::sources`]) are filed there by what they read
-//! ([`brain_source`]); a file ingested from the UI by its format
-//! (`tinymemory_integrations::brain::brain_document`). Every ingest queues a
+//! TinyMemory's layout keeps documents at `source:<connector>` nodes below
+//! the layout root (`tinymemory_tools::MemoryLayout::brain`), with no agent
+//! id. Synced sources ([`super::sources`]) are filed there by what they read
+//! ([`brain_source`]); a file ingested from the UI under `files`. Every ingest queues a
 //! belief build of the source's scope (`lifecycle::jobs`).
 //!
 //! The `memory_brain_*` RPCs read and forget per source, under the root of
@@ -26,34 +26,30 @@ use super::scope;
 /// Largest file `memory_brain_ingest` reads, in bytes.
 pub const MAX_INGEST_BYTES: u64 = 25 * 1024 * 1024;
 
-/// The brain source a synced item belongs to: GitHub repos to `github`,
-/// links and feeds to `web`, a Composio toolkit to its own source
-/// (`notion` is the known one), and local files by their type — PDFs to
-/// `pdf`, HTML to `web`, everything else textual to `markdown`.
+/// The brain source of local files and uploads, of every format.
+// TODO(tinymemory#214): `BrainSource::Files` once the pin carries it; the
+// node (`source:files`) is the same.
 #[must_use]
-pub fn brain_source(kind: MemorySourceKind, target: &str, item: &StoreItem) -> BrainSource {
+pub fn files_source() -> BrainSource {
+    BrainSource::Other("files".to_string())
+}
+
+/// The brain source a synced item belongs to: the connector it came from,
+/// so disconnecting or removing it erases one source. GitHub (the reader
+/// and the Composio toolkit alike) to `github`, links and feeds to `web`, a
+/// Composio toolkit to its canonical slug (`gmail`, `googledrive`), and
+/// local files, whatever their format, to `files`.
+#[must_use]
+pub fn brain_source(kind: MemorySourceKind, target: &str) -> BrainSource {
     match kind {
         MemorySourceKind::Github => BrainSource::Github,
         MemorySourceKind::Link | MemorySourceKind::Rss => BrainSource::Web,
-        MemorySourceKind::Composio => target
-            .trim()
-            .to_ascii_lowercase()
-            .parse()
-            .unwrap_or_else(|_| BrainSource::Other("composio".to_string())),
-        MemorySourceKind::Folder | MemorySourceKind::File => {
-            let mime = match item {
-                StoreItem::Document { mime, .. } => mime.as_deref().unwrap_or_default(),
-                _ => "",
-            };
-            let path = item.meta().file_path.as_deref().unwrap_or_default();
-            if mime.contains("pdf") || path.to_ascii_lowercase().ends_with(".pdf") {
-                BrainSource::Pdf
-            } else if mime.contains("html") {
-                BrainSource::Web
-            } else {
-                BrainSource::Markdown
-            }
+        MemorySourceKind::Composio => {
+            crate::integrations::composio::tools::canonicalize_toolkit_slug(target)
+                .parse()
+                .unwrap_or_else(|_| BrainSource::Other("composio".to_string()))
         }
+        MemorySourceKind::Folder | MemorySourceKind::File => files_source(),
     }
 }
 
@@ -186,8 +182,7 @@ pub struct BrainIngestParams {
     /// Text to file directly.
     #[serde(default)]
     pub text: Option<String>,
-    /// The source to file under; unset picks it from the file's format
-    /// (`markdown` for text).
+    /// The source to file under; unset files it under `files`.
     #[serde(default)]
     pub source: Option<String>,
     /// A title.
@@ -233,14 +228,14 @@ pub async fn ingest(config: &Config, params: BrainIngestParams) -> MemoryResult<
             tinymemory_integrations::brain::brain_document(
                 super::convert::converter(),
                 &raw,
-                source,
+                Some(source.unwrap_or_else(files_source)),
                 meta,
             )
             .await
             .map_err(|error| MemoryError::invalid(format!("cannot convert the file: {error}")))?
         }
         (None, Some(text)) => {
-            tinymemory_tools::BrainDocument::new(source.unwrap_or(BrainSource::Markdown), text)
+            tinymemory_tools::BrainDocument::new(source.unwrap_or_else(files_source), text)
         }
         _ => return Err(MemoryError::invalid("pass exactly one of `path` or `text`")),
     };

@@ -168,6 +168,22 @@ fn source_id_for_toolkit_prefers_the_configured_source() {
         });
     assert_eq!(source_id_for_toolkit(&config, "GMAIL"), "src-gmail");
     assert_eq!(source_id_for_toolkit(&config, "notion"), "composio:notion");
+
+    // A source saved before targets were canonicalized still matches the
+    // slug Composio reports for its connections.
+    config
+        .memory
+        .sources
+        .push(crate::config::schema::MemorySourceConfig {
+            id: "src-drive".into(),
+            kind: MemorySourceKind::Composio,
+            target: "google_drive".into(),
+            label: "Drive".into(),
+            schedule_mins: None,
+            namespace: None,
+        });
+    assert_eq!(source_id_for_toolkit(&config, "googledrive"), "src-drive");
+    assert_eq!(source_id_for_toolkit(&config, "google_drive"), "src-drive");
 }
 
 #[tokio::test]

@@ -256,6 +256,20 @@ impl Fixture {
         .await
     }
 
+    /// [`Self::ok`] repeated until `done` holds for the result, or ten
+    /// seconds pass (the last result is returned): for reads of a write the
+    /// engine may index after it answers.
+    async fn ok_until(&self, method: &str, params: Value, done: impl Fn(&Value) -> bool) -> Value {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let result = self.ok(method, params.clone()).await;
+            if done(&result) || std::time::Instant::now() >= deadline {
+                return result;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    }
+
     /// The unwrapped result of a call that must succeed.
     async fn ok(&self, method: &str, params: Value) -> Value {
         let response = self.call(method, params).await;
@@ -1278,6 +1292,128 @@ async fn sources_add_sync_list_and_remove() {
 // ---------------------------------------------------------------------------
 // context.md
 // ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn local_files_and_text_file_under_the_files_source() {
+    let f = Fixture::new(true).await;
+    let path = f.home.path().join("handbook.md");
+    std::fs::write(&path, "# Handbook\n\nExpenses are filed by the fifth.").expect("write");
+
+    // Neither names a source: a file of any format, and pasted text, are
+    // local files, not a per-format source.
+    let file = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "path": path.display().to_string() }),
+        )
+        .await;
+    assert_eq!(file["source"], json!("files"), "{file}");
+    let text = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "Payroll runs on the last Friday", "title": "Payroll" }),
+        )
+        .await;
+    assert_eq!(text["source"], json!("files"), "{text}");
+
+    let sources = f
+        .ok_until("openhuman.memory_brain_sources", json!({}), |v| {
+            v["sources"][0]["documents"] == json!(2)
+        })
+        .await;
+    let listed: Vec<(String, u64)> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| {
+            (
+                s["source"].as_str().unwrap_or_default().to_string(),
+                s["documents"].as_u64().unwrap_or_default(),
+            )
+        })
+        .collect();
+    assert_eq!(listed, [("files".to_string(), 2)], "{sources}");
+
+    let found = f
+        .ok_until(
+            "openhuman.memory_brain_search",
+            json!({ "query": "expenses", "source": "files" }),
+            |v| !v["hits"].as_array().is_none_or(Vec::is_empty),
+        )
+        .await;
+    assert_eq!(found["hits"].as_array().unwrap().len(), 1, "{found}");
+}
+
+#[tokio::test]
+async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forgettable() {
+    let f = Fixture::new(true).await;
+    // Documents stored before the brain was filed by connector sit at a
+    // per-format node (`source:pdf`); they stay visible beside `files`.
+    let old = f
+        .ok(
+            "openhuman.memory_brain_ingest",
+            json!({ "text": "The old vendor code is PV-7023", "source": "pdf" }),
+        )
+        .await;
+    assert_eq!(old["source"], json!("pdf"), "{old}");
+    f.ok(
+        "openhuman.memory_brain_ingest",
+        json!({ "text": "The new vendor code is PV-9000" }),
+    )
+    .await;
+    let sources = f
+        .ok_until("openhuman.memory_brain_sources", json!({}), |v| {
+            v["sources"].as_array().is_some_and(|s| s.len() == 2)
+        })
+        .await;
+    let mut listed: Vec<String> = sources["sources"]
+        .as_array()
+        .expect("sources")
+        .iter()
+        .map(|s| s["source"].as_str().unwrap_or_default().to_string())
+        .collect();
+    listed.sort();
+    assert_eq!(listed, ["files", "pdf"], "{sources}");
+    let found = f
+        .ok_until(
+            "openhuman.memory_brain_search",
+            json!({ "query": "vendor code" }),
+            |v| v["hits"].as_array().is_some_and(|h| h.len() == 2),
+        )
+        .await;
+    assert_eq!(
+        found["hits"].as_array().unwrap().len(),
+        2,
+        "an unscoped search reads both: {found}"
+    );
+    let gone = f
+        .ok("openhuman.memory_brain_forget", json!({ "source": "pdf" }))
+        .await;
+    assert_eq!(gone["forgotten"], json!(1), "{gone}");
+}
+
+#[tokio::test]
+async fn an_aliased_toolkit_is_one_memory_source() {
+    let f = Fixture::new(true).await;
+
+    // A toolkit added under an alias is stored under the slug Composio uses,
+    // and adding it again under that slug is a duplicate.
+    let drive = f
+        .ok(
+            "openhuman.memory_sources_add",
+            json!({ "kind": "composio", "target": "Google_Drive" }),
+        )
+        .await;
+    assert_eq!(drive["source"]["target"], json!("googledrive"), "{drive}");
+    assert_eq!(
+        f.code(
+            "openhuman.memory_sources_add",
+            json!({ "kind": "composio", "target": "googledrive" })
+        )
+        .await,
+        "INVALID_REQUEST"
+    );
+}
 
 #[tokio::test]
 async fn brain_pack_preview_and_jobs_round_trip() {

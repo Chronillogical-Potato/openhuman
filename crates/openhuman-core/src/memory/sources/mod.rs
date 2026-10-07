@@ -86,7 +86,7 @@ pub fn normalize_target(kind: MemorySourceKind, target: &str) -> MemoryResult<St
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
             {
-                Ok(target.to_ascii_lowercase())
+                Ok(crate::integrations::composio::tools::canonicalize_toolkit_slug(target))
             } else {
                 Err(MemoryError::invalid("a Composio target is a toolkit slug"))
             }
@@ -122,11 +122,19 @@ pub fn apply_add(
             )));
         }
     }
+    // A Composio target saved before targets were canonicalized
+    // (`google_drive`) is the same toolkit as its canonical slug.
+    let same_target = |saved: &str| match kind {
+        MemorySourceKind::Composio => {
+            crate::integrations::composio::tools::canonicalize_toolkit_slug(saved) == target
+        }
+        _ => saved == target,
+    };
     if config
         .memory
         .sources
         .iter()
-        .any(|source| source.kind == kind && source.target == target)
+        .any(|source| source.kind == kind && same_target(&source.target))
     {
         return Err(MemoryError::invalid("that source is already added"));
     }

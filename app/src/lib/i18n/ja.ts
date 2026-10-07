@@ -5510,6 +5510,7 @@ const messages: TranslationMap = {
     '{source}のドキュメントをすべてブレインから削除します。この操作は元に戻せません。',
   'memoryPage.brain.forgotten': '{source}のドキュメントを{count}件削除しました。',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'ファイル',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

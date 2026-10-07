@@ -5492,6 +5492,7 @@ const en: TranslationMap = {
     'Every {source} document will be removed from the brain. This cannot be undone.',
   'memoryPage.brain.forgotten': 'Forgot {count} {source} documents.',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'Files',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',

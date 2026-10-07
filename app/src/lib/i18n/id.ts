@@ -5257,6 +5257,7 @@ const messages: TranslationMap = {
     'Semua dokumen {source} akan dihapus dari otak. Tindakan ini tidak dapat dibatalkan.',
   'memoryPage.brain.forgotten': '{count} dokumen {source} dilupakan.',
   'memoryPage.brain.source.pdf': 'PDF',
+  'memoryPage.brain.source.files': 'Berkas',
   'memoryPage.brain.source.markdown': 'Markdown',
   'memoryPage.brain.source.notion': 'Notion',
   'memoryPage.brain.source.github': 'GitHub',
