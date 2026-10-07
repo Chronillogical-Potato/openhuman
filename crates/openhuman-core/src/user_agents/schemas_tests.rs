@@ -35,7 +35,10 @@ fn the_operator_plane_is_its_own_domain_family() {
 #[tokio::test]
 async fn outside_saas_the_controllers_refuse() {
     let controllers = all_user_agents_registered_controllers();
-    let list = controllers.iter().find(|c| c.schema.function == "list").unwrap();
+    let list = controllers
+        .iter()
+        .find(|c| c.schema.function == "list")
+        .unwrap();
     let err = (list.handler)(Default::default()).await.unwrap_err();
     assert!(err.contains("SaaS"), "{err}");
 }

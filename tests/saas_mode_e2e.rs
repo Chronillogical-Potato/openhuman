@@ -151,7 +151,7 @@ fn rpc_with(
 }
 
 #[test]
-fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
+fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_bearer() {
     let d = deployment(true);
     let port = free_port();
     let child = core_command(&d, &["--port", &port.to_string()])
@@ -211,7 +211,9 @@ fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
         "openhuman.user_agents_provision",
         json!({ "user_id": "alice@example.com" }),
     );
-    let result = body.get("result").unwrap_or_else(|| panic!("provision: {body}"));
+    let result = body
+        .get("result")
+        .unwrap_or_else(|| panic!("provision: {body}"));
     let agent_id = result
         .pointer("/result/agent_id")
         .or_else(|| result.get("agent_id"))
@@ -220,7 +222,12 @@ fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
         .to_string();
     assert!(agent_id.starts_with("u-"), "{agent_id}");
     assert!(!body.to_string().contains("alice"), "{body}");
-    assert!(d.root.join("agents").join(&agent_id).join("workspace").is_dir());
+    assert!(d
+        .root
+        .join("agents")
+        .join(&agent_id)
+        .join("workspace")
+        .is_dir());
 
     let (_, body) = rpc(&client, &base, Some(BEARER), "openhuman.user_agents_list");
     assert!(body.to_string().contains(&agent_id), "{body}");
@@ -241,7 +248,10 @@ fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
     );
     assert!(body.get("result").is_some(), "{body}");
     assert!(!d.root.join("agents").join(&agent_id).exists());
-    assert!(d.root.join("deprovisioned").is_dir(), "archived, not deleted");
+    assert!(
+        d.root.join("deprovisioned").is_dir(),
+        "archived, not deleted"
+    );
 
     assert!(
         d.root.join("operator").join("workspace").is_dir(),

@@ -30,7 +30,9 @@ pub struct UserAgentState {
 
 impl std::fmt::Debug for UserAgentState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("UserAgentState").field("id", &self.id).finish()
+        f.debug_struct("UserAgentState")
+            .field("id", &self.id)
+            .finish()
     }
 }
 
@@ -89,8 +91,7 @@ impl AgentHost {
             return Ok(false);
         }
         for dir in [&layout.workspace_dir, &layout.sandbox_dir] {
-            std::fs::create_dir_all(dir)
-                .map_err(|e| format!("creating {}: {e}", dir.display()))?;
+            std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
         }
         let meta = UserAgentMeta {
             agent_id: id.clone(),
@@ -162,10 +163,7 @@ impl AgentHost {
                 last_used: now,
             },
         );
-        log::debug!(
-            "[user_agents] opened agent={id} ({} open)",
-            open.len()
-        );
+        log::debug!("[user_agents] opened agent={id} ({} open)", open.len());
         Ok(state)
     }
 

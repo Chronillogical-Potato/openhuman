@@ -130,6 +130,10 @@ fn list_reports_provisioned_agents_only() {
     let _held = host.open(&b).unwrap();
     let listed = host.list().unwrap();
     assert_eq!(listed.len(), 2);
-    let open: Vec<_> = listed.iter().filter(|s| s.open).map(|s| &s.agent_id).collect();
+    let open: Vec<_> = listed
+        .iter()
+        .filter(|s| s.open)
+        .map(|s| &s.agent_id)
+        .collect();
     assert_eq!(open, vec![&b]);
 }

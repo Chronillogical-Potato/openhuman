@@ -26,9 +26,7 @@ impl UserAgentId {
             return Err("user id is empty".to_string());
         }
         if user_id.len() > MAX_USER_ID_LEN {
-            return Err(format!(
-                "user id is longer than {MAX_USER_ID_LEN} bytes"
-            ));
+            return Err(format!("user id is longer than {MAX_USER_ID_LEN} bytes"));
         }
         if user_id.chars().any(char::is_control) {
             return Err("user id contains control characters".to_string());

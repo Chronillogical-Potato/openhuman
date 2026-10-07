@@ -4,9 +4,7 @@
 //! are never logged, stored or returned.
 
 use super::host::{self, AgentHost};
-use super::types::{
-    DeprovisionResult, ProvisionResult, UserAgentId, UserAgentSummary,
-};
+use super::types::{DeprovisionResult, ProvisionResult, UserAgentId, UserAgentSummary};
 use crate::core::Outcome;
 
 fn require_host() -> Result<std::sync::Arc<AgentHost>, String> {
@@ -29,7 +27,10 @@ pub(crate) fn provision_on(
     } else {
         format!("{agent_id} was already provisioned")
     };
-    Ok(Outcome::single_log(ProvisionResult { agent_id, created }, log))
+    Ok(Outcome::single_log(
+        ProvisionResult { agent_id, created },
+        log,
+    ))
 }
 
 /// Close agent `agent_id` and archive its state.
@@ -48,7 +49,10 @@ pub(crate) fn deprovision_on(
     } else {
         format!("{agent_id} was not provisioned")
     };
-    Ok(Outcome::single_log(DeprovisionResult { agent_id, removed }, log))
+    Ok(Outcome::single_log(
+        DeprovisionResult { agent_id, removed },
+        log,
+    ))
 }
 
 /// Every provisioned agent.
@@ -71,7 +75,10 @@ pub(crate) fn status_on(
     let summary = host
         .summary(&agent_id)?
         .ok_or_else(|| format!("agent {agent_id} is not provisioned"))?;
-    Ok(Outcome::single_log(summary, format!("status of {agent_id}")))
+    Ok(Outcome::single_log(
+        summary,
+        format!("status of {agent_id}"),
+    ))
 }
 
 #[cfg(test)]
