@@ -68,6 +68,9 @@ struct BatchOutcome {
     /// Whether `fatal` is transient: the engine stayed unavailable through
     /// every retry, so the background job resumes the run.
     transient: bool,
+    /// Whether `fatal` is the account's credits running out: the run is
+    /// paused until automatic runs are allowed again ([`BillingCheck`]).
+    credits: bool,
 }
 
 /// Runs `call` again after each of [`RETRY_DELAYS`] while it fails with a
@@ -151,6 +154,7 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
         Err(error) if !skips_item(&error) => {
             return BatchOutcome {
                 transient: error.is_transient(),
+                credits: is_insufficient_credits(&error),
                 fatal: Some(fatal_message(error)),
                 ..BatchOutcome::default()
             };
@@ -168,6 +172,7 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
             Ok(_) => outcome.stored += 1,
             Err(error) if !skips_item(&error) => {
                 outcome.transient = error.is_transient();
+                outcome.credits = is_insufficient_credits(&error);
                 outcome.fatal = Some(fatal_message(error));
                 return outcome;
             }
@@ -190,6 +195,10 @@ static RUNNING: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(
 struct ImportFile {
     #[serde(default)]
     state: ImportState,
+    /// The run stopped because the account ran out of credits; the
+    /// background job resumes it once automatic runs are allowed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    paused_for_credits: bool,
     #[serde(default)]
     checkpoint: Checkpoint,
 }
@@ -282,6 +291,22 @@ pub fn status(config: &Config) -> ImportState {
 /// before it starts and again before every batch it stores.
 pub(crate) type PauseCheck = Arc<dyn Fn() -> bool + Send + Sync>;
 
+/// Whether memory work that uploads on its own, with no user action (an
+/// automatic import, or resuming one paused for credits), may run now.
+pub(crate) type BillingCheck = Arc<dyn Fn(&Config) -> bool + Send + Sync>;
+
+/// The one gate on automatic migration runs. A self-hosted CortexDB bills
+/// nobody, so it always may. On the TinyHuman memory service an automatic
+/// run spends the user's credits, so it may only while the backend's memory
+/// free period is active.
+///
+/// The shared free-period check (`free_period_active()`) replaces the
+/// TinyHuman half once it lands; until then the free period is unknown, and
+/// unknown is not free.
+pub(crate) fn automatic_run_allowed(config: &Config) -> bool {
+    config.memory.engine.trim() == super::engine::CORTEXDB_ENGINE
+}
+
 /// The scheduler's pause, which includes being signed out.
 fn scheduler_paused() -> bool {
     matches!(
@@ -294,7 +319,12 @@ fn scheduler_paused() -> bool {
 /// the scheduler's pause ([`resume_interrupted_with`]). Called from memory's
 /// background job.
 pub async fn resume_interrupted(config: &Config) -> bool {
-    resume_interrupted_with(config, Arc::new(scheduler_paused)).await
+    resume_interrupted_with(
+        config,
+        Arc::new(scheduler_paused),
+        Arc::new(automatic_run_allowed),
+    )
+    .await
 }
 
 /// Resumes an interrupted import unless `paused` says background work is
@@ -311,8 +341,19 @@ pub async fn resume_interrupted(config: &Config) -> bool {
 /// resume could not start: that failure is persisted as `Error`, so a
 /// failure that would recur does not loop. Returns whether a run was
 /// started.
-pub(crate) async fn resume_interrupted_with(config: &Config, paused: PauseCheck) -> bool {
-    if read_file(&config.workspace_dir).state.phase != ImportPhase::Running {
+pub(crate) async fn resume_interrupted_with(
+    config: &Config,
+    paused: PauseCheck,
+    billing: BillingCheck,
+) -> bool {
+    let file = read_file(&config.workspace_dir);
+    let resumable = match file.state.phase {
+        ImportPhase::Running => true,
+        // Out of credits: only once automatic runs are allowed again.
+        ImportPhase::Error => file.paused_for_credits && billing(config),
+        _ => false,
+    };
+    if !resumable {
         return false;
     }
     let live = RUNNING
@@ -406,6 +447,7 @@ async fn start_with(
         return Err(MemoryError::invalid("no v1 memory store to import"));
     };
     file.state.phase = ImportPhase::Running;
+    file.paused_for_credits = false;
     if let Some(total) = total {
         file.state.total = total;
     }
@@ -451,6 +493,7 @@ async fn run(
     let mut since_checkpoint = 0u64;
     let mut failure = None;
     let mut transient = false;
+    let mut credits = false;
     let mut pausing = false;
     let mut batch: Vec<ImportedItem> = Vec::with_capacity(STORE_BATCH);
     let mut reading = true;
@@ -487,6 +530,7 @@ async fn run(
         if let Some(error) = outcome.fatal {
             failure = Some(error);
             transient = outcome.transient;
+            credits = outcome.credits;
             break;
         }
     }
@@ -512,6 +556,7 @@ async fn run(
             file.state.error = Some(error);
         }
         Some(error) => {
+            file.paused_for_credits = credits;
             tracing::warn!(
                 imported = file.state.imported,
                 "[memory:import] import stopped"

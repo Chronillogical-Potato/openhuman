@@ -164,6 +164,7 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
@@ -199,6 +200,7 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 3,
@@ -405,6 +407,7 @@ async fn an_import_the_app_quit_during_resumes_on_its_own() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
@@ -437,6 +440,7 @@ async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
         write_file(
             &config.workspace_dir,
             &ImportFile {
+                paused_for_credits: false,
                 state: ImportState {
                     phase,
                     imported: 0,
@@ -457,6 +461,7 @@ fn quit_mid_import(config: &Config) {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
@@ -494,7 +499,7 @@ async fn nothing_resumes_while_background_work_is_paused() {
     let engine = bind_reference(&config);
     quit_mid_import(&config);
 
-    assert!(!resume_interrupted_with(&config, always(true)).await);
+    assert!(!resume_interrupted_with(&config, always(true), billing(false)).await);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
     assert_eq!(
         read_file(&config.workspace_dir).state.phase,
@@ -502,11 +507,15 @@ async fn nothing_resumes_while_background_work_is_paused() {
         "left resumable for a later, unpaused tick"
     );
 
-    assert!(resume_interrupted_with(&config, always(false)).await);
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
     assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
 }
 
 /// A pause check that always answers `paused`.
+fn billing(allowed: bool) -> BillingCheck {
+    Arc::new(move |_: &Config| allowed)
+}
+
 fn always(paused: bool) -> PauseCheck {
     Arc::new(move || paused)
 }
@@ -537,7 +546,7 @@ async fn a_pause_that_lands_after_the_check_stops_the_run_at_the_next_batch() {
     let counter = asked.clone();
     let paused: PauseCheck = Arc::new(move || counter.fetch_add(1, Ordering::SeqCst) > 0);
 
-    assert!(resume_interrupted_with(&config, paused).await);
+    assert!(resume_interrupted_with(&config, paused, billing(false)).await);
     wait_until_no_live_run(&config).await;
     assert!(asked.load(Ordering::SeqCst) >= 2, "the run asked again");
     assert!(
@@ -549,7 +558,7 @@ async fn a_pause_that_lands_after_the_check_stops_the_run_at_the_next_batch() {
     assert_eq!(file.checkpoint.documents.as_deref(), Some("d1"));
 
     // Unpaused, the next tick finishes it from the checkpoint.
-    assert!(resume_interrupted_with(&config, always(false)).await);
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
     assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
     assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
 }
@@ -562,7 +571,7 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
     // No engine bound: memory is off, so `start` fails before any run.
     quit_mid_import(&config);
 
-    assert!(!resume_interrupted_with(&config, always(false)).await);
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
     let state = read_file(&config.workspace_dir).state;
     assert_eq!(state.phase, ImportPhase::Error);
     assert_eq!(state.imported, 1, "progress is kept");
@@ -571,7 +580,7 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
         "{state:?}"
     );
     // The next tick does not try again; the user resumes it.
-    assert!(!resume_interrupted_with(&config, always(false)).await);
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
     assert_eq!(
         read_file(&config.workspace_dir)
             .checkpoint
@@ -604,6 +613,7 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
@@ -630,6 +640,7 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
 fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
     let tmp = tempfile::tempdir().unwrap();
     let file = ImportFile {
+        paused_for_credits: false,
         state: ImportState {
             phase: ImportPhase::Running,
             imported: 3,
@@ -702,8 +713,59 @@ async fn an_engine_that_stays_unavailable_is_resumed_by_the_background_job() {
     );
 
     let engine = bind_reference(&config);
-    assert!(resume_interrupted_with(&config, always(false)).await);
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
     let done = wait_until_settled(&config).await;
     assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
     assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 5);
+}
+
+#[tokio::test]
+async fn an_import_out_of_credits_resumes_only_once_automatic_runs_are_allowed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_failing(&config, out_of_credits);
+    start(&config, true).await.unwrap();
+    let stopped = wait_until_settled(&config).await;
+    assert_eq!(stopped.phase, ImportPhase::Error, "{stopped:?}");
+    assert!(read_file(&config.workspace_dir).paused_for_credits);
+
+    // Credits still out (no free period): left paused.
+    let engine = bind_reference(&config);
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
+    assert_eq!(status(&config).phase, ImportPhase::Error);
+
+    // Automatic runs allowed again: the background job resumes it.
+    assert!(resume_interrupted_with(&config, always(false), billing(true)).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 5);
+    assert!(!read_file(&config.workspace_dir).paused_for_credits);
+}
+
+#[tokio::test]
+async fn a_stop_that_is_not_about_credits_is_not_resumed_by_billing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_failing(&config, |_| {
+        Some(tinymemory_api::Error::Unauthorized("sign in".into()))
+    });
+    start(&config, true).await.unwrap();
+    assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Error);
+    assert!(!read_file(&config.workspace_dir).paused_for_credits);
+    assert!(!resume_interrupted_with(&config, always(false), billing(true)).await);
+}
+
+#[test]
+fn only_a_self_hosted_engine_runs_automatically_until_the_free_period_check_lands() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.memory.engine = crate::memory::engine::CORTEXDB_ENGINE.to_string();
+    assert!(automatic_run_allowed(&config));
+    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_string();
+    assert!(
+        !automatic_run_allowed(&config),
+        "unknown free period is not free"
+    );
 }
