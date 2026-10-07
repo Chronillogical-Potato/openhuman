@@ -219,19 +219,20 @@ fn user_root_for(id: &str) -> Option<String> {
     Some(format!("user:local-{digest}"))
 }
 
-/// Switches the signed-in person's memory to layout v3: loads the config
-/// fresh (a long migration's own copy would revert settings changed since),
-/// sets `[memory] layout = "v3"`, saves it and drops the bound engines so
-/// the next binding uses the new layout. Called by the layout migration
-/// once every scope has moved, never on its own.
+/// Switches the memory of the person `config` belongs to to layout v3:
+/// reloads that person's own config file (`config.config_path`) fresh, so
+/// neither a long migration's stale copy nor a different account signed in
+/// meanwhile is written, sets `[memory] layout = "v3"`, saves it and drops
+/// the bound engines so the next binding uses the new layout. Called by the
+/// layout migration once every scope has moved, never on its own.
 ///
 /// # Errors
 ///
 /// The config could not be loaded or saved.
-pub async fn switch_to_v3() -> MemoryResult<()> {
-    let mut config = crate::config::rpc::load_config_with_timeout()
+pub async fn switch_to_v3(config: &Config) -> MemoryResult<()> {
+    let mut config = Config::load_from_config_path(&config.config_path, &config.workspace_dir)
         .await
-        .map_err(MemoryError::Engine)?;
+        .map_err(|error| MemoryError::Engine(format!("loading config failed: {error:#}")))?;
     config.memory.layout = MemoryLayoutMode::V3;
     config
         .save()

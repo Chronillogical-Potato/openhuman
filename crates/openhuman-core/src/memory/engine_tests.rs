@@ -247,6 +247,11 @@ fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
         Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
     );
     assert!(bind_with_root(&config, Some("user:42")).is_err());
+    assert_eq!(
+        bind_with_root(&config, None).unwrap().endpoint,
+        "test://engine",
+        "the legacy layout binds the installed test engine"
+    );
 
     install_test_engine_for_root(
         &config.workspace_dir,
@@ -272,4 +277,33 @@ fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
     let (settings, key) = rooted(EngineSettings::default(), None);
     assert_eq!(settings.scope_root, None);
     assert_eq!(key, "|root=legacy");
+}
+
+#[tokio::test]
+async fn switching_to_v3_persists_and_rebinds_the_persons_own_config() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = user_config(&tmp, "6512ab0f6512ab0f6512ab0f");
+    config.memory.engine = CORTEXDB_ENGINE.to_string();
+    config.save().await.unwrap();
+    store_cortexdb_key(&config, "cdb-key-switch").unwrap();
+    let legacy = resolve(&config).engine().expect("legacy bound");
+
+    super::super::scope::switch_to_v3(&config).await.unwrap();
+
+    let saved = Config::load_from_config_path(&config.config_path, &config.workspace_dir)
+        .await
+        .unwrap();
+    assert!(
+        super::super::scope::layout_is_v3(&saved),
+        "v3 written to this person's file"
+    );
+    let v3 = resolve(&saved).engine().expect("v3 bound");
+    assert!(
+        !Arc::ptr_eq(&legacy.engine, &v3.engine),
+        "the switch rebinds"
+    );
+    assert!(
+        !super::super::scope::layout_is_v3(&config),
+        "the caller's copy is not the source of truth"
+    );
 }

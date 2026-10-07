@@ -247,10 +247,13 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> MemoryResult<Bound
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .contains_key(&config.workspace_dir);
-        if one_engine && root.is_some() {
-            return Err(MemoryError::Engine(
-                "the installed test engine cannot be bound below a scope root".to_string(),
-            ));
+        if one_engine {
+            return match root {
+                None => resolve(config).engine(),
+                Some(_) => Err(MemoryError::Engine(
+                    "the installed test engine cannot be bound below a scope root".to_string(),
+                )),
+            };
         }
     }
     if host_engine().is_some() && root.is_some() {
