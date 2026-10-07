@@ -23,11 +23,8 @@ import LiveVoiceVendorCard from './LiveVoiceVendorCard';
 import { groupVendors, vendorIdOf } from './liveVoiceVendors';
 import LiveVoiceVendorLogo from './LiveVoiceVendorLogo';
 
-type Status =
-  | { kind: 'idle' }
-  | { kind: 'saving' }
-  | { kind: 'saved'; message: string }
-  | { kind: 'error'; message: string };
+/** A write in flight; its outcome is reported as a toast. */
+type Status = { kind: 'idle' } | { kind: 'saving' };
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
@@ -94,7 +91,7 @@ const LiveVoicePanel = () => {
       title: t('connections.voiceAgents.toastSaveFailed'),
       description: errorMessage(err),
     });
-    setStatus({ kind: 'error', message: errorMessage(err) });
+    setStatus({ kind: 'idle' });
   };
 
   const persist = async (patch: LiveVoiceSettingsPatch) => {
@@ -175,16 +172,7 @@ const LiveVoicePanel = () => {
   const openVendor = vendors.find(v => v.id === openVendorId) ?? null;
 
   const statusLine = (
-    <StatusLine
-      saving={saving}
-      savedNote={status.kind === 'saved' ? status.message : null}
-      error={
-        status.kind === 'error'
-          ? t('connections.voiceAgents.saveFailed').replace('{error}', status.message)
-          : null
-      }
-      savingLabel={t('connections.voiceAgents.saving')}
-    />
+    <StatusLine saving={saving} savingLabel={t('connections.voiceAgents.saving')} />
   );
 
   return (
