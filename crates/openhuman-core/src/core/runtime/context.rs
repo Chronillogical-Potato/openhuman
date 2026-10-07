@@ -467,6 +467,15 @@ impl CoreContext {
         Self::current().and_then(|ctx| ctx.embedder_config.clone())
     }
 
+    /// Read the embedder-supplied config for the current dispatch without
+    /// cloning it. Prefer this over [`Self::current_embedder_config`] when only
+    /// a field or a predicate is needed: a `Config` clone is a large copy.
+    pub fn with_current_embedder_config<R>(
+        f: impl FnOnce(&crate::config::Config) -> R,
+    ) -> Option<R> {
+        Self::current().and_then(|ctx| ctx.embedder_config.as_ref().map(f))
+    }
+
     /// Rebind the process default context to the current active user's
     /// workspace. Desktop login, logout, and pending-session revalidation can
     /// switch the active workspace after boot without rebuilding the core.

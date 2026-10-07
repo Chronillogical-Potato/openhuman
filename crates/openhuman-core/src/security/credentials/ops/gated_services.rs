@@ -12,7 +12,7 @@ use crate::config::Config;
 /// that config's path and never touch the operator's global
 /// `~/.openhuman/active_user.toml` / `users/` tree.
 pub(super) fn is_embedder_host() -> bool {
-    crate::core::runtime::context::CoreContext::current_embedder_config().is_some()
+    crate::core::runtime::context::CoreContext::with_current_embedder_config(|_| ()).is_some()
 }
 
 /// Populate the process cache away from the next chat turn after startup or a

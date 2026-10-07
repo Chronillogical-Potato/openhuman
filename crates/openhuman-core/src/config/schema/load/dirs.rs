@@ -332,9 +332,13 @@ pub async fn active_workspace_snapshot() -> Result<(PathBuf, u64)> {
     // mismatch there is not a wrong banner, it is *no* banner, permanently,
     // with only a `debug!` line to say so. See AGENTS.md, "CoreBuilder::config
     // alone configures boot and nothing else".
-    if let Some(config) = crate::core::runtime::context::CoreContext::current_embedder_config() {
-        let revision = super::active_workspace::publish_active_workspace(&config.workspace_dir);
-        return Ok((config.workspace_dir, revision));
+    if let Some(workspace_dir) =
+        crate::core::runtime::context::CoreContext::with_current_embedder_config(|config| {
+            config.workspace_dir.clone()
+        })
+    {
+        let revision = super::active_workspace::publish_active_workspace(&workspace_dir);
+        return Ok((workspace_dir, revision));
     }
     let (default_openhuman_dir, default_workspace_dir) = default_config_and_workspace_dirs()?;
     let (_, workspace_dir, source) =
