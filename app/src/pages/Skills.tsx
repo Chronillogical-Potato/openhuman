@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Info, MessageSquare } from 'lucide-react';
+import { Brain, Check, ChevronRight, Info, MessageSquare } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
