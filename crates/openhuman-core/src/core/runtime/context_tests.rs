@@ -84,6 +84,27 @@ async fn the_current_dispatch_sees_the_scoped_embedder_config() {
     assert_eq!(scoped.workspace_dir, PathBuf::from("/tmp/scoped-ws"));
 }
 
+#[tokio::test]
+async fn the_current_embedder_config_can_be_read_without_cloning_it() {
+    // `with_current_embedder_config` is the borrow-only twin of
+    // `current_embedder_config`: same scoped config, projected through a closure.
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = PathBuf::from("/tmp/borrowed-ws");
+
+    let read = CoreContext::scope(ctx_with_config(config), async {
+        CoreContext::with_current_embedder_config(|c| c.workspace_dir.clone())
+    })
+    .await;
+    assert_eq!(read, Some(PathBuf::from("/tmp/borrowed-ws")));
+
+    // Without an embedder config the closure never runs.
+    let none = CoreContext::scope(ctx("/tmp/no-embedder-ws"), async {
+        CoreContext::with_current_embedder_config(|_| panic!("no config to read"))
+    })
+    .await;
+    assert_eq!(none, None::<()>);
+}
+
 // ---- derived per-agent contexts (the multi-agent library seam) -----------
 //
 // `derive_with` is how one booted runtime hosts many independently configured
