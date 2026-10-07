@@ -37,11 +37,15 @@ pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
     "/oauth/",
 ];
 
+/// A prefix ending in `/` closes only what lies beneath it; any other prefix
+/// closes the path itself and everything beneath it.
 pub(crate) fn is_closed_in_saas(path: &str) -> bool {
     CLOSED_IN_SAAS.iter().any(|prefix| {
-        path == prefix.trim_end_matches('/')
-            || path.starts_with(prefix)
-                && (prefix.ends_with('/') || path[prefix.len()..].starts_with('/'))
+        if prefix.ends_with('/') {
+            path.starts_with(prefix)
+        } else {
+            path == *prefix || path.strip_prefix(prefix).is_some_and(|rest| rest.starts_with('/'))
+        }
     })
 }
 
