@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EngineState } from '../../services/api/memoryApi';
@@ -14,7 +14,11 @@ const hoisted = vi.hoisted(() => ({
   openUrl: vi.fn(),
   signedIn: true,
   token: 'header.payload.sig',
+  plan: null as string | null,
+  toastAdd: vi.fn(),
 }));
+
+vi.mock('../ui/Toast', () => ({ toast: { add: (...a: unknown[]) => hoisted.toastAdd(...a) } }));
 
 vi.mock('../../services/api/memoryApi', async importOriginal => ({
   ...(await importOriginal<typeof import('../../services/api/memoryApi')>()),
@@ -28,6 +32,7 @@ vi.mock('../../providers/CoreStateProvider', () => ({
     snapshot: {
       auth: { isAuthenticated: hoisted.signedIn, userId: hoisted.signedIn ? 'u1' : null },
       sessionToken: hoisted.signedIn ? hoisted.token : null,
+      currentUser: hoisted.plan ? { subscription: { plan: hoisted.plan } } : null,
     },
   }),
 }));
@@ -55,8 +60,11 @@ function renderTab(state: EngineState | null = OFF) {
   return { onStateChange };
 }
 
-const open = (option: string) =>
-  fireEvent.click(screen.getByTestId(`memory-engine-${option}-trigger`));
+/** Open a provider's Settings modal and return it. */
+const openSettings = (option: string) => {
+  fireEvent.click(screen.getByTestId(`memory-engine-${option}-settings`));
+  return screen.getByTestId('memory-engine-modal');
+};
 const type = (testId: string, value: string) =>
   fireEvent.change(screen.getByTestId(testId), { target: { value } });
 
@@ -65,6 +73,8 @@ beforeEach(() => {
   hoisted.openUrl.mockReset().mockResolvedValue(undefined);
   hoisted.signedIn = true;
   hoisted.token = 'header.payload.sig';
+  hoisted.plan = null;
+  hoisted.toastAdd.mockReset();
 });
 
 describe('isLoopbackEndpoint', () => {
@@ -91,246 +101,274 @@ describe('isLoopbackEndpoint', () => {
 });
 
 describe('MemoryEngineTab', () => {
-  it('shows a loading state until the engine state arrives', () => {
-    renderTab(null);
-    expect(screen.queryByTestId('memory-engines')).not.toBeInTheDocument();
+  it('shows the three providers with a plain prompt when memory is off', () => {
+    renderTab({ ...OFF, reason: 'legacy memory backend is unsupported' });
+    for (const option of ['builtin', 'apikey', 'selfhost']) {
+      expect(screen.getByTestId(`memory-engine-${option}`)).toBeInTheDocument();
+    }
+    expect(screen.getByText('TinyHumans Memory')).toBeInTheDocument();
+    expect(screen.getByText('CortexDB Cloud')).toBeInTheDocument();
+    expect(screen.getByText('CortexDB Local')).toBeInTheDocument();
+    const banner = screen.getByTestId('memory-engine-status-off');
+    expect(banner).toHaveTextContent('Pick a provider below to start remembering.');
+    // The core's developer-facing reason is not shown to people.
+    expect(banner).not.toHaveTextContent('legacy memory backend');
+    expect(screen.getByTestId('memory-engine-builtin-status')).toHaveTextContent('Ready');
+    expect(screen.getByTestId('memory-engine-apikey-status')).toHaveTextContent('Not connected');
   });
 
-  it('offers the three options with Built-in open when nothing is connected', () => {
+  it('lists upcoming engines as coming soon, with nothing to click', () => {
     renderTab();
-    expect(screen.getByTestId('memory-engine-builtin')).toBeInTheDocument();
-    expect(screen.getByTestId('memory-engine-apikey')).toBeInTheDocument();
-    expect(screen.getByTestId('memory-engine-selfhost')).toBeInTheDocument();
-    expect(screen.getByTestId('memory-engine-status-off')).toHaveTextContent('Memory is off');
-    expect(screen.getByTestId('memory-engine-builtin-use')).toBeEnabled();
-    expect(screen.queryByTestId('memory-engine-apikey-key')).not.toBeInTheDocument();
+    const soon = screen.getByTestId('memory-engines-soon');
+    for (const id of ['supermemory', 'mem0', 'cognee', 'zep', 'letta']) {
+      const card = within(soon).getByTestId(`memory-engine-soon-${id}`);
+      expect(card).toHaveAttribute('aria-disabled', 'true');
+      expect(within(card).getByText('Soon')).toBeInTheDocument();
+      expect(within(card).queryByRole('button')).not.toBeInTheDocument();
+    }
   });
 
-  it('shows the engine-reported reason when memory is off', () => {
-    renderTab({ ...OFF, reason: 'Signed out and no CortexDB key' });
-    expect(screen.getByTestId('memory-engine-status-off')).toHaveTextContent(
-      'Signed out and no CortexDB key'
-    );
-  });
-
-  describe('Built-in', () => {
-    it('selects the tinyhumans engine in one click when signed in', async () => {
+  describe('TinyHumans', () => {
+    it('is used in one click when signed in, and toasts the switch', async () => {
       hoisted.engineSet.mockResolvedValue(BUILTIN_ON);
       const { onStateChange } = renderTab();
-      fireEvent.click(screen.getByTestId('memory-engine-builtin-use'));
-      await waitFor(() => expect(hoisted.engineSet).toHaveBeenCalledWith({ engine: 'tinyhumans' }));
-      expect(onStateChange).toHaveBeenCalledWith(BUILTIN_ON);
+      fireEvent.click(screen.getByTestId('memory-engine-builtin-action'));
+      await waitFor(() => expect(onStateChange).toHaveBeenCalledWith(BUILTIN_ON));
+      expect(hoisted.engineSet).toHaveBeenCalledWith({ engine: 'tinyhumans' });
+      expect(hoisted.toastAdd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'success',
+          title: 'Memory provider switched',
+          description: 'TinyHumans Memory now stores your memory.',
+        })
+      );
     });
 
-    it('says to sign in and cannot be selected when signed out', () => {
+    it('shows Connecting while the switch is in flight', () => {
+      hoisted.engineSet.mockReturnValue(new Promise(() => undefined));
+      renderTab();
+      fireEvent.click(screen.getByTestId('memory-engine-builtin-action'));
+      expect(screen.getByTestId('memory-engine-builtin-action')).toHaveTextContent('Connecting…');
+      expect(screen.getByTestId('memory-engine-builtin-action')).toBeDisabled();
+    });
+
+    it('marks an active engine In use with no action button', () => {
+      renderTab(BUILTIN_ON);
+      expect(screen.getByTestId('memory-engine-builtin')).toHaveAttribute('data-active', 'true');
+      expect(screen.getByTestId('memory-engine-builtin-status')).toHaveTextContent('In use');
+      expect(screen.queryByTestId('memory-engine-builtin-action')).not.toBeInTheDocument();
+      const modal = openSettings('builtin');
+      expect(within(modal).queryByTestId('memory-engine-builtin-submit')).not.toBeInTheDocument();
+      expect(within(modal).getByTestId('memory-engine-builtin-endpoint')).toHaveTextContent(
+        'https://api.tinyhumans.ai'
+      );
+    });
+
+    it('shows no backend origin while another provider is configured', () => {
+      renderTab(CLOUD_ON);
+      const modal = openSettings('builtin');
+      expect(within(modal).queryByTestId('memory-engine-builtin-endpoint')).not.toBeInTheDocument();
+    });
+
+    it('cannot be selected when signed out, and says to sign in', () => {
       hoisted.signedIn = false;
       renderTab();
-      expect(screen.getByTestId('memory-engine-builtin-trigger')).toHaveTextContent(
+      expect(screen.getByTestId('memory-engine-builtin-status')).toHaveTextContent(
         'Sign in to use'
       );
-      expect(screen.getByTestId('memory-engine-builtin-sign-in')).toBeInTheDocument();
-      expect(screen.getByTestId('memory-engine-builtin-use')).toBeDisabled();
+      expect(screen.getByTestId('memory-engine-builtin-action')).toBeDisabled();
+      const modal = openSettings('builtin');
+      expect(within(modal).getByTestId('memory-engine-builtin-sign-in')).toBeInTheDocument();
+      expect(within(modal).getByTestId('memory-engine-builtin-submit')).toBeDisabled();
     });
 
     it('treats a local session token as signed out', () => {
       hoisted.token = createLocalSessionToken();
       renderTab();
-      expect(screen.getByTestId('memory-engine-builtin-use')).toBeDisabled();
+      expect(screen.getByTestId('memory-engine-builtin-action')).toBeDisabled();
     });
 
-    it('marks an active Built-in engine and offers no button', () => {
-      renderTab(BUILTIN_ON);
-      expect(screen.getByTestId('memory-engine-builtin-active')).toHaveTextContent('Active');
-      expect(screen.queryByTestId('memory-engine-builtin-use')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('memory-engine-apikey-active')).not.toBeInTheDocument();
-    });
-
-    it('shows Off on the configured Built-in engine while signed out', () => {
+    it('shows Off on the configured engine while signed out, and can be retried', () => {
       hoisted.signedIn = false;
-      renderTab({
-        ...OFF,
-        engine: 'tinyhumans',
-        endpoint: 'https://api.tinyhumans.ai',
-        reason: 'sign in to use TinyHumans memory',
-      });
-      expect(screen.getByTestId('memory-engine-builtin-active')).toHaveTextContent('Off');
-      expect(screen.getByTestId('memory-engine-builtin-use')).toBeDisabled();
-      expect(screen.getByTestId('memory-engine-builtin-sign-in')).toBeInTheDocument();
-      expect(screen.getByTestId('memory-engine-builtin-endpoint')).toHaveTextContent(
-        'https://api.tinyhumans.ai'
+      renderTab({ ...OFF, engine: 'tinyhumans' });
+      expect(screen.getByTestId('memory-engine-builtin-status')).toHaveTextContent('Off');
+      expect(screen.getByTestId('memory-engine-builtin-action')).toBeDisabled();
+    });
+
+    it('keeps a failed switch inside the modal', async () => {
+      hoisted.engineSet.mockRejectedValue(new Error('backend unavailable'));
+      renderTab();
+      const modal = openSettings('builtin');
+      fireEvent.click(within(modal).getByTestId('memory-engine-builtin-submit'));
+      expect(await within(modal).findByTestId('memory-engine-builtin-error')).toHaveTextContent(
+        'backend unavailable'
+      );
+      expect(hoisted.toastAdd).not.toHaveBeenCalled();
+    });
+
+    it('notes free ingestion by plan and states the fair-use terms', () => {
+      hoisted.plan = 'PRO';
+      renderTab(BUILTIN_ON);
+      expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
+        'Free memory ingestion on your Pro plan'
+      );
+      const modal = openSettings('builtin');
+      const terms = within(modal).getByTestId('memory-engine-fair-use');
+      expect(terms).toHaveTextContent('Your Pro plan includes memory ingestion');
+      expect(terms).toHaveTextContent('No automated bulk uploads');
+      fireEvent.click(within(terms).getByTestId('memory-engine-terms'));
+      expect(hoisted.openUrl).toHaveBeenCalledWith(
+        'https://tinyhumans.gitbook.io/openhuman/legal/terms-of-use'
       );
     });
 
-    it('shows the backend origin the core reports, read-only', () => {
-      renderTab({ ...BUILTIN_ON, endpoint: 'https://staging-api.example.test' });
-      const endpoint = screen.getByTestId('memory-engine-builtin-endpoint');
-      expect(endpoint).toHaveTextContent('https://staging-api.example.test');
-      expect(endpoint.tagName).not.toBe('INPUT');
-      expect(
-        screen.getByText(/Facts and beliefs drawn from them fill in over the following minutes/)
-      ).toBeInTheDocument();
-    });
-
-    it('shows no Built-in origin while another option is configured', () => {
-      renderTab(CLOUD_ON);
-      open('builtin');
-      expect(screen.getByTestId('memory-engine-builtin-use')).toBeInTheDocument();
-      expect(screen.queryByTestId('memory-engine-builtin-endpoint')).not.toBeInTheDocument();
-    });
-
-    it('shows a failed switch inside the item and stays open', async () => {
-      hoisted.engineSet.mockRejectedValue(new Error('UNAUTHORIZED: session expired'));
+    it('points free plans at Basic and Pro', () => {
+      hoisted.plan = 'FREE';
       renderTab();
-      fireEvent.click(screen.getByTestId('memory-engine-builtin-use'));
-      expect(await screen.findByTestId('memory-engine-builtin-error')).toHaveTextContent(
-        'session expired'
+      expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
+        'Free memory ingestion on Basic and Pro plans'
       );
-      expect(screen.getByTestId('memory-engine-builtin-use')).toBeEnabled();
-    });
-
-    it('shows Connecting while the switch is in flight', async () => {
-      let resolve: (s: EngineState) => void = () => undefined;
-      hoisted.engineSet.mockReturnValue(new Promise<EngineState>(r => (resolve = r)));
-      renderTab();
-      fireEvent.click(screen.getByTestId('memory-engine-builtin-use'));
-      expect(await screen.findByText('Connecting…')).toBeInTheDocument();
-      expect(screen.getByTestId('memory-engine-builtin-use')).toBeDisabled();
-      resolve(BUILTIN_ON);
-      await waitFor(() => expect(screen.queryByText('Connecting…')).not.toBeInTheDocument());
+      const modal = openSettings('builtin');
+      expect(within(modal).getByTestId('memory-engine-fair-use')).toHaveTextContent(
+        'Basic and Pro plans include memory ingestion'
+      );
     });
   });
 
-  describe('API key', () => {
-    it('connects CortexDB cloud with only a key, clearing any custom endpoint', async () => {
+  describe('CortexDB Cloud', () => {
+    it('connects with only a key, clearing any custom endpoint', async () => {
       hoisted.engineSet.mockResolvedValue(CLOUD_ON);
       const { onStateChange } = renderTab();
-      open('apikey');
-      expect(screen.getByTestId('memory-engine-apikey-trigger')).toHaveTextContent(
-        'https://api-v1.cortexdb.ai'
-      );
-      expect(screen.queryByTestId('memory-engine-apikey-endpoint')).not.toBeInTheDocument();
-      const submit = screen.getByTestId('memory-engine-apikey-submit');
+      fireEvent.click(screen.getByTestId('memory-engine-apikey-action'));
+      const modal = screen.getByTestId('memory-engine-modal');
+      const submit = within(modal).getByTestId('memory-engine-apikey-submit');
       expect(submit).toBeDisabled();
-      type('memory-engine-apikey-key', ' secret ');
+      type('memory-engine-apikey-key', 'ck_live_123');
       fireEvent.click(submit);
-
-      await waitFor(() =>
-        expect(hoisted.engineSet).toHaveBeenCalledWith({
-          engine: 'cortexdb',
-          endpoint: '',
-          api_key: 'secret',
-        })
-      );
-      expect(onStateChange).toHaveBeenCalledWith(CLOUD_ON);
-      await waitFor(() => expect(screen.getByTestId('memory-engine-apikey-key')).toHaveValue(''));
+      await waitFor(() => expect(onStateChange).toHaveBeenCalledWith(CLOUD_ON));
+      expect(hoisted.engineSet).toHaveBeenCalledWith({
+        engine: 'cortexdb',
+        endpoint: '',
+        api_key: 'ck_live_123',
+      });
+      // A successful connect closes the modal.
+      expect(screen.queryByTestId('memory-engine-modal')).not.toBeInTheDocument();
     });
 
-    it('is open and active for a cloud cortexdb engine, and saves without a new key', async () => {
+    it('is In use for a cloud engine, and saves without a new key', async () => {
       hoisted.engineSet.mockResolvedValue(CLOUD_ON);
       renderTab(CLOUD_ON);
-      expect(screen.getByTestId('memory-engine-apikey-active')).toHaveTextContent('Active');
-      expect(screen.getByTestId('memory-engine-apikey-key')).toHaveAttribute(
-        'placeholder',
-        'Saved. Enter a new key to replace it'
-      );
-      const submit = screen.getByTestId('memory-engine-apikey-submit');
+      expect(screen.getByTestId('memory-engine-apikey-status')).toHaveTextContent('In use');
+      expect(screen.queryByTestId('memory-engine-apikey-action')).not.toBeInTheDocument();
+      const modal = openSettings('apikey');
+      expect(within(modal).getByText(/A key is already saved/)).toBeInTheDocument();
+      const submit = within(modal).getByTestId('memory-engine-apikey-submit');
       expect(submit).toHaveTextContent('Save');
       fireEvent.click(submit);
       await waitFor(() =>
         expect(hoisted.engineSet).toHaveBeenCalledWith({ engine: 'cortexdb', endpoint: '' })
       );
+      expect(hoisted.toastAdd).toHaveBeenCalledWith({
+        type: 'success',
+        title: 'Memory settings saved',
+      });
     });
 
-    it('reports a degraded or unreachable engine on its badge', () => {
-      renderTab({ ...CLOUD_ON, status: 'degraded', reason: 'slow answers' });
-      expect(screen.getByTestId('memory-engine-apikey-active')).toHaveTextContent('Degraded');
-      expect(screen.getByTestId('memory-engine-status-degraded')).toHaveTextContent('slow answers');
+    it('shows a rejected key inside the modal', async () => {
+      hoisted.engineSet.mockRejectedValue(new Error('invalid api key'));
+      renderTab();
+      const modal = openSettings('apikey');
+      type('memory-engine-apikey-key', 'bad');
+      fireEvent.click(within(modal).getByTestId('memory-engine-apikey-submit'));
+      expect(await within(modal).findByTestId('memory-engine-apikey-error')).toHaveTextContent(
+        'invalid api key'
+      );
     });
 
-    it('reports an unreachable engine', () => {
+    it('reports a degraded or unreachable engine on its badge and banner', () => {
+      const { unmount } = renderWithProviders(
+        <MemoryEngineTab
+          state={{ ...CLOUD_ON, status: 'degraded', reason: 'slow' }}
+          onStateChange={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId('memory-engine-apikey-status')).toHaveTextContent('Degraded');
+      expect(screen.getByTestId('memory-engine-status-degraded')).toHaveTextContent('slow');
+      unmount();
       renderTab({ ...CLOUD_ON, status: 'down', reason: 'connection refused' });
-      expect(screen.getByTestId('memory-engine-apikey-active')).toHaveTextContent('Unreachable');
+      expect(screen.getByTestId('memory-engine-apikey-status')).toHaveTextContent('Unreachable');
       expect(screen.getByTestId('memory-engine-status-down')).toHaveTextContent(
         'connection refused'
       );
     });
-
-    it('shows a rejected key inside the item', async () => {
-      hoisted.engineSet.mockRejectedValue(new Error('UNAUTHORIZED: bad key'));
-      renderTab();
-      open('apikey');
-      type('memory-engine-apikey-key', 'wrong');
-      fireEvent.click(screen.getByTestId('memory-engine-apikey-submit'));
-      expect(await screen.findByTestId('memory-engine-apikey-error')).toHaveTextContent('bad key');
-    });
   });
 
-  describe('Self-host', () => {
-    it('links out to the CortexDB self-hosting guide', () => {
-      renderTab();
-      open('selfhost');
-      fireEvent.click(screen.getByTestId('memory-engine-selfhost-docs'));
-      expect(hoisted.openUrl).toHaveBeenCalledWith(CORTEXDB_SELF_HOST_DOCS_URL);
+  describe('CortexDB Local', () => {
+    it('connects a loopback server with its key', async () => {
+      hoisted.engineSet.mockResolvedValue(LOCAL_ON);
+      const { onStateChange } = renderTab();
+      fireEvent.click(screen.getByTestId('memory-engine-selfhost-action'));
+      const modal = screen.getByTestId('memory-engine-modal');
+      type('memory-engine-selfhost-endpoint', 'http://localhost:3141');
+      type('memory-engine-selfhost-key', 'local-key');
+      fireEvent.click(within(modal).getByTestId('memory-engine-selfhost-submit'));
+      await waitFor(() => expect(onStateChange).toHaveBeenCalledWith(LOCAL_ON));
+      expect(hoisted.engineSet).toHaveBeenCalledWith({
+        engine: 'cortexdb',
+        endpoint: 'http://localhost:3141',
+        api_key: 'local-key',
+      });
     });
 
     it('refuses an endpoint that is not on this computer', () => {
       renderTab();
-      open('selfhost');
+      const modal = openSettings('selfhost');
       type('memory-engine-selfhost-endpoint', 'http://192.168.1.10:3141');
-      type('memory-engine-selfhost-key', 'local-key');
-      expect(screen.getByTestId('memory-engine-selfhost-endpoint-error')).toHaveTextContent(
-        'Self-hosting is local only'
-      );
-      expect(screen.getByTestId('memory-engine-selfhost-submit')).toBeDisabled();
+      type('memory-engine-selfhost-key', 'k');
+      expect(
+        within(modal).getByTestId('memory-engine-selfhost-endpoint-error')
+      ).toBeInTheDocument();
+      expect(within(modal).getByTestId('memory-engine-selfhost-submit')).toBeDisabled();
     });
 
-    it('connects a loopback server with its key', async () => {
-      hoisted.engineSet.mockResolvedValue({ ...LOCAL_ON, endpoint: 'http://127.0.0.1:3141' });
-      renderTab();
-      open('selfhost');
-      type('memory-engine-selfhost-endpoint', ' http://127.0.0.1:3141 ');
-      expect(screen.getByTestId('memory-engine-selfhost-submit')).toBeDisabled(); // key required
-      expect(screen.queryByTestId('memory-engine-selfhost-endpoint-error')).not.toBeInTheDocument();
-      type('memory-engine-selfhost-key', 'local-key');
-      fireEvent.click(screen.getByTestId('memory-engine-selfhost-submit'));
-      await waitFor(() =>
-        expect(hoisted.engineSet).toHaveBeenCalledWith({
-          engine: 'cortexdb',
-          endpoint: 'http://127.0.0.1:3141',
-          api_key: 'local-key',
-        })
-      );
-    });
-
-    it('is open and active for a loopback cortexdb engine, with its endpoint filled in', async () => {
-      hoisted.engineSet.mockResolvedValue(LOCAL_ON);
+    it('is In use for a loopback engine, with its endpoint filled in', () => {
       renderTab(LOCAL_ON);
-      expect(screen.getByTestId('memory-engine-selfhost-active')).toHaveTextContent('Active');
-      expect(screen.queryByTestId('memory-engine-apikey-active')).not.toBeInTheDocument();
-      expect(screen.getByTestId('memory-engine-selfhost-trigger')).toHaveTextContent(
-        'http://localhost:3141'
-      );
-      expect(screen.getByTestId('memory-engine-selfhost-endpoint')).toHaveValue(
-        'http://localhost:3141'
-      );
-      fireEvent.click(screen.getByTestId('memory-engine-selfhost-submit'));
-      await waitFor(() =>
-        expect(hoisted.engineSet).toHaveBeenCalledWith({
-          engine: 'cortexdb',
-          endpoint: 'http://localhost:3141',
-        })
-      );
+      expect(screen.getByTestId('memory-engine-selfhost-status')).toHaveTextContent('In use');
+      const modal = openSettings('selfhost');
+      expect(
+        (within(modal).getByTestId('memory-engine-selfhost-endpoint') as HTMLInputElement).value
+      ).toBe('http://localhost:3141');
     });
 
     it('fills in the local endpoint when the state arrives after the first render', () => {
       const onStateChange = vi.fn();
       const { rerender } = renderWithProviders(
-        <MemoryEngineTab state={null} onStateChange={onStateChange} />
+        <MemoryEngineTab state={OFF} onStateChange={onStateChange} />
       );
       rerender(<MemoryEngineTab state={LOCAL_ON} onStateChange={onStateChange} />);
-      expect(screen.getByTestId('memory-engine-selfhost-endpoint')).toHaveValue(
-        'http://localhost:3141'
-      );
+      const modal = openSettings('selfhost');
+      expect(
+        (within(modal).getByTestId('memory-engine-selfhost-endpoint') as HTMLInputElement).value
+      ).toBe('http://localhost:3141');
     });
+
+    it('links out to the CortexDB self-hosting guide', () => {
+      renderTab();
+      const modal = openSettings('selfhost');
+      fireEvent.click(within(modal).getByTestId('memory-engine-selfhost-docs'));
+      expect(hoisted.openUrl).toHaveBeenCalledWith(CORTEXDB_SELF_HOST_DOCS_URL);
+    });
+  });
+
+  it('closes the modal from its Close button', () => {
+    renderTab();
+    openSettings('apikey');
+    fireEvent.click(screen.getByTestId('memory-engine-modal-close'));
+    expect(screen.queryByTestId('memory-engine-modal')).not.toBeInTheDocument();
+  });
+
+  it('shows a loading state until the engine state arrives', () => {
+    renderTab(null);
+    expect(screen.queryByTestId('memory-engine-tab')).not.toBeInTheDocument();
   });
 });
