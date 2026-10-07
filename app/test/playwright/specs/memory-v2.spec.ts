@@ -389,14 +389,14 @@ test.describe('Memory v2 — engine active', () => {
     });
     await expect(page.getByTestId('memory-ask-tab')).toBeVisible();
 
-    // Engine chip: the three CortexDB options, Built-in (tinyhumans) active.
+    // Provider chip: the three CortexDB providers, TinyHumans in use.
     await page.getByTestId('brain-tab-engine').click();
     await expect.poll(() => hash(page)).toContain('brain=engine');
     await expect(page.getByTestId('memory-engines')).toBeVisible();
     await expect(page.getByTestId('memory-engine-builtin')).toBeVisible();
     await expect(page.getByTestId('memory-engine-apikey')).toBeVisible();
     await expect(page.getByTestId('memory-engine-selfhost')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-builtin-active')).toBeVisible();
+    await expect(page.getByTestId('memory-engine-builtin-status')).toHaveText('In use');
 
     // 2. Ask: the recall answer and its citation render.
     await page.getByTestId('brain-tab-ask').click();
@@ -582,30 +582,28 @@ function sessionToken(userId: string, signature: string): string {
 }
 
 test.describe('Memory v2 — Engine tab connect flows', () => {
-  test('Built-in connects with one click when signed in', async ({ page }) => {
+  test('TinyHumans connects with one click when signed in', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: false });
     await bootAuthenticatedPage(page, 'pw-memory-engine-builtin');
     // Stay on Engine: with no `?brain=` the page moves to Ask once memory is on.
     await openMemory(page, '&brain=engine');
 
-    // Nothing connected: Built-in is open and selectable.
-    const use = page.getByTestId('memory-engine-builtin-use');
+    // Nothing connected: TinyHumans is one click from its card.
+    const use = page.getByTestId('memory-engine-builtin-action');
     await expect(use).toBeEnabled({ timeout: 20_000 });
     await use.click();
     await expect.poll(() => fake.paramsOf('memory_engine_set')).toEqual([{ engine: 'tinyhumans' }]);
-    await expect(page.getByTestId('memory-engine-builtin-active')).toHaveText('Active');
+    await expect(page.getByTestId('memory-engine-builtin-status')).toHaveText('In use');
   });
 
-  test('API key connects CortexDB cloud with only a key', async ({ page }) => {
+  test('CortexDB Cloud connects with only a key', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: false });
     await bootAuthenticatedPage(page, 'pw-memory-engine-apikey');
     // Stay on Engine: with no `?brain=` the page moves to Ask once memory is on.
     await openMemory(page, '&brain=engine');
 
-    await page.getByTestId('memory-engine-apikey-trigger').click();
-    await expect(page.getByTestId('memory-engine-apikey-trigger')).toContainText(
-      'https://api-v1.cortexdb.ai'
-    );
+    await page.getByTestId('memory-engine-apikey-action').click();
+    await expect(page.getByTestId('memory-engine-modal')).toContainText('CortexDB Cloud');
     const submit = page.getByTestId('memory-engine-apikey-submit');
     await expect(submit).toBeDisabled(); // a key is required
     await page.getByTestId('memory-engine-apikey-key').fill('pw-cortex-key');
@@ -614,16 +612,16 @@ test.describe('Memory v2 — Engine tab connect flows', () => {
     await expect
       .poll(() => fake.paramsOf('memory_engine_set'))
       .toEqual([{ engine: 'cortexdb', endpoint: '', api_key: 'pw-cortex-key' }]);
-    await expect(page.getByTestId('memory-engine-apikey-active')).toHaveText('Active');
+    await expect(page.getByTestId('memory-engine-apikey-status')).toHaveText('In use');
   });
 
-  test('Self-host refuses a non-local endpoint and connects a local one', async ({ page }) => {
+  test('CortexDB Local refuses a non-local endpoint and connects a local one', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: false });
     await bootAuthenticatedPage(page, 'pw-memory-engine-selfhost');
     // Stay on Engine: with no `?brain=` the page moves to Ask once memory is on.
     await openMemory(page, '&brain=engine');
 
-    await page.getByTestId('memory-engine-selfhost-trigger').click();
+    await page.getByTestId('memory-engine-selfhost-action').click();
     await expect(page.getByTestId('memory-engine-selfhost-docs')).toBeVisible();
     await page.getByTestId('memory-engine-selfhost-key').fill('pw-local-key');
 
@@ -644,10 +642,10 @@ test.describe('Memory v2 — Engine tab connect flows', () => {
       .toEqual([
         { engine: 'cortexdb', endpoint: 'http://localhost:3141', api_key: 'pw-local-key' },
       ]);
-    await expect(page.getByTestId('memory-engine-selfhost-active')).toHaveText('Active');
+    await expect(page.getByTestId('memory-engine-selfhost-status')).toHaveText('In use');
   });
 
-  test('Built-in is not selectable without a TinyHumans account', async ({ page }) => {
+  test('TinyHumans is not selectable without a TinyHumans account', async ({ page }) => {
     const fake = await installMemoryFake(page, { engineOn: false });
     // A "Set it up myself" (local) session that finished onboarding.
     await bootRuntimeReadyGuestPage(page);
@@ -668,12 +666,12 @@ test.describe('Memory v2 — Engine tab connect flows', () => {
     await dismissWalkthroughIfPresent(page);
     await expect(page.getByTestId('memory-page')).toBeVisible({ timeout: 30_000 });
 
-    await expect(page.getByTestId('memory-engine-builtin-trigger')).toContainText(
-      'Sign in to use',
-      { timeout: 20_000 }
-    );
+    await expect(page.getByTestId('memory-engine-builtin-status')).toHaveText('Sign in to use', {
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId('memory-engine-builtin-action')).toBeDisabled();
+    await page.getByTestId('memory-engine-builtin-settings').click();
     await expect(page.getByTestId('memory-engine-builtin-sign-in')).toBeVisible();
-    await expect(page.getByTestId('memory-engine-builtin-use')).toBeDisabled();
     expect(fake.paramsOf('memory_engine_set')).toEqual([]);
   });
 });
