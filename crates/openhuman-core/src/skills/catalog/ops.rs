@@ -90,14 +90,15 @@ pub fn registry_error_message(error: &RegistryError) -> String {
     message
 }
 
-/// Whether a registry failure is a defect worth reporting, as opposed to an
-/// upstream outage, throttling, or a caller asking for something absent.
+/// Whether a catalog-read failure is a defect worth reporting, as opposed to
+/// an upstream outage, throttling, or a caller asking for something absent.
+/// Install fetches report through `report_install_fetch_failure`.
 fn is_reportable(kind: RegistryErrorKind, catalog_read: bool) -> bool {
-    match kind {
-        RegistryErrorKind::TransportContract => true,
-        RegistryErrorKind::Malformed => catalog_read,
-        _ => false,
-    }
+    catalog_read
+        && matches!(
+            kind,
+            RegistryErrorKind::TransportContract | RegistryErrorKind::Malformed
+        )
 }
 
 fn observe(operation: &'static str, error: &RegistryError, catalog_read: bool) {
@@ -369,6 +370,7 @@ pub(crate) async fn install_from_catalog_in(
         .await
         .map_err(|error| {
             observe("install", &error, false);
+            crate::skills::ops_install::report_install_fetch_failure(&error, None);
             CatalogInstallError::Registry(error)
         })?;
     if document.is_blocked() {

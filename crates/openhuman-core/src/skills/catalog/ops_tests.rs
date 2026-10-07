@@ -103,8 +103,9 @@ fn a_skill_without_a_download_links_its_source_page() {
 
 #[test]
 fn only_registry_defects_are_reportable() {
-    assert!(is_reportable(RegistryErrorKind::TransportContract, false));
+    assert!(is_reportable(RegistryErrorKind::TransportContract, true));
     assert!(is_reportable(RegistryErrorKind::Malformed, true));
+    assert!(!is_reportable(RegistryErrorKind::TransportContract, false));
     assert!(!is_reportable(RegistryErrorKind::Malformed, false));
     for kind in [
         RegistryErrorKind::Timeout,
