@@ -160,3 +160,27 @@ fn a_reprovisioned_agent_does_not_inherit_the_old_credential() {
         "deprovisioning must forget the credential"
     );
 }
+
+#[test]
+fn the_first_open_settles_a_previous_process_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 0);
+    let id = agent(&format!("recover-{}", uuid::Uuid::new_v4()));
+    host.provision(&id).unwrap();
+    drop(host.open(&id).unwrap());
+    assert!(host.recovered.lock().unwrap().contains(&id));
+    host.evict_idle();
+    drop(host.open(&id).unwrap());
+    assert_eq!(
+        host.recovered.lock().unwrap().len(),
+        1,
+        "a re-open after eviction does not sweep again"
+    );
+}
+
+#[test]
+fn recovery_of_an_empty_workspace_is_a_no_op() {
+    let tmp = tempfile::tempdir().unwrap();
+    let id = agent("empty");
+    recover_workspace(&id, tmp.path());
+}
