@@ -330,7 +330,6 @@ fn build_cron_agent(
         // The host agent's own config (provider model and route applied),
         // with the job's model override on top, as for a registry agent. The
         // caller's config is not used: it is the process default's.
-        let _ = config;
         let mut effective = host.config.clone();
         if let Some(model) = job.model.clone() {
             effective.default_model = Some(model);
