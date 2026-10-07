@@ -2322,7 +2322,10 @@ async fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner() {
         delivered_ids = ids;
     }
     assert_eq!(delivered_ids.len(), 2);
-    assert_ne!(delivered_ids[0], delivered_ids[1], "each run has its own row");
+    assert_ne!(
+        delivered_ids[0], delivered_ids[1],
+        "each run has its own row"
+    );
 
     assert_eq!(
         list_threads(40).await,
@@ -2338,7 +2341,8 @@ async fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner() {
         json!({ "thread_id": thread_id }),
     )
     .await;
-    let transcript_body = assert_no_jsonrpc_error(&transcript, "threads_transcript_get").to_string();
+    let transcript_body =
+        assert_no_jsonrpc_error(&transcript, "threads_transcript_get").to_string();
     assert!(
         transcript_body.contains("Drink water! #0") && transcript_body.contains("Drink water! #1"),
         "transcript must contain both delivered replies: {transcript_body}"
