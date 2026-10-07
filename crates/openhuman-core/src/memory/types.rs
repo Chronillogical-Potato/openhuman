@@ -315,11 +315,12 @@ pub struct SourcesSyncView {
 /// Item counts a legacy store would import.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportCounts {
-    /// Documents (and chunked source documents).
+    /// Documents, and every memory-tree chunk source.
     pub documents: u64,
     /// Conversations.
     pub conversations: u64,
-    /// Learnings (including profile facets).
+    /// Learnings: distilled facts, profile facets, extracted events, turn
+    /// lessons, graph relations, and the goals and persona files.
     pub learnings: u64,
 }
 
