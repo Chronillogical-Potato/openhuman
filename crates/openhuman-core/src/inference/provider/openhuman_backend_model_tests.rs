@@ -429,16 +429,8 @@ async fn consecutive_managed_calls_reuse_one_connection() {
     );
 }
 
-// ── resolve_bearer local-expiry precheck (#5503, part e) ───────────────
-
 #[test]
 fn resolve_bearer_fast_fails_session_expired_on_expired_token() {
-    // An app-session JWT whose recorded `exp` is in the past must fail the
-    // precheck as a `SESSION_EXPIRED` sentinel BEFORE any request is built —
-    // so the web-chat classifier routes it to `session_expired` (actionable
-    // re-auth) instead of a doomed request that can surface as a misleading
-    // "model unavailable" (#5503). No backend is stood up: a correct
-    // precheck never reaches the network.
     let tmp = tempfile::TempDir::new().unwrap();
     let past = (chrono::Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
     seed_app_session_with_expiry(tmp.path(), &past);
@@ -460,8 +452,6 @@ fn resolve_bearer_fast_fails_session_expired_on_expired_token() {
 
 #[test]
 fn resolve_bearer_returns_token_when_expiry_in_future() {
-    // A recorded `exp` comfortably in the future resolves normally — the
-    // precheck only rejects the past-expiry case.
     let tmp = tempfile::TempDir::new().unwrap();
     let future = (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339();
     seed_app_session_with_expiry(tmp.path(), &future);
@@ -472,8 +462,6 @@ fn resolve_bearer_returns_token_when_expiry_in_future() {
         .expect("a live (future-exp) managed JWT must resolve");
     assert_eq!(token, "test.session.jwt");
 }
-
-// ── managed-bearer transport safety for a stored API key (CWE-319) ─────
 
 fn backend_with_api_key(api_url: &str, dir: &std::path::Path) -> OpenHumanBackendModel {
     crate::security::credentials::api_key::store_api_key_in(dir, false, "th_test_key")
@@ -530,8 +518,6 @@ fn resolve_bearer_rejects_foreign_https_for_api_key() {
 
 #[test]
 fn resolve_bearer_sends_a_stored_api_key_over_plain_loopback() {
-    // Plain HTTP to loopback stays allowed — the same local-testing
-    // allowance `openhuman_embed::turn::is_safe_endpoint_for_bearer` makes.
     let tmp = tempfile::TempDir::new().unwrap();
     let backend = backend_with_api_key("http://127.0.0.1:9999", tmp.path());
 
@@ -543,10 +529,6 @@ fn resolve_bearer_sends_a_stored_api_key_over_plain_loopback() {
 
 #[test]
 fn resolve_bearer_returns_token_for_exp_less_offline_session() {
-    // Offline / local sessions record no `exp`, so the precheck falls
-    // through to presence-only and their behaviour is unchanged (the
-    // post-call 401 net still covers a server-side revocation). Guards the
-    // #5503 precheck against breaking the offline path.
     let tmp = tempfile::TempDir::new().unwrap();
     seed_app_session(tmp.path());
     let backend = backend_pointed_at("127.0.0.1:9", tmp.path());
@@ -560,3 +542,6 @@ fn resolve_bearer_returns_token_for_exp_less_offline_session() {
 mod auth_tests;
 #[path = "openhuman_backend_model_endpoint_tests.rs"]
 mod endpoint_tests;
+
+#[path = "openhuman_backend_model_offline_session_tests.rs"]
+mod offline_session_tests;

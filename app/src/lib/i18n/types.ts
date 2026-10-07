@@ -11,6 +11,7 @@ export type Locale =
   | 'ru'
   | 'id'
   | 'it'
+  | 'ja'
   | 'ko'
   | 'pl';
 

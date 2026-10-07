@@ -17,6 +17,7 @@ async function expectSelectedAndFocused(selected: Tab): Promise<void> {
   }
 }
 
+// Registered by app/scripts/e2e-run-all-flows.sh in the navigation suite.
 describe('ChipTabs keyboard traversal', () => {
   before(async () => {
     await startMockServer();
