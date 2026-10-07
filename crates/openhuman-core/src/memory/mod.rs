@@ -20,6 +20,7 @@
 //! Chat thread persistence is not memory: it lives in [`crate::threads::store`].
 
 pub mod backfill;
+pub mod billing;
 pub mod brain;
 pub mod bus;
 pub mod channels;
