@@ -327,8 +327,7 @@ pub(crate) async fn resolve_runtime_config_dirs(
 /// re-instantiated inside every calling crate's state machine. Boxing here
 /// keeps one copy, compiled in this crate.
 #[inline(never)]
-pub fn active_workspace_snapshot(
-) -> futures::future::BoxFuture<'static, Result<(PathBuf, u64)>> {
+pub fn active_workspace_snapshot() -> futures::future::BoxFuture<'static, Result<(PathBuf, u64)>> {
     Box::pin(active_workspace_snapshot_inner())
 }
 
