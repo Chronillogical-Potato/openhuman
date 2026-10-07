@@ -36,6 +36,7 @@ pub mod sources;
 pub mod status;
 pub mod tools;
 pub mod types;
+pub mod user_scope;
 
 #[cfg(test)]
 pub(crate) mod test_fixtures;
