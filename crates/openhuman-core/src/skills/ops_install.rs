@@ -8,6 +8,7 @@ mod fetch;
 mod uninstall;
 mod url_validation;
 
+pub(crate) use fetch::install_validated_document;
 pub use fetch::{
     install_workflow_from_url, InstallWorkflowFromUrlOutcome, InstallWorkflowFromUrlParams,
     DEFAULT_INSTALL_TIMEOUT_SECS, MAX_INSTALL_TIMEOUT_SECS, MAX_WORKFLOW_MD_BYTES,
