@@ -141,7 +141,7 @@ describe('SkillsExplorerTab registry state', () => {
     renderRegistry();
 
     const banner = await screen.findByTestId('registry-offline');
-    expect(banner).toHaveTextContent('Offline — showing the saved catalog from');
+    expect(banner).toHaveTextContent('Offline: showing the saved catalog from');
     expect(screen.getByText('Registry Skill')).toBeInTheDocument();
 
     await act(async () => {

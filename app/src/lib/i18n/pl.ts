@@ -4087,8 +4087,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     'Wczytywanie katalogu umiejętności. Pierwsze pobranie może potrwać minutę.',
   'skills.registry.refreshing': 'Wyświetlany jest zapisany katalog, gdy wczytuje się świeża kopia.',
-  'skills.registry.offline': 'Offline — wyświetlany jest zapisany katalog z {time}.',
-  'skills.registry.offlineNoTime': 'Offline — wyświetlany jest zapisany katalog.',
+  'skills.registry.offline': 'Offline: wyświetlany jest zapisany katalog z {time}.',
+  'skills.registry.offlineNoTime': 'Offline: wyświetlany jest zapisany katalog.',
   'skills.registry.unreachable':
     'Nie udało się połączyć z rejestrem umiejętności. Sprawdź połączenie i spróbuj ponownie.',
   'skills.registry.rateLimited':

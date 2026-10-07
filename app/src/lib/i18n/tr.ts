@@ -4414,8 +4414,8 @@ const messages: TranslationMap = {
   'skills.detail.overview': 'Genel bakış',
   'skills.registry.firstFetchHint': 'Beceri kataloğu yükleniyor. İlk indirme bir dakika sürebilir.',
   'skills.registry.refreshing': 'Güncel kopya yüklenirken kayıtlı katalog gösteriliyor.',
-  'skills.registry.offline': 'Çevrimdışı — {time} tarihli kayıtlı katalog gösteriliyor.',
-  'skills.registry.offlineNoTime': 'Çevrimdışı — kayıtlı katalog gösteriliyor.',
+  'skills.registry.offline': 'Çevrimdışı: {time} tarihli kayıtlı katalog gösteriliyor.',
+  'skills.registry.offlineNoTime': 'Çevrimdışı: kayıtlı katalog gösteriliyor.',
   'skills.registry.unreachable':
     'Beceri kayıt defterine ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.',
   'skills.registry.rateLimited': 'Beceri kayıt defteri meşgul. {seconds} sn sonra tekrar deneyin.',

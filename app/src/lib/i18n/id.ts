@@ -4064,8 +4064,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     'Memuat katalog skill. Pengambilan pertama bisa memakan waktu satu menit.',
   'skills.registry.refreshing': 'Menampilkan katalog tersimpan sementara salinan baru dimuat.',
-  'skills.registry.offline': 'Offline — menampilkan katalog tersimpan dari {time}.',
-  'skills.registry.offlineNoTime': 'Offline — menampilkan katalog tersimpan.',
+  'skills.registry.offline': 'Offline: menampilkan katalog tersimpan dari {time}.',
+  'skills.registry.offlineNoTime': 'Offline: menampilkan katalog tersimpan.',
   'skills.registry.unreachable':
     'Tidak dapat menjangkau registri skill. Periksa koneksi Anda lalu coba lagi.',
   'skills.registry.rateLimited': 'Registri skill sedang sibuk. Coba lagi dalam {seconds} dtk.',

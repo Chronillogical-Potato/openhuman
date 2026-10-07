@@ -4005,8 +4005,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     '스킬 카탈로그를 불러오는 중입니다. 처음 가져올 때는 1분 정도 걸릴 수 있습니다.',
   'skills.registry.refreshing': '새 사본을 불러오는 동안 저장된 카탈로그를 표시합니다.',
-  'skills.registry.offline': '오프라인 — {time}에 저장된 카탈로그를 표시합니다.',
-  'skills.registry.offlineNoTime': '오프라인 — 저장된 카탈로그를 표시합니다.',
+  'skills.registry.offline': '오프라인: {time}에 저장된 카탈로그를 표시합니다.',
+  'skills.registry.offlineNoTime': '오프라인: 저장된 카탈로그를 표시합니다.',
   'skills.registry.unreachable':
     '스킬 레지스트리에 연결할 수 없습니다. 연결을 확인하고 다시 시도하세요.',
   'skills.registry.rateLimited': '스킬 레지스트리가 혼잡합니다. {seconds}초 후 다시 시도하세요.',

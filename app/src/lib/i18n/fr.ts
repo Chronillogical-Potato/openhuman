@@ -4120,8 +4120,8 @@ const messages: TranslationMap = {
     'Chargement du catalogue de compétences. Le premier téléchargement peut prendre une minute.',
   'skills.registry.refreshing':
     'Affichage du catalogue enregistré pendant le chargement d’une copie à jour.',
-  'skills.registry.offline': 'Hors ligne — affichage du catalogue enregistré du {time}.',
-  'skills.registry.offlineNoTime': 'Hors ligne — affichage du catalogue enregistré.',
+  'skills.registry.offline': 'Hors ligne : affichage du catalogue enregistré du {time}.',
+  'skills.registry.offlineNoTime': 'Hors ligne : affichage du catalogue enregistré.',
   'skills.registry.unreachable':
     'Impossible de joindre le registre de compétences. Vérifiez votre connexion et réessayez.',
   'skills.registry.rateLimited':

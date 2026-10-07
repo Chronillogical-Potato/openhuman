@@ -4035,8 +4035,8 @@ const messages: TranslationMap = {
   'skills.detail.overview': 'সংক্ষিপ্ত বিবরণ',
   'skills.registry.firstFetchHint': 'স্কিল ক্যাটালগ লোড হচ্ছে। প্রথমবার আনতে এক মিনিট লাগতে পারে।',
   'skills.registry.refreshing': 'নতুন কপি লোড হওয়া পর্যন্ত সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
-  'skills.registry.offline': 'অফলাইন — {time}-এর সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
-  'skills.registry.offlineNoTime': 'অফলাইন — সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
+  'skills.registry.offline': 'অফলাইন: {time}-এর সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
+  'skills.registry.offlineNoTime': 'অফলাইন: সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
   'skills.registry.unreachable':
     'স্কিল রেজিস্ট্রিতে পৌঁছানো যায়নি। সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',
   'skills.registry.rateLimited': 'স্কিল রেজিস্ট্রি ব্যস্ত। {seconds} সেকেন্ড পরে আবার চেষ্টা করুন।',

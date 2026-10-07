@@ -4039,8 +4039,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     'स्किल कैटलॉग लोड हो रहा है। पहली बार लाने में एक मिनट लग सकता है।',
   'skills.registry.refreshing': 'नई कॉपी लोड होने तक सहेजा गया कैटलॉग दिखाया जा रहा है।',
-  'skills.registry.offline': 'ऑफ़लाइन — {time} का सहेजा गया कैटलॉग दिखाया जा रहा है।',
-  'skills.registry.offlineNoTime': 'ऑफ़लाइन — सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offline': 'ऑफ़लाइन: {time} का सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offlineNoTime': 'ऑफ़लाइन: सहेजा गया कैटलॉग दिखाया जा रहा है।',
   'skills.registry.unreachable':
     'स्किल रजिस्ट्री तक नहीं पहुँच सके। अपना कनेक्शन जाँचें और फिर कोशिश करें।',
   'skills.registry.rateLimited': 'स्किल रजिस्ट्री व्यस्त है। {seconds} सेकंड बाद फिर कोशिश करें।',

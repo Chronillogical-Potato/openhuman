@@ -4699,8 +4699,8 @@ const en: TranslationMap = {
   'skills.detail.overview': 'Overview',
   'skills.registry.firstFetchHint': 'Loading the skill catalog. The first fetch can take a minute.',
   'skills.registry.refreshing': 'Showing the saved catalog while a fresh copy loads.',
-  'skills.registry.offline': 'Offline — showing the saved catalog from {time}.',
-  'skills.registry.offlineNoTime': 'Offline — showing the saved catalog.',
+  'skills.registry.offline': 'Offline: showing the saved catalog from {time}.',
+  'skills.registry.offlineNoTime': 'Offline: showing the saved catalog.',
   'skills.registry.unreachable':
     'Could not reach the skill registry. Check your connection and try again.',
   'skills.registry.rateLimited': 'The skill registry is busy. Try again in {seconds}s.',

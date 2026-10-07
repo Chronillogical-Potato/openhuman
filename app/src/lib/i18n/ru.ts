@@ -4076,8 +4076,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     'Загрузка каталога навыков. Первая загрузка может занять минуту.',
   'skills.registry.refreshing': 'Показан сохранённый каталог, пока загружается свежая копия.',
-  'skills.registry.offline': 'Нет связи — показан сохранённый каталог от {time}.',
-  'skills.registry.offlineNoTime': 'Нет связи — показан сохранённый каталог.',
+  'skills.registry.offline': 'Нет связи: показан сохранённый каталог от {time}.',
+  'skills.registry.offlineNoTime': 'Нет связи: показан сохранённый каталог.',
   'skills.registry.unreachable':
     'Не удалось связаться с реестром навыков. Проверьте подключение и попробуйте снова.',
   'skills.registry.rateLimited': 'Реестр навыков перегружен. Повторите через {seconds} с.',

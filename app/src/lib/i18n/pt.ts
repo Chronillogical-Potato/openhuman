@@ -4091,8 +4091,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     'Carregando o catálogo de habilidades. A primeira busca pode levar um minuto.',
   'skills.registry.refreshing': 'Mostrando o catálogo salvo enquanto uma cópia nova é carregada.',
-  'skills.registry.offline': 'Offline — mostrando o catálogo salvo de {time}.',
-  'skills.registry.offlineNoTime': 'Offline — mostrando o catálogo salvo.',
+  'skills.registry.offline': 'Offline: mostrando o catálogo salvo de {time}.',
+  'skills.registry.offlineNoTime': 'Offline: mostrando o catálogo salvo.',
   'skills.registry.unreachable':
     'Não foi possível acessar o registro de habilidades. Verifique sua conexão e tente novamente.',
   'skills.registry.rateLimited':

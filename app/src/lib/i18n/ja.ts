@@ -4733,8 +4733,8 @@ const messages: TranslationMap = {
   'skills.registry.firstFetchHint':
     'スキルカタログを読み込んでいます。初回の取得には1分ほどかかることがあります。',
   'skills.registry.refreshing': '最新のコピーを読み込む間、保存済みのカタログを表示しています。',
-  'skills.registry.offline': 'オフライン — {time} に保存したカタログを表示しています。',
-  'skills.registry.offlineNoTime': 'オフライン — 保存済みのカタログを表示しています。',
+  'skills.registry.offline': 'オフライン：{time} に保存したカタログを表示しています。',
+  'skills.registry.offlineNoTime': 'オフライン：保存済みのカタログを表示しています。',
   'skills.registry.unreachable':
     'スキルレジストリに接続できませんでした。接続を確認して、もう一度お試しください。',
   'skills.registry.rateLimited':

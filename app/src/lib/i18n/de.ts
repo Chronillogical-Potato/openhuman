@@ -4142,8 +4142,8 @@ const messages: TranslationMap = {
     'Der Skill-Katalog wird geladen. Der erste Abruf kann eine Minute dauern.',
   'skills.registry.refreshing':
     'Der gespeicherte Katalog wird angezeigt, während eine aktuelle Kopie lädt.',
-  'skills.registry.offline': 'Offline — gespeicherter Katalog vom {time} wird angezeigt.',
-  'skills.registry.offlineNoTime': 'Offline — der gespeicherte Katalog wird angezeigt.',
+  'skills.registry.offline': 'Offline: gespeicherter Katalog vom {time} wird angezeigt.',
+  'skills.registry.offlineNoTime': 'Offline: der gespeicherte Katalog wird angezeigt.',
   'skills.registry.unreachable':
     'Die Skill-Registry ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
   'skills.registry.rateLimited':
