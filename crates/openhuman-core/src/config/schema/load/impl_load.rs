@@ -209,6 +209,19 @@ pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (B
     (default_config_boxed(), true)
 }
 
+/// Return the source text that should be inspected by migrations. A readable
+/// backup may be the source used to build the config when the primary TOML is
+/// malformed.
+pub(super) async fn migration_source(config_path: &Path, contents: &str) -> String {
+    if toml::from_str::<toml::Value>(contents).is_ok() {
+        return contents.to_owned();
+    }
+    let backup_path = config_path.with_extension("toml.bak");
+    fs::read_to_string(backup_path)
+        .await
+        .unwrap_or_else(|_| contents.to_owned())
+}
+
 async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
     match tokio::task::spawn_blocking(move || toml::from_str::<Config>(&contents).map(Box::new))
         .await
@@ -370,10 +383,11 @@ impl Config {
         let (raw, _read_was_recovered) =
             Box::pin(read_config_with_recovery_or_default(&config_path)).await?;
         let (mut config, _was_corrupted) = parse_config_with_recovery(&config_path, &raw).await;
-        config.config_path = config_path;
+        config.config_path = config_path.clone();
         config.workspace_dir = workspace_dir;
         config.action_dir = resolve_action_dir(&config.action_dir_override);
-        migrate_legacy_memory_backend(&mut config, &raw);
+        let migration_raw = migration_source(&config_path, &raw).await;
+        migrate_legacy_memory_backend(&mut config, &migration_raw);
         config.apply_env_overrides();
         // Debug-dump path is read-only; ignore the migration signal (the
         // authoritative `load_or_init` path persists upgraded secrets).
@@ -423,12 +437,13 @@ impl Config {
             parse_config_with_recovery(&config_path, &raw).await
         };
         let config_was_corrupted = config_was_corrupted || read_was_recovered;
-        config.config_path = config_path;
+        config.config_path = config_path.clone();
         config.workspace_dir = workspace_dir;
         config.action_dir = resolve_action_dir(&config.action_dir_override);
         config.recovered_from_corruption = config_was_corrupted;
         migrate_legacy_inference_url(&mut config);
-        migrate_legacy_memory_backend(&mut config, &raw);
+        let migration_raw = migration_source(&config_path, &raw).await;
+        migrate_legacy_memory_backend(&mut config, &migration_raw);
         migrate_cloud_provider_slugs(&mut config);
         migrate_search_settings(&mut config);
         config.apply_env_overrides_from(&ProcessEnvWithoutWorkspace);

@@ -72,7 +72,7 @@ pub const DEFAULT_MEMORY_ENGINE: &str = "tinyhumans";
 pub struct MemoryConfig {
     /// The selected engine id (`tinyhumans` or `cortexdb`).
     pub engine: String,
-    #[serde(skip)]
+    #[serde(rename = "backend", default, skip_serializing)]
     #[schemars(skip)]
     pub(crate) legacy_backend: Option<String>,
     /// Per-engine settings, keyed by engine id.

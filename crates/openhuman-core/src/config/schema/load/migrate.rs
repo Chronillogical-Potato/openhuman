@@ -256,7 +256,6 @@ pub(crate) fn migrate_legacy_memory_backend(config: &mut Config, raw: &str) {
     config.memory.engine.clear();
     config.memory.legacy_backend = Some(backend.to_string());
     tracing::warn!(
-        backend,
         "[config] legacy memory backend is unsupported; select an explicit v2 memory engine"
     );
 }
