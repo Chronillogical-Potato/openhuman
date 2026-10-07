@@ -38,8 +38,17 @@ pub(super) fn allowed_for(
 /// Decide for the current turn, logging an allowed action by kind and digest
 /// only: no selector, typed value or page content reaches the log.
 pub(super) fn allow_current(browser: &BrowserConfig, kind: &str, digest_hex: &str) -> bool {
-    let _ = digest_hex;
-    allowed_for(turn_origin::current().as_ref(), browser, kind)
+    let origin = turn_origin::current();
+    let allowed = allowed_for(origin.as_ref(), browser, kind);
+    if allowed {
+        tracing::info!(
+            action = kind,
+            action_digest = %digest_hex.get(..12).unwrap_or(digest_hex),
+            origin = %origin.as_ref().map(AgentTurnOrigin::class).unwrap_or_default(),
+            "[browser] unattended action allowed by [browser] unattended_actions"
+        );
+    }
+    allowed
 }
 
 #[cfg(test)]
