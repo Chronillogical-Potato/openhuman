@@ -183,3 +183,46 @@ async fn an_unlisted_or_untrusted_direct_action_is_not_waved_through() {
     let outcome = approve_browser_action(&listed, &session, &click(), false).await;
     assert!(outcome.is_err());
 }
+
+#[derive(Clone, Default)]
+struct Logs(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Logs {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn an_allowed_action_is_logged_by_kind_and_digest_without_its_input() {
+    let logs = Logs::default();
+    let writer = logs.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(move || writer.clone())
+        .with_ansi(false)
+        .finish();
+    let _guard = tracing::subscriber::set_default(subscriber);
+    let client = offline_client(&["fill"]);
+    let fill = Action::Fill {
+        target: Target::selector("#secret-field"),
+        value: "hunter2-password".into(),
+    };
+    let session = SessionId::new("s-1");
+    turn_origin::with_origin(cron(), approve_browser_action(&client, &session, &fill, false))
+        .await
+        .unwrap();
+    let text = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let line = text
+        .lines()
+        .find(|line| line.contains("[browser] unattended action allowed"))
+        .unwrap_or_else(|| panic!("no unattended log line in {text:?}"));
+    assert!(line.contains("action=\"fill\"") || line.contains("action=fill"), "{line}");
+    assert!(line.contains("action_digest="), "{line}");
+    assert!(line.contains("TrustedAutomation(Cron)"), "{line}");
+    assert!(!line.contains("hunter2-password") && !line.contains("#secret-field"), "{line}");
+    assert!(!line.contains("job-1"), "{line}");
+}
