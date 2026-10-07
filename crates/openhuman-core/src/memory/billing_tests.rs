@@ -69,6 +69,41 @@ async fn an_error_is_not_free_and_is_not_asked_again_at_once() {
 }
 
 #[tokio::test]
+async fn each_backend_keeps_its_own_answer() {
+    let cache = Answer::new();
+    let base = Instant::now();
+    let calls = AtomicUsize::new(0);
+    let ask = |active: bool| {
+        calls.fetch_add(1, Ordering::SeqCst);
+        async move { Ok(active) }
+    };
+    assert!(active_with_cache(&cache, "https://a.test", CACHE_TTL, base, || ask(true)).await);
+    assert!(!active_with_cache(&cache, "https://b.test", CACHE_TTL, base, || ask(false)).await);
+    assert!(active_with_cache(&cache, "https://a.test", CACHE_TTL, base, || ask(false)).await);
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "a's answer survived b's");
+}
+
+#[tokio::test]
+async fn concurrent_callers_share_one_request() {
+    let cache = Answer::new();
+    let base = Instant::now();
+    let calls = AtomicUsize::new(0);
+    let ask = || {
+        calls.fetch_add(1, Ordering::SeqCst);
+        async {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            Ok(true)
+        }
+    };
+    let (a, b) = tokio::join!(
+        active_with_cache(&cache, KEY, CACHE_TTL, base, ask),
+        active_with_cache(&cache, KEY, CACHE_TTL, base, ask),
+    );
+    assert!(a && b);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
 async fn an_answer_for_one_backend_is_not_reused_for_another() {
     let cache = Answer::new();
     let base = Instant::now();

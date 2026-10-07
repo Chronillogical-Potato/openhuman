@@ -13,7 +13,7 @@
 //! - **Anything unknown** (memory off, signed out, no transport, an error, a
 //!   backend without the route): not free, so nothing starts on its own.
 
-use std::sync::RwLock;
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::backend::BackendClient;
@@ -25,30 +25,18 @@ use super::engine::{self, Binding, TINYHUMANS_ENGINE};
 /// changes on the order of days, so a minute keeps it to one request a minute.
 pub const CACHE_TTL: Duration = Duration::from_secs(60);
 
-/// The last answer, per backend.
+/// The last answer for each backend. One async lock covers the lookup and the
+/// fetch on a miss, so concurrent callers (two jobs polling at once) wait for
+/// one request rather than each sending their own.
 struct Answer {
-    inner: RwLock<Option<(String, Instant, bool)>>,
+    inner: tokio::sync::Mutex<Option<HashMap<String, (Instant, bool)>>>,
 }
 
 impl Answer {
     const fn new() -> Self {
         Self {
-            inner: RwLock::new(None),
+            inner: tokio::sync::Mutex::const_new(None),
         }
-    }
-
-    /// The answer for `key` when it is younger than `ttl` at `now`.
-    fn get(&self, key: &str, now: Instant, ttl: Duration) -> Option<bool> {
-        let guard = self.inner.read().unwrap_or_else(|e| e.into_inner());
-        guard
-            .as_ref()
-            .filter(|(k, at, _)| k == key && now.duration_since(*at) < ttl)
-            .map(|(_, _, active)| *active)
-    }
-
-    fn set(&self, key: &str, now: Instant, active: bool) {
-        let mut guard = self.inner.write().unwrap_or_else(|e| e.into_inner());
-        *guard = Some((key.to_string(), now, active));
     }
 }
 
@@ -110,8 +98,13 @@ where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<bool, String>>,
 {
-    if let Some(active) = cache.get(key, now, ttl) {
-        return active;
+    let mut answers = cache.inner.lock().await;
+    let answers = answers.get_or_insert_with(HashMap::new);
+    if let Some((_, active)) = answers
+        .get(key)
+        .filter(|(at, _)| now.duration_since(*at) < ttl)
+    {
+        return *active;
     }
     let active = match fetch().await {
         Ok(active) => active,
@@ -120,7 +113,7 @@ where
             false
         }
     };
-    cache.set(key, now, active);
+    answers.insert(key.to_string(), (now, active));
     active
 }
 
