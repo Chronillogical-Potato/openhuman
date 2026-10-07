@@ -54,8 +54,11 @@ pub fn brain_source(kind: MemorySourceKind, target: &str) -> BrainSource {
 }
 
 /// The repository a GitHub document belongs to, as the collection id
-/// `<owner>-<repo>` (lowercase, as GitHub's names are case-insensitive):
-/// from its `repo` (`owner/name` or a URL), else its URL.
+/// `<owner>--<repo>` (lowercase, as GitHub's names are case-insensitive):
+/// from its `repo` (`owner/name` or a URL), else its URL. An owner name
+/// never holds `--` nor ends in `-`, so the first `--` always splits the
+/// two and no two repositories share an id (`foo-bar/repo` and
+/// `foo/bar-repo` stay apart).
 #[must_use]
 pub fn github_collection(item: &StoreItem) -> Option<String> {
     let meta = item.meta();
@@ -69,11 +72,13 @@ pub fn github_collection(item: &StoreItem) -> Option<String> {
                 .trim_start_matches("http://")
                 .trim_start_matches("www.")
                 .trim_start_matches("github.com/");
+            // A URL's query or fragment is not part of the path.
+            let path = path.split(['?', '#']).next().unwrap_or_default();
             let mut parts = path.split('/').filter(|part| !part.is_empty());
             let (owner, repo) = (parts.next()?, parts.next()?);
             let repo = repo.trim_end_matches(".git");
             (!owner.contains('.') && !repo.is_empty())
-                .then(|| format!("{owner}-{repo}").to_ascii_lowercase())
+                .then(|| format!("{owner}--{repo}").to_ascii_lowercase())
         })
 }
 

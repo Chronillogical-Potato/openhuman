@@ -401,8 +401,8 @@ async fn github_files_per_repository_only_when_switched_on() {
         nodes().await,
         [
             "source:github",
-            "source:github/project:acme-api",
-            "source:github/project:acme-web"
+            "source:github/project:acme--api",
+            "source:github/project:acme--web"
         ]
     );
     assert_eq!(
