@@ -14,13 +14,8 @@ import { ModalShell } from '../../ui/ModalShell';
 import NativeSelect from '../../ui/NativeSelect';
 import TextField from '../../ui/TextField';
 import { IncludedTag } from './LiveVoiceVendorCard';
-import {
-  type LiveVoiceVendor,
-  readSetting,
-  vendorDescKey,
-  vendorIcon,
-  voiceFields,
-} from './liveVoiceVendors';
+import LiveVoiceVendorLogo from './LiveVoiceVendorLogo';
+import { type LiveVoiceVendor, readSetting, vendorDescKey, voiceFields } from './liveVoiceVendors';
 
 export type LiveVoiceTestState =
   | { kind: 'testing' }
@@ -68,7 +63,6 @@ const LiveVoiceSettingsModal = ({
   const { t } = useT();
   const titleId = useId();
   const [replacing, setReplacing] = useState<Record<string, boolean>>({});
-  const Icon = vendorIcon(vendor.id);
   const descKey = vendorDescKey(vendor.id);
 
   const testLine = (providerId: string) => {
@@ -327,7 +321,7 @@ const LiveVoiceSettingsModal = ({
       title={vendor.name}
       titleId={titleId}
       subtitle={descKey ? t(descKey) : undefined}
-      icon={<Icon className="h-5 w-5" />}
+      icon={<LiveVoiceVendorLogo vendorId={vendor.id} className="h-5 w-5" />}
       maxWidthClassName="max-w-lg"
       contentClassName="flex flex-col gap-5 px-5 py-4"
       testId="live-voice-modal"

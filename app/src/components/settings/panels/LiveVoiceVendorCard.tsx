@@ -4,7 +4,8 @@ import { cn } from '../../../lib/cn';
 import { useT } from '../../../lib/i18n/I18nContext';
 import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
-import { type LiveVoiceVendor, vendorDescKey, vendorIcon } from './liveVoiceVendors';
+import LiveVoiceVendorLogo from './LiveVoiceVendorLogo';
+import { type LiveVoiceVendor, vendorDescKey } from './liveVoiceVendors';
 
 /** The highlighted "Included with TinyHumans" tag on managed voice agents. */
 export const IncludedTag = ({ className }: { className?: string }) => {
@@ -44,73 +45,74 @@ const LiveVoiceVendorCard = ({
   onOpenSettings,
 }: LiveVoiceVendorCardProps) => {
   const { t } = useT();
-  const Icon = vendorIcon(vendor.id);
   const descKey = vendorDescKey(vendor.id);
   const inUse = vendor.providers.some(p => p.id === defaultProvider);
   const hasHosted = vendor.providers.some(p => p.kind === 'hosted');
   const ready = vendor.providers.find(p => p.configured);
+
+  const status = inUse ? (
+    <Badge variant="primary">{t('connections.voiceAgents.badgeInUse')}</Badge>
+  ) : ready ? (
+    <Badge variant="success">{t('connections.voiceAgents.badgeReady')}</Badge>
+  ) : (
+    <Badge variant="warning">{t('connections.voiceAgents.badgeNeedsKey')}</Badge>
+  );
 
   return (
     <div
       data-testid={`live-voice-vendor-${vendor.id}`}
       data-in-use={inUse || undefined}
       className={cn(
-        'flex h-full flex-col rounded-xl border p-4 transition-colors',
+        'flex h-full flex-col gap-3 rounded-xl border p-4 transition-colors',
         inUse
           ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500 dark:bg-primary-500/10'
           : 'border-line bg-surface'
       )}>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start gap-3">
         <span
-          aria-hidden
           className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl [&_svg]:h-5 [&_svg]:w-5',
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
             inUse ? 'bg-primary-500 text-content-inverted' : 'bg-surface-strong text-content'
           )}>
-          <Icon />
+          <LiveVoiceVendorLogo vendorId={vendor.id} className="h-5.5 w-5.5" />
         </span>
-        {inUse ? (
-          <Badge variant="primary">{t('connections.voiceAgents.badgeInUse')}</Badge>
-        ) : ready ? (
-          <Badge variant="success">{t('connections.voiceAgents.badgeReady')}</Badge>
-        ) : (
-          <Badge variant="warning">{t('connections.voiceAgents.badgeNeedsKey')}</Badge>
-        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <h4 className="text-sm font-semibold text-content">{vendor.name}</h4>
+            {status}
+          </div>
+          {descKey && (
+            <p className="mt-0.5 text-xs leading-relaxed text-content-muted">{t(descKey)}</p>
+          )}
+        </div>
       </div>
 
-      <h4 className="mt-3 text-sm font-semibold text-content">{vendor.name}</h4>
-      {descKey && <p className="mt-0.5 text-xs leading-relaxed text-content-muted">{t(descKey)}</p>}
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {hasHosted ? (
-          <IncludedTag />
-        ) : (
-          <Badge dot={false}>{t('connections.voiceAgents.ownKeyTag')}</Badge>
-        )}
-      </div>
-
-      <div className="mt-auto flex items-center justify-end gap-2 pt-4">
-        {!inUse && ready && (
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
+        {hasHosted ? <IncludedTag /> : <Badge>{t('connections.voiceAgents.ownKeyTag')}</Badge>}
+        <div className="ml-auto flex items-center gap-1.5">
+          {!inUse && ready && (
+            <Button
+              size="sm"
+              variant="secondary"
+              analyticsId="live-voice-use-vendor"
+              data-testid={`live-voice-use-vendor-${vendor.id}`}
+              disabled={saving}
+              onClick={() => onUse(ready.id)}>
+              {t('connections.voiceAgents.use')}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="secondary"
-            analyticsId="live-voice-use-vendor"
-            data-testid={`live-voice-use-vendor-${vendor.id}`}
-            disabled={saving}
-            onClick={() => onUse(ready.id)}>
-            {t('connections.voiceAgents.use')}
+            iconOnly
+            analyticsId="live-voice-open-settings"
+            data-testid={`live-voice-settings-${vendor.id}`}
+            aria-label={t('connections.voiceAgents.settingsAria').replace('{name}', vendor.name)}
+            title={t('connections.voiceAgents.settings')}
+            onClick={onOpenSettings}>
+            <Settings2 className="h-4 w-4" aria-hidden />
           </Button>
-        )}
-        <Button
-          size="sm"
-          variant="tertiary"
-          analyticsId="live-voice-open-settings"
-          data-testid={`live-voice-settings-${vendor.id}`}
-          aria-label={t('connections.voiceAgents.settingsAria').replace('{name}', vendor.name)}
-          onClick={onOpenSettings}>
-          <Settings2 className="h-4 w-4" aria-hidden />
-          {t('connections.voiceAgents.settings')}
-        </Button>
+        </div>
       </div>
     </div>
   );

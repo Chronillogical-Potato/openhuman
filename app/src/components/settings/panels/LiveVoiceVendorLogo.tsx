@@ -6,19 +6,14 @@ import sarvamLogo from '../../../assets/provider-icons/sarvam.svg';
 import { cn } from '../../../lib/cn';
 
 /** Simple Icons marks for vendors in the installed `react-icons` set. */
-const VENDOR_ICONS: Record<string, IconType> = {
-  gemini: SiGooglegemini,
-  elevenlabs: SiElevenlabs,
-};
+const VENDOR_ICONS: Record<string, IconType> = { gemini: SiGooglegemini, elevenlabs: SiElevenlabs };
 
 /**
  * Bundled single-colour marks for vendors Simple Icons lacks, drawn as a CSS
  * mask so they take the surrounding text colour in both themes. Sarvam's is
  * its published brand mark (assets.sarvam.ai/assets/brand/logos).
  */
-const VENDOR_MASKS: Record<string, string> = {
-  sarvam: sarvamLogo,
-};
+const VENDOR_MASKS: Record<string, string> = { sarvam: sarvamLogo };
 
 /** A voice vendor's brand mark, falling back to a microphone for unknown vendors. */
 const LiveVoiceVendorLogo = ({ vendorId, className }: { vendorId: string; className?: string }) => {
