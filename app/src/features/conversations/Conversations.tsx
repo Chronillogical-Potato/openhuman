@@ -1319,7 +1319,7 @@ const Conversations = ({
     clearStopSettleTimer(sendingThreadId);
     const pendingAttachments = attachments.slice();
     failedAttachmentsByThreadRef.current.set(sendingThreadId, pendingAttachments);
-    const modelOverride = composerModelOverride ?? undefined;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const modelClearBarrier = modelOverride === undefined ? waitForComposerModelClear() : null;
     let messageText = buildMessageWithAttachments(trimmed, pendingAttachments);
     const userMessage: ThreadMessage = {
@@ -1511,7 +1511,7 @@ const Conversations = ({
     const pendingAttachments = attachments.slice();
     if (!normalized && pendingAttachments.length === 0) return;
 
-    const modelOverride = composerModelOverride ?? undefined;
+    const modelOverride = composerModelOverride ?? CHAT_MODEL_HINT;
     const modelClearBarrier = modelOverride === undefined ? waitForComposerModelClear() : null;
     const messageText = buildMessageWithAttachments(normalized, pendingAttachments);
     // Build the full user message exactly like a normal send (content +

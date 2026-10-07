@@ -1,5 +1,9 @@
 import type { Thread } from '../../../types/thread';
 
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
 /**
  * Reserved thread label that marks a conversation as pinned. Persisted by the
  * core like any other label (`openhuman.threads_update_labels`), so a pin
