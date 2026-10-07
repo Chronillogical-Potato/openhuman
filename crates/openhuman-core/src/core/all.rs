@@ -90,7 +90,10 @@ fn group_allowed(group: DomainGroup) -> bool {
 /// SaaS user, the method is on the user surface (`user_agents::surface`).
 fn visible(g: &GroupedController) -> bool {
     group_allowed(g.group)
-        && crate::user_agents::surface::method_visible(&g.controller.rpc_method_name())
+        && crate::user_agents::surface::method_visible(
+            &g.controller.rpc_method_name(),
+            g.group == DomainGroup::Operator,
+        )
 }
 
 /// The global static registry of all controllers, initialized once on first access.

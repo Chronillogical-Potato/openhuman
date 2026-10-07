@@ -1,13 +1,21 @@
 use super::*;
 
 #[test]
-fn only_a_saas_user_scope_is_narrowed() {
+fn single_user_processes_are_not_narrowed() {
     let unlisted = "openhuman.config_update_autonomy_settings";
-    assert!(visible_in(false, false, unlisted), "single-user core");
-    assert!(visible_in(false, true, unlisted), "embedded agent");
-    assert!(visible_in(true, false, unlisted), "operator plane");
-    assert!(!visible_in(true, true, unlisted), "SaaS user");
-    assert!(visible_in(true, true, "openhuman.threads_list"));
+    assert!(visible_in(false, false, unlisted, false), "single-user core");
+    assert!(visible_in(false, true, unlisted, false), "embedded agent");
+}
+
+#[test]
+fn the_saas_planes_never_overlap() {
+    let provision = "openhuman.user_agents_provision";
+    let threads = "openhuman.threads_list";
+    assert!(visible_in(true, false, provision, true), "operator reaches its plane");
+    assert!(!visible_in(true, false, threads, false), "operator never serves user methods");
+    assert!(visible_in(true, true, threads, false), "user reaches the allowlist");
+    assert!(!visible_in(true, true, provision, true), "user never reaches the operator plane");
+    assert!(!visible_in(true, true, "openhuman.config_get_config", false));
 }
 
 #[test]
@@ -17,7 +25,7 @@ fn turn_starting_thread_methods_stay_closed_for_now() {
         "openhuman.threads_edit_message",
         "openhuman.threads_regenerate",
     ] {
-        assert!(!visible_in(true, true, method), "{method}");
+        assert!(!visible_in(true, true, method, false), "{method}");
     }
 }
 

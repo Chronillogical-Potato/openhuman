@@ -39,8 +39,9 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.threads_todos_get",
 ];
 
-/// Whether `method` may be dispatched or listed in the current scope.
-pub fn method_visible(method: &str) -> bool {
+/// Whether `method` (of an operator-plane controller or not) may be
+/// dispatched or listed in the current scope.
+pub fn method_visible(method: &str, operator_plane: bool) -> bool {
     visible_in(
         is_saas(),
         CoreContext::current()
@@ -48,13 +49,23 @@ pub fn method_visible(method: &str) -> bool {
             .and_then(CoreContext::session_agent)
             .is_some(),
         method,
+        operator_plane,
     )
 }
 
-/// [`method_visible`] as a pure function of the mode and whether the scope is
-/// a user's.
-pub fn visible_in(saas: bool, user_scope: bool, method: &str) -> bool {
-    !(saas && user_scope) || USER_METHODS.contains(&method)
+/// [`method_visible`] as a pure function of the mode and the scope.
+///
+/// In SaaS the two planes never overlap: the operator scope reaches only the
+/// operator plane, and a user's scope only [`USER_METHODS`]. The SaaS
+/// `DomainSet` registers the user families on the runtime so user contexts
+/// can derive them; this keeps the operator from serving them on its own
+/// workspace.
+pub fn visible_in(saas: bool, user_scope: bool, method: &str, operator_plane: bool) -> bool {
+    match (saas, user_scope) {
+        (false, _) => true,
+        (true, false) => operator_plane,
+        (true, true) => !operator_plane && USER_METHODS.contains(&method),
+    }
 }
 
 /// Thread ids a user may choose for themselves. Ids are only unique per agent,

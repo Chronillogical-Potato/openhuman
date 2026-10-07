@@ -139,11 +139,14 @@ impl ServiceSet {
 }
 
 impl DomainSet {
-    /// The domain families a SaaS core serves: the operator plane. No user
-    /// family yet; each opens as its per-user isolation lands.
+    /// The domain families a SaaS core registers: the operator plane and the
+    /// user families whose per-user isolation has landed. User agents derive
+    /// their contexts from these; `user_agents::surface` keeps the operator
+    /// scope on its own plane and each user on the user allowlist.
     pub fn saas() -> Self {
         Self {
             operator: true,
+            threads: true,
             ..Self::none()
         }
     }
