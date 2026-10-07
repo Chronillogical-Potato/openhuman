@@ -1,4 +1,7 @@
 ---
+description: >-
+  What stays on your machine, what the backend brokers, and which of these
+  layers are enforced by default.
 icon: shield
 ---
 
@@ -34,9 +37,9 @@ OpenHuman is designed so that the **memory of your life lives on your machine**.
 
 |                                    |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **LLM calls**                      | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](model-routing/).                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Web search proxy**               | The native [web search tool](native-tools/web-search.md) uses the backend proxy by default, currently powered by [Exa](https://exa.ai), so you don't carry a search API key. With your own Exa, Brave, Querit, or Tavily key, queries go directly to that provider; Parallel remains routed through the OpenHuman backend. With Tavily selected, the `tavily_extract` tool also sends extraction requests — including the URLs being extracted — directly to Tavily. If you call the optional SearXNG tool, that query goes to your configured SearXNG instance instead. |
-| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [118+ integrations](integrations/README.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| **LLM calls**                      | Proxied through the backend under one subscription, then forwarded to the underlying provider (Anthropic / OpenAI / Google / etc.) per the [model router](model-routing/README.md).                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Web search proxy**               | The native [web search tool](native-tools/web-search.md) can use the backend proxy, so you don't carry a search API key. Only **Exa** and **Gemini** have a managed route; Brave, Querit, Tavily, Seltz, Parallel, TinyFish and Gemini Deep Research are bring-your-own-key and go **directly** to that provider, and SearXNG goes to the instance you configured. With Tavily selected, the `tavily_extract` tool also sends extraction requests, including the URLs being extracted, directly to Tavily. |
+| **Integration OAuth & tool proxy** | Token storage and rate-limited request brokering for [the connected integrations](integrations/README.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | **TTS streaming**                  | Hosted [text-to-speech](native-tools/voice.md) audio streams. Audio is generated and discarded - not retained.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ---
@@ -61,17 +64,15 @@ Memory only helps if it is safe to keep. Every item passes through secret and PI
 
 Scrubbing and scoped retrieval together become the privacy architecture.
 
-<figure><img src="../.gitbook/assets/V17 — Privacy Shield@2x.png" alt=""><figcaption></figcaption></figure>
-
 ## Security
 
 **Encrypted in transit.** All communication between the application and the OpenHuman backend uses TLS. No data travels in plain text.
 
 **Key in keyring, ciphertext on disk.** For local secrets that must be persisted in app files, OpenHuman stores encrypted ciphertext on disk and keeps the master decryption key in the OS keyring. See [OS Keyring & Secret Storage](os-keyring-and-secret-storage.md).
 
-**Sandboxed skills.** Each skill runs in its own isolated execution environment with enforced memory and resource limits. Skills cannot access each other's data, the host system's file system, or your credentials.
+**Sandboxed execution.** Shell and code the agent runs goes through a sandbox backend chosen per session: none, the OS jail (Landlock on Linux, Seatbelt on macOS), or a Docker container with no network, dropped capabilities and a read-only root filesystem by default. Skills are not separately sandboxed: the in-app JavaScript sandbox was removed, and a skill now runs as its own agent session subject to the same execution policy as any other turn.
 
-**Workspace-scoped tools.** The native [filesystem tools](native-tools/coder.md) operate within the workspace the user opens; they do not have ambient access to the rest of the disk.
+**Working-folder-scoped tools.** The native [filesystem tools](native-tools/coder.md) act inside the agent's working folder. That confinement is part of the autonomy policy, which is **off by default**: until you set `[autonomy] enabled = true` it is not enforced. What is enforced either way is the hard floor, credential stores and system roots. See [Approval Gate](approval-gate.md).
 
 **Short-lived tokens.** Authentication tokens between the app and the backend are time-limited.
 

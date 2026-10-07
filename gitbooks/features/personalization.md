@@ -27,5 +27,5 @@ How the agent presents itself (`SOUL.md`, `IDENTITY.md`, `ROLE.md` in your works
 
 - [Memory](memory.md), the engines, sources and tabs behind all of this.
 - [Memory tools](native-tools/memory-tools.md), how the agent recalls and learns.
-- [Goals & To-dos](goals-and-todos.md), the agent's in-session work tracking.
+- [Goals & Todos](goals-and-todos.md), the agent's in-session work tracking.
 - [Cron & Scheduling](native-tools/cron.md), the scheduled runs that keep working your workspace between turns.

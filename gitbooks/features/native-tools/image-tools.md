@@ -1,115 +1,43 @@
+---
+description: >-
+  The reading side of images: attachments the model can see natively, local
+  image metadata, and which model handles vision.
+icon: image
+---
+
 # Image Tools
 
-OpenHuman's image contract gives agents a stable way to reason about
-image generation and local image inspection without tying the prompt surface to a
-single provider runtime.
+Generating images is [Image & Video Generation](media-generation.md). This page is the other direction: getting an image *into* a turn so the model can look at it.
 
-## Scope
+## Attaching an image
 
-The contract lives in the top-level `crates/openhuman-core/src/media/image/` module and
-currently covers two model-facing tools:
+Attach a file in the composer, or point the agent at a path. What happens next depends on the model and the route, not on a setting:
 
-| Tool               | Purpose                                                   | Permission | Output                                |
-| ------------------ | --------------------------------------------------------- | ---------- | ------------------------------------- |
-| `image_generation` | Generate or edit raster images from a prompt.             | Write      | Local generated-media artifact paths. |
-| `view_image`       | Load a local image file into model-visible image context. | Read-only  | Image content visible to the model.   |
+- If the model's facts say it accepts that modality **and** the transport supports it, the image goes up natively as image content.
+- If not, it degrades rather than failing: a bounded readout, or a reference to the file with its path and metadata, so the agent can still reason about it and tell you what it cannot see.
 
-This layer is intentionally high level. Existing lower-level tools still own
-their concrete behavior:
+Uploads are preserved in the acting workspace across a restart, and the ordered references survive in the transcript, so a later turn can still refer to "the second screenshot".
 
-- `image_info` reads local image metadata and optional base64 text.
-- Agent multimodal preparation normalizes `[IMAGE:...]` markers for providers
-  that accept image data.
+## `image_info`
 
-The image layer defines names, schemas, gating, and prompt rules so
-agents can make consistent decisions as runtimes add direct support.
+One tool, read-only: it reads a local image's metadata (format, dimensions, size) and can return its bytes as base64 text for a model that wants them inline. It is the tool to reach for when the question is "what *is* this file", and it does not need a vision model.
 
-## `image_generation`
+## Which model sees it
 
-`image_generation` is a hosted provider capability. The Rust core should not
-pretend to be an image renderer when no provider supports it. When enabled, the
-runtime should:
+Vision is a workload with its own provider slot, so you can route it independently of chat:
 
-1. Validate any `input_image_path` through the same local-file policy used for
-   image viewing.
-2. Send the prompt and optional edit image to the hosted image provider.
-3. Persist returned bytes under a session-scoped generated-media root, or under
-   an approved caller-provided `output_path`.
-4. Return saved artifact paths so the final assistant answer can reference them.
+```toml
+vision_provider = "…"   # a provider id, or leave unset to use the chat provider
+```
 
-The schema includes `prompt`, optional `output_path`, optional `size`, optional
-`input_image_path`, and `output_format` (`png`, `webp`, `jpeg`).
+If a configured vision model turns out to be chat-only, the call returns a named error rather than silently substituting another model. There is deliberately no default local vision model: a local setup has to name one. [Local models and BYOK](../model-routing/local-and-byok-models.md) lists the ones worth trying.
 
-## `view_image`
+## Delegation
 
-`view_image` loads pixels from a local file into model-visible context. Use it
-when text metadata is insufficient: screenshots, UI review, OCR, diagrams,
-charts, visual diffs, and generated-image inspection.
+A turn that needs to look at several images, or to work through one carefully, is usually handed to the built-in vision sub-agent rather than done inline, so the main conversation does not carry every pixel of context. Delegation happens on the agent's own judgement; you do not have to ask for it.
 
-The runtime must keep local file boundaries explicit:
+## See also
 
-- Allow paths in the approved workspace.
-- Allow paths created during the current session.
-- Allow paths explicitly referenced by the user or trusted tool output.
-- Deny paths outside policy, and do not silently attach unrelated local images.
-
-The schema includes `path` and optional `detail` (`auto`, `high`, `original`).
-Use `original` only when full-resolution inspection is necessary.
-
-## Prompt Guidance
-
-Prompt rendering should include image guidance only when at least one
-media tool is enabled. The guidance should tell agents:
-
-- Use `view_image` when pixels are needed, not for ordinary file metadata.
-- Use `image_generation` for requested raster image creation or edits.
-- Provide an output path when the destination matters.
-- Mention generated artifact paths in final answers.
-- Respect local image boundaries before attaching a file to model context.
-
-## Tests
-
-The module has focused Rust tests for:
-
-- JSON schema shape for `image_generation`.
-- JSON schema shape for `view_image`.
-- Independent gating of generation vs local viewing.
-- End-to-end contract rendering from config to specs and prompt guidance.
-
-Future runtime PRs should add provider-specific execution tests next to the
-runtime adapter, not in the hosted contract module.
-
-## Media generation (GMI): image and video tools
-
-Separate from the high-level `image_generation` contract above, the
-`crates/openhuman-core/src/media/generation/` domain ships **wired, executing** tools that
-generate images and video through the OpenHuman backend's `media_generation`
-provider (GMI Cloud: Seedream, SeedEdit, Seedance, Veo).
-
-| Tool                   | Purpose                                                          | Permission | Output                                    |
-| ---------------------- | ---------------------------------------------------------------- | ---------- | ----------------------------------------- |
-| `media_generate_image` | Text-to-image / image-to-image via GMI.                          | Execute    | Local file path under `generated-media/`. |
-| `media_generate_video` | Text-to-video / image-to-video via GMI.                          | Execute    | Local file path under `generated-media/`. |
-| `media_list_models`    | List the curated model catalog (and optionally GMI's live list). | Read-only  | Model ids + pricing.                      |
-
-How it works:
-
-- Generation is asynchronous. The tool submits to the backend (which charges on
-  submit and returns a request id), then **blocks with progress**, polling until
-  the request reaches a terminal state.
-- GMI returns expiring signed URLs; the tool downloads each artifact into the
-  agent's `generated-media/` directory and returns a stable local file path.
-- The backend owns provider keys, billing, and rate limiting
-  (`/agent-integrations/media-generation/*`, see `backend/docs/media-generation.md`).
-
-### Image & video sub-agents
-
-Two specialist sub-agents wrap these tools and are reachable from the
-orchestrator via delegation:
-
-- **`image_agent`** (`delegate_create_image`) owns prompt craft, model
-  selection, and saving generated images. It rides the multimodal `vision` workload route
-  tier so it can inspect what it produces.
-- **`video_agent`** (`delegate_create_video`) owns text-to-video and
-  image-to-video. It sets expectations that generation can take minutes and
-  blocks until the clip is saved.
+- [Image & Video Generation](media-generation.md): making images and video rather than reading them.
+- [Chat](../chat.md): where attachments live in the UI.
+- [Automatic Model Routing](../model-routing/README.md): how the vision slot is resolved.

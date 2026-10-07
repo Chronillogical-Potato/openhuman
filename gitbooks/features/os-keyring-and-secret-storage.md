@@ -1,4 +1,7 @@
 ---
+description: >-
+  The OS keyring as root of trust: what is stored there, what is encrypted on
+  disk beside it, and what the consent prompt is asking for.
 icon: key
 ---
 

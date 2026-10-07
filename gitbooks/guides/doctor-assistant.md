@@ -36,9 +36,9 @@ With that boundary set, here's how to shape it responsibly.
 
 In **Settings → Agents → Agent access**:
 
-- Set autonomy to **Read-only** (pure Q&A/drafting) or **Supervised** (drafting plus approved actions). Avoid **Full** for clinical use.
+- Turn the autonomy policy on and set its tier: `[autonomy] enabled = true` with `level = "readonly"` (pure Q&A and drafting) or `level = "supervised"` (drafting plus approved actions) in `config.toml`. Avoid `full` for clinical use. The policy is off until you set `enabled = true`.
 - Keep **workspace-only** on so the agent can't wander your disk.
-- Keep the [Approval Gate](../features/approval-gate.md) on. Nothing gets _acted on_ (files written, actions taken) without your yes. Note it gates **actions**, not network transport: prompts and attachments can still be sent upstream for inference.
+- With the policy on, the [Approval Gate](../features/approval-gate.md) parks every acting call, so nothing gets _acted on_ (files written, actions taken) without your yes. Note it gates **actions**, not network transport: prompts and attachments can still be sent upstream for inference.
 
 ### 2. Turn on local inference for sensitive work
 
@@ -65,7 +65,7 @@ Test with **made-up** cases, never real patient data, until you're satisfied wit
 
 ## Success checks
 
-- [ ] Autonomy is **Read-only** or **Supervised**, workspace-only is on, approval gate is on.
+- [ ] `[autonomy] enabled = true`, `level` is `readonly` or `supervised`, and `workspace_only` is on.
 - [ ] If you're keeping inference on-device, your local runtime is running, the models are pulled, and a turn routed to it answers.
 - [ ] The persona reliably adds uncertainty flags and "verify clinically" language in replies to synthetic prompts.
 - [ ] Only intended sources are connected.
@@ -77,12 +77,12 @@ Test with **made-up** cases, never real patient data, until you're satisfied wit
 | ------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | It states things with false confidence      | Persona doesn't enforce caution             | Strengthen `SOUL.md` to require uncertainty flags and citations                                 |
 | Sensitive text went to the cloud            | Inference is on the default route           | Turn on a [local model](local-model.md) and confirm `ready` before using sensitive input        |
-| It tried to take an action on its own       | Tier too permissive                         | Drop to **Read-only**; keep the approval gate on                                                |
+| It tried to take an action on its own       | The policy is off, or the tier is too permissive | Set `enabled = true` and `level = "readonly"`                                              |
 | It "remembered" something it shouldn't have | A source with disallowed data was connected | Revoke the integration; already-ingested chunks are local and can be cleared from the workspace |
 
 ## Recovery
 
-- **Instant containment:** set autonomy to **Read-only**. Acting stops on the next turn.
+- **Instant containment:** set `level = "readonly"`. Acting stops on the next turn.
 - **Pull a source:** revoke any integration from Settings; future syncs stop immediately.
 - **Reset the persona:** the behavior lives in an editable file; revert your edits to return to default tone.
 

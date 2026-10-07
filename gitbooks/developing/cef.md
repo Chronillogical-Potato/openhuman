@@ -5,15 +5,15 @@ description: >-
 icon: chrome
 ---
 
-# Chromium Embedded Framework
+# Chromium Embedded Framework (historical)
 
 {% hint style="warning" %}
 **Historical.** The desktop shell no longer ships CEF. `crates/openhuman-app/` builds on upstream Tauri's native webview runtime (Wry: WKWebView / WebView2 / WebKitGTK), and `AGENTS.md` forbids restoring CEF or CDP-scanner assumptions. The native iMessage scanner remains separate because it reads `chat.db` directly. Everything below describes the retired runtime and is kept only as design background; the file paths it cites (`crates/openhuman-app/src/webview_accounts/`, `scripts/ensure-tauri-cli.sh`, `vendor/tauri-cef`) no longer exist.
 {% endhint %}
 
-OpenHuman doesn't run on the platform's built-in webview. It ships its own **Chromium Embedded Framework (CEF) runtime** via a fork of `tauri-runtime`, and that single decision is load-bearing for almost every "OpenHuman knows what's happening in your tools" feature in the product.
+For about a year OpenHuman did not run on the platform's built-in webview. It shipped its own **Chromium Embedded Framework (CEF) runtime** through a fork of `tauri-runtime`, and that single decision was load-bearing for almost every "OpenHuman knows what's happening in your tools" feature in the product.
 
-This page explains why CEF is in the bundle, what the codebase uses it for today, and where the same surface could go.
+This page explains why CEF was in the bundle, what the codebase used it for, and what replaced each piece. Nothing described below is in the shipped app.
 
 ## Why CEF instead of a stock webview
 
@@ -27,11 +27,13 @@ CDP is the load-bearing primitive. Every "watch what's happening inside Slack / 
 - `Runtime.evaluate` for ephemeral one-shot reads (a single fixed JSON serializer, never a persistent bridge).
 - `Page.addScriptToEvaluateOnNewDocument` for the small number of cases where we genuinely need a renderer-side shim before page JS runs.
 
-Stock webviews can't give us any of that. So we vendor CEF.
+Stock webviews give none of that, which is why CEF was vendored.
+
+**What replaced it.** Browser automation moved out of the shell entirely: a real Chrome driven over CDP from the Rust side, through the `tinycomputer` module, as a separate process the agent either launches or attaches to. See [Browser & Computer Control](../features/native-tools/browser-and-computer.md). The scanners that walked a third-party app's IndexedDB are gone; the one that survived, iMessage, never needed a browser because it reads `chat.db` directly.
 
 The vendored runtime lived at `crates/openhuman-app/vendor/tauri-cef/` (forked from the upstream `tauri-cef` branch onto `tinyhumansai/tauri-cef:feat/cef-notification-intercept`, currently CEF 146.4.1). Every Tauri crate is patched at `crates/openhuman-app/Cargo.toml` via `[patch.crates-io]` to point at this fork. The vendored `cargo-tauri` CLI bundles Chromium correctly into `Contents/Frameworks/`; stock `@tauri-apps/cli` produces a broken bundle that panics in `cef::library_loader::LibraryLoader::new`. `scripts/ensure-tauri-cli.sh` (removed) reinstalled the vendored CLI whenever the fork is newer than the installed binary.
 
-## What CEF is used for today
+## What CEF was used for
 
 ### Embedded third-party webviews
 
@@ -70,7 +72,7 @@ Each scan emitted `webview:event` payloads from the shell, so scanning continued
 
 ### Google Meet mascot camera
 
-The flashiest CEF trick. The Meet agent doesn't just _attend_ a meeting, it **broadcasts** itself as a camera. This works because CEF lets us:
+The flashiest CEF trick, and the one that went with it. The Meet agent did not just _attend_ a meeting, it **broadcast** itself as a camera. That worked because CEF let us:
 
 1. Inject a tiny bridge (`camera_bridge.js`) via `Page.addScriptToEvaluateOnNewDocument` before any Meet code runs.
 2. Override `navigator.mediaDevices.getUserMedia` so it returns a `MediaStream` from a hidden 640×480 canvas instead of a real camera.
@@ -88,7 +90,7 @@ This was the bulk of the (since removed) `docs/TAURI_CEF_FINDINGS_AND_CHANGES.md
 
 ## The "no new JS injection" rule
 
-The rule is documented in [`CLAUDE.md`](../../CLAUDE.md): **migrated providers load with zero injected JavaScript**. All scraping happens natively over CDP from the scanner side.
+The rule is documented in [`CLAUDE.md`](https://github.com/tinyhumansai/openhuman/blob/main/AGENTS.md): **migrated providers load with zero injected JavaScript**. All scraping happens natively over CDP from the scanner side.
 
 This matters because anything host-controlled that runs inside a third-party origin is an attack-surface liability. A persistent JS bridge inside Slack is one Slack update away from breaking, and one mistake away from leaking the bridge to attacker-controlled JS. CDP from outside the renderer is strictly better.
 
@@ -105,94 +107,16 @@ This matters because anything host-controlled that runs inside a third-party ori
 
 Legacy injection should shrink, never grow. New providers go straight onto the CDP-only path.
 
-## CEF prewarm
+## Removed sections
 
-A hidden CEF webview (`cef-prewarm`) boots the browser on app launch so the first child webview spawns instantly when the user clicks. It's torn down before `cef::shutdown()` to avoid races during quit. See `crates/openhuman-app/src/lib.rs` around the prewarm + close lifecycle.
-
-## Windows startup triage
-
-CEF initializes before the onboarding UI can recover from renderer failures. If
-Windows users report a silent exit, a permanent "Connecting..." spinner, or a
-`tauri-runtime-cef` assertion before the first interactive window appears, ask
-for these details in the issue:
-
-- Windows edition and full build number, especially for Insider builds.
-- OpenHuman version and installer type (`.msi` or `.exe`).
-- Whether `%LOCALAPPDATA%\com.openhuman.app` was moved aside before retrying.
-- Startup log lines from `[startup]`, `[cef-profile]`, and `[cef-startup]`.
-- Any panic text that names `tauri-runtime-cef/src/lib.rs`.
-
-For Windows Insider builds, also confirm whether the same installer launches on
-the current stable Windows release. That separates a profile/cache problem from
-an OS/runtime compatibility regression in CEF startup.
-
-If the logs point to a GPU-process startup failure rather than a stale CEF
-profile lock, set `OPENHUMAN_DISABLE_GPU=1` before launching OpenHuman. On
-Windows this pins CEF to the pure-software ANGLE/SwiftShader GL backend
-(`--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader
---disable-gpu-compositing`) rather than bare `--disable-gpu`: on NVIDIA Blackwell
-/ RTX 50-series stacks the GPU process fails to initialise and `--disable-gpu`
-alone leaves CEF with no working software GL path, so `cef::initialize` still
-returns 0 (#4294, #4385). SwiftShader needs no hardware driver, so it lets CEF
-start on GPUs the bundled Chromium (currently CEF 146.4.1) doesn't yet support.
-On other platforms the same env var passes `--disable-gpu` and
-`--disable-gpu-compositing` without forwarding arbitrary Chromium flags. Leave it
-unset for normal use because forcing software rendering slows WebGL-heavy surfaces.
-
-## Linux shell fallback for CEF startup crashes
-
-On some Linux desktops, especially NVIDIA proprietary driver setups under Wayland/XWayland, the Tauri/CEF shell can fail during native window configuration before the React app becomes usable. One known symptom is an X11 `BadWindow` error after CEF reports the main browser context.
-
-When the core itself is healthy, you can keep developing by running the core and frontend separately:
-
-```bash
-cargo build --bin openhuman-core
-./target/debug/openhuman-core run --port 7788
-```
-
-In another terminal:
-
-```bash
-cd app
-pnpm dev
-```
-
-Open the Vite URL in a regular browser, choose **Advanced** / remote core mode, set the RPC URL to `http://127.0.0.1:7788/rpc`, and use the bearer token written by the core. This bypasses native-only features such as tray, auto-update, and embedded provider webviews, but keeps the agent, memory, skills, and RPC surface available for debugging.
-
-## Plugin audit
-
-Anything new added to `crates/openhuman-app/src/lib.rs` must be audited for `js_init_script` calls. `tauri-plugin-opener` ships an init script (`init-iife.js`) by default that adds a global click listener; we configure it with `.open_js_links_on_click(false)` so it doesn't run inside third-party webviews. `tauri-plugin-notification`'s init script was likewise dropped from the vendored copy.
-
-## Where this could evolve
-
-The CDP surface is general-purpose. Today it powers memory ingest from a fixed list of providers; the same primitive can do much more.
-
-### Browser automation as a first-class agent tool
-
-Today the agent has [native tools](../features/native-tools/README.md) for filesystem, git, web search, and web fetch. The next obvious tool is **"drive a real browser session"**: log into a SaaS the user is already authed in, fill a form, scrape a paginated table, download an export.
-
-The plumbing is already there. A `@openhuman/browser_task` skill could spin up a dedicated CEF webview, drive it via CDP from the core, and surface the result as a tool call. The user's existing per-account profiles mean no re-auth.
-
-### Headless CEF for server-side replay
-
-The same scanner pattern (long-lived WebSocket → IDB walk + DOM snapshot) works without a UI. Headless CEF in the core sidecar could replay sessions on a schedule, useful for users who host the core in the cloud and want auto-fetch from sources that don't expose a clean OAuth API.
-
-### Privacy hooks at the browser-process layer
-
-CEF's `CefRequestHandler` already lets us intercept network requests. A small step from "intercept and log" to "intercept and rewrite": ad-block, tracker-block, DNS pinning, request rewriting per provider. Privacy as a first-class browser feature instead of a leaky JS shim inside each origin.
-
-### CDP-driven testing framework
-
-The scanner pattern, spawn webview, walk IDB, snapshot DOM, evaluate one ephemeral expression, is structurally identical to E2E test orchestration. We could ship `@openhuman/web_test` as a public skill: `connect_cef → snapshot → evaluate → assert`. Tests written in plain Rust against any web app, no Selenium / Playwright dependency.
-
-### Renderer ↔ Rust message channel
-
-Today every CDP `Runtime.evaluate` is fire-and-forget. A long-lived bidirectional channel from renderer to Rust (the way Tauri does IPC for the host app) would unlock streaming use cases: live typing detection, real-time selection / highlight tracking, proactive nudges. Designing this so it doesn't violate the "no persistent JS bridge in third-party origins" rule is the interesting constraint.
-
-### Multi-account merge
-
-Each connected account gets its own profile and its own IDB. CDP can snapshot one account's IDB, decrypt-merge with another's, and upsert into a shared memory doc, e.g. one unified Slack memory across three workspaces.
+This page used to carry a CEF prewarm note, Windows and Linux startup-triage
+runbooks, a plugin-audit table, and a "where this could evolve" design section.
+They are dropped rather than kept: the runbooks told a maintainer to collect
+logs and set environment variables that no longer exist, and the design section
+has been overtaken. The one idea in it that did happen, browser automation as a
+first-class agent tool, is
+[Browser & Computer Control](../features/native-tools/browser-and-computer.md).
 
 ## See also
 
-- [`CLAUDE.md`](../../CLAUDE.md). the canonical "no new JS injection" rule.
+- [`AGENTS.md`](https://github.com/tinyhumansai/openhuman/blob/main/AGENTS.md): the canonical rule that no JavaScript injection is added to child webviews, and that CEF and CDP-scanner assumptions are not restored.

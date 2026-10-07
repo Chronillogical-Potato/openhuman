@@ -38,9 +38,9 @@ Inference is no longer the only chokepoint. `local_only` is also enforced at the
 
 One deliberate exemption: backend **control-plane** round-trips (sign-in, session, team, billing, and the integration connection-management and catalog reads) keep flowing, because blocking them breaks the app for no privacy gain. They carry auth tokens, ids, and routing metadata, never user content.
 
-**Voice is not covered.** There is no local speech-to-text engine, so dictation and transcription still leave the device under `local_only` - to the hosted OpenHuman STT proxy, or to whichever third-party STT provider you configured. If that matters for your threat model, leave voice off.
+**Voice is not covered.** There is no local speech-to-text engine, so dictation and transcription still leave the device under `local_only`: to the hosted OpenHuman STT proxy, or to whichever third-party STT provider you configured. If that matters for your threat model, leave voice off.
 
-Privacy Mode governs **data egress**. It is orthogonal to the [autonomy tiers](privacy-and-security.md) (readonly / supervised / full), which govern what the agent may _do_. You can run a fully autonomous agent that never sends a byte of inference off-device.
+Privacy Mode governs **data egress**. It is orthogonal to the [autonomy tiers](approval-gate.md) (readonly / supervised / full), which govern what the agent may _do_. You can run a fully autonomous agent that never sends a byte of inference off-device.
 
 ## Pairing it with local models
 

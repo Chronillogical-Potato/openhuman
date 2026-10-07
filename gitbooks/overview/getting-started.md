@@ -1,7 +1,7 @@
 ---
 description: >-
-  Install OpenHuman, walk through the in-app onboarding (sign in, connect Gmail,
-  choose how AI runs), and run your first request against your own memory.
+  Install OpenHuman, walk through the in-app onboarding (sign in, choose how AI
+  runs, connect an app), and run your first request against your own memory.
 icon: play
 ---
 
@@ -29,7 +29,7 @@ The first time you launch OpenHuman, the OS will prompt for the permissions the 
 
 ## 1. Download and install
 
-Get the OpenHuman desktop app from [http://tinyhumans.ai/openhuman](http://tinyhumans.ai/openhuman) or via your platform's package manager. Open the app once it's installed.
+Get the OpenHuman desktop app from [tinyhumans.ai/openhuman](https://tinyhumans.ai/openhuman) or via your platform's package manager. Open the app once it's installed.
 
 ## 2. Sign in
 
@@ -43,9 +43,26 @@ The first screen is **"Sign in! Let's Cook"**. Multiple sign-in options are avai
 **Know what is local and what is managed.** Your workspace config, and local runtime state live on your machine. The default setup still uses OpenHuman-hosted services for sign-in, model routing, managed integration OAuth/tool calls, and web search proxying. Use the custom setup paths if you want to bring your own model, search, or Composio credentials. Some hosted features and real-time integration triggers still require the managed backend.
 {% endhint %}
 
-## 3. Run your first request
+## 3. Connect something, and set up memory
 
-Once Gmail is connected and a memory source has synced, try prompts like:
+Onboarding offers a runtime choice (the managed TinyHumans route, or a custom
+setup where you bring your own model, search, embeddings and connector keys) and
+then drops you into the app. Two things make the first request worth making:
+
+- **An integration.** Open [Connections](../features/connections.md) → Apps and
+  connect one. Gmail is the usual first choice; each connection is a one-click
+  OAuth approval you can revoke.
+- **A memory engine.** Connections → Brain. Signed in, the hosted engine is
+  already there; otherwise point it at your own CortexDB. With neither,
+  [memory](../features/memory.md) is off and the agent starts from zero every
+  chat.
+
+Add the integration as a memory source on the Brain tab to sync it on a
+schedule.
+
+## 4. Run your first request
+
+Once a memory source has synced, try prompts like:
 
 **Briefings**
 
@@ -59,22 +76,20 @@ Once Gmail is connected and a memory source has synced, try prompts like:
 - "Extract action items from my recent conversations."
 - "What did Sarah say about the project across email and chat?"
 
-OpenHuman picks the right model for each task automatically. See [Automatic Model Routing](../features/model-routing/).
+OpenHuman picks the right model for each task automatically. See [Automatic Model Routing](../features/model-routing/README.md).
 
 ---
 
-## 4. Set up memory
-
-Open **Connections → Memory**. On the **Engine** tab choose TinyHumans (signed in) or your own CortexDB, then add a folder, link or GitHub repo on the **Documents** tab. The agent can then answer questions about it, with citations. See [Memory](../features/memory.md).
-
----
-
-## 5. Let the mascot do more
+## 5. Keep going
 
 Now that the agent has memory and a model, the rest of the product is about giving it more surfaces:
 
-- [**Memory**](../features/memory.md) - connect more sources; they sync on a schedule into your memory engine.
-- [**Native Voice**](../features/native-tools/voice.md) - push-to-talk dictation and TTS replies so you can talk to OpenHuman instead of typing.
+- [**Chat**](../features/chat.md): what a turn can actually do, and the four ways it stops to ask you something.
+- [**Connections**](../features/connections.md): everything the agent plugs into, on one page.
+- [**Memory**](../features/memory.md): connect more sources; they sync on a schedule into your memory engine.
+- [**Workflows**](../features/workflows.md): describe an automation and review the graph the agent proposes.
+- [**Native Voice**](../features/native-tools/voice.md): dictation and spoken replies, or a live voice agent.
+- [**Roadmap**](roadmap.md): what is coming, and what was removed.
 
 ## Join the community
 
