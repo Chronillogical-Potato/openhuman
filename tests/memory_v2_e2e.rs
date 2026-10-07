@@ -1698,6 +1698,14 @@ async fn import_scan_finds_nothing_and_start_needs_consent() {
 
     let status = f.ok("openhuman.memory_import_status", json!({})).await;
     assert_eq!(status["state"]["phase"], json!("idle"));
+    assert_eq!(status["state"]["failed"], json!(0));
+
+    // Nothing finished, nothing skipped: there is nothing to retry.
+    assert_eq!(
+        f.code("openhuman.memory_import_retry_failed", json!({}))
+            .await,
+        "INVALID_REQUEST"
+    );
 
     // Importing uploads local data: refused without consent, signed in or not.
     assert_eq!(

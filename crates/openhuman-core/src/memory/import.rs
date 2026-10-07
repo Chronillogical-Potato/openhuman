@@ -417,6 +417,8 @@ pub(crate) async fn resume_interrupted_with(
             let mut file = read_file(&config.workspace_dir);
             file.state.phase = ImportPhase::Error;
             file.state.error = Some(format!("the import could not resume: {error}"));
+            // Not resumed again on its own: the failure would recur.
+            file.paused_for_credits = false;
             write_file(&config.workspace_dir, &file);
             false
         }
@@ -533,7 +535,14 @@ pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
 }
 
 async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
-    let wanted: HashSet<String> = file.failed.iter().map(|failed| failed.id.clone()).collect();
+    // An item with no legacy id cannot be found again, so it is never
+    // matched (every item the importer yields has one).
+    let wanted: HashSet<String> = file
+        .failed
+        .iter()
+        .map(|failed| failed.id.clone())
+        .filter(|id| !id.is_empty())
+        .collect();
     let reader_dir = workspace_dir.to_path_buf();
     let items = tokio::task::spawn_blocking(move || {
         let workspace = LegacyWorkspace::open(&reader_dir).map_err(|error| error.to_string())?;
@@ -577,12 +586,10 @@ async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFi
         }
     }
     file.state.failed = file.failed.len() as u64;
-    // The import itself is finished either way; a stopped retry says why.
-    file.state.phase = if failure.is_some() {
-        ImportPhase::Error
-    } else {
-        ImportPhase::Done
-    };
+    // The import itself is finished either way, so it stays `Done`: a retry
+    // stopped by the engine or the account keeps the items still to retry
+    // and says why, and the user retries again once that is resolved.
+    file.state.phase = ImportPhase::Done;
     file.state.error = failure;
     tracing::info!(
         still_failed = file.failed.len(),
@@ -645,7 +652,13 @@ async fn run(
         }
         let outcome = store_batch(bound, std::mem::take(&mut batch)).await;
         file.state.imported += outcome.stored;
-        file.failed.extend(outcome.failed);
+        // One entry per legacy id; a later refusal replaces the reason.
+        for failed in outcome.failed {
+            match file.failed.iter_mut().find(|known| known.id == failed.id) {
+                Some(known) => *known = failed,
+                None => file.failed.push(failed),
+            }
+        }
         file.state.failed = file.failed.len() as u64;
         if let Some(checkpoint) = outcome.checkpoint {
             file.checkpoint = checkpoint;

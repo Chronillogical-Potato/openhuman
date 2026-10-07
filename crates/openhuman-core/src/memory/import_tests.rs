@@ -56,6 +56,15 @@ pub(super) fn legacy_workspace(workspace_dir: &Path) {
     .unwrap();
 }
 
+/// The checkpoint after document `id`. Built from `default()` and an
+/// assignment: tinymemory's `Checkpoint` is non-exhaustive from its next
+/// release, which refuses a struct literal outside the crate.
+pub(super) fn after_document(id: &str) -> Checkpoint {
+    let mut checkpoint = Checkpoint::default();
+    checkpoint.documents = Some(id.to_string());
+    checkpoint
+}
+
 pub(super) async fn wait_until_settled(config: &Config) -> ImportState {
     for _ in 0..400 {
         let state = status(config);
@@ -173,10 +182,7 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
                 error: Some("unauthorized: sign in".into()),
                 failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
     assert_eq!(status(&config).phase, ImportPhase::Error);
@@ -420,10 +426,7 @@ async fn an_import_the_app_quit_during_resumes_on_its_own() {
                 error: None,
                 failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
 
@@ -478,10 +481,7 @@ fn quit_mid_import(config: &Config) {
                 error: None,
                 failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
 }

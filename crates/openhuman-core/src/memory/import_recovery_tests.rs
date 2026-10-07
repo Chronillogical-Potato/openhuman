@@ -4,7 +4,8 @@
 //! retried.
 
 use super::tests::{
-    always, billing, bind_failing, legacy_workspace, out_of_credits, wait_until_settled,
+    after_document, always, billing, bind_failing, legacy_workspace, out_of_credits,
+    wait_until_settled,
 };
 use super::*;
 use crate::memory::error::INVALID_REQUEST;
@@ -30,10 +31,7 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
                 error: Some("unavailable".into()),
                 failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
     let started = start(&config, true).await.unwrap();
@@ -59,10 +57,7 @@ fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
             error: None,
             failed: 0,
         },
-        checkpoint: Checkpoint {
-            documents: Some("d9".into()),
-            ..Checkpoint::default()
-        },
+        checkpoint: after_document("d9"),
     };
     write_file(tmp.path(), &file);
     write_file(tmp.path(), &file);
@@ -182,22 +177,30 @@ fn only_a_self_hosted_engine_runs_automatically_until_the_free_period_check_land
     );
 }
 
-/// Whether a refusing engine still refuses the "Ideas" document.
-static REFUSE_IDEAS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
-
-fn refuse_ideas(item: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
-    let ideas = matches!(item, tinymemory_api::StoreItem::Document { title: Some(title), .. } if title == "Ideas");
-    (ideas && REFUSE_IDEAS.load(std::sync::atomic::Ordering::SeqCst))
-        .then(|| tinymemory_api::Error::InvalidRequest("item too large".into()))
+/// An engine refusal of the "Ideas" document while `$flag` is set, one flag
+/// per test so tests running in parallel never toggle each other's.
+macro_rules! ideas_refusal {
+    ($flag:ident, $refuse:ident) => {
+        static $flag: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+        fn $refuse(item: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
+            let ideas = matches!(item, tinymemory_api::StoreItem::Document { title: Some(title), .. } if title == "Ideas");
+            (ideas && $flag.load(std::sync::atomic::Ordering::SeqCst))
+                .then(|| tinymemory_api::Error::InvalidRequest("item too large".into()))
+        }
+    };
 }
+
+ideas_refusal!(REFUSE_IDEAS_KEPT, refuse_ideas_kept);
+ideas_refusal!(REFUSE_IDEAS_STOPPED, refuse_ideas_stopped);
+ideas_refusal!(REFUSE_IDEAS_QUIT, refuse_ideas_quit);
 
 #[tokio::test]
 async fn a_refused_item_is_kept_and_a_retry_stores_it() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     legacy_workspace(&config.workspace_dir);
-    REFUSE_IDEAS.store(true, std::sync::atomic::Ordering::SeqCst);
-    let engine = bind_failing(&config, refuse_ideas);
+    REFUSE_IDEAS_KEPT.store(true, std::sync::atomic::Ordering::SeqCst);
+    let engine = bind_failing(&config, refuse_ideas_kept);
 
     start(&config, true).await.unwrap();
     let done = wait_until_settled(&config).await;
@@ -224,7 +227,7 @@ async fn a_refused_item_is_kept_and_a_retry_stores_it() {
     );
 
     // The engine takes it now: the list empties and the item is stored.
-    REFUSE_IDEAS.store(false, std::sync::atomic::Ordering::SeqCst);
+    REFUSE_IDEAS_KEPT.store(false, std::sync::atomic::Ordering::SeqCst);
     retry_failed(&config).await.unwrap();
     let fixed = wait_until_settled(&config).await;
     assert_eq!(
@@ -251,4 +254,92 @@ async fn retrying_needs_a_finished_import_with_failed_items() {
         retry_failed(&config).await.unwrap_err().code(),
         INVALID_REQUEST
     );
+}
+
+#[tokio::test]
+async fn a_retry_stopped_by_the_engine_stays_retryable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    REFUSE_IDEAS_STOPPED.store(true, std::sync::atomic::Ordering::SeqCst);
+    bind_failing(&config, refuse_ideas_stopped);
+    start(&config, true).await.unwrap();
+    assert_eq!(wait_until_settled(&config).await.failed, 1);
+
+    // The engine is down for the retry: it stops, still finished, still listed.
+    bind_failing(&config, |_| {
+        Some(tinymemory_api::Error::Unauthorized("sign in".into()))
+    });
+    retry_failed(&config).await.unwrap();
+    let stopped = wait_until_settled(&config).await;
+    assert_eq!(
+        (stopped.phase, stopped.failed),
+        (ImportPhase::Done, 1),
+        "{stopped:?}"
+    );
+    assert!(stopped.error.is_some());
+
+    // Back up: the same retry goes through.
+    REFUSE_IDEAS_STOPPED.store(false, std::sync::atomic::Ordering::SeqCst);
+    let engine = bind_failing(&config, refuse_ideas_stopped);
+    retry_failed(&config).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.failed, done.error),
+        (ImportPhase::Done, 0, None)
+    );
+    assert!(stored(&engine, MetaFilter::default())
+        .await
+        .iter()
+        .any(|i| i.text.contains("oolong")));
+}
+
+#[tokio::test]
+async fn a_credits_pause_whose_resume_fails_is_not_retried_every_tick() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_failing(&config, out_of_credits);
+    start(&config, true).await.unwrap();
+    wait_until_settled(&config).await;
+    assert!(read_file(&config.workspace_dir).paused_for_credits);
+
+    // The legacy store is gone: the automatic resume cannot start.
+    std::fs::remove_file(config.workspace_dir.join("memory").join("memory.db")).unwrap();
+    bind_reference(&config);
+    assert!(!resume_interrupted_with(&config, always(false), billing(true)).await);
+    assert!(!read_file(&config.workspace_dir).paused_for_credits);
+    assert!(!resume_interrupted_with(&config, always(false), billing(true)).await);
+}
+
+#[tokio::test]
+async fn a_retry_the_app_quit_during_finishes_with_its_failed_items_kept() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    REFUSE_IDEAS_QUIT.store(true, std::sync::atomic::Ordering::SeqCst);
+    let engine = bind_failing(&config, refuse_ideas_quit);
+    start(&config, true).await.unwrap();
+    assert_eq!(wait_until_settled(&config).await.failed, 1);
+    let stored_before = stored(&engine, MetaFilter::default()).await.len();
+
+    // The app quit mid-retry: the state file says Running, nothing is live.
+    let mut file = read_file(&config.workspace_dir);
+    file.state.phase = ImportPhase::Running;
+    write_file(&config.workspace_dir, &file);
+
+    // The background resume reads on from the import's final checkpoint, so
+    // it stores nothing new and finishes with the failed item still listed.
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.failed),
+        (ImportPhase::Done, 1),
+        "{done:?}"
+    );
+    assert_eq!(
+        stored(&engine, MetaFilter::default()).await.len(),
+        stored_before
+    );
+    assert_eq!(read_file(&config.workspace_dir).failed.len(), 1);
 }
