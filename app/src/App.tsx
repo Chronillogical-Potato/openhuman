@@ -33,6 +33,7 @@ import OpenhumanLinkModal from './components/OpenhumanLinkModal';
 import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import PttHotkeyManager from './components/PttHotkeyManager';
 import SecurityBanner from './components/SecurityBanner';
+import { Toaster } from './components/ui/Toast';
 import AppWalkthrough from './components/walkthrough/AppWalkthrough';
 import { useDevSkipOnboarding } from './hooks/useDevSkipOnboarding';
 import { useNotchBootSync } from './hooks/useNotchBootSync';
@@ -135,6 +136,7 @@ function App() {
             <ThemeProvider>
               <I18nProvider>
                 {!onMobile && <WindowsWindowControls />}
+                <Toaster />
                 <BootCheckGate>
                   <CoreStateProvider>
                     {socketWrapped(
