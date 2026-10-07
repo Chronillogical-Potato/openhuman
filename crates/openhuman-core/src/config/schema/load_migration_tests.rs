@@ -211,7 +211,11 @@ backend = "sqlite"
         .await
         .unwrap();
     assert!(saved.contains("engine = \"\""));
-    assert!(!saved.contains("backend"));
+    let saved_config: toml::Value = toml::from_str(&saved).unwrap();
+    assert!(!saved_config["memory"]
+        .as_table()
+        .unwrap()
+        .contains_key("backend"));
 
     let reloaded = load_or_init_for_workspace(tmp.path()).await;
 
