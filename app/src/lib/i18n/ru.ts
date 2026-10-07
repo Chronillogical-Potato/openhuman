@@ -375,6 +375,12 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'Выберите лицо ассистента и цвет талисмана',
   'settings.navGroups.data': 'Данные',
   'settings.languageDesc': 'Язык отображения интерфейса',
+  'settings.timezone': 'Часовой пояс',
+  'settings.timezoneDesc':
+    'Пояс, в котором ассистент понимает даты вроде «вчера» или «в прошлую субботу».',
+  'settings.timezoneDevice': 'Использовать часовой пояс устройства ({zone})',
+  'settings.timezoneUnknownDevice': 'неизвестен',
+  'settings.timezoneSaveFailed': 'Не удалось сохранить часовой пояс. Попробуйте ещё раз.',
   'settings.account.session': 'Сеанс',
   'settings.account.manageBilling': 'Тариф и оплата',
   'settings.account.manageBillingDesc': 'Управляйте подпиской, кредитами и счетами',

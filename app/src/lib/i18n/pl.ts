@@ -378,6 +378,12 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'Wybierz twarz asystenta i kolor maskotki',
   'settings.navGroups.data': 'Dane',
   'settings.languageDesc': 'Język wyświetlania interfejsu aplikacji',
+  'settings.timezone': 'Strefa czasowa',
+  'settings.timezoneDesc':
+    'Strefa, w której asystent rozumie daty takie jak „wczoraj” czy „w zeszłą sobotę”.',
+  'settings.timezoneDevice': 'Użyj strefy czasowej urządzenia ({zone})',
+  'settings.timezoneUnknownDevice': 'nieznana',
+  'settings.timezoneSaveFailed': 'Nie udało się zapisać strefy czasowej. Spróbuj ponownie.',
   'settings.account.session': 'Sesja',
   'settings.account.manageBilling': 'Plan i płatności',
   'settings.account.manageBillingDesc': 'Zarządzaj subskrypcją, kredytami i fakturami',

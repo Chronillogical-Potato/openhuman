@@ -146,6 +146,30 @@ test.describe('Settings - Account Preferences', () => {
     expect(Boolean(snapshot.result?.analyticsEnabled)).toBe(!initialAnalytics);
   });
 
+  test('persists the time zone picked on the account page to core config', async ({ page }) => {
+    type TimezoneResult = { result?: { timezone?: string | null; effective?: string } };
+    await gotoSettingsRoute(page, '/settings/account');
+    const select = page.getByTestId('timezone-select');
+    await expect(select).toBeEnabled();
+
+    await select.selectOption('Pacific/Auckland');
+    await expect
+      .poll(async () => {
+        const read = await callCoreRpc<TimezoneResult>('openhuman.config_get_user_timezone', {});
+        return read.result?.timezone ?? null;
+      })
+      .toBe('Pacific/Auckland');
+
+    // Back to following the device: the setting is cleared, not set to a name.
+    await select.selectOption('');
+    await expect
+      .poll(async () => {
+        const read = await callCoreRpc<TimezoneResult>('openhuman.config_get_user_timezone', {});
+        return read.result?.timezone ?? null;
+      })
+      .toBeNull();
+  });
+
   test('opens the billing route and settles the redirect status copy', async ({ page }) => {
     test.skip(
       true,

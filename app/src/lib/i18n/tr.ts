@@ -209,6 +209,12 @@ const messages: TranslationMap = {
   'settings.face.menuDesc': 'Asistanınızın yüzünü ve maskot rengini seçin',
   'settings.navGroups.data': 'Veriler',
   'settings.languageDesc': 'Uygulama arayüzünün görüntüleme dili',
+  'settings.timezone': 'Saat dilimi',
+  'settings.timezoneDesc':
+    'Asistanın “dün” veya “geçen cumartesi” gibi tarihleri yorumladığı saat dilimi.',
+  'settings.timezoneDevice': 'Cihazın saat dilimini kullan ({zone})',
+  'settings.timezoneUnknownDevice': 'bilinmiyor',
+  'settings.timezoneSaveFailed': 'Saat dilimi kaydedilemedi. Tekrar deneyin.',
   'settings.account.session': 'Oturum',
   'settings.account.signedIn': "OpenHuman'da oturum açıldı",
   'settings.account.usageThisCycle': 'Bu dönemdeki kullanım',
