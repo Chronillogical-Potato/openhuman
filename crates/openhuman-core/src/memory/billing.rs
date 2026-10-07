@@ -16,8 +16,11 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use sha2::Digest;
+
 use crate::backend::BackendClient;
 use crate::config::Config;
+use crate::security::credentials::session_support::BackendCredential;
 
 use super::engine::{self, Binding, TINYHUMANS_ENGINE};
 
@@ -44,30 +47,42 @@ static ANSWER: Answer = Answer::new();
 
 /// Whether memory work is free for the user right now. See the module docs.
 pub async fn free_period_active(config: &Config) -> bool {
-    let engine_id = match engine::resolve(config) {
-        Binding::On(bound) => bound.id,
+    let bound = match engine::resolve(config) {
+        Binding::On(bound) => bound,
         Binding::Off { .. } => return false,
     };
-    if engine_id != TINYHUMANS_ENGINE {
+    if bound.id != TINYHUMANS_ENGINE {
         return true;
     }
-    let Ok(backend) = crate::backend::require_base_url(&config.api_url) else {
+    let Ok(credential) =
+        crate::security::credentials::session_support::resolve_backend_credential(config)
+    else {
         return false;
     };
-    active_with_cache(&ANSWER, &backend, CACHE_TTL, Instant::now(), || {
-        fetch(config, &backend)
+    // The answer is the account's on the backend memory is bound to, so the
+    // cache is keyed by both: one account's answer never serves another.
+    let key = format!("{}|{}", bound.endpoint, digest(credential.secret()));
+    active_with_cache(&ANSWER, &key, CACHE_TTL, Instant::now, || {
+        fetch(&credential, &bound.endpoint)
     })
     .await
 }
 
-/// Asks the backend whether its memory free period is on.
-async fn fetch(config: &Config, backend: &str) -> Result<bool, String> {
-    let credential =
-        crate::security::credentials::session_support::resolve_backend_credential(config)?;
+/// A short, one-way digest of a credential, for a cache key.
+fn digest(secret: &str) -> String {
+    sha2::Sha256::digest(secret.as_bytes())
+        .iter()
+        .take(8)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// Asks `backend` whether its memory free period is on for `credential`.
+async fn fetch(credential: &BackendCredential, backend: &str) -> Result<bool, String> {
     let client = BackendClient::new(backend).map_err(|e| format!("{e:#}"))?;
     let data = client
         .authed_json(
-            &credential,
+            credential.clone(),
             reqwest::Method::GET,
             "/memory/free-period",
             None,
@@ -91,7 +106,7 @@ async fn active_with_cache<F, Fut>(
     cache: &Answer,
     key: &str,
     ttl: Duration,
-    now: Instant,
+    clock: impl Fn() -> Instant,
     fetch: F,
 ) -> bool
 where
@@ -100,6 +115,9 @@ where
 {
     let mut answers = cache.inner.lock().await;
     let answers = answers.get_or_insert_with(HashMap::new);
+    // Read after the lock: a wait behind another backend's fetch must not
+    // stretch a cached answer past its TTL.
+    let now = clock();
     if let Some((_, active)) = answers
         .get(key)
         .filter(|(at, _)| now.duration_since(*at) < ttl)

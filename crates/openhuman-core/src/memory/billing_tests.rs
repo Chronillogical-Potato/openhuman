@@ -27,13 +27,13 @@ async fn an_answer_is_reused_within_the_ttl_and_asked_again_after() {
         calls.fetch_add(1, Ordering::SeqCst);
         async move { Ok(active) }
     };
-    assert!(active_with_cache(&cache, KEY, CACHE_TTL, base, || ask(true)).await);
+    assert!(active_with_cache(&cache, KEY, CACHE_TTL, || base, || ask(true)).await);
     assert!(
         active_with_cache(
             &cache,
             KEY,
             CACHE_TTL,
-            base + Duration::from_secs(30),
+            || base + Duration::from_secs(30),
             || ask(false)
         )
         .await,
@@ -45,7 +45,7 @@ async fn an_answer_is_reused_within_the_ttl_and_asked_again_after() {
             &cache,
             KEY,
             CACHE_TTL,
-            base + Duration::from_secs(61),
+            || base + Duration::from_secs(61),
             || ask(false)
         )
         .await,
@@ -63,8 +63,8 @@ async fn an_error_is_not_free_and_is_not_asked_again_at_once() {
         calls.fetch_add(1, Ordering::SeqCst);
         async { Err::<bool, _>("GET /memory/free-period failed (404 Not Found)".to_string()) }
     };
-    assert!(!active_with_cache(&cache, KEY, CACHE_TTL, base, failing).await);
-    assert!(!active_with_cache(&cache, KEY, CACHE_TTL, base, failing).await);
+    assert!(!active_with_cache(&cache, KEY, CACHE_TTL, || base, failing).await);
+    assert!(!active_with_cache(&cache, KEY, CACHE_TTL, || base, failing).await);
     assert_eq!(calls.load(Ordering::SeqCst), 1, "a failure is cached too");
 }
 
@@ -77,9 +77,9 @@ async fn each_backend_keeps_its_own_answer() {
         calls.fetch_add(1, Ordering::SeqCst);
         async move { Ok(active) }
     };
-    assert!(active_with_cache(&cache, "https://a.test", CACHE_TTL, base, || ask(true)).await);
-    assert!(!active_with_cache(&cache, "https://b.test", CACHE_TTL, base, || ask(false)).await);
-    assert!(active_with_cache(&cache, "https://a.test", CACHE_TTL, base, || ask(false)).await);
+    assert!(active_with_cache(&cache, "https://a.test", CACHE_TTL, || base, || ask(true)).await);
+    assert!(!active_with_cache(&cache, "https://b.test", CACHE_TTL, || base, || ask(false)).await);
+    assert!(active_with_cache(&cache, "https://a.test", CACHE_TTL, || base, || ask(false)).await);
     assert_eq!(calls.load(Ordering::SeqCst), 2, "a's answer survived b's");
 }
 
@@ -96,8 +96,8 @@ async fn concurrent_callers_share_one_request() {
         }
     };
     let (a, b) = tokio::join!(
-        active_with_cache(&cache, KEY, CACHE_TTL, base, ask),
-        active_with_cache(&cache, KEY, CACHE_TTL, base, ask),
+        active_with_cache(&cache, KEY, CACHE_TTL, || base, ask),
+        active_with_cache(&cache, KEY, CACHE_TTL, || base, ask),
     );
     assert!(a && b);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
@@ -107,11 +107,15 @@ async fn concurrent_callers_share_one_request() {
 async fn an_answer_for_one_backend_is_not_reused_for_another() {
     let cache = Answer::new();
     let base = Instant::now();
-    assert!(active_with_cache(&cache, KEY, CACHE_TTL, base, || async { Ok(true) }).await);
+    assert!(active_with_cache(&cache, KEY, CACHE_TTL, || base, || async { Ok(true) }).await);
     assert!(
-        !active_with_cache(&cache, "https://other.test", CACHE_TTL, base, || async {
-            Ok(false)
-        })
+        !active_with_cache(
+            &cache,
+            "https://other.test",
+            CACHE_TTL,
+            || base,
+            || async { Ok(false) }
+        )
         .await
     );
 }
@@ -130,6 +134,10 @@ async fn an_engine_other_than_the_hosted_one_is_always_free() {
     let config = crate::memory::test_fixtures::config_in(&tmp);
     crate::memory::test_fixtures::bind_reference(&config);
     assert!(free_period_active(&config).await);
+}
+
+fn credential(config: &Config) -> BackendCredential {
+    crate::security::credentials::session_support::resolve_backend_credential(config).unwrap()
 }
 
 fn keyed_config(tmp: &tempfile::TempDir) -> Config {
@@ -159,7 +167,7 @@ async fn the_backend_says_the_period_is_on() {
         json!({"success": true, "data": {"active": true, "until": "2026-11-06T00:00:00.000Z"}}),
     )
     .await;
-    assert_eq!(fetch(&config, &server.uri()).await, Ok(true));
+    assert_eq!(fetch(&credential(&config), &server.uri()).await, Ok(true));
 }
 
 #[tokio::test]
@@ -171,7 +179,7 @@ async fn the_backend_says_the_period_is_off() {
         json!({"success": true, "data": {"active": false, "until": null}}),
     )
     .await;
-    assert_eq!(fetch(&config, &server.uri()).await, Ok(false));
+    assert_eq!(fetch(&credential(&config), &server.uri()).await, Ok(false));
 }
 
 #[tokio::test]
@@ -179,12 +187,14 @@ async fn a_backend_without_the_route_is_an_error_read_as_not_free() {
     let tmp = tempfile::tempdir().unwrap();
     let config = keyed_config(&tmp);
     let server = backend_answering(404, json!({"success": false, "error": "Not Found"})).await;
-    assert!(fetch(&config, &server.uri()).await.is_err());
+    assert!(fetch(&credential(&config), &server.uri()).await.is_err());
     let cache = Answer::new();
     let uri = server.uri();
+    let credential = credential(&config);
     assert!(
-        !active_with_cache(&cache, &uri, CACHE_TTL, Instant::now(), || fetch(
-            &config, &uri
+        !active_with_cache(&cache, &uri, CACHE_TTL, Instant::now, || fetch(
+            &credential,
+            &uri
         ))
         .await
     );
@@ -203,4 +213,49 @@ async fn the_hosted_engine_asks_the_backend() {
     config.memory.engine = TINYHUMANS_ENGINE.to_string();
     assert!(free_period_active(&config).await);
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn the_engines_own_backend_is_asked_not_the_apps() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = keyed_config(&tmp);
+    let server = backend_answering(
+        200,
+        json!({"success": true, "data": {"active": true, "until": null}}),
+    )
+    .await;
+    config.api_url = Some("http://127.0.0.1:9".into());
+    config.memory.engine = TINYHUMANS_ENGINE.to_string();
+    config.memory.engines.insert(
+        TINYHUMANS_ENGINE.to_string(),
+        crate::config::schema::MemoryEngineSettings {
+            endpoint: Some(server.uri()),
+            ..Default::default()
+        },
+    );
+    assert!(free_period_active(&config).await);
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn each_account_keeps_its_own_answer() {
+    let server = backend_answering(
+        200,
+        json!({"success": true, "data": {"active": true, "until": null}}),
+    )
+    .await;
+    for key in ["th_account_a", "th_account_b"] {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = crate::memory::test_fixtures::config_in(&tmp);
+        config.secrets.encrypt = false;
+        crate::security::credentials::api_key::store_api_key(&config, key).unwrap();
+        config.api_url = Some(server.uri());
+        config.memory.engine = TINYHUMANS_ENGINE.to_string();
+        assert!(free_period_active(&config).await);
+    }
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        2,
+        "the second account asked for its own answer"
+    );
 }
