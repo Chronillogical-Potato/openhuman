@@ -3,8 +3,8 @@
 //! Gateway user ids are taken here and turned into agent ids at once; they
 //! are never logged, stored or returned.
 
-use super::host::{self, AgentHost};
 use super::credentials::{self, UserCredentialKind};
+use super::host::{self, AgentHost};
 use super::types::{
     CredentialResult, DeprovisionResult, ProvisionResult, UserAgentId, UserAgentSummary,
 };

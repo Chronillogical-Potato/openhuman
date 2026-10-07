@@ -1,5 +1,7 @@
 use super::*;
-use crate::security::credentials::session_support::{resolve_backend_credential, BackendCredential};
+use crate::security::credentials::session_support::{
+    resolve_backend_credential, BackendCredential,
+};
 use crate::user_agents::layout::{agent_config, UserAgentLayout};
 use crate::user_agents::UserAgentId;
 

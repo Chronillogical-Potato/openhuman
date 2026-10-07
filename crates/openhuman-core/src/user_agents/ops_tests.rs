@@ -47,11 +47,15 @@ fn credentials_are_set_and_cleared_per_agent_and_never_echoed() {
     let host = host(&tmp);
     let alice = UserAgentId::for_user("alice").unwrap();
     let bob = UserAgentId::for_user("bob").unwrap();
-    assert!(
-        set_credential_on(&host, alice.as_str(), UserCredentialKind::Session, "t", None)
-            .unwrap_err()
-            .contains("not provisioned")
-    );
+    assert!(set_credential_on(
+        &host,
+        alice.as_str(),
+        UserCredentialKind::Session,
+        "t",
+        None
+    )
+    .unwrap_err()
+    .contains("not provisioned"));
     provision_on(&host, "alice").unwrap();
     provision_on(&host, "bob").unwrap();
 

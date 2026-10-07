@@ -46,11 +46,7 @@ pub(crate) fn is_closed_in_saas(path: &str) -> bool {
 
 fn refuse(status: u16, message: &str) -> Response {
     let status = StatusCode::from_u16(status).unwrap_or(StatusCode::FORBIDDEN);
-    (
-        status,
-        axum::Json(serde_json::json!({ "error": message })),
-    )
-        .into_response()
+    (status, axum::Json(serde_json::json!({ "error": message }))).into_response()
 }
 
 fn header_str<'a>(req: &'a Request, name: &str) -> Option<&'a str> {
@@ -64,11 +60,7 @@ fn bearer(req: &Request) -> Option<&str> {
 }
 
 /// The SaaS request layer; `operator` is the runtime's own context.
-pub(crate) async fn saas_gateway(
-    operator: Arc<CoreContext>,
-    req: Request,
-    next: Next,
-) -> Response {
+pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next: Next) -> Response {
     let path = req.uri().path();
     if is_closed_in_saas(path) {
         log::debug!("[rpc:saas] {path} is not served in SaaS mode");

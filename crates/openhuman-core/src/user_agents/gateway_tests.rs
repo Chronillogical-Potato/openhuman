@@ -14,8 +14,14 @@ fn a_fresh_signature_verifies() {
 #[test]
 fn a_signature_is_bound_to_the_user_the_secret_and_the_window() {
     let header = sign(SECRET, "alice", 1_000);
-    assert!(verify(SECRET, "bob", &header, 1_000).is_err(), "another user");
-    assert!(verify("other-secret", "alice", &header, 1_000).is_err(), "another secret");
+    assert!(
+        verify(SECRET, "bob", &header, 1_000).is_err(),
+        "another user"
+    );
+    assert!(
+        verify("other-secret", "alice", &header, 1_000).is_err(),
+        "another secret"
+    );
     let stale = verify(SECRET, "alice", &header, 1_000 + SIGNATURE_WINDOW_SECS + 1);
     assert!(stale.unwrap_err().contains("window"));
 }
@@ -23,7 +29,10 @@ fn a_signature_is_bound_to_the_user_the_secret_and_the_window() {
 #[test]
 fn malformed_signatures_are_refused() {
     for header in ["", "v1=00", "t=1000", "t=abc,v1=00", "t=1000,v1=zz"] {
-        assert!(verify(SECRET, "alice", header, 1_000).is_err(), "{header:?}");
+        assert!(
+            verify(SECRET, "alice", header, 1_000).is_err(),
+            "{header:?}"
+        );
     }
 }
 
@@ -33,7 +42,9 @@ fn a_tampered_tag_is_refused() {
     let mut tampered = header.clone();
     let last = tampered.pop().unwrap();
     tampered.push(if last == '0' { '1' } else { '0' });
-    assert!(verify(SECRET, "alice", &tampered, 1_000).unwrap_err().contains("does not match"));
+    assert!(verify(SECRET, "alice", &tampered, 1_000)
+        .unwrap_err()
+        .contains("does not match"));
 }
 
 #[test]

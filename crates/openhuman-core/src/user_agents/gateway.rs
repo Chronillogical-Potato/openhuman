@@ -107,13 +107,11 @@ pub fn resolve_scope(
     let Some(user_id) = user_id else {
         return Ok(GatewayScope::Operator);
     };
-    let host = host::host()
-        .ok_or_else(|| GatewayRefusal::new(503, "this core serves no users"))?;
+    let host = host::host().ok_or_else(|| GatewayRefusal::new(503, "this core serves no users"))?;
     let agent = UserAgentId::for_user(user_id).map_err(|e| GatewayRefusal::new(400, e))?;
     if host.saas().require_user_signature {
-        let signature = signature.ok_or_else(|| {
-            GatewayRefusal::new(401, format!("missing {USER_SIG_HEADER}"))
-        })?;
+        let signature = signature
+            .ok_or_else(|| GatewayRefusal::new(401, format!("missing {USER_SIG_HEADER}")))?;
         verify(secret, user_id, signature, now).map_err(|e| {
             log::warn!("[user_agents][gateway] refused agent={agent}: {e}");
             GatewayRefusal::new(401, e)

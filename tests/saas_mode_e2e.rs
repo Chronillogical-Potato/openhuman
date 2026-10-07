@@ -337,7 +337,10 @@ fn gateway_requests_run_under_the_named_users_agent() {
         "openhuman.user_agents_status",
         json!({ "agent_id": alice.as_str() }),
     );
-    assert!(body.to_string().contains("\"has_credential\":true"), "{body}");
+    assert!(
+        body.to_string().contains("\"has_credential\":true"),
+        "{body}"
+    );
 
     // A signed request for alice runs under her agent.
     let (status, body) = user_rpc(&client, &base, BEARER, "alice", None, "core.ping");
@@ -353,15 +356,27 @@ fn gateway_requests_run_under_the_named_users_agent() {
         None,
         "openhuman.user_agents_list",
     );
-    assert!(body.get("error").is_some(), "operator methods are not a user's: {body}");
+    assert!(
+        body.get("error").is_some(),
+        "operator methods are not a user's: {body}"
+    );
 
     // Refusals: bad bearer first, then signatures, then provisioning.
     let (status, body) = user_rpc(&client, &base, "wrong-bearer", "alice", None, "core.ping");
     assert_eq!(status, 401, "{body}");
     let (status, body) = user_rpc(&client, &base, "wrong-bearer", "bob", None, "core.ping");
-    assert_eq!(status, 401, "an unauthenticated caller cannot probe users: {body}");
-    let (status, body) =
-        user_rpc(&client, &base, BEARER, "alice", Some("t=1,v1=00"), "core.ping");
+    assert_eq!(
+        status, 401,
+        "an unauthenticated caller cannot probe users: {body}"
+    );
+    let (status, body) = user_rpc(
+        &client,
+        &base,
+        BEARER,
+        "alice",
+        Some("t=1,v1=00"),
+        "core.ping",
+    );
     assert_eq!(status, 401, "{body}");
     let forged = openhuman_core::user_agents::gateway::sign(BEARER, "alice", now());
     let (status, body) = user_rpc(&client, &base, BEARER, "bob", Some(&forged), "core.ping");
