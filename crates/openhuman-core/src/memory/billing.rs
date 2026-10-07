@@ -68,11 +68,11 @@ pub async fn free_period_active(config: &Config) -> bool {
     .await
 }
 
-/// A short, one-way digest of a credential, for a cache key.
+/// A one-way digest of a credential for a cache key: the full SHA-256, so
+/// two accounts never share a key.
 fn digest(secret: &str) -> String {
     sha2::Sha256::digest(secret.as_bytes())
         .iter()
-        .take(8)
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }

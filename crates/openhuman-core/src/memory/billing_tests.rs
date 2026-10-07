@@ -258,3 +258,10 @@ async fn each_account_keeps_its_own_answer() {
         "the second account asked for its own answer"
     );
 }
+
+#[test]
+fn the_cache_key_digest_is_the_full_sha256() {
+    let key = digest("th_account_a");
+    assert_eq!(key.len(), 64, "{key}");
+    assert_ne!(key, digest("th_account_b"));
+}
