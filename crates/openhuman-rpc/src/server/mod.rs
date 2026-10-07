@@ -20,6 +20,7 @@ mod classify;
 mod cli;
 mod dev_connect;
 pub(crate) mod http;
+mod saas_gateway;
 mod serve;
 mod shims;
 mod socketio;
