@@ -1330,6 +1330,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 addInferenceResponse({
                   content: event.full_response,
                   threadId: targetThreadId,
+                  messageId: proactiveMessageId(event),
                   // Stamp the producing turn's request id when present (Phase 4
                   // anchoring); proactive events may omit it, in which case the
                   // message falls back to the legacy single-anchor turn.
