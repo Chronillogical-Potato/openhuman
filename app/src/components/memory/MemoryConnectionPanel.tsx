@@ -1,12 +1,12 @@
-import { ExternalLink, ShieldCheck } from 'lucide-react';
+import { Check, ExternalLink, Gift } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import type { EngineState } from '../../services/api/memoryApi';
 import { TERMS_OF_USE_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
-import { Alert, AlertDescription, Button, Label, ModalShell, TextField } from '../ui';
-import MemoryProviderLogo, { type MemoryProviderOption } from './MemoryProviderLogo';
+import { Alert, AlertDescription, Button, Label, TextField } from '../ui';
+import type { MemoryProviderOption } from './MemoryProviderLogo';
 
 /** CortexDB's self-hosting guide, linked from the Local provider. */
 export const CORTEXDB_SELF_HOST_DOCS_URL = 'https://cortexdb.ai/docs/self-hosting/quickstart';
@@ -38,9 +38,8 @@ const ExternalTextLink = ({
   </a>
 );
 
-export interface MemoryProviderModalProps {
+export interface MemoryConnectionPanelProps {
   option: MemoryProviderOption;
-  title: string;
   description: string;
   state: EngineState;
   /** True when this provider is the configured one. */
@@ -61,17 +60,16 @@ export interface MemoryProviderModalProps {
   /** Whether the footer's primary button can be pressed. */
   canSubmit: boolean;
   onSubmit: () => void;
-  onClose: () => void;
 }
 
 /**
- * Settings for one memory provider: what it is, what it needs (nothing for
- * TinyHumans, a key for Cloud, an endpoint and key for Local), and for
- * TinyHumans the free-ingestion terms.
+ * One way to connect CortexDB, shown under its chip on Memory → Provider: what
+ * it is, what it needs (nothing via TinyHumans, a key for your own account, an
+ * endpoint and key for Local), its action, and via TinyHumans the free
+ * ingestion note with the fair-use terms.
  */
-export default function MemoryProviderModal({
+export default function MemoryConnectionPanel({
   option,
-  title,
   description,
   state,
   active,
@@ -88,8 +86,7 @@ export default function MemoryProviderModal({
   onLocalKey,
   canSubmit,
   onSubmit,
-  onClose,
-}: MemoryProviderModalProps) {
+}: MemoryConnectionPanelProps) {
   const { t } = useT();
   const baseId = useId();
   const formId = `${baseId}-form`;
@@ -127,8 +124,33 @@ export default function MemoryProviderModal({
 
   const builtinBody = (
     <>
-      <p className="text-sm text-content-secondary">{t('memoryPage.engine.builtin.description')}</p>
-      <p className="text-xs text-content-muted">{t('memoryPage.engine.builtin.enrichmentNote')}</p>
+      <p className="text-xs leading-relaxed text-content-secondary">{description}</p>
+      <p
+        className="flex items-center gap-1.5 text-xs text-content-secondary"
+        data-testid="memory-engine-builtin-note">
+        <Gift className="h-3.5 w-3.5 shrink-0 text-primary-500" aria-hidden />
+        {plan === 'BASIC' || plan === 'PRO'
+          ? t('memoryPage.engine.freeIngestion.notePlan').replace(
+              '{plan}',
+              plan === 'PRO' ? 'Pro' : 'Basic'
+            )
+          : t('memoryPage.engine.freeIngestion.noteUpgrade')}
+      </p>
+      <details className="group text-xs" data-testid="memory-engine-fair-use">
+        <summary className="cursor-pointer font-medium text-content-secondary select-none hover:text-content">
+          {t('memoryPage.engine.fairUse.summary')}
+        </summary>
+        <ul className="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed text-content-muted">
+          <li>{t('memoryPage.engine.fairUse.own')}</li>
+          <li>{t('memoryPage.engine.fairUse.noAbuse')}</li>
+          <li>{t('memoryPage.engine.fairUse.limits')}</li>
+        </ul>
+        <p className="mt-1.5">
+          <ExternalTextLink href={TERMS_OF_USE_URL} testId="memory-engine-terms">
+            {t('memoryPage.engine.fairUse.terms')}
+          </ExternalTextLink>
+        </p>
+      </details>
       {/* The backend origin the core resolved, read-only: never a hard-coded
           URL, and only known while TinyHumans is configured. */}
       {active && state.endpoint && (
@@ -144,32 +166,6 @@ export default function MemoryProviderModal({
           {t('memoryPage.engine.builtin.signInHint')}
         </p>
       )}
-      <section
-        className="rounded-lg border border-line bg-surface-muted p-3.5"
-        data-testid="memory-engine-fair-use">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-content">
-          <ShieldCheck className="h-4 w-4 text-primary-500" aria-hidden />
-          {t('memoryPage.engine.freeIngestion.title')}
-        </h3>
-        <p className="mt-1 text-xs leading-relaxed text-content-secondary">
-          {plan === 'BASIC' || plan === 'PRO'
-            ? t('memoryPage.engine.freeIngestion.bodyIncluded').replace(
-                '{plan}',
-                plan === 'PRO' ? 'Pro' : 'Basic'
-              )
-            : t('memoryPage.engine.freeIngestion.bodyUpgrade')}
-        </p>
-        <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-relaxed text-content-muted">
-          <li>{t('memoryPage.engine.fairUse.own')}</li>
-          <li>{t('memoryPage.engine.fairUse.noAbuse')}</li>
-          <li>{t('memoryPage.engine.fairUse.limits')}</li>
-        </ul>
-        <p className="mt-2 text-xs">
-          <ExternalTextLink href={TERMS_OF_USE_URL} testId="memory-engine-terms">
-            {t('memoryPage.engine.fairUse.terms')}
-          </ExternalTextLink>
-        </p>
-      </section>
     </>
   );
 
@@ -181,7 +177,7 @@ export default function MemoryProviderModal({
         event.preventDefault();
         onSubmit();
       }}>
-      <p className="text-sm text-content-secondary">
+      <p className="text-xs leading-relaxed text-content-secondary">
         {t('memoryPage.engine.apiKeyOption.description')}
       </p>
       {keyField(cloudKey, onCloudKey)}
@@ -196,7 +192,7 @@ export default function MemoryProviderModal({
         event.preventDefault();
         onSubmit();
       }}>
-      <ol className="list-decimal space-y-1 pl-4 text-sm text-content-secondary">
+      <ol className="list-decimal space-y-1 pl-4 text-xs leading-relaxed text-content-secondary">
         <li>
           {t('memoryPage.engine.selfHost.step1')}{' '}
           <ExternalTextLink href={CORTEXDB_SELF_HOST_DOCS_URL} testId="memory-engine-selfhost-docs">
@@ -246,45 +242,37 @@ export default function MemoryProviderModal({
           : t('memoryPage.engine.connect');
 
   return (
-    <ModalShell
-      onClose={onClose}
-      title={title}
-      titleId={`${baseId}-title`}
-      subtitle={description}
-      icon={<MemoryProviderLogo option={option} className="h-5 w-5" />}
-      maxWidthClassName="max-w-lg"
-      contentClassName="flex flex-col gap-4 px-5 py-4"
-      testId="memory-engine-modal"
-      footer={
-        <div className="flex w-full items-center justify-end gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            analyticsId="memory-engine-modal-close"
-            data-testid="memory-engine-modal-close"
-            onClick={onClose}>
-            {t('common.close')}
-          </Button>
-          {showSubmit && (
-            <Button
-              size="sm"
-              type={option === 'builtin' ? 'button' : 'submit'}
-              form={option === 'builtin' ? undefined : formId}
-              analyticsId={`memory-engine-${option}-submit`}
-              data-testid={`memory-engine-${option}-submit`}
-              disabled={!canSubmit}
-              onClick={option === 'builtin' ? onSubmit : undefined}>
-              {submitLabel}
-            </Button>
-          )}
-        </div>
-      }>
+    <div
+      className="flex flex-col gap-3"
+      role="tabpanel"
+      data-testid={`memory-engine-panel-${option}`}>
       {option === 'builtin' ? builtinBody : option === 'apikey' ? cloudBody : localBody}
       {error && (
         <Alert variant="destructive" data-testid={`memory-engine-${option}-error`}>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-    </ModalShell>
+      <div className="flex items-center justify-end gap-2">
+        {showSubmit ? (
+          <Button
+            size="sm"
+            type={option === 'builtin' ? 'button' : 'submit'}
+            form={option === 'builtin' ? undefined : formId}
+            analyticsId={`memory-engine-${option}-submit`}
+            data-testid={`memory-engine-${option}-submit`}
+            disabled={!canSubmit}
+            onClick={option === 'builtin' ? onSubmit : undefined}>
+            {submitLabel}
+          </Button>
+        ) : (
+          <span
+            className="inline-flex h-8 items-center gap-1 text-xs font-semibold text-primary-600 dark:text-primary-300"
+            data-testid={`memory-engine-${option}-in-use`}>
+            <Check className="h-4 w-4" aria-hidden />
+            {t('memoryPage.engine.inUse')}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
