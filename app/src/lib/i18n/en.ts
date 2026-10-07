@@ -4696,6 +4696,20 @@ const en: TranslationMap = {
   'skills.detail.author': 'Author',
   'skills.detail.license': 'License',
   'skills.detail.description': 'Description',
+  'skills.detail.overview': 'Overview',
+  'skills.registry.firstFetchHint': 'Loading the skill catalog. The first fetch can take a minute.',
+  'skills.registry.refreshing': 'Showing the saved catalog while a fresh copy loads.',
+  'skills.registry.offline': 'Offline — showing the saved catalog from {time}.',
+  'skills.registry.offlineNoTime': 'Offline — showing the saved catalog.',
+  'skills.registry.unreachable':
+    'Could not reach the skill registry. Check your connection and try again.',
+  'skills.registry.rateLimited': 'The skill registry is busy. Try again in {seconds}s.',
+  'skills.registry.rateLimitedShortly': 'The skill registry is busy. Try again shortly.',
+  'skills.registry.viewSource': 'View source',
+  'skills.registry.noDirectDownload':
+    'This entry has no SKILL.md to download. Open its source page to install it another way.',
+  'skills.registry.upstreamAmbiguous':
+    'More than one author publishes a skill with this name and the catalog does not say which one this is, so it cannot be installed automatically.',
   'skills.run.title': 'Workflow',
   'skills.detail.source': 'Source URL',
   'skills.detail.tags': 'Tags',

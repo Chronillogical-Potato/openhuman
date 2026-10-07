@@ -4072,6 +4072,21 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Автор',
   'skills.detail.license': 'Лицензия',
   'skills.detail.description': 'Описание',
+  'skills.detail.overview': 'Обзор',
+  'skills.registry.firstFetchHint':
+    'Загрузка каталога навыков. Первая загрузка может занять минуту.',
+  'skills.registry.refreshing': 'Показан сохранённый каталог, пока загружается свежая копия.',
+  'skills.registry.offline': 'Нет связи — показан сохранённый каталог от {time}.',
+  'skills.registry.offlineNoTime': 'Нет связи — показан сохранённый каталог.',
+  'skills.registry.unreachable':
+    'Не удалось связаться с реестром навыков. Проверьте подключение и попробуйте снова.',
+  'skills.registry.rateLimited': 'Реестр навыков перегружен. Повторите через {seconds} с.',
+  'skills.registry.rateLimitedShortly': 'Реестр навыков перегружен. Повторите чуть позже.',
+  'skills.registry.viewSource': 'Открыть источник',
+  'skills.registry.noDirectDownload':
+    'У этой записи нет SKILL.md для загрузки. Откройте страницу источника, чтобы установить её другим способом.',
+  'skills.registry.upstreamAmbiguous':
+    'Навык с таким названием публикуют несколько авторов, а каталог не уточняет, какой из них имеется в виду, поэтому его нельзя установить автоматически.',
   'skills.detail.source': 'URL источника',
   'skills.detail.tags': 'Теги',
   'skills.detail.version': 'Версия',

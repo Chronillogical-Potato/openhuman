@@ -4115,6 +4115,24 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Auteur',
   'skills.detail.license': 'Licence',
   'skills.detail.description': 'Description',
+  'skills.detail.overview': 'Aperçu',
+  'skills.registry.firstFetchHint':
+    'Chargement du catalogue de compétences. Le premier téléchargement peut prendre une minute.',
+  'skills.registry.refreshing':
+    'Affichage du catalogue enregistré pendant le chargement d’une copie à jour.',
+  'skills.registry.offline': 'Hors ligne — affichage du catalogue enregistré du {time}.',
+  'skills.registry.offlineNoTime': 'Hors ligne — affichage du catalogue enregistré.',
+  'skills.registry.unreachable':
+    'Impossible de joindre le registre de compétences. Vérifiez votre connexion et réessayez.',
+  'skills.registry.rateLimited':
+    'Le registre de compétences est surchargé. Réessayez dans {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'Le registre de compétences est surchargé. Réessayez dans un instant.',
+  'skills.registry.viewSource': 'Voir la source',
+  'skills.registry.noDirectDownload':
+    'Cette entrée n’a pas de SKILL.md à télécharger. Ouvrez sa page source pour l’installer autrement.',
+  'skills.registry.upstreamAmbiguous':
+    'Plusieurs auteurs publient une compétence sous ce nom et le catalogue ne précise pas laquelle, elle ne peut donc pas être installée automatiquement.',
   'skills.detail.source': 'URL source',
   'skills.detail.tags': 'Étiquettes',
   'skills.detail.version': 'Version',

@@ -4083,6 +4083,23 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Autor',
   'skills.detail.license': 'Licencja',
   'skills.detail.description': 'Opis',
+  'skills.detail.overview': 'Przegląd',
+  'skills.registry.firstFetchHint':
+    'Wczytywanie katalogu umiejętności. Pierwsze pobranie może potrwać minutę.',
+  'skills.registry.refreshing': 'Wyświetlany jest zapisany katalog, gdy wczytuje się świeża kopia.',
+  'skills.registry.offline': 'Offline — wyświetlany jest zapisany katalog z {time}.',
+  'skills.registry.offlineNoTime': 'Offline — wyświetlany jest zapisany katalog.',
+  'skills.registry.unreachable':
+    'Nie udało się połączyć z rejestrem umiejętności. Sprawdź połączenie i spróbuj ponownie.',
+  'skills.registry.rateLimited':
+    'Rejestr umiejętności jest przeciążony. Spróbuj ponownie za {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'Rejestr umiejętności jest przeciążony. Spróbuj ponownie za chwilę.',
+  'skills.registry.viewSource': 'Zobacz źródło',
+  'skills.registry.noDirectDownload':
+    'Ten wpis nie ma pliku SKILL.md do pobrania. Otwórz jego stronę źródłową, aby zainstalować go w inny sposób.',
+  'skills.registry.upstreamAmbiguous':
+    'Kilku autorów publikuje umiejętność o tej nazwie, a katalog nie wskazuje, o którą chodzi, więc nie można jej zainstalować automatycznie.',
   'skills.detail.source': 'URL źródła',
   'skills.detail.tags': 'Tagi',
   'skills.detail.version': 'Wersja',

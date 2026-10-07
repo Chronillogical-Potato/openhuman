@@ -4411,6 +4411,20 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Yazar',
   'skills.detail.license': 'Lisans',
   'skills.detail.description': 'Açıklama',
+  'skills.detail.overview': 'Genel bakış',
+  'skills.registry.firstFetchHint': 'Beceri kataloğu yükleniyor. İlk indirme bir dakika sürebilir.',
+  'skills.registry.refreshing': 'Güncel kopya yüklenirken kayıtlı katalog gösteriliyor.',
+  'skills.registry.offline': 'Çevrimdışı — {time} tarihli kayıtlı katalog gösteriliyor.',
+  'skills.registry.offlineNoTime': 'Çevrimdışı — kayıtlı katalog gösteriliyor.',
+  'skills.registry.unreachable':
+    'Beceri kayıt defterine ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.',
+  'skills.registry.rateLimited': 'Beceri kayıt defteri meşgul. {seconds} sn sonra tekrar deneyin.',
+  'skills.registry.rateLimitedShortly': 'Beceri kayıt defteri meşgul. Birazdan tekrar deneyin.',
+  'skills.registry.viewSource': 'Kaynağı görüntüle',
+  'skills.registry.noDirectDownload':
+    'Bu girdinin indirilecek bir SKILL.md dosyası yok. Başka bir yolla yüklemek için kaynak sayfasını açın.',
+  'skills.registry.upstreamAmbiguous':
+    'Bu adla birden fazla yazar beceri yayımlıyor ve katalog hangisi olduğunu belirtmiyor, bu yüzden otomatik olarak yüklenemiyor.',
   'skills.run.title': 'İş akışı',
   'skills.detail.source': "Kaynak URL'si",
   'skills.detail.tags': 'Etiketler',

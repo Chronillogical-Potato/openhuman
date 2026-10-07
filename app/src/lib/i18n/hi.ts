@@ -4035,6 +4035,21 @@ const messages: TranslationMap = {
   'skills.detail.author': 'लेखक',
   'skills.detail.license': 'लाइसेंस',
   'skills.detail.description': 'विवरण',
+  'skills.detail.overview': 'सारांश',
+  'skills.registry.firstFetchHint':
+    'स्किल कैटलॉग लोड हो रहा है। पहली बार लाने में एक मिनट लग सकता है।',
+  'skills.registry.refreshing': 'नई कॉपी लोड होने तक सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offline': 'ऑफ़लाइन — {time} का सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.offlineNoTime': 'ऑफ़लाइन — सहेजा गया कैटलॉग दिखाया जा रहा है।',
+  'skills.registry.unreachable':
+    'स्किल रजिस्ट्री तक नहीं पहुँच सके। अपना कनेक्शन जाँचें और फिर कोशिश करें।',
+  'skills.registry.rateLimited': 'स्किल रजिस्ट्री व्यस्त है। {seconds} सेकंड बाद फिर कोशिश करें।',
+  'skills.registry.rateLimitedShortly': 'स्किल रजिस्ट्री व्यस्त है। थोड़ी देर में फिर कोशिश करें।',
+  'skills.registry.viewSource': 'स्रोत देखें',
+  'skills.registry.noDirectDownload':
+    'इस प्रविष्टि में डाउनलोड करने के लिए कोई SKILL.md नहीं है। इसे दूसरे तरीके से इंस्टॉल करने के लिए इसका स्रोत पेज खोलें।',
+  'skills.registry.upstreamAmbiguous':
+    'इस नाम से एक से ज़्यादा लेखक स्किल प्रकाशित करते हैं और कैटलॉग यह नहीं बताता कि यह कौन-सी है, इसलिए इसे अपने आप इंस्टॉल नहीं किया जा सकता।',
   'skills.detail.source': 'स्रोत URL',
   'skills.detail.tags': 'टैग्स',
   'skills.detail.version': 'संस्करण',

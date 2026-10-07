@@ -4032,6 +4032,20 @@ const messages: TranslationMap = {
   'skills.detail.author': 'লেখক',
   'skills.detail.license': 'লাইসেন্স',
   'skills.detail.description': 'বিবরণ',
+  'skills.detail.overview': 'সংক্ষিপ্ত বিবরণ',
+  'skills.registry.firstFetchHint': 'স্কিল ক্যাটালগ লোড হচ্ছে। প্রথমবার আনতে এক মিনিট লাগতে পারে।',
+  'skills.registry.refreshing': 'নতুন কপি লোড হওয়া পর্যন্ত সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
+  'skills.registry.offline': 'অফলাইন — {time}-এর সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
+  'skills.registry.offlineNoTime': 'অফলাইন — সংরক্ষিত ক্যাটালগ দেখানো হচ্ছে।',
+  'skills.registry.unreachable':
+    'স্কিল রেজিস্ট্রিতে পৌঁছানো যায়নি। সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।',
+  'skills.registry.rateLimited': 'স্কিল রেজিস্ট্রি ব্যস্ত। {seconds} সেকেন্ড পরে আবার চেষ্টা করুন।',
+  'skills.registry.rateLimitedShortly': 'স্কিল রেজিস্ট্রি ব্যস্ত। একটু পরে আবার চেষ্টা করুন।',
+  'skills.registry.viewSource': 'উৎস দেখুন',
+  'skills.registry.noDirectDownload':
+    'এই এন্ট্রিতে ডাউনলোড করার মতো কোনো SKILL.md নেই। অন্যভাবে ইনস্টল করতে এর উৎস পৃষ্ঠা খুলুন।',
+  'skills.registry.upstreamAmbiguous':
+    'এই নামে একাধিক লেখক স্কিল প্রকাশ করেন এবং ক্যাটালগ বলে না এটি কোনটি, তাই এটি স্বয়ংক্রিয়ভাবে ইনস্টল করা যাবে না।',
   'skills.detail.source': 'উৎস URL',
   'skills.detail.tags': 'ট্যাগ',
   'skills.detail.version': 'সংস্করণ',

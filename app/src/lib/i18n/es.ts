@@ -4100,6 +4100,23 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Autor',
   'skills.detail.license': 'Licencia',
   'skills.detail.description': 'Descripción',
+  'skills.detail.overview': 'Resumen',
+  'skills.registry.firstFetchHint':
+    'Cargando el catálogo de habilidades. La primera descarga puede tardar un minuto.',
+  'skills.registry.refreshing': 'Mostrando el catálogo guardado mientras se carga una copia nueva.',
+  'skills.registry.offline': 'Sin conexión: mostrando el catálogo guardado del {time}.',
+  'skills.registry.offlineNoTime': 'Sin conexión: mostrando el catálogo guardado.',
+  'skills.registry.unreachable':
+    'No se pudo conectar con el registro de habilidades. Revisa tu conexión e inténtalo de nuevo.',
+  'skills.registry.rateLimited':
+    'El registro de habilidades está ocupado. Inténtalo de nuevo en {seconds} s.',
+  'skills.registry.rateLimitedShortly':
+    'El registro de habilidades está ocupado. Inténtalo de nuevo en un momento.',
+  'skills.registry.viewSource': 'Ver origen',
+  'skills.registry.noDirectDownload':
+    'Esta entrada no tiene un SKILL.md para descargar. Abre su página de origen para instalarla de otra forma.',
+  'skills.registry.upstreamAmbiguous':
+    'Varios autores publican una habilidad con este nombre y el catálogo no indica cuál es, así que no se puede instalar automáticamente.',
   'skills.detail.source': 'URL de origen',
   'skills.detail.tags': 'Etiquetas',
   'skills.detail.version': 'Versión',

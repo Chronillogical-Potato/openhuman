@@ -4060,6 +4060,21 @@ const messages: TranslationMap = {
   'skills.detail.author': 'Penulis',
   'skills.detail.license': 'Lisensi',
   'skills.detail.description': 'Deskripsi',
+  'skills.detail.overview': 'Ringkasan',
+  'skills.registry.firstFetchHint':
+    'Memuat katalog skill. Pengambilan pertama bisa memakan waktu satu menit.',
+  'skills.registry.refreshing': 'Menampilkan katalog tersimpan sementara salinan baru dimuat.',
+  'skills.registry.offline': 'Offline — menampilkan katalog tersimpan dari {time}.',
+  'skills.registry.offlineNoTime': 'Offline — menampilkan katalog tersimpan.',
+  'skills.registry.unreachable':
+    'Tidak dapat menjangkau registri skill. Periksa koneksi Anda lalu coba lagi.',
+  'skills.registry.rateLimited': 'Registri skill sedang sibuk. Coba lagi dalam {seconds} dtk.',
+  'skills.registry.rateLimitedShortly': 'Registri skill sedang sibuk. Coba lagi sebentar lagi.',
+  'skills.registry.viewSource': 'Lihat sumber',
+  'skills.registry.noDirectDownload':
+    'Entri ini tidak memiliki SKILL.md untuk diunduh. Buka halaman sumbernya untuk memasangnya dengan cara lain.',
+  'skills.registry.upstreamAmbiguous':
+    'Lebih dari satu penulis menerbitkan skill dengan nama ini dan katalog tidak menyebutkan yang mana, sehingga tidak dapat dipasang otomatis.',
   'skills.detail.source': 'URL Sumber',
   'skills.detail.tags': 'Tag',
   'skills.detail.version': 'Versi',
