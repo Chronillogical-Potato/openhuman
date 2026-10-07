@@ -457,14 +457,23 @@ const Conversations = ({
   // so it applies immediately, and written to the core's
   // `runtime.reasoning_effort` so it survives a restart and is the default for
   // turns the composer does not start — the same split as the model pick.
-  const [composerReasoningEffort, setComposerReasoningEffort] =
+  const [defaultReasoningEffort, setDefaultReasoningEffort] =
     useState<ReasoningEffortChoice>('default');
+  const [reasoningEffortByModel, setReasoningEffortByModel] = useState<Record<string, string>>({});
+  const [configuredDefaultModel, setConfiguredDefaultModel] = useState<string | null>(null);
+  const reasoningEffortModel = composerModelOverride ?? resolvedModel ?? configuredDefaultModel;
+  const composerReasoningEffort = toReasoningEffortChoice(
+    (reasoningEffortModel ? reasoningEffortByModel[reasoningEffortModel] : undefined) ??
+      defaultReasoningEffort
+  );
   useEffect(() => {
     let cancelled = false;
     void openhumanGetClientConfig()
       .then(res => {
         if (!cancelled) {
-          setComposerReasoningEffort(toReasoningEffortChoice(res.result?.reasoning_effort));
+          setDefaultReasoningEffort(toReasoningEffortChoice(res.result?.reasoning_effort));
+          setReasoningEffortByModel(res.result?.reasoning_effort_by_model ?? {});
+          setConfiguredDefaultModel(res.result?.default_model || null);
         }
       })
       .catch((err: unknown) => {
@@ -476,19 +485,35 @@ const Conversations = ({
       cancelled = true;
     };
   }, []);
-  const applyComposerReasoningEffort = useCallback((value: ReasoningEffortChoice) => {
-    setComposerReasoningEffort(value);
-    void openhumanUpdateRuntimeSettings({ reasoning_effort: value === 'default' ? '' : value })
-      .then(() => {
-        console.debug('[chat][composer-reasoning] persisted reasoning_effort', { effort: value });
-      })
-      .catch((err: unknown) => {
-        // The per-send value still applies; only persistence failed.
-        console.warn('[chat][composer-reasoning] failed to persist reasoning_effort', {
-          message: err instanceof Error ? err.message : String(err),
+  const applyComposerReasoningEffort = useCallback(
+    (value: ReasoningEffortChoice) => {
+      const model = composerModelOverride ?? resolvedModel ?? configuredDefaultModel;
+      if (model) {
+        setReasoningEffortByModel(previous => {
+          const next = { ...previous };
+          if (value === 'default') delete next[model];
+          else next[model] = value;
+          return next;
         });
-      });
-  }, []);
+      } else {
+        setDefaultReasoningEffort(value);
+      }
+      void openhumanUpdateRuntimeSettings({
+        reasoning_effort: value === 'default' ? '' : value,
+        ...(model ? { reasoning_effort_model: model } : {}),
+      })
+        .then(() => {
+          console.debug('[chat][composer-reasoning] persisted reasoning_effort', { effort: value });
+        })
+        .catch((err: unknown) => {
+          // The per-send value still applies; only persistence failed.
+          console.warn('[chat][composer-reasoning] failed to persist reasoning_effort', {
+            message: err instanceof Error ? err.message : String(err),
+          });
+        });
+    },
+    [composerModelOverride, configuredDefaultModel, resolvedModel]
+  );
   const applyComposerModel = useCallback((value: string | null, contextWindow?: number | null) => {
     setComposerModelOverride(value);
     setComposerModelContextWindow(contextWindow ?? null);
@@ -1396,6 +1421,17 @@ const Conversations = ({
     true
   );
 
+  const restoreLastUserPrompt = useCallback(() => {
+    // Hidden system/injected messages are excluded to match the visible transcript.
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find(m => m.sender === 'user' && !m.extraMetadata?.hidden);
+    const restored = lastUserMessage ? parseMessageImages(lastUserMessage.content ?? '').text : '';
+    if (!restored.length) return false;
+    setInputValue(restored);
+    return true;
+  }, [messages]);
+
   const handleComposerEscape = useCallback(() => {
     if (!selectedThreadActive) return;
     const composerEmpty = inputValue.trim().length === 0;
@@ -1405,21 +1441,16 @@ const Conversations = ({
       composerEmpty
     );
     handleStopGeneration();
-    if (composerEmpty) {
-      // Restore the last *visible* user prompt (hidden system/injected
-      // messages are excluded here to match how the transcript is rendered).
-      const lastUserMessage = [...messages]
-        .reverse()
-        .find(m => m.sender === 'user' && !m.extraMetadata?.hidden);
-      const restored = lastUserMessage
-        ? parseMessageImages(lastUserMessage.content ?? '').text
-        : '';
-      if (restored.length > 0) {
-        debug('[chat] esc interrupt: restored prompt len=%d', restored.length);
-        setInputValue(restored);
-      }
+    if (composerEmpty && restoreLastUserPrompt()) {
+      debug('[chat] esc interrupt: restored the last visible prompt');
     }
-  }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
+  }, [
+    handleStopGeneration,
+    inputValue,
+    restoreLastUserPrompt,
+    selectedThreadActive,
+    selectedThreadId,
+  ]);
 
   // The transcript itself renders from the assistant-ui runtime
   // (`AssistantUiChat`). What remains here is what the composer footer and the
@@ -2008,6 +2039,8 @@ const Conversations = ({
         composerHeader={assistantComposerHeader}
         composerFooterExtras={assistantComposerFooterExtras}
         composerReplacement={voiceComposer}
+        composerPlaceholder={isSending ? t('composer.placeholder.running') : undefined}
+        onRecallLastPrompt={restoreLastUserPrompt}
         inputValue={inputValue}
         onInputValueChange={setInputValue}
         onEscape={handleComposerEscape}
