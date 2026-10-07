@@ -5590,7 +5590,7 @@ const en: TranslationMap = {
   'memoryPage.migrate.body':
     'Memory saved before this update is still in the old shared layout. It moves on its own in the background while moving is free, or you can move it now.',
   'memoryPage.migrate.action': 'Migrate now',
-  'memoryPage.migrate.running': 'Moving memory…',
+  'memoryPage.migrate.running': 'Organizing your memory…',
   'memoryPage.migrate.progress': '{copied} items moved',
   'memoryPage.migrate.progressOne': '{copied} item moved',
   'memoryPage.migrate.paused': 'Move paused',

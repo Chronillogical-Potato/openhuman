@@ -123,13 +123,18 @@ impl Drop for RunGuard {
 }
 
 /// Starts a run in the background. Returns `false`, starting nothing, when
-/// one is already running for this workspace.
+/// one is already running for this workspace, or while an import of old
+/// local memory is unfinished (import first, then reorganise).
 pub fn start(
     config: Config,
     host: Arc<dyn LayoutHost>,
     trigger: Trigger,
     paused: Arc<dyn Fn() -> bool + Send + Sync>,
 ) -> bool {
+    if crate::memory::import::in_progress(&config) {
+        tracing::info!("[memory:layout_migration] waiting for the import to finish");
+        return false;
+    }
     let workspace = config.workspace_dir.clone();
     if !RUNNING
         .lock()

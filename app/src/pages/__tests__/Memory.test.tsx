@@ -41,9 +41,6 @@ vi.mock('../../components/memory/MemoryBackgroundTab', () => ({
 vi.mock('../../components/memory/MemorySettingsTab', () => ({
   default: () => <div data-testid="stub-settings" />,
 }));
-vi.mock('../../components/memory/MemoryMigrationBanner', () => ({
-  default: () => <div data-testid="stub-migration" />,
-}));
 vi.mock('../../components/memory/MemoryImportBanner', () => ({
   default: ({ engineLabel }: { engineLabel: string }) => (
     <div data-testid="stub-import">{engineLabel}</div>

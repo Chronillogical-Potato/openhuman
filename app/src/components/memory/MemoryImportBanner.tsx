@@ -1,14 +1,19 @@
 /**
- * "Import previous memory": when `memory_import_scan` finds data from the old
- * local memory, offer to upload it to the selected engine. Nothing leaves the
- * device without the consent dialog's explicit confirmation, which is the only
- * caller of `memory_import_start({consent: true})`. Progress is then polled
- * from `memory_import_status` until the import finishes or fails.
+ * One memory banner, one flow: (1) import the old local memory, then
+ * (2) organize CortexDB memory into the per-user tree.
  *
- * debug logging: DEBUG=openhuman:memory:import
+ * Step 1: when `memory_import_scan` finds old local memory, offer to upload
+ * it. Nothing leaves the device without the consent dialog's confirmation,
+ * the only caller of `memory_import_start({consent: true})`.
+ * Step 2: once the import is done, the move starts on its own (the core
+ * refuses it while an import is unfinished). With no import, it is offered
+ * ("Migrate now") or runs in the background while free. A legacy tree other
+ * accounts may share (self-hosted) is only taken after the takeover dialog.
+ *
+ * debug logging: DEBUG=openhuman:memory:import, DEBUG=openhuman:memory:migration
  */
 import debug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import {
@@ -19,15 +24,26 @@ import {
   memoryImportScan,
   memoryImportStart,
   memoryImportStatus,
+  memoryMigrationRetry,
+  memoryMigrationScan,
+  memoryMigrationStart,
+  memoryMigrationStatus,
+  type MigrationScan,
+  type MigrationStatus,
 } from '../../services/api/memoryApi';
 import { Alert, AlertDescription, AlertTitle, Button, ConfirmDialog, Progress } from '../ui';
 import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill } from './memoryFormat';
 
 const log = debug('openhuman:memory:import');
+const mlog = debug('openhuman:memory:migration');
 
 /** How often a running import is polled. */
 export const IMPORT_POLL_MS = 1_500;
+/** How often a running move is polled. */
+export const MIGRATION_POLL_MS = 2_000;
+/** How often an offered move is polled, to notice the background job start it. */
+export const MIGRATION_IDLE_POLL_MS = 15_000;
 
 interface MemoryImportBannerProps {
   /** Label of the engine the data would be uploaded to. */
@@ -111,8 +127,111 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     }
   };
 
-  const showOffer = scan?.found && (!state || state.phase === 'idle');
-  if (!showOffer && !state) return null;
+  // ── Step 2: organize (the layout migration) ──
+  const [mScan, setMScan] = useState<MigrationScan | null>(null);
+  const [mStatus, setMStatus] = useState<MigrationStatus | null>(null);
+  const [takeoverOpen, setTakeoverOpen] = useState(false);
+  const [mBusy, setMBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([memoryMigrationScan(), memoryMigrationStatus().catch(() => null)])
+      .then(([found, current]) => {
+        if (cancelled) return;
+        mlog('scan: needed=%s shared=%s', found?.needed, found?.shared);
+        setMScan(found ?? null);
+        setMStatus(current ?? null);
+      })
+      .catch(err => mlog('scan failed: %o', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const wasMoving = useRef(false);
+  const mPoll = useCallback(async () => {
+    try {
+      const next = await memoryMigrationStatus();
+      setMStatus(next);
+      // A run just ended: whether anything is still left to move changed.
+      if (wasMoving.current && !next.running) setMScan(await memoryMigrationScan());
+      wasMoving.current = next.running;
+    } catch (err) {
+      mlog('status failed: %o', err);
+      setError(memoryErrorMessage(err, t));
+    }
+  }, [t]);
+
+  const moving = mStatus?.running ?? false;
+  const moveOffered = mScan?.needed ?? false;
+  useEffect(() => {
+    wasMoving.current = moving;
+  }, [moving]);
+  useEffect(() => {
+    if (!moving && !moveOffered) return;
+    const timer = setInterval(
+      () => void mPoll(),
+      moving ? MIGRATION_POLL_MS : MIGRATION_IDLE_POLL_MS
+    );
+    return () => clearInterval(timer);
+  }, [moving, moveOffered, mPoll]);
+
+  const startMove = useCallback(
+    async (takeover: boolean) => {
+      setMBusy(true);
+      setError(null);
+      try {
+        const next = await memoryMigrationStart(takeover);
+        mlog('start: takeover=%s phase=%s running=%s', takeover, next.state.phase, next.running);
+        setMStatus(next);
+      } catch (err) {
+        mlog('start failed: %o', err);
+        setError(memoryErrorMessage(err, t));
+      } finally {
+        setMBusy(false);
+        setTakeoverOpen(false);
+      }
+    },
+    [t]
+  );
+
+  const retryMove = async () => {
+    setMBusy(true);
+    setError(null);
+    try {
+      await memoryMigrationRetry();
+      setMStatus(await memoryMigrationStart(false));
+    } catch (err) {
+      mlog('retry failed: %o', err);
+      setError(memoryErrorMessage(err, t));
+    } finally {
+      setMBusy(false);
+    }
+  };
+
+  // The import finished: organize next, without asking again. Once per mount,
+  // so a start the core declines does not loop. A shared tree still asks.
+  const importDone = state?.phase === 'done';
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!importDone || !moveOffered || moving || mScan?.shared || autoStarted.current) return;
+    autoStarted.current = true;
+    mlog('import done; organizing next');
+    void startMove(false);
+  }, [importDone, moveOffered, moving, mScan?.shared, startMove]);
+
+  const mState = mStatus?.state;
+  const left = (mState?.failures?.length ?? 0) + (mState?.incomplete?.length ?? 0);
+  const cleaned = mState?.phase === 'cleaned';
+  const importBusy = state?.phase === 'running' || state?.phase === 'error';
+  const importPending = scan?.found && (!state || state.phase === 'idle');
+  // Step 2 shows only once step 1 is out of the way.
+  const showMove =
+    !importBusy && !importPending && (moving || moveOffered || (cleaned && left > 0));
+  const paused = !moving && (mState?.phase === 'paused' || mStatus?.interrupted);
+
+  const showOffer = importPending;
+  if (!showOffer && !state && !showMove) return null;
 
   const counts = scan?.counts ?? { documents: 0, conversations: 0, learnings: 0 };
   const countsText = fill(t('memoryPage.import.counts'), {
@@ -144,7 +263,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         </Alert>
       )}
 
-      {state && state.phase !== 'idle' && (
+      {state && state.phase !== 'idle' && !(importDone && showMove) && (
         <Alert
           variant={
             state.phase === 'error' ? 'destructive' : state.phase === 'done' ? 'success' : 'info'
@@ -206,8 +325,97 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
         </Alert>
       )}
 
+      {showMove && (
+        <div data-testid="memory-migration-banner">
+          {moving ? (
+            <Alert variant="info" data-testid="memory-migration-running">
+              <div className="w-full space-y-1">
+                <AlertTitle>{t('memoryPage.migrate.running')}</AlertTitle>
+                <AlertDescription>
+                  {fill(
+                    t(
+                      mState?.copied === 1
+                        ? 'memoryPage.migrate.progressOne'
+                        : 'memoryPage.migrate.progress'
+                    ),
+                    { copied: mState?.copied ?? 0 }
+                  )}
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : cleaned ? (
+            <Alert variant="warning" data-testid="memory-migration-left">
+              <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <AlertTitle>
+                    {fill(
+                      t(
+                        left === 1
+                          ? 'memoryPage.migrate.leftTitleOne'
+                          : 'memoryPage.migrate.leftTitle'
+                      ),
+                      { count: left }
+                    )}
+                  </AlertTitle>
+                  <AlertDescription>{t('memoryPage.migrate.leftBody')}</AlertDescription>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  disabled={mBusy}
+                  data-testid="memory-migration-retry"
+                  onClick={() => void retryMove()}>
+                  {t('memoryPage.migrate.retry')}
+                </Button>
+              </div>
+            </Alert>
+          ) : (
+            <Alert
+              variant="info"
+              data-testid={paused ? 'memory-migration-paused' : 'memory-migration-offer'}>
+              <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <AlertTitle>
+                    {paused ? t('memoryPage.migrate.paused') : t('memoryPage.migrate.title')}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {paused && mState?.error ? mState.error : t('memoryPage.migrate.body')}
+                  </AlertDescription>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  disabled={mBusy}
+                  data-testid="memory-migration-start"
+                  onClick={() => (mScan?.shared ? setTakeoverOpen(true) : void startMove(false))}>
+                  {paused ? t('memoryPage.migrate.resume') : t('memoryPage.migrate.action')}
+                </Button>
+              </div>
+            </Alert>
+          )}
+        </div>
+      )}
+
       {error !== null && (
         <MemoryErrorAlert message={error} className="mt-3" data-testid="memory-import-error" />
+      )}
+
+      {takeoverOpen && (
+        <ConfirmDialog
+          title={t('memoryPage.migrate.takeoverTitle')}
+          testId="memory-migration-takeover"
+          confirmTestId="memory-migration-takeover-confirm"
+          cancelTestId="memory-migration-takeover-cancel"
+          busy={mBusy}
+          confirmLabel={t('memoryPage.migrate.takeoverConfirm')}
+          body={
+            <p className="text-sm text-content-secondary">{t('memoryPage.migrate.takeoverBody')}</p>
+          }
+          onConfirm={() => void startMove(true)}
+          onCancel={() => setTakeoverOpen(false)}
+        />
       )}
 
       {consentOpen && (

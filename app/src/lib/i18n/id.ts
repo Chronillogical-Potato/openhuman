@@ -5356,7 +5356,7 @@ const messages: TranslationMap = {
   'memoryPage.migrate.body':
     'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang selama pemindahan gratis, atau Anda bisa memindahkannya sekarang.',
   'memoryPage.migrate.action': 'Migrasikan sekarang',
-  'memoryPage.migrate.running': 'Memindahkan memori…',
+  'memoryPage.migrate.running': 'Menata memori Anda…',
   'memoryPage.migrate.progress': '{copied} item dipindahkan',
   'memoryPage.migrate.progressOne': '{copied} item dipindahkan',
   'memoryPage.migrate.paused': 'Pemindahan dijeda',

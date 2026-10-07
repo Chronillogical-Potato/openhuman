@@ -5462,7 +5462,7 @@ const messages: TranslationMap = {
   'memoryPage.migrate.body':
     'Vor diesem Update gespeicherte Erinnerungen liegen noch im alten gemeinsamen Layout. Sie werden im Hintergrund automatisch verschoben, solange das Verschieben kostenlos ist, oder du verschiebst sie jetzt.',
   'memoryPage.migrate.action': 'Jetzt migrieren',
-  'memoryPage.migrate.running': 'Erinnerungen werden verschoben…',
+  'memoryPage.migrate.running': 'Dein Gedächtnis wird geordnet…',
   'memoryPage.migrate.progress': '{copied} Einträge verschoben',
   'memoryPage.migrate.progressOne': '{copied} Eintrag verschoben',
   'memoryPage.migrate.paused': 'Verschieben pausiert',

@@ -9,6 +9,10 @@ const hoisted = vi.hoisted(() => ({
   start: vi.fn(),
   status: vi.fn(),
   retry: vi.fn(),
+  mScan: vi.fn(),
+  mStart: vi.fn(),
+  mStatus: vi.fn(),
+  mRetry: vi.fn(),
 }));
 
 vi.mock('../../services/api/memoryApi', async importOriginal => ({
@@ -17,7 +21,18 @@ vi.mock('../../services/api/memoryApi', async importOriginal => ({
   memoryImportStart: (...a: unknown[]) => hoisted.start(...a),
   memoryImportStatus: (...a: unknown[]) => hoisted.status(...a),
   memoryImportRetryFailed: (...a: unknown[]) => hoisted.retry(...a),
+  memoryMigrationScan: (...a: unknown[]) => hoisted.mScan(...a),
+  memoryMigrationStart: (...a: unknown[]) => hoisted.mStart(...a),
+  memoryMigrationStatus: (...a: unknown[]) => hoisted.mStatus(...a),
+  memoryMigrationRetry: (...a: unknown[]) => hoisted.mRetry(...a),
 }));
+
+const moving = (copied: number) => ({
+  state: { phase: 'copying', copied },
+  running: true,
+  interrupted: false,
+});
+const MOVE_IDLE = { state: { phase: 'idle', copied: 0 }, running: false, interrupted: false };
 
 const IDLE = { state: { phase: 'idle', imported: 0, total: 0 } };
 const FOUND = { found: true, counts: { documents: 3, conversations: 5, learnings: 2 } };
@@ -27,6 +42,10 @@ beforeEach(() => {
   hoisted.status.mockReset().mockResolvedValue(IDLE);
   hoisted.start.mockReset();
   hoisted.retry.mockReset();
+  hoisted.mScan.mockReset().mockResolvedValue({ needed: false, shared: false });
+  hoisted.mStatus.mockReset().mockResolvedValue(MOVE_IDLE);
+  hoisted.mStart.mockReset().mockResolvedValue(moving(4));
+  hoisted.mRetry.mockReset();
 });
 
 afterEach(() => {
@@ -171,5 +190,35 @@ describe('MemoryImportBanner', () => {
     fireEvent.click(await screen.findByTestId('memory-import-open'));
     fireEvent.click(screen.getByTestId('memory-import-confirm'));
     expect(await screen.findByTestId('memory-import-error')).toHaveTextContent('sign in again');
+  });
+
+  it('organizes on its own once the import is done, in the same banner', async () => {
+    hoisted.status.mockResolvedValue({ state: { phase: 'done', imported: 9, total: 9 } });
+    hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(false));
+    expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('4');
+    expect(screen.queryByTestId('memory-import-done')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('memory-migration-start')).not.toBeInTheDocument();
+  });
+
+  it('does not organize while the import is still running', async () => {
+    hoisted.status.mockResolvedValue({ state: { phase: 'running', imported: 1, total: 9 } });
+    hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-import-running')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-migration-banner')).not.toBeInTheDocument();
+    expect(hoisted.mStart).not.toHaveBeenCalled();
+  });
+
+  it('takes a shared tree only after the takeover is confirmed', async () => {
+    hoisted.scan.mockResolvedValue({ found: false });
+    hoisted.mScan.mockResolvedValue({ needed: true, shared: true });
+    renderWithProviders(<MemoryImportBanner engineLabel="CortexDB" />);
+    fireEvent.click(await screen.findByTestId('memory-migration-start'));
+    expect(await screen.findByTestId('memory-migration-takeover')).toBeInTheDocument();
+    expect(hoisted.mStart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('memory-migration-takeover-confirm'));
+    await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(true));
   });
 });

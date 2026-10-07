@@ -5606,7 +5606,7 @@ const messages: TranslationMap = {
   'memoryPage.migrate.body':
     'このアップデート以前に保存されたメモリは、まだ以前の共有レイアウトにあります。移動が無料の間はバックグラウンドで自動的に移動されますが、今すぐ移動することもできます。',
   'memoryPage.migrate.action': '今すぐ移行',
-  'memoryPage.migrate.running': 'メモリを移動しています…',
+  'memoryPage.migrate.running': 'メモリを整理しています…',
   'memoryPage.migrate.progress': '{copied} 件を移動しました',
   'memoryPage.migrate.progressOne': '{copied} 件を移動しました',
   'memoryPage.migrate.paused': '移動を一時停止中',

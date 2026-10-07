@@ -5214,7 +5214,7 @@ const messages: TranslationMap = {
   'memoryPage.migrate.body':
     'الذاكرة المحفوظة قبل هذا التحديث لا تزال في التخطيط المشترك القديم. تُنقل تلقائيًا في الخلفية عندما يكون النقل مجانيًا، أو يمكنك نقلها الآن.',
   'memoryPage.migrate.action': 'انقل الآن',
-  'memoryPage.migrate.running': 'جارٍ نقل الذاكرة…',
+  'memoryPage.migrate.running': 'جارٍ تنظيم ذاكرتك…',
   'memoryPage.migrate.progress': 'تم نقل {copied} عنصر',
   'memoryPage.migrate.progressOne': 'تم نقل عنصر واحد ({copied})',
   'memoryPage.migrate.paused': 'توقف النقل مؤقتًا',

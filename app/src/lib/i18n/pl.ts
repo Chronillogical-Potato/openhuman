@@ -5384,7 +5384,7 @@ const messages: TranslationMap = {
   'memoryPage.migrate.body':
     'Pamięć zapisana przed tą aktualizacją wciąż znajduje się w starym wspólnym układzie. Jest przenoszona automatycznie w tle, dopóki przenoszenie jest bezpłatne, albo możesz przenieść ją teraz.',
   'memoryPage.migrate.action': 'Migruj teraz',
-  'memoryPage.migrate.running': 'Przenoszenie pamięci…',
+  'memoryPage.migrate.running': 'Porządkowanie Twojej pamięci…',
   'memoryPage.migrate.progress': 'Przeniesiono elementy: {copied}',
   'memoryPage.migrate.progressOne': 'Przeniesiono {copied} element',
   'memoryPage.migrate.paused': 'Przenoszenie wstrzymane',

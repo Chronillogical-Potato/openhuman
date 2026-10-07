@@ -5023,7 +5023,7 @@ const messages: TranslationMap = {
   'memoryPage.migrate.body':
     '此更新之前保存的记忆仍在旧的共享布局中。在迁移免费期间，它会在后台自动迁移，你也可以现在迁移。',
   'memoryPage.migrate.action': '立即迁移',
-  'memoryPage.migrate.running': '正在迁移记忆…',
+  'memoryPage.migrate.running': '正在整理你的记忆…',
   'memoryPage.migrate.progress': '已迁移 {copied} 项',
   'memoryPage.migrate.progressOne': '已迁移 {copied} 项',
   'memoryPage.migrate.paused': '迁移已暂停',

@@ -299,6 +299,15 @@ pub async fn scan(config: &Config) -> MemoryResult<ImportScanView> {
     })
 }
 
+/// Whether an import is unfinished: running now, interrupted (it resumes on
+/// its own), or paused for credits. The layout migration waits for it, so
+/// old local memory lands before the tree is reorganised.
+#[must_use]
+pub fn in_progress(config: &Config) -> bool {
+    let file = read_file(&config.workspace_dir);
+    file.state.phase == ImportPhase::Running || file.paused_for_credits
+}
+
 /// `memory_import_status`.
 #[must_use]
 pub fn status(config: &Config) -> ImportState {
