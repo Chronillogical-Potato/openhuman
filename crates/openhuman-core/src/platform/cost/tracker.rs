@@ -277,7 +277,7 @@ impl CostTracker {
                 records.push(record);
             }
         })?;
-        records.sort_by(|a, b| a.usage.timestamp.cmp(&b.usage.timestamp));
+        records.sort_by_key(|record| record.usage.timestamp);
         Ok(records)
     }
 
