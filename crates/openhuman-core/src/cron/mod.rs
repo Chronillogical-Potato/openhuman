@@ -11,6 +11,8 @@ pub mod scheduler_gate;
 
 pub mod bus;
 pub mod ops;
+/// Per-job run policy (retry budget, single-flight) kept beside the job store.
+pub mod policy;
 mod schemas;
 pub mod seed;
 mod store;
