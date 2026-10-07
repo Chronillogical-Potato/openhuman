@@ -173,3 +173,71 @@ fn this_gate_never_asks_for_compression() {
     let gate = gate(AgentTokenjuiceCompression::Full);
     assert_eq!(gate.compression_hint(&crowded()), CompressionHint::None);
 }
+
+fn ledger_with(spent_usd: f64, agent: &str) -> (tempfile::TempDir, cost::CostTracker) {
+    let tmp = tempfile::tempdir().unwrap();
+    let tracker = cost::CostTracker::new(crate::config::CostConfig::default(), tmp.path()).unwrap();
+    let mut usage = cost::TokenUsage::new("m", 100, 50, 0.0, 0.0);
+    usage.cost_usd = spent_usd;
+    usage.scope = cost::UsageScope {
+        agent_id: Some(agent.into()),
+        ..Default::default()
+    };
+    tracker.record_usage_unconditional(usage).unwrap();
+    (tmp, tracker)
+}
+
+fn budgeted_gate(action: crate::config::BudgetAction) -> OpenHumanBudgetGate {
+    let mut config = Config::default();
+    config.cost.budgets = vec![crate::config::BudgetPolicy {
+        name: Some("planner cap".into()),
+        scope: crate::config::BudgetScope::Agent,
+        matches: Some("planner".into()),
+        period: crate::config::BudgetPeriod::Month,
+        max_usd: Some(1.0),
+        max_tokens: None,
+        warn_fraction: 0.8,
+        action,
+    }];
+    OpenHumanBudgetGate::new(Arc::new(config))
+}
+
+fn estimate_for(agent: &str) -> CallEstimate {
+    CallEstimate {
+        model: "m".into(),
+        agent_id: Some(agent.into()),
+        ..CallEstimate::default()
+    }
+}
+
+#[test]
+fn a_refusing_budget_refuses_the_agent_over_it() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let gate = budgeted_gate(crate::config::BudgetAction::Refuse);
+    let refusal = gate
+        .check_budgets_against(&estimate_for("planner"), &tracker)
+        .expect("planner is over its cap");
+    assert!(refusal.starts_with("BUDGET_EXCEEDED:"), "{refusal}");
+    assert!(refusal.contains("planner cap"), "{refusal}");
+    assert!(
+        gate.check_budgets_against(&estimate_for("orchestrator"), &tracker)
+            .is_none(),
+        "the cap matches only the planner"
+    );
+}
+
+#[test]
+fn a_warning_budget_never_refuses() {
+    let (_tmp, tracker) = ledger_with(2.0, "planner");
+    let gate = budgeted_gate(crate::config::BudgetAction::Warn);
+    assert!(gate
+        .check_budgets_against(&estimate_for("planner"), &tracker)
+        .is_none());
+}
+
+#[tokio::test]
+async fn without_budgets_acquire_is_unchanged() {
+    let gate = gate(AgentTokenjuiceCompression::Auto);
+    assert!(gate.check_budgets(&estimate_for("planner")).is_none());
+    assert!(gate.acquire(&estimate_for("planner")).await.is_ok());
+}
