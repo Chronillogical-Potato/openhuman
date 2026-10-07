@@ -1,6 +1,7 @@
 use super::*;
 use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
-use crate::memory::lifecycle::jobs::{enqueue, BackgroundJob};
+use crate::memory::lifecycle::jobs::enqueue;
+use tinymemory_tools::BackgroundJob;
 use crate::user_agents::layout::agent_config;
 use crate::user_agents::UserAgentId;
 use tinymemory_api::{ConsolidateRequest, ItemKind, Namespace, Reach};
