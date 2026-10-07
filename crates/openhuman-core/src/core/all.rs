@@ -86,6 +86,13 @@ fn group_allowed(group: DomainGroup) -> bool {
     active_domain_set().is_none_or(|s| s.allows(group))
 }
 
+/// Whether `g` is live in the ambient scope: its family is enabled and, for a
+/// SaaS user, the method is on the user surface (`user_agents::surface`).
+fn visible(g: &GroupedController) -> bool {
+    group_allowed(g.group)
+        && crate::user_agents::surface::method_visible(&g.controller.rpc_method_name())
+}
+
 /// The global static registry of all controllers, initialized once on first access.
 static REGISTRY: OnceLock<Vec<GroupedController>> = OnceLock::new();
 
@@ -769,7 +776,7 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
 fn registered_controllers(view: &RegistryView) -> Vec<RegisteredController> {
     let found = view
         .iter()
-        .filter(|g| group_allowed(g.group))
+        .filter(|g| visible(g))
         .map(|g| g.controller.clone())
         .collect();
     found
@@ -788,7 +795,7 @@ pub fn all_controller_schemas() -> Vec<ControllerSchema> {
 
 fn controller_schemas(view: &RegistryView) -> Vec<ControllerSchema> {
     view.iter()
-        .filter(|g| group_allowed(g.group))
+        .filter(|g| visible(g))
         .map(|g| g.controller.schema.clone())
         .collect()
 }
@@ -1172,9 +1179,10 @@ pub async fn try_invoke_registered_rpc(
     // gets for a genuinely-unregistered method, so a gated domain's controllers
     // are indistinguishable from absent. Enforced HERE (dispatch), not in
     // schema/validation lookups, to avoid a validate/dispatch split.
-    if !group_allowed(grouped.group) {
+    if !visible(grouped) {
         log::debug!(
-            "[rpc][domain-gate] method '{method}' suppressed — group {:?} disabled under active DomainSet",
+            "[rpc][domain-gate] method '{method}' suppressed — group {:?} disabled or method \
+             outside the user surface in the active scope",
             grouped.group
         );
         return None;
