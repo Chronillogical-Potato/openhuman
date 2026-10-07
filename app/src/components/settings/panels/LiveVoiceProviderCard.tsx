@@ -60,7 +60,7 @@ function readSetting(settings: LiveVoiceSettings, block: string, field: string):
 }
 
 /** Inset that lines card sections up with the title, past the radio and icon. */
-const BODY_INSET = 'pl-4 sm:pl-[5.25rem]';
+const BODY_INSET = 'pl-4 sm:pl-[98px]';
 
 export interface LiveVoiceProviderCardProps {
   provider: LiveVoiceProvider;
@@ -348,15 +348,17 @@ const LiveVoiceProviderCard = ({
         </label>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden sm:inline-flex">{statusBadge}</span>
-          <Button
-            size="sm"
-            variant="secondary"
-            analyticsId="live-voice-test-provider"
-            data-testid={`live-voice-test-button-${provider.id}`}
-            disabled={testing || !provider.configured}
-            onClick={onTest}>
-            {testing ? t('connections.voiceAgents.testing') : t('connections.voiceAgents.test')}
-          </Button>
+          {provider.configured && (
+            <Button
+              size="sm"
+              variant="secondary"
+              analyticsId="live-voice-test-provider"
+              data-testid={`live-voice-test-button-${provider.id}`}
+              disabled={testing}
+              onClick={onTest}>
+              {testing ? t('connections.voiceAgents.testing') : t('connections.voiceAgents.test')}
+            </Button>
+          )}
         </div>
       </div>
       {testBody && <div className={cn('-mt-1.5 pr-4 pb-3', BODY_INSET)}>{testBody}</div>}
