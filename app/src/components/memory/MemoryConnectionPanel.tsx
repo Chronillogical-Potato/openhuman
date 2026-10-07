@@ -1,11 +1,12 @@
-import { ExternalLink, Infinity as InfinityIcon } from 'lucide-react';
+import { ExternalLink, Infinity as InfinityIcon, Info } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import { type EngineState, isMemoryOn } from '../../services/api/memoryApi';
-import { TERMS_OF_USE_URL } from '../../utils/links';
+import { TINYHUMANS_TERMS_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import { Alert, AlertDescription, Button, Label, TextField } from '../ui';
+import { PopoverContent, PopoverRoot, PopoverTrigger } from '../ui/Popover';
 import type { MemoryProviderOption } from './MemoryProviderLogo';
 
 /** CortexDB's self-hosting guide, linked from the Local provider. */
@@ -125,32 +126,48 @@ export default function MemoryConnectionPanel({
   const builtinBody = (
     <>
       <p className="text-xs leading-relaxed text-content-secondary">{description}</p>
-      <p
-        className="flex items-center gap-1.5 text-xs text-content-secondary"
-        data-testid="memory-engine-builtin-note">
+      <div className="flex items-center gap-1.5 text-xs text-content-secondary">
         <InfinityIcon className="h-3.5 w-3.5 shrink-0 text-primary-500" aria-hidden />
-        {plan === 'BASIC' || plan === 'PRO'
-          ? t('memoryPage.engine.freeIngestion.notePlan').replace(
-              '{plan}',
-              plan === 'PRO' ? 'Pro' : 'Basic'
-            )
-          : t('memoryPage.engine.freeIngestion.noteUpgrade')}
-      </p>
-      <details className="group text-xs" data-testid="memory-engine-fair-use">
-        <summary className="cursor-pointer font-medium text-content-secondary select-none hover:text-content">
-          {t('memoryPage.engine.fairUse.summary')}
-        </summary>
-        <ul className="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed text-content-muted">
-          <li>{t('memoryPage.engine.fairUse.own')}</li>
-          <li>{t('memoryPage.engine.fairUse.noAbuse')}</li>
-          <li>{t('memoryPage.engine.fairUse.limits')}</li>
-        </ul>
-        <p className="mt-1.5">
-          <ExternalTextLink href={TERMS_OF_USE_URL} testId="memory-engine-terms">
-            {t('memoryPage.engine.fairUse.terms')}
-          </ExternalTextLink>
-        </p>
-      </details>
+        <span data-testid="memory-engine-builtin-note">
+          {plan === 'BASIC' || plan === 'PRO'
+            ? t('memoryPage.engine.freeIngestion.notePlan').replace(
+                '{plan}',
+                plan === 'PRO' ? 'Pro' : 'Basic'
+              )
+            : t('memoryPage.engine.freeIngestion.noteUpgrade')}
+        </span>
+        <PopoverRoot>
+          <PopoverTrigger asChild>
+            <Button
+              size="xs"
+              variant="tertiary"
+              iconOnly
+              analyticsId="memory-engine-fair-use"
+              data-testid="memory-engine-fair-use-trigger"
+              aria-label={t('memoryPage.engine.fairUse.summary')}
+              title={t('memoryPage.engine.fairUse.summary')}
+              className="text-content-muted hover:text-content">
+              <Info className="h-3.5 w-3.5" aria-hidden />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-80 text-xs"
+            data-testid="memory-engine-fair-use">
+            <p className="font-semibold text-content">{t('memoryPage.engine.fairUse.summary')}</p>
+            <ul className="mt-1.5 list-disc space-y-1 pl-4 leading-relaxed text-content-muted">
+              <li>{t('memoryPage.engine.fairUse.own')}</li>
+              <li>{t('memoryPage.engine.fairUse.noAbuse')}</li>
+              <li>{t('memoryPage.engine.fairUse.limits')}</li>
+            </ul>
+            <p className="mt-2">
+              <ExternalTextLink href={TINYHUMANS_TERMS_URL} testId="memory-engine-terms">
+                {t('memoryPage.engine.fairUse.terms')}
+              </ExternalTextLink>
+            </p>
+          </PopoverContent>
+        </PopoverRoot>
+      </div>
       {/* The backend origin the core resolved, read-only: never a hard-coded
           URL, and only known while TinyHumans is configured. */}
       {active && state.endpoint && (
