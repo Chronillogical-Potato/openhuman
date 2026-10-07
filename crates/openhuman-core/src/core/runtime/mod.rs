@@ -51,9 +51,11 @@ pub mod domain_set;
 pub mod mode;
 pub mod saas;
 pub mod services;
+pub mod spawn;
 pub(crate) mod subscribers;
 
 pub use builder::{CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
 pub use context::{ContextOverlay, CoreContext};
 pub use mode::{current_mode, is_saas, Mode};
 pub use saas::SaasConfig;
+pub use spawn::{spawn_blocking_scoped, spawn_scoped};
