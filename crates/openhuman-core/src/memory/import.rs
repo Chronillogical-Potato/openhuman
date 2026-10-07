@@ -8,10 +8,13 @@
 //! the resumable [`Checkpoint`]. Progress and the checkpoint persist in
 //! `<workspace>/memory/import_state.json`, so a restarted import resumes where
 //! the last one stopped (an item stored but not yet checkpointed is re-sent,
-//! and the engine treats it as a replay). An import the app quit in the middle
-//! of resumes on its own ([`resume_interrupted`]); one stopped by a failure
-//! that is not about a single item (credits exhausted, signed out, engine
-//! unreachable) waits for the user to start it again.
+//! and the engine treats it as a replay). A batch the engine cannot take for
+//! a transient reason (unreachable, overloaded, its indexer behind) is retried
+//! with backoff; if the engine stays unavailable the run stops and, like an
+//! import the app quit in the middle of, resumes on its own
+//! ([`resume_interrupted`]). One stopped by a failure that is not about a
+//! single item and will not pass by itself (credits exhausted, signed out)
+//! waits for the user to start it again.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -34,6 +37,24 @@ const CHECKPOINT_EVERY: u64 = 25;
 /// Items per bulk store (`MemoryEngine::store_many`).
 const STORE_BATCH: usize = 25;
 
+/// How long to wait before each retry of a batch the engine could not take
+/// for a transient reason (unreachable, overloaded, indexer behind: an
+/// `Unavailable` error). After the last, the run stops and is resumed by the
+/// background job.
+#[cfg(not(test))]
+const RETRY_DELAYS: [std::time::Duration; 3] = [
+    std::time::Duration::from_secs(2),
+    std::time::Duration::from_secs(10),
+    std::time::Duration::from_secs(30),
+];
+#[cfg(test)]
+const RETRY_DELAYS: [std::time::Duration; 3] = [std::time::Duration::from_millis(1); 3];
+
+/// The reason a run stopped on an engine that stayed unavailable through
+/// every retry; it is resumed on its own.
+const UNAVAILABLE_REASON: &str =
+    "the memory service is unavailable; the import resumes on its own within a few minutes";
+
 /// What storing one batch of legacy items did.
 #[derive(Debug, Default)]
 struct BatchOutcome {
@@ -44,6 +65,62 @@ struct BatchOutcome {
     /// Why the import must stop (credential rejected, credits exhausted,
     /// engine unreachable).
     fatal: Option<String>,
+    /// Whether `fatal` is transient: the engine stayed unavailable through
+    /// every retry, so the background job resumes the run.
+    transient: bool,
+    /// Whether `fatal` is the account's credits running out: the run is
+    /// paused until automatic runs are allowed again ([`BillingCheck`]).
+    credits: bool,
+    /// Items the engine refused, skipped so the rest could go on.
+    failed: Vec<FailedItem>,
+}
+
+/// One legacy item the engine refused, kept with the reason so a user can
+/// see it and retry it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+struct FailedItem {
+    /// The item's legacy id (`memory_docs:<id>`, `episodic_log:<session>`, …).
+    id: String,
+    /// Why the engine refused it.
+    reason: String,
+}
+
+impl FailedItem {
+    fn new(item: &tinymemory_api::StoreItem, error: tinymemory_api::Error) -> Self {
+        Self {
+            id: legacy_id(item),
+            reason: MemoryError::from(error).to_string(),
+        }
+    }
+}
+
+/// The legacy id the importer gave `item` (its `source.id`).
+fn legacy_id(item: &tinymemory_api::StoreItem) -> String {
+    item.meta().source.id.clone().unwrap_or_default()
+}
+
+/// Runs `call` again after each of [`RETRY_DELAYS`] while it fails with a
+/// transient error, and returns its last result.
+async fn with_retries<T, F, Fut>(mut call: F) -> tinymemory_api::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = tinymemory_api::Result<T>>,
+{
+    let mut result = call().await;
+    for delay in RETRY_DELAYS {
+        match &result {
+            Err(error) if error.is_transient() => {
+                tracing::debug!(
+                    delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX),
+                    "[memory:import] engine unavailable; retrying"
+                );
+                tokio::time::sleep(delay).await;
+                result = call().await;
+            }
+            _ => break,
+        }
+    }
+    result
 }
 
 /// Whether a store failure is about the item (skip it and go on) rather than
@@ -66,6 +143,9 @@ fn skips_item(error: &tinymemory_api::Error) -> bool {
 
 /// The message an import stopped by `error` reports.
 fn fatal_message(error: tinymemory_api::Error) -> String {
+    if error.is_transient() {
+        return UNAVAILABLE_REASON.to_string();
+    }
     if is_insufficient_credits(&error) {
         return "not enough credits to import your memory; top up, then resume the import to \
                 continue where it stopped"
@@ -84,7 +164,7 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
     };
     let last_checkpoint = last.checkpoint.clone();
     let items: Vec<_> = batch.iter().map(|imported| imported.item.clone()).collect();
-    match bound.engine.store_many(items).await {
+    match with_retries(|| bound.engine.store_many(items.clone())).await {
         Ok(receipts) => {
             tracing::debug!(
                 engine = %bound.id,
@@ -94,11 +174,13 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
             return BatchOutcome {
                 stored: receipts.len() as u64,
                 checkpoint: Some(last_checkpoint),
-                fatal: None,
+                ..BatchOutcome::default()
             };
         }
         Err(error) if !skips_item(&error) => {
             return BatchOutcome {
+                transient: error.is_transient(),
+                credits: is_insufficient_credits(&error),
                 fatal: Some(fatal_message(error)),
                 ..BatchOutcome::default()
             };
@@ -112,17 +194,20 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
     }
     let mut outcome = BatchOutcome::default();
     for imported in batch {
-        match bound.engine.store(imported.item).await {
+        match with_retries(|| bound.engine.store(imported.item.clone())).await {
             Ok(_) => outcome.stored += 1,
             Err(error) if !skips_item(&error) => {
+                outcome.transient = error.is_transient();
+                outcome.credits = is_insufficient_credits(&error);
                 outcome.fatal = Some(fatal_message(error));
                 return outcome;
             }
             Err(error) => {
                 tracing::debug!(
-                    code = MemoryError::from(error).code(),
+                    code = MemoryError::from(error.clone()).code(),
                     "[memory:import] item skipped"
                 );
+                outcome.failed.push(FailedItem::new(&imported.item, error));
             }
         }
         outcome.checkpoint = Some(imported.checkpoint);
@@ -137,6 +222,17 @@ static RUNNING: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(
 struct ImportFile {
     #[serde(default)]
     state: ImportState,
+    /// The run stopped because the account ran out of credits; the
+    /// background job resumes it once automatic runs are allowed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    paused_for_credits: bool,
+    /// Items the engine refused, for `retry_failed`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    failed: Vec<FailedItem>,
+    /// The `Running` run is a retry of `failed`, not the import itself: an
+    /// interrupted one resumes as a retry.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    retrying: bool,
     #[serde(default)]
     checkpoint: Checkpoint,
 }
@@ -152,14 +248,15 @@ fn read_file(workspace_dir: &Path) -> ImportFile {
         .unwrap_or_default()
 }
 
+/// Persists `file` atomically (staged, synced, renamed): a crash mid-write
+/// leaves the previous state, never a torn file that reads back as a fresh
+/// start and re-sends everything.
 fn write_file(workspace_dir: &Path, file: &ImportFile) {
-    let path = file_path(workspace_dir);
-    let result = path
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(file).map_err(std::io::Error::other)?;
-            std::fs::write(&path, json)
+    let result = serde_json::to_vec_pretty(file)
+        .map_err(|error| error.to_string())
+        .and_then(|json| {
+            crate::security::keyring::file_store::write_atomic(&file_path(workspace_dir), &json)
+                .map_err(|error| error.to_string())
         });
     if let Err(error) = result {
         tracing::warn!(error = %error, "[memory:import] writing import state failed");
@@ -215,11 +312,11 @@ pub fn status(config: &Config) -> ImportState {
         .contains(&config.workspace_dir);
     if state.phase == ImportPhase::Running && !running {
         state.phase = ImportPhase::Error;
-        state.error = Some(
+        state.error = Some(state.error.unwrap_or_else(|| {
             "the import was interrupted; it resumes on its own within a few minutes, or resume \
              it now"
-                .to_string(),
-        );
+                .to_string()
+        }));
     }
     state
 }
@@ -227,6 +324,22 @@ pub fn status(config: &Config) -> ImportState {
 /// Whether background work is paused right now. An automatic resume asks
 /// before it starts and again before every batch it stores.
 pub(crate) type PauseCheck = Arc<dyn Fn() -> bool + Send + Sync>;
+
+/// Whether memory work that uploads on its own, with no user action (an
+/// automatic import, or resuming one paused for credits), may run now.
+pub(crate) type BillingCheck = Arc<dyn Fn(&Config) -> bool + Send + Sync>;
+
+/// The one gate on automatic migration runs. A self-hosted CortexDB bills
+/// nobody, so it always may. On the TinyHuman memory service an automatic
+/// run spends the user's credits, so it may only while the backend's memory
+/// free period is active.
+///
+/// The shared free-period check (`free_period_active()`) replaces the
+/// TinyHuman half once it lands; until then the free period is unknown, and
+/// unknown is not free.
+pub(crate) fn automatic_run_allowed(config: &Config) -> bool {
+    config.memory.engine.trim() == super::engine::CORTEXDB_ENGINE
+}
 
 /// The scheduler's pause, which includes being signed out.
 fn scheduler_paused() -> bool {
@@ -240,7 +353,12 @@ fn scheduler_paused() -> bool {
 /// the scheduler's pause ([`resume_interrupted_with`]). Called from memory's
 /// background job.
 pub async fn resume_interrupted(config: &Config) -> bool {
-    resume_interrupted_with(config, Arc::new(scheduler_paused)).await
+    resume_interrupted_with(
+        config,
+        Arc::new(scheduler_paused),
+        Arc::new(automatic_run_allowed),
+    )
+    .await
 }
 
 /// Resumes an interrupted import unless `paused` says background work is
@@ -257,8 +375,19 @@ pub async fn resume_interrupted(config: &Config) -> bool {
 /// resume could not start: that failure is persisted as `Error`, so a
 /// failure that would recur does not loop. Returns whether a run was
 /// started.
-pub(crate) async fn resume_interrupted_with(config: &Config, paused: PauseCheck) -> bool {
-    if read_file(&config.workspace_dir).state.phase != ImportPhase::Running {
+pub(crate) async fn resume_interrupted_with(
+    config: &Config,
+    paused: PauseCheck,
+    billing: BillingCheck,
+) -> bool {
+    let file = read_file(&config.workspace_dir);
+    let resumable = match file.state.phase {
+        ImportPhase::Running => true,
+        // Out of credits: only once automatic runs are allowed again.
+        ImportPhase::Error => file.paused_for_credits && billing(config),
+        _ => false,
+    };
+    if !resumable {
         return false;
     }
     let live = RUNNING
@@ -272,7 +401,14 @@ pub(crate) async fn resume_interrupted_with(config: &Config, paused: PauseCheck)
         tracing::debug!("[memory:import] background paused; interrupted import left for later");
         return false;
     }
-    match start_with(config, true, Some(paused)).await {
+    // An interrupted retry of refused items resumes as a retry, from the
+    // items still listed (each stored one was taken off as it went).
+    let resumed = if file.state.phase == ImportPhase::Running && file.retrying {
+        retry::begin_retry(config, file, Some(paused))
+    } else {
+        start_with(config, true, Some(paused)).await
+    };
+    match resumed {
         Ok(state) => {
             tracing::info!(
                 imported = state.imported,
@@ -290,8 +426,20 @@ pub(crate) async fn resume_interrupted_with(config: &Config, paused: PauseCheck)
             // the checkpoint stay exactly as persisted, and the user's Resume
             // continues from there.
             let mut file = read_file(&config.workspace_dir);
-            file.state.phase = ImportPhase::Error;
-            file.state.error = Some(format!("the import could not resume: {error}"));
+            if file.retrying {
+                // The import itself is finished: keep it `Done` with the
+                // items still to retry, so Retry stays available.
+                file.state.phase = ImportPhase::Done;
+                file.state.error = Some(format!(
+                    "the retry could not resume: {error}; press Retry again"
+                ));
+                file.retrying = false;
+            } else {
+                file.state.phase = ImportPhase::Error;
+                file.state.error = Some(format!("the import could not resume: {error}"));
+            }
+            // Not resumed again on its own: the failure would recur.
+            file.paused_for_credits = false;
             write_file(&config.workspace_dir, &file);
             false
         }
@@ -324,24 +472,38 @@ async fn start_with(
     if !claimed {
         return Ok(status(config));
     }
+    let mut file = read_file(&workspace_dir);
+    if file.state.phase == ImportPhase::Done {
+        file = ImportFile::default();
+    }
+    // A resumed import already knows its total: only check the store is
+    // still there, instead of reading all of it again before the run reads
+    // it once more.
+    let resuming = !file.checkpoint.is_start() && file.state.total > 0;
     let scan_dir = workspace_dir.clone();
-    let counts = tokio::task::spawn_blocking(move || count_legacy(&scan_dir))
-        .await
-        .ok()
-        .flatten();
-    let Some(counts) = counts else {
+    let total = tokio::task::spawn_blocking(move || {
+        if resuming {
+            LegacyWorkspace::open(&scan_dir).ok().map(|_| None)
+        } else {
+            count_legacy(&scan_dir)
+                .map(|counts| Some(counts.documents + counts.conversations + counts.learnings))
+        }
+    })
+    .await
+    .ok()
+    .flatten();
+    let Some(total) = total else {
         RUNNING
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&workspace_dir);
         return Err(MemoryError::invalid("no v1 memory store to import"));
     };
-    let mut file = read_file(&workspace_dir);
-    if file.state.phase == ImportPhase::Done {
-        file = ImportFile::default();
-    }
     file.state.phase = ImportPhase::Running;
-    file.state.total = counts.documents + counts.conversations + counts.learnings;
+    file.paused_for_credits = false;
+    if let Some(total) = total {
+        file.state.total = total;
+    }
     file.state.error = None;
     write_file(&workspace_dir, &file);
     let state = file.state.clone();
@@ -383,6 +545,8 @@ async fn run(
     });
     let mut since_checkpoint = 0u64;
     let mut failure = None;
+    let mut transient = false;
+    let mut credits = false;
     let mut pausing = false;
     let mut batch: Vec<ImportedItem> = Vec::with_capacity(STORE_BATCH);
     let mut reading = true;
@@ -408,6 +572,22 @@ async fn run(
         }
         let outcome = store_batch(bound, std::mem::take(&mut batch)).await;
         file.state.imported += outcome.stored;
+        // One entry per legacy id; a later refusal replaces the reason.
+        for failed in outcome.failed {
+            // Every item the importer yields has a legacy id; one without
+            // could never be found again to retry, so it is not listed.
+            if failed.id.is_empty() {
+                tracing::warn!(
+                    "[memory:import] a refused item has no legacy id; not kept for retry"
+                );
+                continue;
+            }
+            match file.failed.iter_mut().find(|known| known.id == failed.id) {
+                Some(known) => *known = failed,
+                None => file.failed.push(failed),
+            }
+        }
+        file.state.failed = file.failed.len() as u64;
         if let Some(checkpoint) = outcome.checkpoint {
             file.checkpoint = checkpoint;
         }
@@ -418,6 +598,8 @@ async fn run(
         }
         if let Some(error) = outcome.fatal {
             failure = Some(error);
+            transient = outcome.transient;
+            credits = outcome.credits;
             break;
         }
     }
@@ -433,7 +615,17 @@ async fn run(
         return;
     }
     match failure {
+        // Left `Running` with its checkpoint and the reason: the next
+        // background tick resumes it, as it does an import the app quit.
+        Some(error) if transient => {
+            tracing::info!(
+                imported = file.state.imported,
+                "[memory:import] engine unavailable; import left to resume"
+            );
+            file.state.error = Some(error);
+        }
         Some(error) => {
+            file.paused_for_credits = credits;
             tracing::warn!(
                 imported = file.state.imported,
                 "[memory:import] import stopped"
@@ -453,6 +645,14 @@ async fn run(
     write_file(workspace_dir, &file);
 }
 
+#[path = "import_retry.rs"]
+mod retry;
+pub use retry::retry_failed;
+
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "import_recovery_tests.rs"]
+mod recovery_tests;

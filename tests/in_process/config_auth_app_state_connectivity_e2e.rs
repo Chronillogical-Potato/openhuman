@@ -1881,6 +1881,7 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
                 "openhuman.memory_explore",
                 "openhuman.memory_fetch",
                 "openhuman.memory_forget",
+                "openhuman.memory_import_retry_failed",
                 "openhuman.memory_import_scan",
                 "openhuman.memory_import_start",
                 "openhuman.memory_import_status",

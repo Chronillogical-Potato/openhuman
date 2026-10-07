@@ -31,7 +31,7 @@ fn memory_doc(conn: &Connection, id: &str, namespace: &str, title: &str, content
 }
 
 /// A v1 workspace: two documents, one learning, one conversation, one facet.
-fn legacy_workspace(workspace_dir: &Path) {
+pub(super) fn legacy_workspace(workspace_dir: &Path) {
     std::fs::create_dir_all(workspace_dir.join("memory")).unwrap();
     let conn = Connection::open(workspace_dir.join("memory").join("memory.db")).unwrap();
     conn.execute_batch(LEGACY_DDL).unwrap();
@@ -56,7 +56,16 @@ fn legacy_workspace(workspace_dir: &Path) {
     .unwrap();
 }
 
-async fn wait_until_settled(config: &Config) -> ImportState {
+/// The checkpoint after document `id`. Built from `default()` and an
+/// assignment: tinymemory's `Checkpoint` is non-exhaustive from its next
+/// release, which refuses a struct literal outside the crate.
+pub(super) fn after_document(id: &str) -> Checkpoint {
+    let mut checkpoint = Checkpoint::default();
+    checkpoint.documents = Some(id.to_string());
+    checkpoint
+}
+
+pub(super) async fn wait_until_settled(config: &Config) -> ImportState {
     for _ in 0..400 {
         let state = status(config);
         if state.phase != ImportPhase::Running {
@@ -164,16 +173,17 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
                 total: 5,
                 error: Some("unauthorized: sign in".into()),
+                failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
     assert_eq!(status(&config).phase, ImportPhase::Error);
@@ -199,11 +209,15 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 3,
                 total: 9,
                 error: None,
+                failed: 0,
             },
             checkpoint: Checkpoint::default(),
         },
@@ -303,7 +317,7 @@ impl tinymemory_api::MemoryEngine for FailingEngine {
 }
 
 /// Binds a [`FailingEngine`] and returns the engine behind it.
-fn bind_failing(
+pub(super) fn bind_failing(
     config: &Config,
     refuse: fn(&tinymemory_api::StoreItem) -> Option<tinymemory_api::Error>,
 ) -> Arc<tinymemory_api::conformance::ReferenceEngine> {
@@ -318,7 +332,7 @@ fn bind_failing(
     inner
 }
 
-fn out_of_credits(_: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
+pub(super) fn out_of_credits(_: &tinymemory_api::StoreItem) -> Option<tinymemory_api::Error> {
     Some(tinymemory_api::Error::Engine(
         "[USER_INSUFFICIENT_CREDITS] insufficient credits (HTTP 402)".into(),
     ))
@@ -405,16 +419,17 @@ async fn an_import_the_app_quit_during_resumes_on_its_own() {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
                 total: 5,
                 error: None,
+                failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
 
@@ -437,11 +452,15 @@ async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
         write_file(
             &config.workspace_dir,
             &ImportFile {
+                paused_for_credits: false,
+                failed: Vec::new(),
+                retrying: false,
                 state: ImportState {
                     phase,
                     imported: 0,
                     total: 5,
                     error: None,
+                    failed: 0,
                 },
                 checkpoint: Checkpoint::default(),
             },
@@ -457,16 +476,17 @@ fn quit_mid_import(config: &Config) {
     write_file(
         &config.workspace_dir,
         &ImportFile {
+            paused_for_credits: false,
+            failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
                 total: 5,
                 error: None,
+                failed: 0,
             },
-            checkpoint: Checkpoint {
-                documents: Some("d1".into()),
-                ..Checkpoint::default()
-            },
+            checkpoint: after_document("d1"),
         },
     );
 }
@@ -494,7 +514,7 @@ async fn nothing_resumes_while_background_work_is_paused() {
     let engine = bind_reference(&config);
     quit_mid_import(&config);
 
-    assert!(!resume_interrupted_with(&config, always(true)).await);
+    assert!(!resume_interrupted_with(&config, always(true), billing(false)).await);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
     assert_eq!(
         read_file(&config.workspace_dir).state.phase,
@@ -502,12 +522,16 @@ async fn nothing_resumes_while_background_work_is_paused() {
         "left resumable for a later, unpaused tick"
     );
 
-    assert!(resume_interrupted_with(&config, always(false)).await);
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
     assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
 }
 
 /// A pause check that always answers `paused`.
-fn always(paused: bool) -> PauseCheck {
+pub(super) fn billing(allowed: bool) -> BillingCheck {
+    Arc::new(move |_: &Config| allowed)
+}
+
+pub(super) fn always(paused: bool) -> PauseCheck {
     Arc::new(move || paused)
 }
 
@@ -537,7 +561,7 @@ async fn a_pause_that_lands_after_the_check_stops_the_run_at_the_next_batch() {
     let counter = asked.clone();
     let paused: PauseCheck = Arc::new(move || counter.fetch_add(1, Ordering::SeqCst) > 0);
 
-    assert!(resume_interrupted_with(&config, paused).await);
+    assert!(resume_interrupted_with(&config, paused, billing(false)).await);
     wait_until_no_live_run(&config).await;
     assert!(asked.load(Ordering::SeqCst) >= 2, "the run asked again");
     assert!(
@@ -549,7 +573,7 @@ async fn a_pause_that_lands_after_the_check_stops_the_run_at_the_next_batch() {
     assert_eq!(file.checkpoint.documents.as_deref(), Some("d1"));
 
     // Unpaused, the next tick finishes it from the checkpoint.
-    assert!(resume_interrupted_with(&config, always(false)).await);
+    assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
     assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Done);
     assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
 }
@@ -562,7 +586,7 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
     // No engine bound: memory is off, so `start` fails before any run.
     quit_mid_import(&config);
 
-    assert!(!resume_interrupted_with(&config, always(false)).await);
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
     let state = read_file(&config.workspace_dir).state;
     assert_eq!(state.phase, ImportPhase::Error);
     assert_eq!(state.imported, 1, "progress is kept");
@@ -571,7 +595,7 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
         "{state:?}"
     );
     // The next tick does not try again; the user resumes it.
-    assert!(!resume_interrupted_with(&config, always(false)).await);
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
     assert_eq!(
         read_file(&config.workspace_dir)
             .checkpoint
