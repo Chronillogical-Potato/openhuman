@@ -3,7 +3,7 @@ use crate::agent::HostTurnTools;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tinytools::ToolResult;
+use tinytools::{ToolCallOptions, ToolResult};
 
 fn external() -> AgentTurnOrigin {
     AgentTurnOrigin::ExternalChannel {
