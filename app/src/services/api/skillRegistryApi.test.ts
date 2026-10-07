@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { invalidateSkillBrowseCache, skillRegistryApi } from './skillRegistryApi';
+import { isInstallable, parseRegistryError, skillRegistryApi } from './skillRegistryApi';
 
 const mockCallCoreRpc = vi.fn();
 vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallCoreRpc(...a) }));
@@ -8,8 +8,6 @@ vi.mock('../coreRpcClient', () => ({ callCoreRpc: (...a: unknown[]) => mockCallC
 describe('skillRegistryApi', () => {
   beforeEach(() => {
     mockCallCoreRpc.mockReset();
-    // The browse cache is module-level; clear it so each test starts cold.
-    invalidateSkillBrowseCache();
   });
 
   it('normalizes install new_skills to newSkills', async () => {
@@ -56,39 +54,6 @@ describe('skillRegistryApi', () => {
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith({ method: 'openhuman.skill_registry_schemas' });
     expect(result[0].function).toBe('install');
-  });
-
-  it('search calls skill_registry_search with query only when source/category absent', async () => {
-    mockCallCoreRpc.mockResolvedValue({ entries: [{ id: 'demo', name: 'Demo' }] });
-
-    const result = await skillRegistryApi.search('demo');
-
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skill_registry_search',
-      params: { query: 'demo' },
-      timeoutMs: 120_000,
-    });
-    expect(result[0].id).toBe('demo');
-  });
-
-  it('search forwards source and category when both are provided', async () => {
-    mockCallCoreRpc.mockResolvedValue({ entries: [] });
-
-    await skillRegistryApi.search('q', 'ClawHub', 'devops');
-
-    expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skill_registry_search',
-      params: { query: 'q', source: 'ClawHub', category: 'devops' },
-      timeoutMs: 120_000,
-    });
-  });
-
-  it('search unwraps data-envelope shape', async () => {
-    mockCallCoreRpc.mockResolvedValue({ data: { entries: [{ id: 'env-skill' }] } });
-
-    const result = await skillRegistryApi.search('env');
-
-    expect(result[0].id).toBe('env-skill');
   });
 
   it('sources calls skill_registry_sources and returns array', async () => {
@@ -144,81 +109,136 @@ describe('skillRegistryApi', () => {
     expect(result.newSkills).toEqual([]);
   });
 
-  it('browse with forceRefresh=true forwards force_refresh=true', async () => {
-    mockCallCoreRpc.mockResolvedValue({ entries: [] });
+  it('browsePage asks browse for an empty query and normalizes the page', async () => {
+    mockCallCoreRpc.mockResolvedValue({
+      entries: [{ id: 'a', name: 'A' }],
+      total: 30,
+      page: 2,
+      page_size: 25,
+      total_pages: 2,
+      freshness: 'cached',
+      fetched_at: 1_700_000_000,
+      refreshing: true,
+      last_error: { kind: 'unavailable', message: 'upstream returned status 503' },
+    });
 
-    await skillRegistryApi.browse(true);
+    const page = await skillRegistryApi.browsePage({ page: 2, pageSize: 25 });
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
       method: 'openhuman.skill_registry_browse',
-      params: { force_refresh: true },
+      params: { page: 2, page_size: 25 },
       timeoutMs: 120_000,
+    });
+    expect(page).toMatchObject({
+      total: 30,
+      page: 2,
+      pageSize: 25,
+      totalPages: 2,
+      freshness: 'cached',
+      fetchedAt: 1_700_000_000,
+      refreshing: true,
+      lastError: { kind: 'unavailable' },
     });
   });
 
-  it('browse default arg passes force_refresh=false', async () => {
-    mockCallCoreRpc.mockResolvedValue({ entries: [] });
+  it('browsePage searches with a query and forwards sources, category and refresh', async () => {
+    mockCallCoreRpc.mockResolvedValue({
+      data: { entries: [], total: 0, page: 1, page_size: 10, total_pages: 0, freshness: 'live' },
+    });
 
-    await skillRegistryApi.browse();
+    const page = await skillRegistryApi.browsePage({
+      query: ' git ',
+      sources: ['ClawHub', 'skills.sh'],
+      category: 'devops',
+      page: 1,
+      pageSize: 10,
+      forceRefresh: true,
+    });
 
     expect(mockCallCoreRpc).toHaveBeenCalledWith({
-      method: 'openhuman.skill_registry_browse',
-      params: { force_refresh: false },
+      method: 'openhuman.skill_registry_search',
+      params: {
+        query: 'git',
+        sources: ['ClawHub', 'skills.sh'],
+        category: 'devops',
+        page: 1,
+        page_size: 10,
+        force_refresh: true,
+      },
       timeoutMs: 120_000,
     });
+    expect(page.lastError).toBeNull();
+    expect(page.fetchedAt).toBeNull();
   });
 
-  it('browse serves the second call from the in-memory cache (one RPC)', async () => {
-    mockCallCoreRpc.mockResolvedValue({ entries: [{ id: 'a', name: 'A' }] });
+  it('every page read goes to the core; nothing is cached in the app', async () => {
+    mockCallCoreRpc.mockResolvedValue({
+      entries: [],
+      total: 0,
+      page: 1,
+      page_size: 25,
+      total_pages: 0,
+      freshness: 'live',
+    });
 
-    const first = await skillRegistryApi.browse();
-    const second = await skillRegistryApi.browse();
+    await skillRegistryApi.browsePage({ page: 1, pageSize: 25 });
+    await skillRegistryApi.browsePage({ page: 1, pageSize: 25 });
 
-    expect(mockCallCoreRpc).toHaveBeenCalledTimes(1);
-    expect(second).toBe(first); // same cached array reference
-    expect(second[0].id).toBe('a');
+    expect(mockCallCoreRpc).toHaveBeenCalledTimes(2);
   });
 
-  it('browse de-dupes concurrent callers into a single in-flight RPC', async () => {
-    let resolveRpc: (v: { entries: { id: string }[] }) => void = () => {};
-    mockCallCoreRpc.mockReturnValue(
-      new Promise(res => {
-        resolveRpc = res;
-      })
+  it('detail calls skill_registry_detail', async () => {
+    mockCallCoreRpc.mockResolvedValue({ id: 'git-helper', overview: 'Longer text.' });
+
+    const detail = await skillRegistryApi.detail('git-helper');
+
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.skill_registry_detail',
+      params: { entry_id: 'git-helper' },
+      timeoutMs: 120_000,
+    });
+    expect(detail.overview).toBe('Longer text.');
+  });
+
+  it('parseRegistryError reads the kind, message and retry delay', () => {
+    expect(
+      parseRegistryError(new Error('SKILL_REGISTRY_RATE_LIMITED: rate limited: retry after 42s'))
+    ).toEqual({
+      kind: 'rate_limited',
+      message: 'rate limited: retry after 42s',
+      retryAfterSecs: 42,
+    });
+    expect(parseRegistryError(new Error('rpc failed: SKILL_REGISTRY_NOT_FOUND: no entry'))).toEqual(
+      { kind: 'not_found', message: 'no entry', retryAfterSecs: null }
     );
-
-    const a = skillRegistryApi.browse();
-    const b = skillRegistryApi.browse();
-    resolveRpc({ entries: [{ id: 'x' }] });
-    const [ra, rb] = await Promise.all([a, b]);
-
-    expect(mockCallCoreRpc).toHaveBeenCalledTimes(1);
-    expect(ra).toBe(rb);
+    expect(parseRegistryError('boom')).toEqual({
+      kind: null,
+      message: 'boom',
+      retryAfterSecs: null,
+    });
   });
 
-  it('browse(forceRefresh=true) bypasses the cache and re-fetches', async () => {
-    mockCallCoreRpc.mockResolvedValueOnce({ entries: [{ id: 'old' }] });
-    await skillRegistryApi.browse(); // populates cache
-    mockCallCoreRpc.mockResolvedValueOnce({ entries: [{ id: 'new' }] });
-
-    const refreshed = await skillRegistryApi.browse(true);
-
-    expect(mockCallCoreRpc).toHaveBeenCalledTimes(2);
-    expect(refreshed[0].id).toBe('new');
-
-    // Subsequent default call now serves the refreshed value from cache.
-    const cached = await skillRegistryApi.browse();
-    expect(mockCallCoreRpc).toHaveBeenCalledTimes(2);
-    expect(cached[0].id).toBe('new');
-  });
-
-  it('invalidateSkillBrowseCache forces the next browse to re-fetch', async () => {
-    mockCallCoreRpc.mockResolvedValue({ entries: [{ id: 'a' }] });
-    await skillRegistryApi.browse();
-    expect(mockCallCoreRpc).toHaveBeenCalledTimes(1);
-
-    invalidateSkillBrowseCache();
-    await skillRegistryApi.browse();
-    expect(mockCallCoreRpc).toHaveBeenCalledTimes(2);
+  it('isInstallable prefers the core flag over the download url', () => {
+    const base = {
+      id: 'x',
+      name: 'x',
+      description: '',
+      source: 's',
+      category: '',
+      author: null,
+      version: null,
+      tags: [],
+      platforms: [],
+      docs_path: null,
+      commands: [],
+      env_vars: [],
+      license: null,
+    };
+    expect(isInstallable({ ...base, download_url: '', installable: true })).toBe(true);
+    expect(isInstallable({ ...base, download_url: 'https://e/SKILL.md', installable: false })).toBe(
+      false
+    );
+    expect(isInstallable({ ...base, download_url: 'https://e/SKILL.md' })).toBe(true);
+    expect(isInstallable({ ...base, download_url: '' })).toBe(false);
   });
 });
