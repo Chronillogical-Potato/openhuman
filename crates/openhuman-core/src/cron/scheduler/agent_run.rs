@@ -218,7 +218,7 @@ pub(super) async fn run_agent_job(
 /// actual `flows::ops::flows_run` happens asynchronously in
 /// `flows::bus::FlowTriggerSubscriber`, which is the sole consumer of this
 /// event (kept out of the cron domain so cron stays flow-agnostic).
-pub(super) fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
+pub(super) async fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
     if let Some(name) = crate::cron::system_jobs::system_job_name(job) {
         tracing::info!(job_id = %job.id, job = %name, "[cron] system job due — publishing CronSystemJobDue");
         BUS.publish(DomainEvent::CronSystemJobDue {

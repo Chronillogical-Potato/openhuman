@@ -1,15 +1,18 @@
 //! Background scheduler loop for cron jobs: polls the store for due jobs,
-//! runs them with bounded concurrency, persists results, and emits health
+//! dispatches each onto its own task with bounded concurrency (so a long job
+//! never holds up the next poll), persists results, and emits health
 //! signals. Job-type execution, retry, delivery, and persistence live in the
 //! submodules below.
 
 mod agent_run;
 mod delivery;
+mod dispatch;
 mod failure_classification;
 pub(crate) mod in_flight;
 mod retry;
 mod run_record;
 mod shell_job;
+mod slot;
 
 #[cfg(test)]
 #[path = "scheduler_tests.rs"]
@@ -28,7 +31,10 @@ use run_record::*;
 #[allow(unused_imports)]
 use shell_job::*;
 
+pub(crate) use dispatch::JobDispatcher;
 pub use delivery::deliver_job;
+pub use slot::is_running;
+pub(crate) use slot::SchedulerSlot;
 pub use retry::execute_job_now;
 
 use crate::config::Config;
@@ -38,13 +44,17 @@ use crate::cron::{due_jobs, CronJob};
 use crate::security::SecurityPolicy;
 use anyhow::Result;
 use chrono::Utc;
-use futures_util::{stream, StreamExt};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 
 const MIN_POLL_SECONDS: u64 = 5;
 
 pub async fn run(config: Config) -> Result<()> {
+    // One poll loop per process: two would each see the same due rows.
+    let Some(_slot) = SchedulerSlot::acquire() else {
+        tracing::warn!("[cron:scheduler] a scheduler loop is already running; not starting another");
+        return Ok(());
+    };
     // Ensure the global event bus is initialized so cron delivery events
     // are not silently dropped. This is a no-op if already initialized.
     crate::core::bus::init().await.expect("bus init");
@@ -70,10 +80,11 @@ pub async fn run(config: Config) -> Result<()> {
     // "nothing emitted yet for this run", so the first successful tick
     // is treated as a transition and emits.
     let mut last_emitted_health: Option<bool> = None;
+    let mut dispatcher = JobDispatcher::new(config.scheduler.max_concurrent);
 
     loop {
         interval.tick().await;
-        tick_once(&config, &security, &mut last_emitted_health).await;
+        tick_once(&config, &security, &mut last_emitted_health, &mut dispatcher).await;
     }
 }
 
@@ -100,6 +111,7 @@ pub(crate) async fn tick_once(
     config: &Config,
     security: &Arc<SecurityPolicy>,
     last_emitted_health: &mut Option<bool>,
+    dispatcher: &mut JobDispatcher,
 ) {
     tracing::debug!("[cron:scheduler] tick poll begin");
     let jobs = match due_jobs(config, Utc::now()) {
@@ -151,7 +163,7 @@ pub(crate) async fn tick_once(
         return;
     }
 
-    process_due_jobs(config, security, jobs).await;
+    dispatcher.dispatch(config, security, jobs).await;
     tracing::debug!("[cron:scheduler] tick end due_count={due_count} (jobs processed)");
 
     // `process_due_jobs` itself may have published `healthy: false` on
@@ -162,33 +174,7 @@ pub(crate) async fn tick_once(
     *last_emitted_health = None;
 }
 
-async fn process_due_jobs(config: &Config, security: &Arc<SecurityPolicy>, jobs: Vec<CronJob>) {
-    let max_concurrent = config.scheduler.max_concurrent.max(1);
-    let mut in_flight = stream::iter(jobs.into_iter().map(|job| {
-        let config = config.clone();
-        let security = Arc::clone(security);
-        async move { execute_and_persist_job(&config, security.as_ref(), &job).await }
-    }))
-    .buffer_unordered(max_concurrent);
-
-    while let Some((job_id, success, failure_message)) = in_flight.next().await {
-        if success {
-            BUS.publish(DomainEvent::HealthChanged {
-                component: "scheduler".to_string(),
-                healthy: true,
-                message: None,
-            });
-        } else {
-            BUS.publish(DomainEvent::HealthChanged {
-                component: "scheduler".to_string(),
-                healthy: false,
-                message: Some(failure_message.unwrap_or_else(|| format!("job {job_id} failed"))),
-            });
-        }
-    }
-}
-
-async fn execute_and_persist_job(
+pub(super) async fn execute_and_persist_job(
     config: &Config,
     security: &SecurityPolicy,
     job: &CronJob,
@@ -224,3 +210,4 @@ async fn execute_and_persist_job(
 
     (job.id.clone(), success, failure_message)
 }
+

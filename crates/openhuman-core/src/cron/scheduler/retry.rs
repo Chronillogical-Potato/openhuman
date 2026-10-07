@@ -49,7 +49,7 @@ pub(super) async fn execute_job_with_retry(
             }
             JobType::Agent => run_agent_job(config, job).await,
             JobType::Flow => {
-                let (success, output) = run_flow_schedule_job(job);
+                let (success, output) = run_flow_schedule_job(job).await;
                 (success, output, None)
             }
         };
