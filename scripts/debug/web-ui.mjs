@@ -61,7 +61,9 @@ async function shutdown(code) {
     // Each child leads its own process group, so pnpm/node grandchildren go too.
     try {
       process.kill(-child.pid, "SIGTERM");
-    } catch {
+      log(`sent SIGTERM to ${child.name} group ${child.pid}`);
+    } catch (err) {
+      log(`group kill of ${child.name} failed (${err.code}); signalling the pid`);
       child.kill("SIGTERM");
     }
   }
@@ -86,6 +88,7 @@ function startChild(name, command, args, env, cwd = repo) {
       void shutdown(1);
     }
   });
+  child.name = name;
   children.push(child);
   return child;
 }
