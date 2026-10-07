@@ -16,10 +16,7 @@ use super::types::UsageScope;
 impl UsageScope {
     /// The scope of the calling task, with `provider` and the sub-agent (its
     /// definition and task id) supplied by the recording site.
-    pub fn ambient(
-        provider: Option<&str>,
-        subagent: Option<(&str, &str)>,
-    ) -> Self {
+    pub fn ambient(provider: Option<&str>, subagent: Option<(&str, &str)>) -> Self {
         let origin = crate::agent::turn_origin::current();
         let (thread_id, origin) = describe_origin(origin.as_ref());
         let definition = crate::memory::scope::current().and_then(|identity| identity.agent_id);

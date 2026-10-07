@@ -17,15 +17,24 @@ fn each_origin_maps_to_its_thread_and_label() {
         reply_target: "r".into(),
         message_id: "m".into(),
     };
-    assert_eq!(describe_origin(Some(&channel)).1.as_deref(), Some("channel:telegram"));
+    assert_eq!(
+        describe_origin(Some(&channel)).1.as_deref(),
+        Some("channel:telegram")
+    );
     let cron = AgentTurnOrigin::TrustedAutomation {
         job_id: "j".into(),
         source: TrustedAutomationSource::Cron,
     };
     assert_eq!(describe_origin(Some(&cron)).1.as_deref(), Some("cron"));
-    assert_eq!(describe_origin(Some(&AgentTurnOrigin::Cli)).1.as_deref(), Some("cli"));
+    assert_eq!(
+        describe_origin(Some(&AgentTurnOrigin::Cli)).1.as_deref(),
+        Some("cli")
+    );
     assert_eq!(describe_origin(None), (None, None));
-    assert_eq!(describe_origin(Some(&AgentTurnOrigin::Unknown)), (None, None));
+    assert_eq!(
+        describe_origin(Some(&AgentTurnOrigin::Unknown)),
+        (None, None)
+    );
 }
 
 #[tokio::test]

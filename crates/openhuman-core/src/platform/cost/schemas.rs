@@ -156,7 +156,8 @@ fn schema_for(function: &str) -> ControllerSchema {
         "cost_report" => ControllerSchema {
             namespace: "cost",
             function: "report",
-            description: "Usage report over the last `days`: calls, input/output/cached/cache-write/\
+            description:
+                "Usage report over the last `days`: calls, input/output/cached/cache-write/\
                           reasoning tokens, cost split into provider-charged and estimated, and \
                           the prompt-cache hit ratio — in total and grouped by any of day, week, \
                           month, model, provider, route, agent, thread, origin, session_agent.",

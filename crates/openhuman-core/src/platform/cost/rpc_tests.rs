@@ -336,7 +336,11 @@ fn report_rpc_groups_attributed_usage_and_reports_cache_hits() {
     )
     .expect("cache report resolves");
     let value = cache.value;
-    assert_eq!(value["calls"].as_array().unwrap().len(), 1, "limit keeps the newest");
+    assert_eq!(
+        value["calls"].as_array().unwrap().len(),
+        1,
+        "limit keeps the newest"
+    );
     assert_eq!(value["input_tokens"], 2000, "totals cover every call");
     assert_eq!(value["cold_calls"], 0);
 }

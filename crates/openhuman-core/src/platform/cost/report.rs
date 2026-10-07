@@ -205,7 +205,11 @@ pub fn build_report(
     filter: &ReportFilter,
 ) -> UsageReport {
     let mut seen = HashSet::new();
-    let group_by: Vec<GroupKey> = group_by.iter().copied().filter(|k| seen.insert(*k)).collect();
+    let group_by: Vec<GroupKey> = group_by
+        .iter()
+        .copied()
+        .filter(|k| seen.insert(*k))
+        .collect();
     let mut totals = ReportRow::default();
     let mut groups: HashMap<Vec<String>, ReportRow> = HashMap::new();
     for record in records.iter().filter(|r| filter.admits(r)) {
