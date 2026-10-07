@@ -56,6 +56,7 @@
 //! backend credential.
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -66,12 +67,31 @@ pub const MEMORY_CORTEXDB_KEY_NAME: &str = "memory-cortexdb";
 /// Engine a fresh config selects.
 pub const DEFAULT_MEMORY_ENGINE: &str = "tinyhumans";
 
+/// A legacy backend is retained only long enough to recognize migration input;
+/// its debug representation must not expose user-provided configuration text.
+#[derive(Clone, Deserialize, PartialEq, Eq)]
+pub(crate) struct LegacyBackend(String);
+
+impl fmt::Debug for LegacyBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<redacted>")
+    }
+}
+
 /// The `[memory]` section.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct MemoryConfig {
     /// The selected engine id (`tinyhumans` or `cortexdb`).
     pub engine: String,
+    #[serde(rename = "backend", default, skip_serializing)]
+    #[schemars(skip)]
+    pub(crate) legacy_backend: Option<LegacyBackend>,
+    /// Whether a retired v1 backend was found and disabled during migration.
+    /// This marker is safe to persist and keeps the diagnostic after reload.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[schemars(skip)]
+    pub(crate) legacy_backend_unsupported: bool,
     /// Per-engine settings, keyed by engine id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub engines: BTreeMap<String, MemoryEngineSettings>,
@@ -142,6 +162,8 @@ impl Default for MemoryConfig {
     fn default() -> Self {
         Self {
             engine: DEFAULT_MEMORY_ENGINE.to_string(),
+            legacy_backend: None,
+            legacy_backend_unsupported: false,
             engines: BTreeMap::new(),
             agent_id: None,
             root: None,

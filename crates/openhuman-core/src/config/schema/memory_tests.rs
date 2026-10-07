@@ -97,7 +97,7 @@ context = true
 }
 
 #[test]
-fn ignores_v1_keys_instead_of_failing() {
+fn parses_v1_keys_for_loader_migration() {
     let config: MemoryConfig = toml::from_str(
         r#"
 backend = "sqlite"
@@ -106,7 +106,6 @@ embedding_model = "embedding-v1"
 "#,
     )
     .expect("a v1 [memory] section still parses");
-    assert_eq!(config.engine, DEFAULT_MEMORY_ENGINE);
     assert_eq!(config.embedding_model, "embedding-v1");
 }
 

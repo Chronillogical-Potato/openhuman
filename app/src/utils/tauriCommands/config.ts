@@ -122,6 +122,11 @@ export interface RuntimeSettingsUpdate {
   reasoning_enabled?: boolean | null;
   /** Default thinking level for agent turns; `''` clears it to the provider default. */
   reasoning_effort?: string | null;
+  /**
+   * When set, `reasoning_effort` is saved as this model id's own level
+   * (`runtime.reasoning_effort_by_model`) and `''` removes the model's entry.
+   */
+  reasoning_effort_model?: string | null;
 }
 
 export interface BrowserSettingsUpdate {
@@ -216,6 +221,8 @@ export interface ClientConfig {
    * provider decides. Absent on cores that predate it.
    */
   reasoning_effort?: string | null;
+  /** Per-model thinking levels keyed by model id; outrank `reasoning_effort`. */
+  reasoning_effort_by_model?: Record<string, string> | null;
   app_version: string;
   api_key_set: boolean;
   /** Legacy per-task-hint model overrides (deprecated; will be removed). */

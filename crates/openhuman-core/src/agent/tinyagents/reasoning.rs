@@ -7,8 +7,9 @@
 //! 1. the thread's own choice, recorded by `channel_web_chat`'s
 //!    `reasoning_effort` param ([`apply_requested_effort`]) — read at turn
 //!    start, so changing it never evicts the thread's warm session;
-//! 2. `runtime.reasoning_effort` in the session's effective config;
-//! 3. `runtime.reasoning_enabled = false`, meaning "no reasoning".
+//! 2. the turn model's own level, `runtime.reasoning_effort_by_model`;
+//! 3. `runtime.reasoning_effort` in the session's effective config;
+//! 4. `runtime.reasoning_enabled = false`, meaning "no reasoning".
 //!
 //! Nothing set means the provider keeps its own default.
 
@@ -176,12 +177,18 @@ pub(crate) fn parse_reasoning_effort(raw: &str) -> Option<ReasoningEffort> {
 
 /// The reasoning config an agent turn on `config` should request, or `None`
 /// to leave the provider default alone.
+///
+/// The turn's model's own level (`runtime.reasoning_effort_by_model`, keyed by
+/// `default_model`, which a chat's `model_override` has already replaced in
+/// the session config) outranks the global `runtime.reasoning_effort`.
 pub(crate) fn reasoning_for_config(config: &Config) -> Option<ReasoningConfig> {
-    if let Some(raw) = config
-        .runtime
-        .reasoning_effort
+    let per_model = config
+        .default_model
         .as_deref()
-        .map(str::trim)
+        .and_then(|model| config.runtime.reasoning_effort_by_model.get(model.trim()));
+    if let Some(raw) = per_model
+        .or(config.runtime.reasoning_effort.as_ref())
+        .map(|raw| raw.trim())
         .filter(|raw| !raw.is_empty())
     {
         return match parse_reasoning_effort(raw) {

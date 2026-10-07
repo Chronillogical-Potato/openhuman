@@ -54,6 +54,10 @@ pub struct RuntimeSettingsPatch {
     pub reasoning_enabled: Option<bool>,
     /// `Some("")` clears the effort back to the provider default.
     pub reasoning_effort: Option<String>,
+    /// When set, `reasoning_effort` is saved as this model's own level
+    /// (`runtime.reasoning_effort_by_model`) instead of the global one, and
+    /// `Some("")` removes the model's entry.
+    pub reasoning_effort_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -462,12 +466,30 @@ pub async fn apply_runtime_settings(
     }
     if let Some(effort) = update.reasoning_effort {
         let effort = effort.trim();
-        if effort.is_empty() {
-            config.runtime.reasoning_effort = None;
+        let parsed = if effort.is_empty() {
+            None
         } else {
             let parsed = crate::agent::tinyagents::parse_reasoning_effort(effort)
                 .ok_or_else(|| format!("unknown reasoning_effort '{effort}'"))?;
-            config.runtime.reasoning_effort = Some(parsed.as_str().to_string());
+            Some(parsed.as_str().to_string())
+        };
+        let model = update.reasoning_effort_model.as_deref().map(str::trim);
+        if model == Some("") {
+            return Err("reasoning_effort_model must not be empty".into());
+        }
+        match (model, parsed) {
+            (Some(model), Some(effort)) => {
+                log::debug!("[config][reasoning] model={model} effort={effort}");
+                config
+                    .runtime
+                    .reasoning_effort_by_model
+                    .insert(model.to_string(), effort);
+            }
+            (Some(model), None) => {
+                log::debug!("[config][reasoning] model={model} effort cleared");
+                config.runtime.reasoning_effort_by_model.remove(model);
+            }
+            (None, effort) => config.runtime.reasoning_effort = effort,
         }
     }
     config.save().await.map_err(|e| e.to_string())?;

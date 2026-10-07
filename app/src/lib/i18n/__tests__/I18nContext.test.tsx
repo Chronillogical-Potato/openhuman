@@ -68,6 +68,18 @@ describe('I18nProvider', () => {
     expect(screen.getByText('Beenden')).toBeInTheDocument();
   });
 
+  it('serves Turkish translations left-to-right with the unknown-key fallback', () => {
+    renderWithLocale('tr');
+
+    expect(screen.getByTestId('locale')).toHaveTextContent('tr');
+    expect(screen.getByText('Dil')).toBeInTheDocument();
+    expect(screen.getByText('Uygulama verilerini temizle')).toBeInTheDocument();
+    expect(screen.getByText('Çık')).toBeInTheDocument();
+    expect(screen.getByTestId('missing-key')).toHaveTextContent('this.key.does.not.exist');
+    expect(document.documentElement.lang).toBe('tr');
+    expect(document.documentElement.dir).toBe('ltr');
+  });
+
   it('keeps the Simplified Chinese locale complete against English keys', () => {
     const englishKeys = Object.keys(unwrapTranslationMap(en));
     const simplifiedChinese = unwrapTranslationMap(zhCN);

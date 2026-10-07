@@ -139,6 +139,121 @@ async fn load_from_config_path_sets_recovery_flag_on_non_utf8() {
     );
 }
 
+#[tokio::test]
+async fn load_from_config_path_disables_legacy_sqlite_memory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config_path = tmp.path().join("config.toml");
+    let workspace = tmp.path().join("workspace");
+    write_file(
+        &config_path,
+        r#"
+[memory]
+backend = "sqlite"
+embedding_model = "local-embedding"
+"#,
+    )
+    .await;
+
+    let config = Config::load_from_config_path(&config_path, &workspace)
+        .await
+        .expect("legacy config must load");
+
+    assert_eq!(config.memory.engine, "");
+    assert_eq!(config.memory.embedding_model, "local-embedding");
+}
+
+#[tokio::test]
+async fn load_from_config_path_preserves_explicit_memory_engine() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config_path = tmp.path().join("config.toml");
+    let workspace = tmp.path().join("workspace");
+    write_file(
+        &config_path,
+        r#"
+[memory]
+backend = "sqlite"
+engine = "tinyhumans"
+"#,
+    )
+    .await;
+
+    let config = Config::load_from_config_path(&config_path, &workspace)
+        .await
+        .expect("modern config must load");
+
+    assert_eq!(config.memory.engine, "tinyhumans");
+}
+
+#[tokio::test]
+async fn load_or_init_disables_and_persists_legacy_memory_backend() {
+    let tmp = tempfile::tempdir().unwrap();
+    write_file(
+        &tmp.path().join("config.toml"),
+        r#"
+[memory]
+backend = "sqlite"
+"#,
+    )
+    .await;
+
+    let config = load_or_init_for_workspace(tmp.path()).await;
+
+    assert_eq!(config.memory.engine, "");
+    assert!(!crate::memory::engine::is_on(&config));
+    let off = crate::memory::engine::resolve(&config)
+        .engine()
+        .unwrap_err();
+    assert_eq!(off.code(), crate::memory::error::MEMORY_OFF);
+    assert!(off.to_string().contains("legacy memory backend"));
+    config.save().await.unwrap();
+
+    let saved = tokio::fs::read_to_string(tmp.path().join("config.toml"))
+        .await
+        .unwrap();
+    assert!(saved.contains("engine = \"\""));
+    assert!(!saved.contains("backend"));
+
+    let reloaded = load_or_init_for_workspace(tmp.path()).await;
+
+    assert_eq!(reloaded.memory.engine, "");
+    assert!(!crate::memory::engine::is_on(&reloaded));
+    let off = crate::memory::engine::resolve(&reloaded)
+        .engine()
+        .unwrap_err();
+    assert_eq!(off.code(), crate::memory::error::MEMORY_OFF);
+    assert!(off.to_string().contains("legacy memory backend"));
+}
+
+#[tokio::test]
+async fn recovery_migrates_the_backup_when_primary_is_toml_but_not_config() {
+    let tmp = tempfile::tempdir().unwrap();
+    write_file(
+        &tmp.path().join("config.toml"),
+        r#"
+[memory]
+engine = 42
+"#,
+    )
+    .await;
+    write_file(
+        &tmp.path().join("config.toml.bak"),
+        r#"
+[memory]
+backend = "sqlite"
+"#,
+    )
+    .await;
+
+    let config = load_or_init_for_workspace(tmp.path()).await;
+
+    assert_eq!(config.memory.engine, "");
+    let reason = crate::memory::engine::resolve(&config)
+        .engine()
+        .unwrap_err()
+        .to_string();
+    assert!(reason.contains("legacy memory backend"));
+}
+
 #[test]
 fn redact_url_strips_basic_auth_and_query() {
     let out = redact_url_for_log(

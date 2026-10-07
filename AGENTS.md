@@ -120,7 +120,8 @@ Keep matching profile settings synchronized between `Cargo.toml` and
 `crates/openhuman-app/Cargo.toml`:
 
 - Development dependencies use `debug = false`.
-- Release builds use thin LTO, one codegen unit, symbol stripping, and
+- Release builds use thin LTO, 16 codegen units (one unit pushed the desktop
+  release matrix from ~46 to ~84 min, 6941b18c85), symbol stripping, and
   `debug = "line-tables-only"`.
 
 ## Testing and CI

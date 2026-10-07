@@ -301,6 +301,7 @@ fn attach_workflow_proposal_persists_thread_message_and_extends_summary() {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .expect("thread created");

@@ -33,6 +33,7 @@ import {
 import { useT } from '@/lib/i18n/I18nContext';
 import { useAuiThreadId } from '@/providers/AssistantUiRuntimeProvider';
 import { CHAT_ERROR_METADATA_KEY } from '@/store/threadSlice';
+import { fullTimestamp, relativeTime } from '@/utils/relativeTime';
 import { useActionBarReload, useMessageError } from '@assistant-ui/core/react';
 import {
   ActionBarMorePrimitive,
@@ -138,6 +139,12 @@ export type ThreadComponents = {
    * component returns `null` when it has nothing to say.
    */
   RunningStatus?: ComponentType | undefined;
+  /**
+   * Host-owned content under the last message while no turn is running — e.g.
+   * an "Interrupted" marker for a turn the host knows was cut off. Returns
+   * `null` when there is nothing to show.
+   */
+  TranscriptFooter?: ComponentType | undefined;
   /** Host-owned attachment previews rendered above the editor. */
   ComposerAttachments?: ComponentType | undefined;
   /** Host-owned attachment picker rendered in the action row. */
@@ -199,8 +206,19 @@ export type ThreadProps = {
   onModelChange?: ((value: string | null, contextWindow?: number | null) => void) | undefined;
   /** Host transport error shown in place of an empty welcome state. */
   loadError?: string | null | undefined;
-  /** Host-specific Escape behavior (for example cancel + restore prompt). */
-  onEscape?: (() => void) | undefined;
+  /**
+   * Host-specific Escape behavior (for example cancel + restore prompt).
+   * Returning `false` means it did nothing, and the key is left to anything
+   * else listening (an open popover); any other return swallows it.
+   */
+  onEscape?: (() => boolean | void) | undefined;
+  /**
+   * ArrowUp in an EMPTY composer (no modifiers, no IME): recall the last
+   * prompt. Returns whether it did; only then is the key consumed.
+   */
+  onRecallLastPrompt?: (() => boolean) | undefined;
+  /** Placeholder override for the composer input (run / waiting states). */
+  composerPlaceholder?: string | undefined;
   /**
    * Commands offered when the composer input starts with `/`. Supplied by the
    * host because a command's `execute` is host behaviour (`/clear` has to
@@ -367,6 +385,8 @@ export const Thread: FC<ThreadProps> = ({
   onModelChange,
   loadError = null,
   onEscape,
+  onRecallLastPrompt,
+  composerPlaceholder,
   slashCommands = NO_SLASH_COMMANDS,
 }) => {
   const isEmpty = useAuiState(isNewChatView);
@@ -380,6 +400,8 @@ export const Thread: FC<ThreadProps> = ({
           onModelChange={onModelChange}
           loadError={loadError}
           onEscape={onEscape}
+          onRecallLastPrompt={onRecallLastPrompt}
+          composerPlaceholder={composerPlaceholder}
         />
       </SlashCommandsContext.Provider>
     </ThreadComponentsContext.Provider>
@@ -391,8 +413,18 @@ const ThreadRoot: FC<{
   model: string | null;
   onModelChange?: (value: string | null, contextWindow?: number | null) => void;
   loadError: string | null;
-  onEscape?: () => void;
-}> = ({ isEmpty, model, onModelChange, loadError, onEscape }) => {
+  onEscape?: () => boolean | void;
+  onRecallLastPrompt?: () => boolean;
+  composerPlaceholder?: string;
+}> = ({
+  isEmpty,
+  model,
+  onModelChange,
+  loadError,
+  onEscape,
+  onRecallLastPrompt,
+  composerPlaceholder,
+}) => {
   const { t } = useT();
   const {
     Welcome = ThreadWelcome,
@@ -461,6 +493,7 @@ const ThreadRoot: FC<{
             className="mb-14 flex flex-col gap-y-6 empty:hidden">
             <ThreadPrimitive.Messages>{() => <ThreadMessage />}</ThreadPrimitive.Messages>
             <RunningStatusSlot />
+            <TranscriptFooterSlot />
           </div>
           <ThreadBottomFollower
             viewportRef={viewportRef}
@@ -484,6 +517,8 @@ const ThreadRoot: FC<{
                   model={model}
                   onModelChange={onModelChange}
                   onEscape={onEscape}
+                  onRecallLastPrompt={onRecallLastPrompt}
+                  placeholder={composerPlaceholder}
                   isDraggingFiles={isDraggingFiles}
                 />
                 <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
@@ -860,6 +895,17 @@ const RunningStatusSlot: FC = () => {
   );
 };
 
+/** Host footer under the last message, shown only while nothing is running. */
+const TranscriptFooterSlot: FC = () => {
+  const { TranscriptFooter } = useContext(ThreadComponentsContext);
+  if (!TranscriptFooter) return null;
+  return (
+    <AuiIf condition={s => !s.thread.isRunning}>
+      <TranscriptFooter />
+    </AuiIf>
+  );
+};
+
 const ThreadMessage: FC = () => {
   const { AssistantMessage: AssistantMessageComponent = AssistantMessage } =
     useContext(ThreadComponentsContext);
@@ -872,10 +918,11 @@ const ThreadMessage: FC = () => {
 };
 
 const ThreadScrollToBottom: FC = () => {
+  const { t } = useT();
   return (
     <ThreadPrimitive.ScrollToBottom asChild>
       <TooltipIconButton
-        tooltip="Scroll to bottom"
+        tooltip={t('chat.message.scrollToBottom')}
         variant="outline"
         className="aui-thread-scroll-to-bottom dark:border-border dark:bg-background dark:hover:bg-accent absolute -top-12 z-10 self-center rounded-full p-4 disabled:invisible">
         <ArrowDownIcon />
@@ -931,10 +978,12 @@ export function extractComposerPasteFiles(
 const Composer: FC<{
   model: string | null;
   onModelChange?: (value: string | null, contextWindow?: number | null) => void;
-  onEscape?: () => void;
+  onEscape?: () => boolean | void;
+  onRecallLastPrompt?: () => boolean;
+  placeholder?: string;
   /** A file drag is over the thread and will land here; see `useThreadFileDrop`. */
   isDraggingFiles: boolean;
-}> = ({ model, onModelChange, onEscape, isDraggingFiles }) => {
+}> = ({ model, onModelChange, onEscape, onRecallLastPrompt, placeholder, isDraggingFiles }) => {
   const { t } = useT();
   const messageInputLabel = t('assistantUi.thread.messageInputLabel', 'Message input');
   const aui = useAui();
@@ -971,6 +1020,9 @@ const Composer: FC<{
   // composition before it runs. That stale write would rebuild the editor
   // mid-composition and cancel it -- #5763 again, one composition later.
   const isComposingTextRef = useRef(false);
+  // ArrowUp recall only fires on an empty composer, so a caret move inside a
+  // multi-line draft is never hijacked.
+  const composerIsEmpty = useAuiState(state => state.composer.text.length === 0);
 
   // DOM text -> composer store. The text is read at event time; only the write
   // is deferred by a microtask, so the editor has finished applying the event
@@ -1101,7 +1153,7 @@ const Composer: FC<{
              */}
             <LexicalComposerInput
               ref={inputWrapperRef}
-              placeholder={t('chat.typeMessage', 'Send a message...')}
+              placeholder={placeholder ?? t('chat.typeMessage', 'Send a message...')}
               onCompositionStartCapture={() => {
                 isComposingTextRef.current = true;
               }}
@@ -1135,13 +1187,33 @@ const Composer: FC<{
                 syncComposerFromDom(event.target);
               }}
               onKeyDownCapture={event => {
+                const native = event.nativeEvent;
                 if (event.key === 'Escape' && onEscape) {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onEscape();
+                  // Only swallow the key when the host acted; otherwise an open
+                  // `/` or `@` popover still gets to close on it.
+                  if (onEscape() !== false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
                   return;
                 }
-                const native = event.nativeEvent;
+                if (
+                  event.key === 'ArrowUp' &&
+                  onRecallLastPrompt &&
+                  !event.shiftKey &&
+                  !event.altKey &&
+                  !event.metaKey &&
+                  !event.ctrlKey &&
+                  !isComposingTextRef.current &&
+                  !native.isComposing &&
+                  composerIsEmpty
+                ) {
+                  if (onRecallLastPrompt()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }
+                  return;
+                }
                 if (
                   isComposingTextRef.current ||
                   native.isComposing ||
@@ -1310,17 +1382,43 @@ const ComposerAction: FC<{
             </ComposerPrimitive.Send>
           )}
         </AuiIf>
-        <AuiIf condition={s => s.thread.isRunning}>
+        {/*
+          While a turn runs, typed text is a queued follow-up (the runtime's
+          `queue` capability keeps Send enabled), so the primary slot offers to
+          queue it; Stop takes the slot only when there is nothing to send —
+          OpenClaw's rule, and the one that keeps a half-typed follow-up one
+          Enter away instead of behind a Stop button.
+        */}
+        <AuiIf condition={s => s.thread.isRunning && s.composer.text.trim().length > 0}>
+          <ComposerPrimitive.Send asChild>
+            <TooltipIconButton
+              tooltip={t('composer.queueSend')}
+              side="bottom"
+              type="button"
+              variant="default"
+              size="icon"
+              className="aui-composer-send size-7 rounded-full bg-primary-500 text-content-inverted hover:bg-primary-600"
+              data-testid="queue-message-button"
+              data-analytics-id="chat-composer-queue-send"
+              aria-label={t('composer.queueSend')}>
+              <ArrowUpIcon className="aui-composer-send-icon size-4" />
+            </TooltipIconButton>
+          </ComposerPrimitive.Send>
+        </AuiIf>
+        <AuiIf condition={s => s.thread.isRunning && s.composer.text.trim().length === 0}>
           <ComposerPrimitive.Cancel asChild>
-            <Button
+            <TooltipIconButton
+              tooltip={t('composer.stopEsc')}
+              side="bottom"
               type="button"
               variant="default"
               size="icon"
               className="aui-composer-cancel size-7 rounded-full bg-primary-500 text-content-inverted hover:bg-primary-600"
               data-testid="stop-generation-button"
+              data-analytics-id="chat-composer-stop"
               aria-label={t('chat.stopGeneration', 'Stop generating')}>
               <SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" />
-            </Button>
+            </TooltipIconButton>
           </ComposerPrimitive.Cancel>
         </AuiIf>
       </div>
@@ -1593,7 +1691,7 @@ const AssistantActionBar: FC = () => {
   const reloadAction =
     canReload && !isFailedTurn ? (
       <ActionBarPrimitive.Reload asChild>
-        <TooltipIconButton tooltip="Refresh">
+        <TooltipIconButton tooltip={t('chat.message.refresh')}>
           <RefreshCwIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Reload>
@@ -1605,7 +1703,7 @@ const AssistantActionBar: FC = () => {
       autohide="not-last"
       className="aui-assistant-action-bar-root text-muted-foreground animate-in fade-in col-start-3 row-start-2 -ms-1 flex gap-1 duration-200">
       <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton tooltip="Copy">
+        <TooltipIconButton tooltip={t('chat.message.copy')}>
           <AuiIf condition={s => s.message.isCopied}>
             <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />
           </AuiIf>
@@ -1631,7 +1729,7 @@ const AssistantActionBar: FC = () => {
           unconditionally, so they are always live here. */}
       <ActionBarPrimitive.FeedbackPositive asChild>
         <TooltipIconButton
-          tooltip="Good response"
+          tooltip={t('chat.message.goodResponse')}
           data-testid="assistant-feedback-positive"
           className="data-[submitted=true]:text-primary-600 dark:data-[submitted=true]:text-primary-400">
           <ThumbsUpIcon />
@@ -1639,7 +1737,7 @@ const AssistantActionBar: FC = () => {
       </ActionBarPrimitive.FeedbackPositive>
       <ActionBarPrimitive.FeedbackNegative asChild>
         <TooltipIconButton
-          tooltip="Bad response"
+          tooltip={t('chat.message.badResponse')}
           data-testid="assistant-feedback-negative"
           className="data-[submitted=true]:text-coral-600 dark:data-[submitted=true]:text-coral-400">
           <ThumbsDownIcon />
@@ -1657,14 +1755,14 @@ const AssistantActionBar: FC = () => {
       <AuiIf condition={s => s.thread.capabilities.speech}>
         <AuiIf condition={s => s.message.speech == null}>
           <ActionBarPrimitive.Speak asChild>
-            <TooltipIconButton tooltip="Read aloud">
+            <TooltipIconButton tooltip={t('chat.message.readAloud')}>
               <Volume2Icon />
             </TooltipIconButton>
           </ActionBarPrimitive.Speak>
         </AuiIf>
         <AuiIf condition={s => s.message.speech != null}>
           <ActionBarPrimitive.StopSpeaking asChild>
-            <TooltipIconButton tooltip="Stop reading">
+            <TooltipIconButton tooltip={t('chat.message.stopReading')}>
               <VolumeXIcon className="text-destructive" />
             </TooltipIconButton>
           </ActionBarPrimitive.StopSpeaking>
@@ -1672,7 +1770,9 @@ const AssistantActionBar: FC = () => {
       </AuiIf>
       <ActionBarMorePrimitive.Root>
         <ActionBarMorePrimitive.Trigger asChild>
-          <TooltipIconButton tooltip="More" className="data-[state=open]:bg-accent">
+          <TooltipIconButton
+            tooltip={t('chat.message.more')}
+            className="data-[state=open]:bg-accent">
             <MoreHorizontalIcon />
           </TooltipIconButton>
         </ActionBarMorePrimitive.Trigger>
@@ -1695,7 +1795,40 @@ const AssistantActionBar: FC = () => {
        * that element's own docstring for why it belongs inside this root.
        */}
       <MessageTiming />
+      <MessageTimestamp />
     </ActionBarPrimitive.Root>
+  );
+};
+
+/**
+ * Muted relative send time beside the message actions ("5m ago"), with the
+ * full local date, time and zone in its tooltip. The action bar mounts on
+ * hover (and for the last message), so "now" is taken when it mounts rather
+ * than ticking on every message in a long transcript.
+ */
+const MessageTimestamp: FC = () => {
+  const { t, locale } = useT();
+  const createdAt = useAuiState(s => s.message.createdAt);
+  const [now] = useState(() => new Date());
+  if (!(createdAt instanceof Date)) return null;
+  const relative = relativeTime(createdAt, now, locale);
+  if (!relative) return null;
+  const label =
+    relative.kind === 'justNow'
+      ? t('chat.message.justNow')
+      : relative.kind === 'minutes'
+        ? t('chat.message.minutesAgo').replace('{count}', String(relative.count))
+        : relative.kind === 'hours'
+          ? t('chat.message.hoursAgo').replace('{count}', String(relative.count))
+          : relative.label;
+  return (
+    <time
+      data-testid="message-timestamp"
+      dateTime={createdAt.toISOString()}
+      title={fullTimestamp(createdAt, locale)}
+      className="text-muted-foreground/80 ms-1 self-center text-xs tabular-nums">
+      {label}
+    </time>
   );
 };
 
@@ -1767,7 +1900,7 @@ const UserActionBar: FC = () => {
   // is an ordinary statement, instrumented like any other.
   const editAction = canEdit ? (
     <ActionBarPrimitive.Edit asChild>
-      <TooltipIconButton tooltip="Edit" className="aui-user-action-edit">
+      <TooltipIconButton tooltip={t('chat.message.edit')} className="aui-user-action-edit">
         <PencilIcon />
       </TooltipIconButton>
     </ActionBarPrimitive.Edit>
@@ -1780,8 +1913,8 @@ const UserActionBar: FC = () => {
       className="aui-user-action-bar-root flex flex-col items-end">
       <ActionBarPrimitive.Copy asChild>
         <TooltipIconButton
-          tooltip={t('chat.copyResponse', 'Copy response')}
-          title={t('chat.copyResponse', 'Copy response')}>
+          tooltip={t('chat.message.copyMessage')}
+          title={t('chat.message.copyMessage')}>
           <CopyIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Copy>

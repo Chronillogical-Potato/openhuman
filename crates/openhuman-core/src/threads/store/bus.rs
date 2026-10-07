@@ -270,6 +270,7 @@ fn persist_channel_turn(
             parent_thread_id: None,
             labels: Some(vec!["general".to_string()]),
             personality_id: None,
+            working_dir: None,
         },
     )?;
 

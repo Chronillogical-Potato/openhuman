@@ -50,7 +50,9 @@ pub struct CustomEmbeddingsConfig {
 }
 
 /// Top-level configuration (config.toml root).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+///
+/// `Clone` is implemented by hand in `config_clone.rs` so it is emitted once.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     #[serde(skip)]
     pub workspace_dir: PathBuf,
