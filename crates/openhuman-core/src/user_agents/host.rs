@@ -69,6 +69,7 @@ impl std::fmt::Debug for AgentHost {
 pub fn user_domains() -> DomainSet {
     DomainSet {
         threads: true,
+        channels: true,
         ..DomainSet::none()
     }
 }

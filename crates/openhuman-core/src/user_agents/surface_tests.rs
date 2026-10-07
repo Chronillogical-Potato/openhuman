@@ -39,11 +39,13 @@ fn the_saas_planes_never_overlap() {
 }
 
 #[test]
-fn turn_starting_thread_methods_stay_closed_for_now() {
+fn chat_is_open_but_other_channel_methods_are_not() {
+    assert!(visible_in(true, true, "openhuman.channel_web_chat", false));
+    assert!(visible_in(true, true, "openhuman.threads_regenerate", false));
     for method in [
-        "openhuman.threads_generate_title",
-        "openhuman.threads_edit_message",
-        "openhuman.threads_regenerate",
+        "openhuman.channels_list",
+        "openhuman.channels_connect",
+        "openhuman.config_update_autonomy_settings",
     ] {
         assert!(!visible_in(true, true, method, false), "{method}");
     }
