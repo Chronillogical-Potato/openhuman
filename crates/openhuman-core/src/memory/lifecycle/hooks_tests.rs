@@ -479,3 +479,29 @@ async fn a_resumed_session_without_logging_still_opens_with_the_thread() {
     assert!(pack.markdown.contains("Alfama hotel"), "{}", pack.markdown);
     assert!(repeated_lines(&pack.markdown).is_empty());
 }
+
+#[tokio::test]
+async fn a_blank_turn_is_refused_without_a_pack_with_or_without_logging() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+    assert!(pre_turn(&config, &identity, input("t-blank", 0, "   "))
+        .await
+        .is_none());
+    assert!(
+        stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
+            .await
+            .is_empty(),
+        "a refused turn logs nothing"
+    );
+
+    config.memory.conversations.enabled = false;
+    let reader = MemoryIdentity::agent("orchestrator").resolve(&config);
+    assert!(pre_turn(&config, &reader, input("t-blank", 2, "   "))
+        .await
+        .is_none());
+    let mut resumed = input("  ", 4, "where were we?");
+    resumed.resumed_after_compaction = true;
+    assert!(pre_turn(&config, &reader, resumed).await.is_none());
+}
