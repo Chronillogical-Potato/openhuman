@@ -48,6 +48,7 @@ pub(super) fn task_inputs(args: &Value) -> anyhow::Result<BTreeMap<String, Strin
 pub(super) async fn approve_task_action(
     pending: &Pending,
     browser: &crate::config::BrowserConfig,
+    origin: Option<&crate::agent::turn_origin::AgentTurnOrigin>,
 ) -> anyhow::Result<bool> {
     let clean = |raw: &str| {
         let cleaned = raw.chars().filter(|c| !c.is_control()).collect::<String>();
@@ -61,7 +62,7 @@ pub(super) async fn approve_task_action(
         "task": pending.task, "action": pending.action, "target": pending.target
     }))?);
     let digest_hex = format!("{digest:x}");
-    if super::unattended::allow_current(browser, "task_step", &digest_hex) {
+    if super::unattended::allow(origin, browser, "task_step", &digest_hex) {
         return Ok(true);
     }
     let gate = ApprovalGate::try_global().ok_or_else(|| {

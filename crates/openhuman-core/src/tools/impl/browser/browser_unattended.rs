@@ -7,7 +7,7 @@
 //! unattended_actions` names the gated kinds such a turn may take without
 //! asking; every other origin keeps the forced gate exactly as it was.
 
-use crate::agent::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource};
+use crate::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use crate::config::BrowserConfig;
 
 /// A turn the user authorized ahead of time and nobody is watching live.
@@ -35,16 +35,22 @@ pub(super) fn allowed_for(
     origin.is_some_and(is_unattended) && browser.allows_unattended(kind)
 }
 
-/// Decide for the current turn, logging an allowed action by kind and digest
-/// only: no selector, typed value or page content reaches the log.
-pub(super) fn allow_current(browser: &BrowserConfig, kind: &str, digest_hex: &str) -> bool {
-    let origin = turn_origin::current();
-    let allowed = allowed_for(origin.as_ref(), browser, kind);
+/// Decide for the turn `origin` the tool was called under (read once from the
+/// per-turn `CoreContext` in `BrowserTool::execute`), logging an allowed
+/// action by kind and digest only: no selector, typed value or page content
+/// reaches the log.
+pub(super) fn allow(
+    origin: Option<&AgentTurnOrigin>,
+    browser: &BrowserConfig,
+    kind: &str,
+    digest_hex: &str,
+) -> bool {
+    let allowed = allowed_for(origin, browser, kind);
     if allowed {
         tracing::info!(
             action = kind,
             action_digest = %digest_hex.get(..12).unwrap_or(digest_hex),
-            origin = %origin.as_ref().map(AgentTurnOrigin::class).unwrap_or_default(),
+            origin = %origin.map(AgentTurnOrigin::class).unwrap_or_default(),
             "[browser] unattended action allowed by [browser] unattended_actions"
         );
     }
