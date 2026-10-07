@@ -31,13 +31,19 @@
 //! memory agent.
 //!
 //! The identity is never taken from model arguments.
+//!
+//! Under layout v3 (`[memory] layout = "v3"`) the engine keeps all of this
+//! below the person's own scope root ([`user_root`]), and every agent's
+//! chats share one node ([`chat_node`], `ws:main`), each turn carrying its
+//! agent id. [`switch_to_v3`] turns it on once the person's memory moved.
 
 use std::future::Future;
 
 use tinymemory_api::{Namespace, Segment, SegmentKind};
 use tinymemory_tools::MemoryLayout;
 
-use crate::config::Config;
+use crate::config::{Config, MemoryLayoutMode};
+use crate::memory::error::{MemoryError, MemoryResult};
 
 /// The memory agent id of work no agent is running (RPC, sync jobs, the UI).
 pub const DEFAULT_AGENT_ID: &str = "assistant";
@@ -131,6 +137,11 @@ impl MemoryIdentity {
             tracing::warn!(%error, "[memory:scope] root too deep; using the default root");
             MemoryLayout::default()
         });
+        let layout = if layout_is_v3(config) {
+            pooled(layout)
+        } else {
+            layout
+        };
         let recall = pinned
             .and_then(|pin| pin.recall)
             .unwrap_or(memory.recall.enabled);
@@ -140,6 +151,95 @@ impl MemoryIdentity {
             recall,
         }
     }
+}
+
+/// The pooled chat node every agent logs to under layout v3: `ws:main`.
+const CHAT_WORKSPACE: &str = "main";
+
+/// `layout` with every agent's conversations pooled at its [`chat_node`].
+fn pooled(layout: MemoryLayout) -> MemoryLayout {
+    let node = Namespace::ROOT
+        .child(Segment::sanitized(SegmentKind::Workspace, CHAT_WORKSPACE))
+        .unwrap_or(Namespace::ROOT);
+    match layout.clone().with_pooled_conversations(&node) {
+        Ok(pooled) => pooled,
+        Err(error) => {
+            tracing::warn!(%error, "[memory:scope] chats not pooled; root too deep");
+            layout
+        }
+    }
+}
+
+/// Where every agent's chats are under layout v3: `ws:main` below
+/// `layout`'s root. Relative to the engine's scope root (`user:<id>`), which
+/// is not a namespace segment.
+#[must_use]
+pub fn chat_node(layout: &MemoryLayout) -> Namespace {
+    layout
+        .root()
+        .child(Segment::sanitized(SegmentKind::Workspace, CHAT_WORKSPACE))
+        .unwrap_or_else(|_| layout.root().clone())
+}
+
+/// Whether `config` keeps memory in layout v3 (`[memory] layout = "v3"`).
+#[must_use]
+pub fn layout_is_v3(config: &Config) -> bool {
+    config.memory.layout == MemoryLayoutMode::V3
+}
+
+/// The engine scope root of the person `config` belongs to: `user:<id>`
+/// for a TinyHumans account (its 24-hex id), `user:local-<digest>` for a
+/// local session (hashed, so no device name reaches the engine), and `None`
+/// before anyone signs in. Read from where the config lives
+/// (`<root>/users/<id>/config.toml`).
+#[must_use]
+pub fn user_root(config: &Config) -> Option<String> {
+    let dir = config.config_path.parent()?;
+    if dir.parent()?.file_name()? != "users" {
+        return None;
+    }
+    user_root_for(dir.file_name()?.to_str()?)
+}
+
+/// [`user_root`] for the user id `id`.
+fn user_root_for(id: &str) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    if id.is_empty() || id == crate::config::PRE_LOGIN_USER_ID {
+        return None;
+    }
+    let account = id.len() == 24 && id.bytes().all(|b| b.is_ascii_hexdigit());
+    if account {
+        return Some(format!("user:{}", id.to_ascii_lowercase()));
+    }
+    let digest: String = Sha256::digest(id.as_bytes())
+        .iter()
+        .take(8)
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    Some(format!("user:local-{digest}"))
+}
+
+/// Switches the signed-in person's memory to layout v3: loads the config
+/// fresh (a long migration's own copy would revert settings changed since),
+/// sets `[memory] layout = "v3"`, saves it and drops the bound engines so
+/// the next binding uses the new layout. Called by the layout migration
+/// once every scope has moved, never on its own.
+///
+/// # Errors
+///
+/// The config could not be loaded or saved.
+pub async fn switch_to_v3() -> MemoryResult<()> {
+    let mut config = crate::config::rpc::load_config_with_timeout()
+        .await
+        .map_err(MemoryError::Engine)?;
+    config.memory.layout = MemoryLayoutMode::V3;
+    config
+        .save()
+        .await
+        .map_err(|error| MemoryError::Engine(format!("saving config failed: {error:#}")))?;
+    super::engine::invalidate();
+    tracing::info!("[memory:scope] memory switched to layout v3");
+    Ok(())
 }
 
 /// The layout `team`'s members share.
