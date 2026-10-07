@@ -59,8 +59,11 @@ function readSetting(settings: LiveVoiceSettings, block: string, field: string):
   return values?.[field] ?? '';
 }
 
-/** Inset that lines card sections up with the title, past the radio and icon. */
-const BODY_INSET = 'pl-4 sm:pl-[98px]';
+/**
+ * Inset that lines card sections up with the title: past the radio (16 + 18 +
+ * 12 px), and past the icon too once the card is wide enough to show it.
+ */
+const BODY_INSET = 'pl-[46px] @md:pl-[98px]';
 
 export interface LiveVoiceProviderCardProps {
   provider: LiveVoiceProvider;
@@ -154,7 +157,7 @@ const LiveVoiceProviderCard = ({
         ? t('connections.voiceAgents.speaker')
         : t('connections.voiceAgents.voice');
     return (
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 @md:grid-cols-2">
         {showVoice && (
           <label className="flex flex-col gap-1.5 text-xs font-medium text-content-secondary">
             <span>{voiceLabel}</span>
@@ -283,7 +286,7 @@ const LiveVoiceProviderCard = ({
       data-testid={`live-voice-provider-${provider.id}`}
       data-selected={selected || undefined}
       className={cn(
-        'overflow-hidden rounded-xl border transition-colors',
+        '@container overflow-hidden rounded-xl border transition-colors',
         selected
           ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500 dark:bg-primary-500/10'
           : 'border-line bg-surface',
@@ -323,7 +326,7 @@ const LiveVoiceProviderCard = ({
           <span
             aria-hidden
             className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl [&_svg]:h-5 [&_svg]:w-5',
+              'hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl @md:flex [&_svg]:h-5 [&_svg]:w-5',
               selected
                 ? 'bg-primary-500 text-content-inverted'
                 : provider.configured
@@ -347,7 +350,7 @@ const LiveVoiceProviderCard = ({
           </span>
         </label>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden sm:inline-flex">{statusBadge}</span>
+          <span className="hidden @lg:inline-flex">{statusBadge}</span>
           {provider.configured && (
             <Button
               size="sm"
