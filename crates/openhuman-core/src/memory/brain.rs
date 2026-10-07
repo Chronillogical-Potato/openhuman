@@ -124,7 +124,18 @@ pub fn brain_node(
     source: &BrainSource,
     item: &StoreItem,
 ) -> MemoryResult<Namespace> {
-    if config.memory.split_github_by_repo && *source == BrainSource::Github {
+    brain_node_with(config.memory.split_github_by_repo, layout, source, item)
+}
+
+/// [`brain_node`] with `[memory] split_github_by_repo` given, for a caller
+/// that holds the setting rather than the config (the layout migration).
+pub fn brain_node_with(
+    split_github_by_repo: bool,
+    layout: &MemoryLayout,
+    source: &BrainSource,
+    item: &StoreItem,
+) -> MemoryResult<Namespace> {
+    if split_github_by_repo && *source == BrainSource::Github {
         if let Some(repo) = github_collection(item) {
             return Ok(layout.brain_collection(source, &repo)?);
         }

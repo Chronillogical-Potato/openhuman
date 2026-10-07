@@ -13,6 +13,7 @@ fn placement(root: &str) -> Placement {
         layout: MemoryLayout::new(ns(root)).unwrap(),
         chat_node: ns("ws:main"),
         flows: FlowPlacement::WithRoot,
+        split_github_by_repo: false,
     }
 }
 
@@ -92,6 +93,25 @@ fn a_connector_document_keeps_its_node() {
         .place(document("source:gmail", SourceKind::Composio, None))
         .unwrap();
     assert_eq!(placed.meta().namespace, ns("source:gmail"));
+}
+
+#[test]
+fn a_github_document_goes_to_its_repository_when_the_setting_splits_them() {
+    let mut item = document("source:github", SourceKind::Composio, None);
+    item.meta_mut().repo = Some("Acme/Widgets".into());
+    let mut placement = placement("root");
+    assert_eq!(
+        placement.place(item.clone()).unwrap().meta().namespace,
+        ns("source:github")
+    );
+    placement.split_github_by_repo = true;
+    assert_eq!(
+        placement.place(item).unwrap().meta().namespace,
+        placement
+            .layout
+            .brain_collection(&BrainSource::Github, "acme--widgets")
+            .unwrap()
+    );
 }
 
 #[test]

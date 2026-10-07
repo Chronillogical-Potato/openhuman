@@ -82,6 +82,7 @@ impl LayoutHost for FakeHost {
                 .map_err(|e| MemoryError::invalid(e.to_string()))?,
             chat_node: "ws:main".parse().unwrap(),
             flows: FlowPlacement::WithRoot,
+            split_github_by_repo: false,
         })
     }
 

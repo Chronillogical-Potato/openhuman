@@ -17,6 +17,7 @@ fn placement() -> Placement {
         layout: MemoryLayout::new(Namespace::ROOT).unwrap(),
         chat_node: "ws:main".parse().unwrap(),
         flows: FlowPlacement::WithRoot,
+        split_github_by_repo: false,
     }
 }
 

@@ -4,8 +4,10 @@
 //! later sync of the same item replays instead of storing a duplicate.
 //!
 //! - **Brain documents** at `source:<id>` go to W4's connector node:
-//!   [`legacy_brain_node`] then [`file_into`], the same placement new syncs
-//!   use (`pdf`, `markdown` and the other per-format nodes become `files`).
+//!   [`legacy_brain_node`], then [`brain_node_with`] and [`file_into`]: the
+//!   same placement new syncs use (`pdf`, `markdown` and the other
+//!   per-format nodes become `files`; GitHub splits by repository when the
+//!   setting is on).
 //! - **Conversations** are pooled at the chat node; the agent id stays in
 //!   the item's metadata.
 //! - **Workflow items** (keyed memory and run digests, tagged `flow:<id>`)
@@ -17,7 +19,7 @@
 use tinymemory_api::{ItemKind, Namespace, SegmentKind, StoreItem};
 use tinymemory_tools::MemoryLayout;
 
-use crate::memory::brain::{file_into, legacy_brain_node};
+use crate::memory::brain::{brain_node_with, file_into, legacy_brain_node};
 use crate::memory::error::MemoryResult;
 
 /// The tag every workflow item carries (`crate::flows::FLOWS_TAG`). Kept here
@@ -42,6 +44,9 @@ pub struct Placement {
     pub chat_node: Namespace,
     /// Where workflow items go.
     pub flows: FlowPlacement,
+    /// `[memory] split_github_by_repo`: GitHub documents go one collection
+    /// per repository, as a sync files them now.
+    pub split_github_by_repo: bool,
 }
 
 /// The flow a workflow item belongs to: its `flow:<id>` tag, when it also
@@ -85,7 +90,9 @@ impl Placement {
             let namespace = item.meta().namespace.clone();
             if let Some(id) = legacy_source(self.layout.root(), &namespace) {
                 let source = legacy_brain_node(id, &item);
-                return file_into(&self.layout, &source, item);
+                let node =
+                    brain_node_with(self.split_github_by_repo, &self.layout, &source, &item)?;
+                return Ok(file_into(node, item));
             }
         }
         Ok(item)

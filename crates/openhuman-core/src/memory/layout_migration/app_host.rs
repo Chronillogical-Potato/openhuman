@@ -37,6 +37,7 @@ impl LayoutHost for AppHost {
             layout,
             chat_node,
             flows: FlowPlacement::WithRoot,
+            split_github_by_repo: config.memory.split_github_by_repo,
         })
     }
 
