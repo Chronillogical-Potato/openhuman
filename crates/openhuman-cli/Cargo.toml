@@ -196,6 +196,10 @@ name = "cwd_jail_e2e"
 path = "../../tests/cwd_jail_e2e.rs"
 
 [[test]]
+name = "windows_sandbox_env_e2e"
+path = "../../tests/windows_sandbox_env_e2e.rs"
+
+[[test]]
 name = "inference_provider_e2e"
 path = "../../tests/inference_provider_e2e.rs"
 

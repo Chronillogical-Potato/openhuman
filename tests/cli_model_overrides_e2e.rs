@@ -120,3 +120,57 @@ fn cli_rejects_a_missing_model_value() {
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("missing value for --model"));
 }
+
+#[test]
+fn core_boot_accepts_a_configured_master_key_from_either_source() {
+    let key = "ab".repeat(32);
+    let file_dir = tempfile::tempdir().expect("master-key directory");
+    let key_path = file_dir.path().join("master.key");
+    std::fs::write(&key_path, format!("{key}\n")).expect("write master key");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600))
+            .expect("restrict master key");
+    }
+
+    for (name, value) in [
+        ("OPENHUMAN_KEYRING_MASTER_KEY", key.as_str()),
+        (
+            "OPENHUMAN_KEYRING_MASTER_KEY_FILE",
+            key_path.to_str().expect("key path is UTF-8"),
+        ),
+    ] {
+        let workspace = tempfile::tempdir().expect("workspace");
+        let output = Command::new(env!("CARGO_BIN_EXE_openhuman-core"))
+            .args(["config", "get"])
+            .env("OPENHUMAN_APP_ENV", "staging")
+            .env("OPENHUMAN_WORKSPACE", workspace.path())
+            .env("OPENHUMAN_KEYRING_MASTER_KEY", "")
+            .env("OPENHUMAN_KEYRING_MASTER_KEY_FILE", "")
+            .env(name, value)
+            .output()
+            .expect("run OpenHuman core");
+        assert!(
+            output.status.success(),
+            "{name} boot failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
+fn core_boot_rejects_a_malformed_configured_master_key() {
+    let workspace = tempfile::tempdir().expect("workspace");
+    let output = Command::new(env!("CARGO_BIN_EXE_openhuman-core"))
+        .args(["config", "get"])
+        .env("OPENHUMAN_APP_ENV", "staging")
+        .env("OPENHUMAN_WORKSPACE", workspace.path())
+        .env("OPENHUMAN_KEYRING_MASTER_KEY", "not-a-key")
+        .output()
+        .expect("run OpenHuman core");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("OPENHUMAN_KEYRING_MASTER_KEY"), "{stderr}");
+    assert!(!stderr.contains("not-a-key"), "{stderr}");
+}
