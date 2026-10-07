@@ -194,6 +194,7 @@ pub(super) fn build_token_usage(model: &str, usage: &BilledUsage) -> Option<Toke
         // `tinyagents/observability.rs`.
         run_id: None,
         root_run_id: None,
+        scope: UsageScope::default(),
         timestamp: chrono::Utc::now(),
     })
 }
@@ -256,6 +257,7 @@ pub fn record_embedding_usage(
         cost_source: CostSource::Estimated,
         run_id: None,
         root_run_id: None,
+        scope: UsageScope::default(),
         timestamp: chrono::Utc::now(),
     };
     log::debug!(
