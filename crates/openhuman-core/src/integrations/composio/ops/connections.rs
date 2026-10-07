@@ -178,7 +178,13 @@ pub async fn composio_delete_connection(
     })?;
     let mut memory_clear_error = None;
     if clear_memory {
-        match crate::memory::sources::composio::forget_connection(config, connection_id).await {
+        match crate::memory::sources::composio::forget_connection(
+            config,
+            connection_id,
+            toolkit.as_deref(),
+        )
+        .await
+        {
             Ok(forgotten) => {
                 tracing::debug!(
                     connection_id = %connection_id,

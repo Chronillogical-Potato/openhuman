@@ -262,7 +262,12 @@ impl Fixture {
     async fn ok_until(&self, method: &str, params: Value, done: impl Fn(&Value) -> bool) -> Value {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         loop {
-            let result = self.ok(method, params.clone()).await;
+            // The deadline bounds each call too, so a hung call cannot
+            // outlast it.
+            let left = deadline.saturating_duration_since(std::time::Instant::now());
+            let result = tokio::time::timeout(left, self.ok(method, params.clone()))
+                .await
+                .unwrap_or_else(|_| panic!("{method}: no answer within the polling deadline"));
             if done(&result) || std::time::Instant::now() >= deadline {
                 return result;
             }
