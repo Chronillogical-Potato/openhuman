@@ -20,6 +20,7 @@ import {
   memoryImportStatus,
 } from '../../services/api/memoryApi';
 import { Alert, AlertDescription, AlertTitle, Button, ConfirmDialog, Progress } from '../ui';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill } from './memoryFormat';
 
 const log = debug('openhuman:memory:import');
@@ -64,9 +65,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       setState(res.state);
     } catch (err) {
       log('status failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
     }
-  }, []);
+  }, [t]);
 
   const running = state?.phase === 'running';
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       setConsentOpen(false);
     } catch (err) {
       log('import start failed: %o', err);
-      setError(memoryErrorMessage(err));
+      setError(memoryErrorMessage(err, t));
       setConsentOpen(false);
     } finally {
       setStarting(false);
@@ -170,9 +171,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       )}
 
       {error !== null && (
-        <Alert variant="destructive" className="mt-3" data-testid="memory-import-error">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <MemoryErrorAlert message={error} className="mt-3" data-testid="memory-import-error" />
       )}
 
       {consentOpen && (

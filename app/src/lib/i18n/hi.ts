@@ -686,6 +686,8 @@ const messages: TranslationMap = {
     'मेमोरी उपलब्ध नहीं है: आपके खाते के क्रेडिट खत्म हो गए हैं। इसे बहाल करने के लिए टॉप अप करें; संग्रहीत कुछ भी खोया नहीं है।',
   'memory.error.unavailable':
     'अभी मेमोरी तक नहीं पहुँचा जा सकता। संग्रहीत कुछ भी खोया नहीं है; थोड़ी देर में फिर से कोशिश करें।',
+  'memory.outOfCredits.title': 'क्रेडिट खत्म हो गए',
+  'memory.outOfCredits.action': 'टॉप अप करें',
   'memory.tab.memory': 'मेमोरी',
   'memory.tab.agents': 'लाइब्रेरी',
   'memory.analyzeNow': 'अभी एनालाइज़ करें',
@@ -3434,6 +3436,8 @@ const messages: TranslationMap = {
     'आपके मौजूदा एकीकरण (Gmail, Slack, GitHub, आदि OpenHuman के माध्यम से लिंक किए गए) दिखाई नहीं देंगे: वे OpenHuman-प्रबंधित Composio टेनेंट में रहते हैं।',
   'settings.composio.intro':
     'Composio 250+ बाहरी ऐप्स को टूल्स के रूप में एकीकृत करता है जिन्हें आपका एजेंट कॉल कर सकता है। चुनें कि वे टूल कॉल कैसे रूट किए जाएँ।',
+  'settings.composio.directOnlyDesc':
+    'यहाँ Composio का प्रबंधित प्रमाणीकरण उपलब्ध नहीं है। अपनी Composio API कुंजी दर्ज करें या अभी यह चरण छोड़ दें।',
   'settings.composio.modeDirect': 'डायरेक्ट (अपनी API key लाएं)',
   'settings.composio.modeDirectDesc':
     'कॉल सीधे backend.composio.dev पर जाती हैं। संप्रभु / ऑफ़लाइन-अनुकूल। टूल निष्पादन सिंक्रोनस रूप से कार्य करता है; रीयल-टाइम ट्रिगर वेबहुक्स अभी डायरेक्ट मोड में रूट नहीं हैं (फॉलो-अप मुद्दा)।',

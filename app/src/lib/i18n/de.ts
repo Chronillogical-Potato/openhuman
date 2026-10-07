@@ -712,6 +712,8 @@ const messages: TranslationMap = {
     'Gedächtnis nicht verfügbar: Dein Konto hat kein Guthaben mehr. Lade es auf, um es wiederherzustellen; nichts Gespeichertes ist verloren.',
   'memory.error.unavailable':
     'Das Gedächtnis ist gerade nicht erreichbar. Nichts Gespeichertes ist verloren; versuche es gleich noch einmal.',
+  'memory.outOfCredits.title': 'Kein Guthaben mehr',
+  'memory.outOfCredits.action': 'Aufladen',
   'memory.tab.memory': 'Erinnerung',
   'memory.tab.agents': 'Bibliothek',
   'memory.analyzeNow': 'Jetzt analysieren',
@@ -3524,6 +3526,8 @@ const messages: TranslationMap = {
     'Deine vorhandenen Integrationen (Gmail, Slack, GitHub usw., die über OpenHuman verknüpft sind) sind nicht sichtbar – sie befinden sich im von OpenHuman verwalteten Composio-Mandanten.',
   'settings.composio.intro':
     'Composio integriert mehr als 250 externe Apps als Tools, die dein Agent aufrufen kann. Wähle aus, wie diese Werkzeugaufrufe weitergeleitet werden.',
+  'settings.composio.directOnlyDesc':
+    'Die verwaltete Composio-Authentifizierung ist hier nicht verfügbar. Gib deinen eigenen Composio-API-Schlüssel ein oder überspringe diesen Schritt vorerst.',
   'settings.composio.modeDirect': 'Direkt (bring deinen eigenen API-Schlüssel mit)',
   'settings.composio.modeDirectDesc':
     'Anrufe gehen direkt an backend.composio.dev. Souverän / offlinefreundlich. Die Werkzeugausführung erfolgt synchron; Echtzeit-Trigger-Webhooks werden noch nicht im Direktmodus weitergeleitet (Folgeproblem).',

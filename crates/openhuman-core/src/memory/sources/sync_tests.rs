@@ -309,3 +309,41 @@ fn reset_interrupted_marks_syncing_sources_idle() {
     state::remove(ws, "never-there");
     assert!(!state::load(ws).contains_key("a"));
 }
+
+#[tokio::test]
+async fn a_sync_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
+    use std::sync::Arc;
+    use tinymemory_api::conformance::ReferenceEngine;
+    use tinymemory_api::Consolidation;
+
+    let note = || {
+        tinymemory_api::StoreItem::document(
+            "Quarterly planning notes",
+            tinymemory_api::MemoryMeta::default(),
+        )
+    };
+    for (consolidation, queued) in [(Consolidation::OnDemand, 1), (Consolidation::Automatic, 0)] {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = config_in(&tmp);
+        let bound = engine::BoundEngine {
+            engine: Arc::new(ReferenceEngine::new().with_consolidation(consolidation)),
+            id: "reference".into(),
+            endpoint: "memory://reference".into(),
+        };
+        let stored = store_all(
+            &config,
+            &bound,
+            vec![note()],
+            (MemorySourceKind::Folder, "/n", "src"),
+            &tinymemory_tools::MemoryLayout::default(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(stored, 1);
+        let pending = crate::memory::lifecycle::jobs::snapshot(&config)
+            .await
+            .pending
+            .len();
+        assert_eq!(pending, queued, "{consolidation:?}");
+    }
+}
