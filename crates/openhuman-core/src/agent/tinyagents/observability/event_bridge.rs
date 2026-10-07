@@ -451,7 +451,15 @@ impl OpenhumanEventBridge {
                 cache_creation_tokens
             );
         }
-        crate::platform::cost::record_provider_usage(&self.model, &usage_info);
+        let subagent = self
+            .scope
+            .as_ref()
+            .map(|child| (child.agent_id.as_str(), child.task_id.as_str()));
+        crate::platform::cost::record_provider_usage_scoped(
+            &self.model,
+            &usage_info,
+            crate::platform::cost::UsageScope::ambient(Some(&self.provider_id), subagent),
+        );
 
         // The cost footer is a top-level surface; for a child run the global
         // cost tracker feed above is the authoritative accounting and the parent

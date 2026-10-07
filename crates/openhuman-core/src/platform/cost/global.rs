@@ -23,7 +23,7 @@ use crate::config::CostConfig;
 use crate::inference::provider::types::BilledUsage;
 
 use super::tracker::CostTracker;
-use super::types::{CostSource, TokenUsage};
+use super::types::{CostSource, TokenUsage, UsageScope};
 
 static GLOBAL_TRACKER: RwLock<Option<Arc<CostTracker>>> = RwLock::new(None);
 
@@ -144,9 +144,24 @@ pub fn try_global() -> Option<Arc<CostTracker>> {
 /// `"anthropic/claude-sonnet-4-20250514"`) and is used as the bucket key
 /// in per-model aggregates.
 pub fn record_provider_usage(model: &str, usage: &BilledUsage) {
-    let Some(token_usage) = build_token_usage(model, usage) else {
+    record_provider_usage_scoped(model, usage, UsageScope::ambient(None, None));
+}
+
+/// [`record_provider_usage`] with the call's attribution. The event bridge
+/// passes its provider and, for a delegated child, the sub-agent; everything
+/// else comes from the recording task (see [`UsageScope::ambient`]).
+pub fn record_provider_usage_scoped(model: &str, usage: &BilledUsage, scope: UsageScope) {
+    let Some(mut token_usage) = build_token_usage(model, usage) else {
         return;
     };
+    log::trace!(
+        "[cost] attributing usage model={model} thread={:?} agent={:?} origin={:?} provider={:?}",
+        scope.thread_id,
+        scope.agent_id,
+        scope.origin,
+        scope.provider
+    );
+    token_usage.scope = scope;
     let Some(tracker) = try_global() else {
         return;
     };
