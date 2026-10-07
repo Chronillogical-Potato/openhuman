@@ -214,7 +214,12 @@ async fn forget_connection_removes_only_that_connections_items() {
     )
     .await
     .unwrap();
-    assert_eq!(forget_connection(&config, "conn-a").await.unwrap(), 1);
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
     let left = stored(&engine, MetaFilter::default()).await;
     assert_eq!(left.len(), 1);
     assert!(left[0].meta.tags.contains(&"connection:conn-b".to_string()));
@@ -224,7 +229,48 @@ async fn forget_connection_removes_only_that_connections_items() {
 async fn forget_connection_with_memory_off_forgets_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
-    assert_eq!(forget_connection(&config, "conn-a").await.unwrap(), 0);
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn forget_connection_reads_only_its_toolkits_source() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let bound = crate::memory::engine::resolve(&config).engine().unwrap();
+    // The same connection tag in another toolkit's source: an item the
+    // scoped forget must not reach.
+    for toolkit in ["gmail", "notion"] {
+        store_records(
+            &config,
+            &bound,
+            toolkit,
+            "conn-a",
+            "src",
+            &MemoryLayout::default(),
+            &[record(toolkit, toolkit, &format!("from {toolkit}"))],
+        )
+        .await
+        .unwrap();
+    }
+    assert_eq!(
+        forget_connection(&config, "conn-a", Some("gmail"))
+            .await
+            .unwrap(),
+        1
+    );
+    let left = stored(&engine, MetaFilter::default()).await;
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].meta.namespace.to_string(), "source:notion");
+
+    // An unknown toolkit falls back to the whole tree.
+    assert_eq!(forget_connection(&config, "conn-a", None).await.unwrap(), 1);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
 }
 
 #[tokio::test]

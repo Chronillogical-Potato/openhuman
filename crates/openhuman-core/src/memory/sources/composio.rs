@@ -157,13 +157,46 @@ pub fn source_id_for_toolkit(config: &Config, toolkit: &str) -> String {
 
 /// Forgets every item synced through `connection_id`. Memory off forgets
 /// nothing and is not an error.
-pub async fn forget_connection(config: &Config, connection_id: &str) -> MemoryResult<usize> {
+///
+/// With the connection's `toolkit` known, only that toolkit's brain source
+/// is read (`source:<toolkit>`, where its items are filed): one source,
+/// not every scope memory holds. Without it the whole tree is searched, so
+/// a connection whose toolkit cannot be resolved still has its items
+/// forgotten.
+pub async fn forget_connection(
+    config: &Config,
+    connection_id: &str,
+    toolkit: Option<&str>,
+) -> MemoryResult<usize> {
     let bound = match crate::memory::engine::resolve(config).engine() {
         Ok(bound) => bound,
         Err(MemoryError::Off(_)) => return Ok(0),
         Err(error) => return Err(error),
     };
+    let reach = match toolkit {
+        Some(toolkit) => {
+            let layout = super::layout_of(config, &source_id_for_toolkit(config, toolkit));
+            let source = crate::memory::brain::brain_source(
+                crate::config::schema::MemorySourceKind::Composio,
+                toolkit,
+            );
+            Some(tinymemory_api::Reach::subtree(layout.brain(&source)?))
+        }
+        None => {
+            tracing::warn!(
+                connection_id = %connection_id,
+                "[memory:sources] toolkit unknown; forgetting the connection across all memory"
+            );
+            None
+        }
+    };
+    tracing::debug!(
+        connection_id = %connection_id,
+        scoped = reach.is_some(),
+        "[memory:sources] forgetting a connection's items"
+    );
     let filter = tinymemory_api::MetaFilter {
+        reach,
         sources: vec![SourceKind::Composio],
         tags_any: vec![connection_tag(connection_id)],
         ..tinymemory_api::MetaFilter::default()
