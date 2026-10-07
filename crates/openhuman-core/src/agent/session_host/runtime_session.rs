@@ -54,9 +54,6 @@ pub(super) struct OpenHumanSessionState {
     required_output: Option<tinyagents_harness::config::RequiredOutput>,
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
     pub(super) active_turn_overrides: super::types::TurnOverrides,
-    /// The reply-language instruction for the user's interface locale, sent
-    /// on every user message until the host changes it. Not part of the
-    /// cached system prompt, so a locale change takes effect on the next turn.
     pub(super) reply_language_directive: Option<String>,
     prelude: Option<OpenHumanTurnPrelude>,
 }
@@ -533,13 +530,12 @@ impl OpenHumanTurnPrelude {
     async fn enrich_request(
         &self,
         original_user_message: &str,
-        overrides: &super::types::TurnOverrides,
-        reply_language_directive: Option<&str>,
+        turn: &super::types::TurnInputs,
         run_context: &mut OpenHumanRunContext,
     ) -> String {
         let mut context = String::new();
 
-        let active_goal = if overrides.suppress_active_goal {
+        let active_goal = if turn.overrides.suppress_active_goal {
             None
         } else {
             let loaded = crate::agent::goals::runtime::load_for_thread(
@@ -638,11 +634,10 @@ impl OpenHumanTurnPrelude {
             self.tool_dispatcher.tool_call_format(),
         )
         .harness_dispatcher();
-        let now = crate::agent::prompts::current_datetime_line();
-        match reply_language_directive {
-            Some(directive) => format!("{now}\n{directive}\n\n{enriched}"),
-            None => format!("{now}\n\n{enriched}"),
-        }
+        format!(
+            "{}\n\n{enriched}",
+            crate::agent::prompts::turn_preamble(turn.reply_language_directive.as_deref())
+        )
     }
 
     fn parent_context(&self) -> crate::agent::harness::ParentExecutionContext {
@@ -1136,22 +1131,16 @@ impl OpenHumanSessionHost {
                             .context_window = context_window;
                         let original_user_message = user_text_with_markers(&request.input);
                         prelude.begin_user_effects(request);
-                        let (overrides, reply_language_directive) = {
-                            let mut state = state
-                                .lock()
-                                .unwrap_or_else(|poisoned| poisoned.into_inner());
-                            (
-                                std::mem::take(&mut state.active_turn_overrides),
-                                state.reply_language_directive.clone(),
-                            )
-                        };
+                        let turn = state
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .take_turn_inputs();
                         let current_input =
                             view.history.last().filter(|last| **last == request.input);
                         let (enriched, memory_turn) = futures::join!(
                             prelude.enrich_request(
                                 &original_user_message,
-                                &overrides,
-                                reply_language_directive.as_deref(),
+                                &turn,
                                 &mut options.run_context.data,
                             ),
                             // Boxed: the hook's future (config load, engine
@@ -1170,7 +1159,7 @@ impl OpenHumanSessionHost {
                                 tinyagents_runtime::RuntimeError::Driver(error.to_string())
                             })?;
                         prelude.refresh_permanent_prefix(&mut preparation, view.prefix);
-                        if overrides.suppress_tools {
+                        if turn.overrides.suppress_tools {
                             // One-off tool-less turn: must not become the
                             // thread's recorded tool list.
                             preparation.tools = Some(ToolSnapshot::default().exact());
@@ -1182,7 +1171,7 @@ impl OpenHumanSessionHost {
                             policy_session_id,
                             policy_channel,
                         ) = prelude.current_tool_source();
-                        if overrides.suppress_tools {
+                        if turn.overrides.suppress_tools {
                             current_tools = Arc::new(Vec::new());
                             current_synthesized_tools = Arc::new(Vec::new());
                         }
@@ -1199,7 +1188,7 @@ impl OpenHumanSessionHost {
                         middleware.transcript_snapshot = Some(transcript_snapshot);
                         options.run_context.data.context_middleware = Some(middleware);
                         options.run_context.data.current_tools = Some(current_tools);
-                        if !overrides.suppress_tools {
+                        if !turn.overrides.suppress_tools {
                             options.run_context.data.deferred_tool_names =
                                 Arc::new(prelude.current_deferred_tool_names());
                         }

@@ -108,6 +108,18 @@ pub fn current_datetime_line() -> String {
     }
 }
 
+/// What leads every user message: [`current_datetime_line`], then the
+/// reply-language instruction for the user's interface locale, when there is
+/// one. Per message, never in the cached prompt prefix, so a locale change
+/// applies from the next turn and the prefix stays byte-stable.
+pub fn turn_preamble(reply_language_directive: Option<&str>) -> String {
+    let now = current_datetime_line();
+    match reply_language_directive {
+        Some(directive) => format!("{now}\n{directive}"),
+        None => now,
+    }
+}
+
 /// Render the `## User` identity block. Empty when
 /// [`PromptContext::user_identity`] is unset or has no populated
 /// fields. See issue #926.
