@@ -34,6 +34,7 @@ import PersistRehydrationScreen from './components/PersistRehydrationScreen';
 import PttHotkeyManager from './components/PttHotkeyManager';
 import SecurityBanner from './components/SecurityBanner';
 import AppWalkthrough from './components/walkthrough/AppWalkthrough';
+import { Toaster } from './components/ui/Toast';
 import { useDevSkipOnboarding } from './hooks/useDevSkipOnboarding';
 import { useNotchBootSync } from './hooks/useNotchBootSync';
 import { I18nProvider } from './lib/i18n/I18nContext';
@@ -135,6 +136,7 @@ function App() {
             <ThemeProvider>
               <I18nProvider>
                 {!onMobile && <WindowsWindowControls />}
+                <Toaster />
                 <BootCheckGate>
                   <CoreStateProvider>
                     {socketWrapped(

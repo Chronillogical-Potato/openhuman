@@ -1212,7 +1212,7 @@ export default function Skills() {
               <SettingsLayoutProvider value={{ inTwoPaneShell: true, headerless: true }}>
                 {activeTab === 'llm' && <LlmConnectionsPanel />}
                 {activeTab === 'voice' && <VoiceConnectionsPanel />}
-                {activeTab === 'voice-agents' && <LiveVoicePanel onToast={addToast} />}
+                {activeTab === 'voice-agents' && <LiveVoicePanel />}
                 {activeTab === 'embeddings' && (
                   <SettingsTabbedPage
                     title={t('pages.settings.ai.embeddings')}

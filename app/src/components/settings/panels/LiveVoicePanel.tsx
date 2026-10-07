@@ -15,11 +15,13 @@ import {
 } from '../../../services/api/liveVoiceApi';
 import { Alert, AlertDescription } from '../../ui/Alert';
 import { CenteredLoadingState } from '../../ui/LoadingState';
+import { toast } from '../../ui/Toast';
 import StatusLine from '../../ui/StatusLine';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
 import LiveVoiceSettingsModal, { type LiveVoiceTestState } from './LiveVoiceSettingsModal';
 import LiveVoiceVendorCard from './LiveVoiceVendorCard';
 import { groupVendors, vendorIdOf } from './liveVoiceVendors';
+import LiveVoiceVendorLogo from './LiveVoiceVendorLogo';
 
 type Status =
   | { kind: 'idle' }
@@ -28,17 +30,6 @@ type Status =
   | { kind: 'error'; message: string };
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
-
-/** Shape of the Connections page's toast stack (`Skills.tsx`'s `addToast`). */
-export type LiveVoiceToast = { type: 'success' | 'error'; title: string; message?: string };
-
-export interface LiveVoicePanelProps {
-  /**
-   * Report saves and failures as toasts. Without it (the panel rendered on its
-   * own) they fall back to the inline status line.
-   */
-  onToast?: (toast: LiveVoiceToast) => void;
-}
 
 /**
  * Connections → Voice agents: a card per voice service (the core's providers
@@ -51,7 +42,7 @@ export interface LiveVoicePanelProps {
  * `voice_live_settings_get`; every settings write returns the full settings,
  * which replace local state.
  */
-const LiveVoicePanel = ({ onToast }: LiveVoicePanelProps = {}) => {
+const LiveVoicePanel = () => {
   const { t } = useT();
   const [openVendorId, setOpenVendorId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<LiveVoiceProviders | null>(null);
@@ -88,23 +79,23 @@ const LiveVoicePanel = ({ onToast }: LiveVoicePanelProps = {}) => {
   const vendorName = (providerId: string) =>
     vendors.find(v => v.id === vendorIdOf(providerId))?.name ?? providerId;
 
-  const notify = (toast: LiveVoiceToast) => {
-    if (onToast) {
-      onToast(toast);
-      setStatus({ kind: 'idle' });
-    } else if (toast.type === 'success') {
-      setStatus({ kind: 'saved', message: toast.title });
-    } else {
-      setStatus({ kind: 'error', message: toast.message ?? '' });
-    }
+  const logo = (providerId: string) => (
+    <LiveVoiceVendorLogo vendorId={vendorIdOf(providerId)} className="h-4.5 w-4.5" />
+  );
+
+  const succeed = (options: Parameters<typeof toast.add>[0]) => {
+    toast.add({ type: 'success', ...options });
+    setStatus({ kind: 'idle' });
   };
 
-  const fail = (err: unknown) =>
-    notify({
+  const fail = (err: unknown) => {
+    toast.add({
       type: 'error',
       title: t('connections.voiceAgents.toastSaveFailed'),
-      message: errorMessage(err),
+      description: errorMessage(err),
     });
+    setStatus({ kind: 'error', message: errorMessage(err) });
+  };
 
   const persist = async (patch: LiveVoiceSettingsPatch) => {
     setStatus({ kind: 'saving' });
@@ -114,16 +105,16 @@ const LiveVoicePanel = ({ onToast }: LiveVoicePanelProps = {}) => {
       const switchedTo = patch.default_provider;
       if (switchedTo) {
         setCatalog(prev => (prev ? { ...prev, default_provider: switchedTo } : prev));
-        notify({
-          type: 'success',
+        succeed({
           title: t('connections.voiceAgents.toastSwitched'),
-          message: t('connections.voiceAgents.toastSwitchedBody').replace(
+          description: t('connections.voiceAgents.toastSwitchedBody').replace(
             '{name}',
             vendorName(switchedTo)
           ),
+          data: { icon: logo(switchedTo) },
         });
       } else {
-        notify({ type: 'success', title: t('connections.voiceAgents.toastVoiceSaved') });
+        succeed({ title: t('connections.voiceAgents.toastVoiceSaved') });
       }
     } catch (err) {
       fail(err);
@@ -138,13 +129,13 @@ const LiveVoicePanel = ({ onToast }: LiveVoicePanelProps = {}) => {
       await saveLiveVoiceProviderKey(provider.key_slug, draft);
       setKeyDrafts(prev => ({ ...prev, [provider.id]: '' }));
       await loadProviders();
-      notify({
-        type: 'success',
+      succeed({
         title: t('connections.voiceAgents.toastKeySaved'),
-        message: t('connections.voiceAgents.toastKeySavedBody').replace(
+        description: t('connections.voiceAgents.toastKeySavedBody').replace(
           '{name}',
           vendorName(provider.id)
         ),
+        data: { icon: logo(provider.id) },
       });
     } catch (err) {
       fail(err);
@@ -157,7 +148,7 @@ const LiveVoicePanel = ({ onToast }: LiveVoicePanelProps = {}) => {
     try {
       await clearLiveVoiceProviderKey(provider.key_slug);
       await loadProviders();
-      notify({ type: 'success', title: t('connections.voiceAgents.toastKeyRemoved') });
+      succeed({ title: t('connections.voiceAgents.toastKeyRemoved') });
     } catch (err) {
       fail(err);
     }
