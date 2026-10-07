@@ -275,6 +275,8 @@ fn on_agent_runtime(test: impl std::future::Future<Output = ()> + Send + 'static
 
 #[test]
 fn a_bound_channel_runs_its_host_agent_and_refuses_its_write_tool() {
+    // The resolver slot is process-wide; hold it for the whole turn.
+    let _slot = host_agents::tests::lock();
     on_agent_runtime(bound_channel_runs_its_host_agent());
 }
 
@@ -303,7 +305,6 @@ async fn bound_channel_runs_its_host_agent() {
     let ctx = context(Arc::clone(&channel), config(&tmp, Some("teeny-chat")));
 
     let outcome = {
-        let _slot = host_agents::tests::lock();
         host_agents::install(Arc::clone(&resolver));
         let started = std::time::Instant::now();
         process_channel_message(ctx, message("hello teeny")).await;
