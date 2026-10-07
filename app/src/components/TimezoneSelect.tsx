@@ -11,6 +11,10 @@ import { SELECT_CLASS } from './LanguageSelect';
 /** The option that follows the device's zone instead of a chosen one. */
 const FOLLOW_DEVICE = '';
 
+function isAreaZone(zone: string | null | undefined): zone is string {
+  return !!zone && (zone === 'UTC' || zone.includes('/'));
+}
+
 function ianaZones(): string[] {
   try {
     return Intl.supportedValuesOf('timeZone');
@@ -50,11 +54,13 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
     };
   }, []);
 
+  // Only an Area/Location zone (or UTC) is ever offered; a saved value that is
+  // not one shows as "follow the device", which is what core resolves it to.
+  const chosen = isAreaZone(settings?.timezone) ? settings?.timezone : null;
   const zones = useMemo(() => {
     const listed = ianaZones();
-    const chosen = settings?.timezone;
     return chosen && !listed.includes(chosen) ? [chosen, ...listed] : listed;
-  }, [settings?.timezone]);
+  }, [chosen]);
 
   const change = async (value: string) => {
     const timezone = value === FOLLOW_DEVICE ? null : value;
@@ -72,12 +78,11 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
         setFailed(true);
         return;
       }
-      // Saved. A failed re-read leaves the chosen zone shown: it is stored.
-      try {
-        setSettings((await openhumanGetUserTimezone()).result);
-      } catch {
-        // keep the optimistic value
-      }
+      // Saved: show exactly what was stored. No re-read, so a late or
+      // stale read can never put the previous zone back on screen.
+      setSettings(current =>
+        current ? { ...current, timezone, effective: timezone ?? current.device ?? 'UTC' } : current
+      );
     } finally {
       setSaving(false);
     }
@@ -87,7 +92,7 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
   return (
     <div className="flex flex-col items-end gap-1">
       <select
-        value={settings?.timezone ?? FOLLOW_DEVICE}
+        value={chosen ?? FOLLOW_DEVICE}
         onChange={e => void change(e.target.value)}
         disabled={!settings || saving}
         aria-label={ariaLabel ?? t('settings.timezone')}

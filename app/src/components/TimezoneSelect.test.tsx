@@ -35,10 +35,8 @@ describe('TimezoneSelect', () => {
     ).toBeTruthy();
   });
 
-  it('saves a chosen zone and re-reads the setting', async () => {
-    getMock
-      .mockResolvedValueOnce(settings(null))
-      .mockResolvedValueOnce(settings('America/New_York'));
+  it('saves a chosen zone and shows it without a second read', async () => {
+    getMock.mockResolvedValue(settings(null));
     updateMock.mockResolvedValue({ result: {}, logs: [] });
     render();
     const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
@@ -47,8 +45,9 @@ describe('TimezoneSelect', () => {
 
     fireEvent.change(select, { target: { value: 'America/New_York' } });
     await waitFor(() => expect(updateMock).toHaveBeenCalledWith('America/New_York'));
-    await waitFor(() => expect(getMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(select.disabled).toBe(false));
     expect(select.value).toBe('America/New_York');
+    expect(getMock).toHaveBeenCalledTimes(1);
   });
 
   it('following the device sends null', async () => {
@@ -72,19 +71,13 @@ describe('TimezoneSelect', () => {
     expect(select.value).toBe('Europe/Berlin');
   });
 
-  it('a failed re-read after a successful save keeps the new zone, without an error', async () => {
-    getMock
-      .mockResolvedValueOnce(settings('Europe/Berlin'))
-      .mockRejectedValueOnce(new Error('core offline'));
-    updateMock.mockResolvedValue({ result: {}, logs: [] });
+  it('a saved value that is not an Area/Location zone shows as following the device', async () => {
+    getMock.mockResolvedValue(settings('EST'));
     render();
     const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
-    await waitFor(() => expect(select.value).toBe('Europe/Berlin'));
-    fireEvent.change(select, { target: { value: 'Asia/Tokyo' } });
-    await waitFor(() => expect(getMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(select.disabled).toBe(false));
-    expect(select.value).toBe('Asia/Tokyo');
-    expect(screen.queryByTestId('timezone-error')).toBeNull();
+    expect(select.value).toBe('');
+    expect(screen.queryByRole('option', { name: 'EST' })).toBeNull();
   });
 
   it('is disabled while a save is in flight, so picks cannot overlap', async () => {

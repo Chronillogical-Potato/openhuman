@@ -698,3 +698,19 @@ async fn apply_user_timezone_stores_the_canonical_name_refuses_junk_and_clears()
     assert!(json["timezone"].is_null());
     assert_eq!(json["effective"], cfg.time_zone());
 }
+
+#[tokio::test]
+async fn apply_user_timezone_restores_the_value_when_the_save_fails() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.user_timezone = Some("Europe/Berlin".into());
+    // A config path inside a regular file cannot be written.
+    let blocker = tmp.path().join("not-a-dir");
+    std::fs::write(&blocker, "x").unwrap();
+    cfg.config_path = blocker.join("config.toml");
+
+    apply_user_timezone(&mut cfg, Some("Asia/Kolkata".into()))
+        .await
+        .expect_err("the save cannot succeed");
+    assert_eq!(cfg.user_timezone.as_deref(), Some("Europe/Berlin"));
+}

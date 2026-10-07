@@ -186,17 +186,30 @@ pub async fn apply_user_timezone(
     timezone: Option<String>,
 ) -> Result<Outcome<serde_json::Value>, String> {
     let requested = timezone.as_deref().map(str::trim).filter(|z| !z.is_empty());
-    config.user_timezone = match requested {
+    let next = match requested {
         None => None,
         Some(zone) => Some(
             crate::config::normalize_time_zone(zone)
                 .ok_or_else(|| format!("{zone:?} is not an IANA time zone (e.g. Asia/Kolkata)"))?,
         ),
     };
-    config.save().await.map_err(|e| e.to_string())?;
+    // Build the reply before committing, so nothing after the save can fail
+    // and report a stored change as failed; a failed save restores the
+    // caller's config to what is on disk.
+    let previous = std::mem::replace(&mut config.user_timezone, next);
+    let snapshot = match snapshot_config_json(config) {
+        Ok(snapshot) => snapshot,
+        Err(error) => {
+            config.user_timezone = previous;
+            return Err(error);
+        }
+    };
+    if let Err(error) = config.save().await {
+        config.user_timezone = previous;
+        return Err(error.to_string());
+    }
     let chosen = config.user_timezone.as_deref().unwrap_or("device");
     log::info!("[config] user time zone set: {chosen}");
-    let snapshot = snapshot_config_json(config)?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
