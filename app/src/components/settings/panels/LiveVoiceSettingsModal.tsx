@@ -9,7 +9,6 @@ import type {
   LiveVoiceSettingsPatch,
   LiveVoiceTestResult,
 } from '../../../services/api/liveVoiceApi';
-import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
 import { ModalShell } from '../../ui/ModalShell';
 import NativeSelect from '../../ui/NativeSelect';
@@ -217,9 +216,7 @@ const LiveVoiceSettingsModal = ({
                 data-testid={`live-voice-test-button-${provider.id}`}
                 disabled={testing}
                 onClick={() => onTest(provider.id)}>
-                {testing
-                  ? t('connections.voiceAgents.testing')
-                  : t('connections.voiceAgents.test')}
+                {testing ? t('connections.voiceAgents.testing') : t('connections.voiceAgents.test')}
               </Button>
             )}
             {inUse ? (

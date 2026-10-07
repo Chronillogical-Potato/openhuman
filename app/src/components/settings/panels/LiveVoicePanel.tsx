@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
 import {
@@ -17,7 +17,9 @@ import { Alert, AlertDescription } from '../../ui/Alert';
 import { CenteredLoadingState } from '../../ui/LoadingState';
 import StatusLine from '../../ui/StatusLine';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
-import LiveVoiceProviderCard, { type LiveVoiceTestState } from './LiveVoiceProviderCard';
+import LiveVoiceSettingsModal, { type LiveVoiceTestState } from './LiveVoiceSettingsModal';
+import LiveVoiceVendorCard from './LiveVoiceVendorCard';
+import { groupVendors } from './liveVoiceVendors';
 
 type Status =
   | { kind: 'idle' }
@@ -28,9 +30,11 @@ type Status =
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /**
- * Connections → Voice agents: which provider powers the live voice agent (the
- * mascot's talk mode), BYOK keys for the providers that need one, per-provider
- * voice/language choices, and a live connectivity test per provider.
+ * Connections → Voice agents: a card per voice service (the core's providers
+ * grouped by vendor), marking the one the live voice agent — the mascot's talk
+ * mode — runs on and which come with TinyHumans. Each card's Settings modal
+ * holds the ways to connect that service (managed or own key), the BYOK key,
+ * a connectivity test, and the voice/language choices.
  *
  * Everything is rendered from the core's `voice_live_providers` /
  * `voice_live_settings_get`; every settings write returns the full settings,
@@ -38,7 +42,7 @@ const errorMessage = (err: unknown) => (err instanceof Error ? err.message : Str
  */
 const LiveVoicePanel = () => {
   const { t } = useT();
-  const groupName = useId();
+  const [openVendorId, setOpenVendorId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<LiveVoiceProviders | null>(null);
   const [settings, setSettings] = useState<LiveVoiceSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -127,47 +131,27 @@ const LiveVoicePanel = () => {
 
   const defaultProvider = settings?.default_provider || catalog?.default_provider || '';
 
-  const renderCard = (provider: LiveVoiceProvider) => (
-    <LiveVoiceProviderCard
-      key={provider.id}
-      provider={provider}
-      groupName={groupName}
-      selected={provider.id === defaultProvider}
-      settings={settings}
+  const vendors = useMemo(() => (catalog ? groupVendors(catalog.providers) : []), [catalog]);
+  const openVendor = vendors.find(v => v.id === openVendorId) ?? null;
+
+  const statusLine = (
+    <StatusLine
       saving={saving}
-      test={tests[provider.id]}
-      keyDraft={keyDrafts[provider.id] ?? ''}
-      onSelect={() => void persist({ default_provider: provider.id })}
-      onTest={() => void runTest(provider.id)}
-      onKeyDraft={value => setKeyDrafts(prev => ({ ...prev, [provider.id]: value }))}
-      onSaveKey={() => void saveKey(provider)}
-      onClearKey={() => void clearKey(provider)}
-      onPersist={patch => void persist(patch)}
+      savedNote={status.kind === 'saved' ? status.message : null}
+      error={
+        status.kind === 'error'
+          ? t('connections.voiceAgents.saveFailed').replace('{error}', status.message)
+          : null
+      }
+      savingLabel={t('connections.voiceAgents.saving')}
     />
   );
-
-  const groups = catalog
-    ? [
-        {
-          id: 'hosted',
-          title: t('connections.voiceAgents.groupIncluded'),
-          description: t('connections.voiceAgents.groupIncludedDesc'),
-          providers: catalog.providers.filter(p => p.kind === 'hosted'),
-        },
-        {
-          id: 'byok',
-          title: t('connections.voiceAgents.groupByok'),
-          description: t('connections.voiceAgents.groupByokDesc'),
-          providers: catalog.providers.filter(p => p.kind !== 'hosted'),
-        },
-      ].filter(g => g.providers.length > 0)
-    : [];
 
   return (
     <SettingsTabbedPage
       title={t('connections.tabs.voiceAgents')}
       description={t('connections.header.voiceAgents')}>
-      <div className="flex w-full max-w-3xl flex-col gap-6" data-testid="live-voice-panel">
+      <div className="@container flex w-full flex-col gap-4" data-testid="live-voice-panel">
         {loadError && (
           <Alert variant="destructive">
             <AlertDescription>
@@ -179,41 +163,44 @@ const LiveVoicePanel = () => {
 
         {catalog && (
           <div
-            role="radiogroup"
-            aria-label={t('connections.voiceAgents.chooseAgent')}
-            className="flex flex-col gap-6"
+            className="grid items-stretch gap-3 @xl:grid-cols-2 @4xl:grid-cols-3"
             data-testid="live-voice-providers">
-            {groups.map(group => (
-              <section
-                key={group.id}
-                aria-labelledby={`${groupName}-${group.id}`}
-                className="flex flex-col gap-2.5"
-                data-testid={`live-voice-group-${group.id}`}>
-                <header className="px-1">
-                  <h3
-                    id={`${groupName}-${group.id}`}
-                    className="text-sm font-semibold text-content">
-                    {group.title}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-content-muted">{group.description}</p>
-                </header>
-                <div className="flex flex-col gap-2.5">{group.providers.map(renderCard)}</div>
-              </section>
+            {vendors.map(vendor => (
+              <LiveVoiceVendorCard
+                key={vendor.id}
+                vendor={vendor}
+                defaultProvider={defaultProvider}
+                saving={saving}
+                onUse={providerId => void persist({ default_provider: providerId })}
+                onOpenSettings={() => setOpenVendorId(vendor.id)}
+              />
             ))}
           </div>
         )}
 
-        <StatusLine
-          saving={saving}
-          savedNote={status.kind === 'saved' ? status.message : null}
-          error={
-            status.kind === 'error'
-              ? t('connections.voiceAgents.saveFailed').replace('{error}', status.message)
-              : null
-          }
-          savingLabel={t('connections.voiceAgents.saving')}
-        />
+        {!openVendor && statusLine}
       </div>
+
+      {openVendor && (
+        <LiveVoiceSettingsModal
+          vendor={openVendor}
+          defaultProvider={defaultProvider}
+          settings={settings}
+          saving={saving}
+          tests={tests}
+          keyDrafts={keyDrafts}
+          status={statusLine}
+          onClose={() => setOpenVendorId(null)}
+          onUse={providerId => void persist({ default_provider: providerId })}
+          onTest={providerId => void runTest(providerId)}
+          onKeyDraft={(providerId, value) =>
+            setKeyDrafts(prev => ({ ...prev, [providerId]: value }))
+          }
+          onSaveKey={provider => void saveKey(provider)}
+          onClearKey={provider => void clearKey(provider)}
+          onPersist={patch => void persist(patch)}
+        />
+      )}
     </SettingsTabbedPage>
   );
 };

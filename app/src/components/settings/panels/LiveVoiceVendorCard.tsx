@@ -79,9 +79,7 @@ const LiveVoiceVendorCard = ({
       </div>
 
       <h4 className="mt-3 text-sm font-semibold text-content">{vendor.name}</h4>
-      {descKey && (
-        <p className="mt-0.5 text-xs leading-relaxed text-content-muted">{t(descKey)}</p>
-      )}
+      {descKey && <p className="mt-0.5 text-xs leading-relaxed text-content-muted">{t(descKey)}</p>}
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {hasHosted ? (

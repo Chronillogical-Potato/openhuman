@@ -49,9 +49,7 @@ export function groupVendors(providers: LiveVoiceProvider[]): LiveVoiceVendor[] 
     vendor.providers.push(provider);
   }
   for (const vendor of vendors) {
-    vendor.providers.sort(
-      (a, b) => Number(b.kind === 'hosted') - Number(a.kind === 'hosted')
-    );
+    vendor.providers.sort((a, b) => Number(b.kind === 'hosted') - Number(a.kind === 'hosted'));
   }
   return vendors;
 }

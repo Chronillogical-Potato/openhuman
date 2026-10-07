@@ -5392,26 +5392,25 @@ const messages: TranslationMap = {
     'Habla en voz alta con tu asistente. Elige quién pone su voz y añade claves de tus propias cuentas.',
   'connections.voiceAgents.badgeReady': 'Listo',
   'connections.voiceAgents.badgeNeedsKey': 'Falta la clave',
-  'connections.voiceAgents.groupIncluded': 'Incluido con OpenHuman',
-  'connections.voiceAgents.groupIncludedDesc':
-    'Funciona a través de TinyHumans. No hay nada que configurar.',
-  'connections.voiceAgents.groupByok': 'Usa tu propia clave',
-  'connections.voiceAgents.groupByokDesc':
-    'Usa una clave de API de tu propia cuenta del proveedor.',
-  'connections.voiceAgents.chooseAgent': 'Elige un agente de voz',
+  'connections.voiceAgents.includedTag': 'Incluido con TinyHumans',
+  'connections.voiceAgents.ownKeyTag': 'Tu propia clave',
+  'connections.voiceAgents.vendorGemini':
+    'El modelo de voz en tiempo real de Google. Rápido y natural.',
+  'connections.voiceAgents.vendorElevenlabs': 'Voces conversacionales realistas de ElevenLabs.',
+  'connections.voiceAgents.vendorSarvam': 'Un agente de voz creado para idiomas de la India.',
+  'connections.voiceAgents.settings': 'Ajustes',
+  'connections.voiceAgents.settingsAria': 'Ajustes de {name}',
+  'connections.voiceAgents.use': 'Usar',
+  'connections.voiceAgents.connection': 'Cómo conectar',
+  'connections.voiceAgents.optionManaged': 'Gestionado por TinyHumans',
+  'connections.voiceAgents.optionManagedDesc': 'Incluido con TinyHumans. No necesitas clave.',
+  'connections.voiceAgents.optionOwnKey': 'Tu propia clave de API',
+  'connections.voiceAgents.optionOwnKeyDesc': 'Usa tu propia cuenta y facturación del proveedor.',
+  'connections.voiceAgents.voiceSettings': 'Ajustes de voz',
   'connections.voiceAgents.badgeInUse': 'En uso',
-  'connections.voiceAgents.badgeFailed': 'La prueba falló',
   'connections.voiceAgents.addKeyHint': 'Añade una clave de API para usar este agente.',
   'connections.voiceAgents.keyOnFile': 'Clave de API guardada',
   'connections.voiceAgents.replaceKey': 'Reemplazar clave',
-  'connections.voiceAgents.descGeminiHosted':
-    'Gemini Live a través de TinyHumans. No necesita clave.',
-  'connections.voiceAgents.descElevenlabsHosted':
-    'Voz conversacional de ElevenLabs a través de TinyHumans. No necesita clave.',
-  'connections.voiceAgents.descGemini':
-    'Gemini Live con tu propia clave de API de Google AI Studio.',
-  'connections.voiceAgents.descSarvam':
-    'Sarvam AI para idiomas de la India, con tu propia clave de API.',
   'connections.voiceAgents.test': 'Probar',
   'connections.voiceAgents.testing': 'Probando…',
   'connections.voiceAgents.testOk': 'Funciona · {ms} ms',
