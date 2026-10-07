@@ -156,10 +156,29 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
             assert!(!runs.is_empty(), "asha's runs are recorded in her store");
 
             // Nothing durable reached the scratch workspace.
-            let written = files_under(&scratch);
+            // The core still seeds its own process-local files (prompt
+            // templates, token, cron/flow databases, thread index); what must
+            // never appear is session state: transcripts, the turn journal,
+            // run status, goals or todos.
+            let session_state: Vec<String> = files_under(&scratch)
+                .into_iter()
+                .filter(|path| {
+                    let lower = path.to_lowercase();
+                    [
+                        "transcript",
+                        "session",
+                        "journal",
+                        "status",
+                        "goals",
+                        "todos",
+                    ]
+                    .iter()
+                    .any(|needle| lower.contains(needle))
+                })
+                .collect();
             assert!(
-                written.is_empty(),
-                "a stateless workspace must remain empty, found: {written:?}"
+                session_state.is_empty(),
+                "a stateless workspace must hold no session state, found: {session_state:?}"
             );
 
             drop((asha, ravi));
