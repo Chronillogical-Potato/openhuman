@@ -36,7 +36,6 @@ pub fn publish_web_channel_event(mut event: WebChannelEvent) {
     let _ = EVENT_BUS.send(event);
 }
 
-
 static APPROVAL_SURFACE_HANDLE: OnceLock<SubscriptionHandle> = OnceLock::new();
 
 pub fn register_approval_surface_subscriber() {

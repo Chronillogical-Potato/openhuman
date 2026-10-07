@@ -582,8 +582,12 @@ async fn published_events_carry_the_publishing_agent() {
     let mut rx = subscribe_web_channel_events();
     let marker = format!("agent-stamp-{}", uuid::Uuid::new_v4());
     let ctx = CoreContext::for_test(DomainSet::full(), None).derive_with(
-        ContextOverlay::new(crate::config::Config::default(), DomainSet::full(), Default::default())
-            .session_agent("u-alice"),
+        ContextOverlay::new(
+            crate::config::Config::default(),
+            DomainSet::full(),
+            Default::default(),
+        )
+        .session_agent("u-alice"),
     );
     CoreContext::scope(ctx, async {
         publish_web_channel_event(WebChannelEvent {
@@ -610,7 +614,10 @@ async fn published_events_carry_the_publishing_agent() {
     assert!(scoped.belongs_to("u-alice"));
     assert!(!scoped.belongs_to("u-bob"));
     let unscoped = seen.iter().find(|e| e.thread_id != marker).unwrap();
-    assert!(!unscoped.belongs_to("u-alice"), "unstamped events belong to no user");
+    assert!(
+        !unscoped.belongs_to("u-alice"),
+        "unstamped events belong to no user"
+    );
     assert!(
         !serde_json::to_string(scoped).unwrap().contains("u-alice"),
         "the stamp is not serialized"
