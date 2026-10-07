@@ -85,6 +85,16 @@ pub mod agent_progress {
     };
 }
 
+/// The skill registry: the host transport an embedder passes to
+/// `tinyskills::SkillRegistry::builder`, and the process registry the core
+/// itself serves catalog RPC and tools from.
+#[cfg(feature = "skills")]
+pub mod skill_registry {
+    pub use openhuman_core::skills::catalog::{
+        skill_registry, ReqwestTransport, HERMES_REGISTRY_ID,
+    };
+}
+
 mod agent;
 mod auth;
 mod call;
