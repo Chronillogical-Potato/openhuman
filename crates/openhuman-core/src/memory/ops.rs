@@ -9,8 +9,7 @@
 use chrono::Utc;
 use tinymemory_api::{
     FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, MetaFilter,
-    RecallRequest,
-    StoreItem, StoreReceipt,
+    RecallRequest, StoreItem, StoreReceipt,
 };
 
 use crate::config::Config;
@@ -369,7 +368,10 @@ async fn within_reach(
 pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResult<ItemsListView> {
     let bound = bound(config)?;
     let request = ListRequest {
-        filter: confine_filter(config, super::explore::narrowed(params.filter, &params.path)?),
+        filter: confine_filter(
+            config,
+            super::explore::narrowed(params.filter, &params.path)?,
+        ),
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
     };
