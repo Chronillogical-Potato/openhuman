@@ -77,7 +77,7 @@ where
     }
     let engines = host.engines(config)?;
     if state.phase == Phase::Idle && !state.switched && !legacy_present(&*engines.legacy).await? {
-        return nothing_to_move(config, host, &mut state);
+        return nothing_to_move(config, host, &mut state).await;
     }
     if let Trigger::Manual { takeover: true } = trigger {
         state.takeover = true;
@@ -100,7 +100,7 @@ where
             return Ok(Outcome::Paused);
         }
         if !host.is_switched(config) {
-            host.switch(config)?;
+            host.switch(config).await?;
         }
         state.switched = true;
         state.cursor = None;
@@ -123,13 +123,13 @@ where
     })
 }
 
-fn nothing_to_move(
+async fn nothing_to_move(
     config: &Config,
     host: &dyn LayoutHost,
     state: &mut MigrationState,
 ) -> MemoryResult<Outcome> {
     if !host.is_switched(config) {
-        host.switch(config)?;
+        host.switch(config).await?;
     }
     state.switched = true;
     state.caught_up = true;

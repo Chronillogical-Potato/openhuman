@@ -33,12 +33,15 @@ pub trait LayoutHost: Send + Sync {
     /// Whether reads and writes already use the per-user tree.
     fn is_switched(&self, config: &Config) -> bool;
 
-    /// Moves reads and writes to the per-user tree.
+    /// Moves reads and writes to the per-user tree: persists the layout
+    /// setting and drops the cached engines. The real host awaits
+    /// `memory::scope::switch_to_v3()`, which loads the config fresh, so a
+    /// setting the user changed during a long migration is never reverted.
     ///
     /// # Errors
     ///
     /// When the setting cannot be saved.
-    fn switch(&self, config: &Config) -> MemoryResult<()>;
+    async fn switch(&self, config: &Config) -> MemoryResult<()>;
 
     /// Whether moving memory costs the user nothing right now (always, off
     /// the hosted engine).

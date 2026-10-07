@@ -87,10 +87,10 @@ impl LayoutHost for FakeHost {
         self.switched.load(Ordering::SeqCst)
     }
 
-    fn switch(&self, _: &Config) -> MemoryResult<()> {
-        if let Some(item) = self.racing_write.lock().unwrap().take() {
-            // Synchronous on purpose: the reference engine stores in memory.
-            futures::executor::block_on(self.legacy.store(item)).unwrap();
+    async fn switch(&self, _: &Config) -> MemoryResult<()> {
+        let racing = self.racing_write.lock().unwrap().take();
+        if let Some(item) = racing {
+            self.legacy.store(item).await.unwrap();
         }
         self.switched.store(true, Ordering::SeqCst);
         Ok(())
