@@ -154,3 +154,18 @@ async fn a_backend_without_the_route_is_an_error_read_as_not_free() {
         .await
     );
 }
+
+#[tokio::test]
+async fn the_hosted_engine_asks_the_backend() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = keyed_config(&tmp);
+    let server = backend_answering(
+        200,
+        json!({"success": true, "data": {"active": true, "until": "2026-11-06T00:00:00.000Z"}}),
+    )
+    .await;
+    config.api_url = Some(server.uri());
+    config.memory.engine = TINYHUMANS_ENGINE.to_string();
+    assert!(free_period_active(&config).await);
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+}
