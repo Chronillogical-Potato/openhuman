@@ -47,6 +47,7 @@ pub mod boot_guard;
 mod bootstrap;
 pub mod builder;
 pub mod context;
+pub mod domain_set;
 pub mod mode;
 pub mod saas;
 pub mod services;
