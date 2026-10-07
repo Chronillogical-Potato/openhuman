@@ -468,6 +468,70 @@ pub fn usage_log(config: &Config, days: u32, limit: usize) -> Result<Outcome<Val
     Ok(Outcome::new(value, Vec::new()))
 }
 
+/// The `[now - days, now]` window a report covers; `days` is clamped to
+/// `[1, 366]`.
+fn report_window(days: u32) -> (chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>) {
+    let to = chrono::Utc::now();
+    let from = to - chrono::Duration::days(i64::from(days.clamp(1, 366)));
+    (from, to)
+}
+
+/// Group and total the last `days` of usage (`cost.report`).
+pub fn usage_report(
+    config: &Config,
+    days: u32,
+    group_by: &[super::report::GroupKey],
+    filter: &super::report::ReportFilter,
+) -> Result<Outcome<Value>> {
+    log::debug!(target: "cost_rpc", "[cost_rpc] report.entry days={days} group_by={group_by:?}");
+    let tracker = resolve_tracker(config)?;
+    let (from, to) = report_window(days);
+    let records = tracker
+        .records_between(from, to)
+        .context("cost report query failed")?;
+    let report = super::report::build_report(&records, from, to, group_by, filter);
+    log::debug!(
+        target: "cost_rpc",
+        "[cost_rpc] report.exit records={} rows={} calls={}",
+        records.len(),
+        report.rows.len(),
+        report.totals.calls
+    );
+    let value = serde_json::to_value(report).context("cost report serialize failed")?;
+    Ok(Outcome::new(value, Vec::new()))
+}
+
+/// Per-call prompt-cache behaviour over the last `days` (`cost.cache_report`).
+/// The totals cover every call; `calls` keeps the newest `limit` (clamped to
+/// `[1, 1000]`).
+pub fn cache_report(
+    config: &Config,
+    days: u32,
+    filter: &super::report::ReportFilter,
+    limit: usize,
+) -> Result<Outcome<Value>> {
+    log::debug!(target: "cost_rpc", "[cost_rpc] cache_report.entry days={days} limit={limit}");
+    let tracker = resolve_tracker(config)?;
+    let (from, to) = report_window(days);
+    let records = tracker
+        .records_between(from, to)
+        .context("cost cache report query failed")?;
+    let mut report = super::report::build_cache_report(&records, from, to, filter);
+    let keep = limit.clamp(1, 1000);
+    if report.calls.len() > keep {
+        report.calls.drain(..report.calls.len() - keep);
+    }
+    log::debug!(
+        target: "cost_rpc",
+        "[cost_rpc] cache_report.exit calls={} hit_ratio={:.3} cold={}",
+        report.calls.len(),
+        report.cache_hit_ratio,
+        report.cold_calls
+    );
+    let value = serde_json::to_value(report).context("cost cache report serialize failed")?;
+    Ok(Outcome::new(value, Vec::new()))
+}
+
 #[cfg(test)]
 #[path = "rpc_tests.rs"]
 mod tests;

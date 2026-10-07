@@ -1,5 +1,6 @@
 pub mod catalog;
 mod global;
+pub mod report;
 pub mod route;
 mod rpc;
 mod schemas;
