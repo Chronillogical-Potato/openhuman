@@ -4,13 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/test-utils';
 import MemoryImportBanner, { IMPORT_POLL_MS } from './MemoryImportBanner';
 
-const hoisted = vi.hoisted(() => ({ scan: vi.fn(), start: vi.fn(), status: vi.fn() }));
+const hoisted = vi.hoisted(() => ({
+  scan: vi.fn(),
+  start: vi.fn(),
+  status: vi.fn(),
+  retry: vi.fn(),
+}));
 
 vi.mock('../../services/api/memoryApi', async importOriginal => ({
   ...(await importOriginal<typeof import('../../services/api/memoryApi')>()),
   memoryImportScan: (...a: unknown[]) => hoisted.scan(...a),
   memoryImportStart: (...a: unknown[]) => hoisted.start(...a),
   memoryImportStatus: (...a: unknown[]) => hoisted.status(...a),
+  memoryImportRetryFailed: (...a: unknown[]) => hoisted.retry(...a),
 }));
 
 const IDLE = { state: { phase: 'idle', imported: 0, total: 0 } };
@@ -20,6 +26,7 @@ beforeEach(() => {
   hoisted.scan.mockReset().mockResolvedValue(FOUND);
   hoisted.status.mockReset().mockResolvedValue(IDLE);
   hoisted.start.mockReset();
+  hoisted.retry.mockReset();
 });
 
 afterEach(() => {
@@ -72,6 +79,43 @@ describe('MemoryImportBanner', () => {
       '10 of 10 items imported'
     );
     expect(screen.queryByTestId('memory-import-open')).not.toBeInTheDocument();
+  });
+
+  it('offers to retry the items a finished import could not store', async () => {
+    hoisted.status.mockResolvedValue({
+      state: { phase: 'done', imported: 8, total: 9, failed: 1 },
+    });
+    hoisted.retry.mockResolvedValue({
+      state: { phase: 'running', imported: 8, total: 9, failed: 1 },
+    });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+
+    expect(await screen.findByTestId('memory-import-failed-items')).toHaveTextContent(
+      '1 items could not be imported.'
+    );
+    fireEvent.click(screen.getByTestId('memory-import-retry-failed'));
+    expect(await screen.findByTestId('memory-import-running')).toBeInTheDocument();
+    expect(hoisted.retry).toHaveBeenCalledTimes(1);
+    expect(hoisted.start).not.toHaveBeenCalled();
+  });
+
+  it('offers no retry when nothing failed', async () => {
+    hoisted.status.mockResolvedValue({
+      state: { phase: 'done', imported: 9, total: 9, failed: 0 },
+    });
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    expect(await screen.findByTestId('memory-import-done')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-import-retry-failed')).not.toBeInTheDocument();
+  });
+
+  it('shows a retry that could not start', async () => {
+    hoisted.status.mockResolvedValue({
+      state: { phase: 'done', imported: 8, total: 9, failed: 1 },
+    });
+    hoisted.retry.mockRejectedValue(new Error('no failed items to retry'));
+    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
+    fireEvent.click(await screen.findByTestId('memory-import-retry-failed'));
+    expect(await screen.findByTestId('memory-import-error')).toBeInTheDocument();
   });
 
   it('shows a failed import', async () => {

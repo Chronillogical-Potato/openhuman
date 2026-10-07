@@ -5011,6 +5011,8 @@ const messages: TranslationMap = {
   'memoryPage.import.done': '旧版记忆已导入',
   'memoryPage.import.failed': '导入失败',
   'memoryPage.import.resume': '继续导入',
+  'memoryPage.import.failedItems': '有 {count} 项未能导入。',
+  'memoryPage.import.retryFailed': '重试失败的项目',
   'memoryPage.import.progress': '已导入 {imported} / {total} 项',
   // Live voice agents
   'voice.live.mute': '静音麦克风',

@@ -62,6 +62,7 @@ export const CORE_RPC_METHODS = {
   memoryImportScan: 'openhuman.memory_import_scan',
   memoryImportStart: 'openhuman.memory_import_start',
   memoryImportStatus: 'openhuman.memory_import_status',
+  memoryImportRetryFailed: 'openhuman.memory_import_retry_failed',
   inferenceAgentChat: 'openhuman.inference_agent_chat',
   inferenceAgentChatSimple: 'openhuman.inference_agent_chat_simple',
   inferenceDiagnostics: 'openhuman.inference_diagnostics',

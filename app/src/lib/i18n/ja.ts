@@ -5724,6 +5724,8 @@ const messages: TranslationMap = {
   'memoryPage.learnings.deriving':
     'まだ表示する内容はありません。最近の会話から考察を生成しています。次のバックグラウンド処理が終わると、ここに表示されます。',
   'memoryPage.import.resume': 'インポートを再開',
+  'memoryPage.import.failedItems': '{count} 件をインポートできませんでした。',
+  'memoryPage.import.retryFailed': '失敗した項目を再試行',
 };
 
 export default messages;

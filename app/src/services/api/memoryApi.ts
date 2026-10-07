@@ -333,6 +333,8 @@ export interface ImportState {
   imported: number;
   total: number;
   error?: string | null;
+  /** Items the engine refused; `memoryImportRetryFailed` stores them again. */
+  failed?: number;
 }
 
 /** Progress of storing past chats (`memory_conversations_backfill_*`). */
@@ -792,4 +794,9 @@ export function memoryConversationsBackfillStart(): Promise<BackfillView> {
 
 export function memoryImportStatus(): Promise<{ state: ImportState }> {
   return call<{ state: ImportState }>(CORE_RPC_METHODS.memoryImportStatus);
+}
+
+/** Stores again the items a finished import skipped because the engine refused them. */
+export function memoryImportRetryFailed(): Promise<{ state: ImportState }> {
+  return call<{ state: ImportState }>(CORE_RPC_METHODS.memoryImportRetryFailed);
 }
