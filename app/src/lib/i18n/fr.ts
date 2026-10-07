@@ -5056,12 +5056,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'Moteur',
+  'memoryPage.tabs.engine': 'Fournisseur',
   'memoryPage.tabs.ask': 'Demander',
   'memoryPage.tabs.learnings': 'Acquis',
   'memoryPage.tabs.conversations': 'Conversations',
-  'memoryPage.header.engine':
-    'Choisissez qui stocke votre mémoire et répond aux questions à son sujet.',
+  'memoryPage.header.engine': 'Choisissez où votre mémoire est stockée.',
   'memoryPage.header.ask': "Posez une question à votre mémoire et voyez d'où vient la réponse.",
   'memoryPage.header.learnings':
     'Faits, préférences et procédures que votre agent doit toujours retenir.',
@@ -5137,18 +5136,53 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'Fil',
   'memoryPage.meta.url': 'Lien',
   'memoryPage.off.title': 'La mémoire est désactivée',
-  'memoryPage.off.description':
-    'Connectez CortexDB pour commencer à mémoriser. Connectez-vous pour utiliser CortexDB intégré, ou utilisez votre propre clé API ou un serveur sur cet ordinateur.',
-  'memoryPage.off.action': 'Choisir un moteur',
-  'memoryPage.engine.listTitle': 'Mémoire CortexDB',
-  'memoryPage.engine.listDescription':
-    "La mémoire fonctionne avec CortexDB. Choisissez comment cette app s'y connecte. Une seule connexion est active à la fois.",
-  'memoryPage.engine.offExplanation':
-    "Aucune connexion mémoire n'est utilisable pour le moment : rien n'est enregistré ni rappelé. Connectez-vous pour utiliser CortexDB intégré, ou connectez CortexDB avec votre clé API ou sur cet ordinateur.",
+  'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
+  'memoryPage.off.action': 'Choisir un fournisseur',
+  'memoryPage.engine.inUse': 'Utilisé',
+  'memoryPage.announcement.title': 'Mémoire illimitée avec CortexDB',
+  'memoryPage.announcement.retired': 'TinyCortex a été retiré le 7 oct.',
+  'memoryPage.announcement.highlight': 'Migration gratuite et usage illimité sur CortexDB.',
+  'memoryPage.announcement.rest':
+    'Il est plus rapide et plus intelligent, et vos données ne servent jamais à l’entraînement.',
+  'memoryPage.announcement.dismiss': 'Fermer',
+  'memoryPage.engine.cortex.description':
+    'Moteur de mémoire avec rappel classé et réponses sourcées.',
+  'memoryPage.engine.chip.label': 'Comment connecter CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Illimitée',
+  'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
+  'memoryPage.engine.chip.selfhost': 'Local',
+  'memoryPage.engine.fairUse.summary': 'Usage raisonnable',
+  'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
+  'memoryPage.engine.builtin.cardDescription':
+    'Hébergé pour vous par TinyHumans. Rien à configurer.',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'Le service géré de CortexDB, avec votre propre compte CortexDB.',
+  'memoryPage.engine.selfHost.cardDescription':
+    'Un serveur CortexDB que vous gérez vous-même. La mémoire est stockée sur cet ordinateur.',
+  'memoryPage.engine.freeIngestion.notePlan': 'Mémoire illimitée avec votre forfait {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Mémoire illimitée avec les forfaits Basic et Pro',
+  'memoryPage.engine.fairUse.own': 'Ingérez votre propre contenu, pour votre propre usage.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'Pas d’envois massifs automatisés, de scraping ni d’ingestion pour le compte d’autres personnes ou services.',
+  'memoryPage.engine.fairUse.limits':
+    'Nous pouvons limiter ou suspendre l’ingestion des comptes qui enfreignent ces conditions.',
+  'memoryPage.engine.fairUse.terms': 'Lire les Conditions d’utilisation',
+  'memoryPage.engine.soon.title': 'Bientôt disponible',
+  'memoryPage.engine.soon.description': 'D’autres moteurs de mémoire en préparation.',
+  'memoryPage.engine.soon.badge': 'Bientôt',
+  'memoryPage.engine.soon.supermemory': 'API de mémoire universelle pour les apps d’IA.',
+  'memoryPage.engine.soon.mem0': 'Couche de mémoire auto-améliorante pour agents.',
+  'memoryPage.engine.soon.cognee':
+    'Mémoire en graphe de connaissances construite à partir de vos données.',
+  'memoryPage.engine.soon.zep': 'Graphe de connaissances temporel pour la mémoire des agents.',
+  'memoryPage.engine.soon.letta': 'Agents avec état et mémoire à long terme.',
+  'memoryPage.engine.toastSwitched': 'Fournisseur de mémoire changé',
+  'memoryPage.engine.toastSwitchedBody': '{name} stocke désormais votre mémoire.',
+  'memoryPage.engine.toastSaved': 'Paramètres de mémoire enregistrés',
   'memoryPage.engine.statusDegraded': 'La mémoire est dégradée',
   'memoryPage.engine.statusDown': 'Le moteur de mémoire est injoignable',
   'memoryPage.engine.statusOff': 'Désactivé',
-  'memoryPage.engine.active': 'Actif',
   'memoryPage.engine.use': 'Utiliser',
   'memoryPage.engine.connect': 'Connecter',
   'memoryPage.engine.endpoint': 'Point de terminaison',
@@ -5161,20 +5195,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Injoignable',
   'memoryPage.engine.connecting': 'Connexion…',
   'memoryPage.engine.save': 'Enregistrer',
-  'memoryPage.engine.builtin.title': 'CortexDB intégré',
-  'memoryPage.engine.builtin.detail': 'Inclus avec votre compte TinyHumans',
-  'memoryPage.engine.builtin.signInRequired': "Connectez-vous pour l'utiliser",
-  'memoryPage.engine.builtin.description':
-    "CortexDB hébergé par TinyHumans et inclus avec votre compte. Connectez-vous pour l'utiliser ; rien à configurer.",
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Les nouveaux souvenirs sont enregistrés immédiatement. Les faits et croyances qui en sont tirés se complètent dans les minutes qui suivent.',
+  'memoryPage.engine.builtin.title': 'CortexDB via TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Connectez-vous à votre compte TinyHumans pour utiliser CortexDB intégré.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre clé API',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre propre clé',
   'memoryPage.engine.apiKeyOption.description':
     'Utilisez votre propre compte CortexDB. La clé est stockée de façon sécurisée sur cet ordinateur, jamais dans le fichier de configuration.',
-  'memoryPage.engine.selfHost.title': 'Auto-héberger CortexDB',
-  'memoryPage.engine.selfHost.detail': 'Un serveur CortexDB sur cet ordinateur',
+  'memoryPage.engine.selfHost.title': 'CortexDB sur cet ordinateur',
   'memoryPage.engine.selfHost.step1':
     'Lancez un serveur CortexDB sur cet ordinateur en suivant le guide :',
   'memoryPage.engine.selfHost.docsLink': "Guide d'auto-hébergement de CortexDB",
@@ -5258,8 +5285,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Inactive',
   'memoryPage.sourceStatus.syncing': 'Synchronisation',
   'memoryPage.sourceStatus.error': 'Erreur',
-  'memoryPage.tabs.brain': 'Cerveau',
-  'memoryPage.tabs.background': 'Arrière-plan',
+  'memoryPage.tabs.brain': 'Documents',
+  'memoryPage.tabs.background': 'Activité',
   'memoryPage.tabs.settings': 'Réglages',
   'memoryPage.header.brain':
     'Documents partagés par tous les agents, classés selon leur provenance.',

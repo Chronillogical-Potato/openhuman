@@ -4994,11 +4994,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'Движок',
+  'memoryPage.tabs.engine': 'Провайдер',
   'memoryPage.tabs.ask': 'Спросить',
   'memoryPage.tabs.learnings': 'Знания',
   'memoryPage.tabs.conversations': 'Диалоги',
-  'memoryPage.header.engine': 'Выберите, кто хранит вашу память и отвечает на вопросы о ней.',
+  'memoryPage.header.engine': 'Выберите, где хранить память.',
   'memoryPage.header.ask': 'Задайте вопрос своей памяти и посмотрите, откуда взят ответ.',
   'memoryPage.header.learnings':
     'Факты, предпочтения и процедуры, которые агент должен помнить всегда.',
@@ -5072,18 +5072,52 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'Ветка',
   'memoryPage.meta.url': 'Ссылка',
   'memoryPage.off.title': 'Память выключена',
-  'memoryPage.off.description':
-    'Подключите CortexDB, чтобы начать запоминать. Войдите, чтобы использовать встроенную CortexDB, или подключитесь со своим API-ключом или к серверу на этом компьютере.',
-  'memoryPage.off.action': 'Выбрать движок',
-  'memoryPage.engine.listTitle': 'Память CortexDB',
-  'memoryPage.engine.listDescription':
-    'Память работает на CortexDB. Выберите, как это приложение к ней подключается. Одновременно активно только одно подключение.',
-  'memoryPage.engine.offExplanation':
-    'Сейчас нет доступного подключения к памяти, поэтому ничего не сохраняется и не извлекается. Войдите, чтобы использовать встроенную CortexDB, или подключите CortexDB со своим API-ключом или на этом компьютере.',
+  'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
+  'memoryPage.off.action': 'Выбрать провайдера',
+  'memoryPage.engine.inUse': 'Используется',
+  'memoryPage.announcement.title': 'Безлимитная память на CortexDB',
+  'memoryPage.announcement.retired': 'TinyCortex выведен из работы 7 окт.',
+  'memoryPage.announcement.highlight': 'Бесплатный перенос и безлимитное использование CortexDB.',
+  'memoryPage.announcement.rest':
+    'Он быстрее и умнее, а ваши данные никогда не используются для обучения.',
+  'memoryPage.announcement.dismiss': 'Скрыть',
+  'memoryPage.engine.cortex.description':
+    'Движок памяти с ранжированным поиском и обоснованными ответами.',
+  'memoryPage.engine.chip.label': 'Как подключить CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Безлимит',
+  'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
+  'memoryPage.engine.chip.selfhost': 'Локально',
+  'memoryPage.engine.fairUse.summary': 'Действует добросовестное использование',
+  'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
+  'memoryPage.engine.builtin.cardDescription':
+    'Размещено для вас TinyHumans. Ничего настраивать не нужно.',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'Управляемый сервис CortexDB в вашем собственном аккаунте CortexDB.',
+  'memoryPage.engine.selfHost.cardDescription':
+    'Сервер CortexDB, который вы запускаете сами. Память хранится на этом компьютере.',
+  'memoryPage.engine.freeIngestion.notePlan': 'Безлимитная память на тарифе {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Безлимитная память на тарифах Basic и Pro',
+  'memoryPage.engine.fairUse.own': 'Загружайте свой контент для собственного использования.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'Никаких автоматических массовых загрузок, скрейпинга и загрузки от имени других людей или сервисов.',
+  'memoryPage.engine.fairUse.limits':
+    'Мы можем ограничить или приостановить загрузку для аккаунтов, нарушающих эти условия.',
+  'memoryPage.engine.fairUse.terms': 'Прочитать Условия использования',
+  'memoryPage.engine.soon.title': 'Скоро',
+  'memoryPage.engine.soon.description': 'Другие движки памяти, над которыми мы работаем.',
+  'memoryPage.engine.soon.badge': 'Скоро',
+  'memoryPage.engine.soon.supermemory': 'Универсальный API памяти для ИИ-приложений.',
+  'memoryPage.engine.soon.mem0': 'Самосовершенствующийся слой памяти для агентов.',
+  'memoryPage.engine.soon.cognee': 'Память на графе знаний из ваших данных.',
+  'memoryPage.engine.soon.zep': 'Темпоральный граф знаний для памяти агентов.',
+  'memoryPage.engine.soon.letta': 'Агенты с состоянием и долговременной памятью.',
+  'memoryPage.engine.toastSwitched': 'Провайдер памяти изменён',
+  'memoryPage.engine.toastSwitchedBody': 'Теперь вашу память хранит {name}.',
+  'memoryPage.engine.toastSaved': 'Настройки памяти сохранены',
   'memoryPage.engine.statusDegraded': 'Память работает со сбоями',
   'memoryPage.engine.statusDown': 'Движок памяти недоступен',
   'memoryPage.engine.statusOff': 'Выкл.',
-  'memoryPage.engine.active': 'Активен',
   'memoryPage.engine.use': 'Использовать',
   'memoryPage.engine.connect': 'Подключить',
   'memoryPage.engine.endpoint': 'Endpoint',
@@ -5094,20 +5128,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Недоступна',
   'memoryPage.engine.connecting': 'Подключение…',
   'memoryPage.engine.save': 'Сохранить',
-  'memoryPage.engine.builtin.title': 'Встроенная CortexDB',
-  'memoryPage.engine.builtin.detail': 'Входит в ваш аккаунт TinyHumans',
-  'memoryPage.engine.builtin.signInRequired': 'Войдите, чтобы использовать',
-  'memoryPage.engine.builtin.description':
-    'CortexDB, размещённая TinyHumans и входящая в ваш аккаунт. Войдите, чтобы пользоваться ею; настраивать ничего не нужно.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Новые воспоминания сохраняются сразу. Факты и убеждения, извлечённые из них, появляются в течение следующих минут.',
+  'memoryPage.engine.builtin.title': 'CortexDB через TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Войдите в аккаунт TinyHumans, чтобы использовать встроенную CortexDB.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB с вашим API-ключом',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB с вашим ключом',
   'memoryPage.engine.apiKeyOption.description':
     'Используйте свой аккаунт CortexDB. Ключ надёжно хранится на этом компьютере и никогда не попадает в файл конфигурации.',
-  'memoryPage.engine.selfHost.title': 'Собственный сервер CortexDB',
-  'memoryPage.engine.selfHost.detail': 'Сервер CortexDB на этом компьютере',
+  'memoryPage.engine.selfHost.title': 'CortexDB на этом компьютере',
   'memoryPage.engine.selfHost.step1':
     'Запустите сервер CortexDB на этом компьютере по руководству:',
   'memoryPage.engine.selfHost.docsLink': 'Руководство по самостоятельному размещению CortexDB',
@@ -5191,8 +5218,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Простаивает',
   'memoryPage.sourceStatus.syncing': 'Синхронизация',
   'memoryPage.sourceStatus.error': 'Ошибка',
-  'memoryPage.tabs.brain': 'Мозг',
-  'memoryPage.tabs.background': 'Фон',
+  'memoryPage.tabs.brain': 'Документы',
+  'memoryPage.tabs.background': 'Активность',
   'memoryPage.tabs.settings': 'Настройки',
   'memoryPage.header.brain': 'Документы, общие для всех агентов, разложенные по источникам.',
   'memoryPage.header.background':
