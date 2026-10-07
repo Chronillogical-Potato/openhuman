@@ -1,5 +1,3 @@
-import { AudioWaveform, Languages, type LucideIcon, Mic, Sparkles } from 'lucide-react';
-
 import type { LiveVoiceProvider, LiveVoiceSettings } from '../../../services/api/liveVoiceApi';
 
 /**
@@ -13,20 +11,12 @@ export interface LiveVoiceVendor {
   providers: LiveVoiceProvider[];
 }
 
-const VENDOR_ICON: Record<string, LucideIcon> = {
-  gemini: Sparkles,
-  elevenlabs: AudioWaveform,
-  sarvam: Languages,
-};
-
 /** Description key per known vendor (explicit so the i18n audit sees them). */
 const VENDOR_DESC_KEY: Record<string, string> = {
   gemini: 'connections.voiceAgents.vendorGemini',
   elevenlabs: 'connections.voiceAgents.vendorElevenlabs',
   sarvam: 'connections.voiceAgents.vendorSarvam',
 };
-
-export const vendorIcon = (vendorId: string): LucideIcon => VENDOR_ICON[vendorId] ?? Mic;
 
 export const vendorDescKey = (vendorId: string): string | undefined => VENDOR_DESC_KEY[vendorId];
 
