@@ -137,7 +137,7 @@ async fn an_unreachable_pinned_address_is_a_connect_error() {
     let addr = listener.local_addr().unwrap();
     drop(listener);
     let transport = ReqwestTransport::new();
-    let error = transport
+    let Err(error) = transport
         .exchange(
             HttpMethod::Get,
             format!("http://127.0.0.1:{}/SKILL.md", addr.port()),
@@ -146,8 +146,9 @@ async fn an_unreachable_pinned_address_is_a_connect_error() {
             Duration::from_secs(5),
         )
         .await
-        .err()
-        .expect("nothing listens there");
+    else {
+        panic!("nothing listens there");
+    };
     assert!(matches!(error, TransportError::Connect(_)), "{error:?}");
 }
 
