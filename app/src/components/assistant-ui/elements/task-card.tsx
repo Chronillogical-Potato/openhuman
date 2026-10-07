@@ -94,6 +94,7 @@ export function TaskCard({
   onOpenChange?: ((open: boolean) => void) | undefined;
   children?: ReactNode | undefined;
 }) {
+  const { t } = useT();
   const hasTranscript = Children.toArray(children).length > 0;
   const inert = open !== undefined && onOpenChange === undefined;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
