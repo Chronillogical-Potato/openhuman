@@ -43,8 +43,8 @@ pub const AGENT_WORKER_STACK_BYTES: usize = 20 * 1024 * 1024;
 /// `.thread_stack_size(AGENT_WORKER_STACK_BYTES)` on every such runtime.
 pub const MAX_BLOCKING_THREADS: usize = 64;
 
-mod bootstrap;
 pub mod boot_guard;
+mod bootstrap;
 pub mod builder;
 pub mod context;
 pub mod mode;
