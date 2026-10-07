@@ -11,7 +11,8 @@ use crate::threads::{
     AppendConversationMessageRequest, ConversationMessagesRequest, CreateConversationThreadRequest,
     DeleteConversationThreadRequest, EmptyRequest, GenerateConversationThreadTitleRequest,
     UpdateConversationMessageRequest, UpdateConversationThreadLabelsRequest,
-    UpdateConversationThreadTitleRequest, UpsertConversationThreadRequest,
+    UpdateConversationThreadTitleRequest, UpdateConversationThreadWorkingDirRequest,
+    UpsertConversationThreadRequest,
 };
 
 use super::super::ops;
@@ -66,6 +67,13 @@ pub(super) fn handle_update_title(params: Map<String, Value>) -> ControllerFutur
     Box::pin(async move {
         let p = parse::<UpdateConversationThreadTitleRequest>(params)?;
         to_json(ops::thread_update_title(p).await?)
+    })
+}
+
+pub(super) fn handle_update_working_dir(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let p = parse::<UpdateConversationThreadWorkingDirRequest>(params)?;
+        to_json(ops::thread_update_working_dir(p).await?)
     })
 }
 

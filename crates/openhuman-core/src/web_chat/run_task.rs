@@ -97,7 +97,17 @@ pub(crate) async fn run_chat_task(
         }
     }
 
-    let config = config_rpc::load_config_with_timeout().await?;
+    let mut config = config_rpc::load_config_with_timeout().await?;
+    // A thread started in a chosen folder acts there, not in the global
+    // `action_dir`. Applied before checkout so the session agent, its security
+    // policy (which grants `action_dir` as a trusted root) and its tools are
+    // all built on the thread's folder.
+    if let Some(dir) =
+        crate::threads::ops::thread_working_dir(config.workspace_dir.clone(), thread_id).await?
+    {
+        log::debug!("[web-channel] thread working folder applied thread_id={thread_id}");
+        config.action_dir = dir;
+    }
     let model_override = normalize_model_override(model_override);
     // The cached session (or a cold-boot resumed one) is the thread's single
     // live history; every turn on the thread checks it out through this path.

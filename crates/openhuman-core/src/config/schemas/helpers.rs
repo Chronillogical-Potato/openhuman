@@ -83,6 +83,7 @@ pub(super) struct RuntimeSettingsUpdate {
     pub(super) kind: Option<String>,
     pub(super) reasoning_enabled: Option<bool>,
     pub(super) reasoning_effort: Option<String>,
+    pub(super) reasoning_effort_model: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

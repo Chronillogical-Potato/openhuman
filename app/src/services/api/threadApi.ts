@@ -262,6 +262,19 @@ export const threadApi = {
     return unwrapEnvelope(response);
   },
 
+  /**
+   * Bind (absolute path) or clear (`''`) the working folder of a thread that
+   * has no messages yet. The core validates the folder and refuses once the
+   * conversation has started.
+   */
+  updateWorkingDir: async (threadId: string, actionDir: string): Promise<Thread> => {
+    const response = await callCoreRpc<Envelope<Thread>>({
+      method: 'openhuman.threads_update_working_dir',
+      params: { thread_id: threadId, action_dir: actionDir },
+    });
+    return unwrapEnvelope(response);
+  },
+
   updateTitle: async (threadId: string, title: string): Promise<Thread> => {
     const response = await callCoreRpc<Envelope<Thread>>({
       method: 'openhuman.threads_update_title',

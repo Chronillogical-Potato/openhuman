@@ -15,6 +15,7 @@ async fn setup() -> (tempfile::TempDir, crate::config::Config) {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await
@@ -217,6 +218,7 @@ async fn append_uses_host_persistence_workspace_separate_from_rpc_config() {
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await
