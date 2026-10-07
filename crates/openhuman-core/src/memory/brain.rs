@@ -53,17 +53,55 @@ pub fn brain_source(kind: MemorySourceKind, target: &str) -> BrainSource {
     }
 }
 
-/// `item` placed in `layout`'s brain under `source`: the source's node, and
-/// no agent id (the brain belongs to every agent).
-pub fn file_into(
+/// The repository a GitHub document belongs to, as the collection id
+/// `<owner>-<repo>` (lowercase, as GitHub's names are case-insensitive):
+/// from its `repo` (`owner/name` or a URL), else its URL.
+#[must_use]
+pub fn github_collection(item: &StoreItem) -> Option<String> {
+    let meta = item.meta();
+    [meta.repo.as_deref(), meta.url.as_deref()]
+        .into_iter()
+        .flatten()
+        .find_map(|raw| {
+            let path = raw
+                .trim()
+                .trim_start_matches("https://")
+                .trim_start_matches("http://")
+                .trim_start_matches("www.")
+                .trim_start_matches("github.com/");
+            let mut parts = path.split('/').filter(|part| !part.is_empty());
+            let (owner, repo) = (parts.next()?, parts.next()?);
+            let repo = repo.trim_end_matches(".git");
+            (!owner.contains('.') && !repo.is_empty())
+                .then(|| format!("{owner}-{repo}").to_ascii_lowercase())
+        })
+}
+
+/// The node `item` of `source` is filed at: the source's node, or, for
+/// GitHub with `[memory] split_github_by_repo` on, its repository's
+/// collection below it.
+pub fn brain_node(
+    config: &Config,
     layout: &MemoryLayout,
     source: &BrainSource,
-    mut item: StoreItem,
-) -> MemoryResult<StoreItem> {
+    item: &StoreItem,
+) -> MemoryResult<Namespace> {
+    if config.memory.split_github_by_repo && *source == BrainSource::Github {
+        if let Some(repo) = github_collection(item) {
+            return Ok(layout.brain_collection(source, &repo)?);
+        }
+    }
+    Ok(layout.brain(source)?)
+}
+
+/// `item` placed in the brain at `node`, with no agent id (the brain
+/// belongs to every agent).
+#[must_use]
+pub fn file_into(node: Namespace, mut item: StoreItem) -> StoreItem {
     let meta = item.meta_mut();
-    meta.namespace = layout.brain(source)?;
+    meta.namespace = node;
     meta.agent_id = None;
-    Ok(item)
+    item
 }
 
 /// The layout the brain RPCs act on: the in-scope identity's.
@@ -114,24 +152,25 @@ pub async fn sources(config: &Config) -> MemoryResult<BrainSourcesView> {
             scan_limit: 20_000,
         })
         .await?;
-    let prefix = |source: &str| -> Option<String> {
-        let node: Namespace = source.parse().ok()?;
-        let last = node.segments().last()?.clone();
-        let parent_matches = node.depth() == layout.root().depth() + 1;
-        (parent_matches && last.kind() == tinymemory_api::SegmentKind::Source)
-            .then(|| last.id().to_string())
+    // A source's collections (`source:github/project:…`) count as the
+    // source's own documents.
+    let source_of = |node: &str| -> Option<String> {
+        let node: Namespace = node.parse().ok()?;
+        let segment = node.segments().get(layout.root().depth())?;
+        (segment.kind() == tinymemory_api::SegmentKind::Source).then(|| segment.id().to_string())
     };
-    let mut sources = Vec::new();
+    let mut counts = std::collections::BTreeMap::<String, u64>::new();
     let mut unfiled = 0;
     for bucket in page.buckets {
-        match prefix(&bucket.value) {
-            Some(source) => sources.push(BrainSourceCount {
-                source,
-                documents: bucket.count,
-            }),
+        match source_of(&bucket.value) {
+            Some(source) => *counts.entry(source).or_default() += bucket.count,
             None => unfiled += bucket.count,
         }
     }
+    let mut sources: Vec<BrainSourceCount> = counts
+        .into_iter()
+        .map(|(source, documents)| BrainSourceCount { source, documents })
+        .collect();
     sources.sort_by(|a, b| b.documents.cmp(&a.documents).then(a.source.cmp(&b.source)));
     Ok(BrainSourcesView {
         root: layout.root().to_string(),
