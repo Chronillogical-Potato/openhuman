@@ -1489,6 +1489,9 @@ fn every_domain_group_is_accounted_for_in_store_init_plan() {
         // `init_stores` to stand up.
         DomainGroup::Modules,
         DomainGroup::Platform,
+        // User agents live on disk under the SaaS root and are opened by the
+        // agent host on demand; nothing is stood up at boot.
+        DomainGroup::Operator,
     ];
 
     for g in DomainGroup::ALL {
@@ -1542,6 +1545,8 @@ fn every_domain_group_is_accounted_for_in_subscriber_plan() {
         // Modules run on their own in-process broker, so they cannot publish a
         // `DomainEvent` and there is nothing on the core bus to subscribe to.
         DomainGroup::Modules,
+        // The operator plane only answers provisioning calls.
+        DomainGroup::Operator,
     ];
 
     for g in DomainGroup::ALL {
