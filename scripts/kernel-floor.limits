@@ -650,6 +650,4 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-# 332/311/3 2026-10-04 Memory lifecycle refresh removed five packages/names
-#                      from the Linux flows graph; native builds remain at 3.
 flows:332:311:3

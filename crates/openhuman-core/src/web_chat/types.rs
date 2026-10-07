@@ -59,9 +59,6 @@ impl std::fmt::Display for QueueMode {
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) struct SessionCacheFingerprint {
     pub(super) model_override: Option<String>,
-    /// Resolved model selected by the effective configuration, including a
-    /// persisted managed default when no per-turn override was sent.
-    pub(super) effective_model: String,
     pub(super) temperature: Option<f64>,
     pub(super) target_agent_id: String,
     pub(super) provider_binding: String,

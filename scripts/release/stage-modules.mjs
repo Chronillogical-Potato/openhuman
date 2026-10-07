@@ -4,8 +4,7 @@
 // installer, release tarball or bench image needs no GitHub access to load a
 // module. The output layout is `<id>/<version>/<host_key>/<archive>` plus the
 // extracted library, which is what `modules::ops::set_bundled_releases_dir`
-// (or `OPENHUMAN_BUNDLED_MODULES`) points at. On macOS the archive is replaced
-// by `<archive>.sha256` holding its verified pin (see `keepsArchive`).
+// (or `OPENHUMAN_BUNDLED_MODULES`) points at.
 //
 // Usage: node scripts/release/stage-modules.mjs [--target TRIPLE | --host-key KEY] [--output DIR]
 //
@@ -65,23 +64,6 @@ export function hostKeyForTarget(triple) {
     return archKey === "arm64" ? "windows-11-arm64" : "windows-2022-x86_64";
   }
   throw new Error(`no bundled modules for target ${triple}`);
-}
-
-/**
- * Whether the staged entry keeps its release archive. A notarized macOS app
- * cannot: Apple's notary service unpacks it and rejects the unsigned Mach-O
- * inside, and signing them would change the pinned bytes. There the archive is
- * replaced by its verified digest, which tinybus admits from the installer
- * bundle only; the extracted files are signed and sealed with the app.
- */
-export function keepsArchive(hostKey) {
-  return !hostKey.startsWith("macos-");
-}
-
-/** Replace a verified `archive` with `<archive>.sha256` holding `sha256`. */
-export function replaceArchiveWithMarker(archive, sha256) {
-  writeFileSync(`${archive}.sha256`, `${sha256}\n`);
-  rmSync(archive);
 }
 
 export function bundledAssets(source, hostKey) {
@@ -188,11 +170,8 @@ export async function download(url, destination, timeoutMs = DOWNLOAD_TIMEOUT_MS
   throw new Error(`download of ${url} failed: ${lastError}`);
 }
 
-export async function stageModules({
-  hostKey = defaultHostKey(),
-  output = OUTPUT,
-  assets = bundledAssets(readRegistrySource(), hostKey),
-} = {}) {
+export async function stageModules({ hostKey = defaultHostKey(), output = OUTPUT } = {}) {
+  const assets = bundledAssets(readRegistrySource(), hostKey);
   rmSync(output, { recursive: true, force: true });
   mkdirSync(output, { recursive: true });
   writeFileSync(join(output, ".gitkeep"), "");
@@ -209,7 +188,6 @@ export async function stageModules({
     if (librariesUnder(dir).length !== 1) {
       throw new Error(`${asset.id}: expected exactly one native library in the release archive`);
     }
-    if (!keepsArchive(asset.hostKey)) replaceArchiveWithMarker(archive, actual);
     console.log(`[bundled-modules] staged ${asset.id} ${asset.version} (${asset.hostKey})`);
   }
   console.log(`[bundled-modules] staged ${assets.length} verified releases for ${hostKey}`);

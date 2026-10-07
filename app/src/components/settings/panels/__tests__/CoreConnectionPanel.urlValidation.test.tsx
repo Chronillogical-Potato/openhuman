@@ -70,8 +70,8 @@ async function openRemoteForm(url: string, token = 'remote-token-xyz') {
   await waitFor(() => expect(screen.getByText('Connected to local core')).toBeInTheDocument());
 
   fireEvent.click(screen.getByTestId('core-use-remote-toggle'));
-  fireEvent.change(screen.getByLabelText(/Address/i), { target: { value: url } });
-  fireEvent.change(screen.getByLabelText(/^Token/i), { target: { value: token } });
+  fireEvent.change(screen.getByLabelText(/Runtime URL/i), { target: { value: url } });
+  fireEvent.change(screen.getByLabelText(/Auth Token/i), { target: { value: token } });
   return rendered;
 }
 
@@ -151,7 +151,7 @@ describe('CoreConnectionPanel remote URL validation', () => {
     await openRemoteForm('http://127.0.0.1:7788/rpc');
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Address/i)).toHaveValue('http://127.0.0.1:7788/rpc')
+      expect(screen.getByLabelText(/Runtime URL/i)).toHaveValue('http://127.0.0.1:7788/rpc')
     );
     expect(screen.queryByText(HTTP_WARNING)).not.toBeInTheDocument();
   });
@@ -160,7 +160,7 @@ describe('CoreConnectionPanel remote URL validation', () => {
     await openRemoteForm('http://192.168.1.50:7788/rpc');
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Address/i)).toHaveValue('http://192.168.1.50:7788/rpc')
+      expect(screen.getByLabelText(/Runtime URL/i)).toHaveValue('http://192.168.1.50:7788/rpc')
     );
     expect(screen.queryByText(HTTP_WARNING)).not.toBeInTheDocument();
   });
@@ -169,7 +169,7 @@ describe('CoreConnectionPanel remote URL validation', () => {
     await openRemoteForm('https://core.example.com/rpc');
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/Address/i)).toHaveValue('https://core.example.com/rpc')
+      expect(screen.getByLabelText(/Runtime URL/i)).toHaveValue('https://core.example.com/rpc')
     );
     expect(screen.queryByText(HTTP_WARNING)).not.toBeInTheDocument();
   });

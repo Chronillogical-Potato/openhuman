@@ -67,7 +67,6 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
             max_rescues: config.computer.max_rescues,
             ..TaskBudget::default()
         },
-        trace: super::computer_config::tracing_enabled(config),
         ..StartTaskRequest::default()
     }
 }
@@ -90,7 +89,7 @@ pub async fn start(config: &Config, task: &BrowserTask) -> Result<TaskView, Stri
         "[browser-task] starting"
     );
     let view: TaskView = call(config, methods::START_TASK, request, true).await?;
-    settle(config, view).await
+    follow(config, view).await
 }
 
 /// Answer a paused task and follow it again.
@@ -101,7 +100,7 @@ pub async fn start(config: &Config, task: &BrowserTask) -> Result<TaskView, Stri
 pub async fn resume(config: &Config, request: ContinueTaskRequest) -> Result<TaskView, String> {
     tracing::debug!(task = %request.id, approve = ?request.approve, "[browser-task] continuing");
     let view: TaskView = call(config, methods::CONTINUE_TASK, request, true).await?;
-    settle(config, view).await
+    follow(config, view).await
 }
 
 /// Keep following a task that was still running when the last call returned.
@@ -120,7 +119,7 @@ pub async fn wait(config: &Config, id: TaskId) -> Result<TaskView, String> {
         false,
     )
     .await?;
-    settle(config, view).await
+    follow(config, view).await
 }
 
 /// Cancel a task.
@@ -141,36 +140,13 @@ pub async fn cancel(config: &Config, id: TaskId) -> Result<TaskView, String> {
 ///
 /// Returns a module or transport error.
 pub async fn report(config: &Config, id: TaskId) -> Result<TaskReport, String> {
-    report_with(config, id, false).await
-}
-
-/// The task's record, with every Jev exchange when `trace` is set and the
-/// task was started with `StartTask.trace`. A traced report can run to
-/// megabytes, so only the tracing path asks for it.
-///
-/// # Errors
-///
-/// Returns a module or transport error.
-pub(crate) async fn report_with(
-    config: &Config,
-    id: TaskId,
-    trace: bool,
-) -> Result<TaskReport, String> {
     call(
         config,
         methods::TASK_REPORT,
-        TaskReportRequest { id, trace },
+        TaskReportRequest { id, trace: false },
         true,
     )
     .await
-}
-
-/// Follow `view` until it stops or the host deadline passes, then record
-/// how it stopped (see [`super::browser_task_report`]).
-async fn settle(config: &Config, view: TaskView) -> Result<TaskView, String> {
-    let view = follow(config, view).await?;
-    super::browser_task_report::record(config, &view).await;
-    Ok(view)
 }
 
 async fn follow(config: &Config, mut view: TaskView) -> Result<TaskView, String> {

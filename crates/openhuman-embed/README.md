@@ -59,22 +59,11 @@ The library API. Initialize one runtime (features, services, backend URL,
 the TinyHumans API key), then instantiate agents on it, each fully described
 and independent of the others:
 
-For hosted TinyHumans inference and services, use
-[`openhuman_tinyhumans::RuntimeBuilder`](../openhuman-tinyhumans/README.md),
-which binds the backend transport during startup. The
-[minimal library recipe](../../docs/library-minimal-recipe.md) covers the
-dependency and feature selection. The plain embed builder supports standalone
-hosts with their own providers; hosted requests require an installed transport
-and otherwise return `BACKEND_UNAVAILABLE:`.
-
 ```rust,no_run
-use openhuman_tinyhumans::{
-    embed::{Access, AgentSpec, McpServer, Provider, Workspace},
-    RuntimeBuilder,
-};
+use openhuman_embed::{Access, AgentSpec, McpServer, Provider, Runtime, Workspace};
 
 # async fn demo() -> Result<(), Box<dyn std::error::Error>> {
-let runtime = RuntimeBuilder::new()
+let runtime = Runtime::builder()
     .workspace(Workspace::dir("/var/lib/my-product/openhuman"))
     .api_key("th_live_…")                     // the only credential in library mode
     .build()
@@ -249,6 +238,32 @@ agents, items, learnings and brain. Every call stays inside the root's subtree.
 `RuntimeBuilder::memory_engine` installs a host-supplied engine in place of the
 configured one. See `docs/specs/memory-v2.md`.
 
+### Conversations in a host store
+
+By default an agent's transcripts, turn journal, run status, goals and todos
+are files under the runtime's workspace. A host serving many users from one
+process keeps them in its own database instead:
+
+```rust,ignore
+let runtime = Runtime::builder()
+    .workspace(Workspace::stateless())          // nothing durable on disk
+    .session_store(Arc::new(MyMongoStores::new(db)))
+    .build()
+    .await?;
+```
+
+The runtime asks the provider (`session_store::SessionStoreProvider`) for
+each agent's stores by agent id, so a provider over a shared database scopes
+every query by agent and one agent can never reach another's conversation. A
+reopened agent resumes its thread from the store, in any process.
+`InMemorySessionStores` keeps everything in memory; the conformance suites in
+`session_store` are what a host's provider is held to.
+`Workspace::stateless()` refuses to build without a store, and a private
+scratch directory, removed with the runtime, still holds process-local
+caches (cost log, prompt templates, migration markers). The desktop app, CLI
+and TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
+the same port. See `tests/session_store.rs`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They
@@ -256,7 +271,7 @@ are documented rather than hidden; each is a candidate follow-up in the core.
 
 - `autonomy.auto_approve` / `auto_approve_all` and the memory guard's
   autonomy tier come from the runtime's boot config (`security::live_policy`),
-  not the agent's. Path and command policy _do_ use the agent's own tier.
+  not the agent's. Path and command policy *do* use the agent's own tier.
 - The approval gate is on or off process-wide; parked approvals are not
   labelled with the agent id. A per-agent "no approvals" is `Access::full()`,
   whose `TrustedAutomation` origin the gate honours per turn.
@@ -264,21 +279,25 @@ are documented rather than hidden; each is a candidate follow-up in the core.
   `<workspace>/agents/*.toml`). Embedded agents cannot be `delegate_*`
   targets of one another. Do not reuse built-in ids (`orchestrator`,
   `summarizer`, …) for your agents.
-- Sub-agents an agent spawns, the tinyagents journal and the experience store
-  re-read the runtime's on-disk config rather than the agent's overlay.
+- Sub-agents an agent spawns and the experience store re-read the runtime's
+  on-disk config rather than the agent's overlay. (The turn journal goes to
+  the agent's own stores under a host session store; without one it uses the
+  process-default workspace.)
+- Sub-agent run-ledger rows, cron jobs and the cost log stay in the
+  workspace even with a host session store.
 - Agents sharing a workspace share the dynamic (`mcp_registry_*`) MCP
   registry; `[[mcp_client.servers]]` declared through `AgentSpec::mcp` are
   per agent. The host-seeded documentation server is visible to every agent.
 - `install_skill` / `create_skill` still write to `~/.openhuman`. With
-  `include_user_skills(false)` (the default) an agent does not _discover_ the
+  `include_user_skills(false)` (the default) an agent does not *discover* the
   operator's skills, but an install by the agent lands there.
 - One API key (or session) is shared by all agents.
-- `IntegrationClient` (backend-proxied Composio/search/media tools) accepts
-  the runtime's TinyHumans API key or an app-session JWT through
-  `security::credentials::session_support::resolve_backend_credential`.
-  API keys use `x-api-key`; session JWTs use `Authorization: Bearer`.
-  With the backend transport installed and the integration feature and runtime
-  gates enabled, an API-key-only runtime can register integration tools.
+- `IntegrationClient` (backend-proxied Composio/search/media tools) only
+  ever reads the app-session JWT
+  (`security::credentials::session_support::get_session_token`), never the
+  runtime's API key. A library runtime that authenticates with only
+  `.api_key(...)` gets no integration tools at all rather than the key
+  being sent as the wrong header.
 
 Other invariants worth knowing before wiring any entry point:
 
@@ -287,7 +306,7 @@ Other invariants worth knowing before wiring any entry point:
   auth profiles and the keyring file resolve beside `config_path`, so a
   workspace-only override reads the operator's real credentials. `Runtime`
   and `Harness` set both for `Workspace::Ephemeral` and `Workspace::Dir`.
-- A turn runs under the access tier _and_ the turn origin. `Access::full()`
+- A turn runs under the access tier *and* the turn origin. `Access::full()`
   sets both (`AutonomyLevel::Full` plus a `TrustedAutomation` origin);
   `Access::readonly()` and `Access::supervised()` set no origin and leave the
   approval gate on.

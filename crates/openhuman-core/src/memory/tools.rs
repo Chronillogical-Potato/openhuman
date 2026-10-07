@@ -186,10 +186,6 @@ impl CallFacts {
     }
 }
 
-/// What a `learn` result tells the model: the write was accepted, and
-/// recall may not find it for a moment.
-pub const LEARN_STATUS: &str = "saved; searchable in recall shortly";
-
 fn arg_str(args: &Value, key: &str) -> Option<String> {
     args.get(key)
         .and_then(Value::as_str)
@@ -242,24 +238,17 @@ pub async fn run_action(config: &Config, args: &Value, facts: &CallFacts) -> Too
             Ok(mut params) => {
                 params.meta = None;
                 let kind = params.kind.unwrap_or(tinymemory_api::LearningKind::Fact);
-                // Accepted, not visible: indexing can take minutes on a
-                // hosted engine and the turn must not wait for it.
-                ops::learn_with(
-                    config,
-                    params,
-                    Some(facts.learn_meta()),
-                    tinymemory_api::WriteOptions::accepted(),
-                )
-                .await
-                .map(|view| {
-                    BUS.publish(DomainEvent::MemoryStored {
-                        key: view.id.clone(),
-                        category: kind.as_str().to_string(),
-                        namespace: "learnings".to_string(),
-                    });
-                    json!({"id": view.id, "status": LEARN_STATUS})
-                })
-                .map_err(render_error)
+                ops::learn(config, params, Some(facts.learn_meta()))
+                    .await
+                    .map(|view| {
+                        BUS.publish(DomainEvent::MemoryStored {
+                            key: view.id.clone(),
+                            category: kind.as_str().to_string(),
+                            namespace: "learnings".to_string(),
+                        });
+                        json!(view)
+                    })
+                    .map_err(render_error)
             }
             Err(error) => Err(error),
         },

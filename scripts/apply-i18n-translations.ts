@@ -13,7 +13,7 @@
  *     not present in the input).
  *   - Rewrites <locale>.ts containing every English key in en.ts order. Value
  *     precedence: new translation → existing translation → English fallback.
- *   - Single-quoted JS string literals with safe escaping. Locale header generated.
+ *   - Single-quoted JS string literals with safe escaping. Header comment preserved.
  *
  * Usage:
  *   pnpm exec tsx scripts/apply-i18n-translations.ts [--dir tmp/i18n-translations] [--locale es]
@@ -39,7 +39,6 @@ const LOCALE_HEADERS: Record<string, string> = {
   ru: "Russian (Русский)",
   id: "Indonesian (Bahasa Indonesia)",
   it: "Italian (Italiano)",
-  ja: "Japanese (日本語)",
   ko: "Korean (한국어)",
   pl: "Polish (Polski)",
 };
@@ -90,9 +89,9 @@ async function writeLocale(
   const lines: string[] = [];
   lines.push(`import type { TranslationMap } from './types';`);
   lines.push("");
-  lines.push(`// ${langLabel} translations. Keys mirror en.ts.`);
+  lines.push(`// ${langLabel} translations. Keys mirror en.ts; missing/`);
   lines.push(
-    `// Missing keys fall back to English via I18nContext.resolveEn().`,
+    `// English-identical values fall back to English via I18nContext.resolveEn().`,
   );
   lines.push(`const messages: TranslationMap = {`);
   for (const k of enKeysInOrder) {

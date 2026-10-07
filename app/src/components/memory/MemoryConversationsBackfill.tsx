@@ -21,7 +21,6 @@ import {
   memoryErrorMessage,
 } from '../../services/api/memoryApi';
 import { Alert, AlertDescription, Button, Card, ConfirmDialog, Progress } from '../ui';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill } from './memoryFormat';
 
 const log = debug('openhuman:memory:backfill');
@@ -48,9 +47,9 @@ export default function MemoryConversationsBackfill() {
       setView(next);
     } catch (err) {
       log('status failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,12 +60,12 @@ export default function MemoryConversationsBackfill() {
       .catch(err => {
         if (cancelled) return;
         log('status failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
       });
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
   const running = view?.state.phase === 'running';
   useEffect(() => {
@@ -84,7 +83,7 @@ export default function MemoryConversationsBackfill() {
       setView(next);
     } catch (err) {
       log('start failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
     } finally {
       setStarting(false);
       setConsentOpen(false);
@@ -158,7 +157,11 @@ export default function MemoryConversationsBackfill() {
             <AlertDescription>{state.error || t('memoryPage.backfill.failed')}</AlertDescription>
           </Alert>
         )}
-        {error !== null && <MemoryErrorAlert message={error} data-testid="memory-backfill-error" />}
+        {error !== null && (
+          <Alert variant="destructive" data-testid="memory-backfill-error">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {consentOpen && view && (

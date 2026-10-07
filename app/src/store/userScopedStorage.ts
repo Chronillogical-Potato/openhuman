@@ -136,39 +136,6 @@ export function setActiveUserId(id: string | null): void {
 }
 
 /**
- * The id an identity flip is restarting *into*.
- *
- * This is a sibling of `ACTIVE_USER_KEY` and lives here for the same reason:
- * it is read during bootstrap to *decide* the active user, so it cannot be
- * namespaced by one. A scoped marker would be written under the outgoing
- * user's namespace and looked for under the incoming one, which is the #4545
- * restart loop it exists to break. It lives in this module rather than at the
- * call site so every unscoped identity key stays in the module that owns the
- * scope.
- */
-const IDENTITY_FLIP_SEED_KEY = 'OPENHUMAN_IDENTITY_FLIP_SEED';
-
-/** Record the id the flip is restarting into. */
-export function markIdentityFlipSeed(userId: string): void {
-  try {
-    localStorage.setItem(IDENTITY_FLIP_SEED_KEY, userId);
-  } catch {
-    // Storage unavailable: the loop guard is best-effort, not load-bearing.
-  }
-}
-
-/** Read and clear the marker. Returns null when no flip is pending. */
-export function consumeIdentityFlipSeed(): string | null {
-  try {
-    const id = localStorage.getItem(IDENTITY_FLIP_SEED_KEY);
-    if (id) localStorage.removeItem(IDENTITY_FLIP_SEED_KEY);
-    return id && id.trim() ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * One-shot migration for users upgrading from the pre-#900 build, where
  * persist blobs lived at unscoped keys (`persist:accounts`, etc.). On the
  * first identity assignment after launch, if any legacy key exists and the

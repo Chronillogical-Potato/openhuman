@@ -196,16 +196,6 @@ pub(super) struct MergedHostTurnTools {
     pub scope_additions: HashSet<String>,
 }
 
-pub(super) fn add_permanent_tools(
-    mut definition: crate::agent::harness::definition::AgentDefinition,
-    permanent: &HashSet<String>,
-) -> crate::agent::harness::definition::AgentDefinition {
-    definition.extra_tools.extend(permanent.iter().cloned());
-    definition.extra_tools.sort();
-    definition.extra_tools.dedup();
-    definition
-}
-
 pub(super) fn scope_def(
     definition: Option<&crate::agent::harness::definition::AgentDefinition>,
     host_tools: &MergedHostTurnTools,

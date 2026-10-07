@@ -20,10 +20,9 @@ import {
   type Source,
   type SourceAddRequest,
 } from '../../services/api/memoryApi';
-import { Badge, Button, Card, Checkbox, ConfirmDialog } from '../ui';
+import { Alert, AlertDescription, Badge, Button, Card, Checkbox, ConfirmDialog } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
 import MemoryAddSourceDialog from './MemoryAddSourceDialog';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill, formatTimestamp } from './memoryFormat';
 import { SOURCE_STATUS_VARIANT, sourceKindLabel, sourceStatusLabel } from './memorySourceLabels';
 
@@ -50,10 +49,10 @@ export default function MemorySyncedSources() {
       setError(null);
     } catch (err) {
       log('list failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
       setSources(prev => prev ?? []);
     }
-  }, [t]);
+  }, []);
 
   // Initial load. `reload` re-reads on demand (polling); the effect awaits
   // before touching state so the first render is never re-rendered in place.
@@ -68,13 +67,13 @@ export default function MemorySyncedSources() {
       .catch(err => {
         if (cancelled) return;
         log('list failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
         setSources([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
   // While anything is syncing, re-read the registry so status, item counts and
   // errors move on their own; idle registries are not polled.
@@ -95,7 +94,7 @@ export default function MemorySyncedSources() {
       return true;
     } catch (err) {
       log('add failed: %o', err);
-      setAddError(memoryErrorMessage(err, t));
+      setAddError(memoryErrorMessage(err));
       return false;
     } finally {
       setSaving(false);
@@ -115,7 +114,7 @@ export default function MemorySyncedSources() {
       );
     } catch (err) {
       log('sync failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
     } finally {
       setSyncing(prev => {
         const next = new Set(prev);
@@ -137,7 +136,7 @@ export default function MemorySyncedSources() {
       setRemoveTarget(null);
     } catch (err) {
       log('remove failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
       setRemoveTarget(null);
     } finally {
       setSaving(false);
@@ -149,7 +148,9 @@ export default function MemorySyncedSources() {
   return (
     <div className="space-y-4" data-testid="memory-synced-sources">
       {error !== null && (
-        <MemoryErrorAlert message={error} data-testid="memory-synced-sources-error" />
+        <Alert variant="destructive" data-testid="memory-synced-sources-error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <Card
