@@ -13,7 +13,6 @@ interface LocaleOption {
 
 const LOCALE_OPTIONS: LocaleOption[] = [
   { value: 'en', flag: '🇬🇧', label: 'English' },
-  { value: 'ja', flag: '🇯🇵', label: '日本語' },
   { value: 'ko', flag: '🇰🇷', label: '한국어' },
   { value: 'zh-CN', flag: '🇨🇳', label: '简体中文' },
   { value: 'hi', flag: '🇮🇳', label: 'हिन्दी' },

@@ -1659,9 +1659,6 @@ export async function chatSend(params: ChatSendParams): Promise<string | undefin
   return typeof requestId === 'string' ? requestId : undefined;
 }
 
-/** `client_id` sent with a Stop issued while the socket has no id. */
-export const NO_SOCKET_CANCEL_CLIENT_ID = 'web-cancel-no-socket';
-
 /** Result of a Stop request. */
 export interface ChatCancelOutcome {
   /** The core received and processed the cancel. */
@@ -1686,14 +1683,11 @@ export interface ChatCancelOutcome {
  * callers.
  */
 export async function chatCancel(threadId: string, requestId?: string): Promise<ChatCancelOutcome> {
-  // The cancel itself is an HTTP RPC; the client id only routes the
-  // `chat_cancelled` event that follows (which also goes to the thread room).
-  // A socket that is down or mid-reconnect — exactly when a turn is most
-  // likely to look stuck — must not swallow the Stop, so fall back to a
-  // placeholder id rather than refusing to send.
-  const clientId = socketService.getSocket()?.id || NO_SOCKET_CANCEL_CLIENT_ID;
-  if (clientId === NO_SOCKET_CANCEL_CLIENT_ID) {
-    chatLog('chat_cancel: no socket id thread=%s — sending cancel without one', threadId);
+  const socket = socketService.getSocket();
+  const clientId = socket?.id;
+  if (!clientId) {
+    chatLog('chat_cancel: no socket id thread=%s — cancel not sent', threadId);
+    return { accepted: false, turnCancelled: false };
   }
 
   try {

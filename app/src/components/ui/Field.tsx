@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, type ReactElement, type ReactNode, useId } from 'react';
+import { type ReactNode } from 'react';
 
 import { cn } from '../../lib/cn';
 
@@ -9,14 +9,6 @@ export interface FieldProps {
   control: ReactNode;
   stacked?: boolean;
   disabled?: boolean;
-  /**
-   * Validation message, rendered in coral below the control. The control gets
-   * `aria-describedby` (merged with any it already has) and `aria-invalid`
-   * when `control` is a single React element. If it is a fragment or a
-   * component that drops those props, wire it yourself: the message id is
-   * `${htmlFor}-error` when `htmlFor` is set, otherwise a generated id.
-   */
-  error?: string;
   className?: string;
   'data-testid'?: string;
 }
@@ -36,23 +28,9 @@ const Field = ({
   control,
   stacked = false,
   disabled = false,
-  error,
   className,
   'data-testid': testId,
 }: FieldProps) => {
-  const generatedId = useId();
-  const errorId = error ? (htmlFor ? `${htmlFor}-error` : `${generatedId}-error`) : undefined;
-
-  let controlEl = control;
-  if (errorId && isValidElement(control)) {
-    const el = control as ReactElement<{ 'aria-describedby'?: string }>;
-    const existing = el.props['aria-describedby'];
-    controlEl = cloneElement(el, {
-      'aria-describedby': existing ? `${existing} ${errorId}` : errorId,
-      'aria-invalid': true,
-    } as Record<string, unknown>);
-  }
-
   const labelEl =
     label && htmlFor ? (
       <label htmlFor={htmlFor} className="text-sm font-medium text-content">
@@ -70,9 +48,6 @@ const Field = ({
         stacked
           ? 'flex flex-col gap-2 px-4 py-3'
           : 'flex items-center justify-between gap-4 px-4 py-3',
-        // Only an errored row wraps, so the error drops below the control row
-        // while error-free rows keep their exact geometry.
-        error && !stacked && 'flex-wrap',
         disabled && 'pointer-events-none opacity-50',
         className
       )}>
@@ -84,12 +59,7 @@ const Field = ({
           )}
         </div>
       )}
-      <div className={stacked ? 'w-full' : 'shrink-0'}>{controlEl}</div>
-      {error && (
-        <p id={errorId} data-slot="field-error" className="w-full text-xs text-coral-600">
-          {error}
-        </p>
-      )}
+      <div className={stacked ? 'w-full' : 'shrink-0'}>{control}</div>
     </div>
   );
 };

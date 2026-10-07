@@ -107,20 +107,6 @@ describe('MemorySyncedSources', () => {
     expect(hoisted.add).toHaveBeenCalledWith({ kind: 'github', target: 'acme/missing' });
   });
 
-  it('prompts a top-up in the add dialog when the account is out of credits', async () => {
-    hoisted.add.mockRejectedValue(new Error('INSUFFICIENT_CREDITS: HTTP 402'));
-    renderWithProviders(<MemorySyncedSources />);
-    fireEvent.click(await screen.findByTestId('memory-sources-add'));
-    fireEvent.change(screen.getByTestId('memory-add-source-target'), {
-      target: { value: '/Users/me/notes' },
-    });
-    fireEvent.click(screen.getByTestId('memory-add-source-submit'));
-    const prompt = await screen.findByTestId('memory-add-source-error');
-    expect(prompt).toHaveAttribute('data-kind', 'out-of-credits');
-    expect(prompt).not.toHaveTextContent('HTTP 402');
-    expect(screen.getByTestId('memory-top-up')).toBeInTheDocument();
-  });
-
   it('syncs one source and marks it syncing', async () => {
     hoisted.sync.mockResolvedValue({ started: ['s1'] });
     renderWithProviders(<MemorySyncedSources />);

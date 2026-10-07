@@ -66,6 +66,7 @@ pub mod session_db;
 /// snapshots are owned by `tinyagents-runtime`.
 pub mod session_host;
 pub mod session_import;
+pub mod session_store;
 pub mod stop_hooks;
 /// Product-specific adapters around `tinyagents_orchestration::subagent`.
 /// Generic lifecycle ordering and task-key coalescing live in TinyAgents;

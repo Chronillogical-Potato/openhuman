@@ -2,10 +2,8 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  beginAwaitingAuthCallback,
   beginDeepLinkAuthProcessing,
   completeDeepLinkAuthProcessing,
-  endAwaitingAuthCallback,
   failDeepLinkAuthProcessing,
   getDeepLinkAuthState,
   subscribeDeepLinkAuthState,
@@ -17,11 +15,6 @@ import {
  * before each test's assertions. The ad-hoc store persists across tests.
  */
 afterEach(() => {
-  // `beginAwaitingAuthCallback` arms a module-level 300s timer and
-  // `completeDeepLinkAuthProcessing` deliberately leaves it (and the flag)
-  // alone, so drop both here or they leak into the next test.
-  endAwaitingAuthCallback();
-  vi.useRealTimers();
   completeDeepLinkAuthProcessing();
 });
 
@@ -30,7 +23,6 @@ describe('deepLinkAuthState transitions', () => {
     completeDeepLinkAuthProcessing();
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -44,7 +36,6 @@ describe('deepLinkAuthState transitions', () => {
     beginDeepLinkAuthProcessing();
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: true,
-      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -56,7 +47,6 @@ describe('deepLinkAuthState transitions', () => {
     completeDeepLinkAuthProcessing();
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -68,7 +58,6 @@ describe('deepLinkAuthState transitions', () => {
     failDeepLinkAuthProcessing('token expired');
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: 'token expired',
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -79,7 +68,6 @@ describe('deepLinkAuthState transitions', () => {
     failDeepLinkAuthProcessing('cannot decrypt', { requiresAppDataReset: true });
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: 'cannot decrypt',
       errorMessageKey: null,
       requiresAppDataReset: true,
@@ -93,7 +81,6 @@ describe('deepLinkAuthState transitions', () => {
     failDeepLinkAuthProcessing('', { messageKey: 'welcome.coreConfigUnreadable' });
     expect(getDeepLinkAuthState()).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: '',
       errorMessageKey: 'welcome.coreConfigUnreadable',
       requiresAppDataReset: false,
@@ -165,7 +152,6 @@ describe('useDeepLinkAuthState hook', () => {
     const { result } = renderHook(() => useDeepLinkAuthState());
     expect(result.current).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -176,7 +162,6 @@ describe('useDeepLinkAuthState hook', () => {
     });
     expect(result.current).toEqual({
       isProcessing: true,
-      awaitingCallback: false,
       errorMessage: null,
       errorMessageKey: null,
       requiresAppDataReset: false,
@@ -187,62 +172,9 @@ describe('useDeepLinkAuthState hook', () => {
     });
     expect(result.current).toEqual({
       isProcessing: false,
-      awaitingCallback: false,
       errorMessage: 'denied',
       errorMessageKey: null,
       requiresAppDataReset: false,
     });
-  });
-});
-
-describe('awaitingCallback', () => {
-  // This flag exists because `isProcessing` ends the moment the browser opens,
-  // which made the hand-off screen vanish while the user was still in it.
-  it('spans the browser round-trip and is cleared by the arriving callback', () => {
-    beginAwaitingAuthCallback();
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(true);
-
-    // The launch step finishing must NOT end the wait.
-    completeDeepLinkAuthProcessing();
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(true);
-
-    // Redeeming an arriving deep link does.
-    beginDeepLinkAuthProcessing();
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
-  });
-
-  it('is cleared by a failure and by an explicit end', () => {
-    beginAwaitingAuthCallback();
-    failDeepLinkAuthProcessing('nope');
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
-
-    beginAwaitingAuthCallback();
-    endAwaitingAuthCallback();
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
-  });
-
-  it('ending when not waiting is a no-op', () => {
-    completeDeepLinkAuthProcessing();
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
-    endAwaitingAuthCallback();
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
-  });
-
-  it('gives up by itself after 300s, with no component mounted to do it', () => {
-    vi.useFakeTimers();
-    beginAwaitingAuthCallback();
-
-    vi.advanceTimersByTime(299_999);
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(true);
-
-    vi.advanceTimersByTime(1);
-    expect(getDeepLinkAuthState().awaitingCallback).toBe(false);
-  });
-
-  it('a callback arriving cancels the pending timeout', () => {
-    vi.useFakeTimers();
-    beginAwaitingAuthCallback();
-    beginDeepLinkAuthProcessing();
-    expect(vi.getTimerCount()).toBe(0);
   });
 });

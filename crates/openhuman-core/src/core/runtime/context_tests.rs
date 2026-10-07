@@ -13,6 +13,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         user_skill_roots: true,
         backend_transport: None,
         turn_origin: None,
+        session_agent: None,
     })
 }
 
@@ -43,6 +44,7 @@ fn ctx_with_config(config: crate::config::Config) -> Arc<CoreContext> {
         user_skill_roots: true,
         backend_transport: None,
         turn_origin: None,
+        session_agent: None,
     })
 }
 
@@ -342,6 +344,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         user_skill_roots: true,
         backend_transport: None,
         turn_origin: None,
+        session_agent: None,
     };
 
     // `workspace_dir()` is the gate every workspace-bound store goes

@@ -429,35 +429,6 @@ const messages: TranslationMap = {
   'welcome.privacyPolicy': '개인정보 보호정책에 동의하게 됩니다.',
   'welcome.termsOutro': '.',
   'welcome.connect': '테스트',
-  'welcome.hero.subtitle': '기억과 음성, 그리고 웹 전체를 갖춘 나만의 AI.',
-  'welcome.th.title': 'TinyHumans로 계속하기',
-  'welcome.th.promise': '계정 하나. 모든 것이 포함. 설정할 것은 없습니다.',
-  'welcome.th.featureInference': '추론',
-  'welcome.th.featureSearch': '웹 검색',
-  'welcome.th.featureVoice': '음성',
-  'welcome.th.featureMemory': '메모리',
-  'welcome.th.featureEmbeddings': '임베딩',
-  'welcome.th.featureBilling': '결제',
-  'welcome.th.credit': '시작 크레딧 $5',
-  'welcome.th.cta': 'TinyHumans로 계속하기',
-  'welcome.th.providers': 'Google, GitHub 또는 X로 로그인',
-  'welcome.self.title': '직접 설정하기',
-  'welcome.self.promise': '직접 가진 API 키와 엔드포인트를 사용하세요.',
-  'welcome.self.listLabel': '설정할 항목:',
-  'welcome.self.step1': '추론',
-  'welcome.self.step2': '웹 검색',
-  'welcome.self.step3': '메모리',
-  'welcome.self.time': '약 3분 걸립니다. 나중에 설정에서 언제든 바꿀 수 있습니다.',
-  'welcome.self.cta': '직접 설정하기',
-  'welcome.serverPrompt': '이미 서버에서 OpenHuman을 실행 중이신가요?',
-  'welcome.serverCta': '서버에 연결하기.',
-  'welcome.handoff.title': '브라우저에서 로그인을 마무리하는 중',
-  'welcome.handoff.body': 'tinyhumans.ai를 열었습니다. 완료되면 돌아오세요.',
-  'welcome.handoff.reopen': '페이지 다시 열기',
-  'welcome.handoff.failedTitle': '로그인이 돌아오지 않았습니다',
-  'welcome.handoff.failedBody': '브라우저가 OpenHuman으로의 복귀를 차단했을 수 있습니다.',
-  'welcome.handoff.retry': '다시 시도',
-  'welcome.handoff.fallbackSelf': '대신 직접 설정하기',
   'home.askAssistant': '어시스턴트에게 무엇이든 물어보세요...',
   'home.statusOk': '어시스턴트가 준비되어 있어요. 아래에 무언가 입력해 시작하세요.',
   'home.statusBackendOnly':
@@ -687,12 +658,6 @@ const messages: TranslationMap = {
   'memory.search': '메모리 검색...',
   'memory.noResults': '메모리를 찾을 수 없습니다',
   'memory.empty': '아직 메모리가 없습니다. 메모리는 상호작용하면서 자동으로 생성됩니다.',
-  'memory.error.insufficientCredits':
-    '메모리를 사용할 수 없습니다: 계정의 크레딧이 모두 소진되었습니다. 충전하면 복구되며, 저장된 내용은 사라지지 않았습니다.',
-  'memory.error.unavailable':
-    '지금은 메모리에 연결할 수 없습니다. 저장된 내용은 사라지지 않았습니다. 잠시 후 다시 시도하세요.',
-  'memory.outOfCredits.title': '크레딧 소진',
-  'memory.outOfCredits.action': '충전하기',
   'memory.tab.memory': '메모리',
   'memory.tab.agents': '라이브러리',
   'memory.analyzeNow': '지금 분석',
@@ -774,9 +739,9 @@ const messages: TranslationMap = {
   'onboarding.custom.configureLater':
     '온보딩 후에 이 설정을 마칠 수 있습니다. 완료되면 해당 설정 페이지로 이동합니다.',
   'onboarding.custom.openSettings': '설정에서 열기',
-  'onboarding.custom.inference.title': '모델 제공자를 선택하세요',
+  'onboarding.custom.inference.title': '추론(텍스트)',
   'onboarding.custom.inference.subtitle':
-    'OpenHuman이 생각하려면 모델이 필요합니다. 이미 사용 중인 제공자의 키를 추가하거나, 로컬에서 실행 중인 모델을 지정하세요.',
+    '어떤 언어 모델이 질문에 답하고 에이전트를 실행해야 하나요?',
   'onboarding.custom.inference.defaultDesc':
     'OpenHuman은 모든 작업을 적절한 기본 모델로 라우팅합니다. 키도 필요 없고 설정도 필요 없습니다.',
   'onboarding.custom.inference.configureDesc':
@@ -795,16 +760,12 @@ const messages: TranslationMap = {
     'OpenHuman은 관리형 Composio 워크스페이스를 실행합니다. 나중에 각 서비스를 한 번의 클릭으로 연결할 수 있습니다.',
   'onboarding.custom.oauth.configureDesc':
     '직접 Composio 계정 또는 API 키를 가져오세요. 설정 › 연결에서 구성할 수 있습니다.',
-  'onboarding.custom.search.title': 'OpenHuman이 웹을 검색하게 하세요',
-  'onboarding.custom.search.subtitle': '이 기능이 없으면 OpenHuman은 학습된 내용만 알고 있습니다.',
+  'onboarding.custom.search.title': '웹 검색',
+  'onboarding.custom.search.subtitle': 'OpenHuman이 사용자를 대신해 웹을 검색하는 방식입니다.',
   'onboarding.custom.search.defaultDesc':
     '웹 검색은 바로 작동합니다. Exa와 Gemini가 TinyHumans에 포함되어 있어 API 키가 필요 없습니다.',
   'onboarding.custom.search.configureDesc':
     'Exa와 Gemini가 포함되어 있습니다. 설정 › 도구에서 본인 API 키로 검색 제공자를 더 추가하세요.',
-  'onboarding.custom.search.skipForNow': '나중에 하기',
-  'onboarding.custom.search.ready': '웹 검색이 준비되었습니다.',
-  'onboarding.custom.search.notReady':
-    'OpenHuman이 웹을 검색할 수 있도록 아래에 제공자를 추가하세요.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman이 시맨틱 메모리 검색을 위한 벡터 임베딩을 생성하는 방식입니다.',
@@ -1651,60 +1612,61 @@ const messages: TranslationMap = {
   'stats.latest': '최신',
   'stats.sessions': '세션',
   'stats.tokens': '토큰',
-  'bootCheck.invalidUrl': '주소를 입력하세요.',
+  'bootCheck.invalidUrl': '런타임 URL을 입력해 주세요.',
   'bootCheck.urlMustStartWith': 'URL은 http:// 또는 https://로 시작해야 합니다',
   'bootCheck.validUrlRequired': '유효한 URL처럼 보이지 않습니다(예: https://core.example.com/rpc)',
   'bootCheck.tokenRequired': '연결하려면 인증 토큰이 필요합니다.',
   'bootCheck.httpPublicWarning':
     '공개 호스트의 일반 HTTP URL입니다: 트래픽이 암호화되지 않습니다. 이 네트워크를 신뢰하지 않는다면 HTTPS를 사용하세요.',
-  'bootCheck.chooseCoreMode': 'OpenHuman을 어디에서 실행할까요?',
-  'bootCheck.connectToCore': 'OpenHuman에 연결',
+  'bootCheck.chooseCoreMode': '런타임 선택',
+  'bootCheck.connectToCore': '런타임에 연결',
   'bootCheck.desktopDescription':
-    '이 컴퓨터에서 OpenHuman을 시작하지 못했습니다. 실행할 위치를 선택하세요.',
+    'OpenHuman은 생각하기 위한 런타임이 필요합니다. 어디에서 실행할지 선택하세요.',
   'bootCheck.webDescription':
-    '웹에서 OpenHuman은 직접 관리하는 서버에 연결합니다. 아래에 서버 주소와 토큰을 입력하거나, 데스크톱 앱을 받아 내 컴퓨터에서 바로 실행하세요.',
+    '웹에서 OpenHuman은 사용자가 제어하는 런타임에 연결됩니다. 아래에 URL과 인증 토큰을 입력하거나, 데스크톱 앱을 받아 이 컴퓨터에서 바로 실행하세요.',
   'bootCheck.preferDesktop': '모든 것을 자신의 기기에 보관하고 싶으신가요?',
   'bootCheck.downloadDesktop': '데스크톱 앱 받기',
-  'bootCheck.localRecommended': '이 컴퓨터에서',
-  'bootCheck.localDescription': '가장 빠르고 완전히 비공개이며, 설정할 것이 없습니다.',
-  'bootCheck.cloudMode': '내가 운영하는 서버에서',
+  'bootCheck.localRecommended': '로컬에서 실행(추천)',
+  'bootCheck.localDescription':
+    '이 컴퓨터에서 바로 실행됩니다. 가장 빠르고, 완전히 비공개이며, 설정할 것이 없습니다.',
+  'bootCheck.cloudMode': '클라우드에서 실행(복잡)',
   'bootCheck.cloudDescription':
-    '24시간 온라인 상태를 유지하므로 이 컴퓨터을 계속 켜 둘 필요가 없습니다.',
-  'bootCheck.coreRpcUrl': '주소',
+    '다른 곳에서 호스팅 중인 런타임에 연결합니다. 24×7 온라인 상태를 유지하므로 이 기기를 계속 켜둘 필요가 없습니다.',
+  'bootCheck.coreRpcUrl': '런타임 URL',
   'bootCheck.rpcUrlPlaceholder': 'https://core.example.com/rpc',
-  'bootCheck.authToken': '토큰',
-  'bootCheck.bearerTokenPlaceholder': '서버에서 받은 토큰',
+  'bootCheck.authToken': '인증 토큰',
+  'bootCheck.bearerTokenPlaceholder': '원격 런타임의 bearer 토큰',
   'bootCheck.storedLocally': '이 기기에만 보관됩니다. 다음으로 전송됨: ',
   'bootCheck.testing': '테스트 중…',
   'bootCheck.testConnection': '연결 테스트',
   'bootCheck.connectedOk': '연결되었습니다. 사용할 준비가 되었습니다.',
   'bootCheck.authFailed': '해당 토큰이 작동하지 않았습니다. 다시 확인하고 시도하세요.',
   'bootCheck.unreachablePrefix': '연결할 수 없습니다:',
-  'bootCheck.checkingCore': 'OpenHuman을 시작하는 중…',
-  'bootCheck.cannotReach': '연결할 수 없습니다',
-  'bootCheck.cannotReachDesc': '연결하지 못했습니다. 다른 곳에서 시도해 볼까요?',
-  'bootCheck.switchMode': '실행 위치 변경',
+  'bootCheck.checkingCore': '런타임을 깨우는 중…',
+  'bootCheck.cannotReach': '런타임에 연결할 수 없습니다',
+  'bootCheck.cannotReachDesc': '런타임에 연결할 수 없습니다. 다른 런타임을 시도하시겠습니까?',
+  'bootCheck.switchMode': '다른 런타임 선택',
   'bootCheck.quit': '종료',
-  'bootCheck.legacyDetected': '오래된 백그라운드 서비스를 발견했습니다',
+  'bootCheck.legacyDetected': '레거시 백그라운드 런타임 감지됨',
   'bootCheck.legacyDescription':
-    '별도로 설치된 OpenHuman 데몬이 이 기기에서 이미 실행 중입니다. 내장 버전이 대신하려면 먼저 이를 제거해야 합니다.',
+    '별도로 설치된 OpenHuman 데몬이 이 기기에서 이미 실행 중입니다. 내장 런타임이 대신 실행되기 전에 이를 정리해야 합니다.',
   'bootCheck.removing': '제거 중…',
   'bootCheck.removeContinue': '제거하고 계속',
-  'bootCheck.localNeedsRestart': 'OpenHuman을 다시 시작해야 합니다',
+  'bootCheck.localNeedsRestart': '로컬 런타임을 다시 시작해야 함',
   'bootCheck.localNeedsRestartDesc':
-    '이 컴퓨터의 OpenHuman 버전이 이 앱과 다릅니다. 잠깐 다시 시작하면 다시 맞춰집니다.',
+    '로컬 런타임의 버전이 이 앱과 다릅니다. 빠르게 다시 시작하면 다시 동기화됩니다.',
   'bootCheck.restarting': '다시 시작 중…',
-  'bootCheck.restartCore': '다시 시작',
-  'bootCheck.cloudNeedsUpdate': '서버를 업데이트해야 합니다',
+  'bootCheck.restartCore': '런타임 다시 시작',
+  'bootCheck.cloudNeedsUpdate': '클라우드 런타임 업데이트 필요',
   'bootCheck.cloudNeedsUpdateDesc':
-    '서버 버전이 이 앱과 다릅니다. 업데이트를 실행해 다시 맞추세요.',
+    '클라우드 런타임의 버전이 이 앱과 다릅니다. 업데이트 프로그램을 실행하여 다시 동기화하세요.',
   'bootCheck.updating': '업데이트 중…',
-  'bootCheck.updateCloudCore': '서버 업데이트',
-  'bootCheck.versionCheckFailed': '버전 확인 실패',
+  'bootCheck.updateCloudCore': '클라우드 런타임 업데이트',
+  'bootCheck.versionCheckFailed': '런타임 버전 확인 실패',
   'bootCheck.versionCheckFailedDesc':
-    '서버는 실행 중이지만 버전을 알려 주지 않습니다. 오래된 버전일 수 있습니다. 계속하려면 다시 시작하거나 업데이트하세요.',
+    '런타임이 실행 중이지만 버전을 보고하지 않습니다. 오래된 버전일 수 있습니다. 계속하려면 다시 시작하거나 업데이트하세요.',
   'bootCheck.working': '작업 중…',
-  'bootCheck.restartUpdateCore': '다시 시작 / 업데이트',
+  'bootCheck.restartUpdateCore': '런타임 다시 시작 / 업데이트',
   'bootCheck.unexpectedError': '예상치 못한 부트 체크 오류',
   'bootCheck.actionFailed': '문제가 발생했습니다. 다시 시도해 주세요.',
   'bootCheck.portConflictTitle': '앱 엔진을 시작할 수 없습니다',
@@ -3447,8 +3409,6 @@ const messages: TranslationMap = {
     '기존 통합(Gmail, Slack, GitHub 등 OpenHuman을 통해 연결된 통합)은 표시되지 않습니다: OpenHuman 관리형 Composio 테넌트에 있습니다.',
   'settings.composio.intro':
     'Composio는 에이전트가 호출할 수 있는 도구로 250개 이상의 외부 앱을 통합합니다. 이러한 도구 호출이 라우팅되는 방식을 선택하세요.',
-  'settings.composio.directOnlyDesc':
-    '이 환경에서는 Composio 관리형 인증을 사용할 수 없습니다. 자신의 Composio API 키를 입력하거나 이 단계는 나중에 설정하세요.',
   'settings.composio.modeDirect': 'Direct(직접 API 키 사용)',
   'settings.composio.modeDirectDesc':
     '호출이 backend.composio.dev로 직접 이동합니다. 독립적이고 오프라인 친화적입니다. 도구 실행은 동기식으로 작동하지만, 실시간 트리거 웹훅은 아직 Direct 모드에서 라우팅되지 않습니다(후속 이슈).',
@@ -4370,18 +4330,15 @@ const messages: TranslationMap = {
 
   // Monthly cost badge
 
-  'onboarding.custom.vault.title': 'OpenHuman에게 기억을 주세요',
+  'onboarding.custom.vault.title': '메모리 및 볼트 설정',
   'onboarding.custom.vault.subtitle':
-    '말씀하신 내용이 저장되는 곳으로, 대화가 바뀌어도 이어집니다.',
+    '메모리 노트가 기록되는 위치, 소스 데이터를 읽는 방법, 볼트 파이프라인이 정상인지 확인하세요.',
   'onboarding.custom.vault.defaultDesc':
     'OpenHuman 관리형 메모리 기본값을 사용합니다. 볼트 경로와 동기화 상태는 나중에 검토할 수 있습니다.',
   'onboarding.custom.vault.configureDesc':
     '볼트 소유권을 검토하고 상태 검사를 실행하며 메모리 컨트롤을 지금 조정하세요.',
   'onboarding.custom.vault.localDisabledReason':
     '관리형 설정은 OpenHuman 로그인이 필요하며 로컬 모드에서는 사용할 수 없습니다.',
-  'onboarding.custom.localDefaultDisabledReason':
-    '관리형 설정에는 OpenHuman 계정이 필요합니다. 로컬 세션에서는 각 서비스를 직접 설정해야 합니다.',
-  'onboarding.custom.unsavedChanges': '계속하기 전에 변경 사항을 저장하세요.',
   'onboarding.custom.vault.exitError': '온보딩을 완료할 수 없습니다. 다시 시도해 주세요.',
   'skills.create.whenToUse': '사용 시점',
   'skills.create.whenToUsePlaceholder': '예: 사용자가 받은 편지함 정리를 요청할 때',
@@ -4841,8 +4798,6 @@ const messages: TranslationMap = {
   'chat_error.codex_session_expired':
     'Codex 세션이 만료되었습니다. 설정 → 통합에서 다시 연결해 주세요.',
   'chat_error.session_expired': 'OpenHuman 세션이 만료되었습니다. 계속하려면 다시 로그인해 주세요.',
-  'chat_error.local_session_managed_unavailable':
-    '로컬 오프라인 프로필을 사용 중이며 연결된 OpenHuman 계정이 없어 관리형(클라우드) 모델을 실행할 수 없습니다. 관리형 모델을 사용하려면 로그인하거나, 연결 → API 키 → LLM에서 라우팅을 "자체 모델 사용"(으)로 바꾸고 직접 사용할 제공업체를 추가하세요.',
   'chat_error.action_budget':
     'OpenHuman의 시간당 작업 한도에 도달했습니다. 이는 AI 제공업체가 아니라 로컬 안전 한도입니다. 한도는 서서히 회복되므로 이 스레드에서 계속 대화할 수 있으며, 도구를 많이 쓰는 단계는 한도가 채워지는 대로 재개됩니다.',
   'chat_error.max_iterations':
@@ -4977,48 +4932,29 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': '링크',
   'memoryPage.off.title': '메모리가 꺼져 있습니다',
   'memoryPage.off.description':
-    'CortexDB를 연결해 기억을 시작하세요. 로그인해 내장 CortexDB를 사용하거나, 자신의 API 키 또는 이 컴퓨터의 서버로 연결하세요.',
+    '기억을 시작하려면 메모리 엔진을 선택하세요. 로그인해서 TinyHumans 메모리를 사용하거나 직접 운영하는 CortexDB를 연결하세요.',
   'memoryPage.off.action': '엔진 선택',
-  'memoryPage.engine.listTitle': 'CortexDB 메모리',
+  'memoryPage.engine.listTitle': '메모리 엔진',
   'memoryPage.engine.listDescription':
-    '메모리는 CortexDB에서 실행됩니다. 이 앱이 연결하는 방식을 선택하세요. 한 번에 하나의 연결만 활성화됩니다.',
+    '한 번에 하나의 엔진만 활성화됩니다. 엔진은 메모리가 보관하는 모든 것을 저장하고 이에 대한 질문에 답합니다.',
+  'memoryPage.engine.loadError': '메모리 엔진을 불러오지 못했습니다',
   'memoryPage.engine.offExplanation':
-    '지금은 사용할 수 있는 메모리 연결이 없어 아무것도 저장하거나 불러오지 않습니다. 로그인해 내장 CortexDB를 사용하거나, API 키로 또는 이 컴퓨터에서 CortexDB를 연결하세요.',
+    '현재 사용할 수 있는 메모리 엔진이 없어서 아무것도 저장되거나 불러와지지 않습니다. 로그인해서 TinyHumans 메모리를 사용하거나, 엔드포인트와 API 키로 직접 운영하는 CortexDB를 연결하세요.',
   'memoryPage.engine.statusDegraded': '메모리 성능이 저하되었습니다',
   'memoryPage.engine.statusDown': '메모리 엔진에 연결할 수 없습니다',
   'memoryPage.engine.statusOff': '꺼짐',
   'memoryPage.engine.active': '사용 중',
   'memoryPage.engine.use': '사용',
+  'memoryPage.engine.edit': '편집',
+  'memoryPage.engine.signInRequired': '로그인 필요',
+  'memoryPage.engine.hostedDetail': 'TinyHumans에서 호스팅',
+  'memoryPage.engine.selfHostedDetail': '직접 운영하는 엔드포인트와 API 키',
+  'memoryPage.engine.connectTitle': '{engine} 연결',
   'memoryPage.engine.connect': '연결',
   'memoryPage.engine.endpoint': '엔드포인트',
   'memoryPage.engine.apiKey': 'API 키',
   'memoryPage.engine.keySavedPlaceholder': '저장됨. 바꾸려면 새 키를 입력하세요',
   'memoryPage.engine.keySavedHint': '이미 키가 저장되어 있습니다. 유지하려면 비워 두세요.',
-  'memoryPage.engine.badgeDegraded': '성능 저하',
-  'memoryPage.engine.badgeDown': '연결할 수 없음',
-  'memoryPage.engine.connecting': '연결 중…',
-  'memoryPage.engine.save': '저장',
-  'memoryPage.engine.builtin.title': '내장 CortexDB',
-  'memoryPage.engine.builtin.detail': 'TinyHumans 계정에 포함',
-  'memoryPage.engine.builtin.signInRequired': '로그인 후 사용',
-  'memoryPage.engine.builtin.description':
-    'TinyHumans가 호스팅하며 계정에 포함된 CortexDB입니다. 로그인하면 사용할 수 있으며 설정할 것이 없습니다.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    '새 기억은 바로 저장됩니다. 여기서 도출된 사실과 신념은 이후 몇 분에 걸쳐 채워집니다.',
-  'memoryPage.engine.builtin.signInHint':
-    '내장 CortexDB를 사용하려면 TinyHumans 계정에 로그인하세요.',
-  'memoryPage.engine.apiKeyOption.title': 'API 키로 CortexDB 사용',
-  'memoryPage.engine.apiKeyOption.description':
-    '자신의 CortexDB 계정을 사용합니다. 키는 이 컴퓨터에 안전하게 저장되며 설정 파일에는 저장되지 않습니다.',
-  'memoryPage.engine.selfHost.title': 'CortexDB 직접 호스팅',
-  'memoryPage.engine.selfHost.detail': '이 컴퓨터의 CortexDB 서버',
-  'memoryPage.engine.selfHost.step1': '안내서에 따라 이 컴퓨터에서 CortexDB 서버를 실행하세요:',
-  'memoryPage.engine.selfHost.docsLink': 'CortexDB 셀프 호스팅 안내서',
-  'memoryPage.engine.selfHost.step2':
-    'API 키(CORTEX_API_KEY)로 서버를 시작하세요. 앱은 그 키로 연결합니다.',
-  'memoryPage.engine.selfHost.step3': '아래에 서버의 로컬 주소와 키를 입력한 다음 연결하세요.',
-  'memoryPage.engine.selfHost.notLocal':
-    '직접 호스팅은 로컬에서만 가능합니다. 이 컴퓨터의 주소(예: http://localhost:3141)를 사용하세요.',
   'memoryPage.ask.questionLabel': '질문',
   'memoryPage.ask.queryLabel': '검색어',
   'memoryPage.ask.placeholder': '출시 계획에 대해 무엇을 결정했나요?',
@@ -5049,8 +4985,6 @@ const messages: TranslationMap = {
   'memoryPage.learnings.listTitle': '학습 내용',
   'memoryPage.learnings.empty':
     '아직 학습 내용이 없습니다. 위에서 추가하거나, 에이전트가 함께 일하면서 직접 추가합니다.',
-  'memoryPage.learnings.deriving':
-    '아직 아무것도 없습니다. 메모리가 최근 대화에서 신념을 만드는 중이며, 다음 백그라운드 실행 후 여기에 표시됩니다.',
   'memoryPage.learnings.delete': '학습 내용 삭제',
   'memoryPage.conversations.turns': '{count}턴',
   'memoryPage.documents.listDescription':
@@ -5224,7 +5158,6 @@ const messages: TranslationMap = {
   'memoryPage.import.running': '이전 메모리를 가져오는 중…',
   'memoryPage.import.done': '이전 메모리를 가져왔습니다',
   'memoryPage.import.failed': '가져오기에 실패했습니다',
-  'memoryPage.import.resume': '가져오기 재개',
   'memoryPage.import.progress': '{total}개 중 {imported}개 항목을 가져왔습니다',
 };
 

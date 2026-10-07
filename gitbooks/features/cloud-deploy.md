@@ -115,16 +115,14 @@ URL with the typed token and reports `Connected ✓` / `Auth failed` /
 
 ## What you need before you start
 
-| Setting                             | Required | Notes                                                                                                                                                                                                                                                                          |
-| ----------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `OPENHUMAN_CORE_TOKEN`              | yes      | Bearer token clients send to `/rpc`. Generate with `openssl rand -hex 32`. **Anyone with this token can drive the core.**                                                                                                                                                      |
-| `BACKEND_URL`                       | yes      | Tinyhumans backend the core talks to (`https://api.tinyhumans.ai` for prod).                                                                                                                                                                                                   |
-| `OPENHUMAN_APP_ENV`                 | no       | `production` or `staging`. Defaults to `production`.                                                                                                                                                                                                                           |
-| `OPENHUMAN_KEYRING_MASTER_KEY`      | no       | 64 hex characters (`openssl rand -hex 32`). Master key for the staging/production `encrypted_file` keyring, so a container with no OS keychain can store provider keys encrypted. Inject it from your secret manager like the bearer token; **losing it orphans every stored secret.** |
-| `OPENHUMAN_KEYRING_MASTER_KEY_FILE` | no       | Path to a file holding the same value, for Docker/Kubernetes secret mounts. Set one of the two, not both. Without either, `encrypted_file` needs an OS keychain.                                                                                                               |
-| `OPENHUMAN_CORE_HOST`               | no       | Defaults to `0.0.0.0` in the container.                                                                                                                                                                                                                                        |
-| `OPENHUMAN_CORE_PORT`               | no       | Defaults to `7788`.                                                                                                                                                                                                                                                            |
-| `RUST_LOG`                          | no       | `info` is fine; `debug` for triage.                                                                                                                                                                                                                                            |
+| Setting                | Required | Notes                                                                                                                     |
+| ---------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `OPENHUMAN_CORE_TOKEN` | yes      | Bearer token clients send to `/rpc`. Generate with `openssl rand -hex 32`. **Anyone with this token can drive the core.** |
+| `BACKEND_URL`          | yes      | Tinyhumans backend the core talks to (`https://api.tinyhumans.ai` for prod).                                              |
+| `OPENHUMAN_APP_ENV`    | no       | `production` or `staging`. Defaults to `production`.                                                                      |
+| `OPENHUMAN_CORE_HOST`  | no       | Defaults to `0.0.0.0` in the container.                                                                                   |
+| `OPENHUMAN_CORE_PORT`  | no       | Defaults to `7788`.                                                                                                       |
+| `RUST_LOG`             | no       | `info` is fine; `debug` for triage.                                                                                       |
 
 Endpoints exposed by the running container:
 
@@ -487,63 +485,6 @@ need before you start" (#6926). On a release that predates those variables, set
 `OPENHUMAN_KEYRING_BACKEND=file`, which keeps secrets in
 `$OPENHUMAN_WORKSPACE/dev-keychain.json` (plaintext, `0600`); put the workspace
 volume on encrypted storage and treat the host as the secret boundary.
-
-Mount the key file without group- or world-write permissions. The core rejects
-group- or world-writable files, while read-only group/world access may be
-accepted for container secret mounts; any process able to read the file can
-decrypt the entire keyring. Restrict the mode where the mount is declared:
-
-- Kubernetes: Secret volumes are root-owned, and `runAsUser` does not change
-  the owner of a projected Secret. For a non-root core, use an init container
-  running as root to copy the Secret into an `emptyDir`, `chown` the copy to
-  the core UID, and `chmod 0400` it before the core starts. Mount the original
-  Secret read-only in the init container and the `emptyDir` read-only in the
-  core container. For example:
-
-  ```yaml
-  volumes:
-    - name: master-key-secret
-      secret:
-        secretName: openhuman-master-key
-        defaultMode: 0400
-    - name: master-key
-      emptyDir: {}
-  initContainers:
-    - name: prepare-master-key
-      image: busybox:1.36
-      command: ["sh", "-c", "cp /source/master.key /target/master.key && chown 10001:10001 /target/master.key && chmod 0400 /target/master.key"]
-      volumeMounts:
-        - name: master-key-secret
-          mountPath: /source
-          readOnly: true
-        - name: master-key
-          mountPath: /target
-  containers:
-    - name: openhuman
-      securityContext:
-        runAsUser: 10001
-        runAsGroup: 10001
-        runAsNonRoot: true
-      env:
-        - name: OPENHUMAN_KEYRING_MASTER_KEY_FILE
-          value: /run/openhuman-master-key/master.key
-      volumeMounts:
-        - name: master-key
-          mountPath: /run/openhuman-master-key
-          readOnly: true
-  ```
-
-  Set the `emptyDir` medium and the core UID/GID to match the ownership applied
-  by the init container. The `defaultMode: 0400` setting is important. For a
-  direct non-root mount, also provide `fsGroup` (or equivalent group access)
-  matching the core's group so kubelet can make the file readable; the resulting
-  read-only `0440` mode is accepted. The init-container recipe above instead
-  grants access by changing the copied file's owner. An equivalent setup is a
-  secret volume whose `defaultMode` is `0400` and whose file is mounted with
-  ownership matching the core's `runAsUser`/`runAsGroup`.
-- Docker Swarm: set `mode: 0400` (with `uid`/`gid` for a non-root user) on the
-  service's secret.
-- A plain file: `chmod 600` it, owned by the user the core runs as.
 
 ---
 

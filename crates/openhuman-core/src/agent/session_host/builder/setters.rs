@@ -192,6 +192,17 @@ impl SessionHostBuilder {
         self
     }
 
+    /// Substitutes the transcript backing store for the whole turn path: resume
+    /// reads, turn commits and compaction generations go through `locator`
+    /// instead of files under the workspace.
+    pub fn with_session_history_locator(
+        mut self,
+        locator: Arc<dyn tinyagents_session::transcript::TranscriptLocator>,
+    ) -> Self {
+        self.session_history_locator = Some(locator);
+        self
+    }
+
     /// Sets the workspace directory for the agent.
     pub fn workspace_dir(mut self, workspace_dir: std::path::PathBuf) -> Self {
         self.workspace_dir = Some(workspace_dir);

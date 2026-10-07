@@ -10,7 +10,6 @@ import fr from './fr';
 import hi from './hi';
 import id from './id';
 import it from './it';
-import ja from './ja';
 import ko from './ko';
 import pl from './pl';
 import pt from './pt';
@@ -29,7 +28,6 @@ interface I18nContextValue {
 
 const translations: Record<Locale, Record<string, string>> = {
   en,
-  ja,
   ko,
   'zh-CN': zhCN,
   hi,

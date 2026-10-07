@@ -150,14 +150,3 @@ fn resolve_script_path_targets_action_dir_not_workspace_dir() {
         resolved.display()
     );
 }
-
-/// `node_exec` clears the child environment, so its allow-list must carry the
-/// Windows process-bootstrap set — without `SystemRoot` a spawned `node.exe`
-/// aborts with `Assertion failed: ncrypto::CSPRNG(nullptr, 0)`.
-#[test]
-fn safe_env_vars_cover_windows_bootstrap() {
-    crate::agent::platform_shell::assert_forwards_windows_bootstrap(
-        SAFE_ENV_VARS,
-        "node_exec::SAFE_ENV_VARS",
-    );
-}

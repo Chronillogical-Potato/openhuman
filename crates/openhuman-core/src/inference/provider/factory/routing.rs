@@ -85,22 +85,6 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
         // route now stands alone and an unset one falls through to the managed
         // backend, the same as every other workload.
 
-        // #6938: the Chat UI model picker records its selection in
-        // `config.default_model` (the web-chat turn path stores the per-turn
-        // `model_override` there — see `build_session_agent`), but role
-        // resolution never consulted it, so a picked BYOK/local model still
-        // fell through to the managed backend and 401'd as "session expired".
-        // When the default names an explicit provider route, honour it here
-        // instead of the managed fallback.
-        if let Some(route) = default_model_route_for_role(role, config) {
-            log::info!(
-                "[providers][default-model-route] role={} route={}",
-                role,
-                route
-            );
-            return route;
-        }
-
         let resolved = resolve_primary_cloud_provider_string(config);
 
         // #5146 §2.1: the fallback itself is correct and stays — background
@@ -127,57 +111,6 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
     } else {
         s.to_string()
     }
-}
-
-/// #6938: the provider route named by `config.default_model`, if it names an
-/// explicit provider rather than a model for the managed backend.
-///
-/// The Chat UI model picker (both the composer's per-turn pick, stored in
-/// `default_model` by `build_session_agent`, and a hand-set `default_model`
-/// in `config.toml`) records selections like `my-openai:gpt-4o` there, but
-/// role resolution never consulted it — the turn fell through to the managed
-/// backend regardless. Only the chat-tier roles consult the default: a
-/// chat-model pick says nothing about which model should do vision or
-/// summarization, so the background specialist roles keep their managed
-/// fallback.
-///
-/// Returns `None` (managed fallback unchanged) for everything that is not an
-/// explicit route: tier hints (`hint:chat`), the AI settings row's managed
-/// catalog pin (`openrouter/<author>/<slug>[:tag]` — a model name for the
-/// managed backend, see `DefaultModelRow.tsx`), bare model ids, and slugs
-/// that name no configured provider. The one bare provider name that is
-/// honoured is `claude_agent_sdk`: unlike local runtimes and cloud slugs,
-/// which need a `:model` part to construct, the SDK falls back to
-/// `config.claude_agent_sdk.default_model` (see
-/// `claude_agent_sdk_model_from_string`).
-fn default_model_route_for_role(role: &str, config: &Config) -> Option<String> {
-    match role {
-        "chat" | "reasoning" | "agentic" | "coding" | "burst" => {}
-        _ => return None,
-    }
-    let dm = config.default_model.as_deref()?.trim();
-    if dm.is_empty() || dm.starts_with("hint:") || dm.starts_with("openrouter/") {
-        return None;
-    }
-    // Bare `claude_agent_sdk` is the only bare provider name honoured here:
-    // the SDK resolves its model from `config.claude_agent_sdk.default_model`
-    // (see `claude_agent_sdk_model_from_string`), while bare local runtimes
-    // (`ollama`, ...) and bare cloud slugs carry no `:model` part and fail
-    // at construction — they keep the managed fallback rather than erroring
-    // (tinysweeper review on #6996; CodeRabbit review on #6996).
-    if !dm.contains(':') {
-        return (dm == CLAUDE_AGENT_SDK_PROVIDER).then(|| dm.to_string());
-    }
-    let (slug, rest) = dm.split_once(':')?;
-    let slug = slug.trim();
-    if slug.is_empty() || slug == PROVIDER_OPENHUMAN || rest.trim().is_empty() {
-        return None;
-    }
-    let known = config.cloud_providers.iter().any(|e| e.slug == slug)
-        || tinyinference_local::profile::is_local_provider_string(dm)
-        || dm.starts_with(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)
-        || dm.starts_with(CLAUDE_AGENT_SDK_PREFIX);
-    known.then(|| dm.to_string())
 }
 
 /// #3767: Whether the OpenHuman managed-credits gate should be bypassed for a
@@ -270,7 +203,3 @@ pub(super) fn split_model_and_temperature(raw: &str) -> (String, Option<f64>) {
     }
     (trimmed.to_string(), None)
 }
-
-#[cfg(test)]
-#[path = "routing_tests.rs"]
-mod routing_tests;

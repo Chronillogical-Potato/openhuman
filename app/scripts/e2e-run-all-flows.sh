@@ -244,7 +244,6 @@ if should_run_suite "navigation"; then
   run "test/e2e/specs/navigation-settings-panels.spec.ts"     "navigation-settings"       "navigation"
   run "test/e2e/specs/command-palette.spec.ts"                "command-palette"           "navigation"
   run "test/e2e/specs/channels-smoke.spec.ts"                 "channels-smoke"            "navigation"
-  run "test/e2e/specs/chip-tabs-keyboard.spec.ts"              "chip-tabs-keyboard"        "navigation"
   run "test/e2e/specs/guided-tour-gates.spec.ts"              "guided-tour-gates"         "navigation"
   _mini_summary "navigation"
 fi
@@ -408,7 +407,6 @@ if should_run_suite "settings"; then
   run "test/e2e/specs/settings-advanced-config.spec.ts"       "settings-advanced"         "settings"
   run "test/e2e/specs/settings-feature-preferences.spec.ts"   "settings-features"         "settings"
   run "test/e2e/specs/settings-search.spec.ts"                "settings-search"           "settings"
-  run "test/e2e/specs/chip-tabs-keyboard.spec.ts"             "chip-tabs-keyboard"        "settings"
   _mini_summary "settings"
 fi
 

@@ -4048,76 +4048,7 @@ async fn json_rpc_web_chat_routing_cases_use_expected_backend_models_inner() {
             Some(*expected_model),
             "case={model_override} request={request:?}"
         );
-        assert_eq!(
-            request.get("path").and_then(Value::as_str),
-            Some("/openai/v1/chat/completions"),
-            "valid managed route should reach the managed backend: case={model_override} request={request:?}"
-        );
-        assert_eq!(
-            request.get("authorization").and_then(Value::as_str),
-            Some("Bearer e2e-test-jwt"),
-            "valid managed route should use the stored backend session credential: case={model_override} request={request:?}"
-        );
     }
-
-    // An unknown qualified provider must fail during the real core turn
-    // setup, rather than silently reusing a previously configured provider.
-    with_chat_completion_requests(|requests| requests.clear());
-    let unknown_client_id = "routing-unknown-provider-client";
-    let unknown_thread_id = "routing-unknown-provider-thread";
-    let unknown_events_url = format!("{rpc_base}/events?client_id={unknown_client_id}");
-    let unknown_sse_task =
-        tokio::spawn(async move { read_terminal_web_chat_event(&unknown_events_url).await });
-    let unknown_web_chat = post_json_rpc(
-        &rpc_base,
-        200,
-        "openhuman.channel_web_chat",
-        json!({
-            "client_id": unknown_client_id,
-            "thread_id": unknown_thread_id,
-            "message": "unknown provider route",
-            "model_override": "unknown-provider:model",
-        }),
-    )
-    .await;
-    let unknown_result = assert_no_jsonrpc_error(&unknown_web_chat, "unknown provider turn");
-    assert_eq!(
-        unknown_result
-            .get("result")
-            .and_then(|value| value.get("accepted")),
-        Some(&json!(true))
-    );
-
-    let unknown_event = tokio::time::timeout(Duration::from_secs(12), unknown_sse_task)
-        .await
-        .expect("timed out waiting for unknown-provider chat_error")
-        .expect("unknown-provider SSE task join should succeed");
-    assert_eq!(
-        unknown_event.get("event").and_then(Value::as_str),
-        Some("chat_error"),
-        "unknown provider route should fail at the core boundary: {unknown_event}"
-    );
-    let unknown_turn_requests = with_chat_completion_requests(|requests| {
-        requests
-            .iter()
-            .filter(|request| {
-                request["body"]["messages"]
-                    .as_array()
-                    .is_some_and(|messages| {
-                        messages.iter().any(|entry| {
-                            entry["content"]
-                                .as_str()
-                                .is_some_and(|content| content.contains("unknown provider route"))
-                        })
-                    })
-            })
-            .cloned()
-            .collect::<Vec<_>>()
-    });
-    assert!(
-        unknown_turn_requests.is_empty(),
-        "unknown selected route must emit chat_error without an inference request attributable to its user message; captured requests={unknown_turn_requests:?}"
-    );
 
     mock_join.abort();
     rpc_join.abort();
@@ -4187,24 +4118,11 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
                 "endpoint": mock_origin,
                 "auth_style": "bearer"
             }],
-            "default_model": "openai:gpt-4.1-mini"
+            "chat_provider": "openai:gpt-4.1-mini"
         }),
     )
     .await;
     assert_no_jsonrpc_error(&update, "update_model_settings");
-
-    let initial_config_get =
-        post_json_rpc(&rpc_base, 6999, "openhuman.config_get", json!({})).await;
-    let initial_config_result = assert_no_jsonrpc_error(&initial_config_get, "initial config_get");
-    let initial_config_payload = peel_logs_envelope(initial_config_result);
-    let initial_config = initial_config_payload
-        .get("config")
-        .unwrap_or(initial_config_payload);
-    assert_eq!(
-        initial_config.get("default_model").and_then(Value::as_str),
-        Some("openai:gpt-4.1-mini"),
-        "config_get must expose the authoritative configured BYOK default before any turn override"
-    );
 
     let store_provider = post_json_rpc(
         &rpc_base,
@@ -4283,7 +4201,7 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
         6005,
         "openhuman.update_model_settings",
         json!({
-            "default_model": "openai:gpt-4.1-nano"
+            "chat_provider": "openai:gpt-4.1-nano"
         }),
     )
     .await;
@@ -4392,127 +4310,6 @@ async fn json_rpc_web_chat_custom_chat_provider_uses_stored_key_and_rebuilds_on_
         Some("openrouter/deepseek/deepseek-v4-flash")
     );
 
-    async fn assert_managed_turn(
-        rpc_base: &str,
-        request_id: i64,
-        client_id: &str,
-        thread_id: &str,
-        message: &str,
-        expected_model: &str,
-        model_override: Option<&str>,
-    ) {
-        let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
-        let (sse_task, request_tx) =
-            spawn_ready_terminal_web_chat_event_for_request(&events_url).await;
-        let mut params = json!({
-            "client_id": client_id,
-            "thread_id": thread_id,
-            "message": message,
-        });
-        if let Some(model_override) = model_override {
-            params["model_override"] = json!(model_override);
-        }
-        let accepted =
-            post_json_rpc(rpc_base, request_id, "openhuman.channel_web_chat", params).await;
-        let accepted_result = assert_no_jsonrpc_error(&accepted, "channel_web_chat managed");
-        assert_eq!(
-            accepted_result
-                .get("result")
-                .and_then(|v| v.get("accepted")),
-            Some(&json!(true))
-        );
-        signal_accepted_web_chat_request_id(request_tx, accepted_result);
-        let sse_event = tokio::time::timeout(Duration::from_secs(12), sse_task)
-            .await
-            .expect("timed out waiting for managed chat_done")
-            .expect("managed sse join");
-        assert_eq!(
-            sse_event.get("event").and_then(Value::as_str),
-            Some("chat_done"),
-            "unexpected managed terminal event: {sse_event}"
-        );
-        let request = wait_for_chat_completion_request_with_message(message).await;
-        assert_eq!(
-            request.get("path").and_then(Value::as_str),
-            Some("/openai/v1/chat/completions")
-        );
-        assert_eq!(
-            request.get("model").and_then(Value::as_str),
-            Some(expected_model)
-        );
-        assert_eq!(
-            request.get("authorization").and_then(Value::as_str),
-            Some("Bearer e2e-test-jwt"),
-            "managed request must use the backend session credential"
-        );
-    }
-
-    let picker_model = "openrouter/author/picker-model:free";
-    assert_managed_turn(
-        &rpc_base,
-        6008,
-        client_id,
-        thread_id,
-        "Explicit managed picker model with warm BYOK session",
-        picker_model,
-        Some(picker_model),
-    )
-    .await;
-    let config_get = post_json_rpc(&rpc_base, 6009, "openhuman.config_get", json!({})).await;
-    let config_result = assert_no_jsonrpc_error(&config_get, "config_get after managed override");
-    let config_payload = peel_logs_envelope(config_result);
-    let config = config_payload.get("config").unwrap_or(config_payload);
-    assert_eq!(
-        config.get("default_model").and_then(Value::as_str),
-        Some("openai:gpt-4.1-nano"),
-        "a per-turn managed selection must not replace the configured BYOK provider"
-    );
-
-    let first_managed_default = "openrouter/author/first-default-model:free";
-    let update_first_default = post_json_rpc(
-        &rpc_base,
-        6010,
-        "openhuman.update_model_settings",
-        json!({ "default_model": first_managed_default }),
-    )
-    .await;
-    assert_no_jsonrpc_error(
-        &update_first_default,
-        "update_model_settings first managed default",
-    );
-    assert_managed_turn(
-        &rpc_base,
-        6011,
-        client_id,
-        thread_id,
-        "Managed default first route cache turn",
-        first_managed_default,
-        None,
-    )
-    .await;
-
-    let second_managed_default = "openrouter/author/second-default-model:free";
-    let update_second_default = post_json_rpc(
-        &rpc_base,
-        6012,
-        "openhuman.update_model_settings",
-        json!({ "default_model": second_managed_default }),
-    )
-    .await;
-    assert_no_jsonrpc_error(
-        &update_second_default,
-        "update_model_settings second managed default",
-    );
-    assert_managed_turn(
-        &rpc_base,
-        6013,
-        client_id,
-        thread_id,
-        "Managed default second route cache turn",
-        second_managed_default,
-        None,
-    )
-    .await;
     mock_join.abort();
     rpc_join.abort();
 }
