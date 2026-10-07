@@ -80,7 +80,7 @@ impl HostAgent {
 
     /// Run `fut` with this agent's context as the ambient [`CoreContext`].
     pub async fn scope<F: std::future::Future>(&self, fut: F) -> F::Output {
-        fut.await
+        CoreContext::scope(Arc::clone(&self.context), fut).await
     }
 }
 
@@ -88,7 +88,10 @@ impl std::fmt::Debug for HostAgent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // The config carries credentials and resolved paths; the belt is a
         // closure. Name the agent and say whether it has a belt.
-        f.debug_struct("HostAgent").finish_non_exhaustive()
+        f.debug_struct("HostAgent")
+            .field("id", &self.definition.id)
+            .field("host_tools", &self.host_tools.is_some())
+            .finish_non_exhaustive()
     }
 }
 
@@ -103,22 +106,43 @@ static RESOLVER: LazyLock<RwLock<Option<Arc<dyn HostAgentResolver>>>> =
 
 /// Install `resolver`, replacing any earlier one, which is returned.
 pub fn install(resolver: Arc<dyn HostAgentResolver>) -> Option<Arc<dyn HostAgentResolver>> {
-    let _ = resolver;
-    None
+    tracing::info!("[host_agents] host agent resolver installed");
+    RESOLVER
+        .write()
+        .unwrap_or_else(PoisonError::into_inner)
+        .replace(resolver)
 }
 
 /// Remove the installed resolver only while it is still `expected`. Returns
 /// whether it was removed.
 pub fn clear_if(expected: &Arc<dyn HostAgentResolver>) -> bool {
-    let _ = expected;
-    false
+    let mut installed = RESOLVER.write().unwrap_or_else(PoisonError::into_inner);
+    if installed
+        .as_ref()
+        .is_some_and(|current| Arc::ptr_eq(current, expected))
+    {
+        installed.take();
+        tracing::info!("[host_agents] host agent resolver removed");
+        true
+    } else {
+        false
+    }
 }
 
 /// Ask the installed resolver for `agent_id`. `None` when nothing is
 /// installed or the host has no such agent.
 pub fn resolve(agent_id: &str) -> Option<HostAgent> {
-    let _ = agent_id;
-    None
+    let resolver = RESOLVER
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone()?;
+    let hit = resolver.resolve(agent_id);
+    tracing::debug!(
+        agent_id,
+        hit = hit.is_some(),
+        "[host_agents] resolve host agent"
+    );
+    hit
 }
 
 #[cfg(test)]

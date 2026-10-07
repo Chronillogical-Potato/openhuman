@@ -554,7 +554,7 @@ impl CoreContext {
     /// as [`CoreContext::current`]. For blocking work that reads the ambient
     /// context, such as building a session for a host-registered agent.
     pub fn sync_scope<R>(ctx: Arc<CoreContext>, f: impl FnOnce() -> R) -> R {
-        unimplemented!("sync_scope")
+        CURRENT_CONTEXT.sync_scope(ctx, f)
     }
 
     /// Capture the current context now and carry it across a subsequently
