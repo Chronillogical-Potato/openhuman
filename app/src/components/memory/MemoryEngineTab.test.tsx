@@ -226,13 +226,14 @@ describe('MemoryEngineTab', () => {
       expect(screen.getByTestId('memory-engine-builtin-note')).toHaveTextContent(
         'Unlimited memory on your Pro plan'
       );
+      // Fair use sits behind an info icon.
+      expect(screen.queryByTestId('memory-engine-fair-use')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('memory-engine-fair-use-trigger'));
       const terms = screen.getByTestId('memory-engine-fair-use');
       expect(terms).toHaveTextContent('Fair use applies');
       expect(terms).toHaveTextContent('No automated bulk uploads');
       fireEvent.click(within(terms).getByTestId('memory-engine-terms'));
-      expect(hoisted.openUrl).toHaveBeenCalledWith(
-        'https://tinyhumans.gitbook.io/openhuman/legal/terms-of-use'
-      );
+      expect(hoisted.openUrl).toHaveBeenCalledWith('https://tinyhumans.ai/terms');
     });
 
     it('points free plans at Basic and Pro', () => {
@@ -261,7 +262,7 @@ describe('MemoryEngineTab', () => {
       });
       expect(hoisted.toastAdd).toHaveBeenCalledWith(
         expect.objectContaining({
-          description: 'CortexDB with your API key now stores your memory.',
+          description: 'CortexDB with your own key now stores your memory.',
         })
       );
     });
