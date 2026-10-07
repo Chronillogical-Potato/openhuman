@@ -378,6 +378,7 @@ fn sample_fingerprint() -> SessionCacheFingerprint {
         provider_binding: "openhuman".to_string(),
         autonomy_signature: r#"{"approval_required":true,"action_dir":"/home/u/w"}"#.to_string(),
         model_registry_signature: r#"[{"id":"m","provider":"p","vision":false}]"#.to_string(),
+        workspace_dir: std::path::PathBuf::from("/ws/a"),
     }
 }
 
