@@ -35,7 +35,20 @@ pub(super) async fn run_agent_job(
     // runs with the definition's constraints instead of the generic
     // OpenHumanSessionHost::from_config defaults.
     let selected_agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
-    {
+    // A host-registered agent (`agent::host_agents`) carries its own
+    // definition, model and route; the registry overrides below are for
+    // registry agents only.
+    let host_agent = job
+        .agent_id
+        .as_deref()
+        .and_then(crate::agent::host_agents::resolve);
+    if host_agent.is_some() {
+        tracing::debug!(
+            job_id = %job.id,
+            agent_id = %selected_agent_id,
+            "[cron] job targets a host-registered agent"
+        );
+    } else {
         let agent_id = selected_agent_id;
         if let Some(registry) = crate::agent::harness::definition::AgentDefinitionRegistry::global()
         {
@@ -129,8 +142,8 @@ pub(super) async fn run_agent_job(
                 target = ?job.session_target,
                 "[cron] building isolated agent for scheduled job"
             );
-            match build_agent_for_cron_job(&effective, job) {
-                Ok(BuiltCronAgent { mut agent, .. }) => {
+            match build_cron_agent(&effective, job, host_agent) {
+                Ok(BuiltCronAgent { mut agent, context }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
@@ -154,6 +167,17 @@ pub(super) async fn run_agent_job(
                         origin,
                         agent.run_single(&prefixed_prompt),
                     );
+                    // A host agent's turn runs in its own context, so every
+                    // ambient read (config, domains, tool groups, session
+                    // store) sees that agent rather than the process default.
+                    let turn: std::pin::Pin<
+                        Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>,
+                    > = match context {
+                        Some(context) => {
+                            Box::pin(crate::core::runtime::CoreContext::scope(context, turn))
+                        }
+                        None => Box::pin(turn),
+                    };
                     // Morning briefing only: install a 24h task-recency window
                     // so Composio task-fetch tools (Linear/ClickUp/Notion/Asana)
                     // surface only recently created/changed tasks. Other cron
@@ -284,10 +308,42 @@ pub(super) struct BuiltCronAgent {
     pub(crate) context: Option<std::sync::Arc<crate::core::runtime::CoreContext>>,
 }
 
+/// Build the session a cron agent job runs: the host-registered agent named
+/// by `job.agent_id` when there is one, else the registry definition.
 pub(super) fn build_agent_for_cron_job(
     config: &Config,
     job: &CronJob,
 ) -> anyhow::Result<BuiltCronAgent> {
+    let host_agent = job
+        .agent_id
+        .as_deref()
+        .and_then(crate::agent::host_agents::resolve);
+    build_cron_agent(config, job, host_agent)
+}
+
+fn build_cron_agent(
+    config: &Config,
+    job: &CronJob,
+    host_agent: Option<crate::agent::host_agents::HostAgent>,
+) -> anyhow::Result<BuiltCronAgent> {
+    if let Some(host) = host_agent {
+        // The host agent's own config (provider model and route applied),
+        // with the job's model override on top, as for a registry agent.
+        let mut effective = host.config.clone();
+        if let Some(model) = job.model.clone() {
+            effective.default_model = Some(model);
+        }
+        let agent = host.session_host(&effective, None)?;
+        tracing::debug!(
+            job_id = %job.id,
+            agent_id = %host.definition.id,
+            "[cron] built scheduled job agent from host agent"
+        );
+        return Ok(BuiltCronAgent {
+            agent,
+            context: Some(host.context),
+        });
+    }
     let agent_id = job.agent_id.as_deref().unwrap_or("orchestrator");
     match OpenHumanSessionHost::from_config_for_agent(config, agent_id) {
         Ok(agent) => {
