@@ -156,3 +156,13 @@ fn compaction_settings_bundle_the_trigger_and_strategy() {
     cfg.compaction_trigger_tokens = Some(64_000);
     assert_eq!(cfg.compaction_settings().trigger_tokens, Some(64_000));
 }
+
+#[test]
+fn env_overlay_keeps_unattended_browser_actions_and_unknown_names_allow_nothing() {
+    let mut cfg = Config::default();
+    cfg.browser.unattended_actions = vec!["click".into(), "navigate".into()];
+    cfg.apply_env_overlay_with(&HashMapEnv::new());
+    assert_eq!(cfg.browser.unattended_actions, vec!["click", "navigate"]);
+    assert!(cfg.browser.allows_unattended("click"));
+    assert!(!cfg.browser.allows_unattended("navigate"));
+}
