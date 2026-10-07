@@ -2,7 +2,7 @@ import { Check, ExternalLink, Gift } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
-import type { EngineState } from '../../services/api/memoryApi';
+import { type EngineState, isMemoryOn } from '../../services/api/memoryApi';
 import { TERMS_OF_USE_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import { Alert, AlertDescription, Button, Label, TextField } from '../ui';
@@ -231,7 +231,7 @@ export default function MemoryConnectionPanel({
 
   // TinyHumans has nothing to save once it is in use; the others always can
   // (a new key, a moved endpoint).
-  const showSubmit = option !== 'builtin' || !active;
+  const showSubmit = option !== 'builtin' || !(active && isMemoryOn(state));
   const submitLabel =
     saving === option
       ? t('memoryPage.engine.connecting')
