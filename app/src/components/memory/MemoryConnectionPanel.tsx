@@ -1,4 +1,4 @@
-import { ExternalLink, Gift } from 'lucide-react';
+import { ExternalLink, Infinity as InfinityIcon } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -128,7 +128,7 @@ export default function MemoryConnectionPanel({
       <p
         className="flex items-center gap-1.5 text-xs text-content-secondary"
         data-testid="memory-engine-builtin-note">
-        <Gift className="h-3.5 w-3.5 shrink-0 text-primary-500" aria-hidden />
+        <InfinityIcon className="h-3.5 w-3.5 shrink-0 text-primary-500" aria-hidden />
         {plan === 'BASIC' || plan === 'PRO'
           ? t('memoryPage.engine.freeIngestion.notePlan').replace(
               '{plan}',
