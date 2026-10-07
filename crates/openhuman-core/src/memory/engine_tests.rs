@@ -2,6 +2,8 @@ use super::*;
 use crate::memory::test_fixtures::config_in;
 use crate::security::credentials::api_key::store_api_key;
 
+use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+
 fn off_reason(binding: Binding) -> String {
     match binding {
         Binding::Off { reason, .. } => reason,
@@ -34,6 +36,34 @@ fn tinyhumans_without_a_credential_is_off() {
     }
     let error = resolve(&config).engine().unwrap_err();
     assert_eq!(error.code(), super::super::error::MEMORY_OFF);
+}
+
+#[test]
+fn tinyhumans_with_a_local_session_token_is_off() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.memory.engine = TINYHUMANS_ENGINE.to_string();
+    config
+        .memory
+        .engines
+        .entry(TINYHUMANS_ENGINE.to_string())
+        .or_default()
+        .endpoint = Some("https://memory.example.test".to_string());
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+
+    let binding = resolve(&config);
+
+    assert!(!binding.is_on());
+    assert!(!has_key(&config, TINYHUMANS_ENGINE));
+    assert!(off_reason(binding).contains("sign in"));
 }
 
 #[test]
@@ -132,6 +162,28 @@ async fn host_bearer_reads_the_credential_per_request() {
 
     store_api_key(&config, "test-api-key-not-real").unwrap();
     assert_eq!(source.bearer().await.unwrap(), "test-api-key-not-real");
+}
+
+#[tokio::test]
+async fn host_bearer_rejects_a_local_session_token() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    let source = HostBearer {
+        config: Arc::new(config),
+    };
+
+    let error = source.bearer().await.unwrap_err();
+
+    assert!(matches!(error, tinymemory_api::Error::Unauthorized(_)));
 }
 
 #[test]
