@@ -40,3 +40,34 @@ fn status_and_deprovision_take_agent_ids_only() {
     deprovision_on(&host, id.as_str()).unwrap();
     assert!(status_on(&host, id.as_str()).is_err());
 }
+
+#[test]
+fn credentials_are_set_and_cleared_per_agent_and_never_echoed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp);
+    let alice = UserAgentId::for_user("alice").unwrap();
+    let bob = UserAgentId::for_user("bob").unwrap();
+    assert!(
+        set_credential_on(&host, alice.as_str(), UserCredentialKind::Session, "t", None)
+            .unwrap_err()
+            .contains("not provisioned")
+    );
+    provision_on(&host, "alice").unwrap();
+    provision_on(&host, "bob").unwrap();
+
+    let out = set_credential_on(
+        &host,
+        alice.as_str(),
+        UserCredentialKind::Session,
+        "alice-secret-jwt",
+        None,
+    )
+    .unwrap();
+    let json = out.into_cli_compatible_json().unwrap().to_string();
+    assert!(!json.contains("alice-secret-jwt"), "{json}");
+    assert!(host.summary(&alice).unwrap().unwrap().has_credential);
+    assert!(!host.summary(&bob).unwrap().unwrap().has_credential);
+
+    clear_credential_on(&host, alice.as_str()).unwrap();
+    assert!(!host.summary(&alice).unwrap().unwrap().has_credential);
+}

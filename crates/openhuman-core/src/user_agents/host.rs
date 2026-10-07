@@ -223,6 +223,7 @@ impl AgentHost {
             agent_id: id.clone(),
             created_at: meta.created_at,
             open: self.is_open(id),
+            has_credential: super::credentials::has(&layout::agent_config(&layout, id)),
         }))
     }
 
