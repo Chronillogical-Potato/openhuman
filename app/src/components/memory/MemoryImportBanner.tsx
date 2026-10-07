@@ -57,6 +57,8 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const [consentOpen, setConsentOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Step 2 waits until step 1's scan has answered, so it never flashes first.
+  const [importChecked, setImportChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +72,9 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
       .catch(err => {
         // A failed scan only hides the offer; it is not worth an error banner.
         log('scan failed: %o', err);
+      })
+      .finally(() => {
+        if (!cancelled) setImportChecked(true);
       });
     return () => {
       cancelled = true;
@@ -218,7 +223,10 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
   const importPending = scan?.found && (!state || state.phase === 'idle');
   // Step 2 shows only once step 1 is out of the way.
   const showMove =
-    !importBusy && !importPending && (moving || moveOffered || (cleaned && left > 0));
+    importChecked &&
+    !importBusy &&
+    !importPending &&
+    (moving || moveOffered || (cleaned && left > 0));
   const paused = !moving && (mState?.phase === 'paused' || mStatus?.interrupted);
 
   const showOffer = importPending;
