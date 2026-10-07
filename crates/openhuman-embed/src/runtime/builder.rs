@@ -347,7 +347,13 @@ impl RuntimeBuilder {
         let core = Core::from_runtime(Arc::new(runtime));
 
         if let Some(session) = self.session {
-            core.auth().store(session).await?;
+            if let Err(error) = core.auth().store(session).await {
+                if session_store {
+                    openhuman_core::agent::session_store::clear();
+                    openhuman_core::agent::session_store::restore(previous_session_store);
+                }
+                return Err(error.into());
+            }
         }
 
         Ok(Runtime::new(

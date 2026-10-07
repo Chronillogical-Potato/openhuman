@@ -156,7 +156,8 @@ pub(crate) struct CoreGuard {
     /// Whether this runtime installed the process's session store, which is
     /// removed with it.
     session_store: bool,
-    previous_session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
+    previous_session_store:
+        Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
 }
 
 impl Drop for CoreGuard {

@@ -422,21 +422,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/builder/factory.rs",
-    "line": 990,
+    "line": 987,
     "text": "let root = crate::agent::turn_workspace::current()?;",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 265,
+    "line": 266,
     "text": "crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 686,
+    "line": 670,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
@@ -765,7 +765,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/provider/openhuman_backend_model.rs",
-    "line": 497,
+    "line": 480,
     "text": "fn with_thread_id(request: ModelRequest, thread_id: Option<&str>) -> ModelRequest {",
     "occurrence": 1
   },
@@ -1030,6 +1030,13 @@
   },
   {
     "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-core/src/agent/session_store/mod.rs",
+    "line": 19,
+    "text": "pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/todos/ops.rs",
     "line": 17,
     "text": "pub use tinyagents_graph::todos::TodosSnapshot;",
@@ -1082,6 +1089,41 @@
     "path": "crates/openhuman-core/src/voice/cloud_transcribe.rs",
     "line": 7,
     "text": "pub use tinyinference_voice::cloud::{CloudTranscribeOptions, CloudTranscribeResult};",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/lib.rs",
+    "line": 121,
+    "text": "pub use tinyagents_session::port::{",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/lib.rs",
+    "line": 125,
+    "text": "pub use tinyagents_session::testkit::conformance::{",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/lib.rs",
+    "line": 129,
+    "text": "pub use tinyagents_session::transcript::{",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/lib.rs",
+    "line": 134,
+    "text": "pub use tinyagents_session::turn_state::{TurnLifecycle, TurnState};",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-upstream-reexport",
+    "path": "crates/openhuman-embed/src/lib.rs",
+    "line": 136,
+    "text": "pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};",
     "occurrence": 1
   },
   {
@@ -1423,8 +1465,15 @@
   {
     "rule": "tinyagents-upstream-reexport",
     "path": "vendor/tinyagents/crates/tinyagents-session/src/lib.rs",
-    "line": 97,
+    "line": 98,
     "text": "pub use tinyagents_harness::error::{Result, TinyAgentsError};",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-upstream-reexport",
+    "path": "vendor/tinyagents/crates/tinyagents-session/src/port/mod.rs",
+    "line": 49,
+    "text": "pub use tinyagents_harness::store::{AppendStore, Store};",
     "occurrence": 1
   }
 ]

@@ -21,7 +21,7 @@ pub(crate) async fn reap_orphaned_runs(workspace: &Path) -> usize {
     // With a host session store the status records live in its stores: sweep
     // the ones this process's own (default-agent) work wrote there.
     if let Some(stores) = crate::agent::session_store::current() {
-        let store = FileStatusStore::new(stores.kv);
+        let store = FileStatusStore::over(stores.kv);
         return tinyagents_harness::observability::reap_orphaned_runs(&store).await;
     }
     let store = FileStatusStore::new(open_session_stores(workspace).kv);
