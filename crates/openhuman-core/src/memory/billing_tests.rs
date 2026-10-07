@@ -275,3 +275,32 @@ fn the_cache_key_digest_is_the_full_sha256() {
     assert_eq!(key.len(), 64, "{key}");
     assert_ne!(key, digest("th_account_b"));
 }
+
+#[tokio::test]
+async fn an_answer_is_timed_from_when_it_arrives() {
+    let cache = Answer::new();
+    let base = Instant::now();
+    let calls = AtomicUsize::new(0);
+    let ticks = AtomicUsize::new(0);
+    // The fetch takes longer than the TTL: asked at `base`, answered at
+    // `base + 90s`.
+    let clock = || {
+        if ticks.fetch_add(1, Ordering::SeqCst) == 0 {
+            base
+        } else {
+            base + Duration::from_secs(90)
+        }
+    };
+    let ask = || {
+        calls.fetch_add(1, Ordering::SeqCst);
+        async { Ok(true) }
+    };
+    assert!(active_with_cache(&cache, KEY, CACHE_TTL, clock, ask).await);
+    let later = || base + Duration::from_secs(120);
+    assert!(active_with_cache(&cache, KEY, CACHE_TTL, later, ask).await);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "still fresh 30s after it arrived"
+    );
+}

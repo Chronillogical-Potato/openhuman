@@ -130,12 +130,15 @@ where
     }
     let active = match fetch().await {
         Ok(active) => active,
-        Err(error) => {
-            tracing::debug!(%error, "[memory:billing] free period unknown; treating as not free");
+        Err(_) => {
+            // The error text can carry the backend's response; it is not
+            // logged.
+            tracing::debug!("[memory:billing] free period unknown; treating as not free");
             false
         }
     };
-    answers.insert(key.to_string(), (now, active));
+    // The answer's age starts when it arrives, not when it was asked for.
+    answers.insert(key.to_string(), (clock(), active));
     active
 }
 
