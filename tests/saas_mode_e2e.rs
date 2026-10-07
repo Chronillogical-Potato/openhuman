@@ -646,9 +646,15 @@ fn users_reach_their_memory_but_not_its_configuration() {
 
     // Reachable: with no backend in this test the engine is off, so recall
     // answers with memory's own error — not "unknown method".
-    let (_, body) = call("openhuman.memory_recall", json!({ "question": "anything?" }));
+    let (_, body) = call(
+        "openhuman.memory_recall",
+        json!({ "question": "anything?" }),
+    );
     let text = body.to_string();
-    assert!(!text.contains("unknown method"), "memory_recall is on the surface: {text}");
+    assert!(
+        !text.contains("unknown method"),
+        "memory_recall is on the surface: {text}"
+    );
     let (_, body) = call("openhuman.memory_engine_get", json!({}));
     assert!(body.get("result").is_some(), "{body}");
 
