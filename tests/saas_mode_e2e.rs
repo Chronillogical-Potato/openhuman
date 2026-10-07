@@ -609,7 +609,10 @@ fn chat_events_reach_only_the_user_whose_turn_produced_them() {
         match alice_events.recv_timeout(Duration::from_millis(500)) {
             Ok(data) if data.contains("chat-1") => {
                 alice_got.push(data);
-                if alice_got.iter().any(|e| e.contains("error") || e.contains("done")) {
+                if alice_got
+                    .iter()
+                    .any(|e| e.contains("error") || e.contains("done"))
+                {
                     break;
                 }
             }

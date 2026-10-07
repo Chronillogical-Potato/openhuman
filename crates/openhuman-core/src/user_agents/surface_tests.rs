@@ -41,7 +41,12 @@ fn the_saas_planes_never_overlap() {
 #[test]
 fn chat_is_open_but_other_channel_methods_are_not() {
     assert!(visible_in(true, true, "openhuman.channel_web_chat", false));
-    assert!(visible_in(true, true, "openhuman.threads_regenerate", false));
+    assert!(visible_in(
+        true,
+        true,
+        "openhuman.threads_regenerate",
+        false
+    ));
     for method in [
         "openhuman.channels_list",
         "openhuman.channels_connect",

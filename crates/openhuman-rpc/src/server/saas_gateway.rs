@@ -44,7 +44,10 @@ pub(crate) fn is_closed_in_saas(path: &str) -> bool {
         if prefix.ends_with('/') {
             path.starts_with(prefix)
         } else {
-            path == *prefix || path.strip_prefix(prefix).is_some_and(|rest| rest.starts_with('/'))
+            path == *prefix
+                || path
+                    .strip_prefix(prefix)
+                    .is_some_and(|rest| rest.starts_with('/'))
         }
     })
 }

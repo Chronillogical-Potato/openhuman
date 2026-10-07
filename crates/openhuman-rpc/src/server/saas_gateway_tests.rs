@@ -20,7 +20,15 @@ fn single_user_surfaces_are_closed() {
 fn the_gateway_surfaces_stay_open() {
     // `/events` itself is the per-user chat stream, gated on the user scope by
     // the layer rather than closed by prefix.
-    for path in ["/", "/health", "/schema", "/rpc", "/v1x", "/eventsource", "/events"] {
+    for path in [
+        "/",
+        "/health",
+        "/schema",
+        "/rpc",
+        "/v1x",
+        "/eventsource",
+        "/events",
+    ] {
         assert!(!is_closed_in_saas(path), "{path}");
     }
 }
