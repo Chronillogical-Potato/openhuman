@@ -354,6 +354,10 @@ async fn forget_connection_with_memory_off_forgets_nothing() {
             .unwrap(),
         0
     );
+    assert!(
+        is_disconnected(&config, "conn-a"),
+        "the deletion is recorded even with memory off"
+    );
 }
 
 #[tokio::test]
@@ -474,4 +478,32 @@ async fn records_read_before_a_disconnect_are_not_stored_after_it() {
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
     // Another connection, or the same id in another workspace, is unaffected.
     assert!(!is_disconnected(&config, "conn-other"));
+}
+
+#[tokio::test]
+async fn a_deleted_connection_is_not_read_again() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    let bound = crate::memory::engine::resolve(&config).engine().unwrap();
+    forget_connection(&config, "conn-x", Some("gmail"))
+        .await
+        .unwrap();
+    // No connector call is made: an empty pass with nothing pending ends
+    // the caller's loop.
+    let pass = run_sync_pass(
+        &config,
+        &bound,
+        "gmail",
+        "conn-x",
+        "src",
+        "manual",
+        SYNC_PASS_MAX_ITEMS,
+    )
+    .await
+    .unwrap();
+    assert_eq!(pass.records_read, 0);
+    assert_eq!(pass.written, 0);
+    assert!(!pass.more_pending);
+    assert!(pass.failure.is_none());
 }

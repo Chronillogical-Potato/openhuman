@@ -119,7 +119,6 @@ pub async fn store_records(
     if is_disconnected(config, connection_id) {
         tracing::debug!(
             connection_id = %connection_id,
-            records = records.len(),
             "[memory:sources] dropping records read before their connection was deleted"
         );
         return Ok(0);
@@ -282,16 +281,17 @@ pub async fn forget_connection(
     connection_id: &str,
     toolkit: Option<&str>,
 ) -> MemoryResult<usize> {
+    // A sync pass storing this connection's records finishes first, so none
+    // of its items lands after the forget; any pass after it, even one that
+    // read its records before, stores nothing (`DISCONNECTED`). Marked even
+    // with memory off, so nothing is stored if memory comes back on.
+    let _serial = STORE.lock().await;
+    disconnected().insert((config.workspace_dir.clone(), connection_id.to_string()));
     let bound = match crate::memory::engine::resolve(config).engine() {
         Ok(bound) => bound,
         Err(MemoryError::Off(_)) => return Ok(0),
         Err(error) => return Err(error),
     };
-    // A sync pass storing this connection's records finishes first, so none
-    // of its items lands after the forget; any pass after it, even one that
-    // read its records before, stores nothing (`DISCONNECTED`).
-    let _serial = STORE.lock().await;
-    disconnected().insert((config.workspace_dir.clone(), connection_id.to_string()));
     let recorded = super::roots::of(&config.workspace_dir, connection_id);
     let reaches = match toolkit {
         // An unreadable roots record cannot bound the search: search all.
