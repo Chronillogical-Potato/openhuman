@@ -83,7 +83,7 @@ use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{CoreRuntime, DomainSet, ServiceSet};
 use openhuman_core::tools::toolpacks::ToolGroups;
 
-use crate::agent::{Agent, AgentError, AgentInner, AgentSpec};
+use crate::agent::{Agent, AgentError, AgentSpec};
 use crate::harness::workspace::ResolvedWorkspace;
 use crate::harness::{Access, HarnessCore, Provider};
 use crate::{Core, CoreError};
