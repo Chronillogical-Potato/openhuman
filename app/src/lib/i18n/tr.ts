@@ -611,6 +611,8 @@ const messages: TranslationMap = {
     'Bellek kullanılamıyor: hesabınızın kredisi bitti. Geri yüklemek için kredi ekleyin; saklanan hiçbir şey kaybolmadı.',
   'memory.error.unavailable':
     'Belleğe şu anda ulaşılamıyor. Saklanan hiçbir şey kaybolmadı; birazdan yeniden deneyin.',
+  'memory.outOfCredits.title': 'Kredi tükendi',
+  'memory.outOfCredits.action': 'Kredi yükle',
   'memory.tab.memory': 'Bellek',
   'memory.tab.agents': 'Kitaplık',
   'memory.tab.council': 'Konsey',
@@ -3784,6 +3786,8 @@ const messages: TranslationMap = {
     'Mevcut entegrasyonlarınız (OpenHuman üzerinden bağlanan Gmail, Slack, GitHub vb.) görünmez: bunlar OpenHuman tarafından yönetilen Composio kiracısında bulunur.',
   'settings.composio.intro':
     "Composio, 250'den fazla harici uygulamayı ajanınızın çağırabileceği araçlar olarak entegre eder. Bu araç çağrılarının nasıl yönlendirileceğini seçin.",
+  'settings.composio.directOnlyDesc':
+    'Yönetilen Composio kimlik doğrulaması burada kullanılamıyor. Kendi Composio API anahtarınızı girin veya şimdilik bunu atlayın.',
   'settings.composio.modeDirect': 'Doğrudan (kendi API anahtarınızı kullanın)',
   'settings.composio.modeDirectDesc':
     "Çağrılar doğrudan backend.composio.dev adresine gider. Bağımsız ve çevrimdışı kullanıma uygun. Araç yürütme eşzamanlı çalışır; gerçek zamanlı tetikleyici webhook'ları Doğrudan modda henüz yönlendirilmez (takip eden bir sorun kaydı var).",
