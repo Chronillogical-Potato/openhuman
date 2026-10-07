@@ -56,7 +56,7 @@ async fn ambient_scope_reads_the_turn_and_prefers_the_subagent() {
 }
 
 #[test]
-fn outside_any_turn_the_scope_is_empty_but_the_provider() {
+fn outside_any_turn_and_without_a_provider_the_scope_is_empty() {
     let scope = UsageScope::ambient(Some(""), None);
     assert!(scope.is_empty(), "{scope:?}");
 }
