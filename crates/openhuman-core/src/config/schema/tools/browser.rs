@@ -118,16 +118,22 @@ impl BrowserConfig {
     /// Whether `kind` is a known gated action listed in `unattended_actions`.
     /// Says nothing about the turn; callers check its origin separately.
     pub fn allows_unattended(&self, kind: &str) -> bool {
-        UNATTENDED_BROWSER_ACTIONS.contains(&kind)
-            && self
-                .unattended_actions
-                .iter()
-                .any(|listed| normalized_action(listed) == kind)
+        self.unattended_kind(kind).is_some()
     }
 
-    /// The canonical name of `kind` when it is allowed unattended.
-    pub fn unattended_kind(&self, _kind: &str) -> Option<&'static str> {
-        None
+    /// The canonical, static name of `kind` when it is a known gated action
+    /// listed in `unattended_actions`. Both sides are trimmed and lowercased.
+    /// Being static, it is safe to log whatever the caller passed in.
+    pub fn unattended_kind(&self, kind: &str) -> Option<&'static str> {
+        let kind = normalized_action(kind);
+        let canonical = UNATTENDED_BROWSER_ACTIONS
+            .iter()
+            .copied()
+            .find(|known| *known == kind)?;
+        self.unattended_actions
+            .iter()
+            .any(|listed| normalized_action(listed) == canonical)
+            .then_some(canonical)
     }
 
     /// Entries of `unattended_actions` that name no known action kind. They

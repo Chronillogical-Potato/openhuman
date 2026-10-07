@@ -26,35 +26,52 @@ fn is_unattended(origin: &AgentTurnOrigin) -> bool {
     )
 }
 
+/// The canonical name of `kind` when a turn with `origin` may take it
+/// without the approval gate.
+fn unattended_kind(
+    origin: Option<&AgentTurnOrigin>,
+    browser: &BrowserConfig,
+    kind: &str,
+) -> Option<&'static str> {
+    origin
+        .is_some_and(is_unattended)
+        .then(|| browser.unattended_kind(kind))
+        .flatten()
+}
+
 /// Whether a turn with `origin` may take `kind` without the approval gate.
 pub(super) fn allowed_for(
     origin: Option<&AgentTurnOrigin>,
     browser: &BrowserConfig,
     kind: &str,
 ) -> bool {
-    origin.is_some_and(is_unattended) && browser.allows_unattended(kind)
+    unattended_kind(origin, browser, kind).is_some()
 }
 
 /// Decide for the turn `origin` the tool was called under (read once from the
 /// per-turn `CoreContext` in `BrowserTool::execute`), logging an allowed
-/// action by kind and digest only: no selector, typed value or page content
-/// reaches the log.
+/// action by its canonical static kind and digest only: no caller-supplied
+/// string, selector, typed value or page content reaches the log.
 pub(super) fn allow(
     origin: Option<&AgentTurnOrigin>,
     browser: &BrowserConfig,
     kind: &str,
     digest_hex: &str,
 ) -> bool {
-    let allowed = allowed_for(origin, browser, kind);
-    if allowed {
-        tracing::info!(
-            action = kind,
-            action_digest = %digest_hex.get(..12).unwrap_or(digest_hex),
-            origin = %origin.map(AgentTurnOrigin::class).unwrap_or_default(),
-            "[browser] unattended action allowed by [browser] unattended_actions"
-        );
-    }
-    allowed
+    let Some(canonical) = unattended_kind(origin, browser, kind) else {
+        return false;
+    };
+    let digest = digest_hex
+        .get(..12)
+        .filter(|prefix| prefix.chars().all(|c| c.is_ascii_hexdigit()))
+        .unwrap_or("invalid");
+    tracing::info!(
+        action = canonical,
+        action_digest = digest,
+        origin = %origin.map(AgentTurnOrigin::class).unwrap_or_default(),
+        "[browser] unattended action allowed by [browser] unattended_actions"
+    );
+    true
 }
 
 #[cfg(test)]

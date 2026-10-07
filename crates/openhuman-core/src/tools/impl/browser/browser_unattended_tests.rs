@@ -305,3 +305,28 @@ async fn the_tool_keeps_every_other_turn_and_action_behind_the_gate() {
         assert!(!output.is_empty(), "{origin:?}");
     }
 }
+
+#[tokio::test]
+async fn allow_logs_the_canonical_kind_not_the_callers_string() {
+    let _serial = ALLOW_PATH.lock().await;
+    let (logs, _guard) = Logs::capture();
+    assert!(allow(
+        Some(&cron()),
+        &listing(&["click"]),
+        " CLICK ",
+        "not-hex-digest"
+    ));
+    let text = logs.text();
+    let line = text
+        .lines()
+        .find(|line| line.contains(ALLOWED_LINE))
+        .unwrap();
+    assert!(
+        line.contains("action=\"click\"") || line.contains("action=click"),
+        "{line}"
+    );
+    assert!(
+        !line.contains(" CLICK ") && !line.contains("not-hex"),
+        "{line}"
+    );
+}
