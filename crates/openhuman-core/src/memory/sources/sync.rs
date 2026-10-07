@@ -103,8 +103,8 @@ pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryRes
 }
 
 /// Files `items` into `layout`'s brain, each under the brain source it
-/// belongs to (`memory::brain::brain_source`), and queues one belief build
-/// per source it touched. Returns how many were stored.
+/// belongs to (`memory::brain::brain_node`), and queues one belief build
+/// per node it touched. Returns how many were stored.
 pub(crate) async fn store_all(
     config: &Config,
     bound: &BoundEngine,
@@ -117,11 +117,12 @@ pub(crate) async fn store_all(
     let mut touched = std::collections::BTreeSet::new();
     for item in items {
         let brain_source = crate::memory::brain::brain_source(kind, target);
-        let item = crate::memory::brain::file_into(layout, &brain_source, item)?;
+        let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
+        let item = crate::memory::brain::file_into(node.clone(), item);
         match store_on(bound, item).await {
             Ok(_) => {
                 stored += 1;
-                touched.insert(brain_source);
+                touched.insert(node);
             }
             // Out of credits or unreachable refuses every item, so stop
             // rather than fail each one in turn.
@@ -137,9 +138,8 @@ pub(crate) async fn store_all(
     let automatic =
         bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
     let jobs = touched
-        .iter()
+        .into_iter()
         .filter(|_| !automatic)
-        .filter_map(|source| layout.brain(source).ok())
         .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
             request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))
                 .kinds([tinymemory_api::ItemKind::Document]),

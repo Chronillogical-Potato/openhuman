@@ -46,9 +46,79 @@ fn synced_items_are_filed_by_their_connector() {
 }
 
 #[test]
+fn a_github_document_names_its_repository() {
+    let with = |repo: Option<&str>, url: Option<&str>| {
+        let mut item = document(None, None);
+        item.meta_mut().repo = repo.map(str::to_string);
+        item.meta_mut().url = url.map(str::to_string);
+        github_collection(&item)
+    };
+    assert_eq!(with(Some("Acme/API"), None).as_deref(), Some("acme-api"));
+    assert_eq!(
+        with(Some("https://github.com/acme/api.git"), None).as_deref(),
+        Some("acme-api")
+    );
+    // A Composio issue carries only its URL.
+    assert_eq!(
+        with(
+            None,
+            Some("https://github.com/tinyhumansai/openhuman/issues/12")
+        )
+        .as_deref(),
+        Some("tinyhumansai-openhuman")
+    );
+    assert_eq!(with(None, Some("https://example.com/a/b")), None);
+    assert_eq!(with(Some("acme"), None), None);
+    assert_eq!(with(None, None), None);
+}
+
+#[tokio::test]
+async fn a_sources_collections_count_and_forget_with_it() {
+    use tinymemory_api::MemoryEngine as _;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let layout = MemoryLayout::default();
+    for (node, text) in [
+        (layout.brain(&BrainSource::Github).unwrap(), "org notes"),
+        (
+            layout
+                .brain_collection(&BrainSource::Github, "acme-api")
+                .unwrap(),
+            "an issue",
+        ),
+        (layout.brain(&BrainSource::Notion).unwrap(), "a page"),
+    ] {
+        let meta = MemoryMeta {
+            namespace: node,
+            ..MemoryMeta::default()
+        };
+        engine.store(StoreItem::document(text, meta)).await.unwrap();
+    }
+    let view = sources(&config).await.unwrap();
+    let counts: Vec<(&str, u64)> = view
+        .sources
+        .iter()
+        .map(|s| (s.source.as_str(), s.documents))
+        .collect();
+    assert_eq!(counts, [("github", 2), ("notion", 1)]);
+    assert_eq!(view.unfiled, 0);
+
+    let gone = forget(
+        &config,
+        BrainForgetParams {
+            source: "github".into(),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(gone.forgotten, 2, "the source and its collection");
+}
+
+#[test]
 fn filing_moves_an_item_to_its_source_node_without_an_agent() {
     let team = MemoryLayout::new("team:acme".parse().unwrap()).unwrap();
-    let filed = file_into(&team, &BrainSource::Pdf, document(None, None)).unwrap();
+    let filed = file_into(team.brain(&BrainSource::Pdf).unwrap(), document(None, None));
     assert_eq!(filed.meta().namespace.to_string(), "team:acme/source:pdf");
     assert_eq!(filed.meta().agent_id, None);
 }
