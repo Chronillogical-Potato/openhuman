@@ -482,6 +482,9 @@ pub(crate) async fn checkout_session_agent(
         );
     }
     agent.set_reply_language_directive(directive);
+    // Re-read per message too, so a zone changed in Settings applies to the
+    // next message of an open conversation.
+    agent.set_time_zone(Some(config.time_zone()));
 
     // Cold-boot resume needs no seeding here. `set_thread_id` binds the
     // session's durable identity and the turn resumes by it, reading the one

@@ -55,6 +55,7 @@ pub(super) struct OpenHumanSessionState {
     pub(crate) pending_turn_overrides: super::types::TurnOverrides,
     pub(super) active_turn_overrides: super::types::TurnOverrides,
     pub(super) reply_language_directive: Option<String>,
+    pub(super) time_zone: Option<String>,
     prelude: Option<OpenHumanTurnPrelude>,
 }
 
@@ -634,10 +635,7 @@ impl OpenHumanTurnPrelude {
             self.tool_dispatcher.tool_call_format(),
         )
         .harness_dispatcher();
-        format!(
-            "{}\n\n{enriched}",
-            crate::agent::prompts::turn_preamble(turn.reply_language_directive.as_deref())
-        )
+        format!("{}\n\n{enriched}", turn.preamble())
     }
 
     fn parent_context(&self) -> crate::agent::harness::ParentExecutionContext {

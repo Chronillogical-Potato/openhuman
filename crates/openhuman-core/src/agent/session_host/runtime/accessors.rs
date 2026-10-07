@@ -568,6 +568,15 @@ impl OpenHumanSessionHost {
             .reply_language_directive = directive;
     }
 
+    /// The user's IANA time zone, which the date line on each later user
+    /// message is stamped in (`None`: the device's).
+    pub fn set_time_zone(&mut self, zone: Option<String>) {
+        self.runtime_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .time_zone = zone;
+    }
+
     /// The reply-language instruction the next user message will carry.
     pub fn reply_language_directive(&self) -> Option<String> {
         self.runtime_state

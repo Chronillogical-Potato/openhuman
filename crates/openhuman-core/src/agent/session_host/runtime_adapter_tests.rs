@@ -686,6 +686,7 @@ async fn reply_language_directive_rides_each_user_message_until_cleared_body() {
     };
 
     host.set_reply_language_directive(Some(DIRECTIVE.to_string()));
+    host.set_time_zone(Some("Pacific/Chatham".to_string()));
     assert_eq!(host.turn("¿qué tal?").await.unwrap(), "hola");
     host.set_reply_language_directive(None);
     assert_eq!(host.turn("and now?").await.unwrap(), "hello");
@@ -700,6 +701,10 @@ async fn reply_language_directive_rides_each_user_message_until_cleared_body() {
     assert!(
         first.contains(DIRECTIVE),
         "the directive must reach the model: {first}"
+    );
+    assert!(
+        first.contains(" Pacific/Chatham ("),
+        "the clock reads in the user's zone: {first}"
     );
     assert!(
         first.find(DIRECTIVE) < first.find("¿qué tal?"),
