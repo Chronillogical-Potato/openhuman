@@ -23,7 +23,10 @@ use crate::memory::types::{ImportPhase, ImportState};
 /// list; ones refused again stay, with the new reason.
 pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
     let file = read_file(&config.workspace_dir);
-    if file.state.phase != ImportPhase::Done || file.failed.is_empty() {
+    // A retry the app quit during is still a retry the user may press
+    // again; a live one is answered with its status by `begin_retry`.
+    let interrupted_retry = file.state.phase == ImportPhase::Running && file.retrying;
+    if !(file.state.phase == ImportPhase::Done || interrupted_retry) || file.failed.is_empty() {
         return Err(MemoryError::invalid(
             "no failed items to retry: the import has not finished or skipped nothing",
         ));
@@ -145,6 +148,8 @@ async fn retry_run(
                         if let Some(failed) = file.failed.iter_mut().find(|f| f.id == id) {
                             *failed = again;
                         }
+                        // Persisted as it changes, like a stored item.
+                        write_file(workspace_dir, &file);
                     }
                     Err(error) => {
                         failure = Some(retry_stop_message(error));

@@ -5,7 +5,7 @@
 
 use super::tests::{
     after_document, always, billing, bind_failing, legacy_workspace, out_of_credits,
-    wait_until_settled,
+    wait_until_no_live_run, wait_until_settled,
 };
 use super::*;
 use crate::memory::error::INVALID_REQUEST;
@@ -164,19 +164,6 @@ async fn a_stop_that_is_not_about_credits_is_not_resumed_by_billing() {
     assert_eq!(wait_until_settled(&config).await.phase, ImportPhase::Error);
     assert!(!read_file(&config.workspace_dir).paused_for_credits);
     assert!(!resume_interrupted_with(&config, always(false), billing(true)).await);
-}
-
-#[test]
-fn only_a_self_hosted_engine_runs_automatically_until_the_free_period_check_lands() {
-    let tmp = tempfile::tempdir().unwrap();
-    let mut config = config_in(&tmp);
-    config.memory.engine = crate::memory::engine::CORTEXDB_ENGINE.to_string();
-    assert!(automatic_run_allowed(&config));
-    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_string();
-    assert!(
-        !automatic_run_allowed(&config),
-        "unknown free period is not free"
-    );
 }
 
 /// An engine refusal of the "Ideas" document while `$flag` is set, one flag
@@ -422,19 +409,78 @@ async fn a_resumed_retry_stops_when_background_work_is_paused() {
     let paused: PauseCheck =
         std::sync::Arc::new(move || seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0);
     assert!(resume_interrupted_with(&config, paused, billing(false)).await);
-    for _ in 0..200 {
-        if !RUNNING
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .contains(&config.workspace_dir)
-        {
-            break;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
+    wait_until_no_live_run(&config).await;
     let file = read_file(&config.workspace_dir);
     assert_eq!(file.state.phase, ImportPhase::Running);
     assert!(file.retrying);
     assert_eq!(file.failed.len(), 1);
     assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+}
+
+#[tokio::test]
+async fn retry_is_accepted_for_a_retry_the_app_quit_during() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_retry(&config);
+
+    // The user presses Retry before the background job got to it.
+    retry_failed(&config).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.failed),
+        (ImportPhase::Done, 0),
+        "{done:?}"
+    );
+    assert!(stored(&engine, MetaFilter::default())
+        .await
+        .iter()
+        .any(|item| item.text.contains("oolong")));
+}
+
+/// An import stopped by exhausted credits, waiting for memory work to be free.
+fn paused_for_credits(config: &Config) {
+    let mut file = ImportFile::default();
+    file.state = ImportState {
+        phase: ImportPhase::Error,
+        imported: 1,
+        total: 5,
+        error: Some("not enough credits".into()),
+        failed: 0,
+    };
+    file.checkpoint = after_document("d1");
+    file.paused_for_credits = true;
+    write_file(&config.workspace_dir, &file);
+}
+
+#[tokio::test]
+async fn the_background_job_resumes_a_credits_pause_while_memory_work_is_free() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Not the hosted engine: `billing::free_period_active` reports free.
+    let engine = bind_reference(&config);
+    paused_for_credits(&config);
+
+    assert!(resume_interrupted(&config).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn the_background_job_leaves_a_credits_pause_while_memory_work_is_not_free() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Memory is off here, which `billing::free_period_active` reads as not
+    // free: the pause is left as it is, not tried (a tried resume that
+    // fails would clear the pause).
+    paused_for_credits(&config);
+
+    assert!(!resume_interrupted(&config).await);
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(file.state.phase, ImportPhase::Error);
+    assert!(file.paused_for_credits);
 }
