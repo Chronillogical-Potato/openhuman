@@ -95,14 +95,14 @@ pub async fn run(config: Config) -> Result<()> {
 /// - Poll itself failed (DB read) → `healthy: false` with the DB error.
 /// - Poll succeeded, queue empty or not → `healthy: true` (#3312
 ///   recovery signal). Without this, a single transient job failure
-///   that flipped the component to `error` via [`process_due_jobs`]
+///   that flipped the component to `error` by a dispatched job (`dispatch.rs`)
 ///   would stay there indefinitely while the queue was idle — no later
 ///   event would clear it, the health endpoint would keep returning
 ///   503, and Docker would mark the container `unhealthy` for hours
 ///   until a manual restart. Tick-level "still polling" beats
 ///   job-level success as the recovery signal because the queue is
 ///   empty most of the time.
-/// - Per-job results (handled inside `process_due_jobs`) continue to
+/// - Per-job results (published by each dispatched job) continue to
 ///   flip the component back to `healthy: false` on a failure; the
 ///   next tick that survives the DB read will re-flip it to
 ///   `healthy: true`, exactly the auto-recovery behaviour the Docker
@@ -166,7 +166,7 @@ pub(crate) async fn tick_once(
     dispatcher.dispatch(config, security, jobs).await;
     tracing::debug!("[cron:scheduler] tick end due_count={due_count} (jobs processed)");
 
-    // `process_due_jobs` itself may have published `healthy: false` on
+    // A dispatched job may have published `healthy: false` on
     // a job failure, but it does so directly on the bus without
     // touching our local tracker. Reset so the next successful tick
     // is again treated as a transition and re-emits `healthy: true` —

@@ -33,7 +33,11 @@ pub(super) async fn execute_job_with_retry(
 ) -> (bool, String) {
     let mut last_output = String::new();
     let mut last_agent_error: Option<String> = None;
-    let retries = config.reliability.scheduler_retries;
+    // A per-job override (`cron::policy`) wins; `Some(0)` is one attempt.
+    let retries = crate::cron::policy::effective_retries(
+        config,
+        &crate::cron::policy::policy_or_default(config, &job.id),
+    );
     let mut backoff_ms = config.reliability.provider_backoff_ms.max(200);
     let mut session_expired = false;
     let mut credits_exhausted = false;

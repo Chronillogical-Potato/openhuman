@@ -211,7 +211,10 @@ pub(super) async fn run_agent_job(
 }
 
 /// Fires a `JobType::Flow` job. A system job (`system:<name>`, see
-/// [`crate::cron::system_jobs`]) publishes `DomainEvent::CronSystemJobDue`;
+/// [`crate::cron::system_jobs`]) publishes `DomainEvent::CronSystemJobDue` and,
+/// when a handler is registered for it
+/// ([`crate::cron::system_job_handlers`]), awaits that handler and returns its
+/// result;
 /// any other publishes `DomainEvent::FlowScheduleTick` for
 /// the bound flow id (stored in `job.command`, see `JobType::Flow`'s doc) and
 /// returns immediately. This job type does no work itself — dispatching the
@@ -224,7 +227,17 @@ pub(super) async fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
         BUS.publish(DomainEvent::CronSystemJobDue {
             job: name.to_string(),
         });
-        return (true, format!("system job {name} dispatched"));
+        // A host-registered handler is awaited and its result is the run's
+        // result; without one the job is announce-only and `ok` on dispatch.
+        let ctx = crate::cron::system_job_handlers::SystemJobContext {
+            job_id: job.id.clone(),
+            name: name.to_string(),
+        };
+        return match crate::cron::system_job_handlers::dispatch(ctx).await {
+            Some(Ok(())) => (true, format!("system job {name} completed")),
+            Some(Err(error)) => (false, format!("system job {name} failed: {error}")),
+            None => (true, format!("system job {name} dispatched")),
+        };
     }
     let flow_id = job.command.clone();
     tracing::info!(
