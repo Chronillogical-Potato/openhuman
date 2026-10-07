@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
     async_trait, EngineDescriptor, EngineHealth, ExportPage, FetchPage, FetchRequest, ForgetReport,
-    Hit, LearningKind, ListPage, MemoryMeta, RecallAnswer, RecallRequest, Result, StoreItem,
-    StoreReceipt,
+    Hit, LearningKind, ListPage, MemoryEngine, MemoryMeta, RecallAnswer, RecallRequest, Result,
+    StoreItem, StoreReceipt,
 };
 use tinymemory_tools::MemoryLayout;
 
@@ -58,7 +58,7 @@ async fn texts(engine: &dyn MemoryEngine) -> Vec<String> {
 
 async fn copied(tmp: &Path, engines: &Engines) -> MigrationState {
     let mut state = MigrationState::default();
-    copy(tmp, engines, &placement(), &mut state, || false)
+    copy(tmp, engines, &placement(), &mut state, || async { false })
         .await
         .unwrap();
     state
@@ -108,9 +108,11 @@ async fn everything_moved_is_erased_from_the_legacy_tree() {
         tree: tree.clone(),
     };
     let mut state = copied(tmp.path(), &engines).await;
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Cleaned);
     assert!(texts(legacy.as_ref()).await.is_empty());
     assert_eq!(texts(tree.as_ref()).await.len(), 10, "the moved items stay");
@@ -137,9 +139,11 @@ async fn an_item_without_its_twin_is_never_removed() {
         .unwrap();
     tree.forget(ForgetTarget::Ids(vec![lost.id])).await.unwrap();
 
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Cleaned);
     assert_eq!(texts(legacy.as_ref()).await, vec!["fact 3".to_string()]);
 }
@@ -164,9 +168,11 @@ async fn an_engine_that_cannot_erase_forgets_by_id() {
         tree: Arc::new(ReferenceEngine::new()),
     };
     let mut state = copied(tmp.path(), &engines).await;
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Cleaned);
     assert!(texts(legacy.as_ref()).await.is_empty());
 }
@@ -179,9 +185,11 @@ async fn a_paused_cleanup_says_it_was_cleaning() {
         tree: Arc::new(ReferenceEngine::new()),
     };
     let mut state = copied(tmp.path(), &engines).await;
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || true)
-        .await
-        .unwrap();
+    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
+        true
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Paused);
     assert!(state.cleaning, "a resume goes back to cleanup");
     assert_eq!(texts(engines.legacy.as_ref()).await.len(), 4);

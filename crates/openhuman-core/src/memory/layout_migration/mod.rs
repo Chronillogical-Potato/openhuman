@@ -14,10 +14,14 @@
 
 pub mod cleanup;
 pub mod copy;
+pub mod host;
+pub mod job;
 pub mod map;
 pub mod state;
 
 pub use cleanup::cleanup;
 pub use copy::{copy, legacy_present, Engines};
+pub use host::LayoutHost;
+pub use job::{run, Outcome, Trigger};
 pub use map::{FlowPlacement, Placement};
 pub use state::{MigrationState, Phase};

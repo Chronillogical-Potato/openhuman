@@ -78,9 +78,11 @@ async fn every_item_is_copied_placed_and_read_back() {
         tree: tree.clone(),
     };
     let mut state = MigrationState::default();
-    copy(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Copied);
     assert_eq!(state.copied, 121);
     assert!(state.failures.is_empty(), "{:?}", state.failures);
@@ -116,7 +118,8 @@ async fn a_paused_copy_resumes_where_it_stopped_without_duplicates() {
     let pages = AtomicUsize::new(0);
     let mut state = MigrationState::default();
     copy(tmp.path(), &engines, &placement(), &mut state, || {
-        pages.fetch_add(1, Ordering::SeqCst) >= 1
+        let stop = pages.fetch_add(1, Ordering::SeqCst) >= 1;
+        async move { stop }
     })
     .await
     .unwrap();
@@ -126,9 +129,11 @@ async fn a_paused_copy_resumes_where_it_stopped_without_duplicates() {
 
     // A crash here: resume from what was saved, not from memory.
     let mut resumed = state::load(tmp.path()).unwrap();
-    copy(tmp.path(), &engines, &placement(), &mut resumed, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut resumed, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(resumed.phase, Phase::Copied);
     assert_eq!(resumed.copied, 121);
     assert_eq!(count(tree.as_ref()).await, 121, "no item stored twice");
@@ -144,13 +149,17 @@ async fn a_repeated_page_is_a_replay() {
         tree: tree.clone(),
     };
     let mut first = MigrationState::default();
-    copy(tmp.path(), &engines, &placement(), &mut first, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut first, || async {
+        false
+    })
+    .await
+    .unwrap();
     let mut again = MigrationState::default();
-    copy(tmp.path(), &engines, &placement(), &mut again, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut again, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(again.copied, 4);
     assert_eq!(again.replayed, 4);
     assert_eq!(count(tree.as_ref()).await, 4);
@@ -164,9 +173,11 @@ async fn an_account_that_cannot_write_pauses_without_advancing() {
         tree: Arc::new(RefusingEngine::out_of_credits()),
     };
     let mut state = MigrationState::default();
-    copy(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Paused);
     assert_eq!(state.cursor, None, "the page is sent again on resume");
     assert_eq!(state.copied, 0);
@@ -187,9 +198,11 @@ async fn a_legacy_tree_that_cannot_be_read_pauses() {
         tree: Arc::new(ReferenceEngine::new()),
     };
     let mut state = MigrationState::default();
-    copy(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Paused);
 }
 
@@ -234,9 +247,11 @@ async fn old_brain_nodes_are_refiled_by_connector() {
         tree: tree.clone(),
     };
     let mut state = MigrationState::default();
-    copy(tmp.path(), &engines, &placement(), &mut state, || false)
-        .await
-        .unwrap();
+    copy(tmp.path(), &engines, &placement(), &mut state, || async {
+        false
+    })
+    .await
+    .unwrap();
     assert_eq!(state.phase, Phase::Copied);
     let mut placed: Vec<(String, String)> = tree
         .list(ListRequest::new(MetaFilter::default(), 50))

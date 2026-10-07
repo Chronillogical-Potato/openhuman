@@ -17,8 +17,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use tinymemory_api::{
-    EraseRequest, ForgetTarget, GetRequest, ItemId, ItemKind, ListRequest, MemoryEngine,
-    MetaFilter, Namespace, Reach, MAX_GET_IDS,
+    EraseRequest, ForgetTarget, GetRequest, ItemId, ItemKind, ListRequest, MetaFilter, Namespace,
+    Reach, MAX_GET_IDS,
 };
 
 use super::copy::Engines;
@@ -104,13 +104,16 @@ async fn survey(engines: &Engines, placement: &Placement) -> MemoryResult<Survey
 ///
 /// When the state cannot be saved, or the legacy tree cannot be read or
 /// changed for a reason that is not account-wide.
-pub async fn cleanup(
+pub async fn cleanup<P>(
     workspace_dir: &Path,
     engines: &Engines,
     placement: &Placement,
     state: &mut MigrationState,
-    paused: impl Fn() -> bool,
-) -> MemoryResult<()> {
+    paused: impl Fn() -> P,
+) -> MemoryResult<()>
+where
+    P: std::future::Future<Output = bool>,
+{
     state.phase = Phase::Cleaning;
     state.cleaning = true;
     state.error = None;
@@ -142,15 +145,18 @@ pub async fn cleanup(
 }
 
 /// One removal pass; `false` when it stopped for a pause.
-async fn remove_moved(
+async fn remove_moved<P>(
     engines: &Engines,
     placement: &Placement,
-    paused: &impl Fn() -> bool,
-) -> MemoryResult<bool> {
+    paused: &impl Fn() -> P,
+) -> MemoryResult<bool>
+where
+    P: std::future::Future<Output = bool>,
+{
     let found = survey(engines, placement).await?;
     let mut can_erase = !found.partial;
     for ((_, kind), (namespace, group)) in found.groups {
-        if paused() {
+        if paused().await {
             return Ok(false);
         }
         if group.moved.is_empty() {

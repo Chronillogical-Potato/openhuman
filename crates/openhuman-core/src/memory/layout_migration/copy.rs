@@ -50,18 +50,21 @@ pub async fn legacy_present(legacy: &dyn MemoryEngine) -> MemoryResult<bool> {
 ///
 /// When the state cannot be saved, or the legacy tree cannot be read for a
 /// reason that is not account-wide.
-pub async fn copy(
+pub async fn copy<P>(
     workspace_dir: &Path,
     engines: &Engines,
     placement: &Placement,
     state: &mut MigrationState,
-    paused: impl Fn() -> bool,
-) -> MemoryResult<()> {
+    paused: impl Fn() -> P,
+) -> MemoryResult<()>
+where
+    P: std::future::Future<Output = bool>,
+{
     state.phase = Phase::Copying;
     state.error = None;
     state::save(workspace_dir, state)?;
     loop {
-        if paused() {
+        if paused().await {
             return pause(
                 workspace_dir,
                 state,

@@ -21,6 +21,9 @@ fn a_saved_state_loads_back_and_leaves_no_temporary_file() {
         incomplete: vec!["def".into()],
         error: Some("background work is paused".into()),
         cleaning: true,
+        switched: true,
+        caught_up: false,
+        takeover: true,
     };
     save(tmp.path(), &state).unwrap();
     assert_eq!(load(tmp.path()).unwrap(), state);

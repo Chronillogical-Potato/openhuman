@@ -64,6 +64,15 @@ pub struct MigrationState {
     /// Cleanup has started, so a pause resumes it, not the copy.
     #[serde(default)]
     pub cleaning: bool,
+    /// Reads and writes moved to the per-user tree.
+    #[serde(default)]
+    pub switched: bool,
+    /// The catch-up copy after the switch is done.
+    #[serde(default)]
+    pub caught_up: bool,
+    /// The user agreed to take a legacy tree other accounts may share.
+    #[serde(default)]
+    pub takeover: bool,
 }
 
 /// The state file of `workspace_dir`.
