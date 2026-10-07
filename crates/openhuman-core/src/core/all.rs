@@ -941,11 +941,12 @@ pub fn schema_for_rpc_method(method: &str) -> Option<ControllerSchema> {
     // call with bad params would return the controller's validation error
     // instead of method-not-found, leaking the hidden RPC surface. No ambient
     // context ⇒ `group_allowed` is `true` ⇒ unfiltered, identical to pre-#4796.
+    // The SaaS user surface applies here too (`visible`), for the same reason.
     let view = registry_view();
     let found = view
         .iter()
         .chain(internal_registry().iter())
-        .find(|g| g.controller.rpc_method_name() == method && group_allowed(g.group))
+        .find(|g| g.controller.rpc_method_name() == method && visible(g))
         .map(|g| g.controller.schema.clone());
     found
 }
