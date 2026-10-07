@@ -132,3 +132,31 @@ fn scrubbing_keeps_the_page_breaks_a_document_is_chunked_by() {
     assert_eq!(text.matches('\u{c}').count(), 2, "{text:?}");
     assert!(text.ends_with("\u{c}Page two.\u{c}Page three."), "{text:?}");
 }
+
+#[tokio::test]
+async fn export_and_erase_reach_the_wrapped_engine() {
+    let reference = Arc::new(ReferenceEngine::new());
+    let guarded = ScrubbingEngine::wrap(reference.clone());
+    let namespace: tinymemory_api::Namespace = "agent:a".parse().unwrap();
+    guarded
+        .store(StoreItem::document(
+            "kept whole",
+            MemoryMeta {
+                namespace: namespace.clone(),
+                ..MemoryMeta::default()
+            },
+        ))
+        .await
+        .unwrap();
+    let page = guarded
+        .export(ListRequest::new(MetaFilter::default(), 10))
+        .await
+        .expect("export is forwarded, not refused by the wrapper");
+    assert_eq!(page.items.len(), 1);
+    let report = guarded
+        .erase(EraseRequest::new(tinymemory_api::Reach::exact(namespace)))
+        .await
+        .expect("erase is forwarded, not refused by the wrapper");
+    assert_eq!(report.erased_scopes, 1);
+    assert!(texts(&reference).await.is_empty());
+}
