@@ -11,6 +11,7 @@
  *   caller-supplied prop.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
+import { useT } from '@/lib/i18n/I18nContext';
 import {
   AlertTriangleIcon,
   Ban,
@@ -19,7 +20,6 @@ import {
   Loader2Icon,
   XIcon,
 } from 'lucide-react';
-import { useT } from '@/lib/i18n/I18nContext';
 import { Children, type ComponentProps, type ReactNode, useState } from 'react';
 
 import { mono, paper } from './surfaces';

@@ -151,7 +151,8 @@ pub(super) fn apply_stream_limits(
 ) {
     limits.stream_idle_timeout_ms = parse_stream_idle_timeout_ms(idle);
     limits.stream_first_event_timeout_ms = parse_stream_first_event_timeout_ms(first_event);
-    limits.max_consecutive_stream_idle_timeouts = parse_max_consecutive_stream_idle_timeouts(breaker);
+    limits.max_consecutive_stream_idle_timeouts =
+        parse_max_consecutive_stream_idle_timeouts(breaker);
 }
 
 fn env_str(name: &str) -> Option<String> {
