@@ -258,7 +258,9 @@ async fn forget_connection_reads_every_root_its_items_were_filed_under() {
         .unwrap();
     }
     assert_eq!(
-        super::super::roots::of(&config.workspace_dir, "conn-c").len(),
+        super::super::roots::of(&config.workspace_dir, "conn-c")
+            .unwrap()
+            .len(),
         2
     );
 
@@ -272,7 +274,9 @@ async fn forget_connection_reads_every_root_its_items_were_filed_under() {
     let left = stored(&engine, MetaFilter::default()).await;
     assert_eq!(left.len(), 1);
     assert!(left[0].meta.tags.contains(&"connection:conn-d".to_string()));
-    assert!(super::super::roots::of(&config.workspace_dir, "conn-c").is_empty());
+    assert!(super::super::roots::of(&config.workspace_dir, "conn-c")
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]

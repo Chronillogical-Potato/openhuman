@@ -191,7 +191,11 @@ pub async fn forget_connection(
     };
     let recorded = super::roots::of(&config.workspace_dir, connection_id);
     let reaches = match toolkit {
-        Some(toolkit) => toolkit_reaches(config, toolkit, &recorded)?,
+        // An unreadable roots record cannot bound the search: search all.
+        Some(toolkit) => match &recorded {
+            Some(recorded) => toolkit_reaches(config, toolkit, recorded)?,
+            None => Vec::new(),
+        },
         None => {
             tracing::warn!(
                 connection_id = %connection_id,
@@ -234,7 +238,9 @@ pub async fn forget_connection(
             .await?
             .forgotten;
     }
-    super::roots::forget(&config.workspace_dir, connection_id, &recorded);
+    if let Some(recorded) = &recorded {
+        super::roots::forget(&config.workspace_dir, connection_id, recorded);
+    }
     Ok(forgotten)
 }
 
