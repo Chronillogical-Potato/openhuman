@@ -223,7 +223,6 @@ const LiveVoiceSettingsModal = ({
             ) : provider.configured ? (
               <Button
                 size="sm"
-                variant="secondary"
                 analyticsId="live-voice-use-provider"
                 data-testid={`live-voice-use-${provider.id}`}
                 disabled={saving}
@@ -330,6 +329,7 @@ const LiveVoiceSettingsModal = ({
           <div className="min-w-0 flex-1">{status}</div>
           <Button
             size="sm"
+            variant="secondary"
             analyticsId="live-voice-modal-close"
             data-testid="live-voice-modal-close"
             onClick={onClose}>

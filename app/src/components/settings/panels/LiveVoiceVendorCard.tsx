@@ -93,7 +93,6 @@ const LiveVoiceVendorCard = ({
           {!inUse && ready && (
             <Button
               size="sm"
-              variant="secondary"
               analyticsId="live-voice-use-vendor"
               data-testid={`live-voice-use-vendor-${vendor.id}`}
               disabled={saving}
