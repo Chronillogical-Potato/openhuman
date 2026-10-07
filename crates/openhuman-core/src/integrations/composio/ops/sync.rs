@@ -16,7 +16,7 @@
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::memory::engine::BoundEngine;
-use crate::memory::sources::composio::{source_id_for_toolkit, store_records};
+use crate::memory::sources::composio::{is_disconnected, source_id_for_toolkit, store_records};
 
 use super::super::module_client::{self as connectors, methods};
 use super::super::providers::{SyncOutcome, SyncReason};
@@ -214,6 +214,12 @@ pub async fn run_sync_pass(
     reason: &str,
     pass_budget: usize,
 ) -> Result<SyncPassOutcome, String> {
+    // A connection deleted meanwhile is not read again: an empty pass with
+    // nothing pending ends every caller's loop.
+    if is_disconnected(config, connection_id) {
+        tracing::debug!(connection_id = %connection_id, "[composio] connection deleted; sync pass skipped");
+        return Ok(SyncPassOutcome::default());
+    }
     // Sync pages inside the call; the default 30s bus deadline reported
     // failure on runs the module then finished successfully.
     let response = connectors::call_slow::<_, ConnectorSyncResponse>(

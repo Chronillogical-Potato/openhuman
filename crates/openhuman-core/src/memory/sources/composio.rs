@@ -32,6 +32,30 @@ use crate::memory::error::{MemoryError, MemoryResult};
 static STORE: std::sync::LazyLock<tokio::sync::Mutex<()>> =
     std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
 
+/// Connections deleted in this process, per workspace. A sync pass that
+/// read a connection's records before its disconnect must not store them
+/// after it, so [`forget_connection`] records the connection (under
+/// [`STORE`]) and [`store_records`] drops any later batch for it. Composio
+/// never reuses a connection id, so an entry stays for the life of the
+/// process.
+static DISCONNECTED: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashSet<(std::path::PathBuf, String)>>,
+> = std::sync::LazyLock::new(Default::default);
+
+fn disconnected(
+) -> std::sync::MutexGuard<'static, std::collections::HashSet<(std::path::PathBuf, String)>> {
+    DISCONNECTED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Whether `connection_id` was disconnected in this process: its records
+/// are no longer read or stored.
+#[must_use]
+pub fn is_disconnected(config: &Config, connection_id: &str) -> bool {
+    disconnected().contains(&(config.workspace_dir.clone(), connection_id.to_string()))
+}
+
 /// Most connector passes one source sync runs per connection.
 const MAX_PASSES_PER_CONNECTION: usize = 25;
 
@@ -92,6 +116,14 @@ pub async fn store_records(
     records: &[ConnectorRecord],
 ) -> MemoryResult<u64> {
     let _serial = STORE.lock().await;
+    if is_disconnected(config, connection_id) {
+        tracing::debug!(
+            connection_id = %connection_id,
+            records = records.len(),
+            "[memory:sources] dropping records read before their connection was deleted"
+        );
+        return Ok(0);
+    }
     let mut keys = Vec::with_capacity(records.len());
     let mut items = Vec::with_capacity(records.len());
     let mut emptied = Vec::new();
@@ -256,8 +288,10 @@ pub async fn forget_connection(
         Err(error) => return Err(error),
     };
     // A sync pass storing this connection's records finishes first, so none
-    // of its items lands after the forget.
+    // of its items lands after the forget; any pass after it, even one that
+    // read its records before, stores nothing (`DISCONNECTED`).
     let _serial = STORE.lock().await;
+    disconnected().insert((config.workspace_dir.clone(), connection_id.to_string()));
     let recorded = super::roots::of(&config.workspace_dir, connection_id);
     let reaches = match toolkit {
         // An unreadable roots record cannot bound the search: search all.
