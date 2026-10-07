@@ -1060,6 +1060,33 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
     });
 }
 
+/// Waits for the `chat_done` of `request_id` and panics on its `chat_error`.
+/// Terminal events of other requests (a superseded turn's "cancelled", say)
+/// are skipped, so a multi-turn test never mistakes another turn's terminal
+/// for the one it just sent.
+async fn wait_for_request_done(
+    rx: &mut tokio::sync::mpsc::UnboundedReceiver<Value>,
+    request_id: &str,
+) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(180);
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let event = match tokio::time::timeout(remaining, rx.recv()).await {
+            Ok(Some(event)) => event,
+            Ok(None) => panic!("SSE channel closed waiting for {request_id}"),
+            Err(_) => panic!("timed out waiting for chat_done of {request_id}"),
+        };
+        if event.get("request_id").and_then(Value::as_str) != Some(request_id) {
+            continue;
+        }
+        match event.get("event").and_then(Value::as_str) {
+            Some("chat_done") => return,
+            Some("chat_error") => panic!("request {request_id} failed: {event}"),
+            _ => {}
+        }
+    }
+}
+
 /// The last user message of an OpenAI-shaped chat request, as text.
 fn last_user_text(request: &Value) -> String {
     request
@@ -1091,7 +1118,9 @@ fn the_interface_locale_reaches_the_model_on_every_turn() {
             text_completion("Namaste."),
             text_completion("Ok."),
         ]);
-        let stack = boot_stack("").await;
+        // No follow-up suggestions: their post-turn model call would take the
+        // next scripted reply and add a request this test does not expect.
+        let stack = boot_stack("[web_chat]\nsuggestions_enabled = false\n").await;
         let client_id = "locale-directive";
         let (mut events, ready) =
             spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
@@ -1120,10 +1149,17 @@ fn the_interface_locale_reaches_the_model_on_every_turn() {
             )
             .await;
             assert_no_jsonrpc_error(&resp, "channel_web_chat");
-            wait_for_terminal(&mut events).await;
+            let request_id = resp
+                .pointer("/result/request_id")
+                .or_else(|| resp.pointer("/result/result/request_id"))
+                .and_then(Value::as_str)
+                .unwrap_or_else(|| panic!("channel_web_chat returned no request_id: {resp}"))
+                .to_string();
+            wait_for_request_done(&mut events, &request_id).await;
         }
 
         let requests = captured().clone();
+        assert_eq!(requests.len(), 4, "one model request per turn: {requests:#?}");
         let turn = |words: &str| {
             requests
                 .iter()
