@@ -149,14 +149,23 @@ impl OpenHumanBudgetGate {
     /// for a reason of its own: without budgets, a cost tracker or a readable
     /// ledger, the call goes ahead.
     fn check_budgets(&self, est: &CallEstimate) -> Option<String> {
-        let policies = &self.config.cost.budgets;
-        if policies.is_empty() {
+        if self.config.cost.budgets.is_empty() {
             return None;
         }
         let Some(tracker) = cost::try_global() else {
             log::debug!("[tinyagents][budget] budgets configured but no cost tracker; not checked");
             return None;
         };
+        self.check_budgets_against(est, &tracker)
+    }
+
+    /// [`Self::check_budgets`] against an explicit ledger.
+    pub(crate) fn check_budgets_against(
+        &self,
+        est: &CallEstimate,
+        tracker: &cost::CostTracker,
+    ) -> Option<String> {
+        let policies = &self.config.cost.budgets;
         let mut scope = cost::UsageScope::ambient(None, None);
         if let Some(agent) = est.agent_id.as_ref().filter(|a| !a.is_empty()) {
             scope.agent_id = Some(agent.clone());
@@ -169,7 +178,7 @@ impl OpenHumanBudgetGate {
             model: &model,
             scope: &scope,
         };
-        let verdict = match cost::budget::check_call(policies, &tracker, call, chrono::Utc::now()) {
+        let verdict = match cost::budget::check_call(policies, tracker, call, chrono::Utc::now()) {
             Ok(verdict) => verdict,
             Err(error) => {
                 log::warn!("[tinyagents][budget] budget check skipped: {error:#}");
