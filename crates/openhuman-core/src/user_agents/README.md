@@ -15,6 +15,7 @@ process. A single-user core never serves it: its controllers belong to
 | `host.rs` | `AgentHost`: provisioning, lazy open, LRU and idle eviction (never of an agent in use), each agent's derived `CoreContext`, `current()` |
 | `gateway.rs` | Which context a gateway request runs under: the operator plane, or the agent of the user named in `X-OpenHuman-User`, after the signature check |
 | `surface.rs` | What a user may call: `USER_METHODS`, the exact allowlist applied at dispatch, in the controller list and in `/schema`; the operator scope sees only the operator plane; user thread-id rules |
+| `background.rs` | The SaaS background loop: every minute it sweeps idle agents and runs each agent's queued memory jobs (deferred ingests, belief builds) under that agent's context |
 | `credentials.rs` | A user agent's TinyHumans credential, stored beside its config |
 | `ops.rs` | `provision` / `deprovision` / `list` / `status` / `set_credential` / `clear_credential`, returning `Outcome<T>` |
 | `schemas.rs` | The `user_agents.*` controllers |
@@ -100,3 +101,22 @@ or echoes a credential.
 - **Prompt.** In SaaS the runtime section says `Host: hosted` instead of the
   server's hostname. The `## User` identity block stays empty, because no
   process-wide identity is ever set.
+
+## Background work
+
+A single-user core drains memory jobs from a cron system job behind the process-wide scheduler gate. A SaaS core cannot use either: the cron service is off, and the gate reflects the operator, who holds no credential. So `background::spawn` (started by `saas::build`) runs one loop per process instead. Each tick:
+
+- sweeps idle agents;
+- visits every provisioned agent whose workspace has queued memory jobs (`memory::lifecycle::jobs::has_pending`);
+- opens that agent and runs its due jobs under the agent's own context, with its config, credential and memory root.
+
+Agents with nothing queued are not opened.
+
+On the **first** open of an agent in a process, `recover_workspace` settles anything a previous process left in that agent's workspace:
+
+- turns that were mid-flight are marked interrupted;
+- run-ledger rows left running are closed.
+
+A re-open after an eviction never sweeps again, because this process may still be running one of that agent's turns.
+
+User cron jobs are not served yet: the cron RPCs are not on the user surface.
