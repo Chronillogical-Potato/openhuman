@@ -19,7 +19,13 @@ use tinyagents_session::transcript::import::ops::open_session_stores;
 /// The `workspace`-scoped store every session's list lives in, keyed by
 /// session/thread id. Opened fresh per call (cheap — `FileStore` just holds a
 /// root path) so it always reflects the caller's current workspace.
+///
+/// With a host session store installed, the current agent's key-value store
+/// instead.
 pub fn session_todos_store(workspace_dir: &Path) -> Arc<dyn Store> {
+    if let Some(stores) = crate::agent::session_store::current() {
+        return stores.kv;
+    }
     Arc::new(open_session_stores(workspace_dir).kv)
 }
 

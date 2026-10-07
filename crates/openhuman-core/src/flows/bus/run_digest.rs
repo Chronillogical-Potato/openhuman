@@ -96,9 +96,6 @@ impl FlowRunDigestSubscriber {
         let digest = render_run_digest(&flow_name, &run);
         let mut meta = flow_meta(flow_id, &[FLOW_RUN_DIGEST_TAG.to_string()]);
         meta.observed_at = Some(chrono::Utc::now());
-        // A machine-written run summary: searchable, but no facts or
-        // beliefs about the user are derived from it.
-        meta.derive = Some(false);
         match crate::memory::ops::store_item(&self.config, StoreItem::document(digest, meta)).await
         {
             Ok(receipt) => {

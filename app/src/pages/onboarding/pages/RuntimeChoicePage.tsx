@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Alert, AlertDescription } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { useCoreState } from '../../../providers/CoreStateProvider';
 import { trackEvent } from '../../../services/analytics';
@@ -50,12 +49,11 @@ const RuntimeChoicePage = () => {
         }}
       />
       {exitError ? (
-        <Alert
-          variant="destructive"
-          className="mt-3"
+        <div
+          className="mt-3 rounded-xl border border-coral-200 dark:border-coral-500/30 bg-coral-50 dark:bg-coral-500/10 px-4 py-3 text-sm text-coral-700 dark:text-coral-300"
           data-testid="onboarding-runtime-choice-exit-error">
-          <AlertDescription>{t('onboarding.runtimeChoice.exitError')}</AlertDescription>
-        </Alert>
+          {t('onboarding.runtimeChoice.exitError')}
+        </div>
       ) : null}
     </>
   );

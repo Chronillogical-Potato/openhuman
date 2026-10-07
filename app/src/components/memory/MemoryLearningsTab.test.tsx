@@ -5,30 +5,14 @@ import type { Hit } from '../../services/api/memoryApi';
 import { renderWithProviders } from '../../test/test-utils';
 import MemoryLearningsTab from './MemoryLearningsTab';
 
-const hoisted = vi.hoisted(() => ({
-  list: vi.fn(),
-  learn: vi.fn(),
-  forget: vi.fn(),
-  jobs: vi.fn(),
-}));
+const hoisted = vi.hoisted(() => ({ list: vi.fn(), learn: vi.fn(), forget: vi.fn() }));
 
 vi.mock('../../services/api/memoryApi', async importOriginal => ({
   ...(await importOriginal<typeof import('../../services/api/memoryApi')>()),
   memoryItemsList: (...a: unknown[]) => hoisted.list(...a),
   memoryLearn: (...a: unknown[]) => hoisted.learn(...a),
   memoryForget: (...a: unknown[]) => hoisted.forget(...a),
-  memoryJobsList: (...a: unknown[]) => hoisted.jobs(...a),
 }));
-
-function pendingBuild(id: string) {
-  return {
-    id,
-    root: 'default',
-    job: { job: 'build_beliefs' },
-    queued_at: '2026-10-06T00:00:00Z',
-    attempts: 0,
-  };
-}
 
 function learning(id: string, text: string): Hit {
   return { id, kind: 'learning', text, meta: {}, score: 0 };
@@ -38,8 +22,6 @@ beforeEach(() => {
   hoisted.list.mockReset();
   hoisted.learn.mockReset();
   hoisted.forget.mockReset();
-  hoisted.jobs.mockReset();
-  hoisted.jobs.mockResolvedValue({ pending: [], history: [] });
 });
 
 describe('MemoryLearningsTab', () => {
@@ -73,46 +55,6 @@ describe('MemoryLearningsTab', () => {
     hoisted.list.mockResolvedValue({ items: [] });
     renderWithProviders(<MemoryLearningsTab />);
     expect(await screen.findByTestId('memory-learnings-empty')).toBeInTheDocument();
-    await waitFor(() => expect(hoisted.jobs).toHaveBeenCalled());
-    expect(screen.queryByTestId('memory-learnings-deriving')).not.toBeInTheDocument();
-  });
-
-  it('says beliefs are still building when the list is empty and a build is pending', async () => {
-    hoisted.list.mockResolvedValue({ items: [] });
-    hoisted.jobs.mockResolvedValue({
-      pending: [pendingBuild('j1'), { ...pendingBuild('j2'), job: { job: 'ingest_brain' } }],
-      history: [],
-    });
-    renderWithProviders(<MemoryLearningsTab />);
-    expect(await screen.findByTestId('memory-learnings-deriving')).toHaveTextContent(
-      'still building beliefs'
-    );
-    expect(screen.queryByTestId('memory-learnings-empty')).not.toBeInTheDocument();
-  });
-
-  it('keeps the plain empty state when only other jobs are pending or the queue cannot be read', async () => {
-    hoisted.list.mockResolvedValue({ items: [] });
-    hoisted.jobs.mockResolvedValue({
-      pending: [{ ...pendingBuild('j2'), job: { job: 'ingest_brain' } }],
-      history: [],
-    });
-    const { unmount } = renderWithProviders(<MemoryLearningsTab />);
-    expect(await screen.findByTestId('memory-learnings-empty')).toBeInTheDocument();
-    await waitFor(() => expect(hoisted.jobs).toHaveBeenCalled());
-    expect(screen.queryByTestId('memory-learnings-deriving')).not.toBeInTheDocument();
-    unmount();
-
-    hoisted.jobs.mockRejectedValue(new Error('core offline'));
-    renderWithProviders(<MemoryLearningsTab />);
-    expect(await screen.findByTestId('memory-learnings-empty')).toBeInTheDocument();
-    expect(screen.queryByTestId('memory-learnings-deriving')).not.toBeInTheDocument();
-  });
-
-  it('does not read the job queue when there are learnings', async () => {
-    hoisted.list.mockResolvedValue({ items: [learning('l1', 'Prefers dark mode')] });
-    renderWithProviders(<MemoryLearningsTab />);
-    await screen.findByTestId('memory-learning-l1');
-    expect(hoisted.jobs).not.toHaveBeenCalled();
   });
 
   it('pages with the cursor', async () => {

@@ -322,23 +322,6 @@ fn local_status_is_ready_for_a_real_jail() {
     }
 }
 
-// ── Windows child environment ────────────────────────────────────────────────
-//
-// `execute_unsandboxed` and `execute_local_jail` both call `env_clear()` and
-// re-forward only `SANDBOX_ENV_PASSTHROUGH`. On Windows that list has to carry
-// the process-bootstrap variables or the child cannot initialise the OS crypto
-// provider — `node` dies with `Assertion failed: ncrypto::CSPRNG(nullptr, 0)`
-// (exit 134) and `powershell` with `8009001d`. Both read as opaque failures to
-// the agent, which is how the original defect shipped: the four tool launchers'
-// allow-lists were fixed, the sandbox allow-list — the one the `sandboxed`
-// orchestrator actually routes through — was not.
-
-// What a real child actually receives is covered end-to-end in
-// `tests/windows_sandbox_env_e2e.rs`, which spawns through `execute_in_sandbox`
-// and asserts on the child's own environment. It lives there because the probe
-// has to be a Rust `CreateProcess` spawn: `node`'s own `child_process.spawn`
-// silently injects `SystemRoot`, so a JavaScript probe reports a stripped
-// environment as healthy.
 // ── #6961: local-jail output capture stays out of the user's project ─────────
 
 #[cfg(unix)]
@@ -525,17 +508,12 @@ async fn landlock_jail_runs_cargo_and_mktemp_but_blocks_writes_outside() {
     let outside = tempfile::tempdir().unwrap();
     let policy = local_policy(action.path(), state.path());
 
-    // Cargo records the executable for the active build toolchain. Use it
-    // directly so this check exercises Cargo inside the jail: a rustup proxy
-    // on PATH can try to initialize a different HOME in a CI container.
-    let cargo = Path::new(env!("CARGO"));
-    if cargo.is_file() {
-        let quoted_cargo = format!("'{}'", cargo.to_string_lossy().replace('\'', "'\\''"));
-        let r = run_local(&policy, &format!("{quoted_cargo} --version")).await;
+    if host_has("cargo") {
+        let r = run_local(&policy, "cargo --version").await;
         assert!(r.success(), "cargo failed under the jail: {}", r.stderr);
         assert!(r.stdout.starts_with("cargo "), "stdout: {}", r.stdout);
     } else {
-        eprintln!("SKIP cargo: build toolchain executable is absent on this host");
+        eprintln!("SKIP cargo: not installed on this host");
     }
 
     // `/tmp` is not granted; `mktemp` lands in the per-call TMPDIR scratch dir.

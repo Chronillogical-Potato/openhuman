@@ -111,6 +111,31 @@ pub use harness::{
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
 pub use runtime::{ApiKey, Runtime, RuntimeBuilder, RuntimeError};
+
+/// The session store port: what a host implements to keep every agent's
+/// conversations in its own database ([`RuntimeBuilder::session_store`]),
+/// with the in-memory provider and the conformance suites a host's provider
+/// is held to.
+pub mod session_store {
+    pub use openhuman_core::agent::session_store::{AgentStores, SessionStoreProvider};
+    pub use tinyagents_session::port::{
+        AppendStore, InMemorySessionStores, InMemoryTranscriptLocator, InMemoryTurnStates, Store,
+        TurnStates,
+    };
+    pub use tinyagents_session::testkit::conformance::{
+        session_store_conformance, session_store_isolation_conformance,
+    };
+    /// The transcript seam a provider's [`AgentStores::transcripts`] implements.
+    pub use tinyagents_session::transcript::{
+        SessionRef, SessionTranscript, TranscriptHistory, TranscriptLocator, TranscriptMessage,
+        TranscriptMeta, TranscriptPartial, TranscriptRead, TranscriptTurn,
+    };
+    /// The turn snapshots a provider's [`AgentStores::turn_states`] keeps.
+    pub use tinyagents_session::turn_state::{TurnLifecycle, TurnState};
+    /// The error and result the key-value and journal seams return.
+    pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};
+}
+pub use session_store::{InMemorySessionStores, SessionStoreProvider};
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 
 use std::sync::Arc;

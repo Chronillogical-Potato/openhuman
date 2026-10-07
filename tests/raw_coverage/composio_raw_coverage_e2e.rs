@@ -214,9 +214,7 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     // the test to an isolated workspace so the scope store does not depend on
     // a developer's local config.
     let workspace = tempdir().expect("isolated workspace");
-    let workspace_dir = workspace.path().join("workspace");
-    std::fs::create_dir_all(&workspace_dir).expect("create isolated workspace");
-    let _workspace = WorkspaceEnvGuard::set(&workspace_dir);
+    let _workspace = WorkspaceEnvGuard::set(workspace.path());
     let schemas = all_composio_controller_schemas();
     let registered = all_composio_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
@@ -271,7 +269,9 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     assert_eq!(reread.pointer("/admin"), Some(&json!(true)));
     assert_eq!(reread.pointer("/write"), Some(&json!(false)));
     assert!(
-        workspace_dir
+        workspace
+            .path()
+            .join("workspace")
             .join("integrations")
             .join("composio_user_scopes.json")
             .exists(),

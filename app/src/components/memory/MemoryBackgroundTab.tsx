@@ -19,7 +19,6 @@ import {
 } from '../../services/api/memoryApi';
 import { Alert, AlertDescription, Badge, Button, Card } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
-import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill, formatTimestamp } from './memoryFormat';
 import { JOB_OUTCOME_VARIANT, jobKindLabel, jobOutcomeLabel } from './memoryLifecycleLabels';
 
@@ -45,12 +44,12 @@ export default function MemoryBackgroundTab() {
       setError(null);
     } catch (err) {
       log('jobs_list failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
       setJobs(prev => prev ?? { pending: [], history: [] });
     } finally {
       setRefreshing(false);
     }
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,13 +60,13 @@ export default function MemoryBackgroundTab() {
       .catch(err => {
         if (cancelled) return;
         log('jobs_list failed: %o', err);
-        setError(memoryErrorMessage(err, t));
+        setError(memoryErrorMessage(err));
         setJobs({ pending: [], history: [] });
       });
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, []);
 
   const run = async (id?: string) => {
     const key = id ?? '*';
@@ -81,7 +80,7 @@ export default function MemoryBackgroundTab() {
       await reload();
     } catch (err) {
       log('jobs_run failed: %o', err);
-      setError(memoryErrorMessage(err, t));
+      setError(memoryErrorMessage(err));
     } finally {
       setRunning(prev => {
         const next = new Set(prev);
@@ -95,7 +94,11 @@ export default function MemoryBackgroundTab() {
 
   return (
     <div className="space-y-4 animate-fade-up" data-testid="memory-background-tab">
-      {error !== null && <MemoryErrorAlert message={error} data-testid="memory-background-error" />}
+      {error !== null && (
+        <Alert variant="destructive" data-testid="memory-background-error">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
       {notice !== null && (
         <Alert variant="success" data-testid="memory-background-notice">
           <AlertDescription>{notice}</AlertDescription>

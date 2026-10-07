@@ -1,35 +1,39 @@
 import { expect, type Page, test } from '@playwright/test';
 
-import { bootRuntimeReadyGuestPage, callCoreRpc, waitForAppReady } from '../helpers/core-rpc';
+import { bootAuthenticatedPage, callCoreRpc, waitForAppReady } from '../helpers/core-rpc';
 
 /**
- * Onboarding cannot be bypassed while `onboarding_completed` is false.
+ * The runtime-choice step: what it actually guarantees.
  *
- * This file used to pin the `/onboarding/runtime-choice` step (cloud
- * pre-selected, Continue enabled, options mutually exclusive). That step is
- * gone: the identity question is asked once on the Welcome screen, and
- * `/onboarding/welcome` now only routes. What the old spec was really
- * protecting is that the app-shell onboarding gate (`App.tsx`,
- * `[onboarding-gate]`) holds a user in onboarding until it is genuinely done,
- * and that the required steps are passed through rather than skipped. That is
- * what is asserted here:
+ * This spec started from the wrong premise and the browser corrected it, which
+ * is worth recording. `RuntimeChoiceStep.tsx:161` reads
+ * `disabled={selected === null}`, so the step looks like a required-choice gate
+ * with no coverage. It is not one: `:101` is
+ * `useState<AiMode | null>('cloud')`, so **cloud is pre-selected on arrival**
+ * and `selected` is never null through the UI. The `disabled` prop and the
+ * `onClick={() => selected && onNext(selected)}` guard beside it are both dead
+ * defensive code.
  *
- *   - local session: every in-app route bounces to the first of the three
- *     custom steps, the steps run inference -> search -> vault in order, and
- *     `onboarding_completed` stays false until the last one is finished.
- *   - TinyHumans session: nothing is left to configure, so the gate resolves
- *     itself (welcome marks onboarding complete and routes to chat) instead of
- *     leaving the user on a dead screen.
- *   - the retired runtime-choice route cannot be reached.
+ * The first run of this file asserted `toBeDisabled()` and failed with
+ * `locator resolved to <button … aria-label="Continue with Simple"> unexpected
+ * value "enabled"`. Those two tests were removed rather than reframed — a gate
+ * that cannot engage is not a contract worth pinning, and asserting the dead
+ * branch would have been a test that could never fail for the reason it named.
  *
- * `onboarding-modes.spec.ts` walks the happy paths through to completion.
+ * What IS worth pinning, and is covered here: the step is immediately
+ * actionable (a user can continue without hunting for a selection), the
+ * Continue label names the choice they are about to commit to, and the two
+ * options are mutually exclusive. `onboarding-modes.spec.ts` walks both happy
+ * paths and `onboarding-config-functional.spec.ts` covers back navigation;
+ * neither asserts any of the above.
  */
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
 
 async function resetMock(): Promise<void> {
   // Deliberately NOT swallowed. A failed reset leaves shared mock state from a
-  // previous test, which surfaces as an unrelated assertion failure later.
+  // previous test, and onboarding then runs against a fixture nobody chose —
+  // which surfaces as an unrelated assertion failure further down.
   const response = await fetch(`${MOCK_ADMIN_BASE}/__admin/reset`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -40,131 +44,107 @@ async function resetMock(): Promise<void> {
   }
 }
 
-const hash = (page: Page) => page.evaluate(() => window.location.hash);
-
-function sessionToken(userId: string, signature: string): string {
-  const payload = Buffer.from(
-    JSON.stringify({ sub: userId, userId, exp: Math.floor(Date.now() / 1000) + 3600 })
-  ).toString('base64url');
-  return `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.${payload}.${signature}`;
-}
-
-/**
- * Store a session, reset `onboarding_completed=false` and reload the app so its
- * core snapshot reflects both. The "local" signature is what marks the offline
- * "Set it up myself" session (`isLocalSessionToken`); any other is TinyHumans.
- */
-async function bootWithSession(
-  page: Page,
-  userId: string,
-  kind: 'local' | 'tinyhumans',
-  startHash: string
-): Promise<void> {
+async function bootIntoOnboarding(page: Page, userId: string): Promise<void> {
   await resetMock();
-  await bootRuntimeReadyGuestPage(page);
-  await callCoreRpc('openhuman.auth_store_session', {
-    token: sessionToken(userId, kind === 'local' ? 'local' : 'sig'),
-  });
+  await bootAuthenticatedPage(page, userId, '/home');
   await callCoreRpc('openhuman.config_set_onboarding_completed', { value: false });
-  await page.goto(`/#${startHash}`);
-  await page.reload();
+  await page.goto('/#/onboarding/welcome');
   await waitForAppReady(page);
+  await expect
+    .poll(async () => page.evaluate(() => window.location.hash), { timeout: 20_000 })
+    .toMatch(/^#\/onboarding/);
 }
 
-async function readOnboardingCompleted(): Promise<boolean> {
-  const completed = await callCoreRpc<boolean | { result?: boolean }>(
-    'openhuman.config_get_onboarding_completed',
-    {}
-  );
-  const value = typeof completed === 'boolean' ? completed : completed?.result;
-  // `Boolean(completed?.result)` alone would turn a malformed response into
-  // `false` and quietly satisfy a "still incomplete" assertion. Require a real
-  // boolean so a shape change fails loudly.
-  expect(typeof value).toBe('boolean');
-  return value as boolean;
+async function reachRuntimeChoice(page: Page, userId: string): Promise<void> {
+  await bootIntoOnboarding(page, userId);
+  await expect(page.getByTestId('onboarding-welcome-step')).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId('onboarding-next-button').click();
+  await expect(page.getByTestId('onboarding-runtime-choice-step')).toBeVisible({ timeout: 20_000 });
 }
 
 const nextButton = (page: Page) => page.getByTestId('onboarding-next-button');
 
-async function expectOnFirstCustomStep(page: Page): Promise<void> {
-  await expect
-    .poll(() => hash(page), { timeout: 20_000 })
-    .toMatch(/^#\/onboarding\/custom\/inference/);
-  await expect(page.getByTestId('onboarding-custom-inference-step')).toBeVisible({
-    timeout: 20_000,
-  });
-}
+test.describe('Onboarding — the runtime choice is a required step', () => {
+  test('arrives with cloud pre-selected and immediately actionable', async ({ page }) => {
+    // The default is what makes the step passable in one click. If it ever
+    // regressed to `null`, Continue would be permanently disabled and the flow
+    // would dead-end here — which is the failure the dead `disabled` prop was
+    // presumably written against.
+    await reachRuntimeChoice(page, 'pw-onboarding-default-cloud');
 
-test.describe('Onboarding — cannot be bypassed while incomplete', () => {
-  for (const target of ['/chat', '/settings', '/human']) {
-    test(`local session: ${target} bounces to the first custom step`, async ({ page }) => {
-      await bootWithSession(page, 'pw-gate-local-bounce', 'local', target);
-
-      await expectOnFirstCustomStep(page);
-      expect(await readOnboardingCompleted()).toBe(false);
-    });
-  }
-
-  test('local session: the three custom steps run in order and do not complete onboarding early', async ({
-    page,
-  }) => {
-    await bootWithSession(page, 'pw-gate-local-steps', 'local', '/onboarding/welcome');
-
-    await expectOnFirstCustomStep(page);
-    expect(await readOnboardingCompleted()).toBe(false);
-
-    await nextButton(page).click();
-    await expect(page.getByTestId('onboarding-custom-search-step')).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(page.getByTestId('onboarding-custom-inference-step')).toHaveCount(0);
-    expect(await readOnboardingCompleted()).toBe(false);
-
-    await nextButton(page).click();
-    await expect(page.getByTestId('onboarding-custom-vault-step')).toBeVisible({ timeout: 20_000 });
-    // Still in onboarding on the final step, until it is finished.
-    expect(await hash(page)).toMatch(/^#\/onboarding\/custom\/vault/);
-    expect(await readOnboardingCompleted()).toBe(false);
-
-    // Voice, OAuth and embeddings are retired as wizard steps.
-    for (const retired of ['voice', 'oauth', 'embeddings']) {
-      await expect(page.getByTestId(`onboarding-custom-${retired}-step`)).toHaveCount(0);
-    }
+    await expect(page.getByTestId('onboarding-runtime-choice-cloud')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(nextButton(page)).toBeEnabled();
+    await expect(nextButton(page)).toContainText(/simple|cloud/i);
   });
 
-  test('local session: Back returns to the previous required step', async ({ page }) => {
-    await bootWithSession(page, 'pw-gate-local-back', 'local', '/onboarding/welcome');
+  test('re-selecting cloud keeps Continue enabled and named for it', async ({ page }) => {
+    await reachRuntimeChoice(page, 'pw-onboarding-gate-cloud');
 
-    await expectOnFirstCustomStep(page);
-    await nextButton(page).click();
-    await expect(page.getByTestId('onboarding-custom-search-step')).toBeVisible({
-      timeout: 20_000,
-    });
+    await page.getByTestId('onboarding-runtime-choice-cloud').click();
 
-    await page.getByRole('button', { name: /Back/ }).click();
-    await expect(page.getByTestId('onboarding-custom-inference-step')).toBeVisible({
-      timeout: 20_000,
-    });
-    expect(await readOnboardingCompleted()).toBe(false);
+    await expect(page.getByTestId('onboarding-runtime-choice-cloud')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(nextButton(page)).toBeEnabled();
+    await expect(nextButton(page)).toContainText(/simple|cloud/i);
   });
 
-  test('the retired runtime-choice route is unreachable and falls through to the gate', async ({
-    page,
-  }) => {
-    await bootWithSession(page, 'pw-gate-retired-route', 'local', '/onboarding/runtime-choice');
+  test('choosing custom enables Continue and names the other choice', async ({ page }) => {
+    await reachRuntimeChoice(page, 'pw-onboarding-gate-custom');
 
-    await expectOnFirstCustomStep(page);
-    await expect(page.getByTestId('onboarding-runtime-choice-step')).toHaveCount(0);
-    expect(await readOnboardingCompleted()).toBe(false);
+    await page.getByTestId('onboarding-runtime-choice-custom').click();
+
+    await expect(page.getByTestId('onboarding-runtime-choice-custom')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(nextButton(page)).toBeEnabled();
+    await expect(nextButton(page)).toContainText(/custom/i);
   });
 
-  test('TinyHumans session: the gate resolves itself and lands in chat', async ({ page }) => {
-    // Nothing is left to configure for a managed session, so a user held at the
-    // gate must not be stranded on a screen that needs input.
-    await bootWithSession(page, 'pw-gate-tinyhumans', 'tinyhumans', '/settings');
+  test('the two runtime options are mutually exclusive', async ({ page }) => {
+    // Two options both reading `aria-pressed="true"` would leave the user
+    // unable to tell what they are about to configure.
+    await reachRuntimeChoice(page, 'pw-onboarding-gate-exclusive');
 
-    await expect.poll(() => hash(page), { timeout: 20_000 }).toMatch(/^#\/chat/);
-    await expect.poll(readOnboardingCompleted, { timeout: 20_000 }).toBe(true);
-    await expect(page.getByTestId('onboarding-layout')).toHaveCount(0);
+    await page.getByTestId('onboarding-runtime-choice-cloud').click();
+    await expect(page.getByTestId('onboarding-runtime-choice-cloud')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    await page.getByTestId('onboarding-runtime-choice-custom').click();
+
+    await expect(page.getByTestId('onboarding-runtime-choice-custom')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(page.getByTestId('onboarding-runtime-choice-cloud')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+  });
+
+  test('onboarding is not marked complete while the flow is still gated', async ({ page }) => {
+    // The gate is only meaningful if the user is genuinely still in onboarding.
+    // If `onboarding_completed` were already true, a reload would drop them
+    // into the app and the disabled button would be protecting nothing.
+    await reachRuntimeChoice(page, 'pw-onboarding-gate-incomplete');
+
+    const completed = await callCoreRpc<boolean | { result?: boolean }>(
+      'openhuman.config_get_onboarding_completed',
+      {}
+    );
+    // `Boolean(completed?.result)` alone would turn a malformed response — one
+    // with no `result` at all — into `false` and quietly satisfy the assertion.
+    // Require an actual boolean first, so a shape change fails loudly here
+    // instead of being read as "onboarding is incomplete".
+    const value = typeof completed === 'boolean' ? completed : completed?.result;
+    expect(typeof value).toBe('boolean');
+    expect(value).toBe(false);
   });
 });

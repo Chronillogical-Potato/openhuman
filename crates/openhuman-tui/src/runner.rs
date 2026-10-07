@@ -28,6 +28,7 @@ use openhuman_core::core::types::HostKind;
 pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     openhuman_core::core::cli::load_dotenv_for_cli()?;
     openhuman_core::platform::service::apply_startup_restart_delay_from_env();
+    openhuman_core::security::keyring::init_master_key();
 
     let mut thread_id: Option<String> = None;
     let mut force_new = false;
@@ -108,9 +109,6 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     // File-only logging — never stderr while the TUI owns the terminal.
     let data_dir = resolve_data_dir();
     let log_dir = openhuman_core::core::logging::init_for_tui(&data_dir, verbose);
-    // After argument parsing so `--help` works while a configured master key
-    // is being fixed, and after logging so a rejection reaches the log file.
-    openhuman_core::security::keyring::init_master_key().map_err(anyhow::Error::msg)?;
     log::info!(
         "[tui] starting tabbed terminal UI (thread={:?} new={} logs={:?})",
         thread_id,
@@ -176,6 +174,8 @@ async fn async_main(
 
     // In-process core: full domains (channel.web_chat needs DomainGroup::Channels,
     // so harness() is not enough), no RPC transport, no background services.
+    // Conversations in the classic on-disk layout, as the desktop keeps them.
+    openhuman_rpc::session_store::install();
     let runtime = Arc::new(
         CoreBuilder::new(HostKind::detect_standalone())
             .domains(DomainSet::full())

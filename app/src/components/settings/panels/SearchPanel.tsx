@@ -46,30 +46,13 @@ const errorMessage = (err: unknown) => (err instanceof Error ? err.message : Str
  * `embedded` renders without the page title (the onboarding wizard owns its
  * own heading); the switch and tabs then sit at the top of the body.
  */
-const SearchPanel = ({
-  embedded = false,
-  hideTabChrome = false,
-}: {
-  embedded?: boolean;
-  /**
-   * Drop the providers/routing/websites chip tabs and show providers only.
-   *
-   * The onboarding wizard sets this: a three-step wizard with its own tabbed
-   * sub-navigation inside one step reads as two nesting levels of the same
-   * idea, and the routing and websites tabs are refinements nobody needs
-   * before their first message. Both stay reachable from Settings. Defaults
-   * false so Settings is unchanged.
-   */
-  hideTabChrome?: boolean;
-}) => {
+const SearchPanel = ({ embedded = false }: { embedded?: boolean }) => {
   const { t } = useT();
   const { snapshot } = useCoreState();
   const isLocalSession = isLocalSessionToken(snapshot.sessionToken);
   const enabledId = useId();
 
-  const [selectedTab, setTab] = useState<SearchPanelTab>('providers');
-  // With the chip row hidden there is no way back from another tab, so pin it.
-  const tab: SearchPanelTab = hideTabChrome ? 'providers' : selectedTab;
+  const [tab, setTab] = useState<SearchPanelTab>('providers');
   const [settings, setSettings] = useState<SearchSettings | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   const saving = status.kind === 'saving';
@@ -134,32 +117,8 @@ const SearchPanel = ({
     { id: 'websites' as const, label: t('settings.search.tabWebsites') },
   ];
 
-  // One honest answer to "will search actually work?". `effective_roles` lists
-  // the usable providers per role in serving order, so an empty list for every
-  // role means no tool will be offered to the agent. Derived from the settings
-  // the panel already holds — `SearchProviderInfo.usable` is dead, nothing
-  // reads it, and there is no RPC that runs a probe query.
-  const searchReady = Boolean(
-    settings?.enabled &&
-    Object.values(settings.effective_roles ?? {}).some(providers => providers.length > 0)
-  );
-
   const body = (
     <div className="flex w-full flex-col gap-4" data-testid="search-settings-panel">
-      {hideTabChrome && settings && settings.enabled ? (
-        <Alert
-          variant={searchReady ? 'success' : 'warning'}
-          density="compact"
-          role={undefined}
-          data-testid="search-readiness">
-          <AlertDescription>
-            {searchReady
-              ? t('onboarding.custom.search.ready')
-              : t('onboarding.custom.search.notReady')}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {managedUnavailable && (
         <Alert variant="info">
           <AlertDescription>{t('settings.search.localManagedUnavailable')}</AlertDescription>
@@ -180,7 +139,6 @@ const SearchPanel = ({
           saving={saving}
           managedUnavailable={managedUnavailable}
           updateProvider={updateProvider}
-          hideTabChrome={hideTabChrome}
           t={t}
         />
       )}
@@ -206,16 +164,14 @@ const SearchPanel = ({
     return (
       <div className="flex w-full flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {hideTabChrome ? null : (
-            <ChipTabs
-              className="flex flex-wrap gap-1.5"
-              ariaLabel={t('settings.search.title')}
-              testIdPrefix="search-tab"
-              items={tabs}
-              value={tab}
-              onChange={setTab}
-            />
-          )}
+          <ChipTabs
+            className="flex flex-wrap gap-1.5"
+            ariaLabel={t('settings.search.title')}
+            testIdPrefix="search-tab"
+            items={tabs}
+            value={tab}
+            onChange={setTab}
+          />
           {enabledSwitch}
         </div>
         {body}
