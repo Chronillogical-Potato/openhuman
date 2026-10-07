@@ -256,6 +256,20 @@ impl Fixture {
         .await
     }
 
+    /// [`Self::ok`] repeated until `done` holds for the result, or ten
+    /// seconds pass (the last result is returned): for reads of a write the
+    /// engine may index after it answers.
+    async fn ok_until(&self, method: &str, params: Value, done: impl Fn(&Value) -> bool) -> Value {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let result = self.ok(method, params.clone()).await;
+            if done(&result) || std::time::Instant::now() >= deadline {
+                return result;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    }
+
     /// The unwrapped result of a call that must succeed.
     async fn ok(&self, method: &str, params: Value) -> Value {
         let response = self.call(method, params).await;
@@ -1302,7 +1316,11 @@ async fn local_files_and_text_file_under_the_files_source() {
         .await;
     assert_eq!(text["source"], json!("files"), "{text}");
 
-    let sources = f.ok("openhuman.memory_brain_sources", json!({})).await;
+    let sources = f
+        .ok_until("openhuman.memory_brain_sources", json!({}), |v| {
+            v["sources"][0]["documents"] == json!(2)
+        })
+        .await;
     let listed: Vec<(String, u64)> = sources["sources"]
         .as_array()
         .expect("sources")
@@ -1317,9 +1335,10 @@ async fn local_files_and_text_file_under_the_files_source() {
     assert_eq!(listed, [("files".to_string(), 2)], "{sources}");
 
     let found = f
-        .ok(
+        .ok_until(
             "openhuman.memory_brain_search",
             json!({ "query": "expenses", "source": "files" }),
+            |v| !v["hits"].as_array().is_none_or(Vec::is_empty),
         )
         .await;
     assert_eq!(found["hits"].as_array().unwrap().len(), 1, "{found}");
@@ -1342,7 +1361,11 @@ async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forget
         json!({ "text": "The new vendor code is PV-9000" }),
     )
     .await;
-    let sources = f.ok("openhuman.memory_brain_sources", json!({})).await;
+    let sources = f
+        .ok_until("openhuman.memory_brain_sources", json!({}), |v| {
+            v["sources"].as_array().is_some_and(|s| s.len() == 2)
+        })
+        .await;
     let mut listed: Vec<String> = sources["sources"]
         .as_array()
         .expect("sources")
@@ -1352,9 +1375,10 @@ async fn a_document_at_an_old_per_format_node_stays_listed_searchable_and_forget
     listed.sort();
     assert_eq!(listed, ["files", "pdf"], "{sources}");
     let found = f
-        .ok(
+        .ok_until(
             "openhuman.memory_brain_search",
             json!({ "query": "vendor code" }),
+            |v| v["hits"].as_array().is_some_and(|h| h.len() == 2),
         )
         .await;
     assert_eq!(
