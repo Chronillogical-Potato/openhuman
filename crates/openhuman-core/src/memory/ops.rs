@@ -150,6 +150,7 @@ pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<Recal
         filter: params.filter.unwrap_or_default(),
         limit: clamp_limit(params.limit),
         instructions: None,
+        refers_to: None,
     };
     request.validate()?;
     let answer = bound.engine.recall(request).await?;
@@ -187,6 +188,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
+        refers_to: None,
     };
     request.validate()?;
     let page = bound.engine.fetch(request).await?;
