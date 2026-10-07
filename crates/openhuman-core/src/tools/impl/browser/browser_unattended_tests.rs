@@ -174,8 +174,7 @@ async fn a_listed_direct_action_runs_for_cron_without_reading_the_page() {
 async fn an_unlisted_or_untrusted_direct_action_is_not_waved_through() {
     let session = SessionId::new("s-1");
     let unlisted = offline_client(&["press"]);
-    let outcome =
-        approve_browser_action(&unlisted, &session, &click(), false, Some(&cron())).await;
+    let outcome = approve_browser_action(&unlisted, &session, &click(), false, Some(&cron())).await;
     assert!(outcome.is_err());
     let listed = offline_client(&["click"]);
     for origin in [Some(external_channel()), Some(approval_workflow()), None] {
@@ -235,10 +234,16 @@ async fn an_allowed_action_is_logged_by_kind_and_digest_without_its_input() {
         .lines()
         .find(|line| line.contains(ALLOWED_LINE))
         .unwrap_or_else(|| panic!("no unattended log line in {text:?}"));
-    assert!(line.contains("action=\"fill\"") || line.contains("action=fill"), "{line}");
+    assert!(
+        line.contains("action=\"fill\"") || line.contains("action=fill"),
+        "{line}"
+    );
     assert!(line.contains("action_digest="), "{line}");
     assert!(line.contains("TrustedAutomation(Cron)"), "{line}");
-    assert!(!line.contains("hunter2-password") && !line.contains("#secret-field"), "{line}");
+    assert!(
+        !line.contains("hunter2-password") && !line.contains("#secret-field"),
+        "{line}"
+    );
     assert!(!line.contains("job-1"), "{line}");
 }
 

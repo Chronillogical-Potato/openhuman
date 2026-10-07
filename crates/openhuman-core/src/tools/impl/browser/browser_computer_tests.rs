@@ -408,7 +408,10 @@ async fn task_rejects_a_malformed_flow_before_the_module() {
     )));
     let tool = BrowserTool::new(Arc::new(SecurityPolicy::default()), client, 3);
     let error = tool
-        .run(&json!({"action":"task","goal":"Read the news","flow":{"steps":"not a list"}}), None)
+        .run(
+            &json!({"action":"task","goal":"Read the news","flow":{"steps":"not a list"}}),
+            None,
+        )
         .await
         .unwrap_err();
     assert!(error.to_string().contains("Invalid flow"), "{error}");
