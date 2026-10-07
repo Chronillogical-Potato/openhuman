@@ -57,17 +57,26 @@ fn load(workspace_dir: &Path) -> Option<Versions> {
             return None;
         }
     };
-    Some(serde_json::from_str(&text).unwrap_or_else(|error| {
-        tracing::warn!(error = %error, "[memory:sources] connector item versions unparsable");
-        set_aside(&file)
-    }))
+    match serde_json::from_str(&text) {
+        Ok(versions) => Some(versions),
+        Err(error) => {
+            tracing::warn!(error = %error, "[memory:sources] connector item versions unparsable");
+            set_aside(&file)
+        }
+    }
 }
 
-fn set_aside(file: &Path) -> Versions {
-    if let Err(error) = std::fs::rename(file, file.with_extension("json.corrupt")) {
-        tracing::warn!(error = %error, "[memory:sources] could not set the versions file aside");
+/// Moves an unparsable file to `.corrupt` and starts from empty, or, when
+/// it cannot be moved, changes nothing (`None`), so a later save never
+/// overwrites the only copy.
+fn set_aside(file: &Path) -> Option<Versions> {
+    match std::fs::rename(file, file.with_extension("json.corrupt")) {
+        Ok(()) => Some(Versions::default()),
+        Err(error) => {
+            tracing::warn!(error = %error, "[memory:sources] could not set the versions file aside; skipping");
+            None
+        }
     }
-    Versions::default()
 }
 
 /// Writes through a temporary file and a rename, so a stop mid-write never

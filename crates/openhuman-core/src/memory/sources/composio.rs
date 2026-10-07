@@ -21,6 +21,15 @@ use crate::integrations::composio::ops::{
 use crate::memory::engine::BoundEngine;
 use crate::memory::error::{MemoryError, MemoryResult};
 
+/// Held across one [`store_records`] call: storing, finding the previous
+/// versions and forgetting them. Two passes over the same records (the
+/// on-demand and the scheduled sync) would otherwise interleave, and one
+/// could forget an item the other has just made current again.
+// ponytail: one lock for every connection, as passes are short and rare; a
+// per-connection lock if syncs of many accounts must overlap.
+static STORE: std::sync::LazyLock<tokio::sync::Mutex<()>> =
+    std::sync::LazyLock::new(|| tokio::sync::Mutex::new(()));
+
 /// Most connector passes one source sync runs per connection.
 const MAX_PASSES_PER_CONNECTION: usize = 25;
 
@@ -80,6 +89,7 @@ pub async fn store_records(
     layout: &tinymemory_tools::MemoryLayout,
     records: &[ConnectorRecord],
 ) -> MemoryResult<u64> {
+    let _serial = STORE.lock().await;
     let mut keys = Vec::with_capacity(records.len());
     let mut items = Vec::with_capacity(records.len());
     let mut emptied = Vec::new();
