@@ -5440,6 +5440,14 @@ const messages: TranslationMap = {
     'Sprich laut mit deinem Assistenten. Wähle, wer seine Stimme liefert, und hinterlege Schlüssel für deine eigenen Konten.',
   'connections.voiceAgents.badgeReady': 'Bereit',
   'connections.voiceAgents.badgeNeedsKey': 'Schlüssel fehlt',
+  'connections.voiceAgents.toastSwitched': 'Sprachagent gewechselt',
+  'connections.voiceAgents.toastSwitchedBody':
+    '{name} antwortet jetzt, wenn du mit deinem Assistenten sprichst.',
+  'connections.voiceAgents.toastVoiceSaved': 'Stimmeinstellungen aktualisiert',
+  'connections.voiceAgents.toastKeySaved': 'API-Schlüssel hinzugefügt',
+  'connections.voiceAgents.toastKeySavedBody': '{name} ist einsatzbereit.',
+  'connections.voiceAgents.toastKeyRemoved': 'API-Schlüssel entfernt',
+  'connections.voiceAgents.toastSaveFailed': 'Änderungen konnten nicht gespeichert werden',
   'connections.voiceAgents.includedTag': 'In TinyHumans enthalten',
   'connections.voiceAgents.ownKeyTag': 'Eigener Schlüssel',
   'connections.voiceAgents.vendorGemini': 'Googles Echtzeit-Sprachmodell. Schnell und natürlich.',
@@ -5469,8 +5477,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.apiKeyPlaceholder': 'API-Schlüssel einfügen',
   'connections.voiceAgents.saveKey': 'Schlüssel speichern',
   'connections.voiceAgents.clearKey': 'Schlüssel entfernen',
-  'connections.voiceAgents.keySaved': 'Schlüssel gespeichert.',
-  'connections.voiceAgents.keyCleared': 'Schlüssel entfernt.',
   'connections.voiceAgents.voice': 'Stimme',
   'connections.voiceAgents.speaker': 'Sprecher',
   'connections.voiceAgents.language': 'Sprache',
@@ -5478,7 +5484,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.loadFailed':
     'Einstellungen der Sprachagenten konnten nicht geladen werden',
   'connections.voiceAgents.saveFailed': 'Speichern fehlgeschlagen: {error}',
-  'connections.voiceAgents.saved': 'Gespeichert.',
   'connections.voiceAgents.saving': 'Wird gespeichert…',
 };
 

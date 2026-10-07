@@ -5392,6 +5392,14 @@ const messages: TranslationMap = {
     'Habla en voz alta con tu asistente. Elige quién pone su voz y añade claves de tus propias cuentas.',
   'connections.voiceAgents.badgeReady': 'Listo',
   'connections.voiceAgents.badgeNeedsKey': 'Falta la clave',
+  'connections.voiceAgents.toastSwitched': 'Agente de voz cambiado',
+  'connections.voiceAgents.toastSwitchedBody':
+    '{name} responde ahora cuando hablas con tu asistente.',
+  'connections.voiceAgents.toastVoiceSaved': 'Ajustes de voz actualizados',
+  'connections.voiceAgents.toastKeySaved': 'Clave de API añadida',
+  'connections.voiceAgents.toastKeySavedBody': '{name} está listo para usar.',
+  'connections.voiceAgents.toastKeyRemoved': 'Clave de API eliminada',
+  'connections.voiceAgents.toastSaveFailed': 'No se pudieron guardar los cambios',
   'connections.voiceAgents.includedTag': 'Incluido con TinyHumans',
   'connections.voiceAgents.ownKeyTag': 'Tu propia clave',
   'connections.voiceAgents.vendorGemini':
@@ -5420,15 +5428,12 @@ const messages: TranslationMap = {
   'connections.voiceAgents.apiKeyPlaceholder': 'Pega tu clave de API',
   'connections.voiceAgents.saveKey': 'Guardar clave',
   'connections.voiceAgents.clearKey': 'Quitar clave',
-  'connections.voiceAgents.keySaved': 'Clave guardada.',
-  'connections.voiceAgents.keyCleared': 'Clave eliminada.',
   'connections.voiceAgents.voice': 'Voz',
   'connections.voiceAgents.speaker': 'Locutor',
   'connections.voiceAgents.language': 'Idioma',
   'connections.voiceAgents.providerDefault': 'Predeterminado del proveedor',
   'connections.voiceAgents.loadFailed': 'No se pudieron cargar los ajustes de los agentes de voz',
   'connections.voiceAgents.saveFailed': 'No se pudo guardar: {error}',
-  'connections.voiceAgents.saved': 'Guardado.',
   'connections.voiceAgents.saving': 'Guardando…',
 };
 

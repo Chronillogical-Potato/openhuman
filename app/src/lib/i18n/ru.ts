@@ -5346,6 +5346,14 @@ const messages: TranslationMap = {
     'Разговаривайте с ассистентом вслух. Выберите, кто озвучивает его, и добавьте ключи своих аккаунтов.',
   'connections.voiceAgents.badgeReady': 'Готов',
   'connections.voiceAgents.badgeNeedsKey': 'Нужен ключ',
+  'connections.voiceAgents.toastSwitched': 'Голосовой агент изменён',
+  'connections.voiceAgents.toastSwitchedBody':
+    'Теперь {name} отвечает, когда вы говорите с ассистентом.',
+  'connections.voiceAgents.toastVoiceSaved': 'Настройки голоса обновлены',
+  'connections.voiceAgents.toastKeySaved': 'API-ключ добавлен',
+  'connections.voiceAgents.toastKeySavedBody': '{name} готов к работе.',
+  'connections.voiceAgents.toastKeyRemoved': 'API-ключ удалён',
+  'connections.voiceAgents.toastSaveFailed': 'Не удалось сохранить изменения',
   'connections.voiceAgents.includedTag': 'Входит в TinyHumans',
   'connections.voiceAgents.ownKeyTag': 'Свой ключ',
   'connections.voiceAgents.vendorGemini':
@@ -5374,15 +5382,12 @@ const messages: TranslationMap = {
   'connections.voiceAgents.apiKeyPlaceholder': 'Вставьте ключ API',
   'connections.voiceAgents.saveKey': 'Сохранить ключ',
   'connections.voiceAgents.clearKey': 'Удалить ключ',
-  'connections.voiceAgents.keySaved': 'Ключ сохранён.',
-  'connections.voiceAgents.keyCleared': 'Ключ удалён.',
   'connections.voiceAgents.voice': 'Голос',
   'connections.voiceAgents.speaker': 'Диктор',
   'connections.voiceAgents.language': 'Язык',
   'connections.voiceAgents.providerDefault': 'По умолчанию у провайдера',
   'connections.voiceAgents.loadFailed': 'Не удалось загрузить настройки голосовых агентов',
   'connections.voiceAgents.saveFailed': 'Не удалось сохранить: {error}',
-  'connections.voiceAgents.saved': 'Сохранено.',
   'connections.voiceAgents.saving': 'Сохранение…',
 };
 

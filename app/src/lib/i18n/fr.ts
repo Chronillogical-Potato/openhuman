@@ -5417,6 +5417,14 @@ const messages: TranslationMap = {
     'Parlez à voix haute avec votre assistant. Choisissez qui fournit sa voix et ajoutez les clés de vos propres comptes.',
   'connections.voiceAgents.badgeReady': 'Prêt',
   'connections.voiceAgents.badgeNeedsKey': 'Clé manquante',
+  'connections.voiceAgents.toastSwitched': 'Agent vocal changé',
+  'connections.voiceAgents.toastSwitchedBody':
+    '{name} répond désormais quand vous parlez à votre assistant.',
+  'connections.voiceAgents.toastVoiceSaved': 'Paramètres vocaux mis à jour',
+  'connections.voiceAgents.toastKeySaved': 'Clé API ajoutée',
+  'connections.voiceAgents.toastKeySavedBody': '{name} est prêt à l’emploi.',
+  'connections.voiceAgents.toastKeyRemoved': 'Clé API supprimée',
+  'connections.voiceAgents.toastSaveFailed': 'Impossible d’enregistrer vos modifications',
   'connections.voiceAgents.includedTag': 'Inclus avec TinyHumans',
   'connections.voiceAgents.ownKeyTag': 'Votre propre clé',
   'connections.voiceAgents.vendorGemini':
@@ -5447,15 +5455,12 @@ const messages: TranslationMap = {
   'connections.voiceAgents.apiKeyPlaceholder': "Collez votre clé d'API",
   'connections.voiceAgents.saveKey': 'Enregistrer la clé',
   'connections.voiceAgents.clearKey': 'Supprimer la clé',
-  'connections.voiceAgents.keySaved': 'Clé enregistrée.',
-  'connections.voiceAgents.keyCleared': 'Clé supprimée.',
   'connections.voiceAgents.voice': 'Voix',
   'connections.voiceAgents.speaker': 'Locuteur',
   'connections.voiceAgents.language': 'Langue',
   'connections.voiceAgents.providerDefault': 'Valeur par défaut du fournisseur',
   'connections.voiceAgents.loadFailed': 'Impossible de charger les réglages des agents vocaux',
   'connections.voiceAgents.saveFailed': "Échec de l'enregistrement : {error}",
-  'connections.voiceAgents.saved': 'Enregistré.',
   'connections.voiceAgents.saving': 'Enregistrement…',
 };
 
