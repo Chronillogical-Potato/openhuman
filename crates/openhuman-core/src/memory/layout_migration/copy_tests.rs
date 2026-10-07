@@ -192,3 +192,71 @@ async fn a_legacy_tree_that_cannot_be_read_pauses() {
         .unwrap();
     assert_eq!(state.phase, Phase::Paused);
 }
+
+#[tokio::test]
+async fn old_brain_nodes_are_refiled_by_connector() {
+    let tmp = tempfile::tempdir().unwrap();
+    let legacy = Arc::new(ReferenceEngine::new());
+    let doc = |text: &str, node: &str, kind: SourceKind, path: Option<&str>| {
+        StoreItem::document(
+            text,
+            MemoryMeta {
+                namespace: node.parse().unwrap(),
+                source: SourceRef { kind, id: None },
+                file_path: path.map(str::to_string),
+                ..MemoryMeta::default()
+            },
+        )
+    };
+    for item in [
+        doc("a pdf", "source:pdf", SourceKind::File, Some("a.pdf")),
+        doc("a note", "source:markdown", SourceKind::File, Some("a.md")),
+        doc("a link", "source:web", SourceKind::Link, None),
+        doc(
+            "an upload",
+            "source:web",
+            SourceKind::Link,
+            Some("page.html"),
+        ),
+        doc(
+            "a drive doc",
+            "source:google_drive",
+            SourceKind::Composio,
+            None,
+        ),
+        doc("a notion page", "source:notion", SourceKind::Composio, None),
+    ] {
+        legacy.store(item).await.unwrap();
+    }
+    let tree = Arc::new(ReferenceEngine::new());
+    let engines = Engines {
+        legacy,
+        tree: tree.clone(),
+    };
+    let mut state = MigrationState::default();
+    copy(tmp.path(), &engines, &placement(), &mut state, || false)
+        .await
+        .unwrap();
+    assert_eq!(state.phase, Phase::Copied);
+    let mut placed: Vec<(String, String)> = tree
+        .list(ListRequest::new(MetaFilter::default(), 50))
+        .await
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|hit| (hit.text, hit.meta.namespace.to_string()))
+        .collect();
+    placed.sort();
+    let expect = |text: &str, node: &str| (text.to_string(), node.to_string());
+    assert_eq!(
+        placed,
+        vec![
+            expect("a drive doc", "source:googledrive"),
+            expect("a link", "source:web"),
+            expect("a note", "source:files"),
+            expect("a notion page", "source:notion"),
+            expect("a pdf", "source:files"),
+            expect("an upload", "source:files"),
+        ]
+    );
+}

@@ -23,6 +23,11 @@ pub enum Phase {
     Paused,
     /// Every item it could copy is copied and verified.
     Copied,
+    /// Removing the legacy copies of what was moved.
+    Cleaning,
+    /// The legacy tree holds nothing that was moved; what is left there (if
+    /// anything) is in `failures` or `incomplete`.
+    Cleaned,
 }
 
 /// An item that could not be copied.
@@ -56,6 +61,9 @@ pub struct MigrationState {
     /// Why it is paused.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Cleanup has started, so a pause resumes it, not the copy.
+    #[serde(default)]
+    pub cleaning: bool,
 }
 
 /// The state file of `workspace_dir`.

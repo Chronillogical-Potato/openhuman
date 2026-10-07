@@ -12,10 +12,12 @@
 //! engines. Binding the two engines, the switch to the per-user tree, the
 //! catch-up pass, cleanup and the RPCs build on it.
 
+pub mod cleanup;
 pub mod copy;
 pub mod map;
 pub mod state;
 
+pub use cleanup::cleanup;
 pub use copy::{copy, legacy_present, Engines};
 pub use map::{FlowPlacement, Placement};
 pub use state::{MigrationState, Phase};
