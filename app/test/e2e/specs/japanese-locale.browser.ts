@@ -60,8 +60,10 @@ test.describe('Japanese UI locale', () => {
 
   test('detects ja-JP on a fresh browser and preserves a manual English override', async ({
     browser,
+    baseURL,
   }) => {
     const context = await browser.newContext({
+      baseURL,
       locale: 'ja-JP',
       viewport: { width: 1280, height: 720 },
     });
