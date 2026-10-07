@@ -815,7 +815,7 @@ test.describe('Memory v2 — move into the per-user layout', () => {
 
     await expect(page.getByTestId('memory-migration-offer')).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('memory-migration-start').click();
-    expect(fake.paramsOf('memory_migration_start')).toEqual([{ takeover: false }]);
+    await expect.poll(() => fake.paramsOf('memory_migration_start')).toEqual([{ takeover: false }]);
     await expect(page.getByTestId('memory-migration-banner')).toBeHidden({ timeout: 15_000 });
   });
 
@@ -836,7 +836,7 @@ test.describe('Memory v2 — move into the per-user layout', () => {
     await page.getByTestId('memory-migration-start').click();
     await page.getByTestId('memory-migration-takeover-confirm').click();
     await expect(takeover).toBeHidden();
-    expect(fake.paramsOf('memory_migration_start')).toEqual([{ takeover: true }]);
+    await expect.poll(() => fake.paramsOf('memory_migration_start')).toEqual([{ takeover: true }]);
     await expect(page.getByTestId('memory-migration-banner')).toBeHidden({ timeout: 15_000 });
   });
 });

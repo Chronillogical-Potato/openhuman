@@ -5354,13 +5354,15 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{imported} dari {total} item diimpor',
   'memoryPage.migrate.title': 'Pindahkan memori ke akun Anda',
   'memoryPage.migrate.body':
-    'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang, atau Anda bisa memindahkannya sekarang.',
+    'Memori yang disimpan sebelum pembaruan ini masih berada di tata letak bersama yang lama. Memori dipindahkan otomatis di latar belakang selama pemindahan gratis, atau Anda bisa memindahkannya sekarang.',
   'memoryPage.migrate.action': 'Migrasikan sekarang',
   'memoryPage.migrate.running': 'Memindahkan memori…',
   'memoryPage.migrate.progress': '{copied} item dipindahkan',
+  'memoryPage.migrate.progressOne': '{copied} item dipindahkan',
   'memoryPage.migrate.paused': 'Pemindahan dijeda',
   'memoryPage.migrate.resume': 'Lanjutkan',
   'memoryPage.migrate.leftTitle': '{count} item tidak dapat dipindahkan',
+  'memoryPage.migrate.leftTitleOne': '{count} item tidak dapat dipindahkan',
   'memoryPage.migrate.leftBody':
     'Item tersebut tetap di tempatnya. Coba lagi, atau biarkan di sana.',
   'memoryPage.migrate.retry': 'Coba lagi',

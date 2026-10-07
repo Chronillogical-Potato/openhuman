@@ -203,7 +203,9 @@ export default function Memory() {
           {on && chip !== null && chip !== 'engine' && (
             <MemoryImportBanner engineLabel={activeLabel} />
           )}
-          {on && chip !== null && chip !== 'engine' && <MemoryMigrationBanner />}
+          {on && chip !== null && chip !== 'engine' && (
+            <MemoryMigrationBanner key={authUserId ?? 'signed-out'} />
+          )}
           {body}
         </div>
       </SettingsTabbedPage>

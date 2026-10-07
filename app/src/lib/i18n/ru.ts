@@ -5364,13 +5364,15 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': 'Импортировано {imported} из {total}',
   'memoryPage.migrate.title': 'Перенести память в ваш аккаунт',
   'memoryPage.migrate.body':
-    'Память, сохранённая до этого обновления, всё ещё находится в старой общей структуре. Она переносится автоматически в фоне, или вы можете перенести её сейчас.',
+    'Память, сохранённая до этого обновления, всё ещё находится в старой общей структуре. Она переносится автоматически в фоне, пока перенос бесплатный, или вы можете перенести её сейчас.',
   'memoryPage.migrate.action': 'Перенести сейчас',
   'memoryPage.migrate.running': 'Перенос памяти…',
   'memoryPage.migrate.progress': 'Перенесено элементов: {copied}',
+  'memoryPage.migrate.progressOne': 'Перенесён {copied} элемент',
   'memoryPage.migrate.paused': 'Перенос приостановлен',
   'memoryPage.migrate.resume': 'Продолжить',
   'memoryPage.migrate.leftTitle': 'Не удалось перенести элементов: {count}',
+  'memoryPage.migrate.leftTitleOne': 'Не удалось перенести {count} элемент',
   'memoryPage.migrate.leftBody':
     'Они остаются на прежнем месте. Попробуйте ещё раз или оставьте их там.',
   'memoryPage.migrate.retry': 'Повторить',

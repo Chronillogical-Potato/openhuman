@@ -73,5 +73,7 @@ describe('MemoryMigrationBanner', () => {
     fireEvent.click(screen.getByTestId('memory-migration-retry'));
     await waitFor(() => expect(hoisted.retry).toHaveBeenCalled());
     await waitFor(() => expect(hoisted.start).toHaveBeenCalledWith(false));
+    // The scan says nothing is needed, but the retry's run stays in view.
+    expect(await screen.findByTestId('memory-migration-running')).toBeInTheDocument();
   });
 });

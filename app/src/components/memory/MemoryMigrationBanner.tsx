@@ -10,7 +10,7 @@
  * debug logging: DEBUG=openhuman:memory:migration
  */
 import debug from 'debug';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
 import {
@@ -30,6 +30,8 @@ const log = debug('openhuman:memory:migration');
 
 /** How often a running move is polled. */
 export const MIGRATION_POLL_MS = 2_000;
+/** How often an offered move is polled, to notice the background job start it. */
+export const MIGRATION_IDLE_POLL_MS = 15_000;
 
 export default function MemoryMigrationBanner() {
   const { t } = useT();
@@ -57,12 +59,16 @@ export default function MemoryMigrationBanner() {
     };
   }, []);
 
+  // Whether the last status seen had a run going.
+  const wasRunning = useRef(false);
   const poll = useCallback(async () => {
     try {
       const next = await memoryMigrationStatus();
       setStatus(next);
-      // The run ended: whether anything is still left to move changed.
-      if (!next.running) setScan(await memoryMigrationScan());
+      // A run just ended: whether anything is still left to move changed.
+      // (The scan reads the legacy tree, so it is not repeated otherwise.)
+      if (wasRunning.current && !next.running) setScan(await memoryMigrationScan());
+      wasRunning.current = next.running;
     } catch (err) {
       log('status failed: %o', err);
       setError(memoryErrorMessage(err, t));
@@ -70,11 +76,20 @@ export default function MemoryMigrationBanner() {
   }, [t]);
 
   const running = status?.running ?? false;
+  const offered = scan?.needed ?? false;
   useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => void poll(), MIGRATION_POLL_MS);
+    wasRunning.current = running;
+  }, [running]);
+  useEffect(() => {
+    // While a run goes, and while the move is offered: the background job
+    // can start it at any time.
+    if (!running && !offered) return;
+    const timer = setInterval(
+      () => void poll(),
+      running ? MIGRATION_POLL_MS : MIGRATION_IDLE_POLL_MS
+    );
     return () => clearInterval(timer);
-  }, [running, poll]);
+  }, [running, offered, poll]);
 
   const start = async (takeover: boolean) => {
     setBusy(true);
@@ -109,7 +124,8 @@ export default function MemoryMigrationBanner() {
   const state = status?.state;
   const left = (state?.failures?.length ?? 0) + (state?.incomplete?.length ?? 0);
   const cleaned = state?.phase === 'cleaned';
-  if (!scan?.needed && !(cleaned && left > 0)) return null;
+  // A retry of what was left runs while the scan says nothing is needed.
+  if (!running && !offered && !(cleaned && left > 0)) return null;
 
   const migrateNow = () => (scan?.shared ? setTakeoverOpen(true) : void start(false));
   const paused = !running && (state?.phase === 'paused' || status?.interrupted);
@@ -121,7 +137,14 @@ export default function MemoryMigrationBanner() {
           <div className="w-full space-y-1">
             <AlertTitle>{t('memoryPage.migrate.running')}</AlertTitle>
             <AlertDescription>
-              {fill(t('memoryPage.migrate.progress'), { copied: state?.copied ?? 0 })}
+              {fill(
+                t(
+                  state?.copied === 1
+                    ? 'memoryPage.migrate.progressOne'
+                    : 'memoryPage.migrate.progress'
+                ),
+                { copied: state?.copied ?? 0 }
+              )}
             </AlertDescription>
           </div>
         </Alert>
@@ -129,7 +152,14 @@ export default function MemoryMigrationBanner() {
         <Alert variant="warning" data-testid="memory-migration-left">
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <AlertTitle>{fill(t('memoryPage.migrate.leftTitle'), { count: left })}</AlertTitle>
+              <AlertTitle>
+                {fill(
+                  t(
+                    left === 1 ? 'memoryPage.migrate.leftTitleOne' : 'memoryPage.migrate.leftTitle'
+                  ),
+                  { count: left }
+                )}
+              </AlertTitle>
               <AlertDescription>{t('memoryPage.migrate.leftBody')}</AlertDescription>
             </div>
             <Button

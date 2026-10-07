@@ -5311,13 +5311,15 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{total}টির মধ্যে {imported}টি আইটেম ইমপোর্ট হয়েছে',
   'memoryPage.migrate.title': 'মেমরি আপনার অ্যাকাউন্টে সরান',
   'memoryPage.migrate.body':
-    'এই আপডেটের আগে সংরক্ষিত মেমরি এখনও পুরনো শেয়ার করা লেআউটে আছে। এটি ব্যাকগ্রাউন্ডে নিজে থেকেই সরে যায়, অথবা আপনি এখনই সরাতে পারেন।',
+    'এই আপডেটের আগে সংরক্ষিত মেমরি এখনও পুরনো শেয়ার করা লেআউটে আছে। সরানো বিনামূল্যে থাকাকালীন এটি ব্যাকগ্রাউন্ডে নিজে থেকেই সরে যায়, অথবা আপনি এখনই সরাতে পারেন।',
   'memoryPage.migrate.action': 'এখনই সরান',
   'memoryPage.migrate.running': 'মেমরি সরানো হচ্ছে…',
   'memoryPage.migrate.progress': '{copied}টি আইটেম সরানো হয়েছে',
+  'memoryPage.migrate.progressOne': '{copied}টি আইটেম সরানো হয়েছে',
   'memoryPage.migrate.paused': 'সরানো বিরতিতে আছে',
   'memoryPage.migrate.resume': 'আবার শুরু করুন',
   'memoryPage.migrate.leftTitle': '{count}টি আইটেম সরানো যায়নি',
+  'memoryPage.migrate.leftTitleOne': '{count}টি আইটেম সরানো যায়নি',
   'memoryPage.migrate.leftBody':
     'সেগুলো যেখানে ছিল সেখানেই থাকবে। আবার চেষ্টা করুন, অথবা সেখানেই রেখে দিন।',
   'memoryPage.migrate.retry': 'আবার চেষ্টা করুন',

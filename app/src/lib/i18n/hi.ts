@@ -5311,13 +5311,15 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{total} में से {imported} आइटम इंपोर्ट हुए',
   'memoryPage.migrate.title': 'मेमोरी को अपने खाते में ले जाएँ',
   'memoryPage.migrate.body':
-    'इस अपडेट से पहले सहेजी गई मेमोरी अभी भी पुराने साझा लेआउट में है। यह बैकग्राउंड में अपने आप ले जाई जाती है, या आप इसे अभी ले जा सकते हैं।',
+    'इस अपडेट से पहले सहेजी गई मेमोरी अभी भी पुराने साझा लेआउट में है। जब तक ले जाना मुफ़्त है, यह बैकग्राउंड में अपने आप ले जाई जाती है, या आप इसे अभी ले जा सकते हैं।',
   'memoryPage.migrate.action': 'अभी माइग्रेट करें',
   'memoryPage.migrate.running': 'मेमोरी ले जाई जा रही है…',
   'memoryPage.migrate.progress': '{copied} आइटम ले जाए गए',
+  'memoryPage.migrate.progressOne': '{copied} आइटम ले जाया गया',
   'memoryPage.migrate.paused': 'ले जाना रुका हुआ है',
   'memoryPage.migrate.resume': 'फिर से शुरू करें',
   'memoryPage.migrate.leftTitle': '{count} आइटम नहीं ले जाए जा सके',
+  'memoryPage.migrate.leftTitleOne': '{count} आइटम नहीं ले जाया जा सका',
   'memoryPage.migrate.leftBody':
     'वे जहाँ थे वहीं रहेंगे। फिर से कोशिश करें, या उन्हें वहीं छोड़ दें।',
   'memoryPage.migrate.retry': 'फिर से कोशिश करें',
