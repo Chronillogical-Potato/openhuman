@@ -221,6 +221,37 @@ backend = "sqlite"
         .engine()
         .unwrap_err();
     assert_eq!(off.code(), crate::memory::error::MEMORY_OFF);
+    assert!(off.to_string().contains("legacy memory backend"));
+}
+
+#[tokio::test]
+async fn recovery_migrates_the_backup_when_primary_is_toml_but_not_config() {
+    let tmp = tempfile::tempdir().unwrap();
+    write_file(
+        &tmp.path().join("config.toml"),
+        r#"
+[memory]
+engine = 42
+"#,
+    )
+    .await;
+    write_file(
+        &tmp.path().join("config.toml.bak"),
+        r#"
+[memory]
+backend = "sqlite"
+"#,
+    )
+    .await;
+
+    let config = load_or_init_for_workspace(tmp.path()).await;
+
+    assert_eq!(config.memory.engine, "");
+    let reason = crate::memory::engine::resolve(&config)
+        .engine()
+        .unwrap_err()
+        .to_string();
+    assert!(reason.contains("legacy memory backend"));
 }
 
 #[test]

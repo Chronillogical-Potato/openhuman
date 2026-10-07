@@ -75,6 +75,11 @@ pub struct MemoryConfig {
     #[serde(rename = "backend", default, skip_serializing)]
     #[schemars(skip)]
     pub(crate) legacy_backend: Option<String>,
+    /// Whether a retired v1 backend was found and disabled during migration.
+    /// This marker is safe to persist and keeps the diagnostic after reload.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[schemars(skip)]
+    pub(crate) legacy_backend_unsupported: bool,
     /// Per-engine settings, keyed by engine id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub engines: BTreeMap<String, MemoryEngineSettings>,
@@ -146,6 +151,7 @@ impl Default for MemoryConfig {
         Self {
             engine: DEFAULT_MEMORY_ENGINE.to_string(),
             legacy_backend: None,
+            legacy_backend_unsupported: false,
             engines: BTreeMap::new(),
             agent_id: None,
             root: None,

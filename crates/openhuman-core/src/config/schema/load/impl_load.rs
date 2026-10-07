@@ -213,13 +213,14 @@ pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (B
 /// backup may be the source used to build the config when the primary TOML is
 /// malformed.
 pub(super) async fn migration_source(config_path: &Path, contents: &str) -> String {
-    if toml::from_str::<toml::Value>(contents).is_ok() {
+    if parse_toml_off_worker(contents.to_owned()).await.is_ok() {
         return contents.to_owned();
     }
     let backup_path = config_path.with_extension("toml.bak");
-    fs::read_to_string(backup_path)
-        .await
-        .unwrap_or_else(|_| contents.to_owned())
+    match fs::read_to_string(backup_path).await {
+        Ok(backup) if parse_toml_off_worker(backup.clone()).await.is_ok() => backup,
+        _ => contents.to_owned(),
+    }
 }
 
 async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {

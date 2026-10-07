@@ -181,14 +181,14 @@ pub fn resolve(config: &Config) -> Binding {
         TINYHUMANS_ENGINE => resolve_tinyhumans(config),
         CORTEXDB_ENGINE => resolve_cortexdb(config),
         "" => {
-            let reason = config.memory.legacy_backend.as_deref().map_or_else(
-                || "no memory engine selected".to_string(),
-                |backend| {
-                    format!(
-                        "legacy memory backend `{backend}` is unsupported; select an explicit v2 memory engine"
-                    )
-                },
-            );
+            let reason = if config.memory.legacy_backend_unsupported
+                || config.memory.legacy_backend.is_some()
+            {
+                "legacy memory backend is unsupported; select an explicit v2 memory engine"
+                    .to_string()
+            } else {
+                "no memory engine selected".to_string()
+            };
             off(None, None, &reason)
         }
         other => {
