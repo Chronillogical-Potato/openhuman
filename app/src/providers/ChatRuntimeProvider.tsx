@@ -337,6 +337,19 @@ function deliveredReplyMessageId(event: {
 }
 
 /**
+ * Message id for a proactive message addressed to a real thread.
+ *
+ * Origin-bound cron delivery persists its reply into the conversation that
+ * asked for it under `agent:<request_id>` before emitting `proactive_message`
+ * with that thread id. Reusing the id collapses our append onto the core's
+ * row. Synthetic `proactive:*` ids have no core row, so they keep generated ids.
+ */
+function proactiveMessageId(event: { thread_id: string; request_id?: string }): string | undefined {
+  if (event.thread_id.startsWith('proactive:') || !event.request_id) return undefined;
+  return `agent:${event.request_id}`;
+}
+
+/**
  * Map a `chat_done` event's holistic usage onto the `recordChatTurnUsage`
  * payload. Prefers the structured `usage` object (tokens + cost + context window
  * + per-sub-agent breakdown); falls back to the deprecated flat token fields for
