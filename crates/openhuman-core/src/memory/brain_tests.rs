@@ -53,10 +53,10 @@ fn a_github_document_names_its_repository() {
         item.meta_mut().url = url.map(str::to_string);
         github_collection(&item)
     };
-    assert_eq!(with(Some("Acme/API"), None).as_deref(), Some("acme-api"));
+    assert_eq!(with(Some("Acme/API"), None).as_deref(), Some("acme--api"));
     assert_eq!(
         with(Some("https://github.com/acme/api.git"), None).as_deref(),
-        Some("acme-api")
+        Some("acme--api")
     );
     // A Composio issue carries only its URL.
     assert_eq!(
@@ -65,11 +65,21 @@ fn a_github_document_names_its_repository() {
             Some("https://github.com/tinyhumansai/openhuman/issues/12")
         )
         .as_deref(),
-        Some("tinyhumansai-openhuman")
+        Some("tinyhumansai--openhuman")
     );
     assert_eq!(with(None, Some("https://example.com/a/b")), None);
     assert_eq!(with(Some("acme"), None), None);
     assert_eq!(with(None, None), None);
+    // A query or fragment is not part of the repository.
+    assert_eq!(
+        with(None, Some("https://github.com/acme/api?tab=readme#top")).as_deref(),
+        Some("acme--api")
+    );
+    // Hyphens on either side never make two repositories one collection.
+    assert_ne!(
+        with(Some("foo-bar/repo"), None),
+        with(Some("foo/bar-repo"), None)
+    );
 }
 
 #[tokio::test]

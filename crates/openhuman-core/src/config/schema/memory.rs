@@ -135,7 +135,7 @@ pub struct MemoryConfig {
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<String, MemoryAgentConfig>,
     /// File GitHub documents one scope per repository
-    /// (`source:github/project:<owner>-<repo>`) rather than all in
+    /// (`source:github/project:<owner>--<repo>`) rather than all in
     /// `source:github`. Off by default: every turn reads each brain scope,
     /// so each repository adds a recall to every turn.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
