@@ -105,6 +105,12 @@ pub struct MemoryConfig {
     /// Unset is the default root.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root: Option<String>,
+    /// Where memory sits on the engine: `legacy` (the shared
+    /// `app:tinymemory` tree, the default) or `v3` (the signed-in person's
+    /// own `user:<id>` subtree, chats pooled at `ws:main`). Switched by the
+    /// layout migration once the person's memory has moved, never by hand.
+    #[serde(skip_serializing_if = "MemoryLayoutMode::is_legacy")]
+    pub layout: MemoryLayoutMode,
     /// Turn logging.
     pub conversations: MemoryConversationsConfig,
     /// The per-turn context pack and the lifecycle's timings.
@@ -127,6 +133,26 @@ pub struct MemoryConfig {
     /// Per-agent-definition memory settings, keyed by agent definition id.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<String, MemoryAgentConfig>,
+}
+
+/// `[memory] layout`: where memory sits on the engine.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum MemoryLayoutMode {
+    /// The shared `app:tinymemory` tree, as before layout v3.
+    #[default]
+    Legacy,
+    /// The person's own `user:<id>` subtree, every kind under a leaf of its
+    /// own, chats pooled at `ws:main`.
+    V3,
+}
+
+impl MemoryLayoutMode {
+    /// Whether this is the legacy layout (the default, so it is not written).
+    #[must_use]
+    pub fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
 }
 
 /// `[memory.agents.<definition>]`: one agent definition's memory.
@@ -167,6 +193,7 @@ impl Default for MemoryConfig {
             engines: BTreeMap::new(),
             agent_id: None,
             root: None,
+            layout: MemoryLayoutMode::Legacy,
             conversations: MemoryConversationsConfig::default(),
             recall: MemoryRecallConfig::default(),
             sources: Vec::new(),
