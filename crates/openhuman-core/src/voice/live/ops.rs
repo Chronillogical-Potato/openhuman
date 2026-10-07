@@ -8,7 +8,7 @@ use super::error::LiveVoiceError;
 use super::providers;
 use super::session;
 use super::types::{
-    ElevenLabsLiveSettingsPatch, GeminiLiveSettingsPatch, LiveProvidersResponse, LiveSettingsPatch,
+    GeminiLiveSettingsPatch, LiveProvidersResponse, LiveSettingsPatch,
     LiveTestResult, LiveVoiceConfig, SarvamLiveSettingsPatch,
 };
 use crate::config::schema::voice_live::is_live_provider;
