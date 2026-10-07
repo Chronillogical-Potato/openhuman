@@ -16,6 +16,7 @@ pub mod policy;
 mod schemas;
 pub mod seed;
 mod store;
+pub mod system_job_handlers;
 pub mod system_jobs;
 pub mod tools;
 
