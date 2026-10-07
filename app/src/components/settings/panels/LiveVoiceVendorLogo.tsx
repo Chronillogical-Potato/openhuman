@@ -27,8 +27,8 @@ const LiveVoiceVendorLogo = ({ vendorId, className }: { vendorId: string; classN
         data-testid={`live-voice-logo-${vendorId}`}
         className={cn('inline-block bg-current', className)}
         style={{
-          maskImage: `url(${mask})`,
-          WebkitMaskImage: `url(${mask})`,
+          maskImage: `url("${mask}")`,
+          WebkitMaskImage: `url("${mask}")`,
           maskSize: 'contain',
           WebkitMaskSize: 'contain',
           maskRepeat: 'no-repeat',

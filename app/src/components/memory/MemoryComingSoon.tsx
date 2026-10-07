@@ -43,15 +43,15 @@ export default function MemoryComingSoon() {
             key={engine.id}
             aria-disabled="true"
             data-testid={`memory-engine-soon-${engine.id}`}
-            className="flex items-center gap-3 rounded-xl border border-dashed border-line bg-surface px-3.5 py-3">
+            className="flex items-start gap-3 rounded-xl border border-dashed border-line bg-surface px-3.5 py-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-strong opacity-70 grayscale">
               {engine.mask ? (
                 <span
                   aria-hidden
                   className="inline-block h-5 w-5 bg-current text-content"
                   style={{
-                    maskImage: `url(${engine.logo})`,
-                    WebkitMaskImage: `url(${engine.logo})`,
+                    maskImage: `url("${engine.logo}")`,
+                    WebkitMaskImage: `url("${engine.logo}")`,
                     maskSize: 'contain',
                     WebkitMaskSize: 'contain',
                     maskRepeat: 'no-repeat',
@@ -74,7 +74,7 @@ export default function MemoryComingSoon() {
                 <span className="text-sm font-medium text-content-secondary">{engine.name}</span>
                 <Badge>{t('memoryPage.engine.soon.badge')}</Badge>
               </div>
-              <p className="truncate text-xs text-content-muted">{t(DESC_KEY[engine.id])}</p>
+              <p className="line-clamp-2 text-xs text-content-muted">{t(DESC_KEY[engine.id])}</p>
             </div>
           </div>
         ))}

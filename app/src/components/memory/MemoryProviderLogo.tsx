@@ -13,8 +13,8 @@ const TinyHumansMark = ({ className }: { className?: string }) => (
     data-testid="memory-logo-tinyhumans"
     className={cn('inline-block bg-current', className)}
     style={{
-      maskImage: `url(${tinyhumansLogo})`,
-      WebkitMaskImage: `url(${tinyhumansLogo})`,
+      maskImage: `url("${tinyhumansLogo}")`,
+      WebkitMaskImage: `url("${tinyhumansLogo}")`,
       maskSize: 'contain',
       WebkitMaskSize: 'contain',
       maskRepeat: 'no-repeat',

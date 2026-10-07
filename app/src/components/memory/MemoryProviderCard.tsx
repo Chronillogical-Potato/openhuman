@@ -43,7 +43,7 @@ const MemoryProviderCard = ({
           ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500 dark:bg-primary-500/10'
           : 'border-line bg-surface'
       )}>
-      <div className="flex items-start gap-3">
+      <div className="flex items-start justify-between gap-2">
         <span
           className={cn(
             'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
@@ -55,15 +55,14 @@ const MemoryProviderCard = ({
           )}>
           <MemoryProviderLogo option={option} className="h-6 w-6" />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <h4 className="text-sm font-semibold text-content">{title}</h4>
-            <Badge variant={status.variant} data-testid={`memory-engine-${option}-status`}>
-              {status.label}
-            </Badge>
-          </div>
-          <p className="mt-0.5 text-xs leading-relaxed text-content-muted">{description}</p>
-        </div>
+        <Badge variant={status.variant} data-testid={`memory-engine-${option}-status`}>
+          {status.label}
+        </Badge>
+      </div>
+
+      <div>
+        <h4 className="text-sm font-semibold text-content">{title}</h4>
+        <p className="mt-0.5 text-xs leading-relaxed text-content-muted">{description}</p>
       </div>
 
       {note && (
