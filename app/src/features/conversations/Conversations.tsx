@@ -114,6 +114,10 @@ const debug = debugFactory('conversations');
 // tool activity, or the core's 20s `inference_heartbeat`) before the chat
 // warns that it has gone quiet. A warning only — see `handleSilence`.
 const SILENCE_WARNING_MS = 120_000;
+// How long after a Stop the thread may still show a running turn before the
+// UI settles it locally. The core publishes `chat_cancelled` before it answers
+// the cancel RPC, so this only fires when that event never reached us.
+const STOP_SETTLE_FALLBACK_MS = 5_000;
 
 interface ConversationsProps {
   /**
@@ -593,6 +597,17 @@ const Conversations = ({
   // thread. Per-thread (a Set) so a send to thread B isn't blocked by an
   // in-flight send to thread A.
   const pendingSendsRef = useRef<Set<string>>(new Set());
+  // Threads whose Stop landed while their send RPC was still in flight. The
+  // core registers a turn only as that RPC returns, so the cancel found
+  // nothing to stop; the send path re-issues it once the turn exists.
+  const stopRequestedDuringSendRef = useRef<Set<string>>(new Set());
+  // Per-thread backstop armed by every Stop: if the thread still shows a
+  // running turn once it fires (the `chat_cancelled` event was lost, the cancel
+  // RPC failed), the local running state is settled so Stop never leaves a
+  // spinner the user cannot get rid of.
+  const stopSettleTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const inferenceTurnLifecycleRef = useRef(inferenceTurnLifecycleByThread);
+  inferenceTurnLifecycleRef.current = inferenceTurnLifecycleByThread;
   // Per-thread silence timers. Each in-flight turn gets its own 120s watchdog
   // keyed by thread id, so concurrent turns on different threads don't share
   // (and clobber) a single timeout.
@@ -943,10 +958,13 @@ const Conversations = ({
   useEffect(() => {
     isMountedRef.current = true;
     const timers = sendingTimeoutsRef.current;
+    const stopTimers = stopSettleTimersRef.current;
     return () => {
       isMountedRef.current = false;
       for (const timeout of timers.values()) clearTimeout(timeout);
       timers.clear();
+      for (const timeout of stopTimers.values()) clearTimeout(timeout);
+      stopTimers.clear();
     };
   }, []);
 
@@ -1209,6 +1227,9 @@ const Conversations = ({
     if (!sendingThreadId) return;
     pendingSendsRef.current.add(sendingThreadId);
     addPendingSendingThread(sendingThreadId);
+    // A new turn starts here: a Stop aimed at the previous one must not reach it.
+    stopRequestedDuringSendRef.current.delete(sendingThreadId);
+    clearStopSettleTimer(sendingThreadId);
     const pendingAttachments = attachments.slice();
     const modelOverride = composerModelOverride ?? undefined;
     const modelClearBarrier = modelOverride === undefined ? waitForComposerModelClear() : null;
@@ -1297,6 +1318,15 @@ const Conversations = ({
       // user turn isn't blocked by a stale ref/state.
       pendingSendsRef.current.delete(sendingThreadId);
       removePendingSendingThread(sendingThreadId);
+      // Stop was pressed while this RPC was in flight, before the core had a
+      // turn to cancel. The turn is registered now, so cancel it for real.
+      if (stopRequestedDuringSendRef.current.delete(sendingThreadId)) {
+        debug(
+          '[chat] stop generation: re-issuing Stop pressed during send thread=%s',
+          sendingThreadId
+        );
+        stopThreadTurn(sendingThreadId);
+      }
 
       // Active-thread reset happens in the global ChatRuntimeProvider events.
     } catch (err) {
@@ -1325,6 +1355,9 @@ const Conversations = ({
       dispatch(clearThreadInferenceActive(sendingThreadId));
       pendingSendsRef.current.delete(sendingThreadId);
       removePendingSendingThread(sendingThreadId);
+      // No turn was started, so a Stop pressed meanwhile has nothing to stop.
+      stopRequestedDuringSendRef.current.delete(sendingThreadId);
+      clearStopSettleTimer(sendingThreadId);
     }
   };
 
@@ -1421,13 +1454,46 @@ const Conversations = ({
   // `ChatRuntimeProvider.onCancelled` persists the partial and its processing
   // trail after the core confirms cancellation. Keeping that in one place also
   // covers turns superseded without a local Stop click.
-  const handleStopGeneration = useCallback(() => {
-    if (!selectedThreadId) {
-      debug('[chat] stop generation: no selected thread — noop');
-      return;
-    }
-    const threadId = selectedThreadId;
-    debug('[chat] stop generation: thread=%s', threadId);
+  function clearStopSettleTimer(threadId: string) {
+    const timer = stopSettleTimersRef.current.get(threadId);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    stopSettleTimersRef.current.delete(threadId);
+  }
+
+  // End a thread's local running state without waiting for the core.
+  function settleStoppedThread(threadId: string, reason: string) {
+    debug('[chat] stop generation: settling local state thread=%s reason=%s', threadId, reason);
+    clearStopSettleTimer(threadId);
+    clearSilenceTimer(threadId);
+    turnSignatureByThreadRef.current.delete(threadId);
+    clearThreadStalled(threadId);
+    dispatch(clearRuntimeForThread({ threadId }));
+    dispatch(clearThreadInferenceActive(threadId));
+  }
+
+  function stopThreadTurn(threadId: string) {
+    const sendPending = pendingSendsRef.current.has(threadId);
+    debug('[chat] stop generation: thread=%s sendPending=%s', threadId, sendPending);
+    // The core registers the turn only as the send RPC returns; until then
+    // this cancel may find nothing. Remember the Stop so the send path can
+    // re-issue it against the registered turn instead of letting it run.
+    if (sendPending) stopRequestedDuringSendRef.current.add(threadId);
+
+    clearStopSettleTimer(threadId);
+    stopSettleTimersRef.current.set(
+      threadId,
+      setTimeout(() => {
+        stopSettleTimersRef.current.delete(threadId);
+        if (!isMountedRef.current) return;
+        // A send in flight owns the thread's state (and re-issues the Stop).
+        if (pendingSendsRef.current.has(threadId)) return;
+        const lifecycle = inferenceTurnLifecycleRef.current[threadId];
+        if (lifecycle !== 'started' && lifecycle !== 'streaming') return;
+        settleStoppedThread(threadId, 'no terminal event after stop');
+      }, STOP_SETTLE_FALLBACK_MS)
+    );
+
     void chatCancel(threadId).then(outcome => {
       const accepted = outcome?.accepted === true;
       const turnCancelled = outcome?.turnCancelled === true;
@@ -1437,31 +1503,33 @@ const Conversations = ({
         accepted,
         turnCancelled
       );
+      // A rejected cancel is left to the backstop above.
       if (!accepted) return;
-      if (!turnCancelled) {
-        // The core has nothing running on this thread, so no `cancelled`
-        // chat_error will ever arrive to clear the composer. Without this the
-        // thread stays "generating" with a Stop button that can never work —
-        // e.g. a turn whose terminal event was lost across a reconnect. A send
-        // still waiting on its RPC is skipped: its turn may not be registered
-        // yet, and its own completion path owns the state.
-        if (pendingSendsRef.current.has(threadId)) {
-          debug('[chat] stop generation: nothing in flight but send pending thread=%s', threadId);
-          return;
-        }
-        debug(
-          '[chat] stop generation: nothing in flight — settling local state thread=%s',
-          threadId
-        );
-        clearSilenceTimer(threadId);
-        turnSignatureByThreadRef.current.delete(threadId);
-        clearThreadStalled(threadId);
-        dispatch(clearRuntimeForThread({ threadId }));
-        dispatch(clearThreadInferenceActive(threadId));
+      if (turnCancelled) {
+        // The turn was registered after all; a `chat_cancelled` is on its way.
+        stopRequestedDuringSendRef.current.delete(threadId);
         return;
       }
+      // The core has nothing running on this thread, so no `cancelled`
+      // chat_error will ever arrive to clear the composer — e.g. a turn
+      // whose terminal event was lost across a reconnect. A send still
+      // waiting on its RPC is the exception: its turn is not registered
+      // yet, and the deferred Stop recorded above cancels it once it is.
+      if (pendingSendsRef.current.has(threadId)) {
+        debug('[chat] stop generation: deferring until send returns thread=%s', threadId);
+        return;
+      }
+      settleStoppedThread(threadId, 'nothing in flight');
     });
-  }, [selectedThreadId, dispatch, clearSilenceTimer, clearThreadStalled]);
+  }
+
+  function handleStopGeneration() {
+    if (!selectedThreadId) {
+      debug('[chat] stop generation: no selected thread — noop');
+      return;
+    }
+    stopThreadTurn(selectedThreadId);
+  }
 
   handleStopGenerationRef.current = handleStopGeneration;
 
@@ -1489,7 +1557,7 @@ const Conversations = ({
       selectedThreadId ?? 'none',
       composerEmpty
     );
-    handleStopGeneration();
+    handleStopGenerationRef.current?.();
     if (composerEmpty) {
       // Restore the last *visible* user prompt (hidden system/injected
       // messages are excluded here to match how the transcript is rendered).
@@ -1504,7 +1572,7 @@ const Conversations = ({
         setInputValue(restored);
       }
     }
-  }, [handleStopGeneration, inputValue, messages, selectedThreadActive, selectedThreadId]);
+  }, [inputValue, messages, selectedThreadActive, selectedThreadId]);
 
   // The transcript itself renders from the assistant-ui runtime
   // (`AssistantUiChat`). What remains here is what the composer footer and the

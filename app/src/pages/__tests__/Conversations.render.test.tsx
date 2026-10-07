@@ -1299,6 +1299,80 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     expect(threadApi.appendMessage).not.toHaveBeenCalled();
   });
 
+  it('re-issues a Stop pressed before the core had registered the turn', async () => {
+    // The send RPC is still in flight, so the core has no turn yet and the
+    // first cancel finds nothing. Once the RPC returns the turn exists, and the
+    // Stop must be sent again rather than letting the turn run to completion.
+    let resolveSend: (() => void) | undefined;
+    vi.mocked(chatSend).mockImplementationOnce(
+      () =>
+        new Promise<string | undefined>(resolve => {
+          resolveSend = () => resolve('req-late');
+        })
+    );
+    vi.mocked(chatCancel)
+      .mockResolvedValueOnce({ accepted: true, turnCancelled: false })
+      .mockResolvedValueOnce({ accepted: true, turnCancelled: true });
+    const { textarea, thread } = await renderSelectedConversation();
+
+    await act(async () => {
+      setComposerText(textarea, 'stop me early');
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    });
+    const stopButton = await screen.findByRole('button', { name: 'Stop generating' });
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(chatCancel).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveSend?.();
+      await Promise.resolve();
+    });
+
+    expect(chatCancel).toHaveBeenCalledTimes(2);
+    expect(chatCancel).toHaveBeenNthCalledWith(2, thread.id);
+  });
+
+  it.each([
+    ['the cancel event never arrives', { accepted: true, turnCancelled: true }],
+    ['the cancel RPC fails', { accepted: false, turnCancelled: false }],
+  ])('settles the running state after a Stop when %s', async (_label, outcome) => {
+    vi.mocked(chatCancel).mockResolvedValueOnce(outcome);
+    const { thread, store } = await renderStreamingConversation({
+      streamingContent: 'half a thought',
+    });
+    const stopButton = await screen.findByRole('button', { name: 'Stop generating' });
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(stopButton);
+        await Promise.resolve();
+      });
+      // Still waiting on the core's confirmation.
+      expect(store.getState().chatRuntime.inferenceTurnLifecycleByThread[thread.id]).toBe(
+        'streaming'
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(5_000);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(chatCancel).toHaveBeenCalledWith(thread.id);
+    expect(store.getState().chatRuntime.inferenceTurnLifecycleByThread[thread.id]).toBeUndefined();
+    expect(store.getState().thread.activeThreadIds[thread.id]).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'Stop generating' })).toBeNull();
+  });
+
   it('does not locally persist a partial across repeated Stop clicks (#4862)', async () => {
     const { thread } = await renderStreamingConversation({ streamingContent: 'half a thought' });
 
