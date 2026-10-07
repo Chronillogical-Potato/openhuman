@@ -60,10 +60,10 @@ fn seed_thread(config: &Config, id: &str) {
             id: id.into(),
             title: "Chat".into(),
             created_at: chrono::Utc::now().to_rfc3339(),
-            personality_id: None,
-            working_dir: None,
+            parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .unwrap();
