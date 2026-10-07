@@ -24,8 +24,26 @@ pub(crate) static IN_FLIGHT: Lazy<Mutex<HashMap<String, InFlightEntry>>> =
 pub(crate) static PARALLEL_IN_FLIGHT: Lazy<Mutex<HashMap<String, ParallelEntry>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
+/// The map key for `thread_id` in the calling scope.
+///
+/// Thread ids are chosen by callers and are only unique per agent, so a turn
+/// running for an embedded agent ([`CoreContext::session_agent`]) is keyed
+/// `<agent>::<thread>`. Two agents that pick the same thread id then get two
+/// cache entries and two in-flight slots instead of sharing one live session.
+/// Outside an agent scope the key stays the bare thread id.
+///
+/// [`CoreContext::session_agent`]: crate::core::runtime::CoreContext::session_agent
 pub(crate) fn key_for(thread_id: &str) -> String {
-    thread_id.to_string()
+    let agent = crate::core::runtime::CoreContext::current()
+        .and_then(|context| context.session_agent().map(str::to_owned));
+    scoped_key(agent.as_deref(), thread_id)
+}
+
+pub(crate) fn scoped_key(session_agent: Option<&str>, thread_id: &str) -> String {
+    match session_agent {
+        Some(agent) => format!("{agent}::{thread_id}"),
+        None => thread_id.to_string(),
+    }
 }
 
 pub(crate) fn event_session_id_for(client_id: &str, thread_id: &str) -> String {

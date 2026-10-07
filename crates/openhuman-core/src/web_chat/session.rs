@@ -241,6 +241,13 @@ pub(super) fn fingerprint_diff(
             &next.autonomy_signature,
         ));
     }
+    if prior.workspace_dir != next.workspace_dir {
+        diff.push(format!(
+            "workspace_dir: {} -> {}",
+            prior.workspace_dir.display(),
+            next.workspace_dir.display()
+        ));
+    }
     if prior.model_registry_signature != next.model_registry_signature {
         diff.push(describe_signature_change(
             "model_registry_signature",
@@ -265,6 +272,7 @@ pub(super) fn build_session_fingerprint(
         target_agent_id,
         autonomy_signature: autonomy_signature(config),
         model_registry_signature: model_registry_signature(config),
+        workspace_dir: config.workspace_dir.clone(),
     }
 }
 
@@ -335,8 +343,12 @@ pub(crate) async fn checkout_session_agent(
     };
 
     let (agent, fingerprint) = match prior {
+        // `AdoptCached` takes the thread's agent whatever settings it was
+        // built with, but never one built for another workspace.
         Some(entry)
-            if entry.fingerprint == fingerprint || policy == CheckoutPolicy::AdoptCached =>
+            if entry.fingerprint == fingerprint
+                || (policy == CheckoutPolicy::AdoptCached
+                    && entry.fingerprint.workspace_dir == fingerprint.workspace_dir) =>
         {
             log::info!(
                 "[web-channel] reusing cached session agent id={} for client={} thread={}",
