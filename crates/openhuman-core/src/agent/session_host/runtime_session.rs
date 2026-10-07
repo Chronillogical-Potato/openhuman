@@ -417,31 +417,14 @@ impl OpenHumanTurnPrelude {
             synthesized_names.clone(),
         );
         let auto_include_new_synthesized_tools = surface.auto_include_new_synthesized_tools;
-        let agent_definition_name = surface.agent_definition_name.clone();
         reconcile_synthesized_visibility(
             &mut surface.visible_tool_names,
             &previous_synthesized,
             &synthesized_names,
             auto_include_new_synthesized_tools,
         );
-        crate::tools::toolpacks::strip_packed_from_visible(
-            &mut surface.visible_tool_names,
-            &agent_definition_name,
-        );
-        // Same split as the session host's `recompute_deferred_tool_names`:
-        // a `Deferred` synthesised tool leaves the wire and joins the
-        // searchable set, on a belt that opted into discovery.
-        if surface.discovery_enabled {
-            let deferred = crate::tools::implementations::meta::deferred_set(
-                surface.tools.as_slice(),
-                synthesized.as_slice(),
-                &surface.requested_deferred_tools,
-            );
-            surface
-                .visible_tool_names
-                .retain(|name| !deferred.contains(name));
-            surface.deferred_tool_names = deferred;
-        }
+        // Preserve permanently attached tools when re-deriving the surface.
+        permanent::refresh_visibility(&mut surface, &synthesized);
 
         let specs = surface
             .durable_tool_specs
@@ -1441,7 +1424,12 @@ impl OpenHumanSessionHost {
             return injected;
         }
         self.session_history_locator_memo
-            .get_or_init(|| transcripts_or_files(&self.agent_definition_id, &self.workspace_dir))
+            .get_or_init(|| {
+                let session_agent_id = crate::core::runtime::CoreContext::current()
+                    .and_then(|context| context.session_agent().map(str::to_owned))
+                    .unwrap_or_else(|| self.agent_definition_id.clone());
+                transcripts_or_files(&session_agent_id, &self.workspace_dir)
+            })
             .clone()
     }
 

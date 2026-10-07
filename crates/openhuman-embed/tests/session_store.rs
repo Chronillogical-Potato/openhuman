@@ -157,17 +157,10 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
 
             // Nothing durable reached the scratch workspace.
             let written = files_under(&scratch);
-            for durable in [
-                "session_raw",
-                "session_db",
-                "tinyagents_store",
-                "turn_states",
-            ] {
-                assert!(
-                    !written.iter().any(|path| path.contains(durable)),
-                    "{durable} must not be written with a host store: {written:?}"
-                );
-            }
+            assert!(
+                written.is_empty(),
+                "a stateless workspace must remain empty, found: {written:?}"
+            );
 
             drop((asha, ravi));
             drop(runtime);
