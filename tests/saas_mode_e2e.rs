@@ -485,8 +485,16 @@ fn each_user_sees_only_their_own_threads() {
         let threads = d.root.join("agents").join(agent).join("workspace");
         assert!(threads.is_dir(), "{owner}'s workspace");
     }
-    assert!(!d.root.join("operator").join("workspace").join("memory").join("conversations").join("threads.jsonl").exists(),
-        "no user thread lands in the operator workspace");
+    // Boot migrations leave an empty index in the operator workspace; no user
+    // thread may ever reach it.
+    let operator_index = d
+        .root
+        .join("operator/workspace/memory/conversations/threads.jsonl");
+    let operator_threads = std::fs::read_to_string(&operator_index).unwrap_or_default();
+    assert!(
+        !operator_threads.contains("shared-id") && operator_threads.trim().is_empty(),
+        "no user thread lands in the operator workspace: {operator_threads}"
+    );
 
     // Reserved and path-like ids are refused; turn-starting methods are closed.
     for id in ["channel:telegram/1", "../escape"] {
