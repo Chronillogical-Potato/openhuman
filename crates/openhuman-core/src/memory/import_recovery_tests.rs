@@ -166,19 +166,6 @@ async fn a_stop_that_is_not_about_credits_is_not_resumed_by_billing() {
     assert!(!resume_interrupted_with(&config, always(false), billing(true)).await);
 }
 
-#[test]
-fn only_a_self_hosted_engine_runs_automatically_until_the_free_period_check_lands() {
-    let tmp = tempfile::tempdir().unwrap();
-    let mut config = config_in(&tmp);
-    config.memory.engine = crate::memory::engine::CORTEXDB_ENGINE.to_string();
-    assert!(automatic_run_allowed(&config));
-    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_string();
-    assert!(
-        !automatic_run_allowed(&config),
-        "unknown free period is not free"
-    );
-}
-
 /// An engine refusal of the "Ideas" document while `$flag` is set, one flag
 /// per test so tests running in parallel never toggle each other's.
 macro_rules! ideas_refusal {

@@ -329,18 +329,6 @@ pub(crate) type PauseCheck = Arc<dyn Fn() -> bool + Send + Sync>;
 /// automatic import, or resuming one paused for credits), may run now.
 pub(crate) type BillingCheck = Arc<dyn Fn(&Config) -> bool + Send + Sync>;
 
-/// The one gate on automatic migration runs. A self-hosted CortexDB bills
-/// nobody, so it always may. On the TinyHuman memory service an automatic
-/// run spends the user's credits, so it may only while the backend's memory
-/// free period is active.
-///
-/// The shared free-period check (`free_period_active()`) replaces the
-/// TinyHuman half once it lands; until then the free period is unknown, and
-/// unknown is not free.
-pub(crate) fn automatic_run_allowed(config: &Config) -> bool {
-    config.memory.engine.trim() == super::engine::CORTEXDB_ENGINE
-}
-
 /// The scheduler's pause, which includes being signed out.
 fn scheduler_paused() -> bool {
     matches!(
@@ -353,10 +341,18 @@ fn scheduler_paused() -> bool {
 /// the scheduler's pause ([`resume_interrupted_with`]). Called from memory's
 /// background job.
 pub async fn resume_interrupted(config: &Config) -> bool {
+    // A credits pause resumes on its own only while memory work is free
+    // (`billing::free_period_active`: always on a self-hosted engine, the
+    // backend's free period on the TinyHuman one). The backend is asked only
+    // when such a pause is waiting on it.
+    let file = read_file(&config.workspace_dir);
+    let free = file.state.phase == ImportPhase::Error
+        && file.paused_for_credits
+        && super::billing::free_period_active(config).await;
     resume_interrupted_with(
         config,
         Arc::new(scheduler_paused),
-        Arc::new(automatic_run_allowed),
+        Arc::new(move |_: &Config| free),
     )
     .await
 }
