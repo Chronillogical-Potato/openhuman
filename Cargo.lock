@@ -7113,19 +7113,19 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.23.4"
+version = "1.23.1"
 dependencies = [
  "async-trait",
  "chrono",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.10.9",
  "thiserror 2.0.20",
 ]
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.23.4"
+version = "1.23.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -7137,7 +7137,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2 0.10.9",
  "thiserror 2.0.20",
  "tinymemory-api",
  "tinymemory-tools",
@@ -7148,7 +7148,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.23.4"
+version = "1.23.1"
 dependencies = [
  "chrono",
  "futures",
