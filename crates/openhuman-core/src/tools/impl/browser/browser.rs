@@ -46,6 +46,13 @@ async fn approve_browser_action(
     if !force && !needs_host_confirmation(action) {
         return Ok(());
     }
+    let action_json = serde_json::to_value(action)?;
+    let kind = action_json["action"].as_str().unwrap_or("action");
+    // Nobody waits on an unattended approval, so the page needs no binding.
+    let action_digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&action_json)?));
+    if unattended::allow_current(&client.config().browser, kind, &action_digest) {
+        return Ok(());
+    }
     let gate = ApprovalGate::try_global().ok_or_else(|| {
         anyhow::anyhow!("[policy-denied] Browser action needs an interactive host approval gate")
     })?;
@@ -58,8 +65,6 @@ async fn approve_browser_action(
             },
         )
         .await?;
-    let action_json = serde_json::to_value(action)?;
-    let kind = action_json["action"].as_str().unwrap_or("action");
     let origin = reqwest::Url::parse(&before.url)
         .ok()
         .map(|url| url.origin().ascii_serialization())

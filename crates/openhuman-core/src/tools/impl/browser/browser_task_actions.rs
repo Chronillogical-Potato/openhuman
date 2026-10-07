@@ -43,14 +43,12 @@ pub(super) fn task_inputs(args: &Value) -> anyhow::Result<BTreeMap<String, Strin
 }
 
 /// Ask the host approval gate about a paused task's exact action. A missing
-/// gate denies: a task never takes an irreversible step unapproved.
+/// gate denies: a task never takes an irreversible step unapproved, unless a
+/// trusted unattended turn has `task_step` in `[browser] unattended_actions`.
 pub(super) async fn approve_task_action(
     pending: &Pending,
-    _browser: &crate::config::BrowserConfig,
+    browser: &crate::config::BrowserConfig,
 ) -> anyhow::Result<bool> {
-    let gate = ApprovalGate::try_global().ok_or_else(|| {
-        anyhow::anyhow!("[policy-denied] Browser action needs an interactive host approval gate")
-    })?;
     let clean = |raw: &str| {
         let cleaned = raw.chars().filter(|c| !c.is_control()).collect::<String>();
         let mut short = cleaned.chars().take(160).collect::<String>();
@@ -63,6 +61,12 @@ pub(super) async fn approve_task_action(
         "task": pending.task, "action": pending.action, "target": pending.target
     }))?);
     let digest_hex = format!("{digest:x}");
+    if super::unattended::allow_current(browser, "task_step", &digest_hex) {
+        return Ok(true);
+    }
+    let gate = ApprovalGate::try_global().ok_or_else(|| {
+        anyhow::anyhow!("[policy-denied] Browser action needs an interactive host approval gate")
+    })?;
     let summary = format!(
         "Browser task: {} — {} [action {}]",
         clean(&pending.action),
