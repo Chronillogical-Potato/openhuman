@@ -12,6 +12,7 @@ pub mod composio;
 pub mod roots;
 pub mod state;
 mod sync;
+pub mod versions;
 
 use chrono::{DateTime, Utc};
 use tinymemory_api::{ForgetTarget, MetaFilter};

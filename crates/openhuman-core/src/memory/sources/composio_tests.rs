@@ -280,6 +280,71 @@ async fn forget_connection_reads_every_root_its_items_were_filed_under() {
 }
 
 #[tokio::test]
+async fn an_edited_record_replaces_its_previous_version() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let bound = crate::memory::engine::resolve(&config).engine().unwrap();
+    let sync = |records: Vec<ConnectorRecord>| {
+        let (config, bound) = (&config, &bound);
+        async move {
+            store_records(
+                config,
+                bound,
+                "notion",
+                "conn-a",
+                "src",
+                &MemoryLayout::default(),
+                &records,
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let texts = || async {
+        let mut texts: Vec<String> = stored(&engine, MetaFilter::default())
+            .await
+            .into_iter()
+            .map(|hit| hit.text)
+            .collect();
+        texts.sort();
+        texts
+    };
+
+    sync(vec![
+        record("p1", "Plan", "v1"),
+        record("p2", "Notes", "kept"),
+    ])
+    .await;
+    // The same records again: nothing is stale.
+    sync(vec![
+        record("p1", "Plan", "v1"),
+        record("p2", "Notes", "kept"),
+    ])
+    .await;
+    assert_eq!(texts().await, ["# Notes\n\nkept", "# Plan\n\nv1"]);
+
+    // p1 edited upstream: its old version goes, p2 stays.
+    assert_eq!(sync(vec![record("p1", "Plan", "v2")]).await, 1);
+    assert_eq!(texts().await, ["# Notes\n\nkept", "# Plan\n\nv2"]);
+
+    // p2 comes back empty upstream: its stored version goes.
+    sync(vec![record("p2", "Notes", "  ")]).await;
+    assert_eq!(texts().await, ["# Plan\n\nv2"]);
+
+    // Disconnecting drops the record ids with the items.
+    forget_connection(&config, "conn-a", Some("notion"))
+        .await
+        .unwrap();
+    assert!(super::super::versions::begin(
+        &config.workspace_dir,
+        &[(super::super::versions::key("conn-a", "p1"), "other".into())],
+        &[]
+    )
+    .is_empty());
+}
+
+#[tokio::test]
 async fn forget_connection_with_memory_off_forgets_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
