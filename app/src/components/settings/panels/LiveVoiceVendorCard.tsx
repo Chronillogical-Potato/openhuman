@@ -8,7 +8,7 @@ import LiveVoiceVendorLogo from './LiveVoiceVendorLogo';
 import { type LiveVoiceVendor, vendorDescKey } from './liveVoiceVendors';
 
 /** The highlighted "Included with TinyHumans" tag on managed voice agents. */
-export const IncludedTag = ({ className }: { className?: string }) => {
+export const IncludedTag = ({ className, label }: { className?: string; label?: string }) => {
   const { t } = useT();
   return (
     <span
@@ -17,7 +17,7 @@ export const IncludedTag = ({ className }: { className?: string }) => {
         className
       )}>
       <Sparkles className="h-3 w-3" aria-hidden />
-      {t('connections.voiceAgents.includedTag')}
+      {label ?? t('connections.voiceAgents.includedTag')}
     </span>
   );
 };
