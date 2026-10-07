@@ -408,6 +408,7 @@ if should_run_suite "settings"; then
   run "test/e2e/specs/settings-advanced-config.spec.ts"       "settings-advanced"         "settings"
   run "test/e2e/specs/settings-feature-preferences.spec.ts"   "settings-features"         "settings"
   run "test/e2e/specs/settings-search.spec.ts"                "settings-search"           "settings"
+  run "test/e2e/specs/chip-tabs-keyboard.spec.ts"             "chip-tabs-keyboard"        "settings"
   _mini_summary "settings"
 fi
 
