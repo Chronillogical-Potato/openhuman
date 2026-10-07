@@ -23,6 +23,7 @@ use crate::agent::subagent_host::{
     run_subagent_with_parent, SubagentRunOptions, SubagentRunStatus,
 };
 use crate::agent::tinyagents::host::delegation::run_or_resume_with_tracing;
+use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::config::Config;
 use tinyagents_graph::checkpoint::Checkpointer;
 use tinyagents_graph::delegation::{
@@ -33,6 +34,24 @@ use tinyagents_harness::context::{RunConfig, RunContext};
 use tinytools::WorkspaceDescriptor;
 
 const LOG_TARGET: &str = "agent_orchestration::delegation";
+
+/// Derives one delegation stage's run context and host data from the stage
+/// parent. The host carrier is pointed at the stage run's own linked child
+/// token, so a graph cancel still reaches the stage through the parent while
+/// cancelling the stage leaves the graph (and its siblings) running.
+pub(crate) fn stage_run_contexts(
+    stage_parent: &RunContext<OpenHumanRunContext>,
+    workspace: Option<WorkspaceDescriptor>,
+) -> tinyagents_harness::Result<(RunContext<OpenHumanRunContext>, OpenHumanRunContext)> {
+    let mut stage_context = stage_parent.data.child();
+    stage_context.workspace = workspace.or(stage_context.workspace);
+    let stage_run = stage_parent.child(
+        RunConfig::new(format!("delegation-stage-{}", uuid::Uuid::new_v4())),
+        stage_context.clone(),
+    )?;
+    stage_context.cancellation = stage_run.cancellation.clone();
+    Ok((stage_run, stage_context))
+}
 
 /// Typed live entrypoint for the durable delegation graph.
 ///
@@ -275,3 +294,7 @@ fn delegation_subagent_options(
         run_queue: None,
     }
 }
+
+#[cfg(test)]
+#[path = "delegation_tests.rs"]
+mod tests;
