@@ -120,13 +120,11 @@ async function signIn(page, appOrigin) {
   await page.getByText("Welcome to OpenHuman").waitFor({ timeout: 120_000 });
   log("signing in through the GitHub provider button (mock backend)…");
   await page.getByRole("button", { name: "GitHub" }).click();
-  await waitFor(
-    async () => {
-      const url = new URL(page.url());
-      return url.origin === appOrigin && /^#\/(home|chat)/.test(url.hash);
-    },
-    { timeoutMs: 60_000, what: "the signed-in home page" },
-  );
+  // The app bounces through `#/auth`, `#/chat` and `#/home` while boot
+  // settles; ready means the signed-in chat composer is actually on screen.
+  await page
+    .getByRole("textbox", { name: "Message input" })
+    .waitFor({ state: "visible", timeout: 120_000 });
 }
 
 async function main() {

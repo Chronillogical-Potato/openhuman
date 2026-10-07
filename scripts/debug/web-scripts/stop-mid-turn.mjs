@@ -12,7 +12,6 @@ const SLOW_THINKING = [
 export default async function stopMidTurn({ page, mock, screenshot, log }) {
   mock.set("llmStreamScript", SLOW_THINKING);
 
-  await page.getByRole("button", { name: "New Conversation" }).click();
   const composer = page.getByRole("textbox", { name: "Message input" });
   await composer.click();
   await composer.pressSequentially("think about this for a long time");
