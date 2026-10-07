@@ -179,9 +179,7 @@ const LiveVoicePanel = () => {
     <SettingsTabbedPage
       title={t('connections.tabs.voiceAgents')}
       description={t('connections.header.voiceAgents')}>
-      <div
-        className="@container mx-auto flex w-full max-w-5xl flex-col gap-4"
-        data-testid="live-voice-panel">
+      <div className="@container flex flex-col gap-4" data-testid="live-voice-panel">
         {loadError && (
           <Alert variant="destructive">
             <AlertDescription>

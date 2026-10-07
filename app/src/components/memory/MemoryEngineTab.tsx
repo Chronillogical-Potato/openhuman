@@ -224,7 +224,7 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
 
   return (
     <div
-      className={`@container ${embedded ? 'space-y-5' : 'mx-auto w-full max-w-3xl space-y-6 animate-fade-up'}`}
+      className={`@container ${embedded ? 'space-y-5' : 'w-full space-y-6 animate-fade-up'}`}
       data-testid="memory-engine-tab">
       {statusBanner}
 
