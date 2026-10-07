@@ -38,11 +38,11 @@ pub(super) async fn run_agent_job(
     // A host-registered agent (`agent::host_agents`) carries its own
     // definition, model and route; the registry overrides below are for
     // registry agents only.
-    let host_agent = job
+    let is_host_agent = job
         .agent_id
         .as_deref()
-        .and_then(crate::agent::host_agents::resolve);
-    if host_agent.is_some() {
+        .is_some_and(|id| crate::agent::host_agents::resolve(id).is_some());
+    if is_host_agent {
         tracing::debug!(
             job_id = %job.id,
             agent_id = %selected_agent_id,
@@ -142,7 +142,7 @@ pub(super) async fn run_agent_job(
                 target = ?job.session_target,
                 "[cron] building isolated agent for scheduled job"
             );
-            match build_cron_agent(&effective, job, host_agent) {
+            match build_agent_for_cron_job(&effective, job) {
                 Ok(BuiltCronAgent { mut agent, context }) => {
                     // Tag events so downstream subscribers can correlate
                     // cron-triggered turns. `cron` is the channel so the
@@ -328,7 +328,9 @@ fn build_cron_agent(
 ) -> anyhow::Result<BuiltCronAgent> {
     if let Some(host) = host_agent {
         // The host agent's own config (provider model and route applied),
-        // with the job's model override on top, as for a registry agent.
+        // with the job's model override on top, as for a registry agent. The
+        // caller's config is not used: it is the process default's.
+        let _ = config;
         let mut effective = host.config.clone();
         if let Some(model) = job.model.clone() {
             effective.default_model = Some(model);
