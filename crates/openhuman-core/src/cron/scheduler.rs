@@ -6,6 +6,7 @@
 mod agent_run;
 mod delivery;
 mod failure_classification;
+pub(crate) mod in_flight;
 mod retry;
 mod run_record;
 mod shell_job;
