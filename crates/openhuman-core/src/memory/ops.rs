@@ -9,7 +9,7 @@
 use chrono::Utc;
 use tinymemory_api::{
     FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, RecallRequest,
-    StoreItem, StoreReceipt, WriteOptions,
+    StoreItem, StoreReceipt, TimeHint, WriteOptions,
 };
 
 use crate::config::Config;
@@ -19,7 +19,7 @@ use super::error::{MemoryError, MemoryResult};
 use super::types::{
     clamp_limit, EngineSetParams, EngineStatus, EngineView, EnginesListView, FetchParams,
     FetchView, ForgetParams, ForgetView, ItemsListParams, ItemsListView, LearnParams, LearnView,
-    RecallParams, RecallView,
+    RecallParams, RecallView, RefersTo,
 };
 
 /// Default confidence of a learning stored without one.
@@ -142,6 +142,17 @@ fn bound(config: &Config) -> MemoryResult<BoundEngine> {
     engine::resolve(config).engine()
 }
 
+/// The [`TimeHint`] for `refers_to`, in the user's time zone
+/// ([`Config::time_zone`]).
+fn time_hint(config: &Config, refers_to: Option<RefersTo>) -> MemoryResult<Option<TimeHint>> {
+    let Some(RefersTo { from, to }) = refers_to else {
+        return Ok(None);
+    };
+    TimeHint::new(from, to.unwrap_or(from), Some(config.time_zone()))
+        .map(Some)
+        .map_err(MemoryError::from)
+}
+
 /// `memory_recall`.
 pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<RecallView> {
     let bound = bound(config)?;
@@ -150,7 +161,7 @@ pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<Recal
         filter: params.filter.unwrap_or_default(),
         limit: clamp_limit(params.limit),
         instructions: None,
-        refers_to: None,
+        refers_to: time_hint(config, params.refers_to)?,
     };
     request.validate()?;
     let answer = bound.engine.recall(request).await?;
@@ -188,7 +199,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
-        refers_to: None,
+        refers_to: time_hint(config, params.refers_to)?,
     };
     request.validate()?;
     let page = bound.engine.fetch(request).await?;

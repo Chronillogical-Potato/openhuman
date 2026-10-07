@@ -202,7 +202,7 @@ pub fn schema(function: &str) -> ControllerSchema {
             function: "policy_get",
             description: "The memory lifecycle's policy: turn logging, the per-turn pack and its budgets, and the root and agent id work outside an agent resolves to.",
             inputs: vec![],
-            outputs: out("{log_conversations, recall: {enabled, budget_tokens, learnings_limit, brain_limit, history_limit, team_limit, build_beliefs_every, pre_turn_timeout_ms, compaction_timeout_ms, build_delay_secs}, root, agent_id, host_bound}"),
+            outputs: out("{log_conversations, recall: {enabled, budget_tokens, learnings_limit, brain_limit, history_limit, team_limit, build_beliefs_every, pre_turn_timeout_ms, date_hint, compaction_timeout_ms, build_delay_secs}, root, agent_id, host_bound}"),
         },
         "policy_set" => ControllerSchema {
             namespace: "memory",

@@ -62,6 +62,18 @@ pub struct TurnOverrides {
 pub(crate) struct TurnInputs {
     pub(crate) overrides: TurnOverrides,
     pub(crate) reply_language_directive: Option<String>,
+    pub(crate) time_zone: Option<String>,
+}
+
+impl TurnInputs {
+    /// What leads this turn's user message: the date line in the user's time
+    /// zone, then the reply-language instruction.
+    pub(crate) fn preamble(&self) -> String {
+        crate::agent::prompts::turn_preamble(
+            self.reply_language_directive.as_deref(),
+            self.time_zone.as_deref(),
+        )
+    }
 }
 
 impl super::runtime_session::OpenHumanSessionState {
@@ -71,6 +83,7 @@ impl super::runtime_session::OpenHumanSessionState {
         TurnInputs {
             overrides: std::mem::take(&mut self.active_turn_overrides),
             reply_language_directive: self.reply_language_directive.clone(),
+            time_zone: self.time_zone.clone(),
         }
     }
 }
