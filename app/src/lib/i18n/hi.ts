@@ -5022,31 +5022,23 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'मेमोरी बंद है',
   'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
   'memoryPage.off.action': 'प्रदाता चुनें',
-  'memoryPage.engine.listTitle': 'आपकी मेमोरी कहाँ रहती है',
-  'memoryPage.engine.listDescription':
-    'तीनों CortexDB पर चलते हैं। एक समय में एक ही सक्रिय रहता है।',
-  'memoryPage.engine.includedTag': 'TinyHumans के साथ शामिल',
   'memoryPage.engine.inUse': 'इस्तेमाल में',
-  'memoryPage.engine.badgeReady': 'तैयार',
-  'memoryPage.engine.badgeNotConnected': 'कनेक्ट नहीं',
-  'memoryPage.engine.settings': 'सेटिंग्स',
-  'memoryPage.engine.settingsAria': '{name} सेटिंग्स',
+  'memoryPage.engine.cortex.description': 'रैंक की गई रिकॉल और प्रमाणित जवाबों वाला मेमोरी इंजन।',
+  'memoryPage.engine.chip.label': 'CortexDB कैसे कनेक्ट करें',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'मुफ़्त',
+  'memoryPage.engine.chip.apikey': 'आपकी API कुंजी',
+  'memoryPage.engine.chip.selfhost': 'लोकल',
+  'memoryPage.engine.fairUse.summary': 'उचित उपयोग लागू है',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
-  'memoryPage.engine.tagOwnKey': 'आपकी अपनी कुंजी',
-  'memoryPage.engine.tagThisComputer': 'इस कंप्यूटर पर',
   'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans द्वारा आपके लिए होस्ट किया गया CortexDB। कुछ सेट अप नहीं करना है।',
+    'TinyHumans द्वारा आपके लिए होस्ट किया गया। कुछ सेट अप नहीं करना है।',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'CortexDB की प्रबंधित सेवा, आपके अपने CortexDB खाते पर।',
   'memoryPage.engine.selfHost.cardDescription':
     'आपके द्वारा चलाया गया CortexDB सर्वर। मेमोरी इसी कंप्यूटर पर रहती है।',
   'memoryPage.engine.freeIngestion.notePlan': 'आपके {plan} प्लान में मुफ़्त मेमोरी इनजेस्शन',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic और Pro प्लान में मुफ़्त मेमोरी इनजेस्शन',
-  'memoryPage.engine.freeIngestion.title': 'मुफ़्त मेमोरी इनजेस्शन',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    'आपके {plan} प्लान में मेमोरी इनजेस्शन बिना अतिरिक्त शुल्क के शामिल है। उचित उपयोग लागू है ताकि यह सबके लिए मुफ़्त रहे:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Basic और Pro प्लान में मेमोरी इनजेस्शन बिना अतिरिक्त शुल्क के शामिल है। उचित उपयोग लागू है ताकि यह सबके लिए मुफ़्त रहे:',
   'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',
   'memoryPage.engine.fairUse.noAbuse':
     'स्वचालित बल्क अपलोड, स्क्रैपिंग या दूसरों की ओर से इनजेस्शन नहीं।',
@@ -5078,18 +5070,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'पहुंच से बाहर',
   'memoryPage.engine.connecting': 'कनेक्ट हो रहा है…',
   'memoryPage.engine.save': 'सहेजें',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'इस्तेमाल के लिए साइन इन करें',
-  'memoryPage.engine.builtin.description':
-    'TinyHumans द्वारा होस्ट किया गया और आपके खाते में शामिल CortexDB। इस्तेमाल के लिए साइन इन करें; कुछ भी सेट अप नहीं करना है।',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'नई यादें तुरंत सहेजी जाती हैं। उनसे निकाले गए तथ्य और धारणाएं अगले कुछ मिनटों में जुड़ती हैं।',
+  'memoryPage.engine.builtin.title': 'TinyHumans के ज़रिए CortexDB',
   'memoryPage.engine.builtin.signInHint':
     'बिल्ट-इन CortexDB इस्तेमाल करने के लिए अपने TinyHumans खाते में साइन इन करें।',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': 'आपकी API कुंजी के साथ CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'अपना CortexDB खाता इस्तेमाल करें। कुंजी इस कंप्यूटर पर सुरक्षित रूप से सहेजी जाती है, कॉन्फ़िग फ़ाइल में कभी नहीं।',
-  'memoryPage.engine.selfHost.title': 'CortexDB Local',
+  'memoryPage.engine.selfHost.title': 'इस कंप्यूटर पर CortexDB',
   'memoryPage.engine.selfHost.step1': 'गाइड का पालन करके इस कंप्यूटर पर CortexDB सर्वर चलाएं:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB सेल्फ-होस्टिंग गाइड',
   'memoryPage.engine.selfHost.step2':

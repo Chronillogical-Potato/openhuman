@@ -5340,30 +5340,23 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'メモリーはオフです',
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
-  'memoryPage.engine.listTitle': '記憶の保存先',
-  'memoryPage.engine.listDescription':
-    '3 つとも CortexDB で動作します。有効にできるのは 1 つだけです。',
-  'memoryPage.engine.includedTag': 'TinyHumans に含まれる',
   'memoryPage.engine.inUse': '使用中',
-  'memoryPage.engine.badgeReady': '準備完了',
-  'memoryPage.engine.badgeNotConnected': '未接続',
-  'memoryPage.engine.settings': '設定',
-  'memoryPage.engine.settingsAria': '{name} の設定',
+  'memoryPage.engine.cortex.description':
+    'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',
+  'memoryPage.engine.chip.label': 'CortexDB の接続方法',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': '無料',
+  'memoryPage.engine.chip.apikey': '自分の API キー',
+  'memoryPage.engine.chip.selfhost': 'ローカル',
+  'memoryPage.engine.fairUse.summary': 'フェアユースが適用されます',
   'memoryPage.engine.offPrompt': '下のプロバイダーを選ぶと記憶を始めます。',
-  'memoryPage.engine.tagOwnKey': '自分のキー',
-  'memoryPage.engine.tagThisComputer': 'このコンピューター上',
-  'memoryPage.engine.builtin.cardDescription': 'TinyHumans がホストする CortexDB。設定は不要です。',
+  'memoryPage.engine.builtin.cardDescription': 'TinyHumans がホストします。設定は不要です。',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'ご自身の CortexDB アカウントで使う CortexDB のマネージドサービス。',
   'memoryPage.engine.selfHost.cardDescription':
     'ご自身で動かす CortexDB サーバー。記憶はこのコンピューターに保存されます。',
   'memoryPage.engine.freeIngestion.notePlan': '{plan} プランでメモリ取り込みが無料',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic・Pro プランでメモリ取り込みが無料',
-  'memoryPage.engine.freeIngestion.title': 'メモリ取り込み無料',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    '{plan} プランにはメモリ取り込みが追加料金なしで含まれます。誰もが無料で使い続けられるよう、フェアユースが適用されます:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Basic・Pro プランにはメモリ取り込みが追加料金なしで含まれます。誰もが無料で使い続けられるよう、フェアユースが適用されます:',
   'memoryPage.engine.fairUse.own': 'ご自身のコンテンツを、ご自身の用途で取り込んでください。',
   'memoryPage.engine.fairUse.noAbuse':
     '自動の一括アップロード、スクレイピング、他の人やサービスのための取り込みは禁止です。',
@@ -5706,18 +5699,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': '接続できません',
   'memoryPage.engine.connecting': '接続中…',
   'memoryPage.engine.save': '保存',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'サインインして使用',
-  'memoryPage.engine.builtin.description':
-    'TinyHumansが提供するCortexDBです。アカウントに含まれているため、サインインするだけで使えます。設定は不要です。',
-  'memoryPage.engine.builtin.enrichmentNote':
-    '新しいメモリーはすぐに保存されます。そこから抽出した事実や考察は、その後数分かけて反映されます。',
+  'memoryPage.engine.builtin.title': 'TinyHumans 経由の CortexDB',
   'memoryPage.engine.builtin.signInHint':
     '標準のCortexDBを使うには、TinyHumansアカウントにサインインしてください。',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': '自分の API キーで使う CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'お持ちのCortexDBアカウントを使います。キーはこのコンピューターに安全に保存され、設定ファイルには書き込まれません。',
-  'memoryPage.engine.selfHost.title': 'CortexDB Local',
+  'memoryPage.engine.selfHost.title': 'このコンピューター上の CortexDB',
   'memoryPage.engine.selfHost.step1':
     '次のガイドに従って、このコンピューターでCortexDBサーバーを実行してください：',
   'memoryPage.engine.selfHost.docsLink': 'CortexDBのセルフホストガイド',

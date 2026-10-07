@@ -5091,20 +5091,18 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Pamięć jest wyłączona',
   'memoryPage.off.description': 'Wybierz dostawcę pamięci, aby zacząć zapamiętywać.',
   'memoryPage.off.action': 'Wybierz dostawcę',
-  'memoryPage.engine.listTitle': 'Gdzie jest Twoja pamięć',
-  'memoryPage.engine.listDescription':
-    'Wszystkie trzy działają na CortexDB. Aktywny jest tylko jeden naraz.',
-  'memoryPage.engine.includedTag': 'W pakiecie TinyHumans',
   'memoryPage.engine.inUse': 'W użyciu',
-  'memoryPage.engine.badgeReady': 'Gotowe',
-  'memoryPage.engine.badgeNotConnected': 'Niepołączone',
-  'memoryPage.engine.settings': 'Ustawienia',
-  'memoryPage.engine.settingsAria': 'Ustawienia: {name}',
+  'memoryPage.engine.cortex.description':
+    'Silnik pamięci z rankingiem wyników i ugruntowanymi odpowiedziami.',
+  'memoryPage.engine.chip.label': 'Jak połączyć CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Za darmo',
+  'memoryPage.engine.chip.apikey': 'Twój klucz API',
+  'memoryPage.engine.chip.selfhost': 'Lokalnie',
+  'memoryPage.engine.fairUse.summary': 'Obowiązuje uczciwe użytkowanie',
   'memoryPage.engine.offPrompt': 'Wybierz dostawcę poniżej, aby zacząć zapamiętywać.',
-  'memoryPage.engine.tagOwnKey': 'Własny klucz',
-  'memoryPage.engine.tagThisComputer': 'Na tym komputerze',
   'memoryPage.engine.builtin.cardDescription':
-    'CortexDB hostowana dla Ciebie przez TinyHumans. Nic nie trzeba konfigurować.',
+    'Hostowane dla Ciebie przez TinyHumans. Nic nie trzeba konfigurować.',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'Zarządzana usługa CortexDB na Twoim własnym koncie CortexDB.',
   'memoryPage.engine.selfHost.cardDescription':
@@ -5112,11 +5110,6 @@ const messages: TranslationMap = {
   'memoryPage.engine.freeIngestion.notePlan': 'Bezpłatne zapisywanie pamięci w planie {plan}',
   'memoryPage.engine.freeIngestion.noteUpgrade':
     'Bezpłatne zapisywanie pamięci w planach Basic i Pro',
-  'memoryPage.engine.freeIngestion.title': 'Bezpłatne zapisywanie pamięci',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    'Twój plan {plan} obejmuje zapisywanie pamięci bez dodatkowych opłat. Obowiązuje uczciwe użytkowanie, aby pozostało bezpłatne dla wszystkich:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Plany Basic i Pro obejmują zapisywanie pamięci bez dodatkowych opłat. Obowiązuje uczciwe użytkowanie, aby pozostało bezpłatne dla wszystkich:',
   'memoryPage.engine.fairUse.own': 'Zapisuj własne treści na własny użytek.',
   'memoryPage.engine.fairUse.noAbuse':
     'Żadnych zautomatyzowanych masowych przesyłań, scrapingu ani zapisywania w imieniu innych osób lub usług.',
@@ -5147,18 +5140,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Niedostępna',
   'memoryPage.engine.connecting': 'Łączenie…',
   'memoryPage.engine.save': 'Zapisz',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'Zaloguj się, aby używać',
-  'memoryPage.engine.builtin.description':
-    'CortexDB hostowane przez TinyHumans i zawarte w Twoim koncie. Zaloguj się, aby z niego korzystać; nie trzeba nic konfigurować.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Nowe wspomnienia są zapisywane od razu. Fakty i przekonania z nich wyciągnięte uzupełniają się w ciągu kolejnych minut.',
+  'memoryPage.engine.builtin.title': 'CortexDB przez TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Zaloguj się na konto TinyHumans, aby używać wbudowanego CortexDB.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB z Twoim kluczem API',
   'memoryPage.engine.apiKeyOption.description':
     'Użyj własnego konta CortexDB. Klucz jest bezpiecznie przechowywany na tym komputerze, nigdy w pliku konfiguracyjnym.',
-  'memoryPage.engine.selfHost.title': 'CortexDB Lokalnie',
+  'memoryPage.engine.selfHost.title': 'CortexDB na tym komputerze',
   'memoryPage.engine.selfHost.step1':
     'Uruchom serwer CortexDB na tym komputerze według przewodnika:',
   'memoryPage.engine.selfHost.docsLink': 'Przewodnik po samodzielnym hostowaniu CortexDB',

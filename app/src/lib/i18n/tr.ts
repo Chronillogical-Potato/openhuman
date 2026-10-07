@@ -5029,20 +5029,18 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Bellek kapalı',
   'memoryPage.off.description': 'Hatırlamaya başlamak için bir bellek sağlayıcısı seç.',
   'memoryPage.off.action': 'Sağlayıcı seç',
-  'memoryPage.engine.listTitle': 'Belleğin nerede duruyor',
-  'memoryPage.engine.listDescription':
-    'Üçü de CortexDB üzerinde çalışır. Aynı anda yalnızca biri etkindir.',
-  'memoryPage.engine.includedTag': 'TinyHumans ile birlikte gelir',
   'memoryPage.engine.inUse': 'Kullanımda',
-  'memoryPage.engine.badgeReady': 'Hazır',
-  'memoryPage.engine.badgeNotConnected': 'Bağlı değil',
-  'memoryPage.engine.settings': 'Ayarlar',
-  'memoryPage.engine.settingsAria': '{name} ayarları',
+  'memoryPage.engine.cortex.description':
+    'Sıralı geri çağırma ve kaynaklı yanıtlar sunan bellek motoru.',
+  'memoryPage.engine.chip.label': 'CortexDB nasıl bağlanır',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Ücretsiz',
+  'memoryPage.engine.chip.apikey': 'API anahtarın',
+  'memoryPage.engine.chip.selfhost': 'Yerel',
+  'memoryPage.engine.fairUse.summary': 'Adil kullanım geçerlidir',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
-  'memoryPage.engine.tagOwnKey': 'Kendi anahtarın',
-  'memoryPage.engine.tagThisComputer': 'Bu bilgisayarda',
   'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans tarafından senin için barındırılan CortexDB. Kurulum gerekmez.',
+    'TinyHumans tarafından senin için barındırılır. Kurulum gerekmez.',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'CortexDB’nin yönetilen hizmeti, kendi CortexDB hesabınla.',
   'memoryPage.engine.selfHost.cardDescription':
@@ -5050,11 +5048,6 @@ const messages: TranslationMap = {
   'memoryPage.engine.freeIngestion.notePlan': '{plan} planında ücretsiz bellek aktarımı',
   'memoryPage.engine.freeIngestion.noteUpgrade':
     'Basic ve Pro planlarında ücretsiz bellek aktarımı',
-  'memoryPage.engine.freeIngestion.title': 'Ücretsiz bellek aktarımı',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    '{plan} planın bellek aktarımını ek ücret olmadan içerir. Herkes için ücretsiz kalması adına adil kullanım geçerlidir:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Basic ve Pro planları bellek aktarımını ek ücret olmadan içerir. Herkes için ücretsiz kalması adına adil kullanım geçerlidir:',
   'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',
   'memoryPage.engine.fairUse.noAbuse':
     'Otomatik toplu yükleme, kazıma veya başka kişiler ya da hizmetler adına aktarım yok.',
@@ -5086,18 +5079,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Ulaşılamıyor',
   'memoryPage.engine.connecting': 'Bağlanıyor…',
   'memoryPage.engine.save': 'Kaydet',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'Kullanmak için oturum açın',
-  'memoryPage.engine.builtin.description':
-    'TinyHumans tarafından barındırılan ve hesabınıza dahil olan CortexDB. Kullanmak için oturum açın; kurulacak hiçbir şey yok.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Yeni anılar hemen kaydedilir. Bunlardan çıkarılan olgular ve inançlar sonraki dakikalarda tamamlanır.',
+  'memoryPage.engine.builtin.title': 'TinyHumans üzerinden CortexDB',
   'memoryPage.engine.builtin.signInHint':
     "Yerleşik CortexDB'yi kullanmak için TinyHumans hesabınızda oturum açın.",
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Bulut',
+  'memoryPage.engine.apiKeyOption.title': 'API anahtarınla CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'Kendi CortexDB hesabınızı kullanın. Anahtar yapılandırma dosyasında değil, bu bilgisayarda güvenli şekilde saklanır.',
-  'memoryPage.engine.selfHost.title': 'CortexDB Yerel',
+  'memoryPage.engine.selfHost.title': 'Bu bilgisayarda CortexDB',
   'memoryPage.engine.selfHost.step1':
     'Kılavuzu izleyerek bu bilgisayarda bir CortexDB sunucusu çalıştırın:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB kendi kendine barındırma kılavuzu',

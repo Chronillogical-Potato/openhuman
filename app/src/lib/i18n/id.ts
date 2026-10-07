@@ -5063,31 +5063,24 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'Memori nonaktif',
   'memoryPage.off.description': 'Pilih penyedia memori untuk mulai mengingat.',
   'memoryPage.off.action': 'Pilih penyedia',
-  'memoryPage.engine.listTitle': 'Tempat memori Anda disimpan',
-  'memoryPage.engine.listDescription':
-    'Ketiganya berjalan di CortexDB. Hanya satu yang aktif dalam satu waktu.',
-  'memoryPage.engine.includedTag': 'Termasuk di TinyHumans',
   'memoryPage.engine.inUse': 'Digunakan',
-  'memoryPage.engine.badgeReady': 'Siap',
-  'memoryPage.engine.badgeNotConnected': 'Belum terhubung',
-  'memoryPage.engine.settings': 'Pengaturan',
-  'memoryPage.engine.settingsAria': 'Pengaturan {name}',
+  'memoryPage.engine.cortex.description':
+    'Mesin memori dengan pemanggilan berperingkat dan jawaban berdasar.',
+  'memoryPage.engine.chip.label': 'Cara menghubungkan CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Gratis',
+  'memoryPage.engine.chip.apikey': 'Kunci API Anda',
+  'memoryPage.engine.chip.selfhost': 'Lokal',
+  'memoryPage.engine.fairUse.summary': 'Berlaku penggunaan wajar',
   'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
-  'memoryPage.engine.tagOwnKey': 'Kunci sendiri',
-  'memoryPage.engine.tagThisComputer': 'Di komputer ini',
   'memoryPage.engine.builtin.cardDescription':
-    'CortexDB yang di-host untuk Anda oleh TinyHumans. Tidak perlu pengaturan.',
+    'Di-host untuk Anda oleh TinyHumans. Tidak perlu pengaturan.',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'Layanan terkelola CortexDB, di akun CortexDB Anda sendiri.',
   'memoryPage.engine.selfHost.cardDescription':
     'Server CortexDB yang Anda jalankan sendiri. Memori disimpan di komputer ini.',
   'memoryPage.engine.freeIngestion.notePlan': 'Penyerapan memori gratis di paket {plan} Anda',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'Penyerapan memori gratis di paket Basic dan Pro',
-  'memoryPage.engine.freeIngestion.title': 'Penyerapan memori gratis',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    'Paket {plan} Anda mencakup penyerapan memori tanpa biaya tambahan. Berlaku penggunaan wajar agar tetap gratis untuk semua:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Paket Basic dan Pro mencakup penyerapan memori tanpa biaya tambahan. Berlaku penggunaan wajar agar tetap gratis untuk semua:',
   'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
   'memoryPage.engine.fairUse.noAbuse':
     'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',
@@ -5118,18 +5111,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Tidak terjangkau',
   'memoryPage.engine.connecting': 'Menghubungkan…',
   'memoryPage.engine.save': 'Simpan',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'Masuk untuk memakai',
-  'memoryPage.engine.builtin.description':
-    'CortexDB yang di-host oleh TinyHumans dan sudah termasuk dalam akun Anda. Masuk untuk memakainya; tidak ada yang perlu disiapkan.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'Memori baru langsung disimpan. Fakta dan keyakinan yang diambil darinya terisi dalam beberapa menit berikutnya.',
+  'memoryPage.engine.builtin.title': 'CortexDB lewat TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Masuk ke akun TinyHumans Anda untuk memakai CortexDB bawaan.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB dengan kunci API Anda',
   'memoryPage.engine.apiKeyOption.description':
     'Gunakan akun CortexDB Anda sendiri. Kunci disimpan dengan aman di komputer ini, tidak pernah di file konfigurasi.',
-  'memoryPage.engine.selfHost.title': 'CortexDB Lokal',
+  'memoryPage.engine.selfHost.title': 'CortexDB di komputer ini',
   'memoryPage.engine.selfHost.step1':
     'Jalankan server CortexDB di komputer ini dengan mengikuti panduan:',
   'memoryPage.engine.selfHost.docsLink': 'Panduan self-hosting CortexDB',

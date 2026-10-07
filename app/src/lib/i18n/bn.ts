@@ -5023,30 +5023,24 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'মেমোরি বন্ধ আছে',
   'memoryPage.off.description': 'মনে রাখা শুরু করতে একটি মেমোরি প্রদানকারী বেছে নিন।',
   'memoryPage.off.action': 'প্রদানকারী বেছে নিন',
-  'memoryPage.engine.listTitle': 'আপনার মেমোরি কোথায় থাকে',
-  'memoryPage.engine.listDescription': 'তিনটিই CortexDB-তে চলে। একবারে একটিই সক্রিয় থাকে।',
-  'memoryPage.engine.includedTag': 'TinyHumans-এর সাথে অন্তর্ভুক্ত',
   'memoryPage.engine.inUse': 'ব্যবহৃত হচ্ছে',
-  'memoryPage.engine.badgeReady': 'প্রস্তুত',
-  'memoryPage.engine.badgeNotConnected': 'সংযুক্ত নয়',
-  'memoryPage.engine.settings': 'সেটিংস',
-  'memoryPage.engine.settingsAria': '{name} সেটিংস',
+  'memoryPage.engine.cortex.description':
+    'র‍্যাঙ্ক করা রিকল ও প্রমাণভিত্তিক উত্তরসহ মেমোরি ইঞ্জিন।',
+  'memoryPage.engine.chip.label': 'CortexDB কীভাবে সংযুক্ত করবেন',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'বিনামূল্যে',
+  'memoryPage.engine.chip.apikey': 'আপনার API কী',
+  'memoryPage.engine.chip.selfhost': 'লোকাল',
+  'memoryPage.engine.fairUse.summary': 'ন্যায্য ব্যবহার প্রযোজ্য',
   'memoryPage.engine.offPrompt': 'মনে রাখা শুরু করতে নিচে একটি প্রদানকারী বেছে নিন।',
-  'memoryPage.engine.tagOwnKey': 'আপনার নিজের কী',
-  'memoryPage.engine.tagThisComputer': 'এই কম্পিউটারে',
   'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans আপনার জন্য হোস্ট করা CortexDB। কিছু সেট আপ করতে হবে না।',
+    'TinyHumans আপনার জন্য হোস্ট করে। কিছু সেট আপ করতে হবে না।',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'আপনার নিজের CortexDB অ্যাকাউন্টে CortexDB-এর পরিচালিত সেবা।',
   'memoryPage.engine.selfHost.cardDescription':
     'আপনি নিজে চালানো একটি CortexDB সার্ভার। মেমোরি এই কম্পিউটারে থাকে।',
   'memoryPage.engine.freeIngestion.notePlan': 'আপনার {plan} প্ল্যানে বিনামূল্যে মেমোরি ইনজেশন',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic ও Pro প্ল্যানে বিনামূল্যে মেমোরি ইনজেশন',
-  'memoryPage.engine.freeIngestion.title': 'বিনামূল্যে মেমোরি ইনজেশন',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    'আপনার {plan} প্ল্যানে অতিরিক্ত খরচ ছাড়াই মেমোরি ইনজেশন আছে। সবার জন্য বিনামূল্যে রাখতে ন্যায্য ব্যবহার প্রযোজ্য:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Basic ও Pro প্ল্যানে অতিরিক্ত খরচ ছাড়াই মেমোরি ইনজেশন আছে। সবার জন্য বিনামূল্যে রাখতে ন্যায্য ব্যবহার প্রযোজ্য:',
   'memoryPage.engine.fairUse.own': 'নিজের কনটেন্ট, নিজের ব্যবহারের জন্য যোগ করুন।',
   'memoryPage.engine.fairUse.noAbuse':
     'স্বয়ংক্রিয় বাল্ক আপলোড, স্ক্র্যাপিং বা অন্যদের হয়ে ইনজেশন নয়।',
@@ -5077,18 +5071,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'পৌঁছানো যাচ্ছে না',
   'memoryPage.engine.connecting': 'সংযোগ হচ্ছে…',
   'memoryPage.engine.save': 'সংরক্ষণ করুন',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'ব্যবহার করতে সাইন ইন করুন',
-  'memoryPage.engine.builtin.description':
-    'TinyHumans হোস্ট করা এবং আপনার অ্যাকাউন্টের সাথে অন্তর্ভুক্ত CortexDB। ব্যবহার করতে সাইন ইন করুন; কিছুই সেট আপ করতে হবে না।',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'নতুন স্মৃতি সঙ্গে সঙ্গে সংরক্ষিত হয়। সেগুলো থেকে পাওয়া তথ্য ও বিশ্বাস পরের কয়েক মিনিটে যুক্ত হয়।',
+  'memoryPage.engine.builtin.title': 'TinyHumans-এর মাধ্যমে CortexDB',
   'memoryPage.engine.builtin.signInHint':
     'বিল্ট-ইন CortexDB ব্যবহার করতে আপনার TinyHumans অ্যাকাউন্টে সাইন ইন করুন।',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': 'আপনার API কী দিয়ে CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'নিজের CortexDB অ্যাকাউন্ট ব্যবহার করুন। কীটি এই কম্পিউটারে নিরাপদে সংরক্ষিত থাকে, কখনো কনফিগ ফাইলে নয়।',
-  'memoryPage.engine.selfHost.title': 'CortexDB Local',
+  'memoryPage.engine.selfHost.title': 'এই কম্পিউটারে CortexDB',
   'memoryPage.engine.selfHost.step1': 'গাইড অনুসরণ করে এই কম্পিউটারে একটি CortexDB সার্ভার চালান:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB সেলফ-হোস্টিং গাইড',
   'memoryPage.engine.selfHost.step2':

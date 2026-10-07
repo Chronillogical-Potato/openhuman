@@ -5302,30 +5302,22 @@ const en: TranslationMap = {
   'memoryPage.off.title': 'Memory is off',
   'memoryPage.off.description': 'Pick a memory provider to start remembering.',
   'memoryPage.off.action': 'Choose a provider',
-  'memoryPage.engine.listTitle': 'Where your memory lives',
-  'memoryPage.engine.listDescription': 'All three run on CortexDB. Only one is active at a time.',
-  'memoryPage.engine.includedTag': 'Included with TinyHumans',
   'memoryPage.engine.inUse': 'In use',
-  'memoryPage.engine.badgeReady': 'Ready',
-  'memoryPage.engine.badgeNotConnected': 'Not connected',
-  'memoryPage.engine.settings': 'Settings',
-  'memoryPage.engine.settingsAria': '{name} settings',
+  'memoryPage.engine.cortex.description': 'Memory engine with ranked recall and grounded answers.',
+  'memoryPage.engine.chip.label': 'How to connect CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'Free',
+  'memoryPage.engine.chip.apikey': 'Your API key',
+  'memoryPage.engine.chip.selfhost': 'Local',
+  'memoryPage.engine.fairUse.summary': 'Fair use applies',
   'memoryPage.engine.offPrompt': 'Pick a provider below to start remembering.',
-  'memoryPage.engine.tagOwnKey': 'Your own key',
-  'memoryPage.engine.tagThisComputer': 'On this computer',
-  'memoryPage.engine.builtin.cardDescription':
-    'CortexDB hosted for you by TinyHumans. Nothing to set up.',
+  'memoryPage.engine.builtin.cardDescription': 'Hosted for you by TinyHumans. Nothing to set up.',
   'memoryPage.engine.apiKeyOption.cardDescription':
     "CortexDB's managed service, on your own CortexDB account.",
   'memoryPage.engine.selfHost.cardDescription':
     'A CortexDB server you run yourself. Memory is stored on this computer.',
   'memoryPage.engine.freeIngestion.notePlan': 'Free memory ingestion on your {plan} plan',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'Free memory ingestion on Basic and Pro plans',
-  'memoryPage.engine.freeIngestion.title': 'Free memory ingestion',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    'Your {plan} plan includes memory ingestion at no extra cost. Fair use applies, so it stays free for everyone:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Basic and Pro plans include memory ingestion at no extra cost. Fair use applies, so it stays free for everyone:',
   'memoryPage.engine.fairUse.own': 'Ingest your own content, for your own use.',
   'memoryPage.engine.fairUse.noAbuse':
     'No automated bulk uploads, scraping, or ingesting on behalf of other people or services.',
@@ -5356,18 +5348,13 @@ const en: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Unreachable',
   'memoryPage.engine.connecting': 'Connecting…',
   'memoryPage.engine.save': 'Save',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'Sign in to use',
-  'memoryPage.engine.builtin.description':
-    'CortexDB hosted by TinyHumans and included with your account. Sign in to use it; there is nothing to set up.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'New memories are saved right away. Facts and beliefs drawn from them fill in over the following minutes.',
+  'memoryPage.engine.builtin.title': 'CortexDB via TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Sign in to your TinyHumans account to use built-in CortexDB.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB with your API key',
   'memoryPage.engine.apiKeyOption.description':
     'Use your own CortexDB account. The key is stored securely on this computer, never in the config file.',
-  'memoryPage.engine.selfHost.title': 'CortexDB Local',
+  'memoryPage.engine.selfHost.title': 'CortexDB on this computer',
   'memoryPage.engine.selfHost.step1':
     'Run a CortexDB server on this computer by following the guide:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB self-hosting guide',

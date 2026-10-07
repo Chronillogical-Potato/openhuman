@@ -4932,30 +4932,22 @@ const messages: TranslationMap = {
   'memoryPage.off.title': 'الذاكرة متوقفة',
   'memoryPage.off.description': 'اختر مزوّد ذاكرة لبدء التذكّر.',
   'memoryPage.off.action': 'اختر مزوّدًا',
-  'memoryPage.engine.listTitle': 'أين تُحفظ ذاكرتك',
-  'memoryPage.engine.listDescription': 'الثلاثة تعمل على CortexDB. واحد فقط يكون نشطًا في كل مرة.',
-  'memoryPage.engine.includedTag': 'مضمّن مع TinyHumans',
   'memoryPage.engine.inUse': 'قيد الاستخدام',
-  'memoryPage.engine.badgeReady': 'جاهز',
-  'memoryPage.engine.badgeNotConnected': 'غير متصل',
-  'memoryPage.engine.settings': 'الإعدادات',
-  'memoryPage.engine.settingsAria': 'إعدادات {name}',
+  'memoryPage.engine.cortex.description': 'محرك ذاكرة باسترجاع مرتّب وإجابات موثّقة.',
+  'memoryPage.engine.chip.label': 'طريقة ربط CortexDB',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': 'مجاني',
+  'memoryPage.engine.chip.apikey': 'مفتاح API الخاص بك',
+  'memoryPage.engine.chip.selfhost': 'محلي',
+  'memoryPage.engine.fairUse.summary': 'يسري الاستخدام العادل',
   'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',
-  'memoryPage.engine.tagOwnKey': 'مفتاحك الخاص',
-  'memoryPage.engine.tagThisComputer': 'على هذا الكمبيوتر',
-  'memoryPage.engine.builtin.cardDescription':
-    'CortexDB مستضافة لك من TinyHumans. لا حاجة لأي إعداد.',
+  'memoryPage.engine.builtin.cardDescription': 'مستضاف لك من TinyHumans. لا حاجة لأي إعداد.',
   'memoryPage.engine.apiKeyOption.cardDescription':
     'خدمة CortexDB المُدارة على حساب CortexDB الخاص بك.',
   'memoryPage.engine.selfHost.cardDescription':
     'خادم CortexDB تشغّله بنفسك. تُخزَّن الذاكرة على هذا الكمبيوتر.',
   'memoryPage.engine.freeIngestion.notePlan': 'إدخال مجاني للذاكرة في خطة {plan}',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'إدخال مجاني للذاكرة في خطتي Basic وPro',
-  'memoryPage.engine.freeIngestion.title': 'إدخال مجاني للذاكرة',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    'تتضمن خطة {plan} إدخال الذاكرة دون تكلفة إضافية. يسري الاستخدام العادل ليبقى مجانيًا للجميع:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'تتضمن خطتا Basic وPro إدخال الذاكرة دون تكلفة إضافية. يسري الاستخدام العادل ليبقى مجانيًا للجميع:',
   'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',
   'memoryPage.engine.fairUse.noAbuse':
     'لا رفع جماعي آلي ولا كشط ولا إدخال نيابةً عن أشخاص أو خدمات أخرى.',
@@ -4986,18 +4978,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'يتعذّر الوصول',
   'memoryPage.engine.connecting': 'جارٍ الاتصال…',
   'memoryPage.engine.save': 'حفظ',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': 'سجّل الدخول للاستخدام',
-  'memoryPage.engine.builtin.description':
-    'CortexDB تستضيفه TinyHumans ومضمّن في حسابك. سجّل الدخول لاستخدامه؛ لا شيء لإعداده.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    'تُحفظ الذكريات الجديدة فورًا. وتكتمل الحقائق والمعتقدات المستخلصة منها خلال الدقائق التالية.',
+  'memoryPage.engine.builtin.title': 'CortexDB عبر TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'سجّل الدخول إلى حساب TinyHumans لاستخدام CortexDB المدمج.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB بمفتاح API الخاص بك',
   'memoryPage.engine.apiKeyOption.description':
     'استخدم حساب CortexDB الخاص بك. يُخزَّن المفتاح بأمان على هذا الكمبيوتر، ولا يُحفظ أبدًا في ملف الإعدادات.',
-  'memoryPage.engine.selfHost.title': 'CortexDB Local',
+  'memoryPage.engine.selfHost.title': 'CortexDB على هذا الكمبيوتر',
   'memoryPage.engine.selfHost.step1': 'شغّل خادم CortexDB على هذا الكمبيوتر باتباع الدليل:',
   'memoryPage.engine.selfHost.docsLink': 'دليل الاستضافة الذاتية لـ CortexDB',
   'memoryPage.engine.selfHost.step2':

@@ -4978,31 +4978,23 @@ const messages: TranslationMap = {
   'memoryPage.off.title': '메모리가 꺼져 있습니다',
   'memoryPage.off.description': '메모리 제공자를 선택하면 기억을 시작합니다.',
   'memoryPage.off.action': '제공자 선택',
-  'memoryPage.engine.listTitle': '메모리 저장 위치',
-  'memoryPage.engine.listDescription':
-    '세 가지 모두 CortexDB로 동작합니다. 한 번에 하나만 사용됩니다.',
-  'memoryPage.engine.includedTag': 'TinyHumans에 포함',
   'memoryPage.engine.inUse': '사용 중',
-  'memoryPage.engine.badgeReady': '준비됨',
-  'memoryPage.engine.badgeNotConnected': '연결 안 됨',
-  'memoryPage.engine.settings': '설정',
-  'memoryPage.engine.settingsAria': '{name} 설정',
+  'memoryPage.engine.cortex.description': '순위 기반 회상과 근거 있는 답변을 제공하는 메모리 엔진.',
+  'memoryPage.engine.chip.label': 'CortexDB 연결 방법',
+  'memoryPage.engine.chip.builtin': 'TinyHumans',
+  'memoryPage.engine.chip.free': '무료',
+  'memoryPage.engine.chip.apikey': '내 API 키',
+  'memoryPage.engine.chip.selfhost': '로컬',
+  'memoryPage.engine.fairUse.summary': '공정 사용 적용',
   'memoryPage.engine.offPrompt': '아래에서 제공자를 선택하면 기억을 시작합니다.',
-  'memoryPage.engine.tagOwnKey': '내 키',
-  'memoryPage.engine.tagThisComputer': '이 컴퓨터에서',
   'memoryPage.engine.builtin.cardDescription':
-    'TinyHumans가 대신 호스팅하는 CortexDB. 설정할 것이 없습니다.',
+    'TinyHumans가 대신 호스팅합니다. 설정할 것이 없습니다.',
   'memoryPage.engine.apiKeyOption.cardDescription':
     '내 CortexDB 계정으로 쓰는 CortexDB 관리형 서비스.',
   'memoryPage.engine.selfHost.cardDescription':
     '직접 실행하는 CortexDB 서버. 메모리는 이 컴퓨터에 저장됩니다.',
   'memoryPage.engine.freeIngestion.notePlan': '{plan} 요금제에서 메모리 수집 무료',
   'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic 및 Pro 요금제에서 메모리 수집 무료',
-  'memoryPage.engine.freeIngestion.title': '무료 메모리 수집',
-  'memoryPage.engine.freeIngestion.bodyIncluded':
-    '{plan} 요금제에는 추가 비용 없이 메모리 수집이 포함됩니다. 모두가 계속 무료로 쓸 수 있도록 공정 사용이 적용됩니다:',
-  'memoryPage.engine.freeIngestion.bodyUpgrade':
-    'Basic 및 Pro 요금제에는 추가 비용 없이 메모리 수집이 포함됩니다. 모두가 계속 무료로 쓸 수 있도록 공정 사용이 적용됩니다:',
   'memoryPage.engine.fairUse.own': '본인 콘텐츠를 본인 용도로 수집하세요.',
   'memoryPage.engine.fairUse.noAbuse':
     '자동 대량 업로드, 스크래핑, 다른 사람이나 서비스를 대신한 수집은 금지됩니다.',
@@ -5033,18 +5025,13 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': '연결할 수 없음',
   'memoryPage.engine.connecting': '연결 중…',
   'memoryPage.engine.save': '저장',
-  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
-  'memoryPage.engine.builtin.signInRequired': '로그인 후 사용',
-  'memoryPage.engine.builtin.description':
-    'TinyHumans가 호스팅하며 계정에 포함된 CortexDB입니다. 로그인하면 사용할 수 있으며 설정할 것이 없습니다.',
-  'memoryPage.engine.builtin.enrichmentNote':
-    '새 기억은 바로 저장됩니다. 여기서 도출된 사실과 신념은 이후 몇 분에 걸쳐 채워집니다.',
+  'memoryPage.engine.builtin.title': 'TinyHumans를 통한 CortexDB',
   'memoryPage.engine.builtin.signInHint':
     '내장 CortexDB를 사용하려면 TinyHumans 계정에 로그인하세요.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
+  'memoryPage.engine.apiKeyOption.title': '내 API 키로 쓰는 CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     '자신의 CortexDB 계정을 사용합니다. 키는 이 컴퓨터에 안전하게 저장되며 설정 파일에는 저장되지 않습니다.',
-  'memoryPage.engine.selfHost.title': 'CortexDB Local',
+  'memoryPage.engine.selfHost.title': '이 컴퓨터의 CortexDB',
   'memoryPage.engine.selfHost.step1': '안내서에 따라 이 컴퓨터에서 CortexDB 서버를 실행하세요:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB 셀프 호스팅 안내서',
   'memoryPage.engine.selfHost.step2':
