@@ -139,7 +139,7 @@ there only while its bytes still match the binary
 | [`ops_discover.rs`](./ops_discover.rs), [`ops_discover/`](./ops_discover/) | `api.rs` (public entry points, metadata cache, trust check), `scan.rs` (root order and scan engine), `resource.rs` (`read_workflow_resource`). |
 | [`ops_parse.rs`](./ops_parse.rs) | Frontmatter and body split, resource inventory. |
 | [`ops_create.rs`](./ops_create.rs) | Scaffold a new skill with its sidecar. |
-| [`ops_install.rs`](./ops_install.rs), [`ops_install/`](./ops_install/) | `fetch.rs` (URL installer), `url_validation.rs`, `uninstall.rs`. |
+| [`ops_install.rs`](./ops_install.rs), [`ops_install/`](./ops_install/) | `fetch.rs` (URL installer: fetches through `tinyskills::fetch_skill_document`, then validates and writes with `install_validated_document`, which catalog installs share), `url_validation.rs`, `uninstall.rs`. |
 | [`registry.rs`](./registry.rs) | Skills as agent definitions with inputs; `render_inputs_block`, `prune_legacy_default_workflows`. |
 | [`preflight.rs`](./preflight.rs) | Pre-run gates (GitHub). |
 | [`run_log.rs`](./run_log.rs) | Per-run streaming logs; `read_run_log_slice`, `scan_runs`. |
@@ -149,7 +149,7 @@ there only while its bytes still match the binary
 | [`bundled/`](./bundled/) | Compiled-in skills and the builtin root. |
 | [`schemas/`](./schemas/) | `controller_schemas.rs`, `handlers.rs`, `helpers.rs` (workspace resolution through `Config::load_or_init()` with a 30 second timeout), `wire_types.rs`. |
 | [`stub.rs`](./stub.rs) | Facade used when the `skills` feature is off. |
-| [`catalog/`](catalog/README.md) | Remote skill catalogs (`skill_registry.*`), install by entry id, the `skill_setup` agent. |
+| [`catalog/`](catalog/README.md) | The `tinyskills` registry host (`skill_registry.*`): transport, configuration, paged browse, search and detail, install by entry id, the `skill_setup` agent. |
 | [`runtime/`](runtime/README.md) | Run execution (`skill_runtime.*`): start, cancel, recent runs, log reads, Node/Python runtime resolution. |
 | [`webhooks/`](webhooks/README.md) | Webhook tunnel routing. Nested here for historical reasons; not part of the `skills` feature. |
 
@@ -213,7 +213,7 @@ rather than re-implementing it:
 | `resolve_skill`, `read_resource` (traversal, symlink, size, UTF-8 guards) | The `read_workflow_resource` wrapper and the empty `skill_id` check |
 | `slugify`, `validate_*`, `scaffold_bundle` (containment, body preservation, `SKILL.md` to `WORKFLOW.md` migration) | Scope-to-root choice, the `workflow.toml` sidecar, `[[inputs]]` validation, re-discovery |
 | `remove_bundle` | Root search order, error wording, the `WorkflowsChanged` publish |
-| Install URL normalization and SSRF guards, document size and validation, `write_installed_document`, `redact_url` | The `reqwest` fetch, `Retry-After` and rate-limit messages, the ClawHub file-API exception, Sentry reporting |
+| Install URL normalization, the guarded `fetch_skill_document` (HTTPS only, non-public addresses refused, pinned connections, re-validated redirects, size cap, timeout), document validation, `write_installed_document`, `redact_url` | `Retry-After` and rate-limit messages, Sentry reporting |
 | `TriggerPattern` grammar and matching | `TriggeredWorkflowIndex` and the bus subscriber |
 | Bundled-skill validate, digest, install, `is_current_materialization` | The `BUNDLED` table and the builtin root |
 
