@@ -11,7 +11,14 @@
  * `useT()` here.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
-import { AlertTriangleIcon, Ban, CheckIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react';
+import {
+  AlertTriangleIcon,
+  Ban,
+  CheckIcon,
+  ChevronRightIcon,
+  Loader2Icon,
+  XIcon,
+} from 'lucide-react';
 import { Children, type ComponentProps, type ReactNode, useState } from 'react';
 
 import { mono, paper } from './surfaces';
@@ -32,7 +39,10 @@ export function TaskStateIcon({ state, className }: { state: TaskCardState; clas
   }
   if (state === 'incomplete') {
     return (
-      <AlertTriangleIcon aria-hidden className={cn('size-3.5 shrink-0 text-amber-500', className)} />
+      <AlertTriangleIcon
+        aria-hidden
+        className={cn('size-3.5 shrink-0 text-amber-500', className)}
+      />
     );
   }
   if (state === 'cancelled') {
