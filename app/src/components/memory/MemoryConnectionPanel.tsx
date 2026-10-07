@@ -1,4 +1,4 @@
-import { Check, ExternalLink, Gift } from 'lucide-react';
+import { ExternalLink, Gift } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
 
 import { useT } from '../../lib/i18n/I18nContext';
@@ -252,8 +252,8 @@ export default function MemoryConnectionPanel({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex items-center justify-end gap-2">
-        {showSubmit ? (
+      {showSubmit && (
+        <div className="flex items-center justify-end gap-2">
           <Button
             size="sm"
             type={option === 'builtin' ? 'button' : 'submit'}
@@ -264,15 +264,8 @@ export default function MemoryConnectionPanel({
             onClick={option === 'builtin' ? onSubmit : undefined}>
             {submitLabel}
           </Button>
-        ) : (
-          <span
-            className="inline-flex h-8 items-center gap-1 text-xs font-semibold text-primary-600 dark:text-primary-300"
-            data-testid={`memory-engine-${option}-in-use`}>
-            <Check className="h-4 w-4" aria-hidden />
-            {t('memoryPage.engine.inUse')}
-          </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

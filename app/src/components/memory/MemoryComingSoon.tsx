@@ -37,7 +37,7 @@ export default function MemoryComingSoon() {
         <h3 className="text-sm font-semibold text-content">{t('memoryPage.engine.soon.title')}</h3>
         <p className="text-xs text-content-muted">{t('memoryPage.engine.soon.description')}</p>
       </header>
-      <div className="grid gap-2.5 @lg:grid-cols-2 @3xl:grid-cols-3">
+      <div className="grid gap-2.5 @md:grid-cols-2 @3xl:grid-cols-3">
         {UPCOMING.map(engine => (
           <div
             key={engine.id}

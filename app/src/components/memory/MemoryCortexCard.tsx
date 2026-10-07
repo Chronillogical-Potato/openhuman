@@ -94,7 +94,7 @@ export default function MemoryCortexCard({
                 'builtin',
                 <MemoryProviderLogo option="builtin" className="h-3.5 w-3.5" />,
                 t('memoryPage.engine.chip.builtin'),
-                <span className="rounded-full bg-sage-500/15 px-1.5 text-[10px] font-semibold text-sage-700 dark:text-sage-300">
+                <span className="rounded-full bg-sage-600 px-1.5 text-[10px] leading-4 font-semibold text-white">
                   {t('memoryPage.engine.chip.free')}
                 </span>
               ),
