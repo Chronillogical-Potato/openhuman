@@ -3,8 +3,20 @@ import { behavior, parseBehaviorJson, setMockBehavior } from "../state.mjs";
 import { listMockLlmModels } from "./llm/shared.mjs";
 
 // The web E2E core must never fetch the public Hermes catalog. Keep the
-// fixture small but representative: registry smoke tests need sources and
-// browse results, while search tests need both `git` and `docker` matches.
+// fixture representative: registry smoke tests need sources and browse
+// results, search tests need both `git` and `docker` matches, and the
+// explorer needs more than one 25-row page to exercise server paging.
+const SKILL_REGISTRY_FILLER = Array.from({ length: 30 }, (_, i) => ({
+  name: `fixture-skill-${String(i).padStart(2, "0")}`,
+  description: "Registry paging fixture.",
+  category: "productivity",
+  source: "fixture-pack",
+  tags: [],
+  platforms: ["linux", "macos", "windows"],
+  commands: [],
+  envVars: [],
+}));
+
 const SKILL_REGISTRY_CATALOG = [
   {
     name: "git-workflow",
@@ -28,14 +40,35 @@ const SKILL_REGISTRY_CATALOG = [
     commands: ["docker"],
     envVars: [],
   },
+  ...SKILL_REGISTRY_FILLER,
 ];
+
+function skillRegistryDocument(name) {
+  return `---\nname: ${name}\ndescription: Mock registry skill ${name}.\n---\n\n# ${name}\n`;
+}
 
 export function handleIntegrations(ctx) {
   const { method, url, parsedBody, res } = ctx;
   const mockBehavior = behavior();
 
   if (method === "GET" && /^\/skills\/catalog\.json\/?(?:\?.*)?$/.test(url)) {
+    if (mockBehavior.skillRegistryUnavailable === "true") {
+      json(res, 503, { success: false, error: "skill registry unavailable" });
+      return true;
+    }
     json(res, 200, SKILL_REGISTRY_CATALOG);
+    return true;
+  }
+
+  const skillDocument = method === "GET" && url.match(/^\/skills\/([a-z0-9-]+)\/SKILL\.md(?:\?.*)?$/);
+  if (skillDocument) {
+    const name = skillDocument[1];
+    if (!SKILL_REGISTRY_CATALOG.some(entry => entry.name === name)) {
+      json(res, 404, { success: false, error: "no such skill" });
+      return true;
+    }
+    res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
+    res.end(skillRegistryDocument(name));
     return true;
   }
 
