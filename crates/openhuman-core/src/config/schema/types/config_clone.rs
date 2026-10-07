@@ -103,3 +103,7 @@ impl Clone for Config {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "config_clone_tests.rs"]
+mod tests;
