@@ -11,6 +11,7 @@ use super::config::Config;
 impl Clone for Config {
     #[inline(never)]
     fn clone(&self) -> Self {
+        Self {
             workspace_dir: self.workspace_dir.clone(),
             action_dir: self.action_dir.clone(),
             action_dir_override: self.action_dir_override.clone(),
