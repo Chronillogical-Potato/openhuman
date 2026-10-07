@@ -18,6 +18,8 @@ mod download;
 #[cfg(feature = "skills")]
 pub mod ops;
 #[cfg(feature = "skills")]
+mod registry;
+#[cfg(feature = "skills")]
 pub mod schemas;
 #[cfg(feature = "skills")]
 pub mod store;
@@ -28,6 +30,8 @@ mod transport;
 #[cfg(feature = "skills")]
 pub mod types;
 
+#[cfg(feature = "skills")]
+pub use registry::{skill_registry, HERMES_REGISTRY_ID};
 #[cfg(feature = "skills")]
 pub use transport::ReqwestTransport;
 

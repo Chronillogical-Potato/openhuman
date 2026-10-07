@@ -14,6 +14,7 @@ pub use fetch::{
     RATE_LIMITED_ERROR_PREFIX,
 };
 pub use uninstall::{uninstall_workflow, UninstallWorkflowOutcome, UninstallWorkflowParams};
+pub(crate) use url_validation::{allow_local_http, ALLOW_LOCAL_HTTP_ENV};
 pub use url_validation::{validate_install_url, validate_resolved_host, MAX_INSTALL_URL_LEN};
 
 #[cfg(test)]

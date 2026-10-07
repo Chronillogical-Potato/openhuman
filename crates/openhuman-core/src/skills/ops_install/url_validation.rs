@@ -1,7 +1,7 @@
 //! OpenHuman configuration boundary around portable install URL guards.
 
 pub const MAX_INSTALL_URL_LEN: usize = tinyskills::MAX_INSTALL_URL_LEN;
-const ALLOW_LOCAL_HTTP_ENV: &str = "OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP";
+pub(crate) const ALLOW_LOCAL_HTTP_ENV: &str = "OPENHUMAN_SKILL_INSTALL_ALLOW_LOCAL_HTTP";
 
 pub(crate) fn normalize_install_url(raw: &str) -> Result<String, String> {
     // ClawHub's file API identifies the requested Markdown file in its query
@@ -36,8 +36,12 @@ pub(crate) fn validate_install_url_with_config(
     tinyskills::validate_install_url(raw, allow_local_http).map_err(|error| error.to_string())
 }
 
+pub(crate) fn allow_local_http(raw: Option<String>) -> bool {
+    raw.as_deref() == Some("1")
+}
+
 pub(super) fn read_allow_local_http_env() -> bool {
-    std::env::var(ALLOW_LOCAL_HTTP_ENV).ok().as_deref() == Some("1")
+    allow_local_http(std::env::var(ALLOW_LOCAL_HTTP_ENV).ok())
 }
 
 pub(super) fn is_loopback_http_url(raw: &str) -> bool {
