@@ -30,13 +30,17 @@ pub(crate) fn bounded_tail(
         }
         let line = format!("{role}: {text}");
         let len = line.chars().count();
-        if len <= remaining {
-            remaining -= len;
+        // The `\n` that joins this line to the ones already picked counts too.
+        let sep = usize::from(!picked.is_empty());
+        if len + sep <= remaining {
+            remaining -= len + sep;
             picked.push(line);
             continue;
         }
-        if remaining >= 80 {
-            let cut: String = line.chars().skip(len - (remaining - 1)).collect::<String>();
+        if remaining >= 80 + sep {
+            // One char for the `…` prefix and `sep` for the join newline.
+            let keep = remaining - 1 - sep;
+            let cut: String = line.chars().skip(len - keep).collect::<String>();
             picked.push(format!("…{cut}"));
         }
         break;
