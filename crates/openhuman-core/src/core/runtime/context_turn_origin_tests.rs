@@ -55,6 +55,7 @@ async fn explicit_origin_scope_bridges_legacy_and_core_context_without_cross_tal
             sender: Some(format!("{channel}-sender")),
             reply_target: format!("{channel}-room"),
             message_id: format!("{channel}-message"),
+            history_key: None,
         };
         CoreContext::scope(context, async {
             turn_origin::with_origin(origin, async {

@@ -3441,10 +3441,13 @@ version = "0.11.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2c646bd5cc763b1087b15493e29a64be6147ba8f19342004fa52048ee596eae"
 dependencies = [
+ "async-trait",
  "base64 0.23.1",
  "email-encoding",
  "email_address",
  "fastrand",
+ "futures-io",
+ "futures-util",
  "httpdate",
  "idna",
  "mime",
@@ -3454,6 +3457,7 @@ dependencies = [
  "rustls",
  "socket2",
  "tokio",
+ "tokio-rustls",
  "url",
  "webpki-roots 1.0.9",
 ]
@@ -7509,6 +7513,7 @@ dependencies = [
  "tinyinference-llm",
  "tinytools",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -7948,7 +7953,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
  "tinytools-agent",
