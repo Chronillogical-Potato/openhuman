@@ -82,6 +82,18 @@ export async function handleAuth(ctx) {
   }
 
   if (method === "GET" && /^\/auth\/[^/]+\/login\/?(\?.*)?$/.test(url)) {
+    // Sign-in with a loopback `redirectUri` (the browser dev build passes
+    // `<vite>/__dev-auth`): answer like the real backend after a successful
+    // provider login — redirect back with a session JWT and `key=auth`,
+    // echoing `state` so the app's nonce check passes. The backend accepts
+    // only http loopback redirect targets; so does the mock.
+    const signInRedirect = loopbackSignInRedirect(url);
+    if (signInRedirect) {
+      setCors(res);
+      res.writeHead(302, { Location: signInRedirect });
+      res.end();
+      return true;
+    }
     const redirectUrl = `${origin}/mock-oauth`;
     if (url.includes("responseType=json")) {
       json(res, 200, { success: true, data: { oauthUrl: redirectUrl } });
