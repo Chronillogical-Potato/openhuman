@@ -11,7 +11,18 @@ fn iana_names_normalise_and_everything_else_is_refused() {
         Some("Asia/Kolkata")
     );
     assert_eq!(normalize_time_zone("UTC").as_deref(), Some("UTC"));
-    for bad in ["", "  ", "IST", "+05:30", "Asia/Mumbai", "Mars/Olympus"] {
+    for bad in [
+        "",
+        "  ",
+        "IST",
+        "+05:30",
+        "Asia/Mumbai",
+        "Mars/Olympus",
+        "EST",
+        "mst",
+        "GMT",
+        "EST5EDT",
+    ] {
         assert_eq!(
             normalize_time_zone(bad),
             None,

@@ -194,10 +194,8 @@ pub async fn apply_user_timezone(
         ),
     };
     config.save().await.map_err(|e| e.to_string())?;
-    log::info!(
-        "[config] user time zone set: {}",
-        config.user_timezone.as_deref().unwrap_or("device")
-    );
+    let chosen = config.user_timezone.as_deref().unwrap_or("device");
+    log::info!("[config] user time zone set: {chosen}");
     let snapshot = snapshot_config_json(config)?;
     Ok(Outcome::new(
         snapshot,

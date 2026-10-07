@@ -7,8 +7,9 @@
 use super::Config;
 
 /// The IANA name `zone` normalises to (`Asia/Kolkata`), or `None` when it is
-/// blank or not an IANA zone. Case and surrounding space are forgiven; an
-/// abbreviation (`IST`) or an offset (`+05:30`) is not a zone.
+/// blank or not an `Area/Location` IANA zone (or `UTC`). Case and surrounding
+/// space are forgiven; an abbreviation (`IST`, and the legacy tzdata names
+/// `EST`/`MST`/`GMT`) or an offset (`+05:30`) is not accepted.
 pub fn normalize_time_zone(zone: &str) -> Option<String> {
     let trimmed = zone.trim();
     if trimmed.is_empty() {
@@ -20,7 +21,10 @@ pub fn normalize_time_zone(zone: &str) -> Option<String> {
             .copied()
             .find(|tz| tz.name().eq_ignore_ascii_case(trimmed))
     })?;
-    Some(tz.name().to_string())
+    // tzdata also carries legacy abbreviation-named zones (`EST`, `MST`,
+    // `GMT`, `EST5EDT`): accept only `Area/Location` names, plus `UTC`.
+    let name = tz.name();
+    (name == "UTC" || name.contains('/')).then(|| name.to_string())
 }
 
 /// The device's IANA zone, when the host can resolve one.
