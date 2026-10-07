@@ -20,7 +20,8 @@ fn tool_results_carry_their_duration() {
 
 #[test]
 fn stream_timeouts_are_set_explicitly_with_first_event_off() {
-    let limits = run_policy_for(10, false).limits;
+    let mut limits = RunPolicy::default().limits;
+    apply_stream_limits(&mut limits, None, None, None);
     assert_eq!(limits.stream_idle_timeout_ms, Some(120_000));
     assert_eq!(limits.stream_first_event_timeout_ms, None);
     assert_eq!(limits.max_consecutive_stream_idle_timeouts, Some(5));

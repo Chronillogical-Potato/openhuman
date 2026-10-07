@@ -140,6 +140,20 @@ pub(super) fn parse_max_consecutive_stream_idle_timeouts(env_value: Option<&str>
     (n > 0).then_some(n)
 }
 
+/// Writes the three stream-silence limits from raw override values. Taking the
+/// values as arguments keeps the default-policy tests independent of the
+/// process environment.
+pub(super) fn apply_stream_limits(
+    limits: &mut tinyagents_harness::policy::RunLimits,
+    idle: Option<&str>,
+    first_event: Option<&str>,
+    breaker: Option<&str>,
+) {
+    limits.stream_idle_timeout_ms = parse_stream_idle_timeout_ms(idle);
+    limits.stream_first_event_timeout_ms = parse_stream_first_event_timeout_ms(first_event);
+    limits.max_consecutive_stream_idle_timeouts = parse_max_consecutive_stream_idle_timeouts(breaker);
+}
+
 fn env_str(name: &str) -> Option<String> {
     std::env::var(name).ok()
 }
@@ -214,12 +228,10 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     // the first-event bound is OFF by default because local and hidden-
     // reasoning models stay silent for minutes before the first token. The
     // breaker stops retrying a model that keeps stalling.
-    policy.limits.stream_idle_timeout_ms =
-        parse_stream_idle_timeout_ms(env_str("OPENHUMAN_STREAM_IDLE_TIMEOUT_SECS").as_deref());
-    policy.limits.stream_first_event_timeout_ms = parse_stream_first_event_timeout_ms(
+    apply_stream_limits(
+        &mut policy.limits,
+        env_str("OPENHUMAN_STREAM_IDLE_TIMEOUT_SECS").as_deref(),
         env_str("OPENHUMAN_STREAM_FIRST_EVENT_TIMEOUT_SECS").as_deref(),
-    );
-    policy.limits.max_consecutive_stream_idle_timeouts = parse_max_consecutive_stream_idle_timeouts(
         env_str("OPENHUMAN_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS").as_deref(),
     );
     // Each executed tool row ends with `[took 12.3s]` (#6953). Without it the
