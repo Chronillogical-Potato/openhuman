@@ -132,7 +132,7 @@ where
 /// credit balance (an `Engine` error), an unreachable or overloaded engine
 /// (`Unavailable`). Skipping those would advance the checkpoint past items
 /// that were never stored and finish `Done` with nothing imported.
-fn skips_item(error: &tinymemory_api::Error) -> bool {
+pub(super) fn skips_item(error: &tinymemory_api::Error) -> bool {
     use tinymemory_api::Error as E;
     matches!(
         error,
