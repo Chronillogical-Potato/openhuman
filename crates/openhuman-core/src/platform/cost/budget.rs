@@ -173,6 +173,21 @@ pub fn evaluate(
     verdict
 }
 
+/// Check a call against `policies` using `tracker`'s ledger, as of `now`.
+/// With no policies nothing is read and the verdict is empty.
+pub fn check_call(
+    policies: &[BudgetPolicy],
+    tracker: &super::tracker::CostTracker,
+    call: CallUnderCheck<'_>,
+    now: DateTime<Utc>,
+) -> anyhow::Result<BudgetVerdict> {
+    let Some(start) = earliest_start(policies, now) else {
+        return Ok(BudgetVerdict::default());
+    };
+    let records = tracker.records_between(start, now)?;
+    Ok(evaluate(policies, &records, call, now))
+}
+
 #[cfg(test)]
 #[path = "budget_tests.rs"]
 mod tests;

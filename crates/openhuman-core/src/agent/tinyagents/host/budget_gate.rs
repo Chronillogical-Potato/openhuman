@@ -143,6 +143,53 @@ impl OpenHumanBudgetGate {
     fn attributed_model(&self) -> String {
         self.last_model.read().clone()
     }
+
+    /// The refusal text when a configured budget refuses this call; logs any
+    /// budget that is only near or past a `warn` limit. Never fails the call
+    /// for a reason of its own: without budgets, a cost tracker or a readable
+    /// ledger, the call goes ahead.
+    fn check_budgets(&self, est: &CallEstimate) -> Option<String> {
+        let policies = &self.config.cost.budgets;
+        if policies.is_empty() {
+            return None;
+        }
+        let Some(tracker) = cost::try_global() else {
+            log::debug!("[tinyagents][budget] budgets configured but no cost tracker; not checked");
+            return None;
+        };
+        let mut scope = cost::UsageScope::ambient(None, None);
+        if let Some(agent) = est.agent_id.as_ref().filter(|a| !a.is_empty()) {
+            scope.agent_id = Some(agent.clone());
+        }
+        if let Some(thread) = est.thread_id.as_ref() {
+            scope.thread_id = Some(thread.as_str().to_string());
+        }
+        let model = self.attributed_model();
+        let call = cost::budget::CallUnderCheck {
+            model: &model,
+            scope: &scope,
+        };
+        let verdict = match cost::budget::check_call(policies, &tracker, call, chrono::Utc::now()) {
+            Ok(verdict) => verdict,
+            Err(error) => {
+                log::warn!("[tinyagents][budget] budget check skipped: {error:#}");
+                return None;
+            }
+        };
+        for hit in verdict.hits.iter().filter(|hit| hit.action == crate::config::BudgetAction::Warn || !hit.exceeded) {
+            log::warn!(
+                "[tinyagents][budget] budget `{}` for {} at ${:.4}/{:?} usd, {}/{:?} tokens (exceeded={})",
+                hit.policy,
+                hit.bucket,
+                hit.spent_usd,
+                hit.max_usd,
+                hit.tokens,
+                hit.max_tokens,
+                hit.exceeded
+            );
+        }
+        verdict.refusal().map(cost::budget::BudgetHit::refusal)
+    }
 }
 
 #[async_trait]
@@ -165,6 +212,15 @@ impl BudgetGate for OpenHumanBudgetGate {
     async fn acquire(&self, est: &CallEstimate) -> Result<Permit> {
         if !est.model.trim().is_empty() {
             *self.last_model.write() = est.model.clone();
+        }
+
+        // Configured budgets (`[[cost.budgets]]`) are checked before anything
+        // else, so a refused call never occupies a scheduler slot.
+        if let Some(refusal) = self.check_budgets(est) {
+            log::warn!("[tinyagents][budget] refusing model call: {refusal}");
+            return Err(tinyagents_harness::error::TinyAgentsError::LimitExceeded(
+                refusal,
+            ));
         }
 
         // Best-effort pricing. `estimate_cost_usd` returns 0.0 for an
