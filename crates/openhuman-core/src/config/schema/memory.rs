@@ -21,6 +21,7 @@
 //! team_limit = 3
 //! build_beliefs_every = 10         # turns between belief builds; 0 turns them off
 //! pre_turn_timeout_ms = 1500
+//! date_hint = false                # a model call works out which days a turn is about
 //! compaction_timeout_ms = 8000
 //! build_delay_secs = 300           # how far belief builds run behind the writes
 //!
@@ -246,6 +247,11 @@ pub struct MemoryRecallConfig {
     pub build_beliefs_every: u32,
     /// How long a turn waits for its pack before running without one.
     pub pre_turn_timeout_ms: u64,
+    /// Whether a small model call, beside the recall, works out which days
+    /// the turn is about so the pack leads with memories from them. Off by
+    /// default: it costs a model call per turn and often misses the
+    /// pre-turn deadline.
+    pub date_hint: bool,
     /// How long a compaction waits for its recalled context.
     pub compaction_timeout_ms: u64,
     /// How long a queued belief build waits before it runs, so the engine's
@@ -264,6 +270,7 @@ impl Default for MemoryRecallConfig {
             team_limit: 3,
             build_beliefs_every: 10,
             pre_turn_timeout_ms: DEFAULT_PRE_TURN_TIMEOUT_MS,
+            date_hint: false,
             compaction_timeout_ms: DEFAULT_COMPACTION_TIMEOUT_MS,
             build_delay_secs: DEFAULT_BUILD_DELAY_SECS,
         }

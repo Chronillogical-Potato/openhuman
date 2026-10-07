@@ -216,6 +216,21 @@ pub async fn pre_turn(
     let thread_id = input.thread_id.clone();
     let agent_id = identity.agent_id.clone();
     let started = std::time::Instant::now();
+    let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
+    // Answers by the deadline less a margin, so the pack is still ranked and
+    // returned before the turn stops waiting for it.
+    let date_hint = (recall && logging && config.memory.recall.date_hint).then(|| {
+        let config = config.clone();
+        let text = input.user_text.clone();
+        let deadline = timeout.saturating_sub(Duration::from_millis(100));
+        async move {
+            let zone = config.time_zone();
+            tokio::time::timeout(deadline, super::date_hint::extract(&config, &text, &zone))
+                .await
+                .ok()
+                .flatten()
+        }
+    });
     let task = tokio::spawn(async move {
         // The first turn after a compaction gets one pack that leads with the
         // thread's earlier turns, under the turn's own budget and dedupe.
@@ -225,10 +240,10 @@ pub async fn pre_turn(
                 let mut pre = PreTurn::new(&input.thread_id, input.turn_index, &input.user_text);
                 pre.in_prompt_from = input.in_prompt_from;
                 pre.at = Some(input.at);
-                let context = if resumed {
-                    memory.pre_turn_resumed(pre).await
-                } else {
-                    memory.pre_turn(pre).await
+                let context = match date_hint {
+                    Some(hint) => memory.pre_turn_dated(pre, resumed, hint).await,
+                    None if resumed => memory.pre_turn_resumed(pre).await,
+                    None => memory.pre_turn(pre).await,
                 };
                 match context {
                     Ok(context) => {
@@ -280,7 +295,6 @@ pub async fn pre_turn(
             TurnPack::refused(&error, engine_id)
         })
     });
-    let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
     let pack = match tokio::time::timeout(timeout, task).await {
         Ok(Ok(pack)) => pack,
         Ok(Err(error)) => {
