@@ -116,7 +116,7 @@ function loadChromium() {
   return chromium;
 }
 
-async function signIn(page, appOrigin) {
+async function signIn(page) {
   await page.getByText("Welcome to OpenHuman").waitFor({ timeout: 120_000 });
   log("signing in through the GitHub provider button (mock backend)…");
   await page.getByRole("button", { name: "GitHub" }).click();
@@ -205,7 +205,7 @@ async function main() {
   page.setDefaultNavigationTimeout(120_000);
   await page.goto(devConnectUrl(appOrigin, rpcUrl, token));
   if (opts.signIn) {
-    await signIn(page, appOrigin);
+    await signIn(page);
     log(`signed in      ${page.url()}`);
   }
   await screenshot("ready");
