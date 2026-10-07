@@ -348,6 +348,17 @@ pub(super) fn recovery_policy(
     body_level_failure: bool,
 ) -> Option<(&'static str, usize)> {
     let (class, budget) = classified_recovery_policy(tool, error, body_level_failure)?;
+    // A connector, the hosted backend or the memory store refusing the
+    // request (401/403, a missing or invalid key) says that service is not
+    // available in this session. That is a tool to stop using, not a reason
+    // to end the run: three web searches in one round came back `HTTP 401`
+    // with no search provider configured, the `authentication` class halted
+    // the turn on that first round, and a one-hour task ended after 101
+    // seconds with the shell untouched. Steer the model off the tool once;
+    // the ledger still halts if it insists.
+    if matches!(class, "authentication" | "permission") && is_optional_service(tool) {
+        return Some(("service_refused", 1));
+    }
     // A path the model mistyped is a wrong call it can correct, not a missing
     // program: the classifier files `No such file or directory (os error 2)`
     // under `MissingApp`, which is right for a shell command and fatal for
@@ -392,6 +403,16 @@ const COMMAND_EXIT_REPORT_PREFIX: &str = "Command failed (";
 /// be resolved), which the tools word differently.
 fn is_command_exit_report(error: &str) -> bool {
     error.trim_start().starts_with(COMMAND_EXIT_REPORT_PREFIX)
+}
+
+/// Tools that reach a service on the user's behalf: an external connector,
+/// the hosted backend, or the memory store. Work can go on without them.
+fn is_optional_service(tool: &str) -> bool {
+    use crate::core::all::DomainGroup;
+    matches!(
+        crate::tools::ops::tool_group(tool),
+        DomainGroup::Integrations | DomainGroup::Memory | DomainGroup::Hosted
+    )
 }
 
 /// Tools whose first argument is a filesystem path the model typed.
@@ -667,6 +688,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 "uncertain_side_effect",
                 "validation",
                 "unavailable",
+                "service_refused",
             ] {
                 self.classified
                     .clear(&ClassifiedFailure::new(class, tool_name, &scope));
@@ -700,8 +722,13 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                         | "validation"
                         | "uncertain_side_effect"
                         | "unavailable"
+                        | "service_refused"
                 ) {
                     let instruction = match class {
+                        "service_refused" => format!(
+                            "The `{tool_name}` tool cannot be used in this session: the service refused the request ({}). Do not call `{tool_name}` again; continue with your other tools.",
+                            first_error_line(&failure_text)
+                        ),
                         "validation" => "The last call failed validation. Correct its schema or arguments once before trying again.".to_owned(),
                         "uncertain_side_effect" => "The last command timed out and was killed; it may have partly run. Check its effect before repeating anything, then retry at most once as a smaller, bounded step (fewer items per call, a per-item timeout such as `timeout 5`, or background it and poll).".to_owned(),
                         "unavailable" => format!("The `{tool_name}` tool is unavailable for the rest of this run: a module it needs failed to load and will not recover until the app restarts. Do not call `{tool_name}` again; continue with your other tools."),

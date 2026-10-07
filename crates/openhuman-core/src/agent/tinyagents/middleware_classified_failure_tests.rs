@@ -259,6 +259,69 @@ async fn shell_timeout_nudges_once_then_halts_on_second() {
     );
 }
 
+#[tokio::test]
+async fn a_refused_integration_steers_the_model_off_it_instead_of_ending_the_run() {
+    // Three web searches in one round came back `HTTP 401` (no search provider
+    // configured); the `authentication` class halted the turn on that first
+    // round and a one-hour task ended after 101 seconds with the shell
+    // untouched. A connector refusing its credentials is a tool to stop using.
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let refused = "Web search failed: search ExecuteTool failed: ai.tinyhumans.tinybus.Error.Failed: provider request failed: provider returned HTTP 401";
+    let run = |id: &'static str, query: &'static str| {
+        let mw = &mw;
+        async move {
+            let mut call = TaToolCall::new(
+                id,
+                "web_search_tool",
+                serde_json::json!({ "query": query, "max_results": 10 }),
+            );
+            mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+            let mut result = failing_result("web_search_tool", refused);
+            mw.after_tool(&mut ctx(), &(), &invocation(id, "web_search_tool"), &mut result)
+                .await
+                .unwrap();
+        }
+    };
+
+    run("ws-1", "regex chess move generator").await;
+    assert_eq!(drain_pause_count(&handle), 0, "a refused connector must not halt");
+    assert!(slot.lock().unwrap().is_none(), "no halt summary");
+    let nudges = mw.take_pending_nudges();
+    assert_eq!(nudges.len(), 1, "{nudges:?}");
+    assert!(nudges[0].contains("`web_search_tool` tool cannot be used"), "{nudges:?}");
+    assert!(nudges[0].contains("HTTP 401"), "{nudges:?}");
+    assert!(nudges[0].contains("continue with your other tools"), "{nudges:?}");
+
+    // The model insists on the same operation: now the ledger stops it.
+    run("ws-2", "regex chess move generator").await;
+    assert_eq!(drain_pause_count(&handle), 1, "a second refusal of the same operation halts");
+    let summary = slot.lock().unwrap().clone().unwrap();
+    assert!(summary.contains("service_refused"), "{summary}");
+}
+
+#[tokio::test]
+async fn a_refused_platform_fetch_still_stops_on_first_failure() {
+    // Only connectors, the hosted backend and memory are optional services; a
+    // fetch the model aimed at a page keeps the first-failure stop above.
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let mut call = TaToolCall::new(
+        "fetch-1",
+        "web_fetch",
+        serde_json::json!({ "url": "https://example.test/private" }),
+    );
+    mw.before_tool(&mut ctx(), &(), &mut call).await.unwrap();
+    let mut result = failing_result("web_fetch", "401 Unauthorized");
+    mw.after_tool(&mut ctx(), &(), &invocation("fetch-1", "web_fetch"), &mut result)
+        .await
+        .unwrap();
+    assert_eq!(drain_pause_count(&handle), 1);
+    assert!(slot.lock().unwrap().clone().unwrap().contains("authentication"));
+}
+
 /// A shell success in between clears the ledger, so a later, unrelated timeout
 /// gets its own recovery attempt instead of halting.
 #[tokio::test]
@@ -287,6 +350,16 @@ fn structured_status_precedes_ambiguous_error_prose() {
     assert_eq!(
         super::super::repeated_failure::recovery_policy(
             "search",
+            r#"{"status_code":403,"message":"try again later"}"#,
+            false
+        ),
+        // `search` reaches a connector: a refusal there steers the model off
+        // the tool once (`service_refused`) rather than ending the run.
+        Some(("service_refused", 1))
+    );
+    assert_eq!(
+        super::super::repeated_failure::recovery_policy(
+            "shell",
             r#"{"status_code":403,"message":"try again later"}"#,
             false
         ),
@@ -650,10 +723,12 @@ async fn a_good_fetch_from_a_host_clears_its_refusal_count() {
 }
 
 #[tokio::test]
-async fn a_credentialed_endpoint_still_stops_on_the_first_403() {
+async fn a_credentialed_endpoint_is_steered_off_then_stopped() {
     // The site-refusal exemption is for `web_fetch` of a public URL. The same
-    // wording from a tool that talks to an account-bound API is still a
-    // credential failure with no retry budget.
+    // wording from a tool that talks to an account-bound API is a credential
+    // failure: the connector is not available in this session. That is a tool
+    // to stop using, not a reason to end the run, so the first refusal steers
+    // the model off it and only a repeat of the same operation stops the run.
     let handle = SteeringHandle::allow_all();
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
@@ -665,9 +740,22 @@ async fn a_credentialed_endpoint_still_stops_on_the_first_403() {
         FETCH_403,
     )
     .await;
-    assert_eq!(drain_pause_count(&handle), 1);
+    assert_eq!(drain_pause_count(&handle), 0, "first refusal steers, not stops");
+    assert!(slot.lock().unwrap().is_none());
+    let nudges = mw.take_pending_nudges();
+    assert_eq!(nudges.len(), 1, "{nudges:?}");
+    assert!(nudges[0].contains("`composio_execute` tool cannot be used"), "{nudges:?}");
+    fail_call(
+        &mw,
+        "cred-2",
+        "composio_execute",
+        serde_json::json!({"endpoint": "github/repos", "account_id": "acct-1"}),
+        FETCH_403,
+    )
+    .await;
+    assert_eq!(drain_pause_count(&handle), 1, "the same refused operation again stops");
     let summary = slot.lock().unwrap().clone().unwrap();
-    assert!(summary.contains("authentication"), "{summary}");
+    assert!(summary.contains("service_refused"), "{summary}");
 }
 
 #[test]
@@ -692,10 +780,11 @@ fn fetched_site_statuses_map_to_recovery_budgets() {
         policy("web_fetch", "403 Forbidden", false),
         Some(("authentication", 0))
     );
-    // The same shape from another tool is not exempt.
+    // The same shape from a connector is not a site refusal either: it is the
+    // connector's own credential failure, which steers the model off it once.
     assert_eq!(
         policy("composio_execute", FETCH_403, false),
-        Some(("authentication", 0))
+        Some(("service_refused", 1))
     );
 }
 
