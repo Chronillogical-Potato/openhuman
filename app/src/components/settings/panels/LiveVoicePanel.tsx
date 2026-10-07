@@ -19,7 +19,7 @@ import StatusLine from '../../ui/StatusLine';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
 import LiveVoiceSettingsModal, { type LiveVoiceTestState } from './LiveVoiceSettingsModal';
 import LiveVoiceVendorCard from './LiveVoiceVendorCard';
-import { groupVendors } from './liveVoiceVendors';
+import { groupVendors, vendorIdOf } from './liveVoiceVendors';
 
 type Status =
   | { kind: 'idle' }
@@ -28,6 +28,17 @@ type Status =
   | { kind: 'error'; message: string };
 
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+/** Shape of the Connections page's toast stack (`Skills.tsx`'s `addToast`). */
+export type LiveVoiceToast = { type: 'success' | 'error'; title: string; message?: string };
+
+export interface LiveVoicePanelProps {
+  /**
+   * Report saves and failures as toasts. Without it (the panel rendered on its
+   * own) they fall back to the inline status line.
+   */
+  onToast?: (toast: LiveVoiceToast) => void;
+}
 
 /**
  * Connections → Voice agents: a card per voice service (the core's providers
@@ -40,7 +51,7 @@ const errorMessage = (err: unknown) => (err instanceof Error ? err.message : Str
  * `voice_live_settings_get`; every settings write returns the full settings,
  * which replace local state.
  */
-const LiveVoicePanel = () => {
+const LiveVoicePanel = ({ onToast }: LiveVoicePanelProps = {}) => {
   const { t } = useT();
   const [openVendorId, setOpenVendorId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<LiveVoiceProviders | null>(null);
@@ -73,17 +84,49 @@ const LiveVoicePanel = () => {
     };
   }, []);
 
+  const vendors = useMemo(() => (catalog ? groupVendors(catalog.providers) : []), [catalog]);
+  const vendorName = (providerId: string) =>
+    vendors.find(v => v.id === vendorIdOf(providerId))?.name ?? providerId;
+
+  const notify = (toast: LiveVoiceToast) => {
+    if (onToast) {
+      onToast(toast);
+      setStatus({ kind: 'idle' });
+    } else if (toast.type === 'success') {
+      setStatus({ kind: 'saved', message: toast.title });
+    } else {
+      setStatus({ kind: 'error', message: toast.message ?? '' });
+    }
+  };
+
+  const fail = (err: unknown) =>
+    notify({
+      type: 'error',
+      title: t('connections.voiceAgents.toastSaveFailed'),
+      message: errorMessage(err),
+    });
+
   const persist = async (patch: LiveVoiceSettingsPatch) => {
     setStatus({ kind: 'saving' });
     try {
       const next = await updateLiveVoiceSettings(patch);
       setSettings(next);
-      if (patch.default_provider) {
-        setCatalog(prev => (prev ? { ...prev, default_provider: patch.default_provider! } : prev));
+      const switchedTo = patch.default_provider;
+      if (switchedTo) {
+        setCatalog(prev => (prev ? { ...prev, default_provider: switchedTo } : prev));
+        notify({
+          type: 'success',
+          title: t('connections.voiceAgents.toastSwitched'),
+          message: t('connections.voiceAgents.toastSwitchedBody').replace(
+            '{name}',
+            vendorName(switchedTo)
+          ),
+        });
+      } else {
+        notify({ type: 'success', title: t('connections.voiceAgents.toastVoiceSaved') });
       }
-      setStatus({ kind: 'saved', message: t('connections.voiceAgents.saved') });
     } catch (err) {
-      setStatus({ kind: 'error', message: errorMessage(err) });
+      fail(err);
     }
   };
 
@@ -95,9 +138,16 @@ const LiveVoicePanel = () => {
       await saveLiveVoiceProviderKey(provider.key_slug, draft);
       setKeyDrafts(prev => ({ ...prev, [provider.id]: '' }));
       await loadProviders();
-      setStatus({ kind: 'saved', message: t('connections.voiceAgents.keySaved') });
+      notify({
+        type: 'success',
+        title: t('connections.voiceAgents.toastKeySaved'),
+        message: t('connections.voiceAgents.toastKeySavedBody').replace(
+          '{name}',
+          vendorName(provider.id)
+        ),
+      });
     } catch (err) {
-      setStatus({ kind: 'error', message: errorMessage(err) });
+      fail(err);
     }
   };
 
@@ -107,9 +157,9 @@ const LiveVoicePanel = () => {
     try {
       await clearLiveVoiceProviderKey(provider.key_slug);
       await loadProviders();
-      setStatus({ kind: 'saved', message: t('connections.voiceAgents.keyCleared') });
+      notify({ type: 'success', title: t('connections.voiceAgents.toastKeyRemoved') });
     } catch (err) {
-      setStatus({ kind: 'error', message: errorMessage(err) });
+      fail(err);
     }
   };
 
@@ -131,7 +181,6 @@ const LiveVoicePanel = () => {
 
   const defaultProvider = settings?.default_provider || catalog?.default_provider || '';
 
-  const vendors = useMemo(() => (catalog ? groupVendors(catalog.providers) : []), [catalog]);
   const openVendor = vendors.find(v => v.id === openVendorId) ?? null;
 
   const statusLine = (
@@ -151,7 +200,9 @@ const LiveVoicePanel = () => {
     <SettingsTabbedPage
       title={t('connections.tabs.voiceAgents')}
       description={t('connections.header.voiceAgents')}>
-      <div className="@container flex w-full flex-col gap-4" data-testid="live-voice-panel">
+      <div
+        className="@container mx-auto flex w-full max-w-5xl flex-col gap-4"
+        data-testid="live-voice-panel">
         {loadError && (
           <Alert variant="destructive">
             <AlertDescription>
