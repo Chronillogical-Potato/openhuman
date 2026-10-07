@@ -181,6 +181,7 @@ pub async fn set_credential(
     config: &Config,
     request: SetCredentialRequest,
 ) -> Result<Outcome<AuthStateResponse>, String> {
+    refuse_process_credential_in_saas("set_credential")?;
     let resolved = resolve(request)?;
     let _mutation = CREDENTIAL_MUTATION_LOCK.lock().await;
 
@@ -342,6 +343,7 @@ pub async fn clear_credential(
     config: &Config,
     kind: Option<CredentialKind>,
 ) -> Result<Outcome<Value>, String> {
+    refuse_process_credential_in_saas("clear_credential")?;
     let _mutation = CREDENTIAL_MUTATION_LOCK.lock().await;
     let mut logs = Vec::new();
     let mut removed_session = false;
@@ -540,6 +542,28 @@ pub async fn store_session(
 /// [`clear_credential`] for the session kind.
 pub async fn clear_session(config: &Config) -> Result<Outcome<Value>, String> {
     clear_credential(config, Some(CredentialKind::Session)).await
+}
+
+/// A process-wide credential is a single-user concept: installing one
+/// activates a user directory and rebinds process globals. A SaaS process
+/// keeps one credential per user agent instead (`user_agents.set_credential`).
+fn refuse_process_credential_in_saas(operation: &str) -> Result<(), String> {
+    process_credential_refusal(crate::core::runtime::is_saas(), operation)
+}
+
+pub(crate) fn process_credential_refusal(saas: bool, operation: &str) -> Result<(), String> {
+    if saas {
+        tracing::warn!(
+            domain = "credentials",
+            operation,
+            "{LOG_PREFIX} refused: process-wide credentials are not used in SaaS mode"
+        );
+        return Err(format!(
+            "{operation} is not available in SaaS mode; the gateway installs each user's \
+             credential through user_agents.set_credential"
+        ));
+    }
+    Ok(())
 }
 
 /// Tell credential-derived caches (the search module's managed routes) to
