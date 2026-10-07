@@ -9,6 +9,7 @@
 //! `memory_sources_sync` cron job ([`sync_due`]).
 
 pub mod composio;
+pub mod roots;
 pub mod state;
 mod sync;
 

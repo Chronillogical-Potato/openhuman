@@ -226,6 +226,56 @@ async fn forget_connection_removes_only_that_connections_items() {
 }
 
 #[tokio::test]
+async fn forget_connection_reads_every_root_its_items_were_filed_under() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let bound = crate::memory::engine::resolve(&config).engine().unwrap();
+    // One connection's items under the current root and under one it used
+    // before (a source namespace since changed), plus another connection.
+    for (connection, layout) in [
+        ("conn-c", MemoryLayout::default()),
+        (
+            "conn-c",
+            MemoryLayout::new("team:old".parse().unwrap()).unwrap(),
+        ),
+        ("conn-d", MemoryLayout::default()),
+    ] {
+        store_records(
+            &config,
+            &bound,
+            "gmail",
+            connection,
+            "src",
+            &layout,
+            &[record(
+                &format!("{connection}-{}", layout.root()),
+                "m",
+                "mail",
+            )],
+        )
+        .await
+        .unwrap();
+    }
+    assert_eq!(
+        super::super::roots::of(&config.workspace_dir, "conn-c").len(),
+        2
+    );
+
+    assert_eq!(
+        forget_connection(&config, "conn-c", Some("gmail"))
+            .await
+            .unwrap(),
+        2,
+        "both roots' items, though the current one alone found some"
+    );
+    let left = stored(&engine, MetaFilter::default()).await;
+    assert_eq!(left.len(), 1);
+    assert!(left[0].meta.tags.contains(&"connection:conn-d".to_string()));
+    assert!(super::super::roots::of(&config.workspace_dir, "conn-c").is_empty());
+}
+
+#[tokio::test]
 async fn forget_connection_with_memory_off_forgets_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
