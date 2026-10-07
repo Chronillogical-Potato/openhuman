@@ -257,8 +257,9 @@ impl Fixture {
     }
 
     /// [`Self::ok`] repeated until `done` holds for the result, or ten
-    /// seconds pass (the last result is returned): for reads of a write the
-    /// engine may index after it answers.
+    /// seconds pass, when the last result is returned: for reads of a write
+    /// the engine may index after it answers. A call still unanswered at the
+    /// deadline panics.
     async fn ok_until(&self, method: &str, params: Value, done: impl Fn(&Value) -> bool) -> Value {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         loop {
@@ -271,7 +272,13 @@ impl Fixture {
             if done(&result) || std::time::Instant::now() >= deadline {
                 return result;
             }
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            // Never start a call the deadline leaves no time for: the sleep
+            // may cross it, and the last result is then the answer.
+            let pause = std::time::Duration::from_millis(100);
+            if std::time::Instant::now() + pause >= deadline {
+                return result;
+            }
+            tokio::time::sleep(pause).await;
         }
     }
 

@@ -82,6 +82,20 @@ pub async fn store_records(
         .iter()
         .filter_map(|record| record_item(toolkit, connection_id, source_id, record))
         .collect();
+    if !items.is_empty() {
+        // Before the write, so an item stored is never under an unrecorded
+        // root.
+        super::roots::record(
+            &config.workspace_dir,
+            connection_id,
+            &layout.root().to_string(),
+        )
+        .map_err(|error| {
+            MemoryError::Engine(format!(
+                "recording the connection's memory root failed: {error}"
+            ))
+        })?;
+    }
     super::sync::store_all(
         config,
         bound,
@@ -159,11 +173,12 @@ pub fn source_id_for_toolkit(config: &Config, toolkit: &str) -> String {
 /// nothing and is not an error.
 ///
 /// With the connection's `toolkit` known, only that toolkit's brain source
-/// is read (`source:<toolkit>`, where its items are filed): one source,
-/// not every scope memory holds. Without it, or when that source holds
-/// none of the connection's items (they were filed under a root that is no
-/// longer configured, such as a removed source's own namespace), the whole
-/// tree is searched, so a connection's items are never left behind.
+/// is read (`source:<toolkit>`): under the current root and under every
+/// root the connection filed items under before ([`super::roots`]), so
+/// items left under a root no longer configured go too. Without the
+/// toolkit, or when those sources hold none of the connection's items
+/// (stored before roots were recorded), the whole tree is searched, so a
+/// connection's items are never left behind.
 pub async fn forget_connection(
     config: &Config,
     connection_id: &str,
@@ -174,27 +189,20 @@ pub async fn forget_connection(
         Err(MemoryError::Off(_)) => return Ok(0),
         Err(error) => return Err(error),
     };
-    let reach = match toolkit {
-        Some(toolkit) => {
-            let layout = super::layout_of(config, &source_id_for_toolkit(config, toolkit));
-            let source = crate::memory::brain::brain_source(
-                crate::config::schema::MemorySourceKind::Composio,
-                toolkit,
-            );
-            Some(tinymemory_api::Reach::subtree(layout.brain(&source)?))
-        }
+    let recorded = super::roots::of(&config.workspace_dir, connection_id);
+    let reaches = match toolkit {
+        Some(toolkit) => toolkit_reaches(config, toolkit, &recorded)?,
         None => {
             tracing::warn!(
                 connection_id = %connection_id,
                 "[memory:sources] toolkit unknown; forgetting the connection across all memory"
             );
-            None
+            Vec::new()
         }
     };
-    let scoped = reach.is_some();
     tracing::debug!(
         connection_id = %connection_id,
-        scoped,
+        roots = reaches.len(),
         "[memory:sources] forgetting a connection's items"
     );
     let filter = |reach| tinymemory_api::MetaFilter {
@@ -203,23 +211,63 @@ pub async fn forget_connection(
         tags_any: vec![connection_tag(connection_id)],
         ..tinymemory_api::MetaFilter::default()
     };
-    let mut forgotten = bound
-        .engine
-        .forget(tinymemory_api::ForgetTarget::Filter(filter(reach)))
-        .await?
-        .forgotten;
-    if scoped && forgotten == 0 {
-        tracing::debug!(
-            connection_id = %connection_id,
-            "[memory:sources] nothing in the toolkit's source; searching all memory"
-        );
+    let mut forgotten = 0;
+    for reach in &reaches {
+        forgotten += bound
+            .engine
+            .forget(tinymemory_api::ForgetTarget::Filter(filter(Some(
+                reach.clone(),
+            ))))
+            .await?
+            .forgotten;
+    }
+    if forgotten == 0 {
+        if !reaches.is_empty() {
+            tracing::debug!(
+                connection_id = %connection_id,
+                "[memory:sources] nothing in the toolkit's sources; searching all memory"
+            );
+        }
         forgotten = bound
             .engine
             .forget(tinymemory_api::ForgetTarget::Filter(filter(None)))
             .await?
             .forgotten;
     }
+    super::roots::forget(&config.workspace_dir, connection_id, &recorded);
     Ok(forgotten)
+}
+
+/// `source:<toolkit>` under the current root and under every `recorded`
+/// root.
+fn toolkit_reaches(
+    config: &Config,
+    toolkit: &str,
+    recorded: &std::collections::BTreeSet<String>,
+) -> MemoryResult<Vec<tinymemory_api::Reach>> {
+    let source = crate::memory::brain::brain_source(
+        crate::config::schema::MemorySourceKind::Composio,
+        toolkit,
+    );
+    let current = super::layout_of(config, &source_id_for_toolkit(config, toolkit));
+    let mut roots = recorded.clone();
+    roots.insert(current.root().to_string());
+    let mut reaches = Vec::with_capacity(roots.len());
+    for root in roots {
+        let layout = root
+            .parse::<tinymemory_api::Namespace>()
+            .map_err(|error| error.to_string())
+            .and_then(|root| {
+                tinymemory_tools::MemoryLayout::new(root).map_err(|error| error.to_string())
+            });
+        match layout {
+            Ok(layout) => reaches.push(tinymemory_api::Reach::subtree(layout.brain(&source)?)),
+            Err(error) => {
+                tracing::warn!(%error, "[memory:sources] skipping an unreadable recorded root")
+            }
+        }
+    }
+    Ok(reaches)
 }
 
 #[cfg(test)]
