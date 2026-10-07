@@ -14,6 +14,7 @@ fn stage_host_data_carries_the_stage_runs_linked_token() {
     graph_parent.cancellation.cancel();
     assert!(stage_run.cancellation.is_cancelled());
     assert!(stage_context.cancellation.is_cancelled());
+    assert!(stage_run.data.cancellation.is_cancelled());
 }
 
 #[test]
@@ -24,6 +25,8 @@ fn cancelling_a_stage_spares_the_graph_and_its_siblings() {
 
     stage_a.cancellation.cancel();
     assert!(ctx_a.cancellation.is_cancelled());
+    assert!(stage_a.data.cancellation.is_cancelled());
+    assert!(!stage_b.data.cancellation.is_cancelled());
     assert!(!graph_parent.cancellation.is_cancelled());
     assert!(!graph_parent.data.cancellation.is_cancelled());
     assert!(!stage_b.cancellation.is_cancelled());

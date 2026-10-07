@@ -45,11 +45,12 @@ pub(crate) fn stage_run_contexts(
 ) -> tinyagents_harness::Result<(RunContext<OpenHumanRunContext>, OpenHumanRunContext)> {
     let mut stage_context = stage_parent.data.child();
     stage_context.workspace = workspace.or(stage_context.workspace);
-    let stage_run = stage_parent.child(
+    let mut stage_run = stage_parent.child(
         RunConfig::new(format!("delegation-stage-{}", uuid::Uuid::new_v4())),
         stage_context.clone(),
     )?;
     stage_context.cancellation = stage_run.cancellation.clone();
+    stage_run.data.cancellation = stage_run.cancellation.clone();
     Ok((stage_run, stage_context))
 }
 
