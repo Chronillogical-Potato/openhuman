@@ -1,4 +1,4 @@
-import { Settings2, Sparkles } from 'lucide-react';
+import { Settings, Sparkles } from 'lucide-react';
 
 import { cn } from '../../../lib/cn';
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -110,7 +110,7 @@ const LiveVoiceVendorCard = ({
             aria-label={t('connections.voiceAgents.settingsAria').replace('{name}', vendor.name)}
             title={t('connections.voiceAgents.settings')}
             onClick={onOpenSettings}>
-            <Settings2 className="h-4 w-4" aria-hidden />
+            <Settings className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </div>
