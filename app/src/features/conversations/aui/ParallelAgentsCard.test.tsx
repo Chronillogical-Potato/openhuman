@@ -53,9 +53,9 @@ describe('ParallelAgentsCard', () => {
       child('b', 2, 'completed'),
       child('c', 3, 'failed'),
     ];
-    expect(header).toHaveTextContent('2 of 3');
+    renderCard('running');
     const header = screen.getByTestId('parallel-agents-header');
-    expect(header).toHaveTextContent('chat.subagents.ofTotal');
+    expect(header).toHaveTextContent('2 of 3');
     expect(header).toHaveTextContent('chat.subagents.runningCount · chat.subagents.failedCount');
     expect(screen.queryByTestId('parallel-agents-aggregating')).toBeNull();
   });
