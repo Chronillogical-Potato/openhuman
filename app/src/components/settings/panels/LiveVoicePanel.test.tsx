@@ -141,7 +141,9 @@ describe('LiveVoicePanel', () => {
     expect(api.fetchLiveVoiceProviders).toHaveBeenCalledTimes(2);
     const sarvam = screen.getByTestId('live-voice-provider-sarvam');
     expect(within(sarvam).getByText('Ready')).toBeInTheDocument();
-    expect((screen.getByTestId('live-voice-key-sarvam') as HTMLInputElement).value).toBe('');
+    // Once stored, the key collapses to a summary instead of an open input.
+    expect(within(sarvam).getByText('API key saved')).toBeInTheDocument();
+    expect(screen.queryByTestId('live-voice-key-sarvam')).not.toBeInTheDocument();
   });
 
   it('removes a stored key', async () => {
@@ -224,7 +226,12 @@ describe('LiveVoicePanel', () => {
       ...PROVIDERS(true),
       default_provider: 'sarvam',
     });
-    api.fetchLiveVoiceSettings.mockResolvedValue({ ...SETTINGS, default_provider: 'sarvam' });
+    const sarvamSettings = { ...SETTINGS, default_provider: 'sarvam' };
+    api.fetchLiveVoiceSettings.mockResolvedValue(sarvamSettings);
+    api.updateLiveVoiceSettings.mockImplementation(async patch => ({
+      ...sarvamSettings,
+      ...patch,
+    }));
     await renderPanel();
     expect((screen.getByTestId('live-voice-language-sarvam') as HTMLSelectElement).value).toBe(
       'hi-IN'
