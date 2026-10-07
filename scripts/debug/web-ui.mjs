@@ -23,6 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   devConnectUrl,
   freePort,
+  isLoopback,
   parseArgs,
   runStamp,
   USAGE,
@@ -186,8 +187,17 @@ async function main() {
     args: ["--disable-dev-shm-usage"],
   });
   const context = await browser.newContext({ viewport: { width: 1300, height: 900 } });
-  const page = await context.newPage();
   const browserLog = fs.createWriteStream(path.join(logDir, "browser.log"));
+  // Everything the run needs is on loopback. Abort the rest (analytics,
+  // remote assets) so a scenario never reaches a real third-party service.
+  await context.route(
+    url => !isLoopback(url),
+    route => {
+      browserLog.write(`[blocked] ${route.request().method()} ${route.request().url()}\n`);
+      return route.abort("blockedbyclient");
+    },
+  );
+  const page = await context.newPage();
   page.on("console", msg => browserLog.write(`[${msg.type()}] ${msg.text()}\n`));
   page.on("pageerror", err => browserLog.write(`[pageerror] ${err.stack ?? err.message}\n`));
   page.on("requestfailed", req =>

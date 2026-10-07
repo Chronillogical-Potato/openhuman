@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   devConnectUrl,
   freePort,
+  isLoopback,
   parseArgs,
   runStamp,
   waitFor,
@@ -77,4 +78,13 @@ test("waitFor resolves once the probe passes and times out otherwise", async () 
     waitFor(async () => false, { timeoutMs: 20, intervalMs: 5, what: "the thing" }),
     /timed out waiting for the thing/,
   );
+});
+
+test("isLoopback admits only local hosts and inline URLs", () => {
+  assert.equal(isLoopback("http://localhost:1420/src/main.tsx"), true);
+  assert.equal(isLoopback("http://127.0.0.1:7788/rpc"), true);
+  assert.equal(isLoopback("ws://127.0.0.1:7788/socket.io/"), true);
+  assert.equal(isLoopback("data:image/png;base64,AAAA"), true);
+  assert.equal(isLoopback("https://panel.tinyhumans.ai/api/track"), false);
+  assert.equal(isLoopback("https://raw.githubusercontent.com/x"), false);
 });

@@ -119,3 +119,12 @@ export async function waitFor(fn, { timeoutMs, intervalMs = 200, what }) {
     await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
 }
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** True for http(s)/ws(s) URLs on a loopback host, plus data:/blob: URLs. */
+export function isLoopback(url) {
+  const parsed = typeof url === "string" ? new URL(url) : url;
+  if (parsed.protocol === "data:" || parsed.protocol === "blob:") return true;
+  return LOOPBACK_HOSTS.has(parsed.hostname);
+}
