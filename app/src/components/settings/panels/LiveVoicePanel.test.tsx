@@ -70,6 +70,12 @@ async function renderPanel() {
   await screen.findByTestId('live-voice-providers');
 }
 
+/** Open a vendor's Settings modal and return it. */
+function openSettings(vendorId: string) {
+  fireEvent.click(screen.getByTestId(`live-voice-settings-${vendorId}`));
+  return screen.getByTestId('live-voice-modal');
+}
+
 describe('LiveVoicePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -80,56 +86,75 @@ describe('LiveVoicePanel', () => {
     api.clearLiveVoiceProviderKey.mockResolvedValue(undefined);
   });
 
-  it('groups providers into included and own-key sections with readiness', async () => {
+  it('shows one card per vendor with the included tag and readiness', async () => {
     await renderPanel();
-    const hostedGroup = screen.getByTestId('live-voice-group-hosted');
-    const byokGroup = screen.getByTestId('live-voice-group-byok');
-    expect(within(hostedGroup).getByText('Included with OpenHuman')).toBeInTheDocument();
-    expect(within(byokGroup).getByText('Use your own key')).toBeInTheDocument();
-    for (const id of ['gemini-hosted', 'elevenlabs-hosted']) {
-      expect(within(hostedGroup).getByTestId(`live-voice-provider-${id}`)).toBeInTheDocument();
-    }
-    for (const id of ['gemini', 'sarvam']) {
-      expect(within(byokGroup).getByTestId(`live-voice-provider-${id}`)).toBeInTheDocument();
-    }
-    const hosted = screen.getByTestId('live-voice-provider-gemini-hosted');
-    expect(within(hosted).getByText('In use')).toBeInTheDocument();
-    expect(hosted).toHaveAttribute('data-selected', 'true');
-    const sarvam = screen.getByTestId('live-voice-provider-sarvam');
+    expect(screen.getAllByTestId(/^live-voice-vendor-/)).toHaveLength(3);
+    const gemini = screen.getByTestId('live-voice-vendor-gemini');
+    expect(within(gemini).getByText('Gemini')).toBeInTheDocument();
+    expect(within(gemini).getByText('Included with TinyHumans')).toBeInTheDocument();
+    expect(within(gemini).getByText('In use')).toBeInTheDocument();
+    expect(gemini).toHaveAttribute('data-in-use', 'true');
+    // The vendor in use has no Use button; a ready one does.
+    expect(screen.queryByTestId('live-voice-use-vendor-gemini')).not.toBeInTheDocument();
+    expect(screen.getByTestId('live-voice-use-vendor-elevenlabs')).toBeEnabled();
+    const sarvam = screen.getByTestId('live-voice-vendor-sarvam');
+    expect(within(sarvam).getByText('Your own key')).toBeInTheDocument();
     expect(within(sarvam).getByText('Needs a key')).toBeInTheDocument();
-    expect(within(sarvam).getByText('Add an API key to use this agent.')).toBeInTheDocument();
-    // Hosted cards have no key entry.
-    expect(screen.queryByTestId('live-voice-key-gemini-hosted')).not.toBeInTheDocument();
-    // An unconfigured BYOK provider cannot be tested yet.
-    expect(screen.queryByTestId('live-voice-test-button-sarvam')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('live-voice-use-vendor-sarvam')).not.toBeInTheDocument();
+    expect(screen.getByTestId('live-voice-logo-sarvam')).toBeInTheDocument();
   });
 
-  it('picks the agent in use from its row and refuses one without a key', async () => {
+  it('switches the agent in use from a card', async () => {
     await renderPanel();
-    const current = screen.getByTestId('live-voice-default-gemini-hosted') as HTMLInputElement;
-    expect(current.checked).toBe(true);
-    expect(screen.getByTestId('live-voice-default-sarvam')).toBeDisabled();
+    fireEvent.click(screen.getByTestId('live-voice-use-vendor-elevenlabs'));
+    await waitFor(() =>
+      expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({
+        default_provider: 'elevenlabs-hosted',
+      })
+    );
+    await screen.findByText('Saved.');
+    expect(screen.getByTestId('live-voice-vendor-elevenlabs')).toHaveAttribute(
+      'data-in-use',
+      'true'
+    );
+    expect(screen.getByTestId('live-voice-vendor-gemini')).not.toHaveAttribute('data-in-use');
+  });
 
-    fireEvent.click(screen.getByTestId('live-voice-default-gemini'));
+  it('lists managed before own-key options in the settings modal and switches between them', async () => {
+    await renderPanel();
+    const modal = openSettings('gemini');
+    const options = within(modal).getAllByTestId(/^live-voice-option-/);
+    expect(options.map(o => o.dataset.testid)).toEqual([
+      'live-voice-option-gemini-hosted',
+      'live-voice-option-gemini',
+    ]);
+    expect(within(options[0]).getByText('Managed by TinyHumans')).toBeInTheDocument();
+    expect(within(options[0]).getByText('Included with TinyHumans')).toBeInTheDocument();
+    expect(within(modal).getByTestId('live-voice-in-use-gemini-hosted')).toBeInTheDocument();
+
+    fireEvent.click(within(modal).getByTestId('live-voice-use-gemini'));
     await waitFor(() =>
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ default_provider: 'gemini' })
     );
-    await screen.findByText('Saved.');
-    const gemini = screen.getByTestId('live-voice-provider-gemini');
-    expect(gemini).toHaveAttribute('data-selected', 'true');
-    expect(within(gemini).getByText('In use')).toBeInTheDocument();
-    expect(screen.getByTestId('live-voice-provider-gemini-hosted')).not.toHaveAttribute(
-      'data-selected'
-    );
+    await within(modal).findByTestId('live-voice-in-use-gemini');
+    expect(within(modal).getByText('Saved.')).toBeInTheDocument();
+
+    fireEvent.click(within(modal).getByTestId('live-voice-modal-close'));
+    expect(screen.queryByTestId('live-voice-modal')).not.toBeInTheDocument();
   });
 
-  it('saves a BYOK key and re-fetches providers', async () => {
+  it('saves a BYOK key from the modal and re-fetches providers', async () => {
     await renderPanel();
-    const save = screen.getByTestId('live-voice-save-key-sarvam');
+    const modal = openSettings('sarvam');
+    expect(within(modal).getByText('Add an API key to use this agent.')).toBeInTheDocument();
+    // No Use or Test for an option without a key.
+    expect(within(modal).queryByTestId('live-voice-use-sarvam')).not.toBeInTheDocument();
+    expect(within(modal).queryByTestId('live-voice-test-button-sarvam')).not.toBeInTheDocument();
+    const save = within(modal).getByTestId('live-voice-save-key-sarvam');
     expect(save).toBeDisabled();
     api.fetchLiveVoiceProviders.mockResolvedValueOnce(PROVIDERS(true));
 
-    fireEvent.change(screen.getByTestId('live-voice-key-sarvam'), {
+    fireEvent.change(within(modal).getByTestId('live-voice-key-sarvam'), {
       target: { value: 'sk-sarvam' },
     });
     fireEvent.click(save);
@@ -137,94 +162,101 @@ describe('LiveVoicePanel', () => {
     await waitFor(() =>
       expect(api.saveLiveVoiceProviderKey).toHaveBeenCalledWith('sarvam', 'sk-sarvam')
     );
-    await screen.findByText('Key saved.');
+    await within(modal).findByText('Key saved.');
     expect(api.fetchLiveVoiceProviders).toHaveBeenCalledTimes(2);
-    const sarvam = screen.getByTestId('live-voice-provider-sarvam');
-    expect(within(sarvam).getByText('Ready')).toBeInTheDocument();
-    // Once stored, the key collapses to a summary instead of an open input.
-    expect(within(sarvam).getByText('API key saved')).toBeInTheDocument();
-    expect(screen.queryByTestId('live-voice-key-sarvam')).not.toBeInTheDocument();
+    // Once stored, the key collapses to a summary and the option becomes usable.
+    expect(within(modal).getByText('API key saved')).toBeInTheDocument();
+    expect(within(modal).queryByTestId('live-voice-key-sarvam')).not.toBeInTheDocument();
+    expect(within(modal).getByTestId('live-voice-use-sarvam')).toBeEnabled();
   });
 
   it('opens and cancels the replace-key editor for a stored key', async () => {
     await renderPanel();
-    const toggle = screen.getByTestId('live-voice-replace-key-gemini');
+    const modal = openSettings('gemini');
+    const toggle = within(modal).getByTestId('live-voice-replace-key-gemini');
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByTestId('live-voice-key-gemini')).toBeInTheDocument();
+    expect(within(modal).getByTestId('live-voice-key-gemini')).toBeInTheDocument();
     fireEvent.click(toggle);
-    expect(screen.queryByTestId('live-voice-key-gemini')).not.toBeInTheDocument();
+    expect(within(modal).queryByTestId('live-voice-key-gemini')).not.toBeInTheDocument();
   });
 
   it('removes a stored key', async () => {
     await renderPanel();
-    fireEvent.click(screen.getByTestId('live-voice-clear-key-gemini'));
+    const modal = openSettings('gemini');
+    fireEvent.click(within(modal).getByTestId('live-voice-clear-key-gemini'));
     await waitFor(() => expect(api.clearLiveVoiceProviderKey).toHaveBeenCalledWith('google'));
-    await screen.findByText('Key removed.');
+    await within(modal).findByText('Key removed.');
   });
 
   it('surfaces a key-save failure', async () => {
     api.saveLiveVoiceProviderKey.mockRejectedValueOnce(new Error('keyring locked'));
     await renderPanel();
-    // A stored key is replaced through an explicit Replace step.
-    expect(screen.queryByTestId('live-voice-key-gemini')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('live-voice-replace-key-gemini'));
-    fireEvent.change(screen.getByTestId('live-voice-key-gemini'), { target: { value: 'k' } });
-    fireEvent.click(screen.getByTestId('live-voice-save-key-gemini'));
-    await screen.findByText(/Couldn't save: keyring locked/);
+    const modal = openSettings('gemini');
+    fireEvent.click(within(modal).getByTestId('live-voice-replace-key-gemini'));
+    fireEvent.change(within(modal).getByTestId('live-voice-key-gemini'), {
+      target: { value: 'k' },
+    });
+    fireEvent.click(within(modal).getByTestId('live-voice-save-key-gemini'));
+    await within(modal).findByText(/Couldn't save: keyring locked/);
   });
 
   it('surfaces a key-removal failure', async () => {
     api.clearLiveVoiceProviderKey.mockRejectedValueOnce(new Error('nope'));
     await renderPanel();
-    fireEvent.click(screen.getByTestId('live-voice-clear-key-gemini'));
-    await screen.findByText(/Couldn't save: nope/);
+    const modal = openSettings('gemini');
+    fireEvent.click(within(modal).getByTestId('live-voice-clear-key-gemini'));
+    await within(modal).findByText(/Couldn't save: nope/);
   });
 
   it('runs a provider test and shows latency, then a failure', async () => {
     api.testLiveVoiceProvider.mockResolvedValueOnce({ ok: true, latency_ms: 240, error: null });
     await renderPanel();
-    fireEvent.click(screen.getByTestId('live-voice-test-button-gemini-hosted'));
+    let modal = openSettings('gemini');
+    fireEvent.click(within(modal).getByTestId('live-voice-test-button-gemini-hosted'));
     expect(api.testLiveVoiceProvider).toHaveBeenCalledWith('gemini-hosted');
-    const line = await screen.findByText('Working · 240 ms');
+    const line = await within(modal).findByText('Working · 240 ms');
     expect(line).toHaveAttribute('data-ok', 'true');
-
-    api.testLiveVoiceProvider.mockResolvedValueOnce({ ok: true, latency_ms: null, error: null });
-    fireEvent.click(screen.getByTestId('live-voice-test-button-elevenlabs-hosted'));
-    await screen.findByText('Working');
 
     api.testLiveVoiceProvider.mockResolvedValueOnce({
       ok: false,
       latency_ms: null,
       error: 'bad key',
     });
-    fireEvent.click(screen.getByTestId('live-voice-test-button-gemini'));
-    await screen.findByText('Test failed: bad key');
+    fireEvent.click(within(modal).getByTestId('live-voice-test-button-gemini'));
+    await within(modal).findByText('Test failed: bad key');
 
     api.testLiveVoiceProvider.mockRejectedValueOnce(new Error('timeout'));
-    fireEvent.click(screen.getByTestId('live-voice-test-button-gemini-hosted'));
-    await screen.findByText('Test failed: timeout');
+    fireEvent.click(within(modal).getByTestId('live-voice-test-button-gemini-hosted'));
+    await within(modal).findByText('Test failed: timeout');
+
+    fireEvent.click(within(modal).getByTestId('live-voice-modal-close'));
+    api.testLiveVoiceProvider.mockResolvedValueOnce({ ok: true, latency_ms: null, error: null });
+    modal = openSettings('elevenlabs');
+    fireEvent.click(within(modal).getByTestId('live-voice-test-button-elevenlabs-hosted'));
+    await within(modal).findByText('Working');
   });
 
   it('shows a testing state while the probe is in flight', async () => {
     let finish: (v: unknown) => void = () => undefined;
     api.testLiveVoiceProvider.mockReturnValueOnce(new Promise(r => (finish = r)));
     await renderPanel();
-    fireEvent.click(screen.getByTestId('live-voice-test-button-gemini'));
-    expect(screen.getByTestId('live-voice-test-button-gemini')).toBeDisabled();
-    expect(screen.getByTestId('live-voice-test-gemini')).toHaveTextContent('Testing…');
+    const modal = openSettings('gemini');
+    fireEvent.click(within(modal).getByTestId('live-voice-test-button-gemini'));
+    expect(within(modal).getByTestId('live-voice-test-button-gemini')).toBeDisabled();
+    expect(within(modal).getByTestId('live-voice-test-gemini')).toHaveTextContent('Testing…');
     finish({ ok: true, latency_ms: 5, error: null });
-    await screen.findByText('Working · 5 ms');
+    await within(modal).findByText('Working · 5 ms');
   });
 
-  it('shows voice pickers only on the agent in use', async () => {
+  it('writes Gemini voice and language to the shared gemini block', async () => {
     await renderPanel();
-    expect((screen.getByTestId('live-voice-voice-gemini-hosted') as HTMLSelectElement).value).toBe(
+    const modal = openSettings('gemini');
+    expect((within(modal).getByTestId('live-voice-voice-gemini') as HTMLSelectElement).value).toBe(
       'Puck'
     );
-    expect(screen.queryByTestId('live-voice-voice-sarvam')).not.toBeInTheDocument();
-    fireEvent.change(screen.getByTestId('live-voice-language-gemini-hosted'), {
+    fireEvent.change(within(modal).getByTestId('live-voice-language-gemini'), {
       target: { value: 'en-US' },
     });
     await waitFor(() =>
@@ -232,51 +264,37 @@ describe('LiveVoicePanel', () => {
     );
   });
 
-  it('writes Sarvam speaker and language to their settings block', async () => {
-    api.fetchLiveVoiceProviders.mockResolvedValue({
-      ...PROVIDERS(true),
-      default_provider: 'sarvam',
-    });
-    const sarvamSettings = { ...SETTINGS, default_provider: 'sarvam' };
-    api.fetchLiveVoiceSettings.mockResolvedValue(sarvamSettings);
-    api.updateLiveVoiceSettings.mockImplementation(async patch => ({
-      ...sarvamSettings,
-      ...patch,
-    }));
+  it('writes Sarvam speaker and language to the sarvam block', async () => {
     await renderPanel();
-    expect((screen.getByTestId('live-voice-language-sarvam') as HTMLSelectElement).value).toBe(
-      'hi-IN'
-    );
-
-    fireEvent.change(screen.getByTestId('live-voice-voice-sarvam'), {
+    const modal = openSettings('sarvam');
+    expect(within(modal).getByText('Speaker')).toBeInTheDocument();
+    expect(
+      (within(modal).getByTestId('live-voice-language-sarvam') as HTMLSelectElement).value
+    ).toBe('hi-IN');
+    fireEvent.change(within(modal).getByTestId('live-voice-voice-sarvam'), {
       target: { value: 'anushka' },
     });
     await waitFor(() =>
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ sarvam: { speaker: 'anushka' } })
     );
-    fireEvent.change(screen.getByTestId('live-voice-language-sarvam'), { target: { value: '' } });
+    fireEvent.change(within(modal).getByTestId('live-voice-language-sarvam'), {
+      target: { value: '' },
+    });
     await waitFor(() =>
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ sarvam: { language: null } })
     );
   });
 
-  it('hides pickers for an agent in use that lists no voices or languages', async () => {
-    api.fetchLiveVoiceSettings.mockResolvedValue({
-      ...SETTINGS,
-      default_provider: 'elevenlabs-hosted',
-    });
+  it('hides voice settings for a vendor that lists no voices or languages', async () => {
     await renderPanel();
-    expect(screen.getByTestId('live-voice-provider-elevenlabs-hosted')).toHaveAttribute(
-      'data-selected',
-      'true'
-    );
-    expect(screen.queryByTestId('live-voice-voice-elevenlabs-hosted')).not.toBeInTheDocument();
+    const modal = openSettings('elevenlabs');
+    expect(within(modal).queryByText('Voice settings')).not.toBeInTheDocument();
   });
 
-  it('shows a save error', async () => {
+  it('shows a save error on the page', async () => {
     api.updateLiveVoiceSettings.mockRejectedValueOnce(new Error('disk full'));
     await renderPanel();
-    fireEvent.click(screen.getByTestId('live-voice-default-gemini'));
+    fireEvent.click(screen.getByTestId('live-voice-use-vendor-elevenlabs'));
     await screen.findByText(/Couldn't save: disk full/);
   });
 
