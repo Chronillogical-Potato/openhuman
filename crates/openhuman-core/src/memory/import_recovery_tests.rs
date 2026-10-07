@@ -350,3 +350,91 @@ async fn a_retry_the_app_quit_during_resumes_as_a_retry() {
         .iter()
         .any(|item| item.text.contains("oolong")));
 }
+
+/// A finished import with `d2` ("Ideas") still to retry, and the state of a
+/// retry the app quit during.
+fn quit_mid_retry(config: &Config) {
+    let mut file = ImportFile::default();
+    file.state = ImportState {
+        phase: ImportPhase::Running,
+        imported: 4,
+        total: 5,
+        error: None,
+        failed: 1,
+    };
+    file.failed = vec![FailedItem {
+        id: "memory_docs:d2".into(),
+        reason: "item too large".into(),
+    }];
+    file.retrying = true;
+    write_file(&config.workspace_dir, &file);
+}
+
+#[tokio::test]
+async fn a_retry_that_cannot_resume_stays_finished_and_retryable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    quit_mid_retry(&config);
+
+    // No engine is bound: the background resume of the retry cannot start.
+    assert!(!resume_interrupted_with(&config, always(false), billing(false)).await);
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(
+        (file.state.phase, file.failed.len()),
+        (ImportPhase::Done, 1)
+    );
+    assert!(!file.retrying);
+    assert!(file
+        .state
+        .error
+        .as_deref()
+        .unwrap()
+        .contains("press Retry again"));
+
+    // Once an engine is there, Retry goes through.
+    let engine = bind_reference(&config);
+    retry_failed(&config).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.failed),
+        (ImportPhase::Done, 0),
+        "{done:?}"
+    );
+    assert!(stored(&engine, MetaFilter::default())
+        .await
+        .iter()
+        .any(|item| item.text.contains("oolong")));
+}
+
+#[tokio::test]
+async fn a_resumed_retry_stops_when_background_work_is_paused() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    let engine = bind_reference(&config);
+    quit_mid_retry(&config);
+
+    // Paused after the resume check: the retry stores nothing and is left
+    // as a running retry for the next unpaused tick.
+    let checks = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seen = checks.clone();
+    let paused: PauseCheck =
+        std::sync::Arc::new(move || seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0);
+    assert!(resume_interrupted_with(&config, paused, billing(false)).await);
+    for _ in 0..200 {
+        if !RUNNING
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&config.workspace_dir)
+        {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let file = read_file(&config.workspace_dir);
+    assert_eq!(file.state.phase, ImportPhase::Running);
+    assert!(file.retrying);
+    assert_eq!(file.failed.len(), 1);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+}

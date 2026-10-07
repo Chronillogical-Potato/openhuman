@@ -11,7 +11,7 @@ use tinymemory_integrations::import::LegacyWorkspace;
 
 use super::{
     legacy_id, read_file, skips_item, status, with_retries, write_file, FailedItem, ImportFile,
-    RUNNING,
+    PauseCheck, RUNNING,
 };
 use crate::config::Config;
 use crate::memory::engine::{self, BoundEngine};
@@ -28,11 +28,17 @@ pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
             "no failed items to retry: the import has not finished or skipped nothing",
         ));
     }
-    begin_retry(config, file)
+    begin_retry(config, file, None)
 }
 
-/// Starts (or, after an interruption, resumes) a retry of `file.failed`.
-pub(super) fn begin_retry(config: &Config, mut file: ImportFile) -> MemoryResult<ImportState> {
+/// Starts (or, after an interruption, resumes) a retry of `file.failed`. A
+/// resume the background job started passes its `paused` check, asked
+/// before every item, as the import asks it before every batch.
+pub(super) fn begin_retry(
+    config: &Config,
+    mut file: ImportFile,
+    paused: Option<PauseCheck>,
+) -> MemoryResult<ImportState> {
     let bound = engine::resolve(config).engine()?;
     let workspace_dir = config.workspace_dir.clone();
     let claimed = RUNNING
@@ -52,7 +58,7 @@ pub(super) fn begin_retry(config: &Config, mut file: ImportFile) -> MemoryResult
         "[memory:import] retrying failed items"
     );
     tokio::spawn(async move {
-        retry_run(&workspace_dir, &bound, file).await;
+        retry_run(&workspace_dir, &bound, file, paused).await;
         RUNNING
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -77,7 +83,12 @@ fn retry_stop_message(error: tinymemory_api::Error) -> String {
     )
 }
 
-async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
+async fn retry_run(
+    workspace_dir: &Path,
+    bound: &BoundEngine,
+    mut file: ImportFile,
+    paused: Option<PauseCheck>,
+) {
     // An item with no legacy id cannot be found again, so it is never
     // matched (every item the importer yields has one).
     let wanted: HashSet<String> = file
@@ -112,6 +123,13 @@ async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFi
         }
         Ok(items) => {
             for item in items {
+                if paused.as_ref().is_some_and(|paused| paused()) {
+                    // Left a running retry with what is still listed: the
+                    // next unpaused tick resumes it.
+                    tracing::info!("[memory:import] background paused; retry left to resume");
+                    write_file(workspace_dir, &file);
+                    return;
+                }
                 let id = legacy_id(&item);
                 match with_retries(|| bound.engine.store(item.clone())).await {
                     Ok(_) => {

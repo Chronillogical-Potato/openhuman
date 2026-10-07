@@ -404,7 +404,7 @@ pub(crate) async fn resume_interrupted_with(
     // An interrupted retry of refused items resumes as a retry, from the
     // items still listed (each stored one was taken off as it went).
     let resumed = if file.state.phase == ImportPhase::Running && file.retrying {
-        retry::begin_retry(config, file)
+        retry::begin_retry(config, file, Some(paused))
     } else {
         start_with(config, true, Some(paused)).await
     };
@@ -426,8 +426,18 @@ pub(crate) async fn resume_interrupted_with(
             // the checkpoint stay exactly as persisted, and the user's Resume
             // continues from there.
             let mut file = read_file(&config.workspace_dir);
-            file.state.phase = ImportPhase::Error;
-            file.state.error = Some(format!("the import could not resume: {error}"));
+            if file.retrying {
+                // The import itself is finished: keep it `Done` with the
+                // items still to retry, so Retry stays available.
+                file.state.phase = ImportPhase::Done;
+                file.state.error = Some(format!(
+                    "the retry could not resume: {error}; press Retry again"
+                ));
+                file.retrying = false;
+            } else {
+                file.state.phase = ImportPhase::Error;
+                file.state.error = Some(format!("the import could not resume: {error}"));
+            }
             // Not resumed again on its own: the failure would recur.
             file.paused_for_credits = false;
             write_file(&config.workspace_dir, &file);
@@ -564,6 +574,14 @@ async fn run(
         file.state.imported += outcome.stored;
         // One entry per legacy id; a later refusal replaces the reason.
         for failed in outcome.failed {
+            // Every item the importer yields has a legacy id; one without
+            // could never be found again to retry, so it is not listed.
+            if failed.id.is_empty() {
+                tracing::warn!(
+                    "[memory:import] a refused item has no legacy id; not kept for retry"
+                );
+                continue;
+            }
             match file.failed.iter_mut().find(|known| known.id == failed.id) {
                 Some(known) => *known = failed,
                 None => file.failed.push(failed),
