@@ -89,7 +89,9 @@ pub use context::{CompactionSettings, CompactionStrategy, ContextConfig};
 pub use cron::CronConfig;
 pub use dashboard::{DashboardConfig, DiagramViewerConfig, EventStreamConfig, ModelHealthConfig};
 pub use dictation::{DictationActivationMode, DictationConfig};
-pub use identity_cost::{CostConfig, ModelPricing};
+pub use identity_cost::{
+    BudgetAction, BudgetPeriod, BudgetPolicy, BudgetScope, CostConfig, ModelPricing,
+};
 pub use local_ai::{LocalAiConfig, LocalAiUsage};
 pub use memory::{
     migrate_legacy_source, MemoryAgentConfig, MemoryConfig, MemoryConversationsConfig,
