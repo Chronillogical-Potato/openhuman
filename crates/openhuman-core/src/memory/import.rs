@@ -510,12 +510,24 @@ async fn start_with(
     write_file(&workspace_dir, &file);
     let state = file.state.clone();
     tracing::info!(total = state.total, "[memory:import] import started");
+    let config = config.clone();
     tokio::spawn(async move {
         run(&workspace_dir, &bound, file, paused).await;
         RUNNING
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&workspace_dir);
+        // Import first, then organize: the move starts here, on whatever
+        // screen the user is, once the import is done.
+        if read_file(&workspace_dir).state.phase == ImportPhase::Done {
+            let started = super::layout_migration::start(
+                config,
+                Arc::new(super::layout_migration::AppHost),
+                super::layout_migration::Trigger::Manual { takeover: false },
+                Arc::new(scheduler_paused),
+            );
+            tracing::info!(started, "[memory:import] import done; organizing next");
+        }
     });
     Ok(state)
 }

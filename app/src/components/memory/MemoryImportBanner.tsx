@@ -5,8 +5,8 @@
  * Step 1: when `memory_import_scan` finds old local memory, offer to upload
  * it. Nothing leaves the device without the consent dialog's confirmation,
  * the only caller of `memory_import_start({consent: true})`.
- * Step 2: once the import is done, the move starts on its own (the core
- * refuses it while an import is unfinished). With no import, it is offered
+ * Step 2: the core starts the move itself once the import is done (and
+ * refuses it while an import is unfinished); this banner shows its progress. With no import, it is offered
  * ("Migrate now") or runs in the background while free. A legacy tree other
  * accounts may share (self-hosted) is only taken after the takeover dialog.
  *
@@ -209,16 +209,7 @@ export default function MemoryImportBanner({ engineLabel }: MemoryImportBannerPr
     }
   };
 
-  // The import finished: organize next, without asking again. Once per mount,
-  // so a start the core declines does not loop. A shared tree still asks.
   const importDone = state?.phase === 'done';
-  const autoStarted = useRef(false);
-  useEffect(() => {
-    if (!importDone || !moveOffered || moving || mScan?.shared || autoStarted.current) return;
-    autoStarted.current = true;
-    mlog('import done; organizing next');
-    void startMove(false);
-  }, [importDone, moveOffered, moving, mScan?.shared, startMove]);
 
   const mState = mStatus?.state;
   const left = (mState?.failures?.length ?? 0) + (mState?.incomplete?.length ?? 0);

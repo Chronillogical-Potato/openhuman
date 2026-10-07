@@ -192,16 +192,6 @@ describe('MemoryImportBanner', () => {
     expect(await screen.findByTestId('memory-import-error')).toHaveTextContent('sign in again');
   });
 
-  it('organizes on its own once the import is done, in the same banner', async () => {
-    hoisted.status.mockResolvedValue({ state: { phase: 'done', imported: 9, total: 9 } });
-    hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
-    renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
-    await waitFor(() => expect(hoisted.mStart).toHaveBeenCalledWith(false));
-    expect(await screen.findByTestId('memory-migration-running')).toHaveTextContent('4');
-    expect(screen.queryByTestId('memory-import-done')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('memory-migration-start')).not.toBeInTheDocument();
-  });
-
   it('does not organize while the import is still running', async () => {
     hoisted.status.mockResolvedValue({ state: { phase: 'running', imported: 1, total: 9 } });
     hoisted.mScan.mockResolvedValue({ needed: true, shared: false });
