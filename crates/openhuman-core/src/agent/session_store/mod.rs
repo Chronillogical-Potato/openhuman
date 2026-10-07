@@ -38,12 +38,15 @@ pub async fn scope<F: std::future::Future>(
 
 /// Routes every agent's session state through `provider`, replacing any
 /// earlier one.
-pub fn install(provider: Arc<dyn SessionStoreProvider>) {
+pub fn install(provider: Arc<dyn SessionStoreProvider>) -> Option<Arc<dyn SessionStoreProvider>> {
     tracing::info!(
         destination = ?provider.destination_key(),
         "[session_store] host session store installed"
     );
-    *PROVIDER.write().unwrap_or_else(PoisonError::into_inner) = Some(provider);
+    PROVIDER
+        .write()
+        .unwrap_or_else(PoisonError::into_inner)
+        .replace(provider)
 }
 
 /// Removes the installed provider; the on-disk layout applies again. Returns
@@ -58,6 +61,10 @@ pub fn clear() -> bool {
         tracing::info!("[session_store] host session store removed");
     }
     had
+}
+
+pub fn restore(provider: Option<Arc<dyn SessionStoreProvider>>) {
+    *PROVIDER.write().unwrap_or_else(PoisonError::into_inner) = provider;
 }
 
 /// The provider in effect: the task's [`scope`]d one, else the installed

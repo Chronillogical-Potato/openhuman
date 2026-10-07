@@ -156,6 +156,7 @@ pub(crate) struct CoreGuard {
     /// Whether this runtime installed the process's session store, which is
     /// removed with it.
     session_store: bool,
+    previous_session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
 }
 
 impl Drop for CoreGuard {
@@ -166,6 +167,7 @@ impl Drop for CoreGuard {
         drop(self.core.take());
         if self.session_store {
             openhuman_core::agent::session_store::clear();
+            openhuman_core::agent::session_store::restore(self.previous_session_store.take());
         }
         // For an ephemeral workspace, take ownership of the temp path and
         // remove it with a short retry. The core's memory/session writers keep

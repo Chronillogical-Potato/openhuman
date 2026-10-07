@@ -244,11 +244,7 @@ impl RuntimeBuilder {
         if let Some(engine) = self.memory_engine.clone() {
             openhuman_core::memory::engine::install_host_engine(engine);
         }
-        // Before the core boots: boot-time recovery runs against it.
         let session_store = self.session_store.is_some();
-        if let Some(provider) = self.session_store.clone() {
-            openhuman_core::agent::session_store::install(provider);
-        }
         let inherit = self.workspace.is_operator_owned();
         let resolved = ResolvedWorkspace::resolve(&self.workspace, None).map_err(map_ws)?;
 
@@ -315,6 +311,13 @@ impl RuntimeBuilder {
         let tool_groups = self.tool_groups.unwrap_or_default();
         let services = self.services.unwrap_or_else(default_services);
 
+        // Install only after all fallible workspace/config resolution has
+        // completed; core boot performs recovery against this provider.
+        let previous_session_store = self
+            .session_store
+            .clone()
+            .and_then(openhuman_core::agent::session_store::install);
+
         log::debug!(
             "[embed][runtime] building host_kind={:?} inherit_workspace={inherit} \
              routed_provider={} api_key={has_api_key} domains={domains:?} tool_groups={tool_groups:?}",
@@ -336,6 +339,7 @@ impl RuntimeBuilder {
             Err(error) => {
                 if session_store {
                     openhuman_core::agent::session_store::clear();
+                    openhuman_core::agent::session_store::restore(previous_session_store);
                 }
                 return Err(RuntimeError::Build(error));
             }
@@ -350,6 +354,7 @@ impl RuntimeBuilder {
             core,
             resolved,
             session_store,
+            previous_session_store,
             config,
             inherit,
             domains,
