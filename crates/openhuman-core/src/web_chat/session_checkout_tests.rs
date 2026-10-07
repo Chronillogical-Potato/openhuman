@@ -546,3 +546,95 @@ fn chat_agent_id_selects_the_web_chat_agent_and_defaults_to_the_orchestrator() {
         "an unknown optional setting must not take web chat down"
     );
 }
+
+/// Thread ids are chosen by callers, so two embedded agents can pick the same
+/// one. Each must get its own cache slot, or the second agent's turn would
+/// check out the first agent's live session and its history.
+#[tokio::test]
+async fn two_agents_with_the_same_thread_id_get_their_own_cache_slots() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    let thread_id = unique_thread("agents");
+    assert_eq!(key_for(&thread_id), thread_id, "no agent scope: bare id");
+
+    let parent = CoreContext::for_test(DomainSet::full(), None);
+    let agent_ctx = |agent: &str| {
+        parent.derive_with(
+            ContextOverlay::new(Config::default(), DomainSet::full(), Default::default())
+                .session_agent(agent),
+        )
+    };
+    let key_a = CoreContext::scope(agent_ctx("asha"), async { key_for(&thread_id) }).await;
+    let key_b = CoreContext::scope(agent_ctx("ravi"), async { key_for(&thread_id) }).await;
+    assert_eq!(key_a, format!("asha::{thread_id}"));
+    assert_eq!(key_b, format!("ravi::{thread_id}"));
+
+    // Evicting the thread clears every agent's slot for it.
+    {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = test_config(&tmp);
+        let fingerprint =
+            super::build_session_fingerprint(&config, None, None, "orchestrator".into(), "chat");
+        let mut sessions = THREAD_SESSIONS.lock().await;
+        for key in [&key_a, &key_b] {
+            sessions.insert(
+                key.clone(),
+                crate::web_chat::types::SessionEntry {
+                    agent: host_seeded_with(&config, "x"),
+                    fingerprint: fingerprint.clone(),
+                },
+            );
+        }
+    }
+    crate::web_chat::ops::invalidate_thread_sessions(&thread_id).await;
+    let sessions = THREAD_SESSIONS.lock().await;
+    assert!(!sessions.contains_key(&key_a) && !sessions.contains_key(&key_b));
+}
+
+/// A host-authored turn adopts the thread's agent whatever settings built it,
+/// but never one built against another workspace: after a different user
+/// signs in, the old user's live session must not answer for the new one.
+#[tokio::test]
+async fn a_system_turn_never_adopts_an_agent_from_another_workspace() {
+    let tmp_a = tempfile::tempdir().unwrap();
+    let tmp_b = tempfile::tempdir().unwrap();
+    let config_a = test_config(&tmp_a);
+    let config_b = test_config(&tmp_b);
+    let thread_id = unique_thread("workspace");
+    let built_for_a =
+        super::build_session_fingerprint(&config_a, None, None, "orchestrator".into(), "chat");
+    checkin_session_agent(
+        &thread_id,
+        host_seeded_with(&config_a, "user-a-history"),
+        built_for_a,
+    )
+    .await;
+
+    let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+        &config_b,
+        super::super::SYSTEM_CLIENT_ID,
+        &thread_id,
+        None,
+        None,
+        None,
+        CheckoutPolicy::AdoptCached,
+    )
+    .await
+    .unwrap();
+    assert!(
+        !prose(&agent.history()).contains(&"user-a-history".to_string()),
+        "workspace B must not inherit workspace A's session"
+    );
+    assert_eq!(fingerprint.workspace_dir, config_b.workspace_dir);
+    evict(&thread_id).await;
+}
+
+#[test]
+fn fingerprint_diff_names_a_workspace_change() {
+    let base = sample_fingerprint();
+    let mut moved = base.clone();
+    moved.workspace_dir = std::path::PathBuf::from("/ws/b");
+    let diff = fingerprint_diff(&base, &moved);
+    assert_eq!(diff.len(), 1, "{diff:?}");
+    assert!(diff[0].starts_with("workspace_dir:"), "{diff:?}");
+}
