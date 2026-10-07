@@ -8,7 +8,8 @@
 
 use chrono::Utc;
 use tinymemory_api::{
-    FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, RecallRequest,
+    FetchRequest, ForgetTarget, ItemId, LearningKind, ListRequest, MemoryMeta, MetaFilter,
+    RecallRequest,
     StoreItem, StoreReceipt,
 };
 
