@@ -20,7 +20,7 @@
 //   node scripts/ci/check-saas-ambient.mjs --write-baseline
 //   node scripts/ci/check-saas-ambient.mjs --root <dir>   (tests)
 
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -141,6 +141,7 @@ async function main() {
   }
 
   if (writeBaseline) {
+    await mkdir(dirname(baselinePath), { recursive: true });
     await writeFile(baselinePath, `${JSON.stringify(findings, null, 2)}\n`);
     console.log(
       `Wrote ${findings.length} baselined SaaS ambient-state sites to ${relative(repoRoot, baselinePath)}.`,
