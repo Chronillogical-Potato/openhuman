@@ -112,6 +112,19 @@ DevTools client can attach to it. Run the same SPA in Chrome instead:
   desktop core's port; the default scans 7788-7808), `OPENHUMAN_CORE_TOKEN`, and
   `OPENHUMAN_WORKSPACE` (point it at a scratch dir for a clean profile).
 
+Scripted browser runs (Playwright, headless): `pnpm debug web` boots a
+throwaway stack (the mock backend, a fresh `openhuman-core serve` on a scratch
+workspace, Vite with `OPENHUMAN_VITE_NO_WATCH=1`) and signs in through the real
+GitHub button, which the mock answers like the backend. `--script <file.mjs>`
+runs a scenario against the signed-in page (default export receives `page`,
+`mock.set(key, value)` for mock behaviors such as `llmStreamScript`, `rpc`,
+`screenshot` and `log`); without it the stack stays up until Ctrl-C. Logs and
+screenshots go to `target/debug-logs/web-<ts>/`. Example:
+`scripts/debug/web-scripts/stop-mid-turn.mjs`. Set `OPENHUMAN_VITE_NO_WATCH=1`
+on any Vite run that dies with `ENOSPC: System limit for number of file
+watchers reached`. `--headed` needs the full Chromium build
+(`pnpm --filter openhuman-app exec playwright install chromium`).
+
 Long CI build or test commands must run through
 `scripts/ci-cancel-aware.sh`. Do not export `CARGO_TARGET_DIR`; the repository
 already configures shared build output where appropriate.
