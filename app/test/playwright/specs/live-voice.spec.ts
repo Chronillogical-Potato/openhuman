@@ -147,7 +147,7 @@ test.describe('Live voice agent', () => {
     );
     await expect(page.getByTestId('live-voice-provider-gemini-hosted')).toBeVisible();
     await expect(page.getByTestId('live-voice-provider-sarvam')).toContainText('Needs a key');
-    await expect(page.getByTestId('live-voice-test-button-sarvam')).toBeDisabled();
+    await expect(page.getByTestId('live-voice-test-button-sarvam')).toHaveCount(0);
 
     await page.getByTestId('live-voice-test-button-gemini-hosted').click();
     await expect(page.getByTestId('live-voice-test-gemini-hosted')).toHaveText('Working · 123 ms');

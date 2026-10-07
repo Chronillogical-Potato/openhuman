@@ -80,39 +80,47 @@ describe('LiveVoicePanel', () => {
     api.clearLiveVoiceProviderKey.mockResolvedValue(undefined);
   });
 
-  it('renders a card per provider with kind and readiness badges', async () => {
+  it('groups providers into included and own-key sections with readiness', async () => {
     await renderPanel();
-    for (const id of ['gemini-hosted', 'elevenlabs-hosted', 'gemini', 'sarvam']) {
-      expect(screen.getByTestId(`live-voice-provider-${id}`)).toBeInTheDocument();
+    const hostedGroup = screen.getByTestId('live-voice-group-hosted');
+    const byokGroup = screen.getByTestId('live-voice-group-byok');
+    expect(within(hostedGroup).getByText('Included with OpenHuman')).toBeInTheDocument();
+    expect(within(byokGroup).getByText('Use your own key')).toBeInTheDocument();
+    for (const id of ['gemini-hosted', 'elevenlabs-hosted']) {
+      expect(within(hostedGroup).getByTestId(`live-voice-provider-${id}`)).toBeInTheDocument();
+    }
+    for (const id of ['gemini', 'sarvam']) {
+      expect(within(byokGroup).getByTestId(`live-voice-provider-${id}`)).toBeInTheDocument();
     }
     const hosted = screen.getByTestId('live-voice-provider-gemini-hosted');
-    expect(within(hosted).getByText('Included')).toBeInTheDocument();
-    expect(within(hosted).getByText('Default')).toBeInTheDocument();
+    expect(within(hosted).getByText('In use')).toBeInTheDocument();
     expect(hosted).toHaveAttribute('data-selected', 'true');
     const sarvam = screen.getByTestId('live-voice-provider-sarvam');
-    expect(within(sarvam).getByText('Your key')).toBeInTheDocument();
     expect(within(sarvam).getByText('Needs a key')).toBeInTheDocument();
+    expect(within(sarvam).getByText('Add an API key to use this agent.')).toBeInTheDocument();
     // Hosted cards have no key entry.
     expect(screen.queryByTestId('live-voice-key-gemini-hosted')).not.toBeInTheDocument();
     // An unconfigured BYOK provider cannot be tested yet.
-    expect(screen.getByTestId('live-voice-test-button-sarvam')).toBeDisabled();
+    expect(screen.queryByTestId('live-voice-test-button-sarvam')).not.toBeInTheDocument();
   });
 
-  it('lists unconfigured providers as disabled default choices and saves a new default', async () => {
+  it('picks the agent in use from its row and refuses one without a key', async () => {
     await renderPanel();
-    const select = screen.getByTestId('live-voice-default') as HTMLSelectElement;
-    expect(select.value).toBe('gemini-hosted');
-    const sarvamOption = within(select).getByRole('option', { name: 'Sarvam AI (needs a key)' });
-    expect(sarvamOption).toBeDisabled();
+    const current = screen.getByTestId('live-voice-default-gemini-hosted') as HTMLInputElement;
+    expect(current.checked).toBe(true);
+    expect(screen.getByTestId('live-voice-default-sarvam')).toBeDisabled();
 
-    fireEvent.change(select, { target: { value: 'gemini' } });
+    fireEvent.click(screen.getByTestId('live-voice-default-gemini'));
     await waitFor(() =>
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ default_provider: 'gemini' })
     );
     await screen.findByText('Saved.');
-    expect(
-      within(screen.getByTestId('live-voice-provider-gemini')).getByText('Default')
-    ).toBeTruthy();
+    const gemini = screen.getByTestId('live-voice-provider-gemini');
+    expect(gemini).toHaveAttribute('data-selected', 'true');
+    expect(within(gemini).getByText('In use')).toBeInTheDocument();
+    expect(screen.getByTestId('live-voice-provider-gemini-hosted')).not.toHaveAttribute(
+      'data-selected'
+    );
   });
 
   it('saves a BYOK key and re-fetches providers', async () => {
@@ -146,6 +154,9 @@ describe('LiveVoicePanel', () => {
   it('surfaces a key-save failure', async () => {
     api.saveLiveVoiceProviderKey.mockRejectedValueOnce(new Error('keyring locked'));
     await renderPanel();
+    // A stored key is replaced through an explicit Replace step.
+    expect(screen.queryByTestId('live-voice-key-gemini')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('live-voice-replace-key-gemini'));
     fireEvent.change(screen.getByTestId('live-voice-key-gemini'), { target: { value: 'k' } });
     fireEvent.click(screen.getByTestId('live-voice-save-key-gemini'));
     await screen.findByText(/Couldn't save: keyring locked/);
@@ -194,16 +205,30 @@ describe('LiveVoicePanel', () => {
     await screen.findByText('Working · 5 ms');
   });
 
-  it('writes Sarvam speaker and language and Gemini voice to their settings blocks', async () => {
+  it('shows voice pickers only on the agent in use', async () => {
     await renderPanel();
     expect((screen.getByTestId('live-voice-voice-gemini-hosted') as HTMLSelectElement).value).toBe(
       'Puck'
     );
+    expect(screen.queryByTestId('live-voice-voice-sarvam')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('live-voice-language-gemini-hosted'), {
+      target: { value: 'en-US' },
+    });
+    await waitFor(() =>
+      expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ gemini: { language: 'en-US' } })
+    );
+  });
+
+  it('writes Sarvam speaker and language to their settings block', async () => {
+    api.fetchLiveVoiceProviders.mockResolvedValue({
+      ...PROVIDERS(true),
+      default_provider: 'sarvam',
+    });
+    api.fetchLiveVoiceSettings.mockResolvedValue({ ...SETTINGS, default_provider: 'sarvam' });
+    await renderPanel();
     expect((screen.getByTestId('live-voice-language-sarvam') as HTMLSelectElement).value).toBe(
       'hi-IN'
     );
-    // No pickers for a provider that lists no voices or languages.
-    expect(screen.queryByTestId('live-voice-voice-elevenlabs-hosted')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByTestId('live-voice-voice-sarvam'), {
       target: { value: 'anushka' },
@@ -215,18 +240,25 @@ describe('LiveVoicePanel', () => {
     await waitFor(() =>
       expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ sarvam: { language: null } })
     );
-    fireEvent.change(screen.getByTestId('live-voice-language-gemini-hosted'), {
-      target: { value: 'en-US' },
+  });
+
+  it('hides pickers for an agent in use that lists no voices or languages', async () => {
+    api.fetchLiveVoiceSettings.mockResolvedValue({
+      ...SETTINGS,
+      default_provider: 'elevenlabs-hosted',
     });
-    await waitFor(() =>
-      expect(api.updateLiveVoiceSettings).toHaveBeenCalledWith({ gemini: { language: 'en-US' } })
+    await renderPanel();
+    expect(screen.getByTestId('live-voice-provider-elevenlabs-hosted')).toHaveAttribute(
+      'data-selected',
+      'true'
     );
+    expect(screen.queryByTestId('live-voice-voice-elevenlabs-hosted')).not.toBeInTheDocument();
   });
 
   it('shows a save error', async () => {
     api.updateLiveVoiceSettings.mockRejectedValueOnce(new Error('disk full'));
     await renderPanel();
-    fireEvent.change(screen.getByTestId('live-voice-default'), { target: { value: 'gemini' } });
+    fireEvent.click(screen.getByTestId('live-voice-default-gemini'));
     await screen.findByText(/Couldn't save: disk full/);
   });
 
