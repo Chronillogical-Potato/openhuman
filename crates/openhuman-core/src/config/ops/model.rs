@@ -473,10 +473,7 @@ pub async fn apply_runtime_settings(
                 .ok_or_else(|| format!("unknown reasoning_effort '{effort}'"))?;
             Some(parsed.as_str().to_string())
         };
-        let model = update
-            .reasoning_effort_model
-            .as_deref()
-            .map(str::trim);
+        let model = update.reasoning_effort_model.as_deref().map(str::trim);
         if model == Some("") {
             return Err("reasoning_effort_model must not be empty".into());
         }
