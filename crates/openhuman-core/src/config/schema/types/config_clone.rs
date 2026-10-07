@@ -11,182 +11,94 @@ use super::config::Config;
 impl Clone for Config {
     #[inline(never)]
     fn clone(&self) -> Self {
-        Self {
-            workspace_dir
-action_dir
-action_dir_override
-files_dir_override
-files_dir_history
-config_path
-cli_inference_snapshot
-recovered_from_corruption
-schema_version
-api_url
-api_key
-inference_url
-default_model
-default_temperature
-output_language
-temperature_unsupported_models
-dashboard
-observability
-autonomy
-desktop
-computer
-hooks
-privacy
-sandbox
-runtime
-shell
-web_chat
-reliability
-scheduler
-scheduler_gate
-agent
-orchestrator
-teams
-context
-model_routes
-embedding_routes
-cron
-task_sources
-channels_config
-memory
-composio
-secrets
-browser
-http_request
-curl
-gitbooks
-mcp_client
-modules
-capability_providers
-multimodal
-multimodal_files
-seltz
-searxng
-web_search
-search
-proxy
-cost
-legacy_memory_sources
-agent_registry
-agents
-local_ai
-claude_agent_sdk
-cloud_providers
-primary_cloud
-ephemeral_route
-chat_provider
-reasoning_provider
-agentic_provider
-coding_provider
-vision_provider
-memory_provider
-embeddings_provider
-custom_embeddings
-node
-runtime_python
-runtime_pool
-tokenjuice
-hosting
-voice_server
-voice_providers
-stt_provider
-tts_provider
-integrations
-update
-dictation
-onboarding_completed
-chat_onboarding_completed
-model_registry: self.workspace_dir
-action_dir
-action_dir_override
-files_dir_override
-files_dir_history
-config_path
-cli_inference_snapshot
-recovered_from_corruption
-schema_version
-api_url
-api_key
-inference_url
-default_model
-default_temperature
-output_language
-temperature_unsupported_models
-dashboard
-observability
-autonomy
-desktop
-computer
-hooks
-privacy
-sandbox
-runtime
-shell
-web_chat
-reliability
-scheduler
-scheduler_gate
-agent
-orchestrator
-teams
-context
-model_routes
-embedding_routes
-cron
-task_sources
-channels_config
-memory
-composio
-secrets
-browser
-http_request
-curl
-gitbooks
-mcp_client
-modules
-capability_providers
-multimodal
-multimodal_files
-seltz
-searxng
-web_search
-search
-proxy
-cost
-legacy_memory_sources
-agent_registry
-agents
-local_ai
-claude_agent_sdk
-cloud_providers
-primary_cloud
-ephemeral_route
-chat_provider
-reasoning_provider
-agentic_provider
-coding_provider
-vision_provider
-memory_provider
-embeddings_provider
-custom_embeddings
-node
-runtime_python
-runtime_pool
-tokenjuice
-hosting
-voice_server
-voice_providers
-stt_provider
-tts_provider
-integrations
-update
-dictation
-onboarding_completed
-chat_onboarding_completed
-model_registry.clone(),
+            workspace_dir: self.workspace_dir.clone(),
+            action_dir: self.action_dir.clone(),
+            action_dir_override: self.action_dir_override.clone(),
+            files_dir_override: self.files_dir_override.clone(),
+            files_dir_history: self.files_dir_history.clone(),
+            config_path: self.config_path.clone(),
+            cli_inference_snapshot: self.cli_inference_snapshot.clone(),
+            recovered_from_corruption: self.recovered_from_corruption.clone(),
+            schema_version: self.schema_version.clone(),
+            api_url: self.api_url.clone(),
+            api_key: self.api_key.clone(),
+            inference_url: self.inference_url.clone(),
+            default_model: self.default_model.clone(),
+            default_temperature: self.default_temperature.clone(),
+            output_language: self.output_language.clone(),
+            temperature_unsupported_models: self.temperature_unsupported_models.clone(),
+            dashboard: self.dashboard.clone(),
+            observability: self.observability.clone(),
+            autonomy: self.autonomy.clone(),
+            desktop: self.desktop.clone(),
+            computer: self.computer.clone(),
+            hooks: self.hooks.clone(),
+            privacy: self.privacy.clone(),
+            sandbox: self.sandbox.clone(),
+            runtime: self.runtime.clone(),
+            shell: self.shell.clone(),
+            web_chat: self.web_chat.clone(),
+            reliability: self.reliability.clone(),
+            scheduler: self.scheduler.clone(),
+            scheduler_gate: self.scheduler_gate.clone(),
+            agent: self.agent.clone(),
+            orchestrator: self.orchestrator.clone(),
+            teams: self.teams.clone(),
+            context: self.context.clone(),
+            model_routes: self.model_routes.clone(),
+            embedding_routes: self.embedding_routes.clone(),
+            cron: self.cron.clone(),
+            task_sources: self.task_sources.clone(),
+            channels_config: self.channels_config.clone(),
+            memory: self.memory.clone(),
+            composio: self.composio.clone(),
+            secrets: self.secrets.clone(),
+            browser: self.browser.clone(),
+            http_request: self.http_request.clone(),
+            curl: self.curl.clone(),
+            gitbooks: self.gitbooks.clone(),
+            mcp_client: self.mcp_client.clone(),
+            modules: self.modules.clone(),
+            capability_providers: self.capability_providers.clone(),
+            multimodal: self.multimodal.clone(),
+            multimodal_files: self.multimodal_files.clone(),
+            seltz: self.seltz.clone(),
+            searxng: self.searxng.clone(),
+            web_search: self.web_search.clone(),
+            search: self.search.clone(),
+            proxy: self.proxy.clone(),
+            cost: self.cost.clone(),
+            legacy_memory_sources: self.legacy_memory_sources.clone(),
+            agent_registry: self.agent_registry.clone(),
+            agents: self.agents.clone(),
+            local_ai: self.local_ai.clone(),
+            claude_agent_sdk: self.claude_agent_sdk.clone(),
+            cloud_providers: self.cloud_providers.clone(),
+            primary_cloud: self.primary_cloud.clone(),
+            ephemeral_route: self.ephemeral_route.clone(),
+            chat_provider: self.chat_provider.clone(),
+            reasoning_provider: self.reasoning_provider.clone(),
+            agentic_provider: self.agentic_provider.clone(),
+            coding_provider: self.coding_provider.clone(),
+            vision_provider: self.vision_provider.clone(),
+            memory_provider: self.memory_provider.clone(),
+            embeddings_provider: self.embeddings_provider.clone(),
+            custom_embeddings: self.custom_embeddings.clone(),
+            node: self.node.clone(),
+            runtime_python: self.runtime_python.clone(),
+            runtime_pool: self.runtime_pool.clone(),
+            tokenjuice: self.tokenjuice.clone(),
+            hosting: self.hosting.clone(),
+            voice_server: self.voice_server.clone(),
+            voice_providers: self.voice_providers.clone(),
+            stt_provider: self.stt_provider.clone(),
+            tts_provider: self.tts_provider.clone(),
+            integrations: self.integrations.clone(),
+            update: self.update.clone(),
+            dictation: self.dictation.clone(),
+            onboarding_completed: self.onboarding_completed.clone(),
+            chat_onboarding_completed: self.chat_onboarding_completed.clone(),
+            model_registry: self.model_registry.clone(),
         }
     }
 }
