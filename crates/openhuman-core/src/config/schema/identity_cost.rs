@@ -54,6 +54,86 @@ pub struct CostConfig {
     /// visualisation in Settings → Cost dashboard.
     #[serde(default)]
     pub dashboard: CostDashboardConfig,
+
+    /// Spend and token budgets, checked before every model call
+    /// (`platform::cost::budget`). Empty by default: nothing is limited until
+    /// a budget is configured.
+    #[serde(default)]
+    pub budgets: Vec<BudgetPolicy>,
+}
+
+/// One budget: a limit on spend and/or tokens over a period, for every call
+/// or for each thread, agent, model, provider or user agent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BudgetPolicy {
+    /// A label for logs and refusals.
+    #[serde(default)]
+    pub name: Option<String>,
+    /// What the limit applies to.
+    #[serde(default)]
+    pub scope: BudgetScope,
+    /// Apply only to this value of `scope` (one agent id, one model, …).
+    /// Unset applies the limit to each value separately.
+    #[serde(default, rename = "match")]
+    pub matches: Option<String>,
+    /// The window spend is summed over.
+    #[serde(default)]
+    pub period: BudgetPeriod,
+    /// Spend limit in USD.
+    #[serde(default)]
+    pub max_usd: Option<f64>,
+    /// Token limit (input + output).
+    #[serde(default)]
+    pub max_tokens: Option<u64>,
+    /// Fraction of a limit at which a warning is logged (default 0.8).
+    #[serde(default = "default_budget_warn_fraction")]
+    pub warn_fraction: f64,
+    /// What happens once a limit is reached.
+    #[serde(default)]
+    pub action: BudgetAction,
+}
+
+/// What a [`BudgetPolicy`] applies to.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BudgetScope {
+    /// Every call together.
+    #[default]
+    Global,
+    Thread,
+    /// The agent definition making the call.
+    Agent,
+    Model,
+    Provider,
+    /// The embedded or SaaS user agent.
+    SessionAgent,
+}
+
+/// The window a [`BudgetPolicy`] sums spend over (UTC).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BudgetPeriod {
+    /// Since midnight UTC.
+    Day,
+    /// Since the first of the month, UTC.
+    #[default]
+    Month,
+}
+
+/// What reaching a [`BudgetPolicy`] limit does.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BudgetAction {
+    /// Log a warning and let the call through.
+    #[default]
+    Warn,
+    /// Refuse the call with `BUDGET_EXCEEDED`.
+    Refuse,
+}
+
+fn default_budget_warn_fraction() -> f64 {
+    0.8
 }
 
 /// Configuration for the 7-day cost & token usage dashboard panel.
@@ -139,6 +219,7 @@ impl Default for CostConfig {
             monthly_limit_usd: default_monthly_limit(),
             prices: get_default_pricing(),
             dashboard: CostDashboardConfig::default(),
+            budgets: Vec::new(),
         }
     }
 }
