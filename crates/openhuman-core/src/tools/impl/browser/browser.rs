@@ -7,6 +7,8 @@ mod pending;
 mod session_pool;
 #[path = "browser_task_actions.rs"]
 mod task_actions;
+#[path = "browser_unattended.rs"]
+mod unattended;
 use crate::modules::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
@@ -340,7 +342,7 @@ impl BrowserTool {
         }
         let pending = slot.take().expect("pending checked above");
         drop(slot);
-        let approved = approve_task_action(&pending).await?;
+        let approved = approve_task_action(&pending, &self.client.config().browser).await?;
         let view = crate::modules::browser_task::resume(
             self.client.config(),
             ContinueTaskRequest {

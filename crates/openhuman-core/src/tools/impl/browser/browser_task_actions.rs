@@ -44,7 +44,10 @@ pub(super) fn task_inputs(args: &Value) -> anyhow::Result<BTreeMap<String, Strin
 
 /// Ask the host approval gate about a paused task's exact action. A missing
 /// gate denies: a task never takes an irreversible step unapproved.
-pub(super) async fn approve_task_action(pending: &Pending) -> anyhow::Result<bool> {
+pub(super) async fn approve_task_action(
+    pending: &Pending,
+    _browser: &crate::config::BrowserConfig,
+) -> anyhow::Result<bool> {
     let gate = ApprovalGate::try_global().ok_or_else(|| {
         anyhow::anyhow!("[policy-denied] Browser action needs an interactive host approval gate")
     })?;
