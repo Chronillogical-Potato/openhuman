@@ -19,6 +19,10 @@ const INSTRUCTION: &str = "Return the calendar date range (local dates) that the
 
 /// The days `user_text` is about, in `zone`, from the user's chat model.
 /// `None` when it names no time, or the call fails or answers nonsense.
+///
+/// Not bounded here: the caller owns the deadline (`hooks::pre_turn` wraps
+/// it in the turn's pre-turn timeout), as tinymemory's `pre_turn_dated`
+/// requires of its hint.
 pub async fn extract(config: &Config, user_text: &str, zone: &str) -> Option<TimeHint> {
     let (model, model_id) =
         match crate::inference::provider::create_chat_model_with_model_id("chat", config, 0.0) {

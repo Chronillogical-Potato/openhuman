@@ -217,15 +217,17 @@ pub async fn pre_turn(
     let agent_id = identity.agent_id.clone();
     let started = std::time::Instant::now();
     let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
-    // Answers by the deadline less a margin, so the pack is still ranked and
-    // returned before the turn stops waiting for it.
+    // Runs beside the turn log and the reads (tinymemory joins all three) and
+    // answers by the turn's own deadline less a margin, counted from now, so
+    // the pack is still ranked and returned before the turn stops waiting.
     let date_hint = (recall && logging && config.memory.recall.date_hint).then(|| {
         let config = config.clone();
         let text = input.user_text.clone();
-        let deadline = timeout.saturating_sub(Duration::from_millis(100));
+        let deadline =
+            tokio::time::Instant::now() + timeout.saturating_sub(Duration::from_millis(100));
         async move {
             let zone = config.time_zone();
-            tokio::time::timeout(deadline, super::date_hint::extract(&config, &text, &zone))
+            tokio::time::timeout_at(deadline, super::date_hint::extract(&config, &text, &zone))
                 .await
                 .ok()
                 .flatten()
