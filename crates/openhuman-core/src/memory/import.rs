@@ -8,10 +8,13 @@
 //! the resumable [`Checkpoint`]. Progress and the checkpoint persist in
 //! `<workspace>/memory/import_state.json`, so a restarted import resumes where
 //! the last one stopped (an item stored but not yet checkpointed is re-sent,
-//! and the engine treats it as a replay). An import the app quit in the middle
-//! of resumes on its own ([`resume_interrupted`]); one stopped by a failure
-//! that is not about a single item (credits exhausted, signed out, engine
-//! unreachable) waits for the user to start it again.
+//! and the engine treats it as a replay). A batch the engine cannot take for
+//! a transient reason (unreachable, overloaded, its indexer behind) is retried
+//! with backoff; if the engine stays unavailable the run stops and, like an
+//! import the app quit in the middle of, resumes on its own
+//! ([`resume_interrupted`]). One stopped by a failure that is not about a
+//! single item and will not pass by itself (credits exhausted, signed out)
+//! waits for the user to start it again.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -34,6 +37,24 @@ const CHECKPOINT_EVERY: u64 = 25;
 /// Items per bulk store (`MemoryEngine::store_many`).
 const STORE_BATCH: usize = 25;
 
+/// How long to wait before each retry of a batch the engine could not take
+/// for a transient reason (unreachable, overloaded, indexer behind: an
+/// `Unavailable` error). After the last, the run stops and is resumed by the
+/// background job.
+#[cfg(not(test))]
+const RETRY_DELAYS: [std::time::Duration; 3] = [
+    std::time::Duration::from_secs(2),
+    std::time::Duration::from_secs(10),
+    std::time::Duration::from_secs(30),
+];
+#[cfg(test)]
+const RETRY_DELAYS: [std::time::Duration; 3] = [std::time::Duration::from_millis(1); 3];
+
+/// The reason a run stopped on an engine that stayed unavailable through
+/// every retry; it is resumed on its own.
+const UNAVAILABLE_REASON: &str =
+    "the memory service is unavailable; the import resumes on its own within a few minutes";
+
 /// What storing one batch of legacy items did.
 #[derive(Debug, Default)]
 struct BatchOutcome {
@@ -44,6 +65,33 @@ struct BatchOutcome {
     /// Why the import must stop (credential rejected, credits exhausted,
     /// engine unreachable).
     fatal: Option<String>,
+    /// Whether `fatal` is transient: the engine stayed unavailable through
+    /// every retry, so the background job resumes the run.
+    transient: bool,
+}
+
+/// Runs `call` again after each of [`RETRY_DELAYS`] while it fails with a
+/// transient error, and returns its last result.
+async fn with_retries<T, F, Fut>(mut call: F) -> tinymemory_api::Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = tinymemory_api::Result<T>>,
+{
+    let mut result = call().await;
+    for delay in RETRY_DELAYS {
+        match &result {
+            Err(error) if error.is_transient() => {
+                tracing::debug!(
+                    delay_ms = u64::try_from(delay.as_millis()).unwrap_or(u64::MAX),
+                    "[memory:import] engine unavailable; retrying"
+                );
+                tokio::time::sleep(delay).await;
+                result = call().await;
+            }
+            _ => break,
+        }
+    }
+    result
 }
 
 /// Whether a store failure is about the item (skip it and go on) rather than
@@ -66,6 +114,9 @@ fn skips_item(error: &tinymemory_api::Error) -> bool {
 
 /// The message an import stopped by `error` reports.
 fn fatal_message(error: tinymemory_api::Error) -> String {
+    if error.is_transient() {
+        return UNAVAILABLE_REASON.to_string();
+    }
     if is_insufficient_credits(&error) {
         return "not enough credits to import your memory; top up, then resume the import to \
                 continue where it stopped"
@@ -84,7 +135,7 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
     };
     let last_checkpoint = last.checkpoint.clone();
     let items: Vec<_> = batch.iter().map(|imported| imported.item.clone()).collect();
-    match bound.engine.store_many(items).await {
+    match with_retries(|| bound.engine.store_many(items.clone())).await {
         Ok(receipts) => {
             tracing::debug!(
                 engine = %bound.id,
@@ -94,11 +145,12 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
             return BatchOutcome {
                 stored: receipts.len() as u64,
                 checkpoint: Some(last_checkpoint),
-                fatal: None,
+                ..BatchOutcome::default()
             };
         }
         Err(error) if !skips_item(&error) => {
             return BatchOutcome {
+                transient: error.is_transient(),
                 fatal: Some(fatal_message(error)),
                 ..BatchOutcome::default()
             };
@@ -112,9 +164,10 @@ async fn store_batch(bound: &BoundEngine, batch: Vec<ImportedItem>) -> BatchOutc
     }
     let mut outcome = BatchOutcome::default();
     for imported in batch {
-        match bound.engine.store(imported.item).await {
+        match with_retries(|| bound.engine.store(imported.item.clone())).await {
             Ok(_) => outcome.stored += 1,
             Err(error) if !skips_item(&error) => {
+                outcome.transient = error.is_transient();
                 outcome.fatal = Some(fatal_message(error));
                 return outcome;
             }
@@ -216,11 +269,11 @@ pub fn status(config: &Config) -> ImportState {
         .contains(&config.workspace_dir);
     if state.phase == ImportPhase::Running && !running {
         state.phase = ImportPhase::Error;
-        state.error = Some(
+        state.error = Some(state.error.unwrap_or_else(|| {
             "the import was interrupted; it resumes on its own within a few minutes, or resume \
              it now"
-                .to_string(),
-        );
+                .to_string()
+        }));
     }
     state
 }
@@ -397,6 +450,7 @@ async fn run(
     });
     let mut since_checkpoint = 0u64;
     let mut failure = None;
+    let mut transient = false;
     let mut pausing = false;
     let mut batch: Vec<ImportedItem> = Vec::with_capacity(STORE_BATCH);
     let mut reading = true;
@@ -432,6 +486,7 @@ async fn run(
         }
         if let Some(error) = outcome.fatal {
             failure = Some(error);
+            transient = outcome.transient;
             break;
         }
     }
@@ -447,6 +502,15 @@ async fn run(
         return;
     }
     match failure {
+        // Left `Running` with its checkpoint and the reason: the next
+        // background tick resumes it, as it does an import the app quit.
+        Some(error) if transient => {
+            tracing::info!(
+                imported = file.state.imported,
+                "[memory:import] engine unavailable; import left to resume"
+            );
+            file.state.error = Some(error);
+        }
         Some(error) => {
             tracing::warn!(
                 imported = file.state.imported,

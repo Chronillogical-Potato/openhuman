@@ -651,3 +651,59 @@ fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
         .collect();
     assert_eq!(names, ["import_state.json"]);
 }
+
+/// Calls a flaky engine has refused so far.
+static FLAKY_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[tokio::test]
+async fn a_transient_failure_is_retried_within_the_run() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    FLAKY_CALLS.store(0, std::sync::atomic::Ordering::SeqCst);
+    // Unavailable twice (the indexer behind: HTTP 408), then fine.
+    let engine = bind_failing(&config, |_| {
+        (FLAKY_CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < 2)
+            .then(|| tinymemory_api::Error::Unavailable("WAIT_TIMEOUT".into()))
+    });
+
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 5);
+}
+
+#[tokio::test]
+async fn an_engine_that_stays_unavailable_is_resumed_by_the_background_job() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_failing(&config, |_| {
+        Some(tinymemory_api::Error::Unavailable(
+            "connection refused".into(),
+        ))
+    });
+
+    start(&config, true).await.unwrap();
+    let stopped = wait_until_settled(&config).await;
+    assert_eq!(stopped.phase, ImportPhase::Error, "{stopped:?}");
+    assert!(
+        stopped
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("resumes on its own"),
+        "{stopped:?}"
+    );
+    assert_eq!(
+        read_file(&config.workspace_dir).state.phase,
+        ImportPhase::Running,
+        "left for the background job, not stopped for the user"
+    );
+
+    let engine = bind_reference(&config);
+    assert!(resume_interrupted_with(&config, always(false)).await);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(done.phase, ImportPhase::Done, "{done:?}");
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 5);
+}
