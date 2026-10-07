@@ -262,14 +262,29 @@ async fn provider() -> MockServer {
     server
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn a_bound_channel_runs_its_host_agent_and_refuses_its_write_tool() {
+/// An agent turn is a deep future; run it the way hosts do, on workers with
+/// the documented stack.
+fn on_agent_runtime(test: impl std::future::Future<Output = ()> + Send + 'static) {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .build()
+        .unwrap()
+        .block_on(async { tokio::spawn(test).await.unwrap() });
+}
+
+#[test]
+fn a_bound_channel_runs_its_host_agent_and_refuses_its_write_tool() {
+    on_agent_runtime(bound_channel_runs_its_host_agent());
+}
+
+async fn bound_channel_runs_its_host_agent() {
     let _bus = crate::agent::bus::use_real_agent_handler().await;
     let server = provider().await;
     let tmp = tempfile::tempdir().unwrap();
     // Every host boots the definition registry; a session's hosted authority
     // is built from it.
-    crate::agent::harness::definition::AgentDefinitionRegistry::init_global(tmp.path()).unwrap();
+    crate::agent::harness::AgentDefinitionRegistry::init_global_builtins().unwrap();
     let mut agent_config = config(&tmp, None);
     agent_config.default_model = Some("fixture".into());
     let route = crate::config::schema::EphemeralRoute::from_params(
