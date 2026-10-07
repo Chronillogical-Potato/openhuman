@@ -99,6 +99,96 @@ async fn scan_counts_what_a_legacy_store_holds() {
     assert_eq!(counts.learnings, 2, "a learning doc and a profile facet");
 }
 
+/// A store from the later v1 engine: only `memory_tree/chunks.db`, with an
+/// email source of two chunks and a chat source of one.
+fn chunk_only_workspace(workspace_dir: &Path) {
+    std::fs::create_dir_all(workspace_dir.join("memory_tree")).unwrap();
+    let conn = Connection::open(workspace_dir.join("memory_tree").join("chunks.db")).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE mem_tree_chunks (id TEXT PRIMARY KEY, source_kind TEXT NOT NULL,
+           source_id TEXT NOT NULL, path_scope TEXT, source_ref TEXT, owner TEXT NOT NULL,
+           timestamp_ms INTEGER NOT NULL, time_range_start_ms INTEGER NOT NULL,
+           time_range_end_ms INTEGER NOT NULL, tags_json TEXT NOT NULL DEFAULT '[]',
+           content TEXT NOT NULL, token_count INTEGER NOT NULL, seq_in_source INTEGER NOT NULL,
+           created_at_ms INTEGER NOT NULL);
+         INSERT INTO mem_tree_chunks VALUES
+           ('k1', 'email', 'e1', NULL, NULL, 'me', 1, 1, 1, '[]', 'launch moved', 3, 0, 1),
+           ('k2', 'email', 'e1', NULL, NULL, 'me', 2, 2, 2, '[]', 'to friday', 3, 1, 2),
+           ('k3', 'chat', 'c1', NULL, NULL, 'me', 3, 3, 3, '[]', 'hi there', 2, 0, 3);",
+    )
+    .unwrap();
+}
+
+#[tokio::test]
+async fn a_store_with_only_a_chunk_store_is_found_and_imported() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    chunk_only_workspace(&config.workspace_dir);
+
+    let view = scan(&config).await.unwrap();
+    assert!(view.found, "the later v1 engine wrote no memory.db");
+    let counts = view.counts.expect("counts");
+    assert_eq!(
+        (counts.documents, counts.conversations, counts.learnings),
+        (2, 0, 0),
+        "two chunk sources, counted as documents"
+    );
+
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.imported, done.total),
+        (ImportPhase::Done, 2, 2)
+    );
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 2);
+}
+
+#[tokio::test]
+async fn learnings_count_every_learning_section_the_import_yields() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    // Beside the fixture's learning doc and profile facet: one extracted
+    // event, one turn lesson, one graph relation and the goals file.
+    let conn = Connection::open(config.workspace_dir.join("memory").join("memory.db")).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE event_log (event_id TEXT PRIMARY KEY, segment_id TEXT NOT NULL,
+           session_id TEXT NOT NULL, event_type TEXT NOT NULL, content TEXT NOT NULL,
+           subject TEXT, confidence REAL NOT NULL, created_at REAL NOT NULL);
+         INSERT INTO event_log VALUES
+           ('e1', 'seg', 's1', 'decision', 'Ship v2 on Friday.', NULL, 0.9, 1700000000.0);
+         CREATE TABLE graph_global (subject TEXT NOT NULL, predicate TEXT NOT NULL,
+           object TEXT NOT NULL, attrs_json TEXT NOT NULL, updated_at REAL NOT NULL,
+           PRIMARY KEY(subject, predicate, object));
+         INSERT INTO graph_global VALUES ('Priya', 'works_at', 'Acme', '{}', 1700000000.0);
+         UPDATE episodic_log SET lesson = 'Greet back briefly.' WHERE role = 'assistant';",
+    )
+    .unwrap();
+    drop(conn);
+    std::fs::write(
+        config.workspace_dir.join("MEMORY_GOALS.md"),
+        "Run a marathon",
+    )
+    .unwrap();
+
+    let counts = scan(&config).await.unwrap().counts.expect("counts");
+    assert_eq!(
+        (counts.documents, counts.conversations, counts.learnings),
+        (2, 1, 6),
+        "learning doc, profile facet, event, lesson, relation, goals file"
+    );
+
+    let engine = bind_reference(&config);
+    start(&config, true).await.unwrap();
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.imported, done.total),
+        (ImportPhase::Done, 9, 9)
+    );
+    assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 9);
+}
+
 #[test]
 fn status_of_an_untouched_workspace_is_idle() {
     let tmp = tempfile::tempdir().unwrap();

@@ -21,7 +21,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tinymemory_api::ItemKind;
 use tinymemory_integrations::cortex::is_insufficient_credits;
 use tinymemory_integrations::import::{Checkpoint, ImportedItem, LegacyWorkspace};
 
@@ -264,30 +263,28 @@ fn write_file(workspace_dir: &Path, file: &ImportFile) {
 }
 
 /// Counts what a legacy store at `workspace_dir` holds, or `None` when there
-/// is no v1 store there. Blocking (SQLite).
+/// is no v1 store there (neither `memory/memory.db` nor a usable
+/// `memory_tree/chunks.db`). Sized by the importer's own counts, one query
+/// per section rather than a pass over every item, and exactly what the
+/// import then yields. Blocking (SQLite, and memory-tree chunk files).
 pub fn count_legacy(workspace_dir: &Path) -> Option<ImportCounts> {
-    let workspace = match LegacyWorkspace::open(workspace_dir) {
-        Ok(workspace) => workspace,
-        Err(error) => {
-            tracing::debug!(error = %error, "[memory:import] no legacy store");
-            return None;
-        }
-    };
-    let mut counts = ImportCounts::default();
-    for imported in workspace.items() {
-        match imported {
-            Ok(ImportedItem { item, .. }) => match item.kind() {
-                ItemKind::Document => counts.documents += 1,
-                ItemKind::Conversation => counts.conversations += 1,
-                ItemKind::Learning => counts.learnings += 1,
-            },
-            Err(error) => {
-                tracing::warn!(error = %error, "[memory:import] legacy store unreadable mid-scan");
-                break;
-            }
-        }
-    }
-    Some(counts)
+    let counts = LegacyWorkspace::open(workspace_dir)
+        .and_then(|workspace| workspace.counts())
+        .map_err(|error| tracing::debug!(error = %error, "[memory:import] no legacy store"))
+        .ok()?;
+    // Memory-tree chunk sources count as documents: most are, and a chat
+    // one is a conversation the import still stores. The three add up to
+    // the total either way.
+    Some(ImportCounts {
+        documents: counts.documents + counts.chunks,
+        conversations: counts.conversations,
+        learnings: counts.learnings
+            + counts.profile
+            + counts.events
+            + counts.lessons
+            + counts.relations
+            + counts.files,
+    })
 }
 
 /// `memory_import_scan`.
