@@ -134,11 +134,11 @@ allowed_domains = ["example.com", "docs.example.org"]
 
 ## 4. Unattended actions
 
-Every click, double-click, fill, type, key press, select and check goes
-through the forced host approval gate. So does a browser task paused at
-`needs_approval`. The forced gate parks only for a live WebChat turn and
-denies everything else, so a cron job could open and read pages but never
-follow a "next page" link.
+By default, every click, double-click, fill, type, key press, select and
+check goes through the forced host approval gate. So does a browser task
+paused at `needs_approval`. The forced gate parks only for a live WebChat
+turn and denies everything else, so without the setting below a cron job can
+open and read pages but never follow a "next page" link.
 
 `[browser] unattended_actions` names the action kinds a **trusted unattended
 turn** may take without that approval:
