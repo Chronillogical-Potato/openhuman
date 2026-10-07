@@ -320,10 +320,10 @@ println!("{} {}", run.success, run.output);
   awaits the handler and records `ok` or `error` with its message.
 - **Retries and overlap.** A failed run is retried `retries` times with
   backoff; unset keeps `reliability.scheduler_retries` (2), and `0` is one
-  attempt. A job is never run twice at once: each due job is dispatched on its
-  own task, so a long job no longer holds up the others, and a slot that comes
-  due while the job is still running is skipped. With `single_flight` that
-  skip is recorded as a `skipped` run and `run_now` is refused meanwhile.
+  attempt. Two runs of one job never overlap: each due job is dispatched on
+  its own task, so a long job no longer holds up the others, `run_now` is
+  refused while a run is active, and a slot that comes due mid-run is skipped.
+  With `single_flight` that skip is recorded as a `skipped` run.
 - `cron.list()`, `cron.remove(name)` and `cron.runs(name, limit)` cover the
   rest. Shell jobs and workflow schedule triggers are not managed here.
 

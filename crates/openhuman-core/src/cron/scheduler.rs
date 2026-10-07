@@ -8,7 +8,8 @@ mod agent_run;
 mod delivery;
 mod dispatch;
 mod failure_classification;
-pub(crate) mod in_flight;
+mod origin_context;
+mod origin_delivery;
 mod retry;
 mod run_record;
 mod shell_job;
@@ -197,11 +198,14 @@ pub(super) async fn execute_and_persist_job(
         job_type: format!("{:?}", job.job_type),
     });
 
-    let (execution_success, output) = execute_job_with_retry(config, security, job).await;
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let (execution_success, output) =
+        execute_job_with_retry_for_run(config, security, job, &run_id).await;
     let finished_at = Utc::now();
-    let success = persist_job_result(
+    let success = persist_job_result_for_run(
         config,
         job,
+        &run_id,
         execution_success,
         &output,
         started_at,

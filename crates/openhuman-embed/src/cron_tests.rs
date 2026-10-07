@@ -22,6 +22,7 @@ fn core_job(job_type: JobType, command: &str) -> CronJob {
         last_run: None,
         last_status: Some("ok".into()),
         last_output: None,
+        origin: None,
     }
 }
 

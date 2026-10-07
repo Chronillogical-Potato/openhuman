@@ -50,10 +50,10 @@
 //!
 //! A failed run is retried `retries` times with backoff (`None` keeps the
 //! runtime's `reliability.scheduler_retries`, two by default; `Some(0)` is one
-//! attempt — choose it for a job whose turn has side effects). A job is never
-//! dispatched twice at once; with `single_flight` a slot that comes due while
-//! the previous run is still going is recorded as `skipped`, and
-//! [`Cron::run_now`] is refused meanwhile.
+//! attempt — choose it for a job whose turn has side effects). Two runs of one
+//! job never overlap: [`Cron::run_now`] is refused while one is active, and a
+//! slot that comes due mid-run is skipped — silently by default, recorded as
+//! a `skipped` run with `single_flight`.
 
 use std::future::Future;
 use std::time::SystemTime;

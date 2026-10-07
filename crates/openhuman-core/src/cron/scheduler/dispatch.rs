@@ -10,9 +10,9 @@
 //!
 //! Because the loop no longer waits, two guards replace the old implicit one:
 //!
-//! - **In flight**: a job is marked running from dispatch until its run is
-//!   persisted ([`super::in_flight`]), and a running job is never dispatched
-//!   again.
+//! - **Run claim**: a job is claimed (`cron::ops::try_acquire_run`, the same
+//!   claim Run Now and the run tool take) from dispatch until its run is
+//!   persisted, and a claimed job is never dispatched again.
 //! - **Claimed slot**: a recurring job's `next_run` is advanced to its next
 //!   occurrence at dispatch, so a running job is not "due" on every poll. When
 //!   it finishes, the usual reschedule recomputes `next_run` from that moment,
@@ -28,7 +28,6 @@ use chrono::Utc;
 use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
-use super::in_flight;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
@@ -64,11 +63,11 @@ impl JobDispatcher {
     ) {
         self.reap();
         for job in jobs {
-            if in_flight::is_running(&job.id) {
+            // One run per job at a time, shared with Run Now and the run tool.
+            let Some(guard) = crate::cron::ops::try_acquire_run(&job.id) else {
                 skip_in_flight(config, &job);
                 continue;
-            }
-            let guard = in_flight::enter(&job.id);
+            };
             claim_slot(config, &job);
             let config = config.clone();
             let security = Arc::clone(security);
@@ -137,7 +136,7 @@ fn claim_slot(config: &Config, job: &CronJob) {
         Err(error) => tracing::debug!(
             job_id = %job.id,
             %error,
-            "[cron:dispatch] could not claim the slot; relying on the in-flight guard"
+            "[cron:dispatch] could not claim the slot; relying on the run claim"
         ),
     }
 }

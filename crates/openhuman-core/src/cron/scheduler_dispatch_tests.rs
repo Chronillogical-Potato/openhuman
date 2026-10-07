@@ -69,6 +69,11 @@ fn counting(
     })
 }
 
+/// Whether a run of `job_id` holds the run claim.
+fn job_is_running(job_id: &str) -> bool {
+    crate::cron::ops::try_acquire_run(job_id).is_none()
+}
+
 async fn wait_for(mut check: impl FnMut() -> bool) -> bool {
     for _ in 0..200 {
         if check() {
@@ -104,7 +109,7 @@ async fn a_long_job_does_not_hold_up_the_next_poll() {
     let mut health = None;
     // First poll picks up only the slow job.
     tick_once(&config, &security, &mut health, &mut dispatcher).await;
-    assert!(in_flight::is_running(&slow.id), "the slow job is running");
+    assert!(job_is_running(&slow.id), "the slow job is running");
 
     // The next poll must not wait for it.
     let fast = due_system_job(&config, "dispatch-fast");
@@ -123,12 +128,12 @@ async fn a_long_job_does_not_hold_up_the_next_poll() {
         .await,
         "the fast job completed while the slow one was still running"
     );
-    assert!(in_flight::is_running(&slow.id));
+    assert!(job_is_running(&slow.id));
     assert_eq!(fast_calls.load(Ordering::SeqCst), 1);
 
     release.notify_one();
     dispatcher.drain().await;
-    assert!(!in_flight::is_running(&slow.id));
+    assert!(!job_is_running(&slow.id));
     assert_eq!(
         cron::get_job(&config, &slow.id)
             .unwrap()
@@ -176,7 +181,7 @@ async fn a_job_already_in_flight_is_not_dispatched_again() {
     let calls = Arc::new(AtomicUsize::new(0));
     let _handler = register("dispatch-dedupe", counting(Arc::clone(&calls), Ok(())));
     let job = due_system_job(&config, "dispatch-dedupe");
-    let running = in_flight::enter(&job.id);
+    let running = crate::cron::ops::try_acquire_run(&job.id).expect("the job is free");
     let mut dispatcher = JobDispatcher::new(4);
     dispatcher
         .dispatch(&config, &security(&config), vec![job.clone()])
@@ -206,7 +211,7 @@ async fn a_single_flight_job_records_the_missed_slot_as_skipped() {
         },
     )
     .unwrap();
-    let running = in_flight::enter(&job.id);
+    let running = crate::cron::ops::try_acquire_run(&job.id).expect("the job is free");
     let mut dispatcher = JobDispatcher::new(4);
     dispatcher
         .dispatch(&config, &security(&config), vec![job.clone()])

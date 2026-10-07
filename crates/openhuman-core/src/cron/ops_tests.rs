@@ -594,11 +594,11 @@ async fn run_job_now_runs_and_records_the_handler_result() {
 }
 
 #[tokio::test]
-async fn run_job_now_refuses_a_single_flight_job_that_is_running() {
+async fn run_job_now_refuses_a_job_that_is_already_running() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     let job = single_flight_system_job(&config, "ops-run-now-busy");
-    let _running = crate::cron::scheduler::in_flight::enter(&job.id);
+    let _running = try_acquire_run(&job.id).expect("the job is free");
     let err = run_job_now(&config, &job.id).await.unwrap_err();
     assert!(err.contains("already running"), "{err}");
     let err = cron_run(&config, &job.id).await.unwrap_err();
