@@ -70,6 +70,7 @@ pub fn user_domains() -> DomainSet {
     DomainSet {
         threads: true,
         channels: true,
+        memory: true,
         ..DomainSet::none()
     }
 }
