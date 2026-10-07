@@ -242,7 +242,7 @@ pub fn spawn_cron_service(
 /// messages are never polled. Skipped entirely when
 /// `OPENHUMAN_DISABLE_CHANNEL_LISTENERS` is set to `1`/`true`, and returns early
 /// when no channel integrations are configured.
-pub fn spawn_channels_service() {
+pub fn spawn_channels_service() -> Option<tokio::task::JoinHandle<()>> {
     // Compile-time `channels` gate: the body names `channels::start_channels`,
     // so the whole thing is `#[cfg]`-gated. With the feature off there are no
     // realtime listeners to spawn.
@@ -255,7 +255,7 @@ pub fn spawn_channels_service() {
         // Capture before loading config: logout during that await must also
         // invalidate a listener that has not finished starting yet.
         let channel_session = crate::channels::session::channel_session();
-        tokio::spawn(async move {
+        return Some(tokio::spawn(async move {
             let config = match crate::config::Config::load_or_init().await {
                 Ok(c) => c,
                 Err(e) => {
@@ -275,12 +275,15 @@ pub fn spawn_channels_service() {
             {
                 log::error!("[channels] start_channels ended with error: {e}");
             }
-        });
-    } else {
+        }));
+    }
+    #[cfg(feature = "channels")]
+    {
         log::info!("[channels] OPENHUMAN_DISABLE_CHANNEL_LISTENERS set — skipping start_channels");
     }
     #[cfg(not(feature = "channels"))]
     log::debug!("[channels] channels feature disabled at compile time — not spawning listeners");
+    None
 }
 
 /// Which bootstrap jobs a given [`ServiceSet`] enables — the single source of
