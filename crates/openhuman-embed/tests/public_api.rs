@@ -134,7 +134,9 @@ fn exposes_the_scheduling_contract() {
 #[cfg(feature = "channels")]
 #[test]
 fn exposes_the_channels_contract() {
-    use openhuman_embed::{ChannelError, ChannelListener, Channels, StreamMode, TelegramChannelSpec};
+    use openhuman_embed::{
+        ChannelError, ChannelListener, Channels, StreamMode, TelegramChannelSpec,
+    };
 
     fn channels_of(runtime: &Runtime) -> Channels<'_> {
         runtime.channels()
@@ -146,7 +148,11 @@ fn exposes_the_channels_contract() {
         channels.telegram(spec)
     }
     fn inspects(listener: &ChannelListener) -> (&str, &str, bool) {
-        (listener.channel(), listener.agent_id(), listener.is_running())
+        (
+            listener.channel(),
+            listener.agent_id(),
+            listener.is_running(),
+        )
     }
     fn stops(listener: ChannelListener) {
         listener.stop();

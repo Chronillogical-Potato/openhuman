@@ -112,11 +112,18 @@ async fn a_binding_no_agent_answers_is_refused_not_sent_to_the_orchestrator() {
     .await;
     let tmp = tempfile::tempdir().unwrap();
     let channel = Arc::new(Telegram::default());
-    let ctx = context(Arc::clone(&channel), config(&tmp, Some("nobody-registered")));
+    let ctx = context(
+        Arc::clone(&channel),
+        config(&tmp, Some("nobody-registered")),
+    );
 
     process_channel_message(ctx, message("hello")).await;
 
-    assert_eq!(calls.load(Ordering::SeqCst), 0, "never widened to the orchestrator");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "never widened to the orchestrator"
+    );
     let sent = channel.sent.lock().unwrap().clone();
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert!(sent[0].contains("not available"), "{sent:?}");
@@ -342,8 +349,16 @@ async fn bound_channel_runs_its_host_agent() {
         vec!["teeny says hi".to_string()],
         "the host agent's reply goes back to the chat"
     );
-    assert_eq!(reads.load(Ordering::SeqCst), 1, "the read-only host tool ran");
-    assert_eq!(writes.load(Ordering::SeqCst), 0, "the write host tool never ran");
+    assert_eq!(
+        reads.load(Ordering::SeqCst),
+        1,
+        "the read-only host tool ran"
+    );
+    assert_eq!(
+        writes.load(Ordering::SeqCst),
+        0,
+        "the write host tool never ran"
+    );
     assert!(
         outcome < std::time::Duration::from_secs(60),
         "refused at once, not parked: {outcome:?}"
@@ -358,7 +373,10 @@ async fn bound_channel_runs_its_host_agent() {
     assert!(chats[0].contains("TEENY_CHAT_PROMPT"));
     assert!(!chats[0].contains("ORCHESTRATOR_PROMPT"));
     let advertised = tool_names(&chats[0]);
-    assert!(advertised.contains(&"teeny_read".to_string()), "{advertised:?}");
+    assert!(
+        advertised.contains(&"teeny_read".to_string()),
+        "{advertised:?}"
+    );
     assert!(
         !advertised.contains(&"teeny_write".to_string()),
         "a tool above the channel's ceiling is not offered: {advertised:?}"

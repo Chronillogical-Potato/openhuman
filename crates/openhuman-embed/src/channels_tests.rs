@@ -3,8 +3,10 @@ use super::*;
 fn base() -> Config {
     let mut config = Config::default();
     config.channels_config.discord = Some(
-        serde_json::from_value(serde_json::json!({ "bot_token": "d", "guild_id": null, "channel_id": null }))
-            .unwrap(),
+        serde_json::from_value(
+            serde_json::json!({ "bot_token": "d", "guild_id": null, "channel_id": null }),
+        )
+        .unwrap(),
     );
     config
         .agent
@@ -21,7 +23,10 @@ fn the_config_serves_only_this_bot_and_binds_it_to_the_agent() {
         .chat_id("-100");
     let config = telegram_config(&base(), &spec);
 
-    let telegram = config.channels_config.telegram.expect("telegram configured");
+    let telegram = config
+        .channels_config
+        .telegram
+        .expect("telegram configured");
     assert_eq!(telegram.bot_token, "123:abc");
     assert_eq!(telegram.allowed_users, vec!["alice", "42"]);
     assert!(telegram.mention_only);
@@ -40,7 +45,10 @@ fn the_config_serves_only_this_bot_and_binds_it_to_the_agent() {
 fn allow_everyone_is_the_wildcard() {
     let spec = TelegramChannelSpec::new("t", "a").allow_everyone();
     let config = telegram_config(&Config::default(), &spec);
-    assert_eq!(config.channels_config.telegram.unwrap().allowed_users, vec!["*"]);
+    assert_eq!(
+        config.channels_config.telegram.unwrap().allowed_users,
+        vec!["*"]
+    );
 }
 
 #[test]

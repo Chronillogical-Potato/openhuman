@@ -46,7 +46,9 @@ impl Tool for CeilingGuard {
         if let Some(refused) = self.refusal(&args) {
             return Ok(refused);
         }
-        self.inner.execute_with_context(args, options, context).await
+        self.inner
+            .execute_with_context(args, options, context)
+            .await
     }
     fn policy(&self) -> ToolPolicy {
         self.inner.policy()

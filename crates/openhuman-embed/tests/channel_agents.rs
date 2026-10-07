@@ -160,8 +160,11 @@ fn a_telegram_message_is_answered_by_the_bound_runtime_agent() {
 
             let (reads, writes) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
             let origins: Origins = Arc::new(Mutex::new(Vec::new()));
-            let (belt_reads, belt_writes, belt_origins) =
-                (Arc::clone(&reads), Arc::clone(&writes), Arc::clone(&origins));
+            let (belt_reads, belt_writes, belt_origins) = (
+                Arc::clone(&reads),
+                Arc::clone(&writes),
+                Arc::clone(&origins),
+            );
             let agent = runtime
                 .agent(
                     AgentSpec::new("teeny-chat")
@@ -246,8 +249,14 @@ fn a_telegram_message_is_answered_by_the_bound_runtime_agent() {
             assert!(first.contains("TEENY_CHANNEL_PROMPT"));
             assert!(first.contains("hello teeny"));
             let advertised = common::tool_names(&requests[0]);
-            assert!(advertised.contains(&"teeny_read".to_string()), "{advertised:?}");
-            assert!(!advertised.contains(&"teeny_write".to_string()), "{advertised:?}");
+            assert!(
+                advertised.contains(&"teeny_read".to_string()),
+                "{advertised:?}"
+            );
+            assert!(
+                !advertised.contains(&"teeny_write".to_string()),
+                "{advertised:?}"
+            );
 
             drop(agent);
             drop(runtime);

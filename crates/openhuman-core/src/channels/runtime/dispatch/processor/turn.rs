@@ -26,9 +26,7 @@ use super::super::helpers::{
     build_channel_context_block, log_worker_join_result, select_acknowledgment_reaction,
     spawn_scoped_typing_task, REPLY_LOG_TRUNCATE_CHARS,
 };
-use super::super::host_agent::{
-    self, run_host_agent_turn, seed_rows, HostChannelTurn, HostRoute,
-};
+use super::super::host_agent::{self, run_host_agent_turn, seed_rows, HostChannelTurn, HostRoute};
 use super::approval::{channel_has_approval_surface, try_route_approval_reply};
 use super::bus_turn::dispatch_bus_turn;
 use super::RuntimeChannelMessage;

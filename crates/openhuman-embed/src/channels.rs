@@ -216,15 +216,19 @@ pub(crate) fn telegram_config(base: &Config, spec: &TelegramChannelSpec) -> Conf
         message_timeout_secs: base.channels_config.message_timeout_secs,
         ..Default::default()
     };
-    config.agent.channel_agents =
-        std::collections::HashMap::from([("telegram".to_string(), spec.agent_id.trim().to_string())]);
+    config.agent.channel_agents = std::collections::HashMap::from([(
+        "telegram".to_string(),
+        spec.agent_id.trim().to_string(),
+    )]);
     config
 }
 
 /// Refuse a spec that names no bot or no agent.
 pub(crate) fn validate(spec: &TelegramChannelSpec) -> Result<(), ChannelError> {
     if spec.bot_token.trim().is_empty() {
-        return Err(ChannelError::Invalid("the Telegram bot token is blank".into()));
+        return Err(ChannelError::Invalid(
+            "the Telegram bot token is blank".into(),
+        ));
     }
     if spec.agent_id.trim().is_empty() {
         return Err(ChannelError::Invalid("the agent id is blank".into()));
