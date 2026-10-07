@@ -130,6 +130,16 @@ pub(crate) fn is_self_scoped_agent_job(args: &Value, turn: Option<&AgentTurnOrig
         return false;
     }
 
+    // The exemption is sound only if the created job keeps its channel origin
+    // (`create_agent_job` drops it unless the session target is `current` or
+    // the delivery mode is `origin`): an origin-less job would run with
+    // `TrustedAutomation`, not as this channel's `ExternalChannel` turn.
+    let session_is_current = match args.get("session_target") {
+        None | Some(Value::Null) => true,
+        Some(value) => value
+            .as_str()
+            .is_some_and(|s| s.trim().eq_ignore_ascii_case("current")),
+    };
     let delivery = match args.get("delivery") {
         None | Some(Value::Null) => return true,
         Some(delivery) => delivery,
@@ -140,7 +150,9 @@ pub(crate) fn is_self_scoped_agent_job(args: &Value, turn: Option<&AgentTurnOrig
     match mode.as_str() {
         delivery_mode::ORIGIN => true,
         delivery_mode::ANNOUNCE => {
-            non_empty_str(delivery, "channel").is_some_and(|c| c.eq_ignore_ascii_case(&channel))
+            session_is_current
+                && non_empty_str(delivery, "channel")
+                    .is_some_and(|c| c.eq_ignore_ascii_case(&channel))
                 && non_empty_str(delivery, "to") == Some(reply_target.as_str())
         }
         _ => false,
