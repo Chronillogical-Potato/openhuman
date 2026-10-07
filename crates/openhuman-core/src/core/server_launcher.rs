@@ -22,6 +22,10 @@ pub struct ServeRequest {
     pub socketio_enabled: bool,
     /// Request/response API only, with no background services.
     pub headless_api: bool,
+    /// The operating mode (`--mode`).
+    pub mode: crate::core::runtime::Mode,
+    /// The operator's SaaS config file (`--saas-config`); required in SaaS mode.
+    pub saas_config: Option<std::path::PathBuf>,
 }
 
 /// Starts a server for a [`ServeRequest`] and resolves when it stops.
