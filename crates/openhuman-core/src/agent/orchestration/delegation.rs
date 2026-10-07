@@ -108,6 +108,10 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
                         stage_context.clone(),
                     )
                     .map_err(|error| format!("delegation stage context: {error}"))?;
+                // The stage run carries its own linked child token; keep the
+                // host carrier on that token (a graph cancel still reaches it
+                // through the parent) rather than the shared graph token.
+                stage_context.cancellation = stage_parent.cancellation.clone();
                 match run_subagent_with_parent(
                     &stage_parent,
                     definition,
