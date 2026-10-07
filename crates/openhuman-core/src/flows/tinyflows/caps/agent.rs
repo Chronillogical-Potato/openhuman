@@ -116,6 +116,9 @@ fn max_parallel_harness_agents(raw: Option<&str>) -> usize {
 /// Which execution path an `agent_ref` routes to (see [`OpenHumanAgentRunner`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AgentRoute {
+    /// A host-registered agent (`agent::host_agents`) — run the full agent
+    /// tool loop as that agent, with its host tools, in its context.
+    HostAgent,
     /// A harness `AgentDefinition` exists — run the full agent tool loop.
     Harness,
     /// No definition; fall back to the custom-registry persona completion.
