@@ -20,6 +20,11 @@ This is the **only** acceptable substitute for a `🚫` row in [`TEST-COVERAGE-M
 
 Applies to every release, all platforms.
 
+### Japanese UI
+
+- [ ] **Japanese language selection** — In the first-run language picker and Settings → Language, select **🇯🇵 日本語**. Verify that the labels immediately become Japanese, then visit Chat, Connections → Memory, Connections → LLM, and Gateway. Restart and confirm the selected language is retained. Switch back to English and confirm the labels update again.
+- [ ] **Japanese browser language** — With a fresh profile and browser language `ja-JP`, verify that Japanese is selected automatically. Check a message containing a count or model name: the value must appear in place of its placeholder and remain readable at the default window size.
+
 ### Conversation resume
 
 - [ ] **Default agent traces reach Langfuse** — With a signed-in staging test account, send a synthetic chat turn that spawns a subagent. Expected: the parent and child traces share one conversation session, include the intended input/output and model usage, and carry the authenticated user. Confirm `share_usage_data = false` stops export.
@@ -90,6 +95,8 @@ Applies to every release, all platforms.
 - [ ] **Headless supervisor update stages without self-exit** — On a Linux service deployment with `[update] restart_strategy = "supervisor"` and `rpc_mutations_enabled = false`, stage a new core binary through the documented operator flow. Expected: the running process stays up until the supervisor restart, the staged binary is present on disk, and `systemctl restart openhuman` (or equivalent) picks up the new version.
 
 ### Cross-platform
+
+- [ ] **Chat model picker selects the provider as well as the model (#6938)** — In an isolated test profile, switch the same thread from managed to Ollama, then to a configured BYOK provider, and back to a managed catalog model (including a `:free` variant). Verify the actual request endpoint and model match each selection, configured background routes stay unchanged, and reopening the app restores the selected provider/model. Selecting a workload hint must retain its configured route.
 
 - [ ] **Agent files land in a visible folder** — Ask the agent for a short document or deck. Expected: the file appears in `~/OpenHuman/projects/Files` under its title (not in `~/.openhuman`); **Show in folder** in the chat Files panel opens the file manager at it; Settings → Agent OS access → **Files folder** shows that path, **Show in folder** opens it, and choosing another folder sends the next file there while the earlier file still opens. On an upgraded install, files from before the upgrade have moved into the folder.
 - [ ] **Caller-owned inference works without an OpenHuman session** — In a local workspace without an OpenHuman login, configure Ollama/LM Studio/MLX/oMLX/local-openai or an independently authenticated Claude Code/Agent SDK provider. Run chat and an agent flow routed entirely to that provider. For a named harness agent, also configure the summarization route to managed inference and verify that the agent still uses its local route; reversing those routes must retain the managed agent's session requirement. Expected: no OpenHuman session requirement. Select managed inference instead: it must still require a backend session. With LocalOnly privacy enabled, local runtimes remain allowed and Claude subprocesses remain blocked as external inference.

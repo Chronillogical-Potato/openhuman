@@ -40,6 +40,7 @@
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
+import { clearChatComposer } from '../helpers/chat-composer';
 import { bootAuthenticatedPage, dismissWalkthroughIfPresent } from '../helpers/core-rpc';
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
@@ -81,6 +82,7 @@ async function openChat(page: Page): Promise<void> {
   await bootAuthenticatedPage(page, USER_ID, '/chat');
   await dismissWalkthroughIfPresent(page);
   await expect(page.getByTestId('chat-message-input')).toBeVisible({ timeout: 30_000 });
+  await clearChatComposer(composer(page));
 }
 
 const composer = (page: Page): Locator => page.getByTestId('chat-message-input');
@@ -95,9 +97,7 @@ async function typeIntoComposer(page: Page, text: string): Promise<void> {
 }
 
 async function clearComposer(page: Page): Promise<void> {
-  await composer(page).click();
-  await page.keyboard.press('ControlOrMeta+a');
-  await page.keyboard.press('Backspace');
+  await clearChatComposer(composer(page));
 }
 
 async function beginStreamingTurn(page: Page, prompt: string): Promise<void> {

@@ -29,6 +29,109 @@
 
 use std::path::Path;
 
+/// Environment variables a Windows child process needs before it can run at
+/// all, beyond the functional allow-list each launcher already forwards.
+///
+/// Every sanitized spawn path in the core calls `env_clear()` and re-forwards
+/// only what it names, so this list is what makes a cleared Windows environment
+/// bootable. These are forwarded from the parent environment, never synthesised
+/// or hard-coded: a name the parent does not have is simply not set.
+///
+/// Measured consequences of omitting them (Windows 11, `SystemRoot` absent from
+/// an otherwise-valid child environment):
+///
+/// - `node.exe` aborts during startup with
+///   `Assertion failed: ncrypto::CSPRNG(nullptr, 0)` (exit 134), because the
+///   OS random provider cannot initialise without a system directory.
+/// - `powershell.exe` exits with `Internal Windows PowerShell error. Loading
+///   managed Windows PowerShell failed with error 8009001d.`
+/// - `cmd.exe` leaves `%SystemRoot%`/`%TEMP%`/`%USERPROFILE%` unexpanded. It
+///   does *not* repair them for its own children, so a wrapper shell cannot
+///   rescue a stripped environment.
+///
+/// `COMSPEC` and `PATHEXT` are here because `cmd.exe` needs `PATHEXT` to resolve
+/// the `.cmd`/`.bat` shims that npm, npx and the Git toolchain are installed
+/// as; `TEMP`/`TMP`/`USERPROFILE`/`APPDATA`/`LOCALAPPDATA` because tooling
+/// writes scratch and reads config from them; the `ProgramFiles*` trio because
+/// installers and SDK locators probe them.
+///
+/// Single source of truth: keep every launcher's allow-list a superset of this
+/// (enforced by the launcher unit tests), and add a launcher to those tests
+/// rather than inventing a sixth list.
+pub const WINDOWS_PROCESS_ENV_VARS: &[&str] = &[
+    "SystemRoot",
+    "WINDIR",
+    "COMSPEC",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+];
+
+/// Assert that a launcher's environment allow-list covers every Windows
+/// process-bootstrap variable.
+///
+/// Each launcher guards its own list with this, so a new launcher cannot
+/// silently ship a `env_clear()` that produces an unbootable Windows child.
+/// The failure this prevents is not a clean error: the child aborts inside the
+/// OS crypto provider (`node` → `ncrypto::CSPRNG` assertion, `powershell` →
+/// `8009001d`), and the harness reports it as a mysterious exit code rather
+/// than a missing environment variable.
+#[track_caller]
+pub fn assert_forwards_windows_bootstrap(allowlist: &[&str], launcher: &str) {
+    for var in WINDOWS_PROCESS_ENV_VARS {
+        assert!(
+            allowlist.contains(var),
+            "{launcher} clears the child environment but does not forward \
+             `{var}`; a Windows child spawned without it aborts during crypto \
+             init. Add it to the allow-list."
+        );
+    }
+}
+
+/// Add Windows bootstrap variables to a host child. Keep these out of the
+/// sandbox policy because that policy is also forwarded into Linux containers.
+#[cfg(windows)]
+pub fn forward_windows_bootstrap_env(cmd: &mut tokio::process::Command) -> anyhow::Result<()> {
+    for var in WINDOWS_PROCESS_ENV_VARS {
+        if let Ok(val) = std::env::var(var) {
+            if val.is_empty() {
+                anyhow::bail!("Windows bootstrap environment variable {var} is empty");
+            }
+            cmd.env(var, val);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn forward_windows_bootstrap_env(_cmd: &mut tokio::process::Command) -> anyhow::Result<()> {
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn forward_windows_bootstrap_env_std(cmd: &mut std::process::Command) -> anyhow::Result<()> {
+    for var in WINDOWS_PROCESS_ENV_VARS {
+        if let Ok(val) = std::env::var(var) {
+            if val.is_empty() {
+                anyhow::bail!("Windows bootstrap environment variable {var} is empty");
+            }
+            cmd.env(var, val);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn forward_windows_bootstrap_env_std(_cmd: &mut std::process::Command) -> anyhow::Result<()> {
+    Ok(())
+}
+
 /// Whether the Unix arm prefixes `set -o pipefail`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum PipeFail {

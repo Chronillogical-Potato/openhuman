@@ -683,6 +683,8 @@ const messages: TranslationMap = {
     'মেমরি উপলব্ধ নয়: আপনার অ্যাকাউন্টের ক্রেডিট শেষ। ফিরিয়ে আনতে টপ আপ করুন; সংরক্ষিত কিছুই হারায়নি।',
   'memory.error.unavailable':
     'এই মুহূর্তে মেমরিতে পৌঁছানো যাচ্ছে না। সংরক্ষিত কিছুই হারায়নি; একটু পরে আবার চেষ্টা করুন।',
+  'memory.outOfCredits.title': 'ক্রেডিট শেষ',
+  'memory.outOfCredits.action': 'টপ আপ করুন',
   'memory.tab.memory': 'মেমোরি',
   'memory.tab.agents': 'লাইব্রেরি',
   'memory.analyzeNow': 'এখনই বিশ্লেষণ করুন',
@@ -3433,6 +3435,8 @@ const messages: TranslationMap = {
     'OpenHuman-এর মাধ্যমে লিঙ্ক করা আপনার বিদ্যমান ইন্টিগ্রেশনগুলি (Gmail, Slack, GitHub ইত্যাদি) দৃশ্যমান হবে না: সেগুলি OpenHuman-পরিচালিত Composio টেন্যান্টে থাকে।',
   'settings.composio.intro':
     'Composio ২৫০+ বহিরাগত অ্যাপকে টুল হিসেবে ইন্টিগ্রেট করে যা আপনার এজেন্ট কল করতে পারে। এই টুল কলগুলি কীভাবে রুট হবে তা নির্বাচন করুন।',
+  'settings.composio.directOnlyDesc':
+    'এখানে Composio-এর পরিচালিত প্রমাণীকরণ উপলভ্য নয়। আপনার নিজের Composio API কী লিখুন অথবা আপাতত এই ধাপটি এড়িয়ে যান।',
   'settings.composio.modeDirect': 'ডাইরেক্ট (নিজের API কী আনুন)',
   'settings.composio.modeDirectDesc':
     'কলগুলি সরাসরি backend.composio.dev-এ যায়। সার্বভৌম / অফলাইন-বান্ধব। টুল এক্সিকিউশন সিঙ্ক্রোনাসভাবে কাজ করে; রিয়েল-টাইম ট্রিগার webhooks এখনও direct মোডে রুট করা হয় না (ফলো-আপ ইস্যু)।',
@@ -4816,6 +4820,8 @@ const messages: TranslationMap = {
     'আপনার Codex সেশনের মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে সেটিংস → ইন্টিগ্রেশন থেকে আবার সংযুক্ত করুন।',
   'chat_error.session_expired':
     'আপনার OpenHuman সেশনের মেয়াদ শেষ হয়ে গেছে। চালিয়ে যেতে আবার সাইন ইন করুন।',
+  'chat_error.local_session_managed_unavailable':
+    'আপনি স্থানীয় অফলাইন প্রোফাইলে আছেন, যার পেছনে কোনো OpenHuman অ্যাকাউন্ট নেই, তাই ম্যানেজড (ক্লাউড) মডেল চালানো যাবে না। ম্যানেজড মডেল ব্যবহার করতে সাইন ইন করুন, অথবা সংযোগ → API কী → LLM-এ রাউটিং "আপনার নিজের মডেলগুলি ব্যবহার করুন"-এ বদলে নিয়ে নিজের প্রোভাইডার যোগ করুন।',
   'chat_error.action_budget':
     'আপনি OpenHuman-এর ঘণ্টাপ্রতি অ্যাকশন সীমায় পৌঁছে গেছেন। এটি একটি স্থানীয় নিরাপত্তা সীমা, আপনার AI প্রদানকারীর নয়। সীমাটি ধীরে ধীরে ফিরে আসে; আপনি এই থ্রেডে চ্যাট চালিয়ে যেতে পারেন এবং সীমা পূরণ হলে টুল-নির্ভর ধাপগুলো আবার শুরু হবে।',
   'chat_error.max_iterations':
@@ -4953,30 +4959,48 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'লিঙ্ক',
   'memoryPage.off.title': 'মেমোরি বন্ধ আছে',
   'memoryPage.off.description':
-    'মনে রাখা শুরু করতে একটি মেমোরি ইঞ্জিন বেছে নিন। TinyHumans মেমোরি ব্যবহার করতে সাইন ইন করুন, অথবা আপনার নিজের CortexDB সংযুক্ত করুন।',
+    'মনে রাখা শুরু করতে CortexDB সংযুক্ত করুন। বিল্ট-ইন CortexDB ব্যবহার করতে সাইন ইন করুন, অথবা নিজের API কী বা এই কম্পিউটারের সার্ভার দিয়ে সংযুক্ত করুন।',
   'memoryPage.off.action': 'একটি ইঞ্জিন বেছে নিন',
-  'memoryPage.engine.listTitle': 'মেমোরি ইঞ্জিন',
+  'memoryPage.engine.listTitle': 'CortexDB মেমরি',
   'memoryPage.engine.listDescription':
-    'একসময়ে একটিই ইঞ্জিন সক্রিয় থাকে। মেমোরি যা কিছু রাখে সেটি তা সংরক্ষণ করে এবং এ নিয়ে প্রশ্নের উত্তর দেয়।',
-  'memoryPage.engine.loadError': 'মেমোরি ইঞ্জিন লোড করা যায়নি',
+    'মেমরি CortexDB-তে চলে। এই অ্যাপ কীভাবে এর সাথে সংযুক্ত হবে তা বেছে নিন। একবারে একটিই সংযোগ সক্রিয় থাকে।',
   'memoryPage.engine.offExplanation':
-    'এই মুহূর্তে কোনো মেমোরি ইঞ্জিন ব্যবহারযোগ্য নয়, তাই কিছুই সংরক্ষিত বা মনে করা হচ্ছে না। TinyHumans মেমোরি ব্যবহার করতে সাইন ইন করুন, অথবা এন্ডপয়েন্ট ও API কী দিয়ে আপনার নিজের CortexDB সংযুক্ত করুন।',
+    'এখন কোনো মেমরি সংযোগ ব্যবহারযোগ্য নয়, তাই কিছুই সংরক্ষণ বা স্মরণ করা হয় না। বিল্ট-ইন CortexDB ব্যবহার করতে সাইন ইন করুন, অথবা আপনার API কী দিয়ে বা এই কম্পিউটারে CortexDB সংযুক্ত করুন।',
   'memoryPage.engine.statusDegraded': 'মেমোরির কার্যক্ষমতা কমে গেছে',
   'memoryPage.engine.statusDown': 'মেমোরি ইঞ্জিনে পৌঁছানো যাচ্ছে না',
   'memoryPage.engine.statusOff': 'বন্ধ',
   'memoryPage.engine.active': 'সক্রিয়',
-  'memoryPage.engine.recommended': 'প্রস্তাবিত',
   'memoryPage.engine.use': 'ব্যবহার করুন',
-  'memoryPage.engine.edit': 'সম্পাদনা',
-  'memoryPage.engine.signInRequired': 'সাইন ইন প্রয়োজন',
-  'memoryPage.engine.hostedDetail': 'TinyHumans দ্বারা হোস্ট করা',
-  'memoryPage.engine.selfHostedDetail': 'আপনার নিজের এন্ডপয়েন্ট ও API কী',
-  'memoryPage.engine.connectTitle': '{engine} সংযুক্ত করুন',
   'memoryPage.engine.connect': 'সংযুক্ত করুন',
   'memoryPage.engine.endpoint': 'এন্ডপয়েন্ট',
   'memoryPage.engine.apiKey': 'API কী',
   'memoryPage.engine.keySavedPlaceholder': 'সংরক্ষিত আছে। বদলাতে নতুন কী লিখুন',
   'memoryPage.engine.keySavedHint': 'একটি কী আগে থেকেই সংরক্ষিত আছে। রাখতে চাইলে এটি খালি রাখুন।',
+  'memoryPage.engine.badgeDegraded': 'ধীরগতি',
+  'memoryPage.engine.badgeDown': 'পৌঁছানো যাচ্ছে না',
+  'memoryPage.engine.connecting': 'সংযোগ হচ্ছে…',
+  'memoryPage.engine.save': 'সংরক্ষণ করুন',
+  'memoryPage.engine.builtin.title': 'বিল্ট-ইন CortexDB',
+  'memoryPage.engine.builtin.detail': 'আপনার TinyHumans অ্যাকাউন্টের সাথে অন্তর্ভুক্ত',
+  'memoryPage.engine.builtin.signInRequired': 'ব্যবহার করতে সাইন ইন করুন',
+  'memoryPage.engine.builtin.description':
+    'TinyHumans হোস্ট করা এবং আপনার অ্যাকাউন্টের সাথে অন্তর্ভুক্ত CortexDB। ব্যবহার করতে সাইন ইন করুন; কিছুই সেট আপ করতে হবে না।',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'নতুন স্মৃতি সঙ্গে সঙ্গে সংরক্ষিত হয়। সেগুলো থেকে পাওয়া তথ্য ও বিশ্বাস পরের কয়েক মিনিটে যুক্ত হয়।',
+  'memoryPage.engine.builtin.signInHint':
+    'বিল্ট-ইন CortexDB ব্যবহার করতে আপনার TinyHumans অ্যাকাউন্টে সাইন ইন করুন।',
+  'memoryPage.engine.apiKeyOption.title': 'আপনার API কী দিয়ে CortexDB',
+  'memoryPage.engine.apiKeyOption.description':
+    'নিজের CortexDB অ্যাকাউন্ট ব্যবহার করুন। কীটি এই কম্পিউটারে নিরাপদে সংরক্ষিত থাকে, কখনো কনফিগ ফাইলে নয়।',
+  'memoryPage.engine.selfHost.title': 'নিজে CortexDB হোস্ট করুন',
+  'memoryPage.engine.selfHost.detail': 'এই কম্পিউটারে একটি CortexDB সার্ভার',
+  'memoryPage.engine.selfHost.step1': 'গাইড অনুসরণ করে এই কম্পিউটারে একটি CortexDB সার্ভার চালান:',
+  'memoryPage.engine.selfHost.docsLink': 'CortexDB সেলফ-হোস্টিং গাইড',
+  'memoryPage.engine.selfHost.step2':
+    'একটি API কী (CORTEX_API_KEY) দিয়ে সার্ভার চালু করুন। অ্যাপ সেই কী দিয়ে সংযুক্ত হয়।',
+  'memoryPage.engine.selfHost.step3': 'নিচে সার্ভারের লোকাল ঠিকানা ও কী লিখুন, তারপর সংযুক্ত করুন।',
+  'memoryPage.engine.selfHost.notLocal':
+    'সেলফ-হোস্টিং শুধু লোকাল। এই কম্পিউটারের একটি ঠিকানা ব্যবহার করুন, যেমন http://localhost:3141।',
   'memoryPage.ask.questionLabel': 'আপনার প্রশ্ন',
   'memoryPage.ask.queryLabel': 'অনুসন্ধানের কোয়েরি',
   'memoryPage.ask.placeholder': 'লঞ্চ প্ল্যান নিয়ে আমরা কী সিদ্ধান্ত নিয়েছিলাম?',

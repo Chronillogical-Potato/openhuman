@@ -1426,5 +1426,47 @@
     "line": 97,
     "text": "pub use tinyagents_harness::error::{Result, TinyAgentsError};",
     "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/agent/session_host/builder/factory.rs",
+    "line": 994,
+    "text": "let root = crate::agent::turn_workspace::current()?;",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
+    "line": 265,
+    "text": "crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/integrations/composio/bus/trigger_subscriber.rs",
+    "line": 9,
+    "text": "use crate::agent::turn_origin::with_origin;",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/integrations/composio/bus/trigger_subscriber.rs",
+    "line": 216,
+    "text": "if let Err(e) = with_origin(origin, apply_decision(run, &envelope)).await {",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/memory/tools.rs",
+    "line": 135,
+    "text": ".or_else(crate::agent::turn_workspace::current)",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/memory/tools.rs",
+    "line": 140,
+    "text": "crate::agent::harness::fork_context::current_parent()",
+    "occurrence": 1
   }
 ]

@@ -678,6 +678,8 @@ const messages: TranslationMap = {
     '메모리를 사용할 수 없습니다: 계정의 크레딧이 모두 소진되었습니다. 충전하면 복구되며, 저장된 내용은 사라지지 않았습니다.',
   'memory.error.unavailable':
     '지금은 메모리에 연결할 수 없습니다. 저장된 내용은 사라지지 않았습니다. 잠시 후 다시 시도하세요.',
+  'memory.outOfCredits.title': '크레딧 소진',
+  'memory.outOfCredits.action': '충전하기',
   'memory.tab.memory': '메모리',
   'memory.tab.agents': '라이브러리',
   'memory.analyzeNow': '지금 분석',
@@ -3409,6 +3411,8 @@ const messages: TranslationMap = {
     '기존 통합(Gmail, Slack, GitHub 등 OpenHuman을 통해 연결된 통합)은 표시되지 않습니다: OpenHuman 관리형 Composio 테넌트에 있습니다.',
   'settings.composio.intro':
     'Composio는 에이전트가 호출할 수 있는 도구로 250개 이상의 외부 앱을 통합합니다. 이러한 도구 호출이 라우팅되는 방식을 선택하세요.',
+  'settings.composio.directOnlyDesc':
+    '이 환경에서는 Composio 관리형 인증을 사용할 수 없습니다. 자신의 Composio API 키를 입력하거나 이 단계는 나중에 설정하세요.',
   'settings.composio.modeDirect': 'Direct(직접 API 키 사용)',
   'settings.composio.modeDirectDesc':
     '호출이 backend.composio.dev로 직접 이동합니다. 독립적이고 오프라인 친화적입니다. 도구 실행은 동기식으로 작동하지만, 실시간 트리거 웹훅은 아직 Direct 모드에서 라우팅되지 않습니다(후속 이슈).',
@@ -4773,6 +4777,8 @@ const messages: TranslationMap = {
   'chat_error.codex_session_expired':
     'Codex 세션이 만료되었습니다. 설정 → 통합에서 다시 연결해 주세요.',
   'chat_error.session_expired': 'OpenHuman 세션이 만료되었습니다. 계속하려면 다시 로그인해 주세요.',
+  'chat_error.local_session_managed_unavailable':
+    '로컬 오프라인 프로필을 사용 중이며 연결된 OpenHuman 계정이 없어 관리형(클라우드) 모델을 실행할 수 없습니다. 관리형 모델을 사용하려면 로그인하거나, 연결 → API 키 → LLM에서 라우팅을 "자체 모델 사용"(으)로 바꾸고 직접 사용할 제공업체를 추가하세요.',
   'chat_error.action_budget':
     'OpenHuman의 시간당 작업 한도에 도달했습니다. 이는 AI 제공업체가 아니라 로컬 안전 한도입니다. 한도는 서서히 회복되므로 이 스레드에서 계속 대화할 수 있으며, 도구를 많이 쓰는 단계는 한도가 채워지는 대로 재개됩니다.',
   'chat_error.max_iterations':
@@ -4907,30 +4913,48 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': '링크',
   'memoryPage.off.title': '메모리가 꺼져 있습니다',
   'memoryPage.off.description':
-    '기억을 시작하려면 메모리 엔진을 선택하세요. 로그인해서 TinyHumans 메모리를 사용하거나 직접 운영하는 CortexDB를 연결하세요.',
+    'CortexDB를 연결해 기억을 시작하세요. 로그인해 내장 CortexDB를 사용하거나, 자신의 API 키 또는 이 컴퓨터의 서버로 연결하세요.',
   'memoryPage.off.action': '엔진 선택',
-  'memoryPage.engine.listTitle': '메모리 엔진',
+  'memoryPage.engine.listTitle': 'CortexDB 메모리',
   'memoryPage.engine.listDescription':
-    '한 번에 하나의 엔진만 활성화됩니다. 엔진은 메모리가 보관하는 모든 것을 저장하고 이에 대한 질문에 답합니다.',
-  'memoryPage.engine.loadError': '메모리 엔진을 불러오지 못했습니다',
+    '메모리는 CortexDB에서 실행됩니다. 이 앱이 연결하는 방식을 선택하세요. 한 번에 하나의 연결만 활성화됩니다.',
   'memoryPage.engine.offExplanation':
-    '현재 사용할 수 있는 메모리 엔진이 없어서 아무것도 저장되거나 불러와지지 않습니다. 로그인해서 TinyHumans 메모리를 사용하거나, 엔드포인트와 API 키로 직접 운영하는 CortexDB를 연결하세요.',
+    '지금은 사용할 수 있는 메모리 연결이 없어 아무것도 저장하거나 불러오지 않습니다. 로그인해 내장 CortexDB를 사용하거나, API 키로 또는 이 컴퓨터에서 CortexDB를 연결하세요.',
   'memoryPage.engine.statusDegraded': '메모리 성능이 저하되었습니다',
   'memoryPage.engine.statusDown': '메모리 엔진에 연결할 수 없습니다',
   'memoryPage.engine.statusOff': '꺼짐',
   'memoryPage.engine.active': '사용 중',
-  'memoryPage.engine.recommended': '권장',
   'memoryPage.engine.use': '사용',
-  'memoryPage.engine.edit': '편집',
-  'memoryPage.engine.signInRequired': '로그인 필요',
-  'memoryPage.engine.hostedDetail': 'TinyHumans에서 호스팅',
-  'memoryPage.engine.selfHostedDetail': '직접 운영하는 엔드포인트와 API 키',
-  'memoryPage.engine.connectTitle': '{engine} 연결',
   'memoryPage.engine.connect': '연결',
   'memoryPage.engine.endpoint': '엔드포인트',
   'memoryPage.engine.apiKey': 'API 키',
   'memoryPage.engine.keySavedPlaceholder': '저장됨. 바꾸려면 새 키를 입력하세요',
   'memoryPage.engine.keySavedHint': '이미 키가 저장되어 있습니다. 유지하려면 비워 두세요.',
+  'memoryPage.engine.badgeDegraded': '성능 저하',
+  'memoryPage.engine.badgeDown': '연결할 수 없음',
+  'memoryPage.engine.connecting': '연결 중…',
+  'memoryPage.engine.save': '저장',
+  'memoryPage.engine.builtin.title': '내장 CortexDB',
+  'memoryPage.engine.builtin.detail': 'TinyHumans 계정에 포함',
+  'memoryPage.engine.builtin.signInRequired': '로그인 후 사용',
+  'memoryPage.engine.builtin.description':
+    'TinyHumans가 호스팅하며 계정에 포함된 CortexDB입니다. 로그인하면 사용할 수 있으며 설정할 것이 없습니다.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    '새 기억은 바로 저장됩니다. 여기서 도출된 사실과 신념은 이후 몇 분에 걸쳐 채워집니다.',
+  'memoryPage.engine.builtin.signInHint':
+    '내장 CortexDB를 사용하려면 TinyHumans 계정에 로그인하세요.',
+  'memoryPage.engine.apiKeyOption.title': 'API 키로 CortexDB 사용',
+  'memoryPage.engine.apiKeyOption.description':
+    '자신의 CortexDB 계정을 사용합니다. 키는 이 컴퓨터에 안전하게 저장되며 설정 파일에는 저장되지 않습니다.',
+  'memoryPage.engine.selfHost.title': 'CortexDB 직접 호스팅',
+  'memoryPage.engine.selfHost.detail': '이 컴퓨터의 CortexDB 서버',
+  'memoryPage.engine.selfHost.step1': '안내서에 따라 이 컴퓨터에서 CortexDB 서버를 실행하세요:',
+  'memoryPage.engine.selfHost.docsLink': 'CortexDB 셀프 호스팅 안내서',
+  'memoryPage.engine.selfHost.step2':
+    'API 키(CORTEX_API_KEY)로 서버를 시작하세요. 앱은 그 키로 연결합니다.',
+  'memoryPage.engine.selfHost.step3': '아래에 서버의 로컬 주소와 키를 입력한 다음 연결하세요.',
+  'memoryPage.engine.selfHost.notLocal':
+    '직접 호스팅은 로컬에서만 가능합니다. 이 컴퓨터의 주소(예: http://localhost:3141)를 사용하세요.',
   'memoryPage.ask.questionLabel': '질문',
   'memoryPage.ask.queryLabel': '검색어',
   'memoryPage.ask.placeholder': '출시 계획에 대해 무엇을 결정했나요?',

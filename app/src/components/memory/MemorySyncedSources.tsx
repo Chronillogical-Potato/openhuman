@@ -20,9 +20,10 @@ import {
   type Source,
   type SourceAddRequest,
 } from '../../services/api/memoryApi';
-import { Alert, AlertDescription, Badge, Button, Card, Checkbox, ConfirmDialog } from '../ui';
+import { Badge, Button, Card, Checkbox, ConfirmDialog } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
 import MemoryAddSourceDialog from './MemoryAddSourceDialog';
+import MemoryErrorAlert from './MemoryErrorAlert';
 import { fill, formatTimestamp } from './memoryFormat';
 import { SOURCE_STATUS_VARIANT, sourceKindLabel, sourceStatusLabel } from './memorySourceLabels';
 
@@ -148,9 +149,7 @@ export default function MemorySyncedSources() {
   return (
     <div className="space-y-4" data-testid="memory-synced-sources">
       {error !== null && (
-        <Alert variant="destructive" data-testid="memory-synced-sources-error">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <MemoryErrorAlert message={error} data-testid="memory-synced-sources-error" />
       )}
 
       <Card

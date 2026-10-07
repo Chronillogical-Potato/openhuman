@@ -701,6 +701,8 @@ const messages: TranslationMap = {
     'A memória está indisponível: sua conta ficou sem créditos. Recarregue para restaurá-la; nada do que foi guardado se perdeu.',
   'memory.error.unavailable':
     'Não é possível acessar a memória agora. Nada do que foi guardado se perdeu; tente novamente em instantes.',
+  'memory.outOfCredits.title': 'Sem créditos',
+  'memory.outOfCredits.action': 'Recarregar',
   'memory.tab.memory': 'Memória',
   'memory.tab.agents': 'Biblioteca',
   'memory.analyzeNow': 'Analisar Agora',
@@ -3479,6 +3481,8 @@ const messages: TranslationMap = {
     'Suas integrações existentes (Gmail, Slack, GitHub, etc. conectadas via OpenHuman) não ficarão visíveis: elas vivem no tenant do Composio gerenciado pelo OpenHuman.',
   'settings.composio.intro':
     'O Composio integra mais de 250 apps externos como ferramentas que seu agente pode chamar. Escolha como essas chamadas são roteadas.',
+  'settings.composio.directOnlyDesc':
+    'A autenticação gerenciada do Composio não está disponível aqui. Insira sua própria chave de API do Composio ou pule esta etapa por enquanto.',
   'settings.composio.modeDirect': 'Direto (traga sua própria chave de API)',
   'settings.composio.modeDirectDesc':
     'As chamadas vão direto para backend.composio.dev. Soberano / amigável para offline. A execução de ferramentas funciona de forma síncrona; webhooks de gatilhos em tempo real ainda não são roteados no modo direto (issue de acompanhamento).',
@@ -4885,6 +4889,8 @@ const messages: TranslationMap = {
   'chat_error.codex_session_expired':
     'Sua sessão do Codex expirou. Reconecte-a em Configurações → Integrações.',
   'chat_error.session_expired': 'Sua sessão do OpenHuman expirou. Entre novamente para continuar.',
+  'chat_error.local_session_managed_unavailable':
+    'Você está no perfil local offline, que não tem uma conta OpenHuman por trás, então o modelo gerenciado (na nuvem) não pode ser executado. Entre na sua conta para usar os modelos gerenciados ou mude o roteamento para "Use seus próprios modelos" em Conexões → Chaves de API → LLM e adicione seu próprio provedor.',
   'chat_error.action_budget':
     'Você atingiu o limite de ações por hora do OpenHuman. É um teto de segurança local, não do seu provedor de IA. A janela se recupera aos poucos; você pode continuar conversando neste tópico e as etapas que usam muitas ferramentas voltarão conforme o limite for reposto.',
   'chat_error.max_iterations':
@@ -5021,30 +5027,50 @@ const messages: TranslationMap = {
   'memoryPage.meta.url': 'Link',
   'memoryPage.off.title': 'A memória está desativada',
   'memoryPage.off.description':
-    'Escolha um mecanismo de memória para começar a lembrar. Entre para usar a memória da TinyHumans ou conecte seu próprio CortexDB.',
+    'Conecte o CortexDB para começar a lembrar. Entre para usar o CortexDB integrado ou conecte com sua própria chave de API ou um servidor neste computador.',
   'memoryPage.off.action': 'Escolher um mecanismo',
-  'memoryPage.engine.listTitle': 'Mecanismos de memória',
+  'memoryPage.engine.listTitle': 'Memória CortexDB',
   'memoryPage.engine.listDescription':
-    'Um mecanismo fica ativo por vez. Ele armazena tudo o que a memória guarda e responde às perguntas sobre isso.',
-  'memoryPage.engine.loadError': 'Não foi possível carregar os mecanismos de memória',
+    'A memória funciona com o CortexDB. Escolha como este app se conecta a ele. Só uma conexão fica ativa por vez.',
   'memoryPage.engine.offExplanation':
-    'Nenhum mecanismo de memória está disponível no momento, então nada é armazenado nem recuperado. Entre para usar a memória da TinyHumans ou conecte seu próprio CortexDB com um endpoint e uma chave de API.',
+    'Nenhuma conexão de memória está utilizável agora, então nada é salvo ou recuperado. Entre para usar o CortexDB integrado ou conecte o CortexDB com sua chave de API ou neste computador.',
   'memoryPage.engine.statusDegraded': 'A memória está degradada',
   'memoryPage.engine.statusDown': 'O mecanismo de memória está inacessível',
   'memoryPage.engine.statusOff': 'Desativado',
   'memoryPage.engine.active': 'Ativo',
-  'memoryPage.engine.recommended': 'Recomendado',
   'memoryPage.engine.use': 'Usar',
-  'memoryPage.engine.edit': 'Editar',
-  'memoryPage.engine.signInRequired': 'Login necessário',
-  'memoryPage.engine.hostedDetail': 'Hospedado pela TinyHumans',
-  'memoryPage.engine.selfHostedDetail': 'Seu próprio endpoint e chave de API',
-  'memoryPage.engine.connectTitle': 'Conectar {engine}',
   'memoryPage.engine.connect': 'Conectar',
   'memoryPage.engine.endpoint': 'Endpoint',
   'memoryPage.engine.apiKey': 'Chave de API',
   'memoryPage.engine.keySavedPlaceholder': 'Salva. Digite uma nova chave para substituí-la',
   'memoryPage.engine.keySavedHint': 'Já há uma chave salva. Deixe em branco para mantê-la.',
+  'memoryPage.engine.badgeDegraded': 'Degradado',
+  'memoryPage.engine.badgeDown': 'Inacessível',
+  'memoryPage.engine.connecting': 'Conectando…',
+  'memoryPage.engine.save': 'Salvar',
+  'memoryPage.engine.builtin.title': 'CortexDB integrado',
+  'memoryPage.engine.builtin.detail': 'Incluído na sua conta TinyHumans',
+  'memoryPage.engine.builtin.signInRequired': 'Entre para usar',
+  'memoryPage.engine.builtin.description':
+    'CortexDB hospedado pela TinyHumans e incluído na sua conta. Entre para usar; não há nada para configurar.',
+  'memoryPage.engine.builtin.enrichmentNote':
+    'Novas memórias são salvas na hora. Os fatos e crenças extraídos delas são preenchidos nos minutos seguintes.',
+  'memoryPage.engine.builtin.signInHint':
+    'Entre na sua conta TinyHumans para usar o CortexDB integrado.',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB com sua chave de API',
+  'memoryPage.engine.apiKeyOption.description':
+    'Use sua própria conta do CortexDB. A chave fica guardada com segurança neste computador, nunca no arquivo de configuração.',
+  'memoryPage.engine.selfHost.title': 'Hospedar o CortexDB você mesmo',
+  'memoryPage.engine.selfHost.detail': 'Um servidor CortexDB neste computador',
+  'memoryPage.engine.selfHost.step1':
+    'Execute um servidor CortexDB neste computador seguindo o guia:',
+  'memoryPage.engine.selfHost.docsLink': 'Guia de auto-hospedagem do CortexDB',
+  'memoryPage.engine.selfHost.step2':
+    'Inicie o servidor com uma chave de API (CORTEX_API_KEY). O app se conecta com essa chave.',
+  'memoryPage.engine.selfHost.step3':
+    'Informe abaixo o endereço local do servidor e a chave e conecte.',
+  'memoryPage.engine.selfHost.notLocal':
+    'A auto-hospedagem é apenas local. Use um endereço deste computador, como http://localhost:3141.',
   'memoryPage.ask.questionLabel': 'Sua pergunta',
   'memoryPage.ask.queryLabel': 'Consulta de busca',
   'memoryPage.ask.placeholder': 'O que decidimos sobre o plano de lançamento?',

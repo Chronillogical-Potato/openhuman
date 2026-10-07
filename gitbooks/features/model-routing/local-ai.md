@@ -34,6 +34,14 @@ LM Studio, OMLX, and `local-openai` send `local_ai.api_key` as a Bearer token wh
 
 The model part of the provider string is passed to the runtime unchanged, so it must match the runtime's own model id (for Ollama, the name you pulled, including the tag). An optional `@<temperature>` suffix pins a temperature, for example `ollama:qwen2.5:14b@0.2`.
 
+## Multiple self-hosted servers
+
+If you run several OpenAI-compatible model servers, a gateway can expose one
+endpoint and use named model IDs to select the upstream. See
+[Use multiple local LLM servers](../../guides/multiple-local-llm-servers.md) for an
+optional community Model Router example with a Mac mini and Linux GPU PC.
+OpenHuman does not bundle or supervise the gateway.
+
 ## Adding a local runtime in the app
 
 1. Start the runtime and make sure its server is listening. For Ollama, `curl http://localhost:11434/api/tags` should return JSON.

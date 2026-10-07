@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
 use chrono::{DateTime, Utc};
-use tinymemory_integrations::documents::NativeConverter;
 use tinymemory_integrations::sources::readers::reader_for_request;
 use tinymemory_integrations::sources::{collect_items, MemorySourceEntry, SourceKind};
 
@@ -82,7 +81,7 @@ pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryRes
         reader.as_ref(),
         &entry,
         &config.action_dir,
-        &NativeConverter,
+        crate::memory::convert::converter(),
     )
     .await
     .map_err(|error| MemoryError::Engine(format!("reading the source failed: {error}")))?;
@@ -133,8 +132,13 @@ pub(crate) async fn store_all(
             }
         }
     }
+    // An engine that rebuilds beliefs on its own needs no build job, as
+    // `Brain::ingest` hands back none for it.
+    let automatic =
+        bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
     let jobs = touched
         .iter()
+        .filter(|_| !automatic)
         .filter_map(|source| layout.brain(source).ok())
         .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
             request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))

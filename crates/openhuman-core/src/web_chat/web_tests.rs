@@ -61,6 +61,7 @@ fn fp(
 ) -> SessionCacheFingerprint {
     SessionCacheFingerprint {
         model_override: model_override.map(String::from),
+        effective_model: "sample-model".to_string(),
         temperature,
         target_agent_id: target.to_string(),
         provider_binding: provider_binding.to_string(),
