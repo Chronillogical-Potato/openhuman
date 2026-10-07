@@ -16,9 +16,18 @@ vi.mock('../useHumanMascot', () => ({ useHumanMascot: (opts: unknown) => useHuma
 vi.mock('../Mascot', () => ({
   CustomGifMascot: () => <div data-testid="mascot-gif" />,
   ManifestRiveMascot: () => <div data-testid="mascot-manifest" />,
-  RiveMascot: () => <div data-testid="mascot-rive" />,
+  RiveMascot: (p: { face: string; visemeCode: string }) => (
+    <div data-testid="mascot-rive" data-face={p.face} data-viseme={p.visemeCode} />
+  ),
   getMascotPalette: () => ({ bodyFill: '#F7D145', neckShadowColor: '#B23C05' }),
   hexToArgbInt: () => 0,
+}));
+const useAmplitudeLipsync = vi.fn((_ref: unknown, _enabled: boolean) => ({
+  active: false,
+  visemeCode: 'sil',
+}));
+vi.mock('../voice/useAmplitudeLipsync', () => ({
+  useAmplitudeLipsync: (ref: unknown, enabled: boolean) => useAmplitudeLipsync(ref, enabled),
 }));
 vi.mock('../Mascot/manifest/useMascotManifest', () => ({
   useMascotManifest: () => ({ manifest: null, entry: null, loading: false, error: null }),
@@ -381,3 +390,47 @@ function renderOverlayWithToggle() {
     },
   };
 }
+
+describe('ChatMascotOverlay — live voice', () => {
+  const renderLive = (phase: string) =>
+    renderWithProviders(
+      <ChatMascotProvider>
+        <Anchors />
+        <ChatMascotOverlay />
+      </ChatMascotProvider>,
+      {
+        preloadedState: {
+          mascot: { chatMascotExpanded: true, speakReplies: true, chatMascotLiveVoicePhase: phase },
+        },
+      }
+    );
+
+  beforeEach(() => {
+    useHumanMascot.mockClear();
+    useAmplitudeLipsync.mockClear();
+  });
+
+  it('silences speak-replies TTS and holds the listening pose while the agent listens', () => {
+    renderLive('listening');
+    expect(useHumanMascot).toHaveBeenLastCalledWith({ speakReplies: false, listening: true });
+    expect(useAmplitudeLipsync).toHaveBeenLastCalledWith(expect.anything(), false);
+  });
+
+  it('drives the mouth from the live audio while the agent speaks', () => {
+    useAmplitudeLipsync.mockReturnValue({ active: true, visemeCode: 'aa' });
+    renderLive('speaking');
+    expect(useAmplitudeLipsync).toHaveBeenLastCalledWith(
+      expect.objectContaining({ current: expect.any(Object) }),
+      true
+    );
+    const mascot = screen.getByTestId('mascot-rive');
+    expect(mascot).toHaveAttribute('data-face', 'speaking');
+    expect(mascot).toHaveAttribute('data-viseme', 'aa');
+    useAmplitudeLipsync.mockReturnValue({ active: false, visemeCode: 'sil' });
+  });
+
+  it('leaves speak-replies on when no live session runs', () => {
+    renderLive('off');
+    expect(useHumanMascot).toHaveBeenLastCalledWith({ speakReplies: true, listening: false });
+  });
+});

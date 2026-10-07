@@ -84,6 +84,22 @@ Capability {
         privacy: DERIVED_TO_BACKEND,
     },
 Capability {
+        id: "voice.live_agent",
+        name: "Live voice agent",
+        domain: "voice",
+        category: CapabilityCategory::Conversation,
+        description: "Talk with Tiny out loud in real time: click the mascot in the composer and \
+                      speak. Tiny answers by voice, can be interrupted mid-sentence, and uses \
+                      the same tools, tool policy and approval prompts as typed chat. What both \
+                      sides say is saved to the open conversation. Providers: Gemini Live \
+                      through TinyHumans (default, no key), the TinyHumans ElevenLabs agent, \
+                      Gemini Live with your own Google key, or Sarvam AI with your own key.",
+        how_to: "Click Tiny in the chat composer to start; choose the provider, voice and \
+                 language under Connections → Voice agents.",
+        status: CapabilityStatus::Beta,
+        privacy: DERIVED_TO_BACKEND,
+    },
+Capability {
         id: "conversation.copy_messages",
         name: "Copy Messages",
         domain: "conversation",
@@ -192,8 +208,18 @@ Capability {
         name: "Thinking Level",
         domain: "conversation",
         category: CapabilityCategory::Conversation,
-        description: "Choose how hard the model thinks before answering: Auto (the provider's default), Off, Low, Medium, High or Max. The choice applies to the conversation's own turns, is remembered as the default for new ones, and is translated into each provider's reasoning setting; delegated sub-agents keep their provider default.",
+        description: "Choose how hard the model thinks before answering: Auto (the provider's default), Off, Minimal, Low, Medium, High or Max. Every model remembers its own level, so switching models brings back the level last used with that one; a model with no level of its own uses the global default. The choice applies to the conversation's own turns and is translated into each provider's reasoning setting; delegated sub-agents keep their provider default.",
         how_to: "Conversations > pick a thinking level beside the model selector in the composer",
+        status: CapabilityStatus::Beta,
+        privacy: None,
+    },
+Capability {
+        id: "conversation.working_folder",
+        name: "Conversation Working Folder",
+        domain: "conversation",
+        category: CapabilityCategory::Conversation,
+        description: "Start a conversation in a folder of your choice: the agent's shell, file and git tools act there instead of the default projects folder. The folder is picked before the first message and stays fixed for the conversation; credential stores and system folders cannot be chosen.",
+        how_to: "Conversations > New conversation > pick a folder in the chip above the composer",
         status: CapabilityStatus::Beta,
         privacy: None,
     },

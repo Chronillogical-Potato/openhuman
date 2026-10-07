@@ -31,4 +31,11 @@ describe('localeSlice', () => {
 
     expect(reducer(undefined, { type: '@@INIT' }).current).toBe('id');
   });
+
+  it.each(['tr', 'tr-TR', 'TR-tr'])('detects the Turkish browser locale %s', async language => {
+    vi.stubGlobal('navigator', { language });
+    const reducer = await loadReducer();
+
+    expect(reducer(undefined, { type: '@@INIT' }).current).toBe('tr');
+  });
 });

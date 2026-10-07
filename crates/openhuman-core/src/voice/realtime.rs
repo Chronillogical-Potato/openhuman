@@ -37,7 +37,7 @@ pub struct VoiceAgentSignedUrl {
 /// token is a bearer credential, so it must not travel over `http://` to a
 /// remote host (CWE-319). Loopback stays allowed so local-backend development
 /// (`http://localhost:5005`) still works.
-fn ensure_secure_backend_url(api_url: &str) -> Result<(), String> {
+pub(crate) fn ensure_secure_backend_url(api_url: &str) -> Result<(), String> {
     let lowered = api_url.trim().to_ascii_lowercase();
     if lowered.starts_with("https://") {
         return Ok(());

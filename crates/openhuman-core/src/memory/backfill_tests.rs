@@ -29,6 +29,7 @@ async fn seed_thread(workspace: &Path, thread_id: &str, messages: &[(&str, &str)
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await

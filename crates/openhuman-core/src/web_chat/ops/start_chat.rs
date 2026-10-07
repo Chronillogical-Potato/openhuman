@@ -131,7 +131,36 @@ fn prompt_guard_user_message(action: PromptEnforcementAction) -> &'static str {
     }
 }
 
-pub async fn start_chat(
+/// Returned boxed and `#[inline(never)]` on purpose: other crates await this
+/// (`openhuman-rpc`, `openhuman-embed`), and an `async fn` body is otherwise
+/// re-instantiated inside every calling crate's state machine. Boxing here
+/// keeps one copy, compiled in this crate.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+pub fn start_chat<'a>(
+    client_id: &'a str,
+    thread_id: &'a str,
+    message: &'a str,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    locale: Option<String>,
+    queue_mode: Option<String>,
+    metadata: ChatRequestMetadata,
+) -> futures::future::BoxFuture<'a, Result<String, StartChatError>> {
+    Box::pin(start_chat_inner(
+        client_id,
+        thread_id,
+        message,
+        model_override,
+        temperature,
+        locale,
+        queue_mode,
+        metadata,
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn start_chat_inner(
     client_id: &str,
     thread_id: &str,
     message: &str,

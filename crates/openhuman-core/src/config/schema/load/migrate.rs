@@ -233,3 +233,31 @@ pub(crate) fn migrate_legacy_memory_sources(config: &mut Config) {
     );
     config.memory.sources = migrated;
 }
+
+/// Disables the removed v1 memory backend and records a durable diagnostic.
+pub(crate) fn migrate_legacy_memory_backend(config: &mut Config, raw: &str) {
+    let Ok(value) = toml::from_str::<toml::Value>(raw) else {
+        return;
+    };
+    let Some(memory) = value.get("memory").and_then(toml::Value::as_table) else {
+        return;
+    };
+    let has_backend = memory
+        .get("backend")
+        .and_then(toml::Value::as_str)
+        .map(str::trim)
+        .filter(|backend| !backend.is_empty())
+        .is_some();
+    if !has_backend {
+        return;
+    }
+    if memory.contains_key("engine") {
+        return;
+    }
+
+    config.memory.engine.clear();
+    config.memory.legacy_backend_unsupported = true;
+    tracing::warn!(
+        "[config] legacy memory backend is unsupported; select an explicit v2 memory engine"
+    );
+}

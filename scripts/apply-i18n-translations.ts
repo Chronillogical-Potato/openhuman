@@ -41,6 +41,7 @@ const LOCALE_HEADERS: Record<string, string> = {
   it: "Italian (Italiano)",
   ko: "Korean (한국어)",
   pl: "Polish (Polski)",
+  tr: "Turkish (Türkçe)",
 };
 
 interface InputFile {

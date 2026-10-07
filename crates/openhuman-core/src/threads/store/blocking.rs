@@ -161,6 +161,19 @@ pub async fn update_thread_title(
     .await
 }
 
+/// [`store::update_thread_working_dir`] on the blocking pool.
+pub async fn update_thread_working_dir(
+    workspace_dir: PathBuf,
+    thread_id: String,
+    working_dir: Option<String>,
+    updated_at: String,
+) -> Result<ConversationThread, String> {
+    run("update_thread_working_dir", move || {
+        store::update_thread_working_dir(workspace_dir, &thread_id, working_dir, &updated_at)
+    })
+    .await
+}
+
 /// [`store::update_thread_labels`] on the blocking pool.
 pub async fn update_thread_labels(
     workspace_dir: PathBuf,

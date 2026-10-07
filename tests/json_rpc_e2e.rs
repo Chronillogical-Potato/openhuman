@@ -2952,6 +2952,118 @@ async fn json_rpc_thread_title_create_and_update() {
 }
 
 #[tokio::test]
+async fn json_rpc_thread_working_dir_binds_before_the_first_message() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+    let project = home.join("projects").join("site");
+    std::fs::create_dir_all(&project).expect("project dir");
+    let project = project.canonicalize().expect("canonical project");
+    let project_str = project.to_string_lossy().into_owned();
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_url_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
+
+    let (api_addr, api_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let api_origin = format!("http://{api_addr}");
+    write_min_config(openhuman_home.as_path(), &api_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+
+    // 1. A thread created in a folder carries it.
+    let create = post_json_rpc(
+        &rpc_base,
+        9201,
+        "openhuman.threads_create_new",
+        json!({ "action_dir": project_str }),
+    )
+    .await;
+    let created = assert_no_jsonrpc_error(&create, "threads_create_new with action_dir")
+        .get("data")
+        .cloned()
+        .expect("data envelope");
+    let thread_id = created
+        .get("id")
+        .and_then(Value::as_str)
+        .expect("thread id")
+        .to_string();
+    assert_eq!(
+        created.get("actionDir").and_then(Value::as_str),
+        Some(project_str.as_str())
+    );
+
+    // 2. Clearing it on the still-empty thread goes back to the default.
+    let cleared = post_json_rpc(
+        &rpc_base,
+        9202,
+        "openhuman.threads_update_working_dir",
+        json!({ "thread_id": thread_id, "action_dir": "" }),
+    )
+    .await;
+    let cleared = assert_no_jsonrpc_error(&cleared, "threads_update_working_dir clear");
+    assert!(cleared
+        .get("data")
+        .and_then(|d| d.get("actionDir"))
+        .is_none());
+
+    // 3. A protected folder is refused.
+    let ssh = home.join(".ssh");
+    std::fs::create_dir_all(&ssh).expect("ssh dir");
+    let refused = post_json_rpc(
+        &rpc_base,
+        9203,
+        "openhuman.threads_update_working_dir",
+        json!({ "thread_id": thread_id, "action_dir": ssh.to_string_lossy() }),
+    )
+    .await;
+    assert_jsonrpc_error(&refused, "threads_update_working_dir protected folder");
+
+    // 4. Once the conversation has a message, the folder is fixed.
+    let append = post_json_rpc(
+        &rpc_base,
+        9204,
+        "openhuman.threads_message_append",
+        json!({
+            "thread_id": thread_id,
+            "message": {
+                "id": "m1",
+                "content": "hello",
+                "type": "text",
+                "extraMetadata": {},
+                "sender": "user",
+                "createdAt": "2026-10-06T12:00:00Z"
+            }
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&append, "threads_message_append");
+    let late = post_json_rpc(
+        &rpc_base,
+        9205,
+        "openhuman.threads_update_working_dir",
+        json!({ "thread_id": thread_id, "action_dir": project_str }),
+    )
+    .await;
+    let late_err = assert_jsonrpc_error(&late, "threads_update_working_dir after a message");
+    let message = late_err
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(
+        message.contains("before the conversation's first message"),
+        "expected started-thread refusal, got: {message}"
+    );
+
+    api_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_thread_not_found_errors_are_structured() {
     let _env_lock = json_rpc_e2e_env_lock_async().await;
     let tmp = tempdir().expect("tempdir");
@@ -7336,6 +7448,96 @@ async fn voice_status_returns_availability() {
         Some(false),
         "tts should be unavailable without piper binary"
     );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[tokio::test]
+async fn voice_live_settings_round_trip_over_json_rpc() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{}", mock_addr);
+    write_min_config(&openhuman_home, &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{}", rpc_addr);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let providers = post_json_rpc(&rpc_base, 1, "openhuman.voice_live_providers", json!({})).await;
+    let providers = assert_no_jsonrpc_error(&providers, "voice_live_providers");
+    assert_eq!(providers["default_provider"], "gemini-hosted");
+    let ids: Vec<&str> = providers["providers"]
+        .as_array()
+        .expect("providers array")
+        .iter()
+        .filter_map(|p| p["id"].as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["gemini-hosted", "elevenlabs-hosted", "gemini", "sarvam"]
+    );
+    let sarvam = providers["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "sarvam")
+        .unwrap();
+    assert_eq!(sarvam["kind"], "byok");
+    assert_eq!(sarvam["configured"], false);
+    assert_eq!(sarvam["key_slug"], "sarvam");
+
+    let set = post_json_rpc(
+        &rpc_base,
+        2,
+        "openhuman.voice_live_settings_set",
+        json!({ "default_provider": "sarvam", "sarvam": { "language": "hi-IN", "speaker": "priya" } }),
+    )
+    .await;
+    let set = assert_no_jsonrpc_error(&set, "voice_live_settings_set");
+    assert_eq!(set["default_provider"], "sarvam");
+
+    let got = post_json_rpc(&rpc_base, 3, "openhuman.voice_live_settings_get", json!({})).await;
+    let got = assert_no_jsonrpc_error(&got, "voice_live_settings_get");
+    assert_eq!(got["default_provider"], "sarvam");
+    assert_eq!(got["sarvam"]["language"], "hi-IN");
+    assert_eq!(got["sarvam"]["speaker"], "priya");
+
+    let bad = post_json_rpc(
+        &rpc_base,
+        4,
+        "openhuman.voice_live_settings_set",
+        json!({ "default_provider": "nope" }),
+    )
+    .await;
+    assert!(
+        bad.get("error").is_some(),
+        "unknown provider must be rejected: {bad}"
+    );
+
+    // No Sarvam key is stored, so a test reports why without touching the network.
+    let tested = post_json_rpc(
+        &rpc_base,
+        5,
+        "openhuman.voice_live_test_provider",
+        json!({ "provider": "sarvam" }),
+    )
+    .await;
+    let tested = assert_no_jsonrpc_error(&tested, "voice_live_test_provider");
+    assert_eq!(tested["ok"], false);
+    assert!(tested["error"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("not_configured"));
 
     mock_join.abort();
     rpc_join.abort();

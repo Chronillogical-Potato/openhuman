@@ -104,6 +104,8 @@ const ALLOWED_EVENT_NAMES = [
   'automation_run_started',
   'automation_run_resumed',
   'automation_run_cancelled',
+  'live_voice_session_started',
+  'live_voice_session_ended',
   'memory_engine_switched',
   'skill_install',
   'skill_uninstall',

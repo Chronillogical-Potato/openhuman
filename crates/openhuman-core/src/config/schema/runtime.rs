@@ -3,7 +3,7 @@
 use super::defaults;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
@@ -24,6 +24,12 @@ pub struct RuntimeConfig {
     /// `reasoning_enabled = false`, turns ask for no reasoning.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
+    /// Per-model thinking level, keyed by the model id the turn runs on
+    /// (`default_model` after a chat's `model_override`). Same values as
+    /// [`Self::reasoning_effort`], which it outranks for that model; a model
+    /// with no entry falls back to the global level.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reasoning_effort_by_model: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -104,6 +110,7 @@ impl Default for RuntimeConfig {
             local_jail: super::LocalJailConfig::default(),
             reasoning_enabled: None,
             reasoning_effort: None,
+            reasoning_effort_by_model: BTreeMap::new(),
         }
     }
 }

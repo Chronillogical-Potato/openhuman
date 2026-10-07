@@ -107,6 +107,7 @@ import {
 } from './aui/ReasoningEffortPicker';
 import { useChatSurfaceRegistration } from './hooks/useChatSurfaceRegistration';
 import { ThreadList } from './threadList/ThreadList';
+import { openTinyVoice } from './utils/openTinyVoice';
 
 const CHAT_MODEL_HINT = 'hint:chat';
 const debug = debugFactory('conversations');
@@ -2017,10 +2018,12 @@ const Conversations = ({
         attachmentsEnabled={CHAT_ATTACHMENTS_ENABLED}
         attachmentInteractionBlocked={composerInteractionBlocked || isSending}
         onAttachmentOnlySend={() => void handleComposerSend()}
-        // Idle-composer shortcut to the full-bleed mascot stage. Chat and Human
-        // share one mascot (mascotSlice), so this is a change of venue for the
-        // same conversation partner, not a second one.
-        onOpenHumanMode={() => navigate('/human')}
+        // Clicking Tiny in the idle composer starts a live voice session with
+        // the agent on this thread: the mascot stage opens beside the chat and
+        // the stage's live voice control connects. Outside the chat page (no
+        // mascot provider) it falls back to the full-bleed Human page. Chat and
+        // Human share one mascot (mascotSlice), so either is the same partner.
+        onOpenHumanMode={() => openTinyVoice(chatMascot, navigate)}
         onSwitchToMicCloud={() => setComposerOverride('mic-cloud')}
         onModelChange={applyComposerModel}
       />

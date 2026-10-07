@@ -45,8 +45,8 @@ behind the `rss-bench` feature).
 ## Translated product READMEs
 
 Translations of the root `README.md`, linked from its language bar:
-`README.de.md`, `README.ja-JP.md`, `README.ko.md`, `README.ur-pk.md`,
-`README.zh-CN.md`.
+`README.de.md`, `README.ja-JP.md`, `README.ko.md`, `README.tr.md`,
+`README.ur-pk.md`, `README.zh-CN.md`.
 
 Domain-local design notes live beside their code. The agent-runtime migration is
 a temporary exception because it coordinates four repositories and cannot be

@@ -146,6 +146,52 @@ async fn target_domain_schemas_are_exposed_over_http_schema_catalog() {
 }
 
 #[tokio::test]
+async fn legacy_memory_backend_is_off_and_persisted_through_json_rpc() {
+    let _lock = env_lock_async().await;
+    let harness = setup().await;
+    std::fs::write(
+        harness._tmp.path().join(".openhuman/config.toml"),
+        r#"
+[memory]
+backend = "sqlite"
+embedding_model = "local-embedding"
+"#,
+    )
+    .expect("write legacy config");
+
+    let engine = rpc(
+        &harness.rpc_base,
+        30_000,
+        "openhuman.memory_engine_get",
+        json!({}),
+    )
+    .await;
+    let engine = payload(&engine, "memory_engine_get");
+    assert_eq!(engine.get("status").and_then(Value::as_str), Some("off"));
+    assert!(engine
+        .get("reason")
+        .and_then(Value::as_str)
+        .is_some_and(|reason| reason.contains("legacy memory backend")));
+
+    let saved_config = rpc(
+        &harness.rpc_base,
+        30_001,
+        "openhuman.config_set_onboarding_completed",
+        json!({ "value": true }),
+    )
+    .await;
+    assert_eq!(payload(&saved_config, "save migrated config"), &json!(true));
+
+    let saved = tokio::fs::read_to_string(harness._tmp.path().join(".openhuman/config.toml"))
+        .await
+        .expect("read migrated config");
+    assert!(!saved.contains("backend"), "legacy key must not be persisted: {saved}");
+    assert!(saved.contains("engine = \"\""), "off state must be persisted: {saved}");
+
+    harness.join.abort();
+}
+
+#[tokio::test]
 async fn config_agent_tools_and_threads_mutation_paths_round_trip() {
     let _lock = env_lock_async().await;
     let harness = setup().await;

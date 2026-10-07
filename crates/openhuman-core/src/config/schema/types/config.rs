@@ -50,7 +50,9 @@ pub struct CustomEmbeddingsConfig {
 }
 
 /// Top-level configuration (config.toml root).
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+///
+/// `Clone` is implemented by hand in `config_clone.rs` so it is emitted once.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
     #[serde(skip)]
     pub workspace_dir: PathBuf,
@@ -443,6 +445,11 @@ pub struct Config {
     /// TTS routing string. Grammar: `"cloud"` | `"piper"` | `"<slug>:<voice>"`.
     #[serde(default)]
     pub tts_provider: Option<String>,
+
+    /// Live voice agent settings: the default live provider and each
+    /// provider's model / voice / language (`voice::live`).
+    #[serde(default)]
+    pub voice_live: crate::config::schema::voice_live::LiveVoiceConfig,
 
     #[serde(default)]
     pub integrations: IntegrationsConfig,

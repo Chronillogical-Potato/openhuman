@@ -26,6 +26,7 @@ const LOCALE_OPTIONS: LocaleOption[] = [
   { value: 'id', flag: '🇮🇩', label: 'Bahasa Indonesia' },
   { value: 'it', flag: '🇮🇹', label: 'Italiano' },
   { value: 'pl', flag: '🇵🇱', label: 'Polski' },
+  { value: 'tr', flag: '🇹🇷', label: 'Türkçe' },
 ];
 
 interface LanguageSelectProps {
