@@ -217,16 +217,19 @@ async fn a_repeat_guard_result_never_feeds_the_failure_ladder() {
 /// counted, oldest first, each with its own error.
 #[tokio::test]
 async fn a_no_progress_halt_lists_the_calls_it_counted() {
+    // Only a command repeated unchanged climbs the ladder (a different
+    // command's non-zero exit is new information and restarts it), so the
+    // list a halt prints is the identical attempts, oldest first.
     let handle = SteeringHandle::allow_all();
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
     let report =
         tinytools::render_command_failure(Some(1), "", "Expecting value: line 1 column 1 (char 0)");
-    for i in 0..6 {
+    for i in 0..3 {
         run_shell(
             &mw,
             &format!("post-{i}"),
-            &format!("python3 submit.py --claim CLM-26{i:02}"),
+            "python3 submit.py --claim CLM-2600",
             failing_result("shell", &report),
         )
         .await;
@@ -235,7 +238,7 @@ async fn a_no_progress_halt_lists_the_calls_it_counted() {
         .lock()
         .unwrap()
         .clone()
-        .expect("six different failing calls halt the run");
+        .expect("the same failing call three times halts the run");
     assert!(
         summary.contains("Failing calls, oldest first:"),
         "{summary}"
@@ -245,11 +248,11 @@ async fn a_no_progress_halt_lists_the_calls_it_counted() {
         "the oldest counted call is listed first: {summary}"
     );
     assert!(
-        summary.contains("6. `shell`: python3 submit.py --claim CLM-2605"),
+        summary.contains("3. `shell`: python3 submit.py --claim CLM-2600"),
         "the call that tripped the halt is listed last: {summary}"
     );
     assert!(
-        summary.matches("Expecting value").count() >= 6,
+        summary.matches("Expecting value").count() >= 3,
         "each entry carries the program's own error line: {summary}"
     );
 }
@@ -262,24 +265,12 @@ async fn a_success_between_failures_clears_the_listed_calls() {
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
     let report = tinytools::render_command_failure(Some(1), "", "boom");
-    for i in 0..3 {
-        run_shell(
-            &mw,
-            &format!("a-{i}"),
-            &format!("false-a-{i}"),
-            failing_result("shell", &report),
-        )
-        .await;
+    for i in 0..2 {
+        run_shell(&mw, &format!("a-{i}"), "false-a", failing_result("shell", &report)).await;
     }
     run_shell(&mw, "ok", "true", TaToolResult::success("fine")).await;
-    for i in 0..6 {
-        run_shell(
-            &mw,
-            &format!("b-{i}"),
-            &format!("false-b-{i}"),
-            failing_result("shell", &report),
-        )
-        .await;
+    for i in 0..3 {
+        run_shell(&mw, &format!("b-{i}"), "false-b", failing_result("shell", &report)).await;
     }
     let summary = slot
         .lock()
@@ -287,11 +278,11 @@ async fn a_success_between_failures_clears_the_listed_calls() {
         .clone()
         .expect("halts on the second streak");
     assert!(
-        !summary.contains("false-a-"),
+        !summary.contains("false-a"),
         "the pre-success streak is gone: {summary}"
     );
     assert!(
-        summary.contains("false-b-0") && summary.contains("false-b-5"),
+        summary.contains("1. `shell`: false-b") && summary.contains("3. `shell`: false-b"),
         "{summary}"
     );
 }
@@ -353,4 +344,68 @@ async fn listed_calls_carry_no_query_strings_or_secrets() {
         summary.contains("curl -H"),
         "the command itself is still named: {summary}"
     );
+}
+
+fn exit_report(code: i32, stdout: &str, stderr: &str) -> String {
+    tinytools::render_command_failure(Some(code), stdout, stderr)
+}
+
+#[tokio::test]
+async fn six_different_failing_commands_are_investigation_not_a_loop() {
+    // train-fasttext, 2026-10-08: `pip install fasttext` failed to build, `g++`
+    // was missing, an environment survey exited 2, a build-backend probe
+    // failed — six distinct non-zero exits, each telling the model something
+    // new — and the ladder halted the turn 39 s into a 60-minute budget.
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let attempts = [
+        ("pip install fasttext", exit_report(1, "", "RuntimeError: Unsupported compiler")),
+        ("pip install fasttext-wheel", exit_report(1, "", "No matching distribution")),
+        ("g++ --version", exit_report(127, "", "g++: command not found")),
+        ("cat /etc/os-release; which cc gcc clang", exit_report(2, "Debian 12", "")),
+        ("python -c 'import setuptools.build_meta'", exit_report(1, "", "BackendUnavailable")),
+        ("apt-get install -y g++", exit_report(100, "", "E: Unable to locate package")),
+        ("pip download fasttext --no-deps", exit_report(1, "", "network unreachable")),
+    ];
+    for (i, (command, report)) in attempts.iter().enumerate() {
+        run_shell(&mw, &format!("probe-{i}"), command, failing_result("shell", report)).await;
+    }
+    assert_eq!(drain_pause_count(&handle), 0, "distinct failing commands never halt");
+    assert!(slot.lock().unwrap().is_none(), "no halt summary");
+}
+
+#[tokio::test]
+async fn the_same_failing_command_three_times_still_halts() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    for i in 0..3 {
+        run_shell(
+            &mw,
+            &format!("same-{i}"),
+            "pip install fasttext",
+            failing_result("shell", &exit_report(1, "", "RuntimeError: Unsupported compiler")),
+        )
+        .await;
+    }
+    assert_eq!(drain_pause_count(&handle), 1, "an identical failing command still trips the ladder");
+    let summary = slot.lock().unwrap().clone().unwrap();
+    assert!(summary.contains("pip install fasttext"), "{summary}");
+}
+
+#[tokio::test]
+async fn a_different_command_between_repeats_resets_the_identical_count() {
+    let handle = SteeringHandle::allow_all();
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let mw = RepeatedToolFailureMiddleware::new(handle.clone(), 3, slot.clone());
+    let same = || failing_result("shell", &exit_report(1, "", "boom"));
+    run_shell(&mw, "a-1", "make", same()).await;
+    run_shell(&mw, "a-2", "make", same()).await;
+    run_shell(&mw, "b-1", "ls build/", failing_result("shell", &exit_report(2, "", "No such file"))).await;
+    run_shell(&mw, "a-3", "make", same()).await;
+    run_shell(&mw, "a-4", "make", same()).await;
+    assert_eq!(drain_pause_count(&handle), 0, "the streak restarted after `ls build/`");
+    run_shell(&mw, "a-5", "make", same()).await;
+    assert_eq!(drain_pause_count(&handle), 1, "three identical failures in a row halt");
 }

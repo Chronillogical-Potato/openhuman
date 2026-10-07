@@ -103,6 +103,10 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// unrecoverable: one run was stopped after six different submissions and
     /// kept no record of what any of them sent.
     recent_failures: std::sync::Mutex<std::collections::VecDeque<String>>,
+    /// `tool\u{1f}args` of the last finished command that exited non-zero,
+    /// kept so a *repeat* of it still counts as a failure while a different
+    /// command's non-zero exit counts as information (see `after_tool`).
+    last_exit_report: std::sync::Mutex<Option<String>>,
 }
 
 impl RepeatedToolFailureMiddleware {
@@ -132,6 +136,7 @@ impl RepeatedToolFailureMiddleware {
             classified: ClassifiedFailureTracker::default(),
             recent_calls: std::sync::Mutex::default(),
             recent_failures: std::sync::Mutex::default(),
+            last_exit_report: std::sync::Mutex::default(),
             step: AtomicUsize::new(0),
             arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
             target_scopes: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -851,6 +856,39 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         // success/failure signal — `None` means "progress was made, reset every
         // counter") sees the repeat as a failure and feeds it into the same
         // nudge/halt ladder as a real tool error.
+        // A finished command that exited non-zero is the program's answer, and
+        // a different command's non-zero exit is new information, not a
+        // repeat: `pip install` failing to build, `g++` turning out to be
+        // missing, a `which cc` that finds nothing. Six such answers in a row
+        // ended one turn 39 s into a 60-minute budget as "no progress". Only
+        // the same command failing again counts toward the ladder; a different
+        // one resets it the way a success would. A loop of varied commands is
+        // still bounded by the call cap and the clock.
+        let exit_report = result.is_error && !hard_reject && is_command_exit_report(&failure_text);
+        let same_command_again = exit_report && {
+            let key = format!("{tool_name}\u{1f}{arg_fp}");
+            let mut last = self.last_exit_report.lock().ok();
+            let repeat = last.as_deref().is_some_and(|l| l.as_deref() == Some(key.as_str()));
+            if let Some(slot) = last.as_mut() {
+                **slot = Some(key);
+            }
+            repeat
+        };
+        if !exit_report {
+            if let Ok(mut last) = self.last_exit_report.lock() {
+                *last = None;
+            }
+        }
+        if exit_report && !same_command_again {
+            // A new command: the ladder starts over, as after a success, and
+            // the list a halt would print starts with this call.
+            self.tracker.reset();
+            if let Ok(mut failures) = self.recent_failures.lock() {
+                let newest = failures.pop_back();
+                failures.clear();
+                failures.extend(newest);
+            }
+        }
         let attempt_error: Option<&str> = match result.is_error {
             true => Some(failure_text.as_str()),
             false if body_level_failure => Some(failure_text.as_str()),
