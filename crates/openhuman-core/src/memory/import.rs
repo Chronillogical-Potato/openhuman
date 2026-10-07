@@ -707,3 +707,7 @@ async fn run(
 #[cfg(test)]
 #[path = "import_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "import_recovery_tests.rs"]
+mod recovery_tests;
