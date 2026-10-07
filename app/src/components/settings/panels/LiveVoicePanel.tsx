@@ -127,12 +127,47 @@ const LiveVoicePanel = () => {
 
   const defaultProvider = settings?.default_provider || catalog?.default_provider || '';
 
+  const renderCard = (provider: LiveVoiceProvider) => (
+    <LiveVoiceProviderCard
+      key={provider.id}
+      provider={provider}
+      groupName={groupName}
+      selected={provider.id === defaultProvider}
+      settings={settings}
+      saving={saving}
+      test={tests[provider.id]}
+      keyDraft={keyDrafts[provider.id] ?? ''}
+      onSelect={() => void persist({ default_provider: provider.id })}
+      onTest={() => void runTest(provider.id)}
+      onKeyDraft={value => setKeyDrafts(prev => ({ ...prev, [provider.id]: value }))}
+      onSaveKey={() => void saveKey(provider)}
+      onClearKey={() => void clearKey(provider)}
+      onPersist={patch => void persist(patch)}
+    />
+  );
+
+  const groups = catalog
+    ? [
+        {
+          id: 'hosted',
+          title: t('connections.voiceAgents.groupIncluded'),
+          description: t('connections.voiceAgents.groupIncludedDesc'),
+          providers: catalog.providers.filter(p => p.kind === 'hosted'),
+        },
+        {
+          id: 'byok',
+          title: t('connections.voiceAgents.groupByok'),
+          description: t('connections.voiceAgents.groupByokDesc'),
+          providers: catalog.providers.filter(p => p.kind !== 'hosted'),
+        },
+      ].filter(g => g.providers.length > 0)
+    : [];
+
   return (
     <SettingsTabbedPage
       title={t('connections.tabs.voiceAgents')}
-      description={t('connections.header.voiceAgents')}
-      headerAction={defaultSelect}>
-      <div className="flex w-full flex-col gap-4" data-testid="live-voice-panel">
+      description={t('connections.header.voiceAgents')}>
+      <div className="flex w-full max-w-3xl flex-col gap-6" data-testid="live-voice-panel">
         {loadError && (
           <Alert variant="destructive">
             <AlertDescription>
@@ -143,57 +178,29 @@ const LiveVoicePanel = () => {
         {!catalog && !loadError && <CenteredLoadingState label={t('common.loading')} />}
 
         {catalog && (
-          <TileGrid columns={2} data-testid="live-voice-providers">
-            {catalog.providers.map(provider => {
-              const Icon = PROVIDER_ICON[provider.id] ?? Sparkles;
-              const isDefault = provider.id === defaultProvider;
-              const testing = tests[provider.id]?.kind === 'testing';
-              return (
-                <Tile
-                  key={provider.id}
-                  data-testid={`live-voice-provider-${provider.id}`}
-                  icon={<Icon />}
-                  iconActive={provider.configured}
-                  selected={isDefault}
-                  title={provider.label}
-                  description={
-                    PROVIDER_DESC_KEY[provider.id] ? t(PROVIDER_DESC_KEY[provider.id]) : undefined
-                  }
-                  control={
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      analyticsId="live-voice-test-provider"
-                      data-testid={`live-voice-test-button-${provider.id}`}
-                      disabled={testing || !provider.configured}
-                      onClick={() => void runTest(provider.id)}>
-                      {testing
-                        ? t('connections.voiceAgents.testing')
-                        : t('connections.voiceAgents.test')}
-                    </Button>
-                  }>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge>
-                      {provider.kind === 'hosted'
-                        ? t('connections.voiceAgents.kindHosted')
-                        : t('connections.voiceAgents.kindByok')}
-                    </Badge>
-                    {isDefault && (
-                      <Badge variant="primary">{t('connections.voiceAgents.badgeDefault')}</Badge>
-                    )}
-                    <Badge variant={provider.configured ? 'success' : 'warning'}>
-                      {provider.configured
-                        ? t('connections.voiceAgents.badgeReady')
-                        : t('connections.voiceAgents.badgeNeedsKey')}
-                    </Badge>
-                  </div>
-                  {keyEditor(provider)}
-                  {pickers(provider)}
-                  <div className="mt-1.5">{testLine(provider.id)}</div>
-                </Tile>
-              );
-            })}
-          </TileGrid>
+          <div
+            role="radiogroup"
+            aria-label={t('connections.voiceAgents.chooseAgent')}
+            className="flex flex-col gap-6"
+            data-testid="live-voice-providers">
+            {groups.map(group => (
+              <section
+                key={group.id}
+                aria-labelledby={`${groupName}-${group.id}`}
+                className="flex flex-col gap-2.5"
+                data-testid={`live-voice-group-${group.id}`}>
+                <header className="px-1">
+                  <h3
+                    id={`${groupName}-${group.id}`}
+                    className="text-sm font-semibold text-content">
+                    {group.title}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-content-muted">{group.description}</p>
+                </header>
+                <div className="flex flex-col gap-2.5">{group.providers.map(renderCard)}</div>
+              </section>
+            ))}
+          </div>
         )}
 
         <StatusLine
