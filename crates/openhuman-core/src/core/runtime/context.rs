@@ -550,6 +550,13 @@ impl CoreContext {
         CURRENT_CONTEXT.scope(ctx, fut).await
     }
 
+    /// [`scope`](Self::scope) for a synchronous closure: `f` runs with `ctx`
+    /// as [`CoreContext::current`]. For blocking work that reads the ambient
+    /// context, such as building a session for a host-registered agent.
+    pub fn sync_scope<R>(ctx: Arc<CoreContext>, f: impl FnOnce() -> R) -> R {
+        unimplemented!("sync_scope")
+    }
+
     /// Capture the current context now and carry it across a subsequently
     /// spawned task. Calling this before `tokio::spawn` is essential: reading
     /// `current()` inside the child would already have fallen back to the
