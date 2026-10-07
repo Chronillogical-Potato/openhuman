@@ -116,3 +116,19 @@ async fn every_read_passes_through_the_timer_unchanged() {
         1
     );
 }
+
+#[test]
+fn scrubbing_keeps_the_page_breaks_a_document_is_chunked_by() {
+    let body = format!("Page one key={SECRET}\u{c}Page two.\u{c}Page three.");
+    let scrubbed = scrub(StoreItem::document(body, MemoryMeta::default()));
+    let StoreItem::Document {
+        body: tinymemory_api::DocumentBody::Text(text),
+        ..
+    } = scrubbed
+    else {
+        panic!("a document");
+    };
+    assert!(!text.contains(SECRET), "{text}");
+    assert_eq!(text.matches('\u{c}').count(), 2, "{text:?}");
+    assert!(text.ends_with("\u{c}Page two.\u{c}Page three."), "{text:?}");
+}

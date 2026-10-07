@@ -22,8 +22,6 @@ export interface ThreadGroup {
   threads: Thread[];
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export function isThreadPinned(thread: Thread): boolean {
   return Boolean(thread.labels?.includes(PINNED_THREAD_LABEL));
 }
@@ -49,11 +47,12 @@ export function recencyGroupFor(timestamp: string, now: Date): Exclude<ThreadGro
   const time = new Date(timestamp).getTime();
   // An unparseable timestamp sorts to the bottom rather than claiming "Today".
   if (Number.isNaN(time)) return 'older';
-  const today = startOfLocalDay(now);
-  if (time >= today) return 'today';
-  if (time >= today - DAY_MS) return 'yesterday';
-  if (time >= today - 7 * DAY_MS) return 'previous7Days';
-  if (time >= today - 30 * DAY_MS) return 'previous30Days';
+  const dayStart = (offset: number) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset).getTime();
+  if (time >= dayStart(0)) return 'today';
+  if (time >= dayStart(1)) return 'yesterday';
+  if (time >= dayStart(7)) return 'previous7Days';
+  if (time >= dayStart(30)) return 'previous30Days';
   return 'older';
 }
 

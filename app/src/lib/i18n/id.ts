@@ -709,6 +709,8 @@ const messages: TranslationMap = {
     'Memori tidak tersedia: kredit akun Anda habis. Isi ulang untuk memulihkannya; tidak ada data tersimpan yang hilang.',
   'memory.error.unavailable':
     'Memori tidak dapat dijangkau saat ini. Tidak ada data tersimpan yang hilang; coba lagi sebentar lagi.',
+  'memory.outOfCredits.title': 'Kredit habis',
+  'memory.outOfCredits.action': 'Isi ulang',
   'memory.tab.memory': 'Memori',
   'memory.tab.agents': 'Perpustakaan',
   'memory.analyzeNow': 'Analisis Sekarang',
@@ -3493,6 +3495,8 @@ const messages: TranslationMap = {
     'Integrasi Anda yang sudah ada (Gmail, Slack, GitHub, dll. yang terhubung melalui OpenHuman) tidak akan terlihat: mereka berada di tenant Composio yang dikelola OpenHuman.',
   'settings.composio.intro':
     'Composio mengintegrasikan 250+ aplikasi eksternal sebagai tool yang dapat dipanggil agen Anda. Pilih cara pemanggilan tool tersebut dirutekan.',
+  'settings.composio.directOnlyDesc':
+    'Autentikasi Composio terkelola tidak tersedia di sini. Masukkan kunci API Composio Anda sendiri atau lewati langkah ini untuk sementara.',
   'settings.composio.modeDirect': 'Langsung (bawa API key Anda sendiri)',
   'settings.composio.modeDirectDesc':
     'Panggilan langsung ke backend.composio.dev. Berdaulat / ramah offline. Eksekusi tool berjalan sinkron; webhook trigger real-time belum dirutekan dalam mode direct (isu lanjutan).',

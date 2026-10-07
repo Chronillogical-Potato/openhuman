@@ -48,32 +48,26 @@ pub(crate) fn validate_working_dir(raw: Option<&str>) -> Result<Option<String>, 
 
 /// The working folder bound to `thread_id`, if the thread exists and has one.
 ///
-/// A folder that has since disappeared or become forbidden is ignored (with a
-/// warning) so the turn falls back to the global `action_dir` instead of
-/// failing.
-pub(crate) async fn thread_working_dir(workspace_dir: PathBuf, thread_id: &str) -> Option<PathBuf> {
-    let threads = match conversations::blocking::list_threads(workspace_dir).await {
-        Ok(threads) => threads,
-        Err(err) => {
-            tracing::warn!(thread_id, error = %err, "[threads][working_dir] list failed");
-            return None;
-        }
-    };
+/// An unusable bound folder is an error, rather than a reason to run in the
+/// global folder. This preserves the conversation's filesystem boundary.
+pub(crate) async fn thread_working_dir(
+    workspace_dir: PathBuf,
+    thread_id: &str,
+) -> Result<Option<PathBuf>, String> {
+    let threads = conversations::blocking::list_threads(workspace_dir)
+        .await
+        .map_err(|err| format!("failed to load thread working folder: {err}"))?;
     let bound = threads
         .into_iter()
-        .find(|thread| thread.id == thread_id)?
-        .working_dir?;
+        .find(|thread| thread.id == thread_id)
+        .and_then(|thread| thread.working_dir);
+    let Some(bound) = bound else {
+        return Ok(None);
+    };
     match validate_working_dir(Some(&bound)) {
-        Ok(Some(dir)) => Some(PathBuf::from(dir)),
-        Ok(None) => None,
-        Err(err) => {
-            tracing::warn!(
-                thread_id,
-                error = %err,
-                "[threads][working_dir] bound folder unusable; using the global action_dir"
-            );
-            None
-        }
+        Ok(Some(dir)) => Ok(Some(PathBuf::from(dir))),
+        Ok(None) => Ok(None),
+        Err(err) => Err(format!("thread working folder is unusable: {err}")),
     }
 }
 

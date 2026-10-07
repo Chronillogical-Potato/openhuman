@@ -696,6 +696,8 @@ const messages: TranslationMap = {
     'মেমরি উপলব্ধ নয়: আপনার অ্যাকাউন্টের ক্রেডিট শেষ। ফিরিয়ে আনতে টপ আপ করুন; সংরক্ষিত কিছুই হারায়নি।',
   'memory.error.unavailable':
     'এই মুহূর্তে মেমরিতে পৌঁছানো যাচ্ছে না। সংরক্ষিত কিছুই হারায়নি; একটু পরে আবার চেষ্টা করুন।',
+  'memory.outOfCredits.title': 'ক্রেডিট শেষ',
+  'memory.outOfCredits.action': 'টপ আপ করুন',
   'memory.tab.memory': 'মেমোরি',
   'memory.tab.agents': 'লাইব্রেরি',
   'memory.analyzeNow': 'এখনই বিশ্লেষণ করুন',
@@ -3469,6 +3471,8 @@ const messages: TranslationMap = {
     'OpenHuman-এর মাধ্যমে লিঙ্ক করা আপনার বিদ্যমান ইন্টিগ্রেশনগুলি (Gmail, Slack, GitHub ইত্যাদি) দৃশ্যমান হবে না: সেগুলি OpenHuman-পরিচালিত Composio টেন্যান্টে থাকে।',
   'settings.composio.intro':
     'Composio ২৫০+ বহিরাগত অ্যাপকে টুল হিসেবে ইন্টিগ্রেট করে যা আপনার এজেন্ট কল করতে পারে। এই টুল কলগুলি কীভাবে রুট হবে তা নির্বাচন করুন।',
+  'settings.composio.directOnlyDesc':
+    'এখানে Composio-এর পরিচালিত প্রমাণীকরণ উপলভ্য নয়। আপনার নিজের Composio API কী লিখুন অথবা আপাতত এই ধাপটি এড়িয়ে যান।',
   'settings.composio.modeDirect': 'ডাইরেক্ট (নিজের API কী আনুন)',
   'settings.composio.modeDirectDesc':
     'কলগুলি সরাসরি backend.composio.dev-এ যায়। সার্বভৌম / অফলাইন-বান্ধব। টুল এক্সিকিউশন সিঙ্ক্রোনাসভাবে কাজ করে; রিয়েল-টাইম ট্রিগার webhooks এখনও direct মোডে রুট করা হয় না (ফলো-আপ ইস্যু)।',

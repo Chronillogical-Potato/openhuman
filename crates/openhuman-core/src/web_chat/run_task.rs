@@ -102,8 +102,11 @@ pub(crate) async fn run_chat_task(
     // `action_dir`. Applied before checkout so the session agent, its security
     // policy (which grants `action_dir` as a trusted root) and its tools are
     // all built on the thread's folder.
-    if let Some(dir) =
-        crate::threads::ops::thread_working_dir(config.workspace_dir.clone(), thread_id).await
+    if let Some(dir) = crate::threads::ops::thread_working_dir(
+        config.workspace_dir.clone(),
+        thread_id,
+    )
+    .await?
     {
         log::debug!("[web-channel] thread working folder applied thread_id={thread_id}");
         config.action_dir = dir;

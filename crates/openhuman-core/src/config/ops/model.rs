@@ -476,8 +476,10 @@ pub async fn apply_runtime_settings(
         let model = update
             .reasoning_effort_model
             .as_deref()
-            .map(str::trim)
-            .filter(|model| !model.is_empty());
+            .map(str::trim);
+        if model == Some("") {
+            return Err("reasoning_effort_model must not be empty".into());
+        }
         match (model, parsed) {
             (Some(model), Some(effort)) => {
                 log::debug!("[config][reasoning] model={model} effort={effort}");
