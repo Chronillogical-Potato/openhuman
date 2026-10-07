@@ -719,6 +719,12 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Agent,
         crate::agent::orchestration::all_subagent_control_registered_controllers(),
     );
+    // SaaS operator plane: provision and inspect user agents.
+    push(
+        &mut controllers,
+        DomainGroup::Operator,
+        crate::user_agents::all_user_agents_registered_controllers(),
+    );
     controllers
 }
 
@@ -801,6 +807,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "agent" => Some("Per-thread agent run-mode control (Plan vs Build)."),
         "ai" => Some("Agent-generated artifact storage, retrieval, and lifecycle management."),
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
+        "user_agents" => Some("SaaS operator plane: provision and inspect the agent serving each user."),
         "auth" => Some("Manage app session and provider credentials."),
         "agent_experience" => Some("Local procedural experience capture and retrieval for agents."),
         "channels" => Some("Channel definitions, connections, and lifecycle management."),
