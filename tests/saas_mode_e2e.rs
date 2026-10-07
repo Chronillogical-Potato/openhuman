@@ -42,7 +42,11 @@ fn deployment(write_token: bool) -> Deployment {
         set_mode(&token, 0o600);
     }
     let config = tmp.path().join("operator.toml");
-    std::fs::write(&config, format!("root = {:?}\n", root.display().to_string())).unwrap();
+    std::fs::write(
+        &config,
+        format!("root = {:?}\n", root.display().to_string()),
+    )
+    .unwrap();
     Deployment { tmp, root, config }
 }
 
@@ -116,7 +120,12 @@ fn free_port() -> u16 {
         .port()
 }
 
-fn rpc(client: &reqwest::blocking::Client, base: &str, bearer: Option<&str>, method: &str) -> (u16, Value) {
+fn rpc(
+    client: &reqwest::blocking::Client,
+    base: &str,
+    bearer: Option<&str>,
+    method: &str,
+) -> (u16, Value) {
     let mut request = client.post(format!("{base}/rpc")).json(&json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -177,7 +186,10 @@ fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
         "openhuman.memory_search",
     ] {
         let (_, body) = rpc(&client, &base, Some(BEARER), method);
-        assert!(body.get("error").is_some(), "{method} must not be served: {body}");
+        assert!(
+            body.get("error").is_some(),
+            "{method} must not be served: {body}"
+        );
     }
 
     assert!(
@@ -185,7 +197,11 @@ fn a_safe_deployment_serves_only_core_built_ins_behind_the_gateway_bearer() {
         "the operator plane lives under the SaaS root"
     );
     assert!(
-        !d.tmp.path().join(".openhuman").join("active_user.toml").exists(),
+        !d.tmp
+            .path()
+            .join(".openhuman")
+            .join("active_user.toml")
+            .exists(),
         "a SaaS boot never activates a desktop user"
     );
     drop(server);

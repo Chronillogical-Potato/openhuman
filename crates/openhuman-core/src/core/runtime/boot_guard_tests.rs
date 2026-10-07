@@ -37,7 +37,10 @@ fn inputs<'a>(f: &'a Fixture, env: &'a [(String, String)]) -> BootInputs<'a> {
 }
 
 fn violations(inputs: &BootInputs<'_>) -> Vec<Violation> {
-    check(inputs).err().map(|e| e.violations).unwrap_or_default()
+    check(inputs)
+        .err()
+        .map(|e| e.violations)
+        .unwrap_or_default()
 }
 
 fn env(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
@@ -75,7 +78,10 @@ fn background_services_beyond_the_preset_are_refused() {
     i.services = ServiceSet::desktop();
     let found = violations(&i);
     for name in ["socketio", "cron", "channels", "login_gated", "mcp_boot"] {
-        assert!(found.contains(&Violation::Service(name)), "{name}: {found:?}");
+        assert!(
+            found.contains(&Violation::Service(name)),
+            "{name}: {found:?}"
+        );
     }
     assert!(!found.contains(&Violation::Service("rpc_http")));
 }
@@ -87,7 +93,10 @@ fn domain_families_are_refused_until_they_are_isolated() {
     i.domains = DomainSet::harness();
     let found = violations(&i);
     for name in ["agent", "memory", "threads", "config", "security"] {
-        assert!(found.contains(&Violation::Domain(name)), "{name}: {found:?}");
+        assert!(
+            found.contains(&Violation::Domain(name)),
+            "{name}: {found:?}"
+        );
     }
 }
 
@@ -103,9 +112,7 @@ fn single_user_environment_is_refused() {
     ]);
     let found = violations(&inputs(&f, &vars));
     assert_eq!(found.len(), 5, "{found:?}");
-    assert!(found
-        .iter()
-        .all(|v| matches!(v, Violation::Env { .. })));
+    assert!(found.iter().all(|v| matches!(v, Violation::Env { .. })));
 }
 
 #[test]
@@ -118,9 +125,15 @@ fn empty_values_do_not_count_as_set() {
 #[test]
 fn protections_may_be_switched_on_but_not_off() {
     let f = fixture();
-    let on = env(&[("OPENHUMAN_APPROVAL_GATE", "1"), ("OPENHUMAN_SANDBOX", "on")]);
+    let on = env(&[
+        ("OPENHUMAN_APPROVAL_GATE", "1"),
+        ("OPENHUMAN_SANDBOX", "on"),
+    ]);
     assert_eq!(check(&inputs(&f, &on)), Ok(()));
-    let off = env(&[("OPENHUMAN_APPROVAL_GATE", "0"), ("OPENHUMAN_SANDBOX", "off")]);
+    let off = env(&[
+        ("OPENHUMAN_APPROVAL_GATE", "0"),
+        ("OPENHUMAN_SANDBOX", "off"),
+    ]);
     assert_eq!(violations(&inputs(&f, &off)).len(), 2);
 }
 
@@ -147,10 +160,16 @@ fn allowlists_are_refused_until_their_isolation_ships() {
 fn a_bad_root_is_refused() {
     let mut f = fixture();
     f.config.root = PathBuf::from("relative/root");
-    assert!(matches!(violations(&inputs(&f, &[]))[..], [Violation::Root(_)]));
+    assert!(matches!(
+        violations(&inputs(&f, &[]))[..],
+        [Violation::Root(_)]
+    ));
 
     f.config.root = PathBuf::from("/definitely/not/here/openhuman-saas");
-    assert!(matches!(violations(&inputs(&f, &[]))[..], [Violation::Root(_)]));
+    assert!(matches!(
+        violations(&inputs(&f, &[]))[..],
+        [Violation::Root(_)]
+    ));
 }
 
 #[test]
@@ -214,7 +233,10 @@ fn service_token_file_rules() {
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("service.token");
 
-    assert!(matches!(ServiceToken::read(&path), ServiceToken::Invalid(_)));
+    assert!(matches!(
+        ServiceToken::read(&path),
+        ServiceToken::Invalid(_)
+    ));
 
     std::fs::write(&path, "short\n").unwrap();
     #[cfg(unix)]

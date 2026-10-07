@@ -48,7 +48,11 @@ fn unknown_keys_are_refused() {
     // A misspelt safety setting must not be silently ignored.
     let tmp = tempfile::tempdir().unwrap();
     let path = tmp.path().join("operator.toml");
-    std::fs::write(&path, "root = \"/srv/oh\"\ntool_allow_list = [\"coding\"]\n").unwrap();
+    std::fs::write(
+        &path,
+        "root = \"/srv/oh\"\ntool_allow_list = [\"coding\"]\n",
+    )
+    .unwrap();
     let err = SaasConfig::load(&path).unwrap_err().to_string();
     assert!(err.contains("tool_allow_list"), "{err}");
 }
