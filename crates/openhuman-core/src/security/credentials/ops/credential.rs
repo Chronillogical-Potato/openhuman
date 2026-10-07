@@ -574,3 +574,7 @@ fn publish_credential_changed(kind: &str) {
         kind: kind.to_string(),
     });
 }
+
+#[cfg(test)]
+#[path = "credential_tests.rs"]
+mod tests;
