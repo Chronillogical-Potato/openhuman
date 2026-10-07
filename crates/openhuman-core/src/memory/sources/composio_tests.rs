@@ -354,6 +354,10 @@ async fn forget_connection_with_memory_off_forgets_nothing() {
             .unwrap(),
         0
     );
+    assert!(
+        is_disconnected(&config, "conn-a"),
+        "the deletion is recorded even with memory off"
+    );
 }
 
 #[tokio::test]
@@ -429,4 +433,77 @@ async fn sync_toolkit_without_a_connector_is_an_error_not_a_panic() {
         namespace: None,
     };
     assert!(sync_toolkit(&config, &bound, &source).await.is_err());
+}
+
+#[tokio::test]
+async fn a_disconnect_waits_for_a_store_in_progress() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    // A store of this connection's records is running.
+    let held = STORE.lock().await;
+    let forget = {
+        let config = config.clone();
+        tokio::spawn(async move { forget_connection(&config, "conn-w", Some("gmail")).await })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    assert!(!forget.is_finished(), "the disconnect waits for the store");
+    drop(held);
+    assert_eq!(forget.await.unwrap().unwrap(), 0);
+}
+
+#[tokio::test]
+async fn records_read_before_a_disconnect_are_not_stored_after_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let bound = crate::memory::engine::resolve(&config).engine().unwrap();
+    forget_connection(&config, "conn-gone", Some("gmail"))
+        .await
+        .unwrap();
+    assert!(is_disconnected(&config, "conn-gone"));
+    // A pass that read its records before the disconnect stores nothing.
+    let stored_now = store_records(
+        &config,
+        &bound,
+        "gmail",
+        "conn-gone",
+        "src",
+        &MemoryLayout::default(),
+        &[record("late", "Late", "read before the disconnect")],
+    )
+    .await
+    .unwrap();
+    assert_eq!(stored_now, 0);
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+    // Another connection, or the same id in another workspace, is unaffected.
+    assert!(!is_disconnected(&config, "conn-other"));
+}
+
+#[tokio::test]
+async fn a_deleted_connection_is_not_read_again() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    let bound = crate::memory::engine::resolve(&config).engine().unwrap();
+    forget_connection(&config, "conn-x", Some("gmail"))
+        .await
+        .unwrap();
+    // No connector call is made: an empty pass with nothing pending ends
+    // the caller's loop.
+    let pass = run_sync_pass(
+        &config,
+        &bound,
+        "gmail",
+        "conn-x",
+        "src",
+        "manual",
+        SYNC_PASS_MAX_ITEMS,
+    )
+    .await
+    .unwrap();
+    assert_eq!(pass.records_read, 0);
+    assert_eq!(pass.written, 0);
+    assert!(!pass.more_pending);
+    assert!(pass.failure.is_none());
 }
