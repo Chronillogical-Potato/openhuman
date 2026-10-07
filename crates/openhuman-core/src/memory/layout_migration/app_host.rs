@@ -6,7 +6,7 @@ use async_trait::async_trait;
 
 use super::claim::ClaimKey;
 use super::copy::Engines;
-use super::host::LayoutHost;
+use super::job::LayoutHost;
 use super::map::{FlowPlacement, Placement};
 use crate::config::{Config, MemoryLayoutMode};
 use crate::memory::engine::{self, CORTEXDB_ENGINE};

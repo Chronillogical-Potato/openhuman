@@ -62,6 +62,14 @@ where
 {
     state.phase = Phase::Copying;
     state.error = None;
+    if state.cursor.is_none() {
+        // A pass from the top (the first, or the catch-up after the switch)
+        // meets every item again: count it afresh.
+        state.copied = 0;
+        state.replayed = 0;
+        state.failures.clear();
+        state.incomplete.clear();
+    }
     state::save(workspace_dir, state)?;
     loop {
         if paused().await {
@@ -83,17 +91,16 @@ where
                 return Err(error);
             }
         };
-        state
-            .incomplete
-            .extend(page.incomplete.into_iter().map(|id| id.0));
+        for id in page.incomplete {
+            if !state.incomplete.contains(&id.0) {
+                state.incomplete.push(id.0);
+            }
+        }
         let mut placed = Vec::with_capacity(page.items.len());
         for exported in page.items {
             match placement.place(exported.item) {
                 Ok(item) => placed.push((exported.id.0, item)),
-                Err(error) => state.failures.push(Failure {
-                    id: exported.id.0,
-                    reason: error.code().to_string(),
-                }),
+                Err(error) => note_failure(state, exported.id.0, error.code()),
             }
         }
         if let Err(error) = store_and_check(engines.tree.as_ref(), placed, state).await {
@@ -112,6 +119,17 @@ where
             return Ok(());
         }
         state::save(workspace_dir, state)?;
+    }
+}
+
+/// Records `id` as not copied, once: a page sent again after a pause meets
+/// the same items.
+fn note_failure(state: &mut MigrationState, id: String, reason: &str) {
+    if !state.failures.iter().any(|failure| failure.id == id) {
+        state.failures.push(Failure {
+            id,
+            reason: reason.to_string(),
+        });
     }
 }
 
@@ -149,10 +167,7 @@ async fn store_and_check(
                 match tree.store(item).await {
                     Ok(receipt) => stored.push((legacy, receipt.id, receipt.replayed)),
                     Err(error) if !skips_item(&error) => return Err(error.into()),
-                    Err(error) => state.failures.push(Failure {
-                        id: legacy,
-                        reason: MemoryError::from(error).code().to_string(),
-                    }),
+                    Err(error) => note_failure(state, legacy, MemoryError::from(error).code()),
                 }
             }
         }
@@ -167,10 +182,7 @@ async fn store_and_check(
             state.copied += 1;
             state.replayed += u64::from(replayed);
         } else {
-            state.failures.push(Failure {
-                id: legacy,
-                reason: "not_readable_after_store".to_string(),
-            });
+            note_failure(state, legacy, "not_readable_after_store");
         }
     }
     Ok(())

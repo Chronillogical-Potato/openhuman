@@ -19,7 +19,7 @@ use serde::Serialize;
 
 use super::claim;
 use super::copy::legacy_present;
-use super::host::LayoutHost;
+use super::job::LayoutHost;
 use super::job::{run, Trigger};
 use super::state::{self, MigrationState, Phase};
 use crate::config::Config;

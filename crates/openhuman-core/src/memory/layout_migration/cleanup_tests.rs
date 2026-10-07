@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
-    async_trait, EngineDescriptor, EngineHealth, ExportPage, FetchPage, FetchRequest, ForgetReport,
-    Hit, LearningKind, ListPage, MemoryEngine, MemoryMeta, RecallAnswer, RecallRequest, Result,
-    StoreItem, StoreReceipt,
+    async_trait, EngineDescriptor, EngineHealth, EraseReport, ExportPage, FetchPage, FetchRequest,
+    ForgetReport, Hit, LearningKind, ListPage, MemoryEngine, MemoryMeta, RecallAnswer,
+    RecallRequest, Result, StoreItem, StoreReceipt,
 };
 use tinymemory_tools::MemoryLayout;
 
@@ -67,6 +67,43 @@ async fn copied(tmp: &Path, engines: &Engines) -> MigrationState {
 /// A reference engine that cannot erase, as the hosted one cannot.
 struct NoErase(ReferenceEngine);
 
+/// A reference engine whose erase must never be called.
+struct NeverErase(ReferenceEngine);
+
+#[async_trait]
+impl MemoryEngine for NeverErase {
+    fn descriptor(&self) -> &EngineDescriptor {
+        self.0.descriptor()
+    }
+    async fn health(&self) -> EngineHealth {
+        self.0.health().await
+    }
+    async fn recall(&self, req: RecallRequest) -> Result<RecallAnswer> {
+        self.0.recall(req).await
+    }
+    async fn fetch(&self, req: FetchRequest) -> Result<FetchPage> {
+        self.0.fetch(req).await
+    }
+    async fn store(&self, item: StoreItem) -> Result<StoreReceipt> {
+        self.0.store(item).await
+    }
+    async fn forget(&self, target: ForgetTarget) -> Result<ForgetReport> {
+        self.0.forget(target).await
+    }
+    async fn list(&self, req: ListRequest) -> Result<ListPage> {
+        self.0.list(req).await
+    }
+    async fn export(&self, req: ListRequest) -> Result<ExportPage> {
+        self.0.export(req).await
+    }
+    async fn get(&self, req: GetRequest) -> Result<Vec<Hit>> {
+        self.0.get(req).await
+    }
+    async fn erase(&self, _: EraseRequest) -> Result<EraseReport> {
+        panic!("a shared legacy tree is never erased scope-wide");
+    }
+}
+
 #[async_trait]
 impl MemoryEngine for NoErase {
     fn descriptor(&self) -> &EngineDescriptor {
@@ -108,9 +145,14 @@ async fn everything_moved_is_erased_from_the_legacy_tree() {
         tree: tree.clone(),
     };
     let mut state = copied(tmp.path(), &engines).await;
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
-        false
-    })
+    cleanup(
+        tmp.path(),
+        &engines,
+        &placement(),
+        false,
+        &mut state,
+        || async { false },
+    )
     .await
     .unwrap();
     assert_eq!(state.phase, Phase::Cleaned);
@@ -139,9 +181,14 @@ async fn an_item_without_its_twin_is_never_removed() {
         .unwrap();
     tree.forget(ForgetTarget::Ids(vec![lost.id])).await.unwrap();
 
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
-        false
-    })
+    cleanup(
+        tmp.path(),
+        &engines,
+        &placement(),
+        false,
+        &mut state,
+        || async { false },
+    )
     .await
     .unwrap();
     assert_eq!(state.phase, Phase::Cleaned);
@@ -168,9 +215,14 @@ async fn an_engine_that_cannot_erase_forgets_by_id() {
         tree: Arc::new(ReferenceEngine::new()),
     };
     let mut state = copied(tmp.path(), &engines).await;
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
-        false
-    })
+    cleanup(
+        tmp.path(),
+        &engines,
+        &placement(),
+        false,
+        &mut state,
+        || async { false },
+    )
     .await
     .unwrap();
     assert_eq!(state.phase, Phase::Cleaned);
@@ -185,12 +237,51 @@ async fn a_paused_cleanup_says_it_was_cleaning() {
         tree: Arc::new(ReferenceEngine::new()),
     };
     let mut state = copied(tmp.path(), &engines).await;
-    cleanup(tmp.path(), &engines, &placement(), &mut state, || async {
-        true
-    })
+    cleanup(
+        tmp.path(),
+        &engines,
+        &placement(),
+        false,
+        &mut state,
+        || async { true },
+    )
     .await
     .unwrap();
     assert_eq!(state.phase, Phase::Paused);
     assert!(state.cleaning, "a resume goes back to cleanup");
     assert_eq!(texts(engines.legacy.as_ref()).await.len(), 4);
+}
+
+#[tokio::test]
+async fn a_shared_legacy_tree_is_forgotten_by_id_never_erased() {
+    let tmp = tempfile::tempdir().unwrap();
+    let legacy = Arc::new(NeverErase(ReferenceEngine::new()));
+    for i in 0..5 {
+        legacy
+            .store(StoreItem::learning(
+                format!("fact {i}"),
+                LearningKind::Fact,
+                0.5,
+                MemoryMeta::default(),
+            ))
+            .await
+            .unwrap();
+    }
+    let engines = Engines {
+        legacy: legacy.clone(),
+        tree: Arc::new(ReferenceEngine::new()),
+    };
+    let mut state = copied(tmp.path(), &engines).await;
+    cleanup(
+        tmp.path(),
+        &engines,
+        &placement(),
+        true,
+        &mut state,
+        || async { false },
+    )
+    .await
+    .unwrap();
+    assert_eq!(state.phase, Phase::Cleaned);
+    assert!(texts(legacy.as_ref()).await.is_empty());
 }

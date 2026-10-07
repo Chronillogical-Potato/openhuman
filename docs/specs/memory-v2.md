@@ -251,8 +251,10 @@ stopped. The memory background job runs it on its own only while moving is
 free (always off the hosted engine); `memory_migration_start` runs it now.
 On a self-hosted CortexDB every account on the machine shares the legacy
 tree: it moves only with `takeover: true`, and the first account to take it
-claims it in `<app>/memory/legacy_claims/`, so other accounts have nothing
-to move. Items that could not be moved stay in the legacy tree;
+claims it in `<app>/memory/legacy_claims/`; other accounts have nothing
+to move and go on in their own per-user tree. A shared tree is cleaned up by
+forgetting moved items by id, never by erasing a whole scope, since other
+accounts may still write there. Items that could not be moved stay in the legacy tree;
 `memory_migration_retry` puts them back in line.
 
 **Past conversations.** `memory_conversations_backfill_start` walks the

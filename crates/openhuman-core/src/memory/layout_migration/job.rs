@@ -18,10 +18,12 @@
 //! Every step saves its progress, so [`run`] called again (after a pause, a
 //! crash or a restart) continues where the last one stopped.
 
-use super::claim;
+use async_trait::async_trait;
+
+use super::claim::{self, ClaimKey};
 use super::cleanup::cleanup;
-use super::copy::{copy, legacy_present};
-use super::host::LayoutHost;
+use super::copy::{copy, legacy_present, Engines};
+use super::map::Placement;
 use super::state::{self, MigrationState, Phase};
 use crate::config::Config;
 use crate::memory::error::MemoryResult;
@@ -58,6 +60,57 @@ pub enum Outcome {
     Done,
 }
 
+/// What the migration needs from the host, behind one trait so the job is
+/// tested without a TinyHumans session or a CortexDB server.
+///
+/// The real host (the engine binding and the layout setting) implements it
+/// over `memory::engine` and `memory::scope`; tests implement it over two
+/// in-memory engines.
+#[async_trait]
+pub trait LayoutHost: Send + Sync {
+    /// The legacy-layout engine and the per-user engine for `config`'s
+    /// account, on one endpoint and credential.
+    ///
+    /// # Errors
+    ///
+    /// When memory is off or the account has no per-user root.
+    fn engines(&self, config: &Config) -> MemoryResult<Engines>;
+
+    /// Where items go in the per-user tree.
+    ///
+    /// # Errors
+    ///
+    /// When the layout cannot be built.
+    fn placement(&self, config: &Config) -> MemoryResult<Placement>;
+
+    /// Whether reads and writes already use the per-user tree.
+    fn is_switched(&self, config: &Config) -> bool;
+
+    /// Moves reads and writes to the per-user tree: persists the layout
+    /// setting and drops the cached engines. The real host loads the migrated
+    /// person's own config file fresh, so a setting changed during a long
+    /// migration is never reverted and an account switch mid-move never
+    /// writes another person's config.
+    ///
+    /// # Errors
+    ///
+    /// When the setting cannot be saved.
+    async fn switch(&self, config: &Config) -> MemoryResult<()>;
+
+    /// Whether moving memory costs the user nothing right now (always, off
+    /// the hosted engine).
+    async fn free_now(&self, config: &Config) -> bool;
+
+    /// The claim on the legacy tree when other accounts on this machine may
+    /// share it (a self-hosted engine), so taking it needs the user's
+    /// consent and only one account may; `None` when it is the account's own.
+    ///
+    /// # Errors
+    ///
+    /// When memory is off or the account has no per-user root.
+    fn legacy_claim(&self, config: &Config) -> MemoryResult<Option<ClaimKey>>;
+}
+
 /// Runs (or resumes) the migration of `config`'s account. `paused` is the
 /// scheduler's own pause (background work held), asked before every page.
 ///
@@ -87,15 +140,16 @@ where
         state.takeover = true;
         state::save(dir, &state)?;
     }
-    if let Some(key) = host.legacy_claim(config)? {
-        if claim::held_by_other(&key)? {
-            return Ok(Outcome::ClaimedElsewhere);
+    let shared = host.legacy_claim(config)?;
+    if let Some(key) = &shared {
+        if claim::held_by_other(key)? {
+            return claimed_elsewhere(config, host, &mut state).await;
         }
         if !state.takeover {
             return Ok(Outcome::NeedsTakeover);
         }
-        if !claim::take(&key)? {
-            return Ok(Outcome::ClaimedElsewhere);
+        if !claim::take(key)? {
+            return claimed_elsewhere(config, host, &mut state).await;
         }
     }
     let auto = trigger == Trigger::Auto;
@@ -127,12 +181,32 @@ where
         state.caught_up = true;
         state::save(dir, &state)?;
     }
-    cleanup(dir, &engines, &placement, &mut state, stop).await?;
+    cleanup(
+        dir,
+        &engines,
+        &placement,
+        shared.is_some(),
+        &mut state,
+        stop,
+    )
+    .await?;
     Ok(if state.phase == Phase::Cleaned {
         Outcome::Done
     } else {
         Outcome::Paused
     })
+}
+
+/// Another account took the shared legacy tree: this one has nothing to
+/// move, and goes on in its own per-user tree like an account that never had
+/// legacy memory, rather than in the tree the other account emptied.
+async fn claimed_elsewhere(
+    config: &Config,
+    host: &dyn LayoutHost,
+    state: &mut MigrationState,
+) -> MemoryResult<Outcome> {
+    nothing_to_move(config, host, state).await?;
+    Ok(Outcome::ClaimedElsewhere)
 }
 
 async fn nothing_to_move(

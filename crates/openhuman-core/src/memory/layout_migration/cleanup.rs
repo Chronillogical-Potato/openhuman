@@ -7,8 +7,10 @@
 //! - **A legacy scope whose every item has its twin**, with no partial item
 //!   anywhere, is erased whole ([`MemoryEngine::erase`]), which releases the
 //!   write keys.
-//! - **Otherwise**, and on an engine that cannot erase (the hosted one), the
-//!   items with a twin are forgotten by id; the rest stay where they are.
+//! - **Otherwise**, on an engine that cannot erase (the hosted one), and on
+//!   a legacy tree other accounts share (whose writes can land between the
+//!   survey and an erase), the items with a twin are forgotten by id; the
+//!   rest stay where they are.
 //!
 //! The pass ends by exporting the legacy tree once more: [`Phase::Cleaned`]
 //! is written only if nothing left there has a twin.
@@ -108,6 +110,7 @@ pub async fn cleanup<P>(
     workspace_dir: &Path,
     engines: &Engines,
     placement: &Placement,
+    shared: bool,
     state: &mut MigrationState,
     paused: impl Fn() -> P,
 ) -> MemoryResult<()>
@@ -118,7 +121,7 @@ where
     state.cleaning = true;
     state.error = None;
     state::save(workspace_dir, state)?;
-    match remove_moved(engines, placement, &paused).await {
+    match remove_moved(engines, placement, shared, &paused).await {
         Ok(true) => {}
         Ok(false) => return pause(workspace_dir, state, "background work is paused".into()),
         Err(error) if error.is_account_wide() => {
@@ -148,13 +151,14 @@ where
 async fn remove_moved<P>(
     engines: &Engines,
     placement: &Placement,
+    shared: bool,
     paused: &impl Fn() -> P,
 ) -> MemoryResult<bool>
 where
     P: std::future::Future<Output = bool>,
 {
     let found = survey(engines, placement).await?;
-    let mut can_erase = !found.partial;
+    let mut can_erase = !found.partial && !shared;
     for ((_, kind), (namespace, group)) in found.groups {
         if paused().await {
             return Ok(false);

@@ -141,6 +141,10 @@ async fn a_tree_another_account_took_is_left_alone() {
     assert_eq!(count(&*host.legacy).await, 3, "nothing moved");
     assert_eq!(count(&*host.tree).await, 0);
     assert!(
+        host.switched.load(Ordering::SeqCst),
+        "this account goes on in its own tree, not the one another took"
+    );
+    assert!(
         !crate::memory::layout_migration::scan(&config, &host)
             .await
             .unwrap()

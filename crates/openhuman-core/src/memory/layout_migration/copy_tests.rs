@@ -166,6 +166,26 @@ async fn a_repeated_page_is_a_replay() {
 }
 
 #[tokio::test]
+async fn the_catch_up_pass_counts_each_item_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    let engines = Engines {
+        legacy: legacy_tree(3).await,
+        tree: Arc::new(ReferenceEngine::new()),
+    };
+    let mut state = MigrationState::default();
+    for _ in 0..2 {
+        // The first pass, then the catch-up pass on the same state.
+        copy(tmp.path(), &engines, &placement(), &mut state, || async {
+            false
+        })
+        .await
+        .unwrap();
+    }
+    assert_eq!(state.copied, 4, "not 8");
+    assert_eq!(state.replayed, 4, "the second pass replays every item");
+}
+
+#[tokio::test]
 async fn an_account_that_cannot_write_pauses_without_advancing() {
     let tmp = tempfile::tempdir().unwrap();
     let engines = Engines {
