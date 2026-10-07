@@ -10,6 +10,7 @@
 
 mod common;
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use common::{chat_requests, offline_config, provider, runtime, stub_backend};
@@ -92,6 +93,7 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
 
             // ── asha: two turns on one thread ─────────────────────────────
             let asha = runtime.agent(spec("asha")).expect("asha instantiates");
+            let ravi = runtime.agent(spec("ravi")).expect("ravi instantiates");
             let first = asha
                 .turn("remember the table is for two")
                 .send()
@@ -99,6 +101,11 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
                 .expect("first turn");
             assert_eq!(first.reply, "noted");
             let thread = first.session_id.clone();
+            // Runtime initialization and the first turn create required
+            // configuration/scaffolding files. Snapshot that legitimate
+            // baseline, then ensure subsequent turns add no durable files of
+            // any kind.
+            let baseline: HashSet<_> = files_under(&scratch).into_iter().collect();
             asha.turn("and at eight")
                 .session(&thread)
                 .send()
@@ -123,7 +130,6 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
             );
 
             // ── ravi: a different agent ───────────────────────────────────
-            let ravi = runtime.agent(spec("ravi")).expect("ravi instantiates");
             ravi.turn("hello").send().await.expect("ravi's turn");
 
             // Asha's transcript is in her stores, and only hers.
@@ -156,7 +162,10 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
             assert!(!runs.is_empty(), "asha's runs are recorded in her store");
 
             // Nothing durable reached the scratch workspace.
-            let written = files_under(&scratch);
+            let written: Vec<_> = files_under(&scratch)
+                .into_iter()
+                .filter(|path| !baseline.contains(path))
+                .collect();
             assert!(
                 written.is_empty(),
                 "a stateless workspace must remain empty, found: {written:?}"
