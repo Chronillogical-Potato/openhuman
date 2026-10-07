@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use tinyskills::{
     check_document_size, redact_url, validate_fetched_document, write_installed_document,
-    DocumentWrite, MAX_INSTALL_DOCUMENT_BYTES,
+    DocumentWrite, FetchedDocument, MAX_INSTALL_DOCUMENT_BYTES,
 };
 
 use super::super::ops_discover::{discover_workflows_inner, is_workspace_trusted};
@@ -173,13 +173,6 @@ pub(crate) async fn install_workflow_from_url_with_home(
         "[skills] install_workflow_from_url: entry"
     );
 
-    let trusted_before = is_workspace_trusted(workspace_dir);
-    let before: std::collections::HashSet<String> =
-        discover_workflows_inner(home, Some(workspace_dir), trusted_before)
-            .into_iter()
-            .map(|s| s.name)
-            .collect();
-
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(timeout_secs))
         .build()
@@ -281,18 +274,33 @@ pub(crate) async fn install_workflow_from_url_with_home(
         }
     };
 
-    // Size, UTF-8, frontmatter, required fields and slug derivation are
-    // owned by tinyskills; the second size check guards against a lying
-    // Content-Length header.
     let document = validate_fetched_document(&bytes).map_err(|e| e.to_string())?;
+    install_validated_document(workspace_dir, home, &raw_url, &fetch_url, document)
+}
+
+/// Write a validated `SKILL.md` into the user skills root, re-discover, and
+/// announce the change. An existing `SKILL.md` for the same slug is an
+/// idempotent success with no new skills.
+pub(crate) fn install_validated_document(
+    workspace_dir: &Path,
+    home: Option<&Path>,
+    source_url: &str,
+    fetched_from: &str,
+    document: FetchedDocument,
+) -> Result<InstallWorkflowFromUrlOutcome, String> {
+    let redacted_source = redact_url(source_url);
+    let redacted_fetched = redact_url(fetched_from);
     let slug = document.slug;
     let content = document.content;
     let parse_warnings = document.warnings;
 
-    // Install to user scope (`~/.openhuman/skills/<slug>`), which `discover_workflows`
-    // scans unconditionally. Project scope (`<ws>/.openhuman/skills/`) is gated on
-    // a `<ws>/.openhuman/trust` marker and would render the install invisible to the
-    // skills list until the user opts the workspace into trust.
+    let trusted_before = is_workspace_trusted(workspace_dir);
+    let before: std::collections::HashSet<String> =
+        discover_workflows_inner(home, Some(workspace_dir), trusted_before)
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
+
     let skills_root = home
         .ok_or_else(|| "write failed: unable to resolve home directory".to_string())?
         .join(".openhuman")
@@ -303,15 +311,15 @@ pub(crate) async fn install_workflow_from_url_with_home(
             DocumentWrite::Installed(path) => path,
             DocumentWrite::AlreadyInstalled(target_file) => {
                 tracing::info!(
-                    raw_url = %redacted_raw_url,
-                    fetch_url = %redacted_fetch_url,
+                    source_url = %redacted_source,
+                    fetched_from = %redacted_fetched,
                     slug = %slug,
                     target = %target_file.display(),
-                    "[skills] install_workflow_from_url: already installed"
+                    "[skills] install: already installed"
                 );
 
                 return Ok(InstallWorkflowFromUrlOutcome {
-                    url: raw_url,
+                    url: source_url.to_owned(),
                     stdout: format!(
                         "Skill {slug:?} is already installed at {}",
                         target_file.display()
@@ -331,30 +339,28 @@ pub(crate) async fn install_workflow_from_url_with_home(
         .collect();
 
     tracing::info!(
-        raw_url = %redacted_raw_url,
-        fetch_url = %redacted_fetch_url,
+        source_url = %redacted_source,
+        fetched_from = %redacted_fetched,
         slug = %slug,
         bytes = content.len(),
         new_count = new_skills.len(),
-        "[skills] install_workflow_from_url: completed"
+        "[skills] install: completed"
     );
 
     let stdout = format!(
-        "Fetched {} bytes from {fetch_url}\nInstalled to {}",
+        "Fetched {} bytes from {fetched_from}\nInstalled to {}",
         content.len(),
         target_file.display()
     );
     let stderr = parse_warnings.join("\n");
 
-    // Notify live agent sessions so they refresh their `## Installed Skills`
-    // catalogue mid-conversation (see `OpenHumanSessionHost::refresh_workflows`).
     crate::skills::ops_discover::invalidate_workflow_metadata_cache();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::WorkflowsChanged {
         reason: "install".to_string(),
     });
 
     Ok(InstallWorkflowFromUrlOutcome {
-        url: raw_url,
+        url: source_url.to_owned(),
         stdout,
         stderr,
         new_skills,
