@@ -51,6 +51,24 @@ pub(super) async fn events_handler(
         .map(openhuman_core::core::auth::verify_bearer_token)
         .unwrap_or(false);
 
+    // SaaS: the stream belongs to the user the gateway scoped this request to,
+    // and carries only that user's events. No user scope, or a browser bind
+    // token instead of the gateway's bearer, is refused outright.
+    let saas_agent = if openhuman_core::core::runtime::is_saas() {
+        let agent = openhuman_core::core::runtime::CoreContext::current()
+            .and_then(|ctx| ctx.session_agent().map(str::to_owned));
+        match agent {
+            Some(agent) if bearer_ok => Some(agent),
+            _ => {
+                log::warn!("[events] reject subscribe: SaaS streams need a gateway user scope");
+                return (StatusCode::NOT_FOUND, Json(json!({ "error": "not found" })))
+                    .into_response();
+            }
+        }
+    } else {
+        None
+    };
+
     if !bearer_ok {
         let supplied_token = query
             .token
@@ -98,6 +116,11 @@ pub(super) async fn events_handler(
             let event = item.ok()?;
             if event.client_id != client_id {
                 return None;
+            }
+            if let Some(agent) = saas_agent.as_deref() {
+                if !openhuman_core::web_chat::event_belongs_to(&event, agent) {
+                    return None;
+                }
             }
             let data = serde_json::to_string(&event).ok()?;
             Some(Ok(Event::default().event(event.event).data(data)))

@@ -4,8 +4,9 @@
 //! every request it:
 //!
 //! 1. answers `404` for routes a SaaS core never serves — the OpenAI-compatible
-//!    `/v1`, every `/events` stream, the WebSockets, `/dev/connect` and the MCP
-//!    OAuth callback;
+//!    `/v1`, the `/events/*` debug streams, the WebSockets, `/dev/connect` and
+//!    the MCP OAuth callback — and for the `/events` chat stream outside a
+//!    user's scope;
 //! 2. with no `X-OpenHuman-User`, runs it on the operator plane (the bearer
 //!    check downstream still applies);
 //! 3. with one, checks the service bearer **first** — so an unauthenticated
@@ -29,7 +30,7 @@ use openhuman_core::user_agents::gateway::{
 /// Route prefixes a SaaS core never serves.
 pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
     "/v1",
-    "/events",
+    "/events/",
     "/ws/",
     "/socket.io",
     "/dev/connect",
@@ -68,6 +69,10 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
     }
 
     let Some(user) = header_str(&req, USER_HEADER).map(str::to_owned) else {
+        // The chat event stream is a user's; the operator has none.
+        if path == "/events" {
+            return refuse(404, "not found");
+        }
         return CoreContext::scope(operator, next.run(req)).await;
     };
 
