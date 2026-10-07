@@ -17,7 +17,12 @@ fn spend(day: u32, model: &str, agent: Option<&str>, thread: Option<&str>, usd: 
     CostRecord::new("s", usage)
 }
 
-fn policy(scope: BudgetScope, period: BudgetPeriod, max_usd: f64, action: BudgetAction) -> BudgetPolicy {
+fn policy(
+    scope: BudgetScope,
+    period: BudgetPeriod,
+    max_usd: f64,
+    action: BudgetAction,
+) -> BudgetPolicy {
     BudgetPolicy {
         name: Some("test".into()),
         scope,
@@ -48,20 +53,40 @@ fn period_starts_are_midnight_and_the_first_of_the_month() {
 
 #[test]
 fn a_global_monthly_budget_refuses_once_reached() {
-    let records = vec![spend(2, "m", None, None, 6.0), spend(14, "m", None, None, 4.0)];
-    let policies = vec![policy(BudgetScope::Global, BudgetPeriod::Month, 10.0, BudgetAction::Refuse)];
+    let records = vec![
+        spend(2, "m", None, None, 6.0),
+        spend(14, "m", None, None, 4.0),
+    ];
+    let policies = vec![policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        10.0,
+        BudgetAction::Refuse,
+    )];
     let scope = UsageScope::default();
     let verdict = evaluate(&policies, &records, call("m", &scope), now());
     let hit = verdict.refusal().expect("refused");
     assert!(hit.exceeded);
     assert_eq!(hit.bucket, "*");
-    assert!(hit.refusal().starts_with("BUDGET_EXCEEDED:"), "{}", hit.refusal());
+    assert!(
+        hit.refusal().starts_with("BUDGET_EXCEEDED:"),
+        "{}",
+        hit.refusal()
+    );
 }
 
 #[test]
 fn a_daily_budget_counts_only_today() {
-    let records = vec![spend(14, "m", None, None, 9.0), spend(15, "m", None, None, 1.0)];
-    let policies = vec![policy(BudgetScope::Global, BudgetPeriod::Day, 5.0, BudgetAction::Refuse)];
+    let records = vec![
+        spend(14, "m", None, None, 9.0),
+        spend(15, "m", None, None, 1.0),
+    ];
+    let policies = vec![policy(
+        BudgetScope::Global,
+        BudgetPeriod::Day,
+        5.0,
+        BudgetAction::Refuse,
+    )];
     let scope = UsageScope::default();
     let verdict = evaluate(&policies, &records, call("m", &scope), now());
     assert!(verdict.hits.is_empty(), "{verdict:?}");
@@ -72,17 +97,30 @@ fn warn_policies_and_the_warn_fraction_never_refuse() {
     let records = vec![spend(10, "m", None, None, 8.5)];
     let scope = UsageScope::default();
     let near = evaluate(
-        &[policy(BudgetScope::Global, BudgetPeriod::Month, 10.0, BudgetAction::Refuse)],
+        &[policy(
+            BudgetScope::Global,
+            BudgetPeriod::Month,
+            10.0,
+            BudgetAction::Refuse,
+        )],
         &records,
         call("m", &scope),
         now(),
     );
     assert_eq!(near.hits.len(), 1);
     assert!(!near.hits[0].exceeded);
-    assert!(near.refusal().is_none(), "past the warn fraction is only a warning");
+    assert!(
+        near.refusal().is_none(),
+        "past the warn fraction is only a warning"
+    );
 
     let over_warn_only = evaluate(
-        &[policy(BudgetScope::Global, BudgetPeriod::Month, 5.0, BudgetAction::Warn)],
+        &[policy(
+            BudgetScope::Global,
+            BudgetPeriod::Month,
+            5.0,
+            BudgetAction::Warn,
+        )],
         &records,
         call("m", &scope),
         now(),
@@ -97,7 +135,12 @@ fn per_agent_budgets_count_each_agent_separately() {
         spend(10, "m", Some("planner"), None, 9.0),
         spend(10, "m", Some("orchestrator"), None, 1.0),
     ];
-    let policies = vec![policy(BudgetScope::Agent, BudgetPeriod::Month, 5.0, BudgetAction::Refuse)];
+    let policies = vec![policy(
+        BudgetScope::Agent,
+        BudgetPeriod::Month,
+        5.0,
+        BudgetAction::Refuse,
+    )];
     let planner = UsageScope {
         agent_id: Some("planner".into()),
         ..UsageScope::default()
@@ -106,54 +149,111 @@ fn per_agent_budgets_count_each_agent_separately() {
         agent_id: Some("orchestrator".into()),
         ..UsageScope::default()
     };
-    assert!(evaluate(&policies, &records, call("m", &planner), now()).refusal().is_some());
-    assert!(evaluate(&policies, &records, call("m", &orchestrator), now()).hits.is_empty());
+    assert!(evaluate(&policies, &records, call("m", &planner), now())
+        .refusal()
+        .is_some());
+    assert!(
+        evaluate(&policies, &records, call("m", &orchestrator), now())
+            .hits
+            .is_empty()
+    );
     // A call with no agent is outside a per-agent budget.
     let unattributed = UsageScope::default();
-    assert!(evaluate(&policies, &records, call("m", &unattributed), now()).hits.is_empty());
+    assert!(
+        evaluate(&policies, &records, call("m", &unattributed), now())
+            .hits
+            .is_empty()
+    );
 }
 
 #[test]
 fn a_match_limits_the_budget_to_one_bucket() {
-    let records = vec![spend(10, "expensive", None, None, 9.0), spend(10, "cheap", None, None, 9.0)];
-    let mut only_expensive = policy(BudgetScope::Model, BudgetPeriod::Month, 5.0, BudgetAction::Refuse);
+    let records = vec![
+        spend(10, "expensive", None, None, 9.0),
+        spend(10, "cheap", None, None, 9.0),
+    ];
+    let mut only_expensive = policy(
+        BudgetScope::Model,
+        BudgetPeriod::Month,
+        5.0,
+        BudgetAction::Refuse,
+    );
     only_expensive.matches = Some("expensive".into());
     let scope = UsageScope::default();
-    assert!(evaluate(&[only_expensive.clone()], &records, call("expensive", &scope), now())
-        .refusal()
-        .is_some());
-    assert!(evaluate(&[only_expensive], &records, call("cheap", &scope), now())
-        .hits
-        .is_empty());
+    assert!(evaluate(
+        &[only_expensive.clone()],
+        &records,
+        call("expensive", &scope),
+        now()
+    )
+    .refusal()
+    .is_some());
+    assert!(
+        evaluate(&[only_expensive], &records, call("cheap", &scope), now())
+            .hits
+            .is_empty()
+    );
 }
 
 #[test]
 fn token_limits_count_input_and_output() {
-    let records = vec![spend(10, "m", None, None, 0.0), spend(11, "m", None, None, 0.0)];
-    let mut tokens = policy(BudgetScope::Global, BudgetPeriod::Month, 0.0, BudgetAction::Refuse);
+    let records = vec![
+        spend(10, "m", None, None, 0.0),
+        spend(11, "m", None, None, 0.0),
+    ];
+    let mut tokens = policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        0.0,
+        BudgetAction::Refuse,
+    );
     tokens.max_usd = None;
     tokens.max_tokens = Some(3000);
     let scope = UsageScope::default();
     let verdict = evaluate(&[tokens], &records, call("m", &scope), now());
     let hit = verdict.refusal().expect("3000 tokens used");
     assert_eq!(hit.tokens, 3000);
-    assert!(hit.refusal().contains("3000 of 3000 tokens"), "{}", hit.refusal());
+    assert!(
+        hit.refusal().contains("3000 of 3000 tokens"),
+        "{}",
+        hit.refusal()
+    );
 }
 
 #[test]
 fn a_policy_without_limits_is_ignored() {
-    let mut empty = policy(BudgetScope::Global, BudgetPeriod::Month, 0.0, BudgetAction::Refuse);
+    let mut empty = policy(
+        BudgetScope::Global,
+        BudgetPeriod::Month,
+        0.0,
+        BudgetAction::Refuse,
+    );
     empty.max_usd = None;
     let scope = UsageScope::default();
-    let verdict = evaluate(&[empty], &[spend(10, "m", None, None, 99.0)], call("m", &scope), now());
+    let verdict = evaluate(
+        &[empty],
+        &[spend(10, "m", None, None, 99.0)],
+        call("m", &scope),
+        now(),
+    );
     assert!(verdict.hits.is_empty());
 }
 
 #[test]
 fn earliest_start_covers_the_longest_period() {
     let policies = vec![
-        policy(BudgetScope::Global, BudgetPeriod::Day, 1.0, BudgetAction::Warn),
-        policy(BudgetScope::Global, BudgetPeriod::Month, 1.0, BudgetAction::Warn),
+        policy(
+            BudgetScope::Global,
+            BudgetPeriod::Day,
+            1.0,
+            BudgetAction::Warn,
+        ),
+        policy(
+            BudgetScope::Global,
+            BudgetPeriod::Month,
+            1.0,
+            BudgetAction::Warn,
+        ),
     ];
     assert_eq!(
         earliest_start(&policies, now()),

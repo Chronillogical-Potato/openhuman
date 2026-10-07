@@ -185,7 +185,11 @@ impl OpenHumanBudgetGate {
                 return None;
             }
         };
-        for hit in verdict.hits.iter().filter(|hit| hit.action == crate::config::BudgetAction::Warn || !hit.exceeded) {
+        for hit in verdict
+            .hits
+            .iter()
+            .filter(|hit| hit.action == crate::config::BudgetAction::Warn || !hit.exceeded)
+        {
             log::warn!(
                 "[tinyagents][budget] budget `{}` for {} at ${:.4}/{:?} usd, {}/{:?} tokens (exceeded={})",
                 hit.policy,

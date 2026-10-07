@@ -27,6 +27,7 @@ Local API-usage cost tracking for the agent. Records per-call token usage and co
 | `crates/openhuman-core/src/platform/cost/route.rs` | `CostRoute` / `route_for_model`: derives from the model id whether a record counts against OpenHuman-managed credits or is BYOK/local (#5016). |
 | `crates/openhuman-core/src/platform/cost/scope.rs` | `UsageScope::ambient`: a record's attribution (thread, origin, agent definition, sub-agent task, embedded/SaaS user agent, provider) read from the recording task's turn origin, memory identity and `CoreContext`. |
 | `crates/openhuman-core/src/platform/cost/report.rs` | Pure usage reports over ledger records: `build_report` (group by day/week/month/model/provider/route/agent/thread/origin/session_agent; tokens, charged vs estimated cost, cache-hit ratio) and `build_cache_report` (per-call hits, cold calls, uncached premium). |
+| `crates/openhuman-core/src/platform/cost/budget.rs` | Budgets (`[[cost.budgets]]`): `evaluate` / `check_call` sum a policy's bucket (global, or this call's thread/agent/model/provider/user agent) over its day or month and report warnings and refusals. The agent budget gate (`agent/tinyagents/host/budget_gate.rs`) runs it before every model call. |
 | `crates/openhuman-core/src/platform/cost/tools.rs` | Read-only, default-on LLM tools (`cost_get_dashboard`, `cost_get_daily_history`, …) re-exported through `crates/openhuman-core/src/tools/mod.rs`. |
 
 ## Public surface
@@ -97,3 +98,30 @@ None. The module has no `bus.rs` and no `DomainEvent` publishers/subscribers.
 - Legacy `budget_utilization` is clamped to `1.0` in the RPC payload; `budget_status` is computed from the raw (unclamped) utilisation against `warn`/`alert` thresholds. A non-positive monthly limit forces `BudgetStatus::Normal` and `0.0` utilisation.
 - All amounts are stored/computed in USD; `currency` is a presentation hint only.
 - Time bucketing is UTC throughout (`naive_utc().date()`); model is the bucket key for per-model stats, and `provider` is derived from the `provider/model` slash prefix in DTO mapping.
+
+## Budgets
+
+Budgets are opt-in and empty by default:
+
+```toml
+[[cost.budgets]]
+name = "monthly cap"
+max_usd = 50.0           # and/or max_tokens
+period = "month"         # or "day" (UTC)
+action = "refuse"        # or "warn" (default)
+
+[[cost.budgets]]
+name = "planner per day"
+scope = "agent"          # global (default) | thread | agent | model | provider | session_agent
+match = "planner"        # omit to apply to each value separately
+period = "day"
+max_usd = 2.0
+warn_fraction = 0.8      # default
+```
+
+Before every model call, the agent's budget gate (`OpenHumanBudgetGate::acquire`) sums each policy's bucket from the ledger over its period:
+
+- **Refuse:** a `refuse` policy at or over its limit refuses the call with `TinyAgentsError::LimitExceeded("BUDGET_EXCEEDED: …")`, before any scheduler slot is taken.
+- **Warn:** a `warn` policy, or any policy past `warn_fraction`, logs a warning.
+- **Unattributed calls:** a call without the policy's attribute is outside it. For example, a call with no thread is outside a per-thread budget.
+- **No checking at all** when no budgets are configured, when there is no cost tracker, or when the ledger cannot be read. The budget check never fails a call for a reason of its own.
