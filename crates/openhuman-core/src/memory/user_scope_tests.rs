@@ -75,13 +75,13 @@ async fn a_shared_engine_keeps_users_apart_once_clamped() {
         ..MetaFilter::default()
     };
     let unclamped = engine
-        .list(ListRequest::new(everyone.clone(), 100))
+        .list(ListRequest { filter: everyone.clone(), limit: 100, cursor: None })
         .await
         .unwrap();
     assert_eq!(unclamped.items.len(), 2, "unclamped, the tree root reads both");
 
     let clamped = engine
-        .list(ListRequest::new(clamp_filter(everyone, &ns("user:u-a")), 100))
+        .list(ListRequest { filter: clamp_filter(everyone, &ns("user:u-a")), limit: 100, cursor: None })
         .await
         .unwrap();
     let texts: Vec<_> = clamped
