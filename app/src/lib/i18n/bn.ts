@@ -5334,7 +5334,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'ভাষা',
   'connections.voiceAgents.providerDefault': 'প্রদানকারীর ডিফল্ট',
   'connections.voiceAgents.loadFailed': 'ভয়েস এজেন্টের সেটিংস লোড করা যায়নি',
-  'connections.voiceAgents.saveFailed': 'সংরক্ষণ করা যায়নি: {error}',
   'connections.voiceAgents.saving': 'সংরক্ষণ হচ্ছে…',
 };
 

@@ -5335,7 +5335,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'भाषा',
   'connections.voiceAgents.providerDefault': 'प्रदाता का डिफ़ॉल्ट',
   'connections.voiceAgents.loadFailed': 'वॉइस एजेंट सेटिंग लोड नहीं हो सकीं',
-  'connections.voiceAgents.saveFailed': 'सहेजा नहीं जा सका: {error}',
   'connections.voiceAgents.saving': 'सहेजा जा रहा है…',
 };
 

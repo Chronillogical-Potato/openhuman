@@ -5387,7 +5387,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'Язык',
   'connections.voiceAgents.providerDefault': 'По умолчанию у провайдера',
   'connections.voiceAgents.loadFailed': 'Не удалось загрузить настройки голосовых агентов',
-  'connections.voiceAgents.saveFailed': 'Не удалось сохранить: {error}',
   'connections.voiceAgents.saving': 'Сохранение…',
 };
 

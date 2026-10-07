@@ -5408,7 +5408,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.providerDefault': 'Padrão do provedor',
   'connections.voiceAgents.loadFailed':
     'Não foi possível carregar as configurações dos agentes de voz',
-  'connections.voiceAgents.saveFailed': 'Não foi possível salvar: {error}',
   'connections.voiceAgents.saving': 'Salvando…',
 };
 

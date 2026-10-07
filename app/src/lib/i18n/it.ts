@@ -5418,7 +5418,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'Lingua',
   'connections.voiceAgents.providerDefault': 'Predefinito del fornitore',
   'connections.voiceAgents.loadFailed': 'Impossibile caricare le impostazioni degli agenti vocali',
-  'connections.voiceAgents.saveFailed': 'Salvataggio non riuscito: {error}',
   'connections.voiceAgents.saving': 'Salvataggio…',
 };
 

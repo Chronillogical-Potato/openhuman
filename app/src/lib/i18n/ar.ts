@@ -5237,7 +5237,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'اللغة',
   'connections.voiceAgents.providerDefault': 'الإعداد الافتراضي للمزوّد',
   'connections.voiceAgents.loadFailed': 'تعذّر تحميل إعدادات الوكلاء الصوتيين',
-  'connections.voiceAgents.saveFailed': 'تعذّر الحفظ: {error}',
   'connections.voiceAgents.saving': 'جارٍ الحفظ…',
 };
 

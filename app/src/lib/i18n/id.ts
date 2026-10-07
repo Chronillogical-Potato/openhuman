@@ -5378,7 +5378,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'Bahasa',
   'connections.voiceAgents.providerDefault': 'Bawaan penyedia',
   'connections.voiceAgents.loadFailed': 'Gagal memuat pengaturan agen suara',
-  'connections.voiceAgents.saveFailed': 'Gagal menyimpan: {error}',
   'connections.voiceAgents.saving': 'Menyimpan…',
 };
 

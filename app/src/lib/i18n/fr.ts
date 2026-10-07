@@ -5460,7 +5460,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'Langue',
   'connections.voiceAgents.providerDefault': 'Valeur par défaut du fournisseur',
   'connections.voiceAgents.loadFailed': 'Impossible de charger les réglages des agents vocaux',
-  'connections.voiceAgents.saveFailed': "Échec de l'enregistrement : {error}",
   'connections.voiceAgents.saving': 'Enregistrement…',
 };
 

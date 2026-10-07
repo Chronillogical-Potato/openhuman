@@ -5613,7 +5613,6 @@ const en: TranslationMap = {
   'connections.voiceAgents.language': 'Language',
   'connections.voiceAgents.providerDefault': 'Provider default',
   'connections.voiceAgents.loadFailed': "Couldn't load voice agent settings",
-  'connections.voiceAgents.saveFailed': "Couldn't save: {error}",
   'connections.voiceAgents.saving': 'Saving…',
 };
 

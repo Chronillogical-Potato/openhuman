@@ -5286,7 +5286,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': '언어',
   'connections.voiceAgents.providerDefault': '제공자 기본값',
   'connections.voiceAgents.loadFailed': '음성 에이전트 설정을 불러오지 못했습니다',
-  'connections.voiceAgents.saveFailed': '저장 실패: {error}',
   'connections.voiceAgents.saving': '저장 중…',
 };
 

@@ -15,13 +15,13 @@ import {
 } from '../../../services/api/liveVoiceApi';
 import { Alert, AlertDescription } from '../../ui/Alert';
 import { CenteredLoadingState } from '../../ui/LoadingState';
-import { toast } from '../../ui/Toast';
 import StatusLine from '../../ui/StatusLine';
+import { toast } from '../../ui/Toast';
 import SettingsTabbedPage from '../layout/SettingsTabbedPage';
 import LiveVoiceSettingsModal, { type LiveVoiceTestState } from './LiveVoiceSettingsModal';
 import LiveVoiceVendorCard from './LiveVoiceVendorCard';
-import { groupVendors, vendorIdOf } from './liveVoiceVendors';
 import LiveVoiceVendorLogo from './LiveVoiceVendorLogo';
+import { groupVendors, vendorIdOf } from './liveVoiceVendors';
 
 /** A write in flight; its outcome is reported as a toast. */
 type Status = { kind: 'idle' } | { kind: 'saving' };

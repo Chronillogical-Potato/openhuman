@@ -5046,7 +5046,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': '语言',
   'connections.voiceAgents.providerDefault': '提供方默认',
   'connections.voiceAgents.loadFailed': '无法加载语音助手设置',
-  'connections.voiceAgents.saveFailed': '保存失败：{error}',
   'connections.voiceAgents.saving': '正在保存…',
 };
 

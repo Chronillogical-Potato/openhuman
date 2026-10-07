@@ -5344,7 +5344,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': 'Dil',
   'connections.voiceAgents.providerDefault': 'Sağlayıcı varsayılanı',
   'connections.voiceAgents.loadFailed': 'Ses ajanı ayarları yüklenemedi',
-  'connections.voiceAgents.saveFailed': 'Kaydedilemedi: {error}',
   'connections.voiceAgents.saving': 'Kaydediliyor…',
 };
 

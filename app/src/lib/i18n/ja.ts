@@ -5622,7 +5622,6 @@ const messages: TranslationMap = {
   'connections.voiceAgents.language': '言語',
   'connections.voiceAgents.providerDefault': 'プロバイダーのデフォルト',
   'connections.voiceAgents.loadFailed': '音声エージェントの設定を読み込めませんでした',
-  'connections.voiceAgents.saveFailed': '保存できませんでした: {error}',
   'connections.voiceAgents.saving': '保存中…',
   // First-run and memory controls added upstream.
   'welcome.hero.subtitle': 'メモリー、音声、Web検索を備えた、あなたのAI。',
