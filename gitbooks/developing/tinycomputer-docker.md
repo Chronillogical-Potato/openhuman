@@ -143,13 +143,13 @@ follow a "next page" link.
 `[browser] unattended_actions` names the action kinds a **trusted unattended
 turn** may take without that approval:
 
-| Name | Covers |
-| --- | --- |
-| `click`, `double_click` | Clicking an element, including `find` with `find_action = "click"` |
-| `fill`, `type` | Writing text into a field |
-| `press` | A key press such as `Enter` |
-| `select`, `check` | Choosing an option, ticking a box |
-| `task_step` | A browser `task` paused at `needs_approval` before an irreversible step, approved through `confirm_pending` |
+| Name                    | Covers                                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `click`, `double_click` | Clicking an element, including `find` with `find_action = "click"`                                          |
+| `fill`, `type`          | Writing text into a field                                                                                   |
+| `press`                 | A key press such as `Enter`                                                                                 |
+| `select`, `check`       | Choosing an option, ticking a box                                                                           |
+| `task_step`             | A browser `task` paused at `needs_approval` before an irreversible step, approved through `confirm_pending` |
 
 - **Only** turns whose origin is `TrustedAutomation` with source `Cron`,
   `Background`, or `Workflow { require_approval: false }` qualify.
@@ -160,7 +160,7 @@ turn** may take without that approval:
 - An unknown name allows nothing and is reported at load with a
   `[config][browser] unattended_actions entries name no known action` warning.
 - Each allowed action is logged at `info` as `[browser] unattended action
-  allowed by [browser] unattended_actions` with the action kind, the first 12
+allowed by [browser] unattended_actions` with the action kind, the first 12
   hex characters of its digest and the origin class. Selectors, typed values
   and page content are never logged.
 - Payment checkpoints are not `needs_approval` pauses. A task still stops
