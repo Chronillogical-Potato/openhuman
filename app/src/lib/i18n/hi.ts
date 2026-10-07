@@ -5023,11 +5023,17 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
   'memoryPage.off.action': 'प्रदाता चुनें',
   'memoryPage.engine.inUse': 'इस्तेमाल में',
+  'memoryPage.announcement.title': 'मेमोरी अब CortexDB पर चलती है',
+  'memoryPage.announcement.retired':
+    '7 अक्टूबर 2026 को OpenHuman ने अपना पिछला मेमोरी इंजन TinyCortex बंद कर दिया, क्योंकि अब उसका रखरखाव नहीं हो रहा था। हमें आपके लिए CortexDB लाते हुए खुशी है: एक तेज़, ज़्यादा स्केलेबल और ज़्यादा समझदार मेमोरी इंजन।',
+  'memoryPage.announcement.subscribers':
+    'TinyHumans सब्सक्रिप्शन के साथ आपको असीमित मेमोरी इनजेस्शन मिलता है, और आपका डेटा कभी ट्रेनिंग के लिए इस्तेमाल नहीं होता।',
+  'memoryPage.announcement.dismiss': 'बंद करें',
   'memoryPage.engine.cortex.description': 'रैंक की गई रिकॉल और प्रमाणित जवाबों वाला मेमोरी इंजन।',
   'memoryPage.engine.chip.label': 'CortexDB कैसे कनेक्ट करें',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': 'असीमित',
-  'memoryPage.engine.chip.apikey': 'आपकी API कुंजी',
+  'memoryPage.engine.chip.apikey': 'आपकी CortexDB कुंजी',
   'memoryPage.engine.chip.selfhost': 'लोकल',
   'memoryPage.engine.fairUse.summary': 'उचित उपयोग लागू है',
   'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
@@ -5073,7 +5079,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'TinyHumans के ज़रिए CortexDB',
   'memoryPage.engine.builtin.signInHint':
     'बिल्ट-इन CortexDB इस्तेमाल करने के लिए अपने TinyHumans खाते में साइन इन करें।',
-  'memoryPage.engine.apiKeyOption.title': 'आपकी API कुंजी के साथ CortexDB',
+  'memoryPage.engine.apiKeyOption.title': 'अपनी कुंजी के साथ CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'अपना CortexDB खाता इस्तेमाल करें। कुंजी इस कंप्यूटर पर सुरक्षित रूप से सहेजी जाती है, कॉन्फ़िग फ़ाइल में कभी नहीं।',
   'memoryPage.engine.selfHost.title': 'इस कंप्यूटर पर CortexDB',

@@ -59,9 +59,7 @@ export default function MemoryCortexAnnouncement() {
           <img src={cortexdbLogo} alt="" aria-hidden className="h-6 w-6 object-contain" />
         </span>
         <div className="min-w-0 flex-1 space-y-1.5">
-          <h3
-            id="memory-cortex-announcement-title"
-            className="text-sm font-semibold text-content">
+          <h3 id="memory-cortex-announcement-title" className="text-sm font-semibold text-content">
             {t('memoryPage.announcement.title')}
           </h3>
           <p className="text-xs leading-relaxed text-content-secondary">

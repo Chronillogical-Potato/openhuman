@@ -5030,12 +5030,18 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Hatırlamaya başlamak için bir bellek sağlayıcısı seç.',
   'memoryPage.off.action': 'Sağlayıcı seç',
   'memoryPage.engine.inUse': 'Kullanımda',
+  'memoryPage.announcement.title': 'Bellek artık CortexDB üzerinde çalışıyor',
+  'memoryPage.announcement.retired':
+    '7 Ekim 2026’da OpenHuman, artık bakımı yapılmayan önceki bellek motoru TinyCortex’i kullanımdan kaldırdı. Yerine daha hızlı, daha ölçeklenebilir ve daha akıllı bir bellek motoru olan CortexDB’yi sunmaktan heyecan duyuyoruz.',
+  'memoryPage.announcement.subscribers':
+    'TinyHumans aboneliğiyle sınırsız bellek aktarımı elde edersin ve verilerin asla eğitim için kullanılmaz.',
+  'memoryPage.announcement.dismiss': 'Kapat',
   'memoryPage.engine.cortex.description':
     'Sıralı geri çağırma ve kaynaklı yanıtlar sunan bellek motoru.',
   'memoryPage.engine.chip.label': 'CortexDB nasıl bağlanır',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': 'Sınırsız',
-  'memoryPage.engine.chip.apikey': 'API anahtarın',
+  'memoryPage.engine.chip.apikey': 'CortexDB anahtarın',
   'memoryPage.engine.chip.selfhost': 'Yerel',
   'memoryPage.engine.fairUse.summary': 'Adil kullanım geçerlidir',
   'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
@@ -5081,7 +5087,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'TinyHumans üzerinden CortexDB',
   'memoryPage.engine.builtin.signInHint':
     "Yerleşik CortexDB'yi kullanmak için TinyHumans hesabınızda oturum açın.",
-  'memoryPage.engine.apiKeyOption.title': 'API anahtarınla CortexDB',
+  'memoryPage.engine.apiKeyOption.title': 'Kendi anahtarınla CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'Kendi CortexDB hesabınızı kullanın. Anahtar yapılandırma dosyasında değil, bu bilgisayarda güvenli şekilde saklanır.',
   'memoryPage.engine.selfHost.title': 'Bu bilgisayarda CortexDB',

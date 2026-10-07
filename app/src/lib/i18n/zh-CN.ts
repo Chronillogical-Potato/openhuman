@@ -4751,11 +4751,17 @@ const messages: TranslationMap = {
   'memoryPage.off.description': '选择一个记忆提供方即可开始记忆。',
   'memoryPage.off.action': '选择提供方',
   'memoryPage.engine.inUse': '使用中',
+  'memoryPage.announcement.title': '记忆现已基于 CortexDB',
+  'memoryPage.announcement.retired':
+    '2026 年 10 月 7 日，OpenHuman 停用了已不再维护的旧记忆引擎 TinyCortex。我们很高兴为你带来 CortexDB：一个更快、更易扩展、更智能的记忆引擎。',
+  'memoryPage.announcement.subscribers':
+    '订阅 TinyHumans 即可无限写入记忆，且你的数据绝不会用于训练。',
+  'memoryPage.announcement.dismiss': '关闭',
   'memoryPage.engine.cortex.description': '具备排序召回与有据回答的记忆引擎。',
   'memoryPage.engine.chip.label': '如何连接 CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': '无限',
-  'memoryPage.engine.chip.apikey': '你的 API 密钥',
+  'memoryPage.engine.chip.apikey': '你的 CortexDB 密钥',
   'memoryPage.engine.chip.selfhost': '本地',
   'memoryPage.engine.fairUse.summary': '适用合理使用规则',
   'memoryPage.engine.offPrompt': '在下方选择一个提供方即可开始记忆。',
@@ -4796,7 +4802,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.save': '保存',
   'memoryPage.engine.builtin.title': '通过 TinyHumans 使用 CortexDB',
   'memoryPage.engine.builtin.signInHint': '登录你的 TinyHumans 账户以使用内置 CortexDB。',
-  'memoryPage.engine.apiKeyOption.title': '使用你的 API 密钥连接 CortexDB',
+  'memoryPage.engine.apiKeyOption.title': '使用你自己的密钥连接 CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     '使用你自己的 CortexDB 账户。密钥安全地存储在本机上，绝不会写入配置文件。',
   'memoryPage.engine.selfHost.title': '在这台电脑上运行 CortexDB',

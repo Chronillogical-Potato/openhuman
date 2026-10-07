@@ -5118,12 +5118,18 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Elige un proveedor de memoria para empezar a recordar.',
   'memoryPage.off.action': 'Elegir proveedor',
   'memoryPage.engine.inUse': 'En uso',
+  'memoryPage.announcement.title': 'La memoria ahora funciona con CortexDB',
+  'memoryPage.announcement.retired':
+    'El 7 de octubre de 2026, OpenHuman retiró su motor de memoria anterior, TinyCortex, porque ya no se mantenía. Nos alegra presentarte CortexDB: un motor de memoria más rápido, escalable e inteligente.',
+  'memoryPage.announcement.subscribers':
+    'Con una suscripción a TinyHumans tienes ingesta de memoria ilimitada, y tus datos nunca se usan para entrenar modelos.',
+  'memoryPage.announcement.dismiss': 'Cerrar',
   'memoryPage.engine.cortex.description':
     'Motor de memoria con recuperación ordenada y respuestas fundamentadas.',
   'memoryPage.engine.chip.label': 'Cómo conectar CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': 'Ilimitada',
-  'memoryPage.engine.chip.apikey': 'Tu clave de API',
+  'memoryPage.engine.chip.apikey': 'Tu clave de CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
   'memoryPage.engine.fairUse.summary': 'Se aplica un uso razonable',
   'memoryPage.engine.offPrompt': 'Elige un proveedor para empezar a recordar.',
@@ -5168,7 +5174,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'CortexDB vía TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Inicia sesión en tu cuenta de TinyHumans para usar CortexDB integrado.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB con tu clave de API',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB con tu propia clave',
   'memoryPage.engine.apiKeyOption.description':
     'Usa tu propia cuenta de CortexDB. La clave se guarda de forma segura en este equipo, nunca en el archivo de configuración.',
   'memoryPage.engine.selfHost.title': 'CortexDB en este ordenador',

@@ -5341,12 +5341,18 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
   'memoryPage.engine.inUse': '使用中',
+  'memoryPage.announcement.title': 'メモリは CortexDB で動作するようになりました',
+  'memoryPage.announcement.retired':
+    '2026 年 10 月 7 日、OpenHuman はメンテナンスが終了していた以前のメモリエンジン TinyCortex を廃止しました。代わりに、より高速でスケーラブルかつ賢いメモリエンジン CortexDB をお届けします。',
+  'memoryPage.announcement.subscribers':
+    'TinyHumans のサブスクリプションならメモリの取り込みは無制限で、あなたのデータが学習に使われることはありません。',
+  'memoryPage.announcement.dismiss': '閉じる',
   'memoryPage.engine.cortex.description':
     'ランク付きの想起と根拠のある回答を備えたメモリエンジン。',
   'memoryPage.engine.chip.label': 'CortexDB の接続方法',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': '無制限',
-  'memoryPage.engine.chip.apikey': '自分の API キー',
+  'memoryPage.engine.chip.apikey': '自分の CortexDB キー',
   'memoryPage.engine.chip.selfhost': 'ローカル',
   'memoryPage.engine.fairUse.summary': 'フェアユースが適用されます',
   'memoryPage.engine.offPrompt': '下のプロバイダーを選ぶと記憶を始めます。',
@@ -5702,7 +5708,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'TinyHumans 経由の CortexDB',
   'memoryPage.engine.builtin.signInHint':
     '標準のCortexDBを使うには、TinyHumansアカウントにサインインしてください。',
-  'memoryPage.engine.apiKeyOption.title': '自分の API キーで使う CortexDB',
+  'memoryPage.engine.apiKeyOption.title': '自分のキーで使う CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     'お持ちのCortexDBアカウントを使います。キーはこのコンピューターに安全に保存され、設定ファイルには書き込まれません。',
   'memoryPage.engine.selfHost.title': 'このコンピューター上の CortexDB',

@@ -5164,12 +5164,18 @@ const messages: TranslationMap = {
     'Wähle einen Gedächtnisanbieter, damit dein Assistent sich erinnert.',
   'memoryPage.off.action': 'Anbieter wählen',
   'memoryPage.engine.inUse': 'Aktiv',
+  'memoryPage.announcement.title': 'Das Gedächtnis läuft jetzt auf CortexDB',
+  'memoryPage.announcement.retired':
+    'Am 7. Oktober 2026 hat OpenHuman seine bisherige Gedächtnis-Engine TinyCortex eingestellt, da sie nicht mehr gepflegt wurde. Stattdessen freuen wir uns, dir CortexDB vorzustellen: eine schnellere, besser skalierbare und intelligentere Gedächtnis-Engine.',
+  'memoryPage.announcement.subscribers':
+    'Mit einem TinyHumans-Abo erhältst du unbegrenzte Gedächtnisaufnahme, und deine Daten werden nie zum Training verwendet.',
+  'memoryPage.announcement.dismiss': 'Schließen',
   'memoryPage.engine.cortex.description':
     'Gedächtnis-Engine mit gewichtetem Abruf und belegten Antworten.',
   'memoryPage.engine.chip.label': 'So verbindest du CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': 'Unbegrenzt',
-  'memoryPage.engine.chip.apikey': 'Dein API-Schlüssel',
+  'memoryPage.engine.chip.apikey': 'Dein CortexDB-Schlüssel',
   'memoryPage.engine.chip.selfhost': 'Lokal',
   'memoryPage.engine.fairUse.summary': 'Es gilt Fair Use',
   'memoryPage.engine.offPrompt': 'Wähle unten einen Anbieter, damit dein Assistent sich erinnert.',
@@ -5217,7 +5223,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'CortexDB über TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Melde dich bei deinem TinyHumans-Konto an, um das integrierte CortexDB zu nutzen.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB mit deinem API-Schlüssel',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB mit deinem eigenen Schlüssel',
   'memoryPage.engine.apiKeyOption.description':
     'Nutze dein eigenes CortexDB-Konto. Der Schlüssel wird sicher auf diesem Computer gespeichert, nie in der Konfigurationsdatei.',
   'memoryPage.engine.selfHost.title': 'CortexDB auf diesem Computer',

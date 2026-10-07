@@ -37,8 +37,8 @@ import { Alert, AlertDescription, AlertTitle } from '../ui';
 import { CenteredLoadingState } from '../ui/LoadingState';
 import { toast } from '../ui/Toast';
 import MemoryComingSoon from './MemoryComingSoon';
-import MemoryCortexAnnouncement from './MemoryCortexAnnouncement';
 import MemoryConnectionPanel from './MemoryConnectionPanel';
+import MemoryCortexAnnouncement from './MemoryCortexAnnouncement';
 import MemoryCortexCard from './MemoryCortexCard';
 import MemoryProviderLogo, { type MemoryProviderOption } from './MemoryProviderLogo';
 

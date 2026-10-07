@@ -4979,11 +4979,17 @@ const messages: TranslationMap = {
   'memoryPage.off.description': '메모리 제공자를 선택하면 기억을 시작합니다.',
   'memoryPage.off.action': '제공자 선택',
   'memoryPage.engine.inUse': '사용 중',
+  'memoryPage.announcement.title': '이제 메모리가 CortexDB로 동작합니다',
+  'memoryPage.announcement.retired':
+    '2026년 10월 7일, OpenHuman은 더 이상 유지 관리되지 않던 이전 메모리 엔진 TinyCortex를 종료했습니다. 대신 더 빠르고 확장성이 뛰어나며 더 똑똑한 메모리 엔진 CortexDB를 소개합니다.',
+  'memoryPage.announcement.subscribers':
+    'TinyHumans 구독 시 메모리 수집이 무제한이며, 데이터는 절대 학습에 사용되지 않습니다.',
+  'memoryPage.announcement.dismiss': '닫기',
   'memoryPage.engine.cortex.description': '순위 기반 회상과 근거 있는 답변을 제공하는 메모리 엔진.',
   'memoryPage.engine.chip.label': 'CortexDB 연결 방법',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': '무제한',
-  'memoryPage.engine.chip.apikey': '내 API 키',
+  'memoryPage.engine.chip.apikey': '내 CortexDB 키',
   'memoryPage.engine.chip.selfhost': '로컬',
   'memoryPage.engine.fairUse.summary': '공정 사용 적용',
   'memoryPage.engine.offPrompt': '아래에서 제공자를 선택하면 기억을 시작합니다.',
@@ -5028,7 +5034,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'TinyHumans를 통한 CortexDB',
   'memoryPage.engine.builtin.signInHint':
     '내장 CortexDB를 사용하려면 TinyHumans 계정에 로그인하세요.',
-  'memoryPage.engine.apiKeyOption.title': '내 API 키로 쓰는 CortexDB',
+  'memoryPage.engine.apiKeyOption.title': '내 키로 쓰는 CortexDB',
   'memoryPage.engine.apiKeyOption.description':
     '자신의 CortexDB 계정을 사용합니다. 키는 이 컴퓨터에 안전하게 저장되며 설정 파일에는 저장되지 않습니다.',
   'memoryPage.engine.selfHost.title': '이 컴퓨터의 CortexDB',

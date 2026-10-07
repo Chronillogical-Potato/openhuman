@@ -5139,12 +5139,18 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
   'memoryPage.off.action': 'Choisir un fournisseur',
   'memoryPage.engine.inUse': 'Utilisé',
+  'memoryPage.announcement.title': 'La mémoire fonctionne désormais avec CortexDB',
+  'memoryPage.announcement.retired':
+    'Le 7 octobre 2026, OpenHuman a retiré son ancien moteur de mémoire, TinyCortex, qui n’était plus maintenu. Nous sommes ravis de vous présenter CortexDB : un moteur de mémoire plus rapide, plus évolutif et plus intelligent.',
+  'memoryPage.announcement.subscribers':
+    'Avec un abonnement TinyHumans, l’ingestion de mémoire est illimitée et vos données ne servent jamais à l’entraînement.',
+  'memoryPage.announcement.dismiss': 'Fermer',
   'memoryPage.engine.cortex.description':
     'Moteur de mémoire avec rappel classé et réponses sourcées.',
   'memoryPage.engine.chip.label': 'Comment connecter CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': 'Illimitée',
-  'memoryPage.engine.chip.apikey': 'Votre clé API',
+  'memoryPage.engine.chip.apikey': 'Votre clé CortexDB',
   'memoryPage.engine.chip.selfhost': 'Local',
   'memoryPage.engine.fairUse.summary': 'Usage raisonnable',
   'memoryPage.engine.offPrompt': 'Choisissez un fournisseur ci-dessous pour commencer à mémoriser.',
@@ -5192,7 +5198,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'CortexDB via TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Connectez-vous à votre compte TinyHumans pour utiliser CortexDB intégré.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre clé API',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB avec votre propre clé',
   'memoryPage.engine.apiKeyOption.description':
     'Utilisez votre propre compte CortexDB. La clé est stockée de façon sécurisée sur cet ordinateur, jamais dans le fichier de configuration.',
   'memoryPage.engine.selfHost.title': 'CortexDB sur cet ordinateur',

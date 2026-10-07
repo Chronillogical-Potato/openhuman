@@ -5075,12 +5075,18 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
   'memoryPage.off.action': 'Выбрать провайдера',
   'memoryPage.engine.inUse': 'Используется',
+  'memoryPage.announcement.title': 'Память теперь работает на CortexDB',
+  'memoryPage.announcement.retired':
+    '7 октября 2026 года OpenHuman отказался от прежнего движка памяти TinyCortex, так как он больше не поддерживался. Мы рады представить CortexDB — более быстрый, масштабируемый и умный движок памяти.',
+  'memoryPage.announcement.subscribers':
+    'С подпиской TinyHumans загрузка в память не ограничена, а ваши данные никогда не используются для обучения.',
+  'memoryPage.announcement.dismiss': 'Скрыть',
   'memoryPage.engine.cortex.description':
     'Движок памяти с ранжированным поиском и обоснованными ответами.',
   'memoryPage.engine.chip.label': 'Как подключить CortexDB',
   'memoryPage.engine.chip.builtin': 'TinyHumans',
   'memoryPage.engine.chip.free': 'Безлимит',
-  'memoryPage.engine.chip.apikey': 'Ваш API-ключ',
+  'memoryPage.engine.chip.apikey': 'Ваш ключ CortexDB',
   'memoryPage.engine.chip.selfhost': 'Локально',
   'memoryPage.engine.fairUse.summary': 'Действует добросовестное использование',
   'memoryPage.engine.offPrompt': 'Выберите провайдера ниже, чтобы начать запоминать.',
@@ -5125,7 +5131,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.builtin.title': 'CortexDB через TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Войдите в аккаунт TinyHumans, чтобы использовать встроенную CortexDB.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB с вашим API-ключом',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB с вашим ключом',
   'memoryPage.engine.apiKeyOption.description':
     'Используйте свой аккаунт CortexDB. Ключ надёжно хранится на этом компьютере и никогда не попадает в файл конфигурации.',
   'memoryPage.engine.selfHost.title': 'CortexDB на этом компьютере',
