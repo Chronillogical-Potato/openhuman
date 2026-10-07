@@ -217,56 +217,55 @@ pub async fn pre_turn(
     let agent_id = identity.agent_id.clone();
     let started = std::time::Instant::now();
     let task = tokio::spawn(async move {
-        let session = async {
-            if recall && input.resumed_after_compaction {
-                let opened = memory
-                    .start_session(SessionStart {
-                        thread_id: Some(input.thread_id.clone()),
-                        focus: None,
-                    })
-                    .await
-                    .map_err(|error| {
-                        tracing::debug!(%error, "[memory:hooks] start_session failed");
-                        MemoryError::from(error)
-                    });
-                Some(opened)
+        // The first turn after a compaction gets one pack that leads with the
+        // thread's earlier turns, under the turn's own budget and dedupe.
+        let resumed = recall && input.resumed_after_compaction;
+        let turn = if logging {
+            let mut pre = PreTurn::new(&input.thread_id, input.turn_index, &input.user_text);
+            pre.in_prompt_from = input.in_prompt_from;
+            pre.at = Some(input.at);
+            let context = if resumed {
+                memory.pre_turn_resumed(pre).await
             } else {
-                None
-            }
-        };
-        let turn = async {
-            if logging {
-                let mut pre = PreTurn::new(&input.thread_id, input.turn_index, &input.user_text);
-                pre.in_prompt_from = input.in_prompt_from;
-                pre.at = Some(input.at);
-                match memory.pre_turn(pre).await {
-                    Ok(context) => {
-                        if let Some(error) = &context.log_error {
-                            tracing::warn!(
-                                thread_id = %input.thread_id,
-                                error = %error,
-                                "[memory:hooks] user turn not logged"
-                            );
-                        }
-                        Ok(context.pack)
+                memory.pre_turn(pre).await
+            };
+            match context {
+                Ok(context) => {
+                    if let Some(error) = &context.log_error {
+                        tracing::warn!(
+                            thread_id = %input.thread_id,
+                            error = %error,
+                            "[memory:hooks] user turn not logged"
+                        );
                     }
-                    Err(error) => {
-                        tracing::warn!(%error, "[memory:hooks] pre_turn refused");
-                        Err(MemoryError::from(error))
-                    }
+                    Ok(context.pack)
                 }
-            } else {
-                memory.recall(&input.user_text).await.map_err(|error| {
+                Err(error) => {
+                    tracing::warn!(%error, "[memory:hooks] pre_turn refused");
+                    Err(MemoryError::from(error))
+                }
+            }
+        } else if resumed {
+            memory
+                .start_session(SessionStart {
+                    thread_id: Some(input.thread_id.clone()),
+                    focus: Some(input.user_text.clone()),
+                })
+                .await
+                .map_err(|error| {
                     tracing::warn!(%error, "[memory:hooks] recall failed");
                     MemoryError::from(error)
                 })
-            }
+        } else {
+            memory.recall(&input.user_text).await.map_err(|error| {
+                tracing::warn!(%error, "[memory:hooks] recall failed");
+                MemoryError::from(error)
+            })
         };
-        let (session, turn) = futures::join!(session, turn);
         if !recall {
             return None;
         }
-        let outcomes: Vec<_> = session.into_iter().chain([turn]).collect();
+        let outcomes = [turn];
         let refusal = refusal_of(&outcomes);
         TurnPack::from_packs(outcomes.into_iter().filter_map(Result::ok)).or_else(|| {
             let error = refusal?;
