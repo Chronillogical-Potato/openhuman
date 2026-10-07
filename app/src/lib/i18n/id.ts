@@ -4982,12 +4982,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'Mesin',
+  'memoryPage.tabs.engine': 'Penyedia',
   'memoryPage.tabs.ask': 'Tanya',
   'memoryPage.tabs.learnings': 'Pembelajaran',
   'memoryPage.tabs.conversations': 'Percakapan',
-  'memoryPage.header.engine':
-    'Pilih siapa yang menyimpan memori Anda dan menjawab pertanyaan tentangnya.',
+  'memoryPage.header.engine': 'Pilih tempat memori Anda disimpan.',
   'memoryPage.header.ask':
     'Ajukan pertanyaan ke memori Anda dan lihat dari mana jawabannya berasal.',
   'memoryPage.header.learnings':
@@ -5062,18 +5061,53 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'Utas',
   'memoryPage.meta.url': 'Tautan',
   'memoryPage.off.title': 'Memori nonaktif',
-  'memoryPage.off.description':
-    'Hubungkan CortexDB untuk mulai mengingat. Masuk untuk memakai CortexDB bawaan, atau hubungkan dengan kunci API Anda sendiri atau server di komputer ini.',
-  'memoryPage.off.action': 'Pilih mesin',
-  'memoryPage.engine.listTitle': 'Memori CortexDB',
+  'memoryPage.off.description': 'Pilih penyedia memori untuk mulai mengingat.',
+  'memoryPage.off.action': 'Pilih penyedia',
+  'memoryPage.engine.listTitle': 'Tempat memori Anda disimpan',
   'memoryPage.engine.listDescription':
-    'Memori berjalan di CortexDB. Pilih cara aplikasi ini terhubung ke sana. Hanya satu koneksi yang aktif pada satu waktu.',
-  'memoryPage.engine.offExplanation':
-    'Saat ini tidak ada koneksi memori yang bisa dipakai, jadi tidak ada yang disimpan atau diingat. Masuk untuk memakai CortexDB bawaan, atau hubungkan CortexDB dengan kunci API Anda atau di komputer ini.',
+    'Ketiganya berjalan di CortexDB. Hanya satu yang aktif dalam satu waktu.',
+  'memoryPage.engine.includedTag': 'Termasuk di TinyHumans',
+  'memoryPage.engine.inUse': 'Digunakan',
+  'memoryPage.engine.badgeReady': 'Siap',
+  'memoryPage.engine.badgeNotConnected': 'Belum terhubung',
+  'memoryPage.engine.settings': 'Pengaturan',
+  'memoryPage.engine.settingsAria': 'Pengaturan {name}',
+  'memoryPage.engine.offPrompt': 'Pilih penyedia di bawah untuk mulai mengingat.',
+  'memoryPage.engine.tagOwnKey': 'Kunci sendiri',
+  'memoryPage.engine.tagThisComputer': 'Di komputer ini',
+  'memoryPage.engine.builtin.cardDescription':
+    'CortexDB yang di-host untuk Anda oleh TinyHumans. Tidak perlu pengaturan.',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'Layanan terkelola CortexDB, di akun CortexDB Anda sendiri.',
+  'memoryPage.engine.selfHost.cardDescription':
+    'Server CortexDB yang Anda jalankan sendiri. Memori disimpan di komputer ini.',
+  'memoryPage.engine.freeIngestion.notePlan': 'Penyerapan memori gratis di paket {plan} Anda',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Penyerapan memori gratis di paket Basic dan Pro',
+  'memoryPage.engine.freeIngestion.title': 'Penyerapan memori gratis',
+  'memoryPage.engine.freeIngestion.bodyIncluded':
+    'Paket {plan} Anda mencakup penyerapan memori tanpa biaya tambahan. Berlaku penggunaan wajar agar tetap gratis untuk semua:',
+  'memoryPage.engine.freeIngestion.bodyUpgrade':
+    'Paket Basic dan Pro mencakup penyerapan memori tanpa biaya tambahan. Berlaku penggunaan wajar agar tetap gratis untuk semua:',
+  'memoryPage.engine.fairUse.own': 'Serap konten Anda sendiri, untuk penggunaan sendiri.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'Tanpa unggahan massal otomatis, scraping, atau penyerapan atas nama orang atau layanan lain.',
+  'memoryPage.engine.fairUse.limits':
+    'Kami dapat membatasi atau menjeda penyerapan pada akun yang melanggar ketentuan ini.',
+  'memoryPage.engine.fairUse.terms': 'Baca Ketentuan Penggunaan',
+  'memoryPage.engine.soon.title': 'Segera hadir',
+  'memoryPage.engine.soon.description': 'Mesin memori lain yang sedang kami kerjakan.',
+  'memoryPage.engine.soon.badge': 'Segera',
+  'memoryPage.engine.soon.supermemory': 'API memori universal untuk aplikasi AI.',
+  'memoryPage.engine.soon.mem0': 'Lapisan memori yang terus membaik untuk agen.',
+  'memoryPage.engine.soon.cognee': 'Memori graf pengetahuan dari data Anda.',
+  'memoryPage.engine.soon.zep': 'Graf pengetahuan temporal untuk memori agen.',
+  'memoryPage.engine.soon.letta': 'Agen berstatus dengan memori jangka panjang.',
+  'memoryPage.engine.toastSwitched': 'Penyedia memori diganti',
+  'memoryPage.engine.toastSwitchedBody': '{name} kini menyimpan memori Anda.',
+  'memoryPage.engine.toastSaved': 'Pengaturan memori disimpan',
   'memoryPage.engine.statusDegraded': 'Memori mengalami gangguan',
   'memoryPage.engine.statusDown': 'Mesin memori tidak dapat dijangkau',
   'memoryPage.engine.statusOff': 'Nonaktif',
-  'memoryPage.engine.active': 'Aktif',
   'memoryPage.engine.use': 'Gunakan',
   'memoryPage.engine.connect': 'Hubungkan',
   'memoryPage.engine.endpoint': 'Endpoint',
@@ -5084,8 +5118,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Tidak terjangkau',
   'memoryPage.engine.connecting': 'Menghubungkan…',
   'memoryPage.engine.save': 'Simpan',
-  'memoryPage.engine.builtin.title': 'CortexDB bawaan',
-  'memoryPage.engine.builtin.detail': 'Termasuk dalam akun TinyHumans Anda',
+  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
   'memoryPage.engine.builtin.signInRequired': 'Masuk untuk memakai',
   'memoryPage.engine.builtin.description':
     'CortexDB yang di-host oleh TinyHumans dan sudah termasuk dalam akun Anda. Masuk untuk memakainya; tidak ada yang perlu disiapkan.',
@@ -5093,11 +5126,10 @@ const messages: TranslationMap = {
     'Memori baru langsung disimpan. Fakta dan keyakinan yang diambil darinya terisi dalam beberapa menit berikutnya.',
   'memoryPage.engine.builtin.signInHint':
     'Masuk ke akun TinyHumans Anda untuk memakai CortexDB bawaan.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB dengan kunci API Anda',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
   'memoryPage.engine.apiKeyOption.description':
     'Gunakan akun CortexDB Anda sendiri. Kunci disimpan dengan aman di komputer ini, tidak pernah di file konfigurasi.',
-  'memoryPage.engine.selfHost.title': 'Host CortexDB sendiri',
-  'memoryPage.engine.selfHost.detail': 'Server CortexDB di komputer ini',
+  'memoryPage.engine.selfHost.title': 'CortexDB Lokal',
   'memoryPage.engine.selfHost.step1':
     'Jalankan server CortexDB di komputer ini dengan mengikuti panduan:',
   'memoryPage.engine.selfHost.docsLink': 'Panduan self-hosting CortexDB',
@@ -5180,8 +5212,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Siaga',
   'memoryPage.sourceStatus.syncing': 'Menyinkronkan',
   'memoryPage.sourceStatus.error': 'Kesalahan',
-  'memoryPage.tabs.brain': 'Otak',
-  'memoryPage.tabs.background': 'Latar belakang',
+  'memoryPage.tabs.brain': 'Dokumen',
+  'memoryPage.tabs.background': 'Aktivitas',
   'memoryPage.tabs.settings': 'Pengaturan',
   'memoryPage.header.brain': 'Dokumen yang dibagikan semua agen, diarsipkan menurut asalnya.',
   'memoryPage.header.background':

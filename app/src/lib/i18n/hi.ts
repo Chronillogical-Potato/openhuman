@@ -4944,11 +4944,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'इंजन',
+  'memoryPage.tabs.engine': 'प्रदाता',
   'memoryPage.tabs.ask': 'पूछें',
   'memoryPage.tabs.learnings': 'सीखी बातें',
   'memoryPage.tabs.conversations': 'बातचीत',
-  'memoryPage.header.engine': 'चुनें कि आपकी मेमोरी कौन सहेजे और उससे जुड़े सवालों के जवाब कौन दे।',
+  'memoryPage.header.engine': 'चुनें कि आपकी मेमोरी कहाँ रखी जाए।',
   'memoryPage.header.ask': 'अपनी मेमोरी से कोई सवाल पूछें और देखें कि जवाब कहाँ से आया।',
   'memoryPage.header.learnings':
     'वे तथ्य, पसंद और प्रक्रियाएँ जो आपके एजेंट को हमेशा याद रखनी चाहिए।',
@@ -5020,18 +5020,53 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'थ्रेड',
   'memoryPage.meta.url': 'लिंक',
   'memoryPage.off.title': 'मेमोरी बंद है',
-  'memoryPage.off.description':
-    'याद रखना शुरू करने के लिए CortexDB कनेक्ट करें। बिल्ट-इन CortexDB इस्तेमाल करने के लिए साइन इन करें, या अपनी API कुंजी या इस कंप्यूटर के सर्वर से कनेक्ट करें।',
-  'memoryPage.off.action': 'इंजन चुनें',
-  'memoryPage.engine.listTitle': 'CortexDB मेमोरी',
+  'memoryPage.off.description': 'याद रखना शुरू करने के लिए एक मेमोरी प्रदाता चुनें।',
+  'memoryPage.off.action': 'प्रदाता चुनें',
+  'memoryPage.engine.listTitle': 'आपकी मेमोरी कहाँ रहती है',
   'memoryPage.engine.listDescription':
-    'मेमोरी CortexDB पर चलती है। चुनें कि यह ऐप उससे कैसे जुड़े। एक समय में केवल एक कनेक्शन सक्रिय रहता है।',
-  'memoryPage.engine.offExplanation':
-    'अभी कोई मेमोरी कनेक्शन उपयोग योग्य नहीं है, इसलिए कुछ भी सहेजा या याद नहीं किया जाता। बिल्ट-इन CortexDB इस्तेमाल करने के लिए साइन इन करें, या अपनी API कुंजी से या इस कंप्यूटर पर CortexDB कनेक्ट करें।',
+    'तीनों CortexDB पर चलते हैं। एक समय में एक ही सक्रिय रहता है।',
+  'memoryPage.engine.includedTag': 'TinyHumans के साथ शामिल',
+  'memoryPage.engine.inUse': 'इस्तेमाल में',
+  'memoryPage.engine.badgeReady': 'तैयार',
+  'memoryPage.engine.badgeNotConnected': 'कनेक्ट नहीं',
+  'memoryPage.engine.settings': 'सेटिंग्स',
+  'memoryPage.engine.settingsAria': '{name} सेटिंग्स',
+  'memoryPage.engine.offPrompt': 'याद रखना शुरू करने के लिए नीचे एक प्रदाता चुनें।',
+  'memoryPage.engine.tagOwnKey': 'आपकी अपनी कुंजी',
+  'memoryPage.engine.tagThisComputer': 'इस कंप्यूटर पर',
+  'memoryPage.engine.builtin.cardDescription':
+    'TinyHumans द्वारा आपके लिए होस्ट किया गया CortexDB। कुछ सेट अप नहीं करना है।',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'CortexDB की प्रबंधित सेवा, आपके अपने CortexDB खाते पर।',
+  'memoryPage.engine.selfHost.cardDescription':
+    'आपके द्वारा चलाया गया CortexDB सर्वर। मेमोरी इसी कंप्यूटर पर रहती है।',
+  'memoryPage.engine.freeIngestion.notePlan': 'आपके {plan} प्लान में मुफ़्त मेमोरी इनजेस्शन',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'Basic और Pro प्लान में मुफ़्त मेमोरी इनजेस्शन',
+  'memoryPage.engine.freeIngestion.title': 'मुफ़्त मेमोरी इनजेस्शन',
+  'memoryPage.engine.freeIngestion.bodyIncluded':
+    'आपके {plan} प्लान में मेमोरी इनजेस्शन बिना अतिरिक्त शुल्क के शामिल है। उचित उपयोग लागू है ताकि यह सबके लिए मुफ़्त रहे:',
+  'memoryPage.engine.freeIngestion.bodyUpgrade':
+    'Basic और Pro प्लान में मेमोरी इनजेस्शन बिना अतिरिक्त शुल्क के शामिल है। उचित उपयोग लागू है ताकि यह सबके लिए मुफ़्त रहे:',
+  'memoryPage.engine.fairUse.own': 'अपनी सामग्री, अपने इस्तेमाल के लिए जोड़ें।',
+  'memoryPage.engine.fairUse.noAbuse':
+    'स्वचालित बल्क अपलोड, स्क्रैपिंग या दूसरों की ओर से इनजेस्शन नहीं।',
+  'memoryPage.engine.fairUse.limits':
+    'इन शर्तों को तोड़ने वाले खातों पर हम इनजेस्शन सीमित या रोक सकते हैं।',
+  'memoryPage.engine.fairUse.terms': 'उपयोग की शर्तें पढ़ें',
+  'memoryPage.engine.soon.title': 'जल्द आ रहा है',
+  'memoryPage.engine.soon.description': 'और मेमोरी इंजन जिन पर हम काम कर रहे हैं।',
+  'memoryPage.engine.soon.badge': 'जल्द',
+  'memoryPage.engine.soon.supermemory': 'AI ऐप्स के लिए यूनिवर्सल मेमोरी API।',
+  'memoryPage.engine.soon.mem0': 'एजेंट्स के लिए खुद को बेहतर करने वाली मेमोरी लेयर।',
+  'memoryPage.engine.soon.cognee': 'आपके डेटा से बनी नॉलेज-ग्राफ़ मेमोरी।',
+  'memoryPage.engine.soon.zep': 'एजेंट मेमोरी के लिए टेम्पोरल नॉलेज ग्राफ़।',
+  'memoryPage.engine.soon.letta': 'लंबी अवधि की मेमोरी वाले स्टेटफ़ुल एजेंट।',
+  'memoryPage.engine.toastSwitched': 'मेमोरी प्रदाता बदला गया',
+  'memoryPage.engine.toastSwitchedBody': 'अब {name} आपकी मेमोरी रखता है।',
+  'memoryPage.engine.toastSaved': 'मेमोरी सेटिंग्स सहेजी गईं',
   'memoryPage.engine.statusDegraded': 'मेमोरी की सेवा में गिरावट है',
   'memoryPage.engine.statusDown': 'मेमोरी इंजन तक पहुँचा नहीं जा सकता',
   'memoryPage.engine.statusOff': 'बंद',
-  'memoryPage.engine.active': 'सक्रिय',
   'memoryPage.engine.use': 'उपयोग करें',
   'memoryPage.engine.connect': 'कनेक्ट करें',
   'memoryPage.engine.endpoint': 'एंडपॉइंट',
@@ -5043,8 +5078,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'पहुंच से बाहर',
   'memoryPage.engine.connecting': 'कनेक्ट हो रहा है…',
   'memoryPage.engine.save': 'सहेजें',
-  'memoryPage.engine.builtin.title': 'बिल्ट-इन CortexDB',
-  'memoryPage.engine.builtin.detail': 'आपके TinyHumans खाते में शामिल',
+  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
   'memoryPage.engine.builtin.signInRequired': 'इस्तेमाल के लिए साइन इन करें',
   'memoryPage.engine.builtin.description':
     'TinyHumans द्वारा होस्ट किया गया और आपके खाते में शामिल CortexDB। इस्तेमाल के लिए साइन इन करें; कुछ भी सेट अप नहीं करना है।',
@@ -5052,11 +5086,10 @@ const messages: TranslationMap = {
     'नई यादें तुरंत सहेजी जाती हैं। उनसे निकाले गए तथ्य और धारणाएं अगले कुछ मिनटों में जुड़ती हैं।',
   'memoryPage.engine.builtin.signInHint':
     'बिल्ट-इन CortexDB इस्तेमाल करने के लिए अपने TinyHumans खाते में साइन इन करें।',
-  'memoryPage.engine.apiKeyOption.title': 'आपकी API कुंजी के साथ CortexDB',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
   'memoryPage.engine.apiKeyOption.description':
     'अपना CortexDB खाता इस्तेमाल करें। कुंजी इस कंप्यूटर पर सुरक्षित रूप से सहेजी जाती है, कॉन्फ़िग फ़ाइल में कभी नहीं।',
-  'memoryPage.engine.selfHost.title': 'CortexDB खुद होस्ट करें',
-  'memoryPage.engine.selfHost.detail': 'इस कंप्यूटर पर CortexDB सर्वर',
+  'memoryPage.engine.selfHost.title': 'CortexDB Local',
   'memoryPage.engine.selfHost.step1': 'गाइड का पालन करके इस कंप्यूटर पर CortexDB सर्वर चलाएं:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB सेल्फ-होस्टिंग गाइड',
   'memoryPage.engine.selfHost.step2':
@@ -5137,8 +5170,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'निष्क्रिय',
   'memoryPage.sourceStatus.syncing': 'सिंक हो रहा है',
   'memoryPage.sourceStatus.error': 'त्रुटि',
-  'memoryPage.tabs.brain': 'ब्रेन',
-  'memoryPage.tabs.background': 'बैकग्राउंड',
+  'memoryPage.tabs.brain': 'दस्तावेज़',
+  'memoryPage.tabs.background': 'गतिविधि',
   'memoryPage.tabs.settings': 'सेटिंग',
   'memoryPage.header.brain':
     'वे दस्तावेज़ जो हर एजेंट साझा करता है, उनके स्रोत के अनुसार सहेजे गए।',

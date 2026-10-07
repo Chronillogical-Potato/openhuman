@@ -4855,11 +4855,11 @@ const messages: TranslationMap = {
 
   // Memory v2 page (Connections → Memory): engine, ask, learnings,
   // conversations, documents and context chips.
-  'memoryPage.tabs.engine': 'المحرّك',
+  'memoryPage.tabs.engine': 'المزوّد',
   'memoryPage.tabs.ask': 'اسأل',
   'memoryPage.tabs.learnings': 'المعلومات المكتسبة',
   'memoryPage.tabs.conversations': 'المحادثات',
-  'memoryPage.header.engine': 'اختر من يخزّن ذاكرتك ويجيب عن الأسئلة المتعلقة بها.',
+  'memoryPage.header.engine': 'اختر مكان تخزين ذاكرتك.',
   'memoryPage.header.ask': 'اطرح سؤالًا على ذاكرتك وانظر من أين جاءت الإجابة.',
   'memoryPage.header.learnings': 'حقائق وتفضيلات وإجراءات ينبغي لوكيلك أن يتذكرها دائمًا.',
   'memoryPage.header.conversations': 'حدّد متى تُحفظ محادثاتك في الذاكرة.',
@@ -4930,18 +4930,52 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'سلسلة',
   'memoryPage.meta.url': 'رابط',
   'memoryPage.off.title': 'الذاكرة متوقفة',
-  'memoryPage.off.description':
-    'اربط CortexDB لبدء التذكّر. سجّل الدخول لاستخدام CortexDB المدمج، أو اتصل بمفتاح API الخاص بك أو بخادم على هذا الكمبيوتر.',
-  'memoryPage.off.action': 'اختر محرّكًا',
-  'memoryPage.engine.listTitle': 'ذاكرة CortexDB',
-  'memoryPage.engine.listDescription':
-    'تعمل الذاكرة على CortexDB. اختر طريقة اتصال هذا التطبيق بها. يكون اتصال واحد فقط نشطًا في كل مرة.',
-  'memoryPage.engine.offExplanation':
-    'لا يوجد حاليًا اتصال ذاكرة قابل للاستخدام، لذلك لا يُحفظ أو يُستدعى أي شيء. سجّل الدخول لاستخدام CortexDB المدمج، أو اربط CortexDB بمفتاح API الخاص بك أو على هذا الكمبيوتر.',
+  'memoryPage.off.description': 'اختر مزوّد ذاكرة لبدء التذكّر.',
+  'memoryPage.off.action': 'اختر مزوّدًا',
+  'memoryPage.engine.listTitle': 'أين تُحفظ ذاكرتك',
+  'memoryPage.engine.listDescription': 'الثلاثة تعمل على CortexDB. واحد فقط يكون نشطًا في كل مرة.',
+  'memoryPage.engine.includedTag': 'مضمّن مع TinyHumans',
+  'memoryPage.engine.inUse': 'قيد الاستخدام',
+  'memoryPage.engine.badgeReady': 'جاهز',
+  'memoryPage.engine.badgeNotConnected': 'غير متصل',
+  'memoryPage.engine.settings': 'الإعدادات',
+  'memoryPage.engine.settingsAria': 'إعدادات {name}',
+  'memoryPage.engine.offPrompt': 'اختر مزوّدًا أدناه لبدء التذكّر.',
+  'memoryPage.engine.tagOwnKey': 'مفتاحك الخاص',
+  'memoryPage.engine.tagThisComputer': 'على هذا الكمبيوتر',
+  'memoryPage.engine.builtin.cardDescription':
+    'CortexDB مستضافة لك من TinyHumans. لا حاجة لأي إعداد.',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'خدمة CortexDB المُدارة على حساب CortexDB الخاص بك.',
+  'memoryPage.engine.selfHost.cardDescription':
+    'خادم CortexDB تشغّله بنفسك. تُخزَّن الذاكرة على هذا الكمبيوتر.',
+  'memoryPage.engine.freeIngestion.notePlan': 'إدخال مجاني للذاكرة في خطة {plan}',
+  'memoryPage.engine.freeIngestion.noteUpgrade': 'إدخال مجاني للذاكرة في خطتي Basic وPro',
+  'memoryPage.engine.freeIngestion.title': 'إدخال مجاني للذاكرة',
+  'memoryPage.engine.freeIngestion.bodyIncluded':
+    'تتضمن خطة {plan} إدخال الذاكرة دون تكلفة إضافية. يسري الاستخدام العادل ليبقى مجانيًا للجميع:',
+  'memoryPage.engine.freeIngestion.bodyUpgrade':
+    'تتضمن خطتا Basic وPro إدخال الذاكرة دون تكلفة إضافية. يسري الاستخدام العادل ليبقى مجانيًا للجميع:',
+  'memoryPage.engine.fairUse.own': 'أدخل محتواك الخاص لاستخدامك الشخصي.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'لا رفع جماعي آلي ولا كشط ولا إدخال نيابةً عن أشخاص أو خدمات أخرى.',
+  'memoryPage.engine.fairUse.limits':
+    'قد نحدّ من الإدخال أو نوقفه مؤقتًا للحسابات التي تخالف هذه الشروط.',
+  'memoryPage.engine.fairUse.terms': 'اقرأ شروط الاستخدام',
+  'memoryPage.engine.soon.title': 'قريبًا',
+  'memoryPage.engine.soon.description': 'محركات ذاكرة أخرى نعمل عليها.',
+  'memoryPage.engine.soon.badge': 'قريبًا',
+  'memoryPage.engine.soon.supermemory': 'واجهة ذاكرة شاملة لتطبيقات الذكاء الاصطناعي.',
+  'memoryPage.engine.soon.mem0': 'طبقة ذاكرة ذاتية التحسين للوكلاء.',
+  'memoryPage.engine.soon.cognee': 'ذاكرة بمخطط معرفي مبنية من بياناتك.',
+  'memoryPage.engine.soon.zep': 'مخطط معرفي زمني لذاكرة الوكلاء.',
+  'memoryPage.engine.soon.letta': 'وكلاء ذوو حالة وذاكرة طويلة الأمد.',
+  'memoryPage.engine.toastSwitched': 'تم تغيير مزوّد الذاكرة',
+  'memoryPage.engine.toastSwitchedBody': 'أصبح {name} يخزّن ذاكرتك الآن.',
+  'memoryPage.engine.toastSaved': 'تم حفظ إعدادات الذاكرة',
   'memoryPage.engine.statusDegraded': 'أداء الذاكرة متدهور',
   'memoryPage.engine.statusDown': 'تعذّر الوصول إلى محرّك الذاكرة',
   'memoryPage.engine.statusOff': 'متوقف',
-  'memoryPage.engine.active': 'نشط',
   'memoryPage.engine.use': 'استخدام',
   'memoryPage.engine.connect': 'ربط',
   'memoryPage.engine.endpoint': 'نقطة النهاية',
@@ -4952,8 +4986,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'يتعذّر الوصول',
   'memoryPage.engine.connecting': 'جارٍ الاتصال…',
   'memoryPage.engine.save': 'حفظ',
-  'memoryPage.engine.builtin.title': 'CortexDB المدمج',
-  'memoryPage.engine.builtin.detail': 'مضمّن في حساب TinyHumans الخاص بك',
+  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
   'memoryPage.engine.builtin.signInRequired': 'سجّل الدخول للاستخدام',
   'memoryPage.engine.builtin.description':
     'CortexDB تستضيفه TinyHumans ومضمّن في حسابك. سجّل الدخول لاستخدامه؛ لا شيء لإعداده.',
@@ -4961,11 +4994,10 @@ const messages: TranslationMap = {
     'تُحفظ الذكريات الجديدة فورًا. وتكتمل الحقائق والمعتقدات المستخلصة منها خلال الدقائق التالية.',
   'memoryPage.engine.builtin.signInHint':
     'سجّل الدخول إلى حساب TinyHumans لاستخدام CortexDB المدمج.',
-  'memoryPage.engine.apiKeyOption.title': 'CortexDB بمفتاح API الخاص بك',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB Cloud',
   'memoryPage.engine.apiKeyOption.description':
     'استخدم حساب CortexDB الخاص بك. يُخزَّن المفتاح بأمان على هذا الكمبيوتر، ولا يُحفظ أبدًا في ملف الإعدادات.',
-  'memoryPage.engine.selfHost.title': 'استضافة CortexDB بنفسك',
-  'memoryPage.engine.selfHost.detail': 'خادم CortexDB على هذا الكمبيوتر',
+  'memoryPage.engine.selfHost.title': 'CortexDB Local',
   'memoryPage.engine.selfHost.step1': 'شغّل خادم CortexDB على هذا الكمبيوتر باتباع الدليل:',
   'memoryPage.engine.selfHost.docsLink': 'دليل الاستضافة الذاتية لـ CortexDB',
   'memoryPage.engine.selfHost.step2':
@@ -5044,8 +5076,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'خامل',
   'memoryPage.sourceStatus.syncing': 'جارٍ المزامنة',
   'memoryPage.sourceStatus.error': 'خطأ',
-  'memoryPage.tabs.brain': 'الدماغ',
-  'memoryPage.tabs.background': 'الخلفية',
+  'memoryPage.tabs.brain': 'المستندات',
+  'memoryPage.tabs.background': 'النشاط',
   'memoryPage.tabs.settings': 'الإعدادات',
   'memoryPage.header.brain': 'مستندات يشاركها كل وكيل، مصنّفة بحسب مصدرها.',
   'memoryPage.header.background':

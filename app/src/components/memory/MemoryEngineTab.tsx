@@ -186,7 +186,8 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
   const statusOf = (option: EngineOption): { variant: BadgeVariant; label: string } => {
     if (option === active) {
       if (!on) return { variant: 'warning', label: t('memoryPage.engine.statusOff') };
-      if (state.status === 'down') return { variant: 'danger', label: t('memoryPage.engine.badgeDown') };
+      if (state.status === 'down')
+        return { variant: 'danger', label: t('memoryPage.engine.badgeDown') };
       if (state.status === 'degraded') {
         return { variant: 'warning', label: t('memoryPage.engine.badgeDegraded') };
       }
@@ -232,7 +233,8 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
     if (option === active && (on || option !== 'builtin')) return undefined;
     if (option === 'builtin') {
       return {
-        label: saving === 'builtin' ? t('memoryPage.engine.connecting') : t('memoryPage.engine.use'),
+        label:
+          saving === 'builtin' ? t('memoryPage.engine.connecting') : t('memoryPage.engine.use'),
         onClick: useBuiltin,
         disabled: saving !== null || !signedIn,
       };
@@ -242,7 +244,10 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
 
   const freeNote =
     plan === 'BASIC' || plan === 'PRO'
-      ? t('memoryPage.engine.freeIngestion.notePlan').replace('{plan}', plan === 'PRO' ? 'Pro' : 'Basic')
+      ? t('memoryPage.engine.freeIngestion.notePlan').replace(
+          '{plan}',
+          plan === 'PRO' ? 'Pro' : 'Basic'
+        )
       : t('memoryPage.engine.freeIngestion.noteUpgrade');
 
   return (

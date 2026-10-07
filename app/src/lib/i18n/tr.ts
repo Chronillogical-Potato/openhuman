@@ -4949,12 +4949,11 @@ const messages: TranslationMap = {
   'chat_error.retryHint.seconds': '{n} saniye sonra yeniden deneyin.',
   'chat_error.retryHint.aboutMinute': 'Yaklaşık 1 dakika sonra yeniden deneyin.',
   'chat_error.retryHint.aboutMinutes': 'Yaklaşık {n} dakika sonra yeniden deneyin.',
-  'memoryPage.tabs.engine': 'Motor',
+  'memoryPage.tabs.engine': 'Sağlayıcı',
   'memoryPage.tabs.ask': 'Sor',
   'memoryPage.tabs.learnings': 'Öğrenilenler',
   'memoryPage.tabs.conversations': 'Sohbetler',
-  'memoryPage.header.engine':
-    'Belleğinizi kimin saklayacağını ve onunla ilgili soruları kimin yanıtlayacağını seçin.',
+  'memoryPage.header.engine': 'Belleğinin nerede saklanacağını seç.',
   'memoryPage.header.ask': 'Belleğinize bir soru sorun ve yanıtın nereden geldiğini görün.',
   'memoryPage.header.learnings':
     'Ajanınızın her zaman hatırlaması gereken bilgiler, tercihler ve prosedürler.',
@@ -5028,18 +5027,54 @@ const messages: TranslationMap = {
   'memoryPage.meta.thread': 'Sohbet dizisi',
   'memoryPage.meta.url': 'Bağlantı',
   'memoryPage.off.title': 'Bellek kapalı',
-  'memoryPage.off.description':
-    "Hatırlamaya başlamak için CortexDB'yi bağlayın. Yerleşik CortexDB'yi kullanmak için oturum açın ya da kendi API anahtarınızla veya bu bilgisayardaki bir sunucuyla bağlanın.",
-  'memoryPage.off.action': 'Motor seçin',
-  'memoryPage.engine.listTitle': 'CortexDB belleği',
+  'memoryPage.off.description': 'Hatırlamaya başlamak için bir bellek sağlayıcısı seç.',
+  'memoryPage.off.action': 'Sağlayıcı seç',
+  'memoryPage.engine.listTitle': 'Belleğin nerede duruyor',
   'memoryPage.engine.listDescription':
-    'Bellek CortexDB üzerinde çalışır. Bu uygulamanın ona nasıl bağlanacağını seçin. Aynı anda yalnızca bir bağlantı etkin olabilir.',
-  'memoryPage.engine.offExplanation':
-    "Şu anda kullanılabilir bir bellek bağlantısı yok, bu yüzden hiçbir şey saklanmıyor veya hatırlanmıyor. Yerleşik CortexDB'yi kullanmak için oturum açın ya da CortexDB'yi API anahtarınızla veya bu bilgisayarda bağlayın.",
+    'Üçü de CortexDB üzerinde çalışır. Aynı anda yalnızca biri etkindir.',
+  'memoryPage.engine.includedTag': 'TinyHumans ile birlikte gelir',
+  'memoryPage.engine.inUse': 'Kullanımda',
+  'memoryPage.engine.badgeReady': 'Hazır',
+  'memoryPage.engine.badgeNotConnected': 'Bağlı değil',
+  'memoryPage.engine.settings': 'Ayarlar',
+  'memoryPage.engine.settingsAria': '{name} ayarları',
+  'memoryPage.engine.offPrompt': 'Hatırlamaya başlamak için aşağıdan bir sağlayıcı seç.',
+  'memoryPage.engine.tagOwnKey': 'Kendi anahtarın',
+  'memoryPage.engine.tagThisComputer': 'Bu bilgisayarda',
+  'memoryPage.engine.builtin.cardDescription':
+    'TinyHumans tarafından senin için barındırılan CortexDB. Kurulum gerekmez.',
+  'memoryPage.engine.apiKeyOption.cardDescription':
+    'CortexDB’nin yönetilen hizmeti, kendi CortexDB hesabınla.',
+  'memoryPage.engine.selfHost.cardDescription':
+    'Kendin çalıştırdığın bir CortexDB sunucusu. Bellek bu bilgisayarda saklanır.',
+  'memoryPage.engine.freeIngestion.notePlan': '{plan} planında ücretsiz bellek aktarımı',
+  'memoryPage.engine.freeIngestion.noteUpgrade':
+    'Basic ve Pro planlarında ücretsiz bellek aktarımı',
+  'memoryPage.engine.freeIngestion.title': 'Ücretsiz bellek aktarımı',
+  'memoryPage.engine.freeIngestion.bodyIncluded':
+    '{plan} planın bellek aktarımını ek ücret olmadan içerir. Herkes için ücretsiz kalması adına adil kullanım geçerlidir:',
+  'memoryPage.engine.freeIngestion.bodyUpgrade':
+    'Basic ve Pro planları bellek aktarımını ek ücret olmadan içerir. Herkes için ücretsiz kalması adına adil kullanım geçerlidir:',
+  'memoryPage.engine.fairUse.own': 'Kendi içeriğini, kendi kullanımın için aktar.',
+  'memoryPage.engine.fairUse.noAbuse':
+    'Otomatik toplu yükleme, kazıma veya başka kişiler ya da hizmetler adına aktarım yok.',
+  'memoryPage.engine.fairUse.limits':
+    'Bu koşulları ihlal eden hesaplarda aktarımı sınırlayabilir veya durdurabiliriz.',
+  'memoryPage.engine.fairUse.terms': 'Kullanım Koşullarını oku',
+  'memoryPage.engine.soon.title': 'Yakında',
+  'memoryPage.engine.soon.description': 'Üzerinde çalıştığımız diğer bellek motorları.',
+  'memoryPage.engine.soon.badge': 'Yakında',
+  'memoryPage.engine.soon.supermemory': 'Yapay zekâ uygulamaları için evrensel bellek API’si.',
+  'memoryPage.engine.soon.mem0': 'Ajanlar için kendini geliştiren bellek katmanı.',
+  'memoryPage.engine.soon.cognee': 'Verilerinden oluşturulan bilgi grafiği belleği.',
+  'memoryPage.engine.soon.zep': 'Ajan belleği için zamansal bilgi grafiği.',
+  'memoryPage.engine.soon.letta': 'Uzun süreli belleğe sahip durumlu ajanlar.',
+  'memoryPage.engine.toastSwitched': 'Bellek sağlayıcısı değiştirildi',
+  'memoryPage.engine.toastSwitchedBody': 'Belleğini artık {name} saklıyor.',
+  'memoryPage.engine.toastSaved': 'Bellek ayarları kaydedildi',
   'memoryPage.engine.statusDegraded': 'Bellek performansı düşük',
   'memoryPage.engine.statusDown': 'Bellek motoruna ulaşılamıyor',
   'memoryPage.engine.statusOff': 'Kapalı',
-  'memoryPage.engine.active': 'Etkin',
   'memoryPage.engine.use': 'Kullan',
   'memoryPage.engine.connect': 'Bağlan',
   'memoryPage.engine.endpoint': 'Uç nokta',
@@ -5051,8 +5086,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Ulaşılamıyor',
   'memoryPage.engine.connecting': 'Bağlanıyor…',
   'memoryPage.engine.save': 'Kaydet',
-  'memoryPage.engine.builtin.title': 'Yerleşik CortexDB',
-  'memoryPage.engine.builtin.detail': 'TinyHumans hesabınıza dahildir',
+  'memoryPage.engine.builtin.title': 'TinyHumans Memory',
   'memoryPage.engine.builtin.signInRequired': 'Kullanmak için oturum açın',
   'memoryPage.engine.builtin.description':
     'TinyHumans tarafından barındırılan ve hesabınıza dahil olan CortexDB. Kullanmak için oturum açın; kurulacak hiçbir şey yok.',
@@ -5060,11 +5094,10 @@ const messages: TranslationMap = {
     'Yeni anılar hemen kaydedilir. Bunlardan çıkarılan olgular ve inançlar sonraki dakikalarda tamamlanır.',
   'memoryPage.engine.builtin.signInHint':
     "Yerleşik CortexDB'yi kullanmak için TinyHumans hesabınızda oturum açın.",
-  'memoryPage.engine.apiKeyOption.title': 'API anahtarınızla CortexDB',
+  'memoryPage.engine.apiKeyOption.title': 'CortexDB Bulut',
   'memoryPage.engine.apiKeyOption.description':
     'Kendi CortexDB hesabınızı kullanın. Anahtar yapılandırma dosyasında değil, bu bilgisayarda güvenli şekilde saklanır.',
-  'memoryPage.engine.selfHost.title': "CortexDB'yi kendiniz barındırın",
-  'memoryPage.engine.selfHost.detail': 'Bu bilgisayarda bir CortexDB sunucusu',
+  'memoryPage.engine.selfHost.title': 'CortexDB Yerel',
   'memoryPage.engine.selfHost.step1':
     'Kılavuzu izleyerek bu bilgisayarda bir CortexDB sunucusu çalıştırın:',
   'memoryPage.engine.selfHost.docsLink': 'CortexDB kendi kendine barındırma kılavuzu',
@@ -5147,8 +5180,8 @@ const messages: TranslationMap = {
   'memoryPage.sourceStatus.idle': 'Boşta',
   'memoryPage.sourceStatus.syncing': 'Eşitleniyor',
   'memoryPage.sourceStatus.error': 'Hata',
-  'memoryPage.tabs.brain': 'Beyin',
-  'memoryPage.tabs.background': 'Arka plan',
+  'memoryPage.tabs.brain': 'Belgeler',
+  'memoryPage.tabs.background': 'Etkinlik',
   'memoryPage.tabs.settings': 'Ayarlar',
   'memoryPage.header.brain': 'Tüm ajanların paylaştığı belgeler, geldikleri yere göre düzenlenmiş.',
   'memoryPage.header.background':

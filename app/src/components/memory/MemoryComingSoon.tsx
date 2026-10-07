@@ -34,9 +34,7 @@ export default function MemoryComingSoon() {
   return (
     <section className="flex flex-col gap-2.5" data-testid="memory-engines-soon">
       <header>
-        <h3 className="text-sm font-semibold text-content">
-          {t('memoryPage.engine.soon.title')}
-        </h3>
+        <h3 className="text-sm font-semibold text-content">{t('memoryPage.engine.soon.title')}</h3>
         <p className="text-xs text-content-muted">{t('memoryPage.engine.soon.description')}</p>
       </header>
       <div className="grid gap-2.5 @lg:grid-cols-2 @3xl:grid-cols-3">
