@@ -152,14 +152,15 @@ fn read_file(workspace_dir: &Path) -> ImportFile {
         .unwrap_or_default()
 }
 
+/// Persists `file` atomically (staged, synced, renamed): a crash mid-write
+/// leaves the previous state, never a torn file that reads back as a fresh
+/// start and re-sends everything.
 fn write_file(workspace_dir: &Path, file: &ImportFile) {
-    let path = file_path(workspace_dir);
-    let result = path
-        .parent()
-        .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|()| {
-            let json = serde_json::to_vec_pretty(file).map_err(std::io::Error::other)?;
-            std::fs::write(&path, json)
+    let result = serde_json::to_vec_pretty(file)
+        .map_err(|error| error.to_string())
+        .and_then(|json| {
+            crate::security::keyring::file_store::write_atomic(&file_path(workspace_dir), &json)
+                .map_err(|error| error.to_string())
         });
     if let Err(error) = result {
         tracing::warn!(error = %error, "[memory:import] writing import state failed");
@@ -324,24 +325,37 @@ async fn start_with(
     if !claimed {
         return Ok(status(config));
     }
+    let mut file = read_file(&workspace_dir);
+    if file.state.phase == ImportPhase::Done {
+        file = ImportFile::default();
+    }
+    // A resumed import already knows its total: only check the store is
+    // still there, instead of reading all of it again before the run reads
+    // it once more.
+    let resuming = !file.checkpoint.is_start() && file.state.total > 0;
     let scan_dir = workspace_dir.clone();
-    let counts = tokio::task::spawn_blocking(move || count_legacy(&scan_dir))
-        .await
-        .ok()
-        .flatten();
-    let Some(counts) = counts else {
+    let total = tokio::task::spawn_blocking(move || {
+        if resuming {
+            LegacyWorkspace::open(&scan_dir).ok().map(|_| None)
+        } else {
+            count_legacy(&scan_dir)
+                .map(|counts| Some(counts.documents + counts.conversations + counts.learnings))
+        }
+    })
+    .await
+    .ok()
+    .flatten();
+    let Some(total) = total else {
         RUNNING
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .remove(&workspace_dir);
         return Err(MemoryError::invalid("no v1 memory store to import"));
     };
-    let mut file = read_file(&workspace_dir);
-    if file.state.phase == ImportPhase::Done {
-        file = ImportFile::default();
-    }
     file.state.phase = ImportPhase::Running;
-    file.state.total = counts.documents + counts.conversations + counts.learnings;
+    if let Some(total) = total {
+        file.state.total = total;
+    }
     file.state.error = None;
     write_file(&workspace_dir, &file);
     let state = file.state.clone();

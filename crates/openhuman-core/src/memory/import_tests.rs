@@ -593,3 +593,61 @@ async fn an_automatic_resume_that_cannot_start_is_stopped_not_retried() {
         "d1 is not re-sent"
     );
 }
+
+#[tokio::test]
+async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    legacy_workspace(&config.workspace_dir);
+    bind_reference(&config);
+    // A total no scan of this store would produce: a resume must keep it.
+    write_file(
+        &config.workspace_dir,
+        &ImportFile {
+            state: ImportState {
+                phase: ImportPhase::Error,
+                imported: 1,
+                total: 99,
+                error: Some("unavailable".into()),
+            },
+            checkpoint: Checkpoint {
+                documents: Some("d1".into()),
+                ..Checkpoint::default()
+            },
+        },
+    );
+    let started = start(&config, true).await.unwrap();
+    assert_eq!(started.total, 99);
+    let done = wait_until_settled(&config).await;
+    assert_eq!(
+        (done.phase, done.total),
+        (ImportPhase::Done, 99),
+        "{done:?}"
+    );
+}
+
+#[test]
+fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let file = ImportFile {
+        state: ImportState {
+            phase: ImportPhase::Running,
+            imported: 3,
+            total: 7,
+            error: None,
+        },
+        checkpoint: Checkpoint {
+            documents: Some("d9".into()),
+            ..Checkpoint::default()
+        },
+    };
+    write_file(tmp.path(), &file);
+    write_file(tmp.path(), &file);
+    let read = read_file(tmp.path());
+    assert_eq!((read.state, read.checkpoint), (file.state, file.checkpoint));
+    let names: Vec<String> = std::fs::read_dir(tmp.path().join("memory"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["import_state.json"]);
+}
