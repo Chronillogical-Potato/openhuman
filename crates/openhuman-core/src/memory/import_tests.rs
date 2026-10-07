@@ -175,6 +175,7 @@ async fn an_interrupted_import_resumes_from_its_checkpoint() {
         &ImportFile {
             paused_for_credits: false,
             failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
@@ -210,6 +211,7 @@ fn a_running_state_with_no_live_import_reads_as_interrupted() {
         &ImportFile {
             paused_for_credits: false,
             failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 3,
@@ -419,6 +421,7 @@ async fn an_import_the_app_quit_during_resumes_on_its_own() {
         &ImportFile {
             paused_for_credits: false,
             failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,
@@ -451,6 +454,7 @@ async fn a_stopped_or_finished_import_is_not_resumed_on_its_own() {
             &ImportFile {
                 paused_for_credits: false,
                 failed: Vec::new(),
+                retrying: false,
                 state: ImportState {
                     phase,
                     imported: 0,
@@ -474,6 +478,7 @@ fn quit_mid_import(config: &Config) {
         &ImportFile {
             paused_for_credits: false,
             failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Running,
                 imported: 1,

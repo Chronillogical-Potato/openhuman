@@ -24,6 +24,7 @@ async fn a_resumed_import_keeps_its_total_instead_of_rescanning() {
         &ImportFile {
             paused_for_credits: false,
             failed: Vec::new(),
+            retrying: false,
             state: ImportState {
                 phase: ImportPhase::Error,
                 imported: 1,
@@ -50,6 +51,7 @@ fn the_import_state_is_written_whole_and_leaves_no_staging_file() {
     let file = ImportFile {
         paused_for_credits: false,
         failed: Vec::new(),
+        retrying: false,
         state: ImportState {
             phase: ImportPhase::Running,
             imported: 3,
@@ -277,7 +279,11 @@ async fn a_retry_stopped_by_the_engine_stays_retryable() {
         (ImportPhase::Done, 1),
         "{stopped:?}"
     );
-    assert!(stopped.error.is_some());
+    // A retry is the user's action: it says to press Retry, not that it
+    // resumes on its own.
+    let reason = stopped.error.as_deref().unwrap();
+    assert!(reason.contains("press Retry again"), "{reason}");
+    assert!(!reason.contains("on its own"), "{reason}");
 
     // Back up: the same retry goes through.
     REFUSE_IDEAS_STOPPED.store(false, std::sync::atomic::Ordering::SeqCst);
@@ -313,7 +319,7 @@ async fn a_credits_pause_whose_resume_fails_is_not_retried_every_tick() {
 }
 
 #[tokio::test]
-async fn a_retry_the_app_quit_during_finishes_with_its_failed_items_kept() {
+async fn a_retry_the_app_quit_during_resumes_as_a_retry() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     legacy_workspace(&config.workspace_dir);
@@ -321,25 +327,26 @@ async fn a_retry_the_app_quit_during_finishes_with_its_failed_items_kept() {
     let engine = bind_failing(&config, refuse_ideas_quit);
     start(&config, true).await.unwrap();
     assert_eq!(wait_until_settled(&config).await.failed, 1);
-    let stored_before = stored(&engine, MetaFilter::default()).await.len();
 
-    // The app quit mid-retry: the state file says Running, nothing is live.
+    // The app quit mid-retry: the state file says a retry is Running.
     let mut file = read_file(&config.workspace_dir);
     file.state.phase = ImportPhase::Running;
+    file.retrying = true;
     write_file(&config.workspace_dir, &file);
 
-    // The background resume reads on from the import's final checkpoint, so
-    // it stores nothing new and finishes with the failed item still listed.
+    // The background resume carries on with the retry, not the import, and
+    // the engine takes the item now.
+    REFUSE_IDEAS_QUIT.store(false, std::sync::atomic::Ordering::SeqCst);
     assert!(resume_interrupted_with(&config, always(false), billing(false)).await);
     let done = wait_until_settled(&config).await;
     assert_eq!(
         (done.phase, done.failed),
-        (ImportPhase::Done, 1),
+        (ImportPhase::Done, 0),
         "{done:?}"
     );
-    assert_eq!(
-        stored(&engine, MetaFilter::default()).await.len(),
-        stored_before
-    );
-    assert_eq!(read_file(&config.workspace_dir).failed.len(), 1);
+    assert!(!read_file(&config.workspace_dir).retrying);
+    assert!(stored(&engine, MetaFilter::default())
+        .await
+        .iter()
+        .any(|item| item.text.contains("oolong")));
 }

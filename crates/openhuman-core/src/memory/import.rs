@@ -229,6 +229,10 @@ struct ImportFile {
     /// Items the engine refused, for `retry_failed`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     failed: Vec<FailedItem>,
+    /// The `Running` run is a retry of `failed`, not the import itself: an
+    /// interrupted one resumes as a retry.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    retrying: bool,
     #[serde(default)]
     checkpoint: Checkpoint,
 }
@@ -397,7 +401,14 @@ pub(crate) async fn resume_interrupted_with(
         tracing::debug!("[memory:import] background paused; interrupted import left for later");
         return false;
     }
-    match start_with(config, true, Some(paused)).await {
+    // An interrupted retry of refused items resumes as a retry, from the
+    // items still listed (each stored one was taken off as it went).
+    let resumed = if file.state.phase == ImportPhase::Running && file.retrying {
+        begin_retry(config, file)
+    } else {
+        start_with(config, true, Some(paused)).await
+    };
+    match resumed {
         Ok(state) => {
             tracing::info!(
                 imported = state.imported,
@@ -501,14 +512,19 @@ async fn start_with(
 /// skipped because the engine refused them. Items that now store leave the
 /// list; ones refused again stay, with the new reason.
 pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
-    let bound = engine::resolve(config).engine()?;
-    let workspace_dir = config.workspace_dir.clone();
-    let mut file = read_file(&workspace_dir);
+    let file = read_file(&config.workspace_dir);
     if file.state.phase != ImportPhase::Done || file.failed.is_empty() {
         return Err(MemoryError::invalid(
             "no failed items to retry: the import has not finished or skipped nothing",
         ));
     }
+    begin_retry(config, file)
+}
+
+/// Starts (or, after an interruption, resumes) a retry of `file.failed`.
+fn begin_retry(config: &Config, mut file: ImportFile) -> MemoryResult<ImportState> {
+    let bound = engine::resolve(config).engine()?;
+    let workspace_dir = config.workspace_dir.clone();
     let claimed = RUNNING
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -518,6 +534,7 @@ pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
     }
     file.state.phase = ImportPhase::Running;
     file.state.error = None;
+    file.retrying = true;
     write_file(&workspace_dir, &file);
     let state = file.state.clone();
     tracing::info!(
@@ -532,6 +549,22 @@ pub async fn retry_failed(config: &Config) -> MemoryResult<ImportState> {
             .remove(&workspace_dir);
     });
     Ok(state)
+}
+
+/// Why a retry of failed items stopped, and that pressing Retry again
+/// continues it: a retry is the user's action, so nothing resumes it alone.
+fn retry_stop_message(error: tinymemory_api::Error) -> String {
+    if error.is_transient() {
+        return "the memory service is unavailable; press Retry again once it is back".to_string();
+    }
+    if is_insufficient_credits(&error) {
+        return "not enough credits to retry these items; top up, then press Retry again"
+            .to_string();
+    }
+    format!(
+        "the retry stopped: {}; press Retry again",
+        MemoryError::from(error)
+    )
 }
 
 async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFile) {
@@ -562,7 +595,11 @@ async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFi
     .and_then(|items| items);
     let mut failure = None;
     match items {
-        Err(error) => failure = Some(format!("reading the legacy store failed: {error}")),
+        Err(error) => {
+            failure = Some(format!(
+                "reading the legacy store failed: {error}; press Retry again"
+            ));
+        }
         Ok(items) => {
             for item in items {
                 let id = legacy_id(&item);
@@ -582,7 +619,7 @@ async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFi
                         }
                     }
                     Err(error) => {
-                        failure = Some(fatal_message(error));
+                        failure = Some(retry_stop_message(error));
                         break;
                     }
                 }
@@ -595,6 +632,7 @@ async fn retry_run(workspace_dir: &Path, bound: &BoundEngine, mut file: ImportFi
     // and says why, and the user retries again once that is resolved.
     file.state.phase = ImportPhase::Done;
     file.state.error = failure;
+    file.retrying = false;
     tracing::info!(
         still_failed = file.failed.len(),
         "[memory:import] retry of failed items finished"
