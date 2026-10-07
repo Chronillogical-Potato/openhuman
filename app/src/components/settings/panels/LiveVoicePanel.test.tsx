@@ -146,6 +146,17 @@ describe('LiveVoicePanel', () => {
     expect(screen.queryByTestId('live-voice-key-sarvam')).not.toBeInTheDocument();
   });
 
+  it('opens and cancels the replace-key editor for a stored key', async () => {
+    await renderPanel();
+    const toggle = screen.getByTestId('live-voice-replace-key-gemini');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('live-voice-key-gemini')).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('live-voice-key-gemini')).not.toBeInTheDocument();
+  });
+
   it('removes a stored key', async () => {
     await renderPanel();
     fireEvent.click(screen.getByTestId('live-voice-clear-key-gemini'));
