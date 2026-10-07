@@ -2617,6 +2617,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelFailed':
     'Aufgabe konnte nicht abgebrochen werden. Bitte erneut versuchen.',
   'conversations.subagent.awaitingTitle': 'Wartet auf deine Antwort',
+  'conversations.subagent.incompleteTitle': 'Vor dem Abschluss gestoppt',
   'conversations.subagent.answerPlaceholder': 'Antwort eingeben',
   'conversations.subagent.answerSend': 'Antwort senden',
   'conversations.subagent.answerSent': 'Antwort gesendet',

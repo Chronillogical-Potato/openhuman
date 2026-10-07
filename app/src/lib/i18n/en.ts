@@ -2928,6 +2928,7 @@ const en: TranslationMap = {
   // Memory syncing / ingestion.
   'conversations.backgroundTasks.memUpToDate': 'All memories up to date',
   'conversations.subagent.awaitingTitle': 'Waiting for your answer',
+  'conversations.subagent.incompleteTitle': 'Stopped before finishing',
   'conversations.subagent.answerPlaceholder': 'Type your answer',
   'conversations.subagent.answerSend': 'Send answer',
   'conversations.subagent.answerSent': 'Answer sent',

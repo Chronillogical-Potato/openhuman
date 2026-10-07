@@ -2936,6 +2936,7 @@ const messages: TranslationMap = {
   // Memory syncing / ingestion.
   'conversations.backgroundTasks.memUpToDate': 'すべてのメモリーは最新です',
   'conversations.subagent.awaitingTitle': '回答待ち',
+  'conversations.subagent.incompleteTitle': '完了する前に停止しました',
   'conversations.subagent.answerPlaceholder': '回答を入力',
   'conversations.subagent.answerSend': '回答を送信',
   'conversations.subagent.answerSent': '回答を送信しました',

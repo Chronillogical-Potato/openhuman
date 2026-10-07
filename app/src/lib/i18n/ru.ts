@@ -2566,6 +2566,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'Отмена…',
   'conversations.subagent.cancelFailed': 'Не удалось отменить задачу. Попробуйте снова.',
   'conversations.subagent.awaitingTitle': 'Ожидание вашего ответа',
+  'conversations.subagent.incompleteTitle': 'Остановлено до завершения',
   'conversations.subagent.answerPlaceholder': 'Введите ваш ответ',
   'conversations.subagent.answerSend': 'Отправить ответ',
   'conversations.subagent.answerSent': 'Ответ отправлен',

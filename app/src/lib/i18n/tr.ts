@@ -2740,6 +2740,7 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.cronSchedCron': 'Cron {expr}',
   'conversations.backgroundTasks.memUpToDate': 'Tüm bellekler güncel',
   'conversations.subagent.awaitingTitle': 'Yanıtınız bekleniyor',
+  'conversations.subagent.incompleteTitle': 'Bitmeden durduruldu',
   'conversations.subagent.answerPlaceholder': 'Yanıtınızı yazın',
   'conversations.subagent.answerSend': 'Yanıtı gönder',
   'conversations.subagent.answerSent': 'Yanıt gönderildi',

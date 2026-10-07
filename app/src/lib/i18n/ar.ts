@@ -2507,6 +2507,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'جارٍ الإلغاء…',
   'conversations.subagent.cancelFailed': 'تعذّر إلغاء المهمة. حاول مرة أخرى.',
   'conversations.subagent.awaitingTitle': 'في انتظار إجابتك',
+  'conversations.subagent.incompleteTitle': 'توقف قبل اكتمال المهمة',
   'conversations.subagent.answerPlaceholder': 'اكتب إجابتك',
   'conversations.subagent.answerSend': 'إرسال الإجابة',
   'conversations.subagent.answerSent': 'تم إرسال الإجابة',

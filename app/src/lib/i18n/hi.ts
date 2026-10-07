@@ -2551,6 +2551,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'रद्द किया जा रहा है…',
   'conversations.subagent.cancelFailed': 'कार्य रद्द नहीं किया जा सका। पुनः प्रयास करें।',
   'conversations.subagent.awaitingTitle': 'आपके उत्तर की प्रतीक्षा',
+  'conversations.subagent.incompleteTitle': 'पूरा होने से पहले रुक गया',
   'conversations.subagent.answerPlaceholder': 'अपना उत्तर लिखें',
   'conversations.subagent.answerSend': 'उत्तर भेजें',
   'conversations.subagent.answerSent': 'उत्तर भेजा गया',

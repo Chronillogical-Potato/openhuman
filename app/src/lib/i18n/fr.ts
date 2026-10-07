@@ -2602,6 +2602,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'Annulation…',
   'conversations.subagent.cancelFailed': "Impossible d'annuler la tâche. Réessayez.",
   'conversations.subagent.awaitingTitle': 'En attente de votre réponse',
+  'conversations.subagent.incompleteTitle': 'Arrêté avant la fin',
   'conversations.subagent.answerPlaceholder': 'Saisissez votre réponse',
   'conversations.subagent.answerSend': 'Envoyer la réponse',
   'conversations.subagent.answerSent': 'Réponse envoyée',

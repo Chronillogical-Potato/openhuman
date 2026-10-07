@@ -2568,6 +2568,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'Membatalkan…',
   'conversations.subagent.cancelFailed': 'Tidak dapat membatalkan tugas. Coba lagi.',
   'conversations.subagent.awaitingTitle': 'Menunggu jawaban Anda',
+  'conversations.subagent.incompleteTitle': 'Berhenti sebelum selesai',
   'conversations.subagent.answerPlaceholder': 'Ketik jawaban Anda',
   'conversations.subagent.answerSend': 'Kirim jawaban',
   'conversations.subagent.answerSent': 'Jawaban terkirim',

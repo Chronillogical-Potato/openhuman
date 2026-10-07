@@ -2538,6 +2538,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': '취소 중…',
   'conversations.subagent.cancelFailed': '작업을 취소할 수 없습니다. 다시 시도하세요.',
   'conversations.subagent.awaitingTitle': '답변을 기다리는 중',
+  'conversations.subagent.incompleteTitle': '작업을 끝내기 전에 중단됨',
   'conversations.subagent.answerPlaceholder': '답변을 입력하세요',
   'conversations.subagent.answerSend': '답변 보내기',
   'conversations.subagent.answerSent': '답변을 보냈습니다',

@@ -2588,6 +2588,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'Cancelando…',
   'conversations.subagent.cancelFailed': 'No se pudo cancelar la tarea. Inténtalo de nuevo.',
   'conversations.subagent.awaitingTitle': 'Esperando tu respuesta',
+  'conversations.subagent.incompleteTitle': 'Se detuvo antes de terminar',
   'conversations.subagent.answerPlaceholder': 'Escribe tu respuesta',
   'conversations.subagent.answerSend': 'Enviar respuesta',
   'conversations.subagent.answerSent': 'Respuesta enviada',

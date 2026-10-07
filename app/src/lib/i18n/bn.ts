@@ -2549,6 +2549,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': 'বাতিল করা হচ্ছে…',
   'conversations.subagent.cancelFailed': 'কাজটি বাতিল করা যায়নি। আবার চেষ্টা করুন।',
   'conversations.subagent.awaitingTitle': 'আপনার উত্তরের অপেক্ষায়',
+  'conversations.subagent.incompleteTitle': 'শেষ হওয়ার আগেই থেমে গেছে',
   'conversations.subagent.answerPlaceholder': 'আপনার উত্তর লিখুন',
   'conversations.subagent.answerSend': 'উত্তর পাঠান',
   'conversations.subagent.answerSent': 'উত্তর পাঠানো হয়েছে',

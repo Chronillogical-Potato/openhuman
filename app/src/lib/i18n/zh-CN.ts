@@ -2406,6 +2406,7 @@ const messages: TranslationMap = {
   'conversations.subagent.cancelling': '正在取消…',
   'conversations.subagent.cancelFailed': '无法取消任务。请重试。',
   'conversations.subagent.awaitingTitle': '等待你的回答',
+  'conversations.subagent.incompleteTitle': '未完成即已停止',
   'conversations.subagent.answerPlaceholder': '输入你的回答',
   'conversations.subagent.answerSend': '发送回答',
   'conversations.subagent.answerSent': '回答已发送',

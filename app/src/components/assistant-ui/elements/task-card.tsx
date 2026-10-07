@@ -11,12 +11,12 @@
  * `useT()` here.
  */
 import { cn } from '@/components/assistant-ui/lib/utils';
-import { Ban, CheckIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react';
+import { AlertTriangleIcon, Ban, CheckIcon, ChevronRightIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { Children, type ComponentProps, type ReactNode, useState } from 'react';
 
 import { mono, paper } from './surfaces';
 
-export type TaskCardState = 'working' | 'waiting' | 'done' | 'failed' | 'cancelled';
+export type TaskCardState = 'working' | 'waiting' | 'done' | 'failed' | 'cancelled' | 'incomplete';
 
 const isRenderable = (node: ReactNode) =>
   node !== undefined && node !== null && node !== false && node !== true;
@@ -29,6 +29,11 @@ export function TaskStateIcon({ state, className }: { state: TaskCardState; clas
   }
   if (state === 'failed') {
     return <XIcon aria-hidden className={cn('text-destructive size-3.5 shrink-0', className)} />;
+  }
+  if (state === 'incomplete') {
+    return (
+      <AlertTriangleIcon aria-hidden className={cn('size-3.5 shrink-0 text-amber-500', className)} />
+    );
   }
   if (state === 'cancelled') {
     return <Ban aria-hidden className={cn('text-foreground/35 size-3.5 shrink-0', className)} />;
