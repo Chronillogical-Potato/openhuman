@@ -21,10 +21,12 @@ use crate::integrations::composio::ops::{
 use crate::memory::engine::BoundEngine;
 use crate::memory::error::{MemoryError, MemoryResult};
 
-/// Held across one [`store_records`] call: storing, finding the previous
-/// versions and forgetting them. Two passes over the same records (the
-/// on-demand and the scheduled sync) would otherwise interleave, and one
-/// could forget an item the other has just made current again.
+/// Held across one [`store_records`] call (storing, finding the previous
+/// versions and forgetting them) and across [`forget_connection`]. Two
+/// passes over the same records (the on-demand and the scheduled sync)
+/// would otherwise interleave, and one could forget an item the other has
+/// just made current again; a disconnect could miss an item a pass stores
+/// while it runs.
 // ponytail: one lock for every connection, as passes are short and rare; a
 // per-connection lock if syncs of many accounts must overlap.
 static STORE: std::sync::LazyLock<tokio::sync::Mutex<()>> =
@@ -253,6 +255,9 @@ pub async fn forget_connection(
         Err(MemoryError::Off(_)) => return Ok(0),
         Err(error) => return Err(error),
     };
+    // A sync pass storing this connection's records finishes first, so none
+    // of its items lands after the forget.
+    let _serial = STORE.lock().await;
     let recorded = super::roots::of(&config.workspace_dir, connection_id);
     let reaches = match toolkit {
         // An unreadable roots record cannot bound the search: search all.
