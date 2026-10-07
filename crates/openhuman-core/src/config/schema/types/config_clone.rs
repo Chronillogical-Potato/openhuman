@@ -92,6 +92,7 @@ impl Clone for Config {
             hosting: self.hosting.clone(),
             voice_server: self.voice_server.clone(),
             voice_providers: self.voice_providers.clone(),
+            voice_live: self.voice_live.clone(),
             stt_provider: self.stt_provider.clone(),
             tts_provider: self.tts_provider.clone(),
             integrations: self.integrations.clone(),
