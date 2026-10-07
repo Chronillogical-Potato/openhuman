@@ -59,6 +59,19 @@ impl HostAgentResolver for Host {
     }
 }
 
+/// `test_config` without the await, so the resolver lock is never held
+/// across one.
+fn config(tmp: &TempDir) -> Config {
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace,
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    }
+}
+
 fn agent_job(agent_id: &str) -> CronJob {
     let mut job = test_job("");
     job.job_type = JobType::Agent;
@@ -67,11 +80,11 @@ fn agent_job(agent_id: &str) -> CronJob {
     job
 }
 
-#[tokio::test]
-async fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
+#[test]
+fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
     let _slot = crate::agent::host_agents::tests::lock();
     let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp).await;
+    let config = config(&tmp);
     let belt_builds = Arc::new(AtomicUsize::new(0));
     let installed: Arc<dyn HostAgentResolver> = Arc::new(Host {
         config: config.clone(),
@@ -98,11 +111,11 @@ async fn a_cron_job_for_a_host_agent_builds_with_its_host_tools_and_context() {
         .any(|spec| spec.name == "cron_host_marker"));
 }
 
-#[tokio::test]
-async fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
+#[test]
+fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
     let _slot = crate::agent::host_agents::tests::lock();
     let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp).await;
+    let config = config(&tmp);
     let installed: Arc<dyn HostAgentResolver> = Arc::new(Host {
         config: config.clone(),
         belt_builds: Arc::new(AtomicUsize::new(0)),
