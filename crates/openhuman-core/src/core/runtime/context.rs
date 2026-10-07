@@ -228,7 +228,7 @@ impl CoreContext {
         // 2. Load the master encryption key before any config/credential op that
         //    needs to decrypt secrets. No-op if already called (e.g. from
         //    run_core_from_args for the CLI).
-        crate::security::keyring::init_master_key();
+        crate::security::keyring::init_master_key().map_err(anyhow::Error::msg)?;
 
         // 4. Seed the per-process RPC bearer. `Fixed` seeds the in-memory value
         //    directly (never touches the env); `EnvOrFile` reads
@@ -306,18 +306,13 @@ impl CoreContext {
         };
         let workspace_dir = config.as_ref().map(|cfg| cfg.workspace_dir.clone());
 
-        // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
-        //    ledgers, agent-definition registry, live security policy, approval
-        //    gate, socket manager. Idempotent (Once-guarded internally). Selected
-        //    background jobs start later, from CoreRuntime::start_services(), after a transport binds
-        //    succeeds.
-        let runtime_config = config.clone();
-        super::bootstrap::bootstrap_core_runtime(host_kind, config, domains).await;
-
+        // Construct and publish the context before bootstrap. Host-installed
+        // session providers may resolve their cold-boot recovery workspace via
+        // CoreContext, which does not exist until this point.
         let ctx = Arc::new(CoreContext {
             host_kind,
             workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
-                workspace_dir,
+                workspace_dir: workspace_dir.clone(),
             }))),
             domains,
             tool_groups,
@@ -327,10 +322,15 @@ impl CoreContext {
             turn_origin: None,
             session_agent: None,
         });
-
-        // Register the process default context (first build wins). Dispatch
-        // resolves to this when no per-call context is scoped.
         let _ = DEFAULT_CONTEXT.set(ctx.clone());
+
+        // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
+        //    ledgers, agent-definition registry, live security policy, approval
+        //    gate, socket manager. Idempotent (Once-guarded internally). Selected
+        //    background jobs start later, from CoreRuntime::start_services(), after a transport binds
+        //    succeeds.
+        let runtime_config = config.clone();
+        super::bootstrap::bootstrap_core_runtime(host_kind, config, domains).await;
 
         Ok((ctx, has_operator_token, runtime_config))
     }
