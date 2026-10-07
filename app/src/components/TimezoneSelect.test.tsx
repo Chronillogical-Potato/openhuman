@@ -71,13 +71,13 @@ describe('TimezoneSelect', () => {
     expect(select.value).toBe('Europe/Berlin');
   });
 
-  it('a saved value that is not an Area/Location zone shows as following the device', async () => {
-    getMock.mockResolvedValue(settings('EST'));
+  it('a saved value that is not an offered zone shows as following the device', async () => {
+    getMock.mockResolvedValue(settings('Not/AZone'));
     render();
     const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
     await waitFor(() => expect(select.disabled).toBe(false));
     expect(select.value).toBe('');
-    expect(screen.queryByRole('option', { name: 'EST' })).toBeNull();
+    expect(screen.queryByRole('option', { name: 'Not/AZone' })).toBeNull();
   });
 
   it('shows the old zone until the save succeeds', async () => {
@@ -113,5 +113,24 @@ describe('TimezoneSelect', () => {
     render();
     expect(await screen.findByTestId('timezone-error')).toBeTruthy();
     expect((screen.getByTestId('timezone-select') as HTMLSelectElement).disabled).toBe(true);
+  });
+  it('offers UTC', async () => {
+    getMock.mockResolvedValue(settings(null));
+    render();
+    await screen.findByTestId('timezone-select');
+    expect(screen.getByRole('option', { name: 'UTC' })).toBeTruthy();
+  });
+
+  it('a save that failed after core stored it shows the stored zone, without an error', async () => {
+    getMock
+      .mockResolvedValueOnce(settings('Europe/Berlin'))
+      .mockResolvedValueOnce(settings('Asia/Tokyo'));
+    updateMock.mockRejectedValue(new Error('response lost'));
+    render();
+    const select = (await screen.findByTestId('timezone-select')) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe('Europe/Berlin'));
+    fireEvent.change(select, { target: { value: 'Asia/Tokyo' } });
+    await waitFor(() => expect(select.value).toBe('Asia/Tokyo'));
+    expect(screen.queryByTestId('timezone-error')).toBeNull();
   });
 });

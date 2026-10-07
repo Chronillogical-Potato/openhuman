@@ -11,16 +11,18 @@ import { SELECT_CLASS } from './LanguageSelect';
 /** The option that follows the device's zone instead of a chosen one. */
 const FOLLOW_DEVICE = '';
 
-function isAreaZone(zone: string | null | undefined): zone is string {
-  return !!zone && (zone === 'UTC' || zone.includes('/'));
-}
-
+/** Every zone the picker offers: UTC, then the runtime's IANA zones. */
 function ianaZones(): string[] {
   try {
-    return Intl.supportedValuesOf('timeZone');
+    return ['UTC', ...Intl.supportedValuesOf('timeZone')];
   } catch {
-    return [];
+    return ['UTC'];
   }
+}
+
+/** Whether a saved value is a zone the picker can offer. */
+function isOfferedZone(zone: string | null | undefined): zone is string {
+  return !!zone && ianaZones().includes(zone);
 }
 
 interface TimezoneSelectProps {
@@ -54,13 +56,10 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
     };
   }, []);
 
-  // Only an Area/Location zone (or UTC) is ever offered; a saved value that is
-  // not one shows as "follow the device", which is what core resolves it to.
-  const chosen = isAreaZone(settings?.timezone) ? settings?.timezone : null;
-  const zones = useMemo(() => {
-    const listed = ianaZones();
-    return chosen && !listed.includes(chosen) ? [chosen, ...listed] : listed;
-  }, [chosen]);
+  // A saved value that is not an offered zone shows as "follow the device",
+  // which is what core resolves it to.
+  const chosen = isOfferedZone(settings?.timezone) ? settings?.timezone : null;
+  const zones = useMemo(() => ianaZones(), []);
 
   const change = async (value: string) => {
     const timezone = value === FOLLOW_DEVICE ? null : value;
@@ -75,7 +74,16 @@ const TimezoneSelect = ({ ariaLabel }: TimezoneSelectProps) => {
         current ? { ...current, timezone, effective: timezone ?? current.device ?? 'UTC' } : current
       );
     } catch {
-      setFailed(true);
+      // The save may still have been stored (a lost response, say): show
+      // what core actually holds, and report a failure only if it is not
+      // the pick. If core cannot be read either, report the failure.
+      try {
+        const stored = (await openhumanGetUserTimezone()).result;
+        setSettings(stored);
+        setFailed(stored.timezone !== timezone);
+      } catch {
+        setFailed(true);
+      }
     } finally {
       setSaving(false);
     }
