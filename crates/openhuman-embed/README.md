@@ -285,6 +285,19 @@ and stops it with the runtime; `start_services` / `stop_services` control it
 explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
 and `tests/cron_agents.rs`.
 
+### Channels
+
+`Runtime::channels().telegram(TelegramChannelSpec::new(token, agent_id))`
+starts a Telegram listener whose every message is a turn of that runtime
+agent: its prompt, its host tools and the chat's history. The agent must
+exist first (`ChannelError::UnknownAgent` otherwise), and if it is dropped
+later the bot answers that it is unavailable rather than falling back to the
+orchestrator. Turns run as `ExternalChannel` and are capped at read-only:
+tools that write or reach outside are withheld or refused at once. The
+returned `ChannelListener` stops the bot when it is dropped. Behind the
+`channels` feature (on by default). See the gitbook's "Channels" section and
+`tests/channel_agents.rs`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They
@@ -398,6 +411,10 @@ turn against a `wiremock` provider with nothing bound;
 `tests/runtime_agents.rs` runs three agents with different providers, access
 tiers, skills, MCP servers and working directories on one runtime and shows
 the API key reaching a mocked managed backend as a bearer;
+`tests/channel_agents.rs` drives a runtime agent from a mocked Telegram Bot
+API: the bound agent answers with its prompt and read-only host tool under the
+`ExternalChannel` origin, its write tool is withheld and refused, and the reply
+is posted back to the chat.
 `tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool
 under the `TrustedAutomation { Cron }` origin, records a system job handler's
 error, and starts and stops the scheduler with the runtime;
