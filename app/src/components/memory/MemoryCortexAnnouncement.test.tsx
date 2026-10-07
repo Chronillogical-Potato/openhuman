@@ -27,7 +27,7 @@ describe('MemoryCortexAnnouncement', () => {
   it('announces the move to CortexDB until dismissed, and stays dismissed', async () => {
     const { unmount } = renderWithProviders(<MemoryCortexAnnouncement />);
     const banner = await screen.findByTestId('memory-cortex-announcement');
-    expect(banner).toHaveTextContent('Memory now runs on CortexDB');
+    expect(banner).toHaveTextContent('🎉 Unlimited Memory on CortexDB');
     expect(banner).toHaveTextContent('TinyCortex');
     expect(banner).toHaveTextContent('never used for training');
 

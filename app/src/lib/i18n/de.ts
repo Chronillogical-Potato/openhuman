@@ -5164,7 +5164,7 @@ const messages: TranslationMap = {
     'Wähle einen Gedächtnisanbieter, damit dein Assistent sich erinnert.',
   'memoryPage.off.action': 'Anbieter wählen',
   'memoryPage.engine.inUse': 'Aktiv',
-  'memoryPage.announcement.title': 'Das Gedächtnis läuft jetzt auf CortexDB',
+  'memoryPage.announcement.title': 'Unbegrenztes Gedächtnis mit CortexDB',
   'memoryPage.announcement.retired':
     'Am 7. Oktober 2026 hat OpenHuman seine bisherige Gedächtnis-Engine TinyCortex eingestellt, da sie nicht mehr gepflegt wurde. Stattdessen freuen wir uns, dir CortexDB vorzustellen: eine schnellere, besser skalierbare und intelligentere Gedächtnis-Engine.',
   'memoryPage.announcement.subscribers':

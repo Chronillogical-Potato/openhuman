@@ -4751,7 +4751,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': '选择一个记忆提供方即可开始记忆。',
   'memoryPage.off.action': '选择提供方',
   'memoryPage.engine.inUse': '使用中',
-  'memoryPage.announcement.title': '记忆现已基于 CortexDB',
+  'memoryPage.announcement.title': 'CortexDB 无限记忆',
   'memoryPage.announcement.retired':
     '2026 年 10 月 7 日，OpenHuman 停用了已不再维护的旧记忆引擎 TinyCortex。我们很高兴为你带来 CortexDB：一个更快、更易扩展、更智能的记忆引擎。',
   'memoryPage.announcement.subscribers':

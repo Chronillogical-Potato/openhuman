@@ -5139,7 +5139,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Choisissez un fournisseur de mémoire pour commencer à mémoriser.',
   'memoryPage.off.action': 'Choisir un fournisseur',
   'memoryPage.engine.inUse': 'Utilisé',
-  'memoryPage.announcement.title': 'La mémoire fonctionne désormais avec CortexDB',
+  'memoryPage.announcement.title': 'Mémoire illimitée avec CortexDB',
   'memoryPage.announcement.retired':
     'Le 7 octobre 2026, OpenHuman a retiré son ancien moteur de mémoire, TinyCortex, qui n’était plus maintenu. Nous sommes ravis de vous présenter CortexDB : un moteur de mémoire plus rapide, plus évolutif et plus intelligent.',
   'memoryPage.announcement.subscribers':

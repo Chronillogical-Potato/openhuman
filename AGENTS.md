@@ -288,6 +288,14 @@ UI rules:
 - Use `isTauri()` or catch `invoke` failures. Do not inspect
   `window.__TAURI__` directly.
 - Canonical visual tokens live in `app/src/styles/tokens.css`.
+- Always build UI from the shadcn primitives in `app/src/components/ui/`
+  (`Button`, `Badge`, `Alert`, `Card`, `ModalShell`/`Dialog`, `Popover`,
+  `Tooltip`, `Tabs`/`ChipTabs`, `TextField`, `NativeSelect`, `Toast`, ...).
+  Do not hand-roll a surface a primitive already covers (a banner is an
+  `Alert`, a dismiss control is a `Button`, a notification is `toast.add`).
+  When a primitive is missing, add it to `components/ui/` from the shadcn
+  registry (`components.json`, `base-nova` style), adapted to the app's
+  tokens, `Button` and lucide icons, then use it.
 
 ## Tauri shell
 

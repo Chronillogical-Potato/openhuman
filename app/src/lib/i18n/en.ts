@@ -5303,7 +5303,7 @@ const en: TranslationMap = {
   'memoryPage.off.description': 'Pick a memory provider to start remembering.',
   'memoryPage.off.action': 'Choose a provider',
   'memoryPage.engine.inUse': 'In use',
-  'memoryPage.announcement.title': 'Memory now runs on CortexDB',
+  'memoryPage.announcement.title': 'Unlimited Memory on CortexDB',
   'memoryPage.announcement.retired':
     "On October 7, 2026, OpenHuman retired its previous memory engine, TinyCortex, because it was no longer maintained. We're excited to bring you CortexDB instead: a faster, more scalable and more intelligent memory engine.",
   'memoryPage.announcement.subscribers':

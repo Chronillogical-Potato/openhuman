@@ -5341,7 +5341,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'メモリプロバイダーを選ぶと記憶を始めます。',
   'memoryPage.off.action': 'プロバイダーを選ぶ',
   'memoryPage.engine.inUse': '使用中',
-  'memoryPage.announcement.title': 'メモリは CortexDB で動作するようになりました',
+  'memoryPage.announcement.title': 'CortexDB でメモリ無制限',
   'memoryPage.announcement.retired':
     '2026 年 10 月 7 日、OpenHuman はメンテナンスが終了していた以前のメモリエンジン TinyCortex を廃止しました。代わりに、より高速でスケーラブルかつ賢いメモリエンジン CortexDB をお届けします。',
   'memoryPage.announcement.subscribers':

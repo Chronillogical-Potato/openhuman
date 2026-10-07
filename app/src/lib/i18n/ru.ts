@@ -5075,7 +5075,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Выберите провайдера памяти, чтобы начать запоминать.',
   'memoryPage.off.action': 'Выбрать провайдера',
   'memoryPage.engine.inUse': 'Используется',
-  'memoryPage.announcement.title': 'Память теперь работает на CortexDB',
+  'memoryPage.announcement.title': 'Безлимитная память на CortexDB',
   'memoryPage.announcement.retired':
     '7 октября 2026 года OpenHuman отказался от прежнего движка памяти TinyCortex, так как он больше не поддерживался. Мы рады представить CortexDB — более быстрый, масштабируемый и умный движок памяти.',
   'memoryPage.announcement.subscribers':

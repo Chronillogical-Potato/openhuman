@@ -5024,7 +5024,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'মনে রাখা শুরু করতে একটি মেমোরি প্রদানকারী বেছে নিন।',
   'memoryPage.off.action': 'প্রদানকারী বেছে নিন',
   'memoryPage.engine.inUse': 'ব্যবহৃত হচ্ছে',
-  'memoryPage.announcement.title': 'মেমোরি এখন CortexDB-তে চলে',
+  'memoryPage.announcement.title': 'CortexDB-তে সীমাহীন মেমোরি',
   'memoryPage.announcement.retired':
     '৭ অক্টোবর ২০২৬-এ OpenHuman তার আগের মেমোরি ইঞ্জিন TinyCortex অবসরে পাঠিয়েছে, কারণ সেটি আর রক্ষণাবেক্ষণ করা হচ্ছিল না। তার বদলে CortexDB আনতে পেরে আমরা আনন্দিত: আরও দ্রুত, আরও স্কেলেবল ও আরও বুদ্ধিমান মেমোরি ইঞ্জিন।',
   'memoryPage.announcement.subscribers':

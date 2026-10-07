@@ -5030,7 +5030,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'Hatırlamaya başlamak için bir bellek sağlayıcısı seç.',
   'memoryPage.off.action': 'Sağlayıcı seç',
   'memoryPage.engine.inUse': 'Kullanımda',
-  'memoryPage.announcement.title': 'Bellek artık CortexDB üzerinde çalışıyor',
+  'memoryPage.announcement.title': 'CortexDB ile sınırsız bellek',
   'memoryPage.announcement.retired':
     '7 Ekim 2026’da OpenHuman, artık bakımı yapılmayan önceki bellek motoru TinyCortex’i kullanımdan kaldırdı. Yerine daha hızlı, daha ölçeklenebilir ve daha akıllı bir bellek motoru olan CortexDB’yi sunmaktan heyecan duyuyoruz.',
   'memoryPage.announcement.subscribers':

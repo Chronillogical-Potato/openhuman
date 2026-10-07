@@ -4979,7 +4979,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': '메모리 제공자를 선택하면 기억을 시작합니다.',
   'memoryPage.off.action': '제공자 선택',
   'memoryPage.engine.inUse': '사용 중',
-  'memoryPage.announcement.title': '이제 메모리가 CortexDB로 동작합니다',
+  'memoryPage.announcement.title': 'CortexDB로 메모리 무제한',
   'memoryPage.announcement.retired':
     '2026년 10월 7일, OpenHuman은 더 이상 유지 관리되지 않던 이전 메모리 엔진 TinyCortex를 종료했습니다. 대신 더 빠르고 확장성이 뛰어나며 더 똑똑한 메모리 엔진 CortexDB를 소개합니다.',
   'memoryPage.announcement.subscribers':

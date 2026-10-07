@@ -4933,7 +4933,7 @@ const messages: TranslationMap = {
   'memoryPage.off.description': 'اختر مزوّد ذاكرة لبدء التذكّر.',
   'memoryPage.off.action': 'اختر مزوّدًا',
   'memoryPage.engine.inUse': 'قيد الاستخدام',
-  'memoryPage.announcement.title': 'تعمل الذاكرة الآن على CortexDB',
+  'memoryPage.announcement.title': 'ذاكرة غير محدودة مع CortexDB',
   'memoryPage.announcement.retired':
     'في 7 أكتوبر 2026، أوقفت OpenHuman محرك الذاكرة السابق TinyCortex لأنه لم يعد يُصان. ويسعدنا أن نقدّم لك CortexDB بدلًا منه: محرك ذاكرة أسرع وأكثر قابلية للتوسّع وأذكى.',
   'memoryPage.announcement.subscribers':
