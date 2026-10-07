@@ -23,6 +23,12 @@ pub(super) fn handle_list(_params: Map<String, Value>) -> ControllerFuture {
 pub(super) fn handle_upsert(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let p = parse::<UpsertConversationThreadRequest>(params)?;
+        // A SaaS user picks thread ids for their own threads only; reserved
+        // prefixes and path-like ids are refused (no-op outside SaaS).
+        crate::user_agents::surface::check_thread_id(&p.id)?;
+        if let Some(parent) = p.parent_thread_id.as_deref() {
+            crate::user_agents::surface::check_thread_id(parent)?;
+        }
         to_json(ops::thread_upsert(p).await?)
     })
 }
