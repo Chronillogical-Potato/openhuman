@@ -83,10 +83,12 @@ export const ParallelAgentsCard: ToolCallMessagePartComponent = ({ toolCallId, s
     model: '',
     done: !isActiveTimelineStatus(childStatus(entry)),
   }));
-  const completedCount = agents.filter(agent => agent.done).length;
-  const runningCount = children.length - completedCount;
-  const failedCount = children.filter(entry => isFailedChild(childStatus(entry))).length;
+  const runningCount = agents.filter(agent => !agent.done).length;
   const incompleteCount = children.filter(entry => isIncompleteChild(childStatus(entry))).length;
+  // An incomplete worker has settled but did not finish: it is neither running
+  // nor complete, so the completed total leaves it out.
+  const completedCount = children.length - runningCount - incompleteCount;
+  const failedCount = children.filter(entry => isFailedChild(childStatus(entry))).length;
   const progress = children.map(childProgressPct);
   const anyRunning = runningCount > 0;
   // Every worker is back but the parent call has not settled: it is reading

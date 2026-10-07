@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ToolTimelineEntry } from '../../../store/chatRuntimeSlice';
 import { ParallelAgentsCard } from './ParallelAgentsCard';
 
-vi.mock('../../../lib/i18n/I18nContext', () => ({ useT: () => ({ t: (key: string) => key }) }));
+vi.mock('../../../lib/i18n/I18nContext', () => ({
+  useT: () => ({
+    t: (key: string) => (key === 'chat.subagents.ofTotal' ? '{complete} of {total}' : key),
+  }),
+}));
 vi.mock('../../../providers/AssistantUiRuntimeProvider', () => ({ useAuiThreadId: () => 't1' }));
 vi.mock('./SubagentActivityCard', () => ({ SubagentActivityCard: () => null }));
 
@@ -49,7 +53,7 @@ describe('ParallelAgentsCard', () => {
       child('b', 2, 'completed'),
       child('c', 3, 'failed'),
     ];
-    renderCard('running');
+    expect(header).toHaveTextContent('2 of 3');
     const header = screen.getByTestId('parallel-agents-header');
     expect(header).toHaveTextContent('chat.subagents.ofTotal');
     expect(header).toHaveTextContent('chat.subagents.runningCount · chat.subagents.failedCount');
@@ -60,7 +64,9 @@ describe('ParallelAgentsCard', () => {
     timeline.entries = [child('a', 1, 'completed'), child('b', 2, 'incomplete')];
     renderCard('complete');
     const header = screen.getByTestId('parallel-agents-header');
+    expect(header).toHaveTextContent('1 of 2');
     expect(header).toHaveTextContent('chat.subagents.incompleteCount');
+    expect(header).not.toHaveTextContent('chat.subagents.runningCount');
     expect(header).not.toHaveTextContent('chat.subagents.failedCount');
   });
 
