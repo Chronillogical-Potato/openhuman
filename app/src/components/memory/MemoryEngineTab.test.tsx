@@ -367,6 +367,12 @@ describe('MemoryEngineTab', () => {
     expect(screen.queryByTestId('memory-engine-modal')).not.toBeInTheDocument();
   });
 
+  it('leaves upcoming engines out when embedded in onboarding', () => {
+    renderWithProviders(<MemoryEngineTab state={OFF} onStateChange={vi.fn()} embedded />);
+    expect(screen.getByTestId('memory-engines')).toBeInTheDocument();
+    expect(screen.queryByTestId('memory-engines-soon')).not.toBeInTheDocument();
+  });
+
   it('shows a loading state until the engine state arrives', () => {
     renderTab(null);
     expect(screen.queryByTestId('memory-engine-tab')).not.toBeInTheDocument();

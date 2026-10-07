@@ -280,7 +280,8 @@ export default function MemoryEngineTab({ state, onStateChange, embedded }: Memo
         </div>
       </section>
 
-      <MemoryComingSoon />
+      {/* Onboarding embeds this tab to pick a provider; upcoming engines are noise there. */}
+      {!embedded && <MemoryComingSoon />}
 
       {openOption && (
         <MemoryProviderModal
