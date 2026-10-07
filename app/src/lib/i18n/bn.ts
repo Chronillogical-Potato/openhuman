@@ -5300,7 +5300,7 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'আগের মেমোরি ইমপোর্ট হয়েছে',
   'memoryPage.import.failed': 'ইমপোর্ট ব্যর্থ হয়েছে',
   'memoryPage.import.resume': 'ইমপোর্ট আবার চালু করুন',
-  'memoryPage.import.failedItems': '{count}টি আইটেম ইমপোর্ট করা যায়নি।',
+  'memoryPage.import.failedItems': 'যে আইটেমগুলি ইমপোর্ট করা যায়নি: {count}।',
   'memoryPage.import.retryFailed': 'ব্যর্থ আইটেম আবার চেষ্টা করুন',
   'memoryPage.import.progress': '{total}টির মধ্যে {imported}টি আইটেম ইমপোর্ট হয়েছে',
   // Live voice agents

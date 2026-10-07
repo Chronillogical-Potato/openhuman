@@ -91,7 +91,7 @@ describe('MemoryImportBanner', () => {
     renderWithProviders(<MemoryImportBanner engineLabel="TinyHumans" />);
 
     expect(await screen.findByTestId('memory-import-failed-items')).toHaveTextContent(
-      '1 items could not be imported.'
+      'Items that could not be imported: 1.'
     );
     fireEvent.click(screen.getByTestId('memory-import-retry-failed'));
     expect(await screen.findByTestId('memory-import-running')).toBeInTheDocument();

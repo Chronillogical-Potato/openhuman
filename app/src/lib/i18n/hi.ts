@@ -5300,7 +5300,7 @@ const messages: TranslationMap = {
   'memoryPage.import.done': 'पिछली मेमोरी इंपोर्ट हो गई',
   'memoryPage.import.failed': 'इंपोर्ट विफल रहा',
   'memoryPage.import.resume': 'इंपोर्ट फिर से शुरू करें',
-  'memoryPage.import.failedItems': '{count} आइटम इंपोर्ट नहीं हो सके।',
+  'memoryPage.import.failedItems': 'जो आइटम इंपोर्ट नहीं हो सके: {count}।',
   'memoryPage.import.retryFailed': 'विफल आइटम फिर से आज़माएँ',
   'memoryPage.import.progress': '{total} में से {imported} आइटम इंपोर्ट हुए',
   // Live voice agents

@@ -126,7 +126,7 @@ async function installMemoryFake(page: Page, opts: FakeOptions): Promise<MemoryF
         error: opts.importStoppedWith as string | null,
         failed: 0,
       }
-    : opts.importFinishedWithFailed
+    : opts.importFinishedWithFailed !== undefined
       ? {
           phase: 'done',
           imported: 20 - opts.importFinishedWithFailed,
@@ -523,7 +523,7 @@ test.describe('Memory v2 — engine active', () => {
     await openMemory(page, '&brain=ask');
 
     // Finished, with the refused items counted and a retry beside them.
-    await expect(page.getByTestId('memory-import-failed-items')).toContainText('2 items', {
+    await expect(page.getByTestId('memory-import-failed-items')).toContainText('imported: 2', {
       timeout: 20_000,
     });
     await page.getByTestId('memory-import-retry-failed').click();
