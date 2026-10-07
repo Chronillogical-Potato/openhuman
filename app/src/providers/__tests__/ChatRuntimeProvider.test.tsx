@@ -1108,6 +1108,44 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       );
     });
 
+    it('delivers an origin-bound cron reply into its own thread under the core row id', async () => {
+      // The user is chatting in another thread; the reminder belongs to the
+      // thread that asked for it, which the core already persisted under
+      // `agent:<request_id>`.
+      store.dispatch(
+        loadThreads.fulfilled(
+          {
+            threads: [
+              { id: 'asking-thread', title: 'reminders', messageCount: 2 },
+              { id: 'other-thread', title: 'chat', messageCount: 5 },
+            ] as never,
+            count: 2,
+          },
+          'req-id',
+          undefined
+        )
+      );
+      store.dispatch(setSelectedThread('other-thread'));
+      const listeners = renderProvider();
+
+      await act(async () => {
+        listeners.onProactiveMessage?.({
+          thread_id: 'asking-thread',
+          request_id: 'cron:job-1:run-1',
+          full_response: 'time to drink water',
+        });
+      });
+
+      await waitFor(() =>
+        expect(threadApi.appendMessage).toHaveBeenCalledWith(
+          'asking-thread',
+          expect.objectContaining({ id: 'agent:cron:job-1:run-1', content: 'time to drink water' })
+        )
+      );
+      expect(threadApi.createNewThread).not.toHaveBeenCalled();
+      expect(store.getState().thread.selectedThreadId).toBe('other-thread');
+    });
+
     it('creates a new thread when no visible thread exists for proactive handoff', async () => {
       vi.mocked(threadApi.createNewThread).mockResolvedValue({
         id: 'created-thread',
