@@ -27,7 +27,9 @@ Channels that support it can show a typing indicator, stream progressive **draft
 
 ## Supported channels
 
-OpenHuman ships **15 channel provider modules**: 14 built by default, plus WhatsApp Web behind the `whatsapp-web` Cargo feature. Alongside them, the in-app **Web** chat is built into the desktop app rather than being a provider module, and a separate `cli` channel serves the `openhuman-core` terminal binary. Seven channels are exposed in the Settings UI; the rest are enabled through `config.toml`.
+OpenHuman ships **15 channel provider modules**, of which **14 compile into the shipped desktop build**: WhatsApp Web sits behind the `whatsapp-web` Cargo feature, which is in neither the contributor default set nor the shipped product set, so it is an opt-in build rather than something you can switch on. Alongside them, the in-app **Web** chat is built into the app rather than being a provider module, and a separate `cli` channel serves the `openhuman-core` terminal binary. **Eight** channels have a setup flow in the app (Telegram, Discord, Web, iMessage, Lark/Feishu, DingTalk, Email, 元宝); the rest are enabled by hand in `config.toml`.
+
+Matrix is the one to know about: a `[channels.matrix]` stanza is still accepted by the config parser, but the provider was removed from the build. It is logged and skipped, so a Matrix config does nothing.
 
 | Channel            | Direction     | Inbound transport            | Credential mode                                                    | In Settings UI |
 | ------------------ | ------------- | ---------------------------- | ------------------------------------------------------------------ | -------------- |
@@ -69,10 +71,10 @@ Secrets supplied for any mode are stored through OpenHuman's credential layer an
 
 ## Where to connect a channel
 
-Channels are set up under **Connections → Channels** in the left sidebar — **not** under Settings, and not under any "Automation & Channels" menu (no such menu exists). Open that tab, pick a platform tile, and follow its setup card:
+Channels are set up under **Connections → Channels** in the left sidebar, **not** under Settings, and not under any "Automation & Channels" menu (no such menu exists). Open that tab, pick a platform tile, and follow its setup card:
 
-- **Discord** — choose _Connect via OpenHuman_ (link your account or install the bot via OAuth), or paste your own Discord bot token.
-- **Telegram** — message the managed OpenHuman bot to link, or paste a BotFather bot token.
+- **Discord**: choose _Connect via OpenHuman_ (link your account or install the bot via OAuth), or paste your own Discord bot token.
+- **Telegram**: message the managed OpenHuman bot to link, or paste a BotFather bot token.
 
 Slack is connected as an **app** under **Connections → OAuth** (Composio) so the agent can read and act in Slack; it is not set up as a talk-back channel in the Channels tab.
 

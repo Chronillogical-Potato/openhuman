@@ -30,9 +30,11 @@ The orchestrator spawns specialized sub-agents (up to 3 levels deep), reuses com
 
 Inbound traffic hits a **fast reflex agent** that triages in seconds and hands a deep **reasoning core** a concise brief; the core does the multi-step work and delegates to workers. Mid-task steering input can be delivered into a live session, and 20:1 compression keeps week-long sessions bounded.
 
-## What's next: RLMs
+## What's next
 
-The direction we're building toward: **Rhai-backed language workflows**. These are agents that express orchestration as small programs in a sandboxed REPL, rather than a fixed graph, so control flow itself becomes something the model writes, inspects, and repairs. The graph engine, checkpointing, and trust model above are the substrate for it.
+The scripted-orchestration idea this page used to advertise, agents writing control flow as small programs in a sandboxed REPL, is **not being built**: the harness dropped that runtime and the tool no longer exists. The substrate above, graphs with checkpointing under a trust model, is the shape orchestration takes.
+
+What is tracked in the open instead: an [agent-to-agent protocol](https://github.com/tinyhumansai/openhuman/issues/3463) so a graph can span instances, and durable swarm task graphs. See the [roadmap](../overview/roadmap.md).
 
 ---
 
