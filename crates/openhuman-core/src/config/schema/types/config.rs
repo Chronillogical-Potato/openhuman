@@ -134,6 +134,12 @@ pub struct Config {
     #[serde(default)]
     pub output_language: Option<String>,
 
+    /// The user's IANA time zone (`Asia/Kolkata`), chosen in Settings →
+    /// Account. `None` follows the device. Read it through
+    /// [`Config::time_zone`], which also validates it.
+    #[serde(default)]
+    pub user_timezone: Option<String>,
+
     /// Models (by exact ID match OR shell-style glob like `gpt-5*`, `o1-*`) that
     /// MUST NOT receive a `temperature` parameter. Used for reasoning models
     /// that error out when temperature is set (OpenAI o-series, GPT-5).

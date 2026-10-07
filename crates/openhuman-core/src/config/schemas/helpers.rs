@@ -117,6 +117,12 @@ pub(super) struct AnalyticsSettingsUpdate {
 }
 
 #[derive(Debug, Deserialize)]
+pub(super) struct UserTimezoneUpdate {
+    #[serde(default)]
+    pub(super) timezone: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub(super) struct LocalAiSettingsUpdate {
     pub(super) runtime_enabled: Option<bool>,
     /// MVP opt-in marker. Tied to `runtime_enabled` from the unified AI

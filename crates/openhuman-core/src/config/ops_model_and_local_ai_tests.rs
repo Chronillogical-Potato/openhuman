@@ -666,3 +666,35 @@ async fn apply_analytics_settings_updates_enabled() {
     .expect("apply");
     assert!(!cfg.observability.analytics_enabled);
 }
+
+#[tokio::test]
+async fn apply_user_timezone_stores_the_canonical_name_refuses_junk_and_clears() {
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+
+    apply_user_timezone(&mut cfg, Some(" asia/kolkata ".into()))
+        .await
+        .expect("an IANA zone in any case is accepted");
+    assert_eq!(cfg.user_timezone.as_deref(), Some("Asia/Kolkata"));
+    assert_eq!(cfg.time_zone(), "Asia/Kolkata");
+    let saved = std::fs::read_to_string(&cfg.config_path).expect("config was saved");
+    assert!(saved.contains("Asia/Kolkata"), "{saved}");
+
+    let error = apply_user_timezone(&mut cfg, Some("IST".into()))
+        .await
+        .expect_err("an abbreviation is not a zone");
+    assert!(error.contains("IST"), "{error}");
+    assert_eq!(
+        cfg.user_timezone.as_deref(),
+        Some("Asia/Kolkata"),
+        "unchanged"
+    );
+
+    apply_user_timezone(&mut cfg, Some("  ".into()))
+        .await
+        .expect("blank clears");
+    assert_eq!(cfg.user_timezone, None);
+    let json = user_timezone_json(&cfg);
+    assert!(json["timezone"].is_null());
+    assert_eq!(json["effective"], cfg.time_zone());
+}

@@ -58,6 +58,26 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
             )],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],
         }),
+"update_user_timezone" => Some( ControllerSchema {
+            namespace: "config",
+            function: "update_user_timezone",
+            description: "Set the user's IANA time zone; null or blank follows the device.",
+            inputs: vec![optional_string(
+                "timezone",
+                "IANA time zone name, e.g. Asia/Kolkata; null or blank to follow the device.",
+            )],
+            outputs: vec![json_output("snapshot", "Updated config snapshot.")],
+        }),
+"get_user_timezone" => Some( ControllerSchema {
+            namespace: "config",
+            function: "get_user_timezone",
+            description: "Read the user's time zone setting, the device's zone, and the one in effect.",
+            inputs: vec![],
+            outputs: vec![json_output(
+                "settings",
+                "{ timezone: string | null, device: string | null, effective: string }.",
+            )],
+        }),
 "get_analytics_settings" => Some( ControllerSchema {
             namespace: "config",
             function: "get_analytics_settings",
