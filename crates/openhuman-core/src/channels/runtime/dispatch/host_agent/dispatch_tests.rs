@@ -232,6 +232,20 @@ impl HostAgentResolver for OneHostAgent {
     }
 }
 
+/// The tool names a recorded chat request advertised.
+fn tool_names(body: &str) -> Vec<String> {
+    let body: Value = serde_json::from_str(body).unwrap_or_default();
+    body["tools"]
+        .as_array()
+        .map(|tools| {
+            tools
+                .iter()
+                .filter_map(|tool| tool["function"]["name"].as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn tool_call(tool: &str) -> Value {
     json!({
         "id": "chatcmpl-1", "object": "chat.completion", "created": 1, "model": "fixture",
@@ -343,12 +357,16 @@ async fn bound_channel_runs_its_host_agent() {
     assert_eq!(chats.len(), 3, "{chats:#?}");
     assert!(chats[0].contains("TEENY_CHAT_PROMPT"));
     assert!(!chats[0].contains("ORCHESTRATOR_PROMPT"));
-    assert!(chats[0].contains("teeny_read"), "the host tool is advertised");
+    let advertised = tool_names(&chats[0]);
+    assert!(advertised.contains(&"teeny_read".to_string()), "{advertised:?}");
+    assert!(
+        !advertised.contains(&"teeny_write".to_string()),
+        "a tool above the channel's ceiling is not offered: {advertised:?}"
+    );
     assert!(
         chats[2].contains("teeny_write") && !chats[2].contains("teeny_write ran"),
         "the write call came back as a refusal"
     );
-    eprintln!("WRITE-REFUSAL-REQUEST: {}", chats[2]);
     let origins = origins.lock().unwrap().clone();
     assert!(
         matches!(
