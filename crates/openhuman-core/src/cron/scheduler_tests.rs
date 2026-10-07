@@ -100,6 +100,8 @@ fn next_user_error(
 
 #[path = "scheduler_classifier_and_delivery_tests.rs"]
 mod classifier_and_delivery_tests;
+#[path = "scheduler_dispatch_tests.rs"]
+mod dispatch_tests;
 #[path = "scheduler_frequency_tests.rs"]
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
