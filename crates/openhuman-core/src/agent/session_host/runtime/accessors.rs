@@ -555,4 +555,25 @@ impl OpenHumanSessionHost {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .pending_turn_overrides = overrides;
     }
+
+    /// Set the reply-language instruction every following user message
+    /// carries (next to the `Current Date & Time` line), or clear it with
+    /// `None`. Sent per message rather than baked into the system prompt, so
+    /// the cached prompt prefix stays byte-stable and a changed interface
+    /// locale applies from the next turn.
+    pub fn set_reply_language_directive(&mut self, directive: Option<String>) {
+        self.runtime_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .reply_language_directive = directive;
+    }
+
+    /// The reply-language instruction the next user message will carry.
+    pub fn reply_language_directive(&self) -> Option<String> {
+        self.runtime_state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .reply_language_directive
+            .clone()
+    }
 }

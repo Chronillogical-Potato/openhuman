@@ -55,6 +55,26 @@ pub struct TurnOverrides {
     pub suppress_transcript_autoload: bool,
 }
 
+/// What the runtime hook hands one user turn's request enrichment: this
+/// turn's [`TurnOverrides`] (consumed) and the reply-language instruction the
+/// host armed with `set_reply_language_directive` (kept for later turns).
+#[derive(Debug, Default)]
+pub(crate) struct TurnInputs {
+    pub(crate) overrides: TurnOverrides,
+    pub(crate) reply_language_directive: Option<String>,
+}
+
+impl super::runtime_session::OpenHumanSessionState {
+    /// Takes this turn's overrides (they apply once) and copies the
+    /// reply-language instruction (it applies until the host changes it).
+    pub(super) fn take_turn_inputs(&mut self) -> TurnInputs {
+        TurnInputs {
+            overrides: std::mem::take(&mut self.active_turn_overrides),
+            reply_language_directive: self.reply_language_directive.clone(),
+        }
+    }
+}
+
 impl OpenHumanSessionHost {
     /// How this turn resumes its history.
     ///
