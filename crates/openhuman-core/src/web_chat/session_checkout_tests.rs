@@ -582,7 +582,8 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
     assert!(directive.contains("Spanish"), "{directive}");
     checkin_session_agent(&thread_id, agent, fingerprint).await;
 
-    // Reused cached agent, the user switched the UI to English: cleared.
+    // Reused cached agent, the user switched the UI to English: the Spanish
+    // directives already in the history are superseded explicitly.
     assert!(
         THREAD_SESSIONS
             .lock()
@@ -591,7 +592,10 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
         "fixture: the next checkout must reuse the cached agent"
     );
     let CheckedOutSession { agent, fingerprint } = checkout(Some("en")).await;
-    assert_eq!(agent.reply_language_directive(), None);
+    let directive = agent
+        .reply_language_directive()
+        .expect("switching to English supersedes the Spanish directive");
+    assert!(directive.contains("Respond in English"), "{directive}");
     checkin_session_agent(&thread_id, agent, fingerprint).await;
 
     // Reused again, now Hindi: re-armed with the new language.
@@ -604,5 +608,31 @@ async fn each_checkout_arms_the_reply_language_from_its_own_locale() {
         .reply_language_directive()
         .expect("hi arms a directive");
     assert!(directive.contains("Hindi"), "{directive}");
+    evict(&thread_id).await;
+}
+
+/// A session that has only ever been English gets no directive: replies keep
+/// following the language the user writes in. A turn that sends no locale (a
+/// host-authored one) carries none either.
+#[tokio::test]
+async fn an_english_only_session_and_a_locale_less_turn_carry_no_directive() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_config(&tmp);
+    let thread_id = unique_thread("english");
+    for locale in [Some("en"), None] {
+        let CheckedOutSession { agent, fingerprint } = checkout_session_agent(
+            &config,
+            "client-1",
+            &thread_id,
+            None,
+            None,
+            locale,
+            CheckoutPolicy::Exact,
+        )
+        .await
+        .unwrap();
+        assert_eq!(agent.reply_language_directive(), None, "{locale:?}");
+        checkin_session_agent(&thread_id, agent, fingerprint).await;
+    }
     evict(&thread_id).await;
 }

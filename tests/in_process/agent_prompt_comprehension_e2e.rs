@@ -1059,3 +1059,70 @@ fn orchestrator_prompt_names_only_discoverable_delegates() {
         );
     });
 }
+
+/// The last user message of an OpenAI-shaped chat request, as text.
+fn last_user_text(request: &Value) -> String {
+    request
+        .pointer("/body/messages")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .rev()
+        .find(|m| m["role"] == "user")
+        .map(|m| match &m["content"] {
+            Value::String(text) => text.clone(),
+            other => other.to_string(),
+        })
+        .unwrap_or_default()
+}
+
+/// The web chat's interface locale reaches the model: a Spanish turn's user
+/// message carries the Spanish reply instruction, and after the user switches
+/// the app to English the next turn carries an English one that supersedes it.
+/// Drives the real JSON-RPC chat path against a scripted upstream.
+#[test]
+fn the_interface_locale_reaches_the_model_on_every_turn() {
+    run_on_agent_stack("interface_locale_directive", || async {
+        let _lock = env_lock_async().await;
+        reset_script(vec![text_completion("Hola."), text_completion("Hello.")]);
+        let stack = boot_stack("").await;
+        let client_id = "locale-directive";
+        let (mut events, ready) =
+            spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
+        wait_for_sse_ready(ready).await;
+        for (id, (message, locale)) in [("hola", "es"), ("and now?", "en")].into_iter().enumerate() {
+            let resp = post_json_rpc(
+                &stack.rpc_base,
+                20 + id as i64,
+                "openhuman.channel_web_chat",
+                json!({
+                    "client_id": client_id,
+                    "thread_id": "thread-locale",
+                    "message": message,
+                    "model_override": "e2e-mock-model",
+                    "locale": locale,
+                }),
+            )
+            .await;
+            assert_no_jsonrpc_error(&resp, "channel_web_chat");
+            wait_for_terminal(&mut events).await;
+        }
+
+        let requests = captured().clone();
+        let turn = |words: &str| {
+            requests
+                .iter()
+                .map(last_user_text)
+                .find(|text| text.ends_with(words))
+                .unwrap_or_else(|| {
+                    let seen: Vec<String> = requests.iter().map(last_user_text).collect();
+                    panic!("no request whose user message is {words:?}: {seen:#?}")
+                })
+        };
+        let spanish = turn("hola");
+        assert!(spanish.contains("Respond in Spanish"), "{spanish}");
+        let english = turn("and now?");
+        assert!(english.contains("Respond in English"), "{english}");
+        assert!(!english.contains("Respond in Spanish"), "{english}");
+    });
+}

@@ -194,11 +194,16 @@ pub(crate) fn locale_reply_directive(locale: &str) -> Option<String> {
         "zh-CN" | "zh" => "Simplified Chinese",
         _ => return None,
     };
-    Some(format!(
+    Some(reply_directive_for(language))
+}
+
+/// The reply-language instruction for `language`.
+fn reply_directive_for(language: &str) -> String {
+    format!(
         "User language: the user's interface is set to {language}. \
          Respond in {language} unless the user explicitly asks for a different language. \
          Keep proper nouns, code, and command names untranslated."
-    ))
+    )
 }
 
 /// Byte offset of the first difference between two signature strings, or
@@ -456,7 +461,18 @@ pub(crate) async fn checkout_session_agent(
     // reused agent may have been built under a different one, and `None`
     // (English, or no locale sent) must clear a stale instruction.
     let mut agent = agent;
-    let directive = locale.and_then(locale_reply_directive);
+    let directive = match locale.and_then(locale_reply_directive) {
+        Some(directive) => Some(directive),
+        // Messages this session already sent carry another language's
+        // directive; an explicit English one supersedes them rather than
+        // leaving the last of them standing in the history.
+        None if locale.map(str::trim) == Some("en")
+            && agent.reply_language_directive().is_some() =>
+        {
+            Some(reply_directive_for("English"))
+        }
+        None => None,
+    };
     if directive.is_some() {
         log::info!(
             "[web-channel] reply language directive armed client={} thread={} locale={}",
